@@ -28,7 +28,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SkikoComposeUiTest
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runSkikoComposeUiTest
@@ -55,6 +55,22 @@ class RcEmbeddedPlayerTest {
 
   private fun SkikoComposeUiTest.centre(): Color = onRoot().captureToImage().toPixelMap()[50, 50]
 
+  /**
+   * The remote session composes and renders on its own dispatcher, which `waitForIdle` cannot see,
+   * so a test waits for what the session reports instead.
+   */
+  private fun SkikoComposeUiTest.awaitDocuments(documents: List<RcDocument>, count: Int) {
+    waitUntil(timeoutMillis = 5_000) { documents.size >= count }
+    waitForIdle()
+    assertEquals(count, documents.size)
+  }
+
+  /** Real time for work the session might still owe, before asserting it did none. */
+  private fun SkikoComposeUiTest.settleOffThread() {
+    Thread.sleep(250)
+    waitForIdle()
+  }
+
   private fun run(block: SkikoComposeUiTest.() -> Unit) =
     runSkikoComposeUiTest(Size(100f, 100f), Density(1f), block = block)
 
@@ -67,14 +83,13 @@ class RcEmbeddedPlayerTest {
         Swatch { swatch }
       }
     }
-    waitForIdle()
+    awaitDocuments(documents, 1)
     assertEquals(Color.Red, centre())
-    assertEquals(1, documents.size)
 
     swatch = Color.Blue
-    waitForIdle()
-
-    assertEquals(Color.Blue, centre())
+    waitUntil { centre() == Color.Blue }
+    // Time for a render the remote session might owe (it runs off the test's clock).
+    settleOffThread()
     // The value went through the player's named values: no recomposition of the remote content,
     // no render, no new document, so the player kept its state.
     assertEquals(1, documents.size)
@@ -91,13 +106,10 @@ class RcEmbeddedPlayerTest {
         }
       }
     }
-    waitForIdle()
-    assertEquals(1, documents.size)
+    awaitDocuments(documents, 1)
 
     rows = 3
-    waitForIdle()
-
-    assertEquals(2, documents.size)
+    awaitDocuments(documents, 2)
     // Re-rendering the retained tree gives the same document a fresh capture would.
     val fresh = runBlocking {
       captureCommonRemoteDocument(display) {
@@ -117,7 +129,7 @@ class RcEmbeddedPlayerTest {
         Swatch { Color.Green }
       }
     }
-    waitForIdle()
+    awaitDocuments(documents, 1)
 
     // The default bridge is RcDocumentBridge: the self-contained document another process plays.
     val documentMode = runBlocking {
@@ -130,8 +142,9 @@ class RcEmbeddedPlayerTest {
   @Test
   fun aBridgedActionCallsItsHandler() = run {
     var clicks = 0
+    val documents = mutableListOf<RcDocument>()
     setContent {
-      RcEmbeddedPlayer(display, Modifier.size(100.dp)) {
+      RcEmbeddedPlayer(display, Modifier.size(100.dp), onDocument = { documents += it }) {
         val bridge = LocalRcHostBridge.current
         RemoteBox(
           RemoteModifier.fillMaxSize()
@@ -140,12 +153,10 @@ class RcEmbeddedPlayerTest {
         )
       }
     }
-    waitForIdle()
+    awaitDocuments(documents, 1)
 
     onRoot().performTouchInput { click(center) }
-    waitForIdle()
-
-    assertEquals(1, clicks)
+    waitUntil { clicks == 1 }
   }
 
   @Test
@@ -166,13 +177,73 @@ class RcEmbeddedPlayerTest {
         }
       }
     }
-    waitForIdle()
-    onNodeWithText("host says first").assertExists()
+    awaitDocuments(documents, 1)
+    waitUntil { onAllNodesWithText("host says first").fetchSemanticsNodes().isNotEmpty() }
 
     label = "second"
-    waitForIdle()
-
-    onNodeWithText("host says second").assertExists()
+    waitUntil { onAllNodesWithText("host says second").fetchSemanticsNodes().isNotEmpty() }
+    settleOffThread()
     assertEquals(1, documents.size)
+  }
+
+  @Test
+  fun aFailingDesignIsReportedAndRecoversOnTheNextEdit() = run {
+    var broken by mutableStateOf(false)
+    var rows by mutableStateOf(1)
+    val failures = mutableListOf<Throwable>()
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      RcEmbeddedPlayer(
+        display,
+        Modifier.size(100.dp),
+        onDocument = { documents += it },
+        onFailure = { failures += it },
+        key = rows,
+      ) {
+        check(!broken) { "bad design" }
+        RemoteColumn(RemoteModifier.fillMaxSize()) {
+          repeat(rows) { RemoteBox(RemoteModifier.fillMaxWidth().size(10.rdp)) }
+        }
+      }
+    }
+    waitUntil { documents.size == 1 }
+
+    broken = true
+    waitUntil { failures.isNotEmpty() }
+    // The host composition is still alive, and the last good document is still playing.
+    assertEquals("bad design", failures.single().message)
+    assertEquals(1, documents.size)
+
+    broken = false
+    rows = 2
+    waitUntil { documents.size == 2 }
+  }
+
+  /**
+   * Content that captures a plain value read in the host, as an editor's does with its document.
+   * The lambda keeps its identity across recompositions; [RcEmbeddedPlayer]'s `key` carries the
+   * change.
+   */
+  @Test
+  fun contentCapturingAHostValueFollowsItsKey() = run {
+    var rows by mutableStateOf(1)
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      val count = rows
+      RcEmbeddedPlayer(
+        display,
+        Modifier.size(100.dp),
+        onDocument = { documents += it },
+        key = count,
+      ) {
+        RemoteColumn(RemoteModifier.fillMaxSize()) {
+          repeat(count) { RemoteBox(RemoteModifier.fillMaxWidth().size(10.rdp)) }
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+
+    rows = 2
+    awaitDocuments(documents, 2)
   }
 }

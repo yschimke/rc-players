@@ -489,7 +489,7 @@ internal sealed interface WriterOp {
         val dstBottom: RemoteFloat,
         val scaleType: Int,
         val scaleFactor: RemoteFloat,
-        val contentDescription: String,
+        val contentDescription: String?,
     ) : WriterOp {
         override fun write(writer: RemoteWriter, creationState: RemoteComposeCreationState) =
             writer.drawScaledBitmap(

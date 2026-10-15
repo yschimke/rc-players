@@ -17,10 +17,16 @@
 package androidx.compose.remote.creation.compose.modifier
 
 import androidx.annotation.RestrictTo
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.remote.creation.common.RemoteLayerAttribute
 import androidx.compose.remote.creation.common.RemoteModifierOperation
+import androidx.compose.remote.creation.compose.layout.RemoteFloatContext
+import androidx.compose.remote.creation.compose.layout.RemoteSize
+import androidx.compose.remote.creation.compose.shapes.RemoteCircleShape
+import androidx.compose.remote.creation.compose.shapes.RemoteRectangleShape
+import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
+import androidx.compose.remote.creation.compose.shapes.RemoteShape
+import androidx.compose.remote.creation.compose.shapes.toDimension
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.rf
@@ -44,7 +50,7 @@ public class GraphicsLayerModifier(
     public val transformOriginY: RemoteFloat,
     public val translationX: RemoteFloat,
     public val translationY: RemoteFloat,
-    public val shape: Shape,
+    public val shape: RemoteShape = RemoteRectangleShape,
     public val compositingStrategy: Int,
     public val alpha: RemoteFloat,
     public val cameraDistance: RemoteFloat,
@@ -100,30 +106,114 @@ public class GraphicsLayerModifier(
                 )
         }
         when (shape) {
-            RectangleShape ->
-                attributes +=
-                    RemoteLayerAttribute.IntValue(
-                        Layer.SHAPE,
-                        Layer.SHAPE_RECT,
-                    )
-            is RoundedCornerShape -> {
-                attributes +=
-                    RemoteLayerAttribute.IntValue(
-                        Layer.SHAPE,
-                        Layer.SHAPE_ROUND_RECT,
-                    )
-                attributes += RemoteLayerAttribute.FloatValue(Layer.SHAPE_RADIUS, 40f)
-            }
-            CircleShape ->
+            RemoteCircleShape ->
                 attributes +=
                     RemoteLayerAttribute.IntValue(
                         Layer.SHAPE,
                         Layer.SHAPE_CIRCLE,
                     )
+            RemoteRectangleShape ->
+                attributes +=
+                    RemoteLayerAttribute.IntValue(
+                        Layer.SHAPE,
+                        Layer.SHAPE_RECT,
+                    )
+            is RemoteRoundedCornerShape -> {
+                val context = RemoteFloatContext(this)
+                val remoteSize = RemoteSize(context.componentWidth(), context.componentHeight())
+                attributes +=
+                    RemoteLayerAttribute.IntValue(
+                        Layer.SHAPE,
+                        Layer.SHAPE_ROUND_RECT,
+                    )
+                attributes +=
+                    RemoteLayerAttribute.FloatValue(
+                        Layer.SHAPE_RADIUS,
+                        shape.topStart
+                            .toDimension(remoteSize, remoteDensity, densityBehavior)
+                            .floatId,
+                    )
+            }
             else -> Unit
         }
         return RemoteModifierOperation.GraphicsLayer(attributes)
     }
+}
+
+/**
+ * Applies a graphics layer modifier to the [RemoteModifier].
+ *
+ * A graphics layer modifier can be used to apply effects such as scaling, rotation, translation,
+ * shadow, clipping, alpha, and render effects (like blur) to the drawing content.
+ *
+ * This overload accepts [RemoteFloat] values, which allow binding properties to dynamic expressions
+ * or state.
+ *
+ * Note: Graphics layer clipping only supports a uniform corner radius. If an asymmetric
+ * [RemoteRoundedCornerShape] is provided, [RemoteRoundedCornerShape.topStart] is used for all
+ * corners.
+ *
+ * @param scaleX The horizontal scale factor.
+ * @param scaleY The vertical scale factor.
+ * @param rotationX The rotation of the layer around the X axis, in degrees.
+ * @param rotationY The rotation of the layer around the Y axis, in degrees.
+ * @param rotationZ The rotation of the layer around the Z axis, in degrees.
+ * @param shadowElevation The shadow elevation of the layer.
+ * @param transformOriginX The horizontal center of the transform, as a fraction of the layer width.
+ * @param transformOriginY The vertical center of the transform, as a fraction of the layer height.
+ * @param translationX The horizontal translation of the layer.
+ * @param translationY The vertical translation of the layer.
+ * @param alpha The alpha (opacity) of the layer.
+ * @param shape The shape of the layer.
+ * @param compositingStrategy The compositing strategy to use for the layer.
+ * @param cameraDistance The camera distance for 3D transforms.
+ * @param renderEffect The [RenderEffect] to apply, or null.
+ */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public fun RemoteModifier.graphicsLayer(
+    scaleX: RemoteFloat = 1f.rf,
+    scaleY: RemoteFloat = 1f.rf,
+    rotationX: RemoteFloat = 0f.rf,
+    rotationY: RemoteFloat = 0f.rf,
+    rotationZ: RemoteFloat = 0f.rf,
+    shadowElevation: RemoteFloat = 0f.rf,
+    transformOriginX: RemoteFloat = 0.5f.rf,
+    transformOriginY: RemoteFloat = 0.5f.rf,
+    translationX: RemoteFloat = 0f.rf,
+    translationY: RemoteFloat = 0f.rf,
+    alpha: RemoteFloat = 1f.rf,
+    shape: RemoteShape,
+    compositingStrategy: CompositingStrategy = Auto,
+    cameraDistance: RemoteFloat = 8f.rf, // Default Value for Camera Distance
+    renderEffect: RenderEffect? = null,
+): RemoteModifier {
+
+    val cS =
+        when (compositingStrategy) {
+            Auto -> 0
+            Offscreen -> 1
+            ModulateAlpha -> 2
+            else -> 0
+        }
+    return then(
+        GraphicsLayerModifier(
+            scaleX,
+            scaleY,
+            rotationX,
+            rotationY,
+            rotationZ,
+            shadowElevation,
+            transformOriginX,
+            transformOriginY,
+            translationX,
+            translationY,
+            shape,
+            cS,
+            alpha,
+            cameraDistance,
+            renderEffect,
+        )
+    )
 }
 
 /**
@@ -167,35 +257,24 @@ public fun RemoteModifier.graphicsLayer(
     compositingStrategy: CompositingStrategy = Auto,
     cameraDistance: RemoteFloat = 8f.rf, // Default Value for Camera Distance
     renderEffect: RenderEffect? = null,
-): RemoteModifier {
-
-    val cS =
-        when (compositingStrategy) {
-            Auto -> 0
-            Offscreen -> 1
-            ModulateAlpha -> 2
-            else -> 0
-        }
-    return then(
-        GraphicsLayerModifier(
-            scaleX,
-            scaleY,
-            rotationX,
-            rotationY,
-            rotationZ,
-            shadowElevation,
-            transformOriginX,
-            transformOriginY,
-            translationX,
-            translationY,
-            shape,
-            cS,
-            alpha,
-            cameraDistance,
-            renderEffect,
-        )
+): RemoteModifier =
+    graphicsLayer(
+        scaleX = scaleX,
+        scaleY = scaleY,
+        rotationX = rotationX,
+        rotationY = rotationY,
+        rotationZ = rotationZ,
+        shadowElevation = shadowElevation,
+        transformOriginX = transformOriginX,
+        transformOriginY = transformOriginY,
+        translationX = translationX,
+        translationY = translationY,
+        alpha = alpha,
+        shape = shape.toRemoteShape(),
+        compositingStrategy = compositingStrategy,
+        cameraDistance = cameraDistance,
+        renderEffect = renderEffect,
     )
-}
 
 /** Scope for configuring graphics layer properties in a type-safe builder lambda. */
 public interface GraphicsLayerScope {
@@ -300,7 +379,7 @@ public fun RemoteModifier.graphicsLayer(block: GraphicsLayerScope.() -> Unit): R
             transformOriginY = scope.transformOriginY,
             translationX = scope.translationX,
             translationY = scope.translationY,
-            shape = scope.shape,
+            shape = scope.shape.toRemoteShape(),
             compositingStrategy = cS,
             alpha = scope.alpha,
             cameraDistance = scope.cameraDistance,
@@ -308,6 +387,14 @@ public fun RemoteModifier.graphicsLayer(block: GraphicsLayerScope.() -> Unit): R
         )
     )
 }
+
+// Port: upstream logs unsupported shapes with android.util.Log, which commonMain cannot use.
+internal fun Shape.toRemoteShape(): RemoteShape =
+    when (this) {
+        is RoundedCornerShape -> RemoteRoundedCornerShape(40f.rf)
+        RectangleShape -> RemoteRectangleShape
+        else -> RemoteRectangleShape
+    }
 
 private object Layer {
     const val SCALE_X = 0

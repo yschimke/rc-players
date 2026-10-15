@@ -1244,9 +1244,10 @@ public class RemoteDocumentWriter(
     dstBottom: Float,
     scaleType: Int,
     scaleFactor: Float,
-    contentDescription: String,
+    contentDescription: String?,
   ) {
-    val descriptionId = textId(contentDescription)
+    // As upstream's RemoteComposeWriter: no description is id 0 rather than an empty TextData.
+    val descriptionId = contentDescription?.let(::textId) ?: 0
     operation(DrawBitmapScaled)
     buffer.writeInt(imageId)
     listOf(srcLeft, srcTop, srcRight, srcBottom, dstLeft, dstTop, dstRight, dstBottom)

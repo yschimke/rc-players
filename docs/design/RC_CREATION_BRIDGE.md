@@ -101,7 +101,7 @@ still worth doing, because it would retire the second encoder. It is a cleanup, 
 
 ## What the prototype proves
 
-`RcEmbeddedPlayerTest` (JVM, Skiko UI test) covers five behaviours:
+`RcEmbeddedPlayerTest` (JVM, Skiko UI test) covers seven behaviours:
 
 - **`aBridgedValueReachesThePlayerWithoutANewDocument`**: a host colour change shows in the
   player's pixels, and exactly one document was ever produced.
@@ -112,9 +112,44 @@ still worth doing, because it would retire the second encoder. It is a cleanup, 
 - **`aBridgedActionCallsItsHandler`**: a click in the player runs the Kotlin handler.
 - **`hostContentIsRealComposeLaidOutByTheRemoteTree`**: Compose UI is drawn in a remote-laid-out
   slot and updates without a new document.
+- **`aFailingDesignIsReportedAndRecoversOnTheNextEdit`**: a design that throws is reported once, the
+  last good document stays up, and the next `key` recovers.
+- **`contentCapturingAHostValueFollowsItsKey`**: content capturing a plain host value is recomposed
+  when its `key` changes.
 
-The fork, `rc-creation-bridge` and `rc-player-embedded` compile for JVM, Wasm and Android. The Apple targets
-are declared but not built here, because they need a macOS host.
+The fork, `rc-creation-bridge` and `rc-player-embedded` compile for JVM, Wasm and Android. The Apple
+targets are declared but not built here, because they need a macOS host.
+
+**In a real host.** remote-m3-catalog's Browser Preview runs on `RcEmbeddedPlayer` behind
+`-PrcPlayersDir` (yschimke/remote-m3-catalog#133). Its existing UI suite passes as it does on the
+capture path: 25 of 26, and the remaining one fails the same way on both, for a font absent from the
+checkout. That covers every golden widget design in every host shape, icons, backgrounds, edits,
+failures and clocks, and every published Remote Material 3 component recording. The published
+`remote-material3` binary links against this fork unchanged.
+
+## How the live session has to run
+
+The UI builder integration settled four things the unit tests alone did not:
+
+- **Off the host, on its own clock.** The first version composed the remote content as a child of
+  the host composition. A design that throws would then take the host down. The second used its own
+  `Recomposer` on the host's frame clock, which made a loop: every snapshot change (the player's own
+  frame time included) had the remote recomposer ask the host for a frame, which advanced the
+  player, which changed a snapshot again. The pane never idled. Now the session runs as the one-shot
+  capture does: its own recomposer, single-threaded dispatcher and immediate frame clock, with
+  results handed back to the host's dispatcher. Snapshot state is what crosses the boundary, and
+  `RcLiveBridge` keeps its maps in snapshot state for that reason.
+- **An explicit `key`.** A composable lambda keeps its identity across recompositions and updates
+  its body in place. That update invalidates the scopes that invoked it only within its own
+  composition, so it never reaches the remote one. The host passes what the content describes (an
+  editor, its document) as `key`, and the remote content recomposes when that changes.
+- **"Rendered" is "composed", not "changed".** An edit that changes no remote node applies nothing,
+  so the applier never asks for a render. `onRendered` is a `SideEffect` at the top of the remote
+  composition, so it fires once the latest content is composed whether or not a document changed.
+  Hosts that report readiness per edit need exactly that.
+- **Dispose quietly.** Disposing the session clears the tree, which the applier reports as a change.
+  The change hook is detached first, or a dead session would replace the last good document with an
+  empty one.
 
 ## Bugs found on the way
 
@@ -129,9 +164,9 @@ are declared but not built here, because they need a macOS host.
 
 ## Landing it
 
-1. **Refresh the port to the current androidx snapshot** in remote-m3-catalog before moving it. The
-   delta is listed in remote-m3-catalog#133. Bump this repository's AndroidX lane to
-   `alpha21`/`alpha13` alongside.
+1. **Refresh the port to the current androidx snapshot.** Done here, on the fork, to androidx-main
+   `51b1c49d7` (see PROVENANCE). Still to do: bump this repository's AndroidX lane to
+   `alpha21`/`alpha13`.
 2. **Publish creation from here.** remote-m3-catalog deletes `vendor/remote-write-core`,
    `remote-creation-compose`, `remote-foundation` and `remote-core`, and takes `rc-creation-*` from
    the rc-players BOM. The writer and player become one version, not a pinned pair.
@@ -150,7 +185,8 @@ are declared but not built here, because they need a macOS host.
    bitmap to the player without a PNG encode/decode, which, unlike text decode, is real cost. Also
    add ints and float lists, and two-way values (the player's `HostNamedAction` value feeding host
    state).
-7. **UI builder.** Its Browser Preview captures from scratch on every edit; this replaces that with
-   `RcEmbeddedPlayer`. Its Visual Editor can then use `HostContent` per component instead of a
+7. **UI builder.** Its Browser Preview captures from scratch on every edit. Behind
+   `-PrcPlayersDir` it now runs on `RcEmbeddedPlayer` instead, with its suite passing; landing makes
+   that the only path. Its Visual Editor can then use `HostContent` per component instead of a
    wholly faked surface. That needs per-node bounds from the player (via explicit ids) and an
    unrolled authoring mode in creation.

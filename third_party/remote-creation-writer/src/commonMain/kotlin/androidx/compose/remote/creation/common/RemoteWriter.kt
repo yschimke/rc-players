@@ -324,7 +324,7 @@ public interface RemoteWriter {
     dstBottom: Float,
     scaleType: Int,
     scaleFactor: Float,
-    contentDescription: String,
+    contentDescription: String?,
   )
 }
 

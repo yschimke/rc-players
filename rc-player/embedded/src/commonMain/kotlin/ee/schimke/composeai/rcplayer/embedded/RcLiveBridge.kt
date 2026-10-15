@@ -52,7 +52,9 @@ public class RcLiveBridge : RcHostBridge {
   }
 
   private val values = mutableStateMapOf<String, ValueHolder>()
-  private val handlers = HashMap<String, () -> Unit>()
+  // Snapshot maps throughout: the remote content declares bindings on its own thread, and the host
+  // reads them on its.
+  private val handlers = mutableStateMapOf<String, () -> Unit>()
   private val contents = mutableStateMapOf<String, ContentHolder>()
 
   /** Every bridged value, read now. Snapshot reads, so a `snapshotFlow` over it tracks the host. */
@@ -106,7 +108,7 @@ public class RcLiveBridge : RcHostBridge {
   }
 
   override fun action(name: String, handler: () -> Unit): Action {
-    handlers[name] = handler
+    Snapshot.withoutReadObservation { handlers[name] = handler }
     return hostAction(name.rs)
   }
 

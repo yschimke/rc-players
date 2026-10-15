@@ -186,7 +186,7 @@ private fun extractDurationAndEasing(spec: RemoteTweenSpec): Pair<Float, Int> =
  * Marks this component as a shared element that smoothly transitions its bounds, position, and
  * styling between states in a state layout.
  *
- * @param key unique integer identifier matching this element across states
+ * @param key unique non-zero integer identifier matching this element across states
  * @param spec animation specification for bounds and transforms (e.g. [remoteTween])
  * @param enter transition effect when component enters the layout
  * @param exit transition effect when component exits the layout
@@ -197,6 +197,7 @@ public fun RemoteModifier.sharedElement(
     enter: RemoteEnterTransition = RemoteEnterTransition.FadeIn,
     exit: RemoteExitTransition = RemoteExitTransition.FadeOut,
 ): RemoteModifier {
+    require(key != 0) { "Shared element key cannot be 0 (reserved for disabled animations)" }
     val (duration, easing) = extractDurationAndEasing(spec)
     return then(
         AnimateSpecModifier(
@@ -217,7 +218,7 @@ public fun RemoteModifier.sharedElement(
  * Marks this component as a shared bounds container that smoothly transitions its bounds, position,
  * and styling between states in a state layout.
  *
- * @param key unique integer identifier matching this container across states
+ * @param key unique non-zero integer identifier matching this container across states
  * @param spec animation specification for bounds and transforms (e.g. [remoteTween])
  * @param enter transition effect when component enters the layout
  * @param exit transition effect when component exits the layout
@@ -235,16 +236,19 @@ public fun RemoteModifier.sharedBounds(
  * @param enter transition effect when component enters the layout
  * @param exit transition effect when component exits the layout
  * @param spec animation specification for visibility transitions (e.g. [remoteTween])
+ * @param animationId non-zero identifier for the animation (-1 for default non-shared transition)
  */
 public fun RemoteModifier.animateEnterExit(
     enter: RemoteEnterTransition = RemoteEnterTransition.FadeIn,
     exit: RemoteExitTransition = RemoteExitTransition.FadeOut,
     spec: RemoteTweenSpec = remoteTween(),
+    animationId: Int = -1,
 ): RemoteModifier {
+    require(animationId != 0) { "Animation ID cannot be 0 (reserved for disabled animations)" }
     val (duration, easing) = extractDurationAndEasing(spec)
     return then(
         AnimateSpecModifier(
-            animationId = 0,
+            animationId = animationId,
             motionDuration = duration,
             motionEasingType = easing,
             visibilityDuration = duration,

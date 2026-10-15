@@ -432,7 +432,7 @@ public class RemoteCanvas(
                     dstBottom,
                     scaleType,
                     scaleFactor,
-                    contentDescription ?: "",
+                    contentDescription,
                 ),
             )
         internalCanvas.buffer.addRoots(

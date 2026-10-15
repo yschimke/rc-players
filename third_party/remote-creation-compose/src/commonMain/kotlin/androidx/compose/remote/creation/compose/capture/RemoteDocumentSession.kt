@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionContext
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -32,6 +33,7 @@ public class RemoteDocumentSession(
     private val remoteDensity: RemoteDensity = RemoteDensity.from(creationDisplayInfo),
     private val layoutDirection: LayoutDirection = LayoutDirection.Ltr,
     supportedOperations: Set<Int> = emptySet(),
+    encodePng: ((ImageBitmap) -> ByteArray?)? = null,
 ) {
     private val rootNode = RemoteRootNode()
     private val applier = RemoteComposeApplier(rootNode)
@@ -47,6 +49,8 @@ public class RemoteDocumentSession(
             remoteDensity = remoteDensity,
             layoutDirection = layoutDirection,
             supportedOperations = supportedOperations,
+            platformImageProvider =
+                encodePng?.let { SessionPngImageProvider(it) } ?: NoOpPlatformImageProvider,
         )
 
     /**
@@ -100,5 +104,29 @@ public class RemoteDocumentSession(
 
     public fun dispose() {
         composition.dispose()
+    }
+
+    /**
+     * Bitmaps written inline as PNG into whichever writer the current render uses, as
+     * [captureCommonRemoteDocument] does. Bitmap ids are resolved during render, never during
+     * composition. The encoding is kept per image across renders, because a live session re-renders
+     * on every edit and a PNG encode costs far more than the rest of a render.
+     */
+    private inner class SessionPngImageProvider(
+        private val encodePng: (ImageBitmap) -> ByteArray?
+    ) : PlatformImageProvider {
+        private val encoded = HashMap<ImageBitmap, ByteArray?>()
+
+        private fun png(image: ImageBitmap): ByteArray? =
+            encoded.getOrPut(image) { encodePng(image) }
+
+        private val writer: RemoteDocumentWriter?
+            get() = creationState.writer as? RemoteDocumentWriter
+
+        override fun addBitmap(image: ImageBitmap): Int =
+            png(image)?.let { writer?.addBitmapPng(it, image.width, image.height) } ?: -1
+
+        override fun addNamedBitmap(name: String, image: ImageBitmap): Int =
+            png(image)?.let { writer?.addNamedBitmapPng(name, it, image.width, image.height) } ?: -1
     }
 }
