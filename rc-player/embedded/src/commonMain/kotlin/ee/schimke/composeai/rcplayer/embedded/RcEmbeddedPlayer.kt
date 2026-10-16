@@ -31,6 +31,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -82,16 +83,23 @@ public fun RcEmbeddedPlayer(
   key: Any? = null,
   content: @Composable @RemoteComposable () -> Unit,
 ) {
-  val bridge = remember { RcLiveBridge() }
-  val currentContent by rememberUpdatedState(content)
+  // Key and content in one state, so the remote composition always sees a matching pair. As two
+  // states it could compose one edit's content against the previous edit's key, and pin a failure
+  // to the wrong key.
+  val currentInput by rememberUpdatedState(remember(key, content) { Input(key, content) })
   val currentOnDocument by rememberUpdatedState(onDocument)
   val currentOnRendered by rememberUpdatedState(onRendered)
   val currentOnFailure by rememberUpdatedState(onFailure)
-  val currentKey by rememberUpdatedState(key)
   var document by remember(display) { mutableStateOf<RcDocument?>(null) }
   // A healthy session follows content changes through recomposition. A failed one is dead, and is
   // replaced (a new generation) once the key moves on from the one it failed at.
   var generation by remember { mutableIntStateOf(0) }
+  // Each session declares into a bridge of its own. The player plays through the bridge of the
+  // session whose document is up, so a replacement session (after a failure, or for a new display)
+  // takes over only once it has rendered; until then the last good document keeps its values,
+  // handlers and host content.
+  val bridge = remember(display, encodePng, generation) { RcLiveBridge() }
+  var shownBridge by remember { mutableStateOf<RcLiveBridge?>(null) }
   var failedAt by remember { mutableStateOf<FailedAt?>(null) }
   failedAt?.let { failure ->
     if (failure.key != key) {
@@ -126,9 +134,12 @@ public fun RcEmbeddedPlayer(
       val session = RemoteDocumentSession(display, recomposer, encodePng = encodePng)
       var last: RcDocument? = null
       // The key the session last composed, on the session's own thread. A failure belongs to it,
-      // not to whatever `currentKey` holds by the time the report reaches the host: if the host has
+      // not to whatever key the host holds by the time the report reaches it: if the host has
       // moved to another key meanwhile, pinning the failure there would leave the dead session up.
       var composedKey: Any? = null
+      // Whether the latest render failed. Sticky until one succeeds: an apply that changes no node
+      // renders nothing, and the content it composed is still the content that failed to render.
+      var renderFailed = false
       fun fail(error: Throwable) {
         val failedKey = composedKey
         report {
@@ -144,9 +155,11 @@ public fun RcEmbeddedPlayer(
           // bridged value re-declared, say) leaves the player's document, and its state, alone.
           val changed = next != last
           last = next
+          renderFailed = false
           if (changed) {
             report {
               document = next
+              shownBridge = bridge
               currentOnDocument(next)
             }
           }
@@ -155,26 +168,33 @@ public fun RcEmbeddedPlayer(
         } catch (error: Throwable) {
           // Throwable, not Exception: a design's `TODO()` throws an Error, and it is as much the
           // design's failure as any other.
+          renderFailed = true
           fail(error)
         }
       }
       try {
         session.setContent {
-          // Both read here, not inside the provider, so this scope (and its SideEffect)
-          // recomposes with every new key or content.
-          composedKey = currentKey
-          val content = currentContent
+          // Read here, not inside the provider, so this scope (and its SideEffect) recomposes
+          // with every new key or content.
+          val input = currentInput
+          composedKey = input.key
+          val content = input.content
           CompositionLocalProvider(LocalRcHostBridge provides bridge) { content() }
           // After the latest content is composed and applied, so after any render it caused. A
           // recomposition that changes no node renders nothing, and is reported all the same.
-          SideEffect { report { currentOnRendered() } }
+          SideEffect { if (!renderFailed) report { currentOnRendered() } }
         }
         withContext(clock) { recomposer.runRecomposeAndApplyChanges() }
       } catch (cancelled: CancellationException) {
         throw cancelled
       } catch (error: Throwable) {
         fail(error)
+        // Held until the next key replaces this generation, rather than disposed at once.
+        awaitCancellation()
       } finally {
+        // The bridge may still be the one the last good document plays through, until a
+        // replacement session renders. Frozen, disposal leaves its declarations where they are.
+        bridge.freeze()
         // Disposing clears the tree, and the applier reports that like any other change:
         // rendered, it would replace the last good document with an empty one.
         session.onChangesApplied = null
@@ -185,10 +205,11 @@ public fun RcEmbeddedPlayer(
   }
 
   val namedValues = rememberRcNamedValues()
-  LaunchedEffect(bridge, namedValues) {
+  val played = shownBridge ?: bridge
+  LaunchedEffect(played, namedValues) {
     // The map holds the bridge's values and nothing else, so it mirrors each snapshot exactly: a
     // name no longer declared stops overriding the document, which then plays its own default.
-    snapshotFlow { bridge.namedValues() }
+    snapshotFlow { played.namedValues() }
       .collect { current ->
         (namedValues.keys - current.keys).forEach(namedValues::remove)
         namedValues.putAll(current)
@@ -201,15 +222,17 @@ public fun RcEmbeddedPlayer(
     modifier = modifier,
     theme = theme,
     namedValues = namedValues,
-    onEvent = { event -> if (!bridge.dispatch(event)) onEvent(event) },
+    onEvent = { event -> if (!played.dispatch(event)) onEvent(event) },
     typefaces = typefaces,
-    customComponents = bridge.customComponents(),
+    customComponents = played.customComponents(),
   )
 }
 
 private const val FRAME_NANOS = 16_666_667L
 
 private class FailedAt(val key: Any?)
+
+private class Input(val key: Any?, val content: @Composable @RemoteComposable () -> Unit)
 
 // TODO(upstream): a Dp display's header gets pixel dimensions, as AndroidX writes it; see the
 // fork's PROVENANCE.md, "Upstream follow-ups".

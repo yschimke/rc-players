@@ -80,6 +80,15 @@ public class RcLiveBridge : RcHostBridge {
 
   private class Content(val content: State<@Composable (Modifier) -> Unit>)
 
+  // Set once this bridge's session is being disposed: the declarations stay, for a document that
+  // is still on screen, and nothing is registered or removed again.
+  private var frozen = false
+
+  /** Keeps every current declaration through the session's disposal. */
+  internal fun freeze() {
+    frozen = true
+  }
+
   private val values = Declarations<Binding>()
   private val handlers = Declarations<Handler>()
   private val contents = Declarations<Content>()
@@ -111,8 +120,8 @@ public class RcLiveBridge : RcHostBridge {
   @Composable
   private fun <T : Any> Declare(declarations: Declarations<T>, name: String, item: T) {
     DisposableEffect(declarations, name, item) {
-      declarations.add(name, item)
-      onDispose { declarations.remove(name, item) }
+      if (!frozen) declarations.add(name, item)
+      onDispose { if (!frozen) declarations.remove(name, item) }
     }
   }
 

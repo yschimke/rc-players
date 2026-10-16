@@ -8,6 +8,7 @@ import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocum
 import androidx.compose.remote.creation.compose.layout.RemoteBox
 import androidx.compose.remote.creation.compose.layout.RemoteColumn
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
+import androidx.compose.remote.creation.compose.layout.RemoteImage
 import androidx.compose.remote.creation.compose.modifier.MaxExplicitComponentId
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.modifier.background
@@ -17,6 +18,7 @@ import androidx.compose.remote.creation.compose.modifier.fillMaxSize
 import androidx.compose.remote.creation.compose.modifier.fillMaxWidth
 import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.state.RemoteColor
+import androidx.compose.remote.creation.compose.state.rb
 import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rs
@@ -30,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -117,10 +120,20 @@ class RcEmbeddedPlayerTest {
   @Test
   fun aRebindingToAPlainValueReachesThePlayer() = run {
     var host by mutableStateOf(Color.Red)
+    val documents = mutableListOf<RcDocument>()
     setContent {
       val plain = host
-      RcEmbeddedPlayer(display, Modifier.size(100.dp), key = plain) { Swatch { plain } }
+      RcEmbeddedPlayer(
+        display,
+        Modifier.size(100.dp),
+        onDocument = { documents += it },
+        key = plain,
+      ) {
+        Swatch { plain }
+      }
     }
+    // Nothing is drawn, and the root has no size to capture, until the first document arrives.
+    awaitDocuments(documents, 1)
     waitUntil { centre() == Color.Red }
 
     host = Color.Blue
@@ -134,9 +147,15 @@ class RcEmbeddedPlayerTest {
   @Test
   fun aNameNoLongerBridgedPlaysTheDocumentsDefault() = run {
     var bridged by mutableStateOf(true)
+    val documents = mutableListOf<RcDocument>()
     setContent {
       val declare = bridged
-      RcEmbeddedPlayer(display, Modifier.size(100.dp), key = declare) {
+      RcEmbeddedPlayer(
+        display,
+        Modifier.size(100.dp),
+        onDocument = { documents += it },
+        key = declare,
+      ) {
         if (declare) Swatch { Color.Red }
         else
           RemoteBox(
@@ -145,6 +164,7 @@ class RcEmbeddedPlayerTest {
           )
       }
     }
+    awaitDocuments(documents, 1)
     waitUntil { centre() == Color.Red }
 
     bridged = false
@@ -319,6 +339,66 @@ class RcEmbeddedPlayerTest {
     broken = false
     rows = 2
     waitUntil { documents.size == 2 }
+  }
+
+  /**
+   * After a failed edit the last good document stays up, and so does the bridge it plays through:
+   * its actions still reach their handlers until the next key replaces the session.
+   */
+  @Test
+  fun aFailedEditKeepsTheBridgeOfTheLastGoodDocument() = run {
+    var broken by mutableStateOf(false)
+    var clicks = 0
+    val failures = mutableListOf<Throwable>()
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      val fail = broken
+      RcEmbeddedPlayer(
+        display,
+        Modifier.size(100.dp),
+        onDocument = { documents += it },
+        onFailure = { failures += it },
+        key = fail,
+      ) {
+        check(!fail) { "bad edit" }
+        val bridge = LocalRcHostBridge.current
+        RemoteBox(
+          RemoteModifier.fillMaxSize()
+            .background(Color.Gray.rc)
+            .clickable(bridge.action("tapped") { clicks++ })
+        )
+      }
+    }
+    awaitDocuments(documents, 1)
+    onRoot().performTouchInput { click(center) }
+    waitUntil { clicks == 1 }
+
+    broken = true
+    waitUntil { failures.isNotEmpty() }
+    settleOffThread()
+    onRoot().performTouchInput { click(center) }
+    waitUntil { clicks == 2 }
+  }
+
+  /** A render that fails reports the failure, not readiness. */
+  @Test
+  fun aFailedRenderIsNotReportedAsRendered() = run {
+    var rendered = 0
+    val failures = mutableListOf<Throwable>()
+    setContent {
+      RcEmbeddedPlayer(
+        display,
+        Modifier.size(100.dp),
+        encodePng = { error("no encoder") },
+        onRendered = { rendered++ },
+        onFailure = { failures += it },
+      ) {
+        RemoteImage(ImageBitmap(1, 1).rb, contentDescription = null, RemoteModifier.size(10.rdp))
+      }
+    }
+    waitUntil { failures.isNotEmpty() }
+    settleOffThread()
+    assertEquals(0, rendered)
   }
 
   /** An Error from the design (a `TODO()`, say) is the design's failure too, not the host's. */

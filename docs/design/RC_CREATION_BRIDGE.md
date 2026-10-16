@@ -151,6 +151,14 @@ The UI builder integration settled four things the unit tests alone did not:
   so the applier never asks for a render. `onRendered` is a `SideEffect` at the top of the remote
   composition, so it fires once the latest content is composed whether or not a document changed.
   Hosts that report readiness per edit need exactly that.
+- **A bridge per session, frozen on the way out.** A failed edit leaves the last good document up,
+  and that document still plays through its session's bridge. Each session declares into its own
+  bridge, and the player plays through the bridge of the session whose document is on screen. A
+  session's bridge is frozen before the session is disposed, so its values, handlers and host
+  content outlive it until a replacement session has rendered.
+- **Key and content as one state.** The host updates a composable lambda's body in place, so the
+  remote composition can run a new edit's content before it sees the new key. Key and content are
+  handed over together, and a failure is pinned to the key the session composed.
 - **Dispose quietly.** Disposing the session clears the tree, which the applier reports as a change.
   The change hook is detached first, or a dead session would replace the last good document with an
   empty one.
