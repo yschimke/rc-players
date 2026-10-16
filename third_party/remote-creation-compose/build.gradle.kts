@@ -42,7 +42,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":third-party-remote-creation-writer"))
-            api("androidx.annotation:annotation:1.9.1")
+            api("androidx.annotation:annotation:1.11.0")
             api(libs.androidx.collection)
             @Suppress("DEPRECATION") api(compose.runtime)
             @Suppress("DEPRECATION") api(compose.ui)
