@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.13.0](https://github.com/yschimke/rc-players/compare/v2.12.0...v2.13.0) (2026-10-16)
+
+
+### Features
+
+* creation in rc-players with a document/live host bridge ([#672](https://github.com/yschimke/rc-players/issues/672)) ([deb2d0e](https://github.com/yschimke/rc-players/commit/deb2d0e6ccfe1ee44e7651f9b1a4e82ea6a976aa))
+
+
+### Bug Fixes
+
+* **deps:** update compose-multiplatform to v1.12.2 ([#670](https://github.com/yschimke/rc-players/issues/670)) ([343ab19](https://github.com/yschimke/rc-players/commit/343ab19b78b71d4f9b594283873fa7f29cef27c8))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.31.0 ([#660](https://github.com/yschimke/rc-players/issues/660)) ([d16d23d](https://github.com/yschimke/rc-players/commit/d16d23d42f9f5f89edd4378b7a0b4357763e4c96))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.32.0 ([#665](https://github.com/yschimke/rc-players/issues/665)) ([249e2d0](https://github.com/yschimke/rc-players/commit/249e2d0e8ea65eceb722fe24a092d509b65136f1))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.33.0 ([#669](https://github.com/yschimke/rc-players/issues/669)) ([04e426b](https://github.com/yschimke/rc-players/commit/04e426b73569a3f4b36ebecf7018e00036a35e40))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.35.0 ([#673](https://github.com/yschimke/rc-players/issues/673)) ([fab25ad](https://github.com/yschimke/rc-players/commit/fab25ad22413bb0472d8ab69823db26c98589fd7))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.16.1 ([#659](https://github.com/yschimke/rc-players/issues/659)) ([45db73e](https://github.com/yschimke/rc-players/commit/45db73e54b3aec2f52d881f046b253fee4b252bf))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.16.2 ([#663](https://github.com/yschimke/rc-players/issues/663)) ([80fcb05](https://github.com/yschimke/rc-players/commit/80fcb05b04a9a254ba50239e9f978dd90c8f5df4))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.18.1 ([#671](https://github.com/yschimke/rc-players/issues/671)) ([006d973](https://github.com/yschimke/rc-players/commit/006d973f2e988b5792a4603876a3b220325761ad))
+* **deps:** update dependency playwright to v1.64.1 ([#664](https://github.com/yschimke/rc-players/issues/664)) ([a162bb8](https://github.com/yschimke/rc-players/commit/a162bb8a4c129f290c54f4f054431fd5d6254da1))
+
 ## [2.12.0](https://github.com/yschimke/rc-players/compare/v2.11.0...v2.12.0) (2026-10-12)
 
 
