@@ -39,6 +39,9 @@ public suspend fun captureCommonRemoteDocument(
     encodePng: ((ImageBitmap) -> ByteArray?)? = null,
     content: @Composable @RemoteComposable () -> Unit,
 ): ByteArray {
+    // TODO(upstream): with RemoteDensityBehavior.Dp the header declares dp, but this passes
+    // `size` (pixels) unscaled, as AndroidX's `toCreationDisplayInfo()` does. Fix it upstream and
+    // take it on the next refresh; see PROVENANCE.md, "Upstream follow-ups".
     val writer =
         RemoteDocumentWriter(
             creationDisplayInfo.size.width.toInt(),

@@ -211,6 +211,8 @@ private const val FRAME_NANOS = 16_666_667L
 
 private class FailedAt(val key: Any?)
 
+// TODO(upstream): a Dp display's header gets pixel dimensions, as AndroidX writes it; see the
+// fork's PROVENANCE.md, "Upstream follow-ups".
 private fun writerFor(display: RemoteCreationDisplayInfo): RemoteDocumentWriter =
   RemoteDocumentWriter(
     display.size.width.toInt(),

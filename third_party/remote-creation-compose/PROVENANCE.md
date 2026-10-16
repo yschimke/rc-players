@@ -132,6 +132,19 @@ to offer upstream, and the list is meant to shrink.
 | `../remote-creation-writer/.../RemoteDocumentWriter.kt` | `startCustom` content section takes a fresh component id | **Port bug.** Upstream's `addContentStart` allocates one; the port reused the layout's own id, and rc-players' player rejects the duplicate. The same fix is in yschimke/remote-m3-catalog's vendor copy (yschimke/remote-m3-catalog#133); this patch retires when that lands and the fork is re-taken from it. |
 | `src/androidMain/.../ComposeColorFilter.android.kt` | Inlines the port's blend-mode mapping | The rest of the port's Android sources are not carried |
 
+## Upstream follow-ups
+
+Problems found here that belong in AndroidX, not in a local patch. The fork keeps upstream's
+behaviour until a fix lands there and a refresh takes it.
+
+- **Dp header dimensions.** With `RemoteDensityBehavior.Dp`, `RemoteCreationDisplayInfo.size`
+  (pixels) is written unscaled into a header the player reads as dp, so a 200 px display at
+  density 2 becomes a 200 dp (400 px) document, and `RemoteConfiguration.windowWidth` reports
+  200 dp instead of 100. Upstream: `RemoteCreationDisplayInfo.toCreationDisplayInfo()` in
+  `compose/remote/remote-creation-compose/.../capture/RemoteCreationDisplayInfo.kt`. Here:
+  `captureCommonRemoteDocument` and `RcEmbeddedPlayer.writerFor`, both marked `TODO(upstream)`.
+  Raised in review of yschimke/rc-players#672.
+
 ## Refreshing
 
 Apply the upstream delta to the files this fork carries, as the port's earlier refreshes did, rather
