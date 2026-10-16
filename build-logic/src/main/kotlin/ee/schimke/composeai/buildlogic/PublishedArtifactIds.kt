@@ -22,6 +22,10 @@ object PublishedArtifactIds {
       ":rc-player-runtime" to "rc-player-runtime",
       ":rc-player-compose" to "rc-player-compose",
       ":rc-player-edit" to "rc-player-edit",
+      ":rc-player-embedded" to "rc-player-embedded",
+      ":rc-creation-bridge" to "rc-creation-bridge",
+      ":third-party-remote-creation-writer" to "third-party-remote-creation-writer",
+      ":third-party-remote-creation-compose" to "third-party-remote-creation-compose",
       ":rc-player-wasm-dist" to "rc-player-wasm-dist",
       ":third-party-rc-embedded-player" to "third-party-rc-embedded-player",
       // The vendored TypeScript player's bundle. Named for what it contains rather than for the

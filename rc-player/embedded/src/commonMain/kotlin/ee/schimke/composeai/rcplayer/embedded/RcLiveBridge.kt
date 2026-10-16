@@ -18,6 +18,7 @@ import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import ee.schimke.composeai.rccreation.bridge.ExperimentalRcCreationApi
 import ee.schimke.composeai.rccreation.bridge.RcBridgeMode
 import ee.schimke.composeai.rccreation.bridge.RcHostBridge
 import ee.schimke.composeai.rccreation.bridge.RcHostContentSlot
@@ -29,7 +30,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 
 /**
- * PROTOTYPE: the [RcHostBridge] for a player in the same process.
+ * The [RcHostBridge] for a player in the same process.
  *
  * The document it helps write is the same document [RcDocumentBridge] would write: every value is
  * still declared as a named variable, with its value at first composition as the default. What
@@ -40,6 +41,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
  *
  * @see ee.schimke.composeai.rccreation.bridge.RcDocumentBridge
  */
+@ExperimentalRcCreationApi
 public class RcLiveBridge : RcHostBridge {
   override val mode: RcBridgeMode = RcBridgeMode.Live
 

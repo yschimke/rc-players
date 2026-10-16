@@ -75,11 +75,13 @@ public val LocalRcInspection: ProvidableCompositionLocal<Boolean> = staticCompos
  * reachable: an editor drawing selection over a player, say. It is the one inspection channel with
  * a per-layout callback, so it is opt-in, null by default, and costs nothing when unset.
  */
+@ExperimentalRcPlayerApi
 public fun interface RcComponentCoordinatesListener {
   public fun onPositioned(componentId: Int, coordinates: LayoutCoordinates)
 }
 
 /** The [RcComponentCoordinatesListener] the player reports to; none by default. */
+@ExperimentalRcPlayerApi
 public val LocalRcComponentCoordinates:
   ProvidableCompositionLocal<RcComponentCoordinatesListener?> =
   staticCompositionLocalOf {

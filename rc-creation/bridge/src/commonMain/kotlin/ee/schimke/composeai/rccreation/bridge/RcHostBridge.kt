@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 
 /**
- * PROTOTYPE: how remote content reaches what its host owns: values, actions and real UI.
+ * How remote content reaches what its host owns: values, actions and real UI.
  *
  * The same `@RemoteComposable` content runs in two modes, and only this interface differs between
  * them:
@@ -35,16 +35,21 @@ import androidx.compose.ui.graphics.Color
  * `RcComposePlayer(namedValues)`, `HostNamedAction` events, and `LAYOUT_CUSTOM` config names in
  * `RcCustomComponentRegistry`. Nothing here adds a wire concept.
  */
+@ExperimentalRcCreationApi
 public interface RcHostBridge {
+  /** Which of the two modes this bridge writes in. */
   public val mode: RcBridgeMode
 
   /** A float the host owns, declared in the document as the named variable [name]. */
   public fun float(name: String, value: () -> Float): RemoteFloat
 
+  /** A colour the host owns, declared in the document as the named variable [name]. */
   public fun color(name: String, value: () -> Color): RemoteColor
 
+  /** A string the host owns, declared in the document as the named variable [name]. */
   public fun text(name: String, value: () -> String): RemoteString
 
+  /** A boolean the host owns, declared in the document as the named variable [name]. */
   public fun boolean(name: String, value: () -> Boolean): RemoteBoolean
 
   /** A host action. The document carries [name]; in live mode, [handler] runs when it fires. */
@@ -65,23 +70,31 @@ public interface RcHostBridge {
   )
 }
 
+/** Where bridged values, actions and host content go: see [RcHostBridge]. */
+@ExperimentalRcCreationApi
 public enum class RcBridgeMode {
+  /** Into a self-contained document, for another process to play. */
   Document,
+
+  /** Straight to a player in this process; the document still declares every name. */
   Live,
 }
 
 /** The bridge the current remote content writes through. Defaults to [RcDocumentBridge]. */
+@ExperimentalRcCreationApi
 public val LocalRcHostBridge: ProvidableCompositionLocal<RcHostBridge> = staticCompositionLocalOf {
   RcDocumentBridge
 }
 
 /** The name a bridged value has in the document and in the player's named values. */
+@ExperimentalRcCreationApi
 public fun rcBridgeName(name: String): String = RemoteState.Domain.User.prefixed(name)
 
 /** The `LAYOUT_CUSTOM` config name a bridged [RcHostBridge.HostContent] slot is written under. */
-public fun rcHostContentConfig(name: String): String = "rc-host:$name"
+@ExperimentalRcCreationApi public fun rcHostContentConfig(name: String): String = "rc-host:$name"
 
 /** Document mode: everything is written into the document. */
+@ExperimentalRcCreationApi
 public object RcDocumentBridge : RcHostBridge {
   override val mode: RcBridgeMode = RcBridgeMode.Document
 
@@ -115,6 +128,7 @@ public object RcDocumentBridge : RcHostBridge {
  * Live-mode helper for implementations outside this module: declares [name] in the document as a
  * host-content slot, so the player asks its custom-component registry to draw it.
  */
+@ExperimentalRcCreationApi
 @Composable
 @RemoteComposable
 @Suppress("RestrictedApi")

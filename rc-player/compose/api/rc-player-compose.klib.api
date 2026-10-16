@@ -8,6 +8,10 @@
 // - Show declarations: true
 
 // Library unique name: <ee.schimke.composeai:rc-player-compose>
+open annotation class ee.schimke.composeai.rcplayer.compose/ExperimentalRcPlayerApi : kotlin/Annotation { // ee.schimke.composeai.rcplayer.compose/ExperimentalRcPlayerApi|null[0]
+    constructor <init>() // ee.schimke.composeai.rcplayer.compose/ExperimentalRcPlayerApi.<init>|<init>(){}[0]
+}
+
 final enum class ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity : kotlin/Enum<ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity> { // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity|null[0]
     enum entry BLOCKING // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity.BLOCKING|null[0]
     enum entry SKIPPABLE // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity.SKIPPABLE|null[0]

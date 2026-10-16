@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import ee.schimke.composeai.rccreation.bridge.ExperimentalRcCreationApi
 import ee.schimke.composeai.rccreation.bridge.LocalRcHostBridge
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
@@ -34,7 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * PROTOTYPE: plays `@RemoteComposable` [content] in the same process, without capture.
+ * Plays `@RemoteComposable` [content] in the same process, without capture.
  *
  * The remote content is composed once and kept alive. An edit recomposes only what changed in the
  * retained remote tree, and the tree is re-rendered into a document after each applied batch.
@@ -66,6 +67,7 @@ import kotlinx.coroutines.withContext
  *   produced handed to the player, including when it changed nothing: the point at which the player
  *   shows what [content] describes.
  */
+@ExperimentalRcCreationApi
 @Composable
 public fun RcEmbeddedPlayer(
   display: RemoteCreationDisplayInfo,

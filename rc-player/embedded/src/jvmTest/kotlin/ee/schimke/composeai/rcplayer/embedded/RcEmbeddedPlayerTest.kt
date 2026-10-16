@@ -259,8 +259,8 @@ class RcEmbeddedPlayerTest {
    */
   @Test
   fun hostKeysMapToLaidOutBounds() = run {
-    val ids = RcComponentIds()
-    val bounds = mutableMapOf<Any, Rect>()
+    val ids = RcComponentIds<String>()
+    val bounds = mutableMapOf<String, Rect>()
     val documents = mutableListOf<RcDocument>()
     setContent {
       CompositionLocalProvider(

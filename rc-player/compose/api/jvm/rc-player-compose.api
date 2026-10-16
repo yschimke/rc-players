@@ -10,6 +10,9 @@ public final class ee/schimke/composeai/rcplayer/compose/ComposableSingletons$Rc
 	public final fun getLambda$1404208809$ee_schimke_composeai_rc_player_compose ()Lkotlin/jvm/functions/Function4;
 }
 
+public abstract interface annotation class ee/schimke/composeai/rcplayer/compose/ExperimentalRcPlayerApi : java/lang/annotation/Annotation {
+}
+
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcAnimationClock {
 	public abstract fun seconds ()F
 }

@@ -1,7 +1,8 @@
 # Forked: Compose Multiplatform Remote Compose creation
 
-**Prototype, not for landing.** Covers `:third-party-remote-creation-compose` (this directory) and
-`:third-party-remote-creation-writer` (`../remote-creation-writer`).
+Covers `:third-party-remote-creation-compose` (this directory) and
+`:third-party-remote-creation-writer` (`../remote-creation-writer`), published as
+`third-party-remote-creation-compose` and `third-party-remote-creation-writer`.
 
 This is a fork of AndroidX's Remote Compose **creation** stack, ported to Compose Multiplatform, so
 `@RemoteComposable` content can be authored and captured on every rc-players target.
@@ -55,7 +56,9 @@ Every target, Android included, captures through the common `RemoteWriter`.
 
 Formatting: `./gradlew :third-party-remote-creation-compose:ktfmtFormat` uses ktfmt's kotlinlang
 style, which AndroidX uses. It re-wraps lines in about 80 files where the port had drifted.
-`../remote-creation-writer` is the port's own code and keeps Google style.
+`../remote-creation-writer` is the port's own code and keeps Google style. Both are `explicitApi()`:
+AndroidX's sources already were, and the writer's implicit visibilities and return types (in
+`PaintBundleData` and `RemoteDocumentWriter`) were made explicit when it was first published.
 
 ## Refresh 16547072 → androidx-main 51b1c49d7
 

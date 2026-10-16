@@ -1,8 +1,8 @@
 # Creation in rc-players, and the host bridge
 
-**Status: prototype, not for landing.** This note records what the prototype in
-`third_party/remote-creation-*`, `rc-creation/` and `rc-player/embedded/` shows, and what landing it
-would take. It follows the measurements in yschimke/remote-m3-catalog#133.
+**Status: published, experimental.** This note records the design of `third_party/remote-creation-*`,
+`rc-creation/` and `rc-player/embedded/`, what it was measured against, and what comes next. It
+follows the measurements in yschimke/remote-m3-catalog#133.
 
 ## Decision
 
@@ -23,7 +23,7 @@ player. It is split in two: one fork, plus a layer of rc-players' own.
 | --- | --- | --- |
 | `:third-party-remote-creation-writer` | `androidx.compose.remote.creation.common` | **Fork.** `RemoteWriter` and the common byte writer. |
 | `:third-party-remote-creation-compose` | `androidx.compose.remote.creation.compose`, `androidx.compose.remote.foundation` | **Fork.** `@RemoteComposable` creation, kept in AndroidX's package with marked local patches only ([PROVENANCE](../../third_party/remote-creation-compose/PROVENANCE.md)). |
-| `:rc-creation-bridge` | `ee.schimke.composeai.rccreation` | **Layer.** rc-players' own creation API: the host bridge contract, and later explicit component ids and the editor's authoring mode. |
+| `:rc-creation-bridge` | `ee.schimke.composeai.rccreation` | **Layer.** rc-players' own creation API: the host bridge contract and explicit component ids. |
 | `:rc-player-embedded` | `ee.schimke.composeai.rcplayer.embedded` | **Layer.** `RcLiveBridge` and `RcEmbeddedPlayer`; the only module that knows both creation and the player. |
 
 ### Why one fork in AndroidX's package, not two
@@ -99,7 +99,7 @@ Skipping the bytes saves 1–3%. The win is the live session (no fresh compositi
 bridge (no document at all for value edits). A typed writer emitting `RcOperation`s directly is
 still worth doing, because it would retire the second encoder. It is a cleanup, not a speed-up.
 
-## What the prototype proves
+## What the tests prove
 
 `RcEmbeddedPlayerTest` (JVM, Skiko UI test) covers eight behaviours, including:
 
@@ -177,31 +177,38 @@ designs gets bounds from the player, nested as the design nests them.
   `RemoteDocumentSession` resets it per render. Ids are still positional, so an insertion renumbers
   later siblings. Anything keyed on ids across structural edits needs explicit ids; see below.
 
-## Landing it
+## Publishing and stability
 
-1. **Refresh the port to the current androidx snapshot.** Done here, on the fork, to androidx-main
-   `51b1c49d7` (see PROVENANCE). Still to do: bump this repository's AndroidX lane to
-   `alpha21`/`alpha13`.
-2. **Publish creation from here.** remote-m3-catalog deletes `vendor/remote-write-core`,
-   `remote-creation-compose`, `remote-foundation` and `remote-core`, and takes `rc-creation-*` from
-   the rc-players BOM. The writer and player become one version, not a pinned pair.
-3. **Gate the creation API like the player.** Today `rc-creation-*` is not `explicitApi()` or
-   ABI-dumped. The imported sources are not explicit-API clean, and the AndroidX-shaped surface is
-   large. Mark it experimental and dump it, so churn is reviewed.
-4. **Declare the Android capability.** Publish the fork with the capability of AndroidX's
-   `remote-creation-compose`, so a consumer that takes both gets Gradle's capability-conflict error
-   rather than duplicate classes. yschimke/wear-m3-catalog#652 is the precedent for how badly a
-   silent duplicate FQN fails.
-5. **Player state across structural edits.** `RcComposePlayer` keys its state on the document, so a
-   structural edit still resets scroll and animation. Live mode wants a host-owned state that
-   carries variables and per-component state over by component id. That needs **explicit component
-   ids** from creation: an editor derives them from authored node ids.
-6. **The rest of the bridge.** Add images (`bridge.image(name) { ImageBitmap }`): live mode hands the
+All four modules publish with the player, under the same version and BOM.
+
+- **The fork** (`third-party-remote-creation-writer`, `third-party-remote-creation-compose`) is
+  `explicitApi()` and ABI-dumped like the player. Its surface is AndroidX's, so it follows AndroidX's
+  stability; the dumps make a refresh's changes reviewable rather than gating them.
+- **The layer** (`rc-creation-bridge`, `rc-player-embedded`) is ABI-dumped and
+  `@ExperimentalRcCreationApi`: callers opt in, and its shape may change between minor releases.
+  The player's geometry hook (`LocalRcComponentCoordinates`) is `@ExperimentalRcPlayerApi` in
+  `rc-player-compose` for the same reason.
+- **Android.** The fork and AndroidX's own `remote-creation-compose` share class names. The compose
+  fork declares AndroidX's capabilities (`androidx.compose.remote:remote-creation-compose`,
+  `androidx.compose.remote.foundation:foundation`), so a consumer that resolves both gets Gradle's
+  capability conflict, naming them, instead of duplicate classes at dex time.
+  yschimke/wear-m3-catalog#652 is the precedent for how badly a silent duplicate FQN fails.
+
+## What comes next
+
+1. **Bump this repository's AndroidX lane** to `alpha21`/`alpha13`; the fork is already on
+   androidx-main `51b1c49d7` (see PROVENANCE).
+2. **remote-m3-catalog takes creation from here.** It deletes `vendor/remote-write-core`,
+   `remote-creation-compose`, `remote-foundation` and `remote-core`, and takes these artifacts from the
+   BOM, so the writer and player become one version, not a pinned pair.
+3. **Player state across structural edits.** `RcComposePlayer` keys its state on the document, so a
+   structural edit still resets scroll and animation. Live mode wants a host-owned state that carries
+   variables and per-component state over by component id; explicit ids (`RcComponentIds`) are the
+   prerequisite, and are in.
+4. **The rest of the bridge.** Images (`bridge.image(name) { ImageBitmap }`): live mode hands the
    bitmap to the player without a PNG encode/decode, which, unlike text decode, is real cost. Also
-   add ints and float lists, and two-way values (the player's `HostNamedAction` value feeding host
+   ints and float lists, and two-way values (the player's `HostNamedAction` value feeding host
    state).
-7. **UI builder.** Its Browser Preview captures from scratch on every edit. Behind
-   `-PrcPlayersDir` it now runs on `RcEmbeddedPlayer` instead, with its suite passing; landing makes
-   that the only path. Its Visual Editor can then use `HostContent` per component instead of a
-   wholly faked surface. That needs per-node bounds from the player (via explicit ids) and an
-   unrolled authoring mode in creation.
+5. **UI builder.** Behind `-PrcPlayersDir`, remote-m3-catalog's Browser Preview and Visual Editor
+   surface both run on `RcEmbeddedPlayer` (yschimke/remote-m3-catalog#133). The editor surface still
+   lacks text baselines, semantic actions, empty-slot placeholders and horizontal unrolling.

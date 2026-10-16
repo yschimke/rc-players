@@ -1,0 +1,29 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, macosArm64, wasmJs]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <ee.schimke.composeai:rc-player-embedded>
+final class ee.schimke.composeai.rcplayer.embedded/RcLiveBridge : ee.schimke.composeai.rccreation.bridge/RcHostBridge { // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge|null[0]
+    constructor <init>() // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.<init>|<init>(){}[0]
+
+    final val mode // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.mode|{}mode[0]
+        final fun <get-mode>(): ee.schimke.composeai.rccreation.bridge/RcBridgeMode // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.mode.<get-mode>|<get-mode>(){}[0]
+
+    final fun HostContent(kotlin/String, androidx.compose.remote.creation.compose.modifier/RemoteModifier, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, kotlin/Function3<androidx.compose.ui/Modifier, androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int) // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.HostContent|HostContent(kotlin.String;androidx.compose.remote.creation.compose.modifier.RemoteModifier;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;kotlin.Function3<androidx.compose.ui.Modifier,androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+    final fun action(kotlin/String, kotlin/Function0<kotlin/Unit>): androidx.compose.remote.creation.compose.action/Action // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.action|action(kotlin.String;kotlin.Function0<kotlin.Unit>){}[0]
+    final fun boolean(kotlin/String, kotlin/Function0<kotlin/Boolean>): androidx.compose.remote.creation.compose.state/RemoteBoolean // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.boolean|boolean(kotlin.String;kotlin.Function0<kotlin.Boolean>){}[0]
+    final fun color(kotlin/String, kotlin/Function0<androidx.compose.ui.graphics/Color>): androidx.compose.remote.creation.compose.state/RemoteColor // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.color|color(kotlin.String;kotlin.Function0<androidx.compose.ui.graphics.Color>){}[0]
+    final fun customComponents(): ee.schimke.composeai.rcplayer.compose/RcCustomComponentRegistry // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.customComponents|customComponents(){}[0]
+    final fun dispatch(ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent): kotlin/Boolean // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.dispatch|dispatch(ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent){}[0]
+    final fun float(kotlin/String, kotlin/Function0<kotlin/Float>): androidx.compose.remote.creation.compose.state/RemoteFloat // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.float|float(kotlin.String;kotlin.Function0<kotlin.Float>){}[0]
+    final fun namedValues(): kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue> // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.namedValues|namedValues(){}[0]
+    final fun text(kotlin/String, kotlin/Function0<kotlin/String>): androidx.compose.remote.creation.compose.state/RemoteString // ee.schimke.composeai.rcplayer.embedded/RcLiveBridge.text|text(kotlin.String;kotlin.Function0<kotlin.String>){}[0]
+}
+
+final val ee.schimke.composeai.rcplayer.embedded/ee_schimke_composeai_rcplayer_embedded_RcLiveBridge$stableprop // ee.schimke.composeai.rcplayer.embedded/ee_schimke_composeai_rcplayer_embedded_RcLiveBridge$stableprop|#static{}ee_schimke_composeai_rcplayer_embedded_RcLiveBridge$stableprop[0]
+
+final fun ee.schimke.composeai.rcplayer.embedded/RcEmbeddedPlayer(androidx.compose.remote.creation.compose.capture/RemoteCreationDisplayInfo, androidx.compose.ui/Modifier?, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme?, ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader?, kotlin/Function1<androidx.compose.ui.graphics/ImageBitmap, kotlin/ByteArray?>?, kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit>?, kotlin/Function1<ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin/Unit>?, kotlin/Function0<kotlin/Unit>?, kotlin/Function1<kotlin/Throwable, kotlin/Unit>?, kotlin/Any?, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcplayer.embedded/RcEmbeddedPlayer|RcEmbeddedPlayer(androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo;androidx.compose.ui.Modifier?;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme?;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader?;kotlin.Function1<androidx.compose.ui.graphics.ImageBitmap,kotlin.ByteArray?>?;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>?;kotlin.Function1<ee.schimke.composeai.rcplayer.protocol.RcDocument,kotlin.Unit>?;kotlin.Function0<kotlin.Unit>?;kotlin.Function1<kotlin.Throwable,kotlin.Unit>?;kotlin.Any?;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcplayer.embedded/ee_schimke_composeai_rcplayer_embedded_RcLiveBridge$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.embedded/ee_schimke_composeai_rcplayer_embedded_RcLiveBridge$stableprop_getter|ee_schimke_composeai_rcplayer_embedded_RcLiveBridge$stableprop_getter(){}[0]

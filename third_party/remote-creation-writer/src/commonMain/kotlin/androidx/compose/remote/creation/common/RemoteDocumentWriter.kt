@@ -56,17 +56,17 @@ public class RemoteDocumentWriter(
 
   override fun endRoot(): Unit = containerEnd()
 
-  override fun startBox(modifier: RemoteModifierData, horizontal: Int, vertical: Int) =
+  override fun startBox(modifier: RemoteModifierData, horizontal: Int, vertical: Int): Unit =
     startLayout(LayoutBox, modifier, horizontal, vertical)
 
   override fun endBox(): Unit = endLayout()
 
-  override fun startRow(modifier: RemoteModifierData, horizontal: Int, vertical: Int) =
+  override fun startRow(modifier: RemoteModifierData, horizontal: Int, vertical: Int): Unit =
     startLinearLayout(LayoutRow, modifier, horizontal, vertical)
 
   override fun endRow(): Unit = endLayout()
 
-  override fun startColumn(modifier: RemoteModifierData, horizontal: Int, vertical: Int) =
+  override fun startColumn(modifier: RemoteModifierData, horizontal: Int, vertical: Int): Unit =
     startLinearLayout(LayoutColumn, modifier, horizontal, vertical)
 
   override fun endColumn(): Unit = endLayout()
@@ -75,7 +75,7 @@ public class RemoteDocumentWriter(
     modifier: RemoteModifierData,
     horizontal: Int,
     vertical: Int,
-  ) = startLinearLayout(LayoutCollapsibleRow, modifier, horizontal, vertical)
+  ): Unit = startLinearLayout(LayoutCollapsibleRow, modifier, horizontal, vertical)
 
   override fun endCollapsibleRow(): Unit = endLayout()
 
@@ -83,7 +83,7 @@ public class RemoteDocumentWriter(
     modifier: RemoteModifierData,
     horizontal: Int,
     vertical: Int,
-  ) = startLinearLayout(LayoutCollapsibleColumn, modifier, horizontal, vertical)
+  ): Unit = startLinearLayout(LayoutCollapsibleColumn, modifier, horizontal, vertical)
 
   override fun endCollapsibleColumn(): Unit = endLayout()
 
@@ -101,7 +101,7 @@ public class RemoteDocumentWriter(
 
   override fun endCanvasOperations(): Unit = containerEnd()
 
-  override fun startFitBox(modifier: RemoteModifierData, horizontal: Int, vertical: Int) =
+  override fun startFitBox(modifier: RemoteModifierData, horizontal: Int, vertical: Int): Unit =
     startLayout(LayoutFitBox, modifier, horizontal, vertical)
 
   override fun endFitBox(): Unit = endLayout()
@@ -598,7 +598,7 @@ public class RemoteDocumentWriter(
   override fun addComponentHeightValue(componentId: Int): Float =
     componentValue(ComponentHeight, componentId)
 
-  override fun setNamedVariable(id: Int, name: String, type: Int) =
+  override fun setNamedVariable(id: Int, name: String, type: Int): Unit =
     writeNamedVariable(id, type, name)
 
   override fun addInteger(value: Int): Long {
@@ -1075,20 +1075,20 @@ public class RemoteDocumentWriter(
 
   override fun restore(): Unit = operation(MatrixRestore)
 
-  override fun translate(dx: Float, dy: Float) = floats(MatrixTranslate, dx, dy)
+  override fun translate(dx: Float, dy: Float): Unit = floats(MatrixTranslate, dx, dy)
 
-  override fun scale(scaleX: Float, scaleY: Float, centerX: Float, centerY: Float) =
+  override fun scale(scaleX: Float, scaleY: Float, centerX: Float, centerY: Float): Unit =
     floats(MatrixScale, scaleX, scaleY, centerX, centerY)
 
-  override fun rotate(angle: Float, centerX: Float, centerY: Float) =
+  override fun rotate(angle: Float, centerX: Float, centerY: Float): Unit =
     floats(MatrixRotate, angle, centerX, centerY)
 
-  override fun skew(skewX: Float, skewY: Float) = floats(MatrixSkew, skewX, skewY)
+  override fun skew(skewX: Float, skewY: Float): Unit = floats(MatrixSkew, skewX, skewY)
 
-  override fun clipRect(left: Float, top: Float, right: Float, bottom: Float) =
+  override fun clipRect(left: Float, top: Float, right: Float, bottom: Float): Unit =
     floats(ClipRect, left, top, right, bottom)
 
-  override fun drawRect(left: Float, top: Float, right: Float, bottom: Float) =
+  override fun drawRect(left: Float, top: Float, right: Float, bottom: Float): Unit =
     floats(DrawRect, left, top, right, bottom)
 
   override fun drawRoundRect(
@@ -1098,12 +1098,12 @@ public class RemoteDocumentWriter(
     bottom: Float,
     radiusX: Float,
     radiusY: Float,
-  ) = floats(DrawRoundRect, left, top, right, bottom, radiusX, radiusY)
+  ): Unit = floats(DrawRoundRect, left, top, right, bottom, radiusX, radiusY)
 
-  override fun drawCircle(centerX: Float, centerY: Float, radius: Float) =
+  override fun drawCircle(centerX: Float, centerY: Float, radius: Float): Unit =
     floats(DrawCircle, centerX, centerY, radius)
 
-  override fun drawOval(left: Float, top: Float, right: Float, bottom: Float) =
+  override fun drawOval(left: Float, top: Float, right: Float, bottom: Float): Unit =
     floats(DrawOval, left, top, right, bottom)
 
   override fun drawArc(
@@ -1113,7 +1113,7 @@ public class RemoteDocumentWriter(
     bottom: Float,
     startAngle: Float,
     sweepAngle: Float,
-  ) = floats(DrawArc, left, top, right, bottom, startAngle, sweepAngle)
+  ): Unit = floats(DrawArc, left, top, right, bottom, startAngle, sweepAngle)
 
   override fun drawSector(
     left: Float,
@@ -1122,12 +1122,12 @@ public class RemoteDocumentWriter(
     bottom: Float,
     startAngle: Float,
     sweepAngle: Float,
-  ) = floats(DrawSector, left, top, right, bottom, startAngle, sweepAngle)
+  ): Unit = floats(DrawSector, left, top, right, bottom, startAngle, sweepAngle)
 
-  override fun drawLine(x1: Float, y1: Float, x2: Float, y2: Float) =
+  override fun drawLine(x1: Float, y1: Float, x2: Float, y2: Float): Unit =
     floats(DrawLine, x1, y1, x2, y2)
 
-  override fun drawPath(pathId: Int) = intOperation(DrawPath, pathId)
+  override fun drawPath(pathId: Int): Unit = intOperation(DrawPath, pathId)
 
   override fun drawBitmap(
     imageId: Int,
@@ -1148,7 +1148,7 @@ public class RemoteDocumentWriter(
 
   override fun drawComponentContent(): Unit = operation(DrawContent)
 
-  override fun clipPath(pathId: Int) = intOperation(ClipPath, pathId)
+  override fun clipPath(pathId: Int): Unit = intOperation(ClipPath, pathId)
 
   override fun drawTweenPath(
     path1Id: Int,

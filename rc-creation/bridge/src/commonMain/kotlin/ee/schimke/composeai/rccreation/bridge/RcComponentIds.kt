@@ -6,7 +6,7 @@ import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 /**
- * PROTOTYPE: stable component ids for things a host names: an editor's authored nodes, say.
+ * Stable component ids for things a host names: an editor's authored nodes, say.
  *
  * A document's own component ids are positional, so an insertion renumbers everything after it and
  * nothing outside the document can say which component is which. A host that needs to (to map a
@@ -22,14 +22,15 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
  * snapshot maps both would see the same size and hand out the same id. An assignment is visible to
  * every thread at once, and survives a composition that is discarded.
  */
+@ExperimentalRcCreationApi
 @OptIn(ExperimentalAtomicApi::class)
-public class RcComponentIds(private val first: Int = -2_000_000) {
-  private class Assigned(val ids: Map<Any, Int>, val keys: Map<Int, Any>)
+public class RcComponentIds<K : Any>(private val first: Int = -2_000_000) {
+  private class Assigned<K>(val ids: Map<K, Int>, val keys: Map<Int, K>)
 
-  private val assigned = AtomicReference(Assigned(emptyMap(), emptyMap()))
+  private val assigned = AtomicReference(Assigned<K>(emptyMap(), emptyMap()))
 
   /** The id [key] has, assigning the next free one the first time it is asked for. */
-  public fun idFor(key: Any): Int {
+  public fun idFor(key: K): Int {
     while (true) {
       val current = assigned.load()
       current.ids[key]?.let {
@@ -47,9 +48,9 @@ public class RcComponentIds(private val first: Int = -2_000_000) {
   }
 
   /** The key [id] was assigned to, or null for an id this registry did not assign. */
-  public fun keyFor(id: Int): Any? = assigned.load().keys[id]
+  public fun keyFor(id: Int): K? = assigned.load().keys[id]
 
   /** [modifier] with the component id [key] has. */
-  public fun component(modifier: RemoteModifier, key: Any): RemoteModifier =
+  public fun component(modifier: RemoteModifier, key: K): RemoteModifier =
     modifier.componentId(idFor(key))
 }
