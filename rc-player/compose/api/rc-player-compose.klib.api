@@ -8,6 +8,10 @@
 // - Show declarations: true
 
 // Library unique name: <ee.schimke.composeai:rc-player-compose>
+open annotation class ee.schimke.composeai.rcplayer.compose/ExperimentalRcPlayerApi : kotlin/Annotation { // ee.schimke.composeai.rcplayer.compose/ExperimentalRcPlayerApi|null[0]
+    constructor <init>() // ee.schimke.composeai.rcplayer.compose/ExperimentalRcPlayerApi.<init>|<init>(){}[0]
+}
+
 final enum class ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity : kotlin/Enum<ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity> { // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity|null[0]
     enum entry BLOCKING // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity.BLOCKING|null[0]
     enum entry SKIPPABLE // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity.SKIPPABLE|null[0]
@@ -33,6 +37,10 @@ final enum class ee.schimke.composeai.rcplayer.compose/RcPlayerTheme : kotlin/En
 
 abstract fun interface ee.schimke.composeai.rcplayer.compose/RcAnimationClock { // ee.schimke.composeai.rcplayer.compose/RcAnimationClock|null[0]
     abstract fun seconds(): kotlin/Float // ee.schimke.composeai.rcplayer.compose/RcAnimationClock.seconds|seconds(){}[0]
+}
+
+abstract fun interface ee.schimke.composeai.rcplayer.compose/RcComponentCoordinatesListener { // ee.schimke.composeai.rcplayer.compose/RcComponentCoordinatesListener|null[0]
+    abstract fun onPositioned(kotlin/Int, androidx.compose.ui.layout/LayoutCoordinates) // ee.schimke.composeai.rcplayer.compose/RcComponentCoordinatesListener.onPositioned|onPositioned(kotlin.Int;androidx.compose.ui.layout.LayoutCoordinates){}[0]
 }
 
 abstract fun interface ee.schimke.composeai.rcplayer.compose/RcDrawObserver { // ee.schimke.composeai.rcplayer.compose/RcDrawObserver|null[0]
@@ -1045,6 +1053,8 @@ final val ee.schimke.composeai.rcplayer.compose/LocalRcAhemTextMetrics // ee.sch
     final fun <get-LocalRcAhemTextMetrics>(): androidx.compose.runtime/ProvidableCompositionLocal<kotlin/Boolean> // ee.schimke.composeai.rcplayer.compose/LocalRcAhemTextMetrics.<get-LocalRcAhemTextMetrics>|<get-LocalRcAhemTextMetrics>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcAnimationClock // ee.schimke.composeai.rcplayer.compose/LocalRcAnimationClock|{}LocalRcAnimationClock[0]
     final fun <get-LocalRcAnimationClock>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcAnimationClock?> // ee.schimke.composeai.rcplayer.compose/LocalRcAnimationClock.<get-LocalRcAnimationClock>|<get-LocalRcAnimationClock>(){}[0]
+final val ee.schimke.composeai.rcplayer.compose/LocalRcComponentCoordinates // ee.schimke.composeai.rcplayer.compose/LocalRcComponentCoordinates|{}LocalRcComponentCoordinates[0]
+    final fun <get-LocalRcComponentCoordinates>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcComponentCoordinatesListener?> // ee.schimke.composeai.rcplayer.compose/LocalRcComponentCoordinates.<get-LocalRcComponentCoordinates>|<get-LocalRcComponentCoordinates>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcDrawObserver // ee.schimke.composeai.rcplayer.compose/LocalRcDrawObserver|{}LocalRcDrawObserver[0]
     final fun <get-LocalRcDrawObserver>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcDrawObserver?> // ee.schimke.composeai.rcplayer.compose/LocalRcDrawObserver.<get-LocalRcDrawObserver>|<get-LocalRcDrawObserver>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcImageLoader // ee.schimke.composeai.rcplayer.compose/LocalRcImageLoader|{}LocalRcImageLoader[0]

@@ -20,6 +20,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHapticFeedback
 import ee.schimke.composeai.rcplayer.protocol.RcHapticType
+import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHostAction
 import ee.schimke.composeai.rcplayer.protocol.RcHostMetadataAction
 import ee.schimke.composeai.rcplayer.protocol.RcHostNamedAction
@@ -515,6 +516,12 @@ public class RcPlayerState(
   private fun loadHostDensity() {
     loadSystem(RcSystemVariables.DENSITY, hostDensity)
     loadSystem(RcSystemVariables.FONT_SIZE, DEFAULT_FONT_SIZE_SP * hostFontScale * hostDensity)
+    // As AndroidX's `RemoteContext.header` loads them: the declared size, in pixels at the density
+    // the document is played at when its sizes are in dp.
+    val header = document.header
+    val scale = if (header.densityBehavior == RcHeader.DENSITY_BEHAVIOR_DP) hostDensity else 1f
+    loadSystem(RcSystemVariables.WINDOW_WIDTH, header.width * scale)
+    loadSystem(RcSystemVariables.WINDOW_HEIGHT, header.height * scale)
   }
 
   /** Evaluates AndroidX `TimeAttribute.paint` against one wall-clock snapshot for this frame. */

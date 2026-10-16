@@ -5166,6 +5166,10 @@ final object ee.schimke.composeai.rcplayer.protocol/RcSystemVariables { // ee.sc
         final fun <get-TIME_IN_SEC>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.TIME_IN_SEC.<get-TIME_IN_SEC>|<get-TIME_IN_SEC>(){}[0]
     final const val WEEK_DAY // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.WEEK_DAY|{}WEEK_DAY[0]
         final fun <get-WEEK_DAY>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.WEEK_DAY.<get-WEEK_DAY>|<get-WEEK_DAY>(){}[0]
+    final const val WINDOW_HEIGHT // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.WINDOW_HEIGHT|{}WINDOW_HEIGHT[0]
+        final fun <get-WINDOW_HEIGHT>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.WINDOW_HEIGHT.<get-WINDOW_HEIGHT>|<get-WINDOW_HEIGHT>(){}[0]
+    final const val WINDOW_WIDTH // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.WINDOW_WIDTH|{}WINDOW_WIDTH[0]
+        final fun <get-WINDOW_WIDTH>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.WINDOW_WIDTH.<get-WINDOW_WIDTH>|<get-WINDOW_WIDTH>(){}[0]
     final const val YEAR // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.YEAR|{}YEAR[0]
         final fun <get-YEAR>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.YEAR.<get-YEAR>|<get-YEAR>(){}[0]
 

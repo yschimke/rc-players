@@ -88,6 +88,20 @@ val baked =
 File("baked.rc").writeBytes(RcDocumentCodec.encode(baked))
 ```
 
+### Creation (`rc-creation/`, `third_party/remote-creation-*`) — experimental
+
+Authoring Remote Compose from Compose Multiplatform, beside the player so one change can move both.
+A fork plus a layer; the design is in [`docs/design/RC_CREATION_BRIDGE.md`](docs/design/RC_CREATION_BRIDGE.md).
+
+| Module | Artifact | What it is |
+| --- | --- | --- |
+| `third_party/remote-creation-writer` | `third-party-remote-creation-writer` | The common `RemoteWriter` and `.rc` byte writer under the fork. |
+| `third_party/remote-creation-compose` | `third-party-remote-creation-compose` | AndroidX `remote-creation-compose` and `remote-foundation` for Compose Multiplatform, in AndroidX's package with marked local patches ([PROVENANCE](third_party/remote-creation-compose/PROVENANCE.md)). Declares AndroidX's capabilities: on Android, take this or AndroidX's, never both. |
+| `rc-creation/bridge` | `rc-creation-bridge` | rc-players' own creation API: `RcHostBridge` (host values, actions and Compose content by name) and `RcComponentIds` (stable component ids a host chooses). |
+| `rc-player/embedded` | `rc-player-embedded` | `RcEmbeddedPlayer`: remote content composed live in-process and played by `RcComposePlayer`, re-rendered per edit instead of re-captured. |
+
+The layer's API is `@ExperimentalRcCreationApi`; opt in to use it.
+
 `optimize()` makes a document smaller and cheaper to play without changing what it plays: it
 strips remarks and debug messages, folds every value producer whose value can never change into a
 constant (integer and float expressions, colour expressions and the channels read from a colour,

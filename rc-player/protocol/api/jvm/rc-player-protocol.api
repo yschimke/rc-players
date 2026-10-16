@@ -3105,6 +3105,8 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcSystemVariables {
 	public static final field TIME_IN_MIN I
 	public static final field TIME_IN_SEC I
 	public static final field WEEK_DAY I
+	public static final field WINDOW_HEIGHT I
+	public static final field WINDOW_WIDTH I
 	public static final field YEAR I
 	public final fun getALL ()Ljava/util/Set;
 	public final fun getCLOCK ()Ljava/util/Set;

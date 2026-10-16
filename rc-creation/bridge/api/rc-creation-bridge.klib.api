@@ -1,0 +1,65 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, macosArm64, wasmJs]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <ee.schimke.composeai:rc-creation-bridge>
+open annotation class ee.schimke.composeai.rccreation.bridge/ExperimentalRcCreationApi : kotlin/Annotation { // ee.schimke.composeai.rccreation.bridge/ExperimentalRcCreationApi|null[0]
+    constructor <init>() // ee.schimke.composeai.rccreation.bridge/ExperimentalRcCreationApi.<init>|<init>(){}[0]
+}
+
+final enum class ee.schimke.composeai.rccreation.bridge/RcBridgeMode : kotlin/Enum<ee.schimke.composeai.rccreation.bridge/RcBridgeMode> { // ee.schimke.composeai.rccreation.bridge/RcBridgeMode|null[0]
+    enum entry Document // ee.schimke.composeai.rccreation.bridge/RcBridgeMode.Document|null[0]
+    enum entry Live // ee.schimke.composeai.rccreation.bridge/RcBridgeMode.Live|null[0]
+
+    final val entries // ee.schimke.composeai.rccreation.bridge/RcBridgeMode.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rccreation.bridge/RcBridgeMode> // ee.schimke.composeai.rccreation.bridge/RcBridgeMode.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): ee.schimke.composeai.rccreation.bridge/RcBridgeMode // ee.schimke.composeai.rccreation.bridge/RcBridgeMode.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ee.schimke.composeai.rccreation.bridge/RcBridgeMode> // ee.schimke.composeai.rccreation.bridge/RcBridgeMode.values|values#static(){}[0]
+}
+
+abstract interface ee.schimke.composeai.rccreation.bridge/RcHostBridge { // ee.schimke.composeai.rccreation.bridge/RcHostBridge|null[0]
+    abstract val mode // ee.schimke.composeai.rccreation.bridge/RcHostBridge.mode|{}mode[0]
+        abstract fun <get-mode>(): ee.schimke.composeai.rccreation.bridge/RcBridgeMode // ee.schimke.composeai.rccreation.bridge/RcHostBridge.mode.<get-mode>|<get-mode>(){}[0]
+
+    abstract fun HostContent(kotlin/String, androidx.compose.remote.creation.compose.modifier/RemoteModifier, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, kotlin/Function3<androidx.compose.ui/Modifier, androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int) // ee.schimke.composeai.rccreation.bridge/RcHostBridge.HostContent|HostContent(kotlin.String;androidx.compose.remote.creation.compose.modifier.RemoteModifier;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;kotlin.Function3<androidx.compose.ui.Modifier,androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+    abstract fun action(kotlin/String, kotlin/Function0<kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.action/Action // ee.schimke.composeai.rccreation.bridge/RcHostBridge.action|action(kotlin.String;kotlin.Function0<kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+    abstract fun boolean(kotlin/String, kotlin/Function0<kotlin/Boolean>, androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.bridge/RcHostBridge.boolean|boolean(kotlin.String;kotlin.Function0<kotlin.Boolean>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+    abstract fun color(kotlin/String, kotlin/Function0<androidx.compose.ui.graphics/Color>, androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.bridge/RcHostBridge.color|color(kotlin.String;kotlin.Function0<androidx.compose.ui.graphics.Color>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+    abstract fun float(kotlin/String, kotlin/Function0<kotlin/Float>, androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.bridge/RcHostBridge.float|float(kotlin.String;kotlin.Function0<kotlin.Float>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+    abstract fun text(kotlin/String, kotlin/Function0<kotlin/String>, androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.state/RemoteString // ee.schimke.composeai.rccreation.bridge/RcHostBridge.text|text(kotlin.String;kotlin.Function0<kotlin.String>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+}
+
+final class <#A: kotlin/Any> ee.schimke.composeai.rccreation.bridge/RcComponentIds { // ee.schimke.composeai.rccreation.bridge/RcComponentIds|null[0]
+    constructor <init>(kotlin/Int = ...) // ee.schimke.composeai.rccreation.bridge/RcComponentIds.<init>|<init>(kotlin.Int){}[0]
+
+    final fun component(androidx.compose.remote.creation.compose.modifier/RemoteModifier, #A): androidx.compose.remote.creation.compose.modifier/RemoteModifier // ee.schimke.composeai.rccreation.bridge/RcComponentIds.component|component(androidx.compose.remote.creation.compose.modifier.RemoteModifier;1:0){}[0]
+    final fun idFor(#A): kotlin/Int // ee.schimke.composeai.rccreation.bridge/RcComponentIds.idFor|idFor(1:0){}[0]
+    final fun keyFor(kotlin/Int): #A? // ee.schimke.composeai.rccreation.bridge/RcComponentIds.keyFor|keyFor(kotlin.Int){}[0]
+}
+
+final object ee.schimke.composeai.rccreation.bridge/RcDocumentBridge : ee.schimke.composeai.rccreation.bridge/RcHostBridge { // ee.schimke.composeai.rccreation.bridge/RcDocumentBridge|null[0]
+    final val mode // ee.schimke.composeai.rccreation.bridge/RcDocumentBridge.mode|{}mode[0]
+        final fun <get-mode>(): ee.schimke.composeai.rccreation.bridge/RcBridgeMode // ee.schimke.composeai.rccreation.bridge/RcDocumentBridge.mode.<get-mode>|<get-mode>(){}[0]
+
+    final fun HostContent(kotlin/String, androidx.compose.remote.creation.compose.modifier/RemoteModifier, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, kotlin/Function3<androidx.compose.ui/Modifier, androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int) // ee.schimke.composeai.rccreation.bridge/RcDocumentBridge.HostContent|HostContent(kotlin.String;androidx.compose.remote.creation.compose.modifier.RemoteModifier;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;kotlin.Function3<androidx.compose.ui.Modifier,androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+    final fun action(kotlin/String, kotlin/Function0<kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.action/Action // ee.schimke.composeai.rccreation.bridge/RcDocumentBridge.action|action(kotlin.String;kotlin.Function0<kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+    final fun boolean(kotlin/String, kotlin/Function0<kotlin/Boolean>, androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.bridge/RcDocumentBridge.boolean|boolean(kotlin.String;kotlin.Function0<kotlin.Boolean>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+    final fun color(kotlin/String, kotlin/Function0<androidx.compose.ui.graphics/Color>, androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.bridge/RcDocumentBridge.color|color(kotlin.String;kotlin.Function0<androidx.compose.ui.graphics.Color>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+    final fun float(kotlin/String, kotlin/Function0<kotlin/Float>, androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.bridge/RcDocumentBridge.float|float(kotlin.String;kotlin.Function0<kotlin.Float>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+    final fun text(kotlin/String, kotlin/Function0<kotlin/String>, androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.state/RemoteString // ee.schimke.composeai.rccreation.bridge/RcDocumentBridge.text|text(kotlin.String;kotlin.Function0<kotlin.String>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+}
+
+final val ee.schimke.composeai.rccreation.bridge/LocalRcHostBridge // ee.schimke.composeai.rccreation.bridge/LocalRcHostBridge|{}LocalRcHostBridge[0]
+    final fun <get-LocalRcHostBridge>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rccreation.bridge/RcHostBridge> // ee.schimke.composeai.rccreation.bridge/LocalRcHostBridge.<get-LocalRcHostBridge>|<get-LocalRcHostBridge>(){}[0]
+final val ee.schimke.composeai.rccreation.bridge/ee_schimke_composeai_rccreation_bridge_RcComponentIds$stableprop // ee.schimke.composeai.rccreation.bridge/ee_schimke_composeai_rccreation_bridge_RcComponentIds$stableprop|#static{}ee_schimke_composeai_rccreation_bridge_RcComponentIds$stableprop[0]
+final val ee.schimke.composeai.rccreation.bridge/ee_schimke_composeai_rccreation_bridge_RcDocumentBridge$stableprop // ee.schimke.composeai.rccreation.bridge/ee_schimke_composeai_rccreation_bridge_RcDocumentBridge$stableprop|#static{}ee_schimke_composeai_rccreation_bridge_RcDocumentBridge$stableprop[0]
+
+final fun ee.schimke.composeai.rccreation.bridge/RcHostContentSlot(kotlin/String, androidx.compose.remote.creation.compose.modifier/RemoteModifier, androidx.compose.runtime/Composer?, kotlin/Int) // ee.schimke.composeai.rccreation.bridge/RcHostContentSlot|RcHostContentSlot(kotlin.String;androidx.compose.remote.creation.compose.modifier.RemoteModifier;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rccreation.bridge/ee_schimke_composeai_rccreation_bridge_RcComponentIds$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.bridge/ee_schimke_composeai_rccreation_bridge_RcComponentIds$stableprop_getter|ee_schimke_composeai_rccreation_bridge_RcComponentIds$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rccreation.bridge/ee_schimke_composeai_rccreation_bridge_RcDocumentBridge$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.bridge/ee_schimke_composeai_rccreation_bridge_RcDocumentBridge$stableprop_getter|ee_schimke_composeai_rccreation_bridge_RcDocumentBridge$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rccreation.bridge/rcBridgeName(kotlin/String): kotlin/String // ee.schimke.composeai.rccreation.bridge/rcBridgeName|rcBridgeName(kotlin.String){}[0]
+final fun ee.schimke.composeai.rccreation.bridge/rcHostContentConfig(kotlin/String): kotlin/String // ee.schimke.composeai.rccreation.bridge/rcHostContentConfig|rcHostContentConfig(kotlin.String){}[0]

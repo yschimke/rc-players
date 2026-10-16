@@ -1,0 +1,50 @@
+public abstract interface annotation class ee/schimke/composeai/rccreation/bridge/ExperimentalRcCreationApi : java/lang/annotation/Annotation {
+}
+
+public final class ee/schimke/composeai/rccreation/bridge/RcBridgeMode : java/lang/Enum {
+	public static final field Document Lee/schimke/composeai/rccreation/bridge/RcBridgeMode;
+	public static final field Live Lee/schimke/composeai/rccreation/bridge/RcBridgeMode;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rccreation/bridge/RcBridgeMode;
+	public static fun values ()[Lee/schimke/composeai/rccreation/bridge/RcBridgeMode;
+}
+
+public final class ee/schimke/composeai/rccreation/bridge/RcComponentIds {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (I)V
+	public synthetic fun <init> (IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Ljava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
+	public final fun idFor (Ljava/lang/Object;)I
+	public final fun keyFor (I)Ljava/lang/Object;
+}
+
+public final class ee/schimke/composeai/rccreation/bridge/RcDocumentBridge : ee/schimke/composeai/rccreation/bridge/RcHostBridge {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/bridge/RcDocumentBridge;
+	public fun HostContent (Ljava/lang/String;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;I)V
+	public fun action (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/action/Action;
+	public fun boolean (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteBoolean;
+	public fun color (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteColor;
+	public fun float (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public fun getMode ()Lee/schimke/composeai/rccreation/bridge/RcBridgeMode;
+	public fun text (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteString;
+}
+
+public abstract interface class ee/schimke/composeai/rccreation/bridge/RcHostBridge {
+	public abstract fun HostContent (Ljava/lang/String;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;I)V
+	public abstract fun action (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/action/Action;
+	public abstract fun boolean (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteBoolean;
+	public abstract fun color (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteColor;
+	public abstract fun float (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public abstract fun getMode ()Lee/schimke/composeai/rccreation/bridge/RcBridgeMode;
+	public abstract fun text (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteString;
+}
+
+public final class ee/schimke/composeai/rccreation/bridge/RcHostBridgeKt {
+	public static final fun RcHostContentSlot (Ljava/lang/String;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/runtime/Composer;I)V
+	public static final fun getLocalRcHostBridge ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+	public static final fun rcBridgeName (Ljava/lang/String;)Ljava/lang/String;
+	public static final fun rcHostContentConfig (Ljava/lang/String;)Ljava/lang/String;
+}
+
