@@ -47,7 +47,12 @@ public class RcLiveBridge : RcHostBridge {
 
   // Holders are registered once per name and updated in place, so a recomposition of the remote
   // content that re-declares a binding does not churn the maps the player observes.
-  private class ValueHolder(var read: () -> RcNamedValue)
+  // The reader is snapshot state too. Rebinding a name (new content under a new `key`, capturing a
+  // plain value) replaces only the reader, and the host's `snapshotFlow` over [namedValues] has to
+  // see that, or the player keeps overriding the new document with the old value.
+  private class ValueHolder(read: () -> RcNamedValue) {
+    var read by mutableStateOf(read)
+  }
 
   private class ContentHolder(content: @Composable (Modifier) -> Unit) {
     var content by mutableStateOf(content)

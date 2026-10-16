@@ -101,6 +101,24 @@ class RcEmbeddedPlayerTest {
     assertEquals(1, documents.size)
   }
 
+  /**
+   * Content under a new `key` that captures a plain value rebinds the same name. The player's
+   * override has to follow the new reader, or it keeps painting the old value over the new
+   * document's default.
+   */
+  @Test
+  fun aRebindingToAPlainValueReachesThePlayer() = run {
+    var host by mutableStateOf(Color.Red)
+    setContent {
+      val plain = host
+      RcEmbeddedPlayer(display, Modifier.size(100.dp), key = plain) { Swatch { plain } }
+    }
+    waitUntil { centre() == Color.Red }
+
+    host = Color.Blue
+    waitUntil { centre() == Color.Blue }
+  }
+
   @Test
   fun aStructuralEditProducesANewDocument() = run {
     var rows by mutableStateOf(1)
