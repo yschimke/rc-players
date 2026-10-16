@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.13.1](https://github.com/yschimke/rc-players/compare/v2.13.0...v2.13.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* ask for the player's never-ending frame loops as infinite animations ([#678](https://github.com/yschimke/rc-players/issues/678)) ([a23d9a7](https://github.com/yschimke/rc-players/commit/a23d9a7127a16a8efef2c9fe9e95a1911bd0cf38))
+* **deps:** update dependency androidx.annotation:annotation to v1.11.0 ([#674](https://github.com/yschimke/rc-players/issues/674)) ([0b7d6b5](https://github.com/yschimke/rc-players/commit/0b7d6b553fd1b60726eee879445fe337d1893b31))
+* **deps:** update tapmoc to v0.5.0 ([#661](https://github.com/yschimke/rc-players/issues/661)) ([1399298](https://github.com/yschimke/rc-players/commit/1399298d714fde6694b400cb99387cd0d77476ea))
+* publish creation-compose variants a consumer can select ([#676](https://github.com/yschimke/rc-players/issues/676)) ([bc6c54e](https://github.com/yschimke/rc-players/commit/bc6c54e81a54d86bc5d7276696a9bb3b984111a1))
+
 ## [2.13.0](https://github.com/yschimke/rc-players/compare/v2.12.0...v2.13.0) (2026-10-16)
 
 
