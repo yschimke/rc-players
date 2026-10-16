@@ -149,6 +149,7 @@ import androidx.compose.ui.node.PointerInputModifierNode
 import androidx.compose.ui.node.SemanticsModifierNode
 import androidx.compose.ui.node.currentValueOf
 import androidx.compose.ui.node.invalidateSemantics
+import androidx.compose.ui.platform.InfiniteAnimationPolicy
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -324,8 +325,11 @@ import kotlin.math.atan2
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 @Composable
@@ -656,9 +660,13 @@ private fun RcComposePlayerResolved(
     frameNanos = nanos - frameOriginNanos
   }
   LaunchedEffect(document) { withFrameNanos(recordFrame) }
+  // A frame every frame for as long as the document is shown is an infinite animation, and asked
+  // for as one (see [withInfiniteFrameNanos]): a host's `InfiniteAnimationPolicy` may pause or
+  // refuse it. A Compose UI test with `autoAdvance` refuses it, so a continuously animating
+  // document lets the test go idle instead of keeping `setContent`'s wait for idle busy forever.
   LaunchedEffect(needsContinuousFrames) {
     if (needsContinuousFrames) {
-      while (true) withFrameNanos(recordFrame)
+      while (true) withInfiniteFrameNanos(recordFrame)
     }
   }
   // Float tweens and springs get frames only while one is moving, as AndroidX's `FloatExpression`
@@ -711,7 +719,8 @@ private fun RcComposePlayerResolved(
     if (ticksEverySecond && !needsContinuousFrames) {
       while (true) {
         delay(MILLIS_PER_SECOND - latestTimeSource.currentTimeMillis().mod(MILLIS_PER_SECOND))
-        withFrameNanos(recordFrame)
+        // A tick a second, forever: infinite too.
+        withInfiniteFrameNanos(recordFrame)
         invalidationVersion += 1
       }
     }
@@ -6671,3 +6680,30 @@ private fun blendMode(value: Int): BlendMode =
   }
 
 private const val MILLIS_PER_SECOND = 1_000L
+
+/**
+ * A frame for one of the player's never-ending loops, asked for as an infinite animation: through
+ * the context's `InfiniteAnimationPolicy` when there is one, as `withInfiniteAnimationFrameNanos`
+ * does.
+ *
+ * A policy may refuse a frame by throwing `CancellationException` (a Compose UI test does while its
+ * clock advances on its own). That refusal is not the loop's own cancellation, and treating it as
+ * one would end the loop for good, leaving the document frozen even once the policy allows frames
+ * again. So a refused frame is asked for again a little later, and only a real cancellation of the
+ * calling coroutine ends the loop.
+ */
+private suspend fun withInfiniteFrameNanos(onFrame: (Long) -> Unit) {
+  while (true) {
+    val policy =
+      currentCoroutineContext()[InfiniteAnimationPolicy] ?: return withFrameNanos(onFrame)
+    try {
+      return policy.onInfiniteOperation { withFrameNanos(onFrame) }
+    } catch (refused: CancellationException) {
+      currentCoroutineContext().ensureActive()
+      delay(REFUSED_FRAME_RETRY_MILLIS)
+    }
+  }
+}
+
+/** How long a refused infinite-animation frame waits before it is asked for again. */
+private const val REFUSED_FRAME_RETRY_MILLIS = 100L
