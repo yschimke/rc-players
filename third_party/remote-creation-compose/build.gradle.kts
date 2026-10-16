@@ -62,8 +62,14 @@ ktfmt { kotlinLangStyle() }
 // The fork carries AndroidX's own class names. On Android a consumer could also resolve AndroidX's
 // `remote-creation-compose` (or `remote-foundation`, through it), and two jars defining the same
 // classes fail late and confusingly. Declaring AndroidX's capabilities makes Gradle refuse the pair
-// at resolution, naming both. The module's own capability is restated, since declaring any replaces
-// the implicit one.
+// at resolution, naming both. AndroidX publishes those only for Android, so only the Android
+// variants declare them.
+//
+// Declaring any capability replaces the implicit one, so the Android variants restate theirs: the
+// coordinates of the module they are published in, `…-android`, which is what a consumer resolving
+// through the root module's `available-at` asks for. Restating the root's coordinates instead
+// (2.13.0)
+// left no variant a consumer could select, on any platform.
 val androidxCapabilities =
     listOf(
         "androidx.compose.remote:remote-creation-compose",
@@ -73,11 +79,70 @@ val androidxCapabilities =
 configurations.configureEach {
     // AGP publishes Android from separate `…Elements-published` copies that are not consumable
     // within the build, so a name match, not `isCanBeConsumed`, is what reaches every variant.
-    if (!isCanBeResolved && name.substringBefore("-published").endsWith("Elements")) {
-        outgoing.capability("${project.group}:${project.name}:${project.version}")
+    if (
+        !isCanBeResolved &&
+            name.startsWith("android") &&
+            name.substringBefore("-published").endsWith("Elements")
+    ) {
+        outgoing.capability("${project.group}:${project.name}-android:${project.version}")
         androidxCapabilities.forEach { outgoing.capability("$it:${project.version}") }
     }
 }
+
+// Every published variant must offer the capability of the module it is published in, or no
+// consumer can select it. Checked against the Gradle module metadata the publications write.
+val verifyPublishedCapabilities by tasks.registering {
+    group = "verification"
+    description = "Checks every published variant offers its own module's capability."
+    val metadataTasks = tasks.matching { it.name.startsWith("generateMetadataFileFor") }
+    dependsOn(metadataTasks)
+    val publications = layout.buildDirectory.dir("publications")
+    val group = project.group.toString()
+    // Each publication writes `publications/<name>/module.json`; the module it describes is the
+    // publication's own artifact (a platform's `component` names the root module instead).
+    val modules =
+        project.extensions
+            .getByType<PublishingExtension>()
+            .publications
+            .withType<MavenPublication>()
+            .associate { it.name to it.artifactId }
+    inputs.property("modules", modules)
+    doLast {
+        check(modules.isNotEmpty()) { "No Maven publications to check" }
+        val problems = mutableListOf<String>()
+        modules.forEach { (publication, artifactId) ->
+            val file = publications.get().file("$publication/module.json").asFile
+            check(file.isFile) { "No Gradle module metadata for $publication at $file" }
+            @Suppress("UNCHECKED_CAST")
+            val module = groovy.json.JsonSlurper().parse(file) as Map<String, Any?>
+            val own = "$group:$artifactId"
+            (module["variants"] as List<*>?).orEmpty().forEach { entry ->
+                val variant = entry as Map<*, *>
+                if (variant["available-at"] != null) return@forEach
+                val capabilities =
+                    (variant["capabilities"] as List<*>?)?.map {
+                        val capability = it as Map<*, *>
+                        "${capability["group"]}:${capability["name"]}"
+                    }
+                // No capabilities means the implicit one, which is the module's own.
+                if (capabilities != null && own !in capabilities) {
+                    problems += "$own ${variant["name"]} offers $capabilities"
+                }
+            }
+        }
+        check(problems.isEmpty()) {
+            "Published variants without their module's capability ($group):\n" +
+                problems.joinToString("\n")
+        }
+    }
+}
+
+tasks.named("check") { dependsOn(verifyPublishedCapabilities) }
+
+// And before any upload: a release with unselectable variants cannot be taken back.
+tasks
+    .matching { it.name.startsWith("publish") }
+    .configureEach { dependsOn(verifyPublishedCapabilities) }
 
 // The ABI gate, as the player modules have it: a change to the published surface shows up as a
 // diff to `api/` in review. Regenerate with `./gradlew updateKotlinAbi`.
