@@ -285,6 +285,11 @@ jobs:
             :rc-player-runtime:jvmTest \
             :rc-player-compose:jvmTest \
             :rc-player-edit:jvmTest \
+            :third-party-remote-creation-writer:jvmTest \
+            :rc-player-embedded:jvmTest \
+            :third-party-remote-creation-compose:compileAndroidMain \
+            :rc-creation-bridge:compileAndroidMain \
+            :rc-player-embedded:compileAndroidMain \
             :rc-player-wasm:jvmTest \
             :rc-player-trace:testAndroidHostTest \
             :rc-player-protocol:testAndroidHostTest \
@@ -307,6 +312,11 @@ jobs:
             :rc-player-runtime:checkKotlinAbi \
             :rc-player-compose:checkKotlinAbi \
             :rc-player-edit:checkKotlinAbi \
+            :third-party-remote-creation-writer:checkKotlinAbi \
+            :third-party-remote-creation-compose:checkKotlinAbi \
+            :rc-creation-bridge:checkKotlinAbi \
+            :rc-player-embedded:checkKotlinAbi \
+            :rc-player-embedded:compileKotlinWasmJs \
             :rc-player-trace:wasmJsBrowserTest \
             :rc-player-protocol:wasmJsBrowserTest \
             :rc-player-runtime:wasmJsBrowserTest \
@@ -322,6 +332,8 @@ jobs:
             rc-player/runtime:jvmTest,testAndroidHostTest,wasmJsBrowserTest \
             rc-player/compose:jvmTest,testAndroidHostTest,wasmJsBrowserTest \
             rc-player/edit:jvmTest,testAndroidHostTest,wasmJsBrowserTest \
+            third_party/remote-creation-writer:jvmTest \
+            rc-player/embedded:jvmTest \
             rc-player/wasm:jvmTest \
             rc-player/compat-tests:test \
             rc-player/metrics:test \
@@ -435,6 +447,13 @@ jobs:
             :rc-player-runtime:checkKotlinAbi \
             :rc-player-compose:checkKotlinAbi \
             :rc-player-edit:checkKotlinAbi \
+            :third-party-remote-creation-writer:checkKotlinAbi \
+            :third-party-remote-creation-compose:checkKotlinAbi \
+            :rc-creation-bridge:checkKotlinAbi \
+            :rc-player-embedded:checkKotlinAbi \
+            :rc-player-embedded:compileKotlinIosArm64 \
+            :rc-player-embedded:compileKotlinIosSimulatorArm64 \
+            :rc-player-embedded:compileKotlinMacosArm64 \
             :rc-player-trace:allTests \
             :rc-player-protocol:allTests \
             :rc-player-runtime:allTests \

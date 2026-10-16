@@ -380,6 +380,49 @@ class RcEmbeddedPlayerTest {
     waitUntil { clicks == 2 }
   }
 
+  /**
+   * An edit whose render fails leaves the last good document up with the declarations it rendered
+   * with: here the edit drops the action and adds an image that cannot be encoded.
+   */
+  @Test
+  fun aFailedRenderKeepsTheDeclarationsOfTheLastGoodDocument() = run {
+    var edited by mutableStateOf(false)
+    var clicks = 0
+    val failures = mutableListOf<Throwable>()
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      val edit = edited
+      RcEmbeddedPlayer(
+        display,
+        Modifier.size(100.dp),
+        encodePng = { error("no encoder") },
+        onDocument = { documents += it },
+        onFailure = { failures += it },
+        key = edit,
+      ) {
+        val bridge = LocalRcHostBridge.current
+        if (edit) {
+          RemoteImage(ImageBitmap(1, 1).rb, contentDescription = null, RemoteModifier.size(10.rdp))
+        } else {
+          RemoteBox(
+            RemoteModifier.fillMaxSize()
+              .background(Color.Gray.rc)
+              .clickable(bridge.action("tapped") { clicks++ })
+          )
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    onRoot().performTouchInput { click(center) }
+    waitUntil { clicks == 1 }
+
+    edited = true
+    waitUntil { failures.isNotEmpty() }
+    settleOffThread()
+    onRoot().performTouchInput { click(center) }
+    waitUntil { clicks == 2 }
+  }
+
   /** A render that fails reports the failure, not readiness. */
   @Test
   fun aFailedRenderIsNotReportedAsRendered() = run {

@@ -156,6 +156,7 @@ public fun RcEmbeddedPlayer(
           val changed = next != last
           last = next
           renderFailed = false
+          bridge.rendered()
           if (changed) {
             report {
               document = next
@@ -169,6 +170,7 @@ public fun RcEmbeddedPlayer(
           // Throwable, not Exception: a design's `TODO()` throws an Error, and it is as much the
           // design's failure as any other.
           renderFailed = true
+          bridge.renderFailed()
           fail(error)
         }
       }

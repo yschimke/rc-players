@@ -608,6 +608,14 @@ class RcSystemVariableTest {
   }
 
   @Test
+  fun theWindowSizeIsNotAClock() {
+    // A responsive document reads its window; that must not wake the player every second.
+    assertFalse(RcSystemVariables.WINDOW_WIDTH in RcSystemVariables.CLOCK)
+    assertFalse(RcSystemVariables.WINDOW_HEIGHT in RcSystemVariables.CLOCK)
+    assertTrue(RcSystemVariables.WINDOW_WIDTH in RcSystemVariables.ALL)
+  }
+
+  @Test
   fun aDensityThatWouldPoisonADocumentIsIgnoredRatherThanStored() {
     val state =
       RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), emptyList()), timeSource = clock)

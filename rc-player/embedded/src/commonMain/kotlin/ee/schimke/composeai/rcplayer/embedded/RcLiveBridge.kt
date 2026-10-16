@@ -12,9 +12,12 @@ import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -66,9 +69,17 @@ public class RcLiveBridge : RcHostBridge {
       if (rest.isEmpty()) byName.remove(name) else byName[name] = rest
     }
 
-    operator fun get(name: String): T? = byName[name]?.lastOrNull()
+    // What the player sees: the declarations as of the last apply that rendered. An apply whose
+    // render failed leaves the document on screen as it was, so it leaves this as it was too.
+    private var committed by mutableStateOf(emptyMap<String, T>())
 
-    fun latest(): Map<String, T> = byName.mapValues { it.value.last() }
+    fun commit() {
+      committed = Snapshot.withoutReadObservation { byName.mapValues { it.value.last() } }
+    }
+
+    operator fun get(name: String): T? = committed[name]
+
+    fun latest(): Map<String, T> = committed
   }
 
   // Each declaration is a remembered object whose behaviour reads the call's latest arguments
@@ -83,6 +94,27 @@ public class RcLiveBridge : RcHostBridge {
   // Set once this bridge's session is being disposed: the declarations stay, for a document that
   // is still on screen, and nothing is registered or removed again.
   private var frozen = false
+
+  // Whether the latest render succeeded. While it has not, declaration changes are held back: the
+  // document on screen is the last good one, and it keeps the declarations it rendered with.
+  private var renderOk = true
+
+  private fun commit() {
+    values.commit()
+    handlers.commit()
+    contents.commit()
+  }
+
+  /** The session rendered: publish every declaration, including any held back. */
+  internal fun rendered() {
+    renderOk = true
+    commit()
+  }
+
+  /** The session's render failed: hold declaration changes until the next render succeeds. */
+  internal fun renderFailed() {
+    renderOk = false
+  }
 
   /** Keeps every current declaration through the session's disposal. */
   internal fun freeze() {
@@ -120,8 +152,16 @@ public class RcLiveBridge : RcHostBridge {
   @Composable
   private fun <T : Any> Declare(declarations: Declarations<T>, name: String, item: T) {
     DisposableEffect(declarations, name, item) {
-      if (!frozen) declarations.add(name, item)
-      onDispose { if (!frozen) declarations.remove(name, item) }
+      if (!frozen) {
+        declarations.add(name, item)
+        if (renderOk) commit()
+      }
+      onDispose {
+        if (!frozen) {
+          declarations.remove(name, item)
+          if (renderOk) commit()
+        }
+      }
     }
   }
 

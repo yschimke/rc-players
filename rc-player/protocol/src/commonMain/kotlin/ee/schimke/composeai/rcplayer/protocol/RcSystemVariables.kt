@@ -141,10 +141,10 @@ public object RcSystemVariables {
 
   /**
    * Every variable read from a clock — the moving ones and the calendar fields, which move too,
-   * just rarely: a date display has to catch midnight. Not [DENSITY] or [FONT_SIZE], which change
-   * only with the host's configuration.
+   * just rarely: a date display has to catch midnight. Not [DENSITY], [FONT_SIZE], [WINDOW_WIDTH]
+   * or [WINDOW_HEIGHT], which change only with the host's configuration or the document.
    */
-  public val CLOCK: Set<Int> = ALL - DENSITY - FONT_SIZE
+  public val CLOCK: Set<Int> = ALL - DENSITY - FONT_SIZE - WINDOW_WIDTH - WINDOW_HEIGHT
 }
 
 /**
