@@ -52,6 +52,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 
 @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
@@ -318,6 +319,19 @@ class RcEmbeddedPlayerTest {
     broken = false
     rows = 2
     waitUntil { documents.size == 2 }
+  }
+
+  /** An Error from the design (a `TODO()`, say) is the design's failure too, not the host's. */
+  @Test
+  fun aDesignThrowingAnErrorIsReportedNotRethrown() = run {
+    val failures = mutableListOf<Throwable>()
+    setContent {
+      RcEmbeddedPlayer(display, Modifier.size(100.dp), onFailure = { failures += it }) {
+        TODO("unfinished design")
+      }
+    }
+    waitUntil { failures.isNotEmpty() }
+    assertTrue(failures.single() is NotImplementedError)
   }
 
   /**

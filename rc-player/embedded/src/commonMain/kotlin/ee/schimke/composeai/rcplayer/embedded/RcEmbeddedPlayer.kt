@@ -150,7 +150,11 @@ public fun RcEmbeddedPlayer(
               currentOnDocument(next)
             }
           }
-        } catch (error: Exception) {
+        } catch (cancelled: CancellationException) {
+          throw cancelled
+        } catch (error: Throwable) {
+          // Throwable, not Exception: a design's `TODO()` throws an Error, and it is as much the
+          // design's failure as any other.
           fail(error)
         }
       }
@@ -168,7 +172,7 @@ public fun RcEmbeddedPlayer(
         withContext(clock) { recomposer.runRecomposeAndApplyChanges() }
       } catch (cancelled: CancellationException) {
         throw cancelled
-      } catch (error: Exception) {
+      } catch (error: Throwable) {
         fail(error)
       } finally {
         // Disposing clears the tree, and the applier reports that like any other change:
