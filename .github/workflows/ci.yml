@@ -314,6 +314,7 @@ jobs:
             :rc-player-edit:checkKotlinAbi \
             :third-party-remote-creation-writer:checkKotlinAbi \
             :third-party-remote-creation-compose:checkKotlinAbi \
+            :third-party-remote-creation-compose:verifyPublishedCapabilities \
             :rc-creation-bridge:checkKotlinAbi \
             :rc-player-embedded:checkKotlinAbi \
             :rc-player-embedded:compileKotlinWasmJs \
