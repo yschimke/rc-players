@@ -813,6 +813,7 @@ public final class androidx/compose/remote/creation/compose/modifier/CombinedCli
 }
 
 public final class androidx/compose/remote/creation/compose/modifier/ComponentIdModifierKt {
+	public static final field MaxExplicitComponentId I
 	public static final fun componentId (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;I)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 }
 

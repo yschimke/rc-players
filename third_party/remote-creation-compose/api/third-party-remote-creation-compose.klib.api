@@ -2785,6 +2785,8 @@ final object androidx.compose.remote.creation.compose/RemoteComposeCreationCompo
         final fun <set-isEnforceCleanRecompositionEnabled>(kotlin/Boolean) // androidx.compose.remote.creation.compose/RemoteComposeCreationComposeFlags.isEnforceCleanRecompositionEnabled.<set-isEnforceCleanRecompositionEnabled>|<set-isEnforceCleanRecompositionEnabled>(kotlin.Boolean){}[0]
 }
 
+final const val androidx.compose.remote.creation.compose.modifier/MaxExplicitComponentId // androidx.compose.remote.creation.compose.modifier/MaxExplicitComponentId|{}MaxExplicitComponentId[0]
+    final fun <get-MaxExplicitComponentId>(): kotlin/Int // androidx.compose.remote.creation.compose.modifier/MaxExplicitComponentId.<get-MaxExplicitComponentId>|<get-MaxExplicitComponentId>(){}[0]
 final const val androidx.compose.remote.creation.compose.state/CUBIC_ACCELERATE // androidx.compose.remote.creation.compose.state/CUBIC_ACCELERATE|{}CUBIC_ACCELERATE[0]
     final fun <get-CUBIC_ACCELERATE>(): kotlin/Int // androidx.compose.remote.creation.compose.state/CUBIC_ACCELERATE.<get-CUBIC_ACCELERATE>|<get-CUBIC_ACCELERATE>(){}[0]
 final const val androidx.compose.remote.creation.compose.state/CUBIC_ANTICIPATE // androidx.compose.remote.creation.compose.state/CUBIC_ANTICIPATE|{}CUBIC_ANTICIPATE[0]

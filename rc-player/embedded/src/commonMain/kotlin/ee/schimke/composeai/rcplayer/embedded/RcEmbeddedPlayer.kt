@@ -182,7 +182,13 @@ public fun RcEmbeddedPlayer(
 
   val namedValues = rememberRcNamedValues()
   LaunchedEffect(bridge, namedValues) {
-    snapshotFlow { bridge.namedValues() }.collect { namedValues.putAll(it) }
+    // The map holds the bridge's values and nothing else, so it mirrors each snapshot exactly: a
+    // name no longer declared stops overriding the document, which then plays its own default.
+    snapshotFlow { bridge.namedValues() }
+      .collect { current ->
+        (namedValues.keys - current.keys).forEach(namedValues::remove)
+        namedValues.putAll(current)
+      }
   }
 
   val current = document ?: return

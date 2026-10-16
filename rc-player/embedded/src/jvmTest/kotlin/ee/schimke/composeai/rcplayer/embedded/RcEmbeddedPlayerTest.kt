@@ -8,12 +8,15 @@ import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocum
 import androidx.compose.remote.creation.compose.layout.RemoteBox
 import androidx.compose.remote.creation.compose.layout.RemoteColumn
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
+import androidx.compose.remote.creation.compose.modifier.MaxExplicitComponentId
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.modifier.background
 import androidx.compose.remote.creation.compose.modifier.clickable
+import androidx.compose.remote.creation.compose.modifier.componentId
 import androidx.compose.remote.creation.compose.modifier.fillMaxSize
 import androidx.compose.remote.creation.compose.modifier.fillMaxWidth
 import androidx.compose.remote.creation.compose.modifier.size
+import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rs
@@ -48,6 +51,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.coroutines.runBlocking
 
 @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
@@ -120,6 +124,39 @@ class RcEmbeddedPlayerTest {
 
     host = Color.Blue
     waitUntil { centre() == Color.Blue }
+  }
+
+  /**
+   * A bridged name the content stops declaring stops overriding the player: content that then
+   * declares the same name directly plays its own default.
+   */
+  @Test
+  fun aNameNoLongerBridgedPlaysTheDocumentsDefault() = run {
+    var bridged by mutableStateOf(true)
+    setContent {
+      val declare = bridged
+      RcEmbeddedPlayer(display, Modifier.size(100.dp), key = declare) {
+        if (declare) Swatch { Color.Red }
+        else
+          RemoteBox(
+            RemoteModifier.fillMaxSize()
+              .background(RemoteColor.createNamedRemoteColor("swatch", Color.Blue))
+          )
+      }
+    }
+    waitUntil { centre() == Color.Red }
+
+    bridged = false
+    waitUntil { centre() == Color.Blue }
+  }
+
+  @Test
+  fun explicitIdsStayBelowTheDocumentsOwn() {
+    // The writer allocates from -2 (the root among them), composition from -1_000_000.
+    assertFailsWith<IllegalArgumentException> { RemoteModifier.componentId(-2) }
+    assertFailsWith<IllegalArgumentException> { RemoteModifier.componentId(-1_000_001) }
+    assertFailsWith<IllegalArgumentException> { RcComponentIds<String>(first = -5) }
+    assertEquals(MaxExplicitComponentId, RcComponentIds<String>().idFor("first"))
   }
 
   @Test

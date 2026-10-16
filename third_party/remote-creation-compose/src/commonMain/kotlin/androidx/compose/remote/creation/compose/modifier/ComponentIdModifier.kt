@@ -24,16 +24,25 @@ package androidx.compose.remote.creation.compose.modifier
 internal class ComponentIdModifier(val id: Int) : RemoteModifier.Element
 
 /**
+ * The highest component id [componentId] accepts. A document allocates its own ids in two ranges
+ * that count down: the writer's from `-2` (the root, content sections), and composition's from
+ * `-1_000_000`. Explicit ids live below both, from here down, so they can never meet an allocated
+ * one.
+ */
+public const val MaxExplicitComponentId: Int = -2_000_000
+
+/**
  * Gives the component this modifier decorates the component id [id], instead of the next one the
  * document allocates.
  *
- * [id] must be negative, as every component id is, and must not be one the document allocates
- * itself: those count down from `-1_000_000`. An id is honoured once per document; a second
+ * [id] must be at most [MaxExplicitComponentId]. An id is honoured once per document; a second
  * component asking for the same one gets an allocated id instead, so a modifier a component library
  * applies to two of its nodes can never give the document a duplicate.
  */
 public fun RemoteModifier.componentId(id: Int): RemoteModifier {
-    require(id < 0) { "Remote Compose component ids are negative, was $id" }
+    require(id <= MaxExplicitComponentId) {
+        "Explicit component ids are at most $MaxExplicitComponentId, below the document's own; was $id"
+    }
     return then(ComponentIdModifier(id))
 }
 
