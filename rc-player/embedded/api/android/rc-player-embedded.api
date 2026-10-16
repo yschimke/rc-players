@@ -6,14 +6,14 @@ public final class ee/schimke/composeai/rcplayer/embedded/RcLiveBridge : ee/schi
 	public static final field $stable I
 	public fun <init> ()V
 	public fun HostContent (Ljava/lang/String;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;I)V
-	public fun action (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/action/Action;
-	public fun boolean (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteBoolean;
-	public fun color (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteColor;
+	public fun action (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/action/Action;
+	public fun boolean (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteBoolean;
+	public fun color (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteColor;
 	public final fun customComponents ()Lee/schimke/composeai/rcplayer/compose/RcCustomComponentRegistry;
 	public final fun dispatch (Lee/schimke/composeai/rcplayer/runtime/RcPlayerEvent;)Z
-	public fun float (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public fun float (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public fun getMode ()Lee/schimke/composeai/rccreation/bridge/RcBridgeMode;
 	public final fun namedValues ()Ljava/util/Map;
-	public fun text (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteString;
+	public fun text (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteString;
 }
 

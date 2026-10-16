@@ -23,22 +23,22 @@ public final class ee/schimke/composeai/rccreation/bridge/RcDocumentBridge : ee/
 	public static final field $stable I
 	public static final field INSTANCE Lee/schimke/composeai/rccreation/bridge/RcDocumentBridge;
 	public fun HostContent (Ljava/lang/String;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;I)V
-	public fun action (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/action/Action;
-	public fun boolean (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteBoolean;
-	public fun color (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteColor;
-	public fun float (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public fun action (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/action/Action;
+	public fun boolean (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteBoolean;
+	public fun color (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteColor;
+	public fun float (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public fun getMode ()Lee/schimke/composeai/rccreation/bridge/RcBridgeMode;
-	public fun text (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteString;
+	public fun text (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteString;
 }
 
 public abstract interface class ee/schimke/composeai/rccreation/bridge/RcHostBridge {
 	public abstract fun HostContent (Ljava/lang/String;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;I)V
-	public abstract fun action (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/action/Action;
-	public abstract fun boolean (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteBoolean;
-	public abstract fun color (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteColor;
-	public abstract fun float (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public abstract fun action (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/action/Action;
+	public abstract fun boolean (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteBoolean;
+	public abstract fun color (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteColor;
+	public abstract fun float (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public abstract fun getMode ()Lee/schimke/composeai/rccreation/bridge/RcBridgeMode;
-	public abstract fun text (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)Landroidx/compose/remote/creation/compose/state/RemoteString;
+	public abstract fun text (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteString;
 }
 
 public final class ee/schimke/composeai/rccreation/bridge/RcHostBridgeKt {

@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.embedded
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.remote.creation.compose.action.hostAction
 import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
 import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocument
 import androidx.compose.remote.creation.compose.layout.RemoteBox
@@ -15,6 +16,7 @@ import androidx.compose.remote.creation.compose.modifier.fillMaxWidth
 import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rdp
+import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -43,6 +45,7 @@ import ee.schimke.composeai.rcplayer.compose.LocalRcComponentCoordinates
 import ee.schimke.composeai.rcplayer.compose.RcComponentCoordinatesListener
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
@@ -181,6 +184,43 @@ class RcEmbeddedPlayerTest {
 
     onRoot().performTouchInput { click(center) }
     waitUntil { clicks == 1 }
+  }
+
+  /**
+   * A declaration lasts as long as the call that makes it. Content under a new key that no longer
+   * bridges an action leaves its name to the host, rather than a stale handler catching it.
+   */
+  @Test
+  fun aDeclarationThatLeavesStopsProvidingItsName() = run {
+    var bridged by mutableStateOf(true)
+    var clicks = 0
+    var rendered = 0
+    val events = mutableListOf<RcPlayerEvent>()
+    setContent {
+      val declare = bridged
+      RcEmbeddedPlayer(
+        display,
+        Modifier.size(100.dp),
+        onEvent = { events += it },
+        onRendered = { rendered++ },
+        key = declare,
+      ) {
+        val bridge = LocalRcHostBridge.current
+        val action = if (declare) bridge.action("tapped") { clicks++ } else hostAction("tapped".rs)
+        RemoteBox(RemoteModifier.fillMaxSize().background(Color.Gray.rc).clickable(action))
+      }
+    }
+    waitUntil { rendered >= 1 }
+    onRoot().performTouchInput { click(center) }
+    waitUntil { clicks == 1 }
+
+    val before = rendered
+    bridged = false
+    waitUntil { rendered > before }
+    settleOffThread()
+    onRoot().performTouchInput { click(center) }
+    waitUntil { events.any { it is RcPlayerEvent.HostNamedAction } }
+    assertEquals(1, clicks)
   }
 
   @Test

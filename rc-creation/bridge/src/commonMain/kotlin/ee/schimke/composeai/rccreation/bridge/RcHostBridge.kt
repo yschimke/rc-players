@@ -31,6 +31,9 @@ import androidx.compose.ui.graphics.Color
  *   without recomposing the remote content or rebuilding the document. Handlers are called
  *   directly, and host content is real Compose drawn through a custom component.
  *
+ * Every declaration is composable and lasts as long as its call: content that stops declaring a
+ * name stops providing it.
+ *
  * Names are the whole contract. Both sides already speak them: named variables in
  * `RcComposePlayer(namedValues)`, `HostNamedAction` events, and `LAYOUT_CUSTOM` config names in
  * `RcCustomComponentRegistry`. Nothing here adds a wire concept.
@@ -41,19 +44,19 @@ public interface RcHostBridge {
   public val mode: RcBridgeMode
 
   /** A float the host owns, declared in the document as the named variable [name]. */
-  public fun float(name: String, value: () -> Float): RemoteFloat
+  @Composable public fun float(name: String, value: () -> Float): RemoteFloat
 
   /** A colour the host owns, declared in the document as the named variable [name]. */
-  public fun color(name: String, value: () -> Color): RemoteColor
+  @Composable public fun color(name: String, value: () -> Color): RemoteColor
 
   /** A string the host owns, declared in the document as the named variable [name]. */
-  public fun text(name: String, value: () -> String): RemoteString
+  @Composable public fun text(name: String, value: () -> String): RemoteString
 
   /** A boolean the host owns, declared in the document as the named variable [name]. */
-  public fun boolean(name: String, value: () -> Boolean): RemoteBoolean
+  @Composable public fun boolean(name: String, value: () -> Boolean): RemoteBoolean
 
   /** A host action. The document carries [name]; in live mode, [handler] runs when it fires. */
-  public fun action(name: String, handler: () -> Unit): Action
+  @Composable public fun action(name: String, handler: () -> Unit): Action
 
   /**
    * Host UI placed in the remote layout. Live mode draws [content] (ordinary Compose) in a custom
@@ -98,19 +101,23 @@ public fun rcBridgeName(name: String): String = RemoteState.Domain.User.prefixed
 public object RcDocumentBridge : RcHostBridge {
   override val mode: RcBridgeMode = RcBridgeMode.Document
 
+  @Composable
   override fun float(name: String, value: () -> Float): RemoteFloat =
     RemoteFloat.createNamedRemoteFloat(name, value())
 
+  @Composable
   override fun color(name: String, value: () -> Color): RemoteColor =
     RemoteColor.createNamedRemoteColor(name, value())
 
+  @Composable
   override fun text(name: String, value: () -> String): RemoteString =
     RemoteString.createNamedRemoteString(name, value())
 
+  @Composable
   override fun boolean(name: String, value: () -> Boolean): RemoteBoolean =
     RemoteBoolean.createNamedRemoteBoolean(name, value())
 
-  override fun action(name: String, handler: () -> Unit): Action = hostAction(name.rs)
+  @Composable override fun action(name: String, handler: () -> Unit): Action = hostAction(name.rs)
 
   @Composable
   @RemoteComposable

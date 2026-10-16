@@ -66,6 +66,10 @@ Each creation-side declaration already has a player-side input with the same nam
 `RcHostBridge` is the interface. `RcDocumentBridge` (the default for `LocalRcHostBridge`) is
 document mode, and `RcLiveBridge` is live mode.
 
+Every declaration is `@Composable` and lasts as long as its call is in the composition. In live mode
+a declaration registers when it enters and is removed when it leaves, so content that stops declaring
+a name (an editor deleting a node) leaves no reader, handler or host content behind.
+
 The bridging is "intelligent" in one specific way. In live mode a bridged value is read **without
 snapshot observation** inside the remote composition. A host-side change therefore never
 recomposes the remote content or rebuilds the document. A `snapshotFlow` carries it into the

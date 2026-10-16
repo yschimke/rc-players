@@ -125,9 +125,16 @@ public fun RcEmbeddedPlayer(
       val recomposer = Recomposer(coroutineContext + clock)
       val session = RemoteDocumentSession(display, recomposer, encodePng = encodePng)
       var last: RcDocument? = null
-      fun fail(error: Throwable) = report {
-        if (failedAt == null) failedAt = FailedAt(currentKey)
-        currentOnFailure(error)
+      // The key the session last composed, on the session's own thread. A failure belongs to it,
+      // not to whatever `currentKey` holds by the time the report reaches the host: if the host has
+      // moved to another key meanwhile, pinning the failure there would leave the dead session up.
+      var composedKey: Any? = null
+      fun fail(error: Throwable) {
+        val failedKey = composedKey
+        report {
+          if (failedAt == null) failedAt = FailedAt(failedKey)
+          currentOnFailure(error)
+        }
       }
       session.onChangesApplied = {
         try {
@@ -151,7 +158,7 @@ public fun RcEmbeddedPlayer(
         session.setContent {
           // Both read here, not inside the provider, so this scope (and its SideEffect)
           // recomposes with every new key or content.
-          currentKey
+          composedKey = currentKey
           val content = currentContent
           CompositionLocalProvider(LocalRcHostBridge provides bridge) { content() }
           // After the latest content is composed and applied, so after any render it caused. A

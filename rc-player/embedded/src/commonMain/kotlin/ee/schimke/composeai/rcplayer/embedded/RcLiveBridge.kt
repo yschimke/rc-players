@@ -10,10 +10,11 @@ import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,77 +46,113 @@ import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 public class RcLiveBridge : RcHostBridge {
   override val mode: RcBridgeMode = RcBridgeMode.Live
 
-  // Holders are registered once per name and updated in place, so a recomposition of the remote
-  // content that re-declares a binding does not churn the maps the player observes.
-  // The reader is snapshot state too. Rebinding a name (new content under a new `key`, capturing a
-  // plain value) replaces only the reader, and the host's `snapshotFlow` over [namedValues] has to
-  // see that, or the player keeps overriding the new document with the old value.
-  private class ValueHolder(read: () -> RcNamedValue) {
-    var read by mutableStateOf(read)
+  /**
+   * What is declared, by name, for exactly as long as the declaring call is in the composition: a
+   * declaration registers when it enters and is removed when it leaves, so content that stops
+   * declaring a name (an editor deleting a node, say) leaves nothing behind to be read or to catch
+   * an action. One name declared twice resolves to the latest declaration still present.
+   *
+   * Snapshot state, because the remote content declares on its own thread and the host reads here.
+   */
+  private class Declarations<T : Any> {
+    private val byName = mutableStateMapOf<String, List<T>>()
+
+    fun add(name: String, item: T) {
+      byName[name] = Snapshot.withoutReadObservation { byName[name].orEmpty() } + item
+    }
+
+    fun remove(name: String, item: T) {
+      val rest = Snapshot.withoutReadObservation { byName[name].orEmpty() } - item
+      if (rest.isEmpty()) byName.remove(name) else byName[name] = rest
+    }
+
+    operator fun get(name: String): T? = byName[name]?.lastOrNull()
+
+    fun latest(): Map<String, T> = byName.mapValues { it.value.last() }
   }
 
-  private class ContentHolder(content: @Composable (Modifier) -> Unit) {
-    var content by mutableStateOf(content)
-  }
+  // Each declaration is a remembered object whose behaviour reads the call's latest arguments
+  // through `rememberUpdatedState`: a recomposition that passes a new lambda (new content under a
+  // new `key`, capturing a plain value) is a snapshot write the host's `snapshotFlow` sees.
+  private class Binding(val read: () -> RcNamedValue)
 
-  private val values = mutableStateMapOf<String, ValueHolder>()
-  // Snapshot maps throughout: the remote content declares bindings on its own thread, and the host
-  // reads them on its.
-  private val handlers = mutableStateMapOf<String, () -> Unit>()
-  private val contents = mutableStateMapOf<String, ContentHolder>()
+  private class Handler(val run: () -> Unit)
+
+  private class Content(val content: State<@Composable (Modifier) -> Unit>)
+
+  private val values = Declarations<Binding>()
+  private val handlers = Declarations<Handler>()
+  private val contents = Declarations<Content>()
 
   /** Every bridged value, read now. Snapshot reads, so a `snapshotFlow` over it tracks the host. */
-  public fun namedValues(): Map<String, RcNamedValue> = values.mapValues { it.value.read() }
+  public fun namedValues(): Map<String, RcNamedValue> =
+    values.latest().mapValues { it.value.read() }
 
   /** Player events for bridged actions go to their handlers; everything else is returned. */
   public fun dispatch(event: RcPlayerEvent): Boolean {
     val name = (event as? RcPlayerEvent.HostNamedAction)?.name ?: return false
     val handler = handlers[name] ?: return false
-    handler()
+    handler.run()
     return true
   }
 
-  /** Custom-component renderers for every [HostContent] slot declared so far. */
+  /** Custom-component renderers for every [HostContent] slot currently declared. */
   public fun customComponents(): RcCustomComponentRegistry =
     RcCustomComponentRegistry(
       contents
+        .latest()
         .mapKeys { rcHostContentConfig(it.key) }
         .mapValues { (_, holder) ->
-          val content: RcCustomContent = { _, modifier -> holder.content(modifier) }
+          val content: RcCustomContent = { _, modifier -> holder.content.value(modifier) }
           content
         }
     )
 
+  @Composable
+  private fun <T : Any> Declare(declarations: Declarations<T>, name: String, item: T) {
+    DisposableEffect(declarations, name, item) {
+      declarations.add(name, item)
+      onDispose { declarations.remove(name, item) }
+    }
+  }
+
+  @Composable
   private fun bind(name: String, read: () -> RcNamedValue) {
-    val key = rcBridgeName(name)
-    val holder = Snapshot.withoutReadObservation { values[key] }
-    if (holder == null) values[key] = ValueHolder(read) else holder.read = read
+    val latest = rememberUpdatedState(read)
+    val binding = remember { Binding { latest.value() } }
+    Declare(values, rcBridgeName(name), binding)
   }
 
   private fun <T> initial(value: () -> T): T = Snapshot.withoutReadObservation(value)
 
+  @Composable
   override fun float(name: String, value: () -> Float): RemoteFloat {
     bind(name) { RcNamedValue.FloatValue(value()) }
     return RemoteFloat.createNamedRemoteFloat(name, initial(value))
   }
 
+  @Composable
   override fun color(name: String, value: () -> Color): RemoteColor {
     bind(name) { RcNamedValue.Color(value().toArgb()) }
     return RemoteColor.createNamedRemoteColor(name, initial(value))
   }
 
+  @Composable
   override fun text(name: String, value: () -> String): RemoteString {
     bind(name) { RcNamedValue.Text(value()) }
     return RemoteString.createNamedRemoteString(name, initial(value))
   }
 
+  @Composable
   override fun boolean(name: String, value: () -> Boolean): RemoteBoolean {
     bind(name) { RcNamedValue.BooleanValue(value()) }
     return RemoteBoolean.createNamedRemoteBoolean(name, initial(value))
   }
 
+  @Composable
   override fun action(name: String, handler: () -> Unit): Action {
-    Snapshot.withoutReadObservation { handlers[name] = handler }
+    val latest = rememberUpdatedState(handler)
+    Declare(handlers, name, remember { Handler { latest.value() } })
     return hostAction(name.rs)
   }
 
@@ -127,8 +164,8 @@ public class RcLiveBridge : RcHostBridge {
     fallback: @Composable @RemoteComposable () -> Unit,
     content: @Composable (Modifier) -> Unit,
   ) {
-    val holder = Snapshot.withoutReadObservation { contents[name] }
-    if (holder == null) contents[name] = ContentHolder(content) else holder.content = content
+    val latest = rememberUpdatedState(content)
+    Declare(contents, name, remember { Content(latest) })
     RcHostContentSlot(name, modifier)
   }
 }
