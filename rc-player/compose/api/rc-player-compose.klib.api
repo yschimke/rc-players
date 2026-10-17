@@ -41,6 +41,9 @@ abstract fun interface ee.schimke.composeai.rcplayer.compose/RcAnimationClock { 
 
 abstract fun interface ee.schimke.composeai.rcplayer.compose/RcComponentCoordinatesListener { // ee.schimke.composeai.rcplayer.compose/RcComponentCoordinatesListener|null[0]
     abstract fun onPositioned(kotlin/Int, androidx.compose.ui.layout/LayoutCoordinates) // ee.schimke.composeai.rcplayer.compose/RcComponentCoordinatesListener.onPositioned|onPositioned(kotlin.Int;androidx.compose.ui.layout.LayoutCoordinates){}[0]
+    open fun onClickActionAdded(kotlin/Int, kotlin/Function0<kotlin/Unit>) // ee.schimke.composeai.rcplayer.compose/RcComponentCoordinatesListener.onClickActionAdded|onClickActionAdded(kotlin.Int;kotlin.Function0<kotlin.Unit>){}[0]
+    open fun onClickActionRemoved(kotlin/Int, kotlin/Function0<kotlin/Unit>) // ee.schimke.composeai.rcplayer.compose/RcComponentCoordinatesListener.onClickActionRemoved|onClickActionRemoved(kotlin.Int;kotlin.Function0<kotlin.Unit>){}[0]
+    open fun onTextLaidOut(kotlin/Int, androidx.compose.ui.layout/LayoutCoordinates, androidx.compose.ui.text/TextLayoutResult) // ee.schimke.composeai.rcplayer.compose/RcComponentCoordinatesListener.onTextLaidOut|onTextLaidOut(kotlin.Int;androidx.compose.ui.layout.LayoutCoordinates;androidx.compose.ui.text.TextLayoutResult){}[0]
 }
 
 abstract fun interface ee.schimke.composeai.rcplayer.compose/RcDrawObserver { // ee.schimke.composeai.rcplayer.compose/RcDrawObserver|null[0]

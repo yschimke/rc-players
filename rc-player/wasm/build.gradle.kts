@@ -117,9 +117,12 @@ tasks.register<Sync>("wasmPlayerDist") {
   // branch is 31_306_221: rcPlayer.wasm adds 2_188_870 bytes, import glue adds 14_049, Skiko
   // shrinks by 21_439, and fonts are unchanged. CI measured 31_304_978 before the macro-image
   // fix. Keep approximately 256 KB of slack.
+  // Raised 31_560_000 -> 31_820_000 when the slack had worn down to nothing: the coordinates
+  // listener's text-layout and click-action reports (#684) measured 31_560_555 bytes in CI, 555
+  // over. The same ~256 KB of slack as before.
   inputs.property(
     "maximumDistributionBytes",
-    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("31560000"),
+    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("31820000"),
   )
   doLast {
     val maximumBytes = inputs.properties.getValue("maximumDistributionBytes").toString().toLong()

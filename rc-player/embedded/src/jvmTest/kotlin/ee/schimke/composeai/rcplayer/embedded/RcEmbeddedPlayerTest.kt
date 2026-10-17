@@ -6,9 +6,12 @@ import androidx.compose.remote.creation.compose.action.hostAction
 import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
 import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocument
 import androidx.compose.remote.creation.compose.layout.RemoteBox
+import androidx.compose.remote.creation.compose.layout.RemoteCollapsibleRow
 import androidx.compose.remote.creation.compose.layout.RemoteColumn
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
+import androidx.compose.remote.creation.compose.layout.RemoteFitBox
 import androidx.compose.remote.creation.compose.layout.RemoteImage
+import androidx.compose.remote.creation.compose.layout.RemoteText
 import androidx.compose.remote.creation.compose.modifier.MaxExplicitComponentId
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.modifier.background
@@ -16,11 +19,14 @@ import androidx.compose.remote.creation.compose.modifier.clickable
 import androidx.compose.remote.creation.compose.modifier.componentId
 import androidx.compose.remote.creation.compose.modifier.fillMaxSize
 import androidx.compose.remote.creation.compose.modifier.fillMaxWidth
+import androidx.compose.remote.creation.compose.modifier.padding
 import androidx.compose.remote.creation.compose.modifier.size
+import androidx.compose.remote.creation.compose.modifier.width
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.rb
 import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rdp
+import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -29,11 +35,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SkikoComposeUiTest
@@ -43,6 +51,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runSkikoComposeUiTest
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import ee.schimke.composeai.rccreation.bridge.LocalRcHostBridge
@@ -516,5 +525,279 @@ class RcEmbeddedPlayerTest {
     assertEquals(10f, bounds.getValue("first").height)
     assertEquals(10f, bounds.getValue("second").top)
     assertEquals(20f, bounds.getValue("second").height)
+  }
+
+  /**
+   * A text's lines reach the listener with the box they are laid out in, inside the component's
+   * padding, so a host can place its baselines in the root.
+   */
+  @Test
+  fun aTextComponentReportsItsLayoutInsideItsPadding() = run {
+    val ids = RcComponentIds<String>()
+    val outer = mutableMapOf<String, Rect>()
+    val baselines = mutableMapOf<String, Pair<Int, Float>>()
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      CompositionLocalProvider(
+        LocalRcComponentCoordinates provides
+          object : RcComponentCoordinatesListener {
+            override fun onPositioned(componentId: Int, coordinates: LayoutCoordinates) {
+              ids.keyFor(componentId)?.let { outer[it] = coordinates.boundsInRoot() }
+            }
+
+            override fun onTextLaidOut(
+              componentId: Int,
+              content: LayoutCoordinates,
+              layout: TextLayoutResult,
+            ) {
+              ids.keyFor(componentId)?.let {
+                baselines[it] =
+                  layout.lineCount to content.localToRoot(Offset(0f, layout.firstBaseline)).y
+              }
+            }
+          }
+      ) {
+        RcEmbeddedPlayer(display, Modifier.size(100.dp), onDocument = { documents += it }) {
+          RemoteColumn(RemoteModifier.fillMaxSize()) {
+            RemoteBox(RemoteModifier.fillMaxWidth().size(10.rdp))
+            RemoteText("Hi".rs, ids.component(RemoteModifier.padding(top = 7f.rf), "label"))
+          }
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    waitUntil { "label" in outer && "label" in baselines }
+
+    val box = outer.getValue("label")
+    val (lines, baseline) = baselines.getValue("label")
+    assertEquals(1, lines)
+    assertEquals(10f, box.top)
+    // Below the padding, and inside the component's box.
+    assertTrue(baseline > box.top + 7f && baseline < box.bottom, "baseline $baseline in $box")
+  }
+
+  /**
+   * A component's click reaches the listener as something the host can run, and running it does
+   * what a tap does; the component leaving the composition takes it back.
+   */
+  @Test
+  fun aClickableComponentHandsItsClickToTheListener() = run {
+    val ids = RcComponentIds<String>()
+    // Every click each key holds: the most recent is the one a host runs.
+    val clickActions = mutableMapOf<String, MutableList<() -> Unit>>()
+    var clicks = 0
+    var shown by mutableStateOf(true)
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      CompositionLocalProvider(
+        LocalRcComponentCoordinates provides
+          object : RcComponentCoordinatesListener {
+            override fun onPositioned(componentId: Int, coordinates: LayoutCoordinates) {}
+
+            override fun onClickActionAdded(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let {
+                clickActions.getOrPut(it) { mutableListOf() } += click
+              }
+            }
+
+            override fun onClickActionRemoved(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let { clickActions[it]?.remove(click) }
+            }
+          }
+      ) {
+        val show = shown
+        RcEmbeddedPlayer(
+          display,
+          Modifier.size(100.dp),
+          onDocument = { documents += it },
+          key = show,
+        ) {
+          val bridge = LocalRcHostBridge.current
+          RemoteColumn(RemoteModifier.fillMaxSize()) {
+            if (show) {
+              RemoteBox(
+                ids.component(
+                  RemoteModifier.size(20.rdp).clickable(bridge.action("tapped") { clicks++ }),
+                  "button",
+                )
+              )
+            }
+            RemoteBox(ids.component(RemoteModifier.size(20.rdp), "plain"))
+          }
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    waitUntil { clickActions["button"].orEmpty().isNotEmpty() }
+    assertTrue(clickActions["plain"].isNullOrEmpty(), "a component with no click reported one")
+
+    runOnUiThread { clickActions.getValue("button").last().invoke() }
+    waitUntil { clicks == 1 }
+
+    shown = false
+    awaitDocuments(documents, 2)
+    waitUntil { clickActions["button"].orEmpty().isEmpty() }
+  }
+
+  /**
+   * A FitBox composes every alternative to measure it and places only the one that fits; the others
+   * cannot be tapped, so they hand the listener no click.
+   */
+  @Test
+  fun onlyThePlacedFitBoxAlternativeHandsOverItsClick() = run {
+    val ids = RcComponentIds<String>()
+    val clickActions = mutableMapOf<String, MutableList<() -> Unit>>()
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      CompositionLocalProvider(
+        LocalRcComponentCoordinates provides
+          object : RcComponentCoordinatesListener {
+            override fun onPositioned(componentId: Int, coordinates: LayoutCoordinates) {}
+
+            override fun onClickActionAdded(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let {
+                clickActions.getOrPut(it) { mutableListOf() } += click
+              }
+            }
+
+            override fun onClickActionRemoved(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let { clickActions[it]?.remove(click) }
+            }
+          }
+      ) {
+        RcEmbeddedPlayer(display, Modifier.size(100.dp), onDocument = { documents += it }) {
+          val bridge = LocalRcHostBridge.current
+          RemoteFitBox(RemoteModifier.fillMaxSize()) {
+            // Wider than the player: measured, never placed.
+            RemoteBox(
+              ids.component(
+                RemoteModifier.size(200.rdp).clickable(bridge.action("wide") {}),
+                "wide",
+              )
+            )
+            RemoteBox(
+              ids.component(
+                RemoteModifier.size(20.rdp).clickable(bridge.action("narrow") {}),
+                "narrow",
+              )
+            )
+          }
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    waitUntil { clickActions["narrow"].orEmpty().isNotEmpty() }
+    settleOffThread()
+    assertTrue(clickActions["wide"].isNullOrEmpty(), "the alternative that did not fit has a click")
+  }
+
+  /**
+   * A collapsible row drops the child that no longer fits on a later measure; that child stays
+   * composed, so its click has to be taken back rather than left runnable.
+   */
+  @Test
+  fun aChildACollapsibleRowDropsTakesItsClickBack() = run {
+    val ids = RcComponentIds<String>()
+    val clickActions = mutableMapOf<String, MutableList<() -> Unit>>()
+    var width by mutableStateOf(100.dp)
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      CompositionLocalProvider(
+        LocalRcComponentCoordinates provides
+          object : RcComponentCoordinatesListener {
+            override fun onPositioned(componentId: Int, coordinates: LayoutCoordinates) {}
+
+            override fun onClickActionAdded(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let {
+                clickActions.getOrPut(it) { mutableListOf() } += click
+              }
+            }
+
+            override fun onClickActionRemoved(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let { clickActions[it]?.remove(click) }
+            }
+          }
+      ) {
+        RcEmbeddedPlayer(display, Modifier.size(width, 100.dp), onDocument = { documents += it }) {
+          val bridge = LocalRcHostBridge.current
+          RemoteCollapsibleRow(RemoteModifier.fillMaxSize()) {
+            RemoteBox(
+              ids.component(
+                RemoteModifier.size(40.rdp).clickable(bridge.action("kept") {}),
+                "kept",
+              )
+            )
+            // The lower priority goes first.
+            RemoteBox(
+              ids.component(
+                RemoteModifier.size(40.rdp)
+                  .collapsiblePriority(1f)
+                  .clickable(bridge.action("dropped") {}),
+                "dropped",
+              )
+            )
+          }
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    waitUntil { clickActions["dropped"].orEmpty().isNotEmpty() }
+
+    width = 60.dp
+    waitUntil { clickActions["dropped"].orEmpty().isEmpty() }
+    assertTrue(
+      clickActions["kept"].orEmpty().isNotEmpty(),
+      "the child that still fits lost its click",
+    )
+  }
+
+  /**
+   * Text a collapsible row has dropped is still composed, and re-lays out when its string changes;
+   * its last box is no longer placed, so the new layout is not reported against it.
+   */
+  @Test
+  fun droppedTextDoesNotReportItsLayout() = run {
+    val ids = RcComponentIds<String>()
+    val layouts = mutableMapOf<String, Int>()
+    var width by mutableStateOf(100.dp)
+    var label by mutableStateOf("One")
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      CompositionLocalProvider(
+        LocalRcComponentCoordinates provides
+          object : RcComponentCoordinatesListener {
+            override fun onPositioned(componentId: Int, coordinates: LayoutCoordinates) {}
+
+            override fun onTextLaidOut(
+              componentId: Int,
+              content: LayoutCoordinates,
+              layout: TextLayoutResult,
+            ) {
+              ids.keyFor(componentId)?.let { layouts[it] = (layouts[it] ?: 0) + 1 }
+            }
+          }
+      ) {
+        RcEmbeddedPlayer(display, Modifier.size(width, 100.dp), onDocument = { documents += it }) {
+          val bridge = LocalRcHostBridge.current
+          RemoteCollapsibleRow(RemoteModifier.fillMaxSize()) {
+            RemoteBox(RemoteModifier.size(40.rdp))
+            RemoteText(
+              bridge.text("label") { label },
+              ids.component(RemoteModifier.width(40.rdp).collapsiblePriority(1f), "text"),
+            )
+          }
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    waitUntil { (layouts["text"] ?: 0) > 0 }
+
+    width = 60.dp
+    waitForIdle()
+    val reported = layouts.getValue("text")
+    label = "Two, longer"
+    Thread.sleep(250)
+    waitForIdle()
+    assertEquals(reported, layouts.getValue("text"), "dropped text reported a new layout")
   }
 }

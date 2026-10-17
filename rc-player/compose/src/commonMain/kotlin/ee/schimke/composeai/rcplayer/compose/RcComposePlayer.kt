@@ -134,11 +134,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
@@ -1064,6 +1066,7 @@ private fun RenderLayoutNode(
           contentInset,
         )
         .reportComponentCoordinates(node.componentId, componentCoordinates)
+        .then(reportClickAction(node, state, componentCoordinates, collapse))
     when (node) {
       is RcLayoutNode.Root ->
         Box(
@@ -1573,19 +1576,24 @@ private fun RenderLayoutNode(
         val operation = node.operation
         val fontWeight = state.resolve(operation.fontWeight).roundToInt().coerceIn(1, 1000)
         val boldWeight = if (operation.fontStyle and 1 != 0) 700 else fontWeight
+        val lines = remember { RcTextLines() }
+        lines.gate = LocalRcPlacementGate.current
         BasicText(
           text = state.text(operation.textId).orEmpty(),
           modifier =
-            effectiveModifier.applyComponentModifiers(
-              node.modifiers,
-              state,
-              geometryIds,
-              fillMissingDimensions = false,
-              canvasOperations = null,
-              textMeasurer,
-              images,
-              theme,
-            ),
+            effectiveModifier
+              .applyComponentModifiers(
+                node.modifiers,
+                state,
+                geometryIds,
+                fillMissingDimensions = false,
+                canvasOperations = null,
+                textMeasurer,
+                images,
+                theme,
+              )
+              .reportTextLayout(node.componentId, componentCoordinates, lines),
+          onTextLayout = { lines.laidOut(it, node.componentId, componentCoordinates) },
           style =
             TextStyle(
               color =
@@ -1648,6 +1656,7 @@ private fun RenderLayoutNode(
         val variations = fontSettings.withoutFeatures()
         val fontFeatures = fontFeatureSettings(fontSettings)
         val lines = remember { RcTextLines() }
+        lines.gate = LocalRcPlacementGate.current
         val text = state.text(node.operation.textId).orEmpty()
         val overflow = properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP)
         val maxLines = androidXMaxLines(overflow, properties.intProperty(11, Int.MAX_VALUE))
@@ -1680,8 +1689,9 @@ private fun RenderLayoutNode(
                 images,
                 theme,
               )
-              .fitToLines(lines, truncatedBlock),
-          onTextLayout = { lines.result = it },
+              .fitToLines(lines, truncatedBlock)
+              .reportTextLayout(node.componentId, componentCoordinates, lines),
+          onTextLayout = { lines.laidOut(it, node.componentId, componentCoordinates) },
           style =
             TextStyle(
               color =
@@ -2038,11 +2048,18 @@ private fun RcCollapsibleLayout(
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
 ) {
+  // One gate per child, which this layout's measure opens or shuts: a child it drops stays
+  // composed (and measured) but is not placed.
+  val parentGate = LocalRcPlacementGate.current
+  val gates =
+    remember(children.size, parentGate) { List(children.size) { RcPlacementGate(parentGate) } }
   Layout(
     content = {
-      children.forEach { child ->
-        // Keep one measurable per wire child even when its visibility modifier resolves to gone.
-        RcLayoutChild(child, state, textMeasurer, images, theme)
+      children.forEachIndexed { index, child ->
+        CompositionLocalProvider(LocalRcPlacementGate provides gates[index]) {
+          // Keep one measurable per wire child even when its visibility modifier resolves to gone.
+          RcLayoutChild(child, state, textMeasurer, images, theme)
+        }
       }
     },
     modifier = modifier,
@@ -2098,6 +2115,7 @@ private fun RcCollapsibleLayout(
       if (orientation == RcCollapseOrientation.Horizontal) constraints.maxWidth
       else constraints.maxHeight
     val retained = selectCollapsibleChildren(mainSizes, priorities, maximumMain)
+    gates.forEachIndexed { index, gate -> gate.dropped = !retained[index] }
     val retainedIndices = retained.indices.filter { retained[it] }
     // A GONE child measures zero on the main axis, so it always "fits" and is always retained; it
     // still shows nothing. The container collapses when nothing it kept is visible.
@@ -2214,6 +2232,20 @@ private fun RcCollapsibleLayout(
 private class RcCollapse {
   var collapsed by mutableStateOf(false)
 }
+
+/**
+ * Whether a collapsible layout's child is dropped: still composed and measured, but not placed, so
+ * nothing in it can be tapped. Written by that layout's measure, read where a click is reported.
+ */
+private class RcPlacementGate(private val parent: RcPlacementGate?) {
+  var dropped by mutableStateOf(false)
+
+  /** Dropped here or by an enclosing collapsible layout. */
+  val hidden: Boolean
+    get() = dropped || parent?.hidden == true
+}
+
+private val LocalRcPlacementGate = compositionLocalOf<RcPlacementGate?> { null }
 
 /**
  * Makes a collapsible layout that kept nothing GONE: no space in its parent and nothing drawn,
@@ -3494,6 +3526,28 @@ internal fun RcLayoutModifiers.removingOrdered(
 /** The latest text layout of one text component, written during its own measure pass. */
 private class RcTextLines {
   var result: TextLayoutResult? = null
+
+  /** Where the text was last placed, for a host listener; only tracked when there is one. */
+  var content: LayoutCoordinates? = null
+
+  /** The collapsible placement this text sits behind, if any ([RcPlacementGate]). */
+  var gate: RcPlacementGate? = null
+
+  /**
+   * A new layout. A re-laid text keeps its box as often as not, and then no positioning callback
+   * follows, so the listener is told here too, against the box it was last placed in — unless a
+   * collapsible layout has since dropped it, when that box is no longer placed at all.
+   */
+  fun laidOut(
+    layout: TextLayoutResult,
+    componentId: Int?,
+    listener: RcComponentCoordinatesListener?,
+  ) {
+    result = layout
+    if (gate?.hidden == true) return
+    val placed = content?.takeIf { it.isAttached } ?: return
+    if (listener != null && componentId != null) listener.onTextLaidOut(componentId, placed, layout)
+  }
 }
 
 /**
@@ -3670,6 +3724,66 @@ private fun Modifier.reportComponentCoordinates(
 ): Modifier =
   if (listener == null || componentId == null) this
   else onGloballyPositioned { listener.onPositioned(componentId, it) }
+
+/**
+ * Reports a text component's layout and content box to a host listener; nothing when there is none.
+ */
+private fun Modifier.reportTextLayout(
+  componentId: Int?,
+  listener: RcComponentCoordinatesListener?,
+  lines: RcTextLines,
+): Modifier =
+  if (listener == null || componentId == null) this
+  else
+    onGloballyPositioned { coordinates ->
+      lines.content = coordinates
+      lines.result?.let { listener.onTextLaidOut(componentId, coordinates, it) }
+    }
+
+/**
+ * Hands a host listener this component's click and single-click actions as one runnable click, once
+ * this composition of it has been placed, and takes that click back when it leaves; nothing at all
+ * when there is no listener or no click.
+ *
+ * "Placed" because some compositions only measure: a `FitBox` composes every alternative to probe
+ * its size, and only the one it picks is placed and can be tapped. The returned modifier is what
+ * notices the placement. A collapsible layout that drops the component, or one of its ancestors,
+ * later takes the click back ([RcPlacementGate]).
+ */
+@Composable
+private fun reportClickAction(
+  node: RcLayoutNode,
+  state: RcPlayerState,
+  listener: RcComponentCoordinatesListener?,
+  collapse: RcCollapse?,
+): Modifier {
+  if (listener == null) return Modifier
+  val clicks =
+    node.modifiers.clicks.filter {
+      it.type == RcClickActionType.CLICK || it.type == RcClickActionType.SINGLE
+    }
+  if (clicks.isEmpty()) return Modifier
+  val componentId = node.componentId
+  val haptics = LocalHapticFeedback.current
+  var placed by remember { mutableStateOf(false) }
+  // Placed once is not placed now: a collapsible layout that kept this component can drop it on a
+  // later measure, and a collapsible that kept nothing is not placed itself.
+  val hidden = LocalRcPlacementGate.current?.hidden == true || collapse?.collapsed == true
+  if (placed && !hidden) {
+    DisposableEffect(listener, componentId, clicks, state, haptics) {
+      // What a tap runs, feedback included: a single-click block taps the keyboard haptic.
+      val click = {
+        clicks.forEach(state::executeClick)
+        if (clicks.any { it.type == RcClickActionType.SINGLE }) {
+          haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+        }
+      }
+      listener.onClickActionAdded(componentId, click)
+      onDispose { listener.onClickActionRemoved(componentId, click) }
+    }
+  }
+  return Modifier.onPlaced { placed = true }
+}
 
 private fun Modifier.inspectComponent(
   node: RcLayoutNode,

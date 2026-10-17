@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+import androidx.compose.ui.text.TextLayoutResult
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 
 /**
@@ -78,6 +79,34 @@ public val LocalRcInspection: ProvidableCompositionLocal<Boolean> = staticCompos
 @ExperimentalRcPlayerApi
 public fun interface RcComponentCoordinatesListener {
   public fun onPositioned(componentId: Int, coordinates: LayoutCoordinates)
+
+  /**
+   * A text component's [layout], with the [content] box it is laid out in: the text's own box,
+   * inside the component's padding, so `content.localToRoot(Offset(0f, layout.firstBaseline))` is
+   * the first baseline in the root. Told after every layout pass that moves the box or re-lays the
+   * text.
+   */
+  public fun onTextLaidOut(
+    componentId: Int,
+    content: LayoutCoordinates,
+    layout: TextLayoutResult,
+  ) {}
+
+  /**
+   * The component gained a [click] the host can run, as a tap on it would: its click and
+   * single-click actions, in document order. Long and double clicks are not included; they have no
+   * single-action equivalent.
+   *
+   * Paired with [onClickActionRemoved] for the same [click]. A component can be composed more than
+   * once at a time — while a new document replaces the old, say — so a component can hold several
+   * clicks at once; the most recently added one that has not been removed is the current one.
+   */
+  public fun onClickActionAdded(componentId: Int, click: () -> Unit) {}
+
+  /**
+   * A [click] told to [onClickActionAdded] is gone: its composition left, or its actions changed.
+   */
+  public fun onClickActionRemoved(componentId: Int, click: () -> Unit) {}
 }
 
 /** The [RcComponentCoordinatesListener] the player reports to; none by default. */

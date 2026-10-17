@@ -39,7 +39,16 @@ public final class ee/schimke/composeai/rcplayer/compose/RcBundledTypefaceLoader
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcComponentCoordinatesListener {
+	public fun onClickActionAdded (ILkotlin/jvm/functions/Function0;)V
+	public fun onClickActionRemoved (ILkotlin/jvm/functions/Function0;)V
 	public abstract fun onPositioned (ILandroidx/compose/ui/layout/LayoutCoordinates;)V
+	public fun onTextLaidOut (ILandroidx/compose/ui/layout/LayoutCoordinates;Landroidx/compose/ui/text/TextLayoutResult;)V
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcComponentCoordinatesListener$DefaultImpls {
+	public static fun onClickActionAdded (Lee/schimke/composeai/rcplayer/compose/RcComponentCoordinatesListener;ILkotlin/jvm/functions/Function0;)V
+	public static fun onClickActionRemoved (Lee/schimke/composeai/rcplayer/compose/RcComponentCoordinatesListener;ILkotlin/jvm/functions/Function0;)V
+	public static fun onTextLaidOut (Lee/schimke/composeai/rcplayer/compose/RcComponentCoordinatesListener;ILandroidx/compose/ui/layout/LayoutCoordinates;Landroidx/compose/ui/text/TextLayoutResult;)V
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcComposePlayerKt {
