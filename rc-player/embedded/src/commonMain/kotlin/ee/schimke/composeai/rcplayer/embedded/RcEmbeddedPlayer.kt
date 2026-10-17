@@ -32,6 +32,8 @@ import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -147,7 +149,7 @@ public fun RcEmbeddedPlayer(
           currentOnFailure(error)
         }
       }
-      session.onChangesApplied = {
+      fun renderNow() {
         try {
           val rendered = session.render(writerFor(display))
           val next = RcDocumentCodec.decode(rendered.encodeToByteArray())
@@ -174,19 +176,50 @@ public fun RcEmbeddedPlayer(
           fail(error)
         }
       }
-      try {
-        session.setContent {
-          // Read here, not inside the provider, so this scope (and its SideEffect) recomposes
-          // with every new key or content.
-          val input = currentInput
-          composedKey = input.key
-          val content = input.content
-          CompositionLocalProvider(LocalRcHostBridge provides bridge) { content() }
-          // After the latest content is composed and applied, so after any render it caused. A
-          // recomposition that changes no node renders nothing, and is reported all the same.
-          SideEffect { if (!renderFailed) report { currentOnRendered() } }
+      session.onChangesApplied = ::renderNow
+      // A state read only while rendering (in a `RemoteCanvas` draw lambda, say) applies nothing
+      // when it changes. It is re-rendered once the recomposer is idle: a change that composition
+      // reads too is rendered by its apply, which leaves nothing to render here.
+      val renderRequests = Channel<Unit>(Channel.CONFLATED)
+      session.onRenderInputsChanged = { renderRequests.trySend(Unit) }
+      launch {
+        for (request in renderRequests) {
+          recomposer.currentState.first { it <= Recomposer.State.Idle }
+          if (session.renderInputsChanged) renderNow()
         }
-        withContext(clock) { recomposer.runRecomposeAndApplyChanges() }
+      }
+      try {
+        // The recomposer runs before the content is set: content composed before it started was
+        // composed again as soon as it did, and rendered twice.
+        var initialFailure: Throwable? = null
+        launch {
+          try {
+            session.setContent {
+              // Read here, not inside the provider, so this scope (and its SideEffect) recomposes
+              // with every new key or content.
+              val input = currentInput
+              composedKey = input.key
+              val content = input.content
+              CompositionLocalProvider(LocalRcHostBridge provides bridge) { content() }
+              // After the latest content is composed and applied, so after any render it caused.
+              // A recomposition that changes no node renders nothing, and is reported all the same.
+              SideEffect { if (!renderFailed) report { currentOnRendered() } }
+            }
+          } catch (cancelled: CancellationException) {
+            throw cancelled
+          } catch (error: Throwable) {
+            initialFailure = error
+            recomposer.cancel()
+          }
+        }
+        try {
+          withContext(clock) { recomposer.runRecomposeAndApplyChanges() }
+        } catch (cancelled: CancellationException) {
+          // Cancelled for the content's own failure, which is reported below; otherwise the
+          // session is being torn down.
+          if (initialFailure == null) throw cancelled
+        }
+        initialFailure?.let { throw it }
       } catch (cancelled: CancellationException) {
         throw cancelled
       } catch (error: Throwable) {
@@ -200,6 +233,7 @@ public fun RcEmbeddedPlayer(
         // Disposing clears the tree, and the applier reports that like any other change:
         // rendered, it would replace the last good document with an empty one.
         session.onChangesApplied = null
+        renderRequests.close()
         session.dispose()
         recomposer.cancel()
       }
@@ -218,13 +252,22 @@ public fun RcEmbeddedPlayer(
       }
   }
 
+  // One lambda for as long as the bridge is the same, reading the host's latest callback: with the
+  // registry also cached, a host recomposing for its own reasons hands the player only arguments it
+  // already has, and the player skips.
+  val currentOnEvent by rememberUpdatedState(onEvent)
+  val dispatch =
+    remember(played) {
+      { event: RcPlayerEvent -> if (!played.dispatch(event)) currentOnEvent(event) }
+    }
+
   val current = document ?: return
   RcComposePlayer(
     current,
     modifier = modifier,
     theme = theme,
     namedValues = namedValues,
-    onEvent = { event -> if (!played.dispatch(event)) onEvent(event) },
+    onEvent = dispatch,
     typefaces = typefaces,
     customComponents = played.customComponents(),
   )

@@ -124,7 +124,7 @@ to offer upstream, and the list is meant to shrink.
 | Where | What | Why |
 | --- | --- | --- |
 | `capture/CaptureRemoteDocument.common.kt` | `captureCommonRemoteDocumentInto(writer, …)`; the byte path calls it | Capture into any `RemoteWriter` |
-| `capture/RemoteDocumentSession.kt` (new) | A composition kept alive under a host `CompositionContext`, re-rendered into a fresh writer on demand | The live, in-process path. It mirrors upstream's Android `captureRemoteDocument` loop. |
+| `capture/RemoteDocumentSession.kt` (new) | A composition kept alive under a host `CompositionContext`, re-rendered into a fresh writer on demand; reports when a state its last render read changes (`onRenderInputsChanged`) | The live, in-process path. It mirrors upstream's Android `captureRemoteDocument` loop, including its `RenderInvalidationTracker`. |
 | `capture/CommonCreationState.kt` | `writer` settable (internal); `resetComponentIds()` | A session renders each frame into a fresh writer. Without the reset, every render renumbers every component (upstream has the same drift). |
 | `layout/RemoteComposeApplier.kt` | `onChangesApplied` | Tells a session when to re-render |
 | `modifier/ComponentIdModifier.kt` (new), `layout/RemoteComposeNode.kt`, `capture/CommonCreationState.kt`, `modifier/RemoteModifier.kt` | `RemoteModifier.componentId(id)`: a node takes a requested component id (at most `MaxExplicitComponentId`, -2,000,000, below both ranges a document allocates) instead of a positional one, once per render | Lets a host name components: an editor maps the player's geometry back to its own nodes (`RcComponentIds` in `:rc-creation-bridge`) |

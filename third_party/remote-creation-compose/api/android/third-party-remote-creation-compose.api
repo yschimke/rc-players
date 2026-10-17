@@ -212,9 +212,12 @@ public final class androidx/compose/remote/creation/compose/capture/RemoteDocume
 	public final fun dispose ()V
 	public final fun getChangeCount ()J
 	public final fun getOnChangesApplied ()Lkotlin/jvm/functions/Function0;
+	public final fun getOnRenderInputsChanged ()Lkotlin/jvm/functions/Function0;
+	public final fun getRenderInputsChanged ()Z
 	public final fun render (Landroidx/compose/remote/creation/common/RemoteWriter;)Landroidx/compose/remote/creation/common/RemoteWriter;
 	public final fun setContent (Lkotlin/jvm/functions/Function2;)V
 	public final fun setOnChangesApplied (Lkotlin/jvm/functions/Function0;)V
+	public final fun setOnRenderInputsChanged (Lkotlin/jvm/functions/Function0;)V
 }
 
 public final class androidx/compose/remote/creation/compose/capture/RemoteImageVector {

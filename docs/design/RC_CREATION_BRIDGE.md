@@ -105,7 +105,7 @@ still worth doing, because it would retire the second encoder. It is a cleanup, 
 
 ## What the tests prove
 
-`RcEmbeddedPlayerTest` (JVM, Skiko UI test) covers eight behaviours, including:
+`RcEmbeddedPlayerTest` (JVM, Skiko UI test) covers the bridge and the session's lifecycle, including:
 
 - **`aBridgedValueReachesThePlayerWithoutANewDocument`**: a host colour change shows in the
   player's pixels, and exactly one document was ever produced.
@@ -120,6 +120,24 @@ still worth doing, because it would retire the second encoder. It is a cleanup, 
   last good document stays up, and the next `key` recovers.
 - **`contentCapturingAHostValueFollowsItsKey`**: content capturing a plain host value is recomposed
   when its `key` changes.
+
+`RcEmbeddedPlayerRecompositionTest` covers every kind of recomposition the session follows, after
+AndroidX's `CaptureRemoteDocumentRecompositionTest` for the streaming capture. Each new document is
+compared with a fresh capture of the same content, and renders are counted by a `RemoteCanvas` draw
+lambda, because comparing documents would hide a render that changed nothing:
+
+| Recomposition | Expected |
+| --- | --- |
+| A state read in composition | a new document |
+| A state an effect in the remote content writes | a new document per change |
+| A flow collected in the remote content (no manual apply notification) | a new document |
+| A state read only while rendering (a `RemoteCanvas` draw lambda) | a new document |
+| A write nothing reads | no render |
+| A recomposition that applies nothing | no render, no document |
+| Writes applied in one snapshot | one document |
+| Keyed children moved or removed | a document equal to a fresh capture |
+| An edit beside `remember`ed state | the state survives (one composition, not a capture per edit) |
+| The host recomposing for its own reasons, same content and key | nothing inside recomposes |
 
 The fork, `rc-creation-bridge` and `rc-player-embedded` compile for JVM, Wasm and Android. The Apple
 targets are declared but not built here, because they need a macOS host.
@@ -159,6 +177,13 @@ The UI builder integration settled four things the unit tests alone did not:
 - **Key and content as one state.** The host updates a composable lambda's body in place, so the
   remote composition can run a new edit's content before it sees the new key. Key and content are
   handed over together, and a failure is pinned to the key the session composed.
+- **Recompose like Compose UI, render only on change.** There is no throttle: the session follows
+  every change as an ordinary composition would. It renders when an apply changed the tree, or when
+  a state the last render read changed (a `RemoteCanvas` draw lambda runs at render time, so a state
+  read only there applies nothing); upstream's streaming capture decides the same way. A
+  recomposition that applies nothing renders nothing.
+- **The recomposer runs before the content is set.** Content composed while the recomposer was not
+  yet running was composed again as soon as it started, and rendered twice.
 - **Dispose quietly.** Disposing the session clears the tree, which the applier reports as a change.
   The change hook is detached first, or a dead session would replace the last good document with an
   empty one.
