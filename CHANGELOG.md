@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.14.0](https://github.com/yschimke/rc-players/compare/v2.13.1...v2.14.0) (2026-10-17)
+
+
+### Features
+
+* let a host pause a player's never-ending frame loops ([#681](https://github.com/yschimke/rc-players/issues/681)) ([65476d9](https://github.com/yschimke/rc-players/commit/65476d9cfd3677baf4a7717640fc0597976aa3de))
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.18.5 ([#677](https://github.com/yschimke/rc-players/issues/677)) ([0b7a148](https://github.com/yschimke/rc-players/commit/0b7a1486837a6aa47943299f8b282024062d4bdb))
+* re-render the live session for render-time reads, and skip redundant work ([#679](https://github.com/yschimke/rc-players/issues/679)) ([009d5d9](https://github.com/yschimke/rc-players/commit/009d5d9c0c90457cd27c1d852c6290a0aca0b1bd))
+
 ## [2.13.1](https://github.com/yschimke/rc-players/compare/v2.13.0...v2.13.1) (2026-10-16)
 
 
