@@ -21,6 +21,7 @@ import androidx.compose.remote.creation.compose.modifier.fillMaxSize
 import androidx.compose.remote.creation.compose.modifier.fillMaxWidth
 import androidx.compose.remote.creation.compose.modifier.padding
 import androidx.compose.remote.creation.compose.modifier.size
+import androidx.compose.remote.creation.compose.modifier.width
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.rb
 import androidx.compose.remote.creation.compose.state.rc
@@ -748,5 +749,55 @@ class RcEmbeddedPlayerTest {
       clickActions["kept"].orEmpty().isNotEmpty(),
       "the child that still fits lost its click",
     )
+  }
+
+  /**
+   * Text a collapsible row has dropped is still composed, and re-lays out when its string changes;
+   * its last box is no longer placed, so the new layout is not reported against it.
+   */
+  @Test
+  fun droppedTextDoesNotReportItsLayout() = run {
+    val ids = RcComponentIds<String>()
+    val layouts = mutableMapOf<String, Int>()
+    var width by mutableStateOf(100.dp)
+    var label by mutableStateOf("One")
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      CompositionLocalProvider(
+        LocalRcComponentCoordinates provides
+          object : RcComponentCoordinatesListener {
+            override fun onPositioned(componentId: Int, coordinates: LayoutCoordinates) {}
+
+            override fun onTextLaidOut(
+              componentId: Int,
+              content: LayoutCoordinates,
+              layout: TextLayoutResult,
+            ) {
+              ids.keyFor(componentId)?.let { layouts[it] = (layouts[it] ?: 0) + 1 }
+            }
+          }
+      ) {
+        RcEmbeddedPlayer(display, Modifier.size(width, 100.dp), onDocument = { documents += it }) {
+          val bridge = LocalRcHostBridge.current
+          RemoteCollapsibleRow(RemoteModifier.fillMaxSize()) {
+            RemoteBox(RemoteModifier.size(40.rdp))
+            RemoteText(
+              bridge.text("label") { label },
+              ids.component(RemoteModifier.width(40.rdp).collapsiblePriority(1f), "text"),
+            )
+          }
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    waitUntil { (layouts["text"] ?: 0) > 0 }
+
+    width = 60.dp
+    waitForIdle()
+    val reported = layouts.getValue("text")
+    label = "Two, longer"
+    Thread.sleep(250)
+    waitForIdle()
+    assertEquals(reported, layouts.getValue("text"), "dropped text reported a new layout")
   }
 }

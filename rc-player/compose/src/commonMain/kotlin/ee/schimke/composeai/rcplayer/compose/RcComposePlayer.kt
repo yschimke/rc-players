@@ -1577,6 +1577,7 @@ private fun RenderLayoutNode(
         val fontWeight = state.resolve(operation.fontWeight).roundToInt().coerceIn(1, 1000)
         val boldWeight = if (operation.fontStyle and 1 != 0) 700 else fontWeight
         val lines = remember { RcTextLines() }
+        lines.gate = LocalRcPlacementGate.current
         BasicText(
           text = state.text(operation.textId).orEmpty(),
           modifier =
@@ -1655,6 +1656,7 @@ private fun RenderLayoutNode(
         val variations = fontSettings.withoutFeatures()
         val fontFeatures = fontFeatureSettings(fontSettings)
         val lines = remember { RcTextLines() }
+        lines.gate = LocalRcPlacementGate.current
         val text = state.text(node.operation.textId).orEmpty()
         val overflow = properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP)
         val maxLines = androidXMaxLines(overflow, properties.intProperty(11, Int.MAX_VALUE))
@@ -3528,9 +3530,13 @@ private class RcTextLines {
   /** Where the text was last placed, for a host listener; only tracked when there is one. */
   var content: LayoutCoordinates? = null
 
+  /** The collapsible placement this text sits behind, if any ([RcPlacementGate]). */
+  var gate: RcPlacementGate? = null
+
   /**
    * A new layout. A re-laid text keeps its box as often as not, and then no positioning callback
-   * follows, so the listener is told here too, against the box it was last placed in.
+   * follows, so the listener is told here too, against the box it was last placed in — unless a
+   * collapsible layout has since dropped it, when that box is no longer placed at all.
    */
   fun laidOut(
     layout: TextLayoutResult,
@@ -3538,6 +3544,7 @@ private class RcTextLines {
     listener: RcComponentCoordinatesListener?,
   ) {
     result = layout
+    if (gate?.hidden == true) return
     val placed = content?.takeIf { it.isAttached } ?: return
     if (listener != null && componentId != null) listener.onTextLaidOut(componentId, placed, layout)
   }
