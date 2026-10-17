@@ -6,6 +6,7 @@ import androidx.compose.remote.creation.compose.action.hostAction
 import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
 import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocument
 import androidx.compose.remote.creation.compose.layout.RemoteBox
+import androidx.compose.remote.creation.compose.layout.RemoteCollapsibleRow
 import androidx.compose.remote.creation.compose.layout.RemoteColumn
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.remote.creation.compose.layout.RemoteFitBox
@@ -687,5 +688,65 @@ class RcEmbeddedPlayerTest {
     waitUntil { clickActions["narrow"].orEmpty().isNotEmpty() }
     settleOffThread()
     assertTrue(clickActions["wide"].isNullOrEmpty(), "the alternative that did not fit has a click")
+  }
+
+  /**
+   * A collapsible row drops the child that no longer fits on a later measure; that child stays
+   * composed, so its click has to be taken back rather than left runnable.
+   */
+  @Test
+  fun aChildACollapsibleRowDropsTakesItsClickBack() = run {
+    val ids = RcComponentIds<String>()
+    val clickActions = mutableMapOf<String, MutableList<() -> Unit>>()
+    var width by mutableStateOf(100.dp)
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      CompositionLocalProvider(
+        LocalRcComponentCoordinates provides
+          object : RcComponentCoordinatesListener {
+            override fun onPositioned(componentId: Int, coordinates: LayoutCoordinates) {}
+
+            override fun onClickActionAdded(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let {
+                clickActions.getOrPut(it) { mutableListOf() } += click
+              }
+            }
+
+            override fun onClickActionRemoved(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let { clickActions[it]?.remove(click) }
+            }
+          }
+      ) {
+        RcEmbeddedPlayer(display, Modifier.size(width, 100.dp), onDocument = { documents += it }) {
+          val bridge = LocalRcHostBridge.current
+          RemoteCollapsibleRow(RemoteModifier.fillMaxSize()) {
+            RemoteBox(
+              ids.component(
+                RemoteModifier.size(40.rdp).clickable(bridge.action("kept") {}),
+                "kept",
+              )
+            )
+            // The lower priority goes first.
+            RemoteBox(
+              ids.component(
+                RemoteModifier.size(40.rdp)
+                  .collapsiblePriority(1f)
+                  .clickable(bridge.action("dropped") {}),
+                "dropped",
+              )
+            )
+          }
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    waitUntil { clickActions["dropped"].orEmpty().isNotEmpty() }
+
+    width = 60.dp
+    waitUntil { clickActions["dropped"].orEmpty().isEmpty() }
+    assertTrue(
+      clickActions["kept"].orEmpty().isNotEmpty(),
+      "the child that still fits lost its click",
+    )
   }
 }

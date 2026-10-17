@@ -1066,7 +1066,7 @@ private fun RenderLayoutNode(
           contentInset,
         )
         .reportComponentCoordinates(node.componentId, componentCoordinates)
-        .then(reportClickAction(node, state, componentCoordinates))
+        .then(reportClickAction(node, state, componentCoordinates, collapse))
     when (node) {
       is RcLayoutNode.Root ->
         Box(
@@ -2046,11 +2046,18 @@ private fun RcCollapsibleLayout(
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
 ) {
+  // One gate per child, which this layout's measure opens or shuts: a child it drops stays
+  // composed (and measured) but is not placed.
+  val parentGate = LocalRcPlacementGate.current
+  val gates =
+    remember(children.size, parentGate) { List(children.size) { RcPlacementGate(parentGate) } }
   Layout(
     content = {
-      children.forEach { child ->
-        // Keep one measurable per wire child even when its visibility modifier resolves to gone.
-        RcLayoutChild(child, state, textMeasurer, images, theme)
+      children.forEachIndexed { index, child ->
+        CompositionLocalProvider(LocalRcPlacementGate provides gates[index]) {
+          // Keep one measurable per wire child even when its visibility modifier resolves to gone.
+          RcLayoutChild(child, state, textMeasurer, images, theme)
+        }
       }
     },
     modifier = modifier,
@@ -2106,6 +2113,7 @@ private fun RcCollapsibleLayout(
       if (orientation == RcCollapseOrientation.Horizontal) constraints.maxWidth
       else constraints.maxHeight
     val retained = selectCollapsibleChildren(mainSizes, priorities, maximumMain)
+    gates.forEachIndexed { index, gate -> gate.dropped = !retained[index] }
     val retainedIndices = retained.indices.filter { retained[it] }
     // A GONE child measures zero on the main axis, so it always "fits" and is always retained; it
     // still shows nothing. The container collapses when nothing it kept is visible.
@@ -2222,6 +2230,20 @@ private fun RcCollapsibleLayout(
 private class RcCollapse {
   var collapsed by mutableStateOf(false)
 }
+
+/**
+ * Whether a collapsible layout's child is dropped: still composed and measured, but not placed, so
+ * nothing in it can be tapped. Written by that layout's measure, read where a click is reported.
+ */
+private class RcPlacementGate(private val parent: RcPlacementGate?) {
+  var dropped by mutableStateOf(false)
+
+  /** Dropped here or by an enclosing collapsible layout. */
+  val hidden: Boolean
+    get() = dropped || parent?.hidden == true
+}
+
+private val LocalRcPlacementGate = compositionLocalOf<RcPlacementGate?> { null }
 
 /**
  * Makes a collapsible layout that kept nothing GONE: no space in its parent and nothing drawn,
@@ -3718,13 +3740,15 @@ private fun Modifier.reportTextLayout(
  *
  * "Placed" because some compositions only measure: a `FitBox` composes every alternative to probe
  * its size, and only the one it picks is placed and can be tapped. The returned modifier is what
- * notices the placement.
+ * notices the placement. A collapsible layout that drops the component, or one of its ancestors,
+ * later takes the click back ([RcPlacementGate]).
  */
 @Composable
 private fun reportClickAction(
   node: RcLayoutNode,
   state: RcPlayerState,
   listener: RcComponentCoordinatesListener?,
+  collapse: RcCollapse?,
 ): Modifier {
   if (listener == null) return Modifier
   val clicks =
@@ -3735,7 +3759,10 @@ private fun reportClickAction(
   val componentId = node.componentId
   val haptics = LocalHapticFeedback.current
   var placed by remember { mutableStateOf(false) }
-  if (placed) {
+  // Placed once is not placed now: a collapsible layout that kept this component can drop it on a
+  // later measure, and a collapsible that kept nothing is not placed itself.
+  val hidden = LocalRcPlacementGate.current?.hidden == true || collapse?.collapsed == true
+  if (placed && !hidden) {
     DisposableEffect(listener, componentId, clicks, state, haptics) {
       // What a tap runs, feedback included: a single-click block taps the keyboard haptic.
       val click = {
