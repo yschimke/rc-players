@@ -93,12 +93,20 @@ public fun interface RcComponentCoordinatesListener {
   ) {}
 
   /**
-   * The component's click as something the host can run, as a tap on it would: its click and
-   * single-click actions, in document order. Told when the component enters the composition with
-   * any and whenever they change, and told `null` when it leaves or loses them. Long and double
-   * clicks are not included; they have no single-action equivalent.
+   * The component gained a [click] the host can run, as a tap on it would: its click and
+   * single-click actions, in document order. Long and double clicks are not included; they have no
+   * single-action equivalent.
+   *
+   * Paired with [onClickActionRemoved] for the same [click]. A component can be composed more than
+   * once at a time — while a new document replaces the old, say — so a component can hold several
+   * clicks at once; the most recently added one that has not been removed is the current one.
    */
-  public fun onClickAction(componentId: Int, click: (() -> Unit)?) {}
+  public fun onClickActionAdded(componentId: Int, click: () -> Unit) {}
+
+  /**
+   * A [click] told to [onClickActionAdded] is gone: its composition left, or its actions changed.
+   */
+  public fun onClickActionRemoved(componentId: Int, click: () -> Unit) {}
 }
 
 /** The [RcComponentCoordinatesListener] the player reports to; none by default. */

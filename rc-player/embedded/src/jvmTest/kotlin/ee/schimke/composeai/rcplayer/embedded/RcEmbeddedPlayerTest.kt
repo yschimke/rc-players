@@ -580,7 +580,8 @@ class RcEmbeddedPlayerTest {
   @Test
   fun aClickableComponentHandsItsClickToTheListener() = run {
     val ids = RcComponentIds<String>()
-    val clickActions = mutableMapOf<String, (() -> Unit)?>()
+    // Every click each key holds: the most recent is the one a host runs.
+    val clickActions = mutableMapOf<String, MutableList<() -> Unit>>()
     var clicks = 0
     var shown by mutableStateOf(true)
     val documents = mutableListOf<RcDocument>()
@@ -590,8 +591,14 @@ class RcEmbeddedPlayerTest {
           object : RcComponentCoordinatesListener {
             override fun onPositioned(componentId: Int, coordinates: LayoutCoordinates) {}
 
-            override fun onClickAction(componentId: Int, click: (() -> Unit)?) {
-              ids.keyFor(componentId)?.let { clickActions[it] = click }
+            override fun onClickActionAdded(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let {
+                clickActions.getOrPut(it) { mutableListOf() } += click
+              }
+            }
+
+            override fun onClickActionRemoved(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let { clickActions[it]?.remove(click) }
             }
           }
       ) {
@@ -618,14 +625,14 @@ class RcEmbeddedPlayerTest {
       }
     }
     awaitDocuments(documents, 1)
-    waitUntil { clickActions["button"] != null }
-    assertTrue("plain" !in clickActions, "a component with no click reported one")
+    waitUntil { clickActions["button"].orEmpty().isNotEmpty() }
+    assertTrue(clickActions["plain"].isNullOrEmpty(), "a component with no click reported one")
 
-    runOnUiThread { clickActions.getValue("button")!!.invoke() }
+    runOnUiThread { clickActions.getValue("button").last().invoke() }
     waitUntil { clicks == 1 }
 
     shown = false
     awaitDocuments(documents, 2)
-    waitUntil { clickActions["button"] == null }
+    waitUntil { clickActions["button"].orEmpty().isEmpty() }
   }
 }

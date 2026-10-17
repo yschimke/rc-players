@@ -3712,7 +3712,8 @@ private fun Modifier.reportTextLayout(
 
 /**
  * Hands a host listener this component's click and single-click actions as one runnable click, and
- * takes it back when the component leaves; nothing at all when there is no listener or no click.
+ * takes that click back when this composition of it leaves; nothing at all when there is no
+ * listener or no click.
  */
 @Composable
 private fun ReportClickAction(
@@ -3728,8 +3729,9 @@ private fun ReportClickAction(
     }
   if (clicks.isEmpty()) return
   DisposableEffect(listener, componentId, clicks, state) {
-    listener.onClickAction(componentId) { clicks.forEach(state::executeClick) }
-    onDispose { listener.onClickAction(componentId, null) }
+    val click = { clicks.forEach(state::executeClick) }
+    listener.onClickActionAdded(componentId, click)
+    onDispose { listener.onClickActionRemoved(componentId, click) }
   }
 }
 
