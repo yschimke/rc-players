@@ -781,10 +781,10 @@ class RcEmbeddedPlayerTest {
           val bridge = LocalRcHostBridge.current
           RemoteCollapsibleRow(RemoteModifier.fillMaxSize()) {
             RemoteBox(RemoteModifier.size(40.rdp))
-            RemoteText(
-              bridge.text("label") { label },
-              ids.component(RemoteModifier.width(40.rdp).collapsiblePriority(1f), "text"),
-            )
+            // The lower priority goes first, and the text with it.
+            RemoteBox(RemoteModifier.size(40.rdp).collapsiblePriority(1f)) {
+              RemoteText(bridge.text("label") { label }, ids.component(RemoteModifier, "text"))
+            }
           }
         }
       }
@@ -792,12 +792,56 @@ class RcEmbeddedPlayerTest {
     awaitDocuments(documents, 1)
     waitUntil { (layouts["text"] ?: 0) > 0 }
 
-    width = 60.dp
+    // Both in one frame: the text re-lays out in the very pass that starts dropping it. The row
+    // animates to its new width, and the text is visible, and reported, until it no longer fits.
+    runOnUiThread {
+      width = 60.dp
+      label = "Two, longer"
+    }
+    Thread.sleep(500)
     waitForIdle()
-    val reported = layouts.getValue("text")
-    label = "Two, longer"
+    val settled = layouts.getValue("text")
+    label = "Three"
     Thread.sleep(250)
     waitForIdle()
-    assertEquals(reported, layouts.getValue("text"), "dropped text reported a new layout")
+    assertEquals(settled, layouts.getValue("text"), "dropped text reported a new layout")
+  }
+
+  /** A text whose string changes inside a box of fixed size is told again, with its new lines. */
+  @Test
+  fun aReLaidTextInAnUnchangedBoxReportsItsNewLayout() = run {
+    val ids = RcComponentIds<String>()
+    val lines = mutableMapOf<String, Int>()
+    var label by mutableStateOf("One")
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      CompositionLocalProvider(
+        LocalRcComponentCoordinates provides
+          object : RcComponentCoordinatesListener {
+            override fun onPositioned(componentId: Int, coordinates: LayoutCoordinates) {}
+
+            override fun onTextLaidOut(
+              componentId: Int,
+              content: LayoutCoordinates,
+              layout: TextLayoutResult,
+            ) {
+              ids.keyFor(componentId)?.let { lines[it] = layout.lineCount }
+            }
+          }
+      ) {
+        RcEmbeddedPlayer(display, Modifier.size(100.dp), onDocument = { documents += it }) {
+          val bridge = LocalRcHostBridge.current
+          RemoteText(
+            bridge.text("label") { label },
+            ids.component(RemoteModifier.size(60.rdp), "text"),
+          )
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    waitUntil { lines["text"] == 1 }
+
+    label = "One two three four five six seven"
+    waitUntil { (lines["text"] ?: 0) > 1 }
   }
 }
