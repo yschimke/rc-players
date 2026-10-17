@@ -140,6 +140,7 @@ import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
@@ -1065,7 +1066,7 @@ private fun RenderLayoutNode(
           contentInset,
         )
         .reportComponentCoordinates(node.componentId, componentCoordinates)
-    ReportClickAction(node, state, componentCoordinates)
+        .then(reportClickAction(node, state, componentCoordinates))
     when (node) {
       is RcLayoutNode.Root ->
         Box(
@@ -3711,28 +3712,43 @@ private fun Modifier.reportTextLayout(
     }
 
 /**
- * Hands a host listener this component's click and single-click actions as one runnable click, and
- * takes that click back when this composition of it leaves; nothing at all when there is no
- * listener or no click.
+ * Hands a host listener this component's click and single-click actions as one runnable click, once
+ * this composition of it has been placed, and takes that click back when it leaves; nothing at all
+ * when there is no listener or no click.
+ *
+ * "Placed" because some compositions only measure: a `FitBox` composes every alternative to probe
+ * its size, and only the one it picks is placed and can be tapped. The returned modifier is what
+ * notices the placement.
  */
 @Composable
-private fun ReportClickAction(
+private fun reportClickAction(
   node: RcLayoutNode,
   state: RcPlayerState,
   listener: RcComponentCoordinatesListener?,
-) {
-  if (listener == null) return
-  val componentId = node.componentId
+): Modifier {
+  if (listener == null) return Modifier
   val clicks =
     node.modifiers.clicks.filter {
       it.type == RcClickActionType.CLICK || it.type == RcClickActionType.SINGLE
     }
-  if (clicks.isEmpty()) return
-  DisposableEffect(listener, componentId, clicks, state) {
-    val click = { clicks.forEach(state::executeClick) }
-    listener.onClickActionAdded(componentId, click)
-    onDispose { listener.onClickActionRemoved(componentId, click) }
+  if (clicks.isEmpty()) return Modifier
+  val componentId = node.componentId
+  val haptics = LocalHapticFeedback.current
+  var placed by remember { mutableStateOf(false) }
+  if (placed) {
+    DisposableEffect(listener, componentId, clicks, state, haptics) {
+      // What a tap runs, feedback included: a single-click block taps the keyboard haptic.
+      val click = {
+        clicks.forEach(state::executeClick)
+        if (clicks.any { it.type == RcClickActionType.SINGLE }) {
+          haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+        }
+      }
+      listener.onClickActionAdded(componentId, click)
+      onDispose { listener.onClickActionRemoved(componentId, click) }
+    }
   }
+  return Modifier.onPlaced { placed = true }
 }
 
 private fun Modifier.inspectComponent(

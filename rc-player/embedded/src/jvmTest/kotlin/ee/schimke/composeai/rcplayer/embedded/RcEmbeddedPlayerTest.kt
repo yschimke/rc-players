@@ -8,6 +8,7 @@ import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocum
 import androidx.compose.remote.creation.compose.layout.RemoteBox
 import androidx.compose.remote.creation.compose.layout.RemoteColumn
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
+import androidx.compose.remote.creation.compose.layout.RemoteFitBox
 import androidx.compose.remote.creation.compose.layout.RemoteImage
 import androidx.compose.remote.creation.compose.layout.RemoteText
 import androidx.compose.remote.creation.compose.modifier.MaxExplicitComponentId
@@ -634,5 +635,57 @@ class RcEmbeddedPlayerTest {
     shown = false
     awaitDocuments(documents, 2)
     waitUntil { clickActions["button"].orEmpty().isEmpty() }
+  }
+
+  /**
+   * A FitBox composes every alternative to measure it and places only the one that fits; the others
+   * cannot be tapped, so they hand the listener no click.
+   */
+  @Test
+  fun onlyThePlacedFitBoxAlternativeHandsOverItsClick() = run {
+    val ids = RcComponentIds<String>()
+    val clickActions = mutableMapOf<String, MutableList<() -> Unit>>()
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      CompositionLocalProvider(
+        LocalRcComponentCoordinates provides
+          object : RcComponentCoordinatesListener {
+            override fun onPositioned(componentId: Int, coordinates: LayoutCoordinates) {}
+
+            override fun onClickActionAdded(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let {
+                clickActions.getOrPut(it) { mutableListOf() } += click
+              }
+            }
+
+            override fun onClickActionRemoved(componentId: Int, click: () -> Unit) {
+              ids.keyFor(componentId)?.let { clickActions[it]?.remove(click) }
+            }
+          }
+      ) {
+        RcEmbeddedPlayer(display, Modifier.size(100.dp), onDocument = { documents += it }) {
+          val bridge = LocalRcHostBridge.current
+          RemoteFitBox(RemoteModifier.fillMaxSize()) {
+            // Wider than the player: measured, never placed.
+            RemoteBox(
+              ids.component(
+                RemoteModifier.size(200.rdp).clickable(bridge.action("wide") {}),
+                "wide",
+              )
+            )
+            RemoteBox(
+              ids.component(
+                RemoteModifier.size(20.rdp).clickable(bridge.action("narrow") {}),
+                "narrow",
+              )
+            )
+          }
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    waitUntil { clickActions["narrow"].orEmpty().isNotEmpty() }
+    settleOffThread()
+    assertTrue(clickActions["wide"].isNullOrEmpty(), "the alternative that did not fit has a click")
   }
 }
