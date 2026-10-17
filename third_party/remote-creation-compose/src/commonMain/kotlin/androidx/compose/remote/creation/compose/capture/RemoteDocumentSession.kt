@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import kotlin.concurrent.Volatile
 
 /**
  * LOCAL PATCH (rc-players): a remote composition that stays alive across edits.
@@ -63,6 +64,34 @@ public class RemoteDocumentSession(
             applier.onChangesApplied = value
         }
 
+    /**
+     * Called when a state the last [render] read has changed, on whichever thread applied it. A
+     * `RemoteCanvas` draw lambda runs at render time, so a state read only there changes no node
+     * and applies nothing, yet the document it drew is stale. A live host re-renders on this as it
+     * does on [onChangesApplied]. Changes made by a render itself are not reported.
+     */
+    public var onRenderInputsChanged: (() -> Unit)? = null
+
+    /**
+     * Whether a state the last [render] read has changed since. The next [render] clears it, so a
+     * host that re-renders for some other reason first has nothing left to render.
+     */
+    @Volatile
+    public var renderInputsChanged: Boolean = false
+        private set
+
+    // What the last render read and wrote, replaced whole so the apply observer, on any thread,
+    // sees one render's sets or the next's.
+    @Volatile private var renderInputs = RenderInputs(emptySet(), emptySet())
+
+    private val renderInputsObserver = Snapshot.registerApplyObserver { changed, _ ->
+        val inputs = renderInputs
+        if (changed.any { it in inputs.reads && it !in inputs.writes }) {
+            renderInputsChanged = true
+            onRenderInputsChanged?.invoke()
+        }
+    }
+
     /** Applier change count, so a host can skip [render] when nothing was applied. */
     public val changeCount: Long
         get() = applier.changeCount
@@ -89,22 +118,41 @@ public class RemoteDocumentSession(
         state.writer = writer
         state.clearDocumentCaches()
         state.resetComponentIds()
+        renderInputsChanged = false
+        val reads = HashSet<Any>()
+        val writes = HashSet<Any>()
+        val snapshot =
+            Snapshot.takeMutableSnapshot(
+                readObserver = { reads += it },
+                writeObserver = { writes += it },
+            )
         try {
-            Snapshot.withMutableSnapshot {
+            snapshot.enter {
                 val recordingCanvas =
                     CommonRecordingCanvas().apply { setRemoteComposeCreationState(state) }
                 rootNode.render(state, RemoteCanvas(recordingCanvas))
                 recordingCanvas.flush()
             }
+            // Before applying: the apply notifies its own writes, which are not a reason to render.
+            renderInputs = RenderInputs(reads, writes)
+            // Only a render that wrote state applies. An apply also claims pending global writes
+            // and
+            // notifies them on this thread, ahead of the recomposer that has to see them first.
+            if (snapshot.hasPendingChanges()) snapshot.apply().check()
         } finally {
+            snapshot.dispose()
             creationState.writer = compositionWriter
         }
         return writer
     }
 
     public fun dispose() {
+        renderInputsObserver.dispose()
+        onRenderInputsChanged = null
         composition.dispose()
     }
+
+    private class RenderInputs(val reads: Set<Any>, val writes: Set<Any>)
 
     /**
      * Bitmaps written inline as PNG into whichever writer the current render uses, as

@@ -705,6 +705,11 @@ final class androidx.compose.remote.creation.compose.capture/RemoteDocumentSessi
     final var onChangesApplied // androidx.compose.remote.creation.compose.capture/RemoteDocumentSession.onChangesApplied|{}onChangesApplied[0]
         final fun <get-onChangesApplied>(): kotlin/Function0<kotlin/Unit>? // androidx.compose.remote.creation.compose.capture/RemoteDocumentSession.onChangesApplied.<get-onChangesApplied>|<get-onChangesApplied>(){}[0]
         final fun <set-onChangesApplied>(kotlin/Function0<kotlin/Unit>?) // androidx.compose.remote.creation.compose.capture/RemoteDocumentSession.onChangesApplied.<set-onChangesApplied>|<set-onChangesApplied>(kotlin.Function0<kotlin.Unit>?){}[0]
+    final var onRenderInputsChanged // androidx.compose.remote.creation.compose.capture/RemoteDocumentSession.onRenderInputsChanged|{}onRenderInputsChanged[0]
+        final fun <get-onRenderInputsChanged>(): kotlin/Function0<kotlin/Unit>? // androidx.compose.remote.creation.compose.capture/RemoteDocumentSession.onRenderInputsChanged.<get-onRenderInputsChanged>|<get-onRenderInputsChanged>(){}[0]
+        final fun <set-onRenderInputsChanged>(kotlin/Function0<kotlin/Unit>?) // androidx.compose.remote.creation.compose.capture/RemoteDocumentSession.onRenderInputsChanged.<set-onRenderInputsChanged>|<set-onRenderInputsChanged>(kotlin.Function0<kotlin.Unit>?){}[0]
+    final var renderInputsChanged // androidx.compose.remote.creation.compose.capture/RemoteDocumentSession.renderInputsChanged|{}renderInputsChanged[0]
+        final fun <get-renderInputsChanged>(): kotlin/Boolean // androidx.compose.remote.creation.compose.capture/RemoteDocumentSession.renderInputsChanged.<get-renderInputsChanged>|<get-renderInputsChanged>(){}[0]
 
     final fun <#A1: androidx.compose.remote.creation.common/RemoteWriter> render(#A1): #A1 // androidx.compose.remote.creation.compose.capture/RemoteDocumentSession.render|render(0:0){0§<androidx.compose.remote.creation.common.RemoteWriter>}[0]
     final fun dispose() // androidx.compose.remote.creation.compose.capture/RemoteDocumentSession.dispose|dispose(){}[0]

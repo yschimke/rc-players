@@ -137,17 +137,26 @@ public class RcLiveBridge : RcHostBridge {
     return true
   }
 
+  // The registry built for the declarations last asked about, so a host recomposing for its own
+  // reasons hands the player the same registry and the player can skip.
+  private var registry: Pair<Map<String, Content>, RcCustomComponentRegistry>? = null
+
   /** Custom-component renderers for every [HostContent] slot currently declared. */
-  public fun customComponents(): RcCustomComponentRegistry =
-    RcCustomComponentRegistry(
-      contents
-        .latest()
-        .mapKeys { rcHostContentConfig(it.key) }
-        .mapValues { (_, holder) ->
-          val content: RcCustomContent = { _, modifier -> holder.content.value(modifier) }
-          content
-        }
-    )
+  public fun customComponents(): RcCustomComponentRegistry {
+    val declared = contents.latest()
+    registry?.let { (forDeclared, built) -> if (forDeclared === declared) return built }
+    val built =
+      RcCustomComponentRegistry(
+        declared
+          .mapKeys { rcHostContentConfig(it.key) }
+          .mapValues { (_, holder) ->
+            val content: RcCustomContent = { _, modifier -> holder.content.value(modifier) }
+            content
+          }
+      )
+    registry = declared to built
+    return built
+  }
 
   @Composable
   private fun <T : Any> Declare(declarations: Declarations<T>, name: String, item: T) {
