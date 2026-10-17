@@ -203,7 +203,8 @@ Every one of these was made by a real runner first.
 A check is `{at, probe, channel?, target?, expect, tolerance?, advisory?}`.
 
 ```
-tolerance = check.tolerance ?? gold.parameters.tolerance ?? 0     # raster: default 16 pixels
+tolerance = check.tolerance ?? gold.parameters.tolerance ?? 0     # every probe except raster
+raster    = check.tolerance ?? 16                                 # a pixel count; see §5
 ```
 
 Probes in the current corpus, with check counts, in the order worth implementing:
@@ -273,8 +274,10 @@ text-bearing raster fails for reasons unrelated to your player.
 ## 5. Image comparisons
 
 `raster` checks carry the reference frame as a `data:image/png;base64,…` URI in `expect`. The
-check's tolerance is a **count of differing pixels**, not an RMSE; default **16**
-(`parameters.max_raster_pixels`).
+check's tolerance is a **count of differing pixels**, not an RMSE. Read it from the check itself;
+when the check has none, the budget is a fixed **16** — never `parameters.tolerance`. (The corpus
+generator stamps a gold's `parameters.max_raster_pixels` onto each raster check as its `tolerance`,
+so a runner never reads that parameter.)
 
 **Port the metric exactly** — it is part of the contract, because every lane computes its own
 verdict. It is `mapbox/pixelmatch`'s antialiased-pixel detector (Vyšniauskas), after flattening
