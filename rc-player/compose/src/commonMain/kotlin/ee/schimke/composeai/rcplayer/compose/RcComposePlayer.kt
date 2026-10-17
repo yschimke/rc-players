@@ -320,6 +320,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcTouchActionType
 import ee.schimke.composeai.rcplayer.runtime.RcTouchExpressionRuntime
 import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
 import ee.schimke.composeai.rcplayer.trace.rcTrace
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.ceil
@@ -331,6 +332,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 public fun RcComposePlayer(
@@ -664,9 +666,13 @@ private fun RcComposePlayerResolved(
   // for as one (see [withInfiniteFrameNanos]): a host's `InfiniteAnimationPolicy` may pause or
   // refuse it. A Compose UI test with `autoAdvance` refuses it, so a continuously animating
   // document lets the test go idle instead of keeping `setContent`'s wait for idle busy forever.
-  LaunchedEffect(needsContinuousFrames) {
+  // A host can scope that policy to this player (`LocalRcInfiniteAnimationPolicy`): a preview held
+  // at a fixed time pauses these loops, and idles on its first frame.
+  val infiniteAnimationPolicy = LocalRcInfiniteAnimationPolicy.current
+  val infiniteAnimationContext = infiniteAnimationPolicy ?: EmptyCoroutineContext
+  LaunchedEffect(needsContinuousFrames, infiniteAnimationPolicy) {
     if (needsContinuousFrames) {
-      while (true) withInfiniteFrameNanos(recordFrame)
+      withContext(infiniteAnimationContext) { while (true) withInfiniteFrameNanos(recordFrame) }
     }
   }
   // Float tweens and springs get frames only while one is moving, as AndroidX's `FloatExpression`
@@ -715,13 +721,15 @@ private fun RcComposePlayerResolved(
     }
   }
   SideEffect { wakeFloatAnimations() }
-  LaunchedEffect(ticksEverySecond, needsContinuousFrames) {
+  LaunchedEffect(ticksEverySecond, needsContinuousFrames, infiniteAnimationPolicy) {
     if (ticksEverySecond && !needsContinuousFrames) {
-      while (true) {
-        delay(MILLIS_PER_SECOND - latestTimeSource.currentTimeMillis().mod(MILLIS_PER_SECOND))
-        // A tick a second, forever: infinite too.
-        withInfiniteFrameNanos(recordFrame)
-        invalidationVersion += 1
+      withContext(infiniteAnimationContext) {
+        while (true) {
+          delay(MILLIS_PER_SECOND - latestTimeSource.currentTimeMillis().mod(MILLIS_PER_SECOND))
+          // A tick a second, forever: infinite too.
+          withInfiniteFrameNanos(recordFrame)
+          invalidationVersion += 1
+        }
       }
     }
   }
