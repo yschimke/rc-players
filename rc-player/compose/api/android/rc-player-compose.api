@@ -23,6 +23,7 @@ public abstract interface class ee/schimke/composeai/rcplayer/compose/RcAnimatio
 
 public final class ee/schimke/composeai/rcplayer/compose/RcAnimationClockKt {
 	public static final fun getLocalRcAnimationClock ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+	public static final fun getLocalRcInfiniteAnimationPolicy ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcBranch {
