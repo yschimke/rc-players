@@ -176,6 +176,35 @@ class RcEmbeddedPlayerRecompositionTest {
     waitUntil { centre() == Color.Blue }
   }
 
+  /**
+   * A render's own writes are no reason to render again, but a later change to a state it both read
+   * and wrote is.
+   */
+  @Test
+  fun aStateTheRenderAlsoWritesStillReRendersOnAnOutsideChange() = run {
+    val seen = mutableStateOf(0)
+    val renders = AtomicInteger()
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      RcEmbeddedPlayer(display, Modifier.size(100.dp), onDocument = { documents += it }) {
+        RemoteCanvas(RemoteModifier.fillMaxSize()) {
+          renders.incrementAndGet()
+          // Read, then written by the render itself.
+          seen.value = seen.value + 1
+          drawRect(paint = RemotePaint { color = Color.Red.rc })
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    settleOffThread()
+    assertEquals(1, renders.get())
+
+    Snapshot.withMutableSnapshot { seen.value = 100 }
+    waitUntil(timeoutMillis = 5_000) { renders.get() == 2 }
+    settleOffThread()
+    assertEquals(2, renders.get())
+  }
+
   /** A write that neither the remote composition nor its render reads costs nothing. */
   @Test
   fun anUnrelatedWriteDoesNotRender() = run {

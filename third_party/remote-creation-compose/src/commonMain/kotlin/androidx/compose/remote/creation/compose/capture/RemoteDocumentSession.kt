@@ -80,13 +80,21 @@ public class RemoteDocumentSession(
     public var renderInputsChanged: Boolean = false
         private set
 
-    // What the last render read and wrote, replaced whole so the apply observer, on any thread,
-    // sees one render's sets or the next's.
+    // What the last render read, and while its own apply is notified, what it wrote. Replaced
+    // whole, so the apply observer, on any thread, sees one render's sets or the next's.
     @Volatile private var renderInputs = RenderInputs(emptySet(), emptySet())
+
+    // Set while a render is recording. A change applied meanwhile may be to a state the render is
+    // reading for the first time, which the previous render's reads cannot show, so any change then
+    // counts.
+    @Volatile private var rendering = false
 
     private val renderInputsObserver = Snapshot.registerApplyObserver { changed, _ ->
         val inputs = renderInputs
-        if (changed.any { it in inputs.reads && it !in inputs.writes }) {
+        val stale =
+            if (rendering) changed.isNotEmpty()
+            else changed.any { it in inputs.reads && it !in inputs.writes }
+        if (stale) {
             renderInputsChanged = true
             onRenderInputsChanged?.invoke()
         }
@@ -118,6 +126,8 @@ public class RemoteDocumentSession(
         state.writer = writer
         state.clearDocumentCaches()
         state.resetComponentIds()
+        rendering = true
+        // Changes applied from here on are seen by this render or flagged while it records.
         renderInputsChanged = false
         val reads = HashSet<Any>()
         val writes = HashSet<Any>()
@@ -133,13 +143,16 @@ public class RemoteDocumentSession(
                 rootNode.render(state, RemoteCanvas(recordingCanvas))
                 recordingCanvas.flush()
             }
-            // Before applying: the apply notifies its own writes, which are not a reason to render.
+            // The render's own writes are notified by its apply, below, and are no reason to
+            // render again; a later change to one of them is.
             renderInputs = RenderInputs(reads, writes)
-            // Only a render that wrote state applies. An apply also claims pending global writes
-            // and
-            // notifies them on this thread, ahead of the recomposer that has to see them first.
+            rendering = false
+            // Only a render that wrote state applies. An apply also claims pending global writes,
+            // and notifies them on this thread ahead of the recomposer that has to see them first.
             if (snapshot.hasPendingChanges()) snapshot.apply().check()
+            renderInputs = RenderInputs(reads, emptySet())
         } finally {
+            rendering = false
             snapshot.dispose()
             creationState.writer = compositionWriter
         }
