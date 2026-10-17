@@ -51,6 +51,9 @@ nightly and publishes both as an artifact. It is **not gating**, and the reasons
 header: the corpus is upstream-unmerged and may be revised without warning, and most of what the
 score currently reports is this runner's own gaps rather than the player's.
 
+Adding a lane for a new player — where the golds are, what the harness must do, the probes and the
+raster metric — is in [`RC_CONFORMANCE_NEW_PLAYER.md`](RC_CONFORMANCE_NEW_PLAYER.md).
+
 Running it on the other Compose targets — iOS, macOS, wasmJs, and why Android cannot be run at all
 yet — is worked out in [`RC_CONFORMANCE_PLATFORMS.md`](RC_CONFORMANCE_PLATFORMS.md).
 
