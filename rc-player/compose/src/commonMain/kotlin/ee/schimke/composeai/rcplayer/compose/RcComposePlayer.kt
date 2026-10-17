@@ -134,7 +134,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
@@ -1577,7 +1576,6 @@ private fun RenderLayoutNode(
         val fontWeight = state.resolve(operation.fontWeight).roundToInt().coerceIn(1, 1000)
         val boldWeight = if (operation.fontStyle and 1 != 0) 700 else fontWeight
         val lines = remember { RcTextLines() }
-        lines.gate = LocalRcPlacementGate.current
         BasicText(
           text = state.text(operation.textId).orEmpty(),
           modifier =
@@ -1593,7 +1591,7 @@ private fun RenderLayoutNode(
                 theme,
               )
               .reportTextLayout(node.componentId, componentCoordinates, lines),
-          onTextLayout = { lines.laidOut(it, node.componentId, componentCoordinates) },
+          onTextLayout = { lines.result = it },
           style =
             TextStyle(
               color =
@@ -1656,7 +1654,6 @@ private fun RenderLayoutNode(
         val variations = fontSettings.withoutFeatures()
         val fontFeatures = fontFeatureSettings(fontSettings)
         val lines = remember { RcTextLines() }
-        lines.gate = LocalRcPlacementGate.current
         val text = state.text(node.operation.textId).orEmpty()
         val overflow = properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP)
         val maxLines = androidXMaxLines(overflow, properties.intProperty(11, Int.MAX_VALUE))
@@ -1691,7 +1688,7 @@ private fun RenderLayoutNode(
               )
               .fitToLines(lines, truncatedBlock)
               .reportTextLayout(node.componentId, componentCoordinates, lines),
-          onTextLayout = { lines.laidOut(it, node.componentId, componentCoordinates) },
+          onTextLayout = { lines.result = it },
           style =
             TextStyle(
               color =
@@ -3526,28 +3523,6 @@ internal fun RcLayoutModifiers.removingOrdered(
 /** The latest text layout of one text component, written during its own measure pass. */
 private class RcTextLines {
   var result: TextLayoutResult? = null
-
-  /** Where the text was last placed, for a host listener; only tracked when there is one. */
-  var content: LayoutCoordinates? = null
-
-  /** The collapsible placement this text sits behind, if any ([RcPlacementGate]). */
-  var gate: RcPlacementGate? = null
-
-  /**
-   * A new layout. A re-laid text keeps its box as often as not, and then no positioning callback
-   * follows, so the listener is told here too, against the box it was last placed in — unless a
-   * collapsible layout has since dropped it, when that box is no longer placed at all.
-   */
-  fun laidOut(
-    layout: TextLayoutResult,
-    componentId: Int?,
-    listener: RcComponentCoordinatesListener?,
-  ) {
-    result = layout
-    if (gate?.hidden == true) return
-    val placed = content?.takeIf { it.isAttached } ?: return
-    if (listener != null && componentId != null) listener.onTextLaidOut(componentId, placed, layout)
-  }
 }
 
 /**
@@ -3726,7 +3701,10 @@ private fun Modifier.reportComponentCoordinates(
   else onGloballyPositioned { listener.onPositioned(componentId, it) }
 
 /**
- * Reports a text component's layout and content box to a host listener; nothing when there is none.
+ * Reports a text component's layout and content box to a host listener, each time it is placed;
+ * nothing when there is none. Only from placement, which follows every re-layout of a text that is
+ * shown, so a report always describes where the text is. A text its collapsible parent dropped is
+ * not placed, and reports nothing, however often it re-lays out.
  */
 private fun Modifier.reportTextLayout(
   componentId: Int?,
@@ -3736,7 +3714,6 @@ private fun Modifier.reportTextLayout(
   if (listener == null || componentId == null) this
   else
     onGloballyPositioned { coordinates ->
-      lines.content = coordinates
       lines.result?.let { listener.onTextLaidOut(componentId, coordinates, it) }
     }
 
