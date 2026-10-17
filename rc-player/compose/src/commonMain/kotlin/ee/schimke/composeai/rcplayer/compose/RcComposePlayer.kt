@@ -134,6 +134,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
@@ -1064,6 +1065,7 @@ private fun RenderLayoutNode(
           contentInset,
         )
         .reportComponentCoordinates(node.componentId, componentCoordinates)
+    ReportClickAction(node, state, componentCoordinates)
     when (node) {
       is RcLayoutNode.Root ->
         Box(
@@ -1573,19 +1575,23 @@ private fun RenderLayoutNode(
         val operation = node.operation
         val fontWeight = state.resolve(operation.fontWeight).roundToInt().coerceIn(1, 1000)
         val boldWeight = if (operation.fontStyle and 1 != 0) 700 else fontWeight
+        val lines = remember { RcTextLines() }
         BasicText(
           text = state.text(operation.textId).orEmpty(),
           modifier =
-            effectiveModifier.applyComponentModifiers(
-              node.modifiers,
-              state,
-              geometryIds,
-              fillMissingDimensions = false,
-              canvasOperations = null,
-              textMeasurer,
-              images,
-              theme,
-            ),
+            effectiveModifier
+              .applyComponentModifiers(
+                node.modifiers,
+                state,
+                geometryIds,
+                fillMissingDimensions = false,
+                canvasOperations = null,
+                textMeasurer,
+                images,
+                theme,
+              )
+              .reportTextLayout(node.componentId, componentCoordinates, lines),
+          onTextLayout = { lines.laidOut(it, node.componentId, componentCoordinates) },
           style =
             TextStyle(
               color =
@@ -1680,8 +1686,9 @@ private fun RenderLayoutNode(
                 images,
                 theme,
               )
-              .fitToLines(lines, truncatedBlock),
-          onTextLayout = { lines.result = it },
+              .fitToLines(lines, truncatedBlock)
+              .reportTextLayout(node.componentId, componentCoordinates, lines),
+          onTextLayout = { lines.laidOut(it, node.componentId, componentCoordinates) },
           style =
             TextStyle(
               color =
@@ -3494,6 +3501,23 @@ internal fun RcLayoutModifiers.removingOrdered(
 /** The latest text layout of one text component, written during its own measure pass. */
 private class RcTextLines {
   var result: TextLayoutResult? = null
+
+  /** Where the text was last placed, for a host listener; only tracked when there is one. */
+  var content: LayoutCoordinates? = null
+
+  /**
+   * A new layout. A re-laid text keeps its box as often as not, and then no positioning callback
+   * follows, so the listener is told here too, against the box it was last placed in.
+   */
+  fun laidOut(
+    layout: TextLayoutResult,
+    componentId: Int?,
+    listener: RcComponentCoordinatesListener?,
+  ) {
+    result = layout
+    val placed = content?.takeIf { it.isAttached } ?: return
+    if (listener != null && componentId != null) listener.onTextLaidOut(componentId, placed, layout)
+  }
 }
 
 /**
@@ -3670,6 +3694,44 @@ private fun Modifier.reportComponentCoordinates(
 ): Modifier =
   if (listener == null || componentId == null) this
   else onGloballyPositioned { listener.onPositioned(componentId, it) }
+
+/**
+ * Reports a text component's layout and content box to a host listener; nothing when there is none.
+ */
+private fun Modifier.reportTextLayout(
+  componentId: Int?,
+  listener: RcComponentCoordinatesListener?,
+  lines: RcTextLines,
+): Modifier =
+  if (listener == null || componentId == null) this
+  else
+    onGloballyPositioned { coordinates ->
+      lines.content = coordinates
+      lines.result?.let { listener.onTextLaidOut(componentId, coordinates, it) }
+    }
+
+/**
+ * Hands a host listener this component's click and single-click actions as one runnable click, and
+ * takes it back when the component leaves; nothing at all when there is no listener or no click.
+ */
+@Composable
+private fun ReportClickAction(
+  node: RcLayoutNode,
+  state: RcPlayerState,
+  listener: RcComponentCoordinatesListener?,
+) {
+  if (listener == null) return
+  val componentId = node.componentId
+  val clicks =
+    node.modifiers.clicks.filter {
+      it.type == RcClickActionType.CLICK || it.type == RcClickActionType.SINGLE
+    }
+  if (clicks.isEmpty()) return
+  DisposableEffect(listener, componentId, clicks, state) {
+    listener.onClickAction(componentId) { clicks.forEach(state::executeClick) }
+    onDispose { listener.onClickAction(componentId, null) }
+  }
+}
 
 private fun Modifier.inspectComponent(
   node: RcLayoutNode,
