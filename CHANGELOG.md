@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.15.0](https://github.com/yschimke/rc-players/compare/v2.14.0...v2.15.0) (2026-10-17)
+
+
+### Features
+
+* **compose:** report text layouts and click actions to the coordinates listener ([#684](https://github.com/yschimke/rc-players/issues/684)) ([4f379c3](https://github.com/yschimke/rc-players/commit/4f379c3091fb7d6e379bbd173999e89d99298894))
+
+
+### Bug Fixes
+
+* **compose:** report a text's layout only when it is placed ([#687](https://github.com/yschimke/rc-players/issues/687)) ([5be7bb8](https://github.com/yschimke/rc-players/commit/5be7bb85e53c9a6caa83cf66bcd956f8cde5c660))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.18.6 ([#683](https://github.com/yschimke/rc-players/issues/683)) ([09c5a46](https://github.com/yschimke/rc-players/commit/09c5a465743d8ed9ca22983063a029e840ced9c8))
+* **deps:** update dependency org.ow2.asm:asm to v9.11.1 ([#686](https://github.com/yschimke/rc-players/issues/686)) ([125686a](https://github.com/yschimke/rc-players/commit/125686a9ec217ed54c4246b5fcc6cd6343a566e4))
+
 ## [2.14.0](https://github.com/yschimke/rc-players/compare/v2.13.1...v2.14.0) (2026-10-17)
 
 
