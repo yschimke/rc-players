@@ -2,6 +2,8 @@
 text|Hello 🏡|||||true
 choice|Kitchen|Kitchen;Living room||||true
 choice|Garage|Kitchen;Living room||||false
+choice|Kitchen|Kitchen;Kitchen||||false
+choice|~|||||false
 toggle|true|||||true
 toggle|false|||||true
 toggle|1|||||false

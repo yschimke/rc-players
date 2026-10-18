@@ -23,7 +23,11 @@ public fun rcInputValueIsValid(
   step: Double? = null,
 ): Boolean {
   if (config == RcInput.TEXT) return true
-  if (config == RcInput.CHOICE) return value in options
+  if (config == RcInput.CHOICE)
+    return options.isNotEmpty() &&
+      options.all { it.isNotEmpty() && '\n' !in it } &&
+      options.distinct().size == options.size &&
+      value in options
   if (config == RcInput.TOGGLE) return value == "true" || value == "false"
   if (config != RcInput.NUMBER && config != RcInput.RANGE) return false
   if (

@@ -7,7 +7,7 @@ export type InputKind = 'text' | 'choice' | 'toggle' | 'number' | 'range';
 export const inputConfigs: readonly string[] = [Input.TEXT, Input.CHOICE, Input.TOGGLE, Input.NUMBER, Input.RANGE];
 export function inputValueIsValid(config: string, value: string, options: string[] = [], minimum?: number, maximum?: number, step?: number): boolean {
     if (config === Input.TEXT) return true;
-    if (config === Input.CHOICE) return options.includes(value);
+    if (config === Input.CHOICE) return options.length > 0 && options.every(option=>!!option && !option.includes('\n')) && new Set(options).size === options.length && options.includes(value);
     if (config === Input.TOGGLE) return value === 'true' || value === 'false';
     if (config !== Input.NUMBER && config !== Input.RANGE) return false;
     if ([minimum,maximum,step].some(v=>v !== undefined && !Number.isFinite(v)) ||
