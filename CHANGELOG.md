@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.16.0](https://github.com/yschimke/rc-players/compare/v2.15.0...v2.16.0) (2026-10-18)
+
+
+### Features
+
+* add portable editable input components ([#691](https://github.com/yschimke/rc-players/issues/691)) ([6e9e7e7](https://github.com/yschimke/rc-players/commit/6e9e7e7ebc7efeb62a9598664bfdafcf5e0d4a5a))
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.36.0 ([#688](https://github.com/yschimke/rc-players/issues/688)) ([533b435](https://github.com/yschimke/rc-players/commit/533b43547cf0e3663a86d59905afadcbdcda1a87))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.18.7 ([#690](https://github.com/yschimke/rc-players/issues/690)) ([22cdaff](https://github.com/yschimke/rc-players/commit/22cdaff29b4b9a08442ffd0a76dba66a6633a21b))
+
 ## [2.15.0](https://github.com/yschimke/rc-players/compare/v2.14.0...v2.15.0) (2026-10-17)
 
 
