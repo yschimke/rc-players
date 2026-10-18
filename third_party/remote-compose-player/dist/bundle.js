@@ -22,9 +22,12 @@ var RC = (() => {
   var main_exports = {};
   __export(main_exports, {
     GOOGLE_PREFIX: () => GOOGLE_PREFIX,
+    Input: () => Input,
+    InputChrome: () => InputChrome,
     RcPlayerElement: () => RcPlayerElement,
     RcdPlayer: () => RcdPlayer,
     WebCustomHost: () => WebCustomHost,
+    WebInputComponents: () => WebInputComponents,
     base64ToArrayBuffer: () => base64ToArrayBuffer,
     configureWebFonts: () => configureWebFonts,
     createPlayer: () => createPlayer,
@@ -35,6 +38,8 @@ var RC = (() => {
     fitInto: () => fitInto,
     googleFontsAxisUrl: () => googleFontsAxisUrl,
     googleFontsUrl: () => googleFontsUrl,
+    inputDocument: () => inputDocument,
+    inputValueIsValid: () => inputValueIsValid,
     namedFontStack: () => namedFontStack,
     parseEmbedConfig: () => parseEmbedConfig,
     parseFamily: () => parseFamily,
@@ -44,21 +49,2154 @@ var RC = (() => {
     webFontsReady: () => webFontsReady
   });
 
+  // third_party/remote-compose-player/src/web/InputGeometry.ts
+  function mapInputPoint(m, p) {
+    return { x: m.a * p.x + m.c * p.y + m.e, y: m.b * p.x + m.d * p.y + m.f };
+  }
+  function inverseInputPoint(m, p) {
+    const determinant = m.a * m.d - m.b * m.c;
+    return {
+      x: (m.d * (p.x - m.e) - m.c * (p.y - m.f)) / determinant,
+      y: (-m.b * (p.x - m.e) + m.a * (p.y - m.f)) / determinant
+    };
+  }
+  function intersectInputClip(subject, clip) {
+    const cross2 = (a, b, p) => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    const area = clip.reduce((sum, p, i) => {
+      const q = clip[(i + 1) % clip.length];
+      return sum + p.x * q.y - q.x * p.y;
+    }, 0);
+    if (Math.abs(area) < 1e-7) return [];
+    const sign = area >= 0 ? 1 : -1;
+    let result = subject;
+    for (let i = 0; i < clip.length && result.length; i++) {
+      const a = clip[i], b = clip[(i + 1) % clip.length], input = result;
+      result = [];
+      let previous = input[input.length - 1];
+      let previousSide = sign * cross2(a, b, previous);
+      for (const point of input) {
+        const side = sign * cross2(a, b, point);
+        if (side >= -1e-7 !== previousSide >= -1e-7) {
+          const t = previousSide / (previousSide - side);
+          result.push({ x: previous.x + (point.x - previous.x) * t, y: previous.y + (point.y - previous.y) * t });
+        }
+        if (side >= -1e-7) result.push(point);
+        previous = point;
+        previousSide = side;
+      }
+    }
+    return result;
+  }
+
+  // third_party/remote-compose-player/src/core/PaintContext.ts
+  var PaintContext = class {
+    constructor(context) {
+      this.mNeedsRepaint = false;
+      this.mMeasureVersion = 0;
+      this.mContext = context;
+    }
+    getContext() {
+      return this.mContext;
+    }
+    setContext(context) {
+      this.mContext = context;
+    }
+    doesNeedsRepaint() {
+      return this.mNeedsRepaint;
+    }
+    clearNeedsRepaint() {
+      this.mNeedsRepaint = false;
+    }
+    needsRepaint() {
+      this.mNeedsRepaint = true;
+    }
+    setNeedsRepaint(v) {
+      this.mNeedsRepaint = v;
+    }
+    setMeasureVersion(v) {
+      this.mMeasureVersion = v;
+    }
+    getMeasureVersion() {
+      return this.mMeasureVersion;
+    }
+    save() {
+      this.matrixSave();
+    }
+    restore() {
+      this.matrixRestore();
+    }
+    saveLayer(_x, _y, _w, _h) {
+      this.matrixSave();
+    }
+    /** Display density, from the underlying RemoteContext (mirrors Java's PaintContext). */
+    getDensity() {
+      return this.mContext.getDensity();
+    }
+    /**
+     * The document's density behaviour. Layout managers need this to decide whether their
+     * dp-valued spacing scales; they only ever hold a PaintContext, so it has to be reachable
+     * from here.
+     */
+    getDensityBehavior() {
+      return this.mContext.getDensityBehavior();
+    }
+    getClock() {
+      return this.mContext.getClock();
+    }
+    isDebug() {
+      return this.mContext.isBasicDebug();
+    }
+    isAnimationEnabled() {
+      return this.mContext.isAnimationEnabled();
+    }
+    isVisualDebug() {
+      return this.mContext.isVisualDebug();
+    }
+    supportsVersion(major, minor, patch) {
+      return this.mContext.supportsVersion(major, minor, patch);
+    }
+    log(content) {
+      console.log(`[LOG] ${content}`);
+    }
+    wakeIn(seconds) {
+      this.mContext.mRemoteComposeState.wakeIn(seconds);
+    }
+    // ── 2D vertex meshes ────────────────────────────────────────────────────────────────
+    //
+    // Deliberately not abstract: a backend that has not implemented meshes still compiles and
+    // draws nothing. Geometry arrives already in the layout drawVertices wants. An empty `uv`
+    // or `colors` means the channel is absent.
+    //
+    // drawMesh must leave the paint exactly as it found it.
+    setMesh(_meshId, _layout, _uCount, _vCount, _verts, _uv, _colors, _indices) {
+    }
+    drawMesh(_meshId, _blend, _imageId) {
+    }
+    matrixFromMesh(_meshId, _u, _v, _flags) {
+    }
+  };
+  PaintContext.TEXT_MEASURE_MONOSPACE_WIDTH = 1;
+  PaintContext.TEXT_MEASURE_FONT_HEIGHT = 2;
+  PaintContext.TEXT_MEASURE_SPACES = 4;
+  PaintContext.TEXT_COMPLEX = 8;
+  PaintContext.TEXT_MEASURE_AUTOSIZE = 16;
+
+  // third_party/remote-compose-player/src/core/d3/Matrix4.ts
+  var fround = Math.fround;
+  function fm(a, b) {
+    return fround(a * b);
+  }
+  function fa(a, b) {
+    return fround(a + b);
+  }
+  function flen3(x, y, z) {
+    return fround(Math.sqrt(fa(fa(fm(x, x), fm(y, y)), fm(z, z))));
+  }
+  function mat4() {
+    const m = new Float32Array(16);
+    identity(m);
+    return m;
+  }
+  function identity(out) {
+    out[0] = 1;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[5] = 1;
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = 0;
+    out[9] = 0;
+    out[10] = 1;
+    out[11] = 0;
+    out[12] = 0;
+    out[13] = 0;
+    out[14] = 0;
+    out[15] = 1;
+  }
+  var MUL_SCRATCH = new Float32Array(16);
+  function multiply(out, a, b) {
+    const r = MUL_SCRATCH;
+    for (let col = 0; col < 4; col++) {
+      const cb = col * 4;
+      for (let row = 0; row < 4; row++) {
+        r[cb + row] = fa(
+          fa(
+            fa(
+              fm(a[row], b[cb]),
+              fm(a[4 + row], b[cb + 1])
+            ),
+            fm(a[8 + row], b[cb + 2])
+          ),
+          fm(a[12 + row], b[cb + 3])
+        );
+      }
+    }
+    out.set(r);
+  }
+  function translate(m, tx, ty, tz) {
+    m[12] = fa(m[12], fa(fa(fm(m[0], tx), fm(m[4], ty)), fm(m[8], tz)));
+    m[13] = fa(m[13], fa(fa(fm(m[1], tx), fm(m[5], ty)), fm(m[9], tz)));
+    m[14] = fa(m[14], fa(fa(fm(m[2], tx), fm(m[6], ty)), fm(m[10], tz)));
+    m[15] = fa(m[15], fa(fa(fm(m[3], tx), fm(m[7], ty)), fm(m[11], tz)));
+  }
+  function scale(m, sx, sy, sz) {
+    m[0] = fm(m[0], sx);
+    m[1] = fm(m[1], sx);
+    m[2] = fm(m[2], sx);
+    m[3] = fm(m[3], sx);
+    m[4] = fm(m[4], sy);
+    m[5] = fm(m[5], sy);
+    m[6] = fm(m[6], sy);
+    m[7] = fm(m[7], sy);
+    m[8] = fm(m[8], sz);
+    m[9] = fm(m[9], sz);
+    m[10] = fm(m[10], sz);
+    m[11] = fm(m[11], sz);
+  }
+  function rotateAxis(m, angleRadians, x, y, z) {
+    const len = flen3(x, y, z);
+    if (len === 0) {
+      return;
+    }
+    const ix = fround(x / len);
+    const iy = fround(y / len);
+    const iz = fround(z / len);
+    const c = fround(Math.cos(angleRadians));
+    const s = fround(Math.sin(angleRadians));
+    const omc = fround(1 - c);
+    const r00 = fa(fm(fm(ix, ix), omc), c);
+    const r01 = fa(fm(fm(iy, ix), omc), fm(iz, s));
+    const r02 = fround(fm(fm(iz, ix), omc) - fm(iy, s));
+    const r10 = fround(fm(fm(ix, iy), omc) - fm(iz, s));
+    const r11 = fa(fm(fm(iy, iy), omc), c);
+    const r12 = fa(fm(fm(iz, iy), omc), fm(ix, s));
+    const r20 = fa(fm(fm(ix, iz), omc), fm(iy, s));
+    const r21 = fround(fm(fm(iy, iz), omc) - fm(ix, s));
+    const r22 = fa(fm(fm(iz, iz), omc), c);
+    const a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3];
+    const a10 = m[4], a11 = m[5], a12 = m[6], a13 = m[7];
+    const a20 = m[8], a21 = m[9], a22 = m[10], a23 = m[11];
+    m[0] = fa(fa(fm(a00, r00), fm(a10, r01)), fm(a20, r02));
+    m[1] = fa(fa(fm(a01, r00), fm(a11, r01)), fm(a21, r02));
+    m[2] = fa(fa(fm(a02, r00), fm(a12, r01)), fm(a22, r02));
+    m[3] = fa(fa(fm(a03, r00), fm(a13, r01)), fm(a23, r02));
+    m[4] = fa(fa(fm(a00, r10), fm(a10, r11)), fm(a20, r12));
+    m[5] = fa(fa(fm(a01, r10), fm(a11, r11)), fm(a21, r12));
+    m[6] = fa(fa(fm(a02, r10), fm(a12, r11)), fm(a22, r12));
+    m[7] = fa(fa(fm(a03, r10), fm(a13, r11)), fm(a23, r12));
+    m[8] = fa(fa(fm(a00, r20), fm(a10, r21)), fm(a20, r22));
+    m[9] = fa(fa(fm(a01, r20), fm(a11, r21)), fm(a21, r22));
+    m[10] = fa(fa(fm(a02, r20), fm(a12, r21)), fm(a22, r22));
+    m[11] = fa(fa(fm(a03, r20), fm(a13, r21)), fm(a23, r22));
+  }
+  function perspective(out, fovYRadians, aspect, near, far) {
+    const f = fround(1 / Math.tan(fovYRadians * 0.5));
+    const nf = fround(1 / fround(near - far));
+    out[0] = fround(f / aspect);
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[5] = f;
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = 0;
+    out[9] = 0;
+    out[10] = fm(fa(far, near), nf);
+    out[11] = -1;
+    out[12] = 0;
+    out[13] = 0;
+    out[14] = fm(fm(fm(2, far), near), nf);
+    out[15] = 0;
+  }
+  function ortho(out, left, right, bottom, top, near, far) {
+    const lr = fround(1 / fround(left - right));
+    const bt = fround(1 / fround(bottom - top));
+    const nf = fround(1 / fround(near - far));
+    out[0] = fm(-2, lr);
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[5] = fm(-2, bt);
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = 0;
+    out[9] = 0;
+    out[10] = fm(2, nf);
+    out[11] = 0;
+    out[12] = fm(fa(left, right), lr);
+    out[13] = fm(fa(top, bottom), bt);
+    out[14] = fm(fa(far, near), nf);
+    out[15] = 1;
+  }
+  function lookAt(out, eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX, upY, upZ) {
+    let fx = fround(centerX - eyeX);
+    let fy = fround(centerY - eyeY);
+    let fz = fround(centerZ - eyeZ);
+    const fl = flen3(fx, fy, fz);
+    if (fl === 0) {
+      identity(out);
+      return;
+    }
+    fx = fround(fx / fl);
+    fy = fround(fy / fl);
+    fz = fround(fz / fl);
+    let sx = fround(fm(fy, upZ) - fm(fz, upY));
+    let sy = fround(fm(fz, upX) - fm(fx, upZ));
+    let sz = fround(fm(fx, upY) - fm(fy, upX));
+    const sl = flen3(sx, sy, sz);
+    if (sl === 0) {
+      identity(out);
+      return;
+    }
+    sx = fround(sx / sl);
+    sy = fround(sy / sl);
+    sz = fround(sz / sl);
+    const ux = fround(fm(sy, fz) - fm(sz, fy));
+    const uy = fround(fm(sz, fx) - fm(sx, fz));
+    const uz = fround(fm(sx, fy) - fm(sy, fx));
+    out[0] = sx;
+    out[1] = ux;
+    out[2] = -fx;
+    out[3] = 0;
+    out[4] = sy;
+    out[5] = uy;
+    out[6] = -fy;
+    out[7] = 0;
+    out[8] = sz;
+    out[9] = uz;
+    out[10] = -fz;
+    out[11] = 0;
+    out[12] = -fa(fa(fm(sx, eyeX), fm(sy, eyeY)), fm(sz, eyeZ));
+    out[13] = -fa(fa(fm(ux, eyeX), fm(uy, eyeY)), fm(uz, eyeZ));
+    out[14] = fa(fa(fm(fx, eyeX), fm(fy, eyeY)), fm(fz, eyeZ));
+    out[15] = 1;
+  }
+  function transformPoint(m, x, y, z, out4) {
+    out4[0] = fa(fa(fa(fm(m[0], x), fm(m[4], y)), fm(m[8], z)), m[12]);
+    out4[1] = fa(fa(fa(fm(m[1], x), fm(m[5], y)), fm(m[9], z)), m[13]);
+    out4[2] = fa(fa(fa(fm(m[2], x), fm(m[6], y)), fm(m[10], z)), m[14]);
+    out4[3] = fa(fa(fa(fm(m[3], x), fm(m[7], y)), fm(m[11], z)), m[15]);
+  }
+  function transformDirection(m, x, y, z, out3) {
+    out3[0] = fa(fa(fm(m[0], x), fm(m[4], y)), fm(m[8], z));
+    out3[1] = fa(fa(fm(m[1], x), fm(m[5], y)), fm(m[9], z));
+    out3[2] = fa(fa(fm(m[2], x), fm(m[6], y)), fm(m[10], z));
+  }
+
+  // third_party/remote-compose-player/src/core/d3/Rasterizer.ts
+  var fround2 = Math.fround;
+  function f2i(v) {
+    if (Number.isNaN(v)) {
+      return 0;
+    }
+    if (v >= 2147483647) {
+      return 2147483647;
+    }
+    if (v <= -2147483648) {
+      return -2147483648;
+    }
+    return Math.trunc(v);
+  }
+  function lerp3(w1, v1, w2, v2, w3, v3) {
+    return fround2(fround2(fround2(fround2(w1 * v1) + fround2(w2 * v2))) + fround2(w3 * v3));
+  }
+  function min3(x1, x2, x3) {
+    return x1 > x2 ? x2 > x3 ? x3 : x2 : x1 > x3 ? x3 : x1;
+  }
+  function max3(x1, x2, x3) {
+    return x1 < x2 ? x2 < x3 ? x3 : x2 : x1 < x3 ? x3 : x1;
+  }
+  function clearDepth(zbuf) {
+    zbuf.fill(Number.POSITIVE_INFINITY);
+  }
+  var SETUP = {
+    ok: false,
+    dx: 0,
+    dy: 0,
+    zoff: 0,
+    minx: 0,
+    maxx: 0,
+    miny: 0,
+    maxy: 0,
+    fdx12: 0,
+    fdx23: 0,
+    fdx31: 0,
+    fdy12: 0,
+    fdy23: 0,
+    fdy31: 0,
+    cy1: 0,
+    cy2: 0,
+    cy3: 0,
+    swapped: false
+  };
+  var V = new Float32Array(9);
+  function setup(w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1) {
+    const s = SETUP;
+    s.swapped = false;
+    if ((fx1 - fx2) * (fy3 - fy2) - (fy1 - fy2) * (fx3 - fx2) < 0) {
+      const tx = fx1, ty = fy1, tz = fz1;
+      fx1 = fx2;
+      fy1 = fy2;
+      fz1 = fz2;
+      fx2 = tx;
+      fy2 = ty;
+      fz2 = tz;
+      s.swapped = true;
+    }
+    V[0] = fx3;
+    V[1] = fy3;
+    V[2] = fz3;
+    V[3] = fx2;
+    V[4] = fy2;
+    V[5] = fz2;
+    V[6] = fx1;
+    V[7] = fy1;
+    V[8] = fz1;
+    const d = fx1 * (fy3 - fy2) - fx2 * fy3 + fx3 * fy2 + (fx2 - fx3) * fy1;
+    if (d === 0) {
+      s.ok = false;
+      return s;
+    }
+    const numDx = -(fy1 * (fz3 - fz2) - fy2 * fz3 + fy3 * fz2 + (fy2 - fy3) * fz1);
+    const numDy = fx1 * (fz3 - fz2) - fx2 * fz3 + fx3 * fz2 + (fx2 - fx3) * fz1;
+    const numZ = fx1 * (fy3 * fz2 - fy2 * fz3) + fy1 * (fx2 * fz3 - fx3 * fz2) + (fx3 * fy2 - fx2 * fy3) * fz1;
+    s.dx = fround2(numDx / d);
+    s.dy = fround2(numDy / d);
+    s.zoff = fround2(numZ / d);
+    const y1 = f2i(fround2(fround2(16 * fy1) + 0.5));
+    const y2 = f2i(fround2(fround2(16 * fy2) + 0.5));
+    const y3 = f2i(fround2(fround2(16 * fy3) + 0.5));
+    const x1 = f2i(fround2(fround2(16 * fx1) + 0.5));
+    const x2 = f2i(fround2(fround2(16 * fx2) + 0.5));
+    const x3 = f2i(fround2(fround2(16 * fx3) + 0.5));
+    const dx12 = x1 - x2 | 0;
+    const dx23 = x2 - x3 | 0;
+    const dx31 = x3 - x1 | 0;
+    const dy12 = y1 - y2 | 0;
+    const dy23 = y2 - y3 | 0;
+    const dy31 = y3 - y1 | 0;
+    s.fdx12 = dx12 << 4;
+    s.fdx23 = dx23 << 4;
+    s.fdx31 = dx31 << 4;
+    s.fdy12 = dy12 << 4;
+    s.fdy23 = dy23 << 4;
+    s.fdy31 = dy31 << 4;
+    let minx = min3(x1, x2, x3) + 15 >> 4;
+    let maxx = max3(x1, x2, x3) + 15 >> 4;
+    let miny = min3(y1, y2, y3) + 15 >> 4;
+    let maxy = max3(y1, y2, y3) + 15 >> 4;
+    if (miny < 0) {
+      miny = 0;
+    }
+    if (minx < 0) {
+      minx = 0;
+    }
+    if (maxx > w) {
+      maxx = w;
+    }
+    if (maxy > h) {
+      maxy = h;
+    }
+    s.minx = minx;
+    s.maxx = maxx;
+    s.miny = miny;
+    s.maxy = maxy;
+    let c1 = dy12 * x1 - dx12 * y1;
+    let c2 = dy23 * x2 - dx23 * y2;
+    let c3 = dy31 * x3 - dx31 * y3;
+    if (dy12 < 0 || dy12 === 0 && dx12 > 0) {
+      c1 = c1 + 1;
+    }
+    if (dy23 < 0 || dy23 === 0 && dx23 > 0) {
+      c2 = c2 + 1;
+    }
+    if (dy31 < 0 || dy31 === 0 && dx31 > 0) {
+      c3 = c3 + 1;
+    }
+    s.cy1 = c1 + dx12 * (miny << 4) - dy12 * (minx << 4);
+    s.cy2 = c2 + dx23 * (miny << 4) - dy23 * (minx << 4);
+    s.cy3 = c3 + dx31 * (miny << 4) - dy31 * (minx << 4);
+    s.ok = true;
+    return s;
+  }
+  function fillTriangle(zbuff, img, color, w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1) {
+    const s = setup(w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1);
+    if (!s.ok) {
+      return;
+    }
+    const { dx, dy, zoff, minx, maxx, miny, maxy, fdx12, fdx23, fdx31, fdy12, fdy23, fdy31 } = s;
+    let cy1 = s.cy1 | 0, cy2 = s.cy2 | 0, cy3 = s.cy3 | 0;
+    let off = miny * w;
+    for (let y = miny; y < maxy; y++) {
+      let cx1 = cy1, cx2 = cy2, cx3 = cy3;
+      const p = fround2(zoff + dy * y);
+      for (let x = minx; x < maxx; x++) {
+        if (cx1 > 0 && cx2 > 0 && cx3 > 0) {
+          const point = x + off;
+          const zval = fround2(p + dx * x);
+          if (zbuff[point] > zval) {
+            zbuff[point] = zval;
+            img[point] = color;
+          }
+        }
+        cx1 = cx1 - fdy12 | 0;
+        cx2 = cx2 - fdy23 | 0;
+        cx3 = cx3 - fdy31 | 0;
+      }
+      cy1 = cy1 + fdx12 | 0;
+      cy2 = cy2 + fdx23 | 0;
+      cy3 = cy3 + fdx31 | 0;
+      off += w;
+    }
+  }
+  function fillTriangleGouraud(zbuff, img, c3, c2, c1, w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1) {
+    const s = setup(w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1);
+    if (!s.ok) {
+      return;
+    }
+    if (s.swapped) {
+      const t = c1;
+      c1 = c2;
+      c2 = t;
+    }
+    const { dx, dy, zoff, minx, maxx, miny, maxy, fdx12, fdx23, fdx31, fdy12, fdy23, fdy31 } = s;
+    let cy1 = s.cy1 | 0, cy2 = s.cy2 | 0, cy3 = s.cy3 | 0;
+    const sum = cy1 + cy2 + cy3;
+    if (sum === 0) {
+      return;
+    }
+    const inv = fround2(1 / fround2(sum));
+    const a1 = c1 >>> 24 & 255, r1 = c1 >>> 16 & 255, g1 = c1 >>> 8 & 255, b1 = c1 & 255;
+    const a2 = c2 >>> 24 & 255, r2 = c2 >>> 16 & 255, g2 = c2 >>> 8 & 255, b2 = c2 & 255;
+    const a3 = c3 >>> 24 & 255, r3 = c3 >>> 16 & 255, g3 = c3 >>> 8 & 255, b3 = c3 & 255;
+    let off = miny * w;
+    for (let y = miny; y < maxy; y++) {
+      let cx1 = cy1, cx2 = cy2, cx3 = cy3;
+      const p = fround2(zoff + dy * y);
+      for (let x = minx; x < maxx; x++) {
+        if (cx1 > 0 && cx2 > 0 && cx3 > 0) {
+          const point = x + off;
+          const zval = fround2(p + dx * x);
+          if (zbuff[point] > zval) {
+            zbuff[point] = zval;
+            const w1 = fround2(fround2(cx2) * inv);
+            const w2 = fround2(fround2(cx3) * inv);
+            const w3 = fround2(fround2(cx1) * inv);
+            const a = f2i(lerp3(w1, a1, w2, a2, w3, a3));
+            const r = f2i(lerp3(w1, r1, w2, r2, w3, r3));
+            const g = f2i(lerp3(w1, g1, w2, g2, w3, g3));
+            const b = f2i(lerp3(w1, b1, w2, b2, w3, b3));
+            img[point] = a << 24 | r << 16 | g << 8 | b | 0;
+          }
+        }
+        cx1 = cx1 - fdy12 | 0;
+        cx2 = cx2 - fdy23 | 0;
+        cx3 = cx3 - fdy31 | 0;
+      }
+      cy1 = cy1 + fdx12 | 0;
+      cy2 = cy2 + fdx23 | 0;
+      cy3 = cy3 + fdx31 | 0;
+      off += w;
+    }
+  }
+  function fillTriangleTextured(zbuff, img, tex, texW, texH, c3, c2, c1, w, h, fx3, fy3, fz3, u3, v3, iw3, fx2, fy2, fz2, u2, v2, iw2, fx1, fy1, fz1, u1, v1, iw1) {
+    const s = setup(w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1);
+    if (!s.ok) {
+      return;
+    }
+    if (s.swapped) {
+      let t = c1;
+      c1 = c2;
+      c2 = t;
+      t = u1;
+      u1 = u2;
+      u2 = t;
+      t = v1;
+      v1 = v2;
+      v2 = t;
+      t = iw1;
+      iw1 = iw2;
+      iw2 = t;
+    }
+    const { dx, dy, zoff, minx, maxx, miny, maxy, fdx12, fdx23, fdx31, fdy12, fdy23, fdy31 } = s;
+    let cy1 = s.cy1, cy2 = s.cy2, cy3 = s.cy3;
+    const sum = cy1 + cy2 + cy3;
+    if (sum === 0) {
+      return;
+    }
+    const inv = fround2(1 / fround2(sum));
+    const a1 = c1 >>> 24 & 255, r1 = c1 >>> 16 & 255, g1 = c1 >>> 8 & 255, b1 = c1 & 255;
+    const a2 = c2 >>> 24 & 255, r2 = c2 >>> 16 & 255, g2 = c2 >>> 8 & 255, b2 = c2 & 255;
+    const a3 = c3 >>> 24 & 255, r3 = c3 >>> 16 & 255, g3 = c3 >>> 8 & 255, b3 = c3 & 255;
+    const uiw1 = fround2(u1 * iw1), uiw2 = fround2(u2 * iw2), uiw3 = fround2(u3 * iw3);
+    const viw1 = fround2(v1 * iw1), viw2 = fround2(v2 * iw2), viw3 = fround2(v3 * iw3);
+    let off = miny * w;
+    for (let y = miny; y < maxy; y++) {
+      let cx1 = cy1, cx2 = cy2, cx3 = cy3;
+      const p = fround2(zoff + dy * y);
+      for (let x = minx; x < maxx; x++) {
+        if (cx1 > 0 && cx2 > 0 && cx3 > 0) {
+          const point = x + off;
+          const zval = fround2(p + dx * x);
+          if (zbuff[point] > zval) {
+            const w1 = fround2(fround2(cx2) * inv), w2 = fround2(fround2(cx3) * inv), w3 = fround2(fround2(cx1) * inv);
+            const invW = fround2(1 / lerp3(w1, iw1, w2, iw2, w3, iw3));
+            const u = fround2(lerp3(w1, uiw1, w2, uiw2, w3, uiw3) * invW);
+            const v = fround2(lerp3(w1, viw1, w2, viw2, w3, viw3) * invW);
+            let tx = f2i(fround2(u * texW));
+            let ty = f2i(fround2(fround2(1 - v) * texH));
+            if (tx < 0) {
+              tx = 0;
+            } else if (tx >= texW) {
+              tx = texW - 1;
+            }
+            if (ty < 0) {
+              ty = 0;
+            } else if (ty >= texH) {
+              ty = texH - 1;
+            }
+            const t = tex[ty * texW + tx];
+            const ta = t >>> 24 & 255;
+            if (ta !== 0) {
+              zbuff[point] = zval;
+              const la = f2i(lerp3(w1, a1, w2, a2, w3, a3));
+              const lr = f2i(lerp3(w1, r1, w2, r2, w3, r3));
+              const lg = f2i(lerp3(w1, g1, w2, g2, w3, g3));
+              const lb = f2i(lerp3(w1, b1, w2, b2, w3, b3));
+              const a = Math.trunc(ta * la / 255);
+              const r = Math.trunc((t >>> 16 & 255) * lr / 255);
+              const g = Math.trunc((t >>> 8 & 255) * lg / 255);
+              const b = Math.trunc((t & 255) * lb / 255);
+              img[point] = a << 24 | r << 16 | g << 8 | b | 0;
+            }
+          }
+        }
+        cx1 -= fdy12;
+        cx2 -= fdy23;
+        cx3 -= fdy31;
+      }
+      cy1 += fdx12;
+      cy2 += fdx23;
+      cy3 += fdx31;
+      off += w;
+    }
+  }
+  function fillTriangleDepthOnly(zbuff, w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1) {
+    const s = setup(w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1);
+    if (!s.ok) {
+      return;
+    }
+    const { dx, dy, zoff, minx, maxx, miny, maxy, fdx12, fdx23, fdx31, fdy12, fdy23, fdy31 } = s;
+    let cy1 = s.cy1 | 0, cy2 = s.cy2 | 0, cy3 = s.cy3 | 0;
+    let off = miny * w;
+    for (let y = miny; y < maxy; y++) {
+      let cx1 = cy1, cx2 = cy2, cx3 = cy3;
+      const p = fround2(zoff + dy * y);
+      for (let x = minx; x < maxx; x++) {
+        if (cx1 > 0 && cx2 > 0 && cx3 > 0) {
+          const point = x + off;
+          const zval = fround2(p + dx * x);
+          if (zbuff[point] > zval) {
+            zbuff[point] = zval;
+          }
+        }
+        cx1 = cx1 - fdy12 | 0;
+        cx2 = cx2 - fdy23 | 0;
+        cx3 = cx3 - fdy31 | 0;
+      }
+      cy1 = cy1 + fdx12 | 0;
+      cy2 = cy2 + fdx23 | 0;
+      cy3 = cy3 + fdx31 | 0;
+      off += w;
+    }
+  }
+  function drawLineDepthTested(zbuff, img, color, w, h, x0, y0, z0, x1, y1, z1, bias) {
+    const dx = fround2(x1 - x0);
+    const dy = fround2(y1 - y0);
+    const adx = dx < 0 ? -dx : dx;
+    const ady = dy < 0 ? -dy : dy;
+    let steps = f2i(adx > ady ? adx : ady);
+    if (steps < 1) {
+      steps = 1;
+    }
+    const inv = fround2(1 / steps);
+    const sx = fround2(dx * inv);
+    const sy = fround2(dy * inv);
+    const sz = fround2(fround2(z1 - z0) * inv);
+    let px = x0, py = y0, pz = z0;
+    for (let i = 0; i <= steps; i++) {
+      const ix = f2i(px);
+      const iy = f2i(py);
+      if (ix >= 0 && ix < w && iy >= 0 && iy < h) {
+        const point = ix + iy * w;
+        if (zbuff[point] >= pz - bias) {
+          img[point] = color;
+        }
+      }
+      px = fround2(px + sx);
+      py = fround2(py + sy);
+      pz = fround2(pz + sz);
+    }
+  }
+
+  // third_party/remote-compose-player/src/core/d3/Paint3DContext.ts
+  var PROJECTION_PERSPECTIVE = 0;
+  var M3_IDENTITY = 0;
+  var M3_TRANSLATE = 1;
+  var M3_SCALE = 2;
+  var M3_ROTATE_AXIS = 3;
+  var M3_MULTIPLY = 4;
+  var LIGHT_DIRECTIONAL = 0;
+  var LIGHT_POINT = 1;
+  var P3_CLEAR_DEPTH = 0;
+  var P3_MATERIAL = 1;
+  var P3_DEPTH_BIAS = 2;
+  var MODE_SOFTWARE_FLAT = 0;
+  var MODE_SMOOTH_MASK = 1;
+  var MODE_WIREFRAME = 256;
+  var WIRE_EDGE0 = 512;
+  var WIRE_EDGE1 = 1024;
+  var WIRE_EDGE2 = 2048;
+  var WIRE_EDGE_MASK = WIRE_EDGE0 | WIRE_EDGE1 | WIRE_EDGE2;
+  var MODE_SOFTWARE_WIREFRAME = MODE_SOFTWARE_FLAT | MODE_WIREFRAME;
+  var MODE_BACKEND_CANVAS = 1;
+  var MODE_BACKEND_CANVAS_ZBUF = 5;
+  function isPaint3DContext(ctx) {
+    return !!ctx && typeof ctx.drawMesh3D === "function";
+  }
+
+  // third_party/remote-compose-player/src/core/d3/SoftwarePaint3DContext.ts
+  var fround3 = Math.fround;
+  function fm2(a, b) {
+    return fround3(a * b);
+  }
+  function fa2(a, b) {
+    return fround3(a + b);
+  }
+  var INV_255 = Math.fround(1 / 255);
+  var NEAR_W_EPSILON = 1e-4;
+  var AMBIENT = Math.fround(0.2);
+  var MAX_LIGHTS = 32;
+  var WIRE_DEPTH_BIAS = 6e-4;
+  function createCanvasMesh() {
+    return {
+      positions: new Float32Array(0),
+      colors: new Int32Array(0),
+      uvs: new Float32Array(0),
+      depths: new Float32Array(0),
+      hasUv: false,
+      vertexCount: 0
+    };
+  }
+  var SoftwarePaint3DContext = class {
+    constructor() {
+      this.mProj = mat4();
+      this.mView = mat4();
+      this.mModel = mat4();
+      this.mPV = mat4();
+      this.mMVP = mat4();
+      this.mMV = mat4();
+      this.mMeshes = /* @__PURE__ */ new Map();
+      this.mColor = null;
+      this.mZbuf = null;
+      this.mWidth = 0;
+      this.mHeight = 0;
+      this.mBaseColorArgb = 4294967295 | 0;
+      // Lighting state. Until a light op runs we use a default headlight, so an untouched
+      // document is never unlit.
+      this.mLights = [];
+      this.mLightsTouched = false;
+      // Per-draw eye-space light scratch (parallel arrays, filled by prepareLightsEyeSpace).
+      this.mNumEyeLights = 0;
+      this.mEType = new Int32Array(0);
+      this.mElx = new Float32Array(0);
+      this.mEly = new Float32Array(0);
+      this.mElz = new Float32Array(0);
+      this.mElr = new Float32Array(0);
+      this.mElg = new Float32Array(0);
+      this.mElb = new Float32Array(0);
+      this.mScratch4 = new Float32Array(4);
+      this.mLightScratch3 = new Float32Array(3);
+      this.mNormal3 = new Float32Array(3);
+      // Software texture (host-decoded ARGB pixels).
+      this.mTexPixels = null;
+      this.mTexW = 0;
+      this.mTexH = 0;
+      // Specular material (Blinn-Phong). 0 strength => matte (default, no specular cost).
+      this.mSpecStrength = 0;
+      this.mShininess = 32;
+      // Polygon-offset depth bias (window-z units). Both 0 => no bias.
+      this.mDepthBiasC = 0;
+      this.mDepthBiasS = 0;
+      /** Per-triangle screen-space output of projectTriangle: sx,sy,sz x 3. */
+      this.mTriScreen = new Float32Array(9);
+      /** Per-vertex shaded ARGB of the last accepted triangle, in vertex order. */
+      this.mTriColor = new Int32Array(3);
+      /** Per-vertex 1/clipW, for perspective-correct attribute interpolation. */
+      this.mTriInvW = new Float32Array(3);
+      /**
+       * Project, near-reject, backface-cull and Lambert shade one triangle. On acceptance fills
+       * mTriScreen with the three screen-space vertices (Y already flipped for a top-down buffer)
+       * and mTriColor with the per-vertex shaded ARGB, and returns true. Returns false — leaving
+       * the scratch untouched — when the triangle is degenerate, crosses the near plane, or is
+       * back-facing.
+       */
+      // ── Canvas backend front half ─────────────────────────────────────────────────────
+      //
+      // Port of the reference's buildCanvasVertices, and the same code as the C++ one. It
+      // reuses projectTriangle, so transform, backface cull, lighting and depth bias are
+      // literally what the software rasterizer runs — the backends can only disagree about
+      // rasterization, which is the point of having both.
+      this.cvTriXY = new Float32Array(0);
+      this.cvTriUv = new Float32Array(0);
+      this.cvTriColor = new Int32Array(0);
+      this.cvTriDepth = new Float32Array(0);
+      this.cvTriZ = new Float32Array(0);
+      this.cvOrder = new Int32Array(0);
+    }
+    // ----- Buffers ----------------------------------------------------------
+    /**
+     * (Re)allocate the color and depth buffers if the size changed. Pixels are NOT cleared
+     * here — call clearDepth3D() to start a new 3D pass.
+     */
+    setSize(width, height) {
+      if (width <= 0 || height <= 0) {
+        return;
+      }
+      if (this.mColor === null || this.mWidth !== width || this.mHeight !== height) {
+        this.mColor = new Int32Array(width * height);
+        this.mZbuf = new Float32Array(width * height);
+        this.mWidth = width;
+        this.mHeight = height;
+        clearDepth(this.mZbuf);
+      }
+    }
+    getWidth() {
+      return this.mWidth;
+    }
+    getHeight() {
+      return this.mHeight;
+    }
+    /** Engine color buffer (ARGB, length w*h). Null before setSize. */
+    getColorBuffer() {
+      return this.mColor;
+    }
+    setBaseColorArgb(argb) {
+      this.mBaseColorArgb = argb | 0;
+    }
+    getBaseColorArgb() {
+      return this.mBaseColorArgb;
+    }
+    // ----- Paint3DContext ---------------------------------------------------
+    defineMesh3D(id, indices, verts, normals, uv = null) {
+      this.mMeshes.set(id, { indices, verts, normals, uv });
+    }
+    setCamera3D(projection, projParams, viewParams) {
+      if (projection === PROJECTION_PERSPECTIVE) {
+        if (projParams.length !== 4) {
+          return;
+        }
+        perspective(this.mProj, projParams[0], projParams[1], projParams[2], projParams[3]);
+      } else {
+        if (projParams.length !== 6) {
+          return;
+        }
+        ortho(
+          this.mProj,
+          projParams[0],
+          projParams[1],
+          projParams[2],
+          projParams[3],
+          projParams[4],
+          projParams[5]
+        );
+      }
+      if (viewParams.length !== 9) {
+        return;
+      }
+      lookAt(
+        this.mView,
+        viewParams[0],
+        viewParams[1],
+        viewParams[2],
+        viewParams[3],
+        viewParams[4],
+        viewParams[5],
+        viewParams[6],
+        viewParams[7],
+        viewParams[8]
+      );
+      identity(this.mModel);
+    }
+    matrix3Op(sub, args) {
+      switch (sub) {
+        case M3_IDENTITY:
+          identity(this.mModel);
+          break;
+        case M3_TRANSLATE:
+          if (args.length === 3) {
+            translate(this.mModel, args[0], args[1], args[2]);
+          }
+          break;
+        case M3_SCALE:
+          if (args.length === 3) {
+            scale(this.mModel, args[0], args[1], args[2]);
+          }
+          break;
+        case M3_ROTATE_AXIS:
+          if (args.length === 4) {
+            rotateAxis(this.mModel, args[0], args[1], args[2], args[3]);
+          }
+          break;
+        case M3_MULTIPLY:
+          if (args.length === 16) {
+            const m = args instanceof Float32Array ? args : new Float32Array(args);
+            multiply(this.mModel, this.mModel, m);
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    clearDepth3D() {
+      if (this.mZbuf === null || this.mColor === null) {
+        return;
+      }
+      clearDepth(this.mZbuf);
+      this.mColor.fill(0);
+    }
+    setLights3D(types, colors, params) {
+      this.mLights = [];
+      const n = types.length;
+      for (let i = 0; i < n && this.mLights.length < MAX_LIGHTS; i++) {
+        const p = i * 4;
+        if (p + 3 >= params.length) {
+          break;
+        }
+        const argb = colors[i] | 0;
+        this.mLights.push({
+          type: types[i],
+          r: fround3((argb >>> 16 & 255) * INV_255),
+          g: fround3((argb >>> 8 & 255) * INV_255),
+          b: fround3((argb & 255) * INV_255),
+          wx: params[p],
+          wy: params[p + 1],
+          wz: params[p + 2],
+          intensity: params[p + 3]
+        });
+      }
+      this.mLightsTouched = true;
+    }
+    /** The software engine has no bitmap store; the host supplies pixels via setTextureData. */
+    setTexture3D(_bitmapId) {
+    }
+    setMaterial3D(specStrength, shininess) {
+      this.mSpecStrength = specStrength;
+      this.mShininess = shininess > 0 ? shininess : 1;
+    }
+    setDepthBias3D(constant, slope) {
+      this.mDepthBiasC = constant;
+      this.mDepthBiasS = slope;
+    }
+    /** Host-supplied texture pixels (ARGB, length w*h); null clears the texture. */
+    setTextureData(pixels, w, h) {
+      this.mTexPixels = pixels;
+      this.mTexW = w;
+      this.mTexH = h;
+    }
+    // ----- Lighting ---------------------------------------------------------
+    ensureEyeLightCapacity(n) {
+      if (this.mEType.length < n) {
+        this.mEType = new Int32Array(n);
+        this.mElx = new Float32Array(n);
+        this.mEly = new Float32Array(n);
+        this.mElz = new Float32Array(n);
+        this.mElr = new Float32Array(n);
+        this.mElg = new Float32Array(n);
+        this.mElb = new Float32Array(n);
+      }
+    }
+    /**
+     * Resolve the active lights into eye space for the current view. Directional lights store
+     * the unit vector *toward* the light; point lights store their eye-space position. Color is
+     * premultiplied by intensity.
+     */
+    prepareLightsEyeSpace() {
+      if (!this.mLightsTouched) {
+        this.ensureEyeLightCapacity(1);
+        this.mEType[0] = LIGHT_DIRECTIONAL;
+        this.mElx[0] = 0;
+        this.mEly[0] = 0;
+        this.mElz[0] = 1;
+        this.mElr[0] = 1 - AMBIENT;
+        this.mElg[0] = 1 - AMBIENT;
+        this.mElb[0] = 1 - AMBIENT;
+        this.mNumEyeLights = 1;
+        return;
+      }
+      const n = this.mLights.length;
+      this.ensureEyeLightCapacity(n);
+      for (let i = 0; i < n; i++) {
+        const l = this.mLights[i];
+        this.mEType[i] = l.type;
+        if (l.type === LIGHT_POINT) {
+          transformPoint(this.mView, l.wx, l.wy, l.wz, this.mScratch4);
+          this.mElx[i] = this.mScratch4[0];
+          this.mEly[i] = this.mScratch4[1];
+          this.mElz[i] = this.mScratch4[2];
+        } else {
+          transformDirection(this.mView, l.wx, l.wy, l.wz, this.mLightScratch3);
+          let x = -this.mLightScratch3[0];
+          let y = -this.mLightScratch3[1];
+          let z = -this.mLightScratch3[2];
+          const len = fround3(Math.sqrt(fa2(fa2(fm2(x, x), fm2(y, y)), fm2(z, z))));
+          if (len > 0) {
+            x = fround3(x / len);
+            y = fround3(y / len);
+            z = fround3(z / len);
+          }
+          this.mElx[i] = x;
+          this.mEly[i] = y;
+          this.mElz[i] = z;
+        }
+        this.mElr[i] = l.r * l.intensity;
+        this.mElg[i] = l.g * l.intensity;
+        this.mElb[i] = l.b * l.intensity;
+      }
+      this.mNumEyeLights = n;
+    }
+    /**
+     * Lambert-light a vertex: base modulated by ambient plus each light's (two-sided) N.L.
+     * (nx,ny,nz) is the eye-space normal (need not be unit); (px,py,pz) the eye-space position.
+     */
+    litColor(base, nx, ny, nz, px, py, pz) {
+      const nlen = fround3(Math.sqrt(fa2(fa2(fm2(nx, nx), fm2(ny, ny)), fm2(nz, nz))));
+      const inv = nlen === 0 ? 0 : fround3(1 / nlen);
+      if (this.mSpecStrength > 0) {
+        return this.litColorSpecular(base, nx * inv, ny * inv, nz * inv, px, py, pz);
+      }
+      let lr = AMBIENT, lg = AMBIENT, lb = AMBIENT;
+      for (let i = 0; i < this.mNumEyeLights; i++) {
+        let lx, ly, lz;
+        if (this.mEType[i] === LIGHT_POINT) {
+          lx = this.mElx[i] - px;
+          ly = this.mEly[i] - py;
+          lz = this.mElz[i] - pz;
+          const ll = fround3(Math.sqrt(fa2(fa2(fm2(lx, lx), fm2(ly, ly)), fm2(lz, lz))));
+          if (ll > 0) {
+            lx = fround3(lx / ll);
+            ly = fround3(ly / ll);
+            lz = fround3(lz / ll);
+          }
+        } else {
+          lx = this.mElx[i];
+          ly = this.mEly[i];
+          lz = this.mElz[i];
+        }
+        let d = fm2(fa2(fa2(fm2(nx, lx), fm2(ny, ly)), fm2(nz, lz)), inv);
+        if (d < 0) {
+          d = -d;
+        }
+        lr = fround3(lr + fround3(this.mElr[i] * d));
+        lg = fround3(lg + fround3(this.mElg[i] * d));
+        lb = fround3(lb + fround3(this.mElb[i] * d));
+      }
+      const a = base >>> 24 & 255;
+      let r = Math.trunc(fm2(base >>> 16 & 255, lr));
+      let g = Math.trunc(fm2(base >>> 8 & 255, lg));
+      let b = Math.trunc(fm2(base & 255, lb));
+      if (r > 255) {
+        r = 255;
+      }
+      if (g > 255) {
+        g = 255;
+      }
+      if (b > 255) {
+        b = 255;
+      }
+      return a << 24 | r << 16 | g << 8 | b | 0;
+    }
+    /**
+     * Glossy shading (only when specStrength > 0): diffuse Lambert modulating the base color
+     * plus an additive white Blinn-Phong highlight. The normal is unit and is flipped to face
+     * the viewer, so highlights land on the lit side only.
+     */
+    litColorSpecular(base, nfx, nfy, nfz, px, py, pz) {
+      const vlen = fround3(Math.sqrt(fa2(fa2(fm2(px, px), fm2(py, py)), fm2(pz, pz))));
+      let vx = 0, vy = 0, vz = 1;
+      if (vlen > 0) {
+        vx = fround3(-px / vlen);
+        vy = fround3(-py / vlen);
+        vz = fround3(-pz / vlen);
+      }
+      if (fa2(fa2(fm2(nfx, vx), fm2(nfy, vy)), fm2(nfz, vz)) < 0) {
+        nfx = -nfx;
+        nfy = -nfy;
+        nfz = -nfz;
+      }
+      let lr = AMBIENT, lg = AMBIENT, lb = AMBIENT;
+      let sr = 0, sg = 0, sb = 0;
+      for (let i = 0; i < this.mNumEyeLights; i++) {
+        let lx, ly, lz;
+        if (this.mEType[i] === LIGHT_POINT) {
+          lx = this.mElx[i] - px;
+          ly = this.mEly[i] - py;
+          lz = this.mElz[i] - pz;
+          const ll = fround3(Math.sqrt(lx * lx + ly * ly + lz * lz));
+          if (ll > 0) {
+            lx /= ll;
+            ly /= ll;
+            lz /= ll;
+          }
+        } else {
+          lx = this.mElx[i];
+          ly = this.mEly[i];
+          lz = this.mElz[i];
+        }
+        const ndl = fa2(fa2(fm2(nfx, lx), fm2(nfy, ly)), fm2(nfz, lz));
+        if (ndl <= 0) {
+          continue;
+        }
+        lr = fa2(lr, fm2(this.mElr[i], ndl));
+        lg = fa2(lg, fm2(this.mElg[i], ndl));
+        lb = fa2(lb, fm2(this.mElb[i], ndl));
+        const hx = lx + vx, hy = ly + vy, hz = lz + vz;
+        const hlen = fround3(Math.sqrt(fa2(fa2(fm2(hx, hx), fm2(hy, hy)), fm2(hz, hz))));
+        if (hlen <= 0) {
+          continue;
+        }
+        const ndh = fround3(fa2(fa2(fm2(nfx, hx), fm2(nfy, hy)), fm2(nfz, hz)) / hlen);
+        if (ndh <= 0) {
+          continue;
+        }
+        const spec = fm2(fround3(Math.pow(ndh, this.mShininess)), this.mSpecStrength);
+        sr = fa2(sr, fm2(this.mElr[i], spec));
+        sg = fa2(sg, fm2(this.mElg[i], spec));
+        sb = fa2(sb, fm2(this.mElb[i], spec));
+      }
+      const a = base >>> 24 & 255;
+      let r = Math.trunc((base >>> 16 & 255) * lr + sr * 255);
+      let g = Math.trunc((base >>> 8 & 255) * lg + sg * 255);
+      let b = Math.trunc((base & 255) * lb + sb * 255);
+      if (r > 255) {
+        r = 255;
+      }
+      if (g > 255) {
+        g = 255;
+      }
+      if (b > 255) {
+        b = 255;
+      }
+      return a << 24 | r << 16 | g << 8 | b | 0;
+    }
+    // ----- Drawing ----------------------------------------------------------
+    drawMesh3D(meshId, mode) {
+      const m = this.mMeshes.get(meshId);
+      if (m === void 0 || this.mColor === null || this.mZbuf === null) {
+        return;
+      }
+      const w = this.mWidth;
+      const h = this.mHeight;
+      const pixels = this.mColor;
+      multiply(this.mPV, this.mProj, this.mView);
+      multiply(this.mMV, this.mView, this.mModel);
+      multiply(this.mMVP, this.mPV, this.mModel);
+      this.prepareLightsEyeSpace();
+      const baseColor = this.mBaseColorArgb;
+      const idx = m.indices;
+      const verts = m.verts;
+      const normals = m.normals;
+      const uv = m.uv;
+      if ((mode & MODE_WIREFRAME) !== 0) {
+        this.drawMeshWireframe(idx, verts, normals, baseColor, w, h, pixels, mode);
+        return;
+      }
+      const smooth = (mode & MODE_SMOOTH_MASK) !== 0 && normals !== null;
+      const textured = this.mTexPixels !== null && uv !== null;
+      const interpolate2 = smooth || this.mSpecStrength > 0;
+      const ts = this.mTriScreen;
+      const tc = this.mTriColor;
+      for (let t = 0; t < idx.length; t += 3) {
+        if (!this.projectTriangle(idx, verts, normals, smooth, textured, t, baseColor, w, h)) {
+          continue;
+        }
+        if (textured) {
+          const q0 = idx[t] * 2, q1 = idx[t + 1] * 2, q2 = idx[t + 2] * 2;
+          fillTriangleTextured(
+            this.mZbuf,
+            pixels,
+            this.mTexPixels,
+            this.mTexW,
+            this.mTexH,
+            tc[2],
+            tc[1],
+            tc[0],
+            w,
+            h,
+            ts[6],
+            ts[7],
+            ts[8],
+            uv[q2],
+            uv[q2 + 1],
+            this.mTriInvW[2],
+            ts[3],
+            ts[4],
+            ts[5],
+            uv[q1],
+            uv[q1 + 1],
+            this.mTriInvW[1],
+            ts[0],
+            ts[1],
+            ts[2],
+            uv[q0],
+            uv[q0 + 1],
+            this.mTriInvW[0]
+          );
+        } else if (interpolate2) {
+          fillTriangleGouraud(
+            this.mZbuf,
+            pixels,
+            tc[2],
+            tc[1],
+            tc[0],
+            w,
+            h,
+            ts[6],
+            ts[7],
+            ts[8],
+            ts[3],
+            ts[4],
+            ts[5],
+            ts[0],
+            ts[1],
+            ts[2]
+          );
+        } else {
+          fillTriangle(
+            this.mZbuf,
+            pixels,
+            tc[0],
+            w,
+            h,
+            ts[6],
+            ts[7],
+            ts[8],
+            ts[3],
+            ts[4],
+            ts[5],
+            ts[0],
+            ts[1],
+            ts[2]
+          );
+        }
+      }
+    }
+    /**
+     * Hidden-line wireframe. Two passes over the front-facing triangles: rasterize each into the
+     * depth buffer only (transparent faces), then draw the selected edges as depth-tested lines,
+     * so edges on visible surface show and edges behind nearer surface are occluded.
+     */
+    drawMeshWireframe(idx, verts, normals, lineColor, w, h, pixels, mode) {
+      let edges = mode & WIRE_EDGE_MASK;
+      if (edges === 0) {
+        edges = WIRE_EDGE_MASK;
+      }
+      const e0 = (edges & WIRE_EDGE0) !== 0;
+      const e1 = (edges & WIRE_EDGE1) !== 0;
+      const e2 = (edges & WIRE_EDGE2) !== 0;
+      const ts = this.mTriScreen;
+      for (let t = 0; t < idx.length; t += 3) {
+        if (!this.projectTriangle(idx, verts, normals, false, false, t, lineColor, w, h)) {
+          continue;
+        }
+        fillTriangleDepthOnly(
+          this.mZbuf,
+          w,
+          h,
+          ts[6],
+          ts[7],
+          ts[8],
+          ts[3],
+          ts[4],
+          ts[5],
+          ts[0],
+          ts[1],
+          ts[2]
+        );
+      }
+      for (let t = 0; t < idx.length; t += 3) {
+        if (!this.projectTriangle(idx, verts, normals, false, false, t, lineColor, w, h)) {
+          continue;
+        }
+        const ax = ts[0], ay = ts[1], az = ts[2];
+        const bx = ts[3], by = ts[4], bz = ts[5];
+        const cx = ts[6], cy = ts[7], cz = ts[8];
+        if (e0) {
+          drawLineDepthTested(
+            this.mZbuf,
+            pixels,
+            lineColor,
+            w,
+            h,
+            ax,
+            ay,
+            az,
+            bx,
+            by,
+            bz,
+            WIRE_DEPTH_BIAS
+          );
+        }
+        if (e1) {
+          drawLineDepthTested(
+            this.mZbuf,
+            pixels,
+            lineColor,
+            w,
+            h,
+            bx,
+            by,
+            bz,
+            cx,
+            cy,
+            cz,
+            WIRE_DEPTH_BIAS
+          );
+        }
+        if (e2) {
+          drawLineDepthTested(
+            this.mZbuf,
+            pixels,
+            lineColor,
+            w,
+            h,
+            cx,
+            cy,
+            cz,
+            ax,
+            ay,
+            az,
+            WIRE_DEPTH_BIAS
+          );
+        }
+      }
+    }
+    /**
+     * Project, light and cull a mesh into `out`, returning the vertex count.
+     *
+     * Triangles come out ordered back to front so a host with no depth buffer still gets a
+     * plausible image; `depths` is filled for one that has.
+     */
+    /** The active texture, for a host that rasterizes textured triangles itself. */
+    getTextureData() {
+      return { pixels: this.mTexPixels, width: this.mTexW, height: this.mTexH };
+    }
+    buildCanvasVertices(meshId, out, smooth) {
+      out.vertexCount = 0;
+      const m = this.mMeshes.get(meshId);
+      if (m === void 0) return 0;
+      const w = this.mWidth, h = this.mHeight;
+      multiply(this.mPV, this.mProj, this.mView);
+      multiply(this.mMV, this.mView, this.mModel);
+      multiply(this.mMVP, this.mPV, this.mModel);
+      this.prepareLightsEyeSpace();
+      const idx = m.indices, verts = m.verts, normals = m.normals, uv = m.uv;
+      const useSmooth = smooth && normals !== null;
+      out.hasUv = uv !== null;
+      const triCount = idx.length / 3 | 0;
+      if (triCount <= 0) return 0;
+      if (this.cvTriXY.length < triCount * 6) {
+        this.cvTriXY = new Float32Array(triCount * 6);
+        this.cvTriUv = new Float32Array(triCount * 6);
+        this.cvTriColor = new Int32Array(triCount * 3);
+        this.cvTriZ = new Float32Array(triCount * 3);
+        this.cvTriDepth = new Float32Array(triCount);
+        this.cvOrder = new Int32Array(triCount);
+      }
+      const ts = this.mTriScreen, tc = this.mTriColor;
+      let kept = 0;
+      for (let t = 0; t < idx.length; t += 3) {
+        if (!this.projectTriangle(
+          idx,
+          verts,
+          normals,
+          useSmooth,
+          false,
+          t,
+          this.mBaseColorArgb,
+          w,
+          h
+        )) {
+          continue;
+        }
+        const p = kept * 6;
+        this.cvTriXY[p] = ts[0];
+        this.cvTriXY[p + 1] = ts[1];
+        this.cvTriXY[p + 2] = ts[3];
+        this.cvTriXY[p + 3] = ts[4];
+        this.cvTriXY[p + 4] = ts[6];
+        this.cvTriXY[p + 5] = ts[7];
+        const c = kept * 3;
+        this.cvTriColor[c] = tc[0];
+        this.cvTriColor[c + 1] = tc[1];
+        this.cvTriColor[c + 2] = tc[2];
+        if (uv !== null) {
+          const u0 = idx[t] * 2, u1 = idx[t + 1] * 2, u2 = idx[t + 2] * 2;
+          this.cvTriUv[p] = uv[u0];
+          this.cvTriUv[p + 1] = uv[u0 + 1];
+          this.cvTriUv[p + 2] = uv[u1];
+          this.cvTriUv[p + 3] = uv[u1 + 1];
+          this.cvTriUv[p + 4] = uv[u2];
+          this.cvTriUv[p + 5] = uv[u2 + 1];
+        }
+        this.cvTriDepth[kept] = (ts[2] + ts[5] + ts[8]) * (1 / 3);
+        const zi = kept * 3;
+        this.cvTriZ[zi] = ts[2];
+        this.cvTriZ[zi + 1] = ts[5];
+        this.cvTriZ[zi + 2] = ts[8];
+        kept++;
+      }
+      const order = this.cvOrder, depth = this.cvTriDepth;
+      for (let i = 0; i < kept; i++) order[i] = i;
+      for (let i = 1; i < kept; i++) {
+        const cur = order[i];
+        const key = depth[cur];
+        let j = i - 1;
+        while (j >= 0 && depth[order[j]] < key) {
+          order[j + 1] = order[j];
+          j--;
+        }
+        order[j + 1] = cur;
+      }
+      const vertexCount2 = kept * 3;
+      if (out.positions.length < vertexCount2 * 2) {
+        out.positions = new Float32Array(vertexCount2 * 2);
+        out.uvs = new Float32Array(vertexCount2 * 2);
+        out.colors = new Int32Array(vertexCount2);
+        out.depths = new Float32Array(vertexCount2);
+      }
+      for (let k = 0; k < kept; k++) {
+        const tri = order[k];
+        const src = tri * 6, dst = k * 6;
+        for (let i = 0; i < 6; i++) out.positions[dst + i] = this.cvTriXY[src + i];
+        if (uv !== null) {
+          for (let i = 0; i < 6; i++) out.uvs[dst + i] = this.cvTriUv[src + i];
+        }
+        const srcC = tri * 3, v = k * 3;
+        for (let i = 0; i < 3; i++) {
+          out.colors[v + i] = this.cvTriColor[srcC + i];
+          out.depths[v + i] = this.cvTriZ[srcC + i];
+        }
+      }
+      out.vertexCount = vertexCount2;
+      return vertexCount2;
+    }
+    projectTriangle(idx, verts, normals, smooth, computeInvW, t, baseColor, w, h) {
+      const i0 = idx[t] * 3;
+      const i1 = idx[t + 1] * 3;
+      const i2 = idx[t + 2] * 3;
+      if (i0 < 0 || i1 < 0 || i2 < 0 || i0 + 2 >= verts.length || i1 + 2 >= verts.length || i2 + 2 >= verts.length) {
+        return false;
+      }
+      const s4 = this.mScratch4;
+      transformPoint(this.mMVP, verts[i0], verts[i0 + 1], verts[i0 + 2], s4);
+      const cx0 = s4[0], cy0 = s4[1], cz0 = s4[2], cw0 = s4[3];
+      transformPoint(this.mMVP, verts[i1], verts[i1 + 1], verts[i1 + 2], s4);
+      const cx1 = s4[0], cy1 = s4[1], cz1 = s4[2], cw1 = s4[3];
+      transformPoint(this.mMVP, verts[i2], verts[i2 + 1], verts[i2 + 2], s4);
+      const cx2 = s4[0], cy2 = s4[1], cz2 = s4[2], cw2 = s4[3];
+      if (cw0 < NEAR_W_EPSILON || cw1 < NEAR_W_EPSILON || cw2 < NEAR_W_EPSILON) {
+        return false;
+      }
+      if (computeInvW) {
+        this.mTriInvW[0] = 1 / cw0;
+        this.mTriInvW[1] = 1 / cw1;
+        this.mTriInvW[2] = 1 / cw2;
+      }
+      const nx0 = fround3(cx0 / cw0), ny0 = fround3(cy0 / cw0), nz0 = fround3(cz0 / cw0);
+      const nx1 = fround3(cx1 / cw1), ny1 = fround3(cy1 / cw1), nz1 = fround3(cz1 / cw1);
+      const nx2 = fround3(cx2 / cw2), ny2 = fround3(cy2 / cw2), nz2 = fround3(cz2 / cw2);
+      const sx0 = fm2(fa2(fm2(nx0, 0.5), 0.5), w);
+      const sy0 = fm2(fround3(1 - fa2(fm2(ny0, 0.5), 0.5)), h);
+      let sz0 = fa2(fm2(nz0, 0.5), 0.5);
+      const sx1 = fm2(fa2(fm2(nx1, 0.5), 0.5), w);
+      const sy1 = fm2(fround3(1 - fa2(fm2(ny1, 0.5), 0.5)), h);
+      let sz1 = fa2(fm2(nz1, 0.5), 0.5);
+      const sx2 = fm2(fa2(fm2(nx2, 0.5), 0.5), w);
+      const sy2 = fm2(fround3(1 - fa2(fm2(ny2, 0.5), 0.5)), h);
+      let sz2 = fa2(fm2(nz2, 0.5), 0.5);
+      const signedArea2 = fround3(fm2(fround3(sx1 - sx0), fround3(sy2 - sy0)) - fm2(fround3(sx2 - sx0), fround3(sy1 - sy0)));
+      if (signedArea2 > 0) {
+        return false;
+      }
+      if ((this.mDepthBiasC !== 0 || this.mDepthBiasS !== 0) && signedArea2 !== 0) {
+        const invA = fround3(1 / signedArea2);
+        const dzdx = fm2(fround3(fm2(fround3(sz1 - sz0), fround3(sy2 - sy0)) - fm2(fround3(sz2 - sz0), fround3(sy1 - sy0))), invA);
+        const dzdy = fm2(fround3(fm2(fround3(sz2 - sz0), fround3(sx1 - sx0)) - fm2(fround3(sz1 - sz0), fround3(sx2 - sx0))), invA);
+        const slope = Math.max(Math.abs(dzdx), Math.abs(dzdy));
+        const bias = fa2(this.mDepthBiasC, fm2(this.mDepthBiasS, slope));
+        sz0 = fa2(sz0, bias);
+        sz1 = fa2(sz1, bias);
+        sz2 = fa2(sz2, bias);
+      }
+      const ts = this.mTriScreen;
+      ts[0] = sx0;
+      ts[1] = sy0;
+      ts[2] = sz0;
+      ts[3] = sx1;
+      ts[4] = sy1;
+      ts[5] = sz1;
+      ts[6] = sx2;
+      ts[7] = sy2;
+      ts[8] = sz2;
+      transformPoint(this.mMV, verts[i0], verts[i0 + 1], verts[i0 + 2], s4);
+      const ev0x = s4[0], ev0y = s4[1], ev0z = s4[2];
+      transformPoint(this.mMV, verts[i1], verts[i1 + 1], verts[i1 + 2], s4);
+      const ev1x = s4[0], ev1y = s4[1], ev1z = s4[2];
+      transformPoint(this.mMV, verts[i2], verts[i2 + 1], verts[i2 + 2], s4);
+      const ev2x = s4[0], ev2y = s4[1], ev2z = s4[2];
+      const tc = this.mTriColor;
+      const n3 = this.mNormal3;
+      if (smooth && normals !== null && i0 + 2 < normals.length && i1 + 2 < normals.length && i2 + 2 < normals.length) {
+        transformDirection(this.mMV, normals[i0], normals[i0 + 1], normals[i0 + 2], n3);
+        tc[0] = this.litColor(baseColor, n3[0], n3[1], n3[2], ev0x, ev0y, ev0z);
+        transformDirection(this.mMV, normals[i1], normals[i1 + 1], normals[i1 + 2], n3);
+        tc[1] = this.litColor(baseColor, n3[0], n3[1], n3[2], ev1x, ev1y, ev1z);
+        transformDirection(this.mMV, normals[i2], normals[i2 + 1], normals[i2 + 2], n3);
+        tc[2] = this.litColor(baseColor, n3[0], n3[1], n3[2], ev2x, ev2y, ev2z);
+      } else {
+        const ax = fround3(ev1x - ev0x), ay = fround3(ev1y - ev0y), az = fround3(ev1z - ev0z);
+        const bx = fround3(ev2x - ev0x), by = fround3(ev2y - ev0y), bz = fround3(ev2z - ev0z);
+        const nxn = fround3(fm2(ay, bz) - fm2(az, by));
+        const nyn = fround3(fm2(az, bx) - fm2(ax, bz));
+        const nzn = fround3(fm2(ax, by) - fm2(ay, bx));
+        if (this.mSpecStrength > 0) {
+          tc[0] = this.litColor(baseColor, nxn, nyn, nzn, ev0x, ev0y, ev0z);
+          tc[1] = this.litColor(baseColor, nxn, nyn, nzn, ev1x, ev1y, ev1z);
+          tc[2] = this.litColor(baseColor, nxn, nyn, nzn, ev2x, ev2y, ev2z);
+        } else {
+          const third = fround3(1 / 3);
+          const cx = fm2(fa2(fa2(ev0x, ev1x), ev2x), third);
+          const cy = fm2(fa2(fa2(ev0y, ev1y), ev2y), third);
+          const cz = fm2(fa2(fa2(ev0z, ev1z), ev2z), third);
+          const shaded = this.litColor(baseColor, nxn, nyn, nzn, cx, cy, cz);
+          tc[0] = shaded;
+          tc[1] = shaded;
+          tc[2] = shaded;
+        }
+      }
+      return true;
+    }
+  };
+
+  // third_party/remote-compose-player/src/web/WebGL3DRenderer.ts
+  var VERT = `#version 300 es
+precision highp float;
+layout(location = 0) in vec2 aPos;      // window pixels, y down
+layout(location = 1) in vec4 aColor;    // straight (non-premultiplied) RGBA
+layout(location = 2) in vec2 aUv;
+layout(location = 3) in float aDepth;   // window z in [0,1], smaller = closer
+uniform vec2 uViewport;
+out vec4 vColor;
+out vec2 vUv;
+void main() {
+    // Window pixels to clip space. The y flip is the whole conversion: our window origin is
+    // top-left with y increasing downward, clip space is centre-origin with y up.
+    vec2 clip = vec2(aPos.x / uViewport.x * 2.0 - 1.0,
+                     1.0 - aPos.y / uViewport.y * 2.0);
+    // Depth [0,1] to clip [-1,1], matching the default depth range so gl.LESS means the
+    // same thing here as the software rasterizer's "smaller z wins".
+    gl_Position = vec4(clip, aDepth * 2.0 - 1.0, 1.0);
+    vColor = aColor;
+    vUv = aUv;
+}`;
+  var FRAG = `#version 300 es
+precision highp float;
+in vec4 vColor;
+in vec2 vUv;
+uniform sampler2D uTex;
+uniform bool uUseTex;
+out vec4 fragColor;
+void main() {
+    vec4 c = vColor;
+    if (uUseTex) {
+        // Lighting modulates the sampled texel, as the reference does with a BitmapShader.
+        c *= texture(uTex, vUv);
+    }
+    if (c.a <= 0.0) discard;
+    // Premultiplied out, because the canvas is created with premultipliedAlpha and
+    // compositing it with drawImage otherwise darkens every antialiased edge.
+    fragColor = vec4(c.rgb * c.a, c.a);
+}`;
+  var WebGL3DRenderer = class {
+    constructor() {
+      this.gl = null;
+      this.program = null;
+      this.vao = null;
+      this.buffer = null;
+      this.texture = null;
+      this.texW = 0;
+      this.texH = 0;
+      /** The pixel array last uploaded. The host caches its conversion, so an unchanged texture
+       *  arrives as the same array and the upload can be skipped — otherwise every mesh in
+       *  every frame re-uploads the whole image. */
+      this.texSource = null;
+      /** Interleaved x,y,r,g,b,a,u,v,depth — 9 floats per vertex. */
+      this.interleaved = new Float32Array(0);
+      this.uViewport = null;
+      this.uUseTex = null;
+      /** Batches drawn since construction. Lets a harness prove the GPU path was taken rather
+       *  than the software fallback, which is otherwise invisible in the output. */
+      this.drawCount = 0;
+      this.canvas = document.createElement("canvas");
+    }
+    /** The offscreen canvas — use as a drawImage source after `draw`. */
+    getCanvas() {
+      return this.canvas;
+    }
+    isAvailable() {
+      return this.ensureGl() !== null;
+    }
+    ensureGl() {
+      if (this.gl) return this.gl;
+      const gl = this.canvas.getContext("webgl2", {
+        alpha: true,
+        depth: true,
+        antialias: true,
+        premultipliedAlpha: true,
+        // Without this the drawing buffer is cleared after every composite, so reading it
+        // back with drawImage gets an empty image on some drivers.
+        preserveDrawingBuffer: true
+      });
+      if (!gl) return null;
+      this.gl = gl;
+      const compile = (type, src) => {
+        const sh = gl.createShader(type);
+        if (!sh) return null;
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+          console.error("rc 3d shader:", gl.getShaderInfoLog(sh));
+          gl.deleteShader(sh);
+          return null;
+        }
+        return sh;
+      };
+      const vs = compile(gl.VERTEX_SHADER, VERT);
+      const fs = compile(gl.FRAGMENT_SHADER, FRAG);
+      if (!vs || !fs) return null;
+      const prog = gl.createProgram();
+      if (!prog) return null;
+      gl.attachShader(prog, vs);
+      gl.attachShader(prog, fs);
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        console.error("rc 3d link:", gl.getProgramInfoLog(prog));
+        return null;
+      }
+      this.program = prog;
+      this.uViewport = gl.getUniformLocation(prog, "uViewport");
+      this.uUseTex = gl.getUniformLocation(prog, "uUseTex");
+      gl.useProgram(prog);
+      gl.uniform1i(gl.getUniformLocation(prog, "uTex"), 0);
+      this.buffer = gl.createBuffer();
+      this.vao = gl.createVertexArray();
+      gl.bindVertexArray(this.vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+      const stride = 9 * 4;
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 4, gl.FLOAT, false, stride, 8);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 2, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 1, gl.FLOAT, false, stride, 32);
+      gl.bindVertexArray(null);
+      return gl;
+    }
+    /** Upload the active texture. `pixels` is ARGB, as the 3D context stores it. */
+    setTexture(pixels, w, h) {
+      const gl = this.ensureGl();
+      if (!gl) return;
+      if (!pixels || w <= 0 || h <= 0) {
+        this.texW = 0;
+        this.texH = 0;
+        this.texSource = null;
+        return;
+      }
+      if (pixels === this.texSource && this.texW === w && this.texH === h) return;
+      if (!this.texture) this.texture = gl.createTexture();
+      const rgba = new Uint8Array(w * h * 4);
+      for (let i = 0; i < w * h; i++) {
+        const p = pixels[i];
+        rgba[i * 4] = p >>> 16 & 255;
+        rgba[i * 4 + 1] = p >>> 8 & 255;
+        rgba[i * 4 + 2] = p & 255;
+        rgba[i * 4 + 3] = p >>> 24 & 255;
+      }
+      gl.bindTexture(gl.TEXTURE_2D, this.texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      this.texW = w;
+      this.texH = h;
+      this.texSource = pixels;
+    }
+    /** Discard everything drawn so far and resize if needed. Call once per 3D pass. */
+    beginFrame(width, height) {
+      const gl = this.ensureGl();
+      if (!gl) return;
+      if (this.canvas.width !== width || this.canvas.height !== height) {
+        this.canvas.width = width;
+        this.canvas.height = height;
+      }
+      gl.viewport(0, 0, width, height);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clearDepth(1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    }
+    /**
+     * Draw one batch.
+     *
+     * `useDepth` picks the ordering rule. False reproduces the reference's canvas backend:
+     * depth test off, correctness resting entirely on the painter's sort the caller already
+     * applied. True uses the depth buffer, which is what the ZBUF modes ask for and is the
+     * only way interpenetrating geometry comes out right.
+     */
+    draw(batch, useDepth) {
+      const gl = this.ensureGl();
+      if (!gl || !this.program || batch.vertexCount < 3) return;
+      const n = batch.vertexCount;
+      if (this.interleaved.length < n * 9) this.interleaved = new Float32Array(n * 9);
+      const v = this.interleaved;
+      const useTex = batch.hasUv && this.texW > 0;
+      for (let i = 0; i < n; i++) {
+        const o = i * 9;
+        v[o] = batch.positions[i * 2];
+        v[o + 1] = batch.positions[i * 2 + 1];
+        const c = batch.colors[i];
+        v[o + 2] = (c >>> 16 & 255) / 255;
+        v[o + 3] = (c >>> 8 & 255) / 255;
+        v[o + 4] = (c & 255) / 255;
+        v[o + 5] = (c >>> 24 & 255) / 255;
+        v[o + 6] = useTex ? batch.uvs[i * 2] : 0;
+        v[o + 7] = useTex ? 1 - batch.uvs[i * 2 + 1] : 0;
+        v[o + 8] = batch.depths[i];
+      }
+      gl.useProgram(this.program);
+      gl.bindVertexArray(this.vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, v.subarray(0, n * 9), gl.DYNAMIC_DRAW);
+      gl.uniform2f(this.uViewport, this.canvas.width, this.canvas.height);
+      gl.uniform1i(this.uUseTex, useTex ? 1 : 0);
+      if (useTex) {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.texture);
+      }
+      if (useDepth) {
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LESS);
+      } else {
+        gl.disable(gl.DEPTH_TEST);
+      }
+      gl.disable(gl.CULL_FACE);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.drawArrays(gl.TRIANGLES, 0, n);
+      this.drawCount++;
+      gl.bindVertexArray(null);
+    }
+  };
+
+  // third_party/remote-compose-player/src/core/operations/paint/PaintBundle.ts
+  var _f32dv = new DataView(new ArrayBuffer(4));
+  function intBitsToFloat(bits) {
+    _f32dv.setInt32(0, bits);
+    return _f32dv.getFloat32(0);
+  }
+  function floatToRawIntBits(v) {
+    _f32dv.setFloat32(0, v);
+    return _f32dv.getInt32(0);
+  }
+  function isNaNBitsLocal(bits) {
+    return (bits & 2139095040) === 2139095040 && (bits & 8388607) !== 0;
+  }
+  function idFromBitsLocal(bits) {
+    return bits & 4194303;
+  }
+  function fixFloatVar(val, context) {
+    if (isNaNBitsLocal(val)) {
+      return floatToRawIntBits(context.getFloat(idFromBitsLocal(val)));
+    }
+    return val;
+  }
+  function fixColor(val, context) {
+    return context.getColor(val);
+  }
+  function listenFloatVar(val, context, op) {
+    if (isNaNBitsLocal(val)) {
+      context.listensTo(idFromBitsLocal(val), op);
+    }
+  }
+  var _PaintBundle = class _PaintBundle {
+    constructor() {
+      // The flat int array and current position
+      this.mArray = [];
+      this.mOutArray = null;
+      this.mPos = 0;
+    }
+    read(buffer) {
+      const len = buffer.readInt();
+      if (len <= 0 || len > 1024) {
+        throw new Error(`PaintBundle: invalid length ${len}`);
+      }
+      this.mArray = new Array(len);
+      for (let i = 0; i < len; i++) {
+        this.mArray[i] = buffer.readInt();
+      }
+      this.mPos = len;
+    }
+    /** Returns the resolved array (mOutArray if available, otherwise mArray). */
+    getArray() {
+      return this.mOutArray ?? this.mArray;
+    }
+    getLength() {
+      return this.mPos;
+    }
+    // --- Programmatic setters for building paint bundles at runtime ---
+    reset() {
+      this.mArray = [];
+      this.mOutArray = null;
+      this.mPos = 0;
+    }
+    setStyle(style) {
+      this.mArray[this.mPos++] = _PaintBundle.STYLE | style << 16;
+    }
+    setColor(aOrColor, r, g, b) {
+      if (r !== void 0 && g !== void 0 && b !== void 0) {
+        const ai = Math.round(aOrColor * 255) & 255;
+        const ri = Math.round(r * 255) & 255;
+        const gi = Math.round(g * 255) & 255;
+        const bi = Math.round(b * 255) & 255;
+        aOrColor = (ai << 24 | ri << 16 | gi << 8 | bi) >>> 0;
+      }
+      this.mArray[this.mPos++] = _PaintBundle.COLOR;
+      this.mArray[this.mPos++] = aOrColor;
+    }
+    setTextSize(size) {
+      this.mArray[this.mPos++] = _PaintBundle.TEXT_SIZE;
+      _f32dv.setFloat32(0, size);
+      this.mArray[this.mPos++] = _f32dv.getInt32(0);
+    }
+    setTextStyle(typeface, fontWeight, italic) {
+      const style = fontWeight & 1023 | (italic ? 2048 : 0);
+      this.mArray[this.mPos++] = _PaintBundle.TYPEFACE | style << 16;
+      this.mArray[this.mPos++] = typeface;
+    }
+    setTextAxis(axisTags, axisValues) {
+      const count = axisTags.length;
+      this.mArray[this.mPos++] = _PaintBundle.FONT_AXIS | count << 16;
+      for (let i = 0; i < count; i++) {
+        this.mArray[this.mPos++] = axisTags[i];
+        _f32dv.setFloat32(0, axisValues[i]);
+        this.mArray[this.mPos++] = _f32dv.getInt32(0);
+      }
+    }
+    setStrokeWidth(width) {
+      this.mArray[this.mPos++] = _PaintBundle.STROKE_WIDTH;
+      _f32dv.setFloat32(0, width);
+      this.mArray[this.mPos++] = _f32dv.getInt32(0);
+    }
+    registerListening(context, op) {
+      let i = 0;
+      const arr = this.mArray;
+      while (i < this.mPos) {
+        const cmd = arr[i++];
+        const tag = cmd & 65535;
+        switch (tag) {
+          case _PaintBundle.STROKE_MITER:
+          case _PaintBundle.STROKE_WIDTH:
+          case _PaintBundle.ALPHA:
+          case _PaintBundle.TEXT_SIZE:
+            listenFloatVar(arr[i], context, op);
+            i++;
+            break;
+          case _PaintBundle.COLOR_FILTER_ID:
+          case _PaintBundle.COLOR_ID:
+            context.listensTo(arr[i], op);
+            i++;
+            break;
+          case _PaintBundle.COLOR:
+          case _PaintBundle.TYPEFACE:
+          case _PaintBundle.SHADER:
+          case _PaintBundle.COLOR_FILTER:
+          case _PaintBundle.FALLBACK_TYPEFACE:
+            i++;
+            break;
+          case _PaintBundle.STROKE_JOIN:
+          case _PaintBundle.FILTER_BITMAP:
+          case _PaintBundle.STROKE_CAP:
+          case _PaintBundle.STYLE:
+          case _PaintBundle.IMAGE_FILTER_QUALITY:
+          case _PaintBundle.BLEND_MODE:
+          case _PaintBundle.ANTI_ALIAS:
+          case _PaintBundle.CLEAR_COLOR_FILTER:
+            break;
+          case _PaintBundle.FONT_AXIS: {
+            const count = cmd >> 16 & 65535;
+            for (let j = 0; j < count; j++) {
+              i++;
+              listenFloatVar(arr[i], context, op);
+              i++;
+            }
+            break;
+          }
+          case _PaintBundle.TEXTURE:
+            i += 3;
+            break;
+          case _PaintBundle.SHADER_MATRIX:
+            i++;
+            break;
+          case _PaintBundle.GRADIENT:
+            i = this.registerGradientListening(cmd, arr, i, context, op);
+            break;
+          case _PaintBundle.PATH_EFFECT: {
+            const count = cmd >> 16 & 65535;
+            for (let j = 0; j < count; j++) {
+              listenFloatVar(arr[i], context, op);
+              i++;
+            }
+            break;
+          }
+          default:
+            break;
+        }
+      }
+    }
+    registerGradientListening(cmd, arr, startIdx, context, op) {
+      let i = startIdx;
+      const meta = arr[i++];
+      const numColors = meta & 255;
+      const register = meta >> 16 & 65535;
+      for (let j = 0; j < numColors; j++) {
+        if ((register & 1 << j) !== 0) {
+          context.listensTo(arr[i], op);
+        }
+        i++;
+      }
+      const numStops = arr[i++];
+      for (let j = 0; j < numStops; j++) {
+        listenFloatVar(arr[i], context, op);
+        i++;
+      }
+      const gradType = cmd >> 16 & 65535;
+      switch (gradType) {
+        case _PaintBundle.LINEAR_GRADIENT:
+          for (let j = 0; j < 4; j++) {
+            listenFloatVar(arr[i], context, op);
+            i++;
+          }
+          i++;
+          break;
+        case _PaintBundle.RADIAL_GRADIENT:
+          for (let j = 0; j < 3; j++) {
+            listenFloatVar(arr[i], context, op);
+            i++;
+          }
+          i++;
+          break;
+        case _PaintBundle.SWEEP_GRADIENT:
+          for (let j = 0; j < 2; j++) {
+            listenFloatVar(arr[i], context, op);
+            i++;
+          }
+          break;
+      }
+      return i;
+    }
+    /**
+     * Resolve NaN-encoded float variable IDs and color IDs in paint parameters.
+     * Matches Java PaintBundle.updateVariables().
+     */
+    updateVariables(context) {
+      if (this.mOutArray === null) {
+        this.mOutArray = this.mArray.slice();
+      } else {
+        for (let j = 0; j < this.mArray.length; j++) {
+          this.mOutArray[j] = this.mArray[j];
+        }
+      }
+      let i = 0;
+      const arr = this.mArray;
+      const out = this.mOutArray;
+      while (i < this.mPos) {
+        const cmd = arr[i++];
+        const tag = cmd & 65535;
+        switch (tag) {
+          case _PaintBundle.STROKE_MITER:
+          case _PaintBundle.STROKE_WIDTH:
+          case _PaintBundle.ALPHA:
+          case _PaintBundle.TEXT_SIZE:
+            out[i] = fixFloatVar(arr[i], context);
+            i++;
+            break;
+          case _PaintBundle.COLOR_FILTER_ID:
+          case _PaintBundle.COLOR_ID:
+            out[i] = fixColor(arr[i], context);
+            i++;
+            break;
+          case _PaintBundle.COLOR:
+          case _PaintBundle.TYPEFACE:
+          case _PaintBundle.SHADER:
+          case _PaintBundle.COLOR_FILTER:
+          case _PaintBundle.FALLBACK_TYPEFACE:
+            i++;
+            break;
+          case _PaintBundle.STROKE_JOIN:
+          case _PaintBundle.FILTER_BITMAP:
+          case _PaintBundle.STROKE_CAP:
+          case _PaintBundle.STYLE:
+          case _PaintBundle.IMAGE_FILTER_QUALITY:
+          case _PaintBundle.BLEND_MODE:
+          case _PaintBundle.ANTI_ALIAS:
+          case _PaintBundle.CLEAR_COLOR_FILTER:
+            break;
+          case _PaintBundle.FONT_AXIS: {
+            const count = cmd >> 16 & 65535;
+            for (let j = 0; j < count; j++) {
+              i++;
+              out[i] = fixFloatVar(arr[i], context);
+              i++;
+            }
+            break;
+          }
+          case _PaintBundle.TEXTURE:
+            i += 3;
+            break;
+          case _PaintBundle.SHADER_MATRIX:
+            i++;
+            break;
+          case _PaintBundle.GRADIENT:
+            i = this.updateGradientVars(cmd, arr, out, i, context);
+            break;
+          case _PaintBundle.PATH_EFFECT: {
+            const count = cmd >> 16 & 65535;
+            for (let j = 0; j < count; j++) {
+              out[i] = fixFloatVar(arr[i], context);
+              i++;
+            }
+            break;
+          }
+          default:
+            break;
+        }
+      }
+    }
+    updateGradientVars(cmd, arr, out, startIdx, context) {
+      let i = startIdx;
+      const gradType = cmd >> 16 & 65535;
+      const meta = arr[i++];
+      const numColors = meta & 255;
+      const register = meta >> 16 & 65535;
+      for (let j = 0; j < numColors; j++) {
+        if ((register & 1 << j) !== 0) {
+          out[i] = fixColor(arr[i], context);
+        }
+        i++;
+      }
+      const numStops = arr[i++];
+      for (let j = 0; j < numStops; j++) {
+        out[i] = fixFloatVar(arr[i], context);
+        i++;
+      }
+      switch (gradType) {
+        case _PaintBundle.LINEAR_GRADIENT:
+          out[i] = fixFloatVar(arr[i], context);
+          i++;
+          out[i] = fixFloatVar(arr[i], context);
+          i++;
+          out[i] = fixFloatVar(arr[i], context);
+          i++;
+          out[i] = fixFloatVar(arr[i], context);
+          i++;
+          i++;
+          break;
+        case _PaintBundle.RADIAL_GRADIENT:
+          out[i] = fixFloatVar(arr[i], context);
+          i++;
+          out[i] = fixFloatVar(arr[i], context);
+          i++;
+          out[i] = fixFloatVar(arr[i], context);
+          i++;
+          i++;
+          break;
+        case _PaintBundle.SWEEP_GRADIENT:
+          out[i] = fixFloatVar(arr[i], context);
+          i++;
+          out[i] = fixFloatVar(arr[i], context);
+          i++;
+          break;
+      }
+      return i;
+    }
+  };
+  // Paint property tags (matching Java PaintBundle constants)
+  _PaintBundle.TEXT_SIZE = 1;
+  _PaintBundle.COLOR = 4;
+  _PaintBundle.STROKE_WIDTH = 5;
+  _PaintBundle.STROKE_MITER = 6;
+  _PaintBundle.STROKE_CAP = 7;
+  _PaintBundle.STYLE = 8;
+  _PaintBundle.SHADER = 9;
+  _PaintBundle.IMAGE_FILTER_QUALITY = 10;
+  _PaintBundle.GRADIENT = 11;
+  _PaintBundle.ALPHA = 12;
+  _PaintBundle.COLOR_FILTER = 13;
+  _PaintBundle.ANTI_ALIAS = 14;
+  _PaintBundle.STROKE_JOIN = 15;
+  _PaintBundle.TYPEFACE = 16;
+  _PaintBundle.FILTER_BITMAP = 17;
+  _PaintBundle.BLEND_MODE = 18;
+  _PaintBundle.COLOR_ID = 19;
+  _PaintBundle.COLOR_FILTER_ID = 20;
+  _PaintBundle.CLEAR_COLOR_FILTER = 21;
+  _PaintBundle.SHADER_MATRIX = 22;
+  _PaintBundle.FONT_AXIS = 23;
+  _PaintBundle.TEXTURE = 24;
+  _PaintBundle.PATH_EFFECT = 25;
+  _PaintBundle.FALLBACK_TYPEFACE = 26;
+  // Gradient types (wire format values)
+  _PaintBundle.LINEAR_GRADIENT = 0;
+  _PaintBundle.RADIAL_GRADIENT = 1;
+  _PaintBundle.SWEEP_GRADIENT = 2;
+  // Style constants
+  _PaintBundle.FILL = 0;
+  _PaintBundle.STROKE = 1;
+  _PaintBundle.FILL_AND_STROKE = 2;
+  var PaintBundle = _PaintBundle;
+
   // third_party/remote-compose-player/src/core/operations/Utils.ts
   var _dv = new DataView(new ArrayBuffer(4));
-  function intBitsToFloat(bits) {
+  function intBitsToFloat2(bits) {
     _dv.setInt32(0, bits, false);
     return _dv.getFloat32(0, false);
   }
-  function floatToRawIntBits(value) {
+  function floatToRawIntBits2(value) {
     _dv.setFloat32(0, value, false);
     return _dv.getInt32(0, false);
   }
   function asNan(v) {
-    return intBitsToFloat(v | 0 | -8388608);
+    return intBitsToFloat2(v | 0 | -8388608);
   }
   function idFromNan(value) {
-    return floatToRawIntBits(value) & 4194303;
+    return floatToRawIntBits2(value) & 4194303;
   }
   function isNaNBits(bits) {
     return (bits & 2139095040) === 2139095040 && (bits & 8388607) !== 0;
@@ -158,6 +2296,565 @@ var RC = (() => {
     const b = Math.trunc(blue * 255 + 0.5);
     return a << 24 | r << 16 | g << 8 | b | 0;
   }
+
+  // third_party/remote-compose-player/src/core/shader/AgslTokenizer.ts
+  var IDENT_START = /[a-zA-Z_]/;
+  var IDENT_CONT = /[a-zA-Z0-9_]/;
+  var DIGIT = /[0-9]/;
+  var WS = /[ \t\r\n]/;
+  var OP_CHARS = new Set("+-*/%=<>!&|^~?:");
+  var PUNCT_CHARS = new Set("(){}[];,");
+  function tokenize(source) {
+    const tokens = [];
+    let i = 0;
+    const n = source.length;
+    while (i < n) {
+      const ch = source[i];
+      if (WS.test(ch)) {
+        const start = i;
+        while (i < n && WS.test(source[i])) i++;
+        tokens.push({ type: 5 /* Whitespace */, value: source.slice(start, i) });
+        continue;
+      }
+      if (ch === "/" && i + 1 < n && source[i + 1] === "/") {
+        const start = i;
+        while (i < n && source[i] !== "\n") i++;
+        tokens.push({ type: 6 /* LineComment */, value: source.slice(start, i) });
+        continue;
+      }
+      if (ch === "/" && i + 1 < n && source[i + 1] === "*") {
+        const start = i;
+        i += 2;
+        while (i < n && !(source[i - 1] === "*" && source[i] === "/")) i++;
+        if (i < n) i++;
+        tokens.push({ type: 7 /* BlockComment */, value: source.slice(start, i) });
+        continue;
+      }
+      if (ch === "#") {
+        const start = i;
+        while (i < n && source[i] !== "\n") i++;
+        tokens.push({ type: 8 /* Preprocessor */, value: source.slice(start, i) });
+        continue;
+      }
+      if (DIGIT.test(ch) || ch === "." && i + 1 < n && DIGIT.test(source[i + 1])) {
+        const start = i;
+        while (i < n && DIGIT.test(source[i])) i++;
+        if (i < n && source[i] === ".") {
+          i++;
+          while (i < n && DIGIT.test(source[i])) i++;
+        }
+        if (i < n && (source[i] === "e" || source[i] === "E")) {
+          i++;
+          if (i < n && (source[i] === "+" || source[i] === "-")) i++;
+          while (i < n && DIGIT.test(source[i])) i++;
+        }
+        tokens.push({ type: 1 /* Number */, value: source.slice(start, i) });
+        continue;
+      }
+      if (IDENT_START.test(ch)) {
+        const start = i;
+        while (i < n && IDENT_CONT.test(source[i])) i++;
+        tokens.push({ type: 0 /* Identifier */, value: source.slice(start, i) });
+        continue;
+      }
+      if (ch === ".") {
+        tokens.push({ type: 4 /* Dot */, value: "." });
+        i++;
+        continue;
+      }
+      if (PUNCT_CHARS.has(ch)) {
+        tokens.push({ type: 3 /* Punctuation */, value: ch });
+        i++;
+        continue;
+      }
+      if (OP_CHARS.has(ch)) {
+        const start = i;
+        i++;
+        if (i < n && OP_CHARS.has(source[i])) {
+          const two = source.slice(start, i + 1);
+          if ([
+            "<=",
+            ">=",
+            "==",
+            "!=",
+            "&&",
+            "||",
+            "<<",
+            ">>",
+            "+=",
+            "-=",
+            "*=",
+            "/=",
+            "%=",
+            "&=",
+            "|=",
+            "^="
+          ].includes(two)) {
+            i++;
+          }
+        }
+        tokens.push({ type: 2 /* Operator */, value: source.slice(start, i) });
+        continue;
+      }
+      tokens.push({ type: 0 /* Identifier */, value: ch });
+      i++;
+    }
+    tokens.push({ type: 9 /* EOF */, value: "" });
+    return tokens;
+  }
+
+  // third_party/remote-compose-player/src/core/shader/AgslTranspiler.ts
+  var TYPE_MAP = {
+    "half4": "vec4",
+    "half3": "vec3",
+    "half2": "vec2",
+    "half": "float",
+    "float2": "vec2",
+    "float3": "vec3",
+    "float4": "vec4",
+    "int2": "ivec2",
+    "int3": "ivec3",
+    "int4": "ivec4"
+  };
+  var UNIFORM_TYPE_MAP = {
+    ...TYPE_MAP,
+    "float": "float",
+    "int": "int",
+    "vec2": "vec2",
+    "vec3": "vec3",
+    "vec4": "vec4",
+    "ivec2": "ivec2",
+    "ivec3": "ivec3",
+    "ivec4": "ivec4",
+    "sampler2D": "sampler2D"
+  };
+  function isSkip(t) {
+    return t.type === 5 /* Whitespace */ || t.type === 6 /* LineComment */ || t.type === 7 /* BlockComment */;
+  }
+  function skipWs(tokens, from) {
+    while (from < tokens.length && isSkip(tokens[from])) from++;
+    return from;
+  }
+  function transpileAgslToGlsl(agslSource) {
+    const tokens = tokenize(agslSource);
+    const uniforms = [];
+    const childShaders = [];
+    const out = [];
+    let i = 0;
+    const n = tokens.length;
+    let inMain = false;
+    let mainBraceDepth = 0;
+    let mainParamName = "p";
+    let hasIResolution = false;
+    let needsResolutionUniform = false;
+    for (let j = 0; j < n; j++) {
+      if (tokens[j].type === 0 /* Identifier */ && tokens[j].value === "iResolution") {
+        let k = j - 1;
+        while (k >= 0 && isSkip(tokens[k])) k--;
+        if (k >= 0) {
+          let k2 = k - 1;
+          while (k2 >= 0 && isSkip(tokens[k2])) k2--;
+          if (k2 >= 0 && tokens[k2].value === "uniform") {
+            hasIResolution = true;
+          }
+        }
+      }
+    }
+    while (i < n) {
+      const tok = tokens[i];
+      if (tok.type === 0 /* Identifier */ && tok.value === "uniform") {
+        const j1 = skipWs(tokens, i + 1);
+        if (j1 < n && tokens[j1].type === 0 /* Identifier */ && tokens[j1].value === "shader") {
+          const j2 = skipWs(tokens, j1 + 1);
+          if (j2 < n && tokens[j2].type === 0 /* Identifier */) {
+            const shaderName = tokens[j2].value;
+            childShaders.push(shaderName);
+            needsResolutionUniform = true;
+            out.push("uniform sampler2D");
+            for (let k = j1 + 1; k <= j2; k++) {
+              if (tokens[k].type === 5 /* Whitespace */) out.push(tokens[k].value);
+            }
+            out.push(shaderName);
+            i = j2 + 1;
+            continue;
+          }
+        }
+      }
+      if (tok.type === 0 /* Identifier */ && tok.value === "uniform") {
+        const j1 = skipWs(tokens, i + 1);
+        if (j1 < n && tokens[j1].type === 0 /* Identifier */) {
+          const typeName = tokens[j1].value;
+          if (typeName !== "shader") {
+            const j2 = skipWs(tokens, j1 + 1);
+            if (j2 < n && tokens[j2].type === 0 /* Identifier */) {
+              const glslType = UNIFORM_TYPE_MAP[typeName] || TYPE_MAP[typeName] || typeName;
+              uniforms.push({ name: tokens[j2].value, glslType });
+            }
+          }
+        }
+      }
+      if (tok.type === 0 /* Identifier */ && tok.value === "main" && !inMain) {
+        let retIdx = i - 1;
+        while (retIdx >= 0 && isSkip(tokens[retIdx])) retIdx--;
+        const parenIdx = skipWs(tokens, i + 1);
+        if (parenIdx < n && tokens[parenIdx].type === 3 /* Punctuation */ && tokens[parenIdx].value === "(") {
+          const paramTypeIdx = skipWs(tokens, parenIdx + 1);
+          const paramNameIdx = skipWs(tokens, paramTypeIdx + 1);
+          const closeIdx = skipWs(tokens, paramNameIdx + 1);
+          if (paramNameIdx < n && tokens[paramNameIdx].type === 0 /* Identifier */) {
+            mainParamName = tokens[paramNameIdx].value;
+          }
+          let braceIdx = closeIdx;
+          if (braceIdx < n && tokens[braceIdx].value === ")") {
+            braceIdx = skipWs(tokens, braceIdx + 1);
+          }
+          let removeFrom = out.length - 1;
+          while (removeFrom >= 0 && out[removeFrom].trim() === "") removeFrom--;
+          if (removeFrom >= 0) out.splice(removeFrom, 1);
+          out.push("void main()");
+          i = braceIdx;
+          if (i < n && tokens[i].type === 3 /* Punctuation */ && tokens[i].value === "{") {
+            out.push(" {\n");
+            out.push(`  vec2 ${mainParamName} = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y) * u_doc_size / u_resolution;
+`);
+            inMain = true;
+            mainBraceDepth = 1;
+            i++;
+          }
+          continue;
+        }
+      }
+      if (inMain && tok.type === 3 /* Punctuation */) {
+        if (tok.value === "{") mainBraceDepth++;
+        if (tok.value === "}") {
+          mainBraceDepth--;
+          if (mainBraceDepth === 0) inMain = false;
+        }
+      }
+      if (inMain && tok.type === 0 /* Identifier */ && tok.value === "return") {
+        const exprParts = [];
+        i++;
+        let depth = 0;
+        while (i < n) {
+          const t = tokens[i];
+          if (t.type === 3 /* Punctuation */ && t.value === ";" && depth === 0) {
+            break;
+          }
+          if (t.type === 3 /* Punctuation */ && (t.value === "(" || t.value === "[")) depth++;
+          if (t.type === 3 /* Punctuation */ && (t.value === ")" || t.value === "]")) depth--;
+          exprParts.push(rewriteToken(tokens, i, childShaders));
+          i++;
+        }
+        const expr = exprParts.join("");
+        out.push(`fragColor = ${expr}; return`);
+        continue;
+      }
+      if (tok.type === 0 /* Identifier */ && childShaders.includes(tok.value)) {
+        const dotIdx = skipWs(tokens, i + 1);
+        if (dotIdx < n && tokens[dotIdx].type === 4 /* Dot */) {
+          const evalIdx = skipWs(tokens, dotIdx + 1);
+          if (evalIdx < n && tokens[evalIdx].type === 0 /* Identifier */ && tokens[evalIdx].value === "eval") {
+            const parenIdx = skipWs(tokens, evalIdx + 1);
+            if (parenIdx < n && tokens[parenIdx].value === "(") {
+              let depth = 1;
+              let argStart = parenIdx + 1;
+              let j = argStart;
+              while (j < n && depth > 0) {
+                if (tokens[j].value === "(") depth++;
+                if (tokens[j].value === ")") depth--;
+                if (depth > 0) j++;
+              }
+              const argParts = [];
+              for (let k = argStart; k < j; k++) {
+                argParts.push(rewriteToken(tokens, k, childShaders));
+              }
+              const arg = argParts.join("");
+              out.push(`texture(${tok.value}, (${arg}) / u_resolution)`);
+              i = j + 1;
+              continue;
+            }
+          }
+        }
+      }
+      out.push(rewriteToken(tokens, i, childShaders));
+      i++;
+    }
+    let glsl = "#version 300 es\nprecision highp float;\n";
+    glsl += "uniform vec2 u_resolution;\n";
+    glsl += "uniform vec2 u_doc_size;\n";
+    glsl += "out vec4 fragColor;\n";
+    glsl += out.join("");
+    return { glsl, uniforms, childShaders };
+  }
+  var INT_CONTEXT_KEYWORDS = /* @__PURE__ */ new Set([
+    "int",
+    "ivec2",
+    "ivec3",
+    "ivec4"
+  ]);
+  function isIntContext(tokens, idx) {
+    let j = idx - 1;
+    while (j >= 0 && isSkip(tokens[j])) j--;
+    if (j >= 0) {
+      if (tokens[j].value === "[") return true;
+      if (tokens[j].type === 0 /* Identifier */ && INT_CONTEXT_KEYWORDS.has(tokens[j].value)) return true;
+      if (tokens[j].value === "=") {
+        let k = j - 1;
+        while (k >= 0 && isSkip(tokens[k])) k--;
+        if (k >= 0) {
+          let k2 = k - 1;
+          while (k2 >= 0 && isSkip(tokens[k2])) k2--;
+          if (k2 >= 0 && INT_CONTEXT_KEYWORDS.has(tokens[k2].value)) return true;
+        }
+      }
+      if (tokens[j].value === "<" || tokens[j].value === ">" || tokens[j].value === "<=" || tokens[j].value === ">=" || tokens[j].value === "==" || tokens[j].value === "!=") {
+        let k = j - 1;
+        while (k >= 0 && isSkip(tokens[k])) k--;
+        if (k >= 0 && tokens[k].type === 0 /* Identifier */ && tokens[k].value.length <= 2) return true;
+      }
+      if (tokens[j].value === "++" || tokens[j].value === "--") return true;
+      if (tokens[j].value === "(" || tokens[j].value === ",") {
+        let k = j - 1;
+        while (k >= 0 && isSkip(tokens[k])) k--;
+        if (k >= 0 && tokens[k].type === 0 /* Identifier */ && INT_CONTEXT_KEYWORDS.has(tokens[k].value)) return true;
+      }
+    }
+    return false;
+  }
+  function rewriteToken(tokens, idx, _childShaders) {
+    const tok = tokens[idx];
+    if (tok.type === 0 /* Identifier */) {
+      if (TYPE_MAP[tok.value]) return TYPE_MAP[tok.value];
+      if (tok.value === "sk_FragCoord") return "gl_FragCoord.xy";
+    }
+    if (tok.type === 1 /* Number */) {
+      const v = tok.value;
+      const isInt = /^\d+$/.test(v);
+      if (isInt && !isIntContext(tokens, idx)) {
+        return v + ".0";
+      }
+    }
+    return tok.value;
+  }
+
+  // third_party/remote-compose-player/src/web/shader/WebGLShaderRenderer.ts
+  var VERTEX_SHADER = `#version 300 es
+in vec2 a_position;
+void main() {
+    gl_Position = vec4(a_position, 0.0, 1.0);
+}
+`;
+  var QUAD_VERTS = new Float32Array([
+    -1,
+    -1,
+    1,
+    -1,
+    -1,
+    1,
+    -1,
+    1,
+    1,
+    -1,
+    1,
+    1
+  ]);
+  var WebGLShaderRenderer = class {
+    constructor() {
+      this.gl = null;
+      this.vao = null;
+      this.programCache = /* @__PURE__ */ new Map();
+      this.canvas = document.createElement("canvas");
+    }
+    /** The offscreen canvas — use as drawImage source after render(). */
+    getCanvas() {
+      return this.canvas;
+    }
+    /** Returns true if WebGL2 is available. */
+    isAvailable() {
+      return this.initGL() !== null;
+    }
+    /**
+     * Render a GLSL fragment shader to the offscreen canvas.
+     *
+     * @param glsl       - GLSL ES 3.0 source (from AgslTranspiler)
+     * @param width      - render target width
+     * @param height     - render target height
+     * @param floats     - float uniform values: name → Float32Array
+     * @param ints       - int uniform values: name → Int32Array
+     * @param textures   - texture images: name → source element
+     * @param cacheKey   - optional cache key for the compiled program
+     *                     (use shader text ID for stable caching)
+     */
+    render(glsl, width, height, floats, ints, textures, cacheKey, docWidth, docHeight) {
+      const gl = this.initGL();
+      if (!gl) return false;
+      if (this.canvas.width !== width || this.canvas.height !== height) {
+        this.canvas.width = width;
+        this.canvas.height = height;
+      }
+      const key = cacheKey ?? glsl;
+      let cached = this.programCache.get(key);
+      if (!cached) {
+        const program = this.compileProgram(gl, glsl);
+        if (!program) return false;
+        cached = { program, uniformLocations: /* @__PURE__ */ new Map() };
+        this.programCache.set(key, cached);
+      }
+      gl.useProgram(cached.program);
+      gl.viewport(0, 0, width, height);
+      const resLoc = this.getUniformLoc(gl, cached, "u_resolution");
+      if (resLoc) gl.uniform2f(resLoc, width, height);
+      const docLoc = this.getUniformLoc(gl, cached, "u_doc_size");
+      if (docLoc) gl.uniform2f(docLoc, docWidth ?? width, docHeight ?? height);
+      if (floats) {
+        for (const [name, values] of floats) {
+          const loc = this.getUniformLoc(gl, cached, name);
+          if (!loc) continue;
+          switch (values.length) {
+            case 1:
+              gl.uniform1f(loc, values[0]);
+              break;
+            case 2:
+              gl.uniform2f(loc, values[0], values[1]);
+              break;
+            case 3:
+              gl.uniform3f(loc, values[0], values[1], values[2]);
+              break;
+            case 4:
+              gl.uniform4f(loc, values[0], values[1], values[2], values[3]);
+              break;
+            default:
+              gl.uniform1fv(loc, values);
+              break;
+          }
+        }
+      }
+      if (ints) {
+        for (const [name, values] of ints) {
+          const loc = this.getUniformLoc(gl, cached, name);
+          if (!loc) continue;
+          switch (values.length) {
+            case 1:
+              gl.uniform1i(loc, values[0]);
+              break;
+            case 2:
+              gl.uniform2i(loc, values[0], values[1]);
+              break;
+            case 3:
+              gl.uniform3i(loc, values[0], values[1], values[2]);
+              break;
+            case 4:
+              gl.uniform4i(loc, values[0], values[1], values[2], values[3]);
+              break;
+            default:
+              gl.uniform1iv(loc, values);
+              break;
+          }
+        }
+      }
+      let texUnit = 0;
+      if (textures) {
+        for (const [name, img] of textures) {
+          const loc = this.getUniformLoc(gl, cached, name);
+          if (!loc) {
+            texUnit++;
+            continue;
+          }
+          const unit = texUnit++;
+          gl.activeTexture(gl.TEXTURE0 + unit);
+          const tex = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, tex);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+          gl.uniform1i(loc, unit);
+        }
+      }
+      gl.bindVertexArray(this.vao);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      for (let u = 0; u < texUnit; u++) {
+        gl.activeTexture(gl.TEXTURE0 + u);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+      }
+      return true;
+    }
+    /** Destroy WebGL resources. */
+    destroy() {
+      const gl = this.gl;
+      if (!gl) return;
+      for (const cached of this.programCache.values()) {
+        gl.deleteProgram(cached.program);
+      }
+      this.programCache.clear();
+      if (this.vao) gl.deleteVertexArray(this.vao);
+      this.vao = null;
+      const lose = gl.getExtension("WEBGL_lose_context");
+      if (lose) lose.loseContext();
+      this.gl = null;
+    }
+    // ── Internal ──────────────────────────────────────────────────────
+    initGL() {
+      if (this.gl) return this.gl;
+      const gl = this.canvas.getContext("webgl2", {
+        alpha: true,
+        premultipliedAlpha: false,
+        preserveDrawingBuffer: true
+      });
+      if (!gl) return null;
+      this.gl = gl;
+      this.vao = gl.createVertexArray();
+      gl.bindVertexArray(this.vao);
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, QUAD_VERTS, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      return gl;
+    }
+    compileProgram(gl, fragSource) {
+      const vs = this.compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+      const fs = this.compileShader(gl, gl.FRAGMENT_SHADER, fragSource);
+      if (!vs || !fs) return null;
+      const prog = gl.createProgram();
+      gl.attachShader(prog, vs);
+      gl.attachShader(prog, fs);
+      gl.bindAttribLocation(prog, 0, "a_position");
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        console.error("Shader link error:", gl.getProgramInfoLog(prog));
+        gl.deleteProgram(prog);
+        return null;
+      }
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+      return prog;
+    }
+    compileShader(gl, type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error(
+          `Shader compile error (${type === gl.VERTEX_SHADER ? "vert" : "frag"}):`,
+          gl.getShaderInfoLog(shader)
+        );
+        console.error("Source:\n" + source.split("\n").map((l, i) => `${i + 1}: ${l}`).join("\n"));
+        gl.deleteShader(shader);
+        return null;
+      }
+      return shader;
+    }
+    getUniformLoc(gl, cached, name) {
+      let loc = cached.uniformLocations.get(name);
+      if (loc === void 0) {
+        loc = gl.getUniformLocation(cached.program, name);
+        cached.uniformLocations.set(name, loc);
+      }
+      return loc;
+    }
+  };
 
   // third_party/remote-compose-player/src/core/operations/utilities/IntMap.ts
   var NOT_PRESENT = -2147483648;
@@ -729,6 +3426,3353 @@ var RC = (() => {
   _RemoteComposeState.BITMAP_TEXTURE_ID_OFFSET = 2e3;
   _RemoteComposeState.MAX_DATA = 1e4;
   var RemoteComposeState = _RemoteComposeState;
+
+  // third_party/remote-compose-player/src/web/WebFonts.ts
+  var DEFAULT_BASE_URL = "https://fonts.googleapis.com/css2";
+  var config = { enabled: true, baseUrl: DEFAULT_BASE_URL };
+  function configureWebFonts(patch) {
+    config = { ...config, ...patch };
+  }
+  var WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+  function googleFontsUrl(family, baseUrl = config.baseUrl) {
+    const axis = WEIGHTS.map((w) => `0,${w}`).concat(WEIGHTS.map((w) => `1,${w}`)).join(";");
+    const name = encodeURIComponent(family.trim()).replace(/%20/g, "+");
+    return `${baseUrl}?family=${name}:ital,wght@${axis}&display=block`;
+  }
+  function googleFontsAxisUrl(family, axes, baseUrl = config.baseUrl) {
+    const varying = axes.filter((a) => a.max > a.min).sort((a, b) => a.tag < b.tag ? -1 : 1);
+    if (varying.length === 0) return null;
+    const tags = varying.map((a) => a.tag).join(",");
+    const ranges = varying.map((a) => `${trimNumber(a.min)}..${trimNumber(a.max)}`).join(",");
+    const name = encodeURIComponent(family.trim()).replace(/%20/g, "+");
+    return `${baseUrl}?family=${name}:${tags}@${ranges}&display=block`;
+  }
+  function trimNumber(value) {
+    return Number.isInteger(value) ? `${value}` : `${value}`.replace(/0+$/, "");
+  }
+  var GOOGLE_PREFIX = "google:";
+  function parseFamily(family) {
+    const trimmed = family.trim();
+    if (trimmed.toLowerCase().startsWith(GOOGLE_PREFIX)) {
+      return { source: "google", name: trimmed.slice(GOOGLE_PREFIX.length).trim() };
+    }
+    return { source: "local", name: trimmed };
+  }
+  var stylesheets = /* @__PURE__ */ new Map();
+  var variants = /* @__PURE__ */ new Map();
+  var embeddedFaces = /* @__PURE__ */ new Map();
+  var done = /* @__PURE__ */ new Set();
+  var waiting = /* @__PURE__ */ new Map();
+  function variantKey(family, weight, italic, axes = []) {
+    const axisPart = axes.map(({ tag, value }) => `${tag}=${value}`).join(",");
+    return `${family.toLowerCase()}|${weight}|${italic ? "i" : "n"}|${axisPart}`;
+  }
+  function notify(key) {
+    done.add(key);
+    const listeners = waiting.get(key);
+    waiting.delete(key);
+    listeners?.forEach((fn) => fn());
+  }
+  var failed = /* @__PURE__ */ new Set();
+  function unquote(family) {
+    return family.replace(/^["']|["']$/g, "");
+  }
+  function cssQuoted(family) {
+    return family.replace(/[\\"]/g, "\\$&");
+  }
+  function hasLocalFace(family) {
+    const want = family.toLowerCase();
+    let found = false;
+    document.fonts.forEach((face) => {
+      if (unquote(face.family).toLowerCase() === want) found = true;
+    });
+    return found;
+  }
+  var ownVariableFamilies = /* @__PURE__ */ new Set();
+  function hasLocalVariableFace(family) {
+    const want = family.toLowerCase();
+    let found = false;
+    document.fonts.forEach((face) => {
+      if (unquote(face.family).toLowerCase() !== want) return;
+      if (face.weight.includes(" ") || face.stretch.includes(" ")) found = true;
+    });
+    return found;
+  }
+  function loadStylesheet(url) {
+    return new Promise((resolve2, reject) => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = url;
+      link.addEventListener("load", () => resolve2());
+      link.addEventListener("error", () => reject(new Error(`stylesheet did not load: ${url}`)));
+      document.head.appendChild(link);
+    });
+  }
+  var axisSpans = /* @__PURE__ */ new Map();
+  function recordAxes(family, axes) {
+    const key = family.toLowerCase();
+    const spans = axisSpans.get(key) ?? /* @__PURE__ */ new Map();
+    for (const { tag, value } of axes) {
+      const span = spans.get(tag);
+      if (span) {
+        span.min = Math.min(span.min, value);
+        span.max = Math.max(span.max, value);
+      } else {
+        spans.set(tag, { min: value, max: value });
+      }
+    }
+    axisSpans.set(key, spans);
+    return [...spans].map(([tag, { min, max }]) => ({ tag, min, max }));
+  }
+  function registerStylesheet(family, url = googleFontsUrl(family), variable = false) {
+    const key = `${family.toLowerCase()}|${url}`;
+    const existing = stylesheets.get(key);
+    if (existing) return existing;
+    let p;
+    if (!config.enabled) {
+      p = Promise.resolve();
+    } else if (typeof document === "undefined" || !document.fonts) {
+      p = Promise.resolve();
+    } else if (variable ? !ownVariableFamilies.has(family.toLowerCase()) && hasLocalVariableFace(family) : hasLocalFace(family)) {
+      p = Promise.resolve();
+    } else {
+      if (variable) ownVariableFamilies.add(family.toLowerCase());
+      p = loadStylesheet(url);
+    }
+    stylesheets.set(key, p);
+    return p;
+  }
+  async function loadVariant(family, weight, italic, axes) {
+    await registerStylesheet(family);
+    if (axes.length > 0) {
+      const url = googleFontsAxisUrl(family, recordAxes(family, axes));
+      if (url) await registerStylesheet(family, url, true).catch(() => {
+      });
+    }
+    if (typeof document === "undefined" || !document.fonts) return;
+    await document.fonts.load(`${italic ? "italic " : ""}${weight} 16px "${cssQuoted(family)}"`);
+  }
+  function ensureWebFont(family, weight = 400, italic = false, onLoaded, axes = []) {
+    const key = variantKey(family, weight, italic, axes);
+    if (onLoaded && !done.has(key)) {
+      const set = waiting.get(key) ?? /* @__PURE__ */ new Set();
+      set.add(onLoaded);
+      waiting.set(key, set);
+    }
+    const existing = variants.get(key);
+    if (existing) return existing;
+    const p = loadVariant(family, weight, italic, axes).catch((e) => {
+      const famKey = family.toLowerCase();
+      if (!failed.has(famKey)) {
+        failed.add(famKey);
+        console.warn(`WebFonts: no web font for "${family}", using the fallback stack`, e);
+      }
+    }).then(() => notify(key));
+    variants.set(key, p);
+    return p;
+  }
+  function embeddedFamily(fontId, data) {
+    let hash = 2166136261;
+    for (const byte of data) {
+      hash ^= byte;
+      hash = Math.imul(hash, 16777619);
+    }
+    return `__rc_font_${fontId}_${data.length}_${(hash >>> 0).toString(16)}`;
+  }
+  function uint16(data, offset) {
+    return data[offset] << 8 | data[offset + 1];
+  }
+  function uint32(data, offset) {
+    return (data[offset] << 24 | data[offset + 1] << 16 | data[offset + 2] << 8 | data[offset + 3]) >>> 0;
+  }
+  function fixed1616(data, offset) {
+    return (uint32(data, offset) | 0) / 65536;
+  }
+  function asciiTag(data, offset) {
+    return String.fromCharCode(data[offset], data[offset + 1], data[offset + 2], data[offset + 3]);
+  }
+  function embeddedFontDescriptors(data) {
+    try {
+      let sfnt = 0;
+      if (data.length >= 16 && asciiTag(data, 0) === "ttcf") {
+        if (uint32(data, 8) < 1) return {};
+        sfnt = uint32(data, 12);
+      }
+      if (sfnt + 12 > data.length) return {};
+      const tables = uint16(data, sfnt + 4);
+      let fvar = -1;
+      for (let i = 0; i < tables; i++) {
+        const record = sfnt + 12 + i * 16;
+        if (record + 16 > data.length) return {};
+        if (asciiTag(data, record) === "fvar") {
+          fvar = uint32(data, record + 8);
+          break;
+        }
+      }
+      if (fvar < 0 || fvar + 16 > data.length) return {};
+      const axesOffset = uint16(data, fvar + 4);
+      const axisCount = uint16(data, fvar + 8);
+      const axisSize = uint16(data, fvar + 10);
+      if (axisSize < 20) return {};
+      const descriptors = {};
+      for (let i = 0; i < axisCount; i++) {
+        const axis = fvar + axesOffset + i * axisSize;
+        if (axis + 20 > data.length) return {};
+        const tag = asciiTag(data, axis);
+        const min = fixed1616(data, axis + 4);
+        const max = fixed1616(data, axis + 12);
+        if (!Number.isFinite(min) || !Number.isFinite(max) || max < min) continue;
+        if (tag === "wght") descriptors.weight = `${trimNumber(min)} ${trimNumber(max)}`;
+        if (tag === "wdth") descriptors.stretch = `${trimNumber(min)}% ${trimNumber(max)}%`;
+      }
+      return descriptors;
+    } catch (_) {
+      return {};
+    }
+  }
+  function registerEmbeddedFont(fontId, data, onLoaded) {
+    const family = embeddedFamily(fontId, data);
+    const key = `embedded|${family}`;
+    if (onLoaded && !done.has(key)) {
+      const set = waiting.get(key) ?? /* @__PURE__ */ new Set();
+      set.add(onLoaded);
+      waiting.set(key, set);
+    }
+    const retained = embeddedFaces.get(key);
+    if (retained) {
+      retained.references += 1;
+      return family;
+    }
+    let load;
+    if (typeof document === "undefined" || !document.fonts || typeof FontFace === "undefined") {
+      embeddedFaces.set(key, { references: 1 });
+      load = Promise.resolve();
+    } else {
+      const bytes = data.slice().buffer;
+      const face = new FontFace(family, bytes, embeddedFontDescriptors(data));
+      embeddedFaces.set(key, { face, references: 1 });
+      document.fonts.add(face);
+      load = face.load().then(() => void 0).catch((e) => {
+        console.warn(`WebFonts: embedded font ${fontId} could not be loaded`, e);
+      });
+    }
+    const promise = load.then(() => {
+      if (embeddedFaces.has(key)) notify(key);
+    });
+    variants.set(key, promise);
+    return family;
+  }
+  function releaseEmbeddedFont(fontId, data, onLoaded) {
+    const key = `embedded|${embeddedFamily(fontId, data)}`;
+    const listeners = waiting.get(key);
+    if (onLoaded) listeners?.delete(onLoaded);
+    if (listeners?.size === 0) waiting.delete(key);
+    const retained = embeddedFaces.get(key);
+    if (!retained) return;
+    retained.references -= 1;
+    if (retained.references > 0) return;
+    if (retained.face && typeof document !== "undefined" && document.fonts) {
+      document.fonts.delete(retained.face);
+    }
+    embeddedFaces.delete(key);
+    variants.delete(key);
+    done.delete(key);
+    waiting.delete(key);
+  }
+  async function webFontsReady() {
+    let pending = [...variants.values()];
+    while (pending.length > 0) {
+      await Promise.all(pending);
+      const next = [...variants.values()];
+      if (next.length === pending.length) break;
+      pending = next;
+    }
+  }
+  function resetWebFonts() {
+    if (typeof document !== "undefined" && document.fonts) {
+      embeddedFaces.forEach(({ face }) => {
+        if (face) document.fonts.delete(face);
+      });
+    }
+    embeddedFaces.clear();
+    stylesheets.clear();
+    axisSpans.clear();
+    ownVariableFamilies.clear();
+    variants.clear();
+    done.clear();
+    waiting.clear();
+    failed.clear();
+    config = { enabled: true, baseUrl: DEFAULT_BASE_URL };
+  }
+
+  // third_party/remote-compose-player/src/core/operations/Mesh2DGenerator.ts
+  var LAYOUT_POLAR = 1;
+  var LAYOUT_RING = 2;
+  var LAYOUT_FAN = 4;
+  var LAYOUT_PATH_STRIP = 5;
+  var TYPE_EXPRESSION = 0;
+  var TYPE_F16_VALUES = 2;
+  var TYPE_PATH_SPLINE_STRIP = 3;
+  var TYPE_SPLINE_ROUND_STRIP = 4;
+  var BLEND_MODULATE = 1;
+  var FLAG_ORIGIN = 0;
+  var FLAG_ROTATION = 1;
+  var FLAG_SCALE = 2;
+  var FLAG_FULL = 3;
+  var EXPRESSION_GROUPS = 9;
+  var EXP_X = 0;
+  var EXP_Y = 1;
+  var EXP_TEX_U = 2;
+  var EXP_TEX_V = 3;
+  var EXP_COLOR_A = 4;
+  var EXP_COLOR_R = 5;
+  var EXP_COLOR_G = 6;
+  var EXP_COLOR_B = 7;
+  var EXP_WIDTH = 8;
+  var DEFAULT_RING_INNER_RADIUS = 0.5;
+  var TWO_PI = 6.2831855;
+  var HALF_PI = 1.5707964;
+  var DEGENERATE_EPSILON = 1e-6;
+  var MAX_MESH_2D_VERTICES = 16384;
+  function wrapsU(layout) {
+    return layout === LAYOUT_POLAR || layout === LAYOUT_RING || layout === LAYOUT_FAN;
+  }
+  function vertexCount(layout, uCount, vCount) {
+    if (layout === LAYOUT_FAN) return uCount + 1;
+    return uCount * vCount;
+  }
+  function indexCount(layout, uCount, vCount) {
+    if (layout === LAYOUT_FAN) return uCount * 3;
+    if (vCount < 2 || uCount < 2) return 0;
+    const columns = wrapsU(layout) ? uCount : uCount - 1;
+    return columns * (vCount - 1) * 6;
+  }
+  function domainU(layout, i, uCount) {
+    if (uCount <= 1) return 0;
+    if (wrapsU(layout)) return i / uCount;
+    return i / (uCount - 1);
+  }
+  function domainV(j, vCount) {
+    if (vCount <= 1) return 0;
+    return j / (vCount - 1);
+  }
+  function generateIndices(layout, uCount, vCount) {
+    const out = new Int32Array(Math.max(0, indexCount(layout, uCount, vCount)));
+    let k = 0;
+    if (layout === LAYOUT_FAN) {
+      for (let i = 0; i < uCount; i++) {
+        out[k++] = 0;
+        out[k++] = 1 + i;
+        out[k++] = 1 + (i + 1) % uCount;
+      }
+      return out;
+    }
+    if (vCount < 2 || uCount < 2) return out;
+    const wrap = wrapsU(layout);
+    const columns = wrap ? uCount : uCount - 1;
+    for (let j = 0; j < vCount - 1; j++) {
+      for (let i = 0; i < columns; i++) {
+        const i1 = wrap ? (i + 1) % uCount : i + 1;
+        const topLeft = j * uCount + i;
+        const topRight = j * uCount + i1;
+        const bottomLeft = (j + 1) * uCount + i;
+        const bottomRight = (j + 1) * uCount + i1;
+        out[k++] = topLeft;
+        out[k++] = bottomLeft;
+        out[k++] = topRight;
+        out[k++] = topRight;
+        out[k++] = bottomLeft;
+        out[k++] = bottomRight;
+      }
+    }
+    return out;
+  }
+  function defaultPosition(layout, u, v, out) {
+    switch (layout) {
+      case LAYOUT_POLAR:
+      case LAYOUT_FAN: {
+        const angle = u * TWO_PI;
+        out[0] = v * Math.cos(angle);
+        out[1] = v * Math.sin(angle);
+        break;
+      }
+      case LAYOUT_RING: {
+        const angle = u * TWO_PI;
+        const radius = DEFAULT_RING_INNER_RADIUS + (1 - DEFAULT_RING_INNER_RADIUS) * v;
+        out[0] = radius * Math.cos(angle);
+        out[1] = radius * Math.sin(angle);
+        break;
+      }
+      default:
+        out[0] = u;
+        out[1] = v;
+        break;
+    }
+  }
+  var _f32 = new Float32Array(1);
+  var _i32 = new Int32Array(_f32.buffer);
+  function halfToFloat(half) {
+    const sign = (half & 32768) << 16;
+    const exponent = half >> 10 & 31;
+    let mantissa = half & 1023;
+    let bits;
+    if (exponent === 0) {
+      if (mantissa === 0) {
+        bits = sign;
+      } else {
+        let shift = 0;
+        while ((mantissa & 1024) === 0) {
+          mantissa <<= 1;
+          shift++;
+        }
+        mantissa &= 1023;
+        bits = sign | 127 - 15 - shift << 23 | mantissa << 13;
+      }
+    } else if (exponent === 31) {
+      bits = sign | 2139095040 | mantissa << 13;
+    } else {
+      bits = sign | exponent - 15 + 127 << 23 | mantissa << 13;
+    }
+    _i32[0] = bits;
+    return _f32[0];
+  }
+  var PATH_MOVE = 10;
+  var PATH_LINE = 11;
+  var PATH_QUAD = 12;
+  var PATH_CONIC = 13;
+  var PATH_CUBIC = 14;
+  var PATH_CLOSE = 15;
+  var PATH_DONE = 16;
+  var PATH_CURVE_STEPS = 16;
+  function pathNanId(v) {
+    _f32[0] = v;
+    return _i32[0] & 4194303;
+  }
+  function isPathCommand(v) {
+    if (!Number.isNaN(v)) return false;
+    const id = pathNanId(v);
+    return id >= PATH_MOVE && id <= PATH_DONE;
+  }
+  function flattenPath(data, resolve2) {
+    const out = [];
+    let startX = 0, startY = 0, curX = 0, curY = 0, open = false;
+    const push = (x, y) => {
+      const n2 = out.length;
+      if (n2 >= 2 && out[n2 - 2] === x && out[n2 - 1] === y) return;
+      out.push(x, y);
+    };
+    let i = 0;
+    const n = data.length;
+    while (i < n) {
+      if (!isPathCommand(data[i])) {
+        i++;
+        continue;
+      }
+      switch (pathNanId(data[i])) {
+        case PATH_MOVE:
+          i++;
+          if (i + 1 < n) {
+            curX = startX = resolve2(data[i]);
+            curY = startY = resolve2(data[i + 1]);
+            push(curX, curY);
+            open = true;
+            i += 2;
+          }
+          break;
+        case PATH_LINE:
+          i += 3;
+          if (i + 1 < n) {
+            curX = resolve2(data[i]);
+            curY = resolve2(data[i + 1]);
+            push(curX, curY);
+            i += 2;
+          }
+          break;
+        case PATH_QUAD:
+          i += 3;
+          if (i + 3 < n) {
+            const cx = resolve2(data[i]), cy = resolve2(data[i + 1]);
+            const x = resolve2(data[i + 2]), y = resolve2(data[i + 3]);
+            for (let s = 1; s <= PATH_CURVE_STEPS; s++) {
+              const t = s / PATH_CURVE_STEPS, mt = 1 - t;
+              push(
+                mt * mt * curX + 2 * mt * t * cx + t * t * x,
+                mt * mt * curY + 2 * mt * t * cy + t * t * y
+              );
+            }
+            curX = x;
+            curY = y;
+            i += 4;
+          }
+          break;
+        case PATH_CONIC:
+          i += 3;
+          if (i + 4 < n) {
+            const cx = resolve2(data[i]), cy = resolve2(data[i + 1]);
+            const x = resolve2(data[i + 2]), y = resolve2(data[i + 3]);
+            const w = resolve2(data[i + 4]);
+            for (let s = 1; s <= PATH_CURVE_STEPS; s++) {
+              const t = s / PATH_CURVE_STEPS, mt = 1 - t;
+              const w0 = mt * mt, w1 = 2 * mt * t * w, w2 = t * t;
+              const denom = w0 + w1 + w2;
+              if (denom === 0) continue;
+              push(
+                (w0 * curX + w1 * cx + w2 * x) / denom,
+                (w0 * curY + w1 * cy + w2 * y) / denom
+              );
+            }
+            curX = x;
+            curY = y;
+            i += 5;
+          }
+          break;
+        case PATH_CUBIC:
+          i += 3;
+          if (i + 5 < n) {
+            const c1x = resolve2(data[i]), c1y = resolve2(data[i + 1]);
+            const c2x = resolve2(data[i + 2]), c2y = resolve2(data[i + 3]);
+            const x = resolve2(data[i + 4]), y = resolve2(data[i + 5]);
+            for (let s = 1; s <= PATH_CURVE_STEPS; s++) {
+              const t = s / PATH_CURVE_STEPS, mt = 1 - t;
+              const a = mt * mt * mt, b = 3 * mt * mt * t;
+              const c = 3 * mt * t * t, d = t * t * t;
+              push(
+                a * curX + b * c1x + c * c2x + d * x,
+                a * curY + b * c1y + c * c2y + d * y
+              );
+            }
+            curX = x;
+            curY = y;
+            i += 6;
+          }
+          break;
+        case PATH_CLOSE:
+          i++;
+          if (open) push(startX, startY);
+          curX = startX;
+          curY = startY;
+          break;
+        case PATH_DONE:
+        default:
+          return new Float32Array(out);
+      }
+    }
+    return new Float32Array(out);
+  }
+  function samplePolyline(poly, pointCount, fraction, out) {
+    out[0] = 0;
+    out[1] = 0;
+    out[2] = 1;
+    out[3] = 0;
+    if (pointCount < 2) {
+      if (pointCount === 1) {
+        out[0] = poly[0];
+        out[1] = poly[1];
+      }
+      return;
+    }
+    let total = 0;
+    for (let i = 0; i + 1 < pointCount; i++) {
+      const dx = poly[(i + 1) * 2] - poly[i * 2];
+      const dy = poly[(i + 1) * 2 + 1] - poly[i * 2 + 1];
+      total += Math.sqrt(dx * dx + dy * dy);
+    }
+    if (total <= 0) {
+      out[0] = poly[0];
+      out[1] = poly[1];
+      return;
+    }
+    const target = Math.min(Math.max(fraction, 0), 1) * total;
+    let walked = 0;
+    for (let i = 0; i + 1 < pointCount; i++) {
+      const x0 = poly[i * 2], y0 = poly[i * 2 + 1];
+      const x1 = poly[(i + 1) * 2], y1 = poly[(i + 1) * 2 + 1];
+      const dx = x1 - x0, dy = y1 - y0;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len <= 0) continue;
+      if (walked + len >= target || i + 2 === pointCount) {
+        const t = Math.min(Math.max((target - walked) / len, 0), 1);
+        out[0] = x0 + dx * t;
+        out[1] = y0 + dy * t;
+        out[2] = dx / len;
+        out[3] = dy / len;
+        return;
+      }
+      walked += len;
+    }
+  }
+  function roundCapPoint(sample, halfWidth, t, v, direction, out) {
+    const tx = sample[2] * direction, ty = sample[3] * direction;
+    const nx = -sample[3], ny = sample[2];
+    const angle = (1 - t) * HALF_PI;
+    const along = Math.sin(angle) * halfWidth;
+    const across = Math.cos(angle) * halfWidth;
+    const side = (v - 0.5) * 2;
+    out[0] = sample[0] + tx * along + nx * across * side;
+    out[1] = sample[1] + ty * along + ny * across * side;
+  }
+  var MonotonicSpline = class {
+    constructor() {
+      this.x = [];
+      this.y = [];
+      this.m = [];
+    }
+    fit(xs, ys) {
+      this.x = xs;
+      this.y = ys;
+      const n = xs.length;
+      this.m = new Array(n).fill(0);
+      if (n < 2) return;
+      const d = new Array(n - 1).fill(0);
+      for (let i = 0; i + 1 < n; i++) {
+        const dx = xs[i + 1] - xs[i];
+        d[i] = dx !== 0 ? (ys[i + 1] - ys[i]) / dx : 0;
+      }
+      this.m[0] = d[0];
+      this.m[n - 1] = d[n - 2];
+      for (let i = 1; i + 1 < n; i++) {
+        this.m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) * 0.5;
+      }
+      for (let i = 0; i + 1 < n; i++) {
+        if (d[i] === 0) {
+          this.m[i] = 0;
+          this.m[i + 1] = 0;
+          continue;
+        }
+        const a = this.m[i] / d[i], b = this.m[i + 1] / d[i];
+        const s = a * a + b * b;
+        if (s > 9) {
+          const t = 3 / Math.sqrt(s);
+          this.m[i] = t * a * d[i];
+          this.m[i + 1] = t * b * d[i];
+        }
+      }
+    }
+    get isEmpty() {
+      return this.x.length === 0;
+    }
+    at(x) {
+      const n = this.x.length;
+      if (n === 0) return 0;
+      if (n === 1 || x <= this.x[0]) return this.y[0];
+      if (x >= this.x[n - 1]) return this.y[n - 1];
+      let i = 0;
+      while (i + 2 < n && x > this.x[i + 1]) i++;
+      const h = this.x[i + 1] - this.x[i];
+      if (h <= 0) return this.y[i];
+      const t = (x - this.x[i]) / h, t2 = t * t, t3 = t2 * t;
+      return (2 * t3 - 3 * t2 + 1) * this.y[i] + (t3 - 2 * t2 + t) * h * this.m[i] + (-2 * t3 + 3 * t2) * this.y[i + 1] + (t3 - t2) * h * this.m[i + 1];
+    }
+  };
+  function bilinear(verts, uCount, i0, j0, i1, j1, tu, tv, c) {
+    const v00 = verts[(j0 * uCount + i0) * 2 + c];
+    const v10 = verts[(j0 * uCount + i1) * 2 + c];
+    const v01 = verts[(j1 * uCount + i0) * 2 + c];
+    const v11 = verts[(j1 * uCount + i1) * 2 + c];
+    const top = v00 + (v10 - v00) * tu;
+    const bottom = v01 + (v11 - v01) * tu;
+    return top + (bottom - top) * tv;
+  }
+  function sampleMeshPosition(layout, uCount, vCount, verts, u, v, out) {
+    const vc = verts.length / 2;
+    if (vc === 0) {
+      out[0] = 0;
+      out[1] = 0;
+      return;
+    }
+    if (layout === LAYOUT_FAN && uCount >= 1 && vc === uCount + 1) {
+      const uNorm = (u % 1 + 1) % 1;
+      const fu = uNorm * uCount;
+      const i0 = Math.floor(fu) % uCount;
+      const i1 = (i0 + 1) % uCount;
+      const tu = fu - Math.floor(fu);
+      const rimX = (1 - tu) * verts[(1 + i0) * 2] + tu * verts[(1 + i1) * 2];
+      const rimY = (1 - tu) * verts[(1 + i0) * 2 + 1] + tu * verts[(1 + i1) * 2 + 1];
+      const vClamp = Math.min(Math.max(v, 0), 1);
+      out[0] = (1 - vClamp) * verts[0] + vClamp * rimX;
+      out[1] = (1 - vClamp) * verts[1] + vClamp * rimY;
+      return;
+    }
+    if (uCount >= 2 && vCount >= 2 && uCount * vCount === vc) {
+      let i0, i1, tu;
+      if (wrapsU(layout)) {
+        const uNorm = (u % 1 + 1) % 1;
+        const fu = uNorm * uCount;
+        i0 = Math.floor(fu) % uCount;
+        i1 = (i0 + 1) % uCount;
+        tu = fu - Math.floor(fu);
+      } else {
+        const fu = Math.min(Math.max(u, 0), 1) * (uCount - 1);
+        i0 = Math.floor(fu);
+        i1 = Math.min(uCount - 1, i0 + 1);
+        tu = fu - i0;
+      }
+      const fv = Math.min(Math.max(v, 0), 1) * (vCount - 1);
+      const j0 = Math.floor(fv);
+      const j1 = Math.min(vCount - 1, j0 + 1);
+      const tv = fv - j0;
+      out[0] = bilinear(verts, uCount, i0, j0, i1, j1, tu, tv, 0);
+      out[1] = bilinear(verts, uCount, i0, j0, i1, j1, tu, tv, 1);
+      return;
+    }
+    const nearest = Math.max(0, Math.min(
+      vc - 1,
+      Math.round(Math.min(Math.max(u, 0), 1) * (vc - 1))
+    ));
+    out[0] = verts[nearest * 2];
+    out[1] = verts[nearest * 2 + 1];
+  }
+  function sampleFrame(layout, uCount, vCount, verts, u, v, out) {
+    if (verts.length < 2) return false;
+    const uc = Math.max(2, uCount);
+    const vc = Math.max(2, vCount);
+    const wrap = wrapsU(layout);
+    const du = 1 / (wrap ? uc : uc - 1);
+    const dv = 1 / (vc - 1);
+    const centre = new Float32Array(2), uPlus = new Float32Array(2);
+    const uMinus = new Float32Array(2), vPlus = new Float32Array(2), vMinus = new Float32Array(2);
+    sampleMeshPosition(layout, uCount, vCount, verts, u, v, centre);
+    let uSpan;
+    if (wrap) {
+      sampleMeshPosition(layout, uCount, vCount, verts, u + du * 0.5, v, uPlus);
+      sampleMeshPosition(layout, uCount, vCount, verts, u - du * 0.5, v, uMinus);
+      uSpan = du;
+    } else {
+      const uHi = Math.min(1, u + du * 0.5), uLo = Math.max(0, u - du * 0.5);
+      sampleMeshPosition(layout, uCount, vCount, verts, uHi, v, uPlus);
+      sampleMeshPosition(layout, uCount, vCount, verts, uLo, v, uMinus);
+      uSpan = uHi - uLo;
+      if (uSpan <= 0) uSpan = du;
+    }
+    const vHi = Math.min(1, v + dv * 0.5), vLo = Math.max(0, v - dv * 0.5);
+    sampleMeshPosition(layout, uCount, vCount, verts, u, vHi, vPlus);
+    sampleMeshPosition(layout, uCount, vCount, verts, u, vLo, vMinus);
+    let vSpan = vHi - vLo;
+    if (vSpan <= 0) vSpan = dv;
+    out[0] = (uPlus[0] - uMinus[0]) / uSpan;
+    out[1] = (uPlus[1] - uMinus[1]) / uSpan;
+    out[2] = (vPlus[0] - vMinus[0]) / vSpan;
+    out[3] = (vPlus[1] - vMinus[1]) / vSpan;
+    out[4] = centre[0];
+    out[5] = centre[1];
+    return true;
+  }
+  function buildMatrix(frame, flags, out) {
+    const duX = frame[0], duY = frame[1], dvX = frame[2], dvY = frame[3];
+    const originX = frame[4], originY = frame[5];
+    const duLength = Math.hypot(duX, duY);
+    const dvLength = Math.hypot(dvX, dvY);
+    const cross2 = duX * dvY - duY * dvX;
+    let effective = flags;
+    if (effective >= FLAG_FULL && Math.abs(cross2) < DEGENERATE_EPSILON) effective = FLAG_SCALE;
+    if (effective >= FLAG_SCALE && (duLength < DEGENERATE_EPSILON || dvLength < DEGENERATE_EPSILON)) {
+      effective = FLAG_ROTATION;
+    }
+    if (effective >= FLAG_ROTATION && duLength < DEGENERATE_EPSILON) effective = FLAG_ORIGIN;
+    switch (effective) {
+      case FLAG_FULL:
+        out[0] = duX;
+        out[1] = duY;
+        out[2] = dvX;
+        out[3] = dvY;
+        break;
+      case FLAG_SCALE: {
+        const ux = duX / duLength, uy = duY / duLength;
+        const sign = cross2 < 0 ? -1 : 1;
+        out[0] = ux * duLength;
+        out[1] = uy * duLength;
+        out[2] = -uy * dvLength * sign;
+        out[3] = ux * dvLength * sign;
+        break;
+      }
+      case FLAG_ROTATION: {
+        const ux = duX / duLength, uy = duY / duLength;
+        const sign = cross2 < 0 ? -1 : 1;
+        out[0] = ux;
+        out[1] = uy;
+        out[2] = -uy * sign;
+        out[3] = ux * sign;
+        break;
+      }
+      case FLAG_ORIGIN:
+      default:
+        out[0] = 1;
+        out[1] = 0;
+        out[2] = 0;
+        out[3] = 1;
+        break;
+    }
+    out[4] = originX;
+    out[5] = originY;
+  }
+  function clamp255(f) {
+    const i = Math.trunc(f * 255 + 0.5);
+    return i < 0 ? 0 : i > 255 ? 255 : i;
+  }
+  function packColor(a, r, g, b) {
+    return clamp255(a) << 24 | clamp255(r) << 16 | clamp255(g) << 8 | clamp255(b) | 0;
+  }
+
+  // third_party/remote-compose-player/src/web/CanvasPaintContext.ts
+  var FONT_STRETCH_STEPS = [
+    [50, "ultra-condensed"],
+    [62.5, "extra-condensed"],
+    [75, "condensed"],
+    [87.5, "semi-condensed"],
+    [100, "normal"],
+    [112.5, "semi-expanded"],
+    [125, "expanded"],
+    [150, "extra-expanded"],
+    [200, "ultra-expanded"]
+  ];
+  function nearestFontStretch(percent) {
+    let best = FONT_STRETCH_STEPS[0];
+    for (const step of FONT_STRETCH_STEPS) {
+      if (Math.abs(step[0] - percent) < Math.abs(best[0] - percent)) best = step;
+    }
+    return best[1];
+  }
+  function argbToRgba(argb) {
+    const a = (argb >>> 24 & 255) / 255;
+    const r = argb >>> 16 & 255;
+    const g = argb >>> 8 & 255;
+    const b = argb & 255;
+    return `rgba(${r},${g},${b},${a.toFixed(3)})`;
+  }
+  function cssFontStackFor(fontType) {
+    switch (fontType) {
+      case 2:
+        return '"Noto Serif", serif';
+      case 3:
+        return '"Droid Sans Mono", monospace';
+      // 1 = SANS_SERIF is Android's own name for the Roboto stack, so it and
+      // DEFAULT (0, and anything unrecognised) resolve to the same face.
+      default:
+        return "Roboto, sans-serif";
+    }
+  }
+  function namedFontStack(family) {
+    return `"${cssQuoted(family)}", ${cssFontStackFor(0)}`;
+  }
+  var DEFAULT_TEXT_SIZE = 14;
+  var ASCENT_RATIO = 0.92;
+  var DESCENT_RATIO = 0.24;
+  var AVG_ADVANCE = 0.528;
+  var _CanvasPaintContext = class _CanvasPaintContext extends PaintContext {
+    constructor(context, canvas) {
+      super(context);
+      // Current paint state
+      this.color = "rgba(0,0,0,1)";
+      /** The same paint color as a packed ARGB int — what drawMesh3D shades with. */
+      this.colorArgb = 4278190080 | 0;
+      this.style = 0;
+      // 0=FILL, 1=STROKE, 2=FILL_AND_STROKE
+      this.strokeWidth = 1;
+      this.textSize = 14;
+      this.alpha = 1;
+      this.lineCap = "butt";
+      this.lineJoin = "miter";
+      this.miterLimit = 10;
+      this.blendMode = "source-over";
+      this.antiAlias = true;
+      this.filterBitmap = true;
+      this.letterSpacing = 0;
+      this.gradientStyle = null;
+      this.fontFamily = cssFontStackFor(0);
+      this.fontWeight = 400;
+      this.fontItalic = false;
+      /** The document's font-variation axes for the current paint, resolved to their tag names. */
+      this.fontAxes = [];
+      /**
+       * The bare `google:` family of the current paint, or null when it names none.
+       *
+       * Kept because the axes arrive *after* the family does: a paint bundle serialises `setTextStyle`
+       * (TYPEFACE) before `setTextAxis` (FONT_AXIS), so the request made while resolving the typeface
+       * necessarily has no axes yet. Re-requesting once they are decoded is what actually asks the API
+       * for the variable face; without it a networked render keeps the enumerated static stylesheet and
+       * paints a `wdth` ramp as identical lines. (It looks fine on a page that vendored the variable
+       * face itself, which is exactly how this hid.)
+       */
+      this.googleFamily = null;
+      this.colorFilterColor = null;
+      this.colorFilterArgb = 0;
+      this.colorFilterMode = 3;
+      // SRC_OVER default
+      // Active shader (set via PaintBundle.SHADER)
+      this.activeShaderData = null;
+      this.shaderRenderer = null;
+      this.glslCache = /* @__PURE__ */ new Map();
+      // shaderTextId -> transpiled GLSL
+      // Paint stack for save/restore
+      this.paintStack = [];
+      // Path cache: id -> Int32Array (raw float32 int bits; markers/variable refs
+      // are NaN-with-payload — decoded from bits, never via Number.isNaN, so the
+      // ids survive on engines that canonicalize NaN payloads (Safari/Firefox)).
+      this.pathDataCache = /* @__PURE__ */ new Map();
+      this.pathWindingCache = /* @__PURE__ */ new Map();
+      // Bitmap cache: id -> ImageBitmap or HTMLImageElement
+      this.bitmapCache = /* @__PURE__ */ new Map();
+      // Animated bitmaps (a GIF embedded whole), streamed: one frame decoded at a time, the
+      // next asked for when the document's clock passes the end of the one showing. A long
+      // GIF at full size is hundreds of megabytes as bitmaps, so nothing is decoded ahead —
+      // the C++ player streams through one working buffer for the same reason.
+      this.animatedBitmaps = /* @__PURE__ */ new Map();
+      this.disposed = false;
+      // Bitmaps a host has supplied as video instead: a GIF transcoded once at export time,
+      // decoded by the browser's own video pipeline and drawn frame by frame from the element.
+      // Far cheaper than decoding GIF frames, and the preferred way to animate a bitmap.
+      this.bitmapVideos = /* @__PURE__ */ new Map();
+      /// One stored 2D mesh. Canvas2D has no drawVertices, so drawMesh walks the triangle list.
+      this.meshCache = /* @__PURE__ */ new Map();
+      this.bitmapPromises = /* @__PURE__ */ new Map();
+      /** Bitmaps converted to ARGB for 3D texturing, kept so the readback happens once. */
+      this.texturePixels = /* @__PURE__ */ new Map();
+      // Text cache: id -> string
+      this.textCache = /* @__PURE__ */ new Map();
+      // Graphics layer stack for offscreen compositing
+      this.layerStack = [];
+      // Factory for creating offscreen canvases - override for node-canvas
+      this.createLayerCanvas = (w, h) => {
+        if (typeof OffscreenCanvas !== "undefined") {
+          const c = new OffscreenCanvas(w, h);
+          return c.getContext("2d");
+        }
+        if (typeof document !== "undefined") {
+          const c = document.createElement("canvas");
+          c.width = w;
+          c.height = h;
+          return c.getContext("2d");
+        }
+        throw new Error("No canvas factory available for graphics layers");
+      };
+      this.inputClip = { rectangles: [], rounded: [], unsupported: false };
+      this.inputClipStack = [];
+      this.mainInputClip = null;
+      /** Embedded FontData families, keyed by the same document id used by TYPEFACE/CoreText. */
+      this.embeddedFontFamilies = /* @__PURE__ */ new Map();
+      // --- Typeface resolution ---
+      /**
+       * Called when a named family finishes loading, so a player that already painted a frame in the
+       * fallback face can repaint it in the real one. Null for single-shot renderers, which instead
+       * await `webFontsReady()` before painting the frame they keep.
+       */
+      this.onFontLoaded = null;
+      this.mTextMeasureCache = /* @__PURE__ */ new Map();
+      this.mainCanvas = null;
+      this.bitmapCanvasCache = /* @__PURE__ */ new Map();
+      // ---- 3D (Paint3DContext) -----------------------------------------------
+      //
+      // Only the software backend is implemented here. Every other backend in the mode word
+      // (canvas-vertices, drawMesh, GL) falls back to software, which is exactly what the
+      // reference does on a platform that lacks them — so a document renders the same picture
+      // rather than silently drawing nothing.
+      this.d3 = null;
+      /** GPU rasterizer for the canvas backends; created on first use, null if WebGL2 is absent. */
+      this.d3gl = null;
+      this.d3glMesh = createCanvasMesh();
+      /** Whether anything has been drawn into the GL canvas this 3D pass. */
+      this.d3glDirty = false;
+      /** Texture generation last uploaded to GL, so an unchanged texture is not re-uploaded. */
+      this.d3glTexGen = -1;
+      this.d3Blit = null;
+      if (!canvas) {
+        throw new Error("CanvasPaintContext: canvas rendering context is null or undefined");
+      }
+      this.ctx = canvas;
+    }
+    /** Release the WebGL context this paint context lazily created, if any. */
+    destroy() {
+      if (this.shaderRenderer) {
+        this.shaderRenderer.destroy();
+        this.shaderRenderer = null;
+      }
+      this.embeddedFontFamilies.forEach(({ data }, fontId) => {
+        releaseEmbeddedFont(fontId, data, this.onFontLoaded ?? void 0);
+      });
+      this.embeddedFontFamilies.clear();
+    }
+    getInputClip() {
+      return this.inputClip;
+    }
+    inheritInputClip(parent) {
+      this.inputClip = parent.inputClip;
+    }
+    recordInputRect(left, top, right, bottom) {
+      const transform = this.ctx.getTransform();
+      const corners = [{ x: left, y: top }, { x: right, y: top }, { x: right, y: bottom }, { x: left, y: bottom }].map((p) => mapInputPoint(transform, p));
+      this.inputClip = { ...this.inputClip, rectangles: [...this.inputClip.rectangles, corners] };
+    }
+    getCanvas() {
+      return this.ctx;
+    }
+    // An embedded document paints on whatever canvas its host is painting on, which can
+    // change between frames (a resize, a new host document on the same page).
+    setCanvas(canvas) {
+      this.ctx = canvas;
+    }
+    // --- Text cache ---
+    loadText(id, text) {
+      this.textCache.set(id, text);
+    }
+    getText(id) {
+      return this.textCache.get(id) ?? null;
+    }
+    loadFont(fontId, data) {
+      const current = this.embeddedFontFamilies.get(fontId);
+      if (current?.data === data) return;
+      if (current) releaseEmbeddedFont(fontId, current.data, this.onFontLoaded ?? void 0);
+      this.embeddedFontFamilies.set(fontId, {
+        data,
+        family: registerEmbeddedFont(fontId, data, this.onFontLoaded ?? void 0)
+      });
+    }
+    /**
+     * CSS stack for a `PaintBundle.TYPEFACE` operand.
+     *
+     * The operand is overloaded: below `START_ID` it is one of the four generic typeface constants,
+     * at or above it the document's *text id* for a named family (`CoreText.updateVariables` ends
+     * `else this.mType = this.mFontFamilyId`). The two ranges cannot collide — ids are handed out
+     * from `START_ID` upward, so no text id is ever 0..3 — which is what makes this single integer
+     * safe to disambiguate by magnitude.
+     *
+     * A `google:`-namespaced family is fetched; an unprefixed one is only *named*, leaving it to
+     * whatever the host already has. Requesting the face is fire-and-forget: resolution has to be
+     * synchronous because it happens mid-paint, so the stack names the family now and the face
+     * arrives later (repainted via `onFontLoaded`, or awaited by a single-shot renderer). Until then
+     * the fallback paints.
+     */
+    fontStackForTypeface(fontType) {
+      if (fontType < RemoteComposeState.START_ID) return cssFontStackFor(fontType);
+      const embedded = this.embeddedFontFamilies.get(fontType);
+      if (embedded) {
+        this.googleFamily = null;
+        return namedFontStack(embedded.family);
+      }
+      const family = this.getText(fontType);
+      if (!family) return cssFontStackFor(0);
+      const { source, name } = parseFamily(family);
+      if (!name) return cssFontStackFor(0);
+      this.googleFamily = source === "google" ? name : null;
+      if (source === "google") {
+        ensureWebFont(
+          name,
+          this.fontWeight,
+          this.fontItalic,
+          this.onFontLoaded ?? void 0,
+          this.fontAxes
+        );
+      }
+      return namedFontStack(name);
+    }
+    // --- Bitmap cache ---
+    loadBitmap(imageId, encoding, type, width, height, bitmap) {
+      if (this.bitmapPromises.has(imageId)) return;
+      const isGif = bitmap.length > 6 && bitmap[0] === 71 && bitmap[1] === 73 && bitmap[2] === 70 && bitmap[3] === 56;
+      if (isGif && !this.bitmapVideos.has(imageId) && typeof globalThis.ImageDecoder !== "undefined") {
+        this.loadAnimatedBitmap(imageId, bitmap);
+      }
+      const blob = new Blob([bitmap.buffer], { type: "image/png" });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      const promise = new Promise((resolve2) => {
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          this.bitmapCache.set(imageId, img);
+          resolve2();
+        };
+        img.onerror = (e) => {
+          URL.revokeObjectURL(url);
+          console.warn(`CanvasPaintContext: failed to load bitmap ${imageId}`, e);
+          resolve2();
+        };
+        img.src = url;
+      });
+      this.bitmapPromises.set(imageId, promise);
+    }
+    /** Wait until every bitmap loaded by the document's data pass is paintable. */
+    async bitmapsReady() {
+      await Promise.all(this.bitmapPromises.values());
+    }
+    // `videos` maps image ids to video URLs. Called before the document's data pass, so a
+    // bitmap with a video never starts a GIF decoder.
+    setBitmapVideos(videos) {
+      for (const v of this.bitmapVideos.values()) {
+        v.pause();
+        v.removeAttribute("src");
+        v.load();
+        v.remove();
+      }
+      this.bitmapVideos.clear();
+      if (!videos || typeof document === "undefined") return;
+      const entries = videos instanceof Map ? [...videos.entries()] : Object.entries(videos).map(([k, v]) => [Number(k), v]);
+      for (const [id, url] of entries) {
+        const video = document.createElement("video");
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.preload = "auto";
+        video.src = url;
+        video.style.cssText = "position:fixed;left:-4px;top:-4px;width:2px;height:2px;opacity:0;pointer-events:none";
+        document.body.appendChild(video);
+        video.play().catch(() => {
+        });
+        this.bitmapVideos.set(id, video);
+      }
+    }
+    async loadAnimatedBitmap(imageId, bytes) {
+      try {
+        const Decoder = globalThis.ImageDecoder;
+        const decoder = new Decoder({ data: bytes, type: "image/gif" });
+        await decoder.tracks.ready;
+        const track = decoder.tracks.selectedTrack;
+        const count = track ? track.frameCount : 0;
+        if (count < 2 || this.disposed) {
+          decoder.close();
+          return;
+        }
+        const anim = {
+          decoder,
+          count,
+          index: -1,
+          frame: null,
+          frameEnds: 0,
+          decoding: false,
+          failed: false
+        };
+        this.animatedBitmaps.set(imageId, anim);
+        this.needsRepaint();
+      } catch (e) {
+        console.warn(`CanvasPaintContext: cannot animate bitmap ${imageId}`, e);
+      }
+    }
+    // Decode the frame after the one showing, and make it the one showing when it lands.
+    // One decode in flight at a time: a clock that has run ahead is not chased through the
+    // frames in between (a GIF's frames build on each other, so every one would cost), the
+    // picture just plays late until it catches up.
+    advanceAnimated(anim, now) {
+      if (anim.decoding || anim.failed || anim.count < 1) return;
+      anim.decoding = true;
+      const next = (anim.index + 1) % anim.count;
+      anim.decoder.decode({ frameIndex: next }).then((result) => {
+        const image = result.image;
+        let seconds = (image.duration ?? 0) / 1e6;
+        if (!(seconds >= 0.02)) seconds = 0.1;
+        if (this.disposed) {
+          image.close();
+          return;
+        }
+        if (anim.frame) anim.frame.close();
+        anim.frame = image;
+        anim.index = next;
+        anim.frameEnds = Math.max(now, anim.frameEnds) + seconds;
+        anim.decoding = false;
+        this.needsRepaint();
+      }).catch((e) => {
+        anim.failed = true;
+        anim.decoding = false;
+        console.warn("CanvasPaintContext: animated bitmap frame failed", e);
+      });
+    }
+    // The bitmap to draw now: for an animated one, the frame the document's clock is on —
+    // the next one is asked for once the clock passes the end of this one — and a repaint
+    // asked for so it follows.
+    bitmapToDraw(imageId) {
+      const video = this.bitmapVideos.get(imageId);
+      if (video) {
+        this.needsRepaint();
+        if (video.readyState >= 2 && video.videoWidth > 0) {
+          if (video.paused) video.play().catch(() => {
+          });
+          return video;
+        }
+        return this.bitmapCache.get(imageId);
+      }
+      const anim = this.animatedBitmaps.get(imageId);
+      if (!anim) return this.bitmapCache.get(imageId);
+      const context = this.getContext();
+      const now = context ? context.getAnimationTime() : 0;
+      if (anim.index < 0 || now >= anim.frameEnds) this.advanceAnimated(anim, now);
+      this.needsRepaint();
+      return anim.frame ?? this.bitmapCache.get(imageId);
+    }
+    // Let go of what animated bitmaps hold — decoders and frames are not cheap, and a paint
+    // context outlives its document only as garbage.
+    dispose() {
+      this.disposed = true;
+      for (const v of this.bitmapVideos.values()) {
+        v.pause();
+        v.removeAttribute("src");
+        v.load();
+        v.remove();
+      }
+      this.bitmapVideos.clear();
+      for (const anim of this.animatedBitmaps.values()) {
+        try {
+          anim.decoder.close();
+        } catch {
+        }
+        if (anim.frame) anim.frame.close();
+      }
+      this.animatedBitmaps.clear();
+      for (const img of this.bitmapCache.values()) {
+        if (typeof img.close === "function") img.close();
+      }
+      this.bitmapCache.clear();
+    }
+    // --- Path cache ---
+    loadPathData(id, winding, data) {
+      this.pathDataCache.set(id, data);
+      this.pathWindingCache.set(id, winding);
+    }
+    // A path operand is either a literal float or a NaN-encoded variable id (a
+    // dynamic coordinate, e.g. a button/card fill sized from its component's
+    // measured dimensions). Dereference the id to its current float value, the way
+    // the command word and every other expression operand are resolved — reading
+    // it as a literal `intBitsToFloat` would yield NaN and collapse the path.
+    pathCoord(bits) {
+      return isNaNBits(bits) ? this.mContext.getFloat(idFromBits(bits)) : intBitsToFloat(bits);
+    }
+    buildPath2D(data, start = 0, end = 1) {
+      const path = new Path2D();
+      let i = 0;
+      while (i < data.length) {
+        const bits = data[i];
+        let cmd = isNaNBits(bits) ? idFromBits(bits) : intBitsToFloat(bits);
+        if (cmd >= _CanvasPaintContext.NANMAP_PATH_BASE && cmd <= _CanvasPaintContext.NANMAP_PATH_BASE + 6) {
+          cmd = _CanvasPaintContext.PATH_MOVE + (cmd - _CanvasPaintContext.NANMAP_PATH_BASE);
+        }
+        switch (cmd) {
+          case _CanvasPaintContext.PATH_MOVE:
+            i++;
+            path.moveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]));
+            i += 2;
+            break;
+          case _CanvasPaintContext.PATH_LINE:
+            i += 3;
+            path.lineTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]));
+            i += 2;
+            break;
+          case _CanvasPaintContext.PATH_QUADRATIC:
+            i += 3;
+            path.quadraticCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]));
+            i += 4;
+            break;
+          case _CanvasPaintContext.PATH_CONIC:
+            i += 3;
+            path.quadraticCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]));
+            i += 5;
+            break;
+          case _CanvasPaintContext.PATH_CUBIC:
+            i += 3;
+            path.bezierCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]), this.pathCoord(data[i + 4]), this.pathCoord(data[i + 5]));
+            i += 6;
+            break;
+          case _CanvasPaintContext.PATH_CLOSE:
+            path.closePath();
+            i++;
+            break;
+          case _CanvasPaintContext.PATH_DONE:
+            return path;
+          default:
+            i++;
+            break;
+        }
+      }
+      return path;
+    }
+    // --- Apply paint ---
+    getEffectiveColor() {
+      if (this.colorFilterColor === null) {
+        return this.gradientStyle ?? this.color;
+      }
+      switch (this.colorFilterMode) {
+        case 0:
+          return "rgba(0,0,0,0)";
+        // CLEAR: transparent
+        case 1:
+          return this.colorFilterColor;
+        // SRC: filter color
+        case 2:
+          return this.gradientStyle ?? this.color;
+        // DST: paint color
+        case 3:
+          return this.colorFilterColor;
+        // SRC_OVER: opaque filter wins
+        case 4:
+          return this.gradientStyle ?? this.color;
+        // DST_OVER: opaque paint wins
+        case 5:
+          return this.colorFilterColor;
+        // SRC_IN: filter × paint_alpha = filter
+        case 6:
+          return this.gradientStyle ?? this.color;
+        // DST_IN: paint × filter_alpha = paint
+        case 7:
+          return "rgba(0,0,0,0)";
+        // SRC_OUT: filter × (1-paint_alpha) = 0
+        case 8:
+          return "rgba(0,0,0,0)";
+        // DST_OUT: paint × (1-filter_alpha) = 0
+        case 9:
+          return this.colorFilterColor;
+        // SRC_ATOP: filter
+        case 10:
+          return this.gradientStyle ?? this.color;
+        // DST_ATOP: paint
+        case 11:
+          return "rgba(0,0,0,0)";
+        // XOR: both opaque → transparent
+        default: {
+          return this.computeColorFilterBlend();
+        }
+      }
+    }
+    computeColorFilterBlend() {
+      const sA = (this.colorFilterArgb >>> 24 & 255) / 255;
+      const sR = this.colorFilterArgb >>> 16 & 255;
+      const sG = this.colorFilterArgb >>> 8 & 255;
+      const sB = this.colorFilterArgb & 255;
+      const m = this.color.match(/rgba?\((\d+),(\d+),(\d+),?([^)]*)\)/);
+      const dR = m ? parseInt(m[1]) : 0;
+      const dG = m ? parseInt(m[2]) : 0;
+      const dB = m ? parseInt(m[3]) : 0;
+      const dA = m && m[4] ? parseFloat(m[4]) : 1;
+      let rR, rG, rB, rA;
+      const blend1 = (a, b) => {
+        switch (this.colorFilterMode) {
+          case 12:
+            return Math.min(255, a + b);
+          // PLUS
+          case 13:
+            return a * b / 255;
+          // MODULATE
+          case 14:
+            return a + b - a * b / 255;
+          // SCREEN
+          case 15:
+            return b <= 127 ? 2 * a * b / 255 : 255 - 2 * (255 - a) * (255 - b) / 255;
+          case 16:
+            return Math.min(a, b);
+          // DARKEN
+          case 17:
+            return Math.max(a, b);
+          // LIGHTEN
+          case 18:
+            return b === 0 ? 0 : Math.min(255, a * 255 / (255 - b));
+          // COLOR_DODGE
+          case 19:
+            return b === 255 ? 255 : Math.max(0, 255 - (255 - a) * 255 / b);
+          // COLOR_BURN
+          case 20:
+            return a <= 127 ? 2 * a * b / 255 : 255 - 2 * (255 - a) * (255 - b) / 255;
+          case 21: {
+            const t = a / 255;
+            return b <= 127 ? b - (1 - 2 * t) * b * (1 - b / 255) * 255 : b + (2 * t - 1) * (Math.sqrt(b / 255) * 255 - b);
+          }
+          case 22:
+            return Math.abs(a - b);
+          // DIFFERENCE
+          case 23:
+            return a + b - 2 * a * b / 255;
+          // EXCLUSION
+          case 24:
+            return a * b / 255;
+          // MULTIPLY
+          default:
+            return a;
+        }
+      };
+      rR = blend1(sR, dR);
+      rG = blend1(sG, dG);
+      rB = blend1(sB, dB);
+      rA = Math.min(1, sA + dA - sA * dA);
+      return `rgba(${Math.round(rR)},${Math.round(rG)},${Math.round(rB)},${rA.toFixed(3)})`;
+    }
+    createSweepGradientPattern(cx, cy, colors, stops) {
+      const ctx = this.mContext;
+      const w = ctx ? ctx.mWidth || 256 : 256;
+      const h = ctx ? ctx.mHeight || 256 : 256;
+      try {
+        const layerCtx = this.createLayerCanvas(w, h);
+        const imgData = layerCtx.createImageData(w, h);
+        const data = imgData.data;
+        const colorComponents = colors.map((argb) => [
+          argb >>> 16 & 255,
+          // R
+          argb >>> 8 & 255,
+          // G
+          argb & 255,
+          // B
+          (argb >>> 24 & 255) / 255
+          // A
+        ]);
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let angle = Math.atan2(y - cy, x - cx);
+            if (angle < 0) angle += Math.PI * 2;
+            const t = angle / (Math.PI * 2);
+            let idx = 0;
+            for (let s = 0; s < stops.length - 1; s++) {
+              if (t >= stops[s]) idx = s;
+            }
+            const t0 = stops[idx];
+            const t1 = stops[Math.min(idx + 1, stops.length - 1)];
+            const range = t1 - t0;
+            const frac = range > 0 ? (t - t0) / range : 0;
+            const c0 = colorComponents[idx];
+            const c1 = colorComponents[Math.min(idx + 1, colorComponents.length - 1)];
+            const off = (y * w + x) * 4;
+            data[off] = c0[0] + (c1[0] - c0[0]) * frac;
+            data[off + 1] = c0[1] + (c1[1] - c0[1]) * frac;
+            data[off + 2] = c0[2] + (c1[2] - c0[2]) * frac;
+            data[off + 3] = (c0[3] + (c1[3] - c0[3]) * frac) * 255;
+          }
+        }
+        layerCtx.putImageData(imgData, 0, 0);
+        return this.ctx.createPattern(layerCtx.canvas, "no-repeat");
+      } catch (_e) {
+        return null;
+      }
+    }
+    applyFillStyle() {
+      this.ctx.fillStyle = this.getEffectiveColor();
+      this.ctx.globalAlpha = this.alpha;
+      this.ctx.globalCompositeOperation = this.blendMode;
+    }
+    applyStrokeStyle() {
+      this.ctx.strokeStyle = this.getEffectiveColor();
+      this.ctx.lineWidth = this.strokeWidth;
+      this.ctx.lineCap = this.lineCap;
+      this.ctx.lineJoin = this.lineJoin;
+      this.ctx.miterLimit = this.miterLimit;
+      this.ctx.globalAlpha = this.alpha;
+      this.ctx.globalCompositeOperation = this.blendMode;
+    }
+    fillOrStroke(doFill, doStroke) {
+      if (this.style === 0 || this.style === 2) {
+        this.applyFillStyle();
+        this.eraseBeneathForSrc(doFill, "#000");
+        doFill();
+      }
+      if (this.style === 1 || this.style === 2) {
+        this.applyStrokeStyle();
+        this.eraseBeneathForSrc(doStroke, "#000");
+        doStroke();
+      }
+    }
+    /**
+     * Skia's `SRC` blend replaces the destination **inside the drawn shape** and leaves everything
+     * else alone. Canvas2D's `copy` (the only operator with the same algebra) replaces the whole
+     * clip region instead: a single `SRC` dot wiped the pill, track and icons painted before it in
+     * the same clip, so every remote-m3 slider drew as one dot on nothing.
+     *
+     * Emulated by punching the shape out first (`destination-out`, opaque, so exactly the shape's
+     * coverage) and then drawing it `source-over`. Called after the style is applied so the caller's
+     * own fill/stroke colour is what ends up drawn; it restores the paint state it borrowed.
+     */
+    eraseBeneathForSrc(draw, punchColor) {
+      if (this.blendMode !== "copy") return;
+      const ctx = this.ctx;
+      const fill = ctx.fillStyle, stroke = ctx.strokeStyle, alpha = ctx.globalAlpha;
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = punchColor;
+      ctx.strokeStyle = punchColor;
+      ctx.globalAlpha = 1;
+      draw();
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = stroke;
+      ctx.globalAlpha = alpha;
+      ctx.globalCompositeOperation = "source-over";
+    }
+    /**
+     * The axis name a [tag] int stands for, in either encoding the format uses.
+     *
+     * A `CoreText` style interns its axis names in the text table like any other string and puts the
+     * *text id* in the array; the paint bundle's own `setTextAxis` carries the **raw OpenType tag**
+     * packed into four bytes (`0x77676874` = `wght`). Reading the text table first (ids start at
+     * `START_ID`, so the two ranges can't collide) and unpacking the bytes otherwise covers both
+     * without having to know which writer produced the document. Anything that is neither is dropped
+     * rather than guessed at.
+     */
+    axisName(tag) {
+      if (tag >= RemoteComposeState.START_ID) {
+        const name = this.getText(tag);
+        if (name) return name;
+      }
+      let packed = "";
+      for (let shift = 24; shift >= 0; shift -= 8) {
+        const code = tag >> shift & 255;
+        if (code < 33 || code > 126) return null;
+        packed += String.fromCharCode(code);
+      }
+      return packed;
+    }
+    axisValue(tag) {
+      const axis = this.fontAxes.find((a) => a.tag === tag);
+      return axis ? axis.value : null;
+    }
+    setFont() {
+      const wght = this.axisValue("wght");
+      const ital = this.axisValue("ital");
+      const italic = this.fontItalic || ital !== null && ital >= 0.5;
+      const effectiveWeight = wght !== null ? Math.round(wght) : this.fontWeight;
+      const style = italic ? "italic " : "";
+      const weight = effectiveWeight !== 400 ? `${effectiveWeight} ` : "";
+      this.ctx.font = `${style}${weight}${this.textSize}px ${this.fontFamily}`;
+      const stretchable = this.ctx;
+      if ("fontStretch" in stretchable) {
+        const wdth = this.axisValue("wdth");
+        stretchable.fontStretch = wdth !== null ? nearestFontStretch(wdth) : "normal";
+      }
+    }
+    // --- PaintContext abstract methods ---
+    applyPaint(paintData) {
+      const arr = paintData.getArray();
+      const len = paintData.getLength();
+      const context = this.getContext();
+      const floatArg = (bits) => {
+        if (isNaNBits(bits) && context) return context.getFloat(idFromBits(bits));
+        return intBitsToFloat(bits);
+      };
+      let i = 0;
+      while (i < len) {
+        const cmd = arr[i++];
+        const tag = cmd & 65535;
+        const upper = cmd >> 16 & 65535;
+        switch (tag) {
+          case PaintBundle.TEXT_SIZE:
+            this.textSize = floatArg(arr[i++]);
+            this.setFont();
+            break;
+          case PaintBundle.COLOR: {
+            const argb = arr[i++] | 0;
+            this.colorArgb = argb;
+            this.alpha = (argb >>> 24 & 255) / 255;
+            this.color = `rgb(${argb >>> 16 & 255},${argb >>> 8 & 255},${argb & 255})`;
+            break;
+          }
+          case PaintBundle.STROKE_WIDTH:
+            this.strokeWidth = floatArg(arr[i++]);
+            break;
+          case PaintBundle.STROKE_MITER:
+            this.miterLimit = floatArg(arr[i++]);
+            break;
+          case PaintBundle.STROKE_CAP:
+            this.lineCap = upper === 0 ? "butt" : upper === 1 ? "round" : "square";
+            break;
+          case PaintBundle.STYLE:
+            this.style = upper;
+            break;
+          case PaintBundle.SHADER: {
+            const shaderId = arr[i++];
+            if (shaderId === 0) {
+              this.activeShaderData = null;
+            } else {
+              const sd = this.getContext()?.getShader(shaderId);
+              this.activeShaderData = sd ?? null;
+            }
+            break;
+          }
+          case PaintBundle.IMAGE_FILTER_QUALITY:
+            break;
+          case PaintBundle.GRADIENT: {
+            const meta = arr[i++];
+            const numColors = meta & 255;
+            const colors = [];
+            for (let c = 0; c < numColors; c++) {
+              colors.push(arr[i++]);
+            }
+            const numStops = arr[i++];
+            const stops = [];
+            if (numStops > 0) {
+              for (let s = 0; s < numStops; s++) {
+                stops.push(intBitsToFloat(arr[i++]));
+              }
+            } else {
+              for (let s = 0; s < numColors; s++) {
+                stops.push(numColors > 1 ? s / (numColors - 1) : 0);
+              }
+            }
+            let gradient = null;
+            if (upper === PaintBundle.SWEEP_GRADIENT) {
+              const cx = intBitsToFloat(arr[i++]);
+              const cy = intBitsToFloat(arr[i++]);
+              if (typeof this.ctx.createConicGradient === "function") {
+                gradient = this.ctx.createConicGradient(0, cx, cy);
+              } else {
+                const sweepPattern = this.createSweepGradientPattern(cx, cy, colors, stops);
+                if (sweepPattern) {
+                  this.gradientStyle = sweepPattern;
+                }
+              }
+            } else if (upper === PaintBundle.RADIAL_GRADIENT) {
+              const cx = intBitsToFloat(arr[i++]);
+              const cy = intBitsToFloat(arr[i++]);
+              const radius = intBitsToFloat(arr[i++]);
+              i++;
+              gradient = this.ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+            } else {
+              const startX = intBitsToFloat(arr[i++]);
+              const startY = intBitsToFloat(arr[i++]);
+              const endX = intBitsToFloat(arr[i++]);
+              const endY = intBitsToFloat(arr[i++]);
+              i++;
+              gradient = this.ctx.createLinearGradient(startX, startY, endX, endY);
+            }
+            if (gradient) {
+              for (let s = 0; s < stops.length && s < colors.length; s++) {
+                gradient.addColorStop(
+                  Math.max(0, Math.min(1, stops[s])),
+                  argbToRgba(colors[s])
+                );
+              }
+              this.gradientStyle = gradient;
+            }
+            break;
+          }
+          case PaintBundle.ALPHA:
+            this.alpha = floatArg(arr[i++]);
+            break;
+          case PaintBundle.COLOR_FILTER: {
+            const cfArgb = arr[i++];
+            this.colorFilterArgb = cfArgb;
+            this.colorFilterColor = argbToRgba(cfArgb);
+            this.colorFilterMode = upper;
+            break;
+          }
+          case PaintBundle.ANTI_ALIAS:
+            this.antiAlias = upper !== 0;
+            break;
+          case PaintBundle.STROKE_JOIN:
+            this.lineJoin = upper === 0 ? "miter" : upper === 1 ? "round" : "bevel";
+            break;
+          case PaintBundle.TYPEFACE: {
+            const weight = upper & 1023;
+            const italic = (upper & 2048) !== 0;
+            this.fontWeight = weight > 0 ? weight : 400;
+            this.fontItalic = italic;
+            const fontType = arr[i++];
+            this.fontFamily = this.fontStackForTypeface(fontType);
+            this.setFont();
+            break;
+          }
+          case PaintBundle.FILTER_BITMAP:
+            this.filterBitmap = upper !== 0;
+            this.ctx.imageSmoothingEnabled = this.filterBitmap;
+            break;
+          case PaintBundle.BLEND_MODE:
+            this.blendMode = this.mapBlendMode(upper);
+            break;
+          case PaintBundle.COLOR_ID: {
+            this.color = argbToRgba(arr[i++]);
+            break;
+          }
+          case PaintBundle.COLOR_FILTER_ID: {
+            const cfColor = arr[i++];
+            this.colorFilterColor = argbToRgba(cfColor);
+            this.colorFilterArgb = cfColor;
+            break;
+          }
+          case PaintBundle.CLEAR_COLOR_FILTER:
+            this.colorFilterColor = null;
+            break;
+          case PaintBundle.SHADER_MATRIX:
+            i++;
+            break;
+          case PaintBundle.FONT_AXIS: {
+            const axisCount = upper;
+            const axes = [];
+            for (let k = 0; k < axisCount; k++) {
+              const tag2 = arr[i++];
+              const value = intBitsToFloat(arr[i++]);
+              const name = this.axisName(tag2);
+              if (name) axes.push({ tag: name, value });
+            }
+            this.fontAxes = axes;
+            if (this.googleFamily && axes.length > 0) {
+              ensureWebFont(
+                this.googleFamily,
+                this.fontWeight,
+                this.fontItalic,
+                this.onFontLoaded ?? void 0,
+                axes
+              );
+            }
+            this.setFont();
+            break;
+          }
+          case PaintBundle.TEXTURE: {
+            const bitmapId = arr[i++];
+            const tileModes = arr[i++];
+            i++;
+            const tileX = tileModes & 15;
+            const tileY = tileModes >> 16 & 15;
+            const img = this.bitmapCache.get(bitmapId);
+            if (img) {
+              const xRepeat = tileX === 1 || tileX === 2;
+              const yRepeat = tileY === 1 || tileY === 2;
+              let repetition;
+              if (xRepeat && yRepeat) repetition = "repeat";
+              else if (xRepeat) repetition = "repeat-x";
+              else if (yRepeat) repetition = "repeat-y";
+              else repetition = "no-repeat";
+              const pattern = this.ctx.createPattern(img, repetition);
+              if (pattern) {
+                this.gradientStyle = pattern;
+              }
+            }
+            break;
+          }
+          case PaintBundle.PATH_EFFECT: {
+            const count = upper;
+            if (count === 0) {
+              this.ctx.setLineDash([]);
+              this.ctx.lineDashOffset = 0;
+            } else if (count >= 3) {
+              const type = arr[i];
+              const phase = floatArg(arr[i + 1]);
+              const len2 = arr[i + 2];
+              i += 3;
+              const intervals = [];
+              for (let k = 0; k < len2 && k < count - 3; k++) intervals.push(floatArg(arr[i++]));
+              for (let k = 3 + len2; k < count; k++) i++;
+              if (type === 1 && intervals.length >= 2 && intervals.length % 2 === 0) {
+                this.ctx.setLineDash(intervals);
+                this.ctx.lineDashOffset = phase;
+              } else {
+                this.ctx.setLineDash([]);
+                this.ctx.lineDashOffset = 0;
+              }
+            } else {
+              i += count;
+            }
+            break;
+          }
+          case PaintBundle.FALLBACK_TYPEFACE:
+            i++;
+            break;
+          default:
+            if (tag === 0) break;
+            console.warn(`PaintBundle: unknown tag ${tag} at index ${i - 1}`);
+            return;
+        }
+      }
+    }
+    replacePaint(paintBundle) {
+      this.resetPaintState();
+      this.applyPaint(paintBundle);
+    }
+    resetPaintState() {
+      this.color = "rgba(0,0,0,1)";
+      this.style = 0;
+      this.strokeWidth = 1;
+      this.textSize = 14;
+      this.alpha = 1;
+      this.lineCap = "butt";
+      this.lineJoin = "miter";
+      this.miterLimit = 10;
+      this.blendMode = "source-over";
+      this.antiAlias = true;
+      this.filterBitmap = true;
+      this.letterSpacing = 0;
+      this.gradientStyle = null;
+      this.fontFamily = cssFontStackFor(0);
+      this.fontWeight = 400;
+      this.fontItalic = false;
+      this.fontAxes = [];
+      this.googleFamily = null;
+      this.colorFilterColor = null;
+      this.colorFilterArgb = 0;
+      this.colorFilterMode = 3;
+      this.activeShaderData = null;
+      this.ctx.setLineDash([]);
+      this.ctx.lineDashOffset = 0;
+      this.setFont();
+    }
+    mapBlendMode(mode) {
+      switch (mode) {
+        case 0:
+          return "clear";
+        // CLEAR
+        case 1:
+          return "copy";
+        // SRC
+        case 2:
+          return "destination";
+        // DST (keep destination only)
+        case 3:
+          return "source-over";
+        // SRC_OVER (default)
+        case 4:
+          return "destination-over";
+        // DST_OVER
+        case 5:
+          return "source-in";
+        // SRC_IN
+        case 6:
+          return "destination-in";
+        // DST_IN
+        case 7:
+          return "source-out";
+        // SRC_OUT
+        case 8:
+          return "destination-out";
+        // DST_OUT
+        case 9:
+          return "source-atop";
+        // SRC_ATOP
+        case 10:
+          return "destination-atop";
+        // DST_ATOP
+        case 11:
+          return "xor";
+        // XOR
+        case 12:
+          return "lighter";
+        // PLUS/ADD
+        case 13:
+          return "multiply";
+        // MODULATE (closest to multiply)
+        case 14:
+          return "screen";
+        // SCREEN
+        case 15:
+          return "overlay";
+        // OVERLAY
+        case 16:
+          return "darken";
+        // DARKEN
+        case 17:
+          return "lighten";
+        // LIGHTEN
+        case 18:
+          return "color-dodge";
+        // COLOR_DODGE
+        case 19:
+          return "color-burn";
+        // COLOR_BURN
+        case 20:
+          return "hard-light";
+        // HARD_LIGHT
+        case 21:
+          return "soft-light";
+        // SOFT_LIGHT
+        case 22:
+          return "difference";
+        // DIFFERENCE
+        case 23:
+          return "exclusion";
+        // EXCLUSION
+        case 24:
+          return "multiply";
+        // MULTIPLY
+        case 25:
+          return "hue";
+        // HUE
+        case 26:
+          return "saturation";
+        // SATURATION
+        case 27:
+          return "color";
+        // COLOR
+        case 28:
+          return "luminosity";
+        // LUMINOSITY
+        case 30:
+          return "lighter";
+        // PORTER_MODE_ADD
+        default:
+          return "source-over";
+      }
+    }
+    savePaint() {
+      this.paintStack.push({
+        color: this.color,
+        style: this.style,
+        strokeWidth: this.strokeWidth,
+        textSize: this.textSize,
+        alpha: this.alpha,
+        lineCap: this.lineCap,
+        lineJoin: this.lineJoin,
+        miterLimit: this.miterLimit,
+        blendMode: this.blendMode,
+        antiAlias: this.antiAlias,
+        letterSpacing: this.letterSpacing,
+        gradientStyle: this.gradientStyle,
+        activeShaderData: this.activeShaderData,
+        fontFamily: this.fontFamily,
+        fontWeight: this.fontWeight,
+        fontItalic: this.fontItalic,
+        fontAxes: this.fontAxes,
+        googleFamily: this.googleFamily,
+        filterBitmap: this.filterBitmap,
+        colorFilterColor: this.colorFilterColor,
+        colorFilterArgb: this.colorFilterArgb,
+        colorFilterMode: this.colorFilterMode
+      });
+    }
+    restorePaint() {
+      const state = this.paintStack.pop();
+      if (state) {
+        Object.assign(this, state);
+        this.setFont();
+        this.ctx.globalAlpha = this.alpha;
+      }
+    }
+    /**
+     * If an active shader is set, render it via WebGL2 into the given
+     * rectangle and return true. Otherwise return false (caller does
+     * the normal fill).
+     */
+    tryRenderShader(left, top, right, bottom) {
+      const ctx = this.getContext();
+      if (!this.activeShaderData || !ctx) return false;
+      const sd = this.activeShaderData;
+      const textId = sd.getShaderTextId();
+      const shaderText = this.textCache.get(textId);
+      if (!shaderText) return false;
+      const cacheKey = String(textId);
+      let glsl = this.glslCache.get(textId);
+      if (!glsl) {
+        try {
+          const result = transpileAgslToGlsl(shaderText);
+          glsl = result.glsl;
+          this.glslCache.set(textId, glsl);
+        } catch (e) {
+          console.error(`[shader] transpile failed (textId=${textId}):`, e, "\nAGSL:", shaderText);
+          return false;
+        }
+      }
+      if (!this.shaderRenderer) {
+        this.shaderRenderer = new WebGLShaderRenderer();
+        if (!this.shaderRenderer.isAvailable()) {
+          this.shaderRenderer = null;
+          return false;
+        }
+      }
+      let w = Math.round(right - left);
+      let h = Math.round(top > bottom ? top - bottom : bottom - top);
+      if (w <= 0 || h <= 0) return false;
+      const maxW = this.ctx.canvas.width || 4096;
+      const maxH = this.ctx.canvas.height || 4096;
+      if (w > maxW) w = maxW;
+      if (h > maxH) h = maxH;
+      sd.updateVariables(ctx);
+      const floats = /* @__PURE__ */ new Map();
+      for (const name of sd.getUniformFloatNames()) {
+        const vals = sd.getUniformFloats(name);
+        floats.set(name, vals);
+      }
+      const ints = /* @__PURE__ */ new Map();
+      for (const name of sd.getUniformIntegerNames()) {
+        ints.set(name, sd.getUniformInts(name));
+      }
+      let textures;
+      const bitmapNames = sd.getUniformBitmapNames();
+      if (bitmapNames.length > 0) {
+        textures = /* @__PURE__ */ new Map();
+        for (const name of bitmapNames) {
+          const bmpId = sd.getUniformBitmapId(name);
+          if (bmpId < 0) continue;
+          const offCtx = this.bitmapCanvasCache.get(bmpId);
+          if (offCtx) {
+            textures.set(name, offCtx.canvas);
+          } else {
+            const img = this.bitmapCache.get(bmpId);
+            if (img) textures.set(name, img);
+          }
+        }
+      }
+      const docW = Math.round(right - left);
+      const docH = Math.round(Math.abs(bottom - top));
+      const ok = this.shaderRenderer.render(
+        glsl,
+        w,
+        h,
+        floats,
+        ints,
+        textures,
+        cacheKey,
+        docW,
+        docH
+      );
+      if (!ok) {
+        console.error(`[shader] WebGL render FAILED textId=${textId}`);
+        return false;
+      }
+      this.ctx.globalAlpha = this.alpha;
+      this.ctx.globalCompositeOperation = this.blendMode;
+      const dstW = right - left;
+      const dstH = Math.abs(bottom - top);
+      this.ctx.drawImage(
+        this.shaderRenderer.getCanvas(),
+        left,
+        Math.min(top, bottom),
+        dstW,
+        dstH
+      );
+      return true;
+    }
+    // --- Drawing ---
+    drawRect(left, top, right, bottom) {
+      if (this.activeShaderData && this.tryRenderShader(left, top, right, bottom)) {
+        return;
+      }
+      this.fillOrStroke(
+        () => {
+          this.ctx.fillRect(left, top, right - left, bottom - top);
+        },
+        () => {
+          this.ctx.strokeRect(left, top, right - left, bottom - top);
+        }
+      );
+    }
+    drawCircle(centerX, centerY, radius) {
+      if (radius <= 0) return;
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      this.fillOrStroke(
+        () => {
+          this.ctx.fill();
+        },
+        () => {
+          this.ctx.stroke();
+        }
+      );
+    }
+    drawLine(x1, y1, x2, y2) {
+      this.applyStrokeStyle();
+      this.ctx.beginPath();
+      this.ctx.moveTo(x1, y1);
+      this.ctx.lineTo(x2, y2);
+      this.ctx.stroke();
+    }
+    drawOval(left, top, right, bottom) {
+      const cx = (left + right) / 2;
+      const cy = (top + bottom) / 2;
+      const rx = Math.abs(right - left) / 2;
+      const ry = Math.abs(bottom - top) / 2;
+      this.ctx.beginPath();
+      this.ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      this.fillOrStroke(
+        () => {
+          this.ctx.fill();
+        },
+        () => {
+          this.ctx.stroke();
+        }
+      );
+    }
+    drawRoundRect(left, top, right, bottom, rx, ry) {
+      const w = right - left;
+      const h = bottom - top;
+      this.ctx.beginPath();
+      this.ctx.roundRect(left, top, w, h, [Math.min(rx, ry)]);
+      this.fillOrStroke(
+        () => {
+          this.ctx.fill();
+        },
+        () => {
+          this.ctx.stroke();
+        }
+      );
+    }
+    drawArc(left, top, right, bottom, startAngle, sweepAngle) {
+      const cx = (left + right) / 2;
+      const cy = (top + bottom) / 2;
+      const rx = Math.abs(right - left) / 2;
+      const ry = Math.abs(bottom - top) / 2;
+      const start = startAngle * Math.PI / 180;
+      const end = (startAngle + sweepAngle) * Math.PI / 180;
+      this.ctx.beginPath();
+      this.ctx.ellipse(cx, cy, rx, ry, 0, start, end, sweepAngle < 0);
+      this.fillOrStroke(
+        () => {
+          this.ctx.fill();
+        },
+        () => {
+          this.ctx.stroke();
+        }
+      );
+    }
+    drawSector(left, top, right, bottom, startAngle, sweepAngle) {
+      const cx = (left + right) / 2;
+      const cy = (top + bottom) / 2;
+      const rx = Math.abs(right - left) / 2;
+      const ry = Math.abs(bottom - top) / 2;
+      const start = startAngle * Math.PI / 180;
+      const end = (startAngle + sweepAngle) * Math.PI / 180;
+      this.ctx.beginPath();
+      this.ctx.moveTo(cx, cy);
+      this.ctx.ellipse(cx, cy, rx, ry, 0, start, end, sweepAngle < 0);
+      this.ctx.closePath();
+      this.fillOrStroke(
+        () => {
+          this.ctx.fill();
+        },
+        () => {
+          this.ctx.stroke();
+        }
+      );
+    }
+    // ── 2D vertex meshes ────────────────────────────────────────────────────────────────
+    //
+    // Canvas2D has no drawVertices and no Gouraud shading, so the triangle list is walked
+    // here. Two consequences worth stating rather than discovering:
+    //
+    //   * Per-vertex colour is approximated by filling each triangle with the AVERAGE of its
+    //     three vertex colours. Skia and Android interpolate across the face, so a mesh used
+    //     as a smooth gradient shows faceting here, more visibly as uCount/vCount drop.
+    //   * A textured triangle is drawn by clipping to it and applying the affine that takes
+    //     its uv triangle to its screen triangle — three corresponding points determine that
+    //     exactly, which makes it a real texture map rather than a stretched blit.
+    setMesh(meshId, layout, uCount, vCount, verts, uv, colors, indices) {
+      this.meshCache.set(meshId, { layout, uCount, vCount, verts, uv, colors, indices });
+    }
+    drawMesh(meshId, blend, imageId) {
+      const m = this.meshCache.get(meshId);
+      if (!m) return;
+      const vertexCount2 = m.verts.length / 2;
+      if (vertexCount2 < 3 || m.indices.length < 3) return;
+      let texture;
+      if (blend === BLEND_MODULATE && imageId !== 0 && m.uv.length === m.verts.length) {
+        texture = this.bitmapCache.get(imageId);
+      }
+      this.ctx.save();
+      const texW = texture ? texture.width : 0;
+      const texH = texture ? texture.height : 0;
+      if (!texture && m.colors.length !== vertexCount2) {
+        const all = new Path2D();
+        for (let t = 0; t + 2 < m.indices.length; t += 3) {
+          const i0 = m.indices[t], i1 = m.indices[t + 1], i2 = m.indices[t + 2];
+          if (i0 < 0 || i1 < 0 || i2 < 0) continue;
+          if (i0 >= vertexCount2 || i1 >= vertexCount2 || i2 >= vertexCount2) continue;
+          all.moveTo(m.verts[i0 * 2], m.verts[i0 * 2 + 1]);
+          all.lineTo(m.verts[i1 * 2], m.verts[i1 * 2 + 1]);
+          all.lineTo(m.verts[i2 * 2], m.verts[i2 * 2 + 1]);
+          all.closePath();
+        }
+        this.applyFillStyle();
+        this.ctx.fill(all);
+        this.ctx.restore();
+        return;
+      }
+      for (let t = 0; t + 2 < m.indices.length; t += 3) {
+        const i0 = m.indices[t], i1 = m.indices[t + 1], i2 = m.indices[t + 2];
+        if (i0 < 0 || i1 < 0 || i2 < 0) continue;
+        if (i0 >= vertexCount2 || i1 >= vertexCount2 || i2 >= vertexCount2) continue;
+        const x0 = m.verts[i0 * 2], y0 = m.verts[i0 * 2 + 1];
+        const x1 = m.verts[i1 * 2], y1 = m.verts[i1 * 2 + 1];
+        const x2 = m.verts[i2 * 2], y2 = m.verts[i2 * 2 + 1];
+        const tri = new Path2D();
+        tri.moveTo(x0, y0);
+        tri.lineTo(x1, y1);
+        tri.lineTo(x2, y2);
+        tri.closePath();
+        if (texture) {
+          const u0 = m.uv[i0 * 2] * texW, v0 = m.uv[i0 * 2 + 1] * texH;
+          const u1 = m.uv[i1 * 2] * texW, v1 = m.uv[i1 * 2 + 1] * texH;
+          const u2 = m.uv[i2 * 2] * texW, v2 = m.uv[i2 * 2 + 1] * texH;
+          const det = (u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0);
+          if (Math.abs(det) < 1e-9) continue;
+          const a = ((x1 - x0) * (v2 - v0) - (x2 - x0) * (v1 - v0)) / det;
+          const b = ((y1 - y0) * (v2 - v0) - (y2 - y0) * (v1 - v0)) / det;
+          const c = ((x2 - x0) * (u1 - u0) - (x1 - x0) * (u2 - u0)) / det;
+          const d = ((y2 - y0) * (u1 - u0) - (y1 - y0) * (u2 - u0)) / det;
+          const e = x0 - a * u0 - c * v0;
+          const f = y0 - b * u0 - d * v0;
+          this.ctx.save();
+          this.ctx.clip(tri);
+          this.ctx.transform(a, b, c, d, e, f);
+          this.ctx.drawImage(texture, 0, 0);
+          this.ctx.restore();
+          continue;
+        }
+        if (m.colors.length === vertexCount2) {
+          const c0 = m.colors[i0], c1 = m.colors[i1], c2 = m.colors[i2];
+          const av = (sh) => Math.round(((c0 >>> sh & 255) + (c1 >>> sh & 255) + (c2 >>> sh & 255)) / 3);
+          const alpha = av(24) / 255;
+          this.ctx.fillStyle = "rgba(" + av(16) + "," + av(8) + "," + av(0) + "," + alpha + ")";
+          this.ctx.fill(tri);
+        } else {
+          this.applyFillStyle();
+          this.ctx.fill(tri);
+        }
+      }
+      this.ctx.restore();
+    }
+    matrixFromMesh(meshId, u, v, flags) {
+      const m = this.meshCache.get(meshId);
+      if (!m) return;
+      const frame = new Float32Array(6);
+      if (!sampleFrame(m.layout, m.uCount, m.vCount, m.verts, u, v, frame)) return;
+      const out = new Float32Array(6);
+      buildMatrix(frame, flags, out);
+      this.ctx.transform(out[0], out[1], out[2], out[3], out[4], out[5]);
+    }
+    drawPath(id, start, end) {
+      const data = this.pathDataCache.get(id);
+      if (!data) return;
+      const path = this.buildPath2D(data, start, end);
+      this.fillOrStroke(
+        () => {
+          this.ctx.fill(path);
+        },
+        () => {
+          this.ctx.stroke(path);
+        }
+      );
+    }
+    drawTextRun(textId, start, end, _contextStart, _contextEnd, x, y, _rtl) {
+      const text = this.textCache.get(textId);
+      if (!text) return;
+      const s = start >= 0 ? start : 0;
+      const e = end >= 0 ? Math.min(end, text.length) : text.length;
+      const substr = text.substring(s, e);
+      this.setFont();
+      this.fillOrStroke(
+        () => {
+          this.applyFillStyle();
+          this.ctx.fillText(substr, x, y);
+        },
+        () => {
+          this.applyStrokeStyle();
+          this.ctx.strokeText(substr, x, y);
+        }
+      );
+    }
+    drawTextOnPath(textId, pathId, hOffset, vOffset) {
+      const text = this.textCache.get(textId);
+      if (!text) return;
+      const data = this.pathDataCache.get(pathId);
+      if (!data) return;
+      const { segments: segments2, totalLen } = this.collectPathSegments(data);
+      if (totalLen === 0 || segments2.length === 0) return;
+      this.setFont();
+      this.ctx.textBaseline = "alphabetic";
+      let progress = hOffset;
+      for (let ci = 0; ci < text.length; ci++) {
+        const ch = text[ci];
+        const charWidth = this.ctx.measureText(ch).width;
+        const charCenter = progress + charWidth / 2;
+        if (charCenter >= 0 && charCenter <= totalLen) {
+          this.ctx.save();
+          this.positionOnPath(segments2, charCenter, vOffset);
+          this.fillOrStroke(
+            () => {
+              this.applyFillStyle();
+              this.ctx.fillText(ch, -charWidth / 2, 0);
+            },
+            () => {
+              this.applyStrokeStyle();
+              this.ctx.strokeText(ch, -charWidth / 2, 0);
+            }
+          );
+          this.ctx.restore();
+        }
+        progress += charWidth;
+      }
+    }
+    measureTextCached(text) {
+      const key = `${this.ctx.font}:::${text}`;
+      let res = this.mTextMeasureCache.get(key);
+      if (!res) {
+        res = this.ctx.measureText(text);
+        this.mTextMeasureCache.set(key, res);
+        if (this.mTextMeasureCache.size > 2e3) {
+          this.mTextMeasureCache.clear();
+          this.mTextMeasureCache.set(key, res);
+        }
+      }
+      return res;
+    }
+    getTextBounds(textId, start, end, flags, bounds) {
+      const text = this.textCache.get(textId);
+      if (!text) {
+        bounds.fill(0);
+        return;
+      }
+      const s = start >= 0 ? start : 0;
+      const e = end >= 0 ? Math.min(end, text.length) : text.length;
+      const substr = text.substring(s, e);
+      this.setFont();
+      const metrics = this.measureTextCached(substr);
+      const size = this.textSize > 0 ? this.textSize : DEFAULT_TEXT_SIZE;
+      const wantFontBox = (flags & 2) !== 0;
+      const pick = (...vals) => {
+        for (const v of vals) if (typeof v === "number" && isFinite(v) && v > 0) return v;
+        return 0;
+      };
+      let ascent = wantFontBox ? pick(metrics.fontBoundingBoxAscent, metrics.actualBoundingBoxAscent) : pick(metrics.actualBoundingBoxAscent, metrics.fontBoundingBoxAscent);
+      let descent = wantFontBox ? pick(metrics.fontBoundingBoxDescent, metrics.actualBoundingBoxDescent) : pick(metrics.actualBoundingBoxDescent, metrics.fontBoundingBoxDescent);
+      if (ascent <= 0 && descent <= 0) {
+        ascent = ASCENT_RATIO * size;
+        descent = DESCENT_RATIO * size;
+      }
+      const advance = pick(metrics.width, substr.length * AVG_ADVANCE * size);
+      const actualLeft = metrics.actualBoundingBoxLeft;
+      const actualRight = metrics.actualBoundingBoxRight;
+      let left = typeof actualLeft === "number" && isFinite(actualLeft) ? -actualLeft : 0;
+      let right = typeof actualRight === "number" && isFinite(actualRight) ? actualRight : advance;
+      if ((flags & 4) !== 0) {
+        left = 0;
+        right = advance;
+      } else if ((flags & 1) !== 0) {
+        right = advance - left;
+      }
+      bounds[0] = left;
+      bounds[1] = -ascent;
+      bounds[2] = right;
+      bounds[3] = descent;
+    }
+    layoutComplexText(textId, start, end, alignment, overflow, maxLines, maxWidth, maxHeight, _letterSpacing, _lineHeightAdd, lineHeightMultiplier, _lineBreakStrategy, _hyphenationFrequency, _justificationMode, _useUnderline, _strikethrough, _flags) {
+      const str = this.textCache.get(textId);
+      if (!str) return null;
+      const s = start >= 0 ? start : 0;
+      const e = end === -1 || end > str.length ? str.length : end;
+      const text = str.substring(s, e);
+      this.setFont();
+      const size = this.textSize > 0 ? this.textSize : DEFAULT_TEXT_SIZE;
+      const lineHeight = size * (lineHeightMultiplier || 1.2);
+      if (maxLines === 1 && (overflow === 1 || overflow === 2)) {
+        const firstLine = text.split("\n", 1)[0];
+        return {
+          lines: [firstLine],
+          alignment,
+          lineHeight,
+          width: Math.min(this.ctx.measureText(firstLine).width, maxWidth),
+          height: Math.min(lineHeight, maxHeight),
+          naturalHeight: lineHeight,
+          visibleLines: 1
+        };
+      }
+      const lines = [];
+      const paragraphs = text.split("\n");
+      for (let pi = 0; pi < paragraphs.length; pi++) {
+        const para = paragraphs[pi];
+        const words = para.split(/(\s+)/);
+        let currentLine = "";
+        for (const word of words) {
+          const testLine = currentLine + word;
+          const metrics = this.measureTextCached(testLine);
+          if (metrics.width > maxWidth && currentLine.length > 0) {
+            lines.push(currentLine);
+            currentLine = word.trimStart();
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine.length > 0) {
+          lines.push(currentLine);
+        } else if (para.length === 0) {
+          lines.push("");
+        }
+      }
+      const graphemes = (value) => {
+        const Segmenter = Intl.Segmenter;
+        if (Segmenter) {
+          return Array.from(
+            new Segmenter(void 0, { granularity: "grapheme" }).segment(value),
+            (part) => part.segment
+          );
+        }
+        return Array.from(value);
+      };
+      const ellipsizeEnd = (value) => {
+        const parts = graphemes(value);
+        while (this.ctx.measureText(parts.join("") + "\u2026").width > maxWidth && parts.length > 0) {
+          parts.pop();
+        }
+        return parts.join("") + "\u2026";
+      };
+      const ellipsizeStart = (value) => {
+        const parts = graphemes(value);
+        while (this.ctx.measureText("\u2026" + parts.join("")).width > maxWidth && parts.length > 0) {
+          parts.shift();
+        }
+        return "\u2026" + parts.join("");
+      };
+      const ellipsizeMiddle = (value) => {
+        const parts = graphemes(value);
+        let left = Math.ceil(parts.length / 2);
+        let right = left;
+        while (this.ctx.measureText(parts.slice(0, left).join("") + "\u2026" + parts.slice(right).join("")).width > maxWidth && (left > 0 || right < parts.length)) {
+          if (parts.length - right < left) left--;
+          else right++;
+        }
+        return parts.slice(0, left).join("") + "\u2026" + parts.slice(right).join("");
+      };
+      const retainedLast = maxLines > 0 ? lines[Math.min(lines.length, maxLines) - 1] : void 0;
+      const horizontalOverflow = retainedLast !== void 0 && this.ctx.measureText(retainedLast).width > maxWidth;
+      if (overflow >= 3 && overflow <= 5 && maxLines > 0 && (lines.length > maxLines || horizontalOverflow)) {
+        const lastIdx = Math.min(maxLines, lines.length) - 1;
+        const value = lines[lastIdx] || "";
+        lines[lastIdx] = overflow === 4 ? ellipsizeStart(value) : overflow === 5 ? ellipsizeMiddle(value) : ellipsizeEnd(value);
+        if (lines.length > maxLines) lines.length = maxLines;
+      }
+      let totalWidth = 0;
+      for (const line of lines) {
+        const w = this.measureTextCached(line).width;
+        if (w > totalWidth) totalWidth = w;
+      }
+      const totalHeight = lines.length * lineHeight;
+      return {
+        lines,
+        alignment,
+        lineHeight,
+        width: Math.min(totalWidth, maxWidth),
+        height: Math.min(totalHeight, maxHeight),
+        naturalHeight: totalHeight,
+        visibleLines: lines.length,
+        maxWidth,
+        maxHeight
+      };
+    }
+    drawComplexText(computedTextLayout, targetWidth) {
+      if (!computedTextLayout) return;
+      const { lines, alignment, lineHeight, width } = computedTextLayout;
+      const layoutWidth = typeof targetWidth === "number" && targetWidth > 0 ? targetWidth : width;
+      this.setFont();
+      this.ctx.textBaseline = "top";
+      const align = typeof alignment === "number" ? alignment & 65535 : 1;
+      for (let i = 0; i < lines.length; i++) {
+        let x = 0;
+        const lineW = this.measureTextCached(lines[i]).width;
+        if (align === 2 || align === 6) {
+          x = layoutWidth - lineW;
+        } else if (align === 3) {
+          x = (layoutWidth - lineW) / 2;
+        }
+        this.fillOrStroke(
+          () => {
+            this.applyFillStyle();
+            this.ctx.fillText(lines[i], x, i * lineHeight);
+          },
+          () => {
+            this.applyStrokeStyle();
+            this.ctx.strokeText(lines[i], x, i * lineHeight);
+          }
+        );
+      }
+    }
+    drawBitmap(imageId, srcLeft, srcTop, srcRight, srcBottom, dstLeft, dstTop, dstRight, dstBottom, _cdId) {
+      const img = this.bitmapToDraw(imageId);
+      if (!img) return;
+      this.ctx.globalAlpha = this.alpha;
+      this.ctx.globalCompositeOperation = this.blendMode;
+      this.ctx.imageSmoothingEnabled = this.filterBitmap;
+      const sw = srcRight - srcLeft;
+      const sh = srcBottom - srcTop;
+      const dw = dstRight - dstLeft;
+      const dh = dstBottom - dstTop;
+      if (sw > 0 && sh > 0) {
+        this.ctx.drawImage(img, srcLeft, srcTop, sw, sh, dstLeft, dstTop, dw, dh);
+      } else {
+        this.ctx.drawImage(img, dstLeft, dstTop, dw, dh);
+      }
+    }
+    drawBitmapSimple(id, left, top, right, bottom) {
+      const img = this.bitmapToDraw(id);
+      if (!img) return;
+      this.ctx.globalAlpha = this.alpha;
+      this.ctx.globalCompositeOperation = this.blendMode;
+      this.ctx.imageSmoothingEnabled = this.filterBitmap;
+      this.ctx.drawImage(img, left, top, right - left, bottom - top);
+    }
+    drawTweenPath(path1Id, path2Id, tween, start, end) {
+      const data1 = this.pathDataCache.get(path1Id);
+      const data2 = this.pathDataCache.get(path2Id);
+      if (!data1 || !data2) {
+        if (data1) this.drawPath(path1Id, start, end);
+        return;
+      }
+      const len = Math.min(data1.length, data2.length);
+      const tweened = new Int32Array(len);
+      for (let i = 0; i < len; i++) {
+        const b1 = data1[i];
+        if (isNaNBits(b1)) {
+          tweened[i] = b1;
+        } else {
+          const f1 = intBitsToFloat(b1);
+          const f2 = intBitsToFloat(data2[i]);
+          tweened[i] = floatToRawIntBits2(f1 + (f2 - f1) * tween);
+        }
+      }
+      const path = this.buildPath2D(tweened, start, end);
+      this.fillOrStroke(
+        () => {
+          this.ctx.fill(path);
+        },
+        () => {
+          this.ctx.stroke(path);
+        }
+      );
+    }
+    tweenPath(out, path1, path2, tween) {
+      if (tween === 0) {
+        const data = this.pathDataCache.get(path1);
+        if (data) this.pathDataCache.set(out, Int32Array.from(data));
+        return;
+      }
+      if (tween === 1) {
+        const data = this.pathDataCache.get(path2);
+        if (data) this.pathDataCache.set(out, Int32Array.from(data));
+        return;
+      }
+      const data1 = this.pathDataCache.get(path1);
+      const data2 = this.pathDataCache.get(path2);
+      if (!data1 || !data2) return;
+      const len = Math.min(data1.length, data2.length);
+      const result = new Int32Array(len);
+      for (let i = 0; i < len; i++) {
+        if (isNaNBits(data1[i]) || isNaNBits(data2[i])) {
+          result[i] = data1[i];
+        } else {
+          const f1 = intBitsToFloat(data1[i]);
+          const f2 = intBitsToFloat(data2[i]);
+          result[i] = floatToRawIntBits2((f2 - f1) * tween + f1);
+        }
+      }
+      this.pathDataCache.set(out, result);
+    }
+    combinePath(_out, _path1, _path2, _operation) {
+    }
+    // --- Matrix / transforms ---
+    scale(scaleX, scaleY) {
+      const eps = 1e-10;
+      if (scaleX === 0) scaleX = eps;
+      if (scaleY === 0) scaleY = eps;
+      this.ctx.scale(scaleX, scaleY);
+    }
+    translate(translateX, translateY) {
+      this.ctx.translate(translateX, translateY);
+    }
+    matrixSave() {
+      this.inputClipStack.push(this.inputClip);
+      this.ctx.save();
+    }
+    matrixRestore() {
+      const clip = this.inputClipStack.pop();
+      if (clip) this.inputClip = clip;
+      this.ctx.restore();
+    }
+    saveLayer(x, y, w, h) {
+      this.matrixSave();
+      this.clipRect(x, y, x + w, y + h);
+      if (this.alpha < 1) {
+        this.ctx.globalAlpha *= this.alpha;
+      }
+    }
+    matrixTranslate(tx, ty) {
+      this.ctx.translate(tx, ty);
+    }
+    matrixScale(sx, sy, cx, cy) {
+      const eps = 1e-10;
+      if (sx === 0) sx = eps;
+      if (sy === 0) sy = eps;
+      this.ctx.translate(cx, cy);
+      this.ctx.scale(sx, sy);
+      this.ctx.translate(-cx, -cy);
+    }
+    matrixRotate(angle, px, py) {
+      this.ctx.translate(px, py);
+      this.ctx.rotate(angle * Math.PI / 180);
+      this.ctx.translate(-px, -py);
+    }
+    matrixSkew(sx, sy) {
+      this.ctx.transform(1, sy, sx, 1, 0, 0);
+    }
+    matrixFromPath(pathId, fraction, vOffset, _flags) {
+      const data = this.pathDataCache.get(pathId);
+      if (!data) return;
+      const { segments: segments2, totalLen } = this.collectPathSegments(data);
+      if (totalLen === 0) return;
+      let target = totalLen * fraction % totalLen;
+      if (target < 0) target += totalLen;
+      this.positionOnPath(segments2, target, vOffset);
+    }
+    // --- Path measurement helpers ---
+    /** Flatten path data into line segments (curves are subdivided). */
+    collectPathSegments(data) {
+      const segments2 = [];
+      let curX = 0, curY = 0, startX = 0, startY = 0;
+      let i = 0;
+      const addLine = (x1, y1, x2, y2) => {
+        const dx = x2 - x1, dy = y2 - y1;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len > 0) segments2.push({ x1, y1, x2, y2, len });
+      };
+      while (i < data.length) {
+        const bits = data[i];
+        let cmd = isNaNBits(bits) ? idFromBits(bits) : intBitsToFloat(bits);
+        if (cmd >= _CanvasPaintContext.NANMAP_PATH_BASE && cmd <= _CanvasPaintContext.NANMAP_PATH_BASE + 6) {
+          cmd = _CanvasPaintContext.PATH_MOVE + (cmd - _CanvasPaintContext.NANMAP_PATH_BASE);
+        }
+        switch (cmd) {
+          case _CanvasPaintContext.PATH_MOVE:
+            i++;
+            curX = startX = intBitsToFloat(data[i]);
+            curY = startY = intBitsToFloat(data[i + 1]);
+            i += 2;
+            break;
+          case _CanvasPaintContext.PATH_LINE: {
+            i += 3;
+            const ex = intBitsToFloat(data[i]), ey = intBitsToFloat(data[i + 1]);
+            i += 2;
+            addLine(curX, curY, ex, ey);
+            curX = ex;
+            curY = ey;
+            break;
+          }
+          case _CanvasPaintContext.PATH_QUADRATIC: {
+            i += 3;
+            const cpx = intBitsToFloat(data[i]), cpy = intBitsToFloat(data[i + 1]);
+            const ex = intBitsToFloat(data[i + 2]), ey = intBitsToFloat(data[i + 3]);
+            i += 4;
+            this.flattenQuadratic(curX, curY, cpx, cpy, ex, ey, addLine);
+            curX = ex;
+            curY = ey;
+            break;
+          }
+          case _CanvasPaintContext.PATH_CONIC: {
+            i += 3;
+            const cpx = intBitsToFloat(data[i]), cpy = intBitsToFloat(data[i + 1]);
+            const ex = intBitsToFloat(data[i + 2]), ey = intBitsToFloat(data[i + 3]);
+            i += 5;
+            this.flattenQuadratic(curX, curY, cpx, cpy, ex, ey, addLine);
+            curX = ex;
+            curY = ey;
+            break;
+          }
+          case _CanvasPaintContext.PATH_CUBIC: {
+            i += 3;
+            const cp1x = intBitsToFloat(data[i]), cp1y = intBitsToFloat(data[i + 1]);
+            const cp2x = intBitsToFloat(data[i + 2]), cp2y = intBitsToFloat(data[i + 3]);
+            const ex = intBitsToFloat(data[i + 4]), ey = intBitsToFloat(data[i + 5]);
+            i += 6;
+            this.flattenCubic(curX, curY, cp1x, cp1y, cp2x, cp2y, ex, ey, addLine);
+            curX = ex;
+            curY = ey;
+            break;
+          }
+          case _CanvasPaintContext.PATH_CLOSE: {
+            i++;
+            addLine(curX, curY, startX, startY);
+            curX = startX;
+            curY = startY;
+            break;
+          }
+          case _CanvasPaintContext.PATH_DONE:
+            i = data.length;
+            break;
+          default:
+            i++;
+            break;
+        }
+      }
+      let totalLen = 0;
+      for (const s of segments2) totalLen += s.len;
+      return { segments: segments2, totalLen };
+    }
+    /** Subdivide a quadratic bezier into line segments. */
+    flattenQuadratic(x0, y0, cpx, cpy, x1, y1, addLine) {
+      const N = 16;
+      let px = x0, py = y0;
+      for (let j = 1; j <= N; j++) {
+        const t = j / N, mt = 1 - t;
+        const x = mt * mt * x0 + 2 * mt * t * cpx + t * t * x1;
+        const y = mt * mt * y0 + 2 * mt * t * cpy + t * t * y1;
+        addLine(px, py, x, y);
+        px = x;
+        py = y;
+      }
+    }
+    /** Subdivide a cubic bezier into line segments. */
+    flattenCubic(x0, y0, cp1x, cp1y, cp2x, cp2y, x1, y1, addLine) {
+      const N = 16;
+      let px = x0, py = y0;
+      for (let j = 1; j <= N; j++) {
+        const t = j / N, mt = 1 - t;
+        const x = mt * mt * mt * x0 + 3 * mt * mt * t * cp1x + 3 * mt * t * t * cp2x + t * t * t * x1;
+        const y = mt * mt * mt * y0 + 3 * mt * mt * t * cp1y + 3 * mt * t * t * cp2y + t * t * t * y1;
+        addLine(px, py, x, y);
+        px = x;
+        py = y;
+      }
+    }
+    /** Translate and rotate the canvas to a point at the given distance along segments. */
+    positionOnPath(segments2, distance, vOffset) {
+      let accum = 0;
+      for (const s of segments2) {
+        if (accum + s.len >= distance || s === segments2[segments2.length - 1]) {
+          const t = s.len > 0 ? (distance - accum) / s.len : 0;
+          const px = s.x1 + (s.x2 - s.x1) * t;
+          const py = s.y1 + (s.y2 - s.y1) * t;
+          const angle = Math.atan2(s.y2 - s.y1, s.x2 - s.x1);
+          const nx = -Math.sin(angle) * vOffset;
+          const ny = Math.cos(angle) * vOffset;
+          this.ctx.translate(px + nx, py + ny);
+          this.ctx.rotate(angle);
+          return;
+        }
+        accum += s.len;
+      }
+    }
+    // --- Clipping ---
+    clipRect(left, top, right, bottom) {
+      this.recordInputRect(left, top, right, bottom);
+      this.ctx.beginPath();
+      this.ctx.rect(left, top, right - left, bottom - top);
+      this.ctx.clip();
+    }
+    clipPath(pathId, _regionOp) {
+      const data = this.pathDataCache.get(pathId);
+      if (!data) return;
+      const path = this.buildPath2D(data);
+      this.inputClip = { ...this.inputClip, unsupported: true };
+      this.ctx.clip(path);
+    }
+    roundedClipRect(width, height, topStart, topEnd, bottomStart, bottomEnd) {
+      const r = (v) => Number.isFinite(v) && v > 0 ? v : 0;
+      this.ctx.beginPath();
+      this.ctx.roundRect(
+        0,
+        0,
+        width,
+        height,
+        [r(topStart), r(topEnd), r(bottomEnd), r(bottomStart)]
+      );
+      this.ctx.clip();
+      this.recordInputRect(0, 0, width, height);
+      if ([topStart, topEnd, bottomEnd, bottomStart].some((v) => r(v) > 0)) {
+        if (typeof Path2D !== "undefined") {
+          const path = new Path2D();
+          path.roundRect(0, 0, width, height, [r(topStart), r(topEnd), r(bottomEnd), r(bottomStart)]);
+          const devicePath = new Path2D();
+          devicePath.addPath(path, this.ctx.getTransform());
+          this.inputClip = { ...this.inputClip, rounded: [...this.inputClip.rounded, devicePath] };
+        } else this.inputClip = { ...this.inputClip, unsupported: true };
+      }
+    }
+    startGraphicsLayer(w, h) {
+      this.matrixSave();
+      try {
+        const offCtx = this.createLayerCanvas(w, h);
+        this.layerStack.push({
+          previousCtx: this.ctx,
+          offscreenCanvas: offCtx.canvas,
+          width: w,
+          height: h,
+          attributes: /* @__PURE__ */ new Map()
+        });
+        this.ctx = offCtx;
+      } catch (_e) {
+      }
+    }
+    setGraphicsLayer(attributes) {
+      const layer = this.layerStack[this.layerStack.length - 1];
+      if (layer) {
+        layer.attributes = attributes;
+      }
+    }
+    endGraphicsLayer() {
+      const layer = this.layerStack.pop();
+      if (!layer) {
+        this.matrixRestore();
+        return;
+      }
+      const layerCanvas = layer.offscreenCanvas;
+      this.ctx = layer.previousCtx;
+      const attrs = layer.attributes;
+      const scaleX = attrs.get(_CanvasPaintContext.GL_SCALE_X) ?? 1;
+      const scaleY = attrs.get(_CanvasPaintContext.GL_SCALE_Y) ?? 1;
+      const rotationZ = attrs.get(_CanvasPaintContext.GL_ROTATION_Z) ?? 0;
+      const transX = attrs.get(_CanvasPaintContext.GL_TRANSLATION_X) ?? 0;
+      const transY = attrs.get(_CanvasPaintContext.GL_TRANSLATION_Y) ?? 0;
+      const originX = attrs.get(_CanvasPaintContext.GL_TRANSFORM_ORIGIN_X) ?? 0.5;
+      const originY = attrs.get(_CanvasPaintContext.GL_TRANSFORM_ORIGIN_Y) ?? 0.5;
+      const alpha = attrs.get(_CanvasPaintContext.GL_ALPHA) ?? 1;
+      const shape = attrs.get(_CanvasPaintContext.GL_SHAPE);
+      const shapeRadius = attrs.get(_CanvasPaintContext.GL_SHAPE_RADIUS) ?? 0;
+      const pivotX = originX * layer.width;
+      const pivotY = originY * layer.height;
+      const hasTransform = scaleX !== 1 || scaleY !== 1 || rotationZ !== 0 || transX !== 0 || transY !== 0;
+      if (hasTransform) {
+        this.ctx.translate(pivotX + transX, pivotY + transY);
+        if (rotationZ !== 0) {
+          this.ctx.rotate(rotationZ * Math.PI / 180);
+        }
+        if (scaleX !== 1 || scaleY !== 1) {
+          this.ctx.scale(scaleX, scaleY);
+        }
+        this.ctx.translate(-pivotX, -pivotY);
+      }
+      if (shape !== void 0) {
+        this.ctx.beginPath();
+        if (shape === 2) {
+          const r = Math.min(layer.width, layer.height) / 2;
+          this.ctx.arc(layer.width / 2, layer.height / 2, r, 0, Math.PI * 2);
+        } else if (shape === 1 && shapeRadius > 0) {
+          this.ctx.roundRect(0, 0, layer.width, layer.height, [shapeRadius]);
+        } else {
+          this.ctx.rect(0, 0, layer.width, layer.height);
+        }
+        this.ctx.clip();
+      }
+      if (alpha !== 1) {
+        this.ctx.globalAlpha = alpha;
+      }
+      this.ctx.drawImage(layerCanvas, 0, 0);
+      this.matrixRestore();
+    }
+    drawToBitmap(bitmapId, mode, color) {
+      if (this.mainCanvas === null) {
+        this.mainCanvas = this.ctx;
+      }
+      if (bitmapId === 0) {
+        this.ctx = this.mainCanvas;
+        if (this.mainInputClip) this.inputClip = this.mainInputClip;
+        return;
+      }
+      if (this.ctx === this.mainCanvas) this.mainInputClip = this.inputClip;
+      let offCtx = this.bitmapCanvasCache.get(bitmapId);
+      if (!offCtx) {
+        const img = this.bitmapCache.get(bitmapId);
+        const w = img ? img.width || 256 : 256;
+        const h = img ? img.height || 256 : 256;
+        offCtx = this.createLayerCanvas(w, h);
+        this.bitmapCanvasCache.set(bitmapId, offCtx);
+      }
+      if ((mode & 1) === 0) {
+        const canvas = offCtx.canvas;
+        offCtx.clearRect(0, 0, canvas.width, canvas.height);
+        if (color !== 0) {
+          offCtx.fillStyle = argbToRgba(color);
+          offCtx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+      this.ctx = offCtx;
+    }
+    reset() {
+      this.inputClip = { rectangles: [], rounded: [], unsupported: false };
+      this.inputClipStack = [];
+      this.resetPaintState();
+      this.clearNeedsRepaint();
+    }
+    ensure3D() {
+      const w = this.ctx.canvas.width;
+      const h = this.ctx.canvas.height;
+      if (this.d3 === null) {
+        this.d3 = new SoftwarePaint3DContext();
+      }
+      this.d3.setSize(w, h);
+      if (this.d3Blit === null || this.d3Blit.canvas.width !== w || this.d3Blit.canvas.height !== h) {
+        this.d3Blit = this.createLayerCanvas(w, h);
+      }
+      return this.d3;
+    }
+    defineMesh3D(id, indices, verts, normals, uv = null) {
+      this.ensure3D().defineMesh3D(id, indices, verts, normals, uv);
+    }
+    setCamera3D(projection, projParams, viewParams) {
+      this.ensure3D().setCamera3D(projection, projParams, viewParams);
+    }
+    matrix3Op(sub, args) {
+      this.ensure3D().matrix3Op(sub, args);
+    }
+    clearDepth3D() {
+      this.ensure3D().clearDepth3D();
+    }
+    setLights3D(types, colors, params) {
+      this.ensure3D().setLights3D(types, colors, params);
+    }
+    setTexture3D(bitmapId) {
+      const ctx3d = this.ensure3D();
+      if (bitmapId === 0) {
+        ctx3d.setTextureData(null, 0, 0);
+        return;
+      }
+      const img = this.bitmapCache.get(bitmapId);
+      if (!img) {
+        ctx3d.setTextureData(null, 0, 0);
+        return;
+      }
+      const cached = this.texturePixels.get(bitmapId);
+      if (cached) {
+        ctx3d.setTextureData(cached.argb, cached.width, cached.height);
+        return;
+      }
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if (!w || !h) {
+        ctx3d.setTextureData(null, 0, 0);
+        return;
+      }
+      const scratch = document.createElement("canvas");
+      scratch.width = w;
+      scratch.height = h;
+      const sctx = scratch.getContext("2d", { willReadFrequently: true });
+      if (!sctx) {
+        ctx3d.setTextureData(null, 0, 0);
+        return;
+      }
+      sctx.drawImage(img, 0, 0);
+      const data = sctx.getImageData(0, 0, w, h).data;
+      const argb = new Int32Array(w * h);
+      for (let i = 0; i < w * h; i++) {
+        argb[i] = data[i * 4 + 3] << 24 | data[i * 4] << 16 | data[i * 4 + 1] << 8 | data[i * 4 + 2] | 0;
+      }
+      this.texturePixels.set(bitmapId, { argb, width: w, height: h });
+      ctx3d.setTextureData(argb, w, h);
+    }
+    setMaterial3D(specStrength, shininess) {
+      this.ensure3D().setMaterial3D(specStrength, shininess);
+    }
+    setDepthBias3D(constant, slope) {
+      this.ensure3D().setDepthBias3D(constant, slope);
+    }
+    drawMesh3D(meshId, mode) {
+      const ctx3d = this.ensure3D();
+      ctx3d.setBaseColorArgb(this.colorArgb);
+      const backend = mode >> 1;
+      const wire = (mode & MODE_WIREFRAME) !== 0;
+      if (!wire && (backend === MODE_BACKEND_CANVAS || backend === MODE_BACKEND_CANVAS_ZBUF)) {
+        if (this.drawMesh3DGl(
+          ctx3d,
+          meshId,
+          (mode & MODE_SMOOTH_MASK) !== 0,
+          backend === MODE_BACKEND_CANVAS_ZBUF
+        )) {
+          return;
+        }
+      }
+      ctx3d.drawMesh3D(meshId, mode);
+      this.blit3D();
+    }
+    /**
+     * Canvas backend: rasterize on the GPU and composite the result.
+     *
+     * Returns false if WebGL2 is not available, so the caller can fall back to software. Each
+     * mesh composites immediately rather than batching to the end of the pass, because the 3D
+     * content has to interleave correctly with the 2D drawing around it — a document that
+     * draws a mesh, then a label, then another mesh expects that order.
+     */
+    drawMesh3DGl(ctx3d, meshId, smooth, useDepth) {
+      if (this.d3gl === null) this.d3gl = new WebGL3DRenderer();
+      const gl = this.d3gl;
+      if (!gl.isAvailable()) return false;
+      const n = ctx3d.buildCanvasVertices(meshId, this.d3glMesh, smooth);
+      if (n < 3) return true;
+      const w = ctx3d.getWidth(), h = ctx3d.getHeight();
+      gl.beginFrame(w, h);
+      const tex = ctx3d.getTextureData();
+      gl.setTexture(tex.pixels, tex.width, tex.height);
+      gl.draw(this.d3glMesh, useDepth);
+      this.ctx.drawImage(gl.getCanvas(), 0, 0, w, h);
+      this.d3glDirty = true;
+      globalThis.__rcGl3dDraws = gl.drawCount;
+      return true;
+    }
+    /**
+     * Composite the software color buffer onto the canvas. The reference blits after every
+     * software mesh rather than once per pass, so a 3D draw interleaves with 2D content in
+     * document order; matching that keeps mixed 2D/3D documents looking the same.
+     */
+    blit3D() {
+      const ctx3d = this.d3;
+      const blit = this.d3Blit;
+      if (ctx3d === null || blit === null) {
+        return;
+      }
+      const argb = ctx3d.getColorBuffer();
+      if (argb === null) {
+        return;
+      }
+      const w = ctx3d.getWidth();
+      const h = ctx3d.getHeight();
+      const img = blit.createImageData(w, h);
+      const d = img.data;
+      for (let i = 0; i < w * h; i++) {
+        const p = argb[i];
+        d[i * 4] = p >>> 16 & 255;
+        d[i * 4 + 1] = p >>> 8 & 255;
+        d[i * 4 + 2] = p & 255;
+        d[i * 4 + 3] = p >>> 24 & 255;
+      }
+      blit.putImageData(img, 0, 0);
+      this.ctx.drawImage(blit.canvas, 0, 0);
+    }
+  };
+  // Path command IDs (NaN-encoded in the float array)
+  // PathExpression uses short IDs (10-16), binary PathData uses NanMap IDs (0x300000+)
+  _CanvasPaintContext.PATH_MOVE = 10;
+  _CanvasPaintContext.PATH_LINE = 11;
+  _CanvasPaintContext.PATH_QUADRATIC = 12;
+  _CanvasPaintContext.PATH_CONIC = 13;
+  _CanvasPaintContext.PATH_CUBIC = 14;
+  _CanvasPaintContext.PATH_CLOSE = 15;
+  _CanvasPaintContext.PATH_DONE = 16;
+  // NanMap path command base (Java convention used in binary PathData)
+  _CanvasPaintContext.NANMAP_PATH_BASE = 3145728;
+  // --- Graphics layer (offscreen compositing) ---
+  // GraphicsLayer attribute IDs (from GraphicsLayerModifierOperation.java)
+  _CanvasPaintContext.GL_SCALE_X = 0;
+  _CanvasPaintContext.GL_SCALE_Y = 1;
+  _CanvasPaintContext.GL_ROTATION_Z = 4;
+  _CanvasPaintContext.GL_TRANSFORM_ORIGIN_X = 5;
+  _CanvasPaintContext.GL_TRANSFORM_ORIGIN_Y = 6;
+  _CanvasPaintContext.GL_TRANSLATION_X = 7;
+  _CanvasPaintContext.GL_TRANSLATION_Y = 8;
+  _CanvasPaintContext.GL_ALPHA = 11;
+  _CanvasPaintContext.GL_SHAPE = 20;
+  _CanvasPaintContext.GL_SHAPE_RADIUS = 21;
+  var CanvasPaintContext = _CanvasPaintContext;
+
+  // third_party/remote-compose-player/src/web/InputContract.ts
+  var Input = Object.freeze({
+    TEXT: "rc:input/text:v1",
+    CHOICE: "rc:input/choice:v1",
+    TOGGLE: "rc:input/toggle:v1",
+    NUMBER: "rc:input/number:v1",
+    RANGE: "rc:input/range:v1",
+    VALUE: 1,
+    VALUE_RETURN: 2,
+    KEY: 3,
+    LABEL: 4,
+    MULTILINE: 5,
+    OPTIONS: 6,
+    SUBMIT: 7,
+    MIN: 8,
+    MAX: 9,
+    STEP: 10,
+    ENABLED: 11,
+    SUBMIT_LABEL: 12,
+    CHROME: 13
+  });
+  var InputChrome = Object.freeze({ DEFAULT: 0, NONE: 1 });
+  var inputConfigs = [Input.TEXT, Input.CHOICE, Input.TOGGLE, Input.NUMBER, Input.RANGE];
+  function inputValueIsValid(config2, value, options = [], minimum, maximum, step) {
+    if (config2 === Input.TEXT) return true;
+    if (config2 === Input.CHOICE) return options.length > 0 && options.every((option) => !!option && !option.includes("\n")) && new Set(options).size === options.length && options.includes(value);
+    if (config2 === Input.TOGGLE) return value === "true" || value === "false";
+    if (config2 !== Input.NUMBER && config2 !== Input.RANGE) return false;
+    if ([minimum, maximum, step].some((v) => v !== void 0 && !Number.isFinite(v)) || minimum !== void 0 && maximum !== void 0 && minimum > maximum || step !== void 0 && step <= 0) return false;
+    if (config2 === Input.RANGE && (minimum === void 0 || maximum === void 0 || step === void 0 || minimum >= maximum || (maximum - minimum) / step > 1e4)) return false;
+    if (config2 === Input.RANGE) {
+      const count = (maximum - minimum) / step;
+      if (Math.abs(count - Math.round(count)) > 1e-7 * Math.max(1, Math.abs(count))) return false;
+    }
+    if (value.trim() !== value) return false;
+    if (!/^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/.test(value)) return false;
+    const number = Number(value);
+    if (!Number.isFinite(number) || minimum !== void 0 && number < minimum || maximum !== void 0 && number > maximum) return false;
+    const units = (number - (minimum ?? 0)) / (step ?? 1);
+    return step === void 0 || Number.isFinite(units) && Math.abs(units - Math.round(units)) <= 1e-7 * Math.max(1, Math.abs(units));
+  }
+
+  // third_party/remote-compose-player/src/web/InputComponents.ts
+  var WebInputComponents = class {
+    constructor(canvas, options) {
+      this.canvas = canvas;
+      this.options = options;
+      this.entries = /* @__PURE__ */ new Map();
+      this.seen = /* @__PURE__ */ new Set();
+      this.scopes = [];
+      this.defaults = /* @__PURE__ */ new Map();
+      this.fields = /* @__PURE__ */ new Map();
+      this.hitContext = null;
+      this.canvasExport = false;
+      this.drafts = options.drafts ?? /* @__PURE__ */ new Map();
+    }
+    /** Include transparent editor text only while capturing; otherwise DOM would draw it twice. */
+    withCanvasExport(capture) {
+      this.canvasExport = true;
+      try {
+        return capture();
+      } finally {
+        this.canvasExport = false;
+      }
+    }
+    beginFrame() {
+      this.seen.clear();
+      this.defaults.clear();
+      this.fields.clear();
+      this.scopes = [];
+    }
+    /** Component ids and draft keys are local to a nested document instance. */
+    withDocument(identity2, paint) {
+      this.scopes.push(identity2);
+      try {
+        return paint();
+      } finally {
+        this.scopes.pop();
+      }
+    }
+    storeKey(scope, key) {
+      return scope ? `@${scope}:${key}` : key;
+    }
+    values(scope) {
+      return Object.fromEntries(Array.from(this.defaults.get(scope) ?? []).filter(([key]) => this.fields.get(this.storeKey(scope, key))?.component.integer(Input.ENABLED, 1) === 1).map(([key, value]) => [key, this.drafts.get(this.storeKey(scope, key)) ?? value]));
+    }
+    valid(component, value, config2) {
+      if (!component) return false;
+      const constraints = [Input.MIN, Input.MAX, Input.STEP].map((p) => component.text(p));
+      if (constraints.some((v) => v && !Number.isFinite(Number(v)))) return false;
+      return inputValueIsValid(config2, value, component.text(Input.OPTIONS).split("\n"), ...constraints.map((v) => v ? Number(v) : void 0));
+    }
+    /** Canvas exports include a deterministic representation beneath native DOM controls. */
+    paintControl(context, component, config2, value, writable, width, height) {
+      context.save();
+      context.beginPath();
+      context.rect(0, 0, width, height);
+      context.clip();
+      const plain = component.integer(Input.CHROME) === InputChrome.NONE;
+      if (plain) {
+        context.font = "14px system-ui";
+        context.textBaseline = "top";
+        context.fillStyle = "#202124";
+        if (!writable) context.fillText(`${value} \xB7 ${component.integer(Input.ENABLED, 1) === 1 ? "Open in app to edit" : "Unavailable"}`, 0, 0, width);
+        else if (config2 === Input.TOGGLE) {
+          context.strokeStyle = "#555";
+          context.strokeRect(0, 4, 18, 18);
+          if (value === "true") context.fillText("\u2713", 2, 3);
+        } else if (config2 === Input.RANGE) {
+          const fraction = Math.max(0, Math.min(1, (Number(value) - Number(component.text(Input.MIN))) / (Number(component.text(Input.MAX)) - Number(component.text(Input.MIN)))));
+          context.fillStyle = "#bbb";
+          context.fillRect(7, 13, Math.max(0, width - 14), 4);
+          context.fillStyle = "#1565c0";
+          context.beginPath();
+          context.arc(7 + (fraction || 0) * Math.max(0, width - 14), 15, 7, 0, Math.PI * 2);
+          context.fill();
+        } else {
+          value.split("\n").forEach((line, i) => context.fillText(line, 0, i * 18, width - 16));
+          if (config2 === Input.CHOICE) context.fillText("\u25BE", Math.max(0, width - 16), 0);
+        }
+        if (writable && component.text(Input.SUBMIT)) context.fillText(component.text(Input.SUBMIT_LABEL) || "Send", 0, height - 23, width);
+        context.restore();
+        return;
+      }
+      context.fillStyle = "#fff";
+      context.fillRect(0, 0, width, height);
+      context.font = "14px system-ui";
+      context.textBaseline = "top";
+      context.fillStyle = "#202124";
+      const label = component.text(Input.LABEL);
+      context.fillText(config2 === Input.RANGE ? `${label}: ${value}` : label, 6, 6, Math.max(1, width - 12));
+      if (!writable) {
+        context.fillText(value, 6, 28, Math.max(1, width - 12));
+        context.fillText(component.integer(Input.ENABLED, 1) === 1 ? "Open in app to edit" : "Unavailable", 6, 48, Math.max(1, width - 12));
+      } else if (config2 === Input.TOGGLE) {
+        context.strokeStyle = "#555";
+        context.strokeRect(8, 32, 18, 18);
+        if (value === "true") context.fillText("\u2713", 10, 31);
+      } else if (config2 === Input.RANGE) {
+        const min = Number(component.text(Input.MIN)), max = Number(component.text(Input.MAX));
+        const fraction = Math.max(0, Math.min(1, (Number(value) - min) / (max - min))) || 0;
+        context.fillStyle = "#bbb";
+        context.fillRect(12, 47, Math.max(0, width - 24), 4);
+        context.fillStyle = "#1565c0";
+        context.beginPath();
+        context.arc(12 + fraction * Math.max(0, width - 24), 49, 7, 0, Math.PI * 2);
+        context.fill();
+      } else {
+        const boxHeight = config2 === Input.TEXT && component.integer(Input.MULTILINE) === 1 ? Math.max(30, height - 62) : 30;
+        context.strokeStyle = "#888";
+        context.strokeRect(6, 26, Math.max(0, width - 12), boxHeight);
+        const lines = value.split("\n");
+        for (let i = 0; i < lines.length && i * 18 < boxHeight - 5; i++) context.fillText(lines[i], 10, 31 + i * 18, Math.max(1, width - 25));
+        if (config2 === Input.CHOICE) context.fillText("\u25BE", Math.max(6, width - 22), 31);
+      }
+      if (writable && component.text(Input.SUBMIT)) {
+        const title = component.text(Input.SUBMIT_LABEL) || "Send";
+        context.fillStyle = "#eee";
+        context.fillRect(6, height - 26, Math.min(width - 12, Math.max(56, context.measureText(title).width + 16)), 22);
+        context.fillStyle = "#202124";
+        context.fillText(title, 12, height - 23, Math.max(1, width - 24));
+      }
+      context.restore();
+    }
+    endFrame() {
+      for (const [id, entry] of this.entries) if (!this.seen.has(id)) {
+        entry.root.remove();
+        this.entries.delete(id);
+      }
+    }
+    dispose() {
+      for (const entry of this.entries.values()) entry.root.remove();
+      this.entries.clear();
+    }
+    draw(id, config2, pc, w, h, component) {
+      if (!inputConfigs.includes(config2)) return false;
+      if (!component || !(pc instanceof CanvasPaintContext)) return false;
+      const scope = JSON.stringify(this.scopes);
+      const draftScope = this.scopes.length ? scope : "";
+      const identity2 = `${scope}:${id}`;
+      this.seen.add(identity2);
+      const key = component.text(Input.KEY);
+      const storeKey = this.storeKey(draftScope, key);
+      this.fields.set(storeKey, { component, config: config2 });
+      let defaults = this.defaults.get(draftScope);
+      if (!defaults) {
+        defaults = /* @__PURE__ */ new Map();
+        this.defaults.set(draftScope, defaults);
+      }
+      defaults.set(key, component.text(Input.VALUE));
+      const context = pc.getCanvas();
+      const matrix = context.getTransform();
+      let polygon = [{ x: 0, y: 0 }, { x: w, y: 0 }, { x: w, y: h }, { x: 0, y: h }].map((p) => mapInputPoint(matrix, p));
+      const clip = pc.getInputClip();
+      for (const rectangle of clip.rectangles) polygon = intersectInputClip(polygon, rectangle);
+      if (clip.rounded.length && !this.hitContext) this.hitContext = document.createElement("canvas").getContext("2d");
+      const roundedCovered = clip.rounded.every((path) => polygon.every((p) => this.hitContext?.isPointInPath(path, p.x, p.y)));
+      if (context.canvas !== this.canvas || clip.unsupported || !roundedCovered) {
+        this.entries.get(identity2)?.root.remove();
+        this.entries.delete(identity2);
+        context.save();
+        context.font = "14px system-ui";
+        context.fillStyle = "#555";
+        context.fillText(`${component.text(Input.LABEL)} \xB7 Open in app to edit`, 4, 20, Math.max(1, w - 8));
+        context.restore();
+        return true;
+      }
+      const constraints = [Input.MIN, Input.MAX, Input.STEP].map((p) => component.text(p));
+      const metadataValid = constraints.every((v) => !v || Number.isFinite(Number(v)));
+      const writable = metadataValid && component.integer(Input.ENABLED, 1) === 1 && this.options.editable && !!key.trim() && component.canReturnText(Input.VALUE_RETURN);
+      const shape = `${config2 === Input.TEXT && component.integer(Input.MULTILINE) === 1}:${!!component.text(Input.SUBMIT)}`;
+      let entry = this.entries.get(identity2);
+      let restoreFocus = false;
+      if (entry && (entry.shape !== shape || entry.config !== config2 || entry.writable !== writable || entry.component.text(Input.KEY) !== key)) {
+        restoreFocus = entry.control === document.activeElement;
+        entry.root.remove();
+        this.entries.delete(identity2);
+        entry = void 0;
+      }
+      if (!entry) {
+        const root = document.createElement("div");
+        root.style.cssText = "position:absolute;transform-origin:0 0;box-sizing:border-box;overflow:auto;font:14px system-ui;background:var(--card-background-color,white);color:var(--primary-text-color,#202124);padding:6px;";
+        for (const event of ["pointerdown", "click", "keydown"]) root.addEventListener(event, (e) => e.stopPropagation());
+        entry = { root, component, config: config2, writable, scope: draftScope, shape };
+        this.entries.set(identity2, entry);
+        this.canvas.parentNode?.appendChild(root);
+        if (writable) {
+          const label = document.createElement("label");
+          const caption = document.createElement("span");
+          entry.caption = caption;
+          caption.textContent = component.text(Input.LABEL);
+          caption.style.display = "block";
+          label.appendChild(caption);
+          const control = config2 === Input.CHOICE ? document.createElement("select") : config2 === Input.TEXT && component.integer(Input.MULTILINE) === 1 ? document.createElement("textarea") : document.createElement("input");
+          if (control instanceof HTMLTextAreaElement) control.rows = 4;
+          if (control instanceof HTMLInputElement) {
+            if (config2 === Input.TOGGLE) control.type = "checkbox";
+            if (config2 === Input.RANGE) control.type = "range";
+            if (config2 === Input.NUMBER) control.inputMode = "decimal";
+          }
+          control.style.cssText = "font:inherit;width:100%;box-sizing:border-box;min-height:30px;";
+          entry.control = control;
+          label.appendChild(control);
+          root.appendChild(label);
+          const current = entry;
+          control.addEventListener(config2 === Input.CHOICE || config2 === Input.TOGGLE ? "change" : "input", () => {
+            const value2 = config2 === Input.TOGGLE ? String(control.checked) : control.value;
+            if (current.component.returnText(Input.VALUE_RETURN, value2)) {
+              this.drafts.set(storeKey, value2);
+              this.options.onChange?.(key, value2);
+              if (config2 === Input.RANGE && current.caption) current.caption.textContent = `${current.component.text(Input.LABEL)}: ${value2}`;
+              control.setCustomValidity(this.valid(current.component, value2, config2) ? "" : "Enter a valid value");
+            }
+          });
+          const submit = () => {
+            const action = current.component.text(Input.SUBMIT);
+            if (!action) return;
+            const values = this.values(current.scope);
+            if (!Object.entries(values).every(([name, value2]) => ((field) => !!field && this.valid(field.component, value2, field.config))(this.fields.get(this.storeKey(current.scope, name))))) {
+              for (const entry2 of this.entries.values()) if (entry2.scope === current.scope) entry2.control?.reportValidity();
+              return;
+            }
+            this.options.onSubmit?.(action, values);
+            control.blur();
+          };
+          control.addEventListener("keydown", (event) => {
+            const e = event;
+            if (e.key === "Enter" && !e.isComposing && control instanceof HTMLInputElement && config2 !== Input.TOGGLE && config2 !== Input.RANGE) {
+              e.preventDefault();
+              submit();
+            }
+          });
+          if (component.text(Input.SUBMIT)) {
+            const button = document.createElement("button");
+            entry.submitButton = button;
+            button.textContent = component.text(Input.SUBMIT_LABEL) || "Send";
+            button.addEventListener("click", submit);
+            root.appendChild(button);
+          }
+        }
+      }
+      entry.component = component;
+      const plain = component.integer(Input.CHROME) === InputChrome.NONE;
+      entry.root.style.padding = plain ? "0" : "6px";
+      entry.root.style.background = plain ? "transparent" : "var(--card-background-color,white)";
+      if (entry.caption) {
+        entry.caption.hidden = plain;
+        entry.caption.style.display = plain ? "none" : "block";
+      }
+      if (entry.control) {
+        entry.control.setAttribute("aria-label", component.text(Input.LABEL));
+        entry.control.style.border = plain ? "0" : "";
+        entry.control.style.background = plain ? "transparent" : "";
+        entry.control.style.padding = plain ? "0" : "";
+        entry.control.style.boxShadow = plain ? "none" : "";
+      }
+      if (entry.submitButton) {
+        entry.submitButton.style.border = plain ? "0" : "";
+        entry.submitButton.style.background = plain ? "transparent" : "";
+        entry.submitButton.style.padding = plain ? "0" : "";
+      }
+      if (entry.submitButton) entry.submitButton.textContent = component.text(Input.SUBMIT_LABEL) || "Send";
+      if (entry.caption) entry.caption.textContent = config2 === Input.RANGE ? `${component.text(Input.LABEL)}: ${this.drafts.get(storeKey) ?? component.text(Input.VALUE)}` : component.text(Input.LABEL);
+      const value = this.drafts.get(storeKey) ?? component.text(Input.VALUE);
+      if (entry.control) {
+        if (entry.control instanceof HTMLSelectElement) {
+          const options = [...new Set(component.text(Input.OPTIONS).split("\n").filter(Boolean))];
+          if (Array.from(entry.control.options).map((o) => o.value).join("\n") !== options.join("\n")) {
+            entry.control.replaceChildren(...options.map((value2) => {
+              const option = document.createElement("option");
+              option.value = value2;
+              option.textContent = value2;
+              return option;
+            }));
+          }
+        }
+        if (entry.control instanceof HTMLInputElement && config2 === Input.RANGE) {
+          entry.control.min = component.text(Input.MIN);
+          entry.control.max = component.text(Input.MAX);
+          entry.control.step = component.text(Input.STEP);
+        }
+        if (entry.control instanceof HTMLInputElement && config2 === Input.TOGGLE) entry.control.checked = value === "true";
+        entry.control.setCustomValidity(this.valid(component, value, config2) ? "" : "Enter a valid value");
+        if (entry.control.value !== value) entry.control.value = value;
+        if (component.text(Input.VALUE) !== value) component.returnText(Input.VALUE_RETURN, value);
+      } else entry.root.textContent = `${component.text(Input.LABEL)}: ${value} \xB7 ${component.integer(Input.ENABLED, 1) !== 1 ? "Unavailable" : "Open in app to edit"}`;
+      if (!plain || this.canvasExport) this.paintControl(context, component, config2, value, writable, w, h);
+      if (restoreFocus) entry.control?.focus();
+      const m = matrix;
+      entry.root.hidden = !polygon.length || context.globalAlpha <= 0;
+      entry.root.style.opacity = String(context.globalAlpha);
+      if (entry.root.hidden) entry.control?.blur();
+      entry.root.style.clipPath = polygon.length ? `polygon(${polygon.map((p) => {
+        const local = inverseInputPoint(m, p);
+        return `${local.x}px ${local.y}px`;
+      }).join(",")})` : "inset(100%)";
+      const sx = this.canvas.clientWidth / this.canvas.width, sy = this.canvas.clientHeight / this.canvas.height;
+      entry.root.style.left = `${this.canvas.offsetLeft}px`;
+      entry.root.style.top = `${this.canvas.offsetTop}px`;
+      entry.root.style.width = `${w}px`;
+      entry.root.style.height = `${h}px`;
+      entry.root.style.transform = `matrix(${m.a * sx},${m.b * sy},${m.c * sx},${m.d * sy},${m.e * sx},${m.f * sy})`;
+      return true;
+    }
+  };
 
   // third_party/remote-compose-player/src/core/RemoteClock.ts
   function createSnapshot(millis) {
@@ -1798,7 +7842,7 @@ var RC = (() => {
 
   // third_party/remote-compose-player/src/core/operations/utilities/easing/FloatAnimation.ts
   var _dv2 = new DataView(new ArrayBuffer(4));
-  function floatToRawIntBits2(v) {
+  function floatToRawIntBits3(v) {
     _dv2.setFloat32(0, v, false);
     return _dv2.getInt32(0, false);
   }
@@ -1821,7 +7865,7 @@ var RC = (() => {
       this.mDuration = this.mSpec.length === 0 ? 1 : this.mSpec[0];
       let len = 0;
       if (this.mSpec.length > 1) {
-        const numType = floatToRawIntBits2(this.mSpec[1]);
+        const numType = floatToRawIntBits3(this.mSpec[1]);
         this.mType = numType & 255;
         const wrap = (numType >> 8 & 1) > 0;
         const init = (numType >> 8 & 2) > 0;
@@ -2176,8 +8220,8 @@ var RC = (() => {
       let r0 = 0, r1 = 0, r2 = 0, r3 = 0;
       for (let i = 0; i < values.length; i++) {
         const raw = values[i];
-        const bits = useBits ? raw | 0 : floatToRawIntBits(raw);
-        const v = useBits ? intBitsToFloat(bits) : raw;
+        const bits = useBits ? raw | 0 : floatToRawIntBits2(raw);
+        const v = useBits ? intBitsToFloat2(bits) : raw;
         if (isNaNBits(bits)) {
           const id = idFromBits(bits);
           if ((id & _FloatExpression.ID_REGION_MASK) === _FloatExpression.ID_REGION_ARRAY) {
@@ -2375,7 +8419,7 @@ var RC = (() => {
                 AnimatedFloatExpression.seedRandom(stack.pop());
                 break;
               case 41: {
-                let x = floatToRawIntBits(stack.pop());
+                let x = floatToRawIntBits2(stack.pop());
                 x = x << 13 ^ x | 0;
                 stack.push(
                   1 - (Math.imul(x, Math.imul(x, Math.imul(x, 15731)) + 789221) + 1376312589 & 2147483647) / 1073741800
@@ -2711,7 +8755,7 @@ var RC = (() => {
         _AnimatedFloatExpression.rngState = null;
         return;
       }
-      const asLong = BigInt.asUintN(64, BigInt(floatToRawIntBits(seed)));
+      const asLong = BigInt.asUintN(64, BigInt(floatToRawIntBits2(seed)));
       _AnimatedFloatExpression.rngState = (asLong ^ _AnimatedFloatExpression.RNG_MULT) & _AnimatedFloatExpression.RNG_MASK;
     }
     /** `Random.nextFloat()` when seeded; the platform generator when not. */
@@ -2757,7 +8801,7 @@ var RC = (() => {
       let sp = -1;
       for (let i = 0; i < len; i++) {
         const raw = exp[i];
-        const bits = useBits ? raw | 0 : floatToRawIntBits(raw);
+        const bits = useBits ? raw | 0 : floatToRawIntBits2(raw);
         if (isNaNBits(bits)) {
           const id = idFromBits(bits);
           if ((id & _AnimatedFloatExpression.ID_REGION_MASK) === _AnimatedFloatExpression.ID_REGION_ARRAY) {
@@ -2766,7 +8810,7 @@ var RC = (() => {
             sp = this.opEval(sp, id, s, ca, vars);
           }
         } else {
-          s[++sp] = useBits ? intBitsToFloat(bits) : raw;
+          s[++sp] = useBits ? intBitsToFloat2(bits) : raw;
         }
       }
       return sp >= 0 ? s[sp] : 0;
@@ -3416,24 +9460,24 @@ var RC = (() => {
       this.mId = id;
       this.mSrcExp = exp;
       this.mDefValueBits = defValueBits;
-      this.mOutDefValue = isNaNBits(defValueBits) ? 0 : intBitsToFloat(defValueBits);
+      this.mOutDefValue = isNaNBits(defValueBits) ? 0 : intBitsToFloat2(defValueBits);
       this.mMode = _TouchExpression.STOP_ABSOLUTE_POS === stopMode ? 1 : 0;
       this.mMaxBits = maxBits;
-      this.mOutMax = isNaNBits(maxBits) ? 0 : intBitsToFloat(maxBits);
+      this.mOutMax = isNaNBits(maxBits) ? 0 : intBitsToFloat2(maxBits);
       this.mTouchEffects = touchEffects;
       this.mVelocityId = velocityId;
       this.mStopSpec = stopSpec;
       this.mOutStopSpec = new Float32Array(stopSpec.length);
       for (let i = 0; i < stopSpec.length; i++) {
-        this.mOutStopSpec[i] = isNaNBits(stopSpec[i]) ? 0 : intBitsToFloat(stopSpec[i]);
+        this.mOutStopSpec[i] = isNaNBits(stopSpec[i]) ? 0 : intBitsToFloat2(stopSpec[i]);
       }
       if (isNaNBits(minBits) && idFromBits(minBits) === 0) {
         this.mWrapMode = true;
-        this.mMinBits = floatToRawIntBits(0);
+        this.mMinBits = floatToRawIntBits2(0);
         this.mOutMin = 0;
       } else {
         this.mMinBits = minBits;
-        this.mOutMin = isNaNBits(minBits) ? 0 : intBitsToFloat(minBits);
+        this.mOutMin = isNaNBits(minBits) ? 0 : intBitsToFloat2(minBits);
       }
       this.mStopMode = stopMode;
       if (easingSpec !== null && easingSpec.length >= 4) {
@@ -3488,7 +9532,7 @@ var RC = (() => {
       for (let i = 0; i < this.mSrcExp.length; i++) {
         const b = this.mSrcExp[i];
         if (isNaNBits(b) && !AnimatedFloatExpression.isMathOperatorBits(b) && !this.isDataVariableBits(b)) {
-          this.mPreCalcValue[i] = floatToRawIntBits(context.getFloat(idFromBits(b)));
+          this.mPreCalcValue[i] = floatToRawIntBits2(context.getFloat(idFromBits(b)));
         } else {
           this.mPreCalcValue[i] = b;
         }
@@ -3498,7 +9542,7 @@ var RC = (() => {
         if (isNaNBits(b)) {
           this.mOutStopSpec[i] = context.getFloat(idFromBits(b));
         } else {
-          this.mOutStopSpec[i] = intBitsToFloat(b);
+          this.mOutStopSpec[i] = intBitsToFloat2(b);
         }
       }
     }
@@ -3736,9 +9780,9 @@ var RC = (() => {
           if (isNaNBits(this.mSrcExp[i])) {
             const id = idFromBits(this.mSrcExp[i]);
             if (id === RemoteContext.ID_TOUCH_POS_X) {
-              this.mPreCalcValue[i] = floatToRawIntBits(intBitsToFloat(this.mPreCalcValue[i]) + dx * dt);
+              this.mPreCalcValue[i] = floatToRawIntBits2(intBitsToFloat2(this.mPreCalcValue[i]) + dx * dt);
             } else if (id === RemoteContext.ID_TOUCH_POS_Y) {
-              this.mPreCalcValue[i] = floatToRawIntBits(intBitsToFloat(this.mPreCalcValue[i]) + dy * dt);
+              this.mPreCalcValue[i] = floatToRawIntBits2(intBitsToFloat2(this.mPreCalcValue[i]) + dy * dt);
             }
           }
         }
@@ -3747,9 +9791,9 @@ var RC = (() => {
           if (isNaNBits(this.mSrcExp[i])) {
             const id = idFromBits(this.mSrcExp[i]);
             if (id === RemoteContext.ID_TOUCH_POS_X) {
-              this.mPreCalcValue[i] = floatToRawIntBits(x + dx * dt);
+              this.mPreCalcValue[i] = floatToRawIntBits2(x + dx * dt);
             } else if (id === RemoteContext.ID_TOUCH_POS_Y) {
-              this.mPreCalcValue[i] = floatToRawIntBits(y + dy * dt);
+              this.mPreCalcValue[i] = floatToRawIntBits2(y + dy * dt);
             }
           }
         }
@@ -4015,373 +10059,6 @@ var RC = (() => {
   _AnimationSpec.DEFAULT = new _AnimationSpec(-1, 300, Easing.CUBIC_STANDARD, 300, Easing.CUBIC_STANDARD, 0 /* FADE_IN */, 1 /* FADE_OUT */);
   _AnimationSpec.DISABLED = new _AnimationSpec(0, 0, Easing.CUBIC_STANDARD, 0, Easing.CUBIC_STANDARD, 0 /* FADE_IN */, 1 /* FADE_OUT */);
   var AnimationSpec = _AnimationSpec;
-
-  // third_party/remote-compose-player/src/core/operations/paint/PaintBundle.ts
-  var _f32dv = new DataView(new ArrayBuffer(4));
-  function intBitsToFloat2(bits) {
-    _f32dv.setInt32(0, bits);
-    return _f32dv.getFloat32(0);
-  }
-  function floatToRawIntBits3(v) {
-    _f32dv.setFloat32(0, v);
-    return _f32dv.getInt32(0);
-  }
-  function isNaNBitsLocal(bits) {
-    return (bits & 2139095040) === 2139095040 && (bits & 8388607) !== 0;
-  }
-  function idFromBitsLocal(bits) {
-    return bits & 4194303;
-  }
-  function fixFloatVar(val, context) {
-    if (isNaNBitsLocal(val)) {
-      return floatToRawIntBits3(context.getFloat(idFromBitsLocal(val)));
-    }
-    return val;
-  }
-  function fixColor(val, context) {
-    return context.getColor(val);
-  }
-  function listenFloatVar(val, context, op) {
-    if (isNaNBitsLocal(val)) {
-      context.listensTo(idFromBitsLocal(val), op);
-    }
-  }
-  var _PaintBundle = class _PaintBundle {
-    constructor() {
-      // The flat int array and current position
-      this.mArray = [];
-      this.mOutArray = null;
-      this.mPos = 0;
-    }
-    read(buffer) {
-      const len = buffer.readInt();
-      if (len <= 0 || len > 1024) {
-        throw new Error(`PaintBundle: invalid length ${len}`);
-      }
-      this.mArray = new Array(len);
-      for (let i = 0; i < len; i++) {
-        this.mArray[i] = buffer.readInt();
-      }
-      this.mPos = len;
-    }
-    /** Returns the resolved array (mOutArray if available, otherwise mArray). */
-    getArray() {
-      return this.mOutArray ?? this.mArray;
-    }
-    getLength() {
-      return this.mPos;
-    }
-    // --- Programmatic setters for building paint bundles at runtime ---
-    reset() {
-      this.mArray = [];
-      this.mOutArray = null;
-      this.mPos = 0;
-    }
-    setStyle(style) {
-      this.mArray[this.mPos++] = _PaintBundle.STYLE | style << 16;
-    }
-    setColor(aOrColor, r, g, b) {
-      if (r !== void 0 && g !== void 0 && b !== void 0) {
-        const ai = Math.round(aOrColor * 255) & 255;
-        const ri = Math.round(r * 255) & 255;
-        const gi = Math.round(g * 255) & 255;
-        const bi = Math.round(b * 255) & 255;
-        aOrColor = (ai << 24 | ri << 16 | gi << 8 | bi) >>> 0;
-      }
-      this.mArray[this.mPos++] = _PaintBundle.COLOR;
-      this.mArray[this.mPos++] = aOrColor;
-    }
-    setTextSize(size) {
-      this.mArray[this.mPos++] = _PaintBundle.TEXT_SIZE;
-      _f32dv.setFloat32(0, size);
-      this.mArray[this.mPos++] = _f32dv.getInt32(0);
-    }
-    setTextStyle(typeface, fontWeight, italic) {
-      const style = fontWeight & 1023 | (italic ? 2048 : 0);
-      this.mArray[this.mPos++] = _PaintBundle.TYPEFACE | style << 16;
-      this.mArray[this.mPos++] = typeface;
-    }
-    setTextAxis(axisTags, axisValues) {
-      const count = axisTags.length;
-      this.mArray[this.mPos++] = _PaintBundle.FONT_AXIS | count << 16;
-      for (let i = 0; i < count; i++) {
-        this.mArray[this.mPos++] = axisTags[i];
-        _f32dv.setFloat32(0, axisValues[i]);
-        this.mArray[this.mPos++] = _f32dv.getInt32(0);
-      }
-    }
-    setStrokeWidth(width) {
-      this.mArray[this.mPos++] = _PaintBundle.STROKE_WIDTH;
-      _f32dv.setFloat32(0, width);
-      this.mArray[this.mPos++] = _f32dv.getInt32(0);
-    }
-    registerListening(context, op) {
-      let i = 0;
-      const arr = this.mArray;
-      while (i < this.mPos) {
-        const cmd = arr[i++];
-        const tag = cmd & 65535;
-        switch (tag) {
-          case _PaintBundle.STROKE_MITER:
-          case _PaintBundle.STROKE_WIDTH:
-          case _PaintBundle.ALPHA:
-          case _PaintBundle.TEXT_SIZE:
-            listenFloatVar(arr[i], context, op);
-            i++;
-            break;
-          case _PaintBundle.COLOR_FILTER_ID:
-          case _PaintBundle.COLOR_ID:
-            context.listensTo(arr[i], op);
-            i++;
-            break;
-          case _PaintBundle.COLOR:
-          case _PaintBundle.TYPEFACE:
-          case _PaintBundle.SHADER:
-          case _PaintBundle.COLOR_FILTER:
-          case _PaintBundle.FALLBACK_TYPEFACE:
-            i++;
-            break;
-          case _PaintBundle.STROKE_JOIN:
-          case _PaintBundle.FILTER_BITMAP:
-          case _PaintBundle.STROKE_CAP:
-          case _PaintBundle.STYLE:
-          case _PaintBundle.IMAGE_FILTER_QUALITY:
-          case _PaintBundle.BLEND_MODE:
-          case _PaintBundle.ANTI_ALIAS:
-          case _PaintBundle.CLEAR_COLOR_FILTER:
-            break;
-          case _PaintBundle.FONT_AXIS: {
-            const count = cmd >> 16 & 65535;
-            for (let j = 0; j < count; j++) {
-              i++;
-              listenFloatVar(arr[i], context, op);
-              i++;
-            }
-            break;
-          }
-          case _PaintBundle.TEXTURE:
-            i += 3;
-            break;
-          case _PaintBundle.SHADER_MATRIX:
-            i++;
-            break;
-          case _PaintBundle.GRADIENT:
-            i = this.registerGradientListening(cmd, arr, i, context, op);
-            break;
-          case _PaintBundle.PATH_EFFECT: {
-            const count = cmd >> 16 & 65535;
-            for (let j = 0; j < count; j++) {
-              listenFloatVar(arr[i], context, op);
-              i++;
-            }
-            break;
-          }
-          default:
-            break;
-        }
-      }
-    }
-    registerGradientListening(cmd, arr, startIdx, context, op) {
-      let i = startIdx;
-      const meta = arr[i++];
-      const numColors = meta & 255;
-      const register = meta >> 16 & 65535;
-      for (let j = 0; j < numColors; j++) {
-        if ((register & 1 << j) !== 0) {
-          context.listensTo(arr[i], op);
-        }
-        i++;
-      }
-      const numStops = arr[i++];
-      for (let j = 0; j < numStops; j++) {
-        listenFloatVar(arr[i], context, op);
-        i++;
-      }
-      const gradType = cmd >> 16 & 65535;
-      switch (gradType) {
-        case _PaintBundle.LINEAR_GRADIENT:
-          for (let j = 0; j < 4; j++) {
-            listenFloatVar(arr[i], context, op);
-            i++;
-          }
-          i++;
-          break;
-        case _PaintBundle.RADIAL_GRADIENT:
-          for (let j = 0; j < 3; j++) {
-            listenFloatVar(arr[i], context, op);
-            i++;
-          }
-          i++;
-          break;
-        case _PaintBundle.SWEEP_GRADIENT:
-          for (let j = 0; j < 2; j++) {
-            listenFloatVar(arr[i], context, op);
-            i++;
-          }
-          break;
-      }
-      return i;
-    }
-    /**
-     * Resolve NaN-encoded float variable IDs and color IDs in paint parameters.
-     * Matches Java PaintBundle.updateVariables().
-     */
-    updateVariables(context) {
-      if (this.mOutArray === null) {
-        this.mOutArray = this.mArray.slice();
-      } else {
-        for (let j = 0; j < this.mArray.length; j++) {
-          this.mOutArray[j] = this.mArray[j];
-        }
-      }
-      let i = 0;
-      const arr = this.mArray;
-      const out = this.mOutArray;
-      while (i < this.mPos) {
-        const cmd = arr[i++];
-        const tag = cmd & 65535;
-        switch (tag) {
-          case _PaintBundle.STROKE_MITER:
-          case _PaintBundle.STROKE_WIDTH:
-          case _PaintBundle.ALPHA:
-          case _PaintBundle.TEXT_SIZE:
-            out[i] = fixFloatVar(arr[i], context);
-            i++;
-            break;
-          case _PaintBundle.COLOR_FILTER_ID:
-          case _PaintBundle.COLOR_ID:
-            out[i] = fixColor(arr[i], context);
-            i++;
-            break;
-          case _PaintBundle.COLOR:
-          case _PaintBundle.TYPEFACE:
-          case _PaintBundle.SHADER:
-          case _PaintBundle.COLOR_FILTER:
-          case _PaintBundle.FALLBACK_TYPEFACE:
-            i++;
-            break;
-          case _PaintBundle.STROKE_JOIN:
-          case _PaintBundle.FILTER_BITMAP:
-          case _PaintBundle.STROKE_CAP:
-          case _PaintBundle.STYLE:
-          case _PaintBundle.IMAGE_FILTER_QUALITY:
-          case _PaintBundle.BLEND_MODE:
-          case _PaintBundle.ANTI_ALIAS:
-          case _PaintBundle.CLEAR_COLOR_FILTER:
-            break;
-          case _PaintBundle.FONT_AXIS: {
-            const count = cmd >> 16 & 65535;
-            for (let j = 0; j < count; j++) {
-              i++;
-              out[i] = fixFloatVar(arr[i], context);
-              i++;
-            }
-            break;
-          }
-          case _PaintBundle.TEXTURE:
-            i += 3;
-            break;
-          case _PaintBundle.SHADER_MATRIX:
-            i++;
-            break;
-          case _PaintBundle.GRADIENT:
-            i = this.updateGradientVars(cmd, arr, out, i, context);
-            break;
-          case _PaintBundle.PATH_EFFECT: {
-            const count = cmd >> 16 & 65535;
-            for (let j = 0; j < count; j++) {
-              out[i] = fixFloatVar(arr[i], context);
-              i++;
-            }
-            break;
-          }
-          default:
-            break;
-        }
-      }
-    }
-    updateGradientVars(cmd, arr, out, startIdx, context) {
-      let i = startIdx;
-      const gradType = cmd >> 16 & 65535;
-      const meta = arr[i++];
-      const numColors = meta & 255;
-      const register = meta >> 16 & 65535;
-      for (let j = 0; j < numColors; j++) {
-        if ((register & 1 << j) !== 0) {
-          out[i] = fixColor(arr[i], context);
-        }
-        i++;
-      }
-      const numStops = arr[i++];
-      for (let j = 0; j < numStops; j++) {
-        out[i] = fixFloatVar(arr[i], context);
-        i++;
-      }
-      switch (gradType) {
-        case _PaintBundle.LINEAR_GRADIENT:
-          out[i] = fixFloatVar(arr[i], context);
-          i++;
-          out[i] = fixFloatVar(arr[i], context);
-          i++;
-          out[i] = fixFloatVar(arr[i], context);
-          i++;
-          out[i] = fixFloatVar(arr[i], context);
-          i++;
-          i++;
-          break;
-        case _PaintBundle.RADIAL_GRADIENT:
-          out[i] = fixFloatVar(arr[i], context);
-          i++;
-          out[i] = fixFloatVar(arr[i], context);
-          i++;
-          out[i] = fixFloatVar(arr[i], context);
-          i++;
-          i++;
-          break;
-        case _PaintBundle.SWEEP_GRADIENT:
-          out[i] = fixFloatVar(arr[i], context);
-          i++;
-          out[i] = fixFloatVar(arr[i], context);
-          i++;
-          break;
-      }
-      return i;
-    }
-  };
-  // Paint property tags (matching Java PaintBundle constants)
-  _PaintBundle.TEXT_SIZE = 1;
-  _PaintBundle.COLOR = 4;
-  _PaintBundle.STROKE_WIDTH = 5;
-  _PaintBundle.STROKE_MITER = 6;
-  _PaintBundle.STROKE_CAP = 7;
-  _PaintBundle.STYLE = 8;
-  _PaintBundle.SHADER = 9;
-  _PaintBundle.IMAGE_FILTER_QUALITY = 10;
-  _PaintBundle.GRADIENT = 11;
-  _PaintBundle.ALPHA = 12;
-  _PaintBundle.COLOR_FILTER = 13;
-  _PaintBundle.ANTI_ALIAS = 14;
-  _PaintBundle.STROKE_JOIN = 15;
-  _PaintBundle.TYPEFACE = 16;
-  _PaintBundle.FILTER_BITMAP = 17;
-  _PaintBundle.BLEND_MODE = 18;
-  _PaintBundle.COLOR_ID = 19;
-  _PaintBundle.COLOR_FILTER_ID = 20;
-  _PaintBundle.CLEAR_COLOR_FILTER = 21;
-  _PaintBundle.SHADER_MATRIX = 22;
-  _PaintBundle.FONT_AXIS = 23;
-  _PaintBundle.TEXTURE = 24;
-  _PaintBundle.PATH_EFFECT = 25;
-  _PaintBundle.FALLBACK_TYPEFACE = 26;
-  // Gradient types (wire format values)
-  _PaintBundle.LINEAR_GRADIENT = 0;
-  _PaintBundle.RADIAL_GRADIENT = 1;
-  _PaintBundle.SWEEP_GRADIENT = 2;
-  // Style constants
-  _PaintBundle.FILL = 0;
-  _PaintBundle.STROKE = 1;
-  _PaintBundle.FILL_AND_STROKE = 2;
-  var PaintBundle = _PaintBundle;
 
   // third_party/remote-compose-player/src/core/operations/layout/animation/AnimateMeasure.ts
   var AnimateMeasure = class {
@@ -5421,7 +11098,7 @@ var RC = (() => {
       super();
       this.mType = type;
       this.mValueBits = valueBits;
-      this.mOutValue = isNaNBits(valueBits) ? 0 : intBitsToFloat(valueBits);
+      this.mOutValue = isNaNBits(valueBits) ? 0 : intBitsToFloat2(valueBits);
     }
     getType() {
       return this.mType;
@@ -5472,7 +11149,7 @@ var RC = (() => {
       super();
       this.mType = type;
       this.mValueBits = valueBits;
-      this.mOutValue = isNaNBits(valueBits) ? 0 : intBitsToFloat(valueBits);
+      this.mOutValue = isNaNBits(valueBits) ? 0 : intBitsToFloat2(valueBits);
     }
     getType() {
       return this.mType;
@@ -5523,8 +11200,8 @@ var RC = (() => {
       super();
       this.mMinBits = minBits;
       this.mMaxBits = maxBits;
-      this.mOutMin = isNaNBits(minBits) ? 0 : intBitsToFloat(minBits);
-      this.mOutMax = isNaNBits(maxBits) ? 0 : intBitsToFloat(maxBits);
+      this.mOutMin = isNaNBits(minBits) ? 0 : intBitsToFloat2(minBits);
+      this.mOutMax = isNaNBits(maxBits) ? 0 : intBitsToFloat2(maxBits);
     }
     getMin() {
       return this.mOutMin;
@@ -5565,8 +11242,8 @@ var RC = (() => {
       super();
       this.mMinBits = minBits;
       this.mMaxBits = maxBits;
-      this.mOutMin = isNaNBits(minBits) ? 0 : intBitsToFloat(minBits);
-      this.mOutMax = isNaNBits(maxBits) ? 0 : intBitsToFloat(maxBits);
+      this.mOutMin = isNaNBits(minBits) ? 0 : intBitsToFloat2(minBits);
+      this.mOutMax = isNaNBits(maxBits) ? 0 : intBitsToFloat2(maxBits);
     }
     getMin() {
       return this.mOutMin;
@@ -5639,10 +11316,10 @@ var RC = (() => {
       this.mG = g;
       this.mB = b;
       this.mA = a;
-      this.mOutR = isNaNBits(r) ? 0 : intBitsToFloat(r);
-      this.mOutG = isNaNBits(g) ? 0 : intBitsToFloat(g);
-      this.mOutB = isNaNBits(b) ? 0 : intBitsToFloat(b);
-      this.mOutA = isNaNBits(a) ? 0 : intBitsToFloat(a);
+      this.mOutR = isNaNBits(r) ? 0 : intBitsToFloat2(r);
+      this.mOutG = isNaNBits(g) ? 0 : intBitsToFloat2(g);
+      this.mOutB = isNaNBits(b) ? 0 : intBitsToFloat2(b);
+      this.mOutA = isNaNBits(a) ? 0 : intBitsToFloat2(a);
       this.mShapeType = shapeType;
     }
     setComponent(c) {
@@ -5804,10 +11481,10 @@ var RC = (() => {
       this.mTop = t;
       this.mRight = r;
       this.mBottom = b;
-      this.mLeftValue = isNaNBits(l) ? 0 : intBitsToFloat(l);
-      this.mTopValue = isNaNBits(t) ? 0 : intBitsToFloat(t);
-      this.mRightValue = isNaNBits(r) ? 0 : intBitsToFloat(r);
-      this.mBottomValue = isNaNBits(b) ? 0 : intBitsToFloat(b);
+      this.mLeftValue = isNaNBits(l) ? 0 : intBitsToFloat2(l);
+      this.mTopValue = isNaNBits(t) ? 0 : intBitsToFloat2(t);
+      this.mRightValue = isNaNBits(r) ? 0 : intBitsToFloat2(r);
+      this.mBottomValue = isNaNBits(b) ? 0 : intBitsToFloat2(b);
     }
     registerListening(context) {
       if (isNaNBits(this.mLeft)) context.listensTo(idFromBits(this.mLeft), this);
@@ -5816,10 +11493,10 @@ var RC = (() => {
       if (isNaNBits(this.mBottom)) context.listensTo(idFromBits(this.mBottom), this);
     }
     updateVariables(context) {
-      this.mLeftValue = isNaNBits(this.mLeft) ? context.getFloat(idFromBits(this.mLeft)) : intBitsToFloat(this.mLeft);
-      this.mTopValue = isNaNBits(this.mTop) ? context.getFloat(idFromBits(this.mTop)) : intBitsToFloat(this.mTop);
-      this.mRightValue = isNaNBits(this.mRight) ? context.getFloat(idFromBits(this.mRight)) : intBitsToFloat(this.mRight);
-      this.mBottomValue = isNaNBits(this.mBottom) ? context.getFloat(idFromBits(this.mBottom)) : intBitsToFloat(this.mBottom);
+      this.mLeftValue = isNaNBits(this.mLeft) ? context.getFloat(idFromBits(this.mLeft)) : intBitsToFloat2(this.mLeft);
+      this.mTopValue = isNaNBits(this.mTop) ? context.getFloat(idFromBits(this.mTop)) : intBitsToFloat2(this.mTop);
+      this.mRightValue = isNaNBits(this.mRight) ? context.getFloat(idFromBits(this.mRight)) : intBitsToFloat2(this.mRight);
+      this.mBottomValue = isNaNBits(this.mBottom) ? context.getFloat(idFromBits(this.mBottom)) : intBitsToFloat2(this.mBottom);
       if (context.getDensityBehavior() === RemoteContext.DENSITY_BEHAVIOR_DP) {
         const density = context.getDensity();
         if (density > 0 && !Number.isNaN(density)) {
@@ -6202,8 +11879,8 @@ var RC = (() => {
       super();
       this.mOffX = x;
       this.mOffY = y;
-      this.mOutX = isNaNBits(x) ? 0 : intBitsToFloat(x);
-      this.mOutY = isNaNBits(y) ? 0 : intBitsToFloat(y);
+      this.mOutX = isNaNBits(x) ? 0 : intBitsToFloat2(x);
+      this.mOutY = isNaNBits(y) ? 0 : intBitsToFloat2(y);
     }
     registerListening(context) {
       if (isNaNBits(this.mOffX)) context.listensTo(idFromBits(this.mOffX), this);
@@ -6234,7 +11911,7 @@ var RC = (() => {
     constructor(valueBits) {
       super();
       this.mValueBits = valueBits;
-      this.mCurrentValue = isNaNBits(valueBits) ? 0 : intBitsToFloat(valueBits);
+      this.mCurrentValue = isNaNBits(valueBits) ? 0 : intBitsToFloat2(valueBits);
     }
     getValue() {
       return this.mCurrentValue;
@@ -6807,7 +12484,7 @@ var RC = (() => {
           this.mOutputPath[i] = b;
         } else if (isNaNBits(b)) {
           const prev = this.mOutputPath[i];
-          this.mOutputPath[i] = floatToRawIntBits(context.getFloat(idFromBits(b)));
+          this.mOutputPath[i] = floatToRawIntBits2(context.getFloat(idFromBits(b)));
           if (prev !== this.mOutputPath[i]) this.mPathChanged = true;
         } else {
           this.mOutputPath[i] = b;
@@ -6841,7 +12518,7 @@ var RC = (() => {
     constructor(id, valueBits) {
       super();
       this.mId = id;
-      this.mValue = isNaNBits(valueBits) && idFromBits(valueBits) === _FloatConstant.RAND_ID ? Math.random() : intBitsToFloat(valueBits);
+      this.mValue = isNaNBits(valueBits) && idFromBits(valueBits) === _FloatConstant.RAND_ID ? Math.random() : intBitsToFloat2(valueBits);
     }
     update(other) {
       this.mValue = other.mValue;
@@ -6916,10 +12593,10 @@ var RC = (() => {
       this.mTop = top;
       this.mRight = right;
       this.mBottom = bottom;
-      this.mOutLeft = isNaNBits(left) ? 0 : intBitsToFloat(left);
-      this.mOutTop = isNaNBits(top) ? 0 : intBitsToFloat(top);
-      this.mOutRight = isNaNBits(right) ? 0 : intBitsToFloat(right);
-      this.mOutBottom = isNaNBits(bottom) ? 0 : intBitsToFloat(bottom);
+      this.mOutLeft = isNaNBits(left) ? 0 : intBitsToFloat2(left);
+      this.mOutTop = isNaNBits(top) ? 0 : intBitsToFloat2(top);
+      this.mOutRight = isNaNBits(right) ? 0 : intBitsToFloat2(right);
+      this.mOutBottom = isNaNBits(bottom) ? 0 : intBitsToFloat2(bottom);
       this.mMetadataId = metaId;
     }
     write(_buffer) {
@@ -6931,10 +12608,10 @@ var RC = (() => {
       if (isNaNBits(this.mBottom)) context.listensTo(idFromBits(this.mBottom), this);
     }
     updateVariables(context) {
-      this.mOutLeft = isNaNBits(this.mLeft) ? context.getFloat(idFromBits(this.mLeft)) : intBitsToFloat(this.mLeft);
-      this.mOutTop = isNaNBits(this.mTop) ? context.getFloat(idFromBits(this.mTop)) : intBitsToFloat(this.mTop);
-      this.mOutRight = isNaNBits(this.mRight) ? context.getFloat(idFromBits(this.mRight)) : intBitsToFloat(this.mRight);
-      this.mOutBottom = isNaNBits(this.mBottom) ? context.getFloat(idFromBits(this.mBottom)) : intBitsToFloat(this.mBottom);
+      this.mOutLeft = isNaNBits(this.mLeft) ? context.getFloat(idFromBits(this.mLeft)) : intBitsToFloat2(this.mLeft);
+      this.mOutTop = isNaNBits(this.mTop) ? context.getFloat(idFromBits(this.mTop)) : intBitsToFloat2(this.mTop);
+      this.mOutRight = isNaNBits(this.mRight) ? context.getFloat(idFromBits(this.mRight)) : intBitsToFloat2(this.mRight);
+      this.mOutBottom = isNaNBits(this.mBottom) ? context.getFloat(idFromBits(this.mBottom)) : intBitsToFloat2(this.mBottom);
     }
     apply(context) {
       if (context.mMode === "DATA" /* DATA */) return;
@@ -7078,8 +12755,8 @@ var RC = (() => {
       return this.mList;
     }
     updateVariables(context) {
-      this.mOutDuration = Number.isNaN(this.mDuration) ? context.getFloat(idFromBits(floatToRawIntBits(this.mDuration))) : this.mDuration;
-      this.mOutStartAt = Number.isNaN(this.mStartAt) ? context.getFloat(idFromBits(floatToRawIntBits(this.mStartAt))) : this.mStartAt;
+      this.mOutDuration = Number.isNaN(this.mDuration) ? context.getFloat(idFromBits(floatToRawIntBits2(this.mDuration))) : this.mDuration;
+      this.mOutStartAt = Number.isNaN(this.mStartAt) ? context.getFloat(idFromBits(floatToRawIntBits2(this.mStartAt))) : this.mStartAt;
     }
     /** The trailing ImpulseProcess is the repeating part; it is not run as setup. */
     takeProcess() {
@@ -8045,10 +13722,10 @@ var RC = (() => {
       this.mY1Bits = y1Bits;
       this.mX2Bits = x2Bits;
       this.mY2Bits = y2Bits;
-      this.mX1 = isNaNBits(x1Bits) ? 0 : intBitsToFloat(x1Bits);
-      this.mY1 = isNaNBits(y1Bits) ? 0 : intBitsToFloat(y1Bits);
-      this.mX2 = isNaNBits(x2Bits) ? 0 : intBitsToFloat(x2Bits);
-      this.mY2 = isNaNBits(y2Bits) ? 0 : intBitsToFloat(y2Bits);
+      this.mX1 = isNaNBits(x1Bits) ? 0 : intBitsToFloat2(x1Bits);
+      this.mY1 = isNaNBits(y1Bits) ? 0 : intBitsToFloat2(y1Bits);
+      this.mX2 = isNaNBits(x2Bits) ? 0 : intBitsToFloat2(x2Bits);
+      this.mY2 = isNaNBits(y2Bits) ? 0 : intBitsToFloat2(y2Bits);
     }
     write(_buffer) {
     }
@@ -8059,10 +13736,10 @@ var RC = (() => {
       if (isNaNBits(this.mY2Bits)) context.listensTo(idFromBits(this.mY2Bits), this);
     }
     updateVariables(context) {
-      this.mX1 = isNaNBits(this.mX1Bits) ? context.getFloat(idFromBits(this.mX1Bits)) : intBitsToFloat(this.mX1Bits);
-      this.mY1 = isNaNBits(this.mY1Bits) ? context.getFloat(idFromBits(this.mY1Bits)) : intBitsToFloat(this.mY1Bits);
-      this.mX2 = isNaNBits(this.mX2Bits) ? context.getFloat(idFromBits(this.mX2Bits)) : intBitsToFloat(this.mX2Bits);
-      this.mY2 = isNaNBits(this.mY2Bits) ? context.getFloat(idFromBits(this.mY2Bits)) : intBitsToFloat(this.mY2Bits);
+      this.mX1 = isNaNBits(this.mX1Bits) ? context.getFloat(idFromBits(this.mX1Bits)) : intBitsToFloat2(this.mX1Bits);
+      this.mY1 = isNaNBits(this.mY1Bits) ? context.getFloat(idFromBits(this.mY1Bits)) : intBitsToFloat2(this.mY1Bits);
+      this.mX2 = isNaNBits(this.mX2Bits) ? context.getFloat(idFromBits(this.mX2Bits)) : intBitsToFloat2(this.mX2Bits);
+      this.mY2 = isNaNBits(this.mY2Bits) ? context.getFloat(idFromBits(this.mY2Bits)) : intBitsToFloat2(this.mY2Bits);
     }
     paint(context) {
       this.paintBase4(context, this.mX1, this.mY1, this.mX2, this.mY2);
@@ -8096,9 +13773,9 @@ var RC = (() => {
       this.mV1Bits = v1Bits;
       this.mV2Bits = v2Bits;
       this.mV3Bits = v3Bits;
-      this.mV1 = isNaNBits(v1Bits) ? 0 : intBitsToFloat(v1Bits);
-      this.mV2 = isNaNBits(v2Bits) ? 0 : intBitsToFloat(v2Bits);
-      this.mV3 = isNaNBits(v3Bits) ? 0 : intBitsToFloat(v3Bits);
+      this.mV1 = isNaNBits(v1Bits) ? 0 : intBitsToFloat2(v1Bits);
+      this.mV2 = isNaNBits(v2Bits) ? 0 : intBitsToFloat2(v2Bits);
+      this.mV3 = isNaNBits(v3Bits) ? 0 : intBitsToFloat2(v3Bits);
     }
     write(_buffer) {
     }
@@ -8108,9 +13785,9 @@ var RC = (() => {
       if (isNaNBits(this.mV3Bits)) context.listensTo(idFromBits(this.mV3Bits), this);
     }
     updateVariables(context) {
-      this.mV1 = isNaNBits(this.mV1Bits) ? context.getFloat(idFromBits(this.mV1Bits)) : intBitsToFloat(this.mV1Bits);
-      this.mV2 = isNaNBits(this.mV2Bits) ? context.getFloat(idFromBits(this.mV2Bits)) : intBitsToFloat(this.mV2Bits);
-      this.mV3 = isNaNBits(this.mV3Bits) ? context.getFloat(idFromBits(this.mV3Bits)) : intBitsToFloat(this.mV3Bits);
+      this.mV1 = isNaNBits(this.mV1Bits) ? context.getFloat(idFromBits(this.mV1Bits)) : intBitsToFloat2(this.mV1Bits);
+      this.mV2 = isNaNBits(this.mV2Bits) ? context.getFloat(idFromBits(this.mV2Bits)) : intBitsToFloat2(this.mV2Bits);
+      this.mV3 = isNaNBits(this.mV3Bits) ? context.getFloat(idFromBits(this.mV3Bits)) : intBitsToFloat2(this.mV3Bits);
     }
     paint(context) {
       this.paintBase3(context, this.mV1, this.mV2, this.mV3);
@@ -8162,12 +13839,12 @@ var RC = (() => {
       this.mV4Bits = v4Bits;
       this.mV5Bits = v5Bits;
       this.mV6Bits = v6Bits;
-      this.mV1 = isNaNBits(v1Bits) ? 0 : intBitsToFloat(v1Bits);
-      this.mV2 = isNaNBits(v2Bits) ? 0 : intBitsToFloat(v2Bits);
-      this.mV3 = isNaNBits(v3Bits) ? 0 : intBitsToFloat(v3Bits);
-      this.mV4 = isNaNBits(v4Bits) ? 0 : intBitsToFloat(v4Bits);
-      this.mV5 = isNaNBits(v5Bits) ? 0 : intBitsToFloat(v5Bits);
-      this.mV6 = isNaNBits(v6Bits) ? 0 : intBitsToFloat(v6Bits);
+      this.mV1 = isNaNBits(v1Bits) ? 0 : intBitsToFloat2(v1Bits);
+      this.mV2 = isNaNBits(v2Bits) ? 0 : intBitsToFloat2(v2Bits);
+      this.mV3 = isNaNBits(v3Bits) ? 0 : intBitsToFloat2(v3Bits);
+      this.mV4 = isNaNBits(v4Bits) ? 0 : intBitsToFloat2(v4Bits);
+      this.mV5 = isNaNBits(v5Bits) ? 0 : intBitsToFloat2(v5Bits);
+      this.mV6 = isNaNBits(v6Bits) ? 0 : intBitsToFloat2(v6Bits);
     }
     write(_buffer) {
     }
@@ -8180,12 +13857,12 @@ var RC = (() => {
       if (isNaNBits(this.mV6Bits)) context.listensTo(idFromBits(this.mV6Bits), this);
     }
     updateVariables(context) {
-      this.mV1 = isNaNBits(this.mV1Bits) ? context.getFloat(idFromBits(this.mV1Bits)) : intBitsToFloat(this.mV1Bits);
-      this.mV2 = isNaNBits(this.mV2Bits) ? context.getFloat(idFromBits(this.mV2Bits)) : intBitsToFloat(this.mV2Bits);
-      this.mV3 = isNaNBits(this.mV3Bits) ? context.getFloat(idFromBits(this.mV3Bits)) : intBitsToFloat(this.mV3Bits);
-      this.mV4 = isNaNBits(this.mV4Bits) ? context.getFloat(idFromBits(this.mV4Bits)) : intBitsToFloat(this.mV4Bits);
-      this.mV5 = isNaNBits(this.mV5Bits) ? context.getFloat(idFromBits(this.mV5Bits)) : intBitsToFloat(this.mV5Bits);
-      this.mV6 = isNaNBits(this.mV6Bits) ? context.getFloat(idFromBits(this.mV6Bits)) : intBitsToFloat(this.mV6Bits);
+      this.mV1 = isNaNBits(this.mV1Bits) ? context.getFloat(idFromBits(this.mV1Bits)) : intBitsToFloat2(this.mV1Bits);
+      this.mV2 = isNaNBits(this.mV2Bits) ? context.getFloat(idFromBits(this.mV2Bits)) : intBitsToFloat2(this.mV2Bits);
+      this.mV3 = isNaNBits(this.mV3Bits) ? context.getFloat(idFromBits(this.mV3Bits)) : intBitsToFloat2(this.mV3Bits);
+      this.mV4 = isNaNBits(this.mV4Bits) ? context.getFloat(idFromBits(this.mV4Bits)) : intBitsToFloat2(this.mV4Bits);
+      this.mV5 = isNaNBits(this.mV5Bits) ? context.getFloat(idFromBits(this.mV5Bits)) : intBitsToFloat2(this.mV5Bits);
+      this.mV6 = isNaNBits(this.mV6Bits) ? context.getFloat(idFromBits(this.mV6Bits)) : intBitsToFloat2(this.mV6Bits);
     }
     paint(context) {
       this.paintBase6(context, this.mV1, this.mV2, this.mV3, this.mV4, this.mV5, this.mV6);
@@ -8257,514 +13934,6 @@ var RC = (() => {
   };
   _DrawSector.OP_CODE = 52;
   var DrawSector = _DrawSector;
-
-  // third_party/remote-compose-player/src/core/operations/Mesh2DGenerator.ts
-  var LAYOUT_POLAR = 1;
-  var LAYOUT_RING = 2;
-  var LAYOUT_FAN = 4;
-  var LAYOUT_PATH_STRIP = 5;
-  var TYPE_EXPRESSION = 0;
-  var TYPE_F16_VALUES = 2;
-  var TYPE_PATH_SPLINE_STRIP = 3;
-  var TYPE_SPLINE_ROUND_STRIP = 4;
-  var BLEND_MODULATE = 1;
-  var FLAG_ORIGIN = 0;
-  var FLAG_ROTATION = 1;
-  var FLAG_SCALE = 2;
-  var FLAG_FULL = 3;
-  var EXPRESSION_GROUPS = 9;
-  var EXP_X = 0;
-  var EXP_Y = 1;
-  var EXP_TEX_U = 2;
-  var EXP_TEX_V = 3;
-  var EXP_COLOR_A = 4;
-  var EXP_COLOR_R = 5;
-  var EXP_COLOR_G = 6;
-  var EXP_COLOR_B = 7;
-  var EXP_WIDTH = 8;
-  var DEFAULT_RING_INNER_RADIUS = 0.5;
-  var TWO_PI = 6.2831855;
-  var HALF_PI = 1.5707964;
-  var DEGENERATE_EPSILON = 1e-6;
-  var MAX_MESH_2D_VERTICES = 16384;
-  function wrapsU(layout) {
-    return layout === LAYOUT_POLAR || layout === LAYOUT_RING || layout === LAYOUT_FAN;
-  }
-  function vertexCount(layout, uCount, vCount) {
-    if (layout === LAYOUT_FAN) return uCount + 1;
-    return uCount * vCount;
-  }
-  function indexCount(layout, uCount, vCount) {
-    if (layout === LAYOUT_FAN) return uCount * 3;
-    if (vCount < 2 || uCount < 2) return 0;
-    const columns = wrapsU(layout) ? uCount : uCount - 1;
-    return columns * (vCount - 1) * 6;
-  }
-  function domainU(layout, i, uCount) {
-    if (uCount <= 1) return 0;
-    if (wrapsU(layout)) return i / uCount;
-    return i / (uCount - 1);
-  }
-  function domainV(j, vCount) {
-    if (vCount <= 1) return 0;
-    return j / (vCount - 1);
-  }
-  function generateIndices(layout, uCount, vCount) {
-    const out = new Int32Array(Math.max(0, indexCount(layout, uCount, vCount)));
-    let k = 0;
-    if (layout === LAYOUT_FAN) {
-      for (let i = 0; i < uCount; i++) {
-        out[k++] = 0;
-        out[k++] = 1 + i;
-        out[k++] = 1 + (i + 1) % uCount;
-      }
-      return out;
-    }
-    if (vCount < 2 || uCount < 2) return out;
-    const wrap = wrapsU(layout);
-    const columns = wrap ? uCount : uCount - 1;
-    for (let j = 0; j < vCount - 1; j++) {
-      for (let i = 0; i < columns; i++) {
-        const i1 = wrap ? (i + 1) % uCount : i + 1;
-        const topLeft = j * uCount + i;
-        const topRight = j * uCount + i1;
-        const bottomLeft = (j + 1) * uCount + i;
-        const bottomRight = (j + 1) * uCount + i1;
-        out[k++] = topLeft;
-        out[k++] = bottomLeft;
-        out[k++] = topRight;
-        out[k++] = topRight;
-        out[k++] = bottomLeft;
-        out[k++] = bottomRight;
-      }
-    }
-    return out;
-  }
-  function defaultPosition(layout, u, v, out) {
-    switch (layout) {
-      case LAYOUT_POLAR:
-      case LAYOUT_FAN: {
-        const angle = u * TWO_PI;
-        out[0] = v * Math.cos(angle);
-        out[1] = v * Math.sin(angle);
-        break;
-      }
-      case LAYOUT_RING: {
-        const angle = u * TWO_PI;
-        const radius = DEFAULT_RING_INNER_RADIUS + (1 - DEFAULT_RING_INNER_RADIUS) * v;
-        out[0] = radius * Math.cos(angle);
-        out[1] = radius * Math.sin(angle);
-        break;
-      }
-      default:
-        out[0] = u;
-        out[1] = v;
-        break;
-    }
-  }
-  var _f32 = new Float32Array(1);
-  var _i32 = new Int32Array(_f32.buffer);
-  function halfToFloat(half) {
-    const sign = (half & 32768) << 16;
-    const exponent = half >> 10 & 31;
-    let mantissa = half & 1023;
-    let bits;
-    if (exponent === 0) {
-      if (mantissa === 0) {
-        bits = sign;
-      } else {
-        let shift = 0;
-        while ((mantissa & 1024) === 0) {
-          mantissa <<= 1;
-          shift++;
-        }
-        mantissa &= 1023;
-        bits = sign | 127 - 15 - shift << 23 | mantissa << 13;
-      }
-    } else if (exponent === 31) {
-      bits = sign | 2139095040 | mantissa << 13;
-    } else {
-      bits = sign | exponent - 15 + 127 << 23 | mantissa << 13;
-    }
-    _i32[0] = bits;
-    return _f32[0];
-  }
-  var PATH_MOVE = 10;
-  var PATH_LINE = 11;
-  var PATH_QUAD = 12;
-  var PATH_CONIC = 13;
-  var PATH_CUBIC = 14;
-  var PATH_CLOSE = 15;
-  var PATH_DONE = 16;
-  var PATH_CURVE_STEPS = 16;
-  function pathNanId(v) {
-    _f32[0] = v;
-    return _i32[0] & 4194303;
-  }
-  function isPathCommand(v) {
-    if (!Number.isNaN(v)) return false;
-    const id = pathNanId(v);
-    return id >= PATH_MOVE && id <= PATH_DONE;
-  }
-  function flattenPath(data, resolve2) {
-    const out = [];
-    let startX = 0, startY = 0, curX = 0, curY = 0, open = false;
-    const push = (x, y) => {
-      const n2 = out.length;
-      if (n2 >= 2 && out[n2 - 2] === x && out[n2 - 1] === y) return;
-      out.push(x, y);
-    };
-    let i = 0;
-    const n = data.length;
-    while (i < n) {
-      if (!isPathCommand(data[i])) {
-        i++;
-        continue;
-      }
-      switch (pathNanId(data[i])) {
-        case PATH_MOVE:
-          i++;
-          if (i + 1 < n) {
-            curX = startX = resolve2(data[i]);
-            curY = startY = resolve2(data[i + 1]);
-            push(curX, curY);
-            open = true;
-            i += 2;
-          }
-          break;
-        case PATH_LINE:
-          i += 3;
-          if (i + 1 < n) {
-            curX = resolve2(data[i]);
-            curY = resolve2(data[i + 1]);
-            push(curX, curY);
-            i += 2;
-          }
-          break;
-        case PATH_QUAD:
-          i += 3;
-          if (i + 3 < n) {
-            const cx = resolve2(data[i]), cy = resolve2(data[i + 1]);
-            const x = resolve2(data[i + 2]), y = resolve2(data[i + 3]);
-            for (let s = 1; s <= PATH_CURVE_STEPS; s++) {
-              const t = s / PATH_CURVE_STEPS, mt = 1 - t;
-              push(
-                mt * mt * curX + 2 * mt * t * cx + t * t * x,
-                mt * mt * curY + 2 * mt * t * cy + t * t * y
-              );
-            }
-            curX = x;
-            curY = y;
-            i += 4;
-          }
-          break;
-        case PATH_CONIC:
-          i += 3;
-          if (i + 4 < n) {
-            const cx = resolve2(data[i]), cy = resolve2(data[i + 1]);
-            const x = resolve2(data[i + 2]), y = resolve2(data[i + 3]);
-            const w = resolve2(data[i + 4]);
-            for (let s = 1; s <= PATH_CURVE_STEPS; s++) {
-              const t = s / PATH_CURVE_STEPS, mt = 1 - t;
-              const w0 = mt * mt, w1 = 2 * mt * t * w, w2 = t * t;
-              const denom = w0 + w1 + w2;
-              if (denom === 0) continue;
-              push(
-                (w0 * curX + w1 * cx + w2 * x) / denom,
-                (w0 * curY + w1 * cy + w2 * y) / denom
-              );
-            }
-            curX = x;
-            curY = y;
-            i += 5;
-          }
-          break;
-        case PATH_CUBIC:
-          i += 3;
-          if (i + 5 < n) {
-            const c1x = resolve2(data[i]), c1y = resolve2(data[i + 1]);
-            const c2x = resolve2(data[i + 2]), c2y = resolve2(data[i + 3]);
-            const x = resolve2(data[i + 4]), y = resolve2(data[i + 5]);
-            for (let s = 1; s <= PATH_CURVE_STEPS; s++) {
-              const t = s / PATH_CURVE_STEPS, mt = 1 - t;
-              const a = mt * mt * mt, b = 3 * mt * mt * t;
-              const c = 3 * mt * t * t, d = t * t * t;
-              push(
-                a * curX + b * c1x + c * c2x + d * x,
-                a * curY + b * c1y + c * c2y + d * y
-              );
-            }
-            curX = x;
-            curY = y;
-            i += 6;
-          }
-          break;
-        case PATH_CLOSE:
-          i++;
-          if (open) push(startX, startY);
-          curX = startX;
-          curY = startY;
-          break;
-        case PATH_DONE:
-        default:
-          return new Float32Array(out);
-      }
-    }
-    return new Float32Array(out);
-  }
-  function samplePolyline(poly, pointCount, fraction, out) {
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 1;
-    out[3] = 0;
-    if (pointCount < 2) {
-      if (pointCount === 1) {
-        out[0] = poly[0];
-        out[1] = poly[1];
-      }
-      return;
-    }
-    let total = 0;
-    for (let i = 0; i + 1 < pointCount; i++) {
-      const dx = poly[(i + 1) * 2] - poly[i * 2];
-      const dy = poly[(i + 1) * 2 + 1] - poly[i * 2 + 1];
-      total += Math.sqrt(dx * dx + dy * dy);
-    }
-    if (total <= 0) {
-      out[0] = poly[0];
-      out[1] = poly[1];
-      return;
-    }
-    const target = Math.min(Math.max(fraction, 0), 1) * total;
-    let walked = 0;
-    for (let i = 0; i + 1 < pointCount; i++) {
-      const x0 = poly[i * 2], y0 = poly[i * 2 + 1];
-      const x1 = poly[(i + 1) * 2], y1 = poly[(i + 1) * 2 + 1];
-      const dx = x1 - x0, dy = y1 - y0;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      if (len <= 0) continue;
-      if (walked + len >= target || i + 2 === pointCount) {
-        const t = Math.min(Math.max((target - walked) / len, 0), 1);
-        out[0] = x0 + dx * t;
-        out[1] = y0 + dy * t;
-        out[2] = dx / len;
-        out[3] = dy / len;
-        return;
-      }
-      walked += len;
-    }
-  }
-  function roundCapPoint(sample, halfWidth, t, v, direction, out) {
-    const tx = sample[2] * direction, ty = sample[3] * direction;
-    const nx = -sample[3], ny = sample[2];
-    const angle = (1 - t) * HALF_PI;
-    const along = Math.sin(angle) * halfWidth;
-    const across = Math.cos(angle) * halfWidth;
-    const side = (v - 0.5) * 2;
-    out[0] = sample[0] + tx * along + nx * across * side;
-    out[1] = sample[1] + ty * along + ny * across * side;
-  }
-  var MonotonicSpline = class {
-    constructor() {
-      this.x = [];
-      this.y = [];
-      this.m = [];
-    }
-    fit(xs, ys) {
-      this.x = xs;
-      this.y = ys;
-      const n = xs.length;
-      this.m = new Array(n).fill(0);
-      if (n < 2) return;
-      const d = new Array(n - 1).fill(0);
-      for (let i = 0; i + 1 < n; i++) {
-        const dx = xs[i + 1] - xs[i];
-        d[i] = dx !== 0 ? (ys[i + 1] - ys[i]) / dx : 0;
-      }
-      this.m[0] = d[0];
-      this.m[n - 1] = d[n - 2];
-      for (let i = 1; i + 1 < n; i++) {
-        this.m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) * 0.5;
-      }
-      for (let i = 0; i + 1 < n; i++) {
-        if (d[i] === 0) {
-          this.m[i] = 0;
-          this.m[i + 1] = 0;
-          continue;
-        }
-        const a = this.m[i] / d[i], b = this.m[i + 1] / d[i];
-        const s = a * a + b * b;
-        if (s > 9) {
-          const t = 3 / Math.sqrt(s);
-          this.m[i] = t * a * d[i];
-          this.m[i + 1] = t * b * d[i];
-        }
-      }
-    }
-    get isEmpty() {
-      return this.x.length === 0;
-    }
-    at(x) {
-      const n = this.x.length;
-      if (n === 0) return 0;
-      if (n === 1 || x <= this.x[0]) return this.y[0];
-      if (x >= this.x[n - 1]) return this.y[n - 1];
-      let i = 0;
-      while (i + 2 < n && x > this.x[i + 1]) i++;
-      const h = this.x[i + 1] - this.x[i];
-      if (h <= 0) return this.y[i];
-      const t = (x - this.x[i]) / h, t2 = t * t, t3 = t2 * t;
-      return (2 * t3 - 3 * t2 + 1) * this.y[i] + (t3 - 2 * t2 + t) * h * this.m[i] + (-2 * t3 + 3 * t2) * this.y[i + 1] + (t3 - t2) * h * this.m[i + 1];
-    }
-  };
-  function bilinear(verts, uCount, i0, j0, i1, j1, tu, tv, c) {
-    const v00 = verts[(j0 * uCount + i0) * 2 + c];
-    const v10 = verts[(j0 * uCount + i1) * 2 + c];
-    const v01 = verts[(j1 * uCount + i0) * 2 + c];
-    const v11 = verts[(j1 * uCount + i1) * 2 + c];
-    const top = v00 + (v10 - v00) * tu;
-    const bottom = v01 + (v11 - v01) * tu;
-    return top + (bottom - top) * tv;
-  }
-  function sampleMeshPosition(layout, uCount, vCount, verts, u, v, out) {
-    const vc = verts.length / 2;
-    if (vc === 0) {
-      out[0] = 0;
-      out[1] = 0;
-      return;
-    }
-    if (layout === LAYOUT_FAN && uCount >= 1 && vc === uCount + 1) {
-      const uNorm = (u % 1 + 1) % 1;
-      const fu = uNorm * uCount;
-      const i0 = Math.floor(fu) % uCount;
-      const i1 = (i0 + 1) % uCount;
-      const tu = fu - Math.floor(fu);
-      const rimX = (1 - tu) * verts[(1 + i0) * 2] + tu * verts[(1 + i1) * 2];
-      const rimY = (1 - tu) * verts[(1 + i0) * 2 + 1] + tu * verts[(1 + i1) * 2 + 1];
-      const vClamp = Math.min(Math.max(v, 0), 1);
-      out[0] = (1 - vClamp) * verts[0] + vClamp * rimX;
-      out[1] = (1 - vClamp) * verts[1] + vClamp * rimY;
-      return;
-    }
-    if (uCount >= 2 && vCount >= 2 && uCount * vCount === vc) {
-      let i0, i1, tu;
-      if (wrapsU(layout)) {
-        const uNorm = (u % 1 + 1) % 1;
-        const fu = uNorm * uCount;
-        i0 = Math.floor(fu) % uCount;
-        i1 = (i0 + 1) % uCount;
-        tu = fu - Math.floor(fu);
-      } else {
-        const fu = Math.min(Math.max(u, 0), 1) * (uCount - 1);
-        i0 = Math.floor(fu);
-        i1 = Math.min(uCount - 1, i0 + 1);
-        tu = fu - i0;
-      }
-      const fv = Math.min(Math.max(v, 0), 1) * (vCount - 1);
-      const j0 = Math.floor(fv);
-      const j1 = Math.min(vCount - 1, j0 + 1);
-      const tv = fv - j0;
-      out[0] = bilinear(verts, uCount, i0, j0, i1, j1, tu, tv, 0);
-      out[1] = bilinear(verts, uCount, i0, j0, i1, j1, tu, tv, 1);
-      return;
-    }
-    const nearest = Math.max(0, Math.min(
-      vc - 1,
-      Math.round(Math.min(Math.max(u, 0), 1) * (vc - 1))
-    ));
-    out[0] = verts[nearest * 2];
-    out[1] = verts[nearest * 2 + 1];
-  }
-  function sampleFrame(layout, uCount, vCount, verts, u, v, out) {
-    if (verts.length < 2) return false;
-    const uc = Math.max(2, uCount);
-    const vc = Math.max(2, vCount);
-    const wrap = wrapsU(layout);
-    const du = 1 / (wrap ? uc : uc - 1);
-    const dv = 1 / (vc - 1);
-    const centre = new Float32Array(2), uPlus = new Float32Array(2);
-    const uMinus = new Float32Array(2), vPlus = new Float32Array(2), vMinus = new Float32Array(2);
-    sampleMeshPosition(layout, uCount, vCount, verts, u, v, centre);
-    let uSpan;
-    if (wrap) {
-      sampleMeshPosition(layout, uCount, vCount, verts, u + du * 0.5, v, uPlus);
-      sampleMeshPosition(layout, uCount, vCount, verts, u - du * 0.5, v, uMinus);
-      uSpan = du;
-    } else {
-      const uHi = Math.min(1, u + du * 0.5), uLo = Math.max(0, u - du * 0.5);
-      sampleMeshPosition(layout, uCount, vCount, verts, uHi, v, uPlus);
-      sampleMeshPosition(layout, uCount, vCount, verts, uLo, v, uMinus);
-      uSpan = uHi - uLo;
-      if (uSpan <= 0) uSpan = du;
-    }
-    const vHi = Math.min(1, v + dv * 0.5), vLo = Math.max(0, v - dv * 0.5);
-    sampleMeshPosition(layout, uCount, vCount, verts, u, vHi, vPlus);
-    sampleMeshPosition(layout, uCount, vCount, verts, u, vLo, vMinus);
-    let vSpan = vHi - vLo;
-    if (vSpan <= 0) vSpan = dv;
-    out[0] = (uPlus[0] - uMinus[0]) / uSpan;
-    out[1] = (uPlus[1] - uMinus[1]) / uSpan;
-    out[2] = (vPlus[0] - vMinus[0]) / vSpan;
-    out[3] = (vPlus[1] - vMinus[1]) / vSpan;
-    out[4] = centre[0];
-    out[5] = centre[1];
-    return true;
-  }
-  function buildMatrix(frame, flags, out) {
-    const duX = frame[0], duY = frame[1], dvX = frame[2], dvY = frame[3];
-    const originX = frame[4], originY = frame[5];
-    const duLength = Math.hypot(duX, duY);
-    const dvLength = Math.hypot(dvX, dvY);
-    const cross2 = duX * dvY - duY * dvX;
-    let effective = flags;
-    if (effective >= FLAG_FULL && Math.abs(cross2) < DEGENERATE_EPSILON) effective = FLAG_SCALE;
-    if (effective >= FLAG_SCALE && (duLength < DEGENERATE_EPSILON || dvLength < DEGENERATE_EPSILON)) {
-      effective = FLAG_ROTATION;
-    }
-    if (effective >= FLAG_ROTATION && duLength < DEGENERATE_EPSILON) effective = FLAG_ORIGIN;
-    switch (effective) {
-      case FLAG_FULL:
-        out[0] = duX;
-        out[1] = duY;
-        out[2] = dvX;
-        out[3] = dvY;
-        break;
-      case FLAG_SCALE: {
-        const ux = duX / duLength, uy = duY / duLength;
-        const sign = cross2 < 0 ? -1 : 1;
-        out[0] = ux * duLength;
-        out[1] = uy * duLength;
-        out[2] = -uy * dvLength * sign;
-        out[3] = ux * dvLength * sign;
-        break;
-      }
-      case FLAG_ROTATION: {
-        const ux = duX / duLength, uy = duY / duLength;
-        const sign = cross2 < 0 ? -1 : 1;
-        out[0] = ux;
-        out[1] = uy;
-        out[2] = -uy * sign;
-        out[3] = ux * sign;
-        break;
-      }
-      case FLAG_ORIGIN:
-      default:
-        out[0] = 1;
-        out[1] = 0;
-        out[2] = 0;
-        out[3] = 1;
-        break;
-    }
-    out[4] = originX;
-    out[5] = originY;
-  }
-  function clamp255(f) {
-    const i = Math.trunc(f * 255 + 0.5);
-    return i < 0 ? 0 : i > 255 ? 255 : i;
-  }
-  function packColor(a, r, g, b) {
-    return clamp255(a) << 24 | clamp255(r) << 16 | clamp255(g) << 8 | clamp255(b) | 0;
-  }
 
   // third_party/remote-compose-player/src/core/operations/Mesh2D.ts
   var MESH_OP_OFFSET = 3211264;
@@ -8886,7 +14055,7 @@ var RC = (() => {
     evaluate(context, group, u, v, fallback) {
       const e = this.mExpressions[group];
       if (!e || e.length === 0) return fallback;
-      if (e.length === 1 && !isNaNBits(e[0])) return intBitsToFloat(e[0]);
+      if (e.length === 1 && !isNaNBits(e[0])) return intBitsToFloat2(e[0]);
       this.mVars[0] = u;
       this.mVars[1] = v;
       return FloatExpression.evalRPN(context, e, this.mVars);
@@ -9189,9 +14358,9 @@ var RC = (() => {
       this.mTweenBits = tweenBits;
       this.mStartBits = startBits;
       this.mEndBits = endBits;
-      this.mOutTween = isNaNBits(tweenBits) ? 0 : intBitsToFloat(tweenBits);
-      this.mOutStart = isNaNBits(startBits) ? 0 : intBitsToFloat(startBits);
-      this.mOutEnd = isNaNBits(endBits) ? 0 : intBitsToFloat(endBits);
+      this.mOutTween = isNaNBits(tweenBits) ? 0 : intBitsToFloat2(tweenBits);
+      this.mOutStart = isNaNBits(startBits) ? 0 : intBitsToFloat2(startBits);
+      this.mOutEnd = isNaNBits(endBits) ? 0 : intBitsToFloat2(endBits);
     }
     write(_buffer) {
     }
@@ -9201,9 +14370,9 @@ var RC = (() => {
       if (isNaNBits(this.mEndBits)) context.listensTo(idFromBits(this.mEndBits), this);
     }
     updateVariables(context) {
-      this.mOutTween = isNaNBits(this.mTweenBits) ? context.getFloat(idFromBits(this.mTweenBits)) : intBitsToFloat(this.mTweenBits);
-      this.mOutStart = isNaNBits(this.mStartBits) ? context.getFloat(idFromBits(this.mStartBits)) : intBitsToFloat(this.mStartBits);
-      this.mOutEnd = isNaNBits(this.mEndBits) ? context.getFloat(idFromBits(this.mEndBits)) : intBitsToFloat(this.mEndBits);
+      this.mOutTween = isNaNBits(this.mTweenBits) ? context.getFloat(idFromBits(this.mTweenBits)) : intBitsToFloat2(this.mTweenBits);
+      this.mOutStart = isNaNBits(this.mStartBits) ? context.getFloat(idFromBits(this.mStartBits)) : intBitsToFloat2(this.mStartBits);
+      this.mOutEnd = isNaNBits(this.mEndBits) ? context.getFloat(idFromBits(this.mEndBits)) : intBitsToFloat2(this.mEndBits);
     }
     paint(context) {
       context.drawTweenPath(this.getId(this.mPath1Id, context), this.getId(this.mPath2Id, context), this.mOutTween, this.mOutStart, this.mOutEnd);
@@ -9265,10 +14434,10 @@ var RC = (() => {
       this.mRightBits = rightBits;
       this.mBottomBits = bottomBits;
       this.mCdId = cdId;
-      this.mOutLeft = isNaNBits(leftBits) ? 0 : intBitsToFloat(leftBits);
-      this.mOutTop = isNaNBits(topBits) ? 0 : intBitsToFloat(topBits);
-      this.mOutRight = isNaNBits(rightBits) ? 0 : intBitsToFloat(rightBits);
-      this.mOutBottom = isNaNBits(bottomBits) ? 0 : intBitsToFloat(bottomBits);
+      this.mOutLeft = isNaNBits(leftBits) ? 0 : intBitsToFloat2(leftBits);
+      this.mOutTop = isNaNBits(topBits) ? 0 : intBitsToFloat2(topBits);
+      this.mOutRight = isNaNBits(rightBits) ? 0 : intBitsToFloat2(rightBits);
+      this.mOutBottom = isNaNBits(bottomBits) ? 0 : intBitsToFloat2(bottomBits);
     }
     write(_buffer) {
     }
@@ -9279,10 +14448,10 @@ var RC = (() => {
       if (isNaNBits(this.mBottomBits)) context.listensTo(idFromBits(this.mBottomBits), this);
     }
     updateVariables(context) {
-      this.mOutLeft = isNaNBits(this.mLeftBits) ? context.getFloat(idFromBits(this.mLeftBits)) : intBitsToFloat(this.mLeftBits);
-      this.mOutTop = isNaNBits(this.mTopBits) ? context.getFloat(idFromBits(this.mTopBits)) : intBitsToFloat(this.mTopBits);
-      this.mOutRight = isNaNBits(this.mRightBits) ? context.getFloat(idFromBits(this.mRightBits)) : intBitsToFloat(this.mRightBits);
-      this.mOutBottom = isNaNBits(this.mBottomBits) ? context.getFloat(idFromBits(this.mBottomBits)) : intBitsToFloat(this.mBottomBits);
+      this.mOutLeft = isNaNBits(this.mLeftBits) ? context.getFloat(idFromBits(this.mLeftBits)) : intBitsToFloat2(this.mLeftBits);
+      this.mOutTop = isNaNBits(this.mTopBits) ? context.getFloat(idFromBits(this.mTopBits)) : intBitsToFloat2(this.mTopBits);
+      this.mOutRight = isNaNBits(this.mRightBits) ? context.getFloat(idFromBits(this.mRightBits)) : intBitsToFloat2(this.mRightBits);
+      this.mOutBottom = isNaNBits(this.mBottomBits) ? context.getFloat(idFromBits(this.mBottomBits)) : intBitsToFloat2(this.mBottomBits);
     }
     paint(context) {
       context.drawBitmapSimple(
@@ -9479,7 +14648,7 @@ var RC = (() => {
     constructor(imageId, srcL, srcT, srcR, srcB, dstL, dstT, dstR, dstB, scaleType, scaleFactor, cdId) {
       super();
       this.mScaling = new ImageScaling();
-      const lit = (b) => isNaNBits(b) ? 0 : intBitsToFloat(b);
+      const lit = (b) => isNaNBits(b) ? 0 : intBitsToFloat2(b);
       this.mImageId = imageId;
       this.mSrcLeft = srcL;
       this.mOutSrcLeft = lit(srcL);
@@ -9522,7 +14691,7 @@ var RC = (() => {
       register(this.mScaleFactor);
     }
     updateVariables(context) {
-      const resolve2 = (b) => isNaNBits(b) ? context.getFloat(idFromBits(b)) : intBitsToFloat(b);
+      const resolve2 = (b) => isNaNBits(b) ? context.getFloat(idFromBits(b)) : intBitsToFloat2(b);
       this.mOutSrcLeft = resolve2(this.mSrcLeft);
       this.mOutSrcTop = resolve2(this.mSrcTop);
       this.mOutSrcRight = resolve2(this.mSrcRight);
@@ -9595,8 +14764,8 @@ var RC = (() => {
       this.mContextEnd = contextEnd;
       this.mXBits = xBits;
       this.mYBits = yBits;
-      this.mX = isNaNBits(xBits) ? 0 : intBitsToFloat(xBits);
-      this.mY = isNaNBits(yBits) ? 0 : intBitsToFloat(yBits);
+      this.mX = isNaNBits(xBits) ? 0 : intBitsToFloat2(xBits);
+      this.mY = isNaNBits(yBits) ? 0 : intBitsToFloat2(yBits);
       this.mRtl = rtl;
     }
     write(_buffer) {
@@ -9607,8 +14776,8 @@ var RC = (() => {
       if (isNaNBits(this.mYBits)) context.listensTo(idFromBits(this.mYBits), this);
     }
     updateVariables(context) {
-      this.mX = isNaNBits(this.mXBits) ? context.getFloat(idFromBits(this.mXBits)) : intBitsToFloat(this.mXBits);
-      this.mY = isNaNBits(this.mYBits) ? context.getFloat(idFromBits(this.mYBits)) : intBitsToFloat(this.mYBits);
+      this.mX = isNaNBits(this.mXBits) ? context.getFloat(idFromBits(this.mXBits)) : intBitsToFloat2(this.mXBits);
+      this.mY = isNaNBits(this.mYBits) ? context.getFloat(idFromBits(this.mYBits)) : intBitsToFloat2(this.mYBits);
     }
     paint(context) {
       context.drawTextRun(
@@ -9649,8 +14818,8 @@ var RC = (() => {
       this.mPathId = pathId;
       this.mHOffsetBits = hOffsetBits;
       this.mVOffsetBits = vOffsetBits;
-      this.mOutHOffset = isNaNBits(hOffsetBits) ? 0 : intBitsToFloat(hOffsetBits);
-      this.mOutVOffset = isNaNBits(vOffsetBits) ? 0 : intBitsToFloat(vOffsetBits);
+      this.mOutHOffset = isNaNBits(hOffsetBits) ? 0 : intBitsToFloat2(hOffsetBits);
+      this.mOutVOffset = isNaNBits(vOffsetBits) ? 0 : intBitsToFloat2(vOffsetBits);
     }
     write(_buffer) {
     }
@@ -9660,8 +14829,8 @@ var RC = (() => {
       if (isNaNBits(this.mVOffsetBits)) context.listensTo(idFromBits(this.mVOffsetBits), this);
     }
     updateVariables(context) {
-      this.mOutHOffset = isNaNBits(this.mHOffsetBits) ? context.getFloat(idFromBits(this.mHOffsetBits)) : intBitsToFloat(this.mHOffsetBits);
-      this.mOutVOffset = isNaNBits(this.mVOffsetBits) ? context.getFloat(idFromBits(this.mVOffsetBits)) : intBitsToFloat(this.mVOffsetBits);
+      this.mOutHOffset = isNaNBits(this.mHOffsetBits) ? context.getFloat(idFromBits(this.mHOffsetBits)) : intBitsToFloat2(this.mHOffsetBits);
+      this.mOutVOffset = isNaNBits(this.mVOffsetBits) ? context.getFloat(idFromBits(this.mVOffsetBits)) : intBitsToFloat2(this.mVOffsetBits);
     }
     paint(context) {
       context.drawTextOnPath(this.mTextId, this.getId(this.mPathId, context), this.mOutHOffset, this.mOutVOffset);
@@ -9723,99 +14892,6 @@ var RC = (() => {
   _DrawLine.OP_CODE = 47;
   var DrawLine = _DrawLine;
 
-  // third_party/remote-compose-player/src/core/PaintContext.ts
-  var PaintContext = class {
-    constructor(context) {
-      this.mNeedsRepaint = false;
-      this.mMeasureVersion = 0;
-      this.mContext = context;
-    }
-    getContext() {
-      return this.mContext;
-    }
-    setContext(context) {
-      this.mContext = context;
-    }
-    doesNeedsRepaint() {
-      return this.mNeedsRepaint;
-    }
-    clearNeedsRepaint() {
-      this.mNeedsRepaint = false;
-    }
-    needsRepaint() {
-      this.mNeedsRepaint = true;
-    }
-    setNeedsRepaint(v) {
-      this.mNeedsRepaint = v;
-    }
-    setMeasureVersion(v) {
-      this.mMeasureVersion = v;
-    }
-    getMeasureVersion() {
-      return this.mMeasureVersion;
-    }
-    save() {
-      this.matrixSave();
-    }
-    restore() {
-      this.matrixRestore();
-    }
-    saveLayer(_x, _y, _w, _h) {
-      this.matrixSave();
-    }
-    /** Display density, from the underlying RemoteContext (mirrors Java's PaintContext). */
-    getDensity() {
-      return this.mContext.getDensity();
-    }
-    /**
-     * The document's density behaviour. Layout managers need this to decide whether their
-     * dp-valued spacing scales; they only ever hold a PaintContext, so it has to be reachable
-     * from here.
-     */
-    getDensityBehavior() {
-      return this.mContext.getDensityBehavior();
-    }
-    getClock() {
-      return this.mContext.getClock();
-    }
-    isDebug() {
-      return this.mContext.isBasicDebug();
-    }
-    isAnimationEnabled() {
-      return this.mContext.isAnimationEnabled();
-    }
-    isVisualDebug() {
-      return this.mContext.isVisualDebug();
-    }
-    supportsVersion(major, minor, patch) {
-      return this.mContext.supportsVersion(major, minor, patch);
-    }
-    log(content) {
-      console.log(`[LOG] ${content}`);
-    }
-    wakeIn(seconds) {
-      this.mContext.mRemoteComposeState.wakeIn(seconds);
-    }
-    // ── 2D vertex meshes ────────────────────────────────────────────────────────────────
-    //
-    // Deliberately not abstract: a backend that has not implemented meshes still compiles and
-    // draws nothing. Geometry arrives already in the layout drawVertices wants. An empty `uv`
-    // or `colors` means the channel is absent.
-    //
-    // drawMesh must leave the paint exactly as it found it.
-    setMesh(_meshId, _layout, _uCount, _vCount, _verts, _uv, _colors, _indices) {
-    }
-    drawMesh(_meshId, _blend, _imageId) {
-    }
-    matrixFromMesh(_meshId, _u, _v, _flags) {
-    }
-  };
-  PaintContext.TEXT_MEASURE_MONOSPACE_WIDTH = 1;
-  PaintContext.TEXT_MEASURE_FONT_HEIGHT = 2;
-  PaintContext.TEXT_MEASURE_SPACES = 4;
-  PaintContext.TEXT_COMPLEX = 8;
-  PaintContext.TEXT_MEASURE_AUTOSIZE = 16;
-
   // third_party/remote-compose-player/src/core/operations/DrawTextAnchored.ts
   var _DrawTextAnchored = class _DrawTextAnchored extends PaintOperation {
     constructor(textId, xBits, yBits, panXBits, panYBits, flags) {
@@ -9829,10 +14905,10 @@ var RC = (() => {
       this.mPanXBits = panXBits;
       this.mPanYBits = panYBits;
       this.mFlags = flags;
-      this.mOutX = isNaNBits(xBits) ? 0 : intBitsToFloat(xBits);
-      this.mOutY = isNaNBits(yBits) ? 0 : intBitsToFloat(yBits);
-      this.mOutPanX = isNaNBits(panXBits) ? 0 : intBitsToFloat(panXBits);
-      this.mOutPanY = intBitsToFloat(panYBits);
+      this.mOutX = isNaNBits(xBits) ? 0 : intBitsToFloat2(xBits);
+      this.mOutY = isNaNBits(yBits) ? 0 : intBitsToFloat2(yBits);
+      this.mOutPanX = isNaNBits(panXBits) ? 0 : intBitsToFloat2(panXBits);
+      this.mOutPanY = intBitsToFloat2(panYBits);
     }
     write(_buffer) {
     }
@@ -9852,10 +14928,10 @@ var RC = (() => {
       }
     }
     updateVariables(context) {
-      this.mOutX = isNaNBits(this.mXBits) ? context.getFloat(idFromBits(this.mXBits)) : intBitsToFloat(this.mXBits);
-      this.mOutY = isNaNBits(this.mYBits) ? context.getFloat(idFromBits(this.mYBits)) : intBitsToFloat(this.mYBits);
-      this.mOutPanX = isNaNBits(this.mPanXBits) ? context.getFloat(idFromBits(this.mPanXBits)) : intBitsToFloat(this.mPanXBits);
-      this.mOutPanY = isNaNBits(this.mPanYBits) && idFromBits(this.mPanYBits) > 0 ? context.getFloat(idFromBits(this.mPanYBits)) : intBitsToFloat(this.mPanYBits);
+      this.mOutX = isNaNBits(this.mXBits) ? context.getFloat(idFromBits(this.mXBits)) : intBitsToFloat2(this.mXBits);
+      this.mOutY = isNaNBits(this.mYBits) ? context.getFloat(idFromBits(this.mYBits)) : intBitsToFloat2(this.mYBits);
+      this.mOutPanX = isNaNBits(this.mPanXBits) ? context.getFloat(idFromBits(this.mPanXBits)) : intBitsToFloat2(this.mPanXBits);
+      this.mOutPanY = isNaNBits(this.mPanYBits) && idFromBits(this.mPanYBits) > 0 ? context.getFloat(idFromBits(this.mPanYBits)) : intBitsToFloat2(this.mPanYBits);
     }
     getHorizontalOffset() {
       const scale2 = 1;
@@ -9916,7 +14992,7 @@ var RC = (() => {
     if (isNaNBits(bits)) context.listensTo(idFromBits(bits), op);
   }
   function resolveFloat(bits, context) {
-    return isNaNBits(bits) ? context.getFloat(idFromBits(bits)) : intBitsToFloat(bits);
+    return isNaNBits(bits) ? context.getFloat(idFromBits(bits)) : intBitsToFloat2(bits);
   }
   var _MatrixSave = class _MatrixSave extends Operation {
     write(_buffer) {
@@ -10170,32 +15246,6 @@ var RC = (() => {
   _ClipPath.OP_CODE = 38;
   var ClipPath = _ClipPath;
 
-  // third_party/remote-compose-player/src/core/d3/Paint3DContext.ts
-  var PROJECTION_PERSPECTIVE = 0;
-  var M3_IDENTITY = 0;
-  var M3_TRANSLATE = 1;
-  var M3_SCALE = 2;
-  var M3_ROTATE_AXIS = 3;
-  var M3_MULTIPLY = 4;
-  var LIGHT_DIRECTIONAL = 0;
-  var LIGHT_POINT = 1;
-  var P3_CLEAR_DEPTH = 0;
-  var P3_MATERIAL = 1;
-  var P3_DEPTH_BIAS = 2;
-  var MODE_SOFTWARE_FLAT = 0;
-  var MODE_SMOOTH_MASK = 1;
-  var MODE_WIREFRAME = 256;
-  var WIRE_EDGE0 = 512;
-  var WIRE_EDGE1 = 1024;
-  var WIRE_EDGE2 = 2048;
-  var WIRE_EDGE_MASK = WIRE_EDGE0 | WIRE_EDGE1 | WIRE_EDGE2;
-  var MODE_SOFTWARE_WIREFRAME = MODE_SOFTWARE_FLAT | MODE_WIREFRAME;
-  var MODE_BACKEND_CANVAS = 1;
-  var MODE_BACKEND_CANVAS_ZBUF = 5;
-  function isPaint3DContext(ctx) {
-    return !!ctx && typeof ctx.drawMesh3D === "function";
-  }
-
   // third_party/remote-compose-player/src/core/d3/MonotonicCurveFit.ts
   var MonotonicCurveFit2 = class {
     constructor(time, y) {
@@ -10436,38 +15486,38 @@ var RC = (() => {
   var DEFAULT_TUBE_SIDES = 14;
   var MAX_TUBE_PER_SPAN = 256;
   var DEFAULT_ROUND_SEG = 4;
-  var fround = Math.fround;
-  function fm(a, b) {
-    return fround(a * b);
+  var fround4 = Math.fround;
+  function fm3(a, b) {
+    return fround4(a * b);
   }
-  function fa(a, b) {
-    return fround(a + b);
+  function fa3(a, b) {
+    return fround4(a + b);
   }
   function clampF(x, lo, hi) {
     return x < lo ? lo : x > hi ? hi : x;
   }
   function cross(ax, ay, az, bx, by, bz, out) {
-    out[0] = fround(fm(ay, bz) - fm(az, by));
-    out[1] = fround(fm(az, bx) - fm(ax, bz));
-    out[2] = fround(fm(ax, by) - fm(ay, bx));
+    out[0] = fround4(fm3(ay, bz) - fm3(az, by));
+    out[1] = fround4(fm3(az, bx) - fm3(ax, bz));
+    out[2] = fround4(fm3(ax, by) - fm3(ay, bx));
   }
   function clampInt(x, lo, hi) {
     return x < lo ? lo : x > hi ? hi : x;
   }
   function catmull(p0, p1, p2, p3, t) {
-    const t2 = fm(t, t);
-    const t3 = fm(t2, t);
-    const c2 = fround(fa(fround(fm(2, p0) - fm(5, p1)), fm(4, p2)) - p3);
-    const c3 = fa(fround(fa(-p0, fm(3, p1)) - fm(3, p2)), p3);
-    return fm(0.5, fa(
-      fa(
-        fa(
-          fm(2, p1),
-          fm(fa(-p0, p2), t)
+    const t2 = fm3(t, t);
+    const t3 = fm3(t2, t);
+    const c2 = fround4(fa3(fround4(fm3(2, p0) - fm3(5, p1)), fm3(4, p2)) - p3);
+    const c3 = fa3(fround4(fa3(-p0, fm3(3, p1)) - fm3(3, p2)), p3);
+    return fm3(0.5, fa3(
+      fa3(
+        fa3(
+          fm3(2, p1),
+          fm3(fa3(-p0, p2), t)
         ),
-        fm(c2, t2)
+        fm3(c2, t2)
       ),
-      fm(c3, t3)
+      fm3(c3, t3)
     ));
   }
   function segCount(segments2, dflt, min) {
@@ -10522,16 +15572,16 @@ var RC = (() => {
       ry = 0;
       rz = 1;
     }
-    const ux = fround(fm(dy, rz) - fm(dz, ry));
-    const uy = fround(fm(dz, rx) - fm(dx, rz));
-    const uz = fround(fm(dx, ry) - fm(dy, rx));
-    let ul = fround(Math.sqrt(fa(fa(fm(ux, ux), fm(uy, uy)), fm(uz, uz))));
+    const ux = fround4(fm3(dy, rz) - fm3(dz, ry));
+    const uy = fround4(fm3(dz, rx) - fm3(dx, rz));
+    const uz = fround4(fm3(dx, ry) - fm3(dy, rx));
+    let ul = fround4(Math.sqrt(fa3(fa3(fm3(ux, ux), fm3(uy, uy)), fm3(uz, uz))));
     if (ul < 1e-6) {
       ul = 1e-6;
     }
-    u[0] = fround(ux / ul);
-    u[1] = fround(uy / ul);
-    u[2] = fround(uz / ul);
+    u[0] = fround4(ux / ul);
+    u[1] = fround4(uy / ul);
+    u[2] = fround4(uz / ul);
     cross(dx, dy, dz, u[0], u[1], u[2], v);
   }
   function sphereBand(radius, thetaMin, thetaMax, stacks, slices, cx, cy, cz, uvm) {
@@ -10542,24 +15592,24 @@ var RC = (() => {
     const uv = uvm !== 0 ? new Float32Array(rows * cols * 2) : null;
     let p = 0, q = 0;
     for (let i = 0; i <= stacks; i++) {
-      const theta = fa(thetaMin, fround(fm(fround(thetaMax - thetaMin), i) / stacks));
-      const sinT = fround(Math.sin(theta));
-      const cosT = fround(Math.cos(theta));
+      const theta = fa3(thetaMin, fround4(fm3(fround4(thetaMax - thetaMin), i) / stacks));
+      const sinT = fround4(Math.sin(theta));
+      const cosT = fround4(Math.cos(theta));
       for (let j = 0; j <= slices; j++) {
         const phi = 2 * Math.PI * j / slices;
-        const nx = fm(sinT, fround(Math.cos(phi)));
+        const nx = fm3(sinT, fround4(Math.cos(phi)));
         const ny = cosT;
-        const nz = fm(sinT, fround(Math.sin(phi)));
+        const nz = fm3(sinT, fround4(Math.sin(phi)));
         normals[p] = nx;
         normals[p + 1] = ny;
         normals[p + 2] = nz;
-        verts[p] = fa(cx, fm(nx, radius));
-        verts[p + 1] = fa(cy, fm(ny, radius));
-        verts[p + 2] = fa(cz, fm(nz, radius));
+        verts[p] = fa3(cx, fm3(nx, radius));
+        verts[p + 1] = fa3(cy, fm3(ny, radius));
+        verts[p + 2] = fa3(cz, fm3(nz, radius));
         p += 3;
         if (uv !== null) {
-          uv[q] = fround(1 - j / slices);
-          uv[q + 1] = fround(1 - i / stacks);
+          uv[q] = fround4(1 - j / slices);
+          uv[q + 1] = fround4(1 - i / stacks);
           q += 2;
         }
       }
@@ -10594,22 +15644,22 @@ var RC = (() => {
     let p = 0, q = 0;
     for (let i = 0; i <= segU; i++) {
       const u = 2 * Math.PI * i / segU;
-      const cu = fround(Math.cos(u));
-      const su = fround(Math.sin(u));
+      const cu = fround4(Math.cos(u));
+      const su = fround4(Math.sin(u));
       for (let j = 0; j <= segV; j++) {
         const v = 2 * Math.PI * j / segV;
-        const cv = fround(Math.cos(v));
-        const sv = fround(Math.sin(v));
-        normals[p] = fm(cv, cu);
+        const cv = fround4(Math.cos(v));
+        const sv = fround4(Math.sin(v));
+        normals[p] = fm3(cv, cu);
         normals[p + 1] = sv;
-        normals[p + 2] = fm(cv, su);
-        verts[p] = fa(cx, fm(fa(majorR, fm(minorR, cv)), cu));
-        verts[p + 1] = fa(cy, fm(minorR, sv));
-        verts[p + 2] = fa(cz, fm(fa(majorR, fm(minorR, cv)), su));
+        normals[p + 2] = fm3(cv, su);
+        verts[p] = fa3(cx, fm3(fa3(majorR, fm3(minorR, cv)), cu));
+        verts[p + 1] = fa3(cy, fm3(minorR, sv));
+        verts[p + 2] = fa3(cz, fm3(fa3(majorR, fm3(minorR, cv)), su));
         p += 3;
         if (uv !== null) {
-          uv[q] = fround(i / segU);
-          uv[q + 1] = fround(j / segV);
+          uv[q] = fround4(i / segU);
+          uv[q + 1] = fround4(j / segV);
           q += 2;
         }
       }
@@ -10633,20 +15683,20 @@ var RC = (() => {
     return { verts, normals, indices, uv };
   }
   function plane(width, height, cx, cy, cz, uvm) {
-    const hw = fm(width, 0.5);
-    const hh = fm(height, 0.5);
+    const hw = fm3(width, 0.5);
+    const hh = fm3(height, 0.5);
     const verts = new Float32Array([
-      fround(cx - hw),
-      fround(cy - hh),
+      fround4(cx - hw),
+      fround4(cy - hh),
       cz,
-      fa(cx, hw),
-      fround(cy - hh),
+      fa3(cx, hw),
+      fround4(cy - hh),
       cz,
-      fa(cx, hw),
-      fa(cy, hh),
+      fa3(cx, hw),
+      fa3(cy, hh),
       cz,
-      fround(cx - hw),
-      fa(cy, hh),
+      fround4(cx - hw),
+      fa3(cy, hh),
       cz
     ]);
     const normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]);
@@ -10678,7 +15728,7 @@ var RC = (() => {
   ];
   var CUBE_FACE_UV = [[0, 0], [1, 0], [1, 1], [0, 1]];
   function cube(dx, dy, dz, cx, cy, cz, uvm) {
-    const hx = fm(dx, 0.5), hy = fm(dy, 0.5), hz = fm(dz, 0.5);
+    const hx = fm3(dx, 0.5), hy = fm3(dy, 0.5), hz = fm3(dz, 0.5);
     const verts = new Float32Array(24 * 3);
     const normals = new Float32Array(24 * 3);
     const indices = new Int32Array(6 * 6);
@@ -10687,9 +15737,9 @@ var RC = (() => {
     for (let f = 0; f < 6; f++) {
       const base = f * 4;
       for (let c = 0; c < 4; c++) {
-        verts[vp] = fa(cx, fm(CUBE_CORNERS[f][c][0], hx));
-        verts[vp + 1] = fa(cy, fm(CUBE_CORNERS[f][c][1], hy));
-        verts[vp + 2] = fa(cz, fm(CUBE_CORNERS[f][c][2], hz));
+        verts[vp] = fa3(cx, fm3(CUBE_CORNERS[f][c][0], hx));
+        verts[vp + 1] = fa3(cy, fm3(CUBE_CORNERS[f][c][1], hy));
+        verts[vp + 2] = fa3(cz, fm3(CUBE_CORNERS[f][c][2], hz));
         normals[vp] = CUBE_FACE[f][0];
         normals[vp + 1] = CUBE_FACE[f][1];
         normals[vp + 2] = CUBE_FACE[f][2];
@@ -10721,12 +15771,12 @@ var RC = (() => {
     const normals = new Float32Array((sides + 1) * 3);
     for (let j = 0; j < sides; j++) {
       const phi = 2 * Math.PI * j / sides;
-      const c = fround(Math.cos(phi));
-      const s = fround(Math.sin(phi));
+      const c = fround4(Math.cos(phi));
+      const s = fround4(Math.sin(phi));
       const p = j * 3;
-      verts[p] = fa(cx, fm(radius, fa(fm(c, ux), fm(s, vx))));
-      verts[p + 1] = fa(cy, fm(radius, fa(fm(c, uy), fm(s, vy))));
-      verts[p + 2] = fa(cz, fm(radius, fa(fm(c, uz), fm(s, vz))));
+      verts[p] = fa3(cx, fm3(radius, fa3(fm3(c, ux), fm3(s, vx))));
+      verts[p + 1] = fa3(cy, fm3(radius, fa3(fm3(c, uy), fm3(s, vy))));
+      verts[p + 2] = fa3(cz, fm3(radius, fa3(fm3(c, uz), fm3(s, vz))));
       normals[p] = nrm[0];
       normals[p + 1] = nrm[1];
       normals[p + 2] = nrm[2];
@@ -10755,29 +15805,29 @@ var RC = (() => {
     return { verts, normals, indices, uv: null };
   }
   function cone(radius, height, cx, cy, cz, seg) {
-    const slant = fround(Math.sqrt(fa(fm(height, height), fm(radius, radius))));
-    const nY = fround(radius / slant);
-    const nS = fround(height / slant);
+    const slant = fround4(Math.sqrt(fa3(fm3(height, height), fm3(radius, radius))));
+    const nY = fround4(radius / slant);
+    const nS = fround4(height / slant);
     const sv = new Float32Array((seg + 1) * 2 * 3);
     const sn = new Float32Array((seg + 1) * 2 * 3);
     for (let j = 0; j <= seg; j++) {
       const phi = 2 * Math.PI * j / seg;
-      const c = fround(Math.cos(phi));
-      const s = fround(Math.sin(phi));
+      const c = fround4(Math.cos(phi));
+      const s = fround4(Math.sin(phi));
       const b = j * 3;
       const a = (seg + 1 + j) * 3;
-      sv[b] = fa(cx, fm(radius, c));
+      sv[b] = fa3(cx, fm3(radius, c));
       sv[b + 1] = cy;
-      sv[b + 2] = fa(cz, fm(radius, s));
-      sn[b] = fm(nS, c);
+      sv[b + 2] = fa3(cz, fm3(radius, s));
+      sn[b] = fm3(nS, c);
       sn[b + 1] = nY;
-      sn[b + 2] = fm(nS, s);
+      sn[b + 2] = fm3(nS, s);
       sv[a] = cx;
-      sv[a + 1] = fa(cy, height);
+      sv[a + 1] = fa3(cy, height);
       sv[a + 2] = cz;
-      sn[a] = fm(nS, c);
+      sn[a] = fm3(nS, c);
       sn[a + 1] = nY;
-      sn[a + 2] = fm(nS, s);
+      sn[a + 2] = fm3(nS, s);
     }
     const si = new Int32Array(seg * 3);
     let k = 0;
@@ -10791,14 +15841,14 @@ var RC = (() => {
     return concat([side, base]);
   }
   function cylinder(radius, x1, y1, z1, x2, y2, z2, seg) {
-    let ax = fround(x2 - x1), ay = fround(y2 - y1), az = fround(z2 - z1);
-    let len = fround(Math.sqrt(fa(fa(fm(ax, ax), fm(ay, ay)), fm(az, az))));
+    let ax = fround4(x2 - x1), ay = fround4(y2 - y1), az = fround4(z2 - z1);
+    let len = fround4(Math.sqrt(fa3(fa3(fm3(ax, ax), fm3(ay, ay)), fm3(az, az))));
     if (len < 1e-6) {
       len = 1e-6;
     }
-    ax = fround(ax / len);
-    ay = fround(ay / len);
-    az = fround(az / len);
+    ax = fround4(ax / len);
+    ay = fround4(ay / len);
+    az = fround4(az / len);
     const u = new Float32Array(3);
     const v = new Float32Array(3);
     perpBasis(ax, ay, az, u, v);
@@ -10806,19 +15856,19 @@ var RC = (() => {
     const sn = new Float32Array((seg + 1) * 2 * 3);
     for (let j = 0; j <= seg; j++) {
       const phi = 2 * Math.PI * j / seg;
-      const c = fround(Math.cos(phi));
-      const s = fround(Math.sin(phi));
-      const dx = fa(fm(c, u[0]), fm(s, v[0]));
-      const dy = fa(fm(c, u[1]), fm(s, v[1]));
-      const dz = fa(fm(c, u[2]), fm(s, v[2]));
+      const c = fround4(Math.cos(phi));
+      const s = fround4(Math.sin(phi));
+      const dx = fa3(fm3(c, u[0]), fm3(s, v[0]));
+      const dy = fa3(fm3(c, u[1]), fm3(s, v[1]));
+      const dz = fa3(fm3(c, u[2]), fm3(s, v[2]));
       const bi = j * 3;
       const ti = (seg + 1 + j) * 3;
-      sv[bi] = fa(x1, fm(radius, dx));
-      sv[bi + 1] = fa(y1, fm(radius, dy));
-      sv[bi + 2] = fa(z1, fm(radius, dz));
-      sv[ti] = fa(x2, fm(radius, dx));
-      sv[ti + 1] = fa(y2, fm(radius, dy));
-      sv[ti + 2] = fa(z2, fm(radius, dz));
+      sv[bi] = fa3(x1, fm3(radius, dx));
+      sv[bi + 1] = fa3(y1, fm3(radius, dy));
+      sv[bi + 2] = fa3(z1, fm3(radius, dz));
+      sv[ti] = fa3(x2, fm3(radius, dx));
+      sv[ti + 1] = fa3(y2, fm3(radius, dy));
+      sv[ti + 2] = fa3(z2, fm3(radius, dz));
       sn[bi] = dx;
       sn[bi + 1] = dy;
       sn[bi + 2] = dz;
@@ -10843,10 +15893,10 @@ var RC = (() => {
     return concat([side, capB, capT]);
   }
   function roundedCube(dx, dy, dz, cx, cy, cz, r, seg) {
-    const ex = Math.max(fround(fm(dx, 0.5) - r), 0);
-    const ey = Math.max(fround(fm(dy, 0.5) - r), 0);
-    const ez = Math.max(fround(fm(dz, 0.5) - r), 0);
-    const ox = fa(ex, r), oy = fa(ey, r), oz = fa(ez, r);
+    const ex = Math.max(fround4(fm3(dx, 0.5) - r), 0);
+    const ey = Math.max(fround4(fm3(dy, 0.5) - r), 0);
+    const ez = Math.max(fround4(fm3(dz, 0.5) - r), 0);
+    const ox = fa3(ex, r), oy = fa3(ey, r), oz = fa3(ez, r);
     const faces = [[0, 1], [0, -1], [1, 1], [1, -1], [2, 1], [2, -1]];
     const perFace = (seg + 1) * (seg + 1);
     const vc = 6 * perFace;
@@ -10885,30 +15935,30 @@ var RC = (() => {
         }
       }
       for (let s = 0; s <= seg; s++) {
-        const u = fround(fround(s / seg) * 2 - 1);
+        const u = fround4(fround4(s / seg) * 2 - 1);
         for (let t = 0; t <= seg; t++) {
-          const w = fround(fround(t / seg) * 2 - 1);
-          const px = fa(fa(fm(nDir[0], ox), fm(uDir[0], fm(u, ox))), fm(vDir[0], fm(w, ox)));
-          const py = fa(fa(fm(nDir[1], oy), fm(uDir[1], fm(u, oy))), fm(vDir[1], fm(w, oy)));
-          const pz = fa(fa(fm(nDir[2], oz), fm(uDir[2], fm(u, oz))), fm(vDir[2], fm(w, oz)));
+          const w = fround4(fround4(t / seg) * 2 - 1);
+          const px = fa3(fa3(fm3(nDir[0], ox), fm3(uDir[0], fm3(u, ox))), fm3(vDir[0], fm3(w, ox)));
+          const py = fa3(fa3(fm3(nDir[1], oy), fm3(uDir[1], fm3(u, oy))), fm3(vDir[1], fm3(w, oy)));
+          const pz = fa3(fa3(fm3(nDir[2], oz), fm3(uDir[2], fm3(u, oz))), fm3(vDir[2], fm3(w, oz)));
           const qx = clampF(px, -ex, ex);
           const qy = clampF(py, -ey, ey);
           const qz = clampF(pz, -ez, ez);
-          let ddx = fround(px - qx), ddy = fround(py - qy), ddz = fround(pz - qz);
-          let l = fround(Math.sqrt(fa(fa(fm(ddx, ddx), fm(ddy, ddy)), fm(ddz, ddz))));
+          let ddx = fround4(px - qx), ddy = fround4(py - qy), ddz = fround4(pz - qz);
+          let l = fround4(Math.sqrt(fa3(fa3(fm3(ddx, ddx), fm3(ddy, ddy)), fm3(ddz, ddz))));
           if (l < 1e-6) {
             ddx = nDir[0];
             ddy = nDir[1];
             ddz = nDir[2];
             l = 1;
           }
-          const inv = fround(1 / l);
-          verts[vp] = fa(fa(cx, qx), fm(r, fm(ddx, inv)));
-          verts[vp + 1] = fa(fa(cy, qy), fm(r, fm(ddy, inv)));
-          verts[vp + 2] = fa(fa(cz, qz), fm(r, fm(ddz, inv)));
-          normals[vp] = fm(ddx, inv);
-          normals[vp + 1] = fm(ddy, inv);
-          normals[vp + 2] = fm(ddz, inv);
+          const inv = fround4(1 / l);
+          verts[vp] = fa3(fa3(cx, qx), fm3(r, fm3(ddx, inv)));
+          verts[vp + 1] = fa3(fa3(cy, qy), fm3(r, fm3(ddy, inv)));
+          verts[vp + 2] = fa3(fa3(cz, qz), fm3(r, fm3(ddz, inv)));
+          normals[vp] = fm3(ddx, inv);
+          normals[vp + 1] = fm3(ddy, inv);
+          normals[vp + 2] = fm3(ddz, inv);
           vp += 3;
         }
       }
@@ -10934,25 +15984,25 @@ var RC = (() => {
   function sphericalSector(radius, angle, cx, cy, cz, slices, stacks) {
     const cap = sphereBand(radius, 0, angle, stacks, slices, cx, cy, cz, UV_NONE);
     const seg = slices;
-    const ca = fround(Math.cos(angle));
-    const sa = fround(Math.sin(angle));
-    const ringY = fm(radius, ca);
-    const ringR = fm(radius, sa);
+    const ca = fround4(Math.cos(angle));
+    const sa = fround4(Math.sin(angle));
+    const ringY = fm3(radius, ca);
+    const ringR = fm3(radius, sa);
     const cv = new Float32Array((seg + 1) * 2 * 3);
     const cn = new Float32Array((seg + 1) * 2 * 3);
     for (let j = 0; j <= seg; j++) {
       const phi = 2 * Math.PI * j / seg;
-      const c = fround(Math.cos(phi));
-      const s = fround(Math.sin(phi));
+      const c = fround4(Math.cos(phi));
+      const s = fround4(Math.sin(phi));
       const ri = j * 3;
       const ai = (seg + 1 + j) * 3;
-      cv[ri] = fa(cx, fm(ringR, c));
-      cv[ri + 1] = fa(cy, ringY);
-      cv[ri + 2] = fa(cz, fm(ringR, s));
+      cv[ri] = fa3(cx, fm3(ringR, c));
+      cv[ri + 1] = fa3(cy, ringY);
+      cv[ri + 2] = fa3(cz, fm3(ringR, s));
       cv[ai] = cx;
       cv[ai + 1] = cy;
       cv[ai + 2] = cz;
-      const nx = fm(ca, c), ny = -sa, nz = fm(ca, s);
+      const nx = fm3(ca, c), ny = -sa, nz = fm3(ca, s);
       cn[ri] = nx;
       cn[ri + 1] = ny;
       cn[ri + 2] = nz;
@@ -10971,9 +16021,9 @@ var RC = (() => {
   }
   function sphericalDome(radius, angle, cx, cy, cz, slices, stacks) {
     const cap = sphereBand(radius, 0, angle, stacks, slices, cx, cy, cz, UV_NONE);
-    const ringY = fm(radius, fround(Math.cos(angle)));
-    const ringR = fm(radius, fround(Math.sin(angle)));
-    const base = disk(cx, fa(cy, ringY), cz, 1, 0, 0, 0, 0, 1, ringR, slices, false);
+    const ringY = fm3(radius, fround4(Math.cos(angle)));
+    const ringR = fm3(radius, fround4(Math.sin(angle)));
+    const base = disk(cx, fa3(cy, ringY), cz, 1, 0, 0, 0, 0, 1, ringR, slices, false);
     return concat([cap, base]);
   }
   var ICO_FACES = [
@@ -10999,7 +16049,7 @@ var RC = (() => {
     [9, 8, 1]
   ];
   function icosphere(radius, cx, cy, cz, subdiv) {
-    const t = fround((1 + Math.sqrt(5)) / 2);
+    const t = fround4((1 + Math.sqrt(5)) / 2);
     const base = [
       [-1, t, 0],
       [1, t, 0],
@@ -11016,8 +16066,8 @@ var RC = (() => {
     ];
     const dirs = [];
     for (const v of base) {
-      const len = fround(Math.sqrt(fa(fa(fm(v[0], v[0]), fm(v[1], v[1])), fm(v[2], v[2]))));
-      dirs.push([fround(v[0] / len), fround(v[1] / len), fround(v[2] / len)]);
+      const len = fround4(Math.sqrt(fa3(fa3(fm3(v[0], v[0]), fm3(v[1], v[1])), fm3(v[2], v[2]))));
+      dirs.push([fround4(v[0] / len), fround4(v[1] / len), fround4(v[2] / len)]);
     }
     let tris = ICO_FACES.map((f) => [f[0], f[1], f[2]]);
     const mid = /* @__PURE__ */ new Map();
@@ -11029,12 +16079,12 @@ var RC = (() => {
       }
       const a = dirs[i];
       const b = dirs[j];
-      const mx = fm(fa(a[0], b[0]), 0.5);
-      const my = fm(fa(a[1], b[1]), 0.5);
-      const mz = fm(fa(a[2], b[2]), 0.5);
-      const len = fround(Math.sqrt(fa(fa(fm(mx, mx), fm(my, my)), fm(mz, mz))));
+      const mx = fm3(fa3(a[0], b[0]), 0.5);
+      const my = fm3(fa3(a[1], b[1]), 0.5);
+      const mz = fm3(fa3(a[2], b[2]), 0.5);
+      const len = fround4(Math.sqrt(fa3(fa3(fm3(mx, mx), fm3(my, my)), fm3(mz, mz))));
       const idx = dirs.length;
-      dirs.push([fround(mx / len), fround(my / len), fround(mz / len)]);
+      dirs.push([fround4(mx / len), fround4(my / len), fround4(mz / len)]);
       mid.set(key, idx);
       return idx;
     };
@@ -11053,9 +16103,9 @@ var RC = (() => {
     const normals = new Float32Array(nv * 3);
     for (let i = 0; i < nv; i++) {
       const d = dirs[i];
-      verts[i * 3] = fa(cx, fm(radius, d[0]));
-      verts[i * 3 + 1] = fa(cy, fm(radius, d[1]));
-      verts[i * 3 + 2] = fa(cz, fm(radius, d[2]));
+      verts[i * 3] = fa3(cx, fm3(radius, d[0]));
+      verts[i * 3 + 1] = fa3(cy, fm3(radius, d[1]));
+      verts[i * 3 + 2] = fa3(cz, fm3(radius, d[2]));
       normals[i * 3] = d[0];
       normals[i * 3 + 1] = d[1];
       normals[i * 3 + 2] = d[2];
@@ -11081,25 +16131,25 @@ var RC = (() => {
     const pnr = new Float32Array(nProf);
     const pny = new Float32Array(nProf);
     for (let e = 0; e < nProf - 1; e++) {
-      const dr = fround(profile[(e + 1) * 2] - profile[e * 2]);
-      const dy = fround(profile[(e + 1) * 2 + 1] - profile[e * 2 + 1]);
+      const dr = fround4(profile[(e + 1) * 2] - profile[e * 2]);
+      const dy = fround4(profile[(e + 1) * 2 + 1] - profile[e * 2 + 1]);
       let nr = dy;
       let ny = -dr;
-      const len = fround(Math.sqrt(fa(fm(nr, nr), fm(ny, ny))));
+      const len = fround4(Math.sqrt(fa3(fm3(nr, nr), fm3(ny, ny))));
       if (len > 1e-9) {
-        nr = fround(nr / len);
-        ny = fround(ny / len);
+        nr = fround4(nr / len);
+        ny = fround4(ny / len);
       }
-      pnr[e] = fa(pnr[e], nr);
-      pny[e] = fa(pny[e], ny);
-      pnr[e + 1] = fa(pnr[e + 1], nr);
-      pny[e + 1] = fa(pny[e + 1], ny);
+      pnr[e] = fa3(pnr[e], nr);
+      pny[e] = fa3(pny[e], ny);
+      pnr[e + 1] = fa3(pnr[e + 1], nr);
+      pny[e + 1] = fa3(pny[e + 1], ny);
     }
     for (let i = 0; i < nProf; i++) {
-      const len = fround(Math.sqrt(fa(fm(pnr[i], pnr[i]), fm(pny[i], pny[i]))));
+      const len = fround4(Math.sqrt(fa3(fm3(pnr[i], pnr[i]), fm3(pny[i], pny[i]))));
       if (len > 1e-9) {
-        pnr[i] = fround(pnr[i] / len);
-        pny[i] = fround(pny[i] / len);
+        pnr[i] = fround4(pnr[i] / len);
+        pny[i] = fround4(pny[i] / len);
       } else {
         pnr[i] = 1;
         pny[i] = 0;
@@ -11110,15 +16160,15 @@ var RC = (() => {
       const y = profile[i * 2 + 1];
       for (let j = 0; j <= seg; j++) {
         const phi = 2 * Math.PI * j / seg;
-        const c = fround(Math.cos(phi));
-        const s = fround(Math.sin(phi));
+        const c = fround4(Math.cos(phi));
+        const s = fround4(Math.sin(phi));
         const idx = (i * cols + j) * 3;
-        verts[idx] = fa(cx, fm(r, c));
-        verts[idx + 1] = fa(cy, y);
-        verts[idx + 2] = fa(cz, fm(r, s));
-        normals[idx] = fm(pnr[i], c);
+        verts[idx] = fa3(cx, fm3(r, c));
+        verts[idx + 1] = fa3(cy, y);
+        verts[idx + 2] = fa3(cz, fm3(r, s));
+        normals[idx] = fm3(pnr[i], c);
         normals[idx + 1] = pny[i];
-        normals[idx + 2] = fm(pnr[i], s);
+        normals[idx + 2] = fm3(pnr[i], s);
       }
     }
     const indices = new Int32Array((nProf - 1) * seg * 6);
@@ -11149,7 +16199,7 @@ var RC = (() => {
   }
   function extrude(poly2D, capTris, loop, depth, cx, cy, cz) {
     const np = poly2D.length / 2;
-    const hd = fm(depth, 0.5);
+    const hd = fm3(depth, 0.5);
     const le = loop.length;
     const vcount = np * 2 + le * 4;
     const verts = new Float32Array(vcount * 3);
@@ -11158,14 +16208,14 @@ var RC = (() => {
       const x = poly2D[i * 2];
       const y = poly2D[i * 2 + 1];
       const f = i * 3;
-      verts[f] = fa(cx, x);
-      verts[f + 1] = fa(cy, y);
-      verts[f + 2] = fa(cz, hd);
+      verts[f] = fa3(cx, x);
+      verts[f + 1] = fa3(cy, y);
+      verts[f + 2] = fa3(cz, hd);
       normals[f + 2] = 1;
       const b = (np + i) * 3;
-      verts[b] = fa(cx, x);
-      verts[b + 1] = fa(cy, y);
-      verts[b + 2] = fround(cz - hd);
+      verts[b] = fa3(cx, x);
+      verts[b + 1] = fa3(cy, y);
+      verts[b + 2] = fround4(cz - hd);
       normals[b + 2] = -1;
     }
     const indices = new Int32Array(capTris.length * 2 + le * 6);
@@ -11186,20 +16236,20 @@ var RC = (() => {
       const ib = loop[(e + 1) % le];
       const ax = poly2D[ia * 2], ay = poly2D[ia * 2 + 1];
       const bx = poly2D[ib * 2], by = poly2D[ib * 2 + 1];
-      const dx = fround(bx - ax);
-      const dy = fround(by - ay);
+      const dx = fround4(bx - ax);
+      const dy = fround4(by - ay);
       let nx = dy;
       let ny = -dx;
-      const len = fround(Math.sqrt(fa(fm(nx, nx), fm(ny, ny))));
+      const len = fround4(Math.sqrt(fa3(fm3(nx, nx), fm3(ny, ny))));
       if (len > 1e-9) {
-        nx = fround(nx / len);
-        ny = fround(ny / len);
+        nx = fround4(nx / len);
+        ny = fround4(ny / len);
       }
       const base = sideBase + e * 4;
-      setSideVert(verts, normals, base, fa(cx, ax), fa(cy, ay), fa(cz, hd), nx, ny);
-      setSideVert(verts, normals, base + 1, fa(cx, bx), fa(cy, by), fa(cz, hd), nx, ny);
-      setSideVert(verts, normals, base + 2, fa(cx, ax), fa(cy, ay), fround(cz - hd), nx, ny);
-      setSideVert(verts, normals, base + 3, fa(cx, bx), fa(cy, by), fround(cz - hd), nx, ny);
+      setSideVert(verts, normals, base, fa3(cx, ax), fa3(cy, ay), fa3(cz, hd), nx, ny);
+      setSideVert(verts, normals, base + 1, fa3(cx, bx), fa3(cy, by), fa3(cz, hd), nx, ny);
+      setSideVert(verts, normals, base + 2, fa3(cx, ax), fa3(cy, ay), fround4(cz - hd), nx, ny);
+      setSideVert(verts, normals, base + 3, fa3(cx, bx), fa3(cy, by), fround4(cz - hd), nx, ny);
       indices[io++] = base;
       indices[io++] = base + 2;
       indices[io++] = base + 3;
@@ -11213,8 +16263,8 @@ var RC = (() => {
     const poly = new Float32Array((sides + 1) * 2);
     for (let j = 0; j < sides; j++) {
       const phi = 2 * Math.PI * j / sides;
-      poly[j * 2] = fm(radius, fround(Math.cos(phi)));
-      poly[j * 2 + 1] = fm(radius, fround(Math.sin(phi)));
+      poly[j * 2] = fm3(radius, fround4(Math.cos(phi)));
+      poly[j * 2 + 1] = fm3(radius, fround4(Math.sin(phi)));
     }
     const center = sides;
     const cap = new Int32Array(sides * 3);
@@ -11233,8 +16283,8 @@ var RC = (() => {
     const poly = new Float32Array((n + 2) * 2);
     for (let k = 0; k <= n; k++) {
       const phi = a0 + sweepA * k / n;
-      poly[(1 + k) * 2] = fm(radius, fround(Math.cos(phi)));
-      poly[(1 + k) * 2 + 1] = fm(radius, fround(Math.sin(phi)));
+      poly[(1 + k) * 2] = fm3(radius, fround4(Math.cos(phi)));
+      poly[(1 + k) * 2 + 1] = fm3(radius, fround4(Math.sin(phi)));
     }
     const cap = new Int32Array(n * 3);
     let m = 0;
@@ -11254,8 +16304,8 @@ var RC = (() => {
     const poly = new Float32Array((n + 1) * 2);
     for (let k = 0; k <= n; k++) {
       const phi = a0 + sweepA * k / n;
-      poly[k * 2] = fm(radius, fround(Math.cos(phi)));
-      poly[k * 2 + 1] = fm(radius, fround(Math.sin(phi)));
+      poly[k * 2] = fm3(radius, fround4(Math.cos(phi)));
+      poly[k * 2 + 1] = fm3(radius, fround4(Math.sin(phi)));
     }
     const cap = new Int32Array(Math.max(0, n - 1) * 3);
     let m = 0;
@@ -11275,13 +16325,13 @@ var RC = (() => {
     const poly = new Float32Array(2 * (n + 1) * 2);
     for (let k = 0; k <= n; k++) {
       const phi = a0 + sweepA * k / n;
-      const c = fround(Math.cos(phi));
-      const s = fround(Math.sin(phi));
-      poly[k * 2] = fm(r1, c);
-      poly[k * 2 + 1] = fm(r1, s);
+      const c = fround4(Math.cos(phi));
+      const s = fround4(Math.sin(phi));
+      poly[k * 2] = fm3(r1, c);
+      poly[k * 2 + 1] = fm3(r1, s);
       const ii = inner + k;
-      poly[ii * 2] = fm(r0, c);
-      poly[ii * 2 + 1] = fm(r0, s);
+      poly[ii * 2] = fm3(r0, c);
+      poly[ii * 2 + 1] = fm3(r0, s);
     }
     const cap = new Int32Array(n * 2 * 3);
     let m = 0;
@@ -11305,14 +16355,14 @@ var RC = (() => {
     return extrude(poly, cap, loop, depth, cx, cy, cz);
   }
   function extrudeRoundedRect(width, height, cr, depth, cx, cy, cz, cseg) {
-    const hw = fm(width, 0.5);
-    const hh = fm(height, 0.5);
+    const hw = fm3(width, 0.5);
+    const hh = fm3(height, 0.5);
     cr = clampF(cr, 0, Math.min(hw, hh));
-    const ix = fround(hw - cr);
-    const iy = fround(hh - cr);
+    const ix = fround4(hw - cr);
+    const iy = fround4(hh - cr);
     const ccx = [ix, ix, -ix, -ix];
     const ccy = [-iy, iy, iy, -iy];
-    const startA = [-fround(Math.PI / 2), 0, fround(Math.PI / 2), fround(Math.PI)];
+    const startA = [-fround4(Math.PI / 2), 0, fround4(Math.PI / 2), fround4(Math.PI)];
     const per = cseg + 1;
     const pcount = 4 * per;
     const poly = new Float32Array((pcount + 1) * 2);
@@ -11320,8 +16370,8 @@ var RC = (() => {
     for (let corner = 0; corner < 4; corner++) {
       for (let s = 0; s <= cseg; s++) {
         const ang = startA[corner] + Math.PI / 2 * s / cseg;
-        poly[pi * 2] = fa(ccx[corner], fm(cr, fround(Math.cos(ang))));
-        poly[pi * 2 + 1] = fa(ccy[corner], fm(cr, fround(Math.sin(ang))));
+        poly[pi * 2] = fa3(ccx[corner], fm3(cr, fround4(Math.cos(ang))));
+        poly[pi * 2 + 1] = fa3(ccy[corner], fm3(cr, fround4(Math.sin(ang))));
         pi++;
       }
     }
@@ -11340,14 +16390,14 @@ var RC = (() => {
   }
   function extrudeSquircle(radius, exponent, depth, cx, cy, cz, samples) {
     const e = exponent <= 0 ? 4 : exponent;
-    const p2 = fround(2 / e);
+    const p2 = fround4(2 / e);
     const poly = new Float32Array((samples + 1) * 2);
     for (let j = 0; j < samples; j++) {
       const phi = 2 * Math.PI * j / samples;
-      const ct = fround(Math.cos(phi));
-      const st = fround(Math.sin(phi));
-      poly[j * 2] = fm(fm(radius, Math.sign(ct)), fround(Math.pow(Math.abs(ct), p2)));
-      poly[j * 2 + 1] = fm(fm(radius, Math.sign(st)), fround(Math.pow(Math.abs(st), p2)));
+      const ct = fround4(Math.cos(phi));
+      const st = fround4(Math.sin(phi));
+      poly[j * 2] = fm3(fm3(radius, Math.sign(ct)), fround4(Math.pow(Math.abs(ct), p2)));
+      poly[j * 2 + 1] = fm3(fm3(radius, Math.sign(st)), fround4(Math.pow(Math.abs(st), p2)));
     }
     const center = samples;
     const cap = new Int32Array(samples * 3);
@@ -11370,32 +16420,32 @@ var RC = (() => {
     const normals = new Float32Array(n * (sides + 1) * 3);
     for (let i = 0; i < n; i++) {
       if (i > 0) {
-        const dot = fa(fa(fm(u[0], tx[i]), fm(u[1], ty[i])), fm(u[2], tz[i]));
-        u[0] = fround(u[0] - fm(dot, tx[i]));
-        u[1] = fround(u[1] - fm(dot, ty[i]));
-        u[2] = fround(u[2] - fm(dot, tz[i]));
-        const ul = fround(Math.sqrt(fa(fa(fm(u[0], u[0]), fm(u[1], u[1])), fm(u[2], u[2]))));
+        const dot = fa3(fa3(fm3(u[0], tx[i]), fm3(u[1], ty[i])), fm3(u[2], tz[i]));
+        u[0] = fround4(u[0] - fm3(dot, tx[i]));
+        u[1] = fround4(u[1] - fm3(dot, ty[i]));
+        u[2] = fround4(u[2] - fm3(dot, tz[i]));
+        const ul = fround4(Math.sqrt(fa3(fa3(fm3(u[0], u[0]), fm3(u[1], u[1])), fm3(u[2], u[2]))));
         if (ul < 1e-6) {
           perpBasis(tx[i], ty[i], tz[i], u, vv);
         } else {
-          u[0] = fround(u[0] / ul);
-          u[1] = fround(u[1] / ul);
-          u[2] = fround(u[2] / ul);
+          u[0] = fround4(u[0] / ul);
+          u[1] = fround4(u[1] / ul);
+          u[2] = fround4(u[2] / ul);
           cross(tx[i], ty[i], tz[i], u[0], u[1], u[2], vv);
         }
       }
       for (let j = 0; j <= sides; j++) {
         const phi = 2 * Math.PI * j / sides;
-        const c = fround(Math.cos(phi));
-        const s = fround(Math.sin(phi));
-        const dx = fa(fm(c, u[0]), fm(s, vv[0]));
-        const dy = fa(fm(c, u[1]), fm(s, vv[1]));
-        const dz = fa(fm(c, u[2]), fm(s, vv[2]));
+        const c = fround4(Math.cos(phi));
+        const s = fround4(Math.sin(phi));
+        const dx = fa3(fm3(c, u[0]), fm3(s, vv[0]));
+        const dy = fa3(fm3(c, u[1]), fm3(s, vv[1]));
+        const dz = fa3(fm3(c, u[2]), fm3(s, vv[2]));
         const p = (i * (sides + 1) + j) * 3;
         const ri = radii[i];
-        verts[p] = fa(px[i], fm(ri, dx));
-        verts[p + 1] = fa(py[i], fm(ri, dy));
-        verts[p + 2] = fa(pz[i], fm(ri, dz));
+        verts[p] = fa3(px[i], fm3(ri, dx));
+        verts[p + 1] = fa3(py[i], fm3(ri, dy));
+        verts[p + 2] = fa3(pz[i], fm3(ri, dz));
         normals[p] = dx;
         normals[p + 1] = dy;
         normals[p + 2] = dz;
@@ -11465,10 +16515,10 @@ var RC = (() => {
     y[0][1] = cyp[0];
     y[0][2] = czp[0];
     for (let i = 1; i < cn; i++) {
-      const dx = fround(cxp[i] - cxp[i - 1]);
-      const dy = fround(cyp[i] - cyp[i - 1]);
-      const dz = fround(czp[i] - czp[i - 1]);
-      const d = Math.sqrt(fa(fa(fm(dx, dx), fm(dy, dy)), fm(dz, dz)));
+      const dx = fround4(cxp[i] - cxp[i - 1]);
+      const dy = fround4(cyp[i] - cyp[i - 1]);
+      const dz = fround4(czp[i] - czp[i - 1]);
+      const d = Math.sqrt(fa3(fa3(fm3(dx, dx), fm3(dy, dy)), fm3(dz, dz)));
       knot[i] = knot[i - 1] + Math.max(d, 1e-4);
       y[i][0] = cxp[i];
       y[i][1] = cyp[i];
@@ -11480,7 +16530,7 @@ var RC = (() => {
     if (radiusFit === null) {
       return constRadius;
     }
-    const r = fround(radiusFit.getPosAt(t, 0));
+    const r = fround4(radiusFit.getPosAt(t, 0));
     return r < 0 ? 0 : r;
   }
   function sampleCenterline(fit, t, pos, slope, px, py, pz, tx, ty, tz, w, pTx, pTy, pTz) {
@@ -11489,18 +16539,18 @@ var RC = (() => {
     px[w] = pos[0];
     py[w] = pos[1];
     pz[w] = pos[2];
-    const sx = fround(slope[0]);
-    const sy = fround(slope[1]);
-    const sz = fround(slope[2]);
-    const l = fround(Math.sqrt(fa(fa(fm(sx, sx), fm(sy, sy)), fm(sz, sz))));
+    const sx = fround4(slope[0]);
+    const sy = fround4(slope[1]);
+    const sz = fround4(slope[2]);
+    const l = fround4(Math.sqrt(fa3(fa3(fm3(sx, sx), fm3(sy, sy)), fm3(sz, sz))));
     if (l < 1e-6) {
       tx[w] = pTx;
       ty[w] = pTy;
       tz[w] = pTz;
     } else {
-      tx[w] = fround(sx / l);
-      ty[w] = fround(sy / l);
-      tz[w] = fround(sz / l);
+      tx[w] = fround4(sx / l);
+      ty[w] = fround4(sy / l);
+      tz[w] = fround4(sz / l);
     }
     return w + 1;
   }
@@ -11519,7 +16569,7 @@ var RC = (() => {
       } else {
         const k0 = knot[i];
         const k1 = knot[i + 1];
-        const rMid = radiusFit !== null ? fround(radiusFit.getPosAt((k0 + k1) * 0.5, 0)) : constRadius;
+        const rMid = radiusFit !== null ? fround4(radiusFit.getPosAt((k0 + k1) * 0.5, 0)) : constRadius;
         const step = Math.max(2 * Math.abs(rMid) * Math.sin(Math.PI / sides), 1e-4);
         let arc = 0;
         fit.getPos(k0, a);
@@ -11578,7 +16628,7 @@ var RC = (() => {
         const i2 = i + 1;
         const i3 = Math.min(cn - 1, i + 2);
         for (let s = 0; s < per; s++) {
-          const t = fround(s / per);
+          const t = fround4(s / per);
           px[w] = catmull(cxp[i0], cxp[i], cxp[i2], cxp[i3], t);
           py[w] = catmull(cyp[i0], cyp[i], cyp[i2], cyp[i3], t);
           pz[w] = catmull(czp[i0], czp[i], czp[i2], czp[i3], t);
@@ -11598,25 +16648,25 @@ var RC = (() => {
     for (let i = 0; i < n; i++) {
       let ax = 0, ay = 0, az = 0;
       if (i > 0) {
-        ax = fa(ax, fround(px[i] - px[i - 1]));
-        ay = fa(ay, fround(py[i] - py[i - 1]));
-        az = fa(az, fround(pz[i] - pz[i - 1]));
+        ax = fa3(ax, fround4(px[i] - px[i - 1]));
+        ay = fa3(ay, fround4(py[i] - py[i - 1]));
+        az = fa3(az, fround4(pz[i] - pz[i - 1]));
       }
       if (i < n - 1) {
-        ax = fa(ax, fround(px[i + 1] - px[i]));
-        ay = fa(ay, fround(py[i + 1] - py[i]));
-        az = fa(az, fround(pz[i + 1] - pz[i]));
+        ax = fa3(ax, fround4(px[i + 1] - px[i]));
+        ay = fa3(ay, fround4(py[i + 1] - py[i]));
+        az = fa3(az, fround4(pz[i + 1] - pz[i]));
       }
-      let l = fround(Math.sqrt(fa(fa(fm(ax, ax), fm(ay, ay)), fm(az, az))));
+      let l = fround4(Math.sqrt(fa3(fa3(fm3(ax, ax), fm3(ay, ay)), fm3(az, az))));
       if (l < 1e-6) {
         ax = 0;
         ay = 1;
         az = 0;
         l = 1;
       }
-      tx[i] = fround(ax / l);
-      ty[i] = fround(ay / l);
-      tz[i] = fround(az / l);
+      tx[i] = fround4(ax / l);
+      ty[i] = fround4(ay / l);
+      tz[i] = fround4(az / l);
     }
     const radii = new Float32Array(n).fill(radius);
     return buildTubeFromCenterline(px, py, pz, tx, ty, tz, radii, n, sides, capped);
@@ -11687,13 +16737,13 @@ var RC = (() => {
     let ccx = 0, ccy = 0, ccz = 0;
     for (let k = 0; k < m; k++) {
       const p = (stationRow * cols + k) * 3;
-      ccx = fa(ccx, verts[p]);
-      ccy = fa(ccy, verts[p + 1]);
-      ccz = fa(ccz, verts[p + 2]);
+      ccx = fa3(ccx, verts[p]);
+      ccy = fa3(ccy, verts[p + 1]);
+      ccz = fa3(ccz, verts[p + 2]);
     }
-    ccx = fround(ccx / m);
-    ccy = fround(ccy / m);
-    ccz = fround(ccz / m);
+    ccx = fround4(ccx / m);
+    ccy = fround4(ccy / m);
+    ccz = fround4(ccz / m);
     const centroid = vbase;
     verts[centroid * 3] = ccx;
     verts[centroid * 3 + 1] = ccy;
@@ -11713,16 +16763,16 @@ var RC = (() => {
     }
     const r0 = vbase + 1;
     const r1 = vbase + 1 + 1 % m;
-    const ux = fround(verts[r0 * 3] - ccx);
-    const uy = fround(verts[r0 * 3 + 1] - ccy);
-    const uz = fround(verts[r0 * 3 + 2] - ccz);
-    const wx = fround(verts[r1 * 3] - ccx);
-    const wy = fround(verts[r1 * 3 + 1] - ccy);
-    const wz = fround(verts[r1 * 3 + 2] - ccz);
-    const gx = fround(fm(uy, wz) - fm(uz, wy));
-    const gy = fround(fm(uz, wx) - fm(ux, wz));
-    const gz = fround(fm(ux, wy) - fm(uy, wx));
-    const flip = fa(fa(fm(gx, fnx), fm(gy, fny)), fm(gz, fnz)) < 0;
+    const ux = fround4(verts[r0 * 3] - ccx);
+    const uy = fround4(verts[r0 * 3 + 1] - ccy);
+    const uz = fround4(verts[r0 * 3 + 2] - ccz);
+    const wx = fround4(verts[r1 * 3] - ccx);
+    const wy = fround4(verts[r1 * 3 + 1] - ccy);
+    const wz = fround4(verts[r1 * 3 + 2] - ccz);
+    const gx = fround4(fm3(uy, wz) - fm3(uz, wy));
+    const gy = fround4(fm3(uz, wx) - fm3(ux, wz));
+    const gz = fround4(fm3(ux, wy) - fm3(uy, wx));
+    const flip = fa3(fa3(fm3(gx, fnx), fm3(gy, fny)), fm3(gz, fnz)) < 0;
     for (let k = 0; k < m; k++) {
       const aa = vbase + 1 + k;
       const bb = vbase + 1 + (k + 1) % m;
@@ -11753,24 +16803,24 @@ var RC = (() => {
     const cz = scalars.length > 5 ? scalars[5] : 0;
     const px = new Float32Array(n), py = new Float32Array(n), pz = new Float32Array(n);
     for (let i = 0; i < n; i++) {
-      px[i] = fa(cx, path[i * 3]);
-      py[i] = fa(cy, path[i * 3 + 1]);
-      pz[i] = fa(cz, path[i * 3 + 2]);
+      px[i] = fa3(cx, path[i * 3]);
+      py[i] = fa3(cy, path[i * 3 + 1]);
+      pz[i] = fa3(cz, path[i * 3 + 2]);
     }
     const tx = new Float32Array(n), ty = new Float32Array(n), tz = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       const a = Math.max(0, i - 1);
       const b = Math.min(n - 1, i + 1);
-      const dx = fround(px[b] - px[a]);
-      const dy = fround(py[b] - py[a]);
-      const dz = fround(pz[b] - pz[a]);
-      let l = fround(Math.sqrt(fa(fa(fm(dx, dx), fm(dy, dy)), fm(dz, dz))));
+      const dx = fround4(px[b] - px[a]);
+      const dy = fround4(py[b] - py[a]);
+      const dz = fround4(pz[b] - pz[a]);
+      let l = fround4(Math.sqrt(fa3(fa3(fm3(dx, dx), fm3(dy, dy)), fm3(dz, dz))));
       if (l < 1e-9) {
         l = 1e-9;
       }
-      tx[i] = fround(dx / l);
-      ty[i] = fround(dy / l);
-      tz[i] = fround(dz / l);
+      tx[i] = fround4(dx / l);
+      ty[i] = fround4(dy / l);
+      tz[i] = fround4(dz / l);
     }
     const nlx = new Float32Array(m);
     const nly = new Float32Array(m);
@@ -11778,25 +16828,25 @@ var RC = (() => {
     for (let e = 0; e < xEdges; e++) {
       const k0 = e;
       const k1 = (e + 1) % m;
-      const dx = fround(xsec[k1 * 2] - xsec[k0 * 2]);
-      const dy = fround(xsec[k1 * 2 + 1] - xsec[k0 * 2 + 1]);
+      const dx = fround4(xsec[k1 * 2] - xsec[k0 * 2]);
+      const dy = fround4(xsec[k1 * 2 + 1] - xsec[k0 * 2 + 1]);
       let ex = dy;
       let ey = -dx;
-      const l = fround(Math.sqrt(fa(fm(ex, ex), fm(ey, ey))));
+      const l = fround4(Math.sqrt(fa3(fm3(ex, ex), fm3(ey, ey))));
       if (l > 1e-9) {
-        ex = fround(ex / l);
-        ey = fround(ey / l);
+        ex = fround4(ex / l);
+        ey = fround4(ey / l);
       }
-      nlx[k0] = fa(nlx[k0], ex);
-      nly[k0] = fa(nly[k0], ey);
-      nlx[k1] = fa(nlx[k1], ex);
-      nly[k1] = fa(nly[k1], ey);
+      nlx[k0] = fa3(nlx[k0], ex);
+      nly[k0] = fa3(nly[k0], ey);
+      nlx[k1] = fa3(nlx[k1], ex);
+      nly[k1] = fa3(nly[k1], ey);
     }
     for (let k = 0; k < m; k++) {
-      const l = fround(Math.sqrt(fa(fm(nlx[k], nlx[k]), fm(nly[k], nly[k]))));
+      const l = fround4(Math.sqrt(fa3(fm3(nlx[k], nlx[k]), fm3(nly[k], nly[k]))));
       if (l > 1e-9) {
-        nlx[k] = fround(nlx[k] / l);
-        nly[k] = fround(nly[k] / l);
+        nlx[k] = fround4(nlx[k] / l);
+        nly[k] = fround4(nly[k] / l);
       } else {
         nlx[k] = 1;
         nly[k] = 0;
@@ -11816,44 +16866,44 @@ var RC = (() => {
     perpBasis(tx[0], ty[0], tz[0], u, v);
     for (let i = 0; i < n; i++) {
       if (i > 0) {
-        const dot = fa(fa(fm(u[0], tx[i]), fm(u[1], ty[i])), fm(u[2], tz[i]));
-        u[0] = fround(u[0] - fm(dot, tx[i]));
-        u[1] = fround(u[1] - fm(dot, ty[i]));
-        u[2] = fround(u[2] - fm(dot, tz[i]));
-        const ul = fround(Math.sqrt(fa(fa(fm(u[0], u[0]), fm(u[1], u[1])), fm(u[2], u[2]))));
+        const dot = fa3(fa3(fm3(u[0], tx[i]), fm3(u[1], ty[i])), fm3(u[2], tz[i]));
+        u[0] = fround4(u[0] - fm3(dot, tx[i]));
+        u[1] = fround4(u[1] - fm3(dot, ty[i]));
+        u[2] = fround4(u[2] - fm3(dot, tz[i]));
+        const ul = fround4(Math.sqrt(fa3(fa3(fm3(u[0], u[0]), fm3(u[1], u[1])), fm3(u[2], u[2]))));
         if (ul < 1e-6) {
           perpBasis(tx[i], ty[i], tz[i], u, v);
         } else {
-          u[0] = fround(u[0] / ul);
-          u[1] = fround(u[1] / ul);
-          u[2] = fround(u[2] / ul);
+          u[0] = fround4(u[0] / ul);
+          u[1] = fround4(u[1] / ul);
+          u[2] = fround4(u[2] / ul);
           cross(tx[i], ty[i], tz[i], u[0], u[1], u[2], v);
         }
       }
       const s = scales !== null && scales.length > i ? scales[i] : 1;
       const tw = twists !== null && twists.length > i ? twists[i] : 0;
-      const ct = fround(Math.cos(tw));
-      const st = fround(Math.sin(tw));
+      const ct = fround4(Math.cos(tw));
+      const st = fround4(Math.sin(tw));
       for (let j = 0; j < cols; j++) {
         const k = j % m;
         const lx = xsec[k * 2];
         const ly = xsec[k * 2 + 1];
-        const rx = fround(fm(ct, lx) - fm(st, ly));
-        const ry = fa(fm(st, lx), fm(ct, ly));
+        const rx = fround4(fm3(ct, lx) - fm3(st, ly));
+        const ry = fa3(fm3(st, lx), fm3(ct, ly));
         const p = (i * cols + j) * 3;
-        verts[p] = fa(px[i], fm(s, fa(fm(rx, u[0]), fm(ry, v[0]))));
-        verts[p + 1] = fa(py[i], fm(s, fa(fm(rx, u[1]), fm(ry, v[1]))));
-        verts[p + 2] = fa(pz[i], fm(s, fa(fm(rx, u[2]), fm(ry, v[2]))));
-        const nrx = fround(fm(ct, nlx[k]) - fm(st, nly[k]));
-        const nry = fa(fm(st, nlx[k]), fm(ct, nly[k]));
-        let nx = fa(fm(nrx, u[0]), fm(nry, v[0]));
-        let ny = fa(fm(nrx, u[1]), fm(nry, v[1]));
-        let nz = fa(fm(nrx, u[2]), fm(nry, v[2]));
-        const nl = fround(Math.sqrt(fa(fa(fm(nx, nx), fm(ny, ny)), fm(nz, nz))));
+        verts[p] = fa3(px[i], fm3(s, fa3(fm3(rx, u[0]), fm3(ry, v[0]))));
+        verts[p + 1] = fa3(py[i], fm3(s, fa3(fm3(rx, u[1]), fm3(ry, v[1]))));
+        verts[p + 2] = fa3(pz[i], fm3(s, fa3(fm3(rx, u[2]), fm3(ry, v[2]))));
+        const nrx = fround4(fm3(ct, nlx[k]) - fm3(st, nly[k]));
+        const nry = fa3(fm3(st, nlx[k]), fm3(ct, nly[k]));
+        let nx = fa3(fm3(nrx, u[0]), fm3(nry, v[0]));
+        let ny = fa3(fm3(nrx, u[1]), fm3(nry, v[1]));
+        let nz = fa3(fm3(nrx, u[2]), fm3(nry, v[2]));
+        const nl = fround4(Math.sqrt(fa3(fa3(fm3(nx, nx), fm3(ny, ny)), fm3(nz, nz))));
         if (nl > 1e-9) {
-          nx = fround(nx / nl);
-          ny = fround(ny / nl);
-          nz = fround(nz / nl);
+          nx = fround4(nx / nl);
+          ny = fround4(ny / nl);
+          nz = fround4(nz / nl);
         }
         normals[p] = nx;
         normals[p + 1] = ny;
@@ -11901,19 +16951,19 @@ var RC = (() => {
     const perTurn = Math.max(8, sides * 2);
     const stations = Math.max(2, Math.round(perTurn * Math.abs(turns)) + 1);
     const path = new Float32Array(stations * 3);
-    const totalRise = fm(pitch, turns);
+    const totalRise = fm3(pitch, turns);
     for (let i = 0; i < stations; i++) {
-      const f = fround(i / (stations - 1));
+      const f = fround4(i / (stations - 1));
       const ang = 2 * Math.PI * turns * f;
-      path[i * 3] = fm(coilR, fround(Math.cos(ang)));
-      path[i * 3 + 1] = fm(totalRise, fround(f - 0.5));
-      path[i * 3 + 2] = fm(coilR, fround(Math.sin(ang)));
+      path[i * 3] = fm3(coilR, fround4(Math.cos(ang)));
+      path[i * 3 + 1] = fm3(totalRise, fround4(f - 0.5));
+      path[i * 3 + 2] = fm3(coilR, fround4(Math.sin(ang)));
     }
     const xsec = new Float32Array(sides * 2);
     for (let k = 0; k < sides; k++) {
       const a = 2 * Math.PI * k / sides;
-      xsec[k * 2] = fm(tubeR, fround(Math.cos(a)));
-      xsec[k * 2 + 1] = fm(tubeR, fround(Math.sin(a)));
+      xsec[k * 2] = fm3(tubeR, fround4(Math.cos(a)));
+      xsec[k * 2 + 1] = fm3(tubeR, fround4(Math.sin(a)));
     }
     const scalars = new Float32Array([1, 1, 1, cx, cy, cz]);
     return sweep(scalars, xsec, path, null, null);
@@ -11923,9 +16973,9 @@ var RC = (() => {
     let a = 0;
     for (let i = 0; i < n; i++) {
       const j = (i + 1) % n;
-      a = fa(a, fround(fm(ring[i * 2], ring[j * 2 + 1]) - fm(ring[j * 2], ring[i * 2 + 1])));
+      a = fa3(a, fround4(fm3(ring[i * 2], ring[j * 2 + 1]) - fm3(ring[j * 2], ring[i * 2 + 1])));
     }
-    return fm(a, 0.5);
+    return fm3(a, 0.5);
   }
   function pointInPolygon(ring, px, py) {
     const n = Math.floor(ring.length / 2);
@@ -11934,7 +16984,7 @@ var RC = (() => {
       const xi = ring[i * 2], yi = ring[i * 2 + 1];
       const xj = ring[j * 2], yj = ring[j * 2 + 1];
       const crosses = yi > py !== yj > py;
-      if (crosses && px < fa(fround(fm(fround(xj - xi), fround(py - yi)) / fround(yj - yi)), xi)) {
+      if (crosses && px < fa3(fround4(fm3(fround4(xj - xi), fround4(py - yi)) / fround4(yj - yi)), xi)) {
         inside = !inside;
       }
     }
@@ -11965,36 +17015,36 @@ var RC = (() => {
     for (let i = 0; i < n; i++) {
       const ip = (i - 1 + n) % n;
       const inx = (i + 1) % n;
-      let pdx = fround(ring[i * 2] - ring[ip * 2]);
-      let pdy = fround(ring[i * 2 + 1] - ring[ip * 2 + 1]);
-      let ndx = fround(ring[inx * 2] - ring[i * 2]);
-      let ndy = fround(ring[inx * 2 + 1] - ring[i * 2 + 1]);
-      const pl = fround(Math.sqrt(fa(fm(pdx, pdx), fm(pdy, pdy))));
+      let pdx = fround4(ring[i * 2] - ring[ip * 2]);
+      let pdy = fround4(ring[i * 2 + 1] - ring[ip * 2 + 1]);
+      let ndx = fround4(ring[inx * 2] - ring[i * 2]);
+      let ndy = fround4(ring[inx * 2 + 1] - ring[i * 2 + 1]);
+      const pl = fround4(Math.sqrt(fa3(fm3(pdx, pdx), fm3(pdy, pdy))));
       if (pl > 1e-9) {
-        pdx = fround(pdx / pl);
-        pdy = fround(pdy / pl);
+        pdx = fround4(pdx / pl);
+        pdy = fround4(pdy / pl);
       }
-      const nl = fround(Math.sqrt(fa(fm(ndx, ndx), fm(ndy, ndy))));
+      const nl = fround4(Math.sqrt(fa3(fm3(ndx, ndx), fm3(ndy, ndy))));
       if (nl > 1e-9) {
-        ndx = fround(ndx / nl);
-        ndy = fround(ndy / nl);
+        ndx = fround4(ndx / nl);
+        ndy = fround4(ndy / nl);
       }
-      const n1x = fm(sign, -pdy), n1y = fm(sign, pdx);
-      const n2x = fm(sign, -ndy), n2y = fm(sign, ndx);
-      let mx = fa(n1x, n2x);
-      let my = fa(n1y, n2y);
-      const ml = fround(Math.sqrt(fa(fm(mx, mx), fm(my, my))));
+      const n1x = fm3(sign, -pdy), n1y = fm3(sign, pdx);
+      const n2x = fm3(sign, -ndy), n2y = fm3(sign, ndx);
+      let mx = fa3(n1x, n2x);
+      let my = fa3(n1y, n2y);
+      const ml = fround4(Math.sqrt(fa3(fm3(mx, mx), fm3(my, my))));
       if (ml < 1e-6) {
-        out[i * 2] = fa(ring[i * 2], fm(b, n2x));
-        out[i * 2 + 1] = fa(ring[i * 2 + 1], fm(b, n2y));
+        out[i * 2] = fa3(ring[i * 2], fm3(b, n2x));
+        out[i * 2 + 1] = fa3(ring[i * 2 + 1], fm3(b, n2y));
         continue;
       }
-      mx = fround(mx / ml);
-      my = fround(my / ml);
-      const cos = fa(fm(mx, n1x), fm(my, n1y));
-      const l = fround(b / Math.max(cos, fround(1 / miterLimit)));
-      out[i * 2] = fa(ring[i * 2], fm(l, mx));
-      out[i * 2 + 1] = fa(ring[i * 2 + 1], fm(l, my));
+      mx = fround4(mx / ml);
+      my = fround4(my / ml);
+      const cos = fa3(fm3(mx, n1x), fm3(my, n1y));
+      const l = fround4(b / Math.max(cos, fround4(1 / miterLimit)));
+      out[i * 2] = fa3(ring[i * 2], fm3(l, mx));
+      out[i * 2 + 1] = fa3(ring[i * 2 + 1], fm3(l, my));
     }
     return out;
   }
@@ -12032,7 +17082,7 @@ var RC = (() => {
           eYhi[ne] = ay;
           eXlo[ne] = bx;
         }
-        eSlope[ne] = fround(fround(bx - ax) / fround(by - ay));
+        eSlope[ne] = fround4(fround4(bx - ax) / fround4(by - ay));
         eDir[ne] = by > ay ? 1 : -1;
         ne++;
       }
@@ -12041,7 +17091,7 @@ var RC = (() => {
     sorted.sort();
     let uy = 0;
     for (let i = 0; i < nys; i++) {
-      if (uy === 0 || ys[i] > fa(ys[uy - 1], 1e-7)) {
+      if (uy === 0 || ys[i] > fa3(ys[uy - 1], 1e-7)) {
         ys[uy++] = ys[i];
       }
     }
@@ -12051,14 +17101,14 @@ var RC = (() => {
     for (let s = 0; s + 1 < uy; s++) {
       const yA = ys[s];
       const yB = ys[s + 1];
-      if (fround(yB - yA) < 1e-7) {
+      if (fround4(yB - yA) < 1e-7) {
         continue;
       }
-      const ymid = fm(0.5, fa(yA, yB));
+      const ymid = fm3(0.5, fa3(yA, yB));
       let nx = 0;
       for (let e = 0; e < ne; e++) {
         if (eYlo[e] < ymid && ymid < eYhi[e]) {
-          crossX[nx] = fa(eXlo[e], fm(fround(ymid - eYlo[e]), eSlope[e]));
+          crossX[nx] = fa3(eXlo[e], fm3(fround4(ymid - eYlo[e]), eSlope[e]));
           crossE[nx] = e;
           nx++;
         }
@@ -12086,10 +17136,10 @@ var RC = (() => {
         }
         const le = crossE[i];
         const re = crossE[i + 1];
-        const xLtop = fa(eXlo[le], fm(fround(yB - eYlo[le]), eSlope[le]));
-        const xLbot = fa(eXlo[le], fm(fround(yA - eYlo[le]), eSlope[le]));
-        const xRtop = fa(eXlo[re], fm(fround(yB - eYlo[re]), eSlope[re]));
-        const xRbot = fa(eXlo[re], fm(fround(yA - eYlo[re]), eSlope[re]));
+        const xLtop = fa3(eXlo[le], fm3(fround4(yB - eYlo[le]), eSlope[le]));
+        const xLbot = fa3(eXlo[le], fm3(fround4(yA - eYlo[le]), eSlope[le]));
+        const xRtop = fa3(eXlo[re], fm3(fround4(yB - eYlo[re]), eSlope[re]));
+        const xRbot = fa3(eXlo[re], fm3(fround4(yA - eYlo[re]), eSlope[re]));
         traps.push(new Float32Array([xLtop, yB, xRtop, yB, xRbot, yA, xLbot, yA]));
       }
     }
@@ -12107,13 +17157,13 @@ var RC = (() => {
         const x = g[j * 2];
         const y = g[j * 2 + 1];
         const f = (fb + j) * 3;
-        verts[f] = fa(cx, x);
-        verts[f + 1] = fa(cy, y);
+        verts[f] = fa3(cx, x);
+        verts[f + 1] = fa3(cy, y);
         verts[f + 2] = frontZ;
         normals[f + 2] = 1;
         const bk = (bb + j) * 3;
-        verts[bk] = fa(cx, x);
-        verts[bk + 1] = fa(cy, y);
+        verts[bk] = fa3(cx, x);
+        verts[bk + 1] = fa3(cy, y);
         verts[bk + 2] = backZ;
         normals[bk + 2] = -1;
       }
@@ -12143,7 +17193,7 @@ var RC = (() => {
   }
   function extrudePathSides(contours, inset, cx, cy, cz, hd, b) {
     const beveled = b > 0 && inset !== null;
-    const wallHd = fround(hd - b);
+    const wallHd = fround4(hd - b);
     const inv = 0.70710678;
     let edgeCount = 0;
     for (const ring of contours) {
@@ -12171,19 +17221,19 @@ var RC = (() => {
         const ib = reverse ? (n - i - 1 + n) % n : (i + 1) % n;
         const ax = ring[ia * 2], ay = ring[ia * 2 + 1];
         const bx = ring[ib * 2], by = ring[ib * 2 + 1];
-        let nx = fround(by - ay);
-        let ny = -fround(bx - ax);
-        const len = fround(Math.sqrt(fa(fm(nx, nx), fm(ny, ny))));
+        let nx = fround4(by - ay);
+        let ny = -fround4(bx - ax);
+        const len = fround4(Math.sqrt(fa3(fm3(nx, nx), fm3(ny, ny))));
         if (len > 1e-9) {
-          nx = fround(nx / len);
-          ny = fround(ny / len);
+          nx = fround4(nx / len);
+          ny = fround4(ny / len);
         }
         if (!beveled) {
           const v = se * 4;
-          setV(verts, normals, v, fa(cx, ax), fa(cy, ay), fa(cz, hd), nx, ny, 0);
-          setV(verts, normals, v + 1, fa(cx, bx), fa(cy, by), fa(cz, hd), nx, ny, 0);
-          setV(verts, normals, v + 2, fa(cx, ax), fa(cy, ay), fround(cz - hd), nx, ny, 0);
-          setV(verts, normals, v + 3, fa(cx, bx), fa(cy, by), fround(cz - hd), nx, ny, 0);
+          setV(verts, normals, v, fa3(cx, ax), fa3(cy, ay), fa3(cz, hd), nx, ny, 0);
+          setV(verts, normals, v + 1, fa3(cx, bx), fa3(cy, by), fa3(cz, hd), nx, ny, 0);
+          setV(verts, normals, v + 2, fa3(cx, ax), fa3(cy, ay), fround4(cz - hd), nx, ny, 0);
+          setV(verts, normals, v + 3, fa3(cx, bx), fa3(cy, by), fround4(cz - hd), nx, ny, 0);
           indices[io++] = v;
           indices[io++] = v + 2;
           indices[io++] = v + 3;
@@ -12194,21 +17244,21 @@ var RC = (() => {
           const iax = ins[ia * 2], iay = ins[ia * 2 + 1];
           const ibx = ins[ib * 2], iby = ins[ib * 2 + 1];
           const v = se * 12;
-          const cnx = fm(nx, inv), cny = fm(ny, inv);
-          setV(verts, normals, v, fa(cx, iax), fa(cy, iay), fa(cz, hd), cnx, cny, inv);
-          setV(verts, normals, v + 1, fa(cx, ibx), fa(cy, iby), fa(cz, hd), cnx, cny, inv);
-          setV(verts, normals, v + 2, fa(cx, ax), fa(cy, ay), fa(cz, wallHd), cnx, cny, inv);
-          setV(verts, normals, v + 3, fa(cx, bx), fa(cy, by), fa(cz, wallHd), cnx, cny, inv);
+          const cnx = fm3(nx, inv), cny = fm3(ny, inv);
+          setV(verts, normals, v, fa3(cx, iax), fa3(cy, iay), fa3(cz, hd), cnx, cny, inv);
+          setV(verts, normals, v + 1, fa3(cx, ibx), fa3(cy, iby), fa3(cz, hd), cnx, cny, inv);
+          setV(verts, normals, v + 2, fa3(cx, ax), fa3(cy, ay), fa3(cz, wallHd), cnx, cny, inv);
+          setV(verts, normals, v + 3, fa3(cx, bx), fa3(cy, by), fa3(cz, wallHd), cnx, cny, inv);
           indices[io++] = v;
           indices[io++] = v + 2;
           indices[io++] = v + 3;
           indices[io++] = v;
           indices[io++] = v + 3;
           indices[io++] = v + 1;
-          setV(verts, normals, v + 4, fa(cx, ax), fa(cy, ay), fa(cz, wallHd), nx, ny, 0);
-          setV(verts, normals, v + 5, fa(cx, bx), fa(cy, by), fa(cz, wallHd), nx, ny, 0);
-          setV(verts, normals, v + 6, fa(cx, ax), fa(cy, ay), fround(cz - wallHd), nx, ny, 0);
-          setV(verts, normals, v + 7, fa(cx, bx), fa(cy, by), fround(cz - wallHd), nx, ny, 0);
+          setV(verts, normals, v + 4, fa3(cx, ax), fa3(cy, ay), fa3(cz, wallHd), nx, ny, 0);
+          setV(verts, normals, v + 5, fa3(cx, bx), fa3(cy, by), fa3(cz, wallHd), nx, ny, 0);
+          setV(verts, normals, v + 6, fa3(cx, ax), fa3(cy, ay), fround4(cz - wallHd), nx, ny, 0);
+          setV(verts, normals, v + 7, fa3(cx, bx), fa3(cy, by), fround4(cz - wallHd), nx, ny, 0);
           indices[io++] = v + 4;
           indices[io++] = v + 6;
           indices[io++] = v + 7;
@@ -12219,9 +17269,9 @@ var RC = (() => {
             verts,
             normals,
             v + 8,
-            fa(cx, ax),
-            fa(cy, ay),
-            fround(cz - wallHd),
+            fa3(cx, ax),
+            fa3(cy, ay),
+            fround4(cz - wallHd),
             cnx,
             cny,
             -inv
@@ -12230,9 +17280,9 @@ var RC = (() => {
             verts,
             normals,
             v + 9,
-            fa(cx, bx),
-            fa(cy, by),
-            fround(cz - wallHd),
+            fa3(cx, bx),
+            fa3(cy, by),
+            fround4(cz - wallHd),
             cnx,
             cny,
             -inv
@@ -12241,9 +17291,9 @@ var RC = (() => {
             verts,
             normals,
             v + 10,
-            fa(cx, iax),
-            fa(cy, iay),
-            fround(cz - hd),
+            fa3(cx, iax),
+            fa3(cy, iay),
+            fround4(cz - hd),
             cnx,
             cny,
             -inv
@@ -12252,9 +17302,9 @@ var RC = (() => {
             verts,
             normals,
             v + 11,
-            fa(cx, ibx),
-            fa(cy, iby),
-            fround(cz - hd),
+            fa3(cx, ibx),
+            fa3(cy, iby),
+            fround4(cz - hd),
             cnx,
             cny,
             -inv
@@ -12288,15 +17338,15 @@ var RC = (() => {
       }
       contours.push(ring);
     }
-    const hd = fm(depth, 0.5);
+    const hd = fm3(depth, 0.5);
     if (bevel <= 0) {
-      const caps2 = scanlineCaps(contours, cx, cy, fa(cz, hd), fround(cz - hd));
+      const caps2 = scanlineCaps(contours, cx, cy, fa3(cz, hd), fround4(cz - hd));
       const sides2 = extrudePathSides(contours, null, cx, cy, cz, hd, 0);
       return concat([caps2, sides2]);
     }
-    const b = Math.min(bevel, fm(hd, 0.9));
+    const b = Math.min(bevel, fm3(hd, 0.9));
     const inset = contours.map((ring) => miterInset(ring, b, 4));
-    const caps = scanlineCaps(inset, cx, cy, fa(cz, hd), fround(cz - hd));
+    const caps = scanlineCaps(inset, cx, cy, fa3(cz, hd), fround4(cz - hd));
     const sides = extrudePathSides(contours, inset, cx, cy, cz, hd, b);
     return concat([caps, sides]);
   }
@@ -12470,7 +17520,7 @@ var RC = (() => {
   // third_party/remote-compose-player/src/core/operations/d3/Operations3D.ts
   var MAX_INDICES = 6e5;
   var MAX_VERTS_FLOATS = 3 * 2e5;
-  var MAX_LIGHTS = 32;
+  var MAX_LIGHTS2 = 32;
   var MAX_CHANNELS = 8;
   var MAX_PRIMITIVE_FLOATS = 2e5;
   function writeArray(buffer, a) {
@@ -12786,7 +17836,7 @@ var RC = (() => {
      */
     static read(buffer, operations) {
       const n = buffer.readInt();
-      if (n < 0 || n > MAX_LIGHTS) {
+      if (n < 0 || n > MAX_LIGHTS2) {
         throw new Error(`SetLights3D: bad light count ${n}`);
       }
       const types = new Int32Array(n);
@@ -12795,7 +17845,7 @@ var RC = (() => {
         types[i] = buffer.readInt();
         colors[i] = buffer.readInt();
       }
-      const params = readFloats(buffer, MAX_LIGHTS * 4, "SetLights3D params");
+      const params = readFloats(buffer, MAX_LIGHTS2 * 4, "SetLights3D params");
       operations.push(new _SetLights3D(types, colors, params));
     }
   };
@@ -12931,7 +17981,7 @@ var RC = (() => {
     if (!Number.isNaN(v)) {
       return false;
     }
-    const bits = floatToRawIntBits(v);
+    const bits = floatToRawIntBits2(v);
     return !AnimatedFloatExpression.isMathOperator(v) && !isDataVariableBits(bits);
   }
   function lerp(a, b, t) {
@@ -13276,12 +18326,12 @@ var RC = (() => {
   }
 
   // third_party/remote-compose-player/src/core/operations/utilities/VectorRpn.ts
-  var fround2 = Math.fround;
-  function fm2(a, b) {
-    return fround2(a * b);
+  var fround5 = Math.fround;
+  function fm4(a, b) {
+    return fround5(a * b);
   }
-  function fa2(a, b) {
-    return fround2(a + b);
+  function fa4(a, b) {
+    return fround5(a + b);
   }
   var OFFSET = 3211264;
   var OP_ADD = OFFSET + 1;
@@ -13506,10 +18556,10 @@ var RC = (() => {
         case OP_VBUILD4:
           return this.build(sp, 4);
         case OP_VDOT: {
-          const dot = fa2(fa2(
-            fa2(fm2(s[a], s[b]), fm2(s[a + 1], s[b + 1])),
-            fm2(s[a + 2], s[b + 2])
-          ), fm2(s[a + 3], s[b + 3]));
+          const dot = fa4(fa4(
+            fa4(fm4(s[a], s[b]), fm4(s[a + 1], s[b + 1])),
+            fm4(s[a + 2], s[b + 2])
+          ), fm4(s[a + 3], s[b + 3]));
           s[a] = dot;
           s[a + 1] = dot;
           s[a + 2] = dot;
@@ -13520,20 +18570,20 @@ var RC = (() => {
         case OP_VCROSS: {
           const ax = s[a], ay = s[a + 1], az = s[a + 2];
           const bx = s[b], by = s[b + 1], bz = s[b + 2];
-          s[a] = fround2(fm2(ay, bz) - fm2(az, by));
-          s[a + 1] = fround2(fm2(az, bx) - fm2(ax, bz));
-          s[a + 2] = fround2(fm2(ax, by) - fm2(ay, bx));
+          s[a] = fround5(fm4(ay, bz) - fm4(az, by));
+          s[a + 1] = fround5(fm4(az, bx) - fm4(ax, bz));
+          s[a + 2] = fround5(fm4(ax, by) - fm4(ay, bx));
           s[a + 3] = 0;
           d[sp - 1] = 3;
           return sp - 1;
         }
         case OP_VLEN:
         case OP_VLENSQ: {
-          const sq = fa2(fa2(
-            fa2(fm2(s[b], s[b]), fm2(s[b + 1], s[b + 1])),
-            fm2(s[b + 2], s[b + 2])
-          ), fm2(s[b + 3], s[b + 3]));
-          const r = id === OP_VLEN ? fround2(Math.sqrt(sq)) : sq;
+          const sq = fa4(fa4(
+            fa4(fm4(s[b], s[b]), fm4(s[b + 1], s[b + 1])),
+            fm4(s[b + 2], s[b + 2])
+          ), fm4(s[b + 3], s[b + 3]));
+          const r = id === OP_VLEN ? fround5(Math.sqrt(sq)) : sq;
           s[b] = r;
           s[b + 1] = r;
           s[b + 2] = r;
@@ -13542,11 +18592,11 @@ var RC = (() => {
           return sp;
         }
         case OP_VNORM: {
-          const sq = fa2(fa2(
-            fa2(fm2(s[b], s[b]), fm2(s[b + 1], s[b + 1])),
-            fm2(s[b + 2], s[b + 2])
-          ), fm2(s[b + 3], s[b + 3]));
-          const inv = fround2(1 / this.softDenom(fround2(Math.sqrt(sq))));
+          const sq = fa4(fa4(
+            fa4(fm4(s[b], s[b]), fm4(s[b + 1], s[b + 1])),
+            fm4(s[b + 2], s[b + 2])
+          ), fm4(s[b + 3], s[b + 3]));
+          const inv = fround5(1 / this.softDenom(fround5(Math.sqrt(sq))));
           s[b] *= inv;
           s[b + 1] *= inv;
           s[b + 2] *= inv;
@@ -13604,7 +18654,7 @@ var RC = (() => {
     if (!Number.isNaN(v)) {
       return false;
     }
-    const bits = floatToRawIntBits(v);
+    const bits = floatToRawIntBits2(v);
     const isArray = isNaNBits(bits) && (idFromBits(bits) & ID_REGION_MASK2) === ID_REGION_ARRAY2;
     return !AnimatedFloatExpression.isMathOperator(v) && !isVectorOp(v) && !isArray;
   }
@@ -13704,7 +18754,7 @@ var RC = (() => {
       this.mId = id;
       this.mMode = param1 & 255;
       this.mAlpha = param1 >> 16 & 255;
-      const lit = (b) => isNaNBits(b) ? 0 : intBitsToFloat(b);
+      const lit = (b) => isNaNBits(b) ? 0 : intBitsToFloat2(b);
       this.mColor1 = param2;
       this.mColor2 = param3;
       this.mTweenBits = param4;
@@ -13733,7 +18783,7 @@ var RC = (() => {
         this.mValueBits = param4;
         this.mOutValue = lit(param4);
       } else if (this.mMode === _ColorExpression.ARGB_MODE) {
-        this.mArgbAlphaBits = floatToRawIntBits((param1 >> 16) / 1024);
+        this.mArgbAlphaBits = floatToRawIntBits2((param1 >> 16) / 1024);
         this.mOutArgbAlpha = (param1 >> 16) / 1024;
         this.mArgbRedBits = param2;
         this.mOutArgbRed = lit(param2);
@@ -14170,7 +19220,7 @@ var RC = (() => {
         for (const [name, bits] of floatMap) {
           this.mUniformRawFloatMap.set(name, new Int32Array(bits));
           const f = new Float32Array(bits.length);
-          for (let i = 0; i < bits.length; i++) f[i] = intBitsToFloat(bits[i]);
+          for (let i = 0; i < bits.length; i++) f[i] = intBitsToFloat2(bits[i]);
           this.mUniformFloatMap.set(name, f);
         }
       } else {
@@ -14220,9 +19270,9 @@ var RC = (() => {
           if (isNaNBits(b)) {
             const collectionsAccess = context.getCollectionsAccess();
             const dynamicValues = collectionsAccess ? collectionsAccess.getDynamicFloats(idFromBits(b)) : null;
-            out[i] = dynamicValues ? intBitsToFloat(b) : context.getFloat(idFromBits(b));
+            out[i] = dynamicValues ? intBitsToFloat2(b) : context.getFloat(idFromBits(b));
           } else {
-            out[i] = intBitsToFloat(b);
+            out[i] = intBitsToFloat2(b);
           }
         }
         this.mUniformFloatMap.set(name, out);
@@ -14524,7 +19574,7 @@ var RC = (() => {
       super();
       this.mTextId = textId;
       this.mValueBits = valueBits;
-      this.mOutValue = isNaNBits(valueBits) ? 0 : intBitsToFloat(valueBits);
+      this.mOutValue = isNaNBits(valueBits) ? 0 : intBitsToFloat2(valueBits);
       this.mDigitsBefore = digitsBefore;
       this.mDigitsAfter = digitsAfter;
       this.mFlags = flags;
@@ -14612,7 +19662,7 @@ var RC = (() => {
       context.loadText(this.mTextId, s);
     }
     deepToString(indent) {
-      return `${indent}TextFromFloat[${this.mTextId}] = ${isNaNBits(this.mValueBits) ? "ref(" + idFromBits(this.mValueBits) + ")" : intBitsToFloat(this.mValueBits)} ${this.mDigitsBefore}.${this.mDigitsAfter} ${this.mFlags}`;
+      return `${indent}TextFromFloat[${this.mTextId}] = ${isNaNBits(this.mValueBits) ? "ref(" + idFromBits(this.mValueBits) + ")" : intBitsToFloat2(this.mValueBits)} ${this.mDigitsBefore}.${this.mDigitsAfter} ${this.mFlags}`;
     }
     static read(buffer, operations) {
       const textId = buffer.readInt();
@@ -14832,7 +19882,7 @@ var RC = (() => {
       this.mId = id;
       this.mBits = bits;
       this.mValues = new Float32Array(bits.length);
-      for (let i = 0; i < bits.length; i++) this.mValues[i] = intBitsToFloat(bits[i]);
+      for (let i = 0; i < bits.length; i++) this.mValues[i] = intBitsToFloat2(bits[i]);
     }
     update(other) {
       this.mBits = other.mBits;
@@ -14944,7 +19994,7 @@ var RC = (() => {
       super();
       this.isDynamic = true;
       this.mId = id;
-      const nbValues = isNaNBits(nbValuesBits) ? NaN : intBitsToFloat(nbValuesBits);
+      const nbValues = isNaNBits(nbValuesBits) ? NaN : intBitsToFloat2(nbValuesBits);
       if (nbValues > _DataDynamicListFloat.MAX_FLOAT_ARRAY) {
         throw new Error("Array too large");
       }
@@ -14995,7 +20045,7 @@ var RC = (() => {
     static read(buffer, operations) {
       const id = buffer.readInt();
       const lenBits = buffer.readInt();
-      const len = isNaNBits(lenBits) ? NaN : intBitsToFloat(lenBits);
+      const len = isNaNBits(lenBits) ? NaN : intBitsToFloat2(lenBits);
       if (len > _DataDynamicListFloat.MAX_FLOAT_ARRAY) {
         throw new Error(`${len} entries exceeds max = ${_DataDynamicListFloat.MAX_FLOAT_ARRAY}`);
       }
@@ -17102,8 +22152,8 @@ ${inner}`;
       this.mType = type;
       this.mVarABits = aBits;
       this.mVarBBits = bBits;
-      this.mVarAOut = isNaNBits(aBits) ? 0 : intBitsToFloat(aBits);
-      this.mVarBOut = isNaNBits(bBits) ? 0 : intBitsToFloat(bBits);
+      this.mVarAOut = isNaNBits(aBits) ? 0 : intBitsToFloat2(aBits);
+      this.mVarBOut = isNaNBits(bBits) ? 0 : intBitsToFloat2(bBits);
     }
     getList() {
       return this.mList;
@@ -17116,8 +22166,8 @@ ${inner}`;
     }
     updateVariables(context) {
       this.markNotDirty();
-      this.mVarAOut = isNaNBits(this.mVarABits) ? context.getFloat(idFromBits(this.mVarABits)) : intBitsToFloat(this.mVarABits);
-      this.mVarBOut = isNaNBits(this.mVarBBits) ? context.getFloat(idFromBits(this.mVarBBits)) : intBitsToFloat(this.mVarBBits);
+      this.mVarAOut = isNaNBits(this.mVarABits) ? context.getFloat(idFromBits(this.mVarABits)) : intBitsToFloat2(this.mVarABits);
+      this.mVarBOut = isNaNBits(this.mVarBBits) ? context.getFloat(idFromBits(this.mVarBBits)) : intBitsToFloat2(this.mVarBBits);
       for (const op of this.mList) {
         if (op.isDirty() && typeof op.updateVariables === "function") {
           op.updateVariables(context);
@@ -17211,7 +22261,7 @@ ${inner}`;
         if (isPathMarkerBits2(b)) {
           this.mOutputPath[i] = b;
         } else if (isNaNBits(b)) {
-          this.mOutputPath[i] = floatToRawIntBits(context.getFloat(idFromBits(b)));
+          this.mOutputPath[i] = floatToRawIntBits2(context.getFloat(idFromBits(b)));
         } else {
           this.mOutputPath[i] = b;
         }
@@ -17263,7 +22313,7 @@ ${inner}`;
         if (isPathMarkerBits3(b)) {
           this.mOutputPath[i] = b;
         } else if (isNaNBits(b)) {
-          this.mOutputPath[i] = floatToRawIntBits(context.getFloat(idFromBits(b)));
+          this.mOutputPath[i] = floatToRawIntBits2(context.getFloat(idFromBits(b)));
         } else {
           this.mOutputPath[i] = b;
         }
@@ -17331,22 +22381,22 @@ ${inner}`;
     moveTo(x, y) {
       this.ensure(3);
       this.mPath[this.mSize++] = MOVE_BITS;
-      this.mPath[this.mSize++] = floatToRawIntBits(fr(x));
-      this.mPath[this.mSize++] = floatToRawIntBits(fr(y));
+      this.mPath[this.mSize++] = floatToRawIntBits2(fr(x));
+      this.mPath[this.mSize++] = floatToRawIntBits2(fr(y));
       this.mCx = fr(x);
       this.mCy = fr(y);
     }
     cubicTo(x1, y1, x2, y2, x3, y3) {
       this.ensure(9);
       this.mPath[this.mSize++] = CUBIC_BITS;
-      this.mPath[this.mSize++] = floatToRawIntBits(this.mCx);
-      this.mPath[this.mSize++] = floatToRawIntBits(this.mCy);
-      this.mPath[this.mSize++] = floatToRawIntBits(fr(x1));
-      this.mPath[this.mSize++] = floatToRawIntBits(fr(y1));
-      this.mPath[this.mSize++] = floatToRawIntBits(fr(x2));
-      this.mPath[this.mSize++] = floatToRawIntBits(fr(y2));
-      this.mPath[this.mSize++] = floatToRawIntBits(fr(x3));
-      this.mPath[this.mSize++] = floatToRawIntBits(fr(y3));
+      this.mPath[this.mSize++] = floatToRawIntBits2(this.mCx);
+      this.mPath[this.mSize++] = floatToRawIntBits2(this.mCy);
+      this.mPath[this.mSize++] = floatToRawIntBits2(fr(x1));
+      this.mPath[this.mSize++] = floatToRawIntBits2(fr(y1));
+      this.mPath[this.mSize++] = floatToRawIntBits2(fr(x2));
+      this.mPath[this.mSize++] = floatToRawIntBits2(fr(y2));
+      this.mPath[this.mSize++] = floatToRawIntBits2(fr(x3));
+      this.mPath[this.mSize++] = floatToRawIntBits2(fr(y3));
       this.mCx = fr(x3);
       this.mCy = fr(y3);
     }
@@ -17608,7 +22658,7 @@ ${inner}`;
       context.loadPathData(this.mId, this.mWinding, pathData);
     }
     rv(bits, ctx) {
-      return isNaNBits(bits) ? ctx.getFloat(idFromBits(bits)) : intBitsToFloat(bits);
+      return isNaNBits(bits) ? ctx.getFloat(idFromBits(bits)) : intBitsToFloat2(bits);
     }
     // Resolve variable tokens to literal float bits; keep operator/VAR1/array
     // tokens as their NaN bits so evalRPN can decode them robustly.
@@ -17622,7 +22672,7 @@ ${inner}`;
           if (id > OFF && id <= OFF + 79 || id === _PathExpression.VAR1_ID || (id & _PathExpression.ID_REGION_MASK) === _PathExpression.ID_REGION_ARRAY) {
             out[i] = b;
           } else {
-            out[i] = floatToRawIntBits(ctx.getFloat(id));
+            out[i] = floatToRawIntBits2(ctx.getFloat(id));
           }
         } else {
           out[i] = b;
@@ -17854,10 +22904,10 @@ ${inner}`;
                 break;
             }
           } else {
-            s[++sp] = intBitsToFloat(b);
+            s[++sp] = intBitsToFloat2(b);
           }
         } else {
-          s[++sp] = intBitsToFloat(b);
+          s[++sp] = intBitsToFloat2(b);
         }
       }
       return sp >= 0 ? s[sp] : 0;
@@ -18180,10 +23230,10 @@ ${inner}`;
   // third_party/remote-compose-player/src/core/operations/utilities/MatrixOperations.ts
   var OFFSET2 = 3276800;
   function asNan2(v) {
-    return intBitsToFloat(v | -8388608);
+    return intBitsToFloat2(v | -8388608);
   }
   function fromNaN2(v) {
-    return floatToRawIntBits(v) & 4194303;
+    return floatToRawIntBits2(v) & 4194303;
   }
   var ID_REGION_ARRAY3 = 2097152;
   function isDataVariable(v) {
@@ -18247,7 +23297,7 @@ ${inner}`;
         return this.mMatrices[0];
       }
       const stack = new Float32Array(bits.length);
-      for (let i = 0; i < bits.length; i++) stack[i] = intBitsToFloat(bits[i]);
+      for (let i = 0; i < bits.length; i++) stack[i] = intBitsToFloat2(bits[i]);
       this.mStack = stack;
       this.mMatrixIndex = 0;
       this.mMatrices[0].setIdentity();
@@ -18390,7 +23440,7 @@ ${inner}`;
       for (let i = 0; i < this.mBits.length; i++) {
         const b = this.mBits[i];
         if (isNaNBits(b) && !MatrixOperations.isOperatorBits(b)) {
-          this.mOutBits[i] = floatToRawIntBits(context.getFloat(idFromBits(b)));
+          this.mOutBits[i] = floatToRawIntBits2(context.getFloat(idFromBits(b)));
         } else {
           this.mOutBits[i] = b;
         }
@@ -18476,7 +23526,7 @@ ${inner}`;
     updateVariables(context) {
       for (let i = 0; i < this.mInputBits.length; i++) {
         const b = this.mInputBits[i];
-        this.mOutInputs[i] = isNaNBits(b) ? context.getFloat(idFromBits(b)) : intBitsToFloat(b);
+        this.mOutInputs[i] = isNaNBits(b) ? context.getFloat(idFromBits(b)) : intBitsToFloat2(b);
       }
     }
     apply(context) {
@@ -18528,8 +23578,8 @@ ${inner}`;
     }
     apply(context) {
       let text = context.getText(this.mSrcId) || "";
-      const start = isNaNBits(this.mStartBits) ? 0 : Math.trunc(intBitsToFloat(this.mStartBits));
-      const len = isNaNBits(this.mLenBits) ? text.length : Math.trunc(intBitsToFloat(this.mLenBits));
+      const start = isNaNBits(this.mStartBits) ? 0 : Math.trunc(intBitsToFloat2(this.mStartBits));
+      const len = isNaNBits(this.mLenBits) ? text.length : Math.trunc(intBitsToFloat2(this.mLenBits));
       if (start > 0 || len < text.length) {
         text = text.substring(start, start + len);
       }
@@ -18579,7 +23629,7 @@ ${inner}`;
       this.mTextId = textId;
       this.mDataSetId = dataSetId;
       this.mIndexBits = indexBits;
-      this.mOutIndex = isNaNBits(indexBits) ? 0 : intBitsToFloat(indexBits);
+      this.mOutIndex = isNaNBits(indexBits) ? 0 : intBitsToFloat2(indexBits);
     }
     write(_buffer) {
     }
@@ -19045,8 +24095,8 @@ ${inner}`;
       this.mSrcId = srcId;
       this.mStartBits = startBits;
       this.mLenBits = lenBits;
-      this.mOutStart = isNaNBits(startBits) ? 0 : intBitsToFloat(startBits);
-      this.mOutLen = isNaNBits(lenBits) ? 0 : intBitsToFloat(lenBits);
+      this.mOutStart = isNaNBits(startBits) ? 0 : intBitsToFloat2(startBits);
+      this.mOutLen = isNaNBits(lenBits) ? 0 : intBitsToFloat2(lenBits);
     }
     write(_buffer) {
     }
@@ -19119,16 +24169,16 @@ ${inner}`;
     const out = new Int32Array(src.length);
     for (let i = 0; i < src.length; i++) {
       const b = src[i];
-      out[i] = isNaNBits(b) && !isMathOperatorBits(b) && !isDataVariableBits3(b) ? floatToRawIntBits(context.getFloat(idFromBits(b))) : b;
+      out[i] = isNaNBits(b) && !isMathOperatorBits(b) && !isDataVariableBits3(b) ? floatToRawIntBits2(context.getFloat(idFromBits(b))) : b;
       if (i + 1 >= src.length) continue;
       for (let k = 0; k < varIds.length; k++) {
         if (!isNaNBits(b) || idFromBits(b) !== varIds[k]) continue;
         if (src[i + 1] === CMD1_BITS) {
-          out[i] = floatToRawIntBits(particle1[k]);
+          out[i] = floatToRawIntBits2(particle1[k]);
           out[i + 1] = NOP_BITS;
           i++;
         } else if (src[i + 1] === CMD2_BITS) {
-          out[i] = floatToRawIntBits(particle2[k]);
+          out[i] = floatToRawIntBits2(particle2[k]);
           out[i + 1] = NOP_BITS;
           i++;
         }
@@ -19141,7 +24191,7 @@ ${inner}`;
     for (let i = 0; i < src.length; i++) {
       const b = src[i];
       if (isNaNBits(b) && !isMathOperatorBits(b) && !isDataVariableBits3(b)) {
-        out[i] = floatToRawIntBits(context.getFloat(idFromBits(b)));
+        out[i] = floatToRawIntBits2(context.getFloat(idFromBits(b)));
       } else {
         out[i] = b;
       }
@@ -19704,10 +24754,10 @@ ${inner}`;
       return this.rv(this.mUntilBits, ctx);
     }
     rv(bits, ctx) {
-      return isNaNBits(bits) ? ctx.getFloat(idFromBits(bits)) : intBitsToFloat(bits);
+      return isNaNBits(bits) ? ctx.getFloat(idFromBits(bits)) : intBitsToFloat2(bits);
     }
     deepToString(indent) {
-      return `${indent}LoopOperation(${intBitsToFloat(this.mFromBits)}..${intBitsToFloat(this.mUntilBits)} step ${intBitsToFloat(this.mStepBits)})`;
+      return `${indent}LoopOperation(${intBitsToFloat2(this.mFromBits)}..${intBitsToFloat2(this.mUntilBits)} step ${intBitsToFloat2(this.mStepBits)})`;
     }
     static read(buffer, operations) {
       const indexId = buffer.readInt();
@@ -19861,11 +24911,11 @@ ${inner}`;
       this.mFontSize = fontSize;
       this.mMinFontSize = minFontSize;
       this.mMaxFontSize = maxFontSize;
-      this.mFontSizeValue = isNaNBits(fontSize) ? 16 : intBitsToFloat(fontSize);
+      this.mFontSizeValue = isNaNBits(fontSize) ? 16 : intBitsToFloat2(fontSize);
       this.mMeasureFontSize = this.mFontSizeValue;
       this.mFontStyle = fontStyle;
       this.mFontWeight = fontWeight;
-      this.mFontWeightValue = isNaNBits(fontWeight) ? 0 : intBitsToFloat(fontWeight);
+      this.mFontWeightValue = isNaNBits(fontWeight) ? 0 : intBitsToFloat2(fontWeight);
       this.mFontFamilyId = fontFamilyId;
       this.mTextAlign = textAlign;
       this.mTextAlignValue = textAlign & 65535;
@@ -19899,8 +24949,8 @@ ${inner}`;
       }
     }
     updateVariables(context) {
-      this.mFontSizeValue = isNaNBits(this.mFontSize) ? context.getFloat(idFromBits(this.mFontSize)) : intBitsToFloat(this.mFontSize);
-      this.mFontWeightValue = isNaNBits(this.mFontWeight) ? context.getFloat(idFromBits(this.mFontWeight)) : intBitsToFloat(this.mFontWeight);
+      this.mFontSizeValue = isNaNBits(this.mFontSize) ? context.getFloat(idFromBits(this.mFontSize)) : intBitsToFloat2(this.mFontSize);
+      this.mFontWeightValue = isNaNBits(this.mFontWeight) ? context.getFloat(idFromBits(this.mFontWeight)) : intBitsToFloat2(this.mFontWeight);
       this.mTextAlignValue = this.mTextAlign & 65535;
       this.mColorValue = this.mIsDynamicColorEnabled ? context.getColor(this.mColorId) : this.mColor;
       const cachedString = context.getText(this.mTextId);
@@ -19943,7 +24993,7 @@ ${inner}`;
         this.mFontStyle === 1
       );
       if (this.mFontAxis && this.mFontAxis.length > 0) {
-        const values = this.mFontAxisValues.map((b) => isVariableBits(b) ? context.getContext().getFloat(idFromBits(b)) : intBitsToFloat(b));
+        const values = this.mFontAxisValues.map((b) => isVariableBits(b) ? context.getContext().getFloat(idFromBits(b)) : intBitsToFloat2(b));
         this.mPaint.setTextAxis(this.mFontAxis, values);
       }
       this.mPaint.setColor(this.mColorValue);
@@ -20113,7 +25163,7 @@ ${inner}`;
         this.mFontStyle === 1
       );
       if (this.mFontAxis && this.mFontAxis.length > 0) {
-        const values = this.mFontAxisValues.map((b) => isVariableBits(b) ? remoteContext.getFloat(idFromBits(b)) : intBitsToFloat(b));
+        const values = this.mFontAxisValues.map((b) => isVariableBits(b) ? remoteContext.getFloat(idFromBits(b)) : intBitsToFloat2(b));
         this.mPaint.setTextAxis(this.mFontAxis, values);
       }
       paintContext.replacePaint(this.mPaint);
@@ -20179,8 +25229,8 @@ ${inner}`;
       let fontStyle = 0, fontFamilyId = -1, textAlign = 1, overflow = 1;
       let maxLines = 2147483647, lineBreakStrategy = 0, hyphenationFrequency = 0;
       let justificationMode = 0, flags = 0;
-      let fontSize = floatToRawIntBits(16), minFontSize = -1, maxFontSize = -1;
-      let fontWeight = floatToRawIntBits(400), letterSpacing = 0, lineHeightAdd = 0, lineHeightMultiplier = 1;
+      let fontSize = floatToRawIntBits2(16), minFontSize = -1, maxFontSize = -1;
+      let fontWeight = floatToRawIntBits2(400), letterSpacing = 0, lineHeightAdd = 0, lineHeightMultiplier = 1;
       let underline = false, strikethrough = false, autosize = false;
       let fontAxis = null;
       let fontAxisValues = null;
@@ -20241,19 +25291,19 @@ ${inner}`;
               break;
             // Non-ref: decode literal float now.
             case P_MIN_FONT_SIZE2:
-              minFontSize = intBitsToFloat(bits);
+              minFontSize = intBitsToFloat2(bits);
               break;
             case P_MAX_FONT_SIZE2:
-              maxFontSize = intBitsToFloat(bits);
+              maxFontSize = intBitsToFloat2(bits);
               break;
             case P_LETTER_SPACING2:
-              letterSpacing = intBitsToFloat(bits);
+              letterSpacing = intBitsToFloat2(bits);
               break;
             case P_LINE_HEIGHT_ADD2:
-              lineHeightAdd = intBitsToFloat(bits);
+              lineHeightAdd = intBitsToFloat2(bits);
               break;
             case P_LINE_HEIGHT_MULTIPLIER2:
-              lineHeightMultiplier = intBitsToFloat(bits);
+              lineHeightMultiplier = intBitsToFloat2(bits);
               break;
           }
         },
@@ -20758,7 +25808,7 @@ ${inner}`;
       this.mTextId = textId;
       this.mDataSetId = dataSetId;
       this.mIndexBits = indexBits;
-      this.mOutIndex = isNaNBits(indexBits) ? 0 : intBitsToFloat(indexBits);
+      this.mOutIndex = isNaNBits(indexBits) ? 0 : intBitsToFloat2(indexBits);
     }
     updateVariables(context) {
       if (isNaNBits(this.mIndexBits)) {
@@ -20799,13 +25849,13 @@ ${inner}`;
       super();
       this.mArrayId = arrayId;
       this.mIndexBits = indexBits;
-      this.mIndexOut = isNaNBits(indexBits) ? 0 : intBitsToFloat(indexBits);
+      this.mIndexOut = isNaNBits(indexBits) ? 0 : intBitsToFloat2(indexBits);
       this.mValueBits = valueBits;
-      this.mValueOut = isNaNBits(valueBits) ? 0 : intBitsToFloat(valueBits);
+      this.mValueOut = isNaNBits(valueBits) ? 0 : intBitsToFloat2(valueBits);
     }
     updateVariables(context) {
-      this.mIndexOut = isNaNBits(this.mIndexBits) ? context.getFloat(idFromBits(this.mIndexBits)) : intBitsToFloat(this.mIndexBits);
-      this.mValueOut = isNaNBits(this.mValueBits) ? context.getFloat(idFromBits(this.mValueBits)) : intBitsToFloat(this.mValueBits);
+      this.mIndexOut = isNaNBits(this.mIndexBits) ? context.getFloat(idFromBits(this.mIndexBits)) : intBitsToFloat2(this.mIndexBits);
+      this.mValueOut = isNaNBits(this.mValueBits) ? context.getFloat(idFromBits(this.mValueBits)) : intBitsToFloat2(this.mValueBits);
     }
     registerListening(context) {
       if (isNaNBits(this.mIndexBits)) {
@@ -20854,7 +25904,7 @@ ${inner}`;
       this.mBitmapId = bitmapId;
       this.mScaleType = scaleType & 255;
       this.mAlphaBits = alphaBits;
-      this.mOutAlpha = isNaNBits(alphaBits) ? 1 : intBitsToFloat(alphaBits);
+      this.mOutAlpha = isNaNBits(alphaBits) ? 1 : intBitsToFloat2(alphaBits);
     }
     registerListening(context) {
       if (this.mBitmapId !== -1) {
@@ -20865,7 +25915,7 @@ ${inner}`;
       }
     }
     updateVariables(context) {
-      this.mOutAlpha = isNaNBits(this.mAlphaBits) ? context.getFloat(idFromBits(this.mAlphaBits)) : intBitsToFloat(this.mAlphaBits);
+      this.mOutAlpha = isNaNBits(this.mAlphaBits) ? context.getFloat(idFromBits(this.mAlphaBits)) : intBitsToFloat2(this.mAlphaBits);
     }
     computeWrapSize(context, _minWidth, _maxWidth, _minHeight, _maxHeight, _horizontalWrap, _verticalWrap, _measure, size) {
       const bitmapData = context.getContext().getObject(this.mBitmapId);
@@ -21522,8 +26572,30 @@ ${inner}`;
       const config2 = this.mConfigId >= 0 ? context.getText(this.mConfigId) ?? "" : "";
       const w = this.mWidth - this.mPaddingLeft - this.mPaddingRight;
       const h = this.mHeight - this.mPaddingTop - this.mPaddingBottom;
-      host.drawCustom(this.getComponentId(), config2, paintContext, w, h, context.getAnimationTime());
+      host.drawCustom(this.getComponentId(), config2, paintContext, w, h, context.getAnimationTime(), this.component(context));
       paintContext.matrixRestore();
+    }
+    /** Resolve only the wire types this host API promises; never write an undeclared id. */
+    component(context) {
+      const property = (type) => this.mProperties.find((p) => p.type === type);
+      return {
+        text: (type, fallback = "") => {
+          const p = property(type);
+          return p?.dataType === 2 ? context.getText(p.value) ?? fallback : fallback;
+        },
+        integer: (type, fallback = 0) => {
+          const p = property(type);
+          return p?.dataType === 0 ? p.value : fallback;
+        },
+        canReturnText: (type) => property(type)?.dataType === 4,
+        returnText: (type, value) => {
+          const p = property(type);
+          if (p?.dataType !== 4) return false;
+          context.loadText(p.value, value);
+          context.needsRepaint();
+          return true;
+        }
+      };
     }
     deepToString(indent) {
       return `${indent}Custom(${this.getComponentId()}, config=${this.mConfigId}, ${this.mProperties.length} props)`;
@@ -23460,4635 +28532,6 @@ ${inner}`;
   _CoreDocument.DOCUMENT_API_LEVEL = 8;
   var CoreDocument = _CoreDocument;
 
-  // third_party/remote-compose-player/src/core/d3/Matrix4.ts
-  var fround3 = Math.fround;
-  function fm3(a, b) {
-    return fround3(a * b);
-  }
-  function fa3(a, b) {
-    return fround3(a + b);
-  }
-  function flen3(x, y, z) {
-    return fround3(Math.sqrt(fa3(fa3(fm3(x, x), fm3(y, y)), fm3(z, z))));
-  }
-  function mat4() {
-    const m = new Float32Array(16);
-    identity(m);
-    return m;
-  }
-  function identity(out) {
-    out[0] = 1;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[4] = 0;
-    out[5] = 1;
-    out[6] = 0;
-    out[7] = 0;
-    out[8] = 0;
-    out[9] = 0;
-    out[10] = 1;
-    out[11] = 0;
-    out[12] = 0;
-    out[13] = 0;
-    out[14] = 0;
-    out[15] = 1;
-  }
-  var MUL_SCRATCH = new Float32Array(16);
-  function multiply(out, a, b) {
-    const r = MUL_SCRATCH;
-    for (let col = 0; col < 4; col++) {
-      const cb = col * 4;
-      for (let row = 0; row < 4; row++) {
-        r[cb + row] = fa3(
-          fa3(
-            fa3(
-              fm3(a[row], b[cb]),
-              fm3(a[4 + row], b[cb + 1])
-            ),
-            fm3(a[8 + row], b[cb + 2])
-          ),
-          fm3(a[12 + row], b[cb + 3])
-        );
-      }
-    }
-    out.set(r);
-  }
-  function translate(m, tx, ty, tz) {
-    m[12] = fa3(m[12], fa3(fa3(fm3(m[0], tx), fm3(m[4], ty)), fm3(m[8], tz)));
-    m[13] = fa3(m[13], fa3(fa3(fm3(m[1], tx), fm3(m[5], ty)), fm3(m[9], tz)));
-    m[14] = fa3(m[14], fa3(fa3(fm3(m[2], tx), fm3(m[6], ty)), fm3(m[10], tz)));
-    m[15] = fa3(m[15], fa3(fa3(fm3(m[3], tx), fm3(m[7], ty)), fm3(m[11], tz)));
-  }
-  function scale(m, sx, sy, sz) {
-    m[0] = fm3(m[0], sx);
-    m[1] = fm3(m[1], sx);
-    m[2] = fm3(m[2], sx);
-    m[3] = fm3(m[3], sx);
-    m[4] = fm3(m[4], sy);
-    m[5] = fm3(m[5], sy);
-    m[6] = fm3(m[6], sy);
-    m[7] = fm3(m[7], sy);
-    m[8] = fm3(m[8], sz);
-    m[9] = fm3(m[9], sz);
-    m[10] = fm3(m[10], sz);
-    m[11] = fm3(m[11], sz);
-  }
-  function rotateAxis(m, angleRadians, x, y, z) {
-    const len = flen3(x, y, z);
-    if (len === 0) {
-      return;
-    }
-    const ix = fround3(x / len);
-    const iy = fround3(y / len);
-    const iz = fround3(z / len);
-    const c = fround3(Math.cos(angleRadians));
-    const s = fround3(Math.sin(angleRadians));
-    const omc = fround3(1 - c);
-    const r00 = fa3(fm3(fm3(ix, ix), omc), c);
-    const r01 = fa3(fm3(fm3(iy, ix), omc), fm3(iz, s));
-    const r02 = fround3(fm3(fm3(iz, ix), omc) - fm3(iy, s));
-    const r10 = fround3(fm3(fm3(ix, iy), omc) - fm3(iz, s));
-    const r11 = fa3(fm3(fm3(iy, iy), omc), c);
-    const r12 = fa3(fm3(fm3(iz, iy), omc), fm3(ix, s));
-    const r20 = fa3(fm3(fm3(ix, iz), omc), fm3(iy, s));
-    const r21 = fround3(fm3(fm3(iy, iz), omc) - fm3(ix, s));
-    const r22 = fa3(fm3(fm3(iz, iz), omc), c);
-    const a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3];
-    const a10 = m[4], a11 = m[5], a12 = m[6], a13 = m[7];
-    const a20 = m[8], a21 = m[9], a22 = m[10], a23 = m[11];
-    m[0] = fa3(fa3(fm3(a00, r00), fm3(a10, r01)), fm3(a20, r02));
-    m[1] = fa3(fa3(fm3(a01, r00), fm3(a11, r01)), fm3(a21, r02));
-    m[2] = fa3(fa3(fm3(a02, r00), fm3(a12, r01)), fm3(a22, r02));
-    m[3] = fa3(fa3(fm3(a03, r00), fm3(a13, r01)), fm3(a23, r02));
-    m[4] = fa3(fa3(fm3(a00, r10), fm3(a10, r11)), fm3(a20, r12));
-    m[5] = fa3(fa3(fm3(a01, r10), fm3(a11, r11)), fm3(a21, r12));
-    m[6] = fa3(fa3(fm3(a02, r10), fm3(a12, r11)), fm3(a22, r12));
-    m[7] = fa3(fa3(fm3(a03, r10), fm3(a13, r11)), fm3(a23, r12));
-    m[8] = fa3(fa3(fm3(a00, r20), fm3(a10, r21)), fm3(a20, r22));
-    m[9] = fa3(fa3(fm3(a01, r20), fm3(a11, r21)), fm3(a21, r22));
-    m[10] = fa3(fa3(fm3(a02, r20), fm3(a12, r21)), fm3(a22, r22));
-    m[11] = fa3(fa3(fm3(a03, r20), fm3(a13, r21)), fm3(a23, r22));
-  }
-  function perspective(out, fovYRadians, aspect, near, far) {
-    const f = fround3(1 / Math.tan(fovYRadians * 0.5));
-    const nf = fround3(1 / fround3(near - far));
-    out[0] = fround3(f / aspect);
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[4] = 0;
-    out[5] = f;
-    out[6] = 0;
-    out[7] = 0;
-    out[8] = 0;
-    out[9] = 0;
-    out[10] = fm3(fa3(far, near), nf);
-    out[11] = -1;
-    out[12] = 0;
-    out[13] = 0;
-    out[14] = fm3(fm3(fm3(2, far), near), nf);
-    out[15] = 0;
-  }
-  function ortho(out, left, right, bottom, top, near, far) {
-    const lr = fround3(1 / fround3(left - right));
-    const bt = fround3(1 / fround3(bottom - top));
-    const nf = fround3(1 / fround3(near - far));
-    out[0] = fm3(-2, lr);
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[4] = 0;
-    out[5] = fm3(-2, bt);
-    out[6] = 0;
-    out[7] = 0;
-    out[8] = 0;
-    out[9] = 0;
-    out[10] = fm3(2, nf);
-    out[11] = 0;
-    out[12] = fm3(fa3(left, right), lr);
-    out[13] = fm3(fa3(top, bottom), bt);
-    out[14] = fm3(fa3(far, near), nf);
-    out[15] = 1;
-  }
-  function lookAt(out, eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX, upY, upZ) {
-    let fx = fround3(centerX - eyeX);
-    let fy = fround3(centerY - eyeY);
-    let fz = fround3(centerZ - eyeZ);
-    const fl = flen3(fx, fy, fz);
-    if (fl === 0) {
-      identity(out);
-      return;
-    }
-    fx = fround3(fx / fl);
-    fy = fround3(fy / fl);
-    fz = fround3(fz / fl);
-    let sx = fround3(fm3(fy, upZ) - fm3(fz, upY));
-    let sy = fround3(fm3(fz, upX) - fm3(fx, upZ));
-    let sz = fround3(fm3(fx, upY) - fm3(fy, upX));
-    const sl = flen3(sx, sy, sz);
-    if (sl === 0) {
-      identity(out);
-      return;
-    }
-    sx = fround3(sx / sl);
-    sy = fround3(sy / sl);
-    sz = fround3(sz / sl);
-    const ux = fround3(fm3(sy, fz) - fm3(sz, fy));
-    const uy = fround3(fm3(sz, fx) - fm3(sx, fz));
-    const uz = fround3(fm3(sx, fy) - fm3(sy, fx));
-    out[0] = sx;
-    out[1] = ux;
-    out[2] = -fx;
-    out[3] = 0;
-    out[4] = sy;
-    out[5] = uy;
-    out[6] = -fy;
-    out[7] = 0;
-    out[8] = sz;
-    out[9] = uz;
-    out[10] = -fz;
-    out[11] = 0;
-    out[12] = -fa3(fa3(fm3(sx, eyeX), fm3(sy, eyeY)), fm3(sz, eyeZ));
-    out[13] = -fa3(fa3(fm3(ux, eyeX), fm3(uy, eyeY)), fm3(uz, eyeZ));
-    out[14] = fa3(fa3(fm3(fx, eyeX), fm3(fy, eyeY)), fm3(fz, eyeZ));
-    out[15] = 1;
-  }
-  function transformPoint(m, x, y, z, out4) {
-    out4[0] = fa3(fa3(fa3(fm3(m[0], x), fm3(m[4], y)), fm3(m[8], z)), m[12]);
-    out4[1] = fa3(fa3(fa3(fm3(m[1], x), fm3(m[5], y)), fm3(m[9], z)), m[13]);
-    out4[2] = fa3(fa3(fa3(fm3(m[2], x), fm3(m[6], y)), fm3(m[10], z)), m[14]);
-    out4[3] = fa3(fa3(fa3(fm3(m[3], x), fm3(m[7], y)), fm3(m[11], z)), m[15]);
-  }
-  function transformDirection(m, x, y, z, out3) {
-    out3[0] = fa3(fa3(fm3(m[0], x), fm3(m[4], y)), fm3(m[8], z));
-    out3[1] = fa3(fa3(fm3(m[1], x), fm3(m[5], y)), fm3(m[9], z));
-    out3[2] = fa3(fa3(fm3(m[2], x), fm3(m[6], y)), fm3(m[10], z));
-  }
-
-  // third_party/remote-compose-player/src/core/d3/Rasterizer.ts
-  var fround4 = Math.fround;
-  function f2i(v) {
-    if (Number.isNaN(v)) {
-      return 0;
-    }
-    if (v >= 2147483647) {
-      return 2147483647;
-    }
-    if (v <= -2147483648) {
-      return -2147483648;
-    }
-    return Math.trunc(v);
-  }
-  function lerp3(w1, v1, w2, v2, w3, v3) {
-    return fround4(fround4(fround4(fround4(w1 * v1) + fround4(w2 * v2))) + fround4(w3 * v3));
-  }
-  function min3(x1, x2, x3) {
-    return x1 > x2 ? x2 > x3 ? x3 : x2 : x1 > x3 ? x3 : x1;
-  }
-  function max3(x1, x2, x3) {
-    return x1 < x2 ? x2 < x3 ? x3 : x2 : x1 < x3 ? x3 : x1;
-  }
-  function clearDepth(zbuf) {
-    zbuf.fill(Number.POSITIVE_INFINITY);
-  }
-  var SETUP = {
-    ok: false,
-    dx: 0,
-    dy: 0,
-    zoff: 0,
-    minx: 0,
-    maxx: 0,
-    miny: 0,
-    maxy: 0,
-    fdx12: 0,
-    fdx23: 0,
-    fdx31: 0,
-    fdy12: 0,
-    fdy23: 0,
-    fdy31: 0,
-    cy1: 0,
-    cy2: 0,
-    cy3: 0,
-    swapped: false
-  };
-  var V = new Float32Array(9);
-  function setup(w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1) {
-    const s = SETUP;
-    s.swapped = false;
-    if ((fx1 - fx2) * (fy3 - fy2) - (fy1 - fy2) * (fx3 - fx2) < 0) {
-      const tx = fx1, ty = fy1, tz = fz1;
-      fx1 = fx2;
-      fy1 = fy2;
-      fz1 = fz2;
-      fx2 = tx;
-      fy2 = ty;
-      fz2 = tz;
-      s.swapped = true;
-    }
-    V[0] = fx3;
-    V[1] = fy3;
-    V[2] = fz3;
-    V[3] = fx2;
-    V[4] = fy2;
-    V[5] = fz2;
-    V[6] = fx1;
-    V[7] = fy1;
-    V[8] = fz1;
-    const d = fx1 * (fy3 - fy2) - fx2 * fy3 + fx3 * fy2 + (fx2 - fx3) * fy1;
-    if (d === 0) {
-      s.ok = false;
-      return s;
-    }
-    const numDx = -(fy1 * (fz3 - fz2) - fy2 * fz3 + fy3 * fz2 + (fy2 - fy3) * fz1);
-    const numDy = fx1 * (fz3 - fz2) - fx2 * fz3 + fx3 * fz2 + (fx2 - fx3) * fz1;
-    const numZ = fx1 * (fy3 * fz2 - fy2 * fz3) + fy1 * (fx2 * fz3 - fx3 * fz2) + (fx3 * fy2 - fx2 * fy3) * fz1;
-    s.dx = fround4(numDx / d);
-    s.dy = fround4(numDy / d);
-    s.zoff = fround4(numZ / d);
-    const y1 = f2i(fround4(fround4(16 * fy1) + 0.5));
-    const y2 = f2i(fround4(fround4(16 * fy2) + 0.5));
-    const y3 = f2i(fround4(fround4(16 * fy3) + 0.5));
-    const x1 = f2i(fround4(fround4(16 * fx1) + 0.5));
-    const x2 = f2i(fround4(fround4(16 * fx2) + 0.5));
-    const x3 = f2i(fround4(fround4(16 * fx3) + 0.5));
-    const dx12 = x1 - x2 | 0;
-    const dx23 = x2 - x3 | 0;
-    const dx31 = x3 - x1 | 0;
-    const dy12 = y1 - y2 | 0;
-    const dy23 = y2 - y3 | 0;
-    const dy31 = y3 - y1 | 0;
-    s.fdx12 = dx12 << 4;
-    s.fdx23 = dx23 << 4;
-    s.fdx31 = dx31 << 4;
-    s.fdy12 = dy12 << 4;
-    s.fdy23 = dy23 << 4;
-    s.fdy31 = dy31 << 4;
-    let minx = min3(x1, x2, x3) + 15 >> 4;
-    let maxx = max3(x1, x2, x3) + 15 >> 4;
-    let miny = min3(y1, y2, y3) + 15 >> 4;
-    let maxy = max3(y1, y2, y3) + 15 >> 4;
-    if (miny < 0) {
-      miny = 0;
-    }
-    if (minx < 0) {
-      minx = 0;
-    }
-    if (maxx > w) {
-      maxx = w;
-    }
-    if (maxy > h) {
-      maxy = h;
-    }
-    s.minx = minx;
-    s.maxx = maxx;
-    s.miny = miny;
-    s.maxy = maxy;
-    let c1 = dy12 * x1 - dx12 * y1;
-    let c2 = dy23 * x2 - dx23 * y2;
-    let c3 = dy31 * x3 - dx31 * y3;
-    if (dy12 < 0 || dy12 === 0 && dx12 > 0) {
-      c1 = c1 + 1;
-    }
-    if (dy23 < 0 || dy23 === 0 && dx23 > 0) {
-      c2 = c2 + 1;
-    }
-    if (dy31 < 0 || dy31 === 0 && dx31 > 0) {
-      c3 = c3 + 1;
-    }
-    s.cy1 = c1 + dx12 * (miny << 4) - dy12 * (minx << 4);
-    s.cy2 = c2 + dx23 * (miny << 4) - dy23 * (minx << 4);
-    s.cy3 = c3 + dx31 * (miny << 4) - dy31 * (minx << 4);
-    s.ok = true;
-    return s;
-  }
-  function fillTriangle(zbuff, img, color, w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1) {
-    const s = setup(w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1);
-    if (!s.ok) {
-      return;
-    }
-    const { dx, dy, zoff, minx, maxx, miny, maxy, fdx12, fdx23, fdx31, fdy12, fdy23, fdy31 } = s;
-    let cy1 = s.cy1 | 0, cy2 = s.cy2 | 0, cy3 = s.cy3 | 0;
-    let off = miny * w;
-    for (let y = miny; y < maxy; y++) {
-      let cx1 = cy1, cx2 = cy2, cx3 = cy3;
-      const p = fround4(zoff + dy * y);
-      for (let x = minx; x < maxx; x++) {
-        if (cx1 > 0 && cx2 > 0 && cx3 > 0) {
-          const point = x + off;
-          const zval = fround4(p + dx * x);
-          if (zbuff[point] > zval) {
-            zbuff[point] = zval;
-            img[point] = color;
-          }
-        }
-        cx1 = cx1 - fdy12 | 0;
-        cx2 = cx2 - fdy23 | 0;
-        cx3 = cx3 - fdy31 | 0;
-      }
-      cy1 = cy1 + fdx12 | 0;
-      cy2 = cy2 + fdx23 | 0;
-      cy3 = cy3 + fdx31 | 0;
-      off += w;
-    }
-  }
-  function fillTriangleGouraud(zbuff, img, c3, c2, c1, w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1) {
-    const s = setup(w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1);
-    if (!s.ok) {
-      return;
-    }
-    if (s.swapped) {
-      const t = c1;
-      c1 = c2;
-      c2 = t;
-    }
-    const { dx, dy, zoff, minx, maxx, miny, maxy, fdx12, fdx23, fdx31, fdy12, fdy23, fdy31 } = s;
-    let cy1 = s.cy1 | 0, cy2 = s.cy2 | 0, cy3 = s.cy3 | 0;
-    const sum = cy1 + cy2 + cy3;
-    if (sum === 0) {
-      return;
-    }
-    const inv = fround4(1 / fround4(sum));
-    const a1 = c1 >>> 24 & 255, r1 = c1 >>> 16 & 255, g1 = c1 >>> 8 & 255, b1 = c1 & 255;
-    const a2 = c2 >>> 24 & 255, r2 = c2 >>> 16 & 255, g2 = c2 >>> 8 & 255, b2 = c2 & 255;
-    const a3 = c3 >>> 24 & 255, r3 = c3 >>> 16 & 255, g3 = c3 >>> 8 & 255, b3 = c3 & 255;
-    let off = miny * w;
-    for (let y = miny; y < maxy; y++) {
-      let cx1 = cy1, cx2 = cy2, cx3 = cy3;
-      const p = fround4(zoff + dy * y);
-      for (let x = minx; x < maxx; x++) {
-        if (cx1 > 0 && cx2 > 0 && cx3 > 0) {
-          const point = x + off;
-          const zval = fround4(p + dx * x);
-          if (zbuff[point] > zval) {
-            zbuff[point] = zval;
-            const w1 = fround4(fround4(cx2) * inv);
-            const w2 = fround4(fround4(cx3) * inv);
-            const w3 = fround4(fround4(cx1) * inv);
-            const a = f2i(lerp3(w1, a1, w2, a2, w3, a3));
-            const r = f2i(lerp3(w1, r1, w2, r2, w3, r3));
-            const g = f2i(lerp3(w1, g1, w2, g2, w3, g3));
-            const b = f2i(lerp3(w1, b1, w2, b2, w3, b3));
-            img[point] = a << 24 | r << 16 | g << 8 | b | 0;
-          }
-        }
-        cx1 = cx1 - fdy12 | 0;
-        cx2 = cx2 - fdy23 | 0;
-        cx3 = cx3 - fdy31 | 0;
-      }
-      cy1 = cy1 + fdx12 | 0;
-      cy2 = cy2 + fdx23 | 0;
-      cy3 = cy3 + fdx31 | 0;
-      off += w;
-    }
-  }
-  function fillTriangleTextured(zbuff, img, tex, texW, texH, c3, c2, c1, w, h, fx3, fy3, fz3, u3, v3, iw3, fx2, fy2, fz2, u2, v2, iw2, fx1, fy1, fz1, u1, v1, iw1) {
-    const s = setup(w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1);
-    if (!s.ok) {
-      return;
-    }
-    if (s.swapped) {
-      let t = c1;
-      c1 = c2;
-      c2 = t;
-      t = u1;
-      u1 = u2;
-      u2 = t;
-      t = v1;
-      v1 = v2;
-      v2 = t;
-      t = iw1;
-      iw1 = iw2;
-      iw2 = t;
-    }
-    const { dx, dy, zoff, minx, maxx, miny, maxy, fdx12, fdx23, fdx31, fdy12, fdy23, fdy31 } = s;
-    let cy1 = s.cy1, cy2 = s.cy2, cy3 = s.cy3;
-    const sum = cy1 + cy2 + cy3;
-    if (sum === 0) {
-      return;
-    }
-    const inv = fround4(1 / fround4(sum));
-    const a1 = c1 >>> 24 & 255, r1 = c1 >>> 16 & 255, g1 = c1 >>> 8 & 255, b1 = c1 & 255;
-    const a2 = c2 >>> 24 & 255, r2 = c2 >>> 16 & 255, g2 = c2 >>> 8 & 255, b2 = c2 & 255;
-    const a3 = c3 >>> 24 & 255, r3 = c3 >>> 16 & 255, g3 = c3 >>> 8 & 255, b3 = c3 & 255;
-    const uiw1 = fround4(u1 * iw1), uiw2 = fround4(u2 * iw2), uiw3 = fround4(u3 * iw3);
-    const viw1 = fround4(v1 * iw1), viw2 = fround4(v2 * iw2), viw3 = fround4(v3 * iw3);
-    let off = miny * w;
-    for (let y = miny; y < maxy; y++) {
-      let cx1 = cy1, cx2 = cy2, cx3 = cy3;
-      const p = fround4(zoff + dy * y);
-      for (let x = minx; x < maxx; x++) {
-        if (cx1 > 0 && cx2 > 0 && cx3 > 0) {
-          const point = x + off;
-          const zval = fround4(p + dx * x);
-          if (zbuff[point] > zval) {
-            const w1 = fround4(fround4(cx2) * inv), w2 = fround4(fround4(cx3) * inv), w3 = fround4(fround4(cx1) * inv);
-            const invW = fround4(1 / lerp3(w1, iw1, w2, iw2, w3, iw3));
-            const u = fround4(lerp3(w1, uiw1, w2, uiw2, w3, uiw3) * invW);
-            const v = fround4(lerp3(w1, viw1, w2, viw2, w3, viw3) * invW);
-            let tx = f2i(fround4(u * texW));
-            let ty = f2i(fround4(fround4(1 - v) * texH));
-            if (tx < 0) {
-              tx = 0;
-            } else if (tx >= texW) {
-              tx = texW - 1;
-            }
-            if (ty < 0) {
-              ty = 0;
-            } else if (ty >= texH) {
-              ty = texH - 1;
-            }
-            const t = tex[ty * texW + tx];
-            const ta = t >>> 24 & 255;
-            if (ta !== 0) {
-              zbuff[point] = zval;
-              const la = f2i(lerp3(w1, a1, w2, a2, w3, a3));
-              const lr = f2i(lerp3(w1, r1, w2, r2, w3, r3));
-              const lg = f2i(lerp3(w1, g1, w2, g2, w3, g3));
-              const lb = f2i(lerp3(w1, b1, w2, b2, w3, b3));
-              const a = Math.trunc(ta * la / 255);
-              const r = Math.trunc((t >>> 16 & 255) * lr / 255);
-              const g = Math.trunc((t >>> 8 & 255) * lg / 255);
-              const b = Math.trunc((t & 255) * lb / 255);
-              img[point] = a << 24 | r << 16 | g << 8 | b | 0;
-            }
-          }
-        }
-        cx1 -= fdy12;
-        cx2 -= fdy23;
-        cx3 -= fdy31;
-      }
-      cy1 += fdx12;
-      cy2 += fdx23;
-      cy3 += fdx31;
-      off += w;
-    }
-  }
-  function fillTriangleDepthOnly(zbuff, w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1) {
-    const s = setup(w, h, fx3, fy3, fz3, fx2, fy2, fz2, fx1, fy1, fz1);
-    if (!s.ok) {
-      return;
-    }
-    const { dx, dy, zoff, minx, maxx, miny, maxy, fdx12, fdx23, fdx31, fdy12, fdy23, fdy31 } = s;
-    let cy1 = s.cy1 | 0, cy2 = s.cy2 | 0, cy3 = s.cy3 | 0;
-    let off = miny * w;
-    for (let y = miny; y < maxy; y++) {
-      let cx1 = cy1, cx2 = cy2, cx3 = cy3;
-      const p = fround4(zoff + dy * y);
-      for (let x = minx; x < maxx; x++) {
-        if (cx1 > 0 && cx2 > 0 && cx3 > 0) {
-          const point = x + off;
-          const zval = fround4(p + dx * x);
-          if (zbuff[point] > zval) {
-            zbuff[point] = zval;
-          }
-        }
-        cx1 = cx1 - fdy12 | 0;
-        cx2 = cx2 - fdy23 | 0;
-        cx3 = cx3 - fdy31 | 0;
-      }
-      cy1 = cy1 + fdx12 | 0;
-      cy2 = cy2 + fdx23 | 0;
-      cy3 = cy3 + fdx31 | 0;
-      off += w;
-    }
-  }
-  function drawLineDepthTested(zbuff, img, color, w, h, x0, y0, z0, x1, y1, z1, bias) {
-    const dx = fround4(x1 - x0);
-    const dy = fround4(y1 - y0);
-    const adx = dx < 0 ? -dx : dx;
-    const ady = dy < 0 ? -dy : dy;
-    let steps = f2i(adx > ady ? adx : ady);
-    if (steps < 1) {
-      steps = 1;
-    }
-    const inv = fround4(1 / steps);
-    const sx = fround4(dx * inv);
-    const sy = fround4(dy * inv);
-    const sz = fround4(fround4(z1 - z0) * inv);
-    let px = x0, py = y0, pz = z0;
-    for (let i = 0; i <= steps; i++) {
-      const ix = f2i(px);
-      const iy = f2i(py);
-      if (ix >= 0 && ix < w && iy >= 0 && iy < h) {
-        const point = ix + iy * w;
-        if (zbuff[point] >= pz - bias) {
-          img[point] = color;
-        }
-      }
-      px = fround4(px + sx);
-      py = fround4(py + sy);
-      pz = fround4(pz + sz);
-    }
-  }
-
-  // third_party/remote-compose-player/src/core/d3/SoftwarePaint3DContext.ts
-  var fround5 = Math.fround;
-  function fm4(a, b) {
-    return fround5(a * b);
-  }
-  function fa4(a, b) {
-    return fround5(a + b);
-  }
-  var INV_255 = Math.fround(1 / 255);
-  var NEAR_W_EPSILON = 1e-4;
-  var AMBIENT = Math.fround(0.2);
-  var MAX_LIGHTS2 = 32;
-  var WIRE_DEPTH_BIAS = 6e-4;
-  function createCanvasMesh() {
-    return {
-      positions: new Float32Array(0),
-      colors: new Int32Array(0),
-      uvs: new Float32Array(0),
-      depths: new Float32Array(0),
-      hasUv: false,
-      vertexCount: 0
-    };
-  }
-  var SoftwarePaint3DContext = class {
-    constructor() {
-      this.mProj = mat4();
-      this.mView = mat4();
-      this.mModel = mat4();
-      this.mPV = mat4();
-      this.mMVP = mat4();
-      this.mMV = mat4();
-      this.mMeshes = /* @__PURE__ */ new Map();
-      this.mColor = null;
-      this.mZbuf = null;
-      this.mWidth = 0;
-      this.mHeight = 0;
-      this.mBaseColorArgb = 4294967295 | 0;
-      // Lighting state. Until a light op runs we use a default headlight, so an untouched
-      // document is never unlit.
-      this.mLights = [];
-      this.mLightsTouched = false;
-      // Per-draw eye-space light scratch (parallel arrays, filled by prepareLightsEyeSpace).
-      this.mNumEyeLights = 0;
-      this.mEType = new Int32Array(0);
-      this.mElx = new Float32Array(0);
-      this.mEly = new Float32Array(0);
-      this.mElz = new Float32Array(0);
-      this.mElr = new Float32Array(0);
-      this.mElg = new Float32Array(0);
-      this.mElb = new Float32Array(0);
-      this.mScratch4 = new Float32Array(4);
-      this.mLightScratch3 = new Float32Array(3);
-      this.mNormal3 = new Float32Array(3);
-      // Software texture (host-decoded ARGB pixels).
-      this.mTexPixels = null;
-      this.mTexW = 0;
-      this.mTexH = 0;
-      // Specular material (Blinn-Phong). 0 strength => matte (default, no specular cost).
-      this.mSpecStrength = 0;
-      this.mShininess = 32;
-      // Polygon-offset depth bias (window-z units). Both 0 => no bias.
-      this.mDepthBiasC = 0;
-      this.mDepthBiasS = 0;
-      /** Per-triangle screen-space output of projectTriangle: sx,sy,sz x 3. */
-      this.mTriScreen = new Float32Array(9);
-      /** Per-vertex shaded ARGB of the last accepted triangle, in vertex order. */
-      this.mTriColor = new Int32Array(3);
-      /** Per-vertex 1/clipW, for perspective-correct attribute interpolation. */
-      this.mTriInvW = new Float32Array(3);
-      /**
-       * Project, near-reject, backface-cull and Lambert shade one triangle. On acceptance fills
-       * mTriScreen with the three screen-space vertices (Y already flipped for a top-down buffer)
-       * and mTriColor with the per-vertex shaded ARGB, and returns true. Returns false — leaving
-       * the scratch untouched — when the triangle is degenerate, crosses the near plane, or is
-       * back-facing.
-       */
-      // ── Canvas backend front half ─────────────────────────────────────────────────────
-      //
-      // Port of the reference's buildCanvasVertices, and the same code as the C++ one. It
-      // reuses projectTriangle, so transform, backface cull, lighting and depth bias are
-      // literally what the software rasterizer runs — the backends can only disagree about
-      // rasterization, which is the point of having both.
-      this.cvTriXY = new Float32Array(0);
-      this.cvTriUv = new Float32Array(0);
-      this.cvTriColor = new Int32Array(0);
-      this.cvTriDepth = new Float32Array(0);
-      this.cvTriZ = new Float32Array(0);
-      this.cvOrder = new Int32Array(0);
-    }
-    // ----- Buffers ----------------------------------------------------------
-    /**
-     * (Re)allocate the color and depth buffers if the size changed. Pixels are NOT cleared
-     * here — call clearDepth3D() to start a new 3D pass.
-     */
-    setSize(width, height) {
-      if (width <= 0 || height <= 0) {
-        return;
-      }
-      if (this.mColor === null || this.mWidth !== width || this.mHeight !== height) {
-        this.mColor = new Int32Array(width * height);
-        this.mZbuf = new Float32Array(width * height);
-        this.mWidth = width;
-        this.mHeight = height;
-        clearDepth(this.mZbuf);
-      }
-    }
-    getWidth() {
-      return this.mWidth;
-    }
-    getHeight() {
-      return this.mHeight;
-    }
-    /** Engine color buffer (ARGB, length w*h). Null before setSize. */
-    getColorBuffer() {
-      return this.mColor;
-    }
-    setBaseColorArgb(argb) {
-      this.mBaseColorArgb = argb | 0;
-    }
-    getBaseColorArgb() {
-      return this.mBaseColorArgb;
-    }
-    // ----- Paint3DContext ---------------------------------------------------
-    defineMesh3D(id, indices, verts, normals, uv = null) {
-      this.mMeshes.set(id, { indices, verts, normals, uv });
-    }
-    setCamera3D(projection, projParams, viewParams) {
-      if (projection === PROJECTION_PERSPECTIVE) {
-        if (projParams.length !== 4) {
-          return;
-        }
-        perspective(this.mProj, projParams[0], projParams[1], projParams[2], projParams[3]);
-      } else {
-        if (projParams.length !== 6) {
-          return;
-        }
-        ortho(
-          this.mProj,
-          projParams[0],
-          projParams[1],
-          projParams[2],
-          projParams[3],
-          projParams[4],
-          projParams[5]
-        );
-      }
-      if (viewParams.length !== 9) {
-        return;
-      }
-      lookAt(
-        this.mView,
-        viewParams[0],
-        viewParams[1],
-        viewParams[2],
-        viewParams[3],
-        viewParams[4],
-        viewParams[5],
-        viewParams[6],
-        viewParams[7],
-        viewParams[8]
-      );
-      identity(this.mModel);
-    }
-    matrix3Op(sub, args) {
-      switch (sub) {
-        case M3_IDENTITY:
-          identity(this.mModel);
-          break;
-        case M3_TRANSLATE:
-          if (args.length === 3) {
-            translate(this.mModel, args[0], args[1], args[2]);
-          }
-          break;
-        case M3_SCALE:
-          if (args.length === 3) {
-            scale(this.mModel, args[0], args[1], args[2]);
-          }
-          break;
-        case M3_ROTATE_AXIS:
-          if (args.length === 4) {
-            rotateAxis(this.mModel, args[0], args[1], args[2], args[3]);
-          }
-          break;
-        case M3_MULTIPLY:
-          if (args.length === 16) {
-            const m = args instanceof Float32Array ? args : new Float32Array(args);
-            multiply(this.mModel, this.mModel, m);
-          }
-          break;
-        default:
-          break;
-      }
-    }
-    clearDepth3D() {
-      if (this.mZbuf === null || this.mColor === null) {
-        return;
-      }
-      clearDepth(this.mZbuf);
-      this.mColor.fill(0);
-    }
-    setLights3D(types, colors, params) {
-      this.mLights = [];
-      const n = types.length;
-      for (let i = 0; i < n && this.mLights.length < MAX_LIGHTS2; i++) {
-        const p = i * 4;
-        if (p + 3 >= params.length) {
-          break;
-        }
-        const argb = colors[i] | 0;
-        this.mLights.push({
-          type: types[i],
-          r: fround5((argb >>> 16 & 255) * INV_255),
-          g: fround5((argb >>> 8 & 255) * INV_255),
-          b: fround5((argb & 255) * INV_255),
-          wx: params[p],
-          wy: params[p + 1],
-          wz: params[p + 2],
-          intensity: params[p + 3]
-        });
-      }
-      this.mLightsTouched = true;
-    }
-    /** The software engine has no bitmap store; the host supplies pixels via setTextureData. */
-    setTexture3D(_bitmapId) {
-    }
-    setMaterial3D(specStrength, shininess) {
-      this.mSpecStrength = specStrength;
-      this.mShininess = shininess > 0 ? shininess : 1;
-    }
-    setDepthBias3D(constant, slope) {
-      this.mDepthBiasC = constant;
-      this.mDepthBiasS = slope;
-    }
-    /** Host-supplied texture pixels (ARGB, length w*h); null clears the texture. */
-    setTextureData(pixels, w, h) {
-      this.mTexPixels = pixels;
-      this.mTexW = w;
-      this.mTexH = h;
-    }
-    // ----- Lighting ---------------------------------------------------------
-    ensureEyeLightCapacity(n) {
-      if (this.mEType.length < n) {
-        this.mEType = new Int32Array(n);
-        this.mElx = new Float32Array(n);
-        this.mEly = new Float32Array(n);
-        this.mElz = new Float32Array(n);
-        this.mElr = new Float32Array(n);
-        this.mElg = new Float32Array(n);
-        this.mElb = new Float32Array(n);
-      }
-    }
-    /**
-     * Resolve the active lights into eye space for the current view. Directional lights store
-     * the unit vector *toward* the light; point lights store their eye-space position. Color is
-     * premultiplied by intensity.
-     */
-    prepareLightsEyeSpace() {
-      if (!this.mLightsTouched) {
-        this.ensureEyeLightCapacity(1);
-        this.mEType[0] = LIGHT_DIRECTIONAL;
-        this.mElx[0] = 0;
-        this.mEly[0] = 0;
-        this.mElz[0] = 1;
-        this.mElr[0] = 1 - AMBIENT;
-        this.mElg[0] = 1 - AMBIENT;
-        this.mElb[0] = 1 - AMBIENT;
-        this.mNumEyeLights = 1;
-        return;
-      }
-      const n = this.mLights.length;
-      this.ensureEyeLightCapacity(n);
-      for (let i = 0; i < n; i++) {
-        const l = this.mLights[i];
-        this.mEType[i] = l.type;
-        if (l.type === LIGHT_POINT) {
-          transformPoint(this.mView, l.wx, l.wy, l.wz, this.mScratch4);
-          this.mElx[i] = this.mScratch4[0];
-          this.mEly[i] = this.mScratch4[1];
-          this.mElz[i] = this.mScratch4[2];
-        } else {
-          transformDirection(this.mView, l.wx, l.wy, l.wz, this.mLightScratch3);
-          let x = -this.mLightScratch3[0];
-          let y = -this.mLightScratch3[1];
-          let z = -this.mLightScratch3[2];
-          const len = fround5(Math.sqrt(fa4(fa4(fm4(x, x), fm4(y, y)), fm4(z, z))));
-          if (len > 0) {
-            x = fround5(x / len);
-            y = fround5(y / len);
-            z = fround5(z / len);
-          }
-          this.mElx[i] = x;
-          this.mEly[i] = y;
-          this.mElz[i] = z;
-        }
-        this.mElr[i] = l.r * l.intensity;
-        this.mElg[i] = l.g * l.intensity;
-        this.mElb[i] = l.b * l.intensity;
-      }
-      this.mNumEyeLights = n;
-    }
-    /**
-     * Lambert-light a vertex: base modulated by ambient plus each light's (two-sided) N.L.
-     * (nx,ny,nz) is the eye-space normal (need not be unit); (px,py,pz) the eye-space position.
-     */
-    litColor(base, nx, ny, nz, px, py, pz) {
-      const nlen = fround5(Math.sqrt(fa4(fa4(fm4(nx, nx), fm4(ny, ny)), fm4(nz, nz))));
-      const inv = nlen === 0 ? 0 : fround5(1 / nlen);
-      if (this.mSpecStrength > 0) {
-        return this.litColorSpecular(base, nx * inv, ny * inv, nz * inv, px, py, pz);
-      }
-      let lr = AMBIENT, lg = AMBIENT, lb = AMBIENT;
-      for (let i = 0; i < this.mNumEyeLights; i++) {
-        let lx, ly, lz;
-        if (this.mEType[i] === LIGHT_POINT) {
-          lx = this.mElx[i] - px;
-          ly = this.mEly[i] - py;
-          lz = this.mElz[i] - pz;
-          const ll = fround5(Math.sqrt(fa4(fa4(fm4(lx, lx), fm4(ly, ly)), fm4(lz, lz))));
-          if (ll > 0) {
-            lx = fround5(lx / ll);
-            ly = fround5(ly / ll);
-            lz = fround5(lz / ll);
-          }
-        } else {
-          lx = this.mElx[i];
-          ly = this.mEly[i];
-          lz = this.mElz[i];
-        }
-        let d = fm4(fa4(fa4(fm4(nx, lx), fm4(ny, ly)), fm4(nz, lz)), inv);
-        if (d < 0) {
-          d = -d;
-        }
-        lr = fround5(lr + fround5(this.mElr[i] * d));
-        lg = fround5(lg + fround5(this.mElg[i] * d));
-        lb = fround5(lb + fround5(this.mElb[i] * d));
-      }
-      const a = base >>> 24 & 255;
-      let r = Math.trunc(fm4(base >>> 16 & 255, lr));
-      let g = Math.trunc(fm4(base >>> 8 & 255, lg));
-      let b = Math.trunc(fm4(base & 255, lb));
-      if (r > 255) {
-        r = 255;
-      }
-      if (g > 255) {
-        g = 255;
-      }
-      if (b > 255) {
-        b = 255;
-      }
-      return a << 24 | r << 16 | g << 8 | b | 0;
-    }
-    /**
-     * Glossy shading (only when specStrength > 0): diffuse Lambert modulating the base color
-     * plus an additive white Blinn-Phong highlight. The normal is unit and is flipped to face
-     * the viewer, so highlights land on the lit side only.
-     */
-    litColorSpecular(base, nfx, nfy, nfz, px, py, pz) {
-      const vlen = fround5(Math.sqrt(fa4(fa4(fm4(px, px), fm4(py, py)), fm4(pz, pz))));
-      let vx = 0, vy = 0, vz = 1;
-      if (vlen > 0) {
-        vx = fround5(-px / vlen);
-        vy = fround5(-py / vlen);
-        vz = fround5(-pz / vlen);
-      }
-      if (fa4(fa4(fm4(nfx, vx), fm4(nfy, vy)), fm4(nfz, vz)) < 0) {
-        nfx = -nfx;
-        nfy = -nfy;
-        nfz = -nfz;
-      }
-      let lr = AMBIENT, lg = AMBIENT, lb = AMBIENT;
-      let sr = 0, sg = 0, sb = 0;
-      for (let i = 0; i < this.mNumEyeLights; i++) {
-        let lx, ly, lz;
-        if (this.mEType[i] === LIGHT_POINT) {
-          lx = this.mElx[i] - px;
-          ly = this.mEly[i] - py;
-          lz = this.mElz[i] - pz;
-          const ll = fround5(Math.sqrt(lx * lx + ly * ly + lz * lz));
-          if (ll > 0) {
-            lx /= ll;
-            ly /= ll;
-            lz /= ll;
-          }
-        } else {
-          lx = this.mElx[i];
-          ly = this.mEly[i];
-          lz = this.mElz[i];
-        }
-        const ndl = fa4(fa4(fm4(nfx, lx), fm4(nfy, ly)), fm4(nfz, lz));
-        if (ndl <= 0) {
-          continue;
-        }
-        lr = fa4(lr, fm4(this.mElr[i], ndl));
-        lg = fa4(lg, fm4(this.mElg[i], ndl));
-        lb = fa4(lb, fm4(this.mElb[i], ndl));
-        const hx = lx + vx, hy = ly + vy, hz = lz + vz;
-        const hlen = fround5(Math.sqrt(fa4(fa4(fm4(hx, hx), fm4(hy, hy)), fm4(hz, hz))));
-        if (hlen <= 0) {
-          continue;
-        }
-        const ndh = fround5(fa4(fa4(fm4(nfx, hx), fm4(nfy, hy)), fm4(nfz, hz)) / hlen);
-        if (ndh <= 0) {
-          continue;
-        }
-        const spec = fm4(fround5(Math.pow(ndh, this.mShininess)), this.mSpecStrength);
-        sr = fa4(sr, fm4(this.mElr[i], spec));
-        sg = fa4(sg, fm4(this.mElg[i], spec));
-        sb = fa4(sb, fm4(this.mElb[i], spec));
-      }
-      const a = base >>> 24 & 255;
-      let r = Math.trunc((base >>> 16 & 255) * lr + sr * 255);
-      let g = Math.trunc((base >>> 8 & 255) * lg + sg * 255);
-      let b = Math.trunc((base & 255) * lb + sb * 255);
-      if (r > 255) {
-        r = 255;
-      }
-      if (g > 255) {
-        g = 255;
-      }
-      if (b > 255) {
-        b = 255;
-      }
-      return a << 24 | r << 16 | g << 8 | b | 0;
-    }
-    // ----- Drawing ----------------------------------------------------------
-    drawMesh3D(meshId, mode) {
-      const m = this.mMeshes.get(meshId);
-      if (m === void 0 || this.mColor === null || this.mZbuf === null) {
-        return;
-      }
-      const w = this.mWidth;
-      const h = this.mHeight;
-      const pixels = this.mColor;
-      multiply(this.mPV, this.mProj, this.mView);
-      multiply(this.mMV, this.mView, this.mModel);
-      multiply(this.mMVP, this.mPV, this.mModel);
-      this.prepareLightsEyeSpace();
-      const baseColor = this.mBaseColorArgb;
-      const idx = m.indices;
-      const verts = m.verts;
-      const normals = m.normals;
-      const uv = m.uv;
-      if ((mode & MODE_WIREFRAME) !== 0) {
-        this.drawMeshWireframe(idx, verts, normals, baseColor, w, h, pixels, mode);
-        return;
-      }
-      const smooth = (mode & MODE_SMOOTH_MASK) !== 0 && normals !== null;
-      const textured = this.mTexPixels !== null && uv !== null;
-      const interpolate2 = smooth || this.mSpecStrength > 0;
-      const ts = this.mTriScreen;
-      const tc = this.mTriColor;
-      for (let t = 0; t < idx.length; t += 3) {
-        if (!this.projectTriangle(idx, verts, normals, smooth, textured, t, baseColor, w, h)) {
-          continue;
-        }
-        if (textured) {
-          const q0 = idx[t] * 2, q1 = idx[t + 1] * 2, q2 = idx[t + 2] * 2;
-          fillTriangleTextured(
-            this.mZbuf,
-            pixels,
-            this.mTexPixels,
-            this.mTexW,
-            this.mTexH,
-            tc[2],
-            tc[1],
-            tc[0],
-            w,
-            h,
-            ts[6],
-            ts[7],
-            ts[8],
-            uv[q2],
-            uv[q2 + 1],
-            this.mTriInvW[2],
-            ts[3],
-            ts[4],
-            ts[5],
-            uv[q1],
-            uv[q1 + 1],
-            this.mTriInvW[1],
-            ts[0],
-            ts[1],
-            ts[2],
-            uv[q0],
-            uv[q0 + 1],
-            this.mTriInvW[0]
-          );
-        } else if (interpolate2) {
-          fillTriangleGouraud(
-            this.mZbuf,
-            pixels,
-            tc[2],
-            tc[1],
-            tc[0],
-            w,
-            h,
-            ts[6],
-            ts[7],
-            ts[8],
-            ts[3],
-            ts[4],
-            ts[5],
-            ts[0],
-            ts[1],
-            ts[2]
-          );
-        } else {
-          fillTriangle(
-            this.mZbuf,
-            pixels,
-            tc[0],
-            w,
-            h,
-            ts[6],
-            ts[7],
-            ts[8],
-            ts[3],
-            ts[4],
-            ts[5],
-            ts[0],
-            ts[1],
-            ts[2]
-          );
-        }
-      }
-    }
-    /**
-     * Hidden-line wireframe. Two passes over the front-facing triangles: rasterize each into the
-     * depth buffer only (transparent faces), then draw the selected edges as depth-tested lines,
-     * so edges on visible surface show and edges behind nearer surface are occluded.
-     */
-    drawMeshWireframe(idx, verts, normals, lineColor, w, h, pixels, mode) {
-      let edges = mode & WIRE_EDGE_MASK;
-      if (edges === 0) {
-        edges = WIRE_EDGE_MASK;
-      }
-      const e0 = (edges & WIRE_EDGE0) !== 0;
-      const e1 = (edges & WIRE_EDGE1) !== 0;
-      const e2 = (edges & WIRE_EDGE2) !== 0;
-      const ts = this.mTriScreen;
-      for (let t = 0; t < idx.length; t += 3) {
-        if (!this.projectTriangle(idx, verts, normals, false, false, t, lineColor, w, h)) {
-          continue;
-        }
-        fillTriangleDepthOnly(
-          this.mZbuf,
-          w,
-          h,
-          ts[6],
-          ts[7],
-          ts[8],
-          ts[3],
-          ts[4],
-          ts[5],
-          ts[0],
-          ts[1],
-          ts[2]
-        );
-      }
-      for (let t = 0; t < idx.length; t += 3) {
-        if (!this.projectTriangle(idx, verts, normals, false, false, t, lineColor, w, h)) {
-          continue;
-        }
-        const ax = ts[0], ay = ts[1], az = ts[2];
-        const bx = ts[3], by = ts[4], bz = ts[5];
-        const cx = ts[6], cy = ts[7], cz = ts[8];
-        if (e0) {
-          drawLineDepthTested(
-            this.mZbuf,
-            pixels,
-            lineColor,
-            w,
-            h,
-            ax,
-            ay,
-            az,
-            bx,
-            by,
-            bz,
-            WIRE_DEPTH_BIAS
-          );
-        }
-        if (e1) {
-          drawLineDepthTested(
-            this.mZbuf,
-            pixels,
-            lineColor,
-            w,
-            h,
-            bx,
-            by,
-            bz,
-            cx,
-            cy,
-            cz,
-            WIRE_DEPTH_BIAS
-          );
-        }
-        if (e2) {
-          drawLineDepthTested(
-            this.mZbuf,
-            pixels,
-            lineColor,
-            w,
-            h,
-            cx,
-            cy,
-            cz,
-            ax,
-            ay,
-            az,
-            WIRE_DEPTH_BIAS
-          );
-        }
-      }
-    }
-    /**
-     * Project, light and cull a mesh into `out`, returning the vertex count.
-     *
-     * Triangles come out ordered back to front so a host with no depth buffer still gets a
-     * plausible image; `depths` is filled for one that has.
-     */
-    /** The active texture, for a host that rasterizes textured triangles itself. */
-    getTextureData() {
-      return { pixels: this.mTexPixels, width: this.mTexW, height: this.mTexH };
-    }
-    buildCanvasVertices(meshId, out, smooth) {
-      out.vertexCount = 0;
-      const m = this.mMeshes.get(meshId);
-      if (m === void 0) return 0;
-      const w = this.mWidth, h = this.mHeight;
-      multiply(this.mPV, this.mProj, this.mView);
-      multiply(this.mMV, this.mView, this.mModel);
-      multiply(this.mMVP, this.mPV, this.mModel);
-      this.prepareLightsEyeSpace();
-      const idx = m.indices, verts = m.verts, normals = m.normals, uv = m.uv;
-      const useSmooth = smooth && normals !== null;
-      out.hasUv = uv !== null;
-      const triCount = idx.length / 3 | 0;
-      if (triCount <= 0) return 0;
-      if (this.cvTriXY.length < triCount * 6) {
-        this.cvTriXY = new Float32Array(triCount * 6);
-        this.cvTriUv = new Float32Array(triCount * 6);
-        this.cvTriColor = new Int32Array(triCount * 3);
-        this.cvTriZ = new Float32Array(triCount * 3);
-        this.cvTriDepth = new Float32Array(triCount);
-        this.cvOrder = new Int32Array(triCount);
-      }
-      const ts = this.mTriScreen, tc = this.mTriColor;
-      let kept = 0;
-      for (let t = 0; t < idx.length; t += 3) {
-        if (!this.projectTriangle(
-          idx,
-          verts,
-          normals,
-          useSmooth,
-          false,
-          t,
-          this.mBaseColorArgb,
-          w,
-          h
-        )) {
-          continue;
-        }
-        const p = kept * 6;
-        this.cvTriXY[p] = ts[0];
-        this.cvTriXY[p + 1] = ts[1];
-        this.cvTriXY[p + 2] = ts[3];
-        this.cvTriXY[p + 3] = ts[4];
-        this.cvTriXY[p + 4] = ts[6];
-        this.cvTriXY[p + 5] = ts[7];
-        const c = kept * 3;
-        this.cvTriColor[c] = tc[0];
-        this.cvTriColor[c + 1] = tc[1];
-        this.cvTriColor[c + 2] = tc[2];
-        if (uv !== null) {
-          const u0 = idx[t] * 2, u1 = idx[t + 1] * 2, u2 = idx[t + 2] * 2;
-          this.cvTriUv[p] = uv[u0];
-          this.cvTriUv[p + 1] = uv[u0 + 1];
-          this.cvTriUv[p + 2] = uv[u1];
-          this.cvTriUv[p + 3] = uv[u1 + 1];
-          this.cvTriUv[p + 4] = uv[u2];
-          this.cvTriUv[p + 5] = uv[u2 + 1];
-        }
-        this.cvTriDepth[kept] = (ts[2] + ts[5] + ts[8]) * (1 / 3);
-        const zi = kept * 3;
-        this.cvTriZ[zi] = ts[2];
-        this.cvTriZ[zi + 1] = ts[5];
-        this.cvTriZ[zi + 2] = ts[8];
-        kept++;
-      }
-      const order = this.cvOrder, depth = this.cvTriDepth;
-      for (let i = 0; i < kept; i++) order[i] = i;
-      for (let i = 1; i < kept; i++) {
-        const cur = order[i];
-        const key = depth[cur];
-        let j = i - 1;
-        while (j >= 0 && depth[order[j]] < key) {
-          order[j + 1] = order[j];
-          j--;
-        }
-        order[j + 1] = cur;
-      }
-      const vertexCount2 = kept * 3;
-      if (out.positions.length < vertexCount2 * 2) {
-        out.positions = new Float32Array(vertexCount2 * 2);
-        out.uvs = new Float32Array(vertexCount2 * 2);
-        out.colors = new Int32Array(vertexCount2);
-        out.depths = new Float32Array(vertexCount2);
-      }
-      for (let k = 0; k < kept; k++) {
-        const tri = order[k];
-        const src = tri * 6, dst = k * 6;
-        for (let i = 0; i < 6; i++) out.positions[dst + i] = this.cvTriXY[src + i];
-        if (uv !== null) {
-          for (let i = 0; i < 6; i++) out.uvs[dst + i] = this.cvTriUv[src + i];
-        }
-        const srcC = tri * 3, v = k * 3;
-        for (let i = 0; i < 3; i++) {
-          out.colors[v + i] = this.cvTriColor[srcC + i];
-          out.depths[v + i] = this.cvTriZ[srcC + i];
-        }
-      }
-      out.vertexCount = vertexCount2;
-      return vertexCount2;
-    }
-    projectTriangle(idx, verts, normals, smooth, computeInvW, t, baseColor, w, h) {
-      const i0 = idx[t] * 3;
-      const i1 = idx[t + 1] * 3;
-      const i2 = idx[t + 2] * 3;
-      if (i0 < 0 || i1 < 0 || i2 < 0 || i0 + 2 >= verts.length || i1 + 2 >= verts.length || i2 + 2 >= verts.length) {
-        return false;
-      }
-      const s4 = this.mScratch4;
-      transformPoint(this.mMVP, verts[i0], verts[i0 + 1], verts[i0 + 2], s4);
-      const cx0 = s4[0], cy0 = s4[1], cz0 = s4[2], cw0 = s4[3];
-      transformPoint(this.mMVP, verts[i1], verts[i1 + 1], verts[i1 + 2], s4);
-      const cx1 = s4[0], cy1 = s4[1], cz1 = s4[2], cw1 = s4[3];
-      transformPoint(this.mMVP, verts[i2], verts[i2 + 1], verts[i2 + 2], s4);
-      const cx2 = s4[0], cy2 = s4[1], cz2 = s4[2], cw2 = s4[3];
-      if (cw0 < NEAR_W_EPSILON || cw1 < NEAR_W_EPSILON || cw2 < NEAR_W_EPSILON) {
-        return false;
-      }
-      if (computeInvW) {
-        this.mTriInvW[0] = 1 / cw0;
-        this.mTriInvW[1] = 1 / cw1;
-        this.mTriInvW[2] = 1 / cw2;
-      }
-      const nx0 = fround5(cx0 / cw0), ny0 = fround5(cy0 / cw0), nz0 = fround5(cz0 / cw0);
-      const nx1 = fround5(cx1 / cw1), ny1 = fround5(cy1 / cw1), nz1 = fround5(cz1 / cw1);
-      const nx2 = fround5(cx2 / cw2), ny2 = fround5(cy2 / cw2), nz2 = fround5(cz2 / cw2);
-      const sx0 = fm4(fa4(fm4(nx0, 0.5), 0.5), w);
-      const sy0 = fm4(fround5(1 - fa4(fm4(ny0, 0.5), 0.5)), h);
-      let sz0 = fa4(fm4(nz0, 0.5), 0.5);
-      const sx1 = fm4(fa4(fm4(nx1, 0.5), 0.5), w);
-      const sy1 = fm4(fround5(1 - fa4(fm4(ny1, 0.5), 0.5)), h);
-      let sz1 = fa4(fm4(nz1, 0.5), 0.5);
-      const sx2 = fm4(fa4(fm4(nx2, 0.5), 0.5), w);
-      const sy2 = fm4(fround5(1 - fa4(fm4(ny2, 0.5), 0.5)), h);
-      let sz2 = fa4(fm4(nz2, 0.5), 0.5);
-      const signedArea2 = fround5(fm4(fround5(sx1 - sx0), fround5(sy2 - sy0)) - fm4(fround5(sx2 - sx0), fround5(sy1 - sy0)));
-      if (signedArea2 > 0) {
-        return false;
-      }
-      if ((this.mDepthBiasC !== 0 || this.mDepthBiasS !== 0) && signedArea2 !== 0) {
-        const invA = fround5(1 / signedArea2);
-        const dzdx = fm4(fround5(fm4(fround5(sz1 - sz0), fround5(sy2 - sy0)) - fm4(fround5(sz2 - sz0), fround5(sy1 - sy0))), invA);
-        const dzdy = fm4(fround5(fm4(fround5(sz2 - sz0), fround5(sx1 - sx0)) - fm4(fround5(sz1 - sz0), fround5(sx2 - sx0))), invA);
-        const slope = Math.max(Math.abs(dzdx), Math.abs(dzdy));
-        const bias = fa4(this.mDepthBiasC, fm4(this.mDepthBiasS, slope));
-        sz0 = fa4(sz0, bias);
-        sz1 = fa4(sz1, bias);
-        sz2 = fa4(sz2, bias);
-      }
-      const ts = this.mTriScreen;
-      ts[0] = sx0;
-      ts[1] = sy0;
-      ts[2] = sz0;
-      ts[3] = sx1;
-      ts[4] = sy1;
-      ts[5] = sz1;
-      ts[6] = sx2;
-      ts[7] = sy2;
-      ts[8] = sz2;
-      transformPoint(this.mMV, verts[i0], verts[i0 + 1], verts[i0 + 2], s4);
-      const ev0x = s4[0], ev0y = s4[1], ev0z = s4[2];
-      transformPoint(this.mMV, verts[i1], verts[i1 + 1], verts[i1 + 2], s4);
-      const ev1x = s4[0], ev1y = s4[1], ev1z = s4[2];
-      transformPoint(this.mMV, verts[i2], verts[i2 + 1], verts[i2 + 2], s4);
-      const ev2x = s4[0], ev2y = s4[1], ev2z = s4[2];
-      const tc = this.mTriColor;
-      const n3 = this.mNormal3;
-      if (smooth && normals !== null && i0 + 2 < normals.length && i1 + 2 < normals.length && i2 + 2 < normals.length) {
-        transformDirection(this.mMV, normals[i0], normals[i0 + 1], normals[i0 + 2], n3);
-        tc[0] = this.litColor(baseColor, n3[0], n3[1], n3[2], ev0x, ev0y, ev0z);
-        transformDirection(this.mMV, normals[i1], normals[i1 + 1], normals[i1 + 2], n3);
-        tc[1] = this.litColor(baseColor, n3[0], n3[1], n3[2], ev1x, ev1y, ev1z);
-        transformDirection(this.mMV, normals[i2], normals[i2 + 1], normals[i2 + 2], n3);
-        tc[2] = this.litColor(baseColor, n3[0], n3[1], n3[2], ev2x, ev2y, ev2z);
-      } else {
-        const ax = fround5(ev1x - ev0x), ay = fround5(ev1y - ev0y), az = fround5(ev1z - ev0z);
-        const bx = fround5(ev2x - ev0x), by = fround5(ev2y - ev0y), bz = fround5(ev2z - ev0z);
-        const nxn = fround5(fm4(ay, bz) - fm4(az, by));
-        const nyn = fround5(fm4(az, bx) - fm4(ax, bz));
-        const nzn = fround5(fm4(ax, by) - fm4(ay, bx));
-        if (this.mSpecStrength > 0) {
-          tc[0] = this.litColor(baseColor, nxn, nyn, nzn, ev0x, ev0y, ev0z);
-          tc[1] = this.litColor(baseColor, nxn, nyn, nzn, ev1x, ev1y, ev1z);
-          tc[2] = this.litColor(baseColor, nxn, nyn, nzn, ev2x, ev2y, ev2z);
-        } else {
-          const third = fround5(1 / 3);
-          const cx = fm4(fa4(fa4(ev0x, ev1x), ev2x), third);
-          const cy = fm4(fa4(fa4(ev0y, ev1y), ev2y), third);
-          const cz = fm4(fa4(fa4(ev0z, ev1z), ev2z), third);
-          const shaded = this.litColor(baseColor, nxn, nyn, nzn, cx, cy, cz);
-          tc[0] = shaded;
-          tc[1] = shaded;
-          tc[2] = shaded;
-        }
-      }
-      return true;
-    }
-  };
-
-  // third_party/remote-compose-player/src/web/WebGL3DRenderer.ts
-  var VERT = `#version 300 es
-precision highp float;
-layout(location = 0) in vec2 aPos;      // window pixels, y down
-layout(location = 1) in vec4 aColor;    // straight (non-premultiplied) RGBA
-layout(location = 2) in vec2 aUv;
-layout(location = 3) in float aDepth;   // window z in [0,1], smaller = closer
-uniform vec2 uViewport;
-out vec4 vColor;
-out vec2 vUv;
-void main() {
-    // Window pixels to clip space. The y flip is the whole conversion: our window origin is
-    // top-left with y increasing downward, clip space is centre-origin with y up.
-    vec2 clip = vec2(aPos.x / uViewport.x * 2.0 - 1.0,
-                     1.0 - aPos.y / uViewport.y * 2.0);
-    // Depth [0,1] to clip [-1,1], matching the default depth range so gl.LESS means the
-    // same thing here as the software rasterizer's "smaller z wins".
-    gl_Position = vec4(clip, aDepth * 2.0 - 1.0, 1.0);
-    vColor = aColor;
-    vUv = aUv;
-}`;
-  var FRAG = `#version 300 es
-precision highp float;
-in vec4 vColor;
-in vec2 vUv;
-uniform sampler2D uTex;
-uniform bool uUseTex;
-out vec4 fragColor;
-void main() {
-    vec4 c = vColor;
-    if (uUseTex) {
-        // Lighting modulates the sampled texel, as the reference does with a BitmapShader.
-        c *= texture(uTex, vUv);
-    }
-    if (c.a <= 0.0) discard;
-    // Premultiplied out, because the canvas is created with premultipliedAlpha and
-    // compositing it with drawImage otherwise darkens every antialiased edge.
-    fragColor = vec4(c.rgb * c.a, c.a);
-}`;
-  var WebGL3DRenderer = class {
-    constructor() {
-      this.gl = null;
-      this.program = null;
-      this.vao = null;
-      this.buffer = null;
-      this.texture = null;
-      this.texW = 0;
-      this.texH = 0;
-      /** The pixel array last uploaded. The host caches its conversion, so an unchanged texture
-       *  arrives as the same array and the upload can be skipped — otherwise every mesh in
-       *  every frame re-uploads the whole image. */
-      this.texSource = null;
-      /** Interleaved x,y,r,g,b,a,u,v,depth — 9 floats per vertex. */
-      this.interleaved = new Float32Array(0);
-      this.uViewport = null;
-      this.uUseTex = null;
-      /** Batches drawn since construction. Lets a harness prove the GPU path was taken rather
-       *  than the software fallback, which is otherwise invisible in the output. */
-      this.drawCount = 0;
-      this.canvas = document.createElement("canvas");
-    }
-    /** The offscreen canvas — use as a drawImage source after `draw`. */
-    getCanvas() {
-      return this.canvas;
-    }
-    isAvailable() {
-      return this.ensureGl() !== null;
-    }
-    ensureGl() {
-      if (this.gl) return this.gl;
-      const gl = this.canvas.getContext("webgl2", {
-        alpha: true,
-        depth: true,
-        antialias: true,
-        premultipliedAlpha: true,
-        // Without this the drawing buffer is cleared after every composite, so reading it
-        // back with drawImage gets an empty image on some drivers.
-        preserveDrawingBuffer: true
-      });
-      if (!gl) return null;
-      this.gl = gl;
-      const compile = (type, src) => {
-        const sh = gl.createShader(type);
-        if (!sh) return null;
-        gl.shaderSource(sh, src);
-        gl.compileShader(sh);
-        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-          console.error("rc 3d shader:", gl.getShaderInfoLog(sh));
-          gl.deleteShader(sh);
-          return null;
-        }
-        return sh;
-      };
-      const vs = compile(gl.VERTEX_SHADER, VERT);
-      const fs = compile(gl.FRAGMENT_SHADER, FRAG);
-      if (!vs || !fs) return null;
-      const prog = gl.createProgram();
-      if (!prog) return null;
-      gl.attachShader(prog, vs);
-      gl.attachShader(prog, fs);
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-        console.error("rc 3d link:", gl.getProgramInfoLog(prog));
-        return null;
-      }
-      this.program = prog;
-      this.uViewport = gl.getUniformLocation(prog, "uViewport");
-      this.uUseTex = gl.getUniformLocation(prog, "uUseTex");
-      gl.useProgram(prog);
-      gl.uniform1i(gl.getUniformLocation(prog, "uTex"), 0);
-      this.buffer = gl.createBuffer();
-      this.vao = gl.createVertexArray();
-      gl.bindVertexArray(this.vao);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-      const stride = 9 * 4;
-      gl.enableVertexAttribArray(0);
-      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, stride, 0);
-      gl.enableVertexAttribArray(1);
-      gl.vertexAttribPointer(1, 4, gl.FLOAT, false, stride, 8);
-      gl.enableVertexAttribArray(2);
-      gl.vertexAttribPointer(2, 2, gl.FLOAT, false, stride, 24);
-      gl.enableVertexAttribArray(3);
-      gl.vertexAttribPointer(3, 1, gl.FLOAT, false, stride, 32);
-      gl.bindVertexArray(null);
-      return gl;
-    }
-    /** Upload the active texture. `pixels` is ARGB, as the 3D context stores it. */
-    setTexture(pixels, w, h) {
-      const gl = this.ensureGl();
-      if (!gl) return;
-      if (!pixels || w <= 0 || h <= 0) {
-        this.texW = 0;
-        this.texH = 0;
-        this.texSource = null;
-        return;
-      }
-      if (pixels === this.texSource && this.texW === w && this.texH === h) return;
-      if (!this.texture) this.texture = gl.createTexture();
-      const rgba = new Uint8Array(w * h * 4);
-      for (let i = 0; i < w * h; i++) {
-        const p = pixels[i];
-        rgba[i * 4] = p >>> 16 & 255;
-        rgba[i * 4 + 1] = p >>> 8 & 255;
-        rgba[i * 4 + 2] = p & 255;
-        rgba[i * 4 + 3] = p >>> 24 & 255;
-      }
-      gl.bindTexture(gl.TEXTURE_2D, this.texture);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      this.texW = w;
-      this.texH = h;
-      this.texSource = pixels;
-    }
-    /** Discard everything drawn so far and resize if needed. Call once per 3D pass. */
-    beginFrame(width, height) {
-      const gl = this.ensureGl();
-      if (!gl) return;
-      if (this.canvas.width !== width || this.canvas.height !== height) {
-        this.canvas.width = width;
-        this.canvas.height = height;
-      }
-      gl.viewport(0, 0, width, height);
-      gl.clearColor(0, 0, 0, 0);
-      gl.clearDepth(1);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    }
-    /**
-     * Draw one batch.
-     *
-     * `useDepth` picks the ordering rule. False reproduces the reference's canvas backend:
-     * depth test off, correctness resting entirely on the painter's sort the caller already
-     * applied. True uses the depth buffer, which is what the ZBUF modes ask for and is the
-     * only way interpenetrating geometry comes out right.
-     */
-    draw(batch, useDepth) {
-      const gl = this.ensureGl();
-      if (!gl || !this.program || batch.vertexCount < 3) return;
-      const n = batch.vertexCount;
-      if (this.interleaved.length < n * 9) this.interleaved = new Float32Array(n * 9);
-      const v = this.interleaved;
-      const useTex = batch.hasUv && this.texW > 0;
-      for (let i = 0; i < n; i++) {
-        const o = i * 9;
-        v[o] = batch.positions[i * 2];
-        v[o + 1] = batch.positions[i * 2 + 1];
-        const c = batch.colors[i];
-        v[o + 2] = (c >>> 16 & 255) / 255;
-        v[o + 3] = (c >>> 8 & 255) / 255;
-        v[o + 4] = (c & 255) / 255;
-        v[o + 5] = (c >>> 24 & 255) / 255;
-        v[o + 6] = useTex ? batch.uvs[i * 2] : 0;
-        v[o + 7] = useTex ? 1 - batch.uvs[i * 2 + 1] : 0;
-        v[o + 8] = batch.depths[i];
-      }
-      gl.useProgram(this.program);
-      gl.bindVertexArray(this.vao);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-      gl.bufferData(gl.ARRAY_BUFFER, v.subarray(0, n * 9), gl.DYNAMIC_DRAW);
-      gl.uniform2f(this.uViewport, this.canvas.width, this.canvas.height);
-      gl.uniform1i(this.uUseTex, useTex ? 1 : 0);
-      if (useTex) {
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, this.texture);
-      }
-      if (useDepth) {
-        gl.enable(gl.DEPTH_TEST);
-        gl.depthFunc(gl.LESS);
-      } else {
-        gl.disable(gl.DEPTH_TEST);
-      }
-      gl.disable(gl.CULL_FACE);
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      gl.drawArrays(gl.TRIANGLES, 0, n);
-      this.drawCount++;
-      gl.bindVertexArray(null);
-    }
-  };
-
-  // third_party/remote-compose-player/src/core/shader/AgslTokenizer.ts
-  var IDENT_START = /[a-zA-Z_]/;
-  var IDENT_CONT = /[a-zA-Z0-9_]/;
-  var DIGIT = /[0-9]/;
-  var WS = /[ \t\r\n]/;
-  var OP_CHARS = new Set("+-*/%=<>!&|^~?:");
-  var PUNCT_CHARS = new Set("(){}[];,");
-  function tokenize(source) {
-    const tokens = [];
-    let i = 0;
-    const n = source.length;
-    while (i < n) {
-      const ch = source[i];
-      if (WS.test(ch)) {
-        const start = i;
-        while (i < n && WS.test(source[i])) i++;
-        tokens.push({ type: 5 /* Whitespace */, value: source.slice(start, i) });
-        continue;
-      }
-      if (ch === "/" && i + 1 < n && source[i + 1] === "/") {
-        const start = i;
-        while (i < n && source[i] !== "\n") i++;
-        tokens.push({ type: 6 /* LineComment */, value: source.slice(start, i) });
-        continue;
-      }
-      if (ch === "/" && i + 1 < n && source[i + 1] === "*") {
-        const start = i;
-        i += 2;
-        while (i < n && !(source[i - 1] === "*" && source[i] === "/")) i++;
-        if (i < n) i++;
-        tokens.push({ type: 7 /* BlockComment */, value: source.slice(start, i) });
-        continue;
-      }
-      if (ch === "#") {
-        const start = i;
-        while (i < n && source[i] !== "\n") i++;
-        tokens.push({ type: 8 /* Preprocessor */, value: source.slice(start, i) });
-        continue;
-      }
-      if (DIGIT.test(ch) || ch === "." && i + 1 < n && DIGIT.test(source[i + 1])) {
-        const start = i;
-        while (i < n && DIGIT.test(source[i])) i++;
-        if (i < n && source[i] === ".") {
-          i++;
-          while (i < n && DIGIT.test(source[i])) i++;
-        }
-        if (i < n && (source[i] === "e" || source[i] === "E")) {
-          i++;
-          if (i < n && (source[i] === "+" || source[i] === "-")) i++;
-          while (i < n && DIGIT.test(source[i])) i++;
-        }
-        tokens.push({ type: 1 /* Number */, value: source.slice(start, i) });
-        continue;
-      }
-      if (IDENT_START.test(ch)) {
-        const start = i;
-        while (i < n && IDENT_CONT.test(source[i])) i++;
-        tokens.push({ type: 0 /* Identifier */, value: source.slice(start, i) });
-        continue;
-      }
-      if (ch === ".") {
-        tokens.push({ type: 4 /* Dot */, value: "." });
-        i++;
-        continue;
-      }
-      if (PUNCT_CHARS.has(ch)) {
-        tokens.push({ type: 3 /* Punctuation */, value: ch });
-        i++;
-        continue;
-      }
-      if (OP_CHARS.has(ch)) {
-        const start = i;
-        i++;
-        if (i < n && OP_CHARS.has(source[i])) {
-          const two = source.slice(start, i + 1);
-          if ([
-            "<=",
-            ">=",
-            "==",
-            "!=",
-            "&&",
-            "||",
-            "<<",
-            ">>",
-            "+=",
-            "-=",
-            "*=",
-            "/=",
-            "%=",
-            "&=",
-            "|=",
-            "^="
-          ].includes(two)) {
-            i++;
-          }
-        }
-        tokens.push({ type: 2 /* Operator */, value: source.slice(start, i) });
-        continue;
-      }
-      tokens.push({ type: 0 /* Identifier */, value: ch });
-      i++;
-    }
-    tokens.push({ type: 9 /* EOF */, value: "" });
-    return tokens;
-  }
-
-  // third_party/remote-compose-player/src/core/shader/AgslTranspiler.ts
-  var TYPE_MAP = {
-    "half4": "vec4",
-    "half3": "vec3",
-    "half2": "vec2",
-    "half": "float",
-    "float2": "vec2",
-    "float3": "vec3",
-    "float4": "vec4",
-    "int2": "ivec2",
-    "int3": "ivec3",
-    "int4": "ivec4"
-  };
-  var UNIFORM_TYPE_MAP = {
-    ...TYPE_MAP,
-    "float": "float",
-    "int": "int",
-    "vec2": "vec2",
-    "vec3": "vec3",
-    "vec4": "vec4",
-    "ivec2": "ivec2",
-    "ivec3": "ivec3",
-    "ivec4": "ivec4",
-    "sampler2D": "sampler2D"
-  };
-  function isSkip(t) {
-    return t.type === 5 /* Whitespace */ || t.type === 6 /* LineComment */ || t.type === 7 /* BlockComment */;
-  }
-  function skipWs(tokens, from) {
-    while (from < tokens.length && isSkip(tokens[from])) from++;
-    return from;
-  }
-  function transpileAgslToGlsl(agslSource) {
-    const tokens = tokenize(agslSource);
-    const uniforms = [];
-    const childShaders = [];
-    const out = [];
-    let i = 0;
-    const n = tokens.length;
-    let inMain = false;
-    let mainBraceDepth = 0;
-    let mainParamName = "p";
-    let hasIResolution = false;
-    let needsResolutionUniform = false;
-    for (let j = 0; j < n; j++) {
-      if (tokens[j].type === 0 /* Identifier */ && tokens[j].value === "iResolution") {
-        let k = j - 1;
-        while (k >= 0 && isSkip(tokens[k])) k--;
-        if (k >= 0) {
-          let k2 = k - 1;
-          while (k2 >= 0 && isSkip(tokens[k2])) k2--;
-          if (k2 >= 0 && tokens[k2].value === "uniform") {
-            hasIResolution = true;
-          }
-        }
-      }
-    }
-    while (i < n) {
-      const tok = tokens[i];
-      if (tok.type === 0 /* Identifier */ && tok.value === "uniform") {
-        const j1 = skipWs(tokens, i + 1);
-        if (j1 < n && tokens[j1].type === 0 /* Identifier */ && tokens[j1].value === "shader") {
-          const j2 = skipWs(tokens, j1 + 1);
-          if (j2 < n && tokens[j2].type === 0 /* Identifier */) {
-            const shaderName = tokens[j2].value;
-            childShaders.push(shaderName);
-            needsResolutionUniform = true;
-            out.push("uniform sampler2D");
-            for (let k = j1 + 1; k <= j2; k++) {
-              if (tokens[k].type === 5 /* Whitespace */) out.push(tokens[k].value);
-            }
-            out.push(shaderName);
-            i = j2 + 1;
-            continue;
-          }
-        }
-      }
-      if (tok.type === 0 /* Identifier */ && tok.value === "uniform") {
-        const j1 = skipWs(tokens, i + 1);
-        if (j1 < n && tokens[j1].type === 0 /* Identifier */) {
-          const typeName = tokens[j1].value;
-          if (typeName !== "shader") {
-            const j2 = skipWs(tokens, j1 + 1);
-            if (j2 < n && tokens[j2].type === 0 /* Identifier */) {
-              const glslType = UNIFORM_TYPE_MAP[typeName] || TYPE_MAP[typeName] || typeName;
-              uniforms.push({ name: tokens[j2].value, glslType });
-            }
-          }
-        }
-      }
-      if (tok.type === 0 /* Identifier */ && tok.value === "main" && !inMain) {
-        let retIdx = i - 1;
-        while (retIdx >= 0 && isSkip(tokens[retIdx])) retIdx--;
-        const parenIdx = skipWs(tokens, i + 1);
-        if (parenIdx < n && tokens[parenIdx].type === 3 /* Punctuation */ && tokens[parenIdx].value === "(") {
-          const paramTypeIdx = skipWs(tokens, parenIdx + 1);
-          const paramNameIdx = skipWs(tokens, paramTypeIdx + 1);
-          const closeIdx = skipWs(tokens, paramNameIdx + 1);
-          if (paramNameIdx < n && tokens[paramNameIdx].type === 0 /* Identifier */) {
-            mainParamName = tokens[paramNameIdx].value;
-          }
-          let braceIdx = closeIdx;
-          if (braceIdx < n && tokens[braceIdx].value === ")") {
-            braceIdx = skipWs(tokens, braceIdx + 1);
-          }
-          let removeFrom = out.length - 1;
-          while (removeFrom >= 0 && out[removeFrom].trim() === "") removeFrom--;
-          if (removeFrom >= 0) out.splice(removeFrom, 1);
-          out.push("void main()");
-          i = braceIdx;
-          if (i < n && tokens[i].type === 3 /* Punctuation */ && tokens[i].value === "{") {
-            out.push(" {\n");
-            out.push(`  vec2 ${mainParamName} = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y) * u_doc_size / u_resolution;
-`);
-            inMain = true;
-            mainBraceDepth = 1;
-            i++;
-          }
-          continue;
-        }
-      }
-      if (inMain && tok.type === 3 /* Punctuation */) {
-        if (tok.value === "{") mainBraceDepth++;
-        if (tok.value === "}") {
-          mainBraceDepth--;
-          if (mainBraceDepth === 0) inMain = false;
-        }
-      }
-      if (inMain && tok.type === 0 /* Identifier */ && tok.value === "return") {
-        const exprParts = [];
-        i++;
-        let depth = 0;
-        while (i < n) {
-          const t = tokens[i];
-          if (t.type === 3 /* Punctuation */ && t.value === ";" && depth === 0) {
-            break;
-          }
-          if (t.type === 3 /* Punctuation */ && (t.value === "(" || t.value === "[")) depth++;
-          if (t.type === 3 /* Punctuation */ && (t.value === ")" || t.value === "]")) depth--;
-          exprParts.push(rewriteToken(tokens, i, childShaders));
-          i++;
-        }
-        const expr = exprParts.join("");
-        out.push(`fragColor = ${expr}; return`);
-        continue;
-      }
-      if (tok.type === 0 /* Identifier */ && childShaders.includes(tok.value)) {
-        const dotIdx = skipWs(tokens, i + 1);
-        if (dotIdx < n && tokens[dotIdx].type === 4 /* Dot */) {
-          const evalIdx = skipWs(tokens, dotIdx + 1);
-          if (evalIdx < n && tokens[evalIdx].type === 0 /* Identifier */ && tokens[evalIdx].value === "eval") {
-            const parenIdx = skipWs(tokens, evalIdx + 1);
-            if (parenIdx < n && tokens[parenIdx].value === "(") {
-              let depth = 1;
-              let argStart = parenIdx + 1;
-              let j = argStart;
-              while (j < n && depth > 0) {
-                if (tokens[j].value === "(") depth++;
-                if (tokens[j].value === ")") depth--;
-                if (depth > 0) j++;
-              }
-              const argParts = [];
-              for (let k = argStart; k < j; k++) {
-                argParts.push(rewriteToken(tokens, k, childShaders));
-              }
-              const arg = argParts.join("");
-              out.push(`texture(${tok.value}, (${arg}) / u_resolution)`);
-              i = j + 1;
-              continue;
-            }
-          }
-        }
-      }
-      out.push(rewriteToken(tokens, i, childShaders));
-      i++;
-    }
-    let glsl = "#version 300 es\nprecision highp float;\n";
-    glsl += "uniform vec2 u_resolution;\n";
-    glsl += "uniform vec2 u_doc_size;\n";
-    glsl += "out vec4 fragColor;\n";
-    glsl += out.join("");
-    return { glsl, uniforms, childShaders };
-  }
-  var INT_CONTEXT_KEYWORDS = /* @__PURE__ */ new Set([
-    "int",
-    "ivec2",
-    "ivec3",
-    "ivec4"
-  ]);
-  function isIntContext(tokens, idx) {
-    let j = idx - 1;
-    while (j >= 0 && isSkip(tokens[j])) j--;
-    if (j >= 0) {
-      if (tokens[j].value === "[") return true;
-      if (tokens[j].type === 0 /* Identifier */ && INT_CONTEXT_KEYWORDS.has(tokens[j].value)) return true;
-      if (tokens[j].value === "=") {
-        let k = j - 1;
-        while (k >= 0 && isSkip(tokens[k])) k--;
-        if (k >= 0) {
-          let k2 = k - 1;
-          while (k2 >= 0 && isSkip(tokens[k2])) k2--;
-          if (k2 >= 0 && INT_CONTEXT_KEYWORDS.has(tokens[k2].value)) return true;
-        }
-      }
-      if (tokens[j].value === "<" || tokens[j].value === ">" || tokens[j].value === "<=" || tokens[j].value === ">=" || tokens[j].value === "==" || tokens[j].value === "!=") {
-        let k = j - 1;
-        while (k >= 0 && isSkip(tokens[k])) k--;
-        if (k >= 0 && tokens[k].type === 0 /* Identifier */ && tokens[k].value.length <= 2) return true;
-      }
-      if (tokens[j].value === "++" || tokens[j].value === "--") return true;
-      if (tokens[j].value === "(" || tokens[j].value === ",") {
-        let k = j - 1;
-        while (k >= 0 && isSkip(tokens[k])) k--;
-        if (k >= 0 && tokens[k].type === 0 /* Identifier */ && INT_CONTEXT_KEYWORDS.has(tokens[k].value)) return true;
-      }
-    }
-    return false;
-  }
-  function rewriteToken(tokens, idx, _childShaders) {
-    const tok = tokens[idx];
-    if (tok.type === 0 /* Identifier */) {
-      if (TYPE_MAP[tok.value]) return TYPE_MAP[tok.value];
-      if (tok.value === "sk_FragCoord") return "gl_FragCoord.xy";
-    }
-    if (tok.type === 1 /* Number */) {
-      const v = tok.value;
-      const isInt = /^\d+$/.test(v);
-      if (isInt && !isIntContext(tokens, idx)) {
-        return v + ".0";
-      }
-    }
-    return tok.value;
-  }
-
-  // third_party/remote-compose-player/src/web/shader/WebGLShaderRenderer.ts
-  var VERTEX_SHADER = `#version 300 es
-in vec2 a_position;
-void main() {
-    gl_Position = vec4(a_position, 0.0, 1.0);
-}
-`;
-  var QUAD_VERTS = new Float32Array([
-    -1,
-    -1,
-    1,
-    -1,
-    -1,
-    1,
-    -1,
-    1,
-    1,
-    -1,
-    1,
-    1
-  ]);
-  var WebGLShaderRenderer = class {
-    constructor() {
-      this.gl = null;
-      this.vao = null;
-      this.programCache = /* @__PURE__ */ new Map();
-      this.canvas = document.createElement("canvas");
-    }
-    /** The offscreen canvas — use as drawImage source after render(). */
-    getCanvas() {
-      return this.canvas;
-    }
-    /** Returns true if WebGL2 is available. */
-    isAvailable() {
-      return this.initGL() !== null;
-    }
-    /**
-     * Render a GLSL fragment shader to the offscreen canvas.
-     *
-     * @param glsl       - GLSL ES 3.0 source (from AgslTranspiler)
-     * @param width      - render target width
-     * @param height     - render target height
-     * @param floats     - float uniform values: name → Float32Array
-     * @param ints       - int uniform values: name → Int32Array
-     * @param textures   - texture images: name → source element
-     * @param cacheKey   - optional cache key for the compiled program
-     *                     (use shader text ID for stable caching)
-     */
-    render(glsl, width, height, floats, ints, textures, cacheKey, docWidth, docHeight) {
-      const gl = this.initGL();
-      if (!gl) return false;
-      if (this.canvas.width !== width || this.canvas.height !== height) {
-        this.canvas.width = width;
-        this.canvas.height = height;
-      }
-      const key = cacheKey ?? glsl;
-      let cached = this.programCache.get(key);
-      if (!cached) {
-        const program = this.compileProgram(gl, glsl);
-        if (!program) return false;
-        cached = { program, uniformLocations: /* @__PURE__ */ new Map() };
-        this.programCache.set(key, cached);
-      }
-      gl.useProgram(cached.program);
-      gl.viewport(0, 0, width, height);
-      const resLoc = this.getUniformLoc(gl, cached, "u_resolution");
-      if (resLoc) gl.uniform2f(resLoc, width, height);
-      const docLoc = this.getUniformLoc(gl, cached, "u_doc_size");
-      if (docLoc) gl.uniform2f(docLoc, docWidth ?? width, docHeight ?? height);
-      if (floats) {
-        for (const [name, values] of floats) {
-          const loc = this.getUniformLoc(gl, cached, name);
-          if (!loc) continue;
-          switch (values.length) {
-            case 1:
-              gl.uniform1f(loc, values[0]);
-              break;
-            case 2:
-              gl.uniform2f(loc, values[0], values[1]);
-              break;
-            case 3:
-              gl.uniform3f(loc, values[0], values[1], values[2]);
-              break;
-            case 4:
-              gl.uniform4f(loc, values[0], values[1], values[2], values[3]);
-              break;
-            default:
-              gl.uniform1fv(loc, values);
-              break;
-          }
-        }
-      }
-      if (ints) {
-        for (const [name, values] of ints) {
-          const loc = this.getUniformLoc(gl, cached, name);
-          if (!loc) continue;
-          switch (values.length) {
-            case 1:
-              gl.uniform1i(loc, values[0]);
-              break;
-            case 2:
-              gl.uniform2i(loc, values[0], values[1]);
-              break;
-            case 3:
-              gl.uniform3i(loc, values[0], values[1], values[2]);
-              break;
-            case 4:
-              gl.uniform4i(loc, values[0], values[1], values[2], values[3]);
-              break;
-            default:
-              gl.uniform1iv(loc, values);
-              break;
-          }
-        }
-      }
-      let texUnit = 0;
-      if (textures) {
-        for (const [name, img] of textures) {
-          const loc = this.getUniformLoc(gl, cached, name);
-          if (!loc) {
-            texUnit++;
-            continue;
-          }
-          const unit = texUnit++;
-          gl.activeTexture(gl.TEXTURE0 + unit);
-          const tex = gl.createTexture();
-          gl.bindTexture(gl.TEXTURE_2D, tex);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-          gl.uniform1i(loc, unit);
-        }
-      }
-      gl.bindVertexArray(this.vao);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-      for (let u = 0; u < texUnit; u++) {
-        gl.activeTexture(gl.TEXTURE0 + u);
-        gl.bindTexture(gl.TEXTURE_2D, null);
-      }
-      return true;
-    }
-    /** Destroy WebGL resources. */
-    destroy() {
-      const gl = this.gl;
-      if (!gl) return;
-      for (const cached of this.programCache.values()) {
-        gl.deleteProgram(cached.program);
-      }
-      this.programCache.clear();
-      if (this.vao) gl.deleteVertexArray(this.vao);
-      this.vao = null;
-      const lose = gl.getExtension("WEBGL_lose_context");
-      if (lose) lose.loseContext();
-      this.gl = null;
-    }
-    // ── Internal ──────────────────────────────────────────────────────
-    initGL() {
-      if (this.gl) return this.gl;
-      const gl = this.canvas.getContext("webgl2", {
-        alpha: true,
-        premultipliedAlpha: false,
-        preserveDrawingBuffer: true
-      });
-      if (!gl) return null;
-      this.gl = gl;
-      this.vao = gl.createVertexArray();
-      gl.bindVertexArray(this.vao);
-      const buf = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-      gl.bufferData(gl.ARRAY_BUFFER, QUAD_VERTS, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(0);
-      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-      return gl;
-    }
-    compileProgram(gl, fragSource) {
-      const vs = this.compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
-      const fs = this.compileShader(gl, gl.FRAGMENT_SHADER, fragSource);
-      if (!vs || !fs) return null;
-      const prog = gl.createProgram();
-      gl.attachShader(prog, vs);
-      gl.attachShader(prog, fs);
-      gl.bindAttribLocation(prog, 0, "a_position");
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-        console.error("Shader link error:", gl.getProgramInfoLog(prog));
-        gl.deleteProgram(prog);
-        return null;
-      }
-      gl.deleteShader(vs);
-      gl.deleteShader(fs);
-      return prog;
-    }
-    compileShader(gl, type, source) {
-      const shader = gl.createShader(type);
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        console.error(
-          `Shader compile error (${type === gl.VERTEX_SHADER ? "vert" : "frag"}):`,
-          gl.getShaderInfoLog(shader)
-        );
-        console.error("Source:\n" + source.split("\n").map((l, i) => `${i + 1}: ${l}`).join("\n"));
-        gl.deleteShader(shader);
-        return null;
-      }
-      return shader;
-    }
-    getUniformLoc(gl, cached, name) {
-      let loc = cached.uniformLocations.get(name);
-      if (loc === void 0) {
-        loc = gl.getUniformLocation(cached.program, name);
-        cached.uniformLocations.set(name, loc);
-      }
-      return loc;
-    }
-  };
-
-  // third_party/remote-compose-player/src/web/WebFonts.ts
-  var DEFAULT_BASE_URL = "https://fonts.googleapis.com/css2";
-  var config = { enabled: true, baseUrl: DEFAULT_BASE_URL };
-  function configureWebFonts(patch) {
-    config = { ...config, ...patch };
-  }
-  var WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
-  function googleFontsUrl(family, baseUrl = config.baseUrl) {
-    const axis = WEIGHTS.map((w) => `0,${w}`).concat(WEIGHTS.map((w) => `1,${w}`)).join(";");
-    const name = encodeURIComponent(family.trim()).replace(/%20/g, "+");
-    return `${baseUrl}?family=${name}:ital,wght@${axis}&display=block`;
-  }
-  function googleFontsAxisUrl(family, axes, baseUrl = config.baseUrl) {
-    const varying = axes.filter((a) => a.max > a.min).sort((a, b) => a.tag < b.tag ? -1 : 1);
-    if (varying.length === 0) return null;
-    const tags = varying.map((a) => a.tag).join(",");
-    const ranges = varying.map((a) => `${trimNumber(a.min)}..${trimNumber(a.max)}`).join(",");
-    const name = encodeURIComponent(family.trim()).replace(/%20/g, "+");
-    return `${baseUrl}?family=${name}:${tags}@${ranges}&display=block`;
-  }
-  function trimNumber(value) {
-    return Number.isInteger(value) ? `${value}` : `${value}`.replace(/0+$/, "");
-  }
-  var GOOGLE_PREFIX = "google:";
-  function parseFamily(family) {
-    const trimmed = family.trim();
-    if (trimmed.toLowerCase().startsWith(GOOGLE_PREFIX)) {
-      return { source: "google", name: trimmed.slice(GOOGLE_PREFIX.length).trim() };
-    }
-    return { source: "local", name: trimmed };
-  }
-  var stylesheets = /* @__PURE__ */ new Map();
-  var variants = /* @__PURE__ */ new Map();
-  var embeddedFaces = /* @__PURE__ */ new Map();
-  var done = /* @__PURE__ */ new Set();
-  var waiting = /* @__PURE__ */ new Map();
-  function variantKey(family, weight, italic, axes = []) {
-    const axisPart = axes.map(({ tag, value }) => `${tag}=${value}`).join(",");
-    return `${family.toLowerCase()}|${weight}|${italic ? "i" : "n"}|${axisPart}`;
-  }
-  function notify(key) {
-    done.add(key);
-    const listeners = waiting.get(key);
-    waiting.delete(key);
-    listeners?.forEach((fn) => fn());
-  }
-  var failed = /* @__PURE__ */ new Set();
-  function unquote(family) {
-    return family.replace(/^["']|["']$/g, "");
-  }
-  function cssQuoted(family) {
-    return family.replace(/[\\"]/g, "\\$&");
-  }
-  function hasLocalFace(family) {
-    const want = family.toLowerCase();
-    let found = false;
-    document.fonts.forEach((face) => {
-      if (unquote(face.family).toLowerCase() === want) found = true;
-    });
-    return found;
-  }
-  var ownVariableFamilies = /* @__PURE__ */ new Set();
-  function hasLocalVariableFace(family) {
-    const want = family.toLowerCase();
-    let found = false;
-    document.fonts.forEach((face) => {
-      if (unquote(face.family).toLowerCase() !== want) return;
-      if (face.weight.includes(" ") || face.stretch.includes(" ")) found = true;
-    });
-    return found;
-  }
-  function loadStylesheet(url) {
-    return new Promise((resolve2, reject) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = url;
-      link.addEventListener("load", () => resolve2());
-      link.addEventListener("error", () => reject(new Error(`stylesheet did not load: ${url}`)));
-      document.head.appendChild(link);
-    });
-  }
-  var axisSpans = /* @__PURE__ */ new Map();
-  function recordAxes(family, axes) {
-    const key = family.toLowerCase();
-    const spans = axisSpans.get(key) ?? /* @__PURE__ */ new Map();
-    for (const { tag, value } of axes) {
-      const span = spans.get(tag);
-      if (span) {
-        span.min = Math.min(span.min, value);
-        span.max = Math.max(span.max, value);
-      } else {
-        spans.set(tag, { min: value, max: value });
-      }
-    }
-    axisSpans.set(key, spans);
-    return [...spans].map(([tag, { min, max }]) => ({ tag, min, max }));
-  }
-  function registerStylesheet(family, url = googleFontsUrl(family), variable = false) {
-    const key = `${family.toLowerCase()}|${url}`;
-    const existing = stylesheets.get(key);
-    if (existing) return existing;
-    let p;
-    if (!config.enabled) {
-      p = Promise.resolve();
-    } else if (typeof document === "undefined" || !document.fonts) {
-      p = Promise.resolve();
-    } else if (variable ? !ownVariableFamilies.has(family.toLowerCase()) && hasLocalVariableFace(family) : hasLocalFace(family)) {
-      p = Promise.resolve();
-    } else {
-      if (variable) ownVariableFamilies.add(family.toLowerCase());
-      p = loadStylesheet(url);
-    }
-    stylesheets.set(key, p);
-    return p;
-  }
-  async function loadVariant(family, weight, italic, axes) {
-    await registerStylesheet(family);
-    if (axes.length > 0) {
-      const url = googleFontsAxisUrl(family, recordAxes(family, axes));
-      if (url) await registerStylesheet(family, url, true).catch(() => {
-      });
-    }
-    if (typeof document === "undefined" || !document.fonts) return;
-    await document.fonts.load(`${italic ? "italic " : ""}${weight} 16px "${cssQuoted(family)}"`);
-  }
-  function ensureWebFont(family, weight = 400, italic = false, onLoaded, axes = []) {
-    const key = variantKey(family, weight, italic, axes);
-    if (onLoaded && !done.has(key)) {
-      const set = waiting.get(key) ?? /* @__PURE__ */ new Set();
-      set.add(onLoaded);
-      waiting.set(key, set);
-    }
-    const existing = variants.get(key);
-    if (existing) return existing;
-    const p = loadVariant(family, weight, italic, axes).catch((e) => {
-      const famKey = family.toLowerCase();
-      if (!failed.has(famKey)) {
-        failed.add(famKey);
-        console.warn(`WebFonts: no web font for "${family}", using the fallback stack`, e);
-      }
-    }).then(() => notify(key));
-    variants.set(key, p);
-    return p;
-  }
-  function embeddedFamily(fontId, data) {
-    let hash = 2166136261;
-    for (const byte of data) {
-      hash ^= byte;
-      hash = Math.imul(hash, 16777619);
-    }
-    return `__rc_font_${fontId}_${data.length}_${(hash >>> 0).toString(16)}`;
-  }
-  function uint16(data, offset) {
-    return data[offset] << 8 | data[offset + 1];
-  }
-  function uint32(data, offset) {
-    return (data[offset] << 24 | data[offset + 1] << 16 | data[offset + 2] << 8 | data[offset + 3]) >>> 0;
-  }
-  function fixed1616(data, offset) {
-    return (uint32(data, offset) | 0) / 65536;
-  }
-  function asciiTag(data, offset) {
-    return String.fromCharCode(data[offset], data[offset + 1], data[offset + 2], data[offset + 3]);
-  }
-  function embeddedFontDescriptors(data) {
-    try {
-      let sfnt = 0;
-      if (data.length >= 16 && asciiTag(data, 0) === "ttcf") {
-        if (uint32(data, 8) < 1) return {};
-        sfnt = uint32(data, 12);
-      }
-      if (sfnt + 12 > data.length) return {};
-      const tables = uint16(data, sfnt + 4);
-      let fvar = -1;
-      for (let i = 0; i < tables; i++) {
-        const record = sfnt + 12 + i * 16;
-        if (record + 16 > data.length) return {};
-        if (asciiTag(data, record) === "fvar") {
-          fvar = uint32(data, record + 8);
-          break;
-        }
-      }
-      if (fvar < 0 || fvar + 16 > data.length) return {};
-      const axesOffset = uint16(data, fvar + 4);
-      const axisCount = uint16(data, fvar + 8);
-      const axisSize = uint16(data, fvar + 10);
-      if (axisSize < 20) return {};
-      const descriptors = {};
-      for (let i = 0; i < axisCount; i++) {
-        const axis = fvar + axesOffset + i * axisSize;
-        if (axis + 20 > data.length) return {};
-        const tag = asciiTag(data, axis);
-        const min = fixed1616(data, axis + 4);
-        const max = fixed1616(data, axis + 12);
-        if (!Number.isFinite(min) || !Number.isFinite(max) || max < min) continue;
-        if (tag === "wght") descriptors.weight = `${trimNumber(min)} ${trimNumber(max)}`;
-        if (tag === "wdth") descriptors.stretch = `${trimNumber(min)}% ${trimNumber(max)}%`;
-      }
-      return descriptors;
-    } catch (_) {
-      return {};
-    }
-  }
-  function registerEmbeddedFont(fontId, data, onLoaded) {
-    const family = embeddedFamily(fontId, data);
-    const key = `embedded|${family}`;
-    if (onLoaded && !done.has(key)) {
-      const set = waiting.get(key) ?? /* @__PURE__ */ new Set();
-      set.add(onLoaded);
-      waiting.set(key, set);
-    }
-    const retained = embeddedFaces.get(key);
-    if (retained) {
-      retained.references += 1;
-      return family;
-    }
-    let load;
-    if (typeof document === "undefined" || !document.fonts || typeof FontFace === "undefined") {
-      embeddedFaces.set(key, { references: 1 });
-      load = Promise.resolve();
-    } else {
-      const bytes = data.slice().buffer;
-      const face = new FontFace(family, bytes, embeddedFontDescriptors(data));
-      embeddedFaces.set(key, { face, references: 1 });
-      document.fonts.add(face);
-      load = face.load().then(() => void 0).catch((e) => {
-        console.warn(`WebFonts: embedded font ${fontId} could not be loaded`, e);
-      });
-    }
-    const promise = load.then(() => {
-      if (embeddedFaces.has(key)) notify(key);
-    });
-    variants.set(key, promise);
-    return family;
-  }
-  function releaseEmbeddedFont(fontId, data, onLoaded) {
-    const key = `embedded|${embeddedFamily(fontId, data)}`;
-    const listeners = waiting.get(key);
-    if (onLoaded) listeners?.delete(onLoaded);
-    if (listeners?.size === 0) waiting.delete(key);
-    const retained = embeddedFaces.get(key);
-    if (!retained) return;
-    retained.references -= 1;
-    if (retained.references > 0) return;
-    if (retained.face && typeof document !== "undefined" && document.fonts) {
-      document.fonts.delete(retained.face);
-    }
-    embeddedFaces.delete(key);
-    variants.delete(key);
-    done.delete(key);
-    waiting.delete(key);
-  }
-  async function webFontsReady() {
-    let pending = [...variants.values()];
-    while (pending.length > 0) {
-      await Promise.all(pending);
-      const next = [...variants.values()];
-      if (next.length === pending.length) break;
-      pending = next;
-    }
-  }
-  function resetWebFonts() {
-    if (typeof document !== "undefined" && document.fonts) {
-      embeddedFaces.forEach(({ face }) => {
-        if (face) document.fonts.delete(face);
-      });
-    }
-    embeddedFaces.clear();
-    stylesheets.clear();
-    axisSpans.clear();
-    ownVariableFamilies.clear();
-    variants.clear();
-    done.clear();
-    waiting.clear();
-    failed.clear();
-    config = { enabled: true, baseUrl: DEFAULT_BASE_URL };
-  }
-
-  // third_party/remote-compose-player/src/web/CanvasPaintContext.ts
-  var FONT_STRETCH_STEPS = [
-    [50, "ultra-condensed"],
-    [62.5, "extra-condensed"],
-    [75, "condensed"],
-    [87.5, "semi-condensed"],
-    [100, "normal"],
-    [112.5, "semi-expanded"],
-    [125, "expanded"],
-    [150, "extra-expanded"],
-    [200, "ultra-expanded"]
-  ];
-  function nearestFontStretch(percent) {
-    let best = FONT_STRETCH_STEPS[0];
-    for (const step of FONT_STRETCH_STEPS) {
-      if (Math.abs(step[0] - percent) < Math.abs(best[0] - percent)) best = step;
-    }
-    return best[1];
-  }
-  function argbToRgba(argb) {
-    const a = (argb >>> 24 & 255) / 255;
-    const r = argb >>> 16 & 255;
-    const g = argb >>> 8 & 255;
-    const b = argb & 255;
-    return `rgba(${r},${g},${b},${a.toFixed(3)})`;
-  }
-  function cssFontStackFor(fontType) {
-    switch (fontType) {
-      case 2:
-        return '"Noto Serif", serif';
-      case 3:
-        return '"Droid Sans Mono", monospace';
-      // 1 = SANS_SERIF is Android's own name for the Roboto stack, so it and
-      // DEFAULT (0, and anything unrecognised) resolve to the same face.
-      default:
-        return "Roboto, sans-serif";
-    }
-  }
-  function namedFontStack(family) {
-    return `"${cssQuoted(family)}", ${cssFontStackFor(0)}`;
-  }
-  var DEFAULT_TEXT_SIZE = 14;
-  var ASCENT_RATIO = 0.92;
-  var DESCENT_RATIO = 0.24;
-  var AVG_ADVANCE = 0.528;
-  var _CanvasPaintContext = class _CanvasPaintContext extends PaintContext {
-    constructor(context, canvas) {
-      super(context);
-      // Current paint state
-      this.color = "rgba(0,0,0,1)";
-      /** The same paint color as a packed ARGB int — what drawMesh3D shades with. */
-      this.colorArgb = 4278190080 | 0;
-      this.style = 0;
-      // 0=FILL, 1=STROKE, 2=FILL_AND_STROKE
-      this.strokeWidth = 1;
-      this.textSize = 14;
-      this.alpha = 1;
-      this.lineCap = "butt";
-      this.lineJoin = "miter";
-      this.miterLimit = 10;
-      this.blendMode = "source-over";
-      this.antiAlias = true;
-      this.filterBitmap = true;
-      this.letterSpacing = 0;
-      this.gradientStyle = null;
-      this.fontFamily = cssFontStackFor(0);
-      this.fontWeight = 400;
-      this.fontItalic = false;
-      /** The document's font-variation axes for the current paint, resolved to their tag names. */
-      this.fontAxes = [];
-      /**
-       * The bare `google:` family of the current paint, or null when it names none.
-       *
-       * Kept because the axes arrive *after* the family does: a paint bundle serialises `setTextStyle`
-       * (TYPEFACE) before `setTextAxis` (FONT_AXIS), so the request made while resolving the typeface
-       * necessarily has no axes yet. Re-requesting once they are decoded is what actually asks the API
-       * for the variable face; without it a networked render keeps the enumerated static stylesheet and
-       * paints a `wdth` ramp as identical lines. (It looks fine on a page that vendored the variable
-       * face itself, which is exactly how this hid.)
-       */
-      this.googleFamily = null;
-      this.colorFilterColor = null;
-      this.colorFilterArgb = 0;
-      this.colorFilterMode = 3;
-      // SRC_OVER default
-      // Active shader (set via PaintBundle.SHADER)
-      this.activeShaderData = null;
-      this.shaderRenderer = null;
-      this.glslCache = /* @__PURE__ */ new Map();
-      // shaderTextId -> transpiled GLSL
-      // Paint stack for save/restore
-      this.paintStack = [];
-      // Path cache: id -> Int32Array (raw float32 int bits; markers/variable refs
-      // are NaN-with-payload — decoded from bits, never via Number.isNaN, so the
-      // ids survive on engines that canonicalize NaN payloads (Safari/Firefox)).
-      this.pathDataCache = /* @__PURE__ */ new Map();
-      this.pathWindingCache = /* @__PURE__ */ new Map();
-      // Bitmap cache: id -> ImageBitmap or HTMLImageElement
-      this.bitmapCache = /* @__PURE__ */ new Map();
-      // Animated bitmaps (a GIF embedded whole), streamed: one frame decoded at a time, the
-      // next asked for when the document's clock passes the end of the one showing. A long
-      // GIF at full size is hundreds of megabytes as bitmaps, so nothing is decoded ahead —
-      // the C++ player streams through one working buffer for the same reason.
-      this.animatedBitmaps = /* @__PURE__ */ new Map();
-      this.disposed = false;
-      // Bitmaps a host has supplied as video instead: a GIF transcoded once at export time,
-      // decoded by the browser's own video pipeline and drawn frame by frame from the element.
-      // Far cheaper than decoding GIF frames, and the preferred way to animate a bitmap.
-      this.bitmapVideos = /* @__PURE__ */ new Map();
-      /// One stored 2D mesh. Canvas2D has no drawVertices, so drawMesh walks the triangle list.
-      this.meshCache = /* @__PURE__ */ new Map();
-      this.bitmapPromises = /* @__PURE__ */ new Map();
-      /** Bitmaps converted to ARGB for 3D texturing, kept so the readback happens once. */
-      this.texturePixels = /* @__PURE__ */ new Map();
-      // Text cache: id -> string
-      this.textCache = /* @__PURE__ */ new Map();
-      // Graphics layer stack for offscreen compositing
-      this.layerStack = [];
-      // Factory for creating offscreen canvases - override for node-canvas
-      this.createLayerCanvas = (w, h) => {
-        if (typeof OffscreenCanvas !== "undefined") {
-          const c = new OffscreenCanvas(w, h);
-          return c.getContext("2d");
-        }
-        if (typeof document !== "undefined") {
-          const c = document.createElement("canvas");
-          c.width = w;
-          c.height = h;
-          return c.getContext("2d");
-        }
-        throw new Error("No canvas factory available for graphics layers");
-      };
-      /** Embedded FontData families, keyed by the same document id used by TYPEFACE/CoreText. */
-      this.embeddedFontFamilies = /* @__PURE__ */ new Map();
-      // --- Typeface resolution ---
-      /**
-       * Called when a named family finishes loading, so a player that already painted a frame in the
-       * fallback face can repaint it in the real one. Null for single-shot renderers, which instead
-       * await `webFontsReady()` before painting the frame they keep.
-       */
-      this.onFontLoaded = null;
-      this.mTextMeasureCache = /* @__PURE__ */ new Map();
-      this.mainCanvas = null;
-      this.bitmapCanvasCache = /* @__PURE__ */ new Map();
-      // ---- 3D (Paint3DContext) -----------------------------------------------
-      //
-      // Only the software backend is implemented here. Every other backend in the mode word
-      // (canvas-vertices, drawMesh, GL) falls back to software, which is exactly what the
-      // reference does on a platform that lacks them — so a document renders the same picture
-      // rather than silently drawing nothing.
-      this.d3 = null;
-      /** GPU rasterizer for the canvas backends; created on first use, null if WebGL2 is absent. */
-      this.d3gl = null;
-      this.d3glMesh = createCanvasMesh();
-      /** Whether anything has been drawn into the GL canvas this 3D pass. */
-      this.d3glDirty = false;
-      /** Texture generation last uploaded to GL, so an unchanged texture is not re-uploaded. */
-      this.d3glTexGen = -1;
-      this.d3Blit = null;
-      if (!canvas) {
-        throw new Error("CanvasPaintContext: canvas rendering context is null or undefined");
-      }
-      this.ctx = canvas;
-    }
-    /** Release the WebGL context this paint context lazily created, if any. */
-    destroy() {
-      if (this.shaderRenderer) {
-        this.shaderRenderer.destroy();
-        this.shaderRenderer = null;
-      }
-      this.embeddedFontFamilies.forEach(({ data }, fontId) => {
-        releaseEmbeddedFont(fontId, data, this.onFontLoaded ?? void 0);
-      });
-      this.embeddedFontFamilies.clear();
-    }
-    getCanvas() {
-      return this.ctx;
-    }
-    // An embedded document paints on whatever canvas its host is painting on, which can
-    // change between frames (a resize, a new host document on the same page).
-    setCanvas(canvas) {
-      this.ctx = canvas;
-    }
-    // --- Text cache ---
-    loadText(id, text) {
-      this.textCache.set(id, text);
-    }
-    getText(id) {
-      return this.textCache.get(id) ?? null;
-    }
-    loadFont(fontId, data) {
-      const current = this.embeddedFontFamilies.get(fontId);
-      if (current?.data === data) return;
-      if (current) releaseEmbeddedFont(fontId, current.data, this.onFontLoaded ?? void 0);
-      this.embeddedFontFamilies.set(fontId, {
-        data,
-        family: registerEmbeddedFont(fontId, data, this.onFontLoaded ?? void 0)
-      });
-    }
-    /**
-     * CSS stack for a `PaintBundle.TYPEFACE` operand.
-     *
-     * The operand is overloaded: below `START_ID` it is one of the four generic typeface constants,
-     * at or above it the document's *text id* for a named family (`CoreText.updateVariables` ends
-     * `else this.mType = this.mFontFamilyId`). The two ranges cannot collide — ids are handed out
-     * from `START_ID` upward, so no text id is ever 0..3 — which is what makes this single integer
-     * safe to disambiguate by magnitude.
-     *
-     * A `google:`-namespaced family is fetched; an unprefixed one is only *named*, leaving it to
-     * whatever the host already has. Requesting the face is fire-and-forget: resolution has to be
-     * synchronous because it happens mid-paint, so the stack names the family now and the face
-     * arrives later (repainted via `onFontLoaded`, or awaited by a single-shot renderer). Until then
-     * the fallback paints.
-     */
-    fontStackForTypeface(fontType) {
-      if (fontType < RemoteComposeState.START_ID) return cssFontStackFor(fontType);
-      const embedded = this.embeddedFontFamilies.get(fontType);
-      if (embedded) {
-        this.googleFamily = null;
-        return namedFontStack(embedded.family);
-      }
-      const family = this.getText(fontType);
-      if (!family) return cssFontStackFor(0);
-      const { source, name } = parseFamily(family);
-      if (!name) return cssFontStackFor(0);
-      this.googleFamily = source === "google" ? name : null;
-      if (source === "google") {
-        ensureWebFont(
-          name,
-          this.fontWeight,
-          this.fontItalic,
-          this.onFontLoaded ?? void 0,
-          this.fontAxes
-        );
-      }
-      return namedFontStack(name);
-    }
-    // --- Bitmap cache ---
-    loadBitmap(imageId, encoding, type, width, height, bitmap) {
-      if (this.bitmapPromises.has(imageId)) return;
-      const isGif = bitmap.length > 6 && bitmap[0] === 71 && bitmap[1] === 73 && bitmap[2] === 70 && bitmap[3] === 56;
-      if (isGif && !this.bitmapVideos.has(imageId) && typeof globalThis.ImageDecoder !== "undefined") {
-        this.loadAnimatedBitmap(imageId, bitmap);
-      }
-      const blob = new Blob([bitmap.buffer], { type: "image/png" });
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-      const promise = new Promise((resolve2) => {
-        img.onload = () => {
-          URL.revokeObjectURL(url);
-          this.bitmapCache.set(imageId, img);
-          resolve2();
-        };
-        img.onerror = (e) => {
-          URL.revokeObjectURL(url);
-          console.warn(`CanvasPaintContext: failed to load bitmap ${imageId}`, e);
-          resolve2();
-        };
-        img.src = url;
-      });
-      this.bitmapPromises.set(imageId, promise);
-    }
-    /** Wait until every bitmap loaded by the document's data pass is paintable. */
-    async bitmapsReady() {
-      await Promise.all(this.bitmapPromises.values());
-    }
-    // `videos` maps image ids to video URLs. Called before the document's data pass, so a
-    // bitmap with a video never starts a GIF decoder.
-    setBitmapVideos(videos) {
-      for (const v of this.bitmapVideos.values()) {
-        v.pause();
-        v.removeAttribute("src");
-        v.load();
-        v.remove();
-      }
-      this.bitmapVideos.clear();
-      if (!videos || typeof document === "undefined") return;
-      const entries = videos instanceof Map ? [...videos.entries()] : Object.entries(videos).map(([k, v]) => [Number(k), v]);
-      for (const [id, url] of entries) {
-        const video = document.createElement("video");
-        video.muted = true;
-        video.loop = true;
-        video.playsInline = true;
-        video.preload = "auto";
-        video.src = url;
-        video.style.cssText = "position:fixed;left:-4px;top:-4px;width:2px;height:2px;opacity:0;pointer-events:none";
-        document.body.appendChild(video);
-        video.play().catch(() => {
-        });
-        this.bitmapVideos.set(id, video);
-      }
-    }
-    async loadAnimatedBitmap(imageId, bytes) {
-      try {
-        const Decoder = globalThis.ImageDecoder;
-        const decoder = new Decoder({ data: bytes, type: "image/gif" });
-        await decoder.tracks.ready;
-        const track = decoder.tracks.selectedTrack;
-        const count = track ? track.frameCount : 0;
-        if (count < 2 || this.disposed) {
-          decoder.close();
-          return;
-        }
-        const anim = {
-          decoder,
-          count,
-          index: -1,
-          frame: null,
-          frameEnds: 0,
-          decoding: false,
-          failed: false
-        };
-        this.animatedBitmaps.set(imageId, anim);
-        this.needsRepaint();
-      } catch (e) {
-        console.warn(`CanvasPaintContext: cannot animate bitmap ${imageId}`, e);
-      }
-    }
-    // Decode the frame after the one showing, and make it the one showing when it lands.
-    // One decode in flight at a time: a clock that has run ahead is not chased through the
-    // frames in between (a GIF's frames build on each other, so every one would cost), the
-    // picture just plays late until it catches up.
-    advanceAnimated(anim, now) {
-      if (anim.decoding || anim.failed || anim.count < 1) return;
-      anim.decoding = true;
-      const next = (anim.index + 1) % anim.count;
-      anim.decoder.decode({ frameIndex: next }).then((result) => {
-        const image = result.image;
-        let seconds = (image.duration ?? 0) / 1e6;
-        if (!(seconds >= 0.02)) seconds = 0.1;
-        if (this.disposed) {
-          image.close();
-          return;
-        }
-        if (anim.frame) anim.frame.close();
-        anim.frame = image;
-        anim.index = next;
-        anim.frameEnds = Math.max(now, anim.frameEnds) + seconds;
-        anim.decoding = false;
-        this.needsRepaint();
-      }).catch((e) => {
-        anim.failed = true;
-        anim.decoding = false;
-        console.warn("CanvasPaintContext: animated bitmap frame failed", e);
-      });
-    }
-    // The bitmap to draw now: for an animated one, the frame the document's clock is on —
-    // the next one is asked for once the clock passes the end of this one — and a repaint
-    // asked for so it follows.
-    bitmapToDraw(imageId) {
-      const video = this.bitmapVideos.get(imageId);
-      if (video) {
-        this.needsRepaint();
-        if (video.readyState >= 2 && video.videoWidth > 0) {
-          if (video.paused) video.play().catch(() => {
-          });
-          return video;
-        }
-        return this.bitmapCache.get(imageId);
-      }
-      const anim = this.animatedBitmaps.get(imageId);
-      if (!anim) return this.bitmapCache.get(imageId);
-      const context = this.getContext();
-      const now = context ? context.getAnimationTime() : 0;
-      if (anim.index < 0 || now >= anim.frameEnds) this.advanceAnimated(anim, now);
-      this.needsRepaint();
-      return anim.frame ?? this.bitmapCache.get(imageId);
-    }
-    // Let go of what animated bitmaps hold — decoders and frames are not cheap, and a paint
-    // context outlives its document only as garbage.
-    dispose() {
-      this.disposed = true;
-      for (const v of this.bitmapVideos.values()) {
-        v.pause();
-        v.removeAttribute("src");
-        v.load();
-        v.remove();
-      }
-      this.bitmapVideos.clear();
-      for (const anim of this.animatedBitmaps.values()) {
-        try {
-          anim.decoder.close();
-        } catch {
-        }
-        if (anim.frame) anim.frame.close();
-      }
-      this.animatedBitmaps.clear();
-      for (const img of this.bitmapCache.values()) {
-        if (typeof img.close === "function") img.close();
-      }
-      this.bitmapCache.clear();
-    }
-    // --- Path cache ---
-    loadPathData(id, winding, data) {
-      this.pathDataCache.set(id, data);
-      this.pathWindingCache.set(id, winding);
-    }
-    // A path operand is either a literal float or a NaN-encoded variable id (a
-    // dynamic coordinate, e.g. a button/card fill sized from its component's
-    // measured dimensions). Dereference the id to its current float value, the way
-    // the command word and every other expression operand are resolved — reading
-    // it as a literal `intBitsToFloat` would yield NaN and collapse the path.
-    pathCoord(bits) {
-      return isNaNBits(bits) ? this.mContext.getFloat(idFromBits(bits)) : intBitsToFloat2(bits);
-    }
-    buildPath2D(data, start = 0, end = 1) {
-      const path = new Path2D();
-      let i = 0;
-      while (i < data.length) {
-        const bits = data[i];
-        let cmd = isNaNBits(bits) ? idFromBits(bits) : intBitsToFloat2(bits);
-        if (cmd >= _CanvasPaintContext.NANMAP_PATH_BASE && cmd <= _CanvasPaintContext.NANMAP_PATH_BASE + 6) {
-          cmd = _CanvasPaintContext.PATH_MOVE + (cmd - _CanvasPaintContext.NANMAP_PATH_BASE);
-        }
-        switch (cmd) {
-          case _CanvasPaintContext.PATH_MOVE:
-            i++;
-            path.moveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]));
-            i += 2;
-            break;
-          case _CanvasPaintContext.PATH_LINE:
-            i += 3;
-            path.lineTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]));
-            i += 2;
-            break;
-          case _CanvasPaintContext.PATH_QUADRATIC:
-            i += 3;
-            path.quadraticCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]));
-            i += 4;
-            break;
-          case _CanvasPaintContext.PATH_CONIC:
-            i += 3;
-            path.quadraticCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]));
-            i += 5;
-            break;
-          case _CanvasPaintContext.PATH_CUBIC:
-            i += 3;
-            path.bezierCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]), this.pathCoord(data[i + 4]), this.pathCoord(data[i + 5]));
-            i += 6;
-            break;
-          case _CanvasPaintContext.PATH_CLOSE:
-            path.closePath();
-            i++;
-            break;
-          case _CanvasPaintContext.PATH_DONE:
-            return path;
-          default:
-            i++;
-            break;
-        }
-      }
-      return path;
-    }
-    // --- Apply paint ---
-    getEffectiveColor() {
-      if (this.colorFilterColor === null) {
-        return this.gradientStyle ?? this.color;
-      }
-      switch (this.colorFilterMode) {
-        case 0:
-          return "rgba(0,0,0,0)";
-        // CLEAR: transparent
-        case 1:
-          return this.colorFilterColor;
-        // SRC: filter color
-        case 2:
-          return this.gradientStyle ?? this.color;
-        // DST: paint color
-        case 3:
-          return this.colorFilterColor;
-        // SRC_OVER: opaque filter wins
-        case 4:
-          return this.gradientStyle ?? this.color;
-        // DST_OVER: opaque paint wins
-        case 5:
-          return this.colorFilterColor;
-        // SRC_IN: filter × paint_alpha = filter
-        case 6:
-          return this.gradientStyle ?? this.color;
-        // DST_IN: paint × filter_alpha = paint
-        case 7:
-          return "rgba(0,0,0,0)";
-        // SRC_OUT: filter × (1-paint_alpha) = 0
-        case 8:
-          return "rgba(0,0,0,0)";
-        // DST_OUT: paint × (1-filter_alpha) = 0
-        case 9:
-          return this.colorFilterColor;
-        // SRC_ATOP: filter
-        case 10:
-          return this.gradientStyle ?? this.color;
-        // DST_ATOP: paint
-        case 11:
-          return "rgba(0,0,0,0)";
-        // XOR: both opaque → transparent
-        default: {
-          return this.computeColorFilterBlend();
-        }
-      }
-    }
-    computeColorFilterBlend() {
-      const sA = (this.colorFilterArgb >>> 24 & 255) / 255;
-      const sR = this.colorFilterArgb >>> 16 & 255;
-      const sG = this.colorFilterArgb >>> 8 & 255;
-      const sB = this.colorFilterArgb & 255;
-      const m = this.color.match(/rgba?\((\d+),(\d+),(\d+),?([^)]*)\)/);
-      const dR = m ? parseInt(m[1]) : 0;
-      const dG = m ? parseInt(m[2]) : 0;
-      const dB = m ? parseInt(m[3]) : 0;
-      const dA = m && m[4] ? parseFloat(m[4]) : 1;
-      let rR, rG, rB, rA;
-      const blend1 = (a, b) => {
-        switch (this.colorFilterMode) {
-          case 12:
-            return Math.min(255, a + b);
-          // PLUS
-          case 13:
-            return a * b / 255;
-          // MODULATE
-          case 14:
-            return a + b - a * b / 255;
-          // SCREEN
-          case 15:
-            return b <= 127 ? 2 * a * b / 255 : 255 - 2 * (255 - a) * (255 - b) / 255;
-          case 16:
-            return Math.min(a, b);
-          // DARKEN
-          case 17:
-            return Math.max(a, b);
-          // LIGHTEN
-          case 18:
-            return b === 0 ? 0 : Math.min(255, a * 255 / (255 - b));
-          // COLOR_DODGE
-          case 19:
-            return b === 255 ? 255 : Math.max(0, 255 - (255 - a) * 255 / b);
-          // COLOR_BURN
-          case 20:
-            return a <= 127 ? 2 * a * b / 255 : 255 - 2 * (255 - a) * (255 - b) / 255;
-          case 21: {
-            const t = a / 255;
-            return b <= 127 ? b - (1 - 2 * t) * b * (1 - b / 255) * 255 : b + (2 * t - 1) * (Math.sqrt(b / 255) * 255 - b);
-          }
-          case 22:
-            return Math.abs(a - b);
-          // DIFFERENCE
-          case 23:
-            return a + b - 2 * a * b / 255;
-          // EXCLUSION
-          case 24:
-            return a * b / 255;
-          // MULTIPLY
-          default:
-            return a;
-        }
-      };
-      rR = blend1(sR, dR);
-      rG = blend1(sG, dG);
-      rB = blend1(sB, dB);
-      rA = Math.min(1, sA + dA - sA * dA);
-      return `rgba(${Math.round(rR)},${Math.round(rG)},${Math.round(rB)},${rA.toFixed(3)})`;
-    }
-    createSweepGradientPattern(cx, cy, colors, stops) {
-      const ctx = this.mContext;
-      const w = ctx ? ctx.mWidth || 256 : 256;
-      const h = ctx ? ctx.mHeight || 256 : 256;
-      try {
-        const layerCtx = this.createLayerCanvas(w, h);
-        const imgData = layerCtx.createImageData(w, h);
-        const data = imgData.data;
-        const colorComponents = colors.map((argb) => [
-          argb >>> 16 & 255,
-          // R
-          argb >>> 8 & 255,
-          // G
-          argb & 255,
-          // B
-          (argb >>> 24 & 255) / 255
-          // A
-        ]);
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            let angle = Math.atan2(y - cy, x - cx);
-            if (angle < 0) angle += Math.PI * 2;
-            const t = angle / (Math.PI * 2);
-            let idx = 0;
-            for (let s = 0; s < stops.length - 1; s++) {
-              if (t >= stops[s]) idx = s;
-            }
-            const t0 = stops[idx];
-            const t1 = stops[Math.min(idx + 1, stops.length - 1)];
-            const range = t1 - t0;
-            const frac = range > 0 ? (t - t0) / range : 0;
-            const c0 = colorComponents[idx];
-            const c1 = colorComponents[Math.min(idx + 1, colorComponents.length - 1)];
-            const off = (y * w + x) * 4;
-            data[off] = c0[0] + (c1[0] - c0[0]) * frac;
-            data[off + 1] = c0[1] + (c1[1] - c0[1]) * frac;
-            data[off + 2] = c0[2] + (c1[2] - c0[2]) * frac;
-            data[off + 3] = (c0[3] + (c1[3] - c0[3]) * frac) * 255;
-          }
-        }
-        layerCtx.putImageData(imgData, 0, 0);
-        return this.ctx.createPattern(layerCtx.canvas, "no-repeat");
-      } catch (_e) {
-        return null;
-      }
-    }
-    applyFillStyle() {
-      this.ctx.fillStyle = this.getEffectiveColor();
-      this.ctx.globalAlpha = this.alpha;
-      this.ctx.globalCompositeOperation = this.blendMode;
-    }
-    applyStrokeStyle() {
-      this.ctx.strokeStyle = this.getEffectiveColor();
-      this.ctx.lineWidth = this.strokeWidth;
-      this.ctx.lineCap = this.lineCap;
-      this.ctx.lineJoin = this.lineJoin;
-      this.ctx.miterLimit = this.miterLimit;
-      this.ctx.globalAlpha = this.alpha;
-      this.ctx.globalCompositeOperation = this.blendMode;
-    }
-    fillOrStroke(doFill, doStroke) {
-      if (this.style === 0 || this.style === 2) {
-        this.applyFillStyle();
-        this.eraseBeneathForSrc(doFill, "#000");
-        doFill();
-      }
-      if (this.style === 1 || this.style === 2) {
-        this.applyStrokeStyle();
-        this.eraseBeneathForSrc(doStroke, "#000");
-        doStroke();
-      }
-    }
-    /**
-     * Skia's `SRC` blend replaces the destination **inside the drawn shape** and leaves everything
-     * else alone. Canvas2D's `copy` (the only operator with the same algebra) replaces the whole
-     * clip region instead: a single `SRC` dot wiped the pill, track and icons painted before it in
-     * the same clip, so every remote-m3 slider drew as one dot on nothing.
-     *
-     * Emulated by punching the shape out first (`destination-out`, opaque, so exactly the shape's
-     * coverage) and then drawing it `source-over`. Called after the style is applied so the caller's
-     * own fill/stroke colour is what ends up drawn; it restores the paint state it borrowed.
-     */
-    eraseBeneathForSrc(draw, punchColor) {
-      if (this.blendMode !== "copy") return;
-      const ctx = this.ctx;
-      const fill = ctx.fillStyle, stroke = ctx.strokeStyle, alpha = ctx.globalAlpha;
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.fillStyle = punchColor;
-      ctx.strokeStyle = punchColor;
-      ctx.globalAlpha = 1;
-      draw();
-      ctx.fillStyle = fill;
-      ctx.strokeStyle = stroke;
-      ctx.globalAlpha = alpha;
-      ctx.globalCompositeOperation = "source-over";
-    }
-    /**
-     * The axis name a [tag] int stands for, in either encoding the format uses.
-     *
-     * A `CoreText` style interns its axis names in the text table like any other string and puts the
-     * *text id* in the array; the paint bundle's own `setTextAxis` carries the **raw OpenType tag**
-     * packed into four bytes (`0x77676874` = `wght`). Reading the text table first (ids start at
-     * `START_ID`, so the two ranges can't collide) and unpacking the bytes otherwise covers both
-     * without having to know which writer produced the document. Anything that is neither is dropped
-     * rather than guessed at.
-     */
-    axisName(tag) {
-      if (tag >= RemoteComposeState.START_ID) {
-        const name = this.getText(tag);
-        if (name) return name;
-      }
-      let packed = "";
-      for (let shift = 24; shift >= 0; shift -= 8) {
-        const code = tag >> shift & 255;
-        if (code < 33 || code > 126) return null;
-        packed += String.fromCharCode(code);
-      }
-      return packed;
-    }
-    axisValue(tag) {
-      const axis = this.fontAxes.find((a) => a.tag === tag);
-      return axis ? axis.value : null;
-    }
-    setFont() {
-      const wght = this.axisValue("wght");
-      const ital = this.axisValue("ital");
-      const italic = this.fontItalic || ital !== null && ital >= 0.5;
-      const effectiveWeight = wght !== null ? Math.round(wght) : this.fontWeight;
-      const style = italic ? "italic " : "";
-      const weight = effectiveWeight !== 400 ? `${effectiveWeight} ` : "";
-      this.ctx.font = `${style}${weight}${this.textSize}px ${this.fontFamily}`;
-      const stretchable = this.ctx;
-      if ("fontStretch" in stretchable) {
-        const wdth = this.axisValue("wdth");
-        stretchable.fontStretch = wdth !== null ? nearestFontStretch(wdth) : "normal";
-      }
-    }
-    // --- PaintContext abstract methods ---
-    applyPaint(paintData) {
-      const arr = paintData.getArray();
-      const len = paintData.getLength();
-      const context = this.getContext();
-      const floatArg = (bits) => {
-        if (isNaNBits(bits) && context) return context.getFloat(idFromBits(bits));
-        return intBitsToFloat2(bits);
-      };
-      let i = 0;
-      while (i < len) {
-        const cmd = arr[i++];
-        const tag = cmd & 65535;
-        const upper = cmd >> 16 & 65535;
-        switch (tag) {
-          case PaintBundle.TEXT_SIZE:
-            this.textSize = floatArg(arr[i++]);
-            this.setFont();
-            break;
-          case PaintBundle.COLOR: {
-            const argb = arr[i++] | 0;
-            this.colorArgb = argb;
-            this.alpha = (argb >>> 24 & 255) / 255;
-            this.color = `rgb(${argb >>> 16 & 255},${argb >>> 8 & 255},${argb & 255})`;
-            break;
-          }
-          case PaintBundle.STROKE_WIDTH:
-            this.strokeWidth = floatArg(arr[i++]);
-            break;
-          case PaintBundle.STROKE_MITER:
-            this.miterLimit = floatArg(arr[i++]);
-            break;
-          case PaintBundle.STROKE_CAP:
-            this.lineCap = upper === 0 ? "butt" : upper === 1 ? "round" : "square";
-            break;
-          case PaintBundle.STYLE:
-            this.style = upper;
-            break;
-          case PaintBundle.SHADER: {
-            const shaderId = arr[i++];
-            if (shaderId === 0) {
-              this.activeShaderData = null;
-            } else {
-              const sd = this.getContext()?.getShader(shaderId);
-              this.activeShaderData = sd ?? null;
-            }
-            break;
-          }
-          case PaintBundle.IMAGE_FILTER_QUALITY:
-            break;
-          case PaintBundle.GRADIENT: {
-            const meta = arr[i++];
-            const numColors = meta & 255;
-            const colors = [];
-            for (let c = 0; c < numColors; c++) {
-              colors.push(arr[i++]);
-            }
-            const numStops = arr[i++];
-            const stops = [];
-            if (numStops > 0) {
-              for (let s = 0; s < numStops; s++) {
-                stops.push(intBitsToFloat2(arr[i++]));
-              }
-            } else {
-              for (let s = 0; s < numColors; s++) {
-                stops.push(numColors > 1 ? s / (numColors - 1) : 0);
-              }
-            }
-            let gradient = null;
-            if (upper === PaintBundle.SWEEP_GRADIENT) {
-              const cx = intBitsToFloat2(arr[i++]);
-              const cy = intBitsToFloat2(arr[i++]);
-              if (typeof this.ctx.createConicGradient === "function") {
-                gradient = this.ctx.createConicGradient(0, cx, cy);
-              } else {
-                const sweepPattern = this.createSweepGradientPattern(cx, cy, colors, stops);
-                if (sweepPattern) {
-                  this.gradientStyle = sweepPattern;
-                }
-              }
-            } else if (upper === PaintBundle.RADIAL_GRADIENT) {
-              const cx = intBitsToFloat2(arr[i++]);
-              const cy = intBitsToFloat2(arr[i++]);
-              const radius = intBitsToFloat2(arr[i++]);
-              i++;
-              gradient = this.ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-            } else {
-              const startX = intBitsToFloat2(arr[i++]);
-              const startY = intBitsToFloat2(arr[i++]);
-              const endX = intBitsToFloat2(arr[i++]);
-              const endY = intBitsToFloat2(arr[i++]);
-              i++;
-              gradient = this.ctx.createLinearGradient(startX, startY, endX, endY);
-            }
-            if (gradient) {
-              for (let s = 0; s < stops.length && s < colors.length; s++) {
-                gradient.addColorStop(
-                  Math.max(0, Math.min(1, stops[s])),
-                  argbToRgba(colors[s])
-                );
-              }
-              this.gradientStyle = gradient;
-            }
-            break;
-          }
-          case PaintBundle.ALPHA:
-            this.alpha = floatArg(arr[i++]);
-            break;
-          case PaintBundle.COLOR_FILTER: {
-            const cfArgb = arr[i++];
-            this.colorFilterArgb = cfArgb;
-            this.colorFilterColor = argbToRgba(cfArgb);
-            this.colorFilterMode = upper;
-            break;
-          }
-          case PaintBundle.ANTI_ALIAS:
-            this.antiAlias = upper !== 0;
-            break;
-          case PaintBundle.STROKE_JOIN:
-            this.lineJoin = upper === 0 ? "miter" : upper === 1 ? "round" : "bevel";
-            break;
-          case PaintBundle.TYPEFACE: {
-            const weight = upper & 1023;
-            const italic = (upper & 2048) !== 0;
-            this.fontWeight = weight > 0 ? weight : 400;
-            this.fontItalic = italic;
-            const fontType = arr[i++];
-            this.fontFamily = this.fontStackForTypeface(fontType);
-            this.setFont();
-            break;
-          }
-          case PaintBundle.FILTER_BITMAP:
-            this.filterBitmap = upper !== 0;
-            this.ctx.imageSmoothingEnabled = this.filterBitmap;
-            break;
-          case PaintBundle.BLEND_MODE:
-            this.blendMode = this.mapBlendMode(upper);
-            break;
-          case PaintBundle.COLOR_ID: {
-            this.color = argbToRgba(arr[i++]);
-            break;
-          }
-          case PaintBundle.COLOR_FILTER_ID: {
-            const cfColor = arr[i++];
-            this.colorFilterColor = argbToRgba(cfColor);
-            this.colorFilterArgb = cfColor;
-            break;
-          }
-          case PaintBundle.CLEAR_COLOR_FILTER:
-            this.colorFilterColor = null;
-            break;
-          case PaintBundle.SHADER_MATRIX:
-            i++;
-            break;
-          case PaintBundle.FONT_AXIS: {
-            const axisCount = upper;
-            const axes = [];
-            for (let k = 0; k < axisCount; k++) {
-              const tag2 = arr[i++];
-              const value = intBitsToFloat2(arr[i++]);
-              const name = this.axisName(tag2);
-              if (name) axes.push({ tag: name, value });
-            }
-            this.fontAxes = axes;
-            if (this.googleFamily && axes.length > 0) {
-              ensureWebFont(
-                this.googleFamily,
-                this.fontWeight,
-                this.fontItalic,
-                this.onFontLoaded ?? void 0,
-                axes
-              );
-            }
-            this.setFont();
-            break;
-          }
-          case PaintBundle.TEXTURE: {
-            const bitmapId = arr[i++];
-            const tileModes = arr[i++];
-            i++;
-            const tileX = tileModes & 15;
-            const tileY = tileModes >> 16 & 15;
-            const img = this.bitmapCache.get(bitmapId);
-            if (img) {
-              const xRepeat = tileX === 1 || tileX === 2;
-              const yRepeat = tileY === 1 || tileY === 2;
-              let repetition;
-              if (xRepeat && yRepeat) repetition = "repeat";
-              else if (xRepeat) repetition = "repeat-x";
-              else if (yRepeat) repetition = "repeat-y";
-              else repetition = "no-repeat";
-              const pattern = this.ctx.createPattern(img, repetition);
-              if (pattern) {
-                this.gradientStyle = pattern;
-              }
-            }
-            break;
-          }
-          case PaintBundle.PATH_EFFECT: {
-            const count = upper;
-            if (count === 0) {
-              this.ctx.setLineDash([]);
-              this.ctx.lineDashOffset = 0;
-            } else if (count >= 3) {
-              const type = arr[i];
-              const phase = floatArg(arr[i + 1]);
-              const len2 = arr[i + 2];
-              i += 3;
-              const intervals = [];
-              for (let k = 0; k < len2 && k < count - 3; k++) intervals.push(floatArg(arr[i++]));
-              for (let k = 3 + len2; k < count; k++) i++;
-              if (type === 1 && intervals.length >= 2 && intervals.length % 2 === 0) {
-                this.ctx.setLineDash(intervals);
-                this.ctx.lineDashOffset = phase;
-              } else {
-                this.ctx.setLineDash([]);
-                this.ctx.lineDashOffset = 0;
-              }
-            } else {
-              i += count;
-            }
-            break;
-          }
-          case PaintBundle.FALLBACK_TYPEFACE:
-            i++;
-            break;
-          default:
-            if (tag === 0) break;
-            console.warn(`PaintBundle: unknown tag ${tag} at index ${i - 1}`);
-            return;
-        }
-      }
-    }
-    replacePaint(paintBundle) {
-      this.resetPaintState();
-      this.applyPaint(paintBundle);
-    }
-    resetPaintState() {
-      this.color = "rgba(0,0,0,1)";
-      this.style = 0;
-      this.strokeWidth = 1;
-      this.textSize = 14;
-      this.alpha = 1;
-      this.lineCap = "butt";
-      this.lineJoin = "miter";
-      this.miterLimit = 10;
-      this.blendMode = "source-over";
-      this.antiAlias = true;
-      this.filterBitmap = true;
-      this.letterSpacing = 0;
-      this.gradientStyle = null;
-      this.fontFamily = cssFontStackFor(0);
-      this.fontWeight = 400;
-      this.fontItalic = false;
-      this.fontAxes = [];
-      this.googleFamily = null;
-      this.colorFilterColor = null;
-      this.colorFilterArgb = 0;
-      this.colorFilterMode = 3;
-      this.activeShaderData = null;
-      this.ctx.setLineDash([]);
-      this.ctx.lineDashOffset = 0;
-      this.setFont();
-    }
-    mapBlendMode(mode) {
-      switch (mode) {
-        case 0:
-          return "clear";
-        // CLEAR
-        case 1:
-          return "copy";
-        // SRC
-        case 2:
-          return "destination";
-        // DST (keep destination only)
-        case 3:
-          return "source-over";
-        // SRC_OVER (default)
-        case 4:
-          return "destination-over";
-        // DST_OVER
-        case 5:
-          return "source-in";
-        // SRC_IN
-        case 6:
-          return "destination-in";
-        // DST_IN
-        case 7:
-          return "source-out";
-        // SRC_OUT
-        case 8:
-          return "destination-out";
-        // DST_OUT
-        case 9:
-          return "source-atop";
-        // SRC_ATOP
-        case 10:
-          return "destination-atop";
-        // DST_ATOP
-        case 11:
-          return "xor";
-        // XOR
-        case 12:
-          return "lighter";
-        // PLUS/ADD
-        case 13:
-          return "multiply";
-        // MODULATE (closest to multiply)
-        case 14:
-          return "screen";
-        // SCREEN
-        case 15:
-          return "overlay";
-        // OVERLAY
-        case 16:
-          return "darken";
-        // DARKEN
-        case 17:
-          return "lighten";
-        // LIGHTEN
-        case 18:
-          return "color-dodge";
-        // COLOR_DODGE
-        case 19:
-          return "color-burn";
-        // COLOR_BURN
-        case 20:
-          return "hard-light";
-        // HARD_LIGHT
-        case 21:
-          return "soft-light";
-        // SOFT_LIGHT
-        case 22:
-          return "difference";
-        // DIFFERENCE
-        case 23:
-          return "exclusion";
-        // EXCLUSION
-        case 24:
-          return "multiply";
-        // MULTIPLY
-        case 25:
-          return "hue";
-        // HUE
-        case 26:
-          return "saturation";
-        // SATURATION
-        case 27:
-          return "color";
-        // COLOR
-        case 28:
-          return "luminosity";
-        // LUMINOSITY
-        case 30:
-          return "lighter";
-        // PORTER_MODE_ADD
-        default:
-          return "source-over";
-      }
-    }
-    savePaint() {
-      this.paintStack.push({
-        color: this.color,
-        style: this.style,
-        strokeWidth: this.strokeWidth,
-        textSize: this.textSize,
-        alpha: this.alpha,
-        lineCap: this.lineCap,
-        lineJoin: this.lineJoin,
-        miterLimit: this.miterLimit,
-        blendMode: this.blendMode,
-        antiAlias: this.antiAlias,
-        letterSpacing: this.letterSpacing,
-        gradientStyle: this.gradientStyle,
-        activeShaderData: this.activeShaderData,
-        fontFamily: this.fontFamily,
-        fontWeight: this.fontWeight,
-        fontItalic: this.fontItalic,
-        fontAxes: this.fontAxes,
-        googleFamily: this.googleFamily,
-        filterBitmap: this.filterBitmap,
-        colorFilterColor: this.colorFilterColor,
-        colorFilterArgb: this.colorFilterArgb,
-        colorFilterMode: this.colorFilterMode
-      });
-    }
-    restorePaint() {
-      const state = this.paintStack.pop();
-      if (state) {
-        Object.assign(this, state);
-        this.setFont();
-        this.ctx.globalAlpha = this.alpha;
-      }
-    }
-    /**
-     * If an active shader is set, render it via WebGL2 into the given
-     * rectangle and return true. Otherwise return false (caller does
-     * the normal fill).
-     */
-    tryRenderShader(left, top, right, bottom) {
-      const ctx = this.getContext();
-      if (!this.activeShaderData || !ctx) return false;
-      const sd = this.activeShaderData;
-      const textId = sd.getShaderTextId();
-      const shaderText = this.textCache.get(textId);
-      if (!shaderText) return false;
-      const cacheKey = String(textId);
-      let glsl = this.glslCache.get(textId);
-      if (!glsl) {
-        try {
-          const result = transpileAgslToGlsl(shaderText);
-          glsl = result.glsl;
-          this.glslCache.set(textId, glsl);
-        } catch (e) {
-          console.error(`[shader] transpile failed (textId=${textId}):`, e, "\nAGSL:", shaderText);
-          return false;
-        }
-      }
-      if (!this.shaderRenderer) {
-        this.shaderRenderer = new WebGLShaderRenderer();
-        if (!this.shaderRenderer.isAvailable()) {
-          this.shaderRenderer = null;
-          return false;
-        }
-      }
-      let w = Math.round(right - left);
-      let h = Math.round(top > bottom ? top - bottom : bottom - top);
-      if (w <= 0 || h <= 0) return false;
-      const maxW = this.ctx.canvas.width || 4096;
-      const maxH = this.ctx.canvas.height || 4096;
-      if (w > maxW) w = maxW;
-      if (h > maxH) h = maxH;
-      sd.updateVariables(ctx);
-      const floats = /* @__PURE__ */ new Map();
-      for (const name of sd.getUniformFloatNames()) {
-        const vals = sd.getUniformFloats(name);
-        floats.set(name, vals);
-      }
-      const ints = /* @__PURE__ */ new Map();
-      for (const name of sd.getUniformIntegerNames()) {
-        ints.set(name, sd.getUniformInts(name));
-      }
-      let textures;
-      const bitmapNames = sd.getUniformBitmapNames();
-      if (bitmapNames.length > 0) {
-        textures = /* @__PURE__ */ new Map();
-        for (const name of bitmapNames) {
-          const bmpId = sd.getUniformBitmapId(name);
-          if (bmpId < 0) continue;
-          const offCtx = this.bitmapCanvasCache.get(bmpId);
-          if (offCtx) {
-            textures.set(name, offCtx.canvas);
-          } else {
-            const img = this.bitmapCache.get(bmpId);
-            if (img) textures.set(name, img);
-          }
-        }
-      }
-      const docW = Math.round(right - left);
-      const docH = Math.round(Math.abs(bottom - top));
-      const ok = this.shaderRenderer.render(
-        glsl,
-        w,
-        h,
-        floats,
-        ints,
-        textures,
-        cacheKey,
-        docW,
-        docH
-      );
-      if (!ok) {
-        console.error(`[shader] WebGL render FAILED textId=${textId}`);
-        return false;
-      }
-      this.ctx.globalAlpha = this.alpha;
-      this.ctx.globalCompositeOperation = this.blendMode;
-      const dstW = right - left;
-      const dstH = Math.abs(bottom - top);
-      this.ctx.drawImage(
-        this.shaderRenderer.getCanvas(),
-        left,
-        Math.min(top, bottom),
-        dstW,
-        dstH
-      );
-      return true;
-    }
-    // --- Drawing ---
-    drawRect(left, top, right, bottom) {
-      if (this.activeShaderData && this.tryRenderShader(left, top, right, bottom)) {
-        return;
-      }
-      this.fillOrStroke(
-        () => {
-          this.ctx.fillRect(left, top, right - left, bottom - top);
-        },
-        () => {
-          this.ctx.strokeRect(left, top, right - left, bottom - top);
-        }
-      );
-    }
-    drawCircle(centerX, centerY, radius) {
-      if (radius <= 0) return;
-      this.ctx.beginPath();
-      this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-      this.fillOrStroke(
-        () => {
-          this.ctx.fill();
-        },
-        () => {
-          this.ctx.stroke();
-        }
-      );
-    }
-    drawLine(x1, y1, x2, y2) {
-      this.applyStrokeStyle();
-      this.ctx.beginPath();
-      this.ctx.moveTo(x1, y1);
-      this.ctx.lineTo(x2, y2);
-      this.ctx.stroke();
-    }
-    drawOval(left, top, right, bottom) {
-      const cx = (left + right) / 2;
-      const cy = (top + bottom) / 2;
-      const rx = Math.abs(right - left) / 2;
-      const ry = Math.abs(bottom - top) / 2;
-      this.ctx.beginPath();
-      this.ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-      this.fillOrStroke(
-        () => {
-          this.ctx.fill();
-        },
-        () => {
-          this.ctx.stroke();
-        }
-      );
-    }
-    drawRoundRect(left, top, right, bottom, rx, ry) {
-      const w = right - left;
-      const h = bottom - top;
-      this.ctx.beginPath();
-      this.ctx.roundRect(left, top, w, h, [Math.min(rx, ry)]);
-      this.fillOrStroke(
-        () => {
-          this.ctx.fill();
-        },
-        () => {
-          this.ctx.stroke();
-        }
-      );
-    }
-    drawArc(left, top, right, bottom, startAngle, sweepAngle) {
-      const cx = (left + right) / 2;
-      const cy = (top + bottom) / 2;
-      const rx = Math.abs(right - left) / 2;
-      const ry = Math.abs(bottom - top) / 2;
-      const start = startAngle * Math.PI / 180;
-      const end = (startAngle + sweepAngle) * Math.PI / 180;
-      this.ctx.beginPath();
-      this.ctx.ellipse(cx, cy, rx, ry, 0, start, end, sweepAngle < 0);
-      this.fillOrStroke(
-        () => {
-          this.ctx.fill();
-        },
-        () => {
-          this.ctx.stroke();
-        }
-      );
-    }
-    drawSector(left, top, right, bottom, startAngle, sweepAngle) {
-      const cx = (left + right) / 2;
-      const cy = (top + bottom) / 2;
-      const rx = Math.abs(right - left) / 2;
-      const ry = Math.abs(bottom - top) / 2;
-      const start = startAngle * Math.PI / 180;
-      const end = (startAngle + sweepAngle) * Math.PI / 180;
-      this.ctx.beginPath();
-      this.ctx.moveTo(cx, cy);
-      this.ctx.ellipse(cx, cy, rx, ry, 0, start, end, sweepAngle < 0);
-      this.ctx.closePath();
-      this.fillOrStroke(
-        () => {
-          this.ctx.fill();
-        },
-        () => {
-          this.ctx.stroke();
-        }
-      );
-    }
-    // ── 2D vertex meshes ────────────────────────────────────────────────────────────────
-    //
-    // Canvas2D has no drawVertices and no Gouraud shading, so the triangle list is walked
-    // here. Two consequences worth stating rather than discovering:
-    //
-    //   * Per-vertex colour is approximated by filling each triangle with the AVERAGE of its
-    //     three vertex colours. Skia and Android interpolate across the face, so a mesh used
-    //     as a smooth gradient shows faceting here, more visibly as uCount/vCount drop.
-    //   * A textured triangle is drawn by clipping to it and applying the affine that takes
-    //     its uv triangle to its screen triangle — three corresponding points determine that
-    //     exactly, which makes it a real texture map rather than a stretched blit.
-    setMesh(meshId, layout, uCount, vCount, verts, uv, colors, indices) {
-      this.meshCache.set(meshId, { layout, uCount, vCount, verts, uv, colors, indices });
-    }
-    drawMesh(meshId, blend, imageId) {
-      const m = this.meshCache.get(meshId);
-      if (!m) return;
-      const vertexCount2 = m.verts.length / 2;
-      if (vertexCount2 < 3 || m.indices.length < 3) return;
-      let texture;
-      if (blend === BLEND_MODULATE && imageId !== 0 && m.uv.length === m.verts.length) {
-        texture = this.bitmapCache.get(imageId);
-      }
-      this.ctx.save();
-      const texW = texture ? texture.width : 0;
-      const texH = texture ? texture.height : 0;
-      if (!texture && m.colors.length !== vertexCount2) {
-        const all = new Path2D();
-        for (let t = 0; t + 2 < m.indices.length; t += 3) {
-          const i0 = m.indices[t], i1 = m.indices[t + 1], i2 = m.indices[t + 2];
-          if (i0 < 0 || i1 < 0 || i2 < 0) continue;
-          if (i0 >= vertexCount2 || i1 >= vertexCount2 || i2 >= vertexCount2) continue;
-          all.moveTo(m.verts[i0 * 2], m.verts[i0 * 2 + 1]);
-          all.lineTo(m.verts[i1 * 2], m.verts[i1 * 2 + 1]);
-          all.lineTo(m.verts[i2 * 2], m.verts[i2 * 2 + 1]);
-          all.closePath();
-        }
-        this.applyFillStyle();
-        this.ctx.fill(all);
-        this.ctx.restore();
-        return;
-      }
-      for (let t = 0; t + 2 < m.indices.length; t += 3) {
-        const i0 = m.indices[t], i1 = m.indices[t + 1], i2 = m.indices[t + 2];
-        if (i0 < 0 || i1 < 0 || i2 < 0) continue;
-        if (i0 >= vertexCount2 || i1 >= vertexCount2 || i2 >= vertexCount2) continue;
-        const x0 = m.verts[i0 * 2], y0 = m.verts[i0 * 2 + 1];
-        const x1 = m.verts[i1 * 2], y1 = m.verts[i1 * 2 + 1];
-        const x2 = m.verts[i2 * 2], y2 = m.verts[i2 * 2 + 1];
-        const tri = new Path2D();
-        tri.moveTo(x0, y0);
-        tri.lineTo(x1, y1);
-        tri.lineTo(x2, y2);
-        tri.closePath();
-        if (texture) {
-          const u0 = m.uv[i0 * 2] * texW, v0 = m.uv[i0 * 2 + 1] * texH;
-          const u1 = m.uv[i1 * 2] * texW, v1 = m.uv[i1 * 2 + 1] * texH;
-          const u2 = m.uv[i2 * 2] * texW, v2 = m.uv[i2 * 2 + 1] * texH;
-          const det = (u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0);
-          if (Math.abs(det) < 1e-9) continue;
-          const a = ((x1 - x0) * (v2 - v0) - (x2 - x0) * (v1 - v0)) / det;
-          const b = ((y1 - y0) * (v2 - v0) - (y2 - y0) * (v1 - v0)) / det;
-          const c = ((x2 - x0) * (u1 - u0) - (x1 - x0) * (u2 - u0)) / det;
-          const d = ((y2 - y0) * (u1 - u0) - (y1 - y0) * (u2 - u0)) / det;
-          const e = x0 - a * u0 - c * v0;
-          const f = y0 - b * u0 - d * v0;
-          this.ctx.save();
-          this.ctx.clip(tri);
-          this.ctx.transform(a, b, c, d, e, f);
-          this.ctx.drawImage(texture, 0, 0);
-          this.ctx.restore();
-          continue;
-        }
-        if (m.colors.length === vertexCount2) {
-          const c0 = m.colors[i0], c1 = m.colors[i1], c2 = m.colors[i2];
-          const av = (sh) => Math.round(((c0 >>> sh & 255) + (c1 >>> sh & 255) + (c2 >>> sh & 255)) / 3);
-          const alpha = av(24) / 255;
-          this.ctx.fillStyle = "rgba(" + av(16) + "," + av(8) + "," + av(0) + "," + alpha + ")";
-          this.ctx.fill(tri);
-        } else {
-          this.applyFillStyle();
-          this.ctx.fill(tri);
-        }
-      }
-      this.ctx.restore();
-    }
-    matrixFromMesh(meshId, u, v, flags) {
-      const m = this.meshCache.get(meshId);
-      if (!m) return;
-      const frame = new Float32Array(6);
-      if (!sampleFrame(m.layout, m.uCount, m.vCount, m.verts, u, v, frame)) return;
-      const out = new Float32Array(6);
-      buildMatrix(frame, flags, out);
-      this.ctx.transform(out[0], out[1], out[2], out[3], out[4], out[5]);
-    }
-    drawPath(id, start, end) {
-      const data = this.pathDataCache.get(id);
-      if (!data) return;
-      const path = this.buildPath2D(data, start, end);
-      this.fillOrStroke(
-        () => {
-          this.ctx.fill(path);
-        },
-        () => {
-          this.ctx.stroke(path);
-        }
-      );
-    }
-    drawTextRun(textId, start, end, _contextStart, _contextEnd, x, y, _rtl) {
-      const text = this.textCache.get(textId);
-      if (!text) return;
-      const s = start >= 0 ? start : 0;
-      const e = end >= 0 ? Math.min(end, text.length) : text.length;
-      const substr = text.substring(s, e);
-      this.setFont();
-      this.fillOrStroke(
-        () => {
-          this.applyFillStyle();
-          this.ctx.fillText(substr, x, y);
-        },
-        () => {
-          this.applyStrokeStyle();
-          this.ctx.strokeText(substr, x, y);
-        }
-      );
-    }
-    drawTextOnPath(textId, pathId, hOffset, vOffset) {
-      const text = this.textCache.get(textId);
-      if (!text) return;
-      const data = this.pathDataCache.get(pathId);
-      if (!data) return;
-      const { segments: segments2, totalLen } = this.collectPathSegments(data);
-      if (totalLen === 0 || segments2.length === 0) return;
-      this.setFont();
-      this.ctx.textBaseline = "alphabetic";
-      let progress = hOffset;
-      for (let ci = 0; ci < text.length; ci++) {
-        const ch = text[ci];
-        const charWidth = this.ctx.measureText(ch).width;
-        const charCenter = progress + charWidth / 2;
-        if (charCenter >= 0 && charCenter <= totalLen) {
-          this.ctx.save();
-          this.positionOnPath(segments2, charCenter, vOffset);
-          this.fillOrStroke(
-            () => {
-              this.applyFillStyle();
-              this.ctx.fillText(ch, -charWidth / 2, 0);
-            },
-            () => {
-              this.applyStrokeStyle();
-              this.ctx.strokeText(ch, -charWidth / 2, 0);
-            }
-          );
-          this.ctx.restore();
-        }
-        progress += charWidth;
-      }
-    }
-    measureTextCached(text) {
-      const key = `${this.ctx.font}:::${text}`;
-      let res = this.mTextMeasureCache.get(key);
-      if (!res) {
-        res = this.ctx.measureText(text);
-        this.mTextMeasureCache.set(key, res);
-        if (this.mTextMeasureCache.size > 2e3) {
-          this.mTextMeasureCache.clear();
-          this.mTextMeasureCache.set(key, res);
-        }
-      }
-      return res;
-    }
-    getTextBounds(textId, start, end, flags, bounds) {
-      const text = this.textCache.get(textId);
-      if (!text) {
-        bounds.fill(0);
-        return;
-      }
-      const s = start >= 0 ? start : 0;
-      const e = end >= 0 ? Math.min(end, text.length) : text.length;
-      const substr = text.substring(s, e);
-      this.setFont();
-      const metrics = this.measureTextCached(substr);
-      const size = this.textSize > 0 ? this.textSize : DEFAULT_TEXT_SIZE;
-      const wantFontBox = (flags & 2) !== 0;
-      const pick = (...vals) => {
-        for (const v of vals) if (typeof v === "number" && isFinite(v) && v > 0) return v;
-        return 0;
-      };
-      let ascent = wantFontBox ? pick(metrics.fontBoundingBoxAscent, metrics.actualBoundingBoxAscent) : pick(metrics.actualBoundingBoxAscent, metrics.fontBoundingBoxAscent);
-      let descent = wantFontBox ? pick(metrics.fontBoundingBoxDescent, metrics.actualBoundingBoxDescent) : pick(metrics.actualBoundingBoxDescent, metrics.fontBoundingBoxDescent);
-      if (ascent <= 0 && descent <= 0) {
-        ascent = ASCENT_RATIO * size;
-        descent = DESCENT_RATIO * size;
-      }
-      const advance = pick(metrics.width, substr.length * AVG_ADVANCE * size);
-      const actualLeft = metrics.actualBoundingBoxLeft;
-      const actualRight = metrics.actualBoundingBoxRight;
-      let left = typeof actualLeft === "number" && isFinite(actualLeft) ? -actualLeft : 0;
-      let right = typeof actualRight === "number" && isFinite(actualRight) ? actualRight : advance;
-      if ((flags & 4) !== 0) {
-        left = 0;
-        right = advance;
-      } else if ((flags & 1) !== 0) {
-        right = advance - left;
-      }
-      bounds[0] = left;
-      bounds[1] = -ascent;
-      bounds[2] = right;
-      bounds[3] = descent;
-    }
-    layoutComplexText(textId, start, end, alignment, overflow, maxLines, maxWidth, maxHeight, _letterSpacing, _lineHeightAdd, lineHeightMultiplier, _lineBreakStrategy, _hyphenationFrequency, _justificationMode, _useUnderline, _strikethrough, _flags) {
-      const str = this.textCache.get(textId);
-      if (!str) return null;
-      const s = start >= 0 ? start : 0;
-      const e = end === -1 || end > str.length ? str.length : end;
-      const text = str.substring(s, e);
-      this.setFont();
-      const size = this.textSize > 0 ? this.textSize : DEFAULT_TEXT_SIZE;
-      const lineHeight = size * (lineHeightMultiplier || 1.2);
-      if (maxLines === 1 && (overflow === 1 || overflow === 2)) {
-        const firstLine = text.split("\n", 1)[0];
-        return {
-          lines: [firstLine],
-          alignment,
-          lineHeight,
-          width: Math.min(this.ctx.measureText(firstLine).width, maxWidth),
-          height: Math.min(lineHeight, maxHeight),
-          naturalHeight: lineHeight,
-          visibleLines: 1
-        };
-      }
-      const lines = [];
-      const paragraphs = text.split("\n");
-      for (let pi = 0; pi < paragraphs.length; pi++) {
-        const para = paragraphs[pi];
-        const words = para.split(/(\s+)/);
-        let currentLine = "";
-        for (const word of words) {
-          const testLine = currentLine + word;
-          const metrics = this.measureTextCached(testLine);
-          if (metrics.width > maxWidth && currentLine.length > 0) {
-            lines.push(currentLine);
-            currentLine = word.trimStart();
-          } else {
-            currentLine = testLine;
-          }
-        }
-        if (currentLine.length > 0) {
-          lines.push(currentLine);
-        } else if (para.length === 0) {
-          lines.push("");
-        }
-      }
-      const graphemes = (value) => {
-        const Segmenter = Intl.Segmenter;
-        if (Segmenter) {
-          return Array.from(
-            new Segmenter(void 0, { granularity: "grapheme" }).segment(value),
-            (part) => part.segment
-          );
-        }
-        return Array.from(value);
-      };
-      const ellipsizeEnd = (value) => {
-        const parts = graphemes(value);
-        while (this.ctx.measureText(parts.join("") + "\u2026").width > maxWidth && parts.length > 0) {
-          parts.pop();
-        }
-        return parts.join("") + "\u2026";
-      };
-      const ellipsizeStart = (value) => {
-        const parts = graphemes(value);
-        while (this.ctx.measureText("\u2026" + parts.join("")).width > maxWidth && parts.length > 0) {
-          parts.shift();
-        }
-        return "\u2026" + parts.join("");
-      };
-      const ellipsizeMiddle = (value) => {
-        const parts = graphemes(value);
-        let left = Math.ceil(parts.length / 2);
-        let right = left;
-        while (this.ctx.measureText(parts.slice(0, left).join("") + "\u2026" + parts.slice(right).join("")).width > maxWidth && (left > 0 || right < parts.length)) {
-          if (parts.length - right < left) left--;
-          else right++;
-        }
-        return parts.slice(0, left).join("") + "\u2026" + parts.slice(right).join("");
-      };
-      const retainedLast = maxLines > 0 ? lines[Math.min(lines.length, maxLines) - 1] : void 0;
-      const horizontalOverflow = retainedLast !== void 0 && this.ctx.measureText(retainedLast).width > maxWidth;
-      if (overflow >= 3 && overflow <= 5 && maxLines > 0 && (lines.length > maxLines || horizontalOverflow)) {
-        const lastIdx = Math.min(maxLines, lines.length) - 1;
-        const value = lines[lastIdx] || "";
-        lines[lastIdx] = overflow === 4 ? ellipsizeStart(value) : overflow === 5 ? ellipsizeMiddle(value) : ellipsizeEnd(value);
-        if (lines.length > maxLines) lines.length = maxLines;
-      }
-      let totalWidth = 0;
-      for (const line of lines) {
-        const w = this.measureTextCached(line).width;
-        if (w > totalWidth) totalWidth = w;
-      }
-      const totalHeight = lines.length * lineHeight;
-      return {
-        lines,
-        alignment,
-        lineHeight,
-        width: Math.min(totalWidth, maxWidth),
-        height: Math.min(totalHeight, maxHeight),
-        naturalHeight: totalHeight,
-        visibleLines: lines.length,
-        maxWidth,
-        maxHeight
-      };
-    }
-    drawComplexText(computedTextLayout, targetWidth) {
-      if (!computedTextLayout) return;
-      const { lines, alignment, lineHeight, width } = computedTextLayout;
-      const layoutWidth = typeof targetWidth === "number" && targetWidth > 0 ? targetWidth : width;
-      this.setFont();
-      this.ctx.textBaseline = "top";
-      const align = typeof alignment === "number" ? alignment & 65535 : 1;
-      for (let i = 0; i < lines.length; i++) {
-        let x = 0;
-        const lineW = this.measureTextCached(lines[i]).width;
-        if (align === 2 || align === 6) {
-          x = layoutWidth - lineW;
-        } else if (align === 3) {
-          x = (layoutWidth - lineW) / 2;
-        }
-        this.fillOrStroke(
-          () => {
-            this.applyFillStyle();
-            this.ctx.fillText(lines[i], x, i * lineHeight);
-          },
-          () => {
-            this.applyStrokeStyle();
-            this.ctx.strokeText(lines[i], x, i * lineHeight);
-          }
-        );
-      }
-    }
-    drawBitmap(imageId, srcLeft, srcTop, srcRight, srcBottom, dstLeft, dstTop, dstRight, dstBottom, _cdId) {
-      const img = this.bitmapToDraw(imageId);
-      if (!img) return;
-      this.ctx.globalAlpha = this.alpha;
-      this.ctx.globalCompositeOperation = this.blendMode;
-      this.ctx.imageSmoothingEnabled = this.filterBitmap;
-      const sw = srcRight - srcLeft;
-      const sh = srcBottom - srcTop;
-      const dw = dstRight - dstLeft;
-      const dh = dstBottom - dstTop;
-      if (sw > 0 && sh > 0) {
-        this.ctx.drawImage(img, srcLeft, srcTop, sw, sh, dstLeft, dstTop, dw, dh);
-      } else {
-        this.ctx.drawImage(img, dstLeft, dstTop, dw, dh);
-      }
-    }
-    drawBitmapSimple(id, left, top, right, bottom) {
-      const img = this.bitmapToDraw(id);
-      if (!img) return;
-      this.ctx.globalAlpha = this.alpha;
-      this.ctx.globalCompositeOperation = this.blendMode;
-      this.ctx.imageSmoothingEnabled = this.filterBitmap;
-      this.ctx.drawImage(img, left, top, right - left, bottom - top);
-    }
-    drawTweenPath(path1Id, path2Id, tween, start, end) {
-      const data1 = this.pathDataCache.get(path1Id);
-      const data2 = this.pathDataCache.get(path2Id);
-      if (!data1 || !data2) {
-        if (data1) this.drawPath(path1Id, start, end);
-        return;
-      }
-      const len = Math.min(data1.length, data2.length);
-      const tweened = new Int32Array(len);
-      for (let i = 0; i < len; i++) {
-        const b1 = data1[i];
-        if (isNaNBits(b1)) {
-          tweened[i] = b1;
-        } else {
-          const f1 = intBitsToFloat2(b1);
-          const f2 = intBitsToFloat2(data2[i]);
-          tweened[i] = floatToRawIntBits(f1 + (f2 - f1) * tween);
-        }
-      }
-      const path = this.buildPath2D(tweened, start, end);
-      this.fillOrStroke(
-        () => {
-          this.ctx.fill(path);
-        },
-        () => {
-          this.ctx.stroke(path);
-        }
-      );
-    }
-    tweenPath(out, path1, path2, tween) {
-      if (tween === 0) {
-        const data = this.pathDataCache.get(path1);
-        if (data) this.pathDataCache.set(out, Int32Array.from(data));
-        return;
-      }
-      if (tween === 1) {
-        const data = this.pathDataCache.get(path2);
-        if (data) this.pathDataCache.set(out, Int32Array.from(data));
-        return;
-      }
-      const data1 = this.pathDataCache.get(path1);
-      const data2 = this.pathDataCache.get(path2);
-      if (!data1 || !data2) return;
-      const len = Math.min(data1.length, data2.length);
-      const result = new Int32Array(len);
-      for (let i = 0; i < len; i++) {
-        if (isNaNBits(data1[i]) || isNaNBits(data2[i])) {
-          result[i] = data1[i];
-        } else {
-          const f1 = intBitsToFloat2(data1[i]);
-          const f2 = intBitsToFloat2(data2[i]);
-          result[i] = floatToRawIntBits((f2 - f1) * tween + f1);
-        }
-      }
-      this.pathDataCache.set(out, result);
-    }
-    combinePath(_out, _path1, _path2, _operation) {
-    }
-    // --- Matrix / transforms ---
-    scale(scaleX, scaleY) {
-      const eps = 1e-10;
-      if (scaleX === 0) scaleX = eps;
-      if (scaleY === 0) scaleY = eps;
-      this.ctx.scale(scaleX, scaleY);
-    }
-    translate(translateX, translateY) {
-      this.ctx.translate(translateX, translateY);
-    }
-    matrixSave() {
-      this.ctx.save();
-    }
-    matrixRestore() {
-      this.ctx.restore();
-    }
-    saveLayer(x, y, w, h) {
-      this.ctx.save();
-      this.ctx.beginPath();
-      this.ctx.rect(x, y, w, h);
-      this.ctx.clip();
-      if (this.alpha < 1) {
-        this.ctx.globalAlpha *= this.alpha;
-      }
-    }
-    matrixTranslate(tx, ty) {
-      this.ctx.translate(tx, ty);
-    }
-    matrixScale(sx, sy, cx, cy) {
-      const eps = 1e-10;
-      if (sx === 0) sx = eps;
-      if (sy === 0) sy = eps;
-      this.ctx.translate(cx, cy);
-      this.ctx.scale(sx, sy);
-      this.ctx.translate(-cx, -cy);
-    }
-    matrixRotate(angle, px, py) {
-      this.ctx.translate(px, py);
-      this.ctx.rotate(angle * Math.PI / 180);
-      this.ctx.translate(-px, -py);
-    }
-    matrixSkew(sx, sy) {
-      this.ctx.transform(1, sy, sx, 1, 0, 0);
-    }
-    matrixFromPath(pathId, fraction, vOffset, _flags) {
-      const data = this.pathDataCache.get(pathId);
-      if (!data) return;
-      const { segments: segments2, totalLen } = this.collectPathSegments(data);
-      if (totalLen === 0) return;
-      let target = totalLen * fraction % totalLen;
-      if (target < 0) target += totalLen;
-      this.positionOnPath(segments2, target, vOffset);
-    }
-    // --- Path measurement helpers ---
-    /** Flatten path data into line segments (curves are subdivided). */
-    collectPathSegments(data) {
-      const segments2 = [];
-      let curX = 0, curY = 0, startX = 0, startY = 0;
-      let i = 0;
-      const addLine = (x1, y1, x2, y2) => {
-        const dx = x2 - x1, dy = y2 - y1;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len > 0) segments2.push({ x1, y1, x2, y2, len });
-      };
-      while (i < data.length) {
-        const bits = data[i];
-        let cmd = isNaNBits(bits) ? idFromBits(bits) : intBitsToFloat2(bits);
-        if (cmd >= _CanvasPaintContext.NANMAP_PATH_BASE && cmd <= _CanvasPaintContext.NANMAP_PATH_BASE + 6) {
-          cmd = _CanvasPaintContext.PATH_MOVE + (cmd - _CanvasPaintContext.NANMAP_PATH_BASE);
-        }
-        switch (cmd) {
-          case _CanvasPaintContext.PATH_MOVE:
-            i++;
-            curX = startX = intBitsToFloat2(data[i]);
-            curY = startY = intBitsToFloat2(data[i + 1]);
-            i += 2;
-            break;
-          case _CanvasPaintContext.PATH_LINE: {
-            i += 3;
-            const ex = intBitsToFloat2(data[i]), ey = intBitsToFloat2(data[i + 1]);
-            i += 2;
-            addLine(curX, curY, ex, ey);
-            curX = ex;
-            curY = ey;
-            break;
-          }
-          case _CanvasPaintContext.PATH_QUADRATIC: {
-            i += 3;
-            const cpx = intBitsToFloat2(data[i]), cpy = intBitsToFloat2(data[i + 1]);
-            const ex = intBitsToFloat2(data[i + 2]), ey = intBitsToFloat2(data[i + 3]);
-            i += 4;
-            this.flattenQuadratic(curX, curY, cpx, cpy, ex, ey, addLine);
-            curX = ex;
-            curY = ey;
-            break;
-          }
-          case _CanvasPaintContext.PATH_CONIC: {
-            i += 3;
-            const cpx = intBitsToFloat2(data[i]), cpy = intBitsToFloat2(data[i + 1]);
-            const ex = intBitsToFloat2(data[i + 2]), ey = intBitsToFloat2(data[i + 3]);
-            i += 5;
-            this.flattenQuadratic(curX, curY, cpx, cpy, ex, ey, addLine);
-            curX = ex;
-            curY = ey;
-            break;
-          }
-          case _CanvasPaintContext.PATH_CUBIC: {
-            i += 3;
-            const cp1x = intBitsToFloat2(data[i]), cp1y = intBitsToFloat2(data[i + 1]);
-            const cp2x = intBitsToFloat2(data[i + 2]), cp2y = intBitsToFloat2(data[i + 3]);
-            const ex = intBitsToFloat2(data[i + 4]), ey = intBitsToFloat2(data[i + 5]);
-            i += 6;
-            this.flattenCubic(curX, curY, cp1x, cp1y, cp2x, cp2y, ex, ey, addLine);
-            curX = ex;
-            curY = ey;
-            break;
-          }
-          case _CanvasPaintContext.PATH_CLOSE: {
-            i++;
-            addLine(curX, curY, startX, startY);
-            curX = startX;
-            curY = startY;
-            break;
-          }
-          case _CanvasPaintContext.PATH_DONE:
-            i = data.length;
-            break;
-          default:
-            i++;
-            break;
-        }
-      }
-      let totalLen = 0;
-      for (const s of segments2) totalLen += s.len;
-      return { segments: segments2, totalLen };
-    }
-    /** Subdivide a quadratic bezier into line segments. */
-    flattenQuadratic(x0, y0, cpx, cpy, x1, y1, addLine) {
-      const N = 16;
-      let px = x0, py = y0;
-      for (let j = 1; j <= N; j++) {
-        const t = j / N, mt = 1 - t;
-        const x = mt * mt * x0 + 2 * mt * t * cpx + t * t * x1;
-        const y = mt * mt * y0 + 2 * mt * t * cpy + t * t * y1;
-        addLine(px, py, x, y);
-        px = x;
-        py = y;
-      }
-    }
-    /** Subdivide a cubic bezier into line segments. */
-    flattenCubic(x0, y0, cp1x, cp1y, cp2x, cp2y, x1, y1, addLine) {
-      const N = 16;
-      let px = x0, py = y0;
-      for (let j = 1; j <= N; j++) {
-        const t = j / N, mt = 1 - t;
-        const x = mt * mt * mt * x0 + 3 * mt * mt * t * cp1x + 3 * mt * t * t * cp2x + t * t * t * x1;
-        const y = mt * mt * mt * y0 + 3 * mt * mt * t * cp1y + 3 * mt * t * t * cp2y + t * t * t * y1;
-        addLine(px, py, x, y);
-        px = x;
-        py = y;
-      }
-    }
-    /** Translate and rotate the canvas to a point at the given distance along segments. */
-    positionOnPath(segments2, distance, vOffset) {
-      let accum = 0;
-      for (const s of segments2) {
-        if (accum + s.len >= distance || s === segments2[segments2.length - 1]) {
-          const t = s.len > 0 ? (distance - accum) / s.len : 0;
-          const px = s.x1 + (s.x2 - s.x1) * t;
-          const py = s.y1 + (s.y2 - s.y1) * t;
-          const angle = Math.atan2(s.y2 - s.y1, s.x2 - s.x1);
-          const nx = -Math.sin(angle) * vOffset;
-          const ny = Math.cos(angle) * vOffset;
-          this.ctx.translate(px + nx, py + ny);
-          this.ctx.rotate(angle);
-          return;
-        }
-        accum += s.len;
-      }
-    }
-    // --- Clipping ---
-    clipRect(left, top, right, bottom) {
-      this.ctx.beginPath();
-      this.ctx.rect(left, top, right - left, bottom - top);
-      this.ctx.clip();
-    }
-    clipPath(pathId, _regionOp) {
-      const data = this.pathDataCache.get(pathId);
-      if (!data) return;
-      const path = this.buildPath2D(data);
-      this.ctx.clip(path);
-    }
-    roundedClipRect(width, height, topStart, topEnd, bottomStart, bottomEnd) {
-      const r = (v) => Number.isFinite(v) && v > 0 ? v : 0;
-      this.ctx.beginPath();
-      this.ctx.roundRect(
-        0,
-        0,
-        width,
-        height,
-        [r(topStart), r(topEnd), r(bottomEnd), r(bottomStart)]
-      );
-      this.ctx.clip();
-    }
-    startGraphicsLayer(w, h) {
-      this.ctx.save();
-      try {
-        const offCtx = this.createLayerCanvas(w, h);
-        this.layerStack.push({
-          previousCtx: this.ctx,
-          offscreenCanvas: offCtx.canvas,
-          width: w,
-          height: h,
-          attributes: /* @__PURE__ */ new Map()
-        });
-        this.ctx = offCtx;
-      } catch (_e) {
-      }
-    }
-    setGraphicsLayer(attributes) {
-      const layer = this.layerStack[this.layerStack.length - 1];
-      if (layer) {
-        layer.attributes = attributes;
-      }
-    }
-    endGraphicsLayer() {
-      const layer = this.layerStack.pop();
-      if (!layer) {
-        this.ctx.restore();
-        return;
-      }
-      const layerCanvas = layer.offscreenCanvas;
-      this.ctx = layer.previousCtx;
-      const attrs = layer.attributes;
-      const scaleX = attrs.get(_CanvasPaintContext.GL_SCALE_X) ?? 1;
-      const scaleY = attrs.get(_CanvasPaintContext.GL_SCALE_Y) ?? 1;
-      const rotationZ = attrs.get(_CanvasPaintContext.GL_ROTATION_Z) ?? 0;
-      const transX = attrs.get(_CanvasPaintContext.GL_TRANSLATION_X) ?? 0;
-      const transY = attrs.get(_CanvasPaintContext.GL_TRANSLATION_Y) ?? 0;
-      const originX = attrs.get(_CanvasPaintContext.GL_TRANSFORM_ORIGIN_X) ?? 0.5;
-      const originY = attrs.get(_CanvasPaintContext.GL_TRANSFORM_ORIGIN_Y) ?? 0.5;
-      const alpha = attrs.get(_CanvasPaintContext.GL_ALPHA) ?? 1;
-      const shape = attrs.get(_CanvasPaintContext.GL_SHAPE);
-      const shapeRadius = attrs.get(_CanvasPaintContext.GL_SHAPE_RADIUS) ?? 0;
-      const pivotX = originX * layer.width;
-      const pivotY = originY * layer.height;
-      const hasTransform = scaleX !== 1 || scaleY !== 1 || rotationZ !== 0 || transX !== 0 || transY !== 0;
-      if (hasTransform) {
-        this.ctx.translate(pivotX + transX, pivotY + transY);
-        if (rotationZ !== 0) {
-          this.ctx.rotate(rotationZ * Math.PI / 180);
-        }
-        if (scaleX !== 1 || scaleY !== 1) {
-          this.ctx.scale(scaleX, scaleY);
-        }
-        this.ctx.translate(-pivotX, -pivotY);
-      }
-      if (shape !== void 0) {
-        this.ctx.beginPath();
-        if (shape === 2) {
-          const r = Math.min(layer.width, layer.height) / 2;
-          this.ctx.arc(layer.width / 2, layer.height / 2, r, 0, Math.PI * 2);
-        } else if (shape === 1 && shapeRadius > 0) {
-          this.ctx.roundRect(0, 0, layer.width, layer.height, [shapeRadius]);
-        } else {
-          this.ctx.rect(0, 0, layer.width, layer.height);
-        }
-        this.ctx.clip();
-      }
-      if (alpha !== 1) {
-        this.ctx.globalAlpha = alpha;
-      }
-      this.ctx.drawImage(layerCanvas, 0, 0);
-      this.ctx.restore();
-    }
-    drawToBitmap(bitmapId, mode, color) {
-      if (this.mainCanvas === null) {
-        this.mainCanvas = this.ctx;
-      }
-      if (bitmapId === 0) {
-        this.ctx = this.mainCanvas;
-        return;
-      }
-      let offCtx = this.bitmapCanvasCache.get(bitmapId);
-      if (!offCtx) {
-        const img = this.bitmapCache.get(bitmapId);
-        const w = img ? img.width || 256 : 256;
-        const h = img ? img.height || 256 : 256;
-        offCtx = this.createLayerCanvas(w, h);
-        this.bitmapCanvasCache.set(bitmapId, offCtx);
-      }
-      if ((mode & 1) === 0) {
-        const canvas = offCtx.canvas;
-        offCtx.clearRect(0, 0, canvas.width, canvas.height);
-        if (color !== 0) {
-          offCtx.fillStyle = argbToRgba(color);
-          offCtx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-      }
-      this.ctx = offCtx;
-    }
-    reset() {
-      this.resetPaintState();
-      this.clearNeedsRepaint();
-    }
-    ensure3D() {
-      const w = this.ctx.canvas.width;
-      const h = this.ctx.canvas.height;
-      if (this.d3 === null) {
-        this.d3 = new SoftwarePaint3DContext();
-      }
-      this.d3.setSize(w, h);
-      if (this.d3Blit === null || this.d3Blit.canvas.width !== w || this.d3Blit.canvas.height !== h) {
-        this.d3Blit = this.createLayerCanvas(w, h);
-      }
-      return this.d3;
-    }
-    defineMesh3D(id, indices, verts, normals, uv = null) {
-      this.ensure3D().defineMesh3D(id, indices, verts, normals, uv);
-    }
-    setCamera3D(projection, projParams, viewParams) {
-      this.ensure3D().setCamera3D(projection, projParams, viewParams);
-    }
-    matrix3Op(sub, args) {
-      this.ensure3D().matrix3Op(sub, args);
-    }
-    clearDepth3D() {
-      this.ensure3D().clearDepth3D();
-    }
-    setLights3D(types, colors, params) {
-      this.ensure3D().setLights3D(types, colors, params);
-    }
-    setTexture3D(bitmapId) {
-      const ctx3d = this.ensure3D();
-      if (bitmapId === 0) {
-        ctx3d.setTextureData(null, 0, 0);
-        return;
-      }
-      const img = this.bitmapCache.get(bitmapId);
-      if (!img) {
-        ctx3d.setTextureData(null, 0, 0);
-        return;
-      }
-      const cached = this.texturePixels.get(bitmapId);
-      if (cached) {
-        ctx3d.setTextureData(cached.argb, cached.width, cached.height);
-        return;
-      }
-      const w = img.naturalWidth || img.width;
-      const h = img.naturalHeight || img.height;
-      if (!w || !h) {
-        ctx3d.setTextureData(null, 0, 0);
-        return;
-      }
-      const scratch = document.createElement("canvas");
-      scratch.width = w;
-      scratch.height = h;
-      const sctx = scratch.getContext("2d", { willReadFrequently: true });
-      if (!sctx) {
-        ctx3d.setTextureData(null, 0, 0);
-        return;
-      }
-      sctx.drawImage(img, 0, 0);
-      const data = sctx.getImageData(0, 0, w, h).data;
-      const argb = new Int32Array(w * h);
-      for (let i = 0; i < w * h; i++) {
-        argb[i] = data[i * 4 + 3] << 24 | data[i * 4] << 16 | data[i * 4 + 1] << 8 | data[i * 4 + 2] | 0;
-      }
-      this.texturePixels.set(bitmapId, { argb, width: w, height: h });
-      ctx3d.setTextureData(argb, w, h);
-    }
-    setMaterial3D(specStrength, shininess) {
-      this.ensure3D().setMaterial3D(specStrength, shininess);
-    }
-    setDepthBias3D(constant, slope) {
-      this.ensure3D().setDepthBias3D(constant, slope);
-    }
-    drawMesh3D(meshId, mode) {
-      const ctx3d = this.ensure3D();
-      ctx3d.setBaseColorArgb(this.colorArgb);
-      const backend = mode >> 1;
-      const wire = (mode & MODE_WIREFRAME) !== 0;
-      if (!wire && (backend === MODE_BACKEND_CANVAS || backend === MODE_BACKEND_CANVAS_ZBUF)) {
-        if (this.drawMesh3DGl(
-          ctx3d,
-          meshId,
-          (mode & MODE_SMOOTH_MASK) !== 0,
-          backend === MODE_BACKEND_CANVAS_ZBUF
-        )) {
-          return;
-        }
-      }
-      ctx3d.drawMesh3D(meshId, mode);
-      this.blit3D();
-    }
-    /**
-     * Canvas backend: rasterize on the GPU and composite the result.
-     *
-     * Returns false if WebGL2 is not available, so the caller can fall back to software. Each
-     * mesh composites immediately rather than batching to the end of the pass, because the 3D
-     * content has to interleave correctly with the 2D drawing around it — a document that
-     * draws a mesh, then a label, then another mesh expects that order.
-     */
-    drawMesh3DGl(ctx3d, meshId, smooth, useDepth) {
-      if (this.d3gl === null) this.d3gl = new WebGL3DRenderer();
-      const gl = this.d3gl;
-      if (!gl.isAvailable()) return false;
-      const n = ctx3d.buildCanvasVertices(meshId, this.d3glMesh, smooth);
-      if (n < 3) return true;
-      const w = ctx3d.getWidth(), h = ctx3d.getHeight();
-      gl.beginFrame(w, h);
-      const tex = ctx3d.getTextureData();
-      gl.setTexture(tex.pixels, tex.width, tex.height);
-      gl.draw(this.d3glMesh, useDepth);
-      this.ctx.drawImage(gl.getCanvas(), 0, 0, w, h);
-      this.d3glDirty = true;
-      globalThis.__rcGl3dDraws = gl.drawCount;
-      return true;
-    }
-    /**
-     * Composite the software color buffer onto the canvas. The reference blits after every
-     * software mesh rather than once per pass, so a 3D draw interleaves with 2D content in
-     * document order; matching that keeps mixed 2D/3D documents looking the same.
-     */
-    blit3D() {
-      const ctx3d = this.d3;
-      const blit = this.d3Blit;
-      if (ctx3d === null || blit === null) {
-        return;
-      }
-      const argb = ctx3d.getColorBuffer();
-      if (argb === null) {
-        return;
-      }
-      const w = ctx3d.getWidth();
-      const h = ctx3d.getHeight();
-      const img = blit.createImageData(w, h);
-      const d = img.data;
-      for (let i = 0; i < w * h; i++) {
-        const p = argb[i];
-        d[i * 4] = p >>> 16 & 255;
-        d[i * 4 + 1] = p >>> 8 & 255;
-        d[i * 4 + 2] = p & 255;
-        d[i * 4 + 3] = p >>> 24 & 255;
-      }
-      blit.putImageData(img, 0, 0);
-      this.ctx.drawImage(blit.canvas, 0, 0);
-    }
-  };
-  // Path command IDs (NaN-encoded in the float array)
-  // PathExpression uses short IDs (10-16), binary PathData uses NanMap IDs (0x300000+)
-  _CanvasPaintContext.PATH_MOVE = 10;
-  _CanvasPaintContext.PATH_LINE = 11;
-  _CanvasPaintContext.PATH_QUADRATIC = 12;
-  _CanvasPaintContext.PATH_CONIC = 13;
-  _CanvasPaintContext.PATH_CUBIC = 14;
-  _CanvasPaintContext.PATH_CLOSE = 15;
-  _CanvasPaintContext.PATH_DONE = 16;
-  // NanMap path command base (Java convention used in binary PathData)
-  _CanvasPaintContext.NANMAP_PATH_BASE = 3145728;
-  // --- Graphics layer (offscreen compositing) ---
-  // GraphicsLayer attribute IDs (from GraphicsLayerModifierOperation.java)
-  _CanvasPaintContext.GL_SCALE_X = 0;
-  _CanvasPaintContext.GL_SCALE_Y = 1;
-  _CanvasPaintContext.GL_ROTATION_Z = 4;
-  _CanvasPaintContext.GL_TRANSFORM_ORIGIN_X = 5;
-  _CanvasPaintContext.GL_TRANSFORM_ORIGIN_Y = 6;
-  _CanvasPaintContext.GL_TRANSLATION_X = 7;
-  _CanvasPaintContext.GL_TRANSLATION_Y = 8;
-  _CanvasPaintContext.GL_ALPHA = 11;
-  _CanvasPaintContext.GL_SHAPE = 20;
-  _CanvasPaintContext.GL_SHAPE_RADIUS = 21;
-  var CanvasPaintContext = _CanvasPaintContext;
-
   // third_party/remote-compose-player/src/core/DefaultSystemColors.ts
   function C(c) {
     return c | 0;
@@ -28633,6 +29076,7 @@ void main() {
   }
   var WebCustomHost = class {
     constructor(resolver) {
+      this.inputs = null;
       this.docs = /* @__PURE__ */ new Map();
       this.videos = /* @__PURE__ */ new Map();
       this.camera = null;
@@ -28674,15 +29118,28 @@ void main() {
       this.docs.clear();
       this.retire();
     }
-    drawCustom(_componentId, config2, pc, w, h, timeSec) {
+    drawCustom(_componentId, config2, pc, w, h, timeSec, component) {
       if (w <= 0 || h <= 0) return false;
+      if (this.inputs?.draw(_componentId, config2, pc, w, h, component)) return true;
+      if (config2.startsWith("rc:input/")) {
+        if (pc instanceof CanvasPaintContext) {
+          const canvas = pc.getCanvas();
+          canvas.save();
+          canvas.font = "14px system-ui";
+          canvas.fillStyle = "#555";
+          canvas.fillText("Input unavailable \xB7 Update player or open app", 4, 20, Math.max(1, w - 8));
+          canvas.restore();
+        }
+        return true;
+      }
       const cfg = parseEmbedConfig(config2, this.defaultFit);
       if (!cfg.path) return false;
       if (cfg.kind === "video") return this.drawVideo(cfg, pc, w, h);
       if (cfg.kind === "camera") return this.drawCamera(cfg, pc, w, h);
       if (cfg.kind === "web") return this.drawWebFrame(cfg, pc, w, h);
       if (cfg.kind && cfg.kind !== "rc") return false;
-      return this.drawRc(cfg, config2, pc, w, h, timeSec);
+      const draw = () => this.drawRc(cfg, config2, pc, w, h, timeSec);
+      return this.inputs ? this.inputs.withDocument(`${_componentId}:${config2}`, draw) : draw();
     }
     // ── Embedded documents ────────────────────────────────────────────
     drawRc(cfg, config2, pc, w, h, timeSec) {
@@ -28735,22 +29192,19 @@ void main() {
       ctx.setAnimationTime(docTime);
       if (cfg.hasStep && cfg.stepId >= 0) ctx.overrideFloat(cfg.stepId, cfg.step);
       if (cfg.timeId >= 0) ctx.overrideFloat(cfg.timeId, timeSec);
-      canvas.save();
-      canvas.beginPath();
-      canvas.rect(0, 0, w, h);
-      canvas.clip();
+      host.matrixSave();
+      host.clipRect(0, 0, w, h);
       canvas.translate(ox, oy);
       canvas.scale(s, s);
       canvas.translate(-cropX, -cropY);
-      canvas.beginPath();
-      canvas.rect(0, 0, docW, docH);
-      canvas.clip();
+      host.clipRect(0, 0, docW, docH);
       paint.reset();
+      paint.inheritInputClip(host);
       paint.clearNeedsRepaint();
       try {
         doc.paint(ctx, Theme.DARK);
       } finally {
-        canvas.restore();
+        host.matrixRestore();
       }
       if (doc.needsRepaint() >= 0 || paint.doesNeedsRepaint()) pc.needsRepaint();
       return true;
@@ -28983,7 +29437,7 @@ void main() {
         player.resize(width, height);
       },
       destroy() {
-        player.stop();
+        player.destroy();
         canvas.remove();
       },
       player,
@@ -29057,6 +29511,62 @@ void main() {
   };
   RcPlayerElement.observedAttributes = ["src", "data", "width", "height", "theme", "background"];
 
+  // third_party/remote-compose-player/src/web/InputDocument.ts
+  function inputDocument(fields, width = 360) {
+    if (!fields.length || new Set(fields.map((f) => f.key)).size !== fields.length || !Number.isInteger(width) || width <= 0 || fields.some((f) => !f.key.trim() || !f.label.trim() || f.options?.some((o) => !o || o.includes("\n")))) throw new Error("Invalid input fields");
+    const configs = fields.map((f) => f.kind ? { text: Input.TEXT, choice: Input.CHOICE, toggle: Input.TOGGLE, number: Input.NUMBER, range: Input.RANGE }[f.kind] : f.options?.length ? Input.CHOICE : Input.TEXT);
+    fields.forEach((f, i) => {
+      if (f.chrome !== void 0 && f.chrome !== "default" && f.chrome !== "none" || !configs[i] || f.multiline && configs[i] !== Input.TEXT || (configs[i] === Input.CHOICE ? !f.options?.length : !!f.options?.length) || f.options && new Set(f.options).size !== f.options.length || ![Input.NUMBER, Input.RANGE].some((kind) => kind === configs[i]) && [f.minimum, f.maximum, f.step].some((v) => v !== void 0) || [f.minimum, f.maximum, f.step].some((v) => v !== void 0 && !Number.isFinite(v)) || f.minimum !== void 0 && f.maximum !== void 0 && f.minimum > f.maximum || f.step !== void 0 && f.step <= 0 || !!f.submit && f.submitLabel !== void 0 && !f.submitLabel.trim() || !(!f.value && (configs[i] === Input.CHOICE || configs[i] === Input.NUMBER)) && !inputValueIsValid(configs[i], f.value ?? "", f.options, f.minimum, f.maximum, f.step) || configs[i] === Input.RANGE && !inputValueIsValid(configs[i], String(f.maximum), f.options, f.minimum, f.maximum, f.step)) throw new Error("Invalid input field");
+    });
+    const b = new WireBuffer();
+    const op = (opcode, ...ints) => {
+      b.start(opcode);
+      ints.forEach((i) => b.writeInt(i));
+    };
+    const dim = (opcode, type, value) => {
+      op(opcode, type);
+      b.writeFloat(value);
+    };
+    const height = (f) => f.multiline ? 136 : f.submit || f.kind === "range" ? 112 : 80;
+    op(0, 76283905, 2, 0, 3);
+    b.writeShort(Header.DOC_PROFILES);
+    b.writeShort(4);
+    b.writeInt(513);
+    b.writeShort(5);
+    b.writeShort(4);
+    b.writeInt(width);
+    b.writeShort(6);
+    b.writeShort(4);
+    b.writeInt(fields.reduce((sum, f) => sum + height(f) + 4, 0));
+    fields.forEach((f, i) => {
+      const texts = [configs[i], f.value ?? "", f.key, f.label, (f.options ?? []).join("\n"), f.submit ?? "", f.minimum === void 0 ? "" : String(f.minimum), f.maximum === void 0 ? "" : String(f.maximum), f.step === void 0 ? "" : String(f.step), f.submitLabel ?? "Send"];
+      texts.forEach((text, j) => {
+        op(102, 100 + i * 16 + j);
+        b.writeUTF8(text);
+      });
+    });
+    op(200, 1);
+    op(204, 3, 0, 1, 4);
+    b.writeFloat(4);
+    dim(16, 1, 1);
+    dim(67, 2, 0);
+    op(201, 4);
+    fields.forEach((f, i) => {
+      const base = 100 + i * 16;
+      op(93, 10 + i, 0, base, 13);
+      for (const [type, dataType, value] of [[1, 2, base + 1], [2, 4, base + 1], [3, 2, base + 2], [4, 2, base + 3], [5, 0, f.multiline ? 1 : 0], [6, 2, base + 4], [7, 2, base + 5], [8, 2, base + 6], [9, 2, base + 7], [10, 2, base + 8], [11, 0, f.enabled === false ? 0 : 1], [12, 2, base + 9], [13, 0, f.chrome === "none" ? 1 : 0]]) {
+        b.writeShort(type);
+        b.writeShort(dataType);
+        b.writeInt(value);
+      }
+      dim(16, 1, 1);
+      dim(67, 0, height(f));
+      op(214);
+    });
+    for (let i = 0; i < 3; i++) op(214);
+    return b.getBuffer().slice(0, b.getSize()).buffer;
+  }
+
   // third_party/remote-compose-player/src/web/main.ts
   var TOUCH_SLOP = 8;
   var RcdPlayer = class {
@@ -29105,6 +29615,7 @@ void main() {
       // player shows. It outlives the documents, so an embed marked `persist` carries across
       // them; a new document retires the rest.
       this.customHost = new WebCustomHost();
+      this.inputEditing = false;
       // Bitmaps the page supplies as video (see setBitmapVideos), for the next document.
       this.bitmapVideos = null;
       this.onPointerDown = (e) => {
@@ -29203,7 +29714,9 @@ void main() {
           const isDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
           theme = isDark ? Theme.DARK : Theme.LIGHT;
         }
+        this.customHost.inputs?.beginFrame();
         this.document.paint(this.remoteContext, theme);
+        this.customHost.inputs?.endFrame();
         if (this.variableListener) {
           this.variableListener(this.remoteContext.mRemoteComposeState.getFloatEntries());
         }
@@ -29219,6 +29732,7 @@ void main() {
           }
         }
       };
+      this.customHost.inputs = new WebInputComponents(canvas, { editable: false });
       this.canvas = canvas;
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Could not get 2D context");
@@ -29384,6 +29898,7 @@ void main() {
      * ones.
      */
     destroy() {
+      this.customHost.inputs?.dispose();
       this.stop();
       this.canvas.removeEventListener("pointerdown", this.onPointerDown);
       if (this.paintContext) {
@@ -29444,6 +29959,16 @@ void main() {
     setBitmapVideos(videos) {
       this.bitmapVideos = videos;
     }
+    /** Versioned capabilities are registered explicitly; read-only hosts keep useful fallbacks. */
+    configureInputs(options) {
+      this.customHost.inputs?.dispose();
+      this.inputEditing = options.editable;
+      this.customHost.inputs = new WebInputComponents(this.canvas, options);
+      this.repaint();
+    }
+    inputCapabilities() {
+      return { components: this.customHost.inputs ? [Input.TEXT, Input.CHOICE, Input.TOGGLE, Input.NUMBER, Input.RANGE] : [], editing: this.inputEditing };
+    }
     getCustomHost() {
       return this.customHost;
     }
@@ -29468,17 +29993,29 @@ void main() {
      *   const url = await player.screenshotDataURL();
      */
     async screenshot(type = "image/png", quality) {
-      return new Promise((resolve2, reject) => {
+      return this.withInputSnapshot(() => new Promise((resolve2, reject) => {
         this.canvas.toBlob(
           (blob) => blob ? resolve2(blob) : reject(new Error("toBlob failed")),
           type,
           quality
         );
-      });
+      }));
     }
     /** Capture a screenshot as a data URL string (e.g. "data:image/png;base64,..."). */
     screenshotDataURL(type = "image/png", quality) {
-      return this.canvas.toDataURL(type, quality);
+      return this.withInputSnapshot(() => this.canvas.toDataURL(type, quality));
+    }
+    withInputSnapshot(capture) {
+      const inputs = this.customHost.inputs;
+      if (!inputs) return capture();
+      try {
+        return inputs.withCanvasExport(() => {
+          this.repaint();
+          return capture();
+        });
+      } finally {
+        this.repaint();
+      }
     }
     /** Save a screenshot as a file download. */
     async saveScreenshot(filename = "screenshot.png") {

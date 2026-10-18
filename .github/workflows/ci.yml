@@ -260,6 +260,9 @@ jobs:
           npm ci
           npm test
 
+      - name: Verify the published TypeScript bundle matches its source
+        run: bash scripts/check-typescript-dist.sh
+
       - name: Test browser input values, nested identities and clipped hit testing
         run: |
           npm --prefix scripts/wasm-smoke ci
