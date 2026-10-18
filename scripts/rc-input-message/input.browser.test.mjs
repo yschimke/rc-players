@@ -7,6 +7,7 @@ test('input overlays retain sibling defaults, isolate nested documents and obey 
   const browser = await chromium.launch({headless:true});
   try {
     const page = await browser.newPage();
+    page.on('pageerror', error=>console.error(error.message));
     await page.setContent('<style>body{margin:0}#host{position:relative}canvas{display:block}</style><div id="host"><canvas width="600" height="600"></canvas></div>');
     await page.addScriptTag({content:readFileSync(process.env.RC_INPUT_HARNESS_JS,'utf8')});
     await page.evaluate(() => {
@@ -48,5 +49,63 @@ test('input overlays retain sibling defaults, isolate nested documents and obey 
       inputs.beginFrame();pc.reset();pc.matrixSave();pc.roundedClipRect(200,100,40,40,40,40);draw(1,field('rounded','value'),0);pc.matrixRestore();inputs.endFrame();
     });
     assert.equal(await page.locator('input').count(),0,'unrepresentable rounded clipping uses canvas alternative');
+  } finally {await browser.close();}
+});
+
+test('two actual embedded copies of the same form keep independent edits', async () => {
+  const browser = await chromium.launch({headless:true});
+  try {
+    const page = await browser.newPage();
+    page.on('pageerror', error=>console.error(error.message));
+    await page.setContent('<style>body{margin:0}#host{position:relative}canvas{display:block}</style><div id="host"><canvas width="600" height="600"></canvas></div>');
+    await page.addScriptTag({content:readFileSync(process.env.RC_INPUT_HARNESS_JS,'utf8')});
+    await page.evaluate(() => {
+      const {CanvasPaintContext,WebInputComponents,WebCustomHost,inputDocument} = InputTest;
+      const canvas=document.querySelector('canvas');
+      const pc=new CanvasPaintContext(null,canvas.getContext('2d'));
+      const inputs=new WebInputComponents(canvas,{editable:true});
+      const host=new WebCustomHost(async()=>inputDocument([{key:'message',label:'Message',value:'Initial'}],200));
+      host.inputs=inputs;
+      window.paintEmbeds=()=>{
+        pc.reset(); inputs.beginFrame();
+        for (const [id,y] of [[1,0],[2,120]]) {
+          pc.matrixSave();pc.translate(0,y);host.drawCustom(id,'rc:form.rc#native',pc,200,100,0);pc.matrixRestore();
+        }
+        inputs.endFrame();
+      };
+      paintEmbeds();
+      window.renderTimer=setInterval(paintEmbeds,30);
+    });
+    await page.getByRole('textbox',{name:'Message'}).nth(1).waitFor();
+    await page.getByRole('textbox',{name:'Message'}).nth(0).fill('First copy');
+    await page.evaluate(()=>{clearInterval(renderTimer);paintEmbeds();paintEmbeds();});
+    assert.deepEqual(await page.getByRole('textbox',{name:'Message'}).evaluateAll(inputs=>inputs.map(input=>input.value)),['First copy','Initial']);
+  } finally {await browser.close();}
+});
+
+
+test('live input shape/label updates and public handle teardown remove obsolete controls', async () => {
+  const browser = await chromium.launch({headless:true});
+  try {
+    const page = await browser.newPage();
+    page.on('pageerror', error=>console.error(error.message));
+    await page.setContent('<div id="host" style="position:relative;width:360px"></div>');
+    await page.addScriptTag({content:readFileSync(process.env.RC_INPUT_HARNESS_JS,'utf8')});
+    await page.evaluate(async()=>{
+      const {createPlayer,inputDocument} = InputTest;
+      window.handle=createPlayer(document.querySelector('#host'));
+      handle.player.configureInputs({editable:true});
+      await handle.loadFromArrayBuffer(inputDocument([{key:'message',label:'Old label',value:'Initial'}]));
+    });
+    await page.getByRole('textbox',{name:'Old label'}).fill('Draft survives');
+    await page.evaluate(async()=>{
+      await handle.loadFromArrayBuffer(InputTest.inputDocument([{key:'message',label:'New label',multiline:true,submit:'send'}]));
+    });
+    const field=page.getByRole('textbox',{name:'New label'});
+    assert.equal(await field.evaluate(el=>el.tagName),'TEXTAREA');
+    assert.equal(await field.inputValue(),'Draft survives');
+    await page.getByRole('button',{name:'Send'}).waitFor();
+    await page.evaluate(()=>handle.destroy());
+    assert.equal(await page.locator('input,textarea,select,button,canvas').count(),0);
   } finally {await browser.close();}
 });

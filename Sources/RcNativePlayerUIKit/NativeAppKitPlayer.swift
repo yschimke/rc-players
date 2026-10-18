@@ -2500,7 +2500,12 @@ private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSText
     guard writable, let configuration = owner?.inputConfiguration else { return }
     let action = text(NativeSwiftInput.submit)
     guard !action.isEmpty else { window?.makeFirstResponder(nil); return }
-    var values = configuration.drafts.values
+    func keys(_ view: NSView) -> [String] {
+      guard !view.isHidden else { return [] }
+      if let input = view as? NativeMacInputView { return [input.key] }
+      return view.subviews.flatMap(keys)
+    }
+    var values = configuration.drafts.values(for: Set(owner.map { keys($0) } ?? [key]))
     values[key] = configuration.drafts.value(for: key, documentValue: text(NativeSwiftInput.value))
     configuration.onSubmit(action, values); window?.makeFirstResponder(nil)
   }

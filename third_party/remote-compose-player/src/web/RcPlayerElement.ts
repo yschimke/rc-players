@@ -97,7 +97,7 @@ export function createPlayer(
             player.resize(width, height);
         },
         destroy() {
-            player.stop();
+            player.destroy();
             canvas.remove();
         },
         player,

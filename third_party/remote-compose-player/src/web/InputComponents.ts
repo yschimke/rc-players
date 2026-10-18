@@ -21,6 +21,8 @@ interface Entry {
     config: string;
     writable: boolean;
     scope: string;
+    shape: string;
+    caption?: HTMLSpanElement;
 }
 
 /** Native accessible DOM controls positioned by the player's actual canvas transform. */
@@ -79,8 +81,11 @@ export class WebInputComponents {
             return true;
         }
         const writable = this.options.editable && !!key.trim() && component.canReturnText(Input.VALUE_RETURN);
+        const shape = `${config === Input.TEXT && component.integer(Input.MULTILINE) === 1}:${!!component.text(Input.SUBMIT)}`;
         let entry = this.entries.get(identity);
-        if (entry && (entry.config !== config || entry.writable !== writable || entry.component.text(Input.KEY) !== key)) {
+        let restoreFocus = false;
+        if (entry && (entry.shape !== shape || entry.config !== config || entry.writable !== writable || entry.component.text(Input.KEY) !== key)) {
+            restoreFocus = entry.control === document.activeElement;
             entry.root.remove(); this.entries.delete(identity); entry = undefined;
         }
         if (!entry) {
@@ -88,12 +93,13 @@ export class WebInputComponents {
             root.style.cssText = 'position:absolute;transform-origin:0 0;box-sizing:border-box;overflow:auto;font:14px system-ui;background:var(--card-background-color,white);color:var(--primary-text-color,#202124);padding:6px;';
             // Stop editing gestures from also activating canvas actions.
             for (const event of ['pointerdown', 'click', 'keydown']) root.addEventListener(event, e => e.stopPropagation());
-            entry = { root, component, config, writable, scope: draftScope };
+            entry = { root, component, config, writable, scope: draftScope, shape };
             this.entries.set(identity, entry);
             this.canvas.parentNode?.appendChild(root);
             if (writable) {
                 const label = document.createElement('label');
                 const caption = document.createElement('span');
+                entry.caption = caption;
                 caption.textContent = component.text(Input.LABEL);
                 caption.style.display = 'block'; label.appendChild(caption);
                 const control = config === Input.CHOICE ? document.createElement('select') :
@@ -126,6 +132,7 @@ export class WebInputComponents {
             }
         }
         entry.component = component;
+        if (entry.caption) entry.caption.textContent = component.text(Input.LABEL);
         const value = this.drafts.get(storeKey) ?? component.text(Input.VALUE);
         if (entry.control) {
             if (entry.control instanceof HTMLSelectElement) {
@@ -140,6 +147,7 @@ export class WebInputComponents {
             if (entry.control.value !== value) entry.control.value = value;
             if (component.text(Input.VALUE) !== value) component.returnText(Input.VALUE_RETURN, value);
         } else entry.root.textContent = `${component.text(Input.LABEL)}: ${value} · Open in app to edit`;
+        if (restoreFocus) entry.control?.focus();
         const m = matrix;
         entry.root.hidden = !polygon.length || context.globalAlpha <= 0;
         entry.root.style.opacity = String(context.globalAlpha);

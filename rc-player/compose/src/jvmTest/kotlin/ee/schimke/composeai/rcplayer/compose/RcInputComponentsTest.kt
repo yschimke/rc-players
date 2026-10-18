@@ -47,6 +47,48 @@ class RcInputComponentsTest {
     }
 
   @Test
+  fun submitOmitsRemovedFieldsButRetainsRemainingDrafts() =
+    runSkikoComposeUiTest(size = Size(360f, 360f), density = Density(1f)) {
+      val drafts = RcInputDrafts()
+      val document =
+        mutableStateOf(
+          rcInputDocument(
+            listOf(
+              RcInputField("obsolete", "Old field", "old"),
+              RcInputField("room", "Room", "Kitchen"),
+              RcInputField("message", "Message", submit = "send"),
+            )
+          )
+        )
+      val submissions = mutableListOf<Map<String, String>>()
+      setContent {
+        RcComposePlayer(
+          document.value,
+          customComponents =
+            rcInputComponents(
+              drafts,
+              editable = true,
+              onSubmit = { _, values -> submissions += values },
+            ),
+        )
+      }
+      onNode(hasContentDescription("Message")).performTextInput("Keep me")
+      runOnIdle {
+        document.value =
+          rcInputDocument(
+            listOf(
+              RcInputField("room", "Room", "Living room"),
+              RcInputField("message", "Message", submit = "send"),
+            )
+          )
+      }
+      onNode(hasContentDescription("Message")).performImeAction()
+      runOnIdle {
+        assertEquals(listOf(mapOf("room" to "Living room", "message" to "Keep me")), submissions)
+      }
+    }
+
+  @Test
   fun readOnlyHostShowsAlternativeAndNeverAcceptsInput() =
     runSkikoComposeUiTest(size = Size(360f, 240f), density = Density(1f)) {
       val registry =

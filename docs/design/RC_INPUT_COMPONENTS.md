@@ -31,7 +31,8 @@ wrongly typed return target makes a field read-only. The host retains one `RcInp
 `NativeSwiftInputDrafts`; TS: `Map<string,string>`) per card across document replacements. Incoming
 initial values refresh untouched fields; edits win until explicit reset. Drafts are in memory only.
 Do not share a draft store across unrelated cards or accounts. Reset/remove it on config/account
-changes. A submit carries a snapshot; subsequent typing cannot mutate an in-flight payload.
+changes. A submit carries a snapshot of the currently rendered form fields; removed fields are excluded even
+while the host draft store retains dormant edits. Subsequent typing cannot mutate an in-flight payload.
 
 Single-line Send/Enter submits, Next/Tab follows platform focus handling, and multiline Enter inserts
 a newline. Browser IME composition suppresses Enter submission. CMP retains `TextFieldValue` and

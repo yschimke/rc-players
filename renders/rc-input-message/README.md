@@ -20,4 +20,5 @@ To reproduce, build a baseline and current TS bundle with esbuild, then set `RC_
 Browser regression coverage: bundle `src/input.browser-harness.ts` with esbuild as IIFE global
 `InputTest`, set `RC_INPUT_HARNESS_JS` and `PLAYWRIGHT_MODULE`, then run
 `node --test scripts/rc-input-message/input.browser.test.mjs`. CI runs the same harness. It checks
-untouched sibling values, independent embedded document scopes, and actual clipped DOM hit testing.
+untouched sibling values, independent embedded document scopes (including two actual copies of one
+form), actual clipped DOM hit testing, live label/control-shape updates, and public-handle cleanup.

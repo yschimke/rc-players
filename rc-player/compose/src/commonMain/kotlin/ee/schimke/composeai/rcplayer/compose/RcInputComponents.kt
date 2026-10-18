@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,8 +43,14 @@ public fun rcInputComponents(
   onChange: (key: String, value: String) -> Unit = { _, _ -> },
   onSubmit: (action: String, values: Map<String, String>) -> Unit = { _, _ -> },
 ): RcCustomComponentRegistry {
+  val activeFields = mutableMapOf<Any, String>()
   val renderer: RcCustomContent = { component, modifier ->
     val inputKey = component.text(RcInput.KEY)
+    val lease = remember { Any() }
+    DisposableEffect(activeFields, inputKey) {
+      activeFields[lease] = inputKey
+      onDispose { activeFields.remove(lease) }
+    }
     val label = component.text(RcInput.LABEL)
     val documentValue = component.text(RcInput.VALUE)
     val writable =
@@ -59,7 +66,12 @@ public fun rcInputComponents(
     val action = component.text(RcInput.SUBMIT)
     val submit = {
       if (writable && action.isNotBlank()) {
-        onSubmit(action, drafts.snapshot() + (inputKey to drafts.value(inputKey, documentValue)))
+        onSubmit(
+          action,
+          (drafts.snapshot() + (inputKey to drafts.value(inputKey, documentValue))).filterKeys {
+            it in activeFields.values
+          },
+        )
         focus.clearFocus()
       }
     }

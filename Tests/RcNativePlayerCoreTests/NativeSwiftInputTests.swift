@@ -23,6 +23,9 @@ import Testing
     drafts.update("Hello 🏡\nRoom", for: "message")
     #expect(drafts.value(for: "message", documentValue: "stale") == "Hello 🏡\nRoom")
     #expect(drafts.value(for: "channel", documentValue: "matrix") == "matrix")
+    drafts.update("old", for: "obsolete")
+    _ = drafts.value(for: "obsolete", documentValue: "old")
+    #expect(drafts.values(for: ["message", "channel"]) == ["message": "Hello 🏡\nRoom", "channel": "matrix"])
     let submitted = drafts.values
     drafts.update("later", for: "message")
     #expect(submitted["message"] == "Hello 🏡\nRoom")
