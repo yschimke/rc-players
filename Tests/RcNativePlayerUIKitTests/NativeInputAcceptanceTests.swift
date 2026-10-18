@@ -5,9 +5,22 @@ import UIKit
 @testable import RcNativePlayerUIKit
 
 @MainActor @Suite struct NativeInputAcceptanceTests {
+  private func dispatch(_ event: UIControl.Event, on control: UIControl) throws {
+    // SwiftPM runs without UIApplicationMain, so sendActions cannot dispatch in this test host.
+    // Invoke the registered no-argument handlers, still verifying the production event wiring.
+    try #require(control.allTargets.count == 1)
+    let target = try #require(control.allTargets.first?.base as? NSObject)
+    let actions = try #require(control.actions(forTarget: target, forControlEvent: event))
+    try #require(!actions.isEmpty)
+    for action in actions {
+      try #require(!action.contains(":"))
+      target.perform(NSSelectorFromString(action))
+    }
+  }
+
   private func component(
     key: String = "message", value: String = "", submit: String = "send",
-    queue: @escaping ((Bool) -> Void) -> Void
+    queue: @escaping (@escaping (Bool) -> Void) -> Void
   ) -> RemoteComposeNativeCustomComponent {
     func string(_ id: Int, _ text: String) -> RemoteComposeNativeCustomProperty {
       .init(id: id, dataType: NativeSwiftCustomPropertyType.stringProperty,
@@ -34,8 +47,8 @@ import UIKit
     let field = try #require(view.arrangedSubviews.compactMap { $0 as? UITextField }.first)
     let send = try #require(view.arrangedSubviews.compactMap { $0 as? UIButton }.last)
     field.text = String(repeating: "🏡", count: 1001)
-    field.sendActions(for: .editingChanged)
-    send.sendActions(for: .touchUpInside)
+    try dispatch(.editingChanged, on: field)
+    try dispatch(.touchUpInside, on: send)
     #expect(drafts.values["message"] == "")
     #expect(changes.isEmpty && submissions == 0)
     let reply = try #require(replies.first)
@@ -56,8 +69,8 @@ import UIKit
     root.addSubview(first); root.addSubview(last)
     let field = try #require(first.arrangedSubviews.compactMap { $0 as? UITextField }.first)
     let send = try #require(last.arrangedSubviews.compactMap { $0 as? UIButton }.last)
-    field.text = "Accepted message"; field.sendActions(for: .editingChanged)
-    send.sendActions(for: .touchUpInside)
+    field.text = "Accepted message"; try dispatch(.editingChanged, on: field)
+    try dispatch(.touchUpInside, on: send)
     #expect(submissions.isEmpty)
     let reply = try #require(replies.first)
     reply(true)
