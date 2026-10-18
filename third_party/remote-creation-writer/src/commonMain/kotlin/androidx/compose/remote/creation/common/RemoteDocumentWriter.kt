@@ -12,6 +12,11 @@ public class RemoteDocumentWriter(
   densityBehavior: Int = DensityBehaviorDp,
   profiles: Int = 0,
 ) : RemoteWriter {
+  private val documentWidth = width
+  private val documentHeight = height
+  private val documentDensityBehavior = densityBehavior
+  private val documentProfiles = profiles
+  private var customComponentsUsed = false
   private val bodyBuffer = RemoteWireBuffer()
   private var buffer = bodyBuffer
   private val declarationBuffer = RemoteWireBuffer()
@@ -462,6 +467,7 @@ public class RemoteDocumentWriter(
     configId: Int,
     properties: List<RemoteCustomPropertyData>,
   ) {
+    customComponentsUsed = true
     operation(LayoutCustom)
     buffer.writeInt(resolveComponentId(modifier.componentId))
     buffer.writeInt(-1)
@@ -586,7 +592,27 @@ public class RemoteDocumentWriter(
   public fun encodeToByteArray(): ByteArray {
     val body = bodyBuffer.toByteArray()
     val declarations = declarationBuffer.toByteArray()
-    return body.copyOfRange(0, headerSize) + declarations + body.copyOfRange(headerSize, body.size)
+    // Custom inputs/components require the experimental profile even when the caller uses the
+    // general-purpose common capture API. Keep that requirement in the writer, not a host shim.
+    val header =
+      if (customComponentsUsed) {
+        val previous = buffer
+        val output = RemoteWireBuffer()
+        buffer = output
+        try {
+          writeHeader(
+            documentWidth,
+            documentHeight,
+            documentProfiles or ProfileAndroidxExperimental,
+            documentDensityBehavior,
+            CustomMinorVersion,
+          )
+          output.toByteArray()
+        } finally {
+          buffer = previous
+        }
+      } else body.copyOfRange(0, headerSize)
+    return header + declarations + body.copyOfRange(headerSize, body.size)
   }
 
   override val componentIdForCache: Int
@@ -1257,10 +1283,17 @@ public class RemoteDocumentWriter(
     buffer.writeInt(descriptionId)
   }
 
-  private fun writeHeader(width: Int, height: Int, profiles: Int, densityBehavior: Int) {
-    operation(Header)
+  private fun writeHeader(
+    width: Int,
+    height: Int,
+    profiles: Int,
+    densityBehavior: Int,
+    minorVersion: Int = MinorVersion,
+  ) {
+    // Header may be encoded into a separate buffer at export; do not switch back to the body.
+    buffer.writeByte(Header)
     buffer.writeInt(MagicNumber or MajorVersion)
-    buffer.writeInt(MinorVersion)
+    buffer.writeInt(minorVersion)
     buffer.writeInt(PatchVersion)
     buffer.writeInt(5)
     headerInt(HeaderWidth, width)
@@ -1607,6 +1640,8 @@ public class RemoteDocumentWriter(
     private const val MagicNumber = 0x048C0000
     private const val MajorVersion = 1
     private const val MinorVersion = 1
+    private const val CustomMinorVersion = 2
+    private const val ProfileAndroidxExperimental = 0x201
     private const val PatchVersion = 0
     private const val IntSize = 4
     private const val HeaderWidth = 5

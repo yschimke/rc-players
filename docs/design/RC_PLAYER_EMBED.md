@@ -258,6 +258,12 @@ polls rather than listens.
 ~23 MB, nearly all of it the Skiko WebAssembly runtime — the cost of running the real Compose
 renderer in a browser rather than a reimplementation of it.
 
+`wasmPlayerDist` packages the Binaryen optimization task's declared output. The Kotlin compiler's
+`productionExecutable/kotlin` directory contains the pre-optimization binary and must not be used
+as the production payload. For the input-control implementation, selecting the correct output
+reduced the measured distribution from 33,102,686 to 23,149,969 bytes with the same features and
+unchanged 31,820,000-byte budget; the production browser smoke suite validates the staged artifact.
+
 `wasmPlayerDist` enforces a byte budget. **That budget is a ratchet, not a published guarantee**, and
 this document says so deliberately rather than letting the number be inherited as a promise: it
 exists to make an unintended jump fail the build, and it moves when a deliberate payload lands (it

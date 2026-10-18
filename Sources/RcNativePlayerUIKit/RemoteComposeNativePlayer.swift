@@ -884,7 +884,11 @@
             self?.enqueue(.clickAreas(x: x, y: y), reply: nil)
           },
           onCustomReturn: { [weak self] componentID, propertyID, value in
-            self?.performCustomReturn(
+            guard let self else {
+              if case .acknowledgedText(_, let completion) = value { completion(false) }
+              return
+            }
+            self.performCustomReturn(
               componentID: componentID, propertyID: propertyID, value: value)
           })
         replaceDocumentView(with: nextView)
@@ -925,6 +929,9 @@
       case .text(let value):
         enqueue(
           .customText(value, componentID: componentID, propertyID: propertyID), reply: nil)
+      case .acknowledgedText(let value, let completion):
+        enqueue(
+          .customText(value, componentID: componentID, propertyID: propertyID), reply: completion)
       }
     }
 

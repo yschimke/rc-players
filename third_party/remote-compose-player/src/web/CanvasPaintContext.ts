@@ -1,3 +1,5 @@
+import { mapInputPoint } from './InputGeometry';
+import type { InputPoint } from './InputGeometry';
 // CanvasPaintContext: concrete PaintContext that renders to an HTML5 Canvas 2D.
 
 import { PaintContext } from '../core/PaintContext';
@@ -280,6 +282,16 @@ export class CanvasPaintContext extends PaintContext {
         this.ctx = canvas;
     }
 
+    private inputClip: { rectangles: InputPoint[][]; rounded: Path2D[]; unsupported: boolean } = { rectangles: [], rounded: [], unsupported: false };
+    private inputClipStack: typeof this.inputClip[] = [];
+    private mainInputClip: typeof this.inputClip | null = null;
+    getInputClip(): typeof this.inputClip { return this.inputClip; }
+    inheritInputClip(parent: CanvasPaintContext): void { this.inputClip = parent.inputClip; }
+    private recordInputRect(left: number, top: number, right: number, bottom: number): void {
+        const transform = this.ctx.getTransform();
+        const corners = [{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}].map(p => mapInputPoint(transform, p));
+        this.inputClip = { ...this.inputClip, rectangles: [...this.inputClip.rectangles, corners] };
+    }
     getCanvas(): CanvasRenderingContext2D { return this.ctx; }
     // An embedded document paints on whatever canvas its host is painting on, which can
     // change between frames (a resize, a new host document on the same page).
@@ -1948,14 +1960,16 @@ export class CanvasPaintContext extends PaintContext {
     }
     translate(translateX: number, translateY: number): void { this.ctx.translate(translateX, translateY); }
 
-    matrixSave(): void { this.ctx.save(); }
-    matrixRestore(): void { this.ctx.restore(); }
+    matrixSave(): void { this.inputClipStack.push(this.inputClip); this.ctx.save(); }
+    matrixRestore(): void {
+        const clip = this.inputClipStack.pop();
+        if (clip) this.inputClip = clip;
+        this.ctx.restore();
+    }
 
     override saveLayer(x: number, y: number, w: number, h: number): void {
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.rect(x, y, w, h);
-        this.ctx.clip();
+        this.matrixSave();
+        this.clipRect(x, y, x + w, y + h);
         if (this.alpha < 1) {
             this.ctx.globalAlpha *= this.alpha;
         }
@@ -2127,6 +2141,7 @@ export class CanvasPaintContext extends PaintContext {
     // --- Clipping ---
 
     clipRect(left: number, top: number, right: number, bottom: number): void {
+        this.recordInputRect(left, top, right, bottom);
         this.ctx.beginPath();
         this.ctx.rect(left, top, right - left, bottom - top);
         this.ctx.clip();
@@ -2136,6 +2151,7 @@ export class CanvasPaintContext extends PaintContext {
         const data = this.pathDataCache.get(pathId);
         if (!data) return;
         const path = this.buildPath2D(data);
+        this.inputClip = { ...this.inputClip, unsupported: true };
         this.ctx.clip(path);
     }
 
@@ -2154,6 +2170,15 @@ export class CanvasPaintContext extends PaintContext {
         this.ctx.roundRect(0, 0, width, height,
             [r(topStart), r(topEnd), r(bottomEnd), r(bottomStart)]);
         this.ctx.clip();
+        this.recordInputRect(0, 0, width, height);
+        if ([topStart, topEnd, bottomEnd, bottomStart].some(v => r(v) > 0)) {
+            if (typeof Path2D !== 'undefined') {
+                const path = new Path2D();
+                path.roundRect(0, 0, width, height, [r(topStart), r(topEnd), r(bottomEnd), r(bottomStart)]);
+                const devicePath = new Path2D(); devicePath.addPath(path, this.ctx.getTransform());
+                this.inputClip = { ...this.inputClip, rounded: [...this.inputClip.rounded, devicePath] };
+            } else this.inputClip = { ...this.inputClip, unsupported: true };
+        }
     }
 
     // --- Graphics layer (offscreen compositing) ---
@@ -2171,7 +2196,7 @@ export class CanvasPaintContext extends PaintContext {
     private static readonly GL_SHAPE_RADIUS = 21;
 
     startGraphicsLayer(w: number, h: number): void {
-        this.ctx.save();
+        this.matrixSave();
         try {
             const offCtx = this.createLayerCanvas(w, h);
             this.layerStack.push({
@@ -2197,7 +2222,7 @@ export class CanvasPaintContext extends PaintContext {
     endGraphicsLayer(): void {
         const layer = this.layerStack.pop();
         if (!layer) {
-            this.ctx.restore();
+            this.matrixRestore();
             return;
         }
 
@@ -2258,7 +2283,7 @@ export class CanvasPaintContext extends PaintContext {
         // Composite the offscreen layer onto the main canvas
         this.ctx.drawImage(layerCanvas, 0, 0);
 
-        this.ctx.restore();
+        this.matrixRestore();
     }
 
     private mainCanvas: CanvasRenderingContext2D | null = null;
@@ -2271,8 +2296,10 @@ export class CanvasPaintContext extends PaintContext {
         if (bitmapId === 0) {
             // Return to main canvas
             this.ctx = this.mainCanvas;
+            if (this.mainInputClip) this.inputClip = this.mainInputClip;
             return;
         }
+        if (this.ctx === this.mainCanvas) this.mainInputClip = this.inputClip;
         // Get or create an offscreen canvas for this bitmap
         let offCtx = this.bitmapCanvasCache.get(bitmapId);
         if (!offCtx) {
@@ -2296,6 +2323,8 @@ export class CanvasPaintContext extends PaintContext {
     }
 
     reset(): void {
+        this.inputClip = { rectangles: [], rounded: [], unsupported: false };
+        this.inputClipStack = [];
         this.resetPaintState();
         this.clearNeedsRepaint();
     }

@@ -33,8 +33,11 @@ kotlin {
   }
 
   sourceSets {
+    commonTest.dependencies { implementation(kotlin("test")) }
+    getByName("jvmTest").dependencies { implementation(libs.kotlinx.coroutines.core) }
     commonMain.dependencies {
       api(project(":third-party-remote-creation-compose"))
+      api(project(":rc-player-protocol"))
       @Suppress("DEPRECATION") api(compose.runtime)
       @Suppress("DEPRECATION") api(compose.ui)
     }

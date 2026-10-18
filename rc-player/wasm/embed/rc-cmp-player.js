@@ -92,6 +92,7 @@
         url.searchParams.set('theme', options.theme);
       }
       if (options.lenient) url.searchParams.set('lenient', '1');
+      if (options.editableInputs === true) url.searchParams.set('editableInputs', '1');
       if (options.namedValues) url.searchParams.set('namedValues', JSON.stringify(options.namedValues));
       if (options.fontsBase) url.searchParams.set('fontsBase', options.fontsBase);
       if (options.handoffDelayMs != null) {
@@ -126,6 +127,8 @@
         pending = null;
         if (data.state === 'ready') settling.resolve();
         else settling.reject(new Error(data.error || 'the player reported an error'));
+      } else if (data.type === 'rc-player-input') {
+        if (options.onInput) options.onInput(data);
       } else if (
         options.onEvent &&
         typeof data.type === 'string' &&

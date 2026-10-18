@@ -17,6 +17,8 @@
 // Documents and videos are fetched relative to the host page unless the page supplies a
 // resolver (a deck opened off the disk cannot fetch, so its files travel inside the page).
 
+import type { CustomComponent } from '../core/CustomComponentHost';
+import { WebInputComponents } from './InputComponents';
 import type { CustomComponentHost } from '../core/CustomComponentHost';
 import type { PaintContext } from '../core/PaintContext';
 import { CoreDocument } from '../core/CoreDocument';
@@ -123,6 +125,7 @@ interface CameraFeed {
 }
 
 export class WebCustomHost implements CustomComponentHost {
+    inputs: WebInputComponents | null = null;
     private docs = new Map<string, NestedDoc>();
     private videos = new Map<string, VideoEmbed>();
     private camera: CameraFeed | null = null;
@@ -168,15 +171,28 @@ export class WebCustomHost implements CustomComponentHost {
     }
 
     drawCustom(_componentId: number, config: string, pc: PaintContext,
-               w: number, h: number, timeSec: number): boolean {
+               w: number, h: number, timeSec: number, component?: CustomComponent): boolean {
         if (w <= 0 || h <= 0) return false;
+        if (this.inputs?.draw(_componentId, config, pc, w, h, component)) return true;
+        // The versioned input namespace is not an embedded-document URL. Unknown versions are
+        // capability failures, not permission to fetch or guess a control from another schema.
+        if (config.startsWith('rc:input/')) {
+            if (pc instanceof CanvasPaintContext) {
+                const canvas=pc.getCanvas(); canvas.save();
+                canvas.font='14px system-ui';canvas.fillStyle='#555';
+                canvas.fillText('Input unavailable · Update player or open app',4,20,Math.max(1,w-8));
+                canvas.restore();
+            }
+            return true;
+        }
         const cfg = parseEmbedConfig(config, this.defaultFit);
         if (!cfg.path) return false;
         if (cfg.kind === 'video') return this.drawVideo(cfg, pc, w, h);
         if (cfg.kind === 'camera') return this.drawCamera(cfg, pc, w, h);
         if (cfg.kind === 'web') return this.drawWebFrame(cfg, pc, w, h);
         if (cfg.kind && cfg.kind !== 'rc') return false;
-        return this.drawRc(cfg, config, pc, w, h, timeSec);
+        const draw = () => this.drawRc(cfg, config, pc, w, h, timeSec);
+        return this.inputs ? this.inputs.withDocument(`${_componentId}:${config}`, draw) : draw();
     }
 
     // ── Embedded documents ────────────────────────────────────────────
@@ -237,22 +253,19 @@ export class WebCustomHost implements CustomComponentHost {
         // The engine has already translated the canvas so (0,0)..(w,h) is the component
         // box; clip to it, place the fitted document inside, and paint it in its own
         // coordinate space, clipped to its own bounds so nothing spills past the embed.
-        canvas.save();
-        canvas.beginPath();
-        canvas.rect(0, 0, w, h);
-        canvas.clip();
+        host.matrixSave();
+        host.clipRect(0, 0, w, h);
         canvas.translate(ox, oy);
         canvas.scale(s, s);
         canvas.translate(-cropX, -cropY);
-        canvas.beginPath();
-        canvas.rect(0, 0, docW, docH);
-        canvas.clip();
+        host.clipRect(0, 0, docW, docH);
         paint.reset();
+        paint.inheritInputClip(host);
         paint.clearNeedsRepaint();
         try {
             doc.paint(ctx, Theme.DARK);
         } finally {
-            canvas.restore();
+            host.matrixRestore();
         }
         // An animating embed keeps the page painting, as the desktop player's does.
         if (doc.needsRepaint() >= 0 || paint.doesNeedsRepaint()) pc.needsRepaint();

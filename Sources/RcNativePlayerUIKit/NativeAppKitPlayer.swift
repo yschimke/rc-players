@@ -489,6 +489,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     compatibility: NativeMacCompatibility = .compatible,
     soundPlayer: any RemoteComposeNativeSoundPlaying = RemoteComposeNativeAVSoundPlayer(),
     hapticHandler: ((Int) -> Void)? = nil,
+    inputs: NativeSwiftInputConfiguration? = nil,
     onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in },
     onError: @escaping (String) -> Void = { _ in }
@@ -502,7 +503,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     return try NativeMacDocumentView(
       snapshot: snapshot, resolvedAt: 0, wallClock: wallClock, session: session,
       compatibility: compatibility, report: report,
-      fonts: fonts, soundPlayer: soundPlayer, hapticHandler: hapticHandler,
+      fonts: fonts, inputs: inputs, soundPlayer: soundPlayer, hapticHandler: hapticHandler,
       onEvent: { event in
         onEvent(nativePlayerEvent(event))
       }, onDiagnostics: onDiagnostics, onError: onError)
@@ -1252,6 +1253,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
     soundPlayer: any RemoteComposeNativeSoundPlaying = RemoteComposeNativeAVSoundPlayer(),
     hapticHandler: ((Int) -> Void)? = nil,
+    inputs: NativeSwiftInputConfiguration? = nil,
     onFontFallback: @escaping (String) -> Void = { _ in },
     onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void,
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
@@ -1297,7 +1299,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     let player = try NativeMacDocumentView(
       snapshot: snapshot, resolvedAt: 0, wallClock: wallClock, session: session,
       compatibility: compatibility, report: report, fonts: fonts,
-      resolvedImages: resolvedImages, soundPlayer: soundPlayer, hapticHandler: hapticHandler,
+      resolvedImages: resolvedImages, inputs: inputs, soundPlayer: soundPlayer, hapticHandler: hapticHandler,
       onEvent: { event in
         onEvent(nativePlayerEvent(event))
       }, onDiagnostics: onDiagnostics, onError: onError)
@@ -1467,6 +1469,15 @@ private struct MacInsets: Equatable {
 }
 
 private final class NativeMacDocumentView: NSView {
+  private(set) var inputConfiguration: NativeSwiftInputConfiguration
+  func returnInput(_ value: String, componentID: Int) -> Bool {
+    guard inputConfiguration.editable,
+      session.returnCustomText(value, componentID: componentID, propertyID: NativeSwiftInput.valueReturn) else { return false }
+    do { try resolveAndInstall(timeSeconds: sampleTime(), wallClock: nativeSystemWallClock()) }
+    catch { onError("Native input failed: \(error.localizedDescription)") }
+    return true
+  }
+
   private let session: NativeSwiftDocumentSession
   private let compatibility: NativeMacCompatibility
   private let onEvent: (NativeSwiftEvent) -> Void
@@ -1607,12 +1618,14 @@ private final class NativeMacDocumentView: NSView {
     fonts: NativeMacFontRegistry,
     conformanceFontName: String? = nil,
     resolvedImages: [Int: Data] = [:],
+    inputs: NativeSwiftInputConfiguration? = nil,
     soundPlayer: any RemoteComposeNativeSoundPlaying = RemoteComposeNativeAVSoundPlayer(),
     hapticHandler: ((Int) -> Void)? = nil,
     onEvent: @escaping (NativeSwiftEvent) -> Void,
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
     onError: @escaping (String) -> Void
   ) throws {
+    self.inputConfiguration = inputs ?? .init()
     self.snapshot = snapshot
     snapshotTimeSeconds = timeSeconds
     snapshotWallClock = wallClock
@@ -2403,6 +2416,155 @@ private final class NativeMacSemanticElement: NSAccessibilityElement {
 /// `NativeLayoutItem` is nonisolated so the shared engine runs in tests without views. This view
 /// only hands itself to the engine from its own main-actor methods, which the `@preconcurrency`
 /// conformance checks at run time — as the UIKit renderer's component view does.
+@MainActor
+private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSTextViewDelegate {
+  private let componentID: Int
+  private var snapshot: NativeSwiftCustomSnapshot
+  private let caption = NSTextField(labelWithString: "")
+  private let fallback = NSTextField(wrappingLabelWithString: "")
+  private let field = NSTextField()
+  private let multiline = NSTextView()
+  private let scroll = NSScrollView()
+  private var inputWidths: [NSLayoutConstraint] = []
+  private let choice = NSPopUpButton()
+  private let toggle = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+  private let range = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
+  private let validation = NSTextField(labelWithString: "Enter a valid value")
+  private let send = NSButton(title: "Send", target: nil, action: nil)
+  private var owner: NativeMacDocumentView? {
+    var ancestor = superview
+    while let current = ancestor {
+      if let document = current as? NativeMacDocumentView { return document }
+      ancestor = current.superview
+    }
+    return nil
+  }
+  private func text(_ id: Int) -> String { snapshot.properties.first { $0.id == id && $0.dataType == NativeSwiftCustomPropertyType.stringProperty }?.textValue ?? "" }
+  private var key: String { text(NativeSwiftInput.key) }
+  private var writable: Bool {
+    owner?.inputConfiguration.editable == true && (snapshot.properties.first { $0.id == NativeSwiftInput.enabled }?.integerValue ?? 1) == 1 && !key.isEmpty && snapshot.properties.contains {
+      $0.id == NativeSwiftInput.valueReturn && $0.dataType == NativeSwiftCustomPropertyType.textReturn
+    }
+  }
+  private func constraint(_ id: Int) -> Double? { Double(text(id)) }
+  private var valid: Bool {
+    let value = owner?.inputConfiguration.drafts.value(for: key, documentValue: text(NativeSwiftInput.value)) ?? text(NativeSwiftInput.value)
+    return [NativeSwiftInput.minimum, NativeSwiftInput.maximum, NativeSwiftInput.step].allSatisfy { text($0).isEmpty || constraint($0)?.isFinite == true } &&
+      NativeSwiftInput.isValid(config: snapshot.config, value: value, options: text(NativeSwiftInput.options).split(separator: "\n").map(String.init), minimum: constraint(NativeSwiftInput.minimum), maximum: constraint(NativeSwiftInput.maximum), step: constraint(NativeSwiftInput.step))
+  }
+
+  init(componentID: Int, snapshot: NativeSwiftCustomSnapshot) {
+    self.componentID = componentID; self.snapshot = snapshot
+    super.init(frame: .zero)
+    orientation = .vertical; alignment = .leading; spacing = 4
+    edgeInsets = NSEdgeInsets(top: 6, left: 8, bottom: 6, right: 8)
+    scroll.documentView = multiline; scroll.hasVerticalScroller = true
+    multiline.isVerticallyResizable = true
+    multiline.autoresizingMask = [.width]
+    multiline.textContainer?.widthTracksTextView = true
+    [caption, fallback, field, scroll, choice, toggle, range, validation, send].forEach(addArrangedSubview)
+    for control in [field, scroll, choice, range] as [NSView] {
+      let width = control.widthAnchor.constraint(equalTo: widthAnchor, constant: -16)
+      width.isActive = true; inputWidths.append(width)
+    }
+    scroll.heightAnchor.constraint(equalToConstant: 64).isActive = true
+    field.delegate = self; field.target = self; field.action = #selector(submit)
+    multiline.delegate = self; multiline.isRichText = false
+    choice.target = self; choice.action = #selector(choiceChanged)
+    toggle.target = self; toggle.action = #selector(toggleChanged)
+    range.target = self; range.action = #selector(rangeChanged); range.isContinuous = true
+    validation.textColor = .systemRed
+    send.target = self; send.action = #selector(submit)
+  }
+  required init?(coder: NSCoder) { return nil }
+  func update(_ snapshot: NativeSwiftCustomSnapshot?) { if let snapshot { self.snapshot = snapshot }; refresh() }
+  func refresh() {
+    let value = owner?.inputConfiguration.drafts.value(for: key, documentValue: text(NativeSwiftInput.value)) ?? text(NativeSwiftInput.value)
+    let plain = snapshot.properties.first { $0.id == NativeSwiftInput.chrome }?.integerValue == NativeSwiftInput.ChromeMode.none.rawValue
+    edgeInsets = plain ? NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0) : NSEdgeInsets(top: 6, left: 8, bottom: 6, right: 8)
+    inputWidths.forEach { $0.constant = plain ? 0 : -16 }
+    caption.isHidden = plain
+    field.isBordered = !plain; field.isBezeled = !plain; field.drawsBackground = !plain
+    choice.isBordered = !plain; send.isBordered = !plain
+    scroll.drawsBackground = !plain; multiline.drawsBackground = !plain
+    multiline.textContainer?.lineFragmentPadding = plain ? 0 : 5
+    caption.stringValue = text(NativeSwiftInput.label)
+    field.setAccessibilityLabel(caption.stringValue); choice.setAccessibilityLabel(caption.stringValue)
+    multiline.setAccessibilityLabel(caption.stringValue)
+    let isChoice = snapshot.config == NativeSwiftInput.choice
+    let isToggle = snapshot.config == NativeSwiftInput.toggle
+    let isRange = snapshot.config == NativeSwiftInput.range
+    if isRange { caption.stringValue += ": \(value)" }
+    toggle.setAccessibilityLabel(caption.stringValue); range.setAccessibilityLabel(caption.stringValue)
+    toggle.isHidden = !writable || !isToggle; toggle.state = value == "true" ? .on : .off
+    range.isHidden = !writable || !isRange
+    validation.isHidden = !writable || valid
+    if isRange, let minimum = constraint(NativeSwiftInput.minimum), let maximum = constraint(NativeSwiftInput.maximum), let step = constraint(NativeSwiftInput.step), step > 0, minimum < maximum, ((maximum-minimum)/step).isFinite {
+      range.minValue = 0; range.maxValue = min(10000, (maximum-minimum)/step)
+      range.doubleValue = ((Double(value) ?? minimum)-minimum)/step
+    }
+    let isMultiline = snapshot.config == NativeSwiftInput.text && snapshot.properties.first { $0.id == NativeSwiftInput.multiline }?.integerValue == NativeSwiftInput.LineMode.multiline.rawValue
+    fallback.isHidden = writable; fallback.stringValue = "\(value) · \((snapshot.properties.first { $0.id == NativeSwiftInput.enabled }?.integerValue ?? 1) != 1 ? "Unavailable" : "Open in app to edit")"
+    field.isHidden = !writable || isChoice || isToggle || isRange || isMultiline
+    scroll.isHidden = !writable || isChoice || isToggle || isRange || !isMultiline
+    choice.isHidden = !writable || !isChoice
+    let submitLabel = text(NativeSwiftInput.submitLabel)
+    send.title = submitLabel.isEmpty ? "Send" : submitLabel
+    send.isHidden = !writable || text(NativeSwiftInput.submit).isEmpty
+    if field.stringValue != value && field.currentEditor() == nil { field.stringValue = value }
+    if multiline.string != value && !multiline.hasMarkedText() { multiline.string = value }
+    let options = text(NativeSwiftInput.options).split(separator: "\n").map(String.init)
+    if choice.itemTitles != options { choice.removeAllItems(); choice.addItems(withTitles: options) }
+    choice.selectItem(withTitle: value)
+    if writable && text(NativeSwiftInput.value) != value {
+      DispatchQueue.main.async { [weak self] in
+        guard let self, self.writable, self.text(NativeSwiftInput.value) != value else { return }
+        _ = self.owner?.returnInput(value, componentID: self.componentID)
+      }
+    }
+  }
+  private func change(_ value: String) {
+    guard writable, let owner else { return }
+    // Store before refreshing: the replacement snapshot must see the new host-owned draft.
+    let previous = owner.inputConfiguration.drafts.value(for: key, documentValue: text(NativeSwiftInput.value))
+    owner.inputConfiguration.drafts.update(value, for: key)
+    if owner.returnInput(value, componentID: componentID) { owner.inputConfiguration.onChange(key, value) }
+    else {
+      owner.inputConfiguration.drafts.update(previous, for: key)
+      field.currentEditor()?.string = previous
+      multiline.string = previous
+      refresh()
+    }
+  }
+  func controlTextDidChange(_ notification: Notification) { change(field.stringValue) }
+  func textDidChange(_ notification: Notification) { change(multiline.string) }
+  @objc private func toggleChanged() { change(toggle.state == .on ? "true" : "false") }
+  @objc private func rangeChanged() {
+    guard let minimum = constraint(NativeSwiftInput.minimum), let step = constraint(NativeSwiftInput.step) else { return }
+    range.doubleValue = range.doubleValue.rounded(); change(String(minimum + range.doubleValue*step))
+  }
+  @objc private func choiceChanged() { change(choice.titleOfSelectedItem ?? "") }
+  @objc private func submit() {
+    guard writable, let configuration = owner?.inputConfiguration else { return }
+    let action = text(NativeSwiftInput.submit)
+    guard !action.isEmpty else { window?.makeFirstResponder(nil); return }
+    func keys(_ view: NSView) -> [String] {
+      guard !view.isHidden else { return [] }
+      if let input = view as? NativeMacInputView { return (input.snapshot.properties.first { $0.id == NativeSwiftInput.enabled }?.integerValue ?? 1) == 1 ? [input.key] : [] }
+      return view.subviews.flatMap(keys)
+    }
+    func validInputs(_ view: NSView) -> Bool {
+      if view.isHidden { return true }
+      if let input = view as? NativeMacInputView { return (input.snapshot.properties.first { $0.id == NativeSwiftInput.enabled }?.integerValue ?? 1) != 1 || input.valid }
+      return view.subviews.allSatisfy(validInputs)
+    }
+    guard owner.map({ validInputs($0) }) == true else { NSSound.beep(); return }
+    var values = configuration.drafts.values(for: Set(owner.map { keys($0) } ?? [key]))
+    values[key] = configuration.drafts.value(for: key, documentValue: text(NativeSwiftInput.value))
+    configuration.onSubmit(action, values); window?.makeFirstResponder(nil)
+  }
+}
+
 private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   @preconcurrency NativeLayoutItem
 {
@@ -2429,6 +2591,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   /// Whether the marquee's content overflows, so it moves and needs frames.
   private var marqueeMoves = false
   private(set) var componentChildren: [NativeMacComponentView]
+  private var inputView: NativeMacInputView?
   private let canvas: NativeMacCanvasView?
   private let labels: [NSTextField]
   private let imageViews: [NSImageView]
@@ -2490,6 +2653,10 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     applyLayerStyle()
     applyVisibility()
     setAccessibilityIdentifier("rc-native-component-\(node.componentId)")
+    if let custom = node.custom, NativeSwiftInput.configs.contains(custom.config) {
+      let input = NativeMacInputView(componentID: Int(node.componentId), snapshot: custom)
+      inputView = input; addSubview(input)
+    }
     if let canvas { addSubview(canvas) }
     labels.forEach(addSubview)
     imageViews.forEach(addSubview)
@@ -2509,6 +2676,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
       node.componentID == next.componentID,
       node.kind == next.kind,
       node.componentKind == next.componentKind,
+      node.custom?.config == next.custom?.config,
       node.supportedGestures == next.supportedGestures,
       semanticElement?.kind == next.semanticBehavior?.descriptor.elementKind,
       (canvas != nil) == !Self.canvasCommands(for: next).isEmpty,
@@ -2542,6 +2710,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     ignoresOwnVisibility = false
     layoutCache.removeAll()
     autosizedTexts.removeAll(keepingCapacity: true)
+    inputView?.update(next.custom)
     canvas?.update(commands: Self.canvasCommands(for: next))
     for (label, text) in zip(labels, Self.labelTexts(for: next)) {
       Self.configure(
@@ -3029,6 +3198,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
 
   override func layout() {
     super.layout()
+    inputView?.frame = contentRect
+    inputView?.refresh()
     canvas?.frame = bounds
     imageViews.forEach { $0.frame = bounds }
     prepareStructuralChildren()

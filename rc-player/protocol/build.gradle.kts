@@ -159,6 +159,9 @@ kotlin {
       // through it. Exposing it here is what keeps that from being four separate declarations.
       dependencies { api(project(":rc-player-trace")) }
     }
+    getByName("jvmTest")
+      .resources
+      .srcDir(rootProject.layout.projectDirectory.dir("Tests/RcNativePlayerCoreTests/Fixtures"))
     commonTest.dependencies { implementation(kotlin("test")) }
   }
 }

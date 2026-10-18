@@ -1,0 +1,31 @@
+# kind|value|options separated by semicolon|minimum|maximum|step|valid
+text|Hello 🏡|||||true
+choice|Kitchen|Kitchen;Living room||||true
+choice|Garage|Kitchen;Living room||||false
+choice|Kitchen|Kitchen;Kitchen||||false
+choice|~|||||false
+toggle|true|||||true
+toggle|false|||||true
+toggle|1|||||false
+toggle|TRUE|||||false
+number|21.5||0|30|0.5|true
+number|21.25||0|30|0.5|false
+number|-1||0|30||false
+number|31||0|30||false
+number|~||0|30||false
+number|-|||||false
+number|NaN|||||false
+number|1e309|||||false
+number|1e2|||||true
+number|+1|||||false
+number|01|||||false
+number| 1|||||false
+number|0.3||0|1|0.1|true
+number|1||0|10|0|false
+number|1||NaN|10||false
+range|50||0|100|1|true
+range|50.5||0|100|1|false
+range|50||0|100||false
+range|0||0|1|0.3|false
+range|0||0|100000|1|false
+range|0||0|0|1|false

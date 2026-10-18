@@ -238,6 +238,14 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcImpulseTimeline {
 	public final fun evaluate (FFF)Lee/schimke/composeai/rcplayer/runtime/RcImpulsePhase;
 }
 
+public final class ee/schimke/composeai/rcplayer/runtime/RcInputDrafts {
+	public fun <init> ()V
+	public final fun reset (Ljava/lang/String;)V
+	public final fun snapshot ()Ljava/util/Map;
+	public final fun update (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun value (Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+}
+
 public final class ee/schimke/composeai/rcplayer/runtime/RcIntegerExpressionEvaluator {
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/runtime/RcIntegerExpressionEvaluator;
 	public final fun evaluate (Lee/schimke/composeai/rcplayer/protocol/RcIntegerExpression;Lkotlin/jvm/functions/Function1;)I

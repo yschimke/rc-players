@@ -13,6 +13,7 @@ import { PaddingModifier } from '../modifiers/ModifierOperations';
 import type { Operation } from '../../../Operation';
 import type { WireBuffer } from '../../../WireBuffer';
 import type { RemoteContext } from '../../../RemoteContext';
+import type { CustomComponent } from '../../../CustomComponentHost';
 import type { PaintContext } from '../../../PaintContext';
 
 interface CustomProperty {
@@ -84,8 +85,31 @@ export class Custom extends LayoutManager {
         const config = this.mConfigId >= 0 ? (context.getText(this.mConfigId) ?? '') : '';
         const w = this.mWidth - this.mPaddingLeft - this.mPaddingRight;
         const h = this.mHeight - this.mPaddingTop - this.mPaddingBottom;
-        host.drawCustom(this.getComponentId(), config, paintContext, w, h, context.getAnimationTime());
+        host.drawCustom(this.getComponentId(), config, paintContext, w, h, context.getAnimationTime(), this.component(context));
         paintContext.matrixRestore();
+    }
+
+    /** Resolve only the wire types this host API promises; never write an undeclared id. */
+    component(context: RemoteContext): CustomComponent {
+        const property = (type: number) => this.mProperties.find(p => p.type === type);
+        return {
+            text: (type, fallback = '') => {
+                const p = property(type);
+                return p?.dataType === 2 ? context.getText(p.value) ?? fallback : fallback;
+            },
+            integer: (type, fallback = 0) => {
+                const p = property(type);
+                return p?.dataType === 0 ? p.value : fallback;
+            },
+            canReturnText: type => property(type)?.dataType === 4,
+            returnText: (type, value) => {
+                const p = property(type);
+                if (p?.dataType !== 4) return false;
+                context.loadText(p.value, value);
+                context.needsRepaint();
+                return true;
+            },
+        };
     }
 
     deepToString(indent: string): string {

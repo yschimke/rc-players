@@ -37,13 +37,18 @@ composeCompiler {
   targetKotlinPlatforms.set(setOf(org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.wasm))
 }
 
+val optimizedPlayer =
+  tasks.named<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenExec>(
+    "compileProductionExecutableKotlinWasmJsOptimize"
+  )
+
 tasks.register<Sync>("wasmPlayerDist") {
   description = "Assemble and size-check the optimized CMP Remote Compose Wasm distribution."
   group = "distribution"
   dependsOn("wasmJsProductionExecutableCompileSync", "processSkikoRuntimeForKWasm")
-  from(layout.buildDirectory.dir("compileSync/wasmJs/main/productionExecutable/kotlin")) {
-    exclude("*.map", "custom-formatters.js")
-  }
+  // CompileSync's kotlin/ directory is the compiler output before Binaryen. Package the
+  // optimizer's declared output instead; its provider also carries the task dependency.
+  from(optimizedPlayer.flatMap { it.outputDirectory }) { exclude("*.map", "custom-formatters.js") }
   from(layout.buildDirectory.dir("compose/skiko-runtime-processed-wasmjs")) {
     include("skiko.mjs", "skiko.wasm")
   }
