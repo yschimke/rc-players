@@ -174,6 +174,17 @@ export class WebCustomHost implements CustomComponentHost {
                w: number, h: number, timeSec: number, component?: CustomComponent): boolean {
         if (w <= 0 || h <= 0) return false;
         if (this.inputs?.draw(_componentId, config, pc, w, h, component)) return true;
+        // The versioned input namespace is not an embedded-document URL. Unknown versions are
+        // capability failures, not permission to fetch or guess a control from another schema.
+        if (config.startsWith('rc:input/')) {
+            if (pc instanceof CanvasPaintContext) {
+                const canvas=pc.getCanvas(); canvas.save();
+                canvas.font='14px system-ui';canvas.fillStyle='#555';
+                canvas.fillText('Input unavailable · Update player or open app',4,20,Math.max(1,w-8));
+                canvas.restore();
+            }
+            return true;
+        }
         const cfg = parseEmbedConfig(config, this.defaultFit);
         if (!cfg.path) return false;
         if (cfg.kind === 'video') return this.drawVideo(cfg, pc, w, h);

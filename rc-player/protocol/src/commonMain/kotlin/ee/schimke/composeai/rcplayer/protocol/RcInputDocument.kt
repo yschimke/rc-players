@@ -8,6 +8,12 @@ public data class RcInputField(
   val options: List<String> = emptyList(),
   val multiline: Boolean = false,
   val submit: String = "",
+  val kind: RcInputKind = if (options.isEmpty()) RcInputKind.TEXT else RcInputKind.CHOICE,
+  val minimum: Double? = null,
+  val maximum: Double? = null,
+  val step: Double? = null,
+  val enabled: Boolean = true,
+  val submitLabel: String = "Send",
 )
 
 /** Small document producer shared by interactive hosts. Widget hosts author their own link UI. */
@@ -18,50 +24,25 @@ public fun rcInputDocument(fields: List<RcInputField>, width: Int = 360): RcDocu
       it.key.isNotBlank() && it.options.all { option -> option.isNotEmpty() && '\n' !in option }
     }
   )
+  fields.forEach { it.requireValid() }
+  require(width > 0)
+  fun height(field: RcInputField): Int =
+    if (field.multiline) 136
+    else if (field.submit.isNotEmpty() || field.kind == RcInputKind.RANGE) 112 else 80
   val end = RcNoArg(RcOpcodes.CONTAINER_END)
   val operations = mutableListOf<RcOperation>()
-  val configs = fields.map { if (it.options.isEmpty()) RcInput.TEXT else RcInput.CHOICE }
-  fields.forEachIndexed { index, field ->
-    val base = 100 + index * 10
-    listOf(
-        configs[index],
-        field.value,
-        field.key,
-        field.label,
-        field.options.joinToString("\n"),
-        field.submit,
-      )
-      .forEachIndexed { offset, text -> operations += RcTextData(base + offset, text) }
-  }
   operations += RcRootLayout(1)
   operations += RcColumnLayout(3, 0, 1, 4, RcFloatWord.literal(4f))
   operations += RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f))
   operations += RcHeightModifier(RcDimensionType.WRAP, RcFloatWord.literal(0f))
   operations += RcLayoutContent(4)
   fields.forEachIndexed { index, field ->
-    val base = 100 + index * 10
-    operations +=
-      RcCustomLayout(
-        10 + index,
-        0,
-        base,
-        listOf(
-          RcCustomProperty.string(RcInput.VALUE, base + 1),
-          RcCustomProperty.textReturn(RcInput.VALUE_RETURN, base + 1),
-          RcCustomProperty.string(RcInput.KEY, base + 2),
-          RcCustomProperty.string(RcInput.LABEL, base + 3),
-          RcCustomProperty.int(RcInput.MULTILINE, if (field.multiline) 1 else 0),
-          RcCustomProperty.string(RcInput.OPTIONS, base + 4),
-          RcCustomProperty.string(RcInput.SUBMIT, base + 5),
-        ),
-      )
+    operations += rcInputComponent(field, 10 + index, 100 + index * 16)
     operations += RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f))
     operations +=
       RcHeightModifier(
         RcDimensionType.EXACT,
-        RcFloatWord.literal(
-          if (field.multiline) 136f else if (field.submit.isNotEmpty()) 112f else 80f
-        ),
+        RcFloatWord.literal(height(field).toFloat()),
       )
     operations += end
   }
@@ -74,9 +55,7 @@ public fun rcInputDocument(fields: List<RcInputField>, width: Int = 360): RcDocu
           RcHeaderProperty(RcHeader.DOC_WIDTH, RcHeaderValue.IntValue(width)),
           RcHeaderProperty(
             RcHeader.DOC_HEIGHT,
-            RcHeaderValue.IntValue(
-              fields.sumOf { if (it.multiline) 140 else if (it.submit.isNotEmpty()) 116 else 84 }
-            ),
+            RcHeaderValue.IntValue(fields.sumOf { height(it) + 4 }),
           ),
           RcHeaderProperty(
             14 /* Header.DOC_PROFILES */,

@@ -1,4 +1,4 @@
-# Portable editable inputs, version 1
+# Input controls contract v1
 
 Inputs use `LAYOUT_CUSTOM` (93), typed custom properties and the existing `TEXT_RETURN` channel.
 There is no new wire opcode. The portable producer declares API 1.2 and the AndroidX experimental
@@ -11,6 +11,9 @@ renderer, and the host must separately opt into editing. Registration does not g
 | --- | --- |
 | `rc:input/text:v1` | Plain text, single line or multiline |
 | `rc:input/choice:v1` | A single value from the declared options |
+| `rc:input/toggle:v1` | Boolean checkbox/switch; exactly `true` or `false` |
+| `rc:input/number:v1` | Numeric text entry with decimal keyboard and optional bounds/step |
+| `rc:input/range:v1` | Bounded slider, snapped to a declared finite step grid |
 
 | Property | Wire type | Meaning |
 | --- | --- | --- |
@@ -21,10 +24,122 @@ renderer, and the host must separately opt into editing. Registration does not g
 | 5 MULTILINE | INT_PROP | 0 single line; 1 multiline |
 | 6 OPTIONS | STRING_PROP | Newline-separated unique nonempty choice values; no embedded newlines |
 | 7 SUBMIT | STRING_PROP | Opaque host action descriptor; empty means no submit button |
+| 8 MIN | STRING_PROP | Optional finite JSON-number string lower bound; empty/absent = none |
+| 9 MAX | STRING_PROP | Optional finite JSON-number string upper bound; empty/absent = none |
+| 10 STEP | STRING_PROP | Optional positive finite JSON-number string step; origin MIN or zero |
+| 11 ENABLED | INT_PROP | Absent/1 = available subject to host policy; other values disable |
+| 12 SUBMIT_LABEL | STRING_PROP | Optional action button caption; absent/empty = Send |
 
-Numbers, dates/times, secrets/passwords, rich text, multi-select and arbitrary entity autocomplete
-are outside this version. A choice entity supplies actual options; it must not be presented as a
+Dates/times, secrets/passwords, rich text, multi-select and arbitrary entity autocomplete
+are outside this version. Exact money/large-integer arithmetic is also outside the numeric contract;
+use text plus domain validation for those values. A choice entity supplies actual options; it must not be presented as a
 free-text field. Host/domain validation remains mandatory before dispatching actions.
+
+## Normative semantics and compatibility
+
+This document defines the cross-player wire contract. Kotlin creation APIs are public and shipped
+in the existing Maven artifacts below; the Compose creation layer retains its experimental Kotlin
+API opt-in. The wire identities and property meanings above are versioned independently of those
+Kotlin signatures. An incompatible wire meaning requires a new config version. Players ignore
+unknown optional properties; they must never guess the meaning of an unknown config/version.
+Capability negotiation lists exact config strings, not just opcode 93. A host must verify every
+required config for a form before enabling the whole flow, or offer an open/update-app alternative.
+
+- KEY and LABEL must be nonblank. Keys must be unique within a form/document instance. Resource and
+  component ids are document-local; keys are host draft identities, not action names or entity ids.
+- VALUE is a string for **every** control; VALUE_RETURN must be a declared TEXT_RETURN property.
+  Toggle events are exactly `true`/`false`. Choice events are literal declared options. Numeric/range
+  values use finite IEEE-754 numbers with JSON-number spelling (no whitespace, NaN, infinity, leading
+  plus, or leading zeros). Hosts explicitly convert validated values to domain types; strings are
+  never evaluated as templates/code. No new float/integer return-channel interpretation is implied.
+- Number fields may emit incomplete raw edits such as empty text or `-`; those are invalid values,
+  retained for correction. Submit is blocked while an enabled current field is invalid. Editing,
+  focus loss and validation do **not** dispatch a domain action. Only explicit submit does that.
+- Numeric bounds are inclusive. A supplied STEP requires `(value - (MIN or 0)) / STEP` to be an integer
+  within `1e-7 * max(1, abs(grid index))` to tolerate binary rounding. Number has no default step.
+  Range requires MIN < MAX, STEP > 0, an aligned maximum, and 1–10,000 intervals. Range gestures,
+  arrow keys and accessibility adjustment snap/clamp to that same grid. The authoring APIs reject
+  invalid metadata/defaults; choice/number may start empty and require user completion.
+- OPTIONS applies only to choice, MULTILINE only to text, numeric constraints only to number/range.
+  Choice options must be unique, nonempty and newline-free; empty choice is an unselected draft.
+  Current widgets never create editors. ENABLED cannot override host permission: disabled fields
+  show their value/Unavailable, never edit, and are omitted from submit/validation. Host read-only
+  policy overrides every field, including enabled fields.
+- A successful input change writes its declared return channel **before** emitting `(key, value)`.
+  Submit emits `(opaque action, immutable current enabled-field values)`, including untouched
+  defaults and excluding removed fields. Values/changes alone do not authorize service access.
+  Keyboard Next/Tab follows focus order; text Enter submits only when single-line with an action;
+  multiline Enter inserts a newline. IME composition is preserved and never submits prematurely.
+
+The same conformance vectors in `Tests/RcNativePlayerCoreTests/Fixtures/input-controls-v1.tsv`
+run against Kotlin, Swift and TypeScript validators. `input-controls.rc` is a portable expanded form
+fixture. Player tests additionally verify value returns, submit snapshots, lifecycle, read-only and
+unsupported-writer behavior. Applications must still validate their domain constraints and current
+write permission at dispatch time.
+
+## Public creation API
+
+Use the protocol artifact from any Kotlin target, without Home Assistant or Compose dependencies:
+
+```kotlin
+implementation("ee.schimke.composeai:rc-player-protocol:2.16.0")
+
+val fields = listOf(
+  RcInputs.text("message", "Message", multiline = true),
+  RcInputs.choice("room", "Room", listOf("Kitchen", "Living room"), "Kitchen"),
+  RcInputs.toggle("urgent", "Urgent"),
+  RcInputs.number("temperature", "Temperature", 21.5, minimum = 0.0, maximum = 30.0, step = 0.5),
+  RcInputs.range("brightness", "Brightness", 50.0, submit = "example:apply").copy(submitLabel = "Apply"),
+)
+val bytes = RcDocumentCodec.encode(rcInputDocument(fields))
+// Inside another document: reserve component/text ids, append the fragment, dimensions and end.
+val component = rcInputComponent(fields[2], componentId = 800, textBaseId = 900)
+// Validate raw host values before binding them to domain actions.
+val valid = rcInputValueIsValid(RcInput.NUMBER, "22.5", minimum = 0.0, maximum = 30.0, step = 0.5)
+```
+
+`rcInputComponent` emits its text resources and LAYOUT_CUSTOM; callers allocate ten consecutive
+text ids and append modifiers/dimensions/CONTAINER_END in their surrounding tree. `rcInputDocument`
+allocates all ids, enforces unique keys, and supplies recommended form dimensions. `RcInputField`
+can also be constructed directly; `requireValid()` exposes the same authoring checks. Factories
+return immutable fields, so `.copy(enabled = false)` defines a disabled control.
+
+For common Compose creation, add the **published** `ee.schimke.composeai:rc-creation-bridge:2.16.0`
+artifact (Android, desktop/JVM, Wasm, iOS and macOS):
+
+```kotlin
+@OptIn(ExperimentalRcCreationApi::class)
+@Composable @RemoteComposable
+fun RemoteMessageForm() {
+  val field = RcInputs.text("message", "Message", multiline = true, submit = "example:send")
+  RemoteInput(field, field.value.rs, RemoteModifier.fillMaxWidth().height(136.rdp),
+    fallback = { RemoteText("Open app to edit".rs) })
+}
+```
+
+`RemoteInput` binds the supplied RemoteString as both VALUE and TEXT_RETURN. Creation is write-only:
+callbacks live in `rcInputComponents`/the native or JS host, rather than executing inside capture.
+`canCreateRcInputs()` checks writer operation support only (an empty common-writer operation set
+means unrestricted); `RemoteInput` invokes its fallback when that set excludes LAYOUT_CUSTOM.
+The common writer declares the experimental profile/API required by custom components when they
+are emitted. On Android, select the creation fork **or** upstream AndroidX creation, never both;
+apps keeping upstream AndroidX can use the toolkit-independent protocol/fragment API and the same
+property contract. The bridge and its transitive writer/creation artifacts participate in the
+existing Maven publication/release set and ABI gates.
+
+TypeScript authors use exported `InputField`/`InputKind`, `inputDocument(fields)` and
+`inputValueIsValid(config, value, options, minimum, maximum, step)` from the player bundle. For
+example `{kind:'toggle', key:'urgent', label:'Urgent', value:'false'}` or
+`{kind:'range', key:'brightness', label:'Brightness', value:'50', minimum:0, maximum:100, step:1}`.
+The JS builder validates metadata/defaults before writing the same stream as the Kotlin API.
+Swift/native hosts expose `NativeSwiftInput` constants and `isValid` for the same contract.
+
+The versions above are the expected **next release**, not artifacts already published from this PR.
+Land and publish the player/creation APIs first, then update dependent applications. The paired HA
+message schema continues to use the text/multiline/choice subset; the additional controls are common
+creation/player capabilities, with no implicit new HA service/type conversion rules.
+
+## Drafts and events
 
 Edits first write the document's declared return channel, then notify the host. An undeclared or
 wrongly typed return target makes a field read-only. The host retains one `RcInputDrafts` (Swift:
@@ -58,7 +173,9 @@ Arbitrary path clips, partially intersecting rounded clips and offscreen surface
 canvas “Open in app to edit” alternative instead of placing an unsafe DOM overlay. Nested document
 instances namespace overlay identities/drafts; submit snapshots include untouched sibling defaults.
 They are removed when absent from the current frame or when the player is destroyed. They
-use native labels, selects, input/textarea, keyboard and focus behavior. Other custom hosts retain
+use native labels, selects, input/textarea, keyboard and focus behavior. Canvas-only screenshot APIs
+repaint and export a deterministic control/value representation beneath those overlays; browser-native
+focus rings, IME windows and open dropdown menus require a whole-page screenshot. Other custom hosts retain
 their existing draw API; the extra resolved-property argument is optional.
 
 The player never performs an HA service request. An authenticated consumer validates the configured

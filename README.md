@@ -97,7 +97,7 @@ A fork plus a layer; the design is in [`docs/design/RC_CREATION_BRIDGE.md`](docs
 | --- | --- | --- |
 | `third_party/remote-creation-writer` | `third-party-remote-creation-writer` | The common `RemoteWriter` and `.rc` byte writer under the fork. |
 | `third_party/remote-creation-compose` | `third-party-remote-creation-compose` | AndroidX `remote-creation-compose` and `remote-foundation` for Compose Multiplatform, in AndroidX's package with marked local patches ([PROVENANCE](third_party/remote-creation-compose/PROVENANCE.md)). Declares AndroidX's capabilities: on Android, take this or AndroidX's, never both. |
-| `rc-creation/bridge` | `rc-creation-bridge` | rc-players' own creation API: `RcHostBridge` (host values, actions and Compose content by name) and `RcComponentIds` (stable component ids a host chooses). |
+| `rc-creation/bridge` | `rc-creation-bridge` | rc-players' own creation API: `RcHostBridge` (host values, actions and Compose content by name) and `RcComponentIds` (stable component ids a host chooses), plus published `RemoteInput` creation helpers for the [input controls contract](docs/design/RC_INPUT_COMPONENTS.md). |
 | `rc-player/embedded` | `rc-player-embedded` | `RcEmbeddedPlayer`: remote content composed live in-process and played by `RcComposePlayer`, re-rendered per edit instead of re-captured. |
 
 The layer's API is `@ExperimentalRcCreationApi`; opt in to use it.
@@ -555,3 +555,10 @@ build-time cycle.
 Apache 2.0. The vendored AndroidX sources under `third_party/` carry their upstream Apache 2.0
 licence and provenance; the font faces under `rc-player/wasm/dist-assets/fonts/` carry theirs
 alongside them.
+
+
+Portable input controls use a [defined v1 contract](docs/design/RC_INPUT_COMPONENTS.md): text,
+choice, boolean toggle, numeric entry and bounded range. `rc-player-protocol` publishes `RcInputs`,
+`RcInputField`, `rcInputComponent`, `rcInputDocument` and validation without a UI dependency;
+`rc-creation-bridge` publishes `RemoteInput` for common Compose capture. Player capability and host
+write permission remain separate. [Rendered examples](renders/rc-input-controls/README.md).

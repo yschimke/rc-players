@@ -44,3 +44,18 @@ for (const clip of [square(20,20,80,80), square(20,20,80,80).reverse()]) {
 const transform = {a:0,b:2,c:-3,d:0,e:10,f:20};
 assert.deepEqual(inverseInputPoint(transform, mapInputPoint(transform, {x:20,y:40})), {x:20,y:40});
 console.log('transformed, reflected, disjoint and empty input clips ok');
+import { readFileSync } from 'node:fs';
+import { inputValueIsValid } from './web/InputContract';
+for (const line of readFileSync('../../Tests/RcNativePlayerCoreTests/Fixtures/input-controls-v1.tsv','utf8').split('\n').filter(line=>line && !line.startsWith('#'))) {
+    const [kind, raw, choices, min, max, step, expected]=line.split('|');
+    assert.equal(inputValueIsValid(`rc:input/${kind}:v1`, raw === '~' ? '' : raw, choices.split(';'), min ? Number(min) : undefined, max ? Number(max) : undefined, step ? Number(step) : undefined), expected === 'true',line);
+}
+const expanded=new CoreDocument();
+expanded.initFromBuffer(RemoteComposeBuffer.fromArrayBuffer(inputDocument([
+    {kind:'toggle',key:'urgent',label:'Urgent',value:'false'},
+    {kind:'number',key:'temperature',label:'Temperature',value:'21.5',minimum:0,maximum:30,step:0.5},
+    {kind:'range',key:'brightness',label:'Brightness',value:'50',minimum:0,maximum:100,step:1},
+])));
+assert.equal(expanded.getRootLayoutComponent()?.getList().length,1);
+assert.throws(()=>inputDocument([{kind:'range',key:'x',label:'X',value:'0',minimum:0,maximum:1,step:0.3}]));
+console.log('shared input v1 validation vectors and expanded controls decode ok');

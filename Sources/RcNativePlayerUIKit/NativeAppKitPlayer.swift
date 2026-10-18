@@ -2426,6 +2426,9 @@ private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSText
   private let multiline = NSTextView()
   private let scroll = NSScrollView()
   private let choice = NSPopUpButton()
+  private let toggle = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+  private let range = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
+  private let validation = NSTextField(labelWithString: "Enter a valid value")
   private let send = NSButton(title: "Send", target: nil, action: nil)
   private var owner: NativeMacDocumentView? {
     var ancestor = superview
@@ -2438,10 +2441,17 @@ private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSText
   private func text(_ id: Int) -> String { snapshot.properties.first { $0.id == id && $0.dataType == NativeSwiftCustomPropertyType.stringProperty }?.textValue ?? "" }
   private var key: String { text(NativeSwiftInput.key) }
   private var writable: Bool {
-    owner?.inputConfiguration.editable == true && !key.isEmpty && snapshot.properties.contains {
+    owner?.inputConfiguration.editable == true && (snapshot.properties.first { $0.id == NativeSwiftInput.enabled }?.integerValue ?? 1) == 1 && !key.isEmpty && snapshot.properties.contains {
       $0.id == NativeSwiftInput.valueReturn && $0.dataType == NativeSwiftCustomPropertyType.textReturn
     }
   }
+  private func constraint(_ id: Int) -> Double? { Double(text(id)) }
+  private var valid: Bool {
+    let value = owner?.inputConfiguration.drafts.value(for: key, documentValue: text(NativeSwiftInput.value)) ?? text(NativeSwiftInput.value)
+    return [NativeSwiftInput.minimum, NativeSwiftInput.maximum, NativeSwiftInput.step].allSatisfy { text($0).isEmpty || constraint($0)?.isFinite == true } &&
+      NativeSwiftInput.isValid(config: snapshot.config, value: value, options: text(NativeSwiftInput.options).split(separator: "\n").map(String.init), minimum: constraint(NativeSwiftInput.minimum), maximum: constraint(NativeSwiftInput.maximum), step: constraint(NativeSwiftInput.step))
+  }
+
   init(componentID: Int, snapshot: NativeSwiftCustomSnapshot) {
     self.componentID = componentID; self.snapshot = snapshot
     super.init(frame: .zero)
@@ -2451,14 +2461,17 @@ private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSText
     multiline.isVerticallyResizable = true
     multiline.autoresizingMask = [.width]
     multiline.textContainer?.widthTracksTextView = true
-    [caption, fallback, field, scroll, choice, send].forEach(addArrangedSubview)
-    for control in [field, scroll, choice] as [NSView] {
+    [caption, fallback, field, scroll, choice, toggle, range, validation, send].forEach(addArrangedSubview)
+    for control in [field, scroll, choice, range] as [NSView] {
       control.widthAnchor.constraint(equalTo: widthAnchor, constant: -16).isActive = true
     }
     scroll.heightAnchor.constraint(equalToConstant: 64).isActive = true
     field.delegate = self; field.target = self; field.action = #selector(submit)
     multiline.delegate = self; multiline.isRichText = false
     choice.target = self; choice.action = #selector(choiceChanged)
+    toggle.target = self; toggle.action = #selector(toggleChanged)
+    range.target = self; range.action = #selector(rangeChanged); range.isContinuous = true
+    validation.textColor = .systemRed
     send.target = self; send.action = #selector(submit)
   }
   required init?(coder: NSCoder) { return nil }
@@ -2469,11 +2482,24 @@ private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSText
     field.setAccessibilityLabel(caption.stringValue); choice.setAccessibilityLabel(caption.stringValue)
     multiline.setAccessibilityLabel(caption.stringValue)
     let isChoice = snapshot.config == NativeSwiftInput.choice
-    let isMultiline = snapshot.properties.first { $0.id == NativeSwiftInput.multiline }?.integerValue == NativeSwiftInput.LineMode.multiline.rawValue
-    fallback.isHidden = writable; fallback.stringValue = "\(value) · Open in app to edit"
-    field.isHidden = !writable || isChoice || isMultiline
-    scroll.isHidden = !writable || isChoice || !isMultiline
+    let isToggle = snapshot.config == NativeSwiftInput.toggle
+    let isRange = snapshot.config == NativeSwiftInput.range
+    if isRange { caption.stringValue += ": \(value)" }
+    toggle.setAccessibilityLabel(caption.stringValue); range.setAccessibilityLabel(caption.stringValue)
+    toggle.isHidden = !writable || !isToggle; toggle.state = value == "true" ? .on : .off
+    range.isHidden = !writable || !isRange
+    validation.isHidden = !writable || valid
+    if isRange, let minimum = constraint(NativeSwiftInput.minimum), let maximum = constraint(NativeSwiftInput.maximum), let step = constraint(NativeSwiftInput.step), step > 0, minimum < maximum, ((maximum-minimum)/step).isFinite {
+      range.minValue = 0; range.maxValue = min(10000, (maximum-minimum)/step)
+      range.doubleValue = ((Double(value) ?? minimum)-minimum)/step
+    }
+    let isMultiline = snapshot.config == NativeSwiftInput.text && snapshot.properties.first { $0.id == NativeSwiftInput.multiline }?.integerValue == NativeSwiftInput.LineMode.multiline.rawValue
+    fallback.isHidden = writable; fallback.stringValue = "\(value) · \((snapshot.properties.first { $0.id == NativeSwiftInput.enabled }?.integerValue ?? 1) != 1 ? "Unavailable" : "Open in app to edit")"
+    field.isHidden = !writable || isChoice || isToggle || isRange || isMultiline
+    scroll.isHidden = !writable || isChoice || isToggle || isRange || !isMultiline
     choice.isHidden = !writable || !isChoice
+    let submitLabel = text(NativeSwiftInput.submitLabel)
+    send.title = submitLabel.isEmpty ? "Send" : submitLabel
     send.isHidden = !writable || text(NativeSwiftInput.submit).isEmpty
     if field.stringValue != value && field.currentEditor() == nil { field.stringValue = value }
     if multiline.string != value && !multiline.hasMarkedText() { multiline.string = value }
@@ -2495,6 +2521,11 @@ private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSText
   }
   func controlTextDidChange(_ notification: Notification) { change(field.stringValue) }
   func textDidChange(_ notification: Notification) { change(multiline.string) }
+  @objc private func toggleChanged() { change(toggle.state == .on ? "true" : "false") }
+  @objc private func rangeChanged() {
+    guard let minimum = constraint(NativeSwiftInput.minimum), let step = constraint(NativeSwiftInput.step) else { return }
+    range.doubleValue = range.doubleValue.rounded(); change(String(minimum + range.doubleValue*step))
+  }
   @objc private func choiceChanged() { change(choice.titleOfSelectedItem ?? "") }
   @objc private func submit() {
     guard writable, let configuration = owner?.inputConfiguration else { return }
@@ -2502,9 +2533,15 @@ private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSText
     guard !action.isEmpty else { window?.makeFirstResponder(nil); return }
     func keys(_ view: NSView) -> [String] {
       guard !view.isHidden else { return [] }
-      if let input = view as? NativeMacInputView { return [input.key] }
+      if let input = view as? NativeMacInputView { return (input.snapshot.properties.first { $0.id == NativeSwiftInput.enabled }?.integerValue ?? 1) == 1 ? [input.key] : [] }
       return view.subviews.flatMap(keys)
     }
+    func validInputs(_ view: NSView) -> Bool {
+      if view.isHidden { return true }
+      if let input = view as? NativeMacInputView { return (input.snapshot.properties.first { $0.id == NativeSwiftInput.enabled }?.integerValue ?? 1) != 1 || input.valid }
+      return view.subviews.allSatisfy(validInputs)
+    }
+    guard owner.map({ validInputs($0) }) == true else { NSSound.beep(); return }
     var values = configuration.drafts.values(for: Set(owner.map { keys($0) } ?? [key]))
     values[key] = configuration.drafts.value(for: key, documentValue: text(NativeSwiftInput.value))
     configuration.onSubmit(action, values); window?.makeFirstResponder(nil)

@@ -4,6 +4,9 @@ package ee.schimke.composeai.rcplayer.protocol
 public object RcInput {
   public const val TEXT: String = "rc:input/text:v1"
   public const val CHOICE: String = "rc:input/choice:v1"
+  public const val TOGGLE: String = "rc:input/toggle:v1"
+  public const val NUMBER: String = "rc:input/number:v1"
+  public const val RANGE: String = "rc:input/range:v1"
   public const val VALUE: Int = 1
   public const val VALUE_RETURN: Int = 2
   /** Stable, card-scoped host draft key, not a transient component/text id. */
@@ -15,5 +18,13 @@ public object RcInput {
   public const val OPTIONS: Int = 6
   /** Opaque host action descriptor. Never executed by the player itself. */
   public const val SUBMIT: Int = 7
-  public val configs: Set<String> = setOf(TEXT, CHOICE)
+  /** Optional finite decimal bounds/step, STRING_PROP; absent/empty means unconstrained. */
+  public const val MIN: Int = 8
+  public const val MAX: Int = 9
+  public const val STEP: Int = 10
+  /** INT_PROP: zero disables this field; absent or one enables it subject to host policy. */
+  public const val ENABLED: Int = 11
+  /** Optional STRING_PROP action button caption; absent/empty retains the v1 default Send. */
+  public const val SUBMIT_LABEL: Int = 12
+  public val configs: Set<String> = setOf(TEXT, CHOICE, TOGGLE, NUMBER, RANGE)
 }

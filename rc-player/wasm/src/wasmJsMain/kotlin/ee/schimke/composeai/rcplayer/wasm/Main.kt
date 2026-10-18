@@ -757,6 +757,6 @@ private fun postHostNamedActionFloatList(name: String, encoded: String): Unit =
 private fun publishInputCapabilities(editable: Boolean): Unit =
   js(
     """{
-  window.rcPlayerInputCapabilities = Object.freeze({ components: ['rc:input/text:v1', 'rc:input/choice:v1'], editing: editable });
+  window.rcPlayerInputCapabilities = Object.freeze({ components: ['rc:input/text:v1', 'rc:input/choice:v1', 'rc:input/toggle:v1', 'rc:input/number:v1', 'rc:input/range:v1'], editing: editable });
 }"""
   )

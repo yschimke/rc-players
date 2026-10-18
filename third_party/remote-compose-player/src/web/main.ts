@@ -545,7 +545,7 @@ export class RcdPlayer {
         this.repaint();
     }
     inputCapabilities(): { components: string[]; editing: boolean } {
-        return { components: this.customHost.inputs ? [Input.TEXT, Input.CHOICE] : [], editing: this.inputEditing };
+        return { components: this.customHost.inputs ? [Input.TEXT, Input.CHOICE, Input.TOGGLE, Input.NUMBER, Input.RANGE] : [], editing: this.inputEditing };
     }
     getCustomHost(): WebCustomHost { return this.customHost; }
 
@@ -567,6 +567,7 @@ export class RcdPlayer {
      *   const url = await player.screenshotDataURL();
      */
     async screenshot(type = 'image/png', quality?: number): Promise<Blob> {
+        if (this.customHost.inputs) this.repaint();
         return new Promise((resolve, reject) => {
             this.canvas.toBlob(
                 (blob) => blob ? resolve(blob) : reject(new Error('toBlob failed')),
@@ -577,6 +578,7 @@ export class RcdPlayer {
 
     /** Capture a screenshot as a data URL string (e.g. "data:image/png;base64,..."). */
     screenshotDataURL(type = 'image/png', quality?: number): string {
+        if (this.customHost.inputs) this.repaint();
         return this.canvas.toDataURL(type, quality);
     }
 
@@ -625,3 +627,7 @@ export { Input, WebInputComponents } from './InputComponents';
 export type { InputOptions } from './InputComponents';
 
 export { inputDocument } from './InputDocument';
+
+export { inputValueIsValid } from './InputContract';
+export type { InputKind } from './InputContract';
+export type { InputField } from './InputDocument';

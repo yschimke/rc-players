@@ -127,6 +127,95 @@ class RcInputComponentsTest {
     }
 
   @Test
+  fun expandedControlsReturnStringsAndRejectInvalidNumericSubmit() =
+    runSkikoComposeUiTest(size = Size(360f, 440f), density = Density(1f)) {
+      val drafts = RcInputDrafts()
+      val submissions = mutableListOf<Map<String, String>>()
+      val registry =
+        rcInputComponents(
+          drafts,
+          editable = true,
+          onSubmit = { _, values -> submissions += values },
+        )
+      setContent {
+        RcComposePlayer(
+          rcInputDocument(
+            listOf(
+              RcInputs.toggle("urgent", "Urgent"),
+              RcInputs.number("temperature", "Temperature", 21.5, 0.0, 30.0, 0.5, "apply"),
+              RcInputs.range("brightness", "Brightness", 10.0, 10.0, 20.0, 2.0),
+            )
+          ),
+          customComponents = registry,
+        )
+      }
+      onNode(hasContentDescription("Urgent")).performClick()
+      onNode(hasContentDescription("Temperature")).performTextReplacement("-")
+      onNodeWithText("Send").performClick()
+      runOnIdle { assertTrue(submissions.isEmpty()) }
+      onNode(hasContentDescription("Temperature")).performTextReplacement("22.5")
+      onNode(hasContentDescription("Brightness")).performSemanticsAction(
+        androidx.compose.ui.semantics.SemanticsActions.SetProgress
+      ) {
+        it(3f)
+      }
+      onNodeWithText("Send").performClick()
+      runOnIdle {
+        assertEquals(
+          listOf(mapOf("urgent" to "true", "temperature" to "22.5", "brightness" to "16.0")),
+          submissions,
+        )
+      }
+    }
+
+  @Test
+  fun disabledControlAndReadOnlyExpandedControlsStayNonInteractive() =
+    runSkikoComposeUiTest(size = Size(360f, 440f), density = Density(1f)) {
+      setContent {
+        RcComposePlayer(
+          rcInputDocument(
+            listOf(
+              RcInputs.toggle("urgent", "Urgent"),
+              RcInputs.number("temperature", "Temperature"),
+              RcInputs.range("brightness", "Brightness", 50.0),
+            )
+          ),
+          customComponents = rcInputComponents(RcInputDrafts()),
+        )
+      }
+      onAllNodes(hasSetTextAction()).assertCountEquals(0)
+      onAllNodes(hasClickAction()).assertCountEquals(0)
+      onAllNodesWithText("Open in app to edit").assertCountEquals(3)
+    }
+
+  @Test
+  fun disabledFieldsAreExcludedAndActionCaptionsAreAuthored() =
+    runSkikoComposeUiTest(size = Size(360f, 280f), density = Density(1f)) {
+      val submissions = mutableListOf<Map<String, String>>()
+      val registry =
+        rcInputComponents(
+          RcInputDrafts(),
+          editable = true,
+          onSubmit = { _, values -> submissions += values },
+        )
+      setContent {
+        RcComposePlayer(
+          rcInputDocument(
+            listOf(
+              RcInputs.toggle("disabled", "Disabled").copy(enabled = false),
+              RcInputs.text("message", "Message", submit = "apply").copy(submitLabel = "Apply"),
+            )
+          ),
+          customComponents = registry,
+        )
+      }
+      onNodeWithText("Unavailable").assertExists()
+      onNode(hasContentDescription("Message")).performTextInput("hello")
+      onNodeWithText("Apply").performClick()
+      runOnIdle { assertEquals(listOf(mapOf("message" to "hello")), submissions) }
+    }
+
+  @Test
   fun opcodeSupportAloneDoesNotAdvertiseInputCapability() {
     val document = rcInputDocument(listOf(RcInputField("message", "Message")))
     assertFalse(document.composeSupportReport().fullyRenderable)
