@@ -41,9 +41,9 @@ public final class NativeSwiftInputConfiguration {
   public let editable: Bool
   public let onChange: (String, String) -> Void
   public let onSubmit: (String, [String: String]) -> Void
-  public init(drafts: NativeSwiftInputDrafts = .init(), editable: Bool = false,
+  public init(drafts: NativeSwiftInputDrafts? = nil, editable: Bool = false,
               onChange: @escaping (String, String) -> Void = { _, _ in },
               onSubmit: @escaping (String, [String: String]) -> Void = { _, _ in }) {
-    self.drafts = drafts; self.editable = editable; self.onChange = onChange; self.onSubmit = onSubmit
+    self.drafts = drafts ?? NativeSwiftInputDrafts(); self.editable = editable; self.onChange = onChange; self.onSubmit = onSubmit
   }
 }
