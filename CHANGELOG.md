@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.1](https://github.com/yschimke/rc-players/compare/v2.16.0...v2.16.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* publish the input-enabled TypeScript bundle ([#693](https://github.com/yschimke/rc-players/issues/693)) ([578e92c](https://github.com/yschimke/rc-players/commit/578e92c74995beaa7614ca4e15fd03aae84973b5))
+
 ## [2.16.0](https://github.com/yschimke/rc-players/compare/v2.15.0...v2.16.0) (2026-10-18)
 
 
