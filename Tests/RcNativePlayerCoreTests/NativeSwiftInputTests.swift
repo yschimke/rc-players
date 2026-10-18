@@ -2,6 +2,17 @@ import Testing
 @testable import RcNativePlayerCore
 
 @Suite struct NativeSwiftInputTests {
+  @Test func oversizedUnicodeEditIsRejectedWithoutChangingDocumentText() throws {
+    let session = try NativeSwiftDocumentSession.open(data: NativeTestFixtures.data("message-inputs.rc"))
+    let before = try session.snapshot()
+    #expect(!session.returnCustomText(String(repeating: "🏡", count: 1001), componentID: 13, propertyID: NativeSwiftInput.valueReturn))
+    func text(_ node: NativeSwiftNodeSnapshot) -> String? {
+      if node.componentID == 13 { return node.custom?.properties.first { $0.id == NativeSwiftInput.value }?.textValue }
+      return node.children.compactMap(text).first
+    }
+    #expect(try text(session.snapshot().root) == text(before.root))
+  }
+
   @Test func chromeMetadataUsesTheExistingTypedIntegerChannel() throws {
     let session = try NativeSwiftDocumentSession.open(data: NativeTestFixtures.data("input-chrome.rc"))
     func controls(_ node: NativeSwiftNodeSnapshot) -> [NativeSwiftCustomSnapshot] {

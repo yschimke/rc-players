@@ -63,7 +63,8 @@ test('two actual embedded copies of the same form keep independent edits', async
       const {CanvasPaintContext,WebInputComponents,WebCustomHost,inputDocument} = InputTest;
       const canvas=document.querySelector('canvas');
       const pc=new CanvasPaintContext(null,canvas.getContext('2d'));
-      const inputs=new WebInputComponents(canvas,{editable:true});
+      window.changes=[];
+      const inputs=new WebInputComponents(canvas,{editable:true,onChange:(key,value)=>changes.push({key,value})});
       const host=new WebCustomHost(async()=>inputDocument([{key:'message',label:'Message',value:'Initial'}],200));
       host.inputs=inputs;
       window.paintEmbeds=()=>{
@@ -78,6 +79,7 @@ test('two actual embedded copies of the same form keep independent edits', async
     });
     await page.getByRole('textbox',{name:'Message'}).nth(1).waitFor();
     await page.getByRole('textbox',{name:'Message'}).nth(0).fill('First copy');
+    assert.deepEqual(await page.evaluate(()=>changes),[{key:'message',value:'First copy'}]);
     await page.evaluate(()=>{clearInterval(renderTimer);paintEmbeds();paintEmbeds();});
     assert.deepEqual(await page.getByRole('textbox',{name:'Message'}).evaluateAll(inputs=>inputs.map(input=>input.value)),['First copy','Initial']);
   } finally {await browser.close();}

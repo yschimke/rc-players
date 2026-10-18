@@ -181,7 +181,7 @@ export class WebInputComponents {
                 control.addEventListener(config === Input.CHOICE || config === Input.TOGGLE ? 'change' : 'input', () => {
                     const value = config === Input.TOGGLE ? String((control as HTMLInputElement).checked) : control.value;
                     if (current.component.returnText(Input.VALUE_RETURN, value)) {
-                        this.drafts.set(storeKey, value); this.options.onChange?.(storeKey, value);
+                        this.drafts.set(storeKey, value); this.options.onChange?.(key, value);
                         if (config === Input.RANGE && current.caption) current.caption.textContent=`${current.component.text(Input.LABEL)}: ${value}`;
                         control.setCustomValidity(this.valid(current.component,value,config) ? "" : "Enter a valid value");
                     }

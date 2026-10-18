@@ -86,6 +86,7 @@
   enum NativeCustomReturnValue {
     case float(Float)
     case text(String)
+    case acknowledgedText(String, (Bool) -> Void)
   }
 
   /// Live, observable values for one document-authored custom component.
@@ -161,6 +162,15 @@
       guard property(key.id)?.dataType == NativeSwiftCustomPropertyType.textReturn else { return false }
       returnValue(key.id, .text(value))
       return true
+    }
+
+    /// Report the engine's actual acceptance; queue admission alone is not an accepted edit.
+    public func send(
+      _ value: String, to key: RemoteComposeNativeTextReturnProperty,
+      completion: @escaping (Bool) -> Void
+    ) {
+      guard property(key.id)?.dataType == NativeSwiftCustomPropertyType.textReturn else { completion(false); return }
+      returnValue(key.id, .acknowledgedText(value, completion))
     }
 
     public func floatReturnHandler(_ key: RemoteComposeNativeFloatReturnProperty) -> (Float) -> Void
