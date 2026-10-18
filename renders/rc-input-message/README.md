@@ -16,3 +16,8 @@ exercise live updates, changed choice options and focused drafts; no real HA mes
 
 To reproduce, build a baseline and current TS bundle with esbuild, then set `RC_PLAYER_BASELINE_JS`,
 `RC_PLAYER_JS` and `PLAYWRIGHT_MODULE` and run `node scripts/rc-input-message/capture.mjs`.
+
+Browser regression coverage: bundle `src/input.browser-harness.ts` with esbuild as IIFE global
+`InputTest`, set `RC_INPUT_HARNESS_JS` and `PLAYWRIGHT_MODULE`, then run
+`node --test scripts/rc-input-message/input.browser.test.mjs`. CI runs the same harness. It checks
+untouched sibling values, independent embedded document scopes, and actual clipped DOM hit testing.

@@ -1,4 +1,5 @@
 import { WireBuffer } from '../core/WireBuffer';
+import { Header } from '../core/operations/Header';
 import { Input } from './InputComponents';
 
 export interface InputField {
@@ -13,7 +14,8 @@ export function inputDocument(fields: InputField[], width = 360): ArrayBuffer {
     const dim = (opcode: number, type: number, value: number) => { op(opcode, type); b.writeFloat(value); };
     const height = (f: InputField) => f.multiline ? 136 : f.submit ? 112 : 80;
     // Modern header: width + height integer properties, density defaults to one.
-    op(0, 0x048c0001, 0, 0, 2);
+    op(0, 0x048c0001, 2, 0, 3);
+    b.writeShort(Header.DOC_PROFILES); b.writeShort(4); b.writeInt(0x201);
     b.writeShort(5); b.writeShort(4); b.writeInt(width);
     b.writeShort(6); b.writeShort(4); b.writeInt(fields.reduce((sum, f) => sum + height(f) + 4, 0));
     fields.forEach((f, i) => {

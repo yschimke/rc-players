@@ -1,6 +1,7 @@
 import type { CustomComponent } from '../core/CustomComponentHost';
 import type { PaintContext } from '../core/PaintContext';
 import { CanvasPaintContext } from './CanvasPaintContext';
+import { mapInputPoint, inverseInputPoint, intersectInputClip } from './InputGeometry';
 
 /** Must match RcInput in rc-player-protocol. No new wire opcode or property type. */
 export const Input = Object.freeze({ TEXT: 'rc:input/text:v1', CHOICE: 'rc:input/choice:v1',
@@ -19,17 +20,30 @@ interface Entry {
     component: CustomComponent;
     config: string;
     writable: boolean;
+    scope: string;
 }
 
 /** Native accessible DOM controls positioned by the player's actual canvas transform. */
 export class WebInputComponents {
-    private entries = new Map<number, Entry>();
-    private seen = new Set<number>();
+    private entries = new Map<string, Entry>();
+    private seen = new Set<string>();
+    private scopes: string[] = [];
+    private defaults = new Map<string, Map<string, string>>();
+    private hitContext: CanvasRenderingContext2D | null = null;
     private drafts: Map<string, string>;
     constructor(private canvas: HTMLCanvasElement, private options: InputOptions) {
         this.drafts = options.drafts ?? new Map();
     }
-    beginFrame(): void { this.seen.clear(); }
+    beginFrame(): void { this.seen.clear(); this.defaults.clear(); this.scopes = []; }
+    /** Component ids and draft keys are local to a nested document instance. */
+    withDocument<T>(identity: string, paint: () => T): T {
+        this.scopes.push(identity);
+        try { return paint(); } finally { this.scopes.pop(); }
+    }
+    private storeKey(scope: string, key: string): string { return scope ? `@${scope}:${key}` : key; }
+    private values(scope: string): Record<string, string> {
+        return Object.fromEntries(Array.from(this.defaults.get(scope) ?? []).map(([key, value]) => [key, this.drafts.get(this.storeKey(scope, key)) ?? value]));
+    }
     endFrame(): void {
         for (const [id, entry] of this.entries) if (!this.seen.has(id)) {
             entry.root.remove(); this.entries.delete(id);
@@ -39,20 +53,43 @@ export class WebInputComponents {
     draw(id: number, config: string, pc: PaintContext, w: number, h: number, component?: CustomComponent): boolean {
         if (config !== Input.TEXT && config !== Input.CHOICE) return false;
         if (!component || !(pc instanceof CanvasPaintContext)) return false;
-        this.seen.add(id);
+        const scope = JSON.stringify(this.scopes);
+        const draftScope = this.scopes.length ? scope : '';
+        const identity = `${scope}:${id}`;
+        this.seen.add(identity);
         const key = component.text(Input.KEY);
+        const storeKey = this.storeKey(draftScope, key);
+        let defaults = this.defaults.get(draftScope);
+        if (!defaults) { defaults = new Map(); this.defaults.set(draftScope, defaults); }
+        defaults.set(key, component.text(Input.VALUE));
+        const context = pc.getCanvas();
+        const matrix = context.getTransform();
+        let polygon = [{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}].map(p => mapInputPoint(matrix, p));
+        const clip = pc.getInputClip();
+        for (const rectangle of clip.rectangles) polygon = intersectInputClip(polygon, rectangle);
+        if (clip.rounded.length && !this.hitContext) this.hitContext = document.createElement('canvas').getContext('2d');
+        const roundedCovered = clip.rounded.every(path => polygon.every(p => this.hitContext?.isPointInPath(path, p.x, p.y)));
+        if (context.canvas !== this.canvas || clip.unsupported || !roundedCovered) {
+            this.entries.get(identity)?.root.remove(); this.entries.delete(identity);
+            // Arbitrary path clips/offscreen surfaces stay on the canvas, which applies their
+            // exact clip. Never place an interactive overlay outside an unrepresentable region.
+            context.save(); context.font = '14px system-ui'; context.fillStyle = '#555';
+            context.fillText(`${component.text(Input.LABEL)} · Open in app to edit`, 4, 20, Math.max(1, w-8));
+            context.restore();
+            return true;
+        }
         const writable = this.options.editable && !!key.trim() && component.canReturnText(Input.VALUE_RETURN);
-        let entry = this.entries.get(id);
+        let entry = this.entries.get(identity);
         if (entry && (entry.config !== config || entry.writable !== writable || entry.component.text(Input.KEY) !== key)) {
-            entry.root.remove(); this.entries.delete(id); entry = undefined;
+            entry.root.remove(); this.entries.delete(identity); entry = undefined;
         }
         if (!entry) {
             const root = document.createElement('div');
             root.style.cssText = 'position:absolute;transform-origin:0 0;box-sizing:border-box;overflow:auto;font:14px system-ui;background:var(--card-background-color,white);color:var(--primary-text-color,#202124);padding:6px;';
             // Stop editing gestures from also activating canvas actions.
             for (const event of ['pointerdown', 'click', 'keydown']) root.addEventListener(event, e => e.stopPropagation());
-            entry = { root, component, config, writable };
-            this.entries.set(id, entry);
+            entry = { root, component, config, writable, scope: draftScope };
+            this.entries.set(identity, entry);
             this.canvas.parentNode?.appendChild(root);
             if (writable) {
                 const label = document.createElement('label');
@@ -67,13 +104,13 @@ export class WebInputComponents {
                 const current = entry;
                 control.addEventListener(config === Input.CHOICE ? 'change' : 'input', () => {
                     if (current.component.returnText(Input.VALUE_RETURN, control.value)) {
-                        this.drafts.set(key, control.value); this.options.onChange?.(key, control.value);
+                        this.drafts.set(storeKey, control.value); this.options.onChange?.(storeKey, control.value);
                     }
                 });
                 const submit = () => {
                     const action = current.component.text(Input.SUBMIT);
                     if (!action) return;
-                    this.options.onSubmit?.(action, { ...Object.fromEntries(this.drafts), [key]: control.value });
+                    this.options.onSubmit?.(action, { ...this.values(current.scope), [key]: control.value });
                     control.blur();
                 };
                 control.addEventListener('keydown', event => {
@@ -89,7 +126,7 @@ export class WebInputComponents {
             }
         }
         entry.component = component;
-        const value = this.drafts.get(key) ?? component.text(Input.VALUE);
+        const value = this.drafts.get(storeKey) ?? component.text(Input.VALUE);
         if (entry.control) {
             if (entry.control instanceof HTMLSelectElement) {
                 const options = [...new Set(component.text(Input.OPTIONS).split('\n').filter(Boolean))];
@@ -103,7 +140,11 @@ export class WebInputComponents {
             if (entry.control.value !== value) entry.control.value = value;
             if (component.text(Input.VALUE) !== value) component.returnText(Input.VALUE_RETURN, value);
         } else entry.root.textContent = `${component.text(Input.LABEL)}: ${value} · Open in app to edit`;
-        const m = pc.getCanvas().getTransform();
+        const m = matrix;
+        entry.root.hidden = !polygon.length || context.globalAlpha <= 0;
+        entry.root.style.opacity = String(context.globalAlpha);
+        if (entry.root.hidden) entry.control?.blur();
+        entry.root.style.clipPath = polygon.length ? `polygon(${polygon.map(p => { const local = inverseInputPoint(m, p); return `${local.x}px ${local.y}px`; }).join(',')})` : 'inset(100%)';
         const sx = this.canvas.clientWidth / this.canvas.width, sy = this.canvas.clientHeight / this.canvas.height;
         entry.root.style.left = `${this.canvas.offsetLeft}px`; entry.root.style.top = `${this.canvas.offsetTop}px`;
         entry.root.style.width = `${w}px`; entry.root.style.height = `${h}px`;

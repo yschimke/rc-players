@@ -260,6 +260,13 @@ jobs:
           npm ci
           npm test
 
+      - name: Test browser input values, nested identities and clipped hit testing
+        run: |
+          npm --prefix scripts/wasm-smoke ci
+          (cd scripts/wasm-smoke && npx playwright install --with-deps chromium)
+          third_party/remote-compose-player/node_modules/.bin/esbuild third_party/remote-compose-player/src/input.browser-harness.ts --bundle --format=iife --global-name=InputTest --outfile=/tmp/rc-input-harness.js
+          PLAYWRIGHT_MODULE="$PWD/scripts/wasm-smoke/node_modules/playwright/index.mjs" RC_INPUT_HARNESS_JS=/tmp/rc-input-harness.js node --test scripts/rc-input-message/input.browser.test.mjs
+
       # No dependencies and no corpus: the report generator is pure Node over a results file, so its
       # test runs anywhere. It is here rather than beside the lane because the lane is scheduled and
       # non-gating, while a generator that renders the wrong number would be believed.

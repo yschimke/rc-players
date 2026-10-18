@@ -180,7 +180,8 @@ export class WebCustomHost implements CustomComponentHost {
         if (cfg.kind === 'camera') return this.drawCamera(cfg, pc, w, h);
         if (cfg.kind === 'web') return this.drawWebFrame(cfg, pc, w, h);
         if (cfg.kind && cfg.kind !== 'rc') return false;
-        return this.drawRc(cfg, config, pc, w, h, timeSec);
+        const draw = () => this.drawRc(cfg, config, pc, w, h, timeSec);
+        return this.inputs ? this.inputs.withDocument(`${_componentId}:${config}`, draw) : draw();
     }
 
     // ── Embedded documents ────────────────────────────────────────────
@@ -241,22 +242,19 @@ export class WebCustomHost implements CustomComponentHost {
         // The engine has already translated the canvas so (0,0)..(w,h) is the component
         // box; clip to it, place the fitted document inside, and paint it in its own
         // coordinate space, clipped to its own bounds so nothing spills past the embed.
-        canvas.save();
-        canvas.beginPath();
-        canvas.rect(0, 0, w, h);
-        canvas.clip();
+        host.matrixSave();
+        host.clipRect(0, 0, w, h);
         canvas.translate(ox, oy);
         canvas.scale(s, s);
         canvas.translate(-cropX, -cropY);
-        canvas.beginPath();
-        canvas.rect(0, 0, docW, docH);
-        canvas.clip();
+        host.clipRect(0, 0, docW, docH);
         paint.reset();
+        paint.inheritInputClip(host);
         paint.clearNeedsRepaint();
         try {
             doc.paint(ctx, Theme.DARK);
         } finally {
-            canvas.restore();
+            host.matrixRestore();
         }
         // An animating embed keeps the page painting, as the desktop player's does.
         if (doc.needsRepaint() >= 0 || paint.doesNeedsRepaint()) pc.needsRepaint();

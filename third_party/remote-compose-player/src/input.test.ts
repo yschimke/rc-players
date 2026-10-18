@@ -32,3 +32,15 @@ doc.initFromBuffer(RemoteComposeBuffer.fromArrayBuffer(inputDocument([{ key: 'me
 assert.equal(doc.getRootLayoutComponent()?.getList().length, 1);
 assert.throws(() => inputDocument([{key:'message',label:'Message'},{key:'message',label:'Duplicate'}]));
 console.log('portable input document decode and validation ok');
+import { intersectInputClip, mapInputPoint, inverseInputPoint } from './web/InputGeometry';
+const square = (left: number, top: number, right: number, bottom: number) => [{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];
+assert.deepEqual(intersectInputClip(square(0,0,100,100), square(200,0,300,100)), []);
+assert.deepEqual(intersectInputClip(square(0,0,100,100), square(0,0,0,100)), []);
+for (const clip of [square(20,20,80,80), square(20,20,80,80).reverse()]) {
+    const clipped = intersectInputClip(square(0,0,100,100), clip);
+    assert.equal(clipped.length, 4);
+    assert(clipped.every(p => p.x >= 20 && p.x <= 80 && p.y >= 20 && p.y <= 80));
+}
+const transform = {a:0,b:2,c:-3,d:0,e:10,f:20};
+assert.deepEqual(inverseInputPoint(transform, mapInputPoint(transform, {x:20,y:40})), {x:20,y:40});
+console.log('transformed, reflected, disjoint and empty input clips ok');

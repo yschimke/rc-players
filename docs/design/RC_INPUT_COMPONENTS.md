@@ -1,7 +1,9 @@
 # Portable editable inputs, version 1
 
 Inputs use `LAYOUT_CUSTOM` (93), typed custom properties and the existing `TEXT_RETURN` channel.
-There is no new wire opcode. `rc-player-edit` rewrites documents; it is not an input-event API.
+There is no new wire opcode. The portable producer declares API 1.2 and the AndroidX experimental
+profile required by `LAYOUT_CUSTOM`; capture writers must check their operation profile and author an
+open-app alternative when it excludes that operation. `rc-player-edit` rewrites documents; it is not an input-event API.
 Opcode support alone cannot establish input capability: the custom config must have a registered
 renderer, and the host must separately opt into editing. Registration does not grant service access.
 
@@ -50,7 +52,11 @@ selection and composition. Explicit Send remains available for multiline fields.
 | Wear widgets / launcher widgets | No editing capability | Consumer authors a view/open-app alternative at widget capture time |
 
 Canvas browser controls are positioned using the actual canvas transform and CSS/backing-store
-ratio. They are removed when absent from the current frame or when the player is destroyed. They
+ratio. Rectangular ancestor clips intersect their CSS hit regions, including transformed clips.
+Arbitrary path clips, partially intersecting rounded clips and offscreen surfaces use a clipped
+canvas “Open in app to edit” alternative instead of placing an unsafe DOM overlay. Nested document
+instances namespace overlay identities/drafts; submit snapshots include untouched sibling defaults.
+They are removed when absent from the current frame or when the player is destroyed. They
 use native labels, selects, input/textarea, keyboard and focus behavior. Other custom hosts retain
 their existing draw API; the extra resolved-property argument is optional.
 

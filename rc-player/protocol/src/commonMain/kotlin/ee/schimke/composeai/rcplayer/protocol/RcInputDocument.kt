@@ -68,11 +68,21 @@ public fun rcInputDocument(fields: List<RcInputField>, width: Int = 360): RcDocu
   repeat(3) { operations += end }
   return RcDocument(
     RcHeader(
-      RcVersion(1, 0, 0),
-      legacyWidth = width,
-      legacyHeight =
-        fields.sumOf { if (it.multiline) 140 else if (it.submit.isNotEmpty()) 116 else 84 },
-      modern = false,
+      RcVersion(1, 2, 0),
+      properties =
+        listOf(
+          RcHeaderProperty(RcHeader.DOC_WIDTH, RcHeaderValue.IntValue(width)),
+          RcHeaderProperty(
+            RcHeader.DOC_HEIGHT,
+            RcHeaderValue.IntValue(
+              fields.sumOf { if (it.multiline) 140 else if (it.submit.isNotEmpty()) 116 else 84 }
+            ),
+          ),
+          RcHeaderProperty(
+            14 /* Header.DOC_PROFILES */,
+            RcHeaderValue.IntValue(RcWireProfiles.ANDROIDX_EXPERIMENTAL),
+          ),
+        ),
     ),
     operations,
   )
