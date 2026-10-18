@@ -18,6 +18,19 @@ import platform.UIKit.UIViewController
 
 /** Live named-variable state owned by an Apple host. */
 public class RcComposePlayerController {
+  private val inputDrafts = ee.schimke.composeai.rcplayer.runtime.RcInputDrafts()
+  internal var inputComponents: RcCustomComponentRegistry = rcInputComponents(inputDrafts)
+    private set
+
+  /** Configure before attaching a controller. Old hosts retain read-only input fallbacks. */
+  public fun configureInputs(
+    editable: Boolean,
+    onChange: (String, String) -> Unit,
+    onSubmit: (String, Map<String, String>) -> Unit,
+  ) {
+    inputComponents = rcInputComponents(inputDrafts, editable, onChange, onSubmit)
+  }
+
   internal val values = mutableStateMapOf<String, RcNamedValue>()
   private var types: Map<String, Int> = emptyMap()
 
@@ -279,6 +292,9 @@ private fun createRcComposeViewController(
   controller: RcComposePlayerController?,
   imageLoader: RcImageLoader = RcImageLoader.Default,
 ): UIViewController {
+  val inputs =
+    controller?.inputComponents
+      ?: rcInputComponents(ee.schimke.composeai.rcplayer.runtime.RcInputDrafts())
   warnIfHighRefreshRatePlistEntryIsMissing()
   val document = runCatching {
     decodeCmpDocument(bytes).also {
@@ -286,6 +302,7 @@ private fun createRcComposeViewController(
         .composeSupportReport(
           RcOperationProfiles.CMP_IOS_ALPHA18,
           availableFontFamilies = typefaces.families,
+          availableCustomComponents = inputs.names,
           allowExternalImagePlaceholders = imageLoader !== RcImageLoader.Empty,
         )
         .requireRenderable(lenient)
@@ -319,6 +336,7 @@ private fun createRcComposeViewController(
         namedValues = controller?.values ?: rememberRcNamedValues(),
         onEvent = { event -> forwardIosPlayerEvent(onEvent, event) },
         typefaces = typefaces,
+        customComponents = inputs,
       )
     }
   }

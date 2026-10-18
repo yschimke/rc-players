@@ -8,6 +8,14 @@
 
 import type { PaintContext } from './PaintContext';
 
+/** Live typed properties and declared return channels for opcode 93. */
+export interface CustomComponent {
+    text(type: number, fallback?: string): string;
+    integer(type: number, fallback?: number): number;
+    canReturnText(type: number): boolean;
+    returnText(type: number, value: string): boolean;
+}
+
 export interface CustomComponentHost {
     /**
      * Draw the component named by `config` into the box (0,0)..(w,h). `timeSec` is the
@@ -15,5 +23,5 @@ export interface CustomComponentHost {
      * or not anything was drawn yet.
      */
     drawCustom(componentId: number, config: string, pc: PaintContext,
-               w: number, h: number, timeSec: number): boolean;
+               w: number, h: number, timeSec: number, component?: CustomComponent): boolean;
 }

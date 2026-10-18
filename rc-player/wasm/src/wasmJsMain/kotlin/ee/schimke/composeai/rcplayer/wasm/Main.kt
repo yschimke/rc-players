@@ -96,6 +96,36 @@ private sealed interface DocumentSource {
 
 private var loadRequest by mutableStateOf(LoadRequest(null, 0))
 private var loadState by mutableStateOf<LoadState>(LoadState.Loading)
+private val inputDrafts = ee.schimke.composeai.rcplayer.runtime.RcInputDrafts()
+private val inputComponents by lazy {
+  ee.schimke.composeai.rcplayer.compose.rcInputComponents(
+    inputDrafts,
+    editable = queryParameter("editableInputs") == "1",
+    onChange = { key, value -> postInputEvent("change", key, value, "", "{}") },
+    onSubmit = { action, values ->
+      val json =
+        values.entries.joinToString(",", "{", "}") { (key, value) ->
+          "${inputJsonString(key)}:${inputJsonString(value)}"
+        }
+      postInputEvent("submit", "", "", action, json)
+    },
+  )
+}
+
+private fun inputJsonString(value: String): String = js("JSON.stringify(value)")
+
+private fun postInputEvent(
+  kind: String,
+  key: String,
+  value: String,
+  action: String,
+  values: String,
+): Unit =
+  js(
+    """{
+  if (window.__rcPlayerPost) window.__rcPlayerPost({ type: 'rc-player-input', kind: kind, key: key, value: value, action: action, values: JSON.parse(values) });
+}"""
+  )
 
 public fun main() {
   // Browser User Timing marks are opt-in: `performance`'s entry buffer is finite and shared with
@@ -115,6 +145,7 @@ public fun main() {
   setRcPlatformTracingEnabled(queryParameter("rcTrace") == "1")
   loadRequest = LoadRequest(queryParameter("src")?.let(DocumentSource::Url), generation = 0)
   installDocumentSwap()
+  publishInputCapabilities(queryParameter("editableInputs") == "1")
   // `?theme=` is part of the embed contract, so the accepted spellings stay exactly as they were;
   // only the type the player takes has changed. Anything else — including no parameter at all —
   // follows the browser's `prefers-color-scheme`, which is what `RcTheme.UNSPECIFIED` resolved to
@@ -199,6 +230,7 @@ private fun PlayerContent(theme: RcPlayerTheme) {
               .composeSupportReport(
                 RcOperationProfiles.CMP_WASM_ALPHA18,
                 availableFontFamilies = typefaces.families,
+                availableCustomComponents = inputComponents.names,
                 allowExternalImagePlaceholders =
                   queryParameter("allowExternalImagePlaceholders") == "1",
               )
@@ -243,6 +275,7 @@ private fun PlayerContent(theme: RcPlayerTheme) {
         namedValues = namedValues,
         onEvent = ::postPlayerEvent,
         typefaces = state.typefaces,
+        customComponents = inputComponents,
       )
       LaunchedEffect(request) {
         // Compose schedules Skiko's raster work after composition. One frame only proves the
@@ -719,4 +752,11 @@ private fun postHostNamedActionFloatList(name: String, encoded: String): Unit =
       "window.__rcPlayerPost({ type: 'cp-rc-host-named-action', name: name, " +
       "valueType: 'float-array', " +
       "value: encoded === '' ? [] : encoded.split(',').map(Number) }))"
+  )
+
+private fun publishInputCapabilities(editable: Boolean): Unit =
+  js(
+    """{
+  window.rcPlayerInputCapabilities = Object.freeze({ components: ['rc:input/text:v1', 'rc:input/choice:v1'], editing: editable });
+}"""
   )

@@ -93,6 +93,15 @@ public final class RemoteComposePlayerController {
 
   public init() {}
 
+  #if canImport(UIKit) && canImport(RcComposePlayer)
+  /// Enable only for an authenticated host. Defaults preserve read-only behavior.
+  public func configureInputs(editable: Bool,
+    onChange: @escaping (String, String) -> Void = { _, _ in },
+    onSubmit: @escaping (String, [String: String]) -> Void = { _, _ in }) {
+      kotlinController.configureInputs(editable: editable, onChange: onChange, onSubmit: onSubmit)
+  }
+  #endif
+
   public var names: [String] {
     #if canImport(UIKit) && canImport(RcComposePlayer)
       kotlinController.names

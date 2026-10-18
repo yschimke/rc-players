@@ -960,6 +960,15 @@ final class ee.schimke.composeai.rcplayer.runtime/RcImpulseTimeline { // ee.schi
     final fun evaluate(kotlin/Float, kotlin/Float, kotlin/Float): ee.schimke.composeai.rcplayer.runtime/RcImpulsePhase // ee.schimke.composeai.rcplayer.runtime/RcImpulseTimeline.evaluate|evaluate(kotlin.Float;kotlin.Float;kotlin.Float){}[0]
 }
 
+final class ee.schimke.composeai.rcplayer.runtime/RcInputDrafts { // ee.schimke.composeai.rcplayer.runtime/RcInputDrafts|null[0]
+    constructor <init>() // ee.schimke.composeai.rcplayer.runtime/RcInputDrafts.<init>|<init>(){}[0]
+
+    final fun reset(kotlin/String) // ee.schimke.composeai.rcplayer.runtime/RcInputDrafts.reset|reset(kotlin.String){}[0]
+    final fun snapshot(): kotlin.collections/Map<kotlin/String, kotlin/String> // ee.schimke.composeai.rcplayer.runtime/RcInputDrafts.snapshot|snapshot(){}[0]
+    final fun update(kotlin/String, kotlin/String) // ee.schimke.composeai.rcplayer.runtime/RcInputDrafts.update|update(kotlin.String;kotlin.String){}[0]
+    final fun value(kotlin/String, kotlin/String): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcInputDrafts.value|value(kotlin.String;kotlin.String){}[0]
+}
+
 final class ee.schimke.composeai.rcplayer.runtime/RcLayoutComputeBlock { // ee.schimke.composeai.rcplayer.runtime/RcLayoutComputeBlock|null[0]
     constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcLayoutCompute, kotlin.collections/List<ee.schimke.composeai.rcplayer.runtime/RcLinkedNode>) // ee.schimke.composeai.rcplayer.runtime/RcLayoutComputeBlock.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcLayoutCompute;kotlin.collections.List<ee.schimke.composeai.rcplayer.runtime.RcLinkedNode>){}[0]
 

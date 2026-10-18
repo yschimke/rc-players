@@ -1,5 +1,8 @@
 #if os(macOS)
   import AppKit
+  #if canImport(RcNativePlayerCore)
+    import RcNativePlayerCore
+  #endif
   #if canImport(RcPlayerAppleFonts)
     import RcPlayerAppleFonts
   #endif
@@ -18,6 +21,9 @@
       width: Float = 800,
       height: Float = 600,
       configuration: RemoteComposePlayerConfiguration = .init(),
+      inputEditing: Bool = false,
+      onInputChange: @escaping (String, String) -> Void = { _, _ in },
+      onInputSubmit: @escaping (String, [String: String]) -> Void = { _, _ in },
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
       onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
@@ -31,6 +37,7 @@
             configuration: configuration,
             typefaces: RcAppleTypefaceLoaderKt.rcAppleTypefaceLoader(
               additional: RcTypefaceLoaderCompanion.shared.Default),
+            inputEditing: inputEditing, onInputChange: onInputChange, onInputSubmit: onInputSubmit,
             onEvent: onEvent, onError: onError)
           return
         }
@@ -41,6 +48,7 @@
             typefaces: RcAppleTypefaceLoaderKt.rcAppleTypefaceLoader(
               additional: RcDownloadableFontsKt.rcDownloadableFontFallback(
                 families: requests.map(\.family))),
+            inputEditing: inputEditing, onInputChange: onInputChange, onInputSubmit: onInputSubmit,
             onEvent: onEvent, onError: onError)
           return
         }
@@ -65,7 +73,8 @@
               configuration: configuration,
               typefaces: RcAppleTypefaceLoaderKt.rcAppleTypefaceLoader(
                 additional: RcDownloadableFontsKt.rcDownloadedTypefaceLoader(fonts: fonts)),
-              onEvent: onEvent, onError: onError)
+              inputEditing: inputEditing, onInputChange: onInputChange, onInputSubmit: onInputSubmit,
+            onEvent: onEvent, onError: onError)
           } catch {
             onError(.playback("Downloadable font loading failed: \(error.localizedDescription)"))
           }
@@ -85,10 +94,13 @@
       height: Float,
       configuration: RemoteComposePlayerConfiguration,
       typefaces: RcTypefaceLoader,
+      inputEditing: Bool,
+      onInputChange: @escaping (String, String) -> Void,
+      onInputSubmit: @escaping (String, [String: String]) -> Void,
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void,
       onError: @escaping (RemoteComposePlayerError) -> Void
     ) {
-      RcComposeWindowKt.RcComposeWindow(
+      RcComposeWindowKt.RcComposeInputWindow(
         bytes: bytes,
         title: title,
         width: width,
@@ -97,7 +109,8 @@
         onEvent: { event in onEvent(swiftEvent(from: event)) },
         typefaces: typefaces,
         onError: { message in onError(.playback(message)) },
-        lenient: configuration.compatibility.isLenient
+        lenient: configuration.compatibility.isLenient,
+        editable: inputEditing, onChange: onInputChange, onSubmit: onInputSubmit
       )
     }
   }
@@ -112,6 +125,9 @@
         width: Float = 800,
         height: Float = 600,
         configuration: RemoteComposePlayerConfiguration = .init(),
+        inputEditing: Bool = false,
+        onInputChange: @escaping (String, String) -> Void = { _, _ in },
+        onInputSubmit: @escaping (String, [String: String]) -> Void = { _, _ in },
         downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
         resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
         onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
@@ -132,6 +148,7 @@
               opaque: configuration.background.isOpaque,
               downloadableFontResolver: downloadableFontResolver,
               resourceResolver: resourceResolver,
+              inputs: NativeSwiftInputConfiguration(editable: inputEditing, onChange: onInputChange, onSubmit: onInputSubmit),
               onFontFallback: { onError(.playback($0)) },
               onEvent: { onEvent(RemoteComposePlayerEvent(nativeEvent: $0)) },
               onDiagnostics: { _ in },

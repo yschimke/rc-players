@@ -1,3 +1,5 @@
+import { WebInputComponents, Input } from './InputComponents';
+import type { InputOptions } from './InputComponents';
 // Web player entry point: loads .rcd files and renders them on a Canvas.
 
 import { WireBuffer } from '../core/WireBuffer';
@@ -80,11 +82,13 @@ export class RcdPlayer {
     // player shows. It outlives the documents, so an embed marked `persist` carries across
     // them; a new document retires the rest.
     private customHost = new WebCustomHost();
+    private inputEditing = false;
 
     // Bitmaps the page supplies as video (see setBitmapVideos), for the next document.
     private bitmapVideos: Record<string, string> | null = null;
 
     constructor(canvas: HTMLCanvasElement) {
+        this.customHost.inputs = new WebInputComponents(canvas, { editable: false });
         this.canvas = canvas;
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error('Could not get 2D context');
@@ -407,7 +411,9 @@ export class RcdPlayer {
             const isDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
             theme = isDark ? Theme.DARK : Theme.LIGHT;
         }
+        this.customHost.inputs?.beginFrame();
         this.document.paint(this.remoteContext, theme);
+        this.customHost.inputs?.endFrame();
 
         // Notify variable listener after paint
         if (this.variableListener) {
@@ -451,6 +457,7 @@ export class RcdPlayer {
      * ones.
      */
     destroy(): void {
+        this.customHost.inputs?.dispose();
         this.stop();
         this.canvas.removeEventListener('pointerdown', this.onPointerDown);
         if (this.paintContext) {
@@ -530,6 +537,16 @@ export class RcdPlayer {
      * the page the result; the browser's video pipeline then does the decoding.
      */
     setBitmapVideos(videos: Record<string, string> | null): void { this.bitmapVideos = videos; }
+    /** Versioned capabilities are registered explicitly; read-only hosts keep useful fallbacks. */
+    configureInputs(options: InputOptions): void {
+        this.customHost.inputs?.dispose();
+        this.inputEditing = options.editable;
+        this.customHost.inputs = new WebInputComponents(this.canvas, options);
+        this.repaint();
+    }
+    inputCapabilities(): { components: string[]; editing: boolean } {
+        return { components: this.customHost.inputs ? [Input.TEXT, Input.CHOICE] : [], editing: this.inputEditing };
+    }
     getCustomHost(): WebCustomHost { return this.customHost; }
 
     getDocument(): CoreDocument | null { return this.document; }
@@ -603,3 +620,8 @@ if (typeof window !== 'undefined') {
         customElements.define('rc-player', RcPlayerElement);
     }
 }
+
+export { Input, WebInputComponents } from './InputComponents';
+export type { InputOptions } from './InputComponents';
+
+export { inputDocument } from './InputDocument';

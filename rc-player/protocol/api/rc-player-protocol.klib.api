@@ -2526,6 +2526,34 @@ final class ee.schimke.composeai.rcplayer.protocol/RcIncludeReferencedOperations
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcIncludeReferencedOperations.toString|toString(){}[0]
 }
 
+final class ee.schimke.composeai.rcplayer.protocol/RcInputField { // ee.schimke.composeai.rcplayer.protocol/RcInputField|null[0]
+    constructor <init>(kotlin/String, kotlin/String, kotlin/String = ..., kotlin.collections/List<kotlin/String> = ..., kotlin/Boolean = ..., kotlin/String = ...) // ee.schimke.composeai.rcplayer.protocol/RcInputField.<init>|<init>(kotlin.String;kotlin.String;kotlin.String;kotlin.collections.List<kotlin.String>;kotlin.Boolean;kotlin.String){}[0]
+
+    final val key // ee.schimke.composeai.rcplayer.protocol/RcInputField.key|{}key[0]
+        final fun <get-key>(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcInputField.key.<get-key>|<get-key>(){}[0]
+    final val label // ee.schimke.composeai.rcplayer.protocol/RcInputField.label|{}label[0]
+        final fun <get-label>(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcInputField.label.<get-label>|<get-label>(){}[0]
+    final val multiline // ee.schimke.composeai.rcplayer.protocol/RcInputField.multiline|{}multiline[0]
+        final fun <get-multiline>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcInputField.multiline.<get-multiline>|<get-multiline>(){}[0]
+    final val options // ee.schimke.composeai.rcplayer.protocol/RcInputField.options|{}options[0]
+        final fun <get-options>(): kotlin.collections/List<kotlin/String> // ee.schimke.composeai.rcplayer.protocol/RcInputField.options.<get-options>|<get-options>(){}[0]
+    final val submit // ee.schimke.composeai.rcplayer.protocol/RcInputField.submit|{}submit[0]
+        final fun <get-submit>(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcInputField.submit.<get-submit>|<get-submit>(){}[0]
+    final val value // ee.schimke.composeai.rcplayer.protocol/RcInputField.value|{}value[0]
+        final fun <get-value>(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcInputField.value.<get-value>|<get-value>(){}[0]
+
+    final fun component1(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcInputField.component1|component1(){}[0]
+    final fun component2(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcInputField.component2|component2(){}[0]
+    final fun component3(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcInputField.component3|component3(){}[0]
+    final fun component4(): kotlin.collections/List<kotlin/String> // ee.schimke.composeai.rcplayer.protocol/RcInputField.component4|component4(){}[0]
+    final fun component5(): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcInputField.component5|component5(){}[0]
+    final fun component6(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcInputField.component6|component6(){}[0]
+    final fun copy(kotlin/String = ..., kotlin/String = ..., kotlin/String = ..., kotlin.collections/List<kotlin/String> = ..., kotlin/Boolean = ..., kotlin/String = ...): ee.schimke.composeai.rcplayer.protocol/RcInputField // ee.schimke.composeai.rcplayer.protocol/RcInputField.copy|copy(kotlin.String;kotlin.String;kotlin.String;kotlin.collections.List<kotlin.String>;kotlin.Boolean;kotlin.String){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcInputField.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcInputField.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcInputField.toString|toString(){}[0]
+}
+
 final class ee.schimke.composeai.rcplayer.protocol/RcIntegerConstant : ee.schimke.composeai.rcplayer.protocol/RcOperation { // ee.schimke.composeai.rcplayer.protocol/RcIntegerConstant|null[0]
     constructor <init>(kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcplayer.protocol/RcIntegerConstant.<init>|<init>(kotlin.Int;kotlin.Int){}[0]
 
@@ -4723,6 +4751,30 @@ final object ee.schimke.composeai.rcplayer.protocol/RcImpulseProcess : ee.schimk
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcImpulseProcess.toString|toString(){}[0]
 }
 
+final object ee.schimke.composeai.rcplayer.protocol/RcInput { // ee.schimke.composeai.rcplayer.protocol/RcInput|null[0]
+    final const val CHOICE // ee.schimke.composeai.rcplayer.protocol/RcInput.CHOICE|{}CHOICE[0]
+        final fun <get-CHOICE>(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcInput.CHOICE.<get-CHOICE>|<get-CHOICE>(){}[0]
+    final const val KEY // ee.schimke.composeai.rcplayer.protocol/RcInput.KEY|{}KEY[0]
+        final fun <get-KEY>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcInput.KEY.<get-KEY>|<get-KEY>(){}[0]
+    final const val LABEL // ee.schimke.composeai.rcplayer.protocol/RcInput.LABEL|{}LABEL[0]
+        final fun <get-LABEL>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcInput.LABEL.<get-LABEL>|<get-LABEL>(){}[0]
+    final const val MULTILINE // ee.schimke.composeai.rcplayer.protocol/RcInput.MULTILINE|{}MULTILINE[0]
+        final fun <get-MULTILINE>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcInput.MULTILINE.<get-MULTILINE>|<get-MULTILINE>(){}[0]
+    final const val OPTIONS // ee.schimke.composeai.rcplayer.protocol/RcInput.OPTIONS|{}OPTIONS[0]
+        final fun <get-OPTIONS>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcInput.OPTIONS.<get-OPTIONS>|<get-OPTIONS>(){}[0]
+    final const val SUBMIT // ee.schimke.composeai.rcplayer.protocol/RcInput.SUBMIT|{}SUBMIT[0]
+        final fun <get-SUBMIT>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcInput.SUBMIT.<get-SUBMIT>|<get-SUBMIT>(){}[0]
+    final const val TEXT // ee.schimke.composeai.rcplayer.protocol/RcInput.TEXT|{}TEXT[0]
+        final fun <get-TEXT>(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcInput.TEXT.<get-TEXT>|<get-TEXT>(){}[0]
+    final const val VALUE // ee.schimke.composeai.rcplayer.protocol/RcInput.VALUE|{}VALUE[0]
+        final fun <get-VALUE>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcInput.VALUE.<get-VALUE>|<get-VALUE>(){}[0]
+    final const val VALUE_RETURN // ee.schimke.composeai.rcplayer.protocol/RcInput.VALUE_RETURN|{}VALUE_RETURN[0]
+        final fun <get-VALUE_RETURN>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcInput.VALUE_RETURN.<get-VALUE_RETURN>|<get-VALUE_RETURN>(){}[0]
+
+    final val configs // ee.schimke.composeai.rcplayer.protocol/RcInput.configs|{}configs[0]
+        final fun <get-configs>(): kotlin.collections/Set<kotlin/String> // ee.schimke.composeai.rcplayer.protocol/RcInput.configs.<get-configs>|<get-configs>(){}[0]
+}
+
 final object ee.schimke.composeai.rcplayer.protocol/RcOpcodes { // ee.schimke.composeai.rcplayer.protocol/RcOpcodes|null[0]
     final const val ACCESSIBILITY_SEMANTICS // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.ACCESSIBILITY_SEMANTICS|{}ACCESSIBILITY_SEMANTICS[0]
         final fun <get-ACCESSIBILITY_SEMANTICS>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.ACCESSIBILITY_SEMANTICS.<get-ACCESSIBILITY_SEMANTICS>|<get-ACCESSIBILITY_SEMANTICS>(){}[0]
@@ -5223,3 +5275,4 @@ final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.compose
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.protocol/referencesContinuousSystemVariable(): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/referencesContinuousSystemVariable|referencesContinuousSystemVariable@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.protocol/referencesMovingSystemVariable(): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/referencesMovingSystemVariable|referencesMovingSystemVariable@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.protocol/supportReport(): ee.schimke.composeai.rcplayer.protocol/RcDocumentSupport // ee.schimke.composeai.rcplayer.protocol/supportReport|supportReport@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
+final fun ee.schimke.composeai.rcplayer.protocol/rcInputDocument(kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcInputField>, kotlin/Int = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.protocol/rcInputDocument|rcInputDocument(kotlin.collections.List<ee.schimke.composeai.rcplayer.protocol.RcInputField>;kotlin.Int){}[0]

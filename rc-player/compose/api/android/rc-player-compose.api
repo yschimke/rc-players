@@ -284,6 +284,11 @@ public final class ee/schimke/composeai/rcplayer/compose/RcImageLoaderKt {
 	public static final fun rememberCoilRcImageLoader (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rcplayer/compose/RcImageLoader;
 }
 
+public final class ee/schimke/composeai/rcplayer/compose/RcInputComponentsKt {
+	public static final fun rcInputComponents (Lee/schimke/composeai/rcplayer/runtime/RcInputDrafts;ZLkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;)Lee/schimke/composeai/rcplayer/compose/RcCustomComponentRegistry;
+	public static synthetic fun rcInputComponents$default (Lee/schimke/composeai/rcplayer/runtime/RcInputDrafts;ZLkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcCustomComponentRegistry;
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcLayoutAnimationsKt {
 	public static final fun getLocalRcLayoutAnimations ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 }

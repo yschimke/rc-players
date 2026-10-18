@@ -81,12 +81,78 @@ public fun RcComposeWindow(
   soundHost: RcSoundHost,
   imageLoader: RcImageLoader,
 ): Unit {
+  createRcComposeWindow(
+    bytes,
+    title,
+    width,
+    height,
+    theme,
+    onEvent,
+    typefaces,
+    onError,
+    lenient,
+    soundHost,
+    imageLoader,
+    rcInputComponents(ee.schimke.composeai.rcplayer.runtime.RcInputDrafts()),
+  )
+}
+
+/** Input-capable macOS window; all actions still belong to the authenticated host. */
+public fun RcComposeInputWindow(
+  bytes: ByteArray,
+  title: String,
+  width: Float,
+  height: Float,
+  theme: RcPlayerTheme,
+  onEvent: (RcPlayerEvent) -> Unit,
+  typefaces: RcTypefaceLoader,
+  onError: (String) -> Unit,
+  lenient: Boolean,
+  editable: Boolean,
+  onChange: (String, String) -> Unit,
+  onSubmit: (String, Map<String, String>) -> Unit,
+): Unit =
+  createRcComposeWindow(
+    bytes,
+    title,
+    width,
+    height,
+    theme,
+    onEvent,
+    typefaces,
+    onError,
+    lenient,
+    RcSoundHost.None,
+    RcImageLoader.Default,
+    rcInputComponents(
+      ee.schimke.composeai.rcplayer.runtime.RcInputDrafts(),
+      editable,
+      onChange,
+      onSubmit,
+    ),
+  )
+
+private fun createRcComposeWindow(
+  bytes: ByteArray,
+  title: String,
+  width: Float,
+  height: Float,
+  theme: RcPlayerTheme,
+  onEvent: (RcPlayerEvent) -> Unit,
+  typefaces: RcTypefaceLoader,
+  onError: (String) -> Unit,
+  lenient: Boolean,
+  soundHost: RcSoundHost,
+  imageLoader: RcImageLoader,
+  inputs: RcCustomComponentRegistry,
+) {
   val document = runCatching {
     decodeCmpDocument(bytes).also {
       it
         .composeSupportReport(
           RcOperationProfiles.CMP_MACOS_ALPHA18,
           availableFontFamilies = typefaces.families,
+          availableCustomComponents = inputs.names,
           allowExternalImagePlaceholders = imageLoader !== RcImageLoader.Empty,
         )
         .requireRenderable(lenient)
@@ -108,6 +174,7 @@ public fun RcComposeWindow(
         theme,
         onEvent = onEvent,
         typefaces = typefaces,
+        customComponents = inputs,
       )
     }
   }

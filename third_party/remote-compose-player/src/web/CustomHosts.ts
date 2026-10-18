@@ -17,6 +17,8 @@
 // Documents and videos are fetched relative to the host page unless the page supplies a
 // resolver (a deck opened off the disk cannot fetch, so its files travel inside the page).
 
+import type { CustomComponent } from '../core/CustomComponentHost';
+import { WebInputComponents } from './InputComponents';
 import type { CustomComponentHost } from '../core/CustomComponentHost';
 import type { PaintContext } from '../core/PaintContext';
 import { CoreDocument } from '../core/CoreDocument';
@@ -123,6 +125,7 @@ interface CameraFeed {
 }
 
 export class WebCustomHost implements CustomComponentHost {
+    inputs: WebInputComponents | null = null;
     private docs = new Map<string, NestedDoc>();
     private videos = new Map<string, VideoEmbed>();
     private camera: CameraFeed | null = null;
@@ -168,8 +171,9 @@ export class WebCustomHost implements CustomComponentHost {
     }
 
     drawCustom(_componentId: number, config: string, pc: PaintContext,
-               w: number, h: number, timeSec: number): boolean {
+               w: number, h: number, timeSec: number, component?: CustomComponent): boolean {
         if (w <= 0 || h <= 0) return false;
+        if (this.inputs?.draw(_componentId, config, pc, w, h, component)) return true;
         const cfg = parseEmbedConfig(config, this.defaultFit);
         if (!cfg.path) return false;
         if (cfg.kind === 'video') return this.drawVideo(cfg, pc, w, h);
