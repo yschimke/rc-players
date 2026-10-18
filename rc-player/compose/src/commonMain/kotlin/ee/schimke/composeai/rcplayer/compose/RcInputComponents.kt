@@ -125,8 +125,10 @@ public fun rcInputComponents(
         focus.clearFocus()
       }
     }
-    Column(modifier.padding(8.dp)) {
-      BasicText(label)
+    val plain = component.integer(RcInput.CHROME) == 1
+    val inset = if (plain) 0.dp else 8.dp
+    Column(modifier.padding(inset)) {
+      if (!plain) BasicText(label)
       if (!writable) {
         BasicText(currentValue)
         BasicText(if (!fieldEnabled) "Unavailable" else "Open in app to edit")
@@ -138,7 +140,7 @@ public fun rcInputComponents(
               role = Role.Switch,
               onValueChange = { change(it.toString()) },
             )
-            .padding(8.dp)
+            .padding(inset)
         ) {
           BasicText(if (controlValue == "true") "On" else "Off")
         }
@@ -171,7 +173,9 @@ public fun rcInputComponents(
         SideEffect { if (selected != currentValue) selected = currentValue }
         BasicText(
           selected.ifEmpty { "Choose…" },
-          Modifier.clickable { expanded = !expanded }.padding(8.dp),
+          Modifier.semantics { contentDescription = label }
+            .clickable { expanded = !expanded }
+            .padding(inset),
         )
         if (expanded) {
           androidx.compose.ui.window.Popup(
@@ -234,7 +238,7 @@ public fun rcInputComponents(
           modifier =
             Modifier.fillMaxWidth()
               .semantics { contentDescription = label }
-              .padding(vertical = 8.dp),
+              .padding(vertical = inset),
         )
       }
       if (writable && !valid)
@@ -242,7 +246,7 @@ public fun rcInputComponents(
       if (writable && action.isNotBlank())
         BasicText(
           component.text(RcInput.SUBMIT_LABEL, "Send").ifEmpty { "Send" },
-          Modifier.clickable(onClick = submit).padding(8.dp),
+          Modifier.clickable(onClick = submit).padding(inset),
         )
     }
   }

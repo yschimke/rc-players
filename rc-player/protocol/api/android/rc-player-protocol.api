@@ -1889,6 +1889,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcIncludeReferencedOpe
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcInput {
 	public static final field CHOICE Ljava/lang/String;
+	public static final field CHROME I
 	public static final field ENABLED I
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/protocol/RcInput;
 	public static final field KEY I
@@ -1909,6 +1910,15 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcInput {
 	public final fun getConfigs ()Ljava/util/Set;
 }
 
+public final class ee/schimke/composeai/rcplayer/protocol/RcInputChrome : java/lang/Enum {
+	public static final field DEFAULT Lee/schimke/composeai/rcplayer/protocol/RcInputChrome;
+	public static final field NONE Lee/schimke/composeai/rcplayer/protocol/RcInputChrome;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireValue ()I
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/protocol/RcInputChrome;
+	public static fun values ()[Lee/schimke/composeai/rcplayer/protocol/RcInputChrome;
+}
+
 public final class ee/schimke/composeai/rcplayer/protocol/RcInputCreationKt {
 	public static final fun rcInputComponent (Lee/schimke/composeai/rcplayer/protocol/RcInputField;II)Ljava/util/List;
 	public static final fun rcInputValueIsValid (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;)Z
@@ -1922,12 +1932,13 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcInputDocumentKt {
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcInputField {
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputKind;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;ZLjava/lang/String;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputKind;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;ZLjava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputKind;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputChrome;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputKind;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputChrome;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component10 ()Ljava/lang/Double;
 	public final fun component11 ()Z
 	public final fun component12 ()Ljava/lang/String;
+	public final fun component13 ()Lee/schimke/composeai/rcplayer/protocol/RcInputChrome;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
 	public final fun component4 ()Ljava/util/List;
@@ -1936,9 +1947,10 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcInputField {
 	public final fun component7 ()Lee/schimke/composeai/rcplayer/protocol/RcInputKind;
 	public final fun component8 ()Ljava/lang/Double;
 	public final fun component9 ()Ljava/lang/Double;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputKind;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;ZLjava/lang/String;)Lee/schimke/composeai/rcplayer/protocol/RcInputField;
-	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/protocol/RcInputField;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputKind;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;ZLjava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcInputField;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputKind;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputChrome;)Lee/schimke/composeai/rcplayer/protocol/RcInputField;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/protocol/RcInputField;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputKind;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Double;ZLjava/lang/String;Lee/schimke/composeai/rcplayer/protocol/RcInputChrome;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcInputField;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getChrome ()Lee/schimke/composeai/rcplayer/protocol/RcInputChrome;
 	public final fun getEnabled ()Z
 	public final fun getKey ()Ljava/lang/String;
 	public final fun getKind ()Lee/schimke/composeai/rcplayer/protocol/RcInputKind;

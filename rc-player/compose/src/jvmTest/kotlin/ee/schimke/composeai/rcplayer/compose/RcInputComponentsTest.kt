@@ -38,9 +38,19 @@ class RcInputComponentsTest {
         assertEquals("message" to "Hello 🏡", events.last())
         document.value =
           rcInputDocument(
-            listOf(RcInputField("message", "Message", "stale live state", submit = "configured"))
+            listOf(
+              RcInputField(
+                "message",
+                "Message",
+                "stale live state",
+                submit = "configured",
+                chrome = RcInputChrome.NONE,
+              )
+            )
           )
       }
+      onNodeWithText("Message").assertDoesNotExist()
+      onNode(hasContentDescription("Message")).assertIsFocused()
       onNode(hasSetTextAction()).assertTextEquals("Hello 🏡")
       onNode(hasSetTextAction()).performImeAction()
       runOnIdle { assertEquals(listOf(mapOf("message" to "Hello 🏡")), submissions) }

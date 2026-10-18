@@ -1,8 +1,10 @@
 /** Must match RcInput in rc-player-protocol. No new wire opcode or property type. */
 export const Input = Object.freeze({ TEXT: 'rc:input/text:v1', CHOICE: 'rc:input/choice:v1',
     TOGGLE: 'rc:input/toggle:v1', NUMBER: 'rc:input/number:v1', RANGE: 'rc:input/range:v1',
-    VALUE: 1, VALUE_RETURN: 2, KEY: 3, LABEL: 4, MULTILINE: 5, OPTIONS: 6, SUBMIT: 7, MIN: 8, MAX: 9, STEP: 10, ENABLED: 11, SUBMIT_LABEL: 12 });
+    VALUE: 1, VALUE_RETURN: 2, KEY: 3, LABEL: 4, MULTILINE: 5, OPTIONS: 6, SUBMIT: 7, MIN: 8, MAX: 9, STEP: 10, ENABLED: 11, SUBMIT_LABEL: 12, CHROME: 13 });
 
+export const InputChrome = Object.freeze({ DEFAULT: 0, NONE: 1 });
+export type InputChromeStyle = 'default' | 'none';
 export type InputKind = 'text' | 'choice' | 'toggle' | 'number' | 'range';
 export const inputConfigs: readonly string[] = [Input.TEXT, Input.CHOICE, Input.TOGGLE, Input.NUMBER, Input.RANGE];
 export function inputValueIsValid(config: string, value: string, options: string[] = [], minimum?: number, maximum?: number, step?: number): boolean {

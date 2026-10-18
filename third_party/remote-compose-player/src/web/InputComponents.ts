@@ -3,7 +3,7 @@ import type { PaintContext } from '../core/PaintContext';
 import { CanvasPaintContext } from './CanvasPaintContext';
 import { mapInputPoint, inverseInputPoint, intersectInputClip } from './InputGeometry';
 
-import { Input, inputConfigs, inputValueIsValid } from './InputContract';
+import { Input, InputChrome, inputConfigs, inputValueIsValid } from './InputContract';
 export { Input } from './InputContract';
 export interface InputOptions {
     /** Opt in only for authenticated interactive hosts; false for widgets/read-only/demo hosts. */
@@ -34,6 +34,12 @@ export class WebInputComponents {
     private fields = new Map<string, {component:CustomComponent,config:string}>();
     private hitContext: CanvasRenderingContext2D | null = null;
     private drafts: Map<string, string>;
+    private canvasExport = false;
+    /** Include transparent editor text only while capturing; otherwise DOM would draw it twice. */
+    withCanvasExport<T>(capture: () => T): T {
+        this.canvasExport = true;
+        try { return capture(); } finally { this.canvasExport = false; }
+    }
     constructor(private canvas: HTMLCanvasElement, private options: InputOptions) {
         this.drafts = options.drafts ?? new Map();
     }
@@ -57,6 +63,22 @@ export class WebInputComponents {
     private paintControl(context: CanvasRenderingContext2D, component: CustomComponent, config: string, value: string, writable: boolean, width: number, height: number): void {
         context.save();
         context.beginPath();context.rect(0,0,width,height);context.clip();
+        const plain = component.integer(Input.CHROME) === InputChrome.NONE;
+        if (plain) {
+            context.font='14px system-ui';context.textBaseline='top';context.fillStyle='#202124';
+            if (!writable) context.fillText(`${value} · ${component.integer(Input.ENABLED,1) === 1 ? 'Open in app to edit' : 'Unavailable'}`,0,0,width);
+            else if (config === Input.TOGGLE) {context.strokeStyle='#555';context.strokeRect(0,4,18,18);if(value === 'true') context.fillText('✓',2,3);}
+            else if (config === Input.RANGE) {
+                const fraction=Math.max(0,Math.min(1,(Number(value)-Number(component.text(Input.MIN)))/(Number(component.text(Input.MAX))-Number(component.text(Input.MIN)))));
+                context.fillStyle='#bbb';context.fillRect(7,13,Math.max(0,width-14),4);
+                context.fillStyle='#1565c0';context.beginPath();context.arc(7+(fraction || 0)*Math.max(0,width-14),15,7,0,Math.PI*2);context.fill();
+            } else {
+                value.split('\n').forEach((line,i)=>context.fillText(line,0,i*18,width-16));
+                if(config === Input.CHOICE) context.fillText('▾',Math.max(0,width-16),0);
+            }
+            if(writable && component.text(Input.SUBMIT)) context.fillText(component.text(Input.SUBMIT_LABEL) || 'Send',0,height-23,width);
+            context.restore();return;
+        }
         context.fillStyle='#fff';context.fillRect(0,0,width,height);
         context.font='14px system-ui';context.textBaseline='top';context.fillStyle='#202124';
         const label=component.text(Input.LABEL);
@@ -188,6 +210,23 @@ export class WebInputComponents {
             }
         }
         entry.component = component;
+        const plain = component.integer(Input.CHROME) === InputChrome.NONE;
+        entry.root.style.padding = plain ? '0' : '6px';
+        entry.root.style.background = plain ? 'transparent' : 'var(--card-background-color,white)';
+        if (entry.caption) {entry.caption.hidden = plain;entry.caption.style.display = plain ? 'none' : 'block';}
+        if (entry.control) {
+            entry.control.setAttribute('aria-label',component.text(Input.LABEL));
+            // Keep native focus rings and intrinsic select/checkbox/range indicators.
+            entry.control.style.border = plain ? '0' : '';
+            entry.control.style.background = plain ? 'transparent' : '';
+            entry.control.style.padding = plain ? '0' : '';
+            entry.control.style.boxShadow = plain ? 'none' : '';
+        }
+        if(entry.submitButton) {
+            entry.submitButton.style.border = plain ? '0' : '';
+            entry.submitButton.style.background = plain ? 'transparent' : '';
+            entry.submitButton.style.padding = plain ? '0' : '';
+        }
         if (entry.submitButton) entry.submitButton.textContent=component.text(Input.SUBMIT_LABEL) || 'Send';
         if (entry.caption) entry.caption.textContent = config === Input.RANGE ? `${component.text(Input.LABEL)}: ${this.drafts.get(storeKey) ?? component.text(Input.VALUE)}` : component.text(Input.LABEL);
         const value = this.drafts.get(storeKey) ?? component.text(Input.VALUE);
@@ -209,7 +248,7 @@ export class WebInputComponents {
             if (entry.control.value !== value) entry.control.value = value;
             if (component.text(Input.VALUE) !== value) component.returnText(Input.VALUE_RETURN, value);
         } else entry.root.textContent = `${component.text(Input.LABEL)}: ${value} · ${component.integer(Input.ENABLED, 1) !== 1 ? "Unavailable" : "Open in app to edit"}`;
-        this.paintControl(context,component,config,value,writable,w,h);
+        if (!plain || this.canvasExport) this.paintControl(context,component,config,value,writable,w,h);
         if (restoreFocus) entry.control?.focus();
         const m = matrix;
         entry.root.hidden = !polygon.length || context.globalAlpha <= 0;

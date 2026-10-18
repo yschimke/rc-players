@@ -51,6 +51,7 @@ public fun RemoteInput(
       property(RcInput.STEP, field.step?.toString().orEmpty())
       property(RcInput.ENABLED, if (field.enabled) 1 else 0)
       property(RcInput.SUBMIT_LABEL, field.submitLabel)
+      property(RcInput.CHROME, field.chrome.wireValue)
     },
   )
 }

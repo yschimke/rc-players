@@ -2425,6 +2425,7 @@ private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSText
   private let field = NSTextField()
   private let multiline = NSTextView()
   private let scroll = NSScrollView()
+  private var inputWidths: [NSLayoutConstraint] = []
   private let choice = NSPopUpButton()
   private let toggle = NSButton(checkboxWithTitle: "", target: nil, action: nil)
   private let range = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
@@ -2463,7 +2464,8 @@ private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSText
     multiline.textContainer?.widthTracksTextView = true
     [caption, fallback, field, scroll, choice, toggle, range, validation, send].forEach(addArrangedSubview)
     for control in [field, scroll, choice, range] as [NSView] {
-      control.widthAnchor.constraint(equalTo: widthAnchor, constant: -16).isActive = true
+      let width = control.widthAnchor.constraint(equalTo: widthAnchor, constant: -16)
+      width.isActive = true; inputWidths.append(width)
     }
     scroll.heightAnchor.constraint(equalToConstant: 64).isActive = true
     field.delegate = self; field.target = self; field.action = #selector(submit)
@@ -2478,6 +2480,14 @@ private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSText
   func update(_ snapshot: NativeSwiftCustomSnapshot?) { if let snapshot { self.snapshot = snapshot }; refresh() }
   func refresh() {
     let value = owner?.inputConfiguration.drafts.value(for: key, documentValue: text(NativeSwiftInput.value)) ?? text(NativeSwiftInput.value)
+    let plain = snapshot.properties.first { $0.id == NativeSwiftInput.chrome }?.integerValue == NativeSwiftInput.ChromeMode.none.rawValue
+    edgeInsets = plain ? NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0) : NSEdgeInsets(top: 6, left: 8, bottom: 6, right: 8)
+    inputWidths.forEach { $0.constant = plain ? 0 : -16 }
+    caption.isHidden = plain
+    field.isBordered = !plain; field.isBezeled = !plain; field.drawsBackground = !plain
+    choice.isBordered = !plain; send.isBordered = !plain
+    scroll.drawsBackground = !plain; multiline.drawsBackground = !plain
+    multiline.textContainer?.lineFragmentPadding = plain ? 0 : 5
     caption.stringValue = text(NativeSwiftInput.label)
     field.setAccessibilityLabel(caption.stringValue); choice.setAccessibilityLabel(caption.stringValue)
     multiline.setAccessibilityLabel(caption.stringValue)
@@ -2516,8 +2526,15 @@ private final class NativeMacInputView: NSStackView, NSTextFieldDelegate, NSText
   private func change(_ value: String) {
     guard writable, let owner else { return }
     // Store before refreshing: the replacement snapshot must see the new host-owned draft.
+    let previous = owner.inputConfiguration.drafts.value(for: key, documentValue: text(NativeSwiftInput.value))
     owner.inputConfiguration.drafts.update(value, for: key)
     if owner.returnInput(value, componentID: componentID) { owner.inputConfiguration.onChange(key, value) }
+    else {
+      owner.inputConfiguration.drafts.update(previous, for: key)
+      field.currentEditor()?.string = previous
+      multiline.string = previous
+      refresh()
+    }
   }
   func controlTextDidChange(_ notification: Notification) { change(field.stringValue) }
   func textDidChange(_ notification: Notification) { change(multiline.string) }

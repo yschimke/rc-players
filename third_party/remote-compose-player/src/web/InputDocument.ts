@@ -1,10 +1,10 @@
 import { WireBuffer } from '../core/WireBuffer';
 import { Header } from '../core/operations/Header';
 import { Input, inputValueIsValid } from './InputContract';
-import type { InputKind } from './InputContract';
+import type { InputKind, InputChromeStyle } from './InputContract';
 
 export interface InputField {
-    key: string; label: string; value?: string; options?: string[]; multiline?: boolean; submit?: string; kind?: InputKind; minimum?: number; maximum?: number; step?: number; enabled?: boolean; submitLabel?: string;
+    key: string; label: string; value?: string; options?: string[]; multiline?: boolean; submit?: string; kind?: InputKind; minimum?: number; maximum?: number; step?: number; enabled?: boolean; submitLabel?: string; chrome?: InputChromeStyle;
 }
 /** Same LAYOUT_CUSTOM stream as rcInputDocument; no HTML control is authored in the card host. */
 export function inputDocument(fields: InputField[], width = 360): ArrayBuffer {
@@ -12,7 +12,7 @@ export function inputDocument(fields: InputField[], width = 360): ArrayBuffer {
         !Number.isInteger(width) || width <= 0 || fields.some(f => !f.key.trim() || !f.label.trim() || f.options?.some(o => !o || o.includes('\n')))) throw new Error('Invalid input fields');
     const configs=fields.map(f=> f.kind ? ({text:Input.TEXT,choice:Input.CHOICE,toggle:Input.TOGGLE,number:Input.NUMBER,range:Input.RANGE})[f.kind] : f.options?.length ? Input.CHOICE : Input.TEXT);
     fields.forEach((f,i)=>{
-        if (!configs[i] || f.multiline && configs[i] !== Input.TEXT ||
+        if (f.chrome !== undefined && f.chrome !== 'default' && f.chrome !== 'none' || !configs[i] || f.multiline && configs[i] !== Input.TEXT ||
             (configs[i] === Input.CHOICE ? !f.options?.length : !!f.options?.length) ||
             (f.options && new Set(f.options).size !== f.options.length) ||
             ![Input.NUMBER,Input.RANGE].some(kind=>kind === configs[i]) && [f.minimum,f.maximum,f.step].some(v=>v !== undefined) ||
@@ -39,8 +39,8 @@ export function inputDocument(fields: InputField[], width = 360): ArrayBuffer {
     dim(16, 1, 1); dim(67, 2, 0); op(201, 4);
     fields.forEach((f, i) => {
         const base = 100 + i * 16;
-        op(93, 10 + i, 0, base, 12);
-        for (const [type, dataType, value] of [[1,2,base+1], [2,4,base+1], [3,2,base+2], [4,2,base+3], [5,0,f.multiline?1:0], [6,2,base+4], [7,2,base+5], [8,2,base+6], [9,2,base+7], [10,2,base+8], [11,0,f.enabled === false ? 0 : 1], [12,2,base+9]]) {
+        op(93, 10 + i, 0, base, 13);
+        for (const [type, dataType, value] of [[1,2,base+1], [2,4,base+1], [3,2,base+2], [4,2,base+3], [5,0,f.multiline?1:0], [6,2,base+4], [7,2,base+5], [8,2,base+6], [9,2,base+7], [10,2,base+8], [11,0,f.enabled === false ? 0 : 1], [12,2,base+9], [13,0,f.chrome === 'none' ? 1 : 0]]) {
             b.writeShort(type); b.writeShort(dataType); b.writeInt(value);
         }
         dim(16, 1, 1); dim(67, 0, height(f)); op(214);

@@ -177,3 +177,31 @@ test('unknown input versions use a canvas alternative without fetching an embedd
     assert.deepEqual(result,{fetches:0,painted:true,visible:true});
   } finally {await browser.close();}
 });
+
+test('chrome none keeps themed surroundings, accessible editing, focus and canvas transparency across updates', async () => {
+  const browser=await chromium.launch({headless:true});
+  try {
+    const page=await browser.newPage();
+    await page.setContent('<style>body{margin:0}#host{position:relative;background:#fde9bd}canvas{display:block}</style><div id="host"><canvas width="240" height="120"></canvas></div>');
+    await page.addScriptTag({content:readFileSync(process.env.RC_INPUT_HARNESS_JS,'utf8')});
+    await page.evaluate(()=>{
+      const {CanvasPaintContext,WebInputComponents,Input}=InputTest;
+      window.pc=new CanvasPaintContext(null,document.querySelector('canvas').getContext('2d'));
+      window.inputs=new WebInputComponents(document.querySelector('canvas'),{editable:true});
+      window.mode=0;
+      window.draw=()=>{pc.getCanvas().clearRect(0,0,240,120);inputs.beginFrame();inputs.draw(1,Input.TEXT,pc,240,120,{text:p=>({[Input.KEY]:'message',[Input.LABEL]:'Message',[Input.VALUE]:'Initial'})[p]??'',integer:(p,f=0)=>p===Input.CHROME?mode:f,canReturnText:()=>true,returnText:()=>true});inputs.endFrame();};draw();
+      window.editor=document.querySelector('input');
+    });
+    const field=page.getByRole('textbox',{name:'Message',exact:true});
+    await field.fill('Keep my draft');
+    await field.evaluate(e=>e.setSelectionRange(2,6));
+    await page.evaluate(()=>{mode=1;draw();});
+    assert.deepEqual(await field.evaluate(e=>({same:e===editor,focused:e===document.activeElement,value:e.value,start:e.selectionStart,end:e.selectionEnd,border:getComputedStyle(e).borderWidth,padding:getComputedStyle(e.parentElement.parentElement).padding,caption:getComputedStyle(e.previousElementSibling).display,background:getComputedStyle(e.parentElement.parentElement).backgroundColor})),{same:true,focused:true,value:'Keep my draft',start:2,end:6,border:'0px',padding:'0px',caption:'none',background:'rgba(0, 0, 0, 0)'});
+    assert.equal(await page.evaluate(()=>pc.getCanvas().getImageData(239,119,1,1).data[3]),0,'normal canvas leaves the transparent DOM control undoubled');
+    assert(await page.evaluate(()=>inputs.withCanvasExport(()=>{draw();const bytes=pc.getCanvas().getImageData(0,0,240,120).data;return bytes.some((v,i)=>i%4===3 && v>0);})), 'export includes the borderless editor text');
+    assert.equal(await page.evaluate(()=>pc.getCanvas().getImageData(239,119,1,1).data[3]),0,'export background stays transparent');
+    await page.evaluate(()=>{mode=99;draw();});
+    assert.equal(await field.evaluate(e=>e.previousElementSibling.hidden),false,'unknown styles use default chrome');
+    assert.equal(await page.evaluate(()=>pc.getCanvas().getImageData(239,119,1,1).data[3]),255);
+  } finally {await browser.close();}
+});

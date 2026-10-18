@@ -14,6 +14,7 @@ public data class RcInputField(
   val step: Double? = null,
   val enabled: Boolean = true,
   val submitLabel: String = "Send",
+  val chrome: RcInputChrome = RcInputChrome.DEFAULT,
 )
 
 /** Small document producer shared by interactive hosts. Widget hosts author their own link UI. */

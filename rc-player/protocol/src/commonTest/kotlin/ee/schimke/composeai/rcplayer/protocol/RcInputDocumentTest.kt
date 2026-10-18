@@ -15,6 +15,7 @@ class RcInputDocumentTest {
             "Hello 🏡\nRoom",
             multiline = true,
             submit = "configured-action",
+            chrome = RcInputChrome.NONE,
           ),
         )
       )
@@ -26,6 +27,10 @@ class RcInputDocumentTest {
     )
     val components = document.operations.filterIsInstance<RcCustomLayout>()
     assertEquals(2, components.size)
+    assertEquals(
+      listOf(0, 1),
+      components.map { it.properties.single { p -> p.type == RcInput.CHROME }.intValue },
+    )
     components.forEach { component ->
       val read = component.properties.single { it.type == RcInput.VALUE }
       val write = component.properties.single { it.type == RcInput.VALUE_RETURN }

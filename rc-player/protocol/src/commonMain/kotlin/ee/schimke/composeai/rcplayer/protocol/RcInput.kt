@@ -26,5 +26,7 @@ public object RcInput {
   public const val ENABLED: Int = 11
   /** Optional STRING_PROP action button caption; absent/empty retains the v1 default Send. */
   public const val SUBMIT_LABEL: Int = 12
+  /** INT_PROP: DEFAULT (0, also absent/unknown) or NONE (1), preserving accessible labels. */
+  public const val CHROME: Int = 13
   public val configs: Set<String> = setOf(TEXT, CHOICE, TOGGLE, NUMBER, RANGE)
 }

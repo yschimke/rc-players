@@ -29,6 +29,7 @@ renderer, and the host must separately opt into editing. Registration does not g
 | 10 STEP | STRING_PROP | Optional positive finite JSON-number string step; origin MIN or zero |
 | 11 ENABLED | INT_PROP | Absent/1 = available subject to host policy; other values disable |
 | 12 SUBMIT_LABEL | STRING_PROP | Optional action button caption; absent/empty = Send |
+| 13 CHROME | INT_PROP | 0 default; 1 none; absent/unknown = default |
 
 Dates/times, secrets/passwords, rich text, multi-select and arbitrary entity autocomplete
 are outside this version. Exact money/large-integer arithmetic is also outside the numeric contract;
@@ -201,3 +202,20 @@ The shipped macOS convenience window exposes the same explicit input callbacks t
 `RcComposeInputWindow` / Swift `RemoteComposePlayerWindow.open(inputEditing:onInputChange:onInputSubmit:)`;
 ordinary windows install the read-only registry. UIKit controller input configuration is applied
 before attaching its view controller.
+
+## Author-owned chrome
+
+`RcInputs.text("message", "Message", multiline = true).copy(chrome = RcInputChrome.NONE)`
+works with both `RemoteInput` and `rcInputComponent`; place that component inside your own Remote
+Box with themed background, border, padding and visible label. In TypeScript use
+`{key: 'message', label: 'Message', multiline: true, chrome: 'none'}` with `inputDocument`.
+The control remains transparent and omits its generic border, padding and visible caption.
+LABEL still supplies the accessible name. Authors must supply a visible label in their wrapper.
+Intrinsic choice menus, toggle/slider indicators, keyboard focus feedback, selection, validation and
+unsupported-host alternatives remain. Chrome changes do not replace an active editor or alter drafts.
+
+The property is optional and additive within v1. Existing players ignore it and draw default chrome;
+release the updated players before depending on a borderless themed appearance. It grants no write
+permission and does not override the widget/demo/read-only policy. Canvas exports honor transparency.
+See `renders/rc-input-chrome` and `scripts/rc-input-message/capture-chrome.mjs` for actual default/none
+renders of the same message control inside author-owned chrome.

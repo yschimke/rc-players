@@ -19,7 +19,7 @@ class RemoteInputTest {
   fun publishedCreationHelperCapturesEveryControlWithTypedReturnBindings() = runBlocking {
     val fields =
       listOf(
-        RcInputs.text("message", "Message"),
+        RcInputs.text("message", "Message").copy(chrome = RcInputChrome.NONE),
         RcInputs.choice("room", "Room", listOf("Kitchen"), "Kitchen"),
         RcInputs.toggle("urgent", "Urgent"),
         RcInputs.number("temperature", "Temperature", 21.5),
@@ -41,6 +41,10 @@ class RemoteInputTest {
     )
     val controls = doc.operations.filterIsInstance<RcCustomLayout>()
     assertEquals(5, controls.size)
+    assertEquals(
+      listOf(1, 0, 0, 0, 0),
+      controls.map { it.properties.single { p -> p.type == RcInput.CHROME }.intValue },
+    )
     controls.forEach { control ->
       val value = control.properties.single { it.type == RcInput.VALUE }
       val returned = control.properties.single { it.type == RcInput.VALUE_RETURN }
@@ -55,7 +59,11 @@ class RemoteInputTest {
     var fallback = false
     val bytes =
       captureCommonRemoteDocument(display, supportedOperations = setOf(RcOpcodes.DATA_TEXT)) {
-        RemoteInput(RcInputs.text("message", "Message"), "".rs, fallback = { fallback = true })
+        RemoteInput(
+          RcInputs.text("message", "Message").copy(chrome = RcInputChrome.NONE),
+          "".rs,
+          fallback = { fallback = true },
+        )
       }
     assertTrue(fallback)
     assertTrue(RcDocumentCodec.decode(bytes).operations.none { it is RcCustomLayout })

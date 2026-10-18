@@ -4,6 +4,17 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.round
 
+/**
+ * Container decoration only. NONE removes padding, visible caption and editor borders/backgrounds.
+ * Intrinsic choice/toggle/range affordances, focus feedback, validation and accessible labels
+ * remain. Authors supply their own visible label and container; this does not grant editing
+ * permission.
+ */
+public enum class RcInputChrome(public val wireValue: Int) {
+  DEFAULT(0),
+  NONE(1),
+}
+
 /** Versioned control identities; all values/events use the declared TEXT_RETURN string channel. */
 public enum class RcInputKind(public val config: String) {
   TEXT(RcInput.TEXT),
@@ -129,6 +140,7 @@ public fun rcInputComponent(
         RcCustomProperty.string(RcInput.STEP, textBaseId + 8),
         RcCustomProperty.int(RcInput.ENABLED, if (field.enabled) 1 else 0),
         RcCustomProperty.string(RcInput.SUBMIT_LABEL, textBaseId + 9),
+        RcCustomProperty.int(RcInput.CHROME, field.chrome.wireValue),
       ),
     )
 }

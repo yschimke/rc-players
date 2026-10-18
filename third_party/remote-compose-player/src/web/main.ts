@@ -567,19 +567,24 @@ export class RcdPlayer {
      *   const url = await player.screenshotDataURL();
      */
     async screenshot(type = 'image/png', quality?: number): Promise<Blob> {
-        if (this.customHost.inputs) this.repaint();
-        return new Promise((resolve, reject) => {
+        return this.withInputSnapshot(() => new Promise((resolve, reject) => {
             this.canvas.toBlob(
                 (blob) => blob ? resolve(blob) : reject(new Error('toBlob failed')),
                 type, quality
             );
-        });
+        }));
     }
 
     /** Capture a screenshot as a data URL string (e.g. "data:image/png;base64,..."). */
     screenshotDataURL(type = 'image/png', quality?: number): string {
-        if (this.customHost.inputs) this.repaint();
-        return this.canvas.toDataURL(type, quality);
+        return this.withInputSnapshot(() => this.canvas.toDataURL(type, quality));
+    }
+
+    private withInputSnapshot<T>(capture: () => T): T {
+        const inputs = this.customHost.inputs;
+        if (!inputs) return capture();
+        try { return inputs.withCanvasExport(() => { this.repaint(); return capture(); }); }
+        finally { this.repaint(); }
     }
 
     /** Save a screenshot as a file download. */
@@ -628,6 +633,6 @@ export type { InputOptions } from './InputComponents';
 
 export { inputDocument } from './InputDocument';
 
-export { inputValueIsValid } from './InputContract';
-export type { InputKind } from './InputContract';
+export { InputChrome, inputValueIsValid } from './InputContract';
+export type { InputKind, InputChromeStyle } from './InputContract';
 export type { InputField } from './InputDocument';

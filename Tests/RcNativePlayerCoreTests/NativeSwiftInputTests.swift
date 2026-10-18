@@ -2,6 +2,19 @@ import Testing
 @testable import RcNativePlayerCore
 
 @Suite struct NativeSwiftInputTests {
+  @Test func chromeMetadataUsesTheExistingTypedIntegerChannel() throws {
+    let session = try NativeSwiftDocumentSession.open(data: NativeTestFixtures.data("input-chrome.rc"))
+    func controls(_ node: NativeSwiftNodeSnapshot) -> [NativeSwiftCustomSnapshot] {
+      (node.custom.map { [$0] } ?? []) + node.children.flatMap(controls)
+    }
+    let control = try #require(controls(try session.snapshot().root).first)
+    #expect(control.config == NativeSwiftInput.text)
+    #expect(control.properties.first { $0.id == NativeSwiftInput.chrome }?.integerValue == NativeSwiftInput.ChromeMode.none.rawValue)
+    #expect(NativeSwiftInput.ChromeMode.standard.rawValue == 0)
+    #expect(NativeSwiftInput.ChromeMode(rawValue: 99) == nil)
+    #expect(session.returnCustomText("Still editable", componentID: 10, propertyID: NativeSwiftInput.valueReturn))
+  }
+
   @Test func portableFixtureReturnsTextThroughTheDeclaredChannel() throws {
     let session = try NativeSwiftDocumentSession.open(data: NativeTestFixtures.data("message-inputs.rc"))
     func field(_ node: NativeSwiftNodeSnapshot) -> NativeSwiftCustomSnapshot? {
