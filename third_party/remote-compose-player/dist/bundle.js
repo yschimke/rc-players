@@ -29880,6 +29880,7 @@ ${inner}`;
     }
     async loadFromUrl(url) {
       const response = await fetch(url);
+      if (!response.ok) throw new Error(`Document request failed: HTTP ${response.status}`);
       const data = await response.arrayBuffer();
       return this.loadFromArrayBuffer(data);
     }

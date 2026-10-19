@@ -376,6 +376,7 @@ export class RcdPlayer {
 
     async loadFromUrl(url: string): Promise<CoreDocument> {
         const response = await fetch(url);
+        if (!response.ok) throw new Error(`Document request failed: HTTP ${response.status}`);
         const data = await response.arrayBuffer();
         return this.loadFromArrayBuffer(data);
     }
