@@ -42,6 +42,11 @@ Local deltas over that snapshot (each also filed upstream):
   copying potentially sensitive request URLs. Covered by `src/load-url.test.ts`. This local fix
   has not yet been filed upstream.
 
+- **Delayed repaint cancellation** (`src/web/main.ts`). Track the repaint timeout as well as the
+  animation frame, so stopping, pausing, destroying or replacing a frame cancels both. A pending
+  delay also yields to an immediate interaction repaint without leaving a second loop behind.
+  Covered by `src/lifecycle.test.ts`. This local lifecycle fix has not yet been filed upstream.
+
 - **`CanvasOperations` (opcode 173).** Replaced the parse-only stub with a real
   implementation (`src/core/operations/layout/CanvasOperations.ts`, registered in
   `src/core/Operations.ts`), mirroring `CanvasOperations` in remote-core: a

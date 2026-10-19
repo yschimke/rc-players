@@ -29575,6 +29575,7 @@ ${inner}`;
       this.paintContext = null;
       this.remoteContext = null;
       this.animationFrameId = null;
+      this.repaintTimeoutId = null;
       this.startTime = 0;
       this.onLoad = null;
       // Theme override: 'light' | 'dark' | 'auto' (default)
@@ -29726,8 +29727,9 @@ ${inner}`;
           if (repaintDelay <= 1) {
             this.animationFrameId = requestAnimationFrame(this.renderFrame);
           } else {
-            setTimeout(() => {
-              this.animationFrameId = requestAnimationFrame(this.renderFrame);
+            this.repaintTimeoutId = setTimeout(() => {
+              this.repaintTimeoutId = null;
+              this.scheduleRepaint();
             }, repaintDelay);
           }
         }
@@ -29767,6 +29769,10 @@ ${inner}`;
     }
     scheduleRepaint() {
       if (this.isPaused) return;
+      if (this.repaintTimeoutId !== null) {
+        clearTimeout(this.repaintTimeoutId);
+        this.repaintTimeoutId = null;
+      }
       if (this.animationFrameId === null) {
         this.animationFrameId = requestAnimationFrame(this.renderFrame);
       }
@@ -29879,15 +29885,22 @@ ${inner}`;
       return this.loadFromArrayBuffer(data);
     }
     stop() {
-      if (this.animationFrameId !== null) {
-        cancelAnimationFrame(this.animationFrameId);
-        this.animationFrameId = null;
-      }
+      this.cancelRepaint();
       if (this.pointerIsDown) {
         this.pointerIsDown = false;
         window.removeEventListener("pointermove", this.onPointerMove);
         window.removeEventListener("pointerup", this.onPointerUp);
         window.removeEventListener("pointercancel", this.onPointerCancel);
+      }
+    }
+    cancelRepaint() {
+      if (this.repaintTimeoutId !== null) {
+        clearTimeout(this.repaintTimeoutId);
+        this.repaintTimeoutId = null;
+      }
+      if (this.animationFrameId !== null) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
       }
     }
     /**
@@ -29907,10 +29920,7 @@ ${inner}`;
       }
     }
     repaint() {
-      if (this.animationFrameId !== null) {
-        cancelAnimationFrame(this.animationFrameId);
-        this.animationFrameId = null;
-      }
+      this.cancelRepaint();
       if (this.document) {
         this.renderFrame(performance.now());
       }
