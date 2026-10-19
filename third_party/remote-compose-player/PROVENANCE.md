@@ -37,6 +37,11 @@ not vendored; only the library source needed to build the browser bundle.
 
 Local deltas over that snapshot (each also filed upstream):
 
+- **Document-fetch HTTP errors** (`src/web/main.ts`). Reject failed HTTP responses before reading
+  their bodies or replacing the current document. The error reports the HTTP status without
+  copying potentially sensitive request URLs. Covered by `src/load-url.test.ts`. This local fix
+  has not yet been filed upstream.
+
 - **`CanvasOperations` (opcode 173).** Replaced the parse-only stub with a real
   implementation (`src/core/operations/layout/CanvasOperations.ts`, registered in
   `src/core/Operations.ts`), mirroring `CanvasOperations` in remote-core: a
