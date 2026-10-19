@@ -31,6 +31,7 @@ export class RcdPlayer {
     private paintContext: CanvasPaintContext | null = null;
     private remoteContext: WebRemoteContext | null = null;
     private animationFrameId: number | null = null;
+    private repaintTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private startTime = 0;
     private onLoad: ((doc: CoreDocument) => void) | null = null;
 
@@ -213,6 +214,11 @@ export class RcdPlayer {
 
     private scheduleRepaint(): void {
         if (this.isPaused) return;
+        // An interaction can request a frame before the document's delayed repaint is due.
+        if (this.repaintTimeoutId !== null) {
+            clearTimeout(this.repaintTimeoutId);
+            this.repaintTimeoutId = null;
+        }
         if (this.animationFrameId === null) {
             this.animationFrameId = requestAnimationFrame(this.renderFrame);
         }
@@ -428,23 +434,32 @@ export class RcdPlayer {
             if (repaintDelay <= 1) {
                 this.animationFrameId = requestAnimationFrame(this.renderFrame);
             } else {
-                setTimeout(() => {
-                    this.animationFrameId = requestAnimationFrame(this.renderFrame);
+                this.repaintTimeoutId = setTimeout(() => {
+                    this.repaintTimeoutId = null;
+                    this.scheduleRepaint();
                 }, repaintDelay);
             }
         }
     };
 
     stop(): void {
-        if (this.animationFrameId !== null) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
-        }
+        this.cancelRepaint();
         if (this.pointerIsDown) {
             this.pointerIsDown = false;
             window.removeEventListener('pointermove', this.onPointerMove);
             window.removeEventListener('pointerup', this.onPointerUp);
             window.removeEventListener('pointercancel', this.onPointerCancel);
+        }
+    }
+
+    private cancelRepaint(): void {
+        if (this.repaintTimeoutId !== null) {
+            clearTimeout(this.repaintTimeoutId);
+            this.repaintTimeoutId = null;
+        }
+        if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
         }
     }
 
@@ -466,10 +481,7 @@ export class RcdPlayer {
     }
 
     repaint(): void {
-        if (this.animationFrameId !== null) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
-        }
+        this.cancelRepaint();
         if (this.document) {
             this.renderFrame(performance.now());
         }
