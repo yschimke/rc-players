@@ -5,6 +5,7 @@
 
 ### Bug Fixes
 
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.18.8 ([#695](https://github.com/yschimke/rc-players/issues/695)) ([affadfe](https://github.com/yschimke/rc-players/commit/affadfe54e452974517949ac5981672388abb044))
 * publish the input-enabled TypeScript bundle ([#693](https://github.com/yschimke/rc-players/issues/693)) ([578e92c](https://github.com/yschimke/rc-players/commit/578e92c74995beaa7614ca4e15fd03aae84973b5))
 
 ## [2.16.0](https://github.com/yschimke/rc-players/compare/v2.15.0...v2.16.0) (2026-10-18)
