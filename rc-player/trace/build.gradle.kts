@@ -4,6 +4,7 @@ plugins {
   id("org.jetbrains.kotlin.multiplatform")
   id("com.android.kotlin.multiplatform.library")
   id("composeai.maven-publishing")
+  alias(libs.plugins.androidx.baselineprofile)
 }
 
 // `:rc-player-trace` — the tracing seam the whole CMP Remote Compose player stack writes through.
@@ -112,3 +113,13 @@ composeAiMavenPublishing {
       "Multiplatform tracing facade for the Compose Multiplatform Remote Compose player: opens spans on androidx.tracing on the JVM and Android, the browser's User Timing API on wasmJs, and nothing on Apple targets.",
   )
 }
+
+// Ships the players' baseline profile in the AAR, filtered to this module's package from the one
+// corpus collection; see rc-player/baselineprofile/README.md.
+baselineProfile {
+  filter { include("ee.schimke.composeai.rcplayer.trace.**") }
+  automaticGenerationDuringBuild = false
+  saveInSrc = true
+}
+
+dependencies { baselineProfile(project(":rc-player-baselineprofile")) }

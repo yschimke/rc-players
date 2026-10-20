@@ -90,8 +90,8 @@ rootProject.name = "rc-players"
 //     trace <- protocol <- runtime <- compose <- wasm
 //
 // The first four are published to Maven Central (`composeai.maven-publishing`); `wasm` is the
-// browser host, published as an npm package instead. `compat-tests`, `profile` and `metrics` are
-// build-only tools and publish nothing.
+// browser host, published as an npm package instead. `compat-tests`, `profile`, `metrics` and the
+// two `baselineprofile` modules are build-only tools and publish nothing.
 //
 // Directory names are short (`rc-player/protocol`) while project names are qualified
 // (`:rc-player-protocol`) — the project name is what becomes the published artifact id, and
@@ -158,6 +158,17 @@ project(":rc-player-profile").projectDir = file("rc-player/profile")
 include(":rc-player-metrics")
 
 project(":rc-player-metrics").projectDir = file("rc-player/metrics")
+
+// Baseline profiles for the published Android players: an app that plays the catalog corpus, and the
+// test module that drives it to collect the profile `trace`, `protocol`, `runtime` and `compose`
+// ship in their AARs. Neither is published. See rc-player/baselineprofile/README.md.
+include(":rc-player-baselineprofile-host")
+
+project(":rc-player-baselineprofile-host").projectDir = file("rc-player/baselineprofile/host")
+
+include(":rc-player-baselineprofile")
+
+project(":rc-player-baselineprofile").projectDir = file("rc-player/baselineprofile/generator")
 
 // The conformance lane: scores a player against the AndroidX RemoteCompose conformance corpus and
 // writes the scorecard. Root-level rather than under `rc-player/` because it measures every lane in

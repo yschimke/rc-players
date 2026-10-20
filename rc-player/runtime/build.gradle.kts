@@ -4,6 +4,7 @@ plugins {
   id("org.jetbrains.kotlin.multiplatform")
   id("com.android.kotlin.multiplatform.library")
   id("composeai.maven-publishing")
+  alias(libs.plugins.androidx.baselineprofile)
 }
 
 kotlin {
@@ -73,3 +74,13 @@ composeAiMavenPublishing {
       "The Remote Compose interpreter: expression evaluation, animation timelines, layout tree and player state, with no Compose UI dependency.",
   )
 }
+
+// Ships the players' baseline profile in the AAR, filtered to this module's package from the one
+// corpus collection; see rc-player/baselineprofile/README.md.
+baselineProfile {
+  filter { include("ee.schimke.composeai.rcplayer.runtime.**") }
+  automaticGenerationDuringBuild = false
+  saveInSrc = true
+}
+
+dependencies { baselineProfile(project(":rc-player-baselineprofile")) }
