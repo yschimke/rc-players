@@ -4,6 +4,7 @@ plugins {
   alias(libs.plugins.compose.compiler) apply false
   alias(libs.plugins.compose.multiplatform) apply false
   alias(libs.plugins.android.library) apply false
+  alias(libs.plugins.androidx.baselineprofile) apply false
   // ktfmt is not declared here: `ComposeAiBaseConventionsPlugin` (build-logic) applies and
   // configures it on every module. ktfmt + the Kotlin Gradle plugin it links against ride on the
   // build-logic classpath, so declaring the alias here too would put a second ktfmt on a different

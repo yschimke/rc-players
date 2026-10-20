@@ -6,6 +6,7 @@ plugins {
   id("org.jetbrains.kotlin.multiplatform")
   id("com.android.kotlin.multiplatform.library")
   id("composeai.maven-publishing")
+  alias(libs.plugins.androidx.baselineprofile)
   alias(libs.plugins.compose.multiplatform)
   id("org.jetbrains.kotlin.plugin.compose")
 }
@@ -367,3 +368,13 @@ tasks.register("rcNativePlayerUIKitPackageChecksum") {
     logger.lifecycle("RcNativePlayerUIKit.swiftpackage.zip sha256: $hex")
   }
 }
+
+// Ships the players' baseline profile in the AAR, filtered to this module's package from the one
+// corpus collection; see rc-player/baselineprofile/README.md.
+baselineProfile {
+  filter { include("ee.schimke.composeai.rcplayer.compose.**") }
+  automaticGenerationDuringBuild = false
+  saveInSrc = true
+}
+
+dependencies { baselineProfile(project(":rc-player-baselineprofile")) }

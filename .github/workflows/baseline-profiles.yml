@@ -1,0 +1,93 @@
+name: Baseline profiles
+
+# Collects the baseline profile `rc-player-trace`, `-protocol`, `-runtime` and `-compose` ship in their
+# AARs, on an emulator: `:rc-player-baselineprofile` flings `:rc-player-baselineprofile-host` through
+# the catalog corpus. The four filtered profiles come out as the `baseline-profiles` artifact; commit
+# its files over each module's `src/androidMain/generated/baselineProfiles/`. The workflow never
+# commits itself: a push made with its token would land without CI. See
+# rc-player/baselineprofile/README.md.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'rc-player/baselineprofile/**'
+      - 'scripts/rc-catalog-corpus/corpus/**'
+      - '.github/workflows/baseline-profiles.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: baseline-profiles-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    name: Generate (API 34 emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17.0.20+101"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Build the host and generator before booting
+        run: >-
+          ./gradlew --stacktrace
+          :rc-player-baselineprofile-host:assembleNonMinifiedRelease
+          :rc-player-baselineprofile:assembleNonMinifiedRelease
+      - name: Generate the profiles
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disk-size: 4G
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          # One collection; each library's task filters it to its own package.
+          script: >-
+            ./gradlew --stacktrace
+            :rc-player-trace:generateBaselineProfile
+            :rc-player-protocol:generateBaselineProfile
+            :rc-player-runtime:generateBaselineProfile
+            :rc-player-compose:generateBaselineProfile
+      - name: Summarize the profiles
+        if: always()
+        run: |
+          {
+            echo "### Baseline profiles"
+            find rc-player -path '*/src/androidMain/generated/baselineProfiles/*.txt' -exec wc -l {} + \
+              || echo "No profile generated."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the profiles
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: baseline-profiles
+          path: rc-player/*/src/androidMain/generated/baselineProfiles/**
+          if-no-files-found: warn
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: baseline-profile-test-results
+          path: |
+            rc-player/baselineprofile/generator/build/outputs/androidTest-results/**
+            rc-player/baselineprofile/generator/build/reports/androidTests/**
+          if-no-files-found: warn

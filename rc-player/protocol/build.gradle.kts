@@ -4,6 +4,7 @@ plugins {
   id("org.jetbrains.kotlin.multiplatform")
   id("com.android.kotlin.multiplatform.library")
   id("composeai.maven-publishing")
+  alias(libs.plugins.androidx.baselineprofile)
 }
 
 abstract class GenerateRcOperationManifest : org.gradle.api.DefaultTask() {
@@ -178,3 +179,13 @@ composeAiMavenPublishing {
       "The .rc wire codec and operation model for Remote Compose documents: reader, writer, immutable operation IR and the AndroidX operation inventory. Consumable without any Compose dependency.",
   )
 }
+
+// Ships the players' baseline profile in the AAR, filtered to this module's package from the one
+// corpus collection; see rc-player/baselineprofile/README.md.
+baselineProfile {
+  filter { include("ee.schimke.composeai.rcplayer.protocol.**") }
+  automaticGenerationDuringBuild = false
+  saveInSrc = true
+}
+
+dependencies { baselineProfile(project(":rc-player-baselineprofile")) }
