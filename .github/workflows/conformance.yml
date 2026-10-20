@@ -134,7 +134,7 @@ jobs:
     # subprocess, which needs a Mac -- but deliberately not a simulator: the AppKit host renders the
     # same native Swift core, and booting, installing and launching a simulator per gold would cost
     # more than the whole rest of this workflow.
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

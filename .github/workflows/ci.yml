@@ -393,7 +393,7 @@ jobs:
     # Skipped on the release-please PR (see the note on `jvm`), and on a pull request that touches
     # none of the Apple projects (see `apple-changes`). A skipped job satisfies the required check.
     if: ${{ needs.apple-changes.outputs.lane == 'true' && !(startsWith(github.head_ref || github.ref_name, 'release-please--') && (github.event.pull_request.user.login || github.actor) == 'github-actions[bot]') }}
-    runs-on: macos-15
+    runs-on: macos-26
     # The tests alone take 6-15 minutes, but a run that reaches the packaging steps below needs
     # well over 90: the release XCFramework is 20-30 minutes on its own, and the validation,
     # benchmark and comparison steps after it add about 45 more. At 90, every such push to main was
