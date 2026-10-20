@@ -1,0 +1,10 @@
+Lee/schimke/composeai/rcplayer/trace/RcTrace;
+HSPLee/schimke/composeai/rcplayer/trace/RcTrace;-><clinit>()V
+HSPLee/schimke/composeai/rcplayer/trace/RcTrace;-><init>()V
+HSPLee/schimke/composeai/rcplayer/trace/RcTrace;->begin(Ljava/lang/String;Ljava/lang/String;)Lee/schimke/composeai/rcplayer/trace/RcTraceSpan;
+HSPLee/schimke/composeai/rcplayer/trace/RcTrace;->counter(Ljava/lang/String;Ljava/lang/String;J)V
+HSPLee/schimke/composeai/rcplayer/trace/RcTrace;->end(Lee/schimke/composeai/rcplayer/trace/RcTraceSpan;)V
+Lee/schimke/composeai/rcplayer/trace/RcTracePlatform;
+HSPLee/schimke/composeai/rcplayer/trace/RcTracePlatform;-><clinit>()V
+HSPLee/schimke/composeai/rcplayer/trace/RcTracePlatform;-><init>()V
+HSPLee/schimke/composeai/rcplayer/trace/RcTracePlatform;->isEnabled(Ljava/lang/String;)Z
