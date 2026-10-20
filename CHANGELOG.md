@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.17.0](https://github.com/yschimke/rc-players/compare/v2.16.1...v2.17.0) (2026-10-20)
+
+
+### Features
+
+* ship baseline profiles in the Android player AARs ([#705](https://github.com/yschimke/rc-players/issues/705)) ([12ca35f](https://github.com/yschimke/rc-players/commit/12ca35f4babf3536eff80768fe1c2894789d20b8))
+
+
+### Bug Fixes
+
+* cancel delayed TypeScript player repaints on stop ([#697](https://github.com/yschimke/rc-players/issues/697)) ([4bacf4d](https://github.com/yschimke/rc-players/commit/4bacf4d22c24ecec3ad2d58939b296aab5e04bea))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.37.0 ([#702](https://github.com/yschimke/rc-players/issues/702)) ([692a7b7](https://github.com/yschimke/rc-players/commit/692a7b777d164e9a57d8cec83e8715d4e5f24090))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.21.0 ([#703](https://github.com/yschimke/rc-players/issues/703)) ([6e2da32](https://github.com/yschimke/rc-players/commit/6e2da32f43cf3ec81eb17e3c56e972cb82c5df51))
+* reject failed TypeScript document HTTP requests ([#698](https://github.com/yschimke/rc-players/issues/698)) ([7f7265a](https://github.com/yschimke/rc-players/commit/7f7265abd69ecbb6ef8fe1f6ab4761149b6128e0))
+
 ## [2.16.1](https://github.com/yschimke/rc-players/compare/v2.16.0...v2.16.1) (2026-10-18)
 
 
