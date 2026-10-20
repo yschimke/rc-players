@@ -75,6 +75,14 @@ jobs:
             find rc-player -path '*/src/androidMain/generated/baselineProfiles/*.txt' -exec wc -l {} + \
               || echo "No profile generated."
           } >> "$GITHUB_STEP_SUMMARY"
+      # The same profiles as a base64 tarball in the log, for readers that can reach job logs but
+      # not artifacts.
+      - name: Print the profiles
+        run: |
+          echo "BASELINE-PROFILES-BEGIN rc-player"
+          tar czf - rc-player/*/src/androidMain/generated/baselineProfiles | base64 -w 0
+          echo
+          echo "BASELINE-PROFILES-END rc-player"
       - name: Upload the profiles
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
