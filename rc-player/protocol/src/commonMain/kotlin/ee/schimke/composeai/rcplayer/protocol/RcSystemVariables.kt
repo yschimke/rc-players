@@ -148,70 +148,6 @@ public object RcSystemVariables {
 }
 
 /**
- * Whether any operation of this document refers to one of [ids], in any field.
- *
- * Found by scanning the encoded document for a NaN-encoded reference at every offset rather than by
- * listing the fields that can hold one — a list misses the next operation to gain a float operand.
- * The scan cannot tell a reference from a coincidental bit pattern or from a word the document
- * shadows, so it can only over-report; a caller uses it where over-reporting is cheap. A document
- * that cannot be encoded is reported as referring to them.
- *
- * Path data is the exception it can afford to make. A path marks each command with a NaN-boxed word
- * — `MOVE` is 10 and `LINE` 11, the same ids as [RcSystemVariables.OFFSET_TO_UTC] and
- * [RcSystemVariables.WEEK_DAY] — so every document drawing a path read as one that reads the clock,
- * and a player ticked every icon once a second, recomposing it each time. The command words are
- * left out; the coordinates, which can name variables, are still scanned.
- */
-public fun RcDocument.referencesAnyOf(ids: Set<Int>): Boolean {
-  val scanned =
-    copy(
-      operations =
-        operations.map { operation ->
-          when (operation) {
-            is RcPathData -> operation.copy(words = operation.words.withoutPathCommands())
-            is RcPathAppend -> operation.copy(words = operation.words.withoutPathCommands())
-            else -> operation
-          }
-        }
-    )
-  val bytes = runCatching { RcDocumentCodec.encode(scanned) }.getOrNull() ?: return true
-  return (0..bytes.size - Int.SIZE_BYTES).any { offset ->
-    var bits = 0
-    for (i in 0 until Int.SIZE_BYTES) bits = (bits shl 8) or (bytes[offset + i].toInt() and 0xff)
-    RcFloatWord(bits).referencedId in ids
-  }
-}
-
-/**
- * These path words with each command marker replaced by a literal zero, so a scan of them sees only
- * the arguments. A path whose commands cannot be followed is returned as it is: over-reporting is
- * the scan's safe direction.
- */
-private fun List<RcFloatWord>.withoutPathCommands(): List<RcFloatWord> {
-  val words = toMutableList()
-  var index = 0
-  while (index < words.size) {
-    val length =
-      when (words[index].referencedId) {
-        RcPathCommands.MOVE -> 3
-        RcPathCommands.LINE -> 5
-        RcPathCommands.QUADRATIC -> 7
-        RcPathCommands.CONIC -> 8
-        RcPathCommands.CUBIC -> 9
-        RcPathCommands.CLOSE,
-        RcPathCommands.DONE,
-        RcPathCommands.RESET -> 1
-        else -> return this
-      }
-    words[index] = PATH_COMMAND_PLACEHOLDER
-    index += length
-  }
-  return words
-}
-
-private val PATH_COMMAND_PLACEHOLDER = RcFloatWord.literal(0f)
-
-/**
  * Whether this document reads a system variable whose value moves — i.e. whether painting it once
  * would freeze an animation.
  *
@@ -282,11 +218,9 @@ private fun RcDocument.referencesSystemVariable(ids: Set<Int>): Boolean {
       is RcPathExpression ->
         operation.expressionX.movesWithSystemTime(ids, claimed) ||
           operation.expressionY.movesWithSystemTime(ids, claimed)
-      // An integer expression names a variable by marking the word, not by NaN-boxing it, so the
-      // word scan in [referencesAnyOf] cannot see it. AndroidX's embedded player schedules its
-      // clock
-      // for these too (androidx/androidx@c73c596e9); without it an integer read of the clock is
-      // evaluated once and never again.
+      // An integer expression names a variable by marking the word, not by NaN-boxing it.
+      // AndroidX's embedded player schedules its clock for these too (androidx/androidx@c73c596e9);
+      // without it an integer read of the clock is evaluated once and never again.
       is RcIntegerExpression ->
         operation.values.indices.any { index ->
           val value = operation.values[index]

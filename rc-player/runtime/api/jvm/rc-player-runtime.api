@@ -912,6 +912,8 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun getFrameWallClockMillis ()J
 	public final fun getHasActiveFloatAnimations ()Z
 	public final fun getHasAnyComponentValues ()Z
+	public final fun getReadsClock ()Z
+	public final fun getReadsContinuousClock ()Z
 	public final fun getRootContentBehavior ()Lee/schimke/composeai/rcplayer/protocol/RcRootContentBehavior;
 	public final fun getRootContentDescription ()Ljava/lang/String;
 	public final fun hasComponentValues (I)Z

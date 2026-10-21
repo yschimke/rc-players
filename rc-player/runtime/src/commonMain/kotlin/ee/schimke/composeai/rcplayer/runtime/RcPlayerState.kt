@@ -69,7 +69,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueStringChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
-import ee.schimke.composeai.rcplayer.protocol.referencesAnyOf
 import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
 import ee.schimke.composeai.rcplayer.trace.rcTrace
 
@@ -230,6 +229,49 @@ public class RcPlayerState(
    * The claims the document made for itself, which clearing a host override must leave standing.
    */
   private val documentClaimedSystemIds: Set<Int> = claimedSystemIds.toSet()
+
+  /**
+   * The reserved ids — the clock, the calendar, the pointer; all below 64 — that evaluating the
+   * document has actually read since it loaded, one bit each.
+   *
+   * What the player schedules for a document follows from what it read: a clock read once a second
+   * has to be drawn again a second later, a continuous one every frame, and a pointer read on every
+   * move. Recording the reads where they happen ([resolve], [integerVariable]) answers that
+   * exactly. Predicting it from the document instead could only over- or under-report: a scan of
+   * the encoded bytes took every path's NaN-boxed commands — `MOVE` is 10, `CUBIC` 14 — for reads
+   * of `OFFSET_TO_UTC` and the touch position, and ticked every icon once a second.
+   */
+  private var reservedIdsRead = 0L
+
+  /** Whether a `TimeAttribute` has read the wall clock, which it does without naming an id. */
+  private var timeAttributeReadClock = false
+  private var timeAttributeReadContinuousClock = false
+
+  private fun noteRead(id: Int) {
+    if (id in 0 until Long.SIZE_BITS) reservedIdsRead = reservedIdsRead or (1L shl id)
+  }
+
+  private fun hasRead(id: Int): Boolean =
+    id in 0 until Long.SIZE_BITS && reservedIdsRead and (1L shl id) != 0L
+
+  private fun hasReadSystem(ids: Set<Int>): Boolean = ids.any {
+    hasRead(it) && it !in claimedSystemIds
+  }
+
+  /**
+   * Whether anything the player evaluated has read the clock or the calendar, so the document
+   * changes as time passes: it needs drawing again at least once a second.
+   */
+  public val readsClock: Boolean
+    get() = timeAttributeReadClock || hasReadSystem(RcSystemVariables.CLOCK)
+
+  /**
+   * Whether anything the player evaluated has read a clock that moves every frame — continuous
+   * seconds or the animation clock — so the document needs drawing on every frame.
+   */
+  public val readsContinuousClock: Boolean
+    get() = timeAttributeReadContinuousClock || hasReadSystem(RcSystemVariables.CONTINUOUS)
+
   /**
    * The host's density and font scale, published as [RcSystemVariables.DENSITY] and
    * [RcSystemVariables.FONT_SIZE].
@@ -388,7 +430,11 @@ public class RcPlayerState(
     beginFrame()
   }
 
-  public fun resolve(word: RcFloatWord): Float = word.referencedId?.let { floats[it] } ?: word.value
+  public fun resolve(word: RcFloatWord): Float =
+    word.referencedId?.let { id ->
+      noteRead(id)
+      floats[id]
+    } ?: word.value
 
   public fun color(id: Int): Int = colors[id] ?: 0
 
@@ -529,6 +575,11 @@ public class RcPlayerState(
     val type = operation.type.executionValue
     val now = timeSource.snapshot(frameEpochMillis)
     val selectedMillis = longs[operation.timeId] ?: frameEpochMillis
+    // Counting from now, or reading the current time's fields, is a read of the clock.
+    if (type in 0..2 || selectedMillis == frameEpochMillis) {
+      timeAttributeReadClock = true
+      if (operation.type.requiresContinuousFrames) timeAttributeReadContinuousClock = true
+    }
     val selected =
       if (selectedMillis == frameEpochMillis) now else timeSource.snapshot(selectedMillis)
     val deltaMillis =
@@ -1282,15 +1333,14 @@ public class RcPlayerState(
   }
 
   /**
-   * Whether any operation reads the touch slots, in any field — an expression, a draw coordinate, a
-   * layout dimension, a conditional's operand. A coincidental match only costs a repaint per
-   * pointer move, which is why the encoded scan's over-reporting is acceptable here.
+   * Whether anything the player evaluated has read the touch slots — an expression, a draw
+   * coordinate, a layout dimension, a conditional's operand. Each is evaluated on the first frame
+   * that shows it, before any pointer has moved, so the first move already knows.
    */
-  private val readsTouchPosition: Boolean by lazy {
-    document.referencesAnyOf(
-      setOf(RcTouchExpressionRuntime.ID_TOUCH_POS_X, RcTouchExpressionRuntime.ID_TOUCH_POS_Y)
-    )
-  }
+  private val readsTouchPosition: Boolean
+    get() =
+      hasRead(RcTouchExpressionRuntime.ID_TOUCH_POS_X) ||
+        hasRead(RcTouchExpressionRuntime.ID_TOUCH_POS_Y)
 
   public fun executeTouch(block: RcTouchActionBlock) {
     executeActions(
@@ -1453,9 +1503,11 @@ public class RcPlayerState(
    * expression marks the word as a reference, which is what keeps this from colliding with the
    * literal small ints [integer] protects.
    */
-  private fun integerVariable(id: Int): Int =
-    integers[id]
+  private fun integerVariable(id: Int): Int {
+    noteRead(id)
+    return integers[id]
       ?: if (id in RcSystemVariables.ALL && id !in claimedSystemIds) floats[id]?.toInt() ?: 0 else 0
+  }
 
   /**
    * The resource id a draw operation names — AndroidX `PaintOperation.getId`.
