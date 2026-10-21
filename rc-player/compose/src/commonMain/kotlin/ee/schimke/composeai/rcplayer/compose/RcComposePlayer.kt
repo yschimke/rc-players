@@ -126,6 +126,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
@@ -2797,9 +2798,10 @@ private data class RcTouchPositionElement(
  * pointer still sees it, and the position is already published when its actions read it.
  *
  * Stops for the rest of a gesture once something outside the player takes it — a scrolling list the
- * player sits in, dragging it. AndroidX's View player gets `ACTION_CANCEL` at that point and no
- * further events, so the document keeps the last position it saw; publishing on would recompose the
- * player on every frame of the scroll.
+ * player sits in, dragging it, whether it consumes the moves on its own initial pass (before the
+ * player sees them) or on the main pass (after the document has). AndroidX's View player gets
+ * `ACTION_CANCEL` at that point and no further events, so the document keeps the last position it
+ * saw; publishing on would recompose the player on every frame of the scroll.
  */
 private class RcTouchPositionNode(
   var state: RcPlayerState,
@@ -2810,9 +2812,12 @@ private class RcTouchPositionNode(
   /** An ancestor consumed a move of the current gesture. */
   private var cancelled = false
 
+  /** Whether the event was already consumed when the initial pass reached the player. */
+  private var consumedAbove = false
+
   /**
-   * Whether the event was consumed by the time the main pass reached the player: by the document's
-   * own components, which see it first on that pass, rather than by an ancestor.
+   * Whether the document's own components consumed the event: they see it on the main pass before
+   * the player does, and after every ancestor's initial pass.
    */
   private var consumedWithin = false
 
@@ -2821,20 +2826,23 @@ private class RcTouchPositionNode(
       PointerEventPass.Initial -> {
         // Every pointer down for the first time: a new gesture.
         if (pointerEvent.changes.none { it.previousPressed }) cancelled = false
+        // An ancestor can take the gesture on its own initial pass, as a scrolling list does once
+        // it is dragging: every move then reaches the player already consumed.
+        consumedAbove = pointerEvent.changes.any { it.isConsumed }
+        if (pointerEvent.changes.any { it.movedAndConsumed() }) cancelled = true
         if (!cancelled) publish(pointerEvent, bounds)
       }
-      PointerEventPass.Main -> consumedWithin = pointerEvent.changes.any { it.isConsumed }
+      PointerEventPass.Main ->
+        consumedWithin = !consumedAbove && pointerEvent.changes.any { it.isConsumed }
       PointerEventPass.Final ->
-        if (
-          !consumedWithin &&
-            pointerEvent.changes.any {
-              it.pressed && it.isConsumed && it.position != it.previousPosition
-            }
-        ) {
+        if (!consumedWithin && pointerEvent.changes.any { it.movedAndConsumed() }) {
           cancelled = true
         }
     }
   }
+
+  private fun PointerInputChange.movedAndConsumed(): Boolean =
+    pressed && isConsumed && position != previousPosition
 
   private fun publish(pointerEvent: PointerEvent, bounds: IntSize) {
     val change =

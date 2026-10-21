@@ -114,6 +114,36 @@ class RcMovingHostStabilityTest {
     }
   }
 
+  /**
+   * A card scrolling on screen lays out for the first time, and a component's first layout has
+   * nothing to animate from. Making each component's size and offset animations up front wrote
+   * their state and launched a coroutine for every component of every card, on the frame it
+   * appeared.
+   */
+  @Test
+  fun aFirstLayoutMakesNoBoundsAnimation() {
+    val animationWrites = AtomicInteger()
+    val observer = Snapshot.registerGlobalWriteObserver {
+      if (
+        Thread.currentThread().stackTrace.any { it.className.contains("DeferredTargetAnimation") }
+      ) {
+        animationWrites.incrementAndGet()
+      }
+    }
+    val scene =
+      ImageComposeScene(width = 80, height = 80, density = Density(1f)) {
+        RcComposePlayer(document())
+      }
+    try {
+      for (frame in 0..10) scene.render(frame * FRAME_NANOS)
+      assertEquals(0, animationWrites.get())
+      assertEquals(10 * 20, scene.render(11 * FRAME_NANOS).greenPixels())
+    } finally {
+      observer.dispose()
+      scene.close()
+    }
+  }
+
   private fun org.jetbrains.skia.Image.greenPixels(): Int {
     val image = this
     val bitmap = Bitmap().apply { allocN32Pixels(image.width, image.height) }

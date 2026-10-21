@@ -1,5 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,6 +9,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -165,6 +168,58 @@ class RcTouchPositionRenderTest {
       assertEquals(0, bitmap.getColor(22, 5))
     } finally {
       scene.close()
+    }
+  }
+
+  /**
+   * A list can take the gesture on its own initial pass, so every later move reaches the player
+   * already consumed: the dashboard's scrolling list does. That is the ancestor's taking too, not
+   * the document's, and publishing on recomposed the card under the finger on every frame.
+   */
+  @OptIn(ExperimentalComposeUiApi::class)
+  @Test
+  fun aGestureAnAncestorTakesOnItsInitialPassStopsMovingThePointer() {
+    val scene =
+      ImageComposeScene(width = 100, height = 10, density = Density(1f)) {
+        Box(Modifier.fillMaxSize().pointerInput(Unit) { consumeMovesPastSlopOnInitialPass() }) {
+          RcComposePlayer(barAsWideAsTouchX(100), Modifier.fillMaxSize())
+        }
+      }
+    try {
+      scene.render()
+      scene.sendPointerEvent(PointerEventType.Press, Offset(10f, 5f), type = PointerType.Touch)
+      scene.sendPointerEvent(PointerEventType.Move, Offset(12f, 5f), type = PointerType.Touch)
+      // Past the slop: from here the ancestor consumes every move before the player sees it.
+      scene.sendPointerEvent(PointerEventType.Move, Offset(40f, 5f), type = PointerType.Touch)
+      scene.sendPointerEvent(PointerEventType.Move, Offset(70f, 5f), type = PointerType.Touch)
+      scene.sendPointerEvent(PointerEventType.Move, Offset(90f, 5f), type = PointerType.Touch)
+      scene.sendPointerEvent(PointerEventType.Release, Offset(90f, 5f), type = PointerType.Touch)
+      scene.render(500_000_000L)
+      val bitmap = Bitmap().apply { allocN32Pixels(100, 10) }
+      check(scene.render(1_000_000_000L).readPixels(bitmap))
+
+      // The move that crossed the slop reached the player unconsumed; nothing after it did.
+      assertEquals(RED, bitmap.getColor(38, 5))
+      assertEquals(0, bitmap.getColor(42, 5))
+    } finally {
+      scene.close()
+    }
+  }
+
+  /** Consumes, on the initial pass, every move of a gesture once it has passed the touch slop. */
+  private suspend fun androidx.compose.ui.input.pointer.PointerInputScope
+    .consumeMovesPastSlopOnInitialPass() = awaitEachGesture {
+    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+    var taken = false
+    while (true) {
+      val event = awaitPointerEvent(PointerEventPass.Initial)
+      val change = event.changes.firstOrNull { it.id == down.id } ?: break
+      if (!change.pressed) break
+      if (taken) change.consume()
+      else if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+        // The slop-crossing move goes through; the list starts dragging from the next one.
+        taken = true
+      }
     }
   }
 
