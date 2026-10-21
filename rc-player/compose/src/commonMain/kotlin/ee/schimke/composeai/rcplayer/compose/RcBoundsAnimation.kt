@@ -55,15 +55,36 @@ private class RcAnimateBoundsNode(var lookaheadScope: LookaheadScope, var spec: 
   private val offsetAnimation =
     DeferredTargetAnimation<IntOffset, AnimationVector2D>(IntOffset.VectorConverter)
 
+  /**
+   * The targets last handed to the animations. A settled component is asked about its approach on
+   * every frame its host moves it — a scroll re-places every node in the lookahead scope — and
+   * `updateTarget` writes the pending target and launches a coroutine on each call. Skipping it for
+   * a target the idle animation already holds makes those frames cost a comparison.
+   */
+  private var sizeTarget: IntSize? = null
+  private var offsetTarget: IntOffset? = null
+
+  private fun updateSize(target: IntSize): IntSize {
+    if (target == sizeTarget && sizeAnimation.isIdle) return target
+    sizeTarget = target
+    return sizeAnimation.updateTarget(target, coroutineScope, sizeSpec())
+  }
+
+  private fun updateOffset(target: IntOffset): IntOffset {
+    if (target == offsetTarget && offsetAnimation.isIdle) return target
+    offsetTarget = target
+    return offsetAnimation.updateTarget(target, coroutineScope, offsetSpec())
+  }
+
   override fun isMeasurementApproachInProgress(lookaheadSize: IntSize): Boolean {
-    sizeAnimation.updateTarget(lookaheadSize, coroutineScope, sizeSpec())
+    updateSize(lookaheadSize)
     return !sizeAnimation.isIdle
   }
 
   override fun Placeable.PlacementScope.isPlacementApproachInProgress(
     lookaheadCoordinates: LayoutCoordinates
   ): Boolean {
-    offsetAnimation.updateTarget(targetInParent(lookaheadCoordinates), coroutineScope, offsetSpec())
+    updateOffset(targetInParent(lookaheadCoordinates))
     return !offsetAnimation.isIdle
   }
 
@@ -84,15 +105,14 @@ private class RcAnimateBoundsNode(var lookaheadScope: LookaheadScope, var spec: 
     measurable: Measurable,
     constraints: Constraints,
   ): MeasureResult {
-    val animatedSize = sizeAnimation.updateTarget(lookaheadSize, coroutineScope, sizeSpec())
+    val animatedSize = updateSize(lookaheadSize)
     val placeable = measurable.measure(Constraints.fixed(animatedSize.width, animatedSize.height))
     return layout(placeable.width, placeable.height) {
       val coordinates = coordinates
       if (coordinates == null) {
         placeable.place(0, 0)
       } else {
-        val animatedOffset =
-          offsetAnimation.updateTarget(targetInParent(coordinates), coroutineScope, offsetSpec())
+        val animatedOffset = updateOffset(targetInParent(coordinates))
         val parent = coordinates.parentLayoutCoordinates
         val placementOffset =
           if (parent != null) parent.localPositionOf(coordinates, Offset.Zero).round()
