@@ -1,9 +1,10 @@
 package ee.schimke.composeai.rcplayer.compose
 
-import androidx.compose.animation.core.AnimationVector2D
+import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.DeferredTargetAnimation
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.TwoWayConverter
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.Modifier
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.round
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.runtime.RcAnimationTimeline
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
 
 /** Animates measured x/y/width/height toward the Lookahead result like AndroidX AnimateMeasure. */
 internal fun Modifier.animateRcBounds(
@@ -50,31 +52,18 @@ private data class RcAnimateBoundsElement(
 
 private class RcAnimateBoundsNode(var lookaheadScope: LookaheadScope, var spec: RcAnimationSpec) :
   ApproachLayoutModifierNode, Modifier.Node() {
-  private val sizeAnimation =
-    DeferredTargetAnimation<IntSize, AnimationVector2D>(IntSize.VectorConverter)
-  private val offsetAnimation =
-    DeferredTargetAnimation<IntOffset, AnimationVector2D>(IntOffset.VectorConverter)
+  private val sizeAnimation = RcBoundsTarget(IntSize.VectorConverter)
+  private val offsetAnimation = RcBoundsTarget(IntOffset.VectorConverter)
 
-  /**
-   * The targets last handed to the animations. A settled component is asked about its approach on
-   * every frame its host moves it — a scroll re-places every node in the lookahead scope — and
-   * `updateTarget` writes the pending target and launches a coroutine on each call. Skipping it for
-   * a target the idle animation already holds makes those frames cost a comparison.
-   */
-  private var sizeTarget: IntSize? = null
-  private var offsetTarget: IntOffset? = null
+  // Held, so a frame's approach doesn't allocate a function reference per component.
+  private val sizeSpecOf: () -> FiniteAnimationSpec<IntSize> = { sizeSpec() }
+  private val offsetSpecOf: () -> FiniteAnimationSpec<IntOffset> = { offsetSpec() }
 
-  private fun updateSize(target: IntSize): IntSize {
-    if (target == sizeTarget && sizeAnimation.isIdle) return target
-    sizeTarget = target
-    return sizeAnimation.updateTarget(target, coroutineScope, sizeSpec())
-  }
+  private fun updateSize(target: IntSize): IntSize =
+    sizeAnimation.update(target, coroutineScope, sizeSpecOf)
 
-  private fun updateOffset(target: IntOffset): IntOffset {
-    if (target == offsetTarget && offsetAnimation.isIdle) return target
-    offsetTarget = target
-    return offsetAnimation.updateTarget(target, coroutineScope, offsetSpec())
-  }
+  private fun updateOffset(target: IntOffset): IntOffset =
+    offsetAnimation.update(target, coroutineScope, offsetSpecOf)
 
   override fun isMeasurementApproachInProgress(lookaheadSize: IntSize): Boolean {
     updateSize(lookaheadSize)
@@ -148,6 +137,43 @@ private class RcAnimateBoundsNode(var lookaheadScope: LookaheadScope, var spec: 
   private fun offsetSpec(): FiniteAnimationSpec<IntOffset> {
     ensureSpecs()
     return cachedOffset!!
+  }
+}
+
+/**
+ * One of a component's bounds — its size or its offset — animating toward the lookahead's target
+ * like AndroidX AnimateMeasure, with the animation made only once the target first changes.
+ *
+ * A component's first layout has nothing to animate from: AndroidX places it at its target. A
+ * [DeferredTargetAnimation] made up front still writes its pending target and launches a coroutine
+ * for that first target, twice per component (size and offset), so every card scrolling on screen
+ * paid a state write and a launch per component on the frame it appeared. Most components never
+ * move after that, and now never make an animation at all.
+ *
+ * A settled component is also asked about its approach on every frame its host moves it, and
+ * `updateTarget` writes and launches on each call, so an idle animation handed the target it
+ * already holds is skipped too.
+ */
+private class RcBoundsTarget<T, V : AnimationVector>(private val converter: TwoWayConverter<T, V>) {
+  /** The target last handed over; null before the first layout. */
+  private var target: T? = null
+  private var animation: DeferredTargetAnimation<T, V>? = null
+
+  val isIdle: Boolean
+    get() = animation?.isIdle ?: true
+
+  fun update(next: T, scope: CoroutineScope, spec: () -> FiniteAnimationSpec<T>): T {
+    val current = target ?: return next.also { target = it }
+    if (next == current && isIdle) return next
+    // The first change: the animation starts settled where the component was.
+    val animation =
+      animation
+        ?: DeferredTargetAnimation(converter).also {
+          it.updateTarget(current, scope, spec())
+          animation = it
+        }
+    target = next
+    return animation.updateTarget(next, scope, spec())
   }
 }
 
