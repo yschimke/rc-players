@@ -14,6 +14,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
+import ee.schimke.composeai.rcplayer.protocol.RcPathAppend
+import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
+import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
@@ -258,6 +261,44 @@ class RcSystemVariableTest {
         listOf(RcTextFromFloat(200, RcFloatWord.literal(3f), 2, 0, 0)),
       )
     assertFalse(none.referencesAnyOf(RcSystemVariables.CLOCK))
+  }
+
+  @Test
+  fun aPathsCommandsAreNotClockReads() {
+    // AndroidX marks path commands with NaN-boxed words, as `[ff 80 00 0a]` for MOVE (10) and
+    // `[ff 80 00 0b]` for LINE (11): the ids of OFFSET_TO_UTC and WEEK_DAY. An icon is not a clock.
+    fun command(id: Int) = RcFloatWord(PATH_COMMAND or id)
+    val point = RcFloatWord.literal(4f)
+    fun icon(x: RcFloatWord) =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0)),
+        listOf(
+          RcPathData(
+            300,
+            listOf(
+              command(RcPathCommands.MOVE),
+              x,
+              point,
+              command(RcPathCommands.LINE),
+              x,
+              point,
+              point,
+              point,
+              command(RcPathCommands.CLOSE),
+            ),
+          ),
+          RcPathAppend(
+            300,
+            listOf(command(RcPathCommands.MOVE), point, point, command(RcPathCommands.DONE)),
+          ),
+        ),
+      )
+    assertFalse(icon(point).referencesAnyOf(RcSystemVariables.CLOCK))
+    // A coordinate may still read the clock.
+    assertTrue(
+      icon(RcFloatWord(NAN_REFERENCE or RcSystemVariables.TIME_IN_SEC))
+        .referencesAnyOf(RcSystemVariables.CLOCK)
+    )
   }
 
   @Test
@@ -689,5 +730,6 @@ class RcSystemVariableTest {
   private companion object {
     const val EPOCH_MILLIS = 1_787_243_445_250L
     const val NAN_REFERENCE = 0x7fc00000
+    const val PATH_COMMAND = 0xff800000.toInt()
   }
 }
