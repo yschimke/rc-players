@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.17.1](https://github.com/yschimke/rc-players/compare/v2.17.0...v2.17.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.21.4 ([#707](https://github.com/yschimke/rc-players/issues/707)) ([02c05be](https://github.com/yschimke/rc-players/commit/02c05be5970f453f2e4db897cf66c2dde91efdc6))
+* **deps:** update dependency pixelmatch to v8 ([#708](https://github.com/yschimke/rc-players/issues/708)) ([fd416ee](https://github.com/yschimke/rc-players/commit/fd416ee4a08ac9478fc0743c633c916241c3cd2f))
+* stop a player in a scrolling list redoing work on every frame ([#709](https://github.com/yschimke/rc-players/issues/709)) ([97bd88d](https://github.com/yschimke/rc-players/commit/97bd88d8f20deb7219fff30e65474c64222ff2e0))
+* stop publishing touch once an ancestor takes the gesture ([#711](https://github.com/yschimke/rc-players/issues/711)) ([ba09ebb](https://github.com/yschimke/rc-players/commit/ba09ebb4b485c4aef871555d5afc86cd9a621df1))
+
 ## [2.17.0](https://github.com/yschimke/rc-players/compare/v2.16.1...v2.17.0) (2026-10-20)
 
 
