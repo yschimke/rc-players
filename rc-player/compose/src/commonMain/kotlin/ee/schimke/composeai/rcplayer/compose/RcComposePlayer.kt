@@ -2795,6 +2795,11 @@ private data class RcTouchPositionElement(
 /**
  * Observes, and never consumes: runs on the initial pass so a component that handles the same
  * pointer still sees it, and the position is already published when its actions read it.
+ *
+ * Stops for the rest of a gesture once something outside the player takes it — a scrolling list the
+ * player sits in, dragging it. AndroidX's View player gets `ACTION_CANCEL` at that point and no
+ * further events, so the document keeps the last position it saw; publishing on would recompose the
+ * player on every frame of the scroll.
  */
 private class RcTouchPositionNode(
   var state: RcPlayerState,
@@ -2802,8 +2807,36 @@ private class RcTouchPositionNode(
   var documentHeight: Float,
   var onRepaint: () -> Unit,
 ) : Modifier.Node(), PointerInputModifierNode {
+  /** An ancestor consumed a move of the current gesture. */
+  private var cancelled = false
+
+  /**
+   * Whether the event was consumed by the time the main pass reached the player: by the document's
+   * own components, which see it first on that pass, rather than by an ancestor.
+   */
+  private var consumedWithin = false
+
   override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
-    if (pass != PointerEventPass.Initial) return
+    when (pass) {
+      PointerEventPass.Initial -> {
+        // Every pointer down for the first time: a new gesture.
+        if (pointerEvent.changes.none { it.previousPressed }) cancelled = false
+        if (!cancelled) publish(pointerEvent, bounds)
+      }
+      PointerEventPass.Main -> consumedWithin = pointerEvent.changes.any { it.isConsumed }
+      PointerEventPass.Final ->
+        if (
+          !consumedWithin &&
+            pointerEvent.changes.any {
+              it.pressed && it.isConsumed && it.position != it.previousPosition
+            }
+        ) {
+          cancelled = true
+        }
+    }
+  }
+
+  private fun publish(pointerEvent: PointerEvent, bounds: IntSize) {
     val change =
       pointerEvent.changes.firstOrNull { it.pressed || it.changedToUpIgnoreConsumed() } ?: return
     val transform =
