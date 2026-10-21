@@ -1914,21 +1914,22 @@ private fun RenderLayoutNode(
     if (visibility == 0) goneReport()
     else body(if (visibility == 2) modifier.alpha(0f) else modifier)
   } else {
-    // The parent orders its children by `zIndex`, and the child it orders is the visibility
-    // wrapper, or the component itself when it has none, so that is where its `zIndex` has to be.
-    val orderedModifier =
-      node.modifiers.ordered.filterIsInstance<RcZIndexModifier>().lastOrNull()?.let {
-        boundsModifier.zIndex(state.resolve(it.value))
-      } ?: boundsModifier
     if (visibilityFixed) {
+      // No wrapper: the component itself is the child its parent orders, and it already carries
+      // its own `zIndex` from its modifier chain. Adding it here as well would sum the two.
       if (visibility == 0) goneReport()
-      else body(if (visibility == 2) orderedModifier.alpha(0f) else orderedModifier)
+      else body(if (visibility == 2) boundsModifier.alpha(0f) else boundsModifier)
     } else {
       RcVisibilityTransition(
         visibility = visibility,
         spec = node.modifiers.animationSpec,
         enabled = layoutAnimations,
-        modifier = orderedModifier,
+        // The parent orders its children by `zIndex`, and the child it orders is the visibility
+        // wrapper, so that is where the component's own `zIndex` has to be.
+        modifier =
+          node.modifiers.ordered.filterIsInstance<RcZIndexModifier>().lastOrNull()?.let {
+            boundsModifier.zIndex(state.resolve(it.value))
+          } ?: boundsModifier,
         gone = goneReport,
         content = body,
       )
