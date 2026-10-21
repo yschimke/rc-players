@@ -134,6 +134,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
@@ -817,6 +818,7 @@ private fun RcComposePlayerResolved(
         { invalidationVersion += 1 },
         root = true,
       )
+  val playerRoot = remember { RcPlayerRoot() }
   val redrawModifier =
     interactiveModifier
       .drawWithContent {
@@ -826,6 +828,8 @@ private fun RcComposePlayerResolved(
         // A canvas document evaluates its expressions here rather than in composition.
         wakeFloatAnimations()
       }
+      // The root components' `ROOT_X` / `ROOT_Y` are measured from (see [RcPlayerRoot]).
+      .onPlaced { playerRoot.coordinates = it }
       // Published here rather than on the root layout component, because a canvas-only document has
       // no layout tree at all — it takes the `Canvas` branch below — and hanging the state off a
       // component that does not exist made every expression, colour and text probe on such a
@@ -853,6 +857,7 @@ private fun RcComposePlayerResolved(
           LocalRcLayoutVersion provides version,
           LocalRcFrameTime provides frameTime,
           LocalRcGeometryProbe provides probe,
+          LocalRcPlayerRoot provides playerRoot,
           LocalRcFonts provides fonts,
           LocalRcTypefaces provides typefaces,
           LocalRcCustomComponents provides customComponents,
@@ -971,6 +976,7 @@ private fun RenderLayoutNode(
   val frameTime = LocalRcFrameTime.current
   val lookaheadScope = LocalRcLookaheadScope.current
   val geometryProbe = LocalRcGeometryProbe.current
+  val playerRoot = LocalRcPlayerRoot.current
   val fontFamilies = LocalRcFonts.current
   val typefaces = LocalRcTypefaces.current
   val drawObserver = LocalRcDrawObserver.current
@@ -1036,7 +1042,7 @@ private fun RenderLayoutNode(
       // and "not in the tree" the same observation, and they are not: the corpus asserts `isGone`
       // on nodes it still expects to find.
       Layout(
-        Modifier.trackComponentGeometry(geometryIds, state, geometryProbe)
+        Modifier.trackComponentGeometry(geometryIds, state, geometryProbe, playerRoot)
           .inspectComponent(node, visibility, inspecting, contentInset)
       ) { _, _ ->
         layout(0, 0) {}
@@ -1057,7 +1063,7 @@ private fun RenderLayoutNode(
           state,
           invalidate,
         )
-        .trackComponentGeometry(geometryIds, state, geometryProbe)
+        .trackComponentGeometry(geometryIds, state, geometryProbe, playerRoot)
         .inspectComponent(
           node,
           if (collapse?.collapsed == true) 0 else visibility,
@@ -1452,6 +1458,7 @@ private fun RenderLayoutNode(
                 listOf(node.content.componentId),
                 state,
                 geometryProbe,
+                playerRoot,
               )
             ) { _, _ ->
               layout(0, 0) {}
@@ -1463,6 +1470,7 @@ private fun RenderLayoutNode(
                 listOf(node.content.componentId),
                 state,
                 geometryProbe,
+                playerRoot,
               )
             ) {
               renderChildren()
@@ -1897,23 +1905,35 @@ private fun RenderLayoutNode(
       }
     }
   }
+  // A component's visibility can only change when it carries a visibility modifier, which reads a
+  // document variable. Without one (or at a call site that fixes it) the component is shown, or
+  // gone, for good: an `AnimatedVisibility` around it would never animate, but its transition still
+  // updates its state on every recomposition, for every component of every document on screen.
+  val visibilityFixed = forceGone || ignoreOwnVisibility || node.modifiers.visibility == null
   if (node is RcLayoutNode.Content) {
     if (visibility == 0) goneReport()
     else body(if (visibility == 2) modifier.alpha(0f) else modifier)
   } else {
-    RcVisibilityTransition(
-      visibility = visibility,
-      spec = node.modifiers.animationSpec,
-      enabled = layoutAnimations,
-      // The parent orders its children by `zIndex`, and the child it orders is the visibility
-      // wrapper, so that is where the component's own `zIndex` has to be.
-      modifier =
-        node.modifiers.ordered.filterIsInstance<RcZIndexModifier>().lastOrNull()?.let {
-          boundsModifier.zIndex(state.resolve(it.value))
-        } ?: boundsModifier,
-      gone = goneReport,
-      content = body,
-    )
+    if (visibilityFixed) {
+      // No wrapper: the component itself is the child its parent orders, and it already carries
+      // its own `zIndex` from its modifier chain. Adding it here as well would sum the two.
+      if (visibility == 0) goneReport()
+      else body(if (visibility == 2) boundsModifier.alpha(0f) else boundsModifier)
+    } else {
+      RcVisibilityTransition(
+        visibility = visibility,
+        spec = node.modifiers.animationSpec,
+        enabled = layoutAnimations,
+        // The parent orders its children by `zIndex`, and the child it orders is the visibility
+        // wrapper, so that is where the component's own `zIndex` has to be.
+        modifier =
+          node.modifiers.ordered.filterIsInstance<RcZIndexModifier>().lastOrNull()?.let {
+            boundsModifier.zIndex(state.resolve(it.value))
+          } ?: boundsModifier,
+        gone = goneReport,
+        content = body,
+      )
+    }
   }
 }
 
@@ -1936,6 +1956,17 @@ private val LocalRcLayoutVersion = compositionLocalOf { 0 }
  */
 private val LocalRcFrameTime = staticCompositionLocalOf<FloatState?> { null }
 private val LocalRcGeometryProbe = staticCompositionLocalOf<RcGeometryProbe?> { null }
+
+/**
+ * Where the player's own root is laid out, so a component's `ROOT_X` / `ROOT_Y` are measured from
+ * the document's root, as AndroidX does, rather than from the host window's.
+ */
+internal class RcPlayerRoot {
+  /** Written when the root is placed; not state, since only placement callbacks read it. */
+  var coordinates: LayoutCoordinates? = null
+}
+
+private val LocalRcPlayerRoot = staticCompositionLocalOf<RcPlayerRoot?> { null }
 private val LocalRcFonts = compositionLocalOf<Map<Int, FontFamily>> { emptyMap() }
 private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
 private val LocalRcCustomComponents = compositionLocalOf { RcCustomComponentRegistry.Empty }
@@ -3423,6 +3454,7 @@ private fun Modifier.trackComponentGeometry(
   componentIds: List<Int>,
   state: RcPlayerState,
   probe: RcGeometryProbe?,
+  playerRoot: RcPlayerRoot?,
 ): Modifier {
   val tracked = componentIds.distinct().filter(state::hasComponentValues)
   if (tracked.isEmpty()) return this
@@ -3442,7 +3474,12 @@ private fun Modifier.trackComponentGeometry(
   }
   return onGloballyPositioned { coordinates ->
     val local = coordinates.positionInParent()
-    val root = coordinates.positionInRoot()
+    // The document's root, as AndroidX measures ROOT_X / ROOT_Y, not the host window's: a player in
+    // a scrolling list would otherwise publish a new position on every frame of the scroll, and a
+    // changed value refreshes every expression and recomposes the whole player.
+    val root =
+      playerRoot?.coordinates?.takeIf { it.isAttached }?.localPositionOf(coordinates, Offset.Zero)
+        ?: coordinates.positionInRoot()
     val geometry =
       RcComponentGeometry(
         width = coordinates.size.width.toFloat(),

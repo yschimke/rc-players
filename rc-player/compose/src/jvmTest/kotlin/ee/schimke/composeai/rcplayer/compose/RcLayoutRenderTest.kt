@@ -1649,6 +1649,62 @@ class RcLayoutRenderTest {
   }
 
   @Test
+  fun aSiblingWithoutAVisibilityModifierTakesItsZIndexOnce() {
+    // Green can change visibility, so it is wrapped and ordered by its wrapper; red cannot, so it
+    // is ordered by its own node. Red's 6 is below green's 10 — unless red counts its 6 twice.
+    val red = 0xffff0000.toInt()
+    val green = 0xff00ff00.toInt()
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 40, legacyHeight = 40, modern = false),
+        listOf(
+          RcIntegerConstant(42, 1),
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcBoxLayout(3, 30, horizontalPositioning = 1, verticalPositioning = 4),
+          width(40f),
+          height(40f),
+          RcLayoutContent(4),
+          RcCanvasLayout(5, 50),
+          width(40f),
+          height(40f),
+          RcVisibilityModifier(42),
+          RcZIndexModifier(RcFloatWord.literal(10f)),
+          RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
+          RcPaintData(listOf(4, green)),
+          rect(40f),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcCanvasLayout(6, 60),
+          width(40f),
+          height(40f),
+          RcZIndexModifier(RcFloatWord.literal(6f)),
+          RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
+          RcPaintData(listOf(4, red)),
+          rect(40f),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+    val scene =
+      ImageComposeScene(width = 40, height = 40, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val bitmap = Bitmap().apply { allocN32Pixels(40, 40) }
+      check(scene.render().readPixels(bitmap))
+
+      assertEquals(green, bitmap.getColor(20, 20))
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
   fun dimensionRangesUseRemoteDpAtNonUnitDensity() {
     val red = 0xffff0000.toInt()
     val document =
