@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.17.2](https://github.com/yschimke/rc-players/compare/v2.17.1...v2.17.2) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deps:** update androidx to v2.0.5 ([#713](https://github.com/yschimke/rc-players/issues/713)) ([0eec75c](https://github.com/yschimke/rc-players/commit/0eec75c71ba1f2b04f4ab5342161a9bb17b6059c))
+* stop a dragged scrolling list redoing work in the cards it moves ([#715](https://github.com/yschimke/rc-players/issues/715)) ([51be77a](https://github.com/yschimke/rc-players/commit/51be77adfd01de5053d4dbbf6123f91b1b531eac))
+
 ## [2.17.1](https://github.com/yschimke/rc-players/compare/v2.17.0...v2.17.1) (2026-10-21)
 
 
