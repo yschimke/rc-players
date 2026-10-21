@@ -26,7 +26,7 @@ jobs:
     # macOS for the same reason `release.yml`'s `publish-maven` is: four of the five artifacts carry
     # iOS klibs, and those only build on a Mac. A Linux snapshot would ship KMP metadata with the
     # iOS variants missing.
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

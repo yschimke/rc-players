@@ -62,7 +62,7 @@ jobs:
   # consumer.
   publish-maven:
     name: Publish to Maven Central
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 120
     env:
       ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
@@ -290,7 +290,7 @@ jobs:
     # the pull request before a release ever depends on it, which is the evidence the old comment
     # asked for.
     needs: [publish-maven]
-    runs-on: macos-15
+    runs-on: macos-26
     permissions:
       contents: write
       id-token: write
