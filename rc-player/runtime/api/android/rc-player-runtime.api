@@ -887,12 +887,14 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun applyTimeAttribute (Lee/schimke/composeai/rcplayer/protocol/RcTimeAttribute;)V
 	public final fun beginFrame (FJ)V
 	public static synthetic fun beginFrame$default (Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;FJILjava/lang/Object;)V
+	public final fun beginPaint ()V
 	public final fun boolean (I)Ljava/lang/Boolean;
 	public final fun clearNamedValue (Ljava/lang/String;)V
 	public final fun color (I)I
 	public final fun compareParticles (Lee/schimke/composeai/rcplayer/protocol/RcParticleCompare;Lkotlin/jvm/functions/Function0;)V
 	public final fun drawId (I)I
 	public final fun emitDebugMessage (Lee/schimke/composeai/rcplayer/protocol/RcDebugMessage;)V
+	public final fun endPaint ()V
 	public final fun evaluateConditional (Lee/schimke/composeai/rcplayer/protocol/RcConditionalOperations;)Z
 	public final fun evaluateImpulse (Lee/schimke/composeai/rcplayer/protocol/RcImpulseStart;)Lee/schimke/composeai/rcplayer/runtime/RcImpulsePhase;
 	public final fun evaluateLayoutCompute (Lee/schimke/composeai/rcplayer/runtime/RcLayoutComputeBlock;[F)[F
@@ -912,6 +914,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun getFrameWallClockMillis ()J
 	public final fun getHasActiveFloatAnimations ()Z
 	public final fun getHasAnyComponentValues ()Z
+	public final fun getOnRepaint ()Lkotlin/jvm/functions/Function0;
 	public final fun getReadsClock ()Z
 	public final fun getReadsContinuousClock ()Z
 	public final fun getRootContentBehavior ()Lee/schimke/composeai/rcplayer/protocol/RcRootContentBehavior;
@@ -943,6 +946,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun setInteger (II)V
 	public final fun setLong (IJ)V
 	public final fun setNamedValue (Ljava/lang/String;Lee/schimke/composeai/rcplayer/runtime/RcNamedValue;)V
+	public final fun setOnRepaint (Lkotlin/jvm/functions/Function0;)V
 	public final fun setPath (ILee/schimke/composeai/rcplayer/protocol/RcPathData;)V
 	public final fun setText (ILjava/lang/String;)V
 	public final fun text (I)Ljava/lang/String;

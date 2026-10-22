@@ -249,6 +249,95 @@ public class RcPlayerState(
 
   private fun noteRead(id: Int) {
     if (id in 0 until Long.SIZE_BITS) reservedIdsRead = reservedIdsRead or (1L shl id)
+    noteValueRead(id)
+  }
+
+  /** Records a read for [layoutReads] alone: not the reserved-id reads [noteRead] also tracks. */
+  private fun noteValueRead(id: Int) {
+    if (id < 0) return
+    when {
+      evaluatingFloatExpression -> recordExpressionInput(id)
+      paintDepth == 0 -> layoutReads.add(id)
+    }
+  }
+
+  /**
+   * Ids something read outside a paint pass: composition, measure, placement and layer blocks, and
+   * every operation evaluated there but a float expression's. A changed value that reaches one of
+   * these has to recompose; one that reaches none only has to be drawn again ([onRepaint]).
+   */
+  private val layoutReads = RcIdSet()
+
+  private var changedIds = IntArray(4)
+
+  /** Nesting depth of [beginPaint]: reads inside a paint pass are not [layoutReads]. */
+  private var paintDepth = 0
+
+  /**
+   * A float expression's reads are what it is computed from, not a use of the value: they are kept
+   * as edges to the expression ([expressionInputs]) so that a value counts as read for layout only
+   * when something downstream of it is.
+   */
+  private var evaluatingFloatExpression = false
+  private var expressionReads = IntArray(8)
+  private var expressionReadCount = 0
+  private val expressionInputs = mutableMapOf<Int, IntArray>()
+  private var expressionDependents: Map<Int, IntArray>? = null
+
+  private fun recordExpressionInput(id: Int) {
+    if (expressionReadCount == expressionReads.size)
+      expressionReads = expressionReads.copyOf(expressionReadCount * 2)
+    expressionReads[expressionReadCount++] = id
+  }
+
+  private fun recordExpressionInputs(expressionId: Int) {
+    val known = expressionInputs[expressionId]
+    var merged = known
+    for (i in 0 until expressionReadCount) {
+      val input = expressionReads[i]
+      if (merged == null || input !in merged) merged = (merged ?: IntArray(0)) + input
+    }
+    if (merged !== known && merged != null) {
+      expressionInputs[expressionId] = merged
+      expressionDependents = null
+    }
+  }
+
+  /** Marks the start of a paint pass; reads until the matching [endPaint] are drawing's. */
+  public fun beginPaint() {
+    paintDepth++
+  }
+
+  public fun endPaint() {
+    paintDepth--
+  }
+
+  /**
+   * Called instead of the invalidation callback when published geometry changed values that only
+   * drawing reads. Null, the default, keeps every change a full invalidation.
+   */
+  public var onRepaint: (() -> Unit)? = null
+
+  /** Whether any of [changed], or anything computed from them, has been read outside painting. */
+  private fun reachesLayout(changed: IntArray, count: Int): Boolean {
+    val dependents =
+      expressionDependents
+        ?: buildMap<Int, IntArray> {
+            expressionInputs.forEach { (expression, inputs) ->
+              inputs.forEach { input -> put(input, (get(input) ?: IntArray(0)) + expression) }
+            }
+          }
+          .also { expressionDependents = it }
+    val visited = HashSet<Int>()
+    val pending = ArrayDeque<Int>()
+    for (i in 0 until count) pending.addLast(changed[i])
+    while (pending.isNotEmpty()) {
+      val id = pending.removeFirst()
+      if (!visited.add(id)) continue
+      if (id in layoutReads) return true
+      dependents[id]?.forEach(pending::addLast)
+    }
+    return false
   }
 
   private fun hasRead(id: Int): Boolean =
@@ -791,7 +880,8 @@ public class RcPlayerState(
       }
       is RcTextLookupInt -> {
         val id =
-          requireNotNull(idLists[operation.listId]).ids[requireNotNull(integers[operation.indexId])]
+          requireNotNull(idLists[operation.listId])
+            .ids[requireNotNull(integers[operation.indexId.also(::noteValueRead)])]
         texts[operation.outId] = requireNotNull(texts[id])
       }
       else -> error("Not a runtime text operation: ${operation.opcode}")
@@ -812,8 +902,10 @@ public class RcPlayerState(
             ?: error("Missing AndroidX data-map key '$key'")
         when (entry.type) {
           RcIdMap.TYPE_STRING -> texts[operation.outId] = requireNotNull(texts[entry.id])
-          RcIdMap.TYPE_INT -> setInteger(operation.outId, requireNotNull(integers[entry.id]))
-          RcIdMap.TYPE_FLOAT -> storeFloat(operation.outId, requireNotNull(floats[entry.id]))
+          RcIdMap.TYPE_INT ->
+            setInteger(operation.outId, requireNotNull(integers[entry.id.also(::noteValueRead)]))
+          RcIdMap.TYPE_FLOAT ->
+            storeFloat(operation.outId, requireNotNull(floats[entry.id.also(::noteValueRead)]))
           RcIdMap.TYPE_LONG -> setInteger(operation.outId, requireNotNull(longs[entry.id]).toInt())
           RcIdMap.TYPE_BOOLEAN ->
             setInteger(operation.outId, if (requireNotNull(booleans[entry.id])) 1 else 0)
@@ -1207,7 +1299,17 @@ public class RcPlayerState(
       floatExpressionRuntimes.getOrPut(operation.id) {
         RcFloatExpressionRuntime(operation, ::floatArray)
       }
-    setFloat(operation.id, runtime.evaluate(frameTimeSeconds, ::resolve))
+    val nested = evaluatingFloatExpression
+    evaluatingFloatExpression = true
+    if (!nested) expressionReadCount = 0
+    val value =
+      try {
+        runtime.evaluate(frameTimeSeconds, ::resolve)
+      } finally {
+        evaluatingFloatExpression = nested
+      }
+    if (!nested) recordExpressionInputs(operation.id)
+    setFloat(operation.id, value)
   }
 
   public fun applyMatrixVectorMath(operation: RcMatrixVectorMath) {
@@ -1490,7 +1592,10 @@ public class RcPlayerState(
    * AndroidX's does: creation code writes some enum constants as bare ids — `Visibility.VISIBLE` as
    * id 1 — so reading them as unset hid those components.
    */
-  public fun integer(id: Int): Int? = integers[id] ?: id.takeIf { it in 0 until LITERAL_ID_LIMIT }
+  public fun integer(id: Int): Int? {
+    noteValueRead(id)
+    return integers[id] ?: id.takeIf { it in 0 until LITERAL_ID_LIMIT }
+  }
 
   /**
    * An id an integer expression marks as a *variable*, as AndroidX reads it.
@@ -1609,6 +1714,7 @@ public class RcPlayerState(
     invalidate: Boolean = true,
   ): Boolean {
     var changed = false
+    var changedCount = 0
     componentValues[componentId].orEmpty().forEach { binding ->
       val value =
         when (binding.type) {
@@ -1624,6 +1730,8 @@ public class RcPlayerState(
         }
       if (floats[binding.valueId]?.toRawBits() != value.toRawBits()) {
         storeFloat(binding.valueId, value)
+        if (changedCount == changedIds.size) changedIds = changedIds.copyOf(changedCount * 2)
+        changedIds[changedCount++] = binding.valueId
         changed = true
       }
     }
@@ -1632,7 +1740,14 @@ public class RcPlayerState(
       // before the settling draw, including expressions used by layout modifiers rather than a
       // CanvasOperations block.
       document.operations.filterIsInstance<RcFloatExpression>().forEach(::applyFloatExpression)
-      if (invalidate) onInvalidated()
+      if (invalidate) {
+        // A component animating its bounds publishes new geometry every frame of the animation, as
+        // AndroidX does. When nothing laid out reads it — only a canvas draws with it — drawing
+        // again is enough, rather than recomposing the whole tree each frame.
+        val repaint = onRepaint
+        if (repaint != null && !reachesLayout(changedIds, changedCount)) repaint()
+        else onInvalidated()
+      }
     }
     return changed
   }
@@ -1920,3 +2035,33 @@ private const val DRAW_ID_DEREFERENCE = 0x40000000
 
 /** The namespace AndroidX's `RcPlayerState` resolves an unqualified host name into first. */
 private const val USER_PREFIX = "USER"
+
+/**
+ * A set of non-negative ids: one bit each below [DENSE_LIMIT], where a document's ids live, and a
+ * hash set above it, so an id read from the wire never sizes an allocation.
+ */
+internal class RcIdSet {
+  private var words = LongArray(4)
+  private var sparse: HashSet<Int>? = null
+
+  /** Adds [id]; returns whether it was absent. */
+  fun add(id: Int): Boolean {
+    if (id >= DENSE_LIMIT) return (sparse ?: HashSet<Int>().also { sparse = it }).add(id)
+    val word = id ushr 6
+    if (word >= words.size) words = words.copyOf(maxOf(word + 1, words.size * 2))
+    val bit = 1L shl (id and 63)
+    if (words[word] and bit != 0L) return false
+    words[word] = words[word] or bit
+    return true
+  }
+
+  operator fun contains(id: Int): Boolean {
+    if (id >= DENSE_LIMIT) return sparse?.contains(id) == true
+    val word = id ushr 6
+    return word < words.size && words[word] and (1L shl (id and 63)) != 0L
+  }
+
+  private companion object {
+    const val DENSE_LIMIT = 1 shl 16
+  }
+}
