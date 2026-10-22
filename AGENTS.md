@@ -78,6 +78,14 @@ Keep any unknown-value fallback explicit where the wire contract requires one.
 The release job writes both, and they must describe an asset that already exists — SPM verifies the
 checksum at resolve time. `scripts/update-package-swift.sh` is the only thing that should touch them.
 
+## Review guidelines
+
+- **Do not report commit author, committer or `Co-authored-by:` findings.** Your review sandbox
+  applies the pull request as a new commit under your own identity (`Codex <codex@openai.com>`), so
+  any identity you read from a local `git log` is yours, not the author's. Every such finding on
+  this repository has named a commit that exists only in the sandbox. Attribution is enforced by the
+  `No Agent Attribution` CI gate above; leave it out of reviews entirely.
+
 ## Running Gradle
 
 Wrap Gradle in [`build-brief`](https://bb.staticvar.dev). It keeps the full log on disk and prints
