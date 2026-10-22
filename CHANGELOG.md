@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.17.4](https://github.com/yschimke/rc-players/compare/v2.17.3...v2.17.4) (2026-10-22)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.22.0 ([#721](https://github.com/yschimke/rc-players/issues/721)) ([19e883a](https://github.com/yschimke/rc-players/commit/19e883a35cbd2f018afb5b3bbbd707f2b269aee0))
+
+
+### Performance Improvements
+
+* repaint, not recompose, for geometry only drawing reads ([#723](https://github.com/yschimke/rc-players/issues/723)) ([c6bd848](https://github.com/yschimke/rc-players/commit/c6bd848c9905f1c220d95a784678b5fbd1f4d1e7))
+
 ## [2.17.3](https://github.com/yschimke/rc-players/compare/v2.17.2...v2.17.3) (2026-10-22)
 
 
