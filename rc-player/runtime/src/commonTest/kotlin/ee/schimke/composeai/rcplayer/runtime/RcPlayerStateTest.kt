@@ -194,6 +194,79 @@ class RcPlayerStateTest {
     assertEquals(3, invalidations)
   }
 
+  /** A width published as value 100, and an expression 200 = width / 2 over it. */
+  private fun widthAndHalf(onInvalidated: () -> Unit) =
+    RcPlayerState(
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcComponentValue(RcComponentValue.WIDTH, componentId = 7, valueId = 100),
+          RcFloatExpression(
+            200,
+            listOf(
+              RcFloatWord(0x7fc00000 or 100),
+              RcFloatWord.literal(2f),
+              RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 4),
+            ),
+            null,
+          ),
+        ),
+      ),
+      onInvalidated = onInvalidated,
+    )
+
+  private val halved = RcFloatWord(0x7fc00000 or 200)
+
+  @Test
+  fun geometryOnlyDrawingReadsRepaintsInsteadOfInvalidating() {
+    var invalidations = 0
+    var repaints = 0
+    val state = widthAndHalf { invalidations++ }
+    state.onRepaint = { repaints++ }
+    // The document's own evaluation (composition) reads the width to compute the expression,
+    // and only a paint pass reads the result.
+    state.document.operations
+      .filterIsInstance<RcFloatExpression>()
+      .forEach(state::applyFloatExpression)
+    state.beginPaint()
+    state.resolve(halved)
+    state.endPaint()
+
+    assertTrue(state.publishComponentGeometry(7, RcComponentGeometry(40f, 30f, 0f, 0f, 0f, 0f)))
+    assertEquals(20f, state.resolve(halved), "the expression is refreshed before the repaint")
+    assertEquals(1, repaints)
+    assertEquals(0, invalidations, "nothing laid out reads the width: no recomposition")
+  }
+
+  @Test
+  fun geometryReadOutsideDrawingStillInvalidates() {
+    var invalidations = 0
+    var repaints = 0
+    val state = widthAndHalf { invalidations++ }
+    state.onRepaint = { repaints++ }
+    state.document.operations
+      .filterIsInstance<RcFloatExpression>()
+      .forEach(state::applyFloatExpression)
+    // Read outside a paint pass — a layout modifier sized by the expression.
+    state.resolve(halved)
+
+    assertTrue(state.publishComponentGeometry(7, RcComponentGeometry(40f, 30f, 0f, 0f, 0f, 0f)))
+    assertEquals(1, invalidations)
+    assertEquals(0, repaints)
+  }
+
+  @Test
+  fun geometryWithoutARepaintHookAlwaysInvalidates() {
+    var invalidations = 0
+    val state = widthAndHalf { invalidations++ }
+    state.beginPaint()
+    state.resolve(halved)
+    state.endPaint()
+
+    assertTrue(state.publishComponentGeometry(7, RcComponentGeometry(40f, 30f, 0f, 0f, 0f, 0f)))
+    assertEquals(1, invalidations)
+  }
+
   @Test
   fun evaluatesEveryAndroidXConditionalTypeIncludingChangedState() {
     val state = RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), emptyList()))

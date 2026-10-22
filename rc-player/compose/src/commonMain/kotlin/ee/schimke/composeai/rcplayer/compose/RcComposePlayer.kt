@@ -55,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.FloatState
+import androidx.compose.runtime.IntState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
@@ -648,6 +649,10 @@ private fun RcComposePlayerResolved(
     documentReadsContinuousClock || (animationClock != null && documentDeclaresFloatAnimation)
   var frameNanos by remember { mutableLongStateOf(0L) }
   val frameTime = remember { mutableFloatStateOf(0f) }
+  val paintVersion =
+    remember(state) {
+      mutableIntStateOf(0).also { version -> state.onRepaint = { version.intValue += 1 } }
+    }
   var frameOriginNanos by remember(document) { mutableLongStateOf(Long.MIN_VALUE) }
   // The latest frame time any loop below was handed, un-rebased, so a restarted animation loop can
   // tell how long the player sat idle.
@@ -854,6 +859,7 @@ private fun RcComposePlayerResolved(
           LocalRcLookaheadScope provides this,
           LocalRcLayoutVersion provides version,
           LocalRcFrameTime provides frameTime,
+          LocalRcPaintVersion provides paintVersion,
           LocalRcGeometryProbe provides probe,
           LocalRcPlayerRoot provides playerRoot,
           LocalRcFonts provides fonts,
@@ -972,6 +978,7 @@ private fun RenderLayoutNode(
 ) {
   val layoutVersion = LocalRcLayoutVersion.current
   val frameTime = LocalRcFrameTime.current
+  val paintVersion = LocalRcPaintVersion.current
   val lookaheadScope = LocalRcLookaheadScope.current
   val geometryProbe = LocalRcGeometryProbe.current
   val playerRoot = LocalRcPlayerRoot.current
@@ -1133,6 +1140,7 @@ private fun RenderLayoutNode(
             ?.let { operations ->
               Canvas(Modifier.fillMaxSize()) {
                 frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
+                paintVersion?.intValue // And with repainted geometry; see [LocalRcPaintVersion].
                 rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
                   drawOperations(
                     operations,
@@ -1166,6 +1174,7 @@ private fun RenderLayoutNode(
         // never published them, so every coordinate derived from them collapsed to the origin.
         Canvas(effectiveModifier.fillMaxSize()) {
           frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
+          paintVersion?.intValue // And with repainted geometry; see [LocalRcPaintVersion].
           rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
             drawOperations(
               node.operations,
@@ -1953,6 +1962,13 @@ private val LocalRcLayoutVersion = compositionLocalOf { 0 }
  * than the previous frame's. A document that never reads the clock never moves it.
  */
 private val LocalRcFrameTime = staticCompositionLocalOf<FloatState?> { null }
+
+/**
+ * Bumped when published geometry changed values only drawing reads (`RcPlayerState.onRepaint`):
+ * every canvas draw block reads it, so those blocks draw again with the new values while nothing
+ * recomposes. A component animating its bounds publishes geometry every frame, as AndroidX does.
+ */
+private val LocalRcPaintVersion = staticCompositionLocalOf<IntState?> { null }
 private val LocalRcGeometryProbe = staticCompositionLocalOf<RcGeometryProbe?> { null }
 
 /**
@@ -2553,6 +2569,7 @@ private fun Modifier.applyComponentModifiers(
   val typefaces = LocalRcTypefaces.current
   val drawObserver = LocalRcDrawObserver.current
   val frameTime = LocalRcFrameTime.current
+  val paintVersion = LocalRcPaintVersion.current
   // A `RippleModifier` is an `Indication` at its wire position, driven by the presses of the
   // component's clickable through this shared source (see `applyAndroidXRipple`).
   val rippleInteractions =
@@ -2601,6 +2618,7 @@ private fun Modifier.applyComponentModifiers(
     appliedCanvasOperations = true
     return modifier.drawWithContent {
       frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
+      paintVersion?.intValue // And with repainted geometry; see [LocalRcPaintVersion].
       rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
         drawOperations(
           operations,
@@ -4808,6 +4826,7 @@ private fun DrawScope.drawOperations(
         requireNotNull(offscreenTargets) { "Top-level drawing requires an offscreen target pool" },
       )
   activeTargets.enter()
+  state.beginPaint()
   try {
     drawOperationsRouted(
       operations,
@@ -4823,6 +4842,7 @@ private fun DrawScope.drawOperations(
       activeTargets,
     )
   } finally {
+    state.endPaint()
     activeTargets.leave(this)
   }
 }
