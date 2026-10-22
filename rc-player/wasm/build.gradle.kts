@@ -42,6 +42,15 @@ val optimizedPlayer =
     "compileProductionExecutableKotlinWasmJsOptimize"
   )
 
+// Binaryen is ~72 of the ~75 seconds `wasmPlayerTestDist` takes on a warm cache, and the Kotlin
+// Gradle plugin ships `BinaryenExec` as `@DisableCachingByDefault`, so it re-ran on every CI job,
+// including ones that changed no Kotlin. Its inputs are fully declared: the linked `.wasm`
+// (path-relative), the Binaryen arguments, and the executable, whose path names the Binaryen
+// version. Its output is the declared directory. That is everything a cache key needs, so opt in.
+optimizedPlayer.configure {
+  outputs.cacheIf("Binaryen's inputs and output are fully declared") { true }
+}
+
 tasks.register<Sync>("wasmPlayerDist") {
   description = "Assemble and size-check the optimized CMP Remote Compose Wasm distribution."
   group = "distribution"

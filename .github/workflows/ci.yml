@@ -62,6 +62,7 @@ jobs:
     outputs:
       required: ${{ steps.filter.outputs.required }}
       lane: ${{ steps.filter.outputs.lane }}
+      jvm: ${{ steps.jvm-filter.outputs.jvm }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -163,6 +164,42 @@ jobs:
           fi
           echo "lane=$lane" | tee -a "$GITHUB_OUTPUT"
 
+      # `jvm` decides whether the JVM + Android lane runs. It is the opposite kind of list from the
+      # two above: not what the lane covers, but what it provably cannot read, so anything new or
+      # unlisted runs it. A pull request skips the lane only when every changed file is Swift
+      # (`Sources`, `Tests`, the two Apple samples), docs, renders or the root README/CHANGELOG —
+      # over Sep–Oct that was about one merged PR in five, each paying ~6 minutes of
+      # JVM-lane overhead the build cache could not remove. Pushes to main always run it.
+      #
+      # `Tests/RcNativePlayerCoreTests/Fixtures` is the exception inside `Tests`:
+      # `:rc-player-protocol` adds it as a JVM test resource directory, so the Kotlin and Swift
+      # decoders read the same fixture bytes. A change there must run this lane.
+      #
+      # Fails open: an unreadable base, an empty diff or any unexpected path all mean `true`.
+      - name: Check whether the JVM lane is required
+        id: jvm-filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          jvm=true
+          if [ "$EVENT_NAME" = pull_request ] && \
+            git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null && \
+            changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")" && \
+            [ -n "$changed" ]; then
+            outside="$(printf '%s\n' "$changed" | grep -vE \
+              '^(Sources/|Tests/|samples/(apple|macos)-player/|docs/|renders/|README\.md$|CHANGELOG\.md$)' \
+              || true)"
+            fixtures="$(printf '%s\n' "$changed" | grep -E '^Tests/RcNativePlayerCoreTests/Fixtures/' \
+              || true)"
+            if [ -z "$outside" ] && [ -z "$fixtures" ]; then
+              jvm=false
+            fi
+          fi
+          echo "jvm=$jvm" | tee -a "$GITHUB_OUTPUT"
+
   # The pure-Swift document core on Linux. It imports Foundation alone, so the one part of the native
   # player that every Apple host sits on can be tested on the cheap lane, in minutes, instead of
   # only behind the macOS job's packaging gate. Off Apple platforms `Package.swift` declares only
@@ -220,7 +257,12 @@ jobs:
   # `players-macos`; see yschimke/compose-ui-builder#700.
   jvm:
     name: JVM + Android players
-    if: ${{ !(startsWith(github.head_ref || github.ref_name, 'release-please--') && (github.event.pull_request.user.login || github.actor) == 'github-actions[bot]') }}
+    # `needs` only for the `jvm` output, which is computed in the seconds-long `apple-changes`
+    # job. A skipped required check reports as passing, so this job must not be skipped because
+    # its gate failed: `!cancelled()` keeps it alive when `apple-changes` fails, and anything but a
+    # successful gate saying `false` runs the lane.
+    needs: apple-changes
+    if: ${{ !cancelled() && (needs.apple-changes.result != 'success' || needs.apple-changes.outputs.jvm != 'false') && !(startsWith(github.head_ref || github.ref_name, 'release-please--') && (github.event.pull_request.user.login || github.actor) == 'github-actions[bot]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -233,12 +275,29 @@ jobs:
       # the job — which is how three scripts ended up with three different answers to it. This
       # holds its control flow to the contract against a stubbed `simctl`, on the cheap lane, so a
       # mistake in it is caught in seconds instead of fifty minutes later on a macOS runner.
-      - name: Test the simulator boot helper
-        run: scripts/simulator-boot.test.sh
+      #
       # Same reasoning for the lane's waiting rule: it decides when a ~700-document corpus run is
       # declared stuck, and getting it wrong costs a fifteen-minute macOS job that reports nothing.
-      - name: Test the lane progress helper
-        run: scripts/lane-progress.test.sh
+      #
+      # Each suite spends ~30 s of wall clock asleep, exercising real deadlines, and neither uses
+      # the CPU while it does, so they run side by side: one wait instead of two. Both make their
+      # own `mktemp -d`. They run here, before Gradle starts, rather than in the background beside
+      # it, because their deadlines are a few seconds wide and a busy runner would make them flaky.
+      - name: Test the simulator boot and lane progress helpers
+        run: |
+          scripts/simulator-boot.test.sh > "$RUNNER_TEMP/simulator-boot.log" 2>&1 &
+          boot=$!
+          scripts/lane-progress.test.sh > "$RUNNER_TEMP/lane-progress.log" 2>&1 &
+          lane=$!
+          status=0
+          wait "$boot" || { status=1; echo "::error::scripts/simulator-boot.test.sh failed"; }
+          wait "$lane" || { status=1; echo "::error::scripts/lane-progress.test.sh failed"; }
+          for suite in simulator-boot lane-progress; do
+            echo "::group::$suite"
+            cat "$RUNNER_TEMP/$suite.log"
+            echo "::endgroup::"
+          done
+          exit "$status"
       # The release's publish plan decides which coordinates reach Maven Central, and a module it
       # wrongly skips is unrepairable (Central refuses a second upload of a version). #512 was two
       # dist modules going stale because the plan could not see what they package; these fixtures
