@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.5](https://github.com/yschimke/rc-players/compare/v2.17.4...v2.17.5) (2026-10-22)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.38.0 ([#720](https://github.com/yschimke/rc-players/issues/720)) ([1646e98](https://github.com/yschimke/rc-players/commit/1646e985d3202f57109c30f0fdb43c91f7bf3b83))
+
 ## [2.17.4](https://github.com/yschimke/rc-players/compare/v2.17.3...v2.17.4) (2026-10-22)
 
 
