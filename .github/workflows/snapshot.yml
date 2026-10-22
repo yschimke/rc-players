@@ -39,6 +39,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
           cache-read-only: "true"
+      # Read-only, like the Gradle User Home cache above: this job publishes, so it consumes the
+      # remote cache but never writes it. The win is the iOS klibs, which CI's macOS lane compiles
+      # for the same commit and writes to the cache; without this, each snapshot rebuilt them.
+      - uses: ./.github/actions/buildfetch-cache
+        with:
+          ro-token: ${{ secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN_RO }}
+          read-only-by-design: 'true'
       - name: Select an Xcode with the iOS 26 SDK
         run: |
           set -euo pipefail

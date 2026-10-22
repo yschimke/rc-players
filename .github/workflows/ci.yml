@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Nightly, for the macOS lane's evidence steps (benchmark comparisons and the corpus score) that
+  # record numbers rather than gate anything. They used to run on every push to main, about ten
+  # minutes of macOS runner a merge; a nightly sample of main records the same trend. Everything
+  # else in this workflow runs nightly too, as a full verification of main's head.
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -698,15 +705,17 @@ jobs:
       # from the packaged Release macOS app on the runner's Apple-silicon host; no simulator is
       # involved, and host load still makes the numbers unsuitable as a product SLA.
       - name: Compare Apple player macOS benchmarks
-        if: needs.apple-changes.outputs.required == 'true'
+        if: needs.apple-changes.outputs.required == 'true' && github.event_name != 'push'
         run: scripts/measure-apple-players-macos.sh
 
       - name: Measure native AppKit performance and footprint
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/measure-native-appkit.sh
 
+      # Evidence, not a gate (its script has no budget to fail): pull requests that touch the Apple
+      # lane still get the comparison, and main gets it nightly rather than on every merge.
       - name: Compare native UIKit against CMP on representative content
-        if: needs.apple-changes.outputs.required == 'true'
+        if: needs.apple-changes.outputs.required == 'true' && github.event_name != 'push'
         env:
           RC_NATIVE_UIKIT_SKIP_BUILD: 1
         run: scripts/check-native-uikit-comparison.sh
@@ -717,9 +726,10 @@ jobs:
       # repository does not control, served by a live host. See
       # docs/design/RC_CATALOG_CORPUS_LANE.md.
       #
-      # On PUSH ONLY. It adds about ten minutes to a job that has hit its 90-minute ceiling once
-      # already, and a non-gating score does not need to be on the path of every pull request to do
-      # its job — main produces the findings continuously, and the script runs locally unchanged.
+      # NIGHTLY ONLY (schedule, or a manual dispatch). It adds about ten minutes to a job that has
+      # hit its 90-minute ceiling once already, and a non-gating score does not need to be on the
+      # path of every pull request, or every merge, to do its job: a nightly score of main records
+      # the trend, and the script runs locally unchanged.
       #
       # `continue-on-error` is what actually makes it non-gating, and the script alone was not
       # enough: it fails soft on a corpus it cannot fetch, but a crash in either lane still exited
@@ -727,7 +737,7 @@ jobs:
       # still shows as failed and still says why — it just cannot fail the job, which is the
       # difference between evidence and a gate.
       - name: Score native UIKit against CMP on the catalog corpus
-        if: needs.apple-changes.outputs.required == 'true' && github.event_name == 'push'
+        if: needs.apple-changes.outputs.required == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         continue-on-error: true
         env:
           RC_NATIVE_UIKIT_SKIP_BUILD: 1
