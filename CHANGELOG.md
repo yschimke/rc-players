@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.3](https://github.com/yschimke/rc-players/compare/v2.17.2...v2.17.3) (2026-10-22)
+
+
+### Bug Fixes
+
+* schedule clock frames from what the player reads, not a byte scan ([#716](https://github.com/yschimke/rc-players/issues/716)) ([d640214](https://github.com/yschimke/rc-players/commit/d6402148639c372a2c211bedeae6141f33b3bd8b))
+
 ## [2.17.2](https://github.com/yschimke/rc-players/compare/v2.17.1...v2.17.2) (2026-10-21)
 
 
