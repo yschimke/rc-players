@@ -14,11 +14,11 @@ import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
+import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
+import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
-import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
-import ee.schimke.composeai.rcplayer.protocol.referencesAnyOf
 import ee.schimke.composeai.rcplayer.protocol.referencesContinuousSystemVariable
 import ee.schimke.composeai.rcplayer.protocol.referencesMovingSystemVariable
 import kotlin.test.Test
@@ -227,37 +227,81 @@ class RcSystemVariableTest {
   }
 
   @Test
-  fun aClockReadInAnyFieldIsFound() {
-    // A text field showing the seconds directly, and a date that has to turn over at midnight:
-    // neither is an expression, and both must still be found.
-    val seconds =
-      RcDocument(
-        RcHeader(RcVersion(1, 0, 0)),
+  fun aClockIsReadWhenTheDocumentReadsIt() {
+    // Loading the clock at the top of a frame is not reading it.
+    val state =
+      RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), emptyList()), timeSource = clock)
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    assertFalse(state.readsClock)
+    assertFalse(state.readsContinuousClock)
+
+    // A date that has to turn over at midnight, read in any field: once a second, not every frame.
+    state.system(RcSystemVariables.DAY_OF_MONTH)
+    assertTrue(state.readsClock)
+    assertFalse(state.readsContinuousClock)
+
+    // A sweep over continuous seconds needs every frame.
+    state.system(RcSystemVariables.CONTINUOUS_SEC)
+    assertTrue(state.readsContinuousClock)
+  }
+
+  @Test
+  fun aPathsCommandsAreNotReads() {
+    // AndroidX marks path commands with NaN-boxed words: MOVE is 10 and LINE 11, the ids of
+    // OFFSET_TO_UTC and WEEK_DAY, and CUBIC is 14, the touch position's Y. An icon is not a clock.
+    fun command(id: Int) = RcFloatWord(PATH_COMMAND or id)
+    val point = RcFloatWord.literal(4f)
+    val path =
+      RcPathData(
+        300,
         listOf(
-          RcTextFromFloat(200, RcFloatWord(NAN_REFERENCE or RcSystemVariables.TIME_IN_SEC), 2, 0, 0)
+          command(RcPathCommands.MOVE),
+          point,
+          point,
+          command(RcPathCommands.CUBIC),
+          point,
+          point,
+          point,
+          point,
+          point,
+          point,
+          point,
+          point,
+          command(RcPathCommands.CLOSE),
         ),
       )
-    assertTrue(seconds.referencesAnyOf(RcSystemVariables.CLOCK))
-    val day =
-      RcDocument(
-        RcHeader(RcVersion(1, 0, 0)),
-        listOf(
-          RcTextFromFloat(
-            200,
-            RcFloatWord(NAN_REFERENCE or RcSystemVariables.DAY_OF_MONTH),
-            2,
-            0,
-            0,
-          )
+    val state =
+      RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(path)), timeSource = clock)
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    assertEquals(path, state.path(300))
+    assertFalse(state.readsClock)
+    assertFalse(state.publishTouchPosition(1f, 2f), "an icon repainted on every pointer move")
+  }
+
+  @Test
+  fun aDocumentThatReadsThePointerRepaintsWhenItMoves() {
+    val state =
+      RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), emptyList()), timeSource = clock)
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    assertFalse(state.publishTouchPosition(1f, 2f))
+    state.system(RcTouchExpressionRuntime.ID_TOUCH_POS_X)
+    assertTrue(state.publishTouchPosition(3f, 4f))
+  }
+
+  @Test
+  fun aClaimedSystemIdIsNotAClock() {
+    // A document that declares its own value at a reserved id reads its own value, not the clock.
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0)),
+          listOf(RcFloatConstant(RcSystemVariables.TIME_IN_SEC, RcFloatWord.literal(7f))),
         ),
+        timeSource = clock,
       )
-    assertTrue(day.referencesAnyOf(RcSystemVariables.CLOCK))
-    val none =
-      RcDocument(
-        RcHeader(RcVersion(1, 0, 0)),
-        listOf(RcTextFromFloat(200, RcFloatWord.literal(3f), 2, 0, 0)),
-      )
-    assertFalse(none.referencesAnyOf(RcSystemVariables.CLOCK))
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    assertEquals(7f, state.system(RcSystemVariables.TIME_IN_SEC))
+    assertFalse(state.readsClock)
   }
 
   @Test
@@ -291,6 +335,8 @@ class RcSystemVariableTest {
     state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
     state.applyIntegerExpression(expression)
     assertEquals(45, state.integer(150))
+    assertTrue(state.readsClock)
+    assertFalse(state.readsContinuousClock)
 
     // ...and a document that reads the clock that way asks for its once-a-second refresh.
     assertTrue(document.referencesMovingSystemVariable())
@@ -689,5 +735,6 @@ class RcSystemVariableTest {
   private companion object {
     const val EPOCH_MILLIS = 1_787_243_445_250L
     const val NAN_REFERENCE = 0x7fc00000
+    const val PATH_COMMAND = 0xff800000.toInt()
   }
 }

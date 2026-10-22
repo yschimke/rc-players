@@ -148,24 +148,6 @@ public object RcSystemVariables {
 }
 
 /**
- * Whether any operation of this document refers to one of [ids], in any field.
- *
- * Found by scanning the encoded document for a NaN-encoded reference at every offset rather than by
- * listing the fields that can hold one — a list misses the next operation to gain a float operand.
- * The scan cannot tell a reference from a coincidental bit pattern or from a word the document
- * shadows, so it can only over-report; a caller uses it where over-reporting is cheap. A document
- * that cannot be encoded is reported as referring to them.
- */
-public fun RcDocument.referencesAnyOf(ids: Set<Int>): Boolean {
-  val bytes = runCatching { RcDocumentCodec.encode(this) }.getOrNull() ?: return true
-  return (0..bytes.size - Int.SIZE_BYTES).any { offset ->
-    var bits = 0
-    for (i in 0 until Int.SIZE_BYTES) bits = (bits shl 8) or (bytes[offset + i].toInt() and 0xff)
-    RcFloatWord(bits).referencedId in ids
-  }
-}
-
-/**
  * Whether this document reads a system variable whose value moves — i.e. whether painting it once
  * would freeze an animation.
  *
@@ -236,11 +218,9 @@ private fun RcDocument.referencesSystemVariable(ids: Set<Int>): Boolean {
       is RcPathExpression ->
         operation.expressionX.movesWithSystemTime(ids, claimed) ||
           operation.expressionY.movesWithSystemTime(ids, claimed)
-      // An integer expression names a variable by marking the word, not by NaN-boxing it, so the
-      // word scan in [referencesAnyOf] cannot see it. AndroidX's embedded player schedules its
-      // clock
-      // for these too (androidx/androidx@c73c596e9); without it an integer read of the clock is
-      // evaluated once and never again.
+      // An integer expression names a variable by marking the word, not by NaN-boxing it.
+      // AndroidX's embedded player schedules its clock for these too (androidx/androidx@c73c596e9);
+      // without it an integer read of the clock is evaluated once and never again.
       is RcIntegerExpression ->
         operation.values.indices.any { index ->
           val value = operation.values[index]

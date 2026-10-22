@@ -281,7 +281,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcScrollModifier
 import ee.schimke.composeai.rcplayer.protocol.RcShaderData
-import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
@@ -301,9 +300,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
-import ee.schimke.composeai.rcplayer.protocol.referencesAnyOf
-import ee.schimke.composeai.rcplayer.protocol.referencesContinuousSystemVariable
-import ee.schimke.composeai.rcplayer.protocol.referencesMovingSystemVariable
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionBlock
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionType
 import ee.schimke.composeai.rcplayer.runtime.RcComponentGeometry
@@ -620,29 +616,26 @@ private fun RcComposePlayerResolved(
     remember(document) {
       document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null }
     }
-  // What needs a frame on every vsync for as long as the document is shown, as opposed to a float
-  // tween or spring, which needs frames only while it is moving.
-  val documentReadsContinuousClock =
-    remember(document) {
-      // A marquee is not here: `basicMarquee` runs its own animation.
-      document.operations.any { it is RcTimeAttribute && it.type.requiresContinuousFrames } ||
-        // A document can also animate by reading the clock directly, with no animation attached to
-        // anything: `remote-m3`'s indeterminate circular progress builds its sweep from a float
-        // expression over the player-supplied `CONTINUOUS_SEC` (#4264). Without this the state's
-        // per-frame variables would be loaded exactly once and the arc would hold its first pose.
-        document.referencesContinuousSystemVariable()
-    }
-  // A document that reads the clock only in whole seconds — a digital watch face — changes once a
-  // second, and redrawing it at the display rate in between draws the same frame again. AndroidX
-  // sleeps such a document to the next second; so does this.
-  // Any other clock read — a text field showing the seconds directly, a date that must turn over at
-  // midnight — gets the same once-a-second refresh, found by scanning every field.
-  val ticksEverySecond =
-    remember(document) {
-      !documentReadsContinuousClock &&
-        (document.referencesMovingSystemVariable() ||
-          document.referencesAnyOf(RcSystemVariables.CLOCK))
-    }
+  // What the document's reads of the clock ask of the player: nothing, a frame each second, or a
+  // frame on every vsync for as long as it is shown (as opposed to a float tween or spring, which
+  // needs frames only while it is moving). The state records every clock read as the player
+  // evaluates the document, so this is what the document does rather than what it might: a
+  // `remote-m3` indeterminate progress sweeps over `CONTINUOUS_SEC` with no animation attached
+  // (#4264), and a digital watch face reads only whole seconds, which AndroidX sleeps to the next
+  // second and so does this. It only ever rises: a read in a branch that is not showing now will be
+  // again.
+  var clockReads by remember(document) { mutableIntStateOf(CLOCK_READS_NONE) }
+  val noteClockReads: () -> Unit = {
+    val reads =
+      when {
+        state.readsContinuousClock -> CLOCK_READS_CONTINUOUS
+        state.readsClock -> CLOCK_READS_EVERY_SECOND
+        else -> CLOCK_READS_NONE
+      }
+    if (reads > clockReads) clockReads = reads
+  }
+  val documentReadsContinuousClock = clockReads == CLOCK_READS_CONTINUOUS
+  val ticksEverySecond = clockReads == CLOCK_READS_EVERY_SECOND
   // An implicit graphics-layer tween needs no document frames: it runs on Compose's own frame clock
   // and updates only its layer (see `applyGraphicsLayer`).
   //
@@ -723,7 +716,10 @@ private fun RcComposePlayerResolved(
       floatAnimationLoop.running = false
     }
   }
-  SideEffect { wakeFloatAnimations() }
+  SideEffect {
+    noteClockReads()
+    wakeFloatAnimations()
+  }
   LaunchedEffect(ticksEverySecond, needsContinuousFrames, infiniteAnimationPolicy) {
     if (ticksEverySecond && !needsContinuousFrames) {
       withContext(infiniteAnimationContext) {
@@ -827,6 +823,7 @@ private fun RcComposePlayerResolved(
         drawObserver?.onFrame()
         drawContent()
         // A canvas document evaluates its expressions here rather than in composition.
+        noteClockReads()
         wakeFloatAnimations()
       }
       // The root components' `ROOT_X` / `ROOT_Y` are measured from (see [RcPlayerRoot]).
@@ -3655,6 +3652,11 @@ private fun Modifier.fitToLines(
 }
 
 private const val LINE_EXTENT_EPSILON = 0.01f
+
+/** What a document's reads of the clock ask for, in rising order: see `clockReads`. */
+private const val CLOCK_READS_NONE = 0
+private const val CLOCK_READS_EVERY_SECOND = 1
+private const val CLOCK_READS_CONTINUOUS = 2
 
 internal fun rcAhemWrap(text: String, availableWidthPx: Float, fontSizePx: Float): List<String> {
   if (fontSizePx <= 0f || availableWidthPx <= 0f) return listOf(text)
