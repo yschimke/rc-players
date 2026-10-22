@@ -2036,12 +2036,17 @@ private const val DRAW_ID_DEREFERENCE = 0x40000000
 /** The namespace AndroidX's `RcPlayerState` resolves an unqualified host name into first. */
 private const val USER_PREFIX = "USER"
 
-/** A set of non-negative ids, one bit each. */
+/**
+ * A set of non-negative ids: one bit each below [DENSE_LIMIT], where a document's ids live, and a
+ * hash set above it, so an id read from the wire never sizes an allocation.
+ */
 internal class RcIdSet {
   private var words = LongArray(4)
+  private var sparse: HashSet<Int>? = null
 
   /** Adds [id]; returns whether it was absent. */
   fun add(id: Int): Boolean {
+    if (id >= DENSE_LIMIT) return (sparse ?: HashSet<Int>().also { sparse = it }).add(id)
     val word = id ushr 6
     if (word >= words.size) words = words.copyOf(maxOf(word + 1, words.size * 2))
     val bit = 1L shl (id and 63)
@@ -2051,7 +2056,12 @@ internal class RcIdSet {
   }
 
   operator fun contains(id: Int): Boolean {
+    if (id >= DENSE_LIMIT) return sparse?.contains(id) == true
     val word = id ushr 6
     return word < words.size && words[word] and (1L shl (id and 63)) != 0L
+  }
+
+  private companion object {
+    const val DENSE_LIMIT = 1 shl 16
   }
 }

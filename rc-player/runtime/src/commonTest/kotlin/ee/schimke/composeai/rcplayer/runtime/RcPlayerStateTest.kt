@@ -256,6 +256,14 @@ class RcPlayerStateTest {
   }
 
   @Test
+  fun aReadOfAHugeIdDoesNotSizeAnAllocation() {
+    val state = widthAndHalf {}
+    // An unvalidated wire id: tracked sparsely, not by growing a bitset to cover it.
+    assertEquals(null, state.integer(Int.MAX_VALUE))
+    assertEquals(null, state.integer(Int.MAX_VALUE))
+  }
+
+  @Test
   fun geometryWithoutARepaintHookAlwaysInvalidates() {
     var invalidations = 0
     val state = widthAndHalf { invalidations++ }
