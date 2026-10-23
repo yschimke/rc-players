@@ -138,7 +138,13 @@ tasks.withType<Test>().configureEach {
     val dynamicColorReport =
         (project.findProperty("rc.dynamic-color.report") as String?)?.let(project::file)
             ?: layout.buildDirectory.file("reports/dynamic-color-diag.txt").get().asFile
-    systemProperty("rc.dynamic-color.report", dynamicColorReport.absolutePath)
+    // Relative to the test JVM's working directory, the project directory, so the property is the
+    // same string in every checkout. An absolute path put this machine's checkout location into
+    // the task's build cache key, and the suite missed the remote cache from any other path.
+    systemProperty(
+        "rc.dynamic-color.report",
+        dynamicColorReport.relativeTo(projectDir).invariantSeparatorsPath,
+    )
     // The diagnostic skips without staged input, so normal test runs advertise no missing output.
     // When the documented diagnostic command is active, however, the report is part of the task's
     // contract: Gradle must rerun (or restore it from the build cache) after the file is deleted.

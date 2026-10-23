@@ -194,7 +194,7 @@ jobs:
           # whose /bin/bash is 3.2, and there an EMPTY array under `set -u` expands as an unbound
           # variable and kills the step. That is how v1.64.0 died — before Gradle started, with
           # every other job of the release already green.
-          ./gradlew publishPlayers ${PLAN_ARGS[@]+"${PLAN_ARGS[@]}"}
+          ./gradlew publishPlayers -Pcomposeai.reproducibleKlibs=true ${PLAN_ARGS[@]+"${PLAN_ARGS[@]}"}
 
   # The Wasm bundle, published to npm so a web consumer can drop the player into a page without
   # cloning this repo and running Gradle.

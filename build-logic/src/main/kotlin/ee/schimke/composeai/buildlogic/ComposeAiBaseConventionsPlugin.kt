@@ -5,7 +5,10 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.withType
+import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompilerOptions
+import org.jetbrains.kotlin.gradle.dsl.KotlinNativeCompilerOptions
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
+import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
 
 /**
  * The conventions every module in this build applies: ktfmt in Google style, and the build-cache
@@ -36,6 +39,42 @@ class ComposeAiBaseConventionsPlugin : Plugin<Project> {
     val cacheSalt = project.providers.gradleProperty("composeai.cacheSalt").orElse("0")
     project.tasks.withType<KotlinCompilationTask<*>>().configureEach {
       inputs.property("composeai.cacheSalt", cacheSalt)
+    }
+
+    // Kotlin/Native links stay out of the build cache. Their outputs (frameworks and test
+    // executables, the release ones hundreds of MB) are only ever reusable by another macOS run,
+    // and a link's inputs are every klib under it, so any change to the player stack changes
+    // the key anyway. Pushing them was most of what CI uploaded to the remote cache. Gradle has
+    // no per-task push switch, so this keeps them out of the cache entirely; the XCFramework and
+    // fat-framework tasks that assemble them are not cacheable to begin with.
+    project.tasks.withType<KotlinNativeLink>().configureEach {
+      outputs.doNotCacheIf("Kotlin/Native link outputs are large and reusable only on macOS") {
+        true
+      }
+    }
+
+    // Reproducible klibs for the builds that publish them. A Native or Wasm klib records every
+    // source file's absolute path, so the published bytes depended on where the checkout sat
+    // (and named the CI runner's directories). Relative to the root they are the same anywhere.
+    //
+    // Only when publishing (`-Pcomposeai.reproducibleKlibs=true`, passed by release.yml's Maven
+    // Central job): the flag's value is the root's absolute path, and compiler arguments are part
+    // of the task's build cache key, so on every build it would tie the klib compiles' keys to
+    // the checkout location and cost every other checkout those hits.
+    val reproducibleKlibs =
+      project.providers.gradleProperty("composeai.reproducibleKlibs").orNull.toBoolean()
+    if (reproducibleKlibs) {
+      val klibPathArgs =
+        listOf(
+          "-Xklib-relative-path-base=${project.rootDir.absolutePath}",
+          "-Xklib-normalize-absolute-path",
+        )
+      project.tasks.withType<KotlinCompilationTask<*>>().configureEach {
+        val options = compilerOptions
+        if (options is KotlinNativeCompilerOptions || options is KotlinJsCompilerOptions) {
+          options.freeCompilerArgs.addAll(klibPathArgs)
+        }
+      }
     }
   }
 }
