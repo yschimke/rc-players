@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.17.5](https://github.com/yschimke/rc-players/compare/v2.17.4...v2.17.5) (2026-10-23)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.38.0 ([#720](https://github.com/yschimke/rc-players/issues/720)) ([1646e98](https://github.com/yschimke/rc-players/commit/1646e985d3202f57109c30f0fdb43c91f7bf3b83))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.39.0 ([#732](https://github.com/yschimke/rc-players/issues/732)) ([9685c6c](https://github.com/yschimke/rc-players/commit/9685c6c64c8fc6e18547099a7d06bd8539c0942f))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.24.0 ([#733](https://github.com/yschimke/rc-players/issues/733)) ([1f3a064](https://github.com/yschimke/rc-players/commit/1f3a0642cb80feeeeabc53c1f4d04d894a9185b1))
+* **deps:** update dependency org.jetbrains.kotlinx:kotlinx-serialization-json to v1.12.0 ([#704](https://github.com/yschimke/rc-players/issues/704)) ([6a11293](https://github.com/yschimke/rc-players/commit/6a1129359243c880107c43467dd399e39b590246))
+* keep a reused player's pictures and size across documents ([#734](https://github.com/yschimke/rc-players/issues/734)) ([e9112f7](https://github.com/yschimke/rc-players/commit/e9112f7c8583018b821325e0d9657d208e677007))
+
 ## [2.17.4](https://github.com/yschimke/rc-players/compare/v2.17.3...v2.17.4) (2026-10-22)
 
 
