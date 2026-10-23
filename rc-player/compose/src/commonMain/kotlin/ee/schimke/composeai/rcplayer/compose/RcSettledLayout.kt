@@ -43,12 +43,23 @@ internal class RcFirstLayoutSettle {
    * happens to relayout the player.
    */
   val probeGeneration = mutableIntStateOf(0)
+
+  /**
+   * Whether the settle moved a value. A player handed a new document recomposes the tree it kept
+   * before measure, reading sizes the new document hasn't published yet (zero), and that tree's
+   * lookahead stays at them: a card whose height follows its own width collapsed for good, where a
+   * fresh player's tree first composes after its settle. So a settle that moves anything gets a
+   * tree of its own, composed after it. One that moves nothing — a document reading none of its own
+   * geometry — keeps the tree it has, and what lives in it (a focused field, its IME session).
+   */
+  var moved: Boolean = false
 }
 
 private sealed interface RcSettleSlot {
   data class Probe(val pass: Int) : RcSettleSlot
 
-  data object Content : RcSettleSlot
+  /** The kept tree: one per settle that moved a value, see [RcFirstLayoutSettle.moved]. */
+  data class Content(val settle: RcFirstLayoutSettle?) : RcSettleSlot
 }
 
 /**
@@ -99,9 +110,11 @@ internal fun RcSettledLayout(
       // Text a document derives from a component's size was computed before the probes moved
       // it; the kept tree composes next, and has to read the settled text.
       if (changed) onSettled()
+      settle.moved = changed
       settle.settled = true
     }
-    val placeables = subcompose(RcSettleSlot.Content) { tree(null) }.map { it.measure(constraints) }
+    val slot = RcSettleSlot.Content(settle.takeIf { it.moved })
+    val placeables = subcompose(slot) { tree(null) }.map { it.measure(constraints) }
     val width =
       constraints.constrainWidth(placeables.maxOfOrNull { it.width } ?: constraints.minWidth)
     val height =

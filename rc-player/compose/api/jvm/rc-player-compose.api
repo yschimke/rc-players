@@ -265,12 +265,17 @@ public final class ee/schimke/composeai/rcplayer/compose/RcGlyphPlacement {
 
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcImageLoader {
 	public static final field Companion Lee/schimke/composeai/rcplayer/compose/RcImageLoader$Companion;
+	public fun cached (Lee/schimke/composeai/rcplayer/protocol/RcBitmapData;)Landroidx/compose/ui/graphics/ImageBitmap;
 	public abstract fun load (Lee/schimke/composeai/rcplayer/protocol/RcBitmapData;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcImageLoader$Companion {
 	public final fun getDefault ()Lee/schimke/composeai/rcplayer/compose/RcImageLoader;
 	public final fun getEmpty ()Lee/schimke/composeai/rcplayer/compose/RcImageLoader;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcImageLoader$DefaultImpls {
+	public static fun cached (Lee/schimke/composeai/rcplayer/compose/RcImageLoader;Lee/schimke/composeai/rcplayer/protocol/RcBitmapData;)Landroidx/compose/ui/graphics/ImageBitmap;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcImageLoaderKt {
