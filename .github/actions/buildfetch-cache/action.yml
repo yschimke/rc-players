@@ -19,6 +19,11 @@ inputs:
       BuildFetch cache:readonly token for read-only access on PRs / other events.
       Optional — when unset those builds fall back to the local cache.
     default: ''
+  read-only-by-design:
+    description: >
+      'true' for a job that runs on push but deliberately never writes the cache (a publishing
+      job, say), so the missing-write-token warning below does not fire for it.
+    default: 'false'
 
 runs:
   using: 'composite'
@@ -32,6 +37,7 @@ runs:
         RW_TOKEN: ${{ inputs.rw-token }}
         RO_TOKEN: ${{ inputs.ro-token }}
         EVENT_NAME: ${{ github.event_name }}
+        READ_ONLY_BY_DESIGN: ${{ inputs.read-only-by-design }}
       run: | # zizmor: ignore[github-env]
         # ON_CI=true (remote cache writes, see settings.gradle.kts) only when a
         # write token is actually present, so a read-only run never tries to push. GitHub masks
@@ -50,6 +56,6 @@ runs:
         # show it (compose-preview-daemon ran that way unnoticed: 93 of 428 tasks from cache on a
         # version-only commit). Say so where the run summary shows it. Fork PRs never get
         # secrets, so only pushes warn.
-        if [ "$EVENT_NAME" = push ] && [ -z "$RW_TOKEN" ]; then
+        if [ "$EVENT_NAME" = push ] && [ -z "$RW_TOKEN" ] && [ "$READ_ONLY_BY_DESIGN" != true ]; then
           echo "::warning title=BuildFetch remote cache not written::This push has no BuildFetch read/write token, so main is not populating the remote build cache and PRs rebuild what it would have stored. Add BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN (read/write) and BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN_RO (read-only) as repository secrets, and set rcPlayers.buildFetchCacheUrl in gradle.properties."
         fi
