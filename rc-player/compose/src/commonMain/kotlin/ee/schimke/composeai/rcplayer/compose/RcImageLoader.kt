@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -27,11 +28,21 @@ import kotlinx.coroutines.launch
  * host.
  *
  * Requests run once per bitmap and loader instance. Replacing the document or loader, or removing
- * the player, cancels outstanding requests. Images are blank until loaded; completion updates
- * layout and canvas drawing. Inline images continue to use the player's decoder.
+ * the player, cancels outstanding requests. An image the host already holds ([cached]) is drawn on
+ * the player's first frame; any other is blank until loaded, and completion updates layout and
+ * canvas drawing. A replaced document keeps drawing the previous document's image for the same id
+ * until the new one loads, so a changed picture swaps rather than blinking; one that loads as null
+ * is cleared. Inline images continue to use the player's decoder.
  */
 public fun interface RcImageLoader {
   public suspend fun load(bitmap: RcBitmapData): ImageBitmap?
+
+  /**
+   * [bitmap]'s image when the host holds it already (a memory cache hit), else null. Called during
+   * composition, so it must not suspend, block or do I/O. A non-null result is drawn on the first
+   * frame and [load] is not called for that bitmap.
+   */
+  public fun cached(bitmap: RcBitmapData): ImageBitmap? = null
 
   public companion object {
     /** Use the app's Coil singleton loader, resolved in the player's composition. */
@@ -81,33 +92,63 @@ internal fun rememberRcImages(
   val configured = LocalRcImageLoader.current
   val loader = if (configured === RcImageLoader.Default) rememberCoilRcImageLoader() else configured
   val notifyLoaded by rememberUpdatedState(onLoaded)
-  val images = remember(document, loader) { inlineImages.toMutableMap() }
-  LaunchedEffect(document, loader) {
-    // Keep wire declarations, including referenced definitions, and add expanded macro bodies.
-    // Linked operations carry the remapped ids used by the renderer.
-    val bitmaps = document.operations.filterIsInstance<RcBitmapData>().toMutableList()
-    fun visit(node: RcLinkedNode) {
-      when (node) {
-        is RcLinkedNode.Operation -> (node.operation as? RcBitmapData)?.let(bitmaps::add)
-        is RcLinkedNode.Container -> node.children.forEach(::visit)
+  val external = remember(document, linked) { externalBitmaps(document, linked) }
+  // The images the last document drew, so a replacement keeps them while its own load.
+  val previous = remember { arrayOf<Map<Int, ImageBitmap>>(emptyMap()) }
+  val seeded =
+    remember(document, loader) {
+      val images = inlineImages.toMutableMap()
+      val fromHost = HashSet<Int>()
+      for (bitmap in external) {
+        val cached = loader.cached(bitmap)
+        if (cached != null) fromHost += bitmap.imageId
+        (cached ?: previous[0][bitmap.imageId])?.let { images[bitmap.imageId] = it }
       }
+      SeededImages(images, fromHost)
     }
-    linked.operations.forEach(::visit)
-    bitmaps
-      .filterIsInstance<RcBitmapData>()
-      .filter {
-        it.encoding == RcBitmapData.ENCODING_URL || it.encoding == RcBitmapData.ENCODING_FILE
-      }
-      .associateBy { it.imageId }
-      .values
+  val images = seeded.images
+  SideEffect { previous[0] = images }
+  LaunchedEffect(document, loader) {
+    external
+      .filter { it.imageId !in seeded.fromHost }
       .forEach { bitmap ->
         launch {
-          loader.load(bitmap)?.let {
-            images[bitmap.imageId] = it
+          val loaded = loader.load(bitmap)
+          if (loaded != null) {
+            images[bitmap.imageId] = loaded
+            notifyLoaded()
+          } else if (images.remove(bitmap.imageId) != null) {
+            // A carried-over image whose replacement is unavailable: don't keep drawing it.
             notifyLoaded()
           }
         }
       }
   }
   return images
+}
+
+/** A document's first images, and the ids among them [RcImageLoader.cached] supplied. */
+private class SeededImages(val images: MutableMap<Int, ImageBitmap>, val fromHost: Set<Int>)
+
+/**
+ * The URL and file bitmaps [document] declares, one per image id: its wire declarations, including
+ * referenced definitions, and expanded macro bodies. Linked operations carry the remapped ids the
+ * renderer uses.
+ */
+private fun externalBitmaps(document: RcDocument, linked: RcLinkedDocument): List<RcBitmapData> {
+  val bitmaps = document.operations.filterIsInstance<RcBitmapData>().toMutableList()
+  fun visit(node: RcLinkedNode) {
+    when (node) {
+      is RcLinkedNode.Operation -> (node.operation as? RcBitmapData)?.let(bitmaps::add)
+      is RcLinkedNode.Container -> node.children.forEach(::visit)
+    }
+  }
+  linked.operations.forEach(::visit)
+  return bitmaps
+    .filter {
+      it.encoding == RcBitmapData.ENCODING_URL || it.encoding == RcBitmapData.ENCODING_FILE
+    }
+    .associateBy { it.imageId }
+    .values
+    .toList()
 }

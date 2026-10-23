@@ -193,20 +193,80 @@ class RcImageLoaderTest {
     }
 
   @Test
+  fun aCachedImageIsDrawnOnTheFirstFrameWithoutALoad() =
+    runSkikoComposeUiTest(size = Size(8f, 8f), density = Density(1f)) {
+      var loads = 0
+      val loader =
+        object : RcImageLoader {
+          override suspend fun load(bitmap: RcBitmapData): ImageBitmap? {
+            loads += 1
+            return CompletableDeferred<ImageBitmap?>().await()
+          }
+
+          override fun cached(bitmap: RcBitmapData): ImageBitmap = redImage()
+        }
+      val document =
+        document(listOf(externalBitmap(), RcDrawBitmapInt(42, 0, 0, 8, 8, 0, 0, 8, 8, 0)))
+      mainClock.autoAdvance = false
+      setContent { RcComposePlayer(document, loader, Modifier.testTag("player")) }
+      // The first frame: no load could have completed (none ever does).
+      assertEquals(Color.Red, onNodeWithTag("player").captureToImage().toPixelMap()[4, 4])
+      assertEquals(0, loads)
+    }
+
+  @Test
+  fun aReplacedDocumentKeepsThePreviousImageUntilItsOwnLoads() =
+    runSkikoComposeUiTest(size = Size(8f, 8f), density = Density(1f)) {
+      val next = CompletableDeferred<ImageBitmap?>()
+      val loader = RcImageLoader { bitmap ->
+        if (bitmap.data.decodeToString().endsWith("next.png")) next.await() else redImage()
+      }
+      val draw = RcDrawBitmapInt(42, 0, 0, 8, 8, 0, 0, 8, 8, 0)
+      val current = mutableStateOf(document(listOf(externalBitmap(), draw)))
+      setContent { RcComposePlayer(current.value, loader, Modifier.testTag("player")) }
+      waitForIdle()
+      assertEquals(Color.Red, onNodeWithTag("player").captureToImage().toPixelMap()[4, 4])
+
+      runOnIdle { current.value = document(listOf(externalBitmap("next.png"), draw)) }
+      waitForIdle()
+      // The new picture is still loading: the old one stays rather than a blank frame.
+      assertEquals(Color.Red, onNodeWithTag("player").captureToImage().toPixelMap()[4, 4])
+
+      next.complete(solidImage(Color.Blue))
+      waitForIdle()
+      assertEquals(Color.Blue, onNodeWithTag("player").captureToImage().toPixelMap()[4, 4])
+    }
+
+  @Test
+  fun aCarriedOverImageIsClearedWhenTheReplacementIsUnavailable() =
+    runSkikoComposeUiTest(size = Size(8f, 8f), density = Density(1f)) {
+      val loader = RcImageLoader { bitmap ->
+        if (bitmap.data.decodeToString().endsWith("next.png")) null else redImage()
+      }
+      val draw = RcDrawBitmapInt(42, 0, 0, 8, 8, 0, 0, 8, 8, 0)
+      val current = mutableStateOf(document(listOf(externalBitmap(), draw)))
+      setContent { RcComposePlayer(current.value, loader, Modifier.testTag("player")) }
+      waitForIdle()
+      runOnIdle { current.value = document(listOf(externalBitmap("next.png"), draw)) }
+      waitForIdle()
+      assertNotEquals(Color.Red, onNodeWithTag("player").captureToImage().toPixelMap()[4, 4])
+    }
+
+  @Test
   fun reportRequiresTheHostImageUnlessItHasBeenSupplied() {
     val document = document(listOf(externalBitmap()))
     assertFalse(document.composeSupportReport().playable)
     assertTrue(document.composeSupportReport(availableImageIds = setOf(42)).fullyRenderable)
   }
 
-  private fun externalBitmap() =
+  private fun externalBitmap(name: String = "image.png") =
     RcBitmapData(
       42,
       8,
       8,
       RcBitmapData.TYPE_PNG,
       RcBitmapData.ENCODING_URL,
-      "https://images.example/image.png".encodeToByteArray(),
+      "https://images.example/$name".encodeToByteArray(),
     )
 
   private fun document(operations: List<RcOperation>, size: Int = 8) =
@@ -215,9 +275,11 @@ class RcImageLoaderTest {
       operations,
     )
 
-  private fun redImage(): ImageBitmap =
+  private fun redImage(): ImageBitmap = solidImage(Color.Red)
+
+  private fun solidImage(color: Color): ImageBitmap =
     ImageBitmap(8, 8).also {
-      Canvas(it).drawRect(Rect(0f, 0f, 8f, 8f), Paint().apply { color = Color.Red })
+      Canvas(it).drawRect(Rect(0f, 0f, 8f, 8f), Paint().apply { this.color = color })
     }
 
   private fun writeEvidence(name: String, image: ImageBitmap) {

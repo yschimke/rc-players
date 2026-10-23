@@ -1444,6 +1444,8 @@ private fun RenderLayoutNode(
                 alignment = Alignment.TopStart,
                 label = "RcStateLayout",
                 sharedElements = { index -> children[index].sharedElementComponents() },
+                sharesElements =
+                  remember(children) { children.any { it.sharedElementComponents().isNotEmpty() } },
               ) { index ->
                 val child = children[index]
                 key(child.componentId) {
@@ -1815,6 +1817,8 @@ private fun RenderLayoutNode(
             alignment = alignment,
             label = "RcFitBox",
             sharedElements = { index -> children[index].sharedElementComponents() },
+            sharesElements =
+              remember(children) { children.any { it.sharedElementComponents().isNotEmpty() } },
           ) { index ->
             val child = children[index]
             key(child.componentId) {

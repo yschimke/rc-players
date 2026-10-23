@@ -82,6 +82,13 @@ internal fun RcAnimatedAlternatives(
   alignment: Alignment,
   label: String,
   sharedElements: (Int) -> Map<Int, Int>,
+  /**
+   * Whether any alternative names a shared element. Without one there is nothing for a
+   * `SharedTransitionLayout` to morph — [rcSharedElementModifier] returns null for every component
+   * — so the cross-fade runs without one: it is a lookahead layout of its own around every state
+   * layout, and composing it for each card was a measurable share of a dashboard's first frame.
+   */
+  sharesElements: Boolean = true,
   content: @Composable (Int) -> Unit,
 ) {
   // A host that turns layout animations off gets the new alternative at once, and so does a
@@ -105,6 +112,26 @@ internal fun RcAnimatedAlternatives(
   // Remembered: a sampled `Easing` has no equality, so a fresh one per composition would restart
   // anything keyed on it.
   val easing = remember(spec) { spec.rcMotionEasing() }
+  if (!sharesElements) {
+    AnimatedContent(
+      targetState = target,
+      contentAlignment = alignment,
+      label = label,
+      transitionSpec = {
+        (fadeIn(animationSpec = tween(durationMillis = duration, easing = easing)) togetherWith
+            fadeOut(animationSpec = tween(durationMillis = duration, easing = easing)))
+          .using(SizeTransform(clip = false) { _, _ -> tween(duration, easing = easing) })
+      },
+    ) { index ->
+      CompositionLocalProvider(
+        LocalRcAnimatedVisibilityScope provides this@AnimatedContent,
+        LocalRcSharedElementComponents provides sharedElements(index),
+      ) {
+        content(index)
+      }
+    }
+    return
+  }
   SharedTransitionLayout {
     AnimatedContent(
       targetState = target,
