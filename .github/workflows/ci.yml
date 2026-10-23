@@ -333,10 +333,14 @@ jobs:
       - name: Verify the published TypeScript bundle matches its source
         run: bash scripts/check-typescript-dist.sh
 
+      # Chromium only, without `--with-deps`: the runner image already ships Chrome and the system
+      # libraries it needs, and the extra packages (mostly CJK and fallback fonts, plus Xvfb) came
+      # from the Ubuntu mirror, which at times served them at under 100 kB/s and cost this step
+      # 5-8 minutes instead of ~30 s.
       - name: Test browser input values, nested identities and clipped hit testing
         run: |
           npm --prefix scripts/wasm-smoke ci
-          (cd scripts/wasm-smoke && npx playwright install --with-deps chromium)
+          (cd scripts/wasm-smoke && npx playwright install chromium)
           third_party/remote-compose-player/node_modules/.bin/esbuild third_party/remote-compose-player/src/input.browser-harness.ts --bundle --format=iife --global-name=InputTest --outfile=/tmp/rc-input-harness.js
           PLAYWRIGHT_MODULE="$PWD/scripts/wasm-smoke/node_modules/playwright/index.mjs" RC_INPUT_HARNESS_JS=/tmp/rc-input-harness.js node --test scripts/rc-input-message/input.browser.test.mjs
 
@@ -440,7 +444,7 @@ jobs:
         working-directory: scripts/wasm-smoke
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
           npm test
 
       - name: Upload test reports on failure
