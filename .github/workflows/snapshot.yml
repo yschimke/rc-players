@@ -1,7 +1,15 @@
 name: Snapshot
 
-# Publishes `<next patch>-SNAPSHOT` of the five Maven artifacts on every push to main, so a
-# consumer can pick up an unreleased fix without waiting for a release. The version comes from
+# Publishes `<next patch>-SNAPSHOT` of the five Maven artifacts on demand, so a consumer can pick up
+# an unreleased fix without waiting for a release.
+#
+# Manual-only: there is deliberately no `push` trigger. Publishing a snapshot of every artifact on
+# every merge to main was the bulk of this repository's Maven Central uploads, and nothing consumes
+# them continuously. Run it from the Actions tab against the ref you want; compose-ai-tools'
+# `snapshot.yml` made the same call. Restore the trigger by re-adding:
+#
+#   push:
+#     branches: [main] The version comes from
 # `ComposeAiMavenPublishingPlugin`, which derives it from `.release-please-manifest.json` when
 # `PLUGIN_VERSION` is unset — so nothing here needs to know the number.
 #
@@ -9,8 +17,6 @@ name: Snapshot
 # version), which is why this job needs no signing secrets.
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
