@@ -28,6 +28,8 @@ on:
       SIGNING_KEY: { required: false }
       SIGNING_KEY_ID: { required: false }
       SIGNING_KEY_PASSWORD: { required: false }
+      # Read-only: the Apple job loads the release links main's push already stored.
+      BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN_RO: { required: false }
   workflow_dispatch:
     inputs:
       tag:
@@ -194,7 +196,7 @@ jobs:
           # whose /bin/bash is 3.2, and there an EMPTY array under `set -u` expands as an unbound
           # variable and kills the step. That is how v1.64.0 died — before Gradle started, with
           # every other job of the release already green.
-          ./gradlew publishPlayers ${PLAN_ARGS[@]+"${PLAN_ARGS[@]}"}
+          ./gradlew publishPlayers -Pcomposeai.reproducibleKlibs=true ${PLAN_ARGS[@]+"${PLAN_ARGS[@]}"}
 
   # The Wasm bundle, published to npm so a web consumer can drop the player into a page without
   # cloning this repo and running Gradle.
@@ -310,6 +312,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
           cache-read-only: "true"
+      # Main's push of this same commit linked the release frameworks and stored them in the remote
+      # cache (`ComposeAiBaseConventionsPlugin` keeps release links cacheable), so with read access
+      # this job loads them instead of spending 20-30 minutes linking again. Read-only: a release
+      # never writes the cache.
+      - uses: ./.github/actions/buildfetch-cache
+        with:
+          ro-token: ${{ secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN_RO }}
+          read-only-by-design: "true"
       - name: Derive version from tag
         run: |
           echo "PLUGIN_VERSION=${TAG_NAME#v}" >> "$GITHUB_ENV"
