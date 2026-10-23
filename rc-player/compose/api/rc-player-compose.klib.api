@@ -54,6 +54,7 @@ abstract fun interface ee.schimke.composeai.rcplayer.compose/RcDrawObserver { //
 
 abstract fun interface ee.schimke.composeai.rcplayer.compose/RcImageLoader { // ee.schimke.composeai.rcplayer.compose/RcImageLoader|null[0]
     abstract suspend fun load(ee.schimke.composeai.rcplayer.protocol/RcBitmapData): androidx.compose.ui.graphics/ImageBitmap? // ee.schimke.composeai.rcplayer.compose/RcImageLoader.load|load(ee.schimke.composeai.rcplayer.protocol.RcBitmapData){}[0]
+    open fun cached(ee.schimke.composeai.rcplayer.protocol/RcBitmapData): androidx.compose.ui.graphics/ImageBitmap? // ee.schimke.composeai.rcplayer.compose/RcImageLoader.cached|cached(ee.schimke.composeai.rcplayer.protocol.RcBitmapData){}[0]
 
     final object Companion { // ee.schimke.composeai.rcplayer.compose/RcImageLoader.Companion|null[0]
         final val Default // ee.schimke.composeai.rcplayer.compose/RcImageLoader.Companion.Default|{}Default[0]
