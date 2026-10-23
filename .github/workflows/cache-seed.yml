@@ -1,0 +1,99 @@
+name: Seed remote build cache
+
+# Fills the BuildFetch remote cache with every output of main's Linux build, for builds that start
+# without this repository's GitHub Actions cache: agent sessions and fresh developer clones, which
+# read the remote with a read-only token.
+#
+# CI alone leaves it sparse. Its jobs restore Gradle's local build cache through setup-gradle, and
+# Gradle uploads an output only when the task actually ran, so a task the local cache satisfied is
+# never pushed. A push to main stores just what that commit changed. This job runs with the
+# setup-gradle cache disabled, so every task either comes from the remote already or executes and
+# is stored there.
+#
+# The task list mirrors the CI `jvm` lane's Gradle steps; keep the two in step. The Apple targets
+# are not seeded: sessions run on Linux, where Kotlin/Native's Apple targets are disabled.
+
+on:
+  schedule:
+    - cron: "41 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cache-seed
+  cancel-in-progress: true
+
+jobs:
+  seed:
+    name: Seed the remote cache from main
+    # The write token is resolved only for main: a dispatch can name any branch.
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17.0.21+9"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-disabled: true
+      # Without the write token the action falls back to no remote cache, and this would spend a
+      # full build seeding nothing while still going green.
+      - name: Require the BuildFetch write token
+        env:
+          RW_TOKEN: ${{ secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN }}
+        run: |
+          if [ -z "$RW_TOKEN" ]; then
+            echo "::error title=No BuildFetch write token::BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN is not set, so this job cannot seed the remote cache."
+            exit 1
+          fi
+      - uses: ./.github/actions/buildfetch-cache
+        with:
+          rw-token: ${{ secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN }}
+
+      # `--continue` so one failing test still leaves every other output stored.
+      - name: Build and test the JVM, Android and wasm players
+        run: |
+          ./gradlew --continue \
+            :rc-player-trace:jvmTest \
+            :rc-player-protocol:jvmTest \
+            :rc-player-runtime:jvmTest \
+            :rc-player-compose:jvmTest \
+            :rc-player-edit:jvmTest \
+            :third-party-remote-creation-writer:jvmTest \
+            :rc-player-embedded:jvmTest \
+            :third-party-remote-creation-compose:compileAndroidMain \
+            :rc-creation-bridge:compileAndroidMain \
+            :rc-player-embedded:compileAndroidMain \
+            :rc-player-wasm:jvmTest \
+            :rc-player-trace:testAndroidHostTest \
+            :rc-player-protocol:testAndroidHostTest \
+            :rc-player-runtime:testAndroidHostTest \
+            :rc-player-compose:testAndroidHostTest \
+            :rc-player-edit:testAndroidHostTest \
+            :rc-player-compat-tests:test \
+            :rc-player-metrics:test \
+            :rc-player-profile:test \
+            :third-party-rc-embedded-player:testDebugUnitTest \
+            :rc-player-trace:checkKotlinAbi \
+            :rc-player-protocol:checkKotlinAbi \
+            :rc-player-runtime:checkKotlinAbi \
+            :rc-player-compose:checkKotlinAbi \
+            :rc-player-edit:checkKotlinAbi \
+            :third-party-remote-creation-writer:checkKotlinAbi \
+            :third-party-remote-creation-compose:checkKotlinAbi \
+            :rc-creation-bridge:checkKotlinAbi \
+            :rc-player-embedded:checkKotlinAbi \
+            :rc-player-embedded:compileKotlinWasmJs \
+            :rc-player-trace:wasmJsBrowserTest \
+            :rc-player-protocol:wasmJsBrowserTest \
+            :rc-player-runtime:wasmJsBrowserTest \
+            :rc-player-compose:wasmJsBrowserTest \
+            :rc-player-edit:wasmJsBrowserTest \
+            :rc-player-wasm:wasmPlayerTestDist
