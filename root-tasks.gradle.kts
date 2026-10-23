@@ -40,8 +40,8 @@ tasks.register("ktfmtFormatAll") {
   ktfmtProjectPaths.forEach { dependsOn("$it:ktfmtFormat") }
 }
 
-// The published surface, in dependency order. `release.yml` and `snapshot.yml` drive this rather
-// than a bare `publish` so a module that does not publish (the wasm host, the three build-only
+// The published surface, in dependency order. `release.yml` drives this rather than a bare
+// `publish` so a module that does not publish (the wasm host, the three build-only
 // tools) can never be swept in by task-name matching, and so the list of coordinates this repo
 // owns is written down in exactly one place.
 val publishedProjects =
