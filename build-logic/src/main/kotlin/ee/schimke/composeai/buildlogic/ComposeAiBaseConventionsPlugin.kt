@@ -7,6 +7,7 @@ import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinNativeCompilerOptions
+import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
 
@@ -41,15 +42,16 @@ class ComposeAiBaseConventionsPlugin : Plugin<Project> {
       inputs.property("composeai.cacheSalt", cacheSalt)
     }
 
-    // Kotlin/Native links stay out of the build cache. Their outputs (frameworks and test
-    // executables, the release ones hundreds of MB) are only ever reusable by another macOS run,
-    // and a link's inputs are every klib under it, so any change to the player stack changes
-    // the key anyway. Pushing them was most of what CI uploaded to the remote cache. Gradle has
-    // no per-task push switch, so this keeps them out of the cache entirely; the XCFramework and
-    // fat-framework tasks that assemble them are not cacheable to begin with.
+    // Only release Kotlin/Native links go in the build cache. Every link's inputs are all the klibs
+    // under it, so most player changes give it a new key, and its outputs are large and reusable
+    // only on macOS. The release links earn their space anyway: each is 20-30 minutes, and the
+    // release job builds the commit main's push already linked, so with read access it loads
+    // them instead of linking again. Debug links (the test executables) are cheaper to redo than
+    // to upload on every run that changed Kotlin, so they stay out. Gradle has no per-task push
+    // switch; `doNotCacheIf` keeps them out of the cache in both directions.
     project.tasks.withType<KotlinNativeLink>().configureEach {
-      outputs.doNotCacheIf("Kotlin/Native link outputs are large and reusable only on macOS") {
-        true
+      if (binary.buildType != NativeBuildType.RELEASE) {
+        outputs.doNotCacheIf("Debug Kotlin/Native links are cheaper to redo than to cache") { true }
       }
     }
 
