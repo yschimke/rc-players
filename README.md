@@ -191,8 +191,14 @@ Published twice, because its two consumers resolve differently and neither chann
 the other:
 
 * npm, as [`@yschimke/remote-compose-player-cmp`](https://www.npmjs.com/package/@yschimke/remote-compose-player-cmp) — how a web page consumes it;
-* Maven, as `rc-player-wasm-dist` (a zip, `dist` classifier) — how a Gradle build stages it as a
-  static sidecar.
+* the GitHub Release, as `rc-player-wasm.zip` — how a Gradle build stages it as a static sidecar,
+  through an ivy repository over the release downloads
+  (`https://github.com/yschimke/rc-players/releases/download`, pattern `v[revision]/[module].[ext]`,
+  module `ee.schimke.composeai:rc-player-wasm`, requested `@zip`).
+
+It is not on Maven Central. Releases through 2.17.x also uploaded it there as `rc-player-wasm-dist`,
+about 11 MB of the org's monthly Central release-size limit per release for a bundle nothing compiles
+against; those versions stay on Central, and every release also carries the asset.
 
 Both are cut from `wasmPlayerDist`, which enforces a size budget — a ratchet, not a target, so an
 unintended jump fails the build before an irreversible publish.
@@ -528,8 +534,9 @@ equivalent.
 `-compose` and `third-party-rc-embedded-player` were published from there through `1.54.0`, so this
 repository's manifest starts at `1.54.0` and the first release cut here is `1.55.0`. Restarting at
 `0.1.0` would have published a version *below* what consumers already resolve — a downgrade to
-anything using a range or a BOM, and silently invisible to everything else. `rc-player-wasm-dist`
-and `remote-compose-player-js-dist` are new coordinates and first appear at that release.
+anything using a range or a BOM, and silently invisible to everything else.
+`remote-compose-player-js-dist` is a new coordinate and first appears at that release (as did
+`rc-player-wasm-dist`, which is now a Release asset instead; see the browser host above).
 `third-party-rc-embedded-player-jvm` was published from here for a while and no longer is: the
 vendored player's JVM cut was removed, and a consumer that needs a JVM player should depend on
 `rc-player-compose`. The version comes from `PLUGIN_VERSION` in the environment, or from
