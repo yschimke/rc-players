@@ -3,6 +3,7 @@ package ee.schimke.composeai.rcplayer.desktop
 import com.sun.net.httpserver.HttpServer
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapInt
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
@@ -12,12 +13,15 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicInteger
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
+import kotlinx.coroutines.runBlocking
 
 class RcViewerDocumentTest {
   private val fixtures = File(requireNotNull(System.getProperty("rc.fixtures")))
@@ -38,7 +42,7 @@ class RcViewerDocumentTest {
 
   @Test
   fun reportsAMissingFileRatherThanThrowing() {
-    val load = loadRcViewerDocument(File(fixtures, "does-not-exist.rc"), downloadFonts = false)
+    val load = loadRcViewerDocument(File(fixtures, "does-not-exist.rc"), network = false)
     assertIs<RcViewerLoad.Failed>(load)
     assertTrue(load.message.startsWith("Could not read"), load.message)
   }
@@ -105,6 +109,42 @@ class RcViewerDocumentTest {
     }
   }
 
+  /** `--offline` holds in the window too: the player's image loader never asks for a URL. */
+  @Test
+  fun offlineWindowLoadNeverRequestsUrlImages() {
+    val requests = AtomicInteger()
+    val server = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0)
+    server.createContext("/") { exchange ->
+      requests.incrementAndGet()
+      exchange.sendResponseHeaders(404, -1)
+      exchange.close()
+    }
+    server.start()
+    try {
+      val bitmap =
+        RcBitmapData(
+          42,
+          8,
+          8,
+          RcBitmapData.TYPE_PNG,
+          RcBitmapData.ENCODING_URL,
+          "http://127.0.0.1:${server.address.port}/red.png".encodeToByteArray(),
+        )
+      val document =
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0), legacyWidth = 8, legacyHeight = 8, modern = false),
+          listOf(bitmap, RcDrawBitmapInt(42, 0, 0, 8, 8, 0, 0, 8, 8, 0)),
+        )
+      val load = loadRcViewerDocument("url.rc", RcDocumentCodec.encode(document), network = false)
+      assertIs<RcViewerLoad.Loaded>(load)
+      assertNull(load.images.cached(bitmap))
+      assertNull(runBlocking { load.images.load(bitmap) })
+      assertEquals(0, requests.get())
+    } finally {
+      server.stop(0)
+    }
+  }
+
   @Test
   fun picksTheTrueTypeFaceFromAStylesheet() {
     val css =
@@ -119,7 +159,7 @@ class RcViewerDocumentTest {
   private fun loaded(name: String): RcViewerLoad.Loaded =
     // Offline: the suite must not depend on Google Fonts being reachable, and a `google:` family
     // that is not fetched still opens in the default face.
-    when (val load = loadRcViewerDocument(File(fixtures, name), downloadFonts = false)) {
+    when (val load = loadRcViewerDocument(File(fixtures, name), network = false)) {
       is RcViewerLoad.Loaded -> load
       is RcViewerLoad.Failed -> fail("$name did not open: ${load.message}")
     }

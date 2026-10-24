@@ -44,6 +44,5 @@ class RcViewerLayoutTest {
       assertTrue(bounds.height < 300.dp, "the toolbar and status bar take their share")
     }
 
-  private fun viewerState() =
-    RcViewerState(fixture, loadRcViewerDocument(fixture, downloadFonts = false))
+  private fun viewerState() = RcViewerState(fixture, loadRcViewerDocument(fixture, network = false))
 }

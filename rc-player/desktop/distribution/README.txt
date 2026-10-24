@@ -30,6 +30,9 @@ In the window
   link's fragment, so it is not uploaded anywhere. It works for documents the player refused too.
 - "Theme" cycles System / Light / Dark; "Fill window" / "Document size" switches between letting
   the document fill the window and giving it the size its header declares.
+- View > "Use the network" (on by default) lets a document fetch its Google Fonts and URL images.
+  Off, or when started with --offline, nothing is fetched: those fonts draw in the default face and
+  URL images stay blank; images from local files still load.
 - The status bar lists any operations the CMP desktop player knows but does not draw. A document
   the player cannot draw at all is refused with the reason instead of being shown half-drawn.
 

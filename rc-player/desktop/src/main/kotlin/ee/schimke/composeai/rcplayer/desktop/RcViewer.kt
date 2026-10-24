@@ -81,8 +81,11 @@ internal class RcViewerState(initialFile: File? = null, initialLoad: RcViewerLoa
   var theme: RcPlayerTheme by mutableStateOf(RcPlayerTheme.System)
   var sizing: RcViewerSizing by mutableStateOf(RcViewerSizing.Fill)
 
-  /** Fetch the `google:` families a document names; off, they draw in the default face. */
-  var downloadFonts: Boolean by mutableStateOf(true)
+  /**
+   * Let a document reach the network: its `google:` font families and URL bitmaps. Off, the
+   * families draw in the default face and URL bitmaps stay blank; local files still load.
+   */
+  var network: Boolean by mutableStateOf(true)
 
   /** A one-line message for the status bar, e.g. why the inspector could not be opened. */
   var notice: String? by mutableStateOf(null)
@@ -111,8 +114,8 @@ internal class RcViewerState(initialFile: File? = null, initialLoad: RcViewerLoa
     }
   }
 
-  fun toggleDownloadFonts() {
-    downloadFonts = !downloadFonts
+  fun toggleNetwork() {
+    network = !network
     reload()
   }
 
@@ -155,9 +158,9 @@ internal fun RcViewer(state: RcViewerState, onOpenRequest: () -> Unit) {
   LaunchedEffect(state.generation) {
     if (state.generation == 0) return@LaunchedEffect
     val file = state.file ?: return@LaunchedEffect
-    val downloadFonts = state.downloadFonts
+    val network = state.network
     state.loading = true
-    state.load = withContext(Dispatchers.IO) { loadRcViewerDocument(file, downloadFonts) }
+    state.load = withContext(Dispatchers.IO) { loadRcViewerDocument(file, network) }
     state.loading = false
   }
 
@@ -192,6 +195,7 @@ private fun Document(load: RcViewerLoad.Loaded, state: RcViewerState) {
     key(state.generation, load) {
       RcComposePlayer(
         load.document,
+        load.images,
         modifier.testTag(RC_VIEWER_DOCUMENT_TAG),
         theme = state.theme,
         typefaces = load.typefaces,

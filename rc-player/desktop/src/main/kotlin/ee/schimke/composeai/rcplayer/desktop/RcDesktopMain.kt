@@ -27,15 +27,15 @@ private const val USAGE =
  * packaged app on a runner without a display.
  */
 public fun main(args: Array<String>) {
-  // `--offline` keeps the viewer off the network: `google:` families draw in the default face, and
-  // a headless render leaves URL images blank.
+  // `--offline` keeps the viewer off the network: `google:` families draw in the default face and
+  // URL images stay blank, in the window and in a headless render alike.
   val offline = "--offline" in args
   val rest = args.filter { it != "--offline" }
   when (rest.firstOrNull()) {
     "--help",
     "-h" -> println(USAGE)
     "--version" -> println(RcDesktopVersion.value)
-    "--render-png" -> exitProcess(renderPngCommand(rest.drop(1), downloadFonts = !offline))
+    "--render-png" -> exitProcess(renderPngCommand(rest.drop(1), network = !offline))
     "--inspect" -> exitProcess(inspectCommand(rest.drop(1), open = true))
     "--inspector-url" -> exitProcess(inspectCommand(rest.drop(1), open = false))
     else -> {
@@ -43,17 +43,17 @@ public fun main(args: Array<String>) {
         System.err.println(USAGE)
         exitProcess(2)
       }
-      openWindow(rest.firstOrNull()?.let(::File), downloadFonts = !offline)
+      openWindow(rest.firstOrNull()?.let(::File), network = !offline)
     }
   }
 }
 
-private fun renderPngCommand(args: List<String>, downloadFonts: Boolean): Int {
+private fun renderPngCommand(args: List<String>, network: Boolean): Int {
   if (args.size != 2 && args.size != 4) {
     System.err.println(USAGE)
     return 2
   }
-  val load = loadRcViewerDocument(File(args[0]), downloadFonts)
+  val load = loadRcViewerDocument(File(args[0]), network)
   if (load !is RcViewerLoad.Loaded) {
     System.err.println((load as RcViewerLoad.Failed).message)
     return 1
@@ -66,7 +66,8 @@ private fun renderPngCommand(args: List<String>, downloadFonts: Boolean): Int {
       width,
       height,
       load.typefaces,
-      images = RcPreloadedImages.of(load.document, network = downloadFonts),
+      // Preloaded rather than `load.images`: the encoded frame cannot wait for Coil.
+      images = RcPreloadedImages.of(load.document, network = network),
     )
   File(args[1]).apply {
     parentFile?.mkdirs()
@@ -112,10 +113,10 @@ private fun inspectCommand(args: List<String>, open: Boolean): Int {
   return 0
 }
 
-private fun openWindow(initial: File?, downloadFonts: Boolean) {
+private fun openWindow(initial: File?, network: Boolean) {
   val state =
-    RcViewerState(initial, initial?.let { loadRcViewerDocument(it, downloadFonts) }).also {
-      it.downloadFonts = downloadFonts
+    RcViewerState(initial, initial?.let { loadRcViewerDocument(it, network) }).also {
+      it.network = network
     }
   val initialSize =
     (state.load as? RcViewerLoad.Loaded)?.let { load ->
@@ -160,9 +161,9 @@ private fun openWindow(initial: File?, downloadFonts: Boolean) {
           Item("Theme: ${state.theme.name}", onClick = state::cycleTheme)
           Item(state.sizing.label, onClick = state::cycleSizing)
           CheckboxItem(
-            "Download Google Fonts",
-            checked = state.downloadFonts,
-            onCheckedChange = { state.toggleDownloadFonts() },
+            "Use the network (Google Fonts, URL images)",
+            checked = state.network,
+            onCheckedChange = { state.toggleNetwork() },
           )
         }
       }
