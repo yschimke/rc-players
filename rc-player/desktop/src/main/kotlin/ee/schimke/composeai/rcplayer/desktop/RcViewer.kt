@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.awtTransferable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,8 +40,12 @@ import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import java.awt.datatransfer.DataFlavor
 import java.io.File
+import kotlin.concurrent.thread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+/** The player's test tag, for tests that measure where the document landed. */
+internal const val RC_VIEWER_DOCUMENT_TAG: String = "rc-viewer-document"
 
 /** How the document is laid out in the window. */
 internal enum class RcViewerSizing(val label: String) {
@@ -78,6 +84,9 @@ internal class RcViewerState(initialFile: File? = null, initialLoad: RcViewerLoa
   /** Fetch the `google:` families a document names; off, they draw in the default face. */
   var downloadFonts: Boolean by mutableStateOf(true)
 
+  /** A one-line message for the status bar, e.g. why the inspector could not be opened. */
+  var notice: String? by mutableStateOf(null)
+
   fun open(file: File) {
     this.file = file
     reload()
@@ -85,7 +94,21 @@ internal class RcViewerState(initialFile: File? = null, initialLoad: RcViewerLoa
 
   fun reload() {
     if (file == null) return
+    notice = null
     generation++
+  }
+
+  /**
+   * Open the current file in the web inspector. Works for a document the player refused too — that
+   * is often exactly the one worth looking inside.
+   */
+  fun inspect() {
+    val current = file ?: return
+    notice = "Opening ${current.name} in the inspector…"
+    // Off the UI thread: AWT's browse can block while it starts the browser.
+    thread(isDaemon = true) {
+      notice = (RcInspector.open(current) as? RcInspector.Result.Failed)?.message
+    }
   }
 
   fun toggleDownloadFonts() {
@@ -163,24 +186,32 @@ internal fun RcViewer(state: RcViewerState, onOpenRequest: () -> Unit) {
 
 @Composable
 private fun Document(load: RcViewerLoad.Loaded, state: RcViewerState) {
-  val sizeModifier =
-    when (state.sizing) {
-      RcViewerSizing.Fill -> Modifier.fillMaxSize()
-      RcViewerSizing.Document -> {
-        val density = load.document.header.density.takeIf { it > 0f } ?: 1f
-        Modifier.size((load.widthPx / density).dp, (load.heightPx / density).dp)
-          .border(1.dp, ViewerColors.divider)
-      }
-    }
   // Keyed on the generation so a reload is a fresh player: its clock, named values and animation
   // state restart rather than carrying over from the previous bytes.
-  key(state.generation, load) {
-    RcComposePlayer(
-      load.document,
-      sizeModifier,
-      theme = state.theme,
-      typefaces = load.typefaces,
-    )
+  val player: @Composable (Modifier) -> Unit = { modifier ->
+    key(state.generation, load) {
+      RcComposePlayer(
+        load.document,
+        modifier.testTag(RC_VIEWER_DOCUMENT_TAG),
+        theme = state.theme,
+        typefaces = load.typefaces,
+      )
+    }
+  }
+  when (state.sizing) {
+    RcViewerSizing.Fill -> player(Modifier.fillMaxSize())
+    RcViewerSizing.Document -> {
+      // A scrolling surface, so the player gets exactly the declared size even where that is
+      // larger than the window: inside a scroll the scrolled axes are unbounded, where a plain
+      // `size` would be clamped to the window and behave like "Fill window" on that axis.
+      val density = load.document.header.density.takeIf { it > 0f } ?: 1f
+      Box(Modifier.horizontalScroll(rememberScrollState()).verticalScroll(rememberScrollState())) {
+        player(
+          Modifier.size((load.widthPx / density).dp, (load.heightPx / density).dp)
+            .border(1.dp, ViewerColors.divider)
+        )
+      }
+    }
   }
 }
 
@@ -195,6 +226,7 @@ private fun Toolbar(state: RcViewerState, onOpenRequest: () -> Unit) {
   ) {
     ToolbarButton("Open…", onClick = onOpenRequest)
     ToolbarButton("Reload", enabled = state.file != null) { state.reload() }
+    ToolbarButton("Inspect", enabled = state.file != null) { state.inspect() }
     ToolbarButton("Theme: ${state.theme.name}") { state.cycleTheme() }
     ToolbarButton(state.sizing.label) { state.cycleSizing() }
   }
@@ -205,6 +237,7 @@ private fun StatusBar(state: RcViewerState) {
   val load = state.load
   val text =
     when {
+      state.notice != null -> state.notice.orEmpty()
       state.loading -> "Loading ${state.file?.name}…"
       load is RcViewerLoad.Failed -> "${load.name} — failed to open"
       load !is RcViewerLoad.Loaded -> "No document"

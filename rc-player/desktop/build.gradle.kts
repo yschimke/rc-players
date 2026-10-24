@@ -38,6 +38,7 @@ dependencies {
 
   testImplementation(libs.junit)
   testImplementation(kotlin("test"))
+  testImplementation(libs.jetbrains.compose.ui.test)
 }
 
 tasks.jar { manifest { attributes("Implementation-Version" to viewerVersion) } }
@@ -61,9 +62,9 @@ compose.desktop {
       description = "Remote Compose (.rc) document viewer"
       vendor = "rc-players"
       licenseFile.set(rootProject.file("LICENSE"))
-      // `java.desktop` for AWT/Swing, `jdk.unsupported` for Skiko; the rest is what the player's
-      // coroutines and Coil's HTTP client reach for.
-      modules("java.net.http", "jdk.unsupported", "java.naming")
+      // `java.desktop` for AWT/Swing, `jdk.unsupported` for Skiko; `java.net.http` and
+      // `java.naming` for the font downloads and Coil, `jdk.httpserver` for the inspector handoff.
+      modules("java.net.http", "jdk.unsupported", "java.naming", "jdk.httpserver")
       linux {
         packageName = "remote-compose-player"
         debMaintainer = "rc-players@users.noreply.github.com"

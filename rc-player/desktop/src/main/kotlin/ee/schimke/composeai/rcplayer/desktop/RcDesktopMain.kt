@@ -16,6 +16,8 @@ import kotlin.system.exitProcess
 private const val USAGE =
   """usage: remote-compose-player [--offline] [file.rc]
        remote-compose-player --render-png [--offline] <in.rc> <out.png> [width height]
+       remote-compose-player --inspect <file.rc>        open it in the web inspector
+       remote-compose-player --inspector-url <file.rc>  print the inspector link
        remote-compose-player --version"""
 
 /**
@@ -25,7 +27,8 @@ private const val USAGE =
  * packaged app on a runner without a display.
  */
 public fun main(args: Array<String>) {
-  // `--offline` keeps the viewer off the network: `google:` families draw in the default face.
+  // `--offline` keeps the viewer off the network: `google:` families draw in the default face, and
+  // a headless render leaves URL images blank.
   val offline = "--offline" in args
   val rest = args.filter { it != "--offline" }
   when (rest.firstOrNull()) {
@@ -33,6 +36,8 @@ public fun main(args: Array<String>) {
     "-h" -> println(USAGE)
     "--version" -> println(RcDesktopVersion.value)
     "--render-png" -> exitProcess(renderPngCommand(rest.drop(1), downloadFonts = !offline))
+    "--inspect" -> exitProcess(inspectCommand(rest.drop(1), open = true))
+    "--inspector-url" -> exitProcess(inspectCommand(rest.drop(1), open = false))
     else -> {
       if (rest.size > 1) {
         System.err.println(USAGE)
@@ -55,12 +60,55 @@ private fun renderPngCommand(args: List<String>, downloadFonts: Boolean): Int {
   }
   val width = args.getOrNull(2)?.toIntOrNull() ?: load.widthPx
   val height = args.getOrNull(3)?.toIntOrNull() ?: load.heightPx
-  val png = renderRcPng(load.document, width, height, load.typefaces)
+  val png =
+    renderRcPng(
+      load.document,
+      width,
+      height,
+      load.typefaces,
+      images = RcPreloadedImages.of(load.document, network = downloadFonts),
+    )
   File(args[1]).apply {
     parentFile?.mkdirs()
     writeBytes(png)
   }
   println("${args[1]}: ${width}x${height}")
+  return 0
+}
+
+private fun inspectCommand(args: List<String>, open: Boolean): Int {
+  val file = args.singleOrNull()?.let(::File)
+  if (file == null) {
+    System.err.println(USAGE)
+    return 2
+  }
+  if (open) {
+    return when (val result = RcInspector.open(file)) {
+      is RcInspector.Result.Failed -> {
+        System.err.println(result.message)
+        1
+      }
+      is RcInspector.Result.Opened -> {
+        // A long link goes through a loopback page that has to outlive this process's work until
+        // the browser has fetched it; it stops itself after the first request or a minute.
+        result.handoff?.await()
+        0
+      }
+    }
+  }
+  val bytes =
+    try {
+      file.readBytes()
+    } catch (e: Exception) {
+      System.err.println("Could not read ${file.path}: ${e.message ?: e}")
+      return 1
+    }
+  val url = RcInspector.url(file.name, bytes)
+  if (url == null) {
+    System.err.println("${file.name} is too large for an inspector link (${bytes.size} bytes)")
+    return 1
+  }
+  println(url)
   return 0
 }
 
@@ -98,6 +146,12 @@ private fun openWindow(initial: File?, downloadFonts: Boolean) {
             enabled = state.file != null,
             shortcut = KeyShortcut(Key.R, ctrl = true),
             onClick = state::reload,
+          )
+          Item(
+            "Open in Inspector",
+            enabled = state.file != null,
+            shortcut = KeyShortcut(Key.I, ctrl = true),
+            onClick = state::inspect,
           )
           Separator()
           Item("Quit", shortcut = KeyShortcut(Key.Q, ctrl = true), onClick = ::exitApplication)
