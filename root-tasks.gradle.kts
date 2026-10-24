@@ -55,7 +55,6 @@ val publishedProjects =
     ":rc-creation-bridge" to "rc-creation-bridge",
     ":third-party-remote-creation-writer" to "third-party-remote-creation-writer",
     ":third-party-remote-creation-compose" to "third-party-remote-creation-compose",
-    ":rc-player-wasm-dist" to "rc-player-wasm-dist",
     ":third-party-rc-embedded-player" to "third-party-rc-embedded-player",
     // Named for what it contains rather than for the project that wraps it. Kept in step with
     // `PublishedArtifactIds` in build-logic by `PublishedArtifactIdsTest`, which reads both.

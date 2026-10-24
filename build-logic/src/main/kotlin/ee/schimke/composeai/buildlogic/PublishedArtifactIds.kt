@@ -26,7 +26,6 @@ object PublishedArtifactIds {
       ":rc-creation-bridge" to "rc-creation-bridge",
       ":third-party-remote-creation-writer" to "third-party-remote-creation-writer",
       ":third-party-remote-creation-compose" to "third-party-remote-creation-compose",
-      ":rc-player-wasm-dist" to "rc-player-wasm-dist",
       ":third-party-rc-embedded-player" to "third-party-rc-embedded-player",
       // The vendored TypeScript player's bundle. Named for what it contains rather than for the
       // project that wraps it, and published under that name since 1.53.x — a coordinate cannot be

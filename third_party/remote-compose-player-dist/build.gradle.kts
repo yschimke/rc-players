@@ -6,9 +6,8 @@ plugins {
 
 // The vendored TypeScript player's committed bundle, as a Maven artifact.
 //
-// Same wrapper pattern, and the same reason, as `:rc-player-wasm-dist` next door: a consumer in
-// another repository needs these bytes and Gradle is how it resolves things. compose-ai-tools'
-// `rc-*` browser tests and its design-artifacts lane point `--player` at
+// A consumer in another repository needs these bytes and Gradle is how it resolves things.
+// compose-ai-tools' `rc-*` browser tests and its design-artifacts lane point `--player` at
 // `third_party/remote-compose-player/dist/bundle.js`; before the players moved that was a path in
 // the same checkout, and now it has to be a coordinate.
 //

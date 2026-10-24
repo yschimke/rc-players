@@ -185,13 +185,6 @@ include(":rc-player-wasm")
 
 project(":rc-player-wasm").projectDir = file("rc-player/wasm")
 
-// The `wasmPlayerDist` bundle, wrapped as one publishable zip so a Gradle consumer in another
-// repository can resolve it. See that module's build file for why it is not a second publication on
-// `:rc-player-wasm`.
-include(":rc-player-wasm-dist")
-
-project(":rc-player-wasm-dist").projectDir = file("rc-player/wasm-dist")
-
 include(":rc-player-compat-tests")
 
 project(":rc-player-compat-tests").projectDir = file("rc-player/compat-tests")
@@ -258,8 +251,9 @@ include(":third-party-rc-embedded-player")
 
 project(":third-party-rc-embedded-player").projectDir = file("third_party/rc-embedded-player")
 
-// The vendored TypeScript player's committed browser bundle, wrapped as one publishable zip for
-// the same reason `:rc-player-wasm-dist` is. See `third_party/remote-compose-player/PROVENANCE.md`.
+// The vendored TypeScript player's committed browser bundle, wrapped as one publishable zip so a
+// Gradle consumer in another repository can resolve it. See
+// `third_party/remote-compose-player/PROVENANCE.md`.
 include(":third-party-remote-compose-player-dist")
 
 project(":third-party-remote-compose-player-dist").projectDir =

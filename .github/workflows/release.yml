@@ -1,8 +1,9 @@
 name: Release
 
 # Publishes the players for a given tag: the five Maven artifacts to Maven Central, the Wasm bundle
-# to npm, and the Apple XCFramework plus native UIKit package onto the GitHub Release, with
-# `Package.swift` rewritten to describe the shared binary framework.
+# to npm and onto the GitHub Release (`rc-player-wasm.zip`, which is how a Gradle build gets it), and
+# the Apple XCFramework plus native UIKit package onto the GitHub Release, with `Package.swift`
+# rewritten to describe the shared binary framework.
 #
 # Entry points:
 #   - workflow_call: called from release-please.yml after release-please merges the release PR and
@@ -140,9 +141,8 @@ jobs:
       #
       # A module's inputs are its own directory plus every project in its transitive dependency
       # closure, unpublished ones included, and any directory outside its own that it packages
-      # (#512): `rc-player-wasm-dist` republishes when `rc-player-compose` changes through the
-      # unpublished `:rc-player-wasm`, and `remote-compose-player-js-dist` when
-      # `third_party/remote-compose-player/` does. `.github/scripts/test-maven-publish-plan.sh`
+      # (#512): `remote-compose-player-js-dist` republishes when `third_party/remote-compose-player/`
+      # changes. `.github/scripts/test-maven-publish-plan.sh`
       # holds those rules to fixtures in CI.
       #
       # Only the `workflow_call` path gets a plan. A `workflow_dispatch` or a manually pushed tag
@@ -209,10 +209,7 @@ jobs:
     timeout-minutes: 60
     continue-on-error: true
     permissions:
-      # `write`, not `read`: the last step calls `gh release upload`, which mutates the Release.
-      # With `read` that step fails authorization, and because the job is `continue-on-error` the
-      # release would quietly ship without the promised bundle.
-      contents: write
+      contents: read
       id-token: write # OIDC trusted publishing + provenance
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -263,17 +260,44 @@ jobs:
           fi
           npm publish "${flags[@]}"
 
-      # Also attach the raw bundle to the Release, for a consumer who wants the files without npm.
-      # Cheap, and it means a failed npm publish still leaves the release usable. `!cancelled()` is
-      # the whole point: a step's implicit condition is `success()`, and job-level
-      # `continue-on-error` only tolerates the *job* failing — it does not un-skip later steps.
-      - name: Attach the raw bundle to the Release
-        if: ${{ !cancelled() }}
+  # The Wasm bundle as a Release asset, `rc-player-wasm.zip`. This is how a Gradle build gets the
+  # player: compose-preview-server resolves it through an ivy repository over this repository's
+  # release downloads, and design-parity's CI downloads it the same way. It used to go to Maven
+  # Central as well, as `rc-player-wasm-dist`, about 11 MB of the org's monthly Central release-size
+  # limit per release, for a bundle nothing compiles against.
+  #
+  # A job of its own, not a step of the npm job: that job is `continue-on-error`, and a release
+  # missing this asset breaks every consumer pinned to that version. The asset name carries no
+  # version and must not change, so every release since the first stays resolvable by one pattern.
+  attach-wasm-bundle:
+    name: Attach the Wasm bundle to the Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write # `gh release upload` mutates the Release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG_NAME }}
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17.0.21+9"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-read-only: "true"
+      # `wasmPlayerDist` enforces the bundle's size budget, so a bundle that ballooned fails here
+      # rather than reaching consumers.
+      - name: Build the bundle
+        run: ./gradlew :rc-player-wasm:wasmPlayerDist
+      - name: Attach the bundle to the Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           (cd rc-player/wasm/build/wasmDist && zip -qr "$RUNNER_TEMP/rc-player-wasm.zip" .)
+          test -n "$(unzip -Z1 "$RUNNER_TEMP/rc-player-wasm.zip" index.html)"
           gh release upload "$TAG_NAME" "$RUNNER_TEMP/rc-player-wasm.zip" --clobber
 
   # macOS-only: the Kotlin/Native linker, XCFramework tooling, and native UIKit package validation

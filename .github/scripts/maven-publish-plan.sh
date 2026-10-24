@@ -561,7 +561,7 @@ for p, aid in path_to_id.items():
         uses_catalog_change(i, catalog_pats[recorded[aid]]) for i in inputs
     ):
         # Every input directory, not only the module's own: an unpublished project it packages
-        # (`:rc-player-wasm` under wasm-dist) can be the one naming the changed entry.
+        # can be the one naming the changed entry.
         print(f"  {aid}: uses a changed catalog entry; publishing", file=sys.stderr)
         dirty.add(aid)
 
