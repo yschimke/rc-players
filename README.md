@@ -9,7 +9,7 @@ the vendored AndroidX player they are all measured against.
 
 ## The players
 
-Six lanes are listed because implementation, packaging, hosting, and comparison answer different
+Seven lanes are listed because implementation, packaging, hosting, and comparison answer different
 questions. The supported renderer remains CMP; UIKit is an explicitly experimental second renderer.
 
 | Player | Target | Language / runtime | Supported? | Why it exists |
@@ -19,12 +19,13 @@ questions. The supported renderer remains CMP; UIKit is an explicitly experiment
 | **Apple XCFramework** (`Package.swift`) | iOS + Apple-silicon macOS, from Swift | The CMP player's native Apple targets, packaged for SwiftPM | Yes | Same code again, reachable from a Swift app that does not build Kotlin. Distribution, not implementation. |
 | **Native UIKit POC** (`Sources/RcNativePlayerUIKit`) | iOS | Pure Swift + UIKit/Core Graphics/Core Text | **Experimental** | A second renderer beside CMP. It explores an idiomatic native component tree and reports unsupported operations explicitly; it is not a replacement or compatibility claim. |
 | **macOS player app** (`samples/macos-player`) | Apple-silicon macOS | SwiftUI host + CMP or experimental AppKit-native rendering | **Release utility** | Opens local `.rc` files and persists a renderer preference, so both Apple desktop paths can be exercised from one downloadable app. |
+| **Linux desktop viewer** (`rc-player/desktop`) | x86-64 Linux | The CMP player on the JVM, in a Compose Desktop window | **Release utility** | Opens local `.rc` files (dialog, drag-and-drop or command line), fetches `google:` fonts, opens a document in the [web inspector](https://camaelon.github.io/remotecompose-experiments/inspector/), and renders headless to PNG with `--render-png`. Each release attaches a `.deb` and a self-contained `tar.gz`, both bundling a JRE. |
 | **Vendored AndroidX player** (`third_party/rc-embedded-player`) | Android (Robolectric) | Kotlin + Compose, vendored from androidx-main | **No** — testing only | The comparison lane. AndroidX's own embedded player, pinned to one commit and locally patched, so a parity number is attributable to a *known* player rather than to whichever alpha resolved that day. |
 | **Vendored TypeScript player** (`third_party/remote-compose-player`) | Browser · Node · VS Code webview | TypeScript → Canvas2D, WebGL for shader ops | **No** — vendored, upstream elsewhere | A client-side lane that needs no Kotlin at all, so a viewer can render a captured `.rc` without a server-side daemon. Upstream is [yschimke/remotecompose-experiments](https://github.com/yschimke/remotecompose-experiments); changes are filed there. |
 
 The shape of the whole thing: **one supported implementation, one experimental renderer, two CMP
 hosts, and two references.** The CMP player is the product; the Wasm bundle and XCFramework are it
-in different wrappers. The native UIKit POC sits beside it, while the vendored AndroidX player and
+in different wrappers, and the macOS app and Linux viewer are downloadable windows onto it. The native UIKit POC sits beside it, while the vendored AndroidX player and
 the TypeScript player remain comparison lanes. There is no separate JVM reference player: the
 vendored player's JVM cut was removed on 2026-09-25, and where a JVM player is needed, the CMP player
 is it.
