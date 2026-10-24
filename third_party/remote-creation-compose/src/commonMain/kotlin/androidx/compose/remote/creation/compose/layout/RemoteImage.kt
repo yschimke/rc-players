@@ -30,6 +30,9 @@ import androidx.compose.ui.graphics.DefaultAlpha
 import androidx.compose.ui.layout.ContentScale
 
 internal class RemoteImageNode : RemoteComposeNode() {
+    // LOCAL PATCH (rc-players): the writer's image is a component with no content section.
+    override val writesContentSection: Boolean = false
+
     var image: Any? = null
     var remoteBitmap: RemoteImageBitmap? = null
     var contentScale: ContentScale = ContentScale.Fit

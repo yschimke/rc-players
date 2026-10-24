@@ -3,16 +3,19 @@ package ee.schimke.composeai.rccreation.bridge
 import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
 import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocument
 import androidx.compose.remote.creation.compose.layout.RemoteBox
+import androidx.compose.remote.creation.compose.layout.RemoteImage
 import androidx.compose.remote.creation.compose.layout.RemoteRow
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.modifier.clip
 import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.shapes.RemoteCircleShape
 import androidx.compose.remote.creation.compose.state.rdp
+import androidx.compose.remote.creation.compose.state.rememberRemoteImageBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import kotlin.test.Test
@@ -34,6 +37,8 @@ class ComponentSizeScopeTest {
             RemoteBox(RemoteModifier.size(10.rdp)) {}
           }
           RemoteBox(RemoteModifier.size(40.rdp).clip(RemoteCircleShape)) {}
+          RemoteImage(rememberRemoteImageBitmap("https://example.test/a.png"), null)
+          RemoteBox(RemoteModifier.size(40.rdp).clip(RemoteCircleShape)) {}
         }
       }
     val operations = RcDocumentCodec.decode(bytes).operations
@@ -50,21 +55,24 @@ class ComponentSizeScopeTest {
       return expressions[id]?.expression.orEmpty().flatMap(::components).toSet()
     }
 
-    var lastContent = -1
+    var lastComponent = -1
     val expected = mutableListOf<Int>()
     val actual = mutableListOf<Set<Int>>()
     for (operation in operations) {
       when (operation) {
-        is RcLayoutContent -> lastContent = operation.componentId
+        is RcLayoutContent -> lastComponent = operation.componentId
+        // An image is written with no content section: it is itself the last component.
+        is RcImageLayout -> lastComponent = operation.componentId
         is RcRoundedClipRectModifier -> {
-          expected += lastContent
+          expected += lastComponent
           actual += components(operation.topStart)
         }
         else -> {}
       }
     }
-    assertEquals(2, actual.size)
-    // The first clip reads the row's content; the second the first box's inner box's content.
+    assertEquals(3, actual.size)
+    // The first clip reads the row's content, the second the first box's inner box's content and
+    // the third the image, which has none.
     assertEquals(expected.map { setOf(it) }, actual)
   }
 }
