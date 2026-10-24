@@ -26,9 +26,11 @@ import androidx.compose.remote.creation.compose.state.RemoteFloatExpression
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.creationState
 
+// LOCAL PATCH (rc-players): sizes refer to the last component recorded (`lastComponentId`), as
+// upstream's refer to `RemoteComposeBuffer.lastComponentId`, not to the enclosing component scope.
 public class RemoteFloatContext internal constructor(internal val state: RemoteStateScope) {
     public fun componentWidth(): RemoteFloat {
-        val componentKey = (state.creationState as RemoteComposeCreationState).componentCacheKey
+        val componentKey = (state.creationState as RemoteComposeCreationState).lastComponentId
         return RemoteFloatExpression(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentKey, "width"),
@@ -39,7 +41,7 @@ public class RemoteFloatContext internal constructor(internal val state: RemoteS
     }
 
     public fun componentHeight(): RemoteFloat {
-        val componentKey = (state.creationState as RemoteComposeCreationState).componentCacheKey
+        val componentKey = (state.creationState as RemoteComposeCreationState).lastComponentId
         return RemoteFloatExpression(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentKey, "height"),
@@ -50,7 +52,7 @@ public class RemoteFloatContext internal constructor(internal val state: RemoteS
     }
 
     public fun componentCenterX(): RemoteFloat {
-        val componentKey = (state.creationState as RemoteComposeCreationState).componentCacheKey
+        val componentKey = (state.creationState as RemoteComposeCreationState).lastComponentId
         return RemoteFloatExpression(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentKey, "centerX"),
@@ -65,7 +67,7 @@ public class RemoteFloatContext internal constructor(internal val state: RemoteS
     }
 
     public fun componentCenterY(): RemoteFloat {
-        val componentKey = (state.creationState as RemoteComposeCreationState).componentCacheKey
+        val componentKey = (state.creationState as RemoteComposeCreationState).lastComponentId
         return RemoteFloatExpression(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentKey, "centerY"),

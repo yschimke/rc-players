@@ -52,11 +52,23 @@ internal abstract class RemoteComposeNode {
         scope: RemoteStateScope,
         creationState: RemoteComposeCreationState,
     ): RemoteModifierData {
+        // LOCAL PATCH (rc-players): the modifiers convert first, so a size they read
+        // (`RemoteFloatContext.componentWidth`) is the last component recorded before this one, as
+        // AndroidX's `lastComponentId` is when it converts them.
+        val data = scope.toRemoteModifierData(modifier)
         // LOCAL PATCH (rc-players): honour an explicit id (`RemoteModifier.componentId`) once.
         renderedComponentId =
             modifier.requestedComponentId?.takeIf(creationState::claimComponentId)
                 ?: creationState.allocateComponentId()
-        return scope.toRemoteModifierData(modifier).apply { componentId = renderedComponentId }
+        // LOCAL PATCH (rc-players): the content section's id is assigned now too, so what this
+        // component's descendants and later siblings read as the last component is known while
+        // recording, not only when the writer replays.
+        val contentId = creationState.allocateComponentId()
+        creationState.lastComponentId = contentId
+        return data.apply {
+            componentId = renderedComponentId
+            contentComponentId = contentId
+        }
     }
 
     fun renderChildren(

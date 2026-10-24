@@ -1192,7 +1192,7 @@ final class androidx.compose.remote.creation.common/RemoteImageData { // android
 }
 
 final class androidx.compose.remote.creation.common/RemoteModifierData { // androidx.compose.remote.creation.common/RemoteModifierData|null[0]
-    constructor <init>(kotlin/Int = ..., kotlin/Float = ..., kotlin.collections/MutableList<androidx.compose.remote.creation.common/RemoteModifierOperation> = ...) // androidx.compose.remote.creation.common/RemoteModifierData.<init>|<init>(kotlin.Int;kotlin.Float;kotlin.collections.MutableList<androidx.compose.remote.creation.common.RemoteModifierOperation>){}[0]
+    constructor <init>(kotlin/Int = ..., kotlin/Float = ..., kotlin/Int = ..., kotlin.collections/MutableList<androidx.compose.remote.creation.common/RemoteModifierOperation> = ...) // androidx.compose.remote.creation.common/RemoteModifierData.<init>|<init>(kotlin.Int;kotlin.Float;kotlin.Int;kotlin.collections.MutableList<androidx.compose.remote.creation.common.RemoteModifierOperation>){}[0]
 
     final val operations // androidx.compose.remote.creation.common/RemoteModifierData.operations|{}operations[0]
         final fun <get-operations>(): kotlin.collections/MutableList<androidx.compose.remote.creation.common/RemoteModifierOperation> // androidx.compose.remote.creation.common/RemoteModifierData.operations.<get-operations>|<get-operations>(){}[0]
@@ -1200,6 +1200,9 @@ final class androidx.compose.remote.creation.common/RemoteModifierData { // andr
     final var componentId // androidx.compose.remote.creation.common/RemoteModifierData.componentId|{}componentId[0]
         final fun <get-componentId>(): kotlin/Int // androidx.compose.remote.creation.common/RemoteModifierData.componentId.<get-componentId>|<get-componentId>(){}[0]
         final fun <set-componentId>(kotlin/Int) // androidx.compose.remote.creation.common/RemoteModifierData.componentId.<set-componentId>|<set-componentId>(kotlin.Int){}[0]
+    final var contentComponentId // androidx.compose.remote.creation.common/RemoteModifierData.contentComponentId|{}contentComponentId[0]
+        final fun <get-contentComponentId>(): kotlin/Int // androidx.compose.remote.creation.common/RemoteModifierData.contentComponentId.<get-contentComponentId>|<get-contentComponentId>(){}[0]
+        final fun <set-contentComponentId>(kotlin/Int) // androidx.compose.remote.creation.common/RemoteModifierData.contentComponentId.<set-contentComponentId>|<set-contentComponentId>(kotlin.Int){}[0]
     final var spacedBy // androidx.compose.remote.creation.common/RemoteModifierData.spacedBy|{}spacedBy[0]
         final fun <get-spacedBy>(): kotlin/Float // androidx.compose.remote.creation.common/RemoteModifierData.spacedBy.<get-spacedBy>|<get-spacedBy>(){}[0]
         final fun <set-spacedBy>(kotlin/Float) // androidx.compose.remote.creation.common/RemoteModifierData.spacedBy.<set-spacedBy>|<set-spacedBy>(kotlin.Float){}[0]
