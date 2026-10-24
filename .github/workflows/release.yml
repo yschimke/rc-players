@@ -3,7 +3,7 @@ name: Release
 # Publishes the players for a given tag: the five Maven artifacts to Maven Central, the Wasm bundle
 # to npm and onto the GitHub Release (`rc-player-wasm.zip`, which is how a Gradle build gets it), and
 # the Apple XCFramework plus native UIKit package onto the GitHub Release, with `Package.swift`
-# rewritten to describe the shared binary framework.
+# rewritten to describe the shared binary framework, and the macOS and Linux desktop viewers.
 #
 # Entry points:
 #   - workflow_call: called from release-please.yml after release-please merges the release PR and
@@ -299,6 +299,64 @@ jobs:
           (cd rc-player/wasm/build/wasmDist && zip -qr "$RUNNER_TEMP/rc-player-wasm.zip" .)
           test -n "$(unzip -Z1 "$RUNNER_TEMP/rc-player-wasm.zip" index.html)"
           gh release upload "$TAG_NAME" "$RUNNER_TEMP/rc-player-wasm.zip" --clobber
+
+  # The Linux desktop viewer (`rc-player/desktop`): the CMP player in a window, the JVM counterpart
+  # of the macOS app the Apple job attaches. Two assets, both bundling a JRE: a `.deb` and a
+  # self-contained `tar.gz`. Asset names carry no version, as with the Wasm bundle, so a download
+  # link is one pattern across releases. Independent of Maven Central: a viewer for a release that
+  # failed to publish its artifacts is still a viewer for that tag's source.
+  attach-linux-viewer:
+    name: Attach the Linux desktop viewer to the Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write # `gh release upload` mutates the Release
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG_NAME }}
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17.0.21+9"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-read-only: "true"
+      # jpackage's DEB bundler shells out to `fakeroot` and `dpkg-deb`, and silently skips the
+      # bundle ("configuration problem") when either is missing.
+      - name: Install the .deb tooling
+        run: sudo apt-get install -y --no-install-recommends fakeroot
+      - name: Build the viewer
+        run: ./gradlew :rc-player-desktop:packageRcDesktopLinux -Prc.desktop.version="${TAG_NAME#v}"
+      # The packaged launcher, not the Gradle classpath — what a user unpacks — and the version it
+      # was stamped with. ci.yml runs the same check on every PR.
+      - name: Smoke-test the packaged viewer
+        run: |
+          set -euo pipefail
+          scripts/check-linux-viewer.sh "${TAG_NAME#v}"
+          (cd rc-player/desktop/build/rc-desktop-dist &&
+            for f in *.deb *.tar.gz; do sha256sum "$f" > "$f.sha256"; done)
+      - name: Attest the viewer
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            rc-player/desktop/build/rc-desktop-dist/RemoteComposePlayer-linux-amd64.deb
+            rc-player/desktop/build/rc-desktop-dist/RemoteComposePlayer-linux-x64.tar.gz
+      - name: Attach the viewer to the Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          dist=rc-player/desktop/build/rc-desktop-dist
+          gh release upload "$TAG_NAME" \
+            "$dist/RemoteComposePlayer-linux-amd64.deb" \
+            "$dist/RemoteComposePlayer-linux-amd64.deb.sha256" \
+            "$dist/RemoteComposePlayer-linux-x64.tar.gz" \
+            "$dist/RemoteComposePlayer-linux-x64.tar.gz.sha256" \
+            --clobber
 
   # macOS-only: the Kotlin/Native linker, XCFramework tooling, and native UIKit package validation
   # all need it.

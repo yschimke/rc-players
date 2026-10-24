@@ -224,6 +224,11 @@ include(":rc-player-demos")
 
 project(":rc-player-demos").projectDir = file("rc-player/demos")
 
+// The Linux desktop viewer, attached to each GitHub Release — see `rc-player/desktop/build.gradle.kts`.
+include(":rc-player-desktop")
+
+project(":rc-player-desktop").projectDir = file("rc-player/desktop")
+
 // Incubating Apple-styled authoring components built on AndroidX's Remote Compose creation API.
 // This intentionally lives outside the published player stack while its API and ownership settle.
 include(":prototype-remote-apple-components")
