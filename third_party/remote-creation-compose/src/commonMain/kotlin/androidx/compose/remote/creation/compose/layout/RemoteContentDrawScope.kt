@@ -29,7 +29,8 @@ internal constructor(
     private val content: RemoteDrawScope.() -> Unit = {
         remoteCanvas.internalCanvas.drawComponentContent()
     },
-) : RemoteDrawScope(remoteCanvas) {
+    inset: DrawInset? = null,
+) : RemoteDrawScope(remoteCanvas, inset) {
 
     /** Draws the content of the component. */
     public fun drawContent() {
