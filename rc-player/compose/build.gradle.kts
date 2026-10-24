@@ -202,6 +202,14 @@ composeAiMavenPublishing {
 //
 //   ./gradlew :rc-player-compose:jvmTest --rerun --tests '*RcCmpRenderHarness*' \
 //     -Prc.cmp.input=<abs dir> -Prc.cmp.output=<abs dir>
+//
+// `rc.cmpandroid.*` is the same lane on the other host: `RcCmpAndroidRenderHarness` runs this
+// player under Robolectric, so the wall can carry a `cmp-android` column beside `cmp-jvm` and a
+// difference between the two is Android's own text and canvas stack rather than the interpreter.
+//
+//   ./gradlew :rc-player-compose:testAndroidHostTest --rerun \
+//     --tests '*RcCmpAndroidRenderHarness*' \
+//     -Prc.cmpandroid.input=<abs dir> -Prc.cmpandroid.output=<abs dir>
 // The Android host test task runs only the Robolectric suite (`androidHostTest`). `commonTest`
 // still compiles for Android — that is the check it is useful for — but its Compose-touching tests
 // assume a real graphics stack, which on the Android host exists only under Robolectric's
@@ -209,7 +217,17 @@ composeAiMavenPublishing {
 // Apple targets.
 tasks
   .matching { it.name == "testAndroidHostTest" }
-  .configureEach { (this as Test).filter { includeTestsMatching("*.RcAndroid*") } }
+  .configureEach {
+    (this as Test).filter {
+      includeTestsMatching("*.RcAndroid*")
+      // The `cmp-android` rc-compare lane. Named for its sibling harnesses
+      // (`RcCmpRenderHarness` on the JVM, `RcEmbeddedRenderHarness` and
+      // `RcViewPlayerRenderHarness` on the AndroidX lanes) rather than for this filter, so it is
+      // admitted by name instead of being renamed into the `RcAndroid*` prefix the filter uses to
+      // pick the Robolectric suite out of `commonTest`.
+      includeTestsMatching("*.RcCmpAndroidRenderHarness")
+    }
+  }
 
 tasks.withType<Test>().configureEach {
   (project.findProperty("rc.textOnCircle.out") as String?)?.let {
@@ -220,6 +238,9 @@ tasks.withType<Test>().configureEach {
       "rc.cmp.input",
       "rc.cmp.output",
       "rc.cmp.fonts",
+      "rc.cmpandroid.input",
+      "rc.cmpandroid.output",
+      "rc.cmpandroid.fonts",
       "rc.bitmapFilter.out",
       "rc.imageLoader.out",
       "rc.conic.out",
