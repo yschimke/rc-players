@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.6](https://github.com/yschimke/rc-players/compare/v2.17.5...v2.17.6) (2026-10-24)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.24.1 ([#739](https://github.com/yschimke/rc-players/issues/739)) ([4b5f720](https://github.com/yschimke/rc-players/commit/4b5f7208ef7a4fdba160a1889f674c67b245a2dc))
+
 ## [2.17.5](https://github.com/yschimke/rc-players/compare/v2.17.4...v2.17.5) (2026-10-23)
 
 
