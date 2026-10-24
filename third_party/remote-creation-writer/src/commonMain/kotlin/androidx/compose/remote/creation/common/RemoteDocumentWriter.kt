@@ -248,7 +248,9 @@ public class RemoteDocumentWriter(
         operation(ModifierBorder)
         buffer.writeInt(if (modifier.dynamicColor) 2 else 0)
         buffer.writeInt(if (modifier.dynamicColor) modifier.color else 0)
-        buffer.writeInt(0)
+        // Wire version 1, as AndroidX's `BorderModifierOperation` writes: players draw the stroke
+        // inside the bounds. Version 0 is the legacy centred stroke, half of it clipped away.
+        buffer.writeInt(BorderWireVersion)
         buffer.writeInt(0)
         buffer.writeFloat(modifier.width)
         buffer.writeFloat(modifier.roundedCorner)
@@ -1523,6 +1525,7 @@ public class RemoteDocumentWriter(
     private const val AccessibilitySemantics = 250
     private const val ModifierGraphicsLayer = 224
     private const val ModifierBorder = 107
+    private const val BorderWireVersion = 1
     private const val ModifierVisibility = 211
     private const val ModifierMarquee = 228
     private const val ModifierCollapsiblePriority = 235
