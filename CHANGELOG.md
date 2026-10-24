@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.19.0](https://github.com/yschimke/rc-players/compare/v2.18.0...v2.19.0) (2026-10-24)
+
+
+### Features
+
+* add a Linux desktop viewer and attach it to each release ([#747](https://github.com/yschimke/rc-players/issues/747)) ([d0c0394](https://github.com/yschimke/rc-players/commit/d0c0394deaacacc1e8e6bdc26168b9a38cabc657))
+
+
+### Bug Fixes
+
+* **creation-compose:** draw a drawWithContent after padding inside it, as AndroidX does ([#749](https://github.com/yschimke/rc-players/issues/749)) ([9cc1149](https://github.com/yschimke/rc-players/commit/9cc114926eb9eb3cbc16cf26eee408a9b2d302d9))
+
 ## [2.18.0](https://github.com/yschimke/rc-players/compare/v2.17.5...v2.18.0) (2026-10-24)
 
 
