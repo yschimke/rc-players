@@ -41,7 +41,10 @@ import androidx.graphics.shapes.RoundedPolygon
  */
 public open class RemoteDrawScope
 internal constructor(
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val remoteCanvas: RemoteCanvas
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val remoteCanvas: RemoteCanvas,
+    // LOCAL PATCH (rc-players): the padding a draw modifier's earlier modifiers inset it by, as
+    // AndroidX sizes a `drawWithContent` scope (see `RemoteModifier.drawWithContent`).
+    internal val inset: DrawInset? = null,
 ) : RemoteStateScope by remoteCanvas {
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public val remoteComposeCreationState: RemoteComposeCreationState
@@ -49,11 +52,17 @@ internal constructor(
 
     /** The width of the drawing area as a [RemoteFloat]. */
     public val width: RemoteFloat
-        get() = remoteCanvas.remote.component.width
+        get() =
+            remoteCanvas.remote.component.width.let { width ->
+                inset?.let { width - it.horizontal } ?: width
+            }
 
     /** The height of the drawing area as a [RemoteFloat]. */
     public val height: RemoteFloat
-        get() = remoteCanvas.remote.component.height
+        get() =
+            remoteCanvas.remote.component.height.let { height ->
+                inset?.let { height - it.vertical } ?: height
+            }
 
     /** The center of the drawing area as a [RemoteOffset]. */
     public val center: RemoteOffset
@@ -454,3 +463,14 @@ internal constructor(
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public val remote: RemoteAccess = RemoteAccess(this)
 }
+
+/**
+ * LOCAL PATCH (rc-players): the padding before a draw modifier: where its drawing starts ([left],
+ * [top]) and what it takes off the component's size ([horizontal], [vertical]).
+ */
+internal class DrawInset(
+    val left: RemoteFloat,
+    val top: RemoteFloat,
+    val horizontal: RemoteFloat,
+    val vertical: RemoteFloat,
+)
