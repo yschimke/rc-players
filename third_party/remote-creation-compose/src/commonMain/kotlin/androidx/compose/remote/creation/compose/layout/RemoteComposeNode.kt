@@ -42,6 +42,10 @@ internal abstract class RemoteComposeNode {
     var remoteDensity: RemoteDensity = RemoteDensity.Host
     private var renderedComponentId: Int = 0
 
+    // LOCAL PATCH (rc-players): whether the writer follows this component with a content section
+    // (`LayoutContent`); every layout does, an image does not.
+    protected open val writesContentSection: Boolean = true
+
     fun overriddenScope(creationState: RemoteComposeCreationState): RemoteStateScope {
         return OverriddenScope(creationState, remoteDensity, creationState.layoutDirection)
     }
@@ -52,11 +56,24 @@ internal abstract class RemoteComposeNode {
         scope: RemoteStateScope,
         creationState: RemoteComposeCreationState,
     ): RemoteModifierData {
+        // LOCAL PATCH (rc-players): the modifiers convert first, so a size they read
+        // (`RemoteFloatContext.componentWidth`) is the last component recorded before this one, as
+        // AndroidX's `lastComponentId` is when it converts them.
+        val data = scope.toRemoteModifierData(modifier)
         // LOCAL PATCH (rc-players): honour an explicit id (`RemoteModifier.componentId`) once.
         renderedComponentId =
             modifier.requestedComponentId?.takeIf(creationState::claimComponentId)
                 ?: creationState.allocateComponentId()
-        return scope.toRemoteModifierData(modifier).apply { componentId = renderedComponentId }
+        // LOCAL PATCH (rc-players): the content section's id is assigned now too, so what this
+        // component's descendants and later siblings read as the last component is known while
+        // recording, not only when the writer replays. A component written without a content
+        // section (an image) is itself the last one.
+        val contentId = if (writesContentSection) creationState.allocateComponentId() else -1
+        creationState.lastComponentId = if (writesContentSection) contentId else renderedComponentId
+        return data.apply {
+            componentId = renderedComponentId
+            contentComponentId = contentId
+        }
     }
 
     fun renderChildren(

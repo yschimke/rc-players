@@ -144,6 +144,9 @@ public sealed interface RemoteActionData {
 public class RemoteModifierData(
   public var componentId: Int = -1,
   public var spacedBy: Float = 0f,
+  // LOCAL PATCH (rc-players): the component's content section id, assigned at record time like
+  // [componentId]; -1 lets the writer allocate one.
+  public var contentComponentId: Int = -1,
   public val operations: MutableList<RemoteModifierOperation> = mutableListOf(),
 ) {
   public fun then(operation: RemoteModifierOperation): RemoteModifierData {

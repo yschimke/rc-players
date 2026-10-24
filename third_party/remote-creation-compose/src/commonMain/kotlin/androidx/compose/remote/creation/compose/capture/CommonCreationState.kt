@@ -73,6 +73,13 @@ public open class RemoteComposeCreationState(
     internal var componentCacheKey: Int = 0
         private set
 
+    /**
+     * LOCAL PATCH (rc-players): the last component (a layout's content section) recorded so far, in
+     * document order: the component a size expression refers to, as AndroidX's
+     * `RemoteComposeBuffer.lastComponentId` is.
+     */
+    internal var lastComponentId: Int = -1
+
     internal fun allocateComponentId(): Int = nextComponentId--
 
     /**
@@ -82,6 +89,7 @@ public open class RemoteComposeCreationState(
      */
     internal fun resetComponentIds() {
         nextComponentId = -1_000_000
+        lastComponentId = -1
         claimedComponentIds.clear()
     }
 

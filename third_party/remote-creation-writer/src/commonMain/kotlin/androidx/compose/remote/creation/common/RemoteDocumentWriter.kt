@@ -97,7 +97,7 @@ public class RemoteDocumentWriter(
     buffer.writeInt(resolveComponentId(modifier.componentId))
     buffer.writeInt(-1)
     modifier.writeTo(this)
-    contentSection()
+    contentSection(modifier.contentComponentId)
   }
 
   override fun endCanvas(): Unit = endLayout()
@@ -127,7 +127,7 @@ public class RemoteDocumentWriter(
     buffer.writeInt(maxItemsInEachRow)
     buffer.writeInt(maxLines)
     modifier.writeTo(this)
-    contentSection()
+    contentSection(modifier.contentComponentId)
   }
 
   override fun endFlow(): Unit = endLayout()
@@ -140,7 +140,7 @@ public class RemoteDocumentWriter(
     buffer.writeInt(0)
     buffer.writeInt(indexId)
     modifier.writeTo(this)
-    contentSection()
+    contentSection(modifier.contentComponentId)
   }
 
   override fun endStateLayout(): Unit = endLayout()
@@ -448,7 +448,7 @@ public class RemoteDocumentWriter(
     buffer.writeShort(parameters.size)
     parameters.forEach { it() }
     data.modifier.writeTo(this)
-    contentSection()
+    contentSection(data.modifier.contentComponentId)
   }
 
   override fun endText(): Unit = endLayout()
@@ -491,7 +491,7 @@ public class RemoteDocumentWriter(
     // LOCAL PATCH (rc-players): as upstream's `addContentStart`, the content section takes a fresh
     // component id. The port reused the custom layout's own id, giving two components one id,
     // which rc-players' player rejects.
-    contentSection()
+    contentSection(modifier.contentComponentId)
   }
 
   override fun endCustom() {
@@ -1319,9 +1319,9 @@ public class RemoteDocumentWriter(
     buffer.writeBytes(encoded)
   }
 
-  private fun contentSection() {
+  private fun contentSection(requested: Int = -1) {
     operation(LayoutContent)
-    buffer.writeInt(componentId())
+    buffer.writeInt(resolveComponentId(requested))
     // As `RemoteComposeWriter.addContentStart` does: a player begins each component with a fresh
     // paint, so the first paint inside one has to be written in full, not as a delta against the
     // previous component's.
@@ -1352,7 +1352,7 @@ public class RemoteDocumentWriter(
     buffer.writeInt(horizontal)
     buffer.writeInt(vertical)
     modifier.writeTo(this)
-    contentSection()
+    contentSection(modifier.contentComponentId)
   }
 
   private fun startLinearLayout(
@@ -1368,7 +1368,7 @@ public class RemoteDocumentWriter(
     buffer.writeInt(vertical)
     buffer.writeFloat(modifier.spacedBy)
     modifier.writeTo(this)
-    contentSection()
+    contentSection(modifier.contentComponentId)
   }
 
   private fun endLayout() {

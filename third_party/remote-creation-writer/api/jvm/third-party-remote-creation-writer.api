@@ -739,12 +739,14 @@ public final class androidx/compose/remote/creation/common/RemoteLayerAttribute$
 
 public final class androidx/compose/remote/creation/common/RemoteModifierData {
 	public fun <init> ()V
-	public fun <init> (IFLjava/util/List;)V
-	public synthetic fun <init> (IFLjava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (IFILjava/util/List;)V
+	public synthetic fun <init> (IFILjava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun getComponentId ()I
+	public final fun getContentComponentId ()I
 	public final fun getOperations ()Ljava/util/List;
 	public final fun getSpacedBy ()F
 	public final fun setComponentId (I)V
+	public final fun setContentComponentId (I)V
 	public final fun setSpacedBy (F)V
 	public final fun then (Landroidx/compose/remote/creation/common/RemoteModifierOperation;)Landroidx/compose/remote/creation/common/RemoteModifierData;
 	public final fun writeTo (Landroidx/compose/remote/creation/common/RemoteWriter;)V
