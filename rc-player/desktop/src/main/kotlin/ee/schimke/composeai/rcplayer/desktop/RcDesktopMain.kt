@@ -120,11 +120,12 @@ private fun openWindow(initial: File?, network: Boolean) {
     }
   val initialSize =
     (state.load as? RcViewerLoad.Loaded)?.let { load ->
-      val density = load.document.header.density.takeIf { it > 0f } ?: 1f
+      // Room for the document at its declared pixel size, which "Document size" shows; at the
+      // usual 1× desktop scale a dp is a pixel.
       DpSize(
-        (load.widthPx / density).coerceIn(640f, 1600f).dp,
+        load.widthPx.toFloat().coerceIn(640f, 1600f).dp,
         // The toolbar and status bar sit above and below the document.
-        (load.heightPx / density + 72f).coerceIn(480f, 1200f).dp,
+        (load.heightPx + 72f).coerceIn(480f, 1200f).dp,
       )
     } ?: DpSize(800.dp, 600.dp)
 

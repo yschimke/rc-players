@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -32,8 +33,10 @@ import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.awtTransferable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
@@ -52,7 +55,7 @@ internal enum class RcViewerSizing(val label: String) {
   /** The player fills the window, so resizing the window resizes the document. */
   Fill("Fill window"),
 
-  /** The player gets the size the document's header declares, centred. */
+  /** The player gets the pixel size and density the document's header declares. */
   Document("Document size"),
 }
 
@@ -205,15 +208,26 @@ private fun Document(load: RcViewerLoad.Loaded, state: RcViewerState) {
   when (state.sizing) {
     RcViewerSizing.Fill -> player(Modifier.fillMaxSize())
     RcViewerSizing.Document -> {
-      // A scrolling surface, so the player gets exactly the declared size even where that is
-      // larger than the window: inside a scroll the scrolled axes are unbounded, where a plain
-      // `size` would be clamped to the window and behave like "Fill window" on that axis.
-      val density = load.document.header.density.takeIf { it > 0f } ?: 1f
-      Box(Modifier.horizontalScroll(rememberScrollState()).verticalScroll(rememberScrollState())) {
-        player(
-          Modifier.size((load.widthPx / density).dp, (load.heightPx / density).dp)
-            .border(1.dp, ViewerColors.divider)
+      // The document as `--render-png` draws it: its declared size in pixels, played at the
+      // density it was generated for. Its geometry is in pixels at that density, so the window's
+      // own density would clip or reflow it. A scrolling surface, so the player gets exactly that
+      // size even where it is larger than the window: inside a scroll the scrolled axes are
+      // unbounded, where a plain `size` would be clamped to the window.
+      val ambient = LocalDensity.current
+      val documentDensity =
+        Density(
+          load.document.header.density.takeIf { it > 0f } ?: 1f,
+          ambient.fontScale,
         )
+      Box(Modifier.horizontalScroll(rememberScrollState()).verticalScroll(rememberScrollState())) {
+        Box(
+          with(ambient) { Modifier.size(load.widthPx.toDp(), load.heightPx.toDp()) }
+            .border(1.dp, ViewerColors.divider)
+        ) {
+          CompositionLocalProvider(LocalDensity provides documentDensity) {
+            player(Modifier.fillMaxSize())
+          }
+        }
       }
     }
   }
