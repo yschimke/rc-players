@@ -2,7 +2,7 @@
 
 Published by the scheduled `Conformance` workflow. This branch carries **only** reports — no source, no corpus — so a score can be linked to and compared over time without the run artifacts, which expire.
 
-**Latest run: [`2026-10-25`](runs/2026-10-25/README.md)**
+**Latest run: [`2026-10-26`](runs/2026-10-26/README.md)**
 
 |  | `cmp` |
 | --- | ---: |
@@ -16,6 +16,7 @@ Of 173 frames where `cmp` disagrees with the reference image, 136 are frames a r
 
 | run | `androidx-jvm` golds | `cmp` golds | `native-appkit` golds | `typescript` golds | commit |
 | --- | ---: | ---: | ---: | ---: | --- |
+| [`2026-10-26`](runs/2026-10-26/README.md) | — | 294 / 353 | 311 / 353 | 352 / 353 | `2227be4` |
 | [`2026-10-25`](runs/2026-10-25/README.md) | — | 294 / 353 | 311 / 353 | 352 / 353 | `4213438` |
 | [`2026-10-24`](runs/2026-10-24/README.md) | — | 294 / 353 | 311 / 353 | 352 / 353 | `e59e89d` |
 | [`2026-10-23`](runs/2026-10-23/README.md) | — | 294 / 353 | 311 / 353 | 352 / 353 | `95931b9` |
@@ -45,7 +46,6 @@ Of 173 frames where `cmp` disagrees with the reference image, 136 are frames a r
 | [`2026-09-29`](runs/2026-09-29/README.md) | — | 315 / 353 | 311 / 353 | 352 / 353 | `21fcd37` |
 | [`2026-09-28`](runs/2026-09-28/README.md) | — | 315 / 353 | 311 / 353 | 352 / 353 | `aa30994` |
 | [`2026-09-27`](runs/2026-09-27/README.md) | — | 315 / 353 | 311 / 353 | 352 / 353 | `11c7226` |
-| [`2026-09-26`](runs/2026-09-26/README.md) | — | 315 / 353 | 311 / 353 | 352 / 353 | `11c7226` |
 
 `history.csv` holds every row, including runs older than the table above.
 
