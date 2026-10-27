@@ -1190,6 +1190,7 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
     final fun setFloat(kotlin/Int, kotlin/Float) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.setFloat|setFloat(kotlin.Int;kotlin.Float){}[0]
     final fun setHostDensity(kotlin/Float, kotlin/Float = ...) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.setHostDensity|setHostDensity(kotlin.Float;kotlin.Float){}[0]
     final fun setInteger(kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.setInteger|setInteger(kotlin.Int;kotlin.Int){}[0]
+    final fun setLoadedImageSize(kotlin/Int, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.setLoadedImageSize|setLoadedImageSize(kotlin.Int;kotlin.Int;kotlin.Int){}[0]
     final fun setLong(kotlin/Int, kotlin/Long) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.setLong|setLong(kotlin.Int;kotlin.Long){}[0]
     final fun setNamedValue(kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.setNamedValue|setNamedValue(kotlin.String;ee.schimke.composeai.rcplayer.runtime.RcNamedValue){}[0]
     final fun setPath(kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcPathData) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.setPath|setPath(kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcPathData){}[0]

@@ -5154,7 +5154,13 @@ private fun DrawScope.drawOperationsRouted(
           functions.executing.remove(operation.functionId)
         }
       }
-      is RcImageAttribute -> state.applyImageAttribute(operation)
+      is RcImageAttribute -> {
+        // A URL or file bitmap's declared size is a placeholder until the image arrives.
+        images[operation.imageId]?.let {
+          state.setLoadedImageSize(operation.imageId, it.width, it.height)
+        }
+        state.applyImageAttribute(operation)
+      }
       is RcColorAttribute -> state.applyColorAttribute(operation)
       is RcColorExpression -> state.applyColorExpression(operation)
       is RcColorTheme -> state.applyColorTheme(operation, requestedTheme)

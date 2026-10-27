@@ -954,6 +954,35 @@ class RcPlayerStateTest {
   }
 
   @Test
+  fun imageAttributesReportALoadedUrlBitmapsOwnSize() {
+    val url = "https://example.com/a.png".encodeToByteArray()
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcBitmapData(7, 1, 1, RcBitmapData.TYPE_PNG, RcBitmapData.ENCODING_URL, url),
+          RcBitmapData(8, 13, 17, RcBitmapData.TYPE_RAW8, 0, ByteArray(221)),
+        ),
+      )
+    val state = RcPlayerState(document)
+    val width = RcImageAttribute(20, 7, RcImageAttribute.IMAGE_WIDTH, emptyList())
+
+    state.applyImageAttribute(width)
+    assertEquals(1f, state.resolve(RcFloatWord(0x7fc00014)))
+
+    state.setLoadedImageSize(7, 640, 480)
+    state.setLoadedImageSize(8, 26, 34)
+    state.applyImageAttribute(width)
+    state.applyImageAttribute(RcImageAttribute(21, 7, RcImageAttribute.IMAGE_HEIGHT, emptyList()))
+    state.applyImageAttribute(RcImageAttribute(22, 8, RcImageAttribute.IMAGE_WIDTH, emptyList()))
+
+    assertEquals(640f, state.resolve(RcFloatWord(0x7fc00014)))
+    assertEquals(480f, state.resolve(RcFloatWord(0x7fc00015)))
+    // A declared size that is not a placeholder stays authoritative.
+    assertEquals(13f, state.resolve(RcFloatWord(0x7fc00016)))
+  }
+
+  @Test
   fun imageAttributesUseAuthoritativeDeclaredDimensions() {
     val document =
       RcDocument(
