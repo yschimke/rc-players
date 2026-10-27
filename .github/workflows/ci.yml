@@ -384,6 +384,11 @@ jobs:
             :rc-player-metrics:test \
             :rc-player-profile:test \
             :rc-player-desktop:test \
+            :rc-widget-core:jvmTest \
+            :rc-widget-core:testAndroidHostTest \
+            :rc-widget-creation:compileAndroidMain \
+            :rc-widget-launcher:testAndroidHostTest \
+            :rc-widget-wear:testAndroidHostTest \
             :third-party-rc-embedded-player:testDebugUnitTest
 
       # The wasm browser suites and the ABI gate, which until the macOS lane started skipping
@@ -403,6 +408,12 @@ jobs:
             :rc-creation-bridge:checkKotlinAbi \
             :rc-player-embedded:checkKotlinAbi \
             :rc-player-embedded:compileKotlinWasmJs \
+            :rc-widget-core:checkKotlinAbi \
+            :rc-widget-creation:checkKotlinAbi \
+            :rc-widget-launcher:checkKotlinAbi \
+            :rc-widget-wear:checkKotlinAbi \
+            :rc-widget-creation:compileKotlinWasmJs \
+            :rc-widget-core:wasmJsBrowserTest \
             :rc-player-trace:wasmJsBrowserTest \
             :rc-player-protocol:wasmJsBrowserTest \
             :rc-player-runtime:wasmJsBrowserTest \
@@ -425,6 +436,9 @@ jobs:
             rc-player/metrics:test \
             rc-player/profile:test \
             rc-player/desktop:test \
+            rc-widget/core:jvmTest,testAndroidHostTest,wasmJsBrowserTest \
+            rc-widget/launcher:testAndroidHostTest \
+            rc-widget/wear:testAndroidHostTest \
             third_party/rc-embedded-player:testDebugUnitTest
 
       # The Linux desktop viewer's release assets, built and opened exactly as release.yml's

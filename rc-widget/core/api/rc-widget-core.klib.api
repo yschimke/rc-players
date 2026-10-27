@@ -1,0 +1,443 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, macosArm64, wasmJs]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <ee.schimke.composeai:rc-widget-core>
+final enum class ee.schimke.composeai.rcwidget/RcBindingType : kotlin/Enum<ee.schimke.composeai.rcwidget/RcBindingType> { // ee.schimke.composeai.rcwidget/RcBindingType|null[0]
+    enum entry COLOR // ee.schimke.composeai.rcwidget/RcBindingType.COLOR|null[0]
+    enum entry FLOAT // ee.schimke.composeai.rcwidget/RcBindingType.FLOAT|null[0]
+    enum entry FLOAT_ARRAY // ee.schimke.composeai.rcwidget/RcBindingType.FLOAT_ARRAY|null[0]
+    enum entry IMAGE // ee.schimke.composeai.rcwidget/RcBindingType.IMAGE|null[0]
+    enum entry INT // ee.schimke.composeai.rcwidget/RcBindingType.INT|null[0]
+    enum entry LONG // ee.schimke.composeai.rcwidget/RcBindingType.LONG|null[0]
+    enum entry TEXT // ee.schimke.composeai.rcwidget/RcBindingType.TEXT|null[0]
+
+    final val entries // ee.schimke.composeai.rcwidget/RcBindingType.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rcwidget/RcBindingType> // ee.schimke.composeai.rcwidget/RcBindingType.entries.<get-entries>|<get-entries>#static(){}[0]
+    final val wireName // ee.schimke.composeai.rcwidget/RcBindingType.wireName|{}wireName[0]
+        final fun <get-wireName>(): kotlin/String // ee.schimke.composeai.rcwidget/RcBindingType.wireName.<get-wireName>|<get-wireName>(){}[0]
+    final val wireType // ee.schimke.composeai.rcwidget/RcBindingType.wireType|{}wireType[0]
+        final fun <get-wireType>(): kotlin/Int // ee.schimke.composeai.rcwidget/RcBindingType.wireType.<get-wireType>|<get-wireType>(){}[0]
+
+    final fun accepts(ee.schimke.composeai.rcplayer.edit/RcHardcodedValue): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcBindingType.accepts|accepts(ee.schimke.composeai.rcplayer.edit.RcHardcodedValue){}[0]
+    final fun valueOf(kotlin/String): ee.schimke.composeai.rcwidget/RcBindingType // ee.schimke.composeai.rcwidget/RcBindingType.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ee.schimke.composeai.rcwidget/RcBindingType> // ee.schimke.composeai.rcwidget/RcBindingType.values|values#static(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcwidget/RcBindingType.Companion|null[0]
+        final fun ofWire(kotlin/Int): ee.schimke.composeai.rcwidget/RcBindingType? // ee.schimke.composeai.rcwidget/RcBindingType.Companion.ofWire|ofWire(kotlin.Int){}[0]
+        final fun ofWireName(kotlin/String): ee.schimke.composeai.rcwidget/RcBindingType? // ee.schimke.composeai.rcwidget/RcBindingType.Companion.ofWireName|ofWireName(kotlin.String){}[0]
+    }
+}
+
+final enum class ee.schimke.composeai.rcwidget/RcWearContainerType : kotlin/Enum<ee.schimke.composeai.rcwidget/RcWearContainerType> { // ee.schimke.composeai.rcwidget/RcWearContainerType|null[0]
+    enum entry LARGE // ee.schimke.composeai.rcwidget/RcWearContainerType.LARGE|null[0]
+    enum entry SMALL // ee.schimke.composeai.rcwidget/RcWearContainerType.SMALL|null[0]
+
+    final val entries // ee.schimke.composeai.rcwidget/RcWearContainerType.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rcwidget/RcWearContainerType> // ee.schimke.composeai.rcwidget/RcWearContainerType.entries.<get-entries>|<get-entries>#static(){}[0]
+    final val glanceType // ee.schimke.composeai.rcwidget/RcWearContainerType.glanceType|{}glanceType[0]
+        final fun <get-glanceType>(): kotlin/Int // ee.schimke.composeai.rcwidget/RcWearContainerType.glanceType.<get-glanceType>|<get-glanceType>(){}[0]
+
+    final fun valueOf(kotlin/String): ee.schimke.composeai.rcwidget/RcWearContainerType // ee.schimke.composeai.rcwidget/RcWearContainerType.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ee.schimke.composeai.rcwidget/RcWearContainerType> // ee.schimke.composeai.rcwidget/RcWearContainerType.values|values#static(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcwidget/RcWearContainerType.Companion|null[0]
+        final fun ofGlance(kotlin/Int): ee.schimke.composeai.rcwidget/RcWearContainerType? // ee.schimke.composeai.rcwidget/RcWearContainerType.Companion.ofGlance|ofGlance(kotlin.Int){}[0]
+    }
+}
+
+abstract interface ee.schimke.composeai.rcwidget/RcTemplateStore { // ee.schimke.composeai.rcwidget/RcTemplateStore|null[0]
+    abstract fun read(kotlin/String): kotlin/ByteArray? // ee.schimke.composeai.rcwidget/RcTemplateStore.read|read(kotlin.String){}[0]
+    abstract fun write(kotlin/String, kotlin/ByteArray) // ee.schimke.composeai.rcwidget/RcTemplateStore.write|write(kotlin.String;kotlin.ByteArray){}[0]
+}
+
+sealed interface ee.schimke.composeai.rcwidget/RcTemplateProblem { // ee.schimke.composeai.rcwidget/RcTemplateProblem|null[0]
+    final class TypeMismatch : ee.schimke.composeai.rcwidget/RcTemplateProblem { // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch|null[0]
+        constructor <init>(kotlin/String, ee.schimke.composeai.rcwidget/RcBindingType, ee.schimke.composeai.rcwidget/RcBindingType) // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.<init>|<init>(kotlin.String;ee.schimke.composeai.rcwidget.RcBindingType;ee.schimke.composeai.rcwidget.RcBindingType){}[0]
+
+        final val actual // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.actual|{}actual[0]
+            final fun <get-actual>(): ee.schimke.composeai.rcwidget/RcBindingType // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.actual.<get-actual>|<get-actual>(){}[0]
+        final val expected // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.expected|{}expected[0]
+            final fun <get-expected>(): ee.schimke.composeai.rcwidget/RcBindingType // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.expected.<get-expected>|<get-expected>(){}[0]
+        final val name // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.name|{}name[0]
+            final fun <get-name>(): kotlin/String // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.name.<get-name>|<get-name>(){}[0]
+
+        final fun component1(): kotlin/String // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.component1|component1(){}[0]
+        final fun component2(): ee.schimke.composeai.rcwidget/RcBindingType // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.component2|component2(){}[0]
+        final fun component3(): ee.schimke.composeai.rcwidget/RcBindingType // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.component3|component3(){}[0]
+        final fun copy(kotlin/String = ..., ee.schimke.composeai.rcwidget/RcBindingType = ..., ee.schimke.composeai.rcwidget/RcBindingType = ...): ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.copy|copy(kotlin.String;ee.schimke.composeai.rcwidget.RcBindingType;ee.schimke.composeai.rcwidget.RcBindingType){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcTemplateProblem.TypeMismatch.toString|toString(){}[0]
+    }
+
+    final class UnknownBinding : ee.schimke.composeai.rcwidget/RcTemplateProblem { // ee.schimke.composeai.rcwidget/RcTemplateProblem.UnknownBinding|null[0]
+        constructor <init>(ee.schimke.composeai.rcwidget/RcBinding) // ee.schimke.composeai.rcwidget/RcTemplateProblem.UnknownBinding.<init>|<init>(ee.schimke.composeai.rcwidget.RcBinding){}[0]
+
+        final val binding // ee.schimke.composeai.rcwidget/RcTemplateProblem.UnknownBinding.binding|{}binding[0]
+            final fun <get-binding>(): ee.schimke.composeai.rcwidget/RcBinding // ee.schimke.composeai.rcwidget/RcTemplateProblem.UnknownBinding.binding.<get-binding>|<get-binding>(){}[0]
+
+        final fun component1(): ee.schimke.composeai.rcwidget/RcBinding // ee.schimke.composeai.rcwidget/RcTemplateProblem.UnknownBinding.component1|component1(){}[0]
+        final fun copy(ee.schimke.composeai.rcwidget/RcBinding = ...): ee.schimke.composeai.rcwidget/RcTemplateProblem.UnknownBinding // ee.schimke.composeai.rcwidget/RcTemplateProblem.UnknownBinding.copy|copy(ee.schimke.composeai.rcwidget.RcBinding){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcTemplateProblem.UnknownBinding.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget/RcTemplateProblem.UnknownBinding.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcTemplateProblem.UnknownBinding.toString|toString(){}[0]
+    }
+
+    final class Unplayable : ee.schimke.composeai.rcwidget/RcTemplateProblem { // ee.schimke.composeai.rcwidget/RcTemplateProblem.Unplayable|null[0]
+        constructor <init>(kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation>) // ee.schimke.composeai.rcwidget/RcTemplateProblem.Unplayable.<init>|<init>(kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcProfileViolation>){}[0]
+
+        final val violations // ee.schimke.composeai.rcwidget/RcTemplateProblem.Unplayable.violations|{}violations[0]
+            final fun <get-violations>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> // ee.schimke.composeai.rcwidget/RcTemplateProblem.Unplayable.violations.<get-violations>|<get-violations>(){}[0]
+
+        final fun component1(): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> // ee.schimke.composeai.rcwidget/RcTemplateProblem.Unplayable.component1|component1(){}[0]
+        final fun copy(kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> = ...): ee.schimke.composeai.rcwidget/RcTemplateProblem.Unplayable // ee.schimke.composeai.rcwidget/RcTemplateProblem.Unplayable.copy|copy(kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcProfileViolation>){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcTemplateProblem.Unplayable.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget/RcTemplateProblem.Unplayable.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcTemplateProblem.Unplayable.toString|toString(){}[0]
+    }
+}
+
+final class <#A: kotlin/Any> ee.schimke.composeai.rcwidget/RcDocumentCache { // ee.schimke.composeai.rcwidget/RcDocumentCache|null[0]
+    constructor <init>(kotlin/Long) // ee.schimke.composeai.rcwidget/RcDocumentCache.<init>|<init>(kotlin.Long){}[0]
+
+    final val maxBytes // ee.schimke.composeai.rcwidget/RcDocumentCache.maxBytes|{}maxBytes[0]
+        final fun <get-maxBytes>(): kotlin/Long // ee.schimke.composeai.rcwidget/RcDocumentCache.maxBytes.<get-maxBytes>|<get-maxBytes>(){}[0]
+    final val size // ee.schimke.composeai.rcwidget/RcDocumentCache.size|{}size[0]
+        final fun <get-size>(): kotlin/Int // ee.schimke.composeai.rcwidget/RcDocumentCache.size.<get-size>|<get-size>(){}[0]
+
+    final var sizeBytes // ee.schimke.composeai.rcwidget/RcDocumentCache.sizeBytes|{}sizeBytes[0]
+        final fun <get-sizeBytes>(): kotlin/Long // ee.schimke.composeai.rcwidget/RcDocumentCache.sizeBytes.<get-sizeBytes>|<get-sizeBytes>(){}[0]
+
+    final fun clear() // ee.schimke.composeai.rcwidget/RcDocumentCache.clear|clear(){}[0]
+    final fun get(#A): kotlin/ByteArray? // ee.schimke.composeai.rcwidget/RcDocumentCache.get|get(1:0){}[0]
+    final fun put(#A, kotlin/ByteArray) // ee.schimke.composeai.rcwidget/RcDocumentCache.put|put(1:0;kotlin.ByteArray){}[0]
+    final fun remove(#A): kotlin/ByteArray? // ee.schimke.composeai.rcwidget/RcDocumentCache.remove|remove(1:0){}[0]
+    final fun trimTo(kotlin/Long) // ee.schimke.composeai.rcwidget/RcDocumentCache.trimTo|trimTo(kotlin.Long){}[0]
+    final inline fun getOrPut(#A, kotlin/Function0<kotlin/ByteArray>): kotlin/ByteArray // ee.schimke.composeai.rcwidget/RcDocumentCache.getOrPut|getOrPut(1:0;kotlin.Function0<kotlin.ByteArray>){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget/RcBinding { // ee.schimke.composeai.rcwidget/RcBinding|null[0]
+    constructor <init>(kotlin/String, ee.schimke.composeai.rcwidget/RcBindingType) // ee.schimke.composeai.rcwidget/RcBinding.<init>|<init>(kotlin.String;ee.schimke.composeai.rcwidget.RcBindingType){}[0]
+
+    final val name // ee.schimke.composeai.rcwidget/RcBinding.name|{}name[0]
+        final fun <get-name>(): kotlin/String // ee.schimke.composeai.rcwidget/RcBinding.name.<get-name>|<get-name>(){}[0]
+    final val type // ee.schimke.composeai.rcwidget/RcBinding.type|{}type[0]
+        final fun <get-type>(): ee.schimke.composeai.rcwidget/RcBindingType // ee.schimke.composeai.rcwidget/RcBinding.type.<get-type>|<get-type>(){}[0]
+
+    final fun component1(): kotlin/String // ee.schimke.composeai.rcwidget/RcBinding.component1|component1(){}[0]
+    final fun component2(): ee.schimke.composeai.rcwidget/RcBindingType // ee.schimke.composeai.rcwidget/RcBinding.component2|component2(){}[0]
+    final fun copy(kotlin/String = ..., ee.schimke.composeai.rcwidget/RcBindingType = ...): ee.schimke.composeai.rcwidget/RcBinding // ee.schimke.composeai.rcwidget/RcBinding.copy|copy(kotlin.String;ee.schimke.composeai.rcwidget.RcBindingType){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcBinding.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget/RcBinding.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcBinding.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget/RcBindingContract { // ee.schimke.composeai.rcwidget/RcBindingContract|null[0]
+    constructor <init>(kotlin.collections/List<ee.schimke.composeai.rcwidget/RcBinding>) // ee.schimke.composeai.rcwidget/RcBindingContract.<init>|<init>(kotlin.collections.List<ee.schimke.composeai.rcwidget.RcBinding>){}[0]
+
+    final val bindings // ee.schimke.composeai.rcwidget/RcBindingContract.bindings|{}bindings[0]
+        final fun <get-bindings>(): kotlin.collections/List<ee.schimke.composeai.rcwidget/RcBinding> // ee.schimke.composeai.rcwidget/RcBindingContract.bindings.<get-bindings>|<get-bindings>(){}[0]
+    final val byName // ee.schimke.composeai.rcwidget/RcBindingContract.byName|{}byName[0]
+        final fun <get-byName>(): kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcwidget/RcBinding> // ee.schimke.composeai.rcwidget/RcBindingContract.byName.<get-byName>|<get-byName>(){}[0]
+
+    final fun component1(): kotlin.collections/List<ee.schimke.composeai.rcwidget/RcBinding> // ee.schimke.composeai.rcwidget/RcBindingContract.component1|component1(){}[0]
+    final fun copy(kotlin.collections/List<ee.schimke.composeai.rcwidget/RcBinding> = ...): ee.schimke.composeai.rcwidget/RcBindingContract // ee.schimke.composeai.rcwidget/RcBindingContract.copy|copy(kotlin.collections.List<ee.schimke.composeai.rcwidget.RcBinding>){}[0]
+    final fun encode(): kotlin/String // ee.schimke.composeai.rcwidget/RcBindingContract.encode|encode(){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcBindingContract.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget/RcBindingContract.hashCode|hashCode(){}[0]
+    final fun missing(kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.edit/RcHardcodedValue>, kotlin.collections/Set<kotlin/String> = ...): kotlin.collections/List<ee.schimke.composeai.rcwidget/RcBinding> // ee.schimke.composeai.rcwidget/RcBindingContract.missing|missing(kotlin.collections.Map<kotlin.String,ee.schimke.composeai.rcplayer.edit.RcHardcodedValue>;kotlin.collections.Set<kotlin.String>){}[0]
+    final fun mistyped(kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.edit/RcHardcodedValue>): kotlin.collections/List<kotlin/String> // ee.schimke.composeai.rcwidget/RcBindingContract.mistyped|mistyped(kotlin.collections.Map<kotlin.String,ee.schimke.composeai.rcplayer.edit.RcHardcodedValue>){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcBindingContract.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcwidget/RcBindingContract.Companion|null[0]
+        final const val USER_DOMAIN // ee.schimke.composeai.rcwidget/RcBindingContract.Companion.USER_DOMAIN|{}USER_DOMAIN[0]
+            final fun <get-USER_DOMAIN>(): kotlin/String // ee.schimke.composeai.rcwidget/RcBindingContract.Companion.USER_DOMAIN.<get-USER_DOMAIN>|<get-USER_DOMAIN>(){}[0]
+
+        final fun decode(kotlin/String): ee.schimke.composeai.rcwidget/RcBindingContract // ee.schimke.composeai.rcwidget/RcBindingContract.Companion.decode|decode(kotlin.String){}[0]
+        final fun of(ee.schimke.composeai.rcplayer.protocol/RcDocument): ee.schimke.composeai.rcwidget/RcBindingContract // ee.schimke.composeai.rcwidget/RcBindingContract.Companion.of|of(ee.schimke.composeai.rcplayer.protocol.RcDocument){}[0]
+    }
+}
+
+final class ee.schimke.composeai.rcwidget/RcBundledTemplates : ee.schimke.composeai.rcwidget/RcTemplateStore { // ee.schimke.composeai.rcwidget/RcBundledTemplates|null[0]
+    constructor <init>(kotlin/Function1<kotlin/String, kotlin/ByteArray?>) // ee.schimke.composeai.rcwidget/RcBundledTemplates.<init>|<init>(kotlin.Function1<kotlin.String,kotlin.ByteArray?>){}[0]
+
+    final val keys // ee.schimke.composeai.rcwidget/RcBundledTemplates.keys|{}keys[0]
+        final fun <get-keys>(): kotlin.collections/Set<kotlin/String> // ee.schimke.composeai.rcwidget/RcBundledTemplates.keys.<get-keys>|<get-keys>(){}[0]
+
+    final fun read(kotlin/String): kotlin/ByteArray? // ee.schimke.composeai.rcwidget/RcBundledTemplates.read|read(kotlin.String){}[0]
+    final fun write(kotlin/String, kotlin/ByteArray) // ee.schimke.composeai.rcwidget/RcBundledTemplates.write|write(kotlin.String;kotlin.ByteArray){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcwidget/RcBundledTemplates.Companion|null[0]
+        final const val INDEX // ee.schimke.composeai.rcwidget/RcBundledTemplates.Companion.INDEX|{}INDEX[0]
+            final fun <get-INDEX>(): kotlin/String // ee.schimke.composeai.rcwidget/RcBundledTemplates.Companion.INDEX.<get-INDEX>|<get-INDEX>(){}[0]
+
+        final fun blobPath(kotlin/String): kotlin/String // ee.schimke.composeai.rcwidget/RcBundledTemplates.Companion.blobPath|blobPath(kotlin.String){}[0]
+        final fun layout(kotlin.collections/Map<kotlin/String, kotlin/ByteArray>): kotlin.collections/Map<kotlin/String, kotlin/ByteArray> // ee.schimke.composeai.rcwidget/RcBundledTemplates.Companion.layout|layout(kotlin.collections.Map<kotlin.String,kotlin.ByteArray>){}[0]
+    }
+}
+
+final class ee.schimke.composeai.rcwidget/RcNamedValues { // ee.schimke.composeai.rcwidget/RcNamedValues|null[0]
+    constructor <init>(kotlin.collections/Map<kotlin/String, kotlin/String> = ..., kotlin.collections/Map<kotlin/String, kotlin/Boolean> = ..., kotlin.collections/Map<kotlin/String, kotlin/Int> = ..., kotlin.collections/Map<kotlin/String, kotlin/Float> = ..., kotlin.collections/Map<kotlin/String, kotlin/Int> = ...) // ee.schimke.composeai.rcwidget/RcNamedValues.<init>|<init>(kotlin.collections.Map<kotlin.String,kotlin.String>;kotlin.collections.Map<kotlin.String,kotlin.Boolean>;kotlin.collections.Map<kotlin.String,kotlin.Int>;kotlin.collections.Map<kotlin.String,kotlin.Float>;kotlin.collections.Map<kotlin.String,kotlin.Int>){}[0]
+
+    final val booleans // ee.schimke.composeai.rcwidget/RcNamedValues.booleans|{}booleans[0]
+        final fun <get-booleans>(): kotlin.collections/Map<kotlin/String, kotlin/Boolean> // ee.schimke.composeai.rcwidget/RcNamedValues.booleans.<get-booleans>|<get-booleans>(){}[0]
+    final val colors // ee.schimke.composeai.rcwidget/RcNamedValues.colors|{}colors[0]
+        final fun <get-colors>(): kotlin.collections/Map<kotlin/String, kotlin/Int> // ee.schimke.composeai.rcwidget/RcNamedValues.colors.<get-colors>|<get-colors>(){}[0]
+    final val floats // ee.schimke.composeai.rcwidget/RcNamedValues.floats|{}floats[0]
+        final fun <get-floats>(): kotlin.collections/Map<kotlin/String, kotlin/Float> // ee.schimke.composeai.rcwidget/RcNamedValues.floats.<get-floats>|<get-floats>(){}[0]
+    final val ints // ee.schimke.composeai.rcwidget/RcNamedValues.ints|{}ints[0]
+        final fun <get-ints>(): kotlin.collections/Map<kotlin/String, kotlin/Int> // ee.schimke.composeai.rcwidget/RcNamedValues.ints.<get-ints>|<get-ints>(){}[0]
+    final val strings // ee.schimke.composeai.rcwidget/RcNamedValues.strings|{}strings[0]
+        final fun <get-strings>(): kotlin.collections/Map<kotlin/String, kotlin/String> // ee.schimke.composeai.rcwidget/RcNamedValues.strings.<get-strings>|<get-strings>(){}[0]
+
+    final fun component1(): kotlin.collections/Map<kotlin/String, kotlin/String> // ee.schimke.composeai.rcwidget/RcNamedValues.component1|component1(){}[0]
+    final fun component2(): kotlin.collections/Map<kotlin/String, kotlin/Boolean> // ee.schimke.composeai.rcwidget/RcNamedValues.component2|component2(){}[0]
+    final fun component3(): kotlin.collections/Map<kotlin/String, kotlin/Int> // ee.schimke.composeai.rcwidget/RcNamedValues.component3|component3(){}[0]
+    final fun component4(): kotlin.collections/Map<kotlin/String, kotlin/Float> // ee.schimke.composeai.rcwidget/RcNamedValues.component4|component4(){}[0]
+    final fun component5(): kotlin.collections/Map<kotlin/String, kotlin/Int> // ee.schimke.composeai.rcwidget/RcNamedValues.component5|component5(){}[0]
+    final fun copy(kotlin.collections/Map<kotlin/String, kotlin/String> = ..., kotlin.collections/Map<kotlin/String, kotlin/Boolean> = ..., kotlin.collections/Map<kotlin/String, kotlin/Int> = ..., kotlin.collections/Map<kotlin/String, kotlin/Float> = ..., kotlin.collections/Map<kotlin/String, kotlin/Int> = ...): ee.schimke.composeai.rcwidget/RcNamedValues // ee.schimke.composeai.rcwidget/RcNamedValues.copy|copy(kotlin.collections.Map<kotlin.String,kotlin.String>;kotlin.collections.Map<kotlin.String,kotlin.Boolean>;kotlin.collections.Map<kotlin.String,kotlin.Int>;kotlin.collections.Map<kotlin.String,kotlin.Float>;kotlin.collections.Map<kotlin.String,kotlin.Int>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcNamedValues.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget/RcNamedValues.hashCode|hashCode(){}[0]
+    final fun plus(ee.schimke.composeai.rcwidget/RcNamedValues): ee.schimke.composeai.rcwidget/RcNamedValues // ee.schimke.composeai.rcwidget/RcNamedValues.plus|plus(ee.schimke.composeai.rcwidget.RcNamedValues){}[0]
+    final fun toHardcoded(): kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.edit/RcHardcodedValue> // ee.schimke.composeai.rcwidget/RcNamedValues.toHardcoded|toHardcoded(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcNamedValues.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcwidget/RcNamedValues.Companion|null[0]
+        final val EMPTY // ee.schimke.composeai.rcwidget/RcNamedValues.Companion.EMPTY|{}EMPTY[0]
+            final fun <get-EMPTY>(): ee.schimke.composeai.rcwidget/RcNamedValues // ee.schimke.composeai.rcwidget/RcNamedValues.Companion.EMPTY.<get-EMPTY>|<get-EMPTY>(){}[0]
+    }
+}
+
+final class ee.schimke.composeai.rcwidget/RcPlayerCapabilities { // ee.schimke.composeai.rcwidget/RcPlayerCapabilities|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int, kotlin/Float? = ..., kotlin/Float? = ...) // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Float?;kotlin.Float?){}[0]
+
+    final val apiLevel // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.apiLevel|{}apiLevel[0]
+        final fun <get-apiLevel>(): kotlin/Int // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.apiLevel.<get-apiLevel>|<get-apiLevel>(){}[0]
+    final val density // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.density|{}density[0]
+        final fun <get-density>(): kotlin/Float? // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.density.<get-density>|<get-density>(){}[0]
+    final val fontScale // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.fontScale|{}fontScale[0]
+        final fun <get-fontScale>(): kotlin/Float? // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.fontScale.<get-fontScale>|<get-fontScale>(){}[0]
+    final val profiles // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.profiles|{}profiles[0]
+        final fun <get-profiles>(): kotlin/Int // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.profiles.<get-profiles>|<get-profiles>(){}[0]
+
+    final fun component1(): kotlin/Int // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.component1|component1(){}[0]
+    final fun component2(): kotlin/Int // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.component2|component2(){}[0]
+    final fun component3(): kotlin/Float? // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.component3|component3(){}[0]
+    final fun component4(): kotlin/Float? // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.component4|component4(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Int = ..., kotlin/Float? = ..., kotlin/Float? = ...): ee.schimke.composeai.rcwidget/RcPlayerCapabilities // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.copy|copy(kotlin.Int;kotlin.Int;kotlin.Float?;kotlin.Float?){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.hashCode|hashCode(){}[0]
+    final fun headerValue(): kotlin/String // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.headerValue|headerValue(){}[0]
+    final fun negotiate(kotlin.collections/List<ee.schimke.composeai.rcwidget/RcWidgetTarget> = ...): ee.schimke.composeai.rcwidget/RcWidgetTarget? // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.negotiate|negotiate(kotlin.collections.List<ee.schimke.composeai.rcwidget.RcWidgetTarget>){}[0]
+    final fun supports(ee.schimke.composeai.rcplayer.edit/RcTargetProfile): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.supports|supports(ee.schimke.composeai.rcplayer.edit.RcTargetProfile){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.Companion|null[0]
+        final const val HEADER // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.Companion.HEADER|{}HEADER[0]
+            final fun <get-HEADER>(): kotlin/String // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.Companion.HEADER.<get-HEADER>|<get-HEADER>(){}[0]
+
+        final fun of(ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin/Float? = ..., kotlin/Float? = ...): ee.schimke.composeai.rcwidget/RcPlayerCapabilities // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.Companion.of|of(ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.Float?;kotlin.Float?){}[0]
+        final fun parse(kotlin/String): ee.schimke.composeai.rcwidget/RcPlayerCapabilities? // ee.schimke.composeai.rcwidget/RcPlayerCapabilities.Companion.parse|parse(kotlin.String){}[0]
+    }
+}
+
+final class ee.schimke.composeai.rcwidget/RcTemplateLibrary { // ee.schimke.composeai.rcwidget/RcTemplateLibrary|null[0]
+    constructor <init>(kotlin.collections/List<ee.schimke.composeai.rcwidget/RcTemplateStore> = ..., kotlin/Function2<kotlin/String, kotlin/Throwable, kotlin/Unit> = ..., kotlin.coroutines/SuspendFunction1<kotlin/String, kotlin/ByteArray?>) // ee.schimke.composeai.rcwidget/RcTemplateLibrary.<init>|<init>(kotlin.collections.List<ee.schimke.composeai.rcwidget.RcTemplateStore>;kotlin.Function2<kotlin.String,kotlin.Throwable,kotlin.Unit>;kotlin.coroutines.SuspendFunction1<kotlin.String,kotlin.ByteArray?>){}[0]
+
+    final suspend fun get(kotlin/String): kotlin/ByteArray? // ee.schimke.composeai.rcwidget/RcTemplateLibrary.get|get(kotlin.String){}[0]
+    final suspend fun invalidate(kotlin/String) // ee.schimke.composeai.rcwidget/RcTemplateLibrary.invalidate|invalidate(kotlin.String){}[0]
+    final suspend fun releaseMemory() // ee.schimke.composeai.rcwidget/RcTemplateLibrary.releaseMemory|releaseMemory(){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget/RcWearFrame { // ee.schimke.composeai.rcwidget/RcWearFrame|null[0]
+    constructor <init>(ee.schimke.composeai.rcwidget/RcWearContainerType, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float) // ee.schimke.composeai.rcwidget/RcWearFrame.<init>|<init>(ee.schimke.composeai.rcwidget.RcWearContainerType;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
+
+    final val cornerRadiusDp // ee.schimke.composeai.rcwidget/RcWearFrame.cornerRadiusDp|{}cornerRadiusDp[0]
+        final fun <get-cornerRadiusDp>(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.cornerRadiusDp.<get-cornerRadiusDp>|<get-cornerRadiusDp>(){}[0]
+    final val heightDp // ee.schimke.composeai.rcwidget/RcWearFrame.heightDp|{}heightDp[0]
+        final fun <get-heightDp>(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.heightDp.<get-heightDp>|<get-heightDp>(){}[0]
+    final val horizontalPaddingDp // ee.schimke.composeai.rcwidget/RcWearFrame.horizontalPaddingDp|{}horizontalPaddingDp[0]
+        final fun <get-horizontalPaddingDp>(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.horizontalPaddingDp.<get-horizontalPaddingDp>|<get-horizontalPaddingDp>(){}[0]
+    final val outerHeightDp // ee.schimke.composeai.rcwidget/RcWearFrame.outerHeightDp|{}outerHeightDp[0]
+        final fun <get-outerHeightDp>(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.outerHeightDp.<get-outerHeightDp>|<get-outerHeightDp>(){}[0]
+    final val outerWidthDp // ee.schimke.composeai.rcwidget/RcWearFrame.outerWidthDp|{}outerWidthDp[0]
+        final fun <get-outerWidthDp>(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.outerWidthDp.<get-outerWidthDp>|<get-outerWidthDp>(){}[0]
+    final val type // ee.schimke.composeai.rcwidget/RcWearFrame.type|{}type[0]
+        final fun <get-type>(): ee.schimke.composeai.rcwidget/RcWearContainerType // ee.schimke.composeai.rcwidget/RcWearFrame.type.<get-type>|<get-type>(){}[0]
+    final val verticalPaddingDp // ee.schimke.composeai.rcwidget/RcWearFrame.verticalPaddingDp|{}verticalPaddingDp[0]
+        final fun <get-verticalPaddingDp>(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.verticalPaddingDp.<get-verticalPaddingDp>|<get-verticalPaddingDp>(){}[0]
+    final val widthDp // ee.schimke.composeai.rcwidget/RcWearFrame.widthDp|{}widthDp[0]
+        final fun <get-widthDp>(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.widthDp.<get-widthDp>|<get-widthDp>(){}[0]
+
+    final fun component1(): ee.schimke.composeai.rcwidget/RcWearContainerType // ee.schimke.composeai.rcwidget/RcWearFrame.component1|component1(){}[0]
+    final fun component2(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.component2|component2(){}[0]
+    final fun component3(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.component3|component3(){}[0]
+    final fun component4(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.component4|component4(){}[0]
+    final fun component5(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.component5|component5(){}[0]
+    final fun component6(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearFrame.component6|component6(){}[0]
+    final fun copy(ee.schimke.composeai.rcwidget/RcWearContainerType = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ...): ee.schimke.composeai.rcwidget/RcWearFrame // ee.schimke.composeai.rcwidget/RcWearFrame.copy|copy(ee.schimke.composeai.rcwidget.RcWearContainerType;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcWearFrame.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget/RcWearFrame.hashCode|hashCode(){}[0]
+    final fun namedValues(kotlin/Int? = ...): kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.edit/RcHardcodedValue> // ee.schimke.composeai.rcwidget/RcWearFrame.namedValues|namedValues(kotlin.Int?){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcWearFrame.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget/RcWearHost { // ee.schimke.composeai.rcwidget/RcWearHost|null[0]
+    constructor <init>(kotlin/String, ee.schimke.composeai.rcwidget/RcWearFrame, ee.schimke.composeai.rcwidget/RcWearFrame) // ee.schimke.composeai.rcwidget/RcWearHost.<init>|<init>(kotlin.String;ee.schimke.composeai.rcwidget.RcWearFrame;ee.schimke.composeai.rcwidget.RcWearFrame){}[0]
+
+    final val large // ee.schimke.composeai.rcwidget/RcWearHost.large|{}large[0]
+        final fun <get-large>(): ee.schimke.composeai.rcwidget/RcWearFrame // ee.schimke.composeai.rcwidget/RcWearHost.large.<get-large>|<get-large>(){}[0]
+    final val name // ee.schimke.composeai.rcwidget/RcWearHost.name|{}name[0]
+        final fun <get-name>(): kotlin/String // ee.schimke.composeai.rcwidget/RcWearHost.name.<get-name>|<get-name>(){}[0]
+    final val small // ee.schimke.composeai.rcwidget/RcWearHost.small|{}small[0]
+        final fun <get-small>(): ee.schimke.composeai.rcwidget/RcWearFrame // ee.schimke.composeai.rcwidget/RcWearHost.small.<get-small>|<get-small>(){}[0]
+
+    final fun component1(): kotlin/String // ee.schimke.composeai.rcwidget/RcWearHost.component1|component1(){}[0]
+    final fun component2(): ee.schimke.composeai.rcwidget/RcWearFrame // ee.schimke.composeai.rcwidget/RcWearHost.component2|component2(){}[0]
+    final fun component3(): ee.schimke.composeai.rcwidget/RcWearFrame // ee.schimke.composeai.rcwidget/RcWearHost.component3|component3(){}[0]
+    final fun copy(kotlin/String = ..., ee.schimke.composeai.rcwidget/RcWearFrame = ..., ee.schimke.composeai.rcwidget/RcWearFrame = ...): ee.schimke.composeai.rcwidget/RcWearHost // ee.schimke.composeai.rcwidget/RcWearHost.copy|copy(kotlin.String;ee.schimke.composeai.rcwidget.RcWearFrame;ee.schimke.composeai.rcwidget.RcWearFrame){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcWearHost.equals|equals(kotlin.Any?){}[0]
+    final fun frame(ee.schimke.composeai.rcwidget/RcWearContainerType): ee.schimke.composeai.rcwidget/RcWearFrame // ee.schimke.composeai.rcwidget/RcWearHost.frame|frame(ee.schimke.composeai.rcwidget.RcWearContainerType){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget/RcWearHost.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcWearHost.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcwidget/RcWearHost.Companion|null[0]
+        final val All // ee.schimke.composeai.rcwidget/RcWearHost.Companion.All|{}All[0]
+            final fun <get-All>(): kotlin.collections/List<ee.schimke.composeai.rcwidget/RcWearHost> // ee.schimke.composeai.rcwidget/RcWearHost.Companion.All.<get-All>|<get-All>(){}[0]
+        final val Default // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Default|{}Default[0]
+            final fun <get-Default>(): ee.schimke.composeai.rcwidget/RcWearHost // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Default.<get-Default>|<get-Default>(){}[0]
+        final val Galaxy // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Galaxy|{}Galaxy[0]
+            final fun <get-Galaxy>(): ee.schimke.composeai.rcwidget/RcWearHost // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Galaxy.<get-Galaxy>|<get-Galaxy>(){}[0]
+        final val Pixel // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Pixel|{}Pixel[0]
+            final fun <get-Pixel>(): ee.schimke.composeai.rcwidget/RcWearHost // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Pixel.<get-Pixel>|<get-Pixel>(){}[0]
+    }
+}
+
+final class ee.schimke.composeai.rcwidget/RcWidgetActionIds { // ee.schimke.composeai.rcwidget/RcWidgetActionIds|null[0]
+    constructor <init>() // ee.schimke.composeai.rcwidget/RcWidgetActionIds.<init>|<init>(){}[0]
+
+    final val entries // ee.schimke.composeai.rcwidget/RcWidgetActionIds.entries|{}entries[0]
+        final fun <get-entries>(): kotlin.collections/Map<kotlin/Int, kotlin/String> // ee.schimke.composeai.rcwidget/RcWidgetActionIds.entries.<get-entries>|<get-entries>(){}[0]
+
+    final fun register(kotlin/String): kotlin/Int // ee.schimke.composeai.rcwidget/RcWidgetActionIds.register|register(kotlin.String){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget/RcWidgetActionMetadata { // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata|null[0]
+    constructor <init>(kotlin/String, kotlin/String? = ..., kotlin/String? = ..., kotlin/String? = ...) // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.<init>|<init>(kotlin.String;kotlin.String?;kotlin.String?;kotlin.String?){}[0]
+
+    final val actionPayload // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.actionPayload|{}actionPayload[0]
+        final fun <get-actionPayload>(): kotlin/String // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.actionPayload.<get-actionPayload>|<get-actionPayload>(){}[0]
+    final val currentValue // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.currentValue|{}currentValue[0]
+        final fun <get-currentValue>(): kotlin/String? // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.currentValue.<get-currentValue>|<get-currentValue>(){}[0]
+    final val documentTime // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.documentTime|{}documentTime[0]
+        final fun <get-documentTime>(): kotlin/String? // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.documentTime.<get-documentTime>|<get-documentTime>(){}[0]
+    final val subject // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.subject|{}subject[0]
+        final fun <get-subject>(): kotlin/String? // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.subject.<get-subject>|<get-subject>(){}[0]
+
+    final fun component1(): kotlin/String // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.component1|component1(){}[0]
+    final fun component2(): kotlin/String? // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.component2|component2(){}[0]
+    final fun component3(): kotlin/String? // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.component3|component3(){}[0]
+    final fun component4(): kotlin/String? // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.component4|component4(){}[0]
+    final fun copy(kotlin/String = ..., kotlin/String? = ..., kotlin/String? = ..., kotlin/String? = ...): ee.schimke.composeai.rcwidget/RcWidgetActionMetadata // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.copy|copy(kotlin.String;kotlin.String?;kotlin.String?;kotlin.String?){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.Companion|null[0]
+        final const val METADATA_MARKER // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.Companion.METADATA_MARKER|{}METADATA_MARKER[0]
+            final fun <get-METADATA_MARKER>(): kotlin/String // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.Companion.METADATA_MARKER.<get-METADATA_MARKER>|<get-METADATA_MARKER>(){}[0]
+        final const val TIME_MARKER // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.Companion.TIME_MARKER|{}TIME_MARKER[0]
+            final fun <get-TIME_MARKER>(): kotlin/String // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.Companion.TIME_MARKER.<get-TIME_MARKER>|<get-TIME_MARKER>(){}[0]
+        final const val VALUE_MARKER // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.Companion.VALUE_MARKER|{}VALUE_MARKER[0]
+            final fun <get-VALUE_MARKER>(): kotlin/String // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.Companion.VALUE_MARKER.<get-VALUE_MARKER>|<get-VALUE_MARKER>(){}[0]
+
+        final fun decode(kotlin/String?): ee.schimke.composeai.rcwidget/RcWidgetActionMetadata? // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.Companion.decode|decode(kotlin.String?){}[0]
+        final fun encode(ee.schimke.composeai.rcwidget/RcWidgetActionMetadata): kotlin/String // ee.schimke.composeai.rcwidget/RcWidgetActionMetadata.Companion.encode|encode(ee.schimke.composeai.rcwidget.RcWidgetActionMetadata){}[0]
+    }
+}
+
+final class ee.schimke.composeai.rcwidget/RcWidgetTarget { // ee.schimke.composeai.rcwidget/RcWidgetTarget|null[0]
+    constructor <init>(kotlin/String, ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin.collections/Set<ee.schimke.composeai.rcplayer.edit/RcApproximation> = ..., kotlin/Boolean = ...) // ee.schimke.composeai.rcwidget/RcWidgetTarget.<init>|<init>(kotlin.String;ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.collections.Set<ee.schimke.composeai.rcplayer.edit.RcApproximation>;kotlin.Boolean){}[0]
+
+    final val approximations // ee.schimke.composeai.rcwidget/RcWidgetTarget.approximations|{}approximations[0]
+        final fun <get-approximations>(): kotlin.collections/Set<ee.schimke.composeai.rcplayer.edit/RcApproximation> // ee.schimke.composeai.rcwidget/RcWidgetTarget.approximations.<get-approximations>|<get-approximations>(){}[0]
+    final val bindsValues // ee.schimke.composeai.rcwidget/RcWidgetTarget.bindsValues|{}bindsValues[0]
+        final fun <get-bindsValues>(): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcWidgetTarget.bindsValues.<get-bindsValues>|<get-bindsValues>(){}[0]
+    final val id // ee.schimke.composeai.rcwidget/RcWidgetTarget.id|{}id[0]
+        final fun <get-id>(): kotlin/String // ee.schimke.composeai.rcwidget/RcWidgetTarget.id.<get-id>|<get-id>(){}[0]
+    final val profile // ee.schimke.composeai.rcwidget/RcWidgetTarget.profile|{}profile[0]
+        final fun <get-profile>(): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcwidget/RcWidgetTarget.profile.<get-profile>|<get-profile>(){}[0]
+
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcWidgetTarget.toString|toString(){}[0]
+}
+
+final object ee.schimke.composeai.rcwidget/RcHostActionRewrites { // ee.schimke.composeai.rcwidget/RcHostActionRewrites|null[0]
+    final const val SEND_PENDING_INTENT // ee.schimke.composeai.rcwidget/RcHostActionRewrites.SEND_PENDING_INTENT|{}SEND_PENDING_INTENT[0]
+        final fun <get-SEND_PENDING_INTENT>(): kotlin/String // ee.schimke.composeai.rcwidget/RcHostActionRewrites.SEND_PENDING_INTENT.<get-SEND_PENDING_INTENT>|<get-SEND_PENDING_INTENT>(){}[0]
+
+    final fun actionNames(ee.schimke.composeai.rcplayer.protocol/RcDocument): kotlin.collections/Set<kotlin/String> // ee.schimke.composeai.rcwidget/RcHostActionRewrites.actionNames|actionNames(ee.schimke.composeai.rcplayer.protocol.RcDocument){}[0]
+    final fun toPendingIntent(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin.collections/Set<kotlin/String>, kotlin/Int = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcwidget/RcHostActionRewrites.toPendingIntent|toPendingIntent(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.Set<kotlin.String>;kotlin.Int){}[0]
+}
+
+final object ee.schimke.composeai.rcwidget/RcSha256 { // ee.schimke.composeai.rcwidget/RcSha256|null[0]
+    final fun digest(kotlin/ByteArray): kotlin/ByteArray // ee.schimke.composeai.rcwidget/RcSha256.digest|digest(kotlin.ByteArray){}[0]
+    final fun hex(kotlin/ByteArray): kotlin/String // ee.schimke.composeai.rcwidget/RcSha256.hex|hex(kotlin.ByteArray){}[0]
+}
+
+final object ee.schimke.composeai.rcwidget/RcTemplateCheck { // ee.schimke.composeai.rcwidget/RcTemplateCheck|null[0]
+    final fun problems(ee.schimke.composeai.rcplayer.protocol/RcDocument, ee.schimke.composeai.rcplayer.protocol/RcDocument?, ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin.collections/Set<kotlin/String> = ..., kotlin.collections/Set<kotlin/String> = ...): kotlin.collections/List<ee.schimke.composeai.rcwidget/RcTemplateProblem> // ee.schimke.composeai.rcwidget/RcTemplateCheck.problems|problems(ee.schimke.composeai.rcplayer.protocol.RcDocument;ee.schimke.composeai.rcplayer.protocol.RcDocument?;ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.collections.Set<kotlin.String>;kotlin.collections.Set<kotlin.String>){}[0]
+}
+
+final object ee.schimke.composeai.rcwidget/RcWearContainer { // ee.schimke.composeai.rcwidget/RcWearContainer|null[0]
+    final const val COLOR // ee.schimke.composeai.rcwidget/RcWearContainer.COLOR|{}COLOR[0]
+        final fun <get-COLOR>(): kotlin/String // ee.schimke.composeai.rcwidget/RcWearContainer.COLOR.<get-COLOR>|<get-COLOR>(){}[0]
+    final const val CORNER_RADIUS // ee.schimke.composeai.rcwidget/RcWearContainer.CORNER_RADIUS|{}CORNER_RADIUS[0]
+        final fun <get-CORNER_RADIUS>(): kotlin/String // ee.schimke.composeai.rcwidget/RcWearContainer.CORNER_RADIUS.<get-CORNER_RADIUS>|<get-CORNER_RADIUS>(){}[0]
+    final const val DEFAULT_CORNER_RADIUS_DP // ee.schimke.composeai.rcwidget/RcWearContainer.DEFAULT_CORNER_RADIUS_DP|{}DEFAULT_CORNER_RADIUS_DP[0]
+        final fun <get-DEFAULT_CORNER_RADIUS_DP>(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearContainer.DEFAULT_CORNER_RADIUS_DP.<get-DEFAULT_CORNER_RADIUS_DP>|<get-DEFAULT_CORNER_RADIUS_DP>(){}[0]
+    final const val DEFAULT_PADDING_DP // ee.schimke.composeai.rcwidget/RcWearContainer.DEFAULT_PADDING_DP|{}DEFAULT_PADDING_DP[0]
+        final fun <get-DEFAULT_PADDING_DP>(): kotlin/Float // ee.schimke.composeai.rcwidget/RcWearContainer.DEFAULT_PADDING_DP.<get-DEFAULT_PADDING_DP>|<get-DEFAULT_PADDING_DP>(){}[0]
+    final const val DEFAULT_SURFACE_ARGB // ee.schimke.composeai.rcwidget/RcWearContainer.DEFAULT_SURFACE_ARGB|{}DEFAULT_SURFACE_ARGB[0]
+        final fun <get-DEFAULT_SURFACE_ARGB>(): kotlin/Int // ee.schimke.composeai.rcwidget/RcWearContainer.DEFAULT_SURFACE_ARGB.<get-DEFAULT_SURFACE_ARGB>|<get-DEFAULT_SURFACE_ARGB>(){}[0]
+    final const val HORIZONTAL_PADDING // ee.schimke.composeai.rcwidget/RcWearContainer.HORIZONTAL_PADDING|{}HORIZONTAL_PADDING[0]
+        final fun <get-HORIZONTAL_PADDING>(): kotlin/String // ee.schimke.composeai.rcwidget/RcWearContainer.HORIZONTAL_PADDING.<get-HORIZONTAL_PADDING>|<get-HORIZONTAL_PADDING>(){}[0]
+    final const val VERTICAL_PADDING // ee.schimke.composeai.rcwidget/RcWearContainer.VERTICAL_PADDING|{}VERTICAL_PADDING[0]
+        final fun <get-VERTICAL_PADDING>(): kotlin/String // ee.schimke.composeai.rcwidget/RcWearContainer.VERTICAL_PADDING.<get-VERTICAL_PADDING>|<get-VERTICAL_PADDING>(){}[0]
+
+    final val FRAME_NAMES // ee.schimke.composeai.rcwidget/RcWearContainer.FRAME_NAMES|{}FRAME_NAMES[0]
+        final fun <get-FRAME_NAMES>(): kotlin.collections/Set<kotlin/String> // ee.schimke.composeai.rcwidget/RcWearContainer.FRAME_NAMES.<get-FRAME_NAMES>|<get-FRAME_NAMES>(){}[0]
+
+    final fun namesFrame(ee.schimke.composeai.rcplayer.protocol/RcDocument): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcWearContainer.namesFrame|namesFrame(ee.schimke.composeai.rcplayer.protocol.RcDocument){}[0]
+}
+
+final object ee.schimke.composeai.rcwidget/RcWearTemplates { // ee.schimke.composeai.rcwidget/RcWearTemplates|null[0]
+    final fun forApp(ee.schimke.composeai.rcplayer.protocol/RcDocument, ee.schimke.composeai.rcwidget/RcWearFrame, kotlin/Int? = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcwidget/RcWearTemplates.forApp|forApp(ee.schimke.composeai.rcplayer.protocol.RcDocument;ee.schimke.composeai.rcwidget.RcWearFrame;kotlin.Int?){}[0]
+    final fun fromCardDesign(ee.schimke.composeai.rcplayer.protocol/RcDocument): ee.schimke.composeai.rcplayer.protocol/RcDocument? // ee.schimke.composeai.rcwidget/RcWearTemplates.fromCardDesign|fromCardDesign(ee.schimke.composeai.rcplayer.protocol.RcDocument){}[0]
+    final fun instantiate(ee.schimke.composeai.rcplayer.protocol/RcDocument, ee.schimke.composeai.rcwidget/RcWearFrame, ee.schimke.composeai.rcplayer.edit/RcDisplay, kotlin/Int? = ..., kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.edit/RcHardcodedValue> = ..., ee.schimke.composeai.rcplayer.protocol/RcHeader? = ..., kotlin.collections/Set<ee.schimke.composeai.rcplayer.edit/RcApproximation> = ...): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcwidget/RcWearTemplates.instantiate|instantiate(ee.schimke.composeai.rcplayer.protocol.RcDocument;ee.schimke.composeai.rcwidget.RcWearFrame;ee.schimke.composeai.rcplayer.edit.RcDisplay;kotlin.Int?;kotlin.collections.Map<kotlin.String,ee.schimke.composeai.rcplayer.edit.RcHardcodedValue>;ee.schimke.composeai.rcplayer.protocol.RcHeader?;kotlin.collections.Set<ee.schimke.composeai.rcplayer.edit.RcApproximation>){}[0]
+}
+
+final object ee.schimke.composeai.rcwidget/RcWidgetDocuments { // ee.schimke.composeai.rcwidget/RcWidgetDocuments|null[0]
+    final fun bake(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.edit/RcHardcodedValue>, kotlin.collections/Map<kotlin/String, kotlin/ByteArray> = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcwidget/RcWidgetDocuments.bake|bake(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.Map<kotlin.String,ee.schimke.composeai.rcplayer.edit.RcHardcodedValue>;kotlin.collections.Map<kotlin.String,kotlin.ByteArray>){}[0]
+    final fun forDisplay(ee.schimke.composeai.rcplayer.protocol/RcDocument, ee.schimke.composeai.rcplayer.edit/RcDisplay): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcwidget/RcWidgetDocuments.forDisplay|forDisplay(ee.schimke.composeai.rcplayer.protocol.RcDocument;ee.schimke.composeai.rcplayer.edit.RcDisplay){}[0]
+    final fun serve(ee.schimke.composeai.rcplayer.protocol/RcDocument, ee.schimke.composeai.rcwidget/RcWidgetTarget, ee.schimke.composeai.rcplayer.edit/RcDisplay? = ..., kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.edit/RcHardcodedValue> = ..., kotlin.collections/Map<kotlin/String, kotlin/ByteArray> = ...): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcwidget/RcWidgetDocuments.serve|serve(ee.schimke.composeai.rcplayer.protocol.RcDocument;ee.schimke.composeai.rcwidget.RcWidgetTarget;ee.schimke.composeai.rcplayer.edit.RcDisplay?;kotlin.collections.Map<kotlin.String,ee.schimke.composeai.rcplayer.edit.RcHardcodedValue>;kotlin.collections.Map<kotlin.String,kotlin.ByteArray>){}[0]
+    final inline fun bake(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.edit/RcHardcodedValue>, kotlin/Function1<kotlin/String, kotlin/ByteArray?>): ee.schimke.composeai.rcplayer.protocol/RcDocument? // ee.schimke.composeai.rcwidget/RcWidgetDocuments.bake|bake(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.Map<kotlin.String,ee.schimke.composeai.rcplayer.edit.RcHardcodedValue>;kotlin.Function1<kotlin.String,kotlin.ByteArray?>){}[0]
+}
+
+final object ee.schimke.composeai.rcwidget/RcWidgetTargets { // ee.schimke.composeai.rcwidget/RcWidgetTargets|null[0]
+    final val All // ee.schimke.composeai.rcwidget/RcWidgetTargets.All|{}All[0]
+        final fun <get-All>(): kotlin.collections/List<ee.schimke.composeai.rcwidget/RcWidgetTarget> // ee.schimke.composeai.rcwidget/RcWidgetTargets.All.<get-All>|<get-All>(){}[0]
+    final val App // ee.schimke.composeai.rcwidget/RcWidgetTargets.App|{}App[0]
+        final fun <get-App>(): ee.schimke.composeai.rcwidget/RcWidgetTarget // ee.schimke.composeai.rcwidget/RcWidgetTargets.App.<get-App>|<get-App>(){}[0]
+    final val Launcher // ee.schimke.composeai.rcwidget/RcWidgetTargets.Launcher|{}Launcher[0]
+        final fun <get-Launcher>(): ee.schimke.composeai.rcwidget/RcWidgetTarget // ee.schimke.composeai.rcwidget/RcWidgetTargets.Launcher.<get-Launcher>|<get-Launcher>(){}[0]
+    final val LauncherAndroid16 // ee.schimke.composeai.rcwidget/RcWidgetTargets.LauncherAndroid16|{}LauncherAndroid16[0]
+        final fun <get-LauncherAndroid16>(): ee.schimke.composeai.rcwidget/RcWidgetTarget // ee.schimke.composeai.rcwidget/RcWidgetTargets.LauncherAndroid16.<get-LauncherAndroid16>|<get-LauncherAndroid16>(){}[0]
+    final val WearWidget // ee.schimke.composeai.rcwidget/RcWidgetTargets.WearWidget|{}WearWidget[0]
+        final fun <get-WearWidget>(): ee.schimke.composeai.rcwidget/RcWidgetTarget // ee.schimke.composeai.rcwidget/RcWidgetTargets.WearWidget.<get-WearWidget>|<get-WearWidget>(){}[0]
+
+    final fun byId(kotlin/String): ee.schimke.composeai.rcwidget/RcWidgetTarget? // ee.schimke.composeai.rcwidget/RcWidgetTargets.byId|byId(kotlin.String){}[0]
+}

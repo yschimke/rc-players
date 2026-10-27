@@ -1,0 +1,373 @@
+public final class ee/schimke/composeai/rcwidget/RcBinding {
+	public fun <init> (Ljava/lang/String;Lee/schimke/composeai/rcwidget/RcBindingType;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lee/schimke/composeai/rcwidget/RcBindingType;
+	public final fun copy (Ljava/lang/String;Lee/schimke/composeai/rcwidget/RcBindingType;)Lee/schimke/composeai/rcwidget/RcBinding;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/RcBinding;Ljava/lang/String;Lee/schimke/composeai/rcwidget/RcBindingType;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcBinding;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getName ()Ljava/lang/String;
+	public final fun getType ()Lee/schimke/composeai/rcwidget/RcBindingType;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcBindingContract {
+	public static final field Companion Lee/schimke/composeai/rcwidget/RcBindingContract$Companion;
+	public static final field USER_DOMAIN Ljava/lang/String;
+	public fun <init> (Ljava/util/List;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun copy (Ljava/util/List;)Lee/schimke/composeai/rcwidget/RcBindingContract;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/RcBindingContract;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcBindingContract;
+	public final fun encode ()Ljava/lang/String;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBindings ()Ljava/util/List;
+	public final fun getByName ()Ljava/util/Map;
+	public fun hashCode ()I
+	public final fun missing (Ljava/util/Map;Ljava/util/Set;)Ljava/util/List;
+	public static synthetic fun missing$default (Lee/schimke/composeai/rcwidget/RcBindingContract;Ljava/util/Map;Ljava/util/Set;ILjava/lang/Object;)Ljava/util/List;
+	public final fun mistyped (Ljava/util/Map;)Ljava/util/List;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcBindingContract$Companion {
+	public final fun decode (Ljava/lang/String;)Lee/schimke/composeai/rcwidget/RcBindingContract;
+	public final fun of (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcwidget/RcBindingContract;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcBindingType : java/lang/Enum {
+	public static final field COLOR Lee/schimke/composeai/rcwidget/RcBindingType;
+	public static final field Companion Lee/schimke/composeai/rcwidget/RcBindingType$Companion;
+	public static final field FLOAT Lee/schimke/composeai/rcwidget/RcBindingType;
+	public static final field FLOAT_ARRAY Lee/schimke/composeai/rcwidget/RcBindingType;
+	public static final field IMAGE Lee/schimke/composeai/rcwidget/RcBindingType;
+	public static final field INT Lee/schimke/composeai/rcwidget/RcBindingType;
+	public static final field LONG Lee/schimke/composeai/rcwidget/RcBindingType;
+	public static final field TEXT Lee/schimke/composeai/rcwidget/RcBindingType;
+	public final fun accepts (Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue;)Z
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireName ()Ljava/lang/String;
+	public final fun getWireType ()I
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcwidget/RcBindingType;
+	public static fun values ()[Lee/schimke/composeai/rcwidget/RcBindingType;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcBindingType$Companion {
+	public final fun ofWire (I)Lee/schimke/composeai/rcwidget/RcBindingType;
+	public final fun ofWireName (Ljava/lang/String;)Lee/schimke/composeai/rcwidget/RcBindingType;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcBundledTemplates : ee/schimke/composeai/rcwidget/RcTemplateStore {
+	public static final field Companion Lee/schimke/composeai/rcwidget/RcBundledTemplates$Companion;
+	public static final field INDEX Ljava/lang/String;
+	public fun <init> (Lkotlin/jvm/functions/Function1;)V
+	public final fun getKeys ()Ljava/util/Set;
+	public fun read (Ljava/lang/String;)[B
+	public fun write (Ljava/lang/String;[B)V
+}
+
+public final class ee/schimke/composeai/rcwidget/RcBundledTemplates$Companion {
+	public final fun blobPath (Ljava/lang/String;)Ljava/lang/String;
+	public final fun layout (Ljava/util/Map;)Ljava/util/Map;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcDocumentCache {
+	public fun <init> (J)V
+	public final fun clear ()V
+	public final fun get (Ljava/lang/Object;)[B
+	public final fun getMaxBytes ()J
+	public final fun getOrPut (Ljava/lang/Object;Lkotlin/jvm/functions/Function0;)[B
+	public final fun getSize ()I
+	public final fun getSizeBytes ()J
+	public final fun put (Ljava/lang/Object;[B)V
+	public final fun remove (Ljava/lang/Object;)[B
+	public final fun trimTo (J)V
+}
+
+public final class ee/schimke/composeai/rcwidget/RcFileTemplateStore : ee/schimke/composeai/rcwidget/RcTemplateStore {
+	public fun <init> (Ljava/io/File;Lkotlin/jvm/functions/Function0;)V
+	public synthetic fun <init> (Ljava/io/File;Lkotlin/jvm/functions/Function0;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun clear ()V
+	public final fun prune ()V
+	public fun read (Ljava/lang/String;)[B
+	public fun write (Ljava/lang/String;[B)V
+}
+
+public final class ee/schimke/composeai/rcwidget/RcHostActionRewrites {
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/RcHostActionRewrites;
+	public static final field SEND_PENDING_INTENT Ljava/lang/String;
+	public final fun actionNames (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Ljava/util/Set;
+	public final fun toPendingIntent (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Set;I)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static synthetic fun toPendingIntent$default (Lee/schimke/composeai/rcwidget/RcHostActionRewrites;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Set;IILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcNamedValues {
+	public static final field Companion Lee/schimke/composeai/rcwidget/RcNamedValues$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;)V
+	public synthetic fun <init> (Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/util/Map;
+	public final fun component2 ()Ljava/util/Map;
+	public final fun component3 ()Ljava/util/Map;
+	public final fun component4 ()Ljava/util/Map;
+	public final fun component5 ()Ljava/util/Map;
+	public final fun copy (Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;)Lee/schimke/composeai/rcwidget/RcNamedValues;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/RcNamedValues;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcNamedValues;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBooleans ()Ljava/util/Map;
+	public final fun getColors ()Ljava/util/Map;
+	public final fun getFloats ()Ljava/util/Map;
+	public final fun getInts ()Ljava/util/Map;
+	public final fun getStrings ()Ljava/util/Map;
+	public fun hashCode ()I
+	public final fun plus (Lee/schimke/composeai/rcwidget/RcNamedValues;)Lee/schimke/composeai/rcwidget/RcNamedValues;
+	public final fun toHardcoded ()Ljava/util/Map;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcNamedValues$Companion {
+	public final fun getEMPTY ()Lee/schimke/composeai/rcwidget/RcNamedValues;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcPlayerCapabilities {
+	public static final field Companion Lee/schimke/composeai/rcwidget/RcPlayerCapabilities$Companion;
+	public static final field HEADER Ljava/lang/String;
+	public fun <init> (IILjava/lang/Float;Ljava/lang/Float;)V
+	public synthetic fun <init> (IILjava/lang/Float;Ljava/lang/Float;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()Ljava/lang/Float;
+	public final fun component4 ()Ljava/lang/Float;
+	public final fun copy (IILjava/lang/Float;Ljava/lang/Float;)Lee/schimke/composeai/rcwidget/RcPlayerCapabilities;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/RcPlayerCapabilities;IILjava/lang/Float;Ljava/lang/Float;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcPlayerCapabilities;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getApiLevel ()I
+	public final fun getDensity ()Ljava/lang/Float;
+	public final fun getFontScale ()Ljava/lang/Float;
+	public final fun getProfiles ()I
+	public fun hashCode ()I
+	public final fun headerValue ()Ljava/lang/String;
+	public final fun negotiate (Ljava/util/List;)Lee/schimke/composeai/rcwidget/RcWidgetTarget;
+	public static synthetic fun negotiate$default (Lee/schimke/composeai/rcwidget/RcPlayerCapabilities;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcWidgetTarget;
+	public final fun supports (Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;)Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcPlayerCapabilities$Companion {
+	public final fun of (Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/lang/Float;Ljava/lang/Float;)Lee/schimke/composeai/rcwidget/RcPlayerCapabilities;
+	public static synthetic fun of$default (Lee/schimke/composeai/rcwidget/RcPlayerCapabilities$Companion;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/lang/Float;Ljava/lang/Float;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcPlayerCapabilities;
+	public final fun parse (Ljava/lang/String;)Lee/schimke/composeai/rcwidget/RcPlayerCapabilities;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcSha256 {
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/RcSha256;
+	public final fun digest ([B)[B
+	public final fun hex ([B)Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcTemplateCheck {
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/RcTemplateCheck;
+	public final fun problems (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;Ljava/util/Set;)Ljava/util/List;
+	public static synthetic fun problems$default (Lee/schimke/composeai/rcwidget/RcTemplateCheck;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;Ljava/util/Set;ILjava/lang/Object;)Ljava/util/List;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcTemplateLibrary {
+	public fun <init> (Ljava/util/List;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;)V
+	public synthetic fun <init> (Ljava/util/List;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun get (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun invalidate (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun releaseMemory (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public abstract interface class ee/schimke/composeai/rcwidget/RcTemplateProblem {
+}
+
+public final class ee/schimke/composeai/rcwidget/RcTemplateProblem$TypeMismatch : ee/schimke/composeai/rcwidget/RcTemplateProblem {
+	public fun <init> (Ljava/lang/String;Lee/schimke/composeai/rcwidget/RcBindingType;Lee/schimke/composeai/rcwidget/RcBindingType;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lee/schimke/composeai/rcwidget/RcBindingType;
+	public final fun component3 ()Lee/schimke/composeai/rcwidget/RcBindingType;
+	public final fun copy (Ljava/lang/String;Lee/schimke/composeai/rcwidget/RcBindingType;Lee/schimke/composeai/rcwidget/RcBindingType;)Lee/schimke/composeai/rcwidget/RcTemplateProblem$TypeMismatch;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/RcTemplateProblem$TypeMismatch;Ljava/lang/String;Lee/schimke/composeai/rcwidget/RcBindingType;Lee/schimke/composeai/rcwidget/RcBindingType;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcTemplateProblem$TypeMismatch;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getActual ()Lee/schimke/composeai/rcwidget/RcBindingType;
+	public final fun getExpected ()Lee/schimke/composeai/rcwidget/RcBindingType;
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcTemplateProblem$UnknownBinding : ee/schimke/composeai/rcwidget/RcTemplateProblem {
+	public fun <init> (Lee/schimke/composeai/rcwidget/RcBinding;)V
+	public final fun component1 ()Lee/schimke/composeai/rcwidget/RcBinding;
+	public final fun copy (Lee/schimke/composeai/rcwidget/RcBinding;)Lee/schimke/composeai/rcwidget/RcTemplateProblem$UnknownBinding;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/RcTemplateProblem$UnknownBinding;Lee/schimke/composeai/rcwidget/RcBinding;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcTemplateProblem$UnknownBinding;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBinding ()Lee/schimke/composeai/rcwidget/RcBinding;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcTemplateProblem$Unplayable : ee/schimke/composeai/rcwidget/RcTemplateProblem {
+	public fun <init> (Ljava/util/List;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun copy (Ljava/util/List;)Lee/schimke/composeai/rcwidget/RcTemplateProblem$Unplayable;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/RcTemplateProblem$Unplayable;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcTemplateProblem$Unplayable;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getViolations ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class ee/schimke/composeai/rcwidget/RcTemplateStore {
+	public abstract fun read (Ljava/lang/String;)[B
+	public abstract fun write (Ljava/lang/String;[B)V
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWearContainer {
+	public static final field COLOR Ljava/lang/String;
+	public static final field CORNER_RADIUS Ljava/lang/String;
+	public static final field DEFAULT_CORNER_RADIUS_DP F
+	public static final field DEFAULT_PADDING_DP F
+	public static final field DEFAULT_SURFACE_ARGB I
+	public static final field HORIZONTAL_PADDING Ljava/lang/String;
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/RcWearContainer;
+	public static final field VERTICAL_PADDING Ljava/lang/String;
+	public final fun getFRAME_NAMES ()Ljava/util/Set;
+	public final fun namesFrame (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Z
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWearContainerType : java/lang/Enum {
+	public static final field Companion Lee/schimke/composeai/rcwidget/RcWearContainerType$Companion;
+	public static final field LARGE Lee/schimke/composeai/rcwidget/RcWearContainerType;
+	public static final field SMALL Lee/schimke/composeai/rcwidget/RcWearContainerType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getGlanceType ()I
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcwidget/RcWearContainerType;
+	public static fun values ()[Lee/schimke/composeai/rcwidget/RcWearContainerType;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWearContainerType$Companion {
+	public final fun ofGlance (I)Lee/schimke/composeai/rcwidget/RcWearContainerType;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWearFrame {
+	public fun <init> (Lee/schimke/composeai/rcwidget/RcWearContainerType;FFFFF)V
+	public final fun component1 ()Lee/schimke/composeai/rcwidget/RcWearContainerType;
+	public final fun component2 ()F
+	public final fun component3 ()F
+	public final fun component4 ()F
+	public final fun component5 ()F
+	public final fun component6 ()F
+	public final fun copy (Lee/schimke/composeai/rcwidget/RcWearContainerType;FFFFF)Lee/schimke/composeai/rcwidget/RcWearFrame;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/RcWearFrame;Lee/schimke/composeai/rcwidget/RcWearContainerType;FFFFFILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcWearFrame;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCornerRadiusDp ()F
+	public final fun getHeightDp ()F
+	public final fun getHorizontalPaddingDp ()F
+	public final fun getOuterHeightDp ()F
+	public final fun getOuterWidthDp ()F
+	public final fun getType ()Lee/schimke/composeai/rcwidget/RcWearContainerType;
+	public final fun getVerticalPaddingDp ()F
+	public final fun getWidthDp ()F
+	public fun hashCode ()I
+	public final fun namedValues (Ljava/lang/Integer;)Ljava/util/Map;
+	public static synthetic fun namedValues$default (Lee/schimke/composeai/rcwidget/RcWearFrame;Ljava/lang/Integer;ILjava/lang/Object;)Ljava/util/Map;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWearHost {
+	public static final field Companion Lee/schimke/composeai/rcwidget/RcWearHost$Companion;
+	public fun <init> (Ljava/lang/String;Lee/schimke/composeai/rcwidget/RcWearFrame;Lee/schimke/composeai/rcwidget/RcWearFrame;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lee/schimke/composeai/rcwidget/RcWearFrame;
+	public final fun component3 ()Lee/schimke/composeai/rcwidget/RcWearFrame;
+	public final fun copy (Ljava/lang/String;Lee/schimke/composeai/rcwidget/RcWearFrame;Lee/schimke/composeai/rcwidget/RcWearFrame;)Lee/schimke/composeai/rcwidget/RcWearHost;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/RcWearHost;Ljava/lang/String;Lee/schimke/composeai/rcwidget/RcWearFrame;Lee/schimke/composeai/rcwidget/RcWearFrame;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcWearHost;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun frame (Lee/schimke/composeai/rcwidget/RcWearContainerType;)Lee/schimke/composeai/rcwidget/RcWearFrame;
+	public final fun getLarge ()Lee/schimke/composeai/rcwidget/RcWearFrame;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getSmall ()Lee/schimke/composeai/rcwidget/RcWearFrame;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWearHost$Companion {
+	public final fun getAll ()Ljava/util/List;
+	public final fun getDefault ()Lee/schimke/composeai/rcwidget/RcWearHost;
+	public final fun getGalaxy ()Lee/schimke/composeai/rcwidget/RcWearHost;
+	public final fun getPixel ()Lee/schimke/composeai/rcwidget/RcWearHost;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWearTemplates {
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/RcWearTemplates;
+	public final fun forApp (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcwidget/RcWearFrame;Ljava/lang/Integer;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static synthetic fun forApp$default (Lee/schimke/composeai/rcwidget/RcWearTemplates;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcwidget/RcWearFrame;Ljava/lang/Integer;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun fromCardDesign (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun instantiate (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcwidget/RcWearFrame;Lee/schimke/composeai/rcplayer/edit/RcDisplay;Ljava/lang/Integer;Ljava/util/Map;Lee/schimke/composeai/rcplayer/protocol/RcHeader;Ljava/util/Set;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public static synthetic fun instantiate$default (Lee/schimke/composeai/rcwidget/RcWearTemplates;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcwidget/RcWearFrame;Lee/schimke/composeai/rcplayer/edit/RcDisplay;Ljava/lang/Integer;Ljava/util/Map;Lee/schimke/composeai/rcplayer/protocol/RcHeader;Ljava/util/Set;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWidgetActionIds {
+	public fun <init> ()V
+	public final fun getEntries ()Ljava/util/Map;
+	public final fun register (Ljava/lang/String;)I
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWidgetActionMetadata {
+	public static final field Companion Lee/schimke/composeai/rcwidget/RcWidgetActionMetadata$Companion;
+	public static final field METADATA_MARKER Ljava/lang/String;
+	public static final field TIME_MARKER Ljava/lang/String;
+	public static final field VALUE_MARKER Ljava/lang/String;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lee/schimke/composeai/rcwidget/RcWidgetActionMetadata;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/RcWidgetActionMetadata;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcWidgetActionMetadata;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getActionPayload ()Ljava/lang/String;
+	public final fun getCurrentValue ()Ljava/lang/String;
+	public final fun getDocumentTime ()Ljava/lang/String;
+	public final fun getSubject ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWidgetActionMetadata$Companion {
+	public final fun decode (Ljava/lang/String;)Lee/schimke/composeai/rcwidget/RcWidgetActionMetadata;
+	public final fun encode (Lee/schimke/composeai/rcwidget/RcWidgetActionMetadata;)Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWidgetDocuments {
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/RcWidgetDocuments;
+	public final fun bake (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Ljava/util/Map;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun bake (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static synthetic fun bake$default (Lee/schimke/composeai/rcwidget/RcWidgetDocuments;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Ljava/util/Map;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun forDisplay (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcDisplay;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun serve (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcwidget/RcWidgetTarget;Lee/schimke/composeai/rcplayer/edit/RcDisplay;Ljava/util/Map;Ljava/util/Map;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public static synthetic fun serve$default (Lee/schimke/composeai/rcwidget/RcWidgetDocuments;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcwidget/RcWidgetTarget;Lee/schimke/composeai/rcplayer/edit/RcDisplay;Ljava/util/Map;Ljava/util/Map;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWidgetTarget {
+	public fun <init> (Ljava/lang/String;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;Z)V
+	public synthetic fun <init> (Ljava/lang/String;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getApproximations ()Ljava/util/Set;
+	public final fun getBindsValues ()Z
+	public final fun getId ()Ljava/lang/String;
+	public final fun getProfile ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/RcWidgetTargets {
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/RcWidgetTargets;
+	public final fun byId (Ljava/lang/String;)Lee/schimke/composeai/rcwidget/RcWidgetTarget;
+	public final fun getAll ()Ljava/util/List;
+	public final fun getApp ()Lee/schimke/composeai/rcwidget/RcWidgetTarget;
+	public final fun getLauncher ()Lee/schimke/composeai/rcwidget/RcWidgetTarget;
+	public final fun getLauncherAndroid16 ()Lee/schimke/composeai/rcwidget/RcWidgetTarget;
+	public final fun getWearWidget ()Lee/schimke/composeai/rcwidget/RcWidgetTarget;
+}
+

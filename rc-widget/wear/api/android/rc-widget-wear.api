@@ -1,0 +1,103 @@
+public final class ee/schimke/composeai/rcwidget/wear/ComposableSingletons$RcWearWidgetTemplateKt {
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/wear/ComposableSingletons$RcWearWidgetTemplateKt;
+	public fun <init> ()V
+	public final fun getLambda$-143962416$ee_schimke_composeai_rc_widget_wear ()Lkotlin/jvm/functions/Function2;
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcHostFramedWearWidgetDocument : androidx/glance/wear/WearWidgetData {
+	public static final field $stable I
+	public fun <init> (Landroidx/glance/wear/WearWidgetBrush;Lkotlin/jvm/functions/Function2;)V
+	public fun captureRawContent (Landroid/content/Context;Landroidx/glance/wear/core/WearWidgetParams;ZLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcHostFramedWearWidgetDocument$HostFrame : java/lang/Enum {
+	public static final field Companion Lee/schimke/composeai/rcwidget/wear/RcHostFramedWearWidgetDocument$HostFrame$Companion;
+	public static final field CornerRadius Lee/schimke/composeai/rcwidget/wear/RcHostFramedWearWidgetDocument$HostFrame;
+	public static final field HorizontalPadding Lee/schimke/composeai/rcwidget/wear/RcHostFramedWearWidgetDocument$HostFrame;
+	public static final field VerticalPadding Lee/schimke/composeai/rcwidget/wear/RcHostFramedWearWidgetDocument$HostFrame;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getValueName ()Ljava/lang/String;
+	public final fun of (Landroidx/glance/wear/core/WearWidgetParams;)F
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcwidget/wear/RcHostFramedWearWidgetDocument$HostFrame;
+	public static fun values ()[Lee/schimke/composeai/rcwidget/wear/RcHostFramedWearWidgetDocument$HostFrame;
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcHostFramedWearWidgetDocument$HostFrame$Companion {
+	public final fun valuesOf (Landroidx/glance/wear/core/WearWidgetParams;)Ljava/util/Map;
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcTemplatedWearWidgetData : androidx/glance/wear/WearWidgetData {
+	public static final field $stable I
+	public fun <init> (Lkotlin/jvm/functions/Function3;Landroidx/glance/wear/WearWidgetData;Ljava/util/Map;Ljava/lang/Integer;)V
+	public synthetic fun <init> (Lkotlin/jvm/functions/Function3;Landroidx/glance/wear/WearWidgetData;Ljava/util/Map;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun captureRawContent (Landroid/content/Context;Landroidx/glance/wear/core/WearWidgetParams;ZLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcWearFrameStore {
+	public static final field $stable I
+	public fun <init> (Landroid/content/Context;Lee/schimke/composeai/rcwidget/RcWearHost;Ljava/lang/String;)V
+	public synthetic fun <init> (Landroid/content/Context;Lee/schimke/composeai/rcwidget/RcWearHost;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun frameFor (Lee/schimke/composeai/rcwidget/RcWearContainerType;)Lee/schimke/composeai/rcwidget/RcWearFrame;
+	public final fun remember (Landroidx/glance/wear/core/WearWidgetParams;)V
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcWearWidgetConfiguration {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/wear/RcWearWidgetConfiguration;
+	public final fun placedWidgets (Landroid/content/Context;Ljava/util/Set;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun requestOf (Landroid/content/Intent;)Lee/schimke/composeai/rcwidget/wear/RcWearWidgetConfiguration$Request;
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcWearWidgetConfiguration$PlacedWidget {
+	public static final field $stable I
+	public fun <init> (ILandroid/content/ComponentName;)V
+	public final fun component1 ()I
+	public final fun component2 ()Landroid/content/ComponentName;
+	public final fun copy (ILandroid/content/ComponentName;)Lee/schimke/composeai/rcwidget/wear/RcWearWidgetConfiguration$PlacedWidget;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/wear/RcWearWidgetConfiguration$PlacedWidget;ILandroid/content/ComponentName;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/wear/RcWearWidgetConfiguration$PlacedWidget;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getInstanceId ()I
+	public final fun getProvider ()Landroid/content/ComponentName;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcWearWidgetConfiguration$Request {
+	public static final field $stable I
+	public fun <init> (ILandroid/content/ComponentName;)V
+	public final fun component1 ()I
+	public final fun component2 ()Landroid/content/ComponentName;
+	public final fun copy (ILandroid/content/ComponentName;)Lee/schimke/composeai/rcwidget/wear/RcWearWidgetConfiguration$Request;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/wear/RcWearWidgetConfiguration$Request;ILandroid/content/ComponentName;ILjava/lang/Object;)Lee/schimke/composeai/rcwidget/wear/RcWearWidgetConfiguration$Request;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getInstanceId ()I
+	public final fun getProvider ()Landroid/content/ComponentName;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcWearWidgetTaps {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/wear/RcWearWidgetTaps;
+	public static final field OPEN_APP_INDEX I
+	public static final field PENDING_INTENTS Ljava/lang/String;
+	public final fun sending (Landroidx/glance/wear/core/WearWidgetRawContent;Ljava/util/Set;Landroid/app/PendingIntent;)Landroidx/glance/wear/core/WearWidgetRawContent;
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcWearWidgetTapsKt {
+	public static final fun withTaps (Landroidx/glance/wear/WearWidgetData;Ljava/util/Set;Lkotlin/jvm/functions/Function2;)Landroidx/glance/wear/WearWidgetData;
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcWearWidgetTemplate {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/wear/RcWearWidgetTemplate;
+	public final fun capture (Landroid/content/Context;Lee/schimke/composeai/rcwidget/creation/RcWearBackground;Lee/schimke/composeai/rcwidget/creation/RcWearLevel;Lee/schimke/composeai/rcwidget/creation/RcWearLevelLook;Landroidx/compose/remote/creation/profile/Profile;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun capture$default (Lee/schimke/composeai/rcwidget/wear/RcWearWidgetTemplate;Landroid/content/Context;Lee/schimke/composeai/rcwidget/creation/RcWearBackground;Lee/schimke/composeai/rcwidget/creation/RcWearLevel;Lee/schimke/composeai/rcwidget/creation/RcWearLevelLook;Landroidx/compose/remote/creation/profile/Profile;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun instantiate (Landroid/content/Context;[BLandroidx/glance/wear/core/WearWidgetParams;ZLjava/lang/Integer;Ljava/util/Map;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun instantiate$default (Lee/schimke/composeai/rcwidget/wear/RcWearWidgetTemplate;Landroid/content/Context;[BLandroidx/glance/wear/core/WearWidgetParams;ZLjava/lang/Integer;Ljava/util/Map;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+}
+
+public final class ee/schimke/composeai/rcwidget/wear/RcWearWidgetTemplateKt {
+	public static final fun toRcWearFrame (Landroidx/glance/wear/core/WearWidgetParams;)Lee/schimke/composeai/rcwidget/RcWearFrame;
+}
+
