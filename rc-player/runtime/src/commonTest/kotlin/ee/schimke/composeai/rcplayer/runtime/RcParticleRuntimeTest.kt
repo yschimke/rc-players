@@ -165,6 +165,18 @@ class RcParticleRuntimeTest {
     assertFailsWith<IllegalArgumentException> { state.forEachParticle(loop) {} }
   }
 
+  @Test
+  fun reseedingIsChargedToThePerFrameWorkBudget() {
+    val definition = definition(2, listOf(indexExpression()))
+    val state =
+      state(
+        definition,
+        limits = RcParticleExecutionLimits(maxLifetimeFrames = 1, maxWorkPerFrame = 3),
+      )
+
+    assertFailsWith<IllegalArgumentException> { state.seedParticles(definition) }
+  }
+
   private fun state(
     definition: RcParticleDefine,
     randomSeed: Long = RcFloatExpressionEvaluator.DEFAULT_RANDOM_SEED,
