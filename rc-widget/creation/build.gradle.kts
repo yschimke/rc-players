@@ -56,8 +56,8 @@ kotlin {
       @Suppress("DEPRECATION") api(compose.ui)
     }
     androidMain.dependencies {
-      api(libs.widgets.remote.creation.compose)
-      api(libs.widgets.remote.foundation)
+      api(libs.compose.remote.creation.compose)
+      api(libs.compose.remote.foundation)
     }
     getByName("forkMain").dependencies { api(project(":third-party-remote-creation-compose")) }
     commonTest.dependencies { implementation(kotlin("test")) }

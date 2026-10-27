@@ -206,11 +206,10 @@ AndroidX's Remote Compose creation stack is alpha, and its pieces have to agree:
 
 This library handles that skew at two levels:
 
-- **Build time.** The widget modules compile against a widget lane in
-  `gradle/libs.versions.toml`: `compose-remote-widgets` 1.0.0-alpha22, `glance-wear` 1.0.0-alpha21
-  and `compose-remote-foundation-widgets` 1.0.0-alpha05. This is separate from the `compose-remote`
-  line the vendored player and compat tests pin, and it stays on the versions widget hosts ship so
-  one app never resolves two lines.
+- **Build time.** The widget modules compile against the set in `gradle/libs.versions.toml`:
+  `compose-remote` 1.0.0-alpha22, `glance-wear` 1.0.0-alpha21 and `compose-remote-foundation`
+  1.0.0-alpha05. The vendored player and compat tests share that `compose-remote` line, and it stays
+  on the versions widget hosts ship so one app never resolves two lines.
 - **Run time.** Documents are captured with the app's full profile and rewritten for each host's
   player (`rc-player-edit`'s `adaptTo`, plus `platformWidgetDocument` for Android 16), rather than
   authored per host. The cases this covers:

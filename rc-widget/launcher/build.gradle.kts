@@ -31,12 +31,12 @@ kotlin {
   sourceSets {
     androidMain.dependencies {
       api(project(":rc-widget-creation"))
-      api(libs.widgets.remote.core)
-      api(libs.widgets.remote.creation)
-      api(libs.widgets.remote.creation.core)
-      api(libs.widgets.remote.creation.compose)
-      api(libs.widgets.remote.player.core)
-      api(libs.widgets.remote.player.view)
+      api(libs.compose.remote.core)
+      api(libs.compose.remote.creation)
+      api(libs.compose.remote.creation.core)
+      api(libs.compose.remote.creation.compose)
+      api(libs.compose.remote.player.core)
+      api(libs.compose.remote.player.view)
       implementation(libs.compose.runtime)
       implementation(libs.compose.ui)
       implementation(libs.compose.foundation)
