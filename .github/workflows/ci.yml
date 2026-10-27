@@ -413,6 +413,8 @@ jobs:
             :rc-widget-launcher:checkKotlinAbi \
             :rc-widget-wear:checkKotlinAbi \
             :rc-widget-creation:compileKotlinWasmJs \
+            :rc-widget-core:compileCommonMainKotlinMetadata \
+            :rc-widget-creation:compileCommonMainKotlinMetadata \
             :rc-widget-core:wasmJsBrowserTest \
             :rc-player-trace:wasmJsBrowserTest \
             :rc-player-protocol:wasmJsBrowserTest \
