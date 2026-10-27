@@ -22,7 +22,9 @@ public fun rememberRcExpressionName(prefix: String): String {
   val names = LocalRcExpressionNames.current
   val key = currentCompositeKeyHashCode
   return remember(prefix, key) {
-    prefix + (names?.next()?.toString() ?: key.toULong().toString(16))
+    // The composite key's type differs by platform (an Int on some, a Long on others), so common
+    // code names it through its hash.
+    prefix + (names?.next()?.toString() ?: key.hashCode().toUInt().toString(16))
   }
 }
 
