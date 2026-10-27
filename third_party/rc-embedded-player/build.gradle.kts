@@ -244,6 +244,9 @@ dependencies {
     implementation(platform(libs.composeai.preview.daemon.bom))
     implementation(libs.composeai.data.fonts.google)
     implementation(libs.androidx.collection)
+    // `androidx.tracing.trace` sections around the player's non-composable work, as upstream's
+    // module declares it (`androidx.tracing:tracing` 2.x, the KMP line `:rc-player-trace` uses).
+    implementation(libs.androidx.tracing.kmp)
 
     // `RcEmbeddedRenderHarness` — rasterizes `.rc` documents through the player for the rc-compare
     // lane. Robolectric with `@GraphicsMode(NATIVE)` is the stopgap until the CMP jvm target lets

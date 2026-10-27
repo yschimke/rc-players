@@ -19,11 +19,8 @@
 package ee.schimke.composeai.rcembedded.player
 
 import androidx.annotation.RestrictTo
-import androidx.compose.foundation.layout.Box
 import androidx.compose.remote.core.RemoteContext
-import androidx.compose.remote.core.operations.Utils
-import androidx.compose.remote.core.operations.layout.ClickModifierOperation
-import androidx.compose.remote.core.operations.layout.MultiClickModifier
+import androidx.compose.remote.core.operations.layout.Component
 import androidx.compose.remote.core.operations.layout.managers.Custom
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
@@ -32,9 +29,9 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.util.fastFilter
-import ee.schimke.composeai.rcembedded.player.modifier.ClickActionHandlers
-import ee.schimke.composeai.rcembedded.player.modifier.rememberClickActionHandlers
+import androidx.compose.ui.util.fastForEach
+import ee.schimke.composeai.rcembedded.player.components.RcPlayerComponent
+import ee.schimke.composeai.rcembedded.player.state.MaybeVariableFloat
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteColorAsState
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteIntAsState
@@ -133,6 +130,10 @@ public interface RcCustomPropertyReader {
  *
  * Properties are resolved on-demand reactively via [floatState], [intState], [textState], and
  * [colorState].
+ *
+ * A `Custom` component may also host remote child components (see [childCount], [Child], [Children]
+ * and [customChild]), letting a plugin place document content inside a native component, e.g. as
+ * the label of a native button.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class RcCustomComponent
@@ -141,6 +142,7 @@ internal constructor(
     public val componentId: Int,
     private val rawProperties: List<Custom.CustomProperty>,
     private val remoteContext: RemoteContext,
+    private val children: List<Component> = emptyList(),
     /**
      * Runs the component's single-click actions, or `null` if it has none. Only populated for
      * plugins that opt in via [CustomComposablePlugin.handlesClick].
@@ -157,6 +159,45 @@ internal constructor(
      */
     public val onLongClick: (() -> Unit)? = null,
 ) : RcCustomPropertyReader {
+
+    /** The number of remote child components hosted by this component. */
+    public val childCount: Int
+        get() = children.size
+
+    /**
+     * Renders the remote child at [index] in the current layout scope, or nothing if out of range.
+     */
+    @Composable
+    public fun Child(index: Int, modifier: Modifier = Modifier) {
+        val child = children.getOrNull(index) ?: return
+        RcPlayerComponent(child, modifier)
+    }
+
+    /** Renders all remote children, in order, in the current layout scope. */
+    @Composable
+    public fun Children() {
+        children.fastForEach { RcPlayerComponent(it) }
+    }
+
+    /**
+     * Returns the remote child at [index] as an [RcCustomComponent] if it is itself a `Custom`
+     * component (e.g. a named slot), otherwise `null` (including when [index] is out of range). Its
+     * children can then be rendered directly via [Children] without dispatching it through the
+     * plugin registry.
+     */
+    public fun customChild(index: Int): RcCustomComponent? {
+        val child = children.getOrNull(index) as? Custom ?: return null
+        val childConfig =
+            child.config
+                ?: if (child.configId != -1) remoteContext.getText(child.configId) else null
+        return RcCustomComponent(
+            config = childConfig ?: "",
+            componentId = child.componentId,
+            rawProperties = child.properties,
+            remoteContext = remoteContext,
+            children = child.childrenComponents,
+        )
+    }
 
     /** Returns the raw [Custom.CustomProperty] for [property], if present. */
     public fun findProperty(property: CustomPropertyKey): Custom.CustomProperty? {
@@ -205,7 +246,7 @@ internal constructor(
     override fun returnFloatHandler(property: FloatReturnProperty): (Float) -> Unit = { value ->
         val prop = findProperty(property)
         if (prop != null && prop.mDataType == Custom.CustomProperty.FLOAT_RETURN) {
-            val targetId = Utils.idFromNan(prop.mFloatValue)
+            val targetId = MaybeVariableFloat(prop.mFloatValue).id
             remoteContext.overrideFloat(targetId, value)
         }
     }
@@ -249,14 +290,8 @@ internal constructor(
             for (i in 0 until rawProperties.size) {
                 val it = rawProperties[i]
                 if (it.isFloat()) {
-                    val value = it.mFloatValue
-                    val resolved =
-                        if (value.isNaN()) {
-                            remoteContext.getFloat(Utils.idFromNan(value))
-                        } else {
-                            value
-                        }
-                    map[it.mType.toInt()] = resolved
+                    map[it.mType.toInt()] =
+                        MaybeVariableFloat(it.mFloatValue).resolveOr(it.mFloatValue, remoteContext)
                 }
             }
             return map
@@ -375,66 +410,6 @@ public val LocalRcCustomPlugins: ProvidableCompositionLocal<CustomPluginRegistry
     compositionLocalOf {
         null
     }
-
-/** Resolves the config name of a [Custom] component. */
-@Composable
-private fun rememberCustomConfig(layout: Custom): String {
-    val data = layout.readData()
-    return if (data.configId != -1) {
-        rememberRemoteStringAsState(data.configId).value
-    } else {
-        data.config ?: ""
-    }
-}
-
-/**
- * Returns the click handlers for [layout] if its plugin handles clicks itself (see
- * [CustomComposablePlugin.handlesClick]), otherwise `null`. When non-null, the player must not also
- * apply the component's click modifiers, and each individual handler on [ClickActionHandlers] is
- * `null` if the component has no actions for that gesture.
- */
-@Composable
-internal fun rememberCustomClickHandlers(layout: Custom): ClickActionHandlers? {
-    val customPlugins = LocalRcCustomPlugins.current ?: return null
-    val config = rememberCustomConfig(layout)
-    if (!customPlugins.handlesClick(config)) return null
-    val clickOps =
-        layout.componentModifiers.list.fastFilter {
-            it is ClickModifierOperation || it is MultiClickModifier
-        }
-    return rememberClickActionHandlers(clickOps)
-}
-
-/** Renders a [Custom] component by delegating to the host's [LocalRcCustomPlugins] registry. */
-@Composable
-internal fun RcPlayerCustom(
-    layout: Custom,
-    modifier: Modifier,
-    clickHandlers: ClickActionHandlers? = null,
-) {
-    val remoteContext = LocalRemoteContext.current
-    val customPlugins = LocalRcCustomPlugins.current
-
-    val data = layout.readData()
-    val config = rememberCustomConfig(layout)
-
-    @Suppress("UNCHECKED_CAST")
-    val properties = data.properties as? List<Custom.CustomProperty> ?: emptyList()
-
-    Box(modifier = modifier) {
-        val component =
-            RcCustomComponent(
-                config = config,
-                componentId = layout.componentId,
-                rawProperties = properties,
-                remoteContext = remoteContext,
-                onClick = clickHandlers?.onClick,
-                onDoubleClick = clickHandlers?.onDoubleClick,
-                onLongClick = clickHandlers?.onLongClick,
-            )
-        customPlugins?.Render(component, modifier = Modifier)
-    }
-}
 
 private fun Custom.CustomProperty.isFloat(): Boolean =
     mDataType == Custom.CustomProperty.FLOAT_PROP || mDataType == Custom.CustomProperty.FLOAT_RETURN

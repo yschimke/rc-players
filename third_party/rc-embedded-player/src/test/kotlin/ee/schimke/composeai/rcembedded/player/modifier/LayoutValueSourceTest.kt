@@ -21,8 +21,6 @@ package ee.schimke.composeai.rcembedded.player.modifier
 import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.modifiers.GraphicsLayerModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.OffsetModifierOperation
-import ee.schimke.composeai.rcembedded.player.getValuesReflection
-import ee.schimke.composeai.rcembedded.player.offsetRawValues
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -33,7 +31,8 @@ class LayoutValueSourceTest {
         setFloat(op, "mXValue", 18f)
         setFloat(op, "mYValue", 24f)
 
-        val (x, y) = offsetRawValues(op)
+        val x = op.rawX
+        val y = op.rawY
 
         assertEquals(41, Utils.idFromNan(x))
         assertEquals(42, Utils.idFromNan(y))
@@ -55,7 +54,7 @@ class LayoutValueSourceTest {
             .apply { isAccessible = true }
             .invoke(alpha, Utils.asNan(43))
 
-        val source = operation.getValuesReflection()[GraphicsLayerModifierOperation.ALPHA].source
+        val source = operation.values[GraphicsLayerModifierOperation.ALPHA].source
 
         assertEquals(43, Utils.idFromNan(source))
     }

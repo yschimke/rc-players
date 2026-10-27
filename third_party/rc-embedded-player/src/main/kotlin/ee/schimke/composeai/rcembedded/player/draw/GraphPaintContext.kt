@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package ee.schimke.composeai.rcembedded.player
+package ee.schimke.composeai.rcembedded.player.draw
 
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Typeface
 import androidx.compose.remote.core.PaintContext
+import androidx.compose.remote.core.PaintOperation
 import androidx.compose.remote.core.RcPlatformServices
 import androidx.compose.remote.core.RemoteContext
 import androidx.compose.remote.core.operations.paint.PaintBundle
@@ -29,13 +30,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.createFontFamilyResolver
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import ee.schimke.composeai.rcembedded.player.doc.GraphContext
 import java.util.HashMap
 
 /**
- * A draw-nothing [PaintContext] for evaluating value-producing
- * [androidx.compose.remote.core.PaintOperation]s (such as `TextMeasure`, `ColorAttribute`, and
- * `ImageAttribute`) in [GraphContext] and the embedded draw pass, using Compose's [TextMeasurer]
- * for cached text measurement.
+ * A draw-nothing [PaintContext] for evaluating value-producing [PaintOperation]s (such as
+ * `TextMeasure`, `ColorAttribute`, and `ImageAttribute`) in [GraphContext] and the embedded draw
+ * pass, using Compose's [TextMeasurer] for cached text measurement.
  */
 internal class GraphPaintContext(
     context: RemoteContext,
@@ -115,7 +116,7 @@ internal class GraphPaintContext(
 
     override fun replacePaint(paintBundle: PaintBundle) {
         paintState = ComposeLocalPaint()
-        updatePaintFromBundle(paintBundle, paintState, mContext)
+        updatePaintFromBundle(paintBundle, paintState, readContext)
     }
 
     override fun drawRoundRect(
@@ -226,7 +227,7 @@ internal class GraphPaintContext(
     override fun combinePath(out: Int, path1: Int, path2: Int, operation: Byte) {}
 
     override fun applyPaint(mPaintData: PaintBundle) {
-        updatePaintFromBundle(mPaintData, paintState, mContext)
+        updatePaintFromBundle(mPaintData, paintState, readContext)
     }
 
     override fun matrixScale(scaleX: Float, scaleY: Float, centerX: Float, centerY: Float) {}

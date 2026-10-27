@@ -22,6 +22,8 @@ import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.utilities.AnimatedFloatExpression
 import androidx.compose.ui.unit.dp
+import ee.schimke.composeai.rcembedded.player.doc.isExpressionTimeDependent
+import ee.schimke.composeai.rcembedded.player.doc.rawDimensionDp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

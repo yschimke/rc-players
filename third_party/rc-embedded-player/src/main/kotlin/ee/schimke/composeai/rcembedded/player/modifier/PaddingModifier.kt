@@ -24,19 +24,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
-import ee.schimke.composeai.rcembedded.player.paddingRawValues
-import ee.schimke.composeai.rcembedded.player.rawDimensionDp
+import ee.schimke.composeai.rcembedded.player.doc.rawDimensionDp
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 @Composable
 internal fun Modifier.padding(op: PaddingModifierOperation): Modifier {
     val density = LocalDensity.current.density
     val behavior = LocalCoreDocument.current.densityBehavior
-    val (leftSource, topSource, rightSource, bottomSource) = paddingRawValues(op)
-    val left = rememberRemoteFloatAsState(leftSource).value
-    val top = rememberRemoteFloatAsState(topSource).value
-    val right = rememberRemoteFloatAsState(rightSource).value
-    val bottom = rememberRemoteFloatAsState(bottomSource).value
+    val left = rememberRemoteFloatAsState(op.rawLeft).value
+    val top = rememberRemoteFloatAsState(op.rawTop).value
+    val right = rememberRemoteFloatAsState(op.rawRight).value
+    val bottom = rememberRemoteFloatAsState(op.rawBottom).value
 
     return this.padding(
         start = rawDimensionDp(left, behavior, density),

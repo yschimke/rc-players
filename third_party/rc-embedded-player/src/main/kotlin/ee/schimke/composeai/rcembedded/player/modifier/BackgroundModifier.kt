@@ -27,26 +27,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
-import ee.schimke.composeai.rcembedded.player.readDataReflection
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteColorAsState
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 @Composable
 internal fun Modifier.background(op: BackgroundModifierOperation): Modifier {
-    val data = op.readDataReflection()
     val color =
-        if (data.useColorId) {
-            rememberRemoteColorAsState(data.colorId).value
+        if (op.useColorId) {
+            rememberRemoteColorAsState(op.colorId).value
         } else {
-            val r = rememberRemoteFloatAsState(data.rId).value
-            val g = rememberRemoteFloatAsState(data.gId).value
-            val b = rememberRemoteFloatAsState(data.bId).value
-            val a = rememberRemoteFloatAsState(data.aId).value
+            val r = rememberRemoteFloatAsState(op.rId).value
+            val g = rememberRemoteFloatAsState(op.gId).value
+            val b = rememberRemoteFloatAsState(op.bId).value
+            val a = rememberRemoteFloatAsState(op.aId).value
             Color(r, g, b, a)
         }
 
     val shape: Shape =
-        when (data.shapeType) {
+        when (op.shapeType) {
             ShapeType.RECTANGLE -> RectangleShape
             ShapeType.CIRCLE -> CircleShape
             else -> RectangleShape // Default to rectangle for now

@@ -16,12 +16,20 @@
 
 @file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection")
 
-package ee.schimke.composeai.rcembedded.player
+package ee.schimke.composeai.rcembedded.player.doc
 
+import android.graphics.Bitmap
+import androidx.collection.IntSet
+import androidx.collection.emptyIntSet
 import androidx.compose.remote.core.RemoteComposeState
+import androidx.compose.remote.core.operations.BitmapData
 import androidx.compose.remote.core.operations.utilities.ArrayAccess
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import ee.schimke.composeai.rcembedded.player.resources.setDimensions
 
 /**
  * A [RemoteComposeState] whose reactive scalar caches (float / integer / color) are backed by
@@ -44,25 +52,42 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
     private val overriddenData: SnapshotStateMap<Int, Boolean> = mutableStateMapOf()
 
     /**
+     * Whether trusted document content such as embedded `FontData` and AGSL `ShaderData` is
+     * permitted to load.
+     */
+    internal var trustedContent: Boolean by mutableStateOf(false)
+
+    /**
      * Re-entrancy depth for [withOpCountReset], matching the lifecycle of `RemoteContext.mOpCount`.
      */
     internal var opCountDepth: Int = 0
 
+    /**
+     * Float variables a draw stream writes in order, possibly several times per pass (see
+     * `DocumentPreprocessResult.streamFloatIds`). They are kept out of the snapshot map: a draw
+     * reads each one right after writing it, and snapshot writes would invalidate every reader of
+     * the map, including that same draw, on every frame.
+     */
+    internal var streamFloatIds: IntSet = emptyIntSet()
+
     // --- Float ---
     override fun getFloat(id: Int): Float {
-        if (id !in floats) {
-            floats[id] = super.getFloat(id)
-        }
-        return floats[id] ?: 0f
+        if (streamFloatIds.contains(id)) return super.getFloat(id)
+        return floats[id] ?: super.getFloat(id)
     }
 
     override fun cacheFloat(id: Int, item: Float) {
         super.cacheFloat(id, item)
+        if (streamFloatIds.contains(id)) return
         floats[id] = super.getFloat(id)
         colors[id] = super.getColor(id)
     }
 
     override fun updateFloat(id: Int, value: Float) {
+        if (streamFloatIds.contains(id)) {
+            super.updateFloat(id, value)
+            return
+        }
         val old = floats[id]
         super.updateFloat(id, value)
         val new = super.getFloat(id)
@@ -95,8 +120,8 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
 
     // --- Integer ---
     override fun getInteger(id: Int): Int {
-        if (id in integers) {
-            return integers[id] ?: 0
+        integers[id]?.let {
+            return it
         }
         // IDs below START_ID (42) are reserved for built-in system variables and literal enum
         // constants (e.g. Component.Visibility.VISIBLE = 1). Explicit integer updates are already
@@ -105,8 +130,10 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
         if (id in 0 until RemoteComposeState.START_ID) {
             return id
         }
-        integers[id] = super.getInteger(id)
-        return integers[id] ?: 0
+        floats[id]?.let {
+            return it.toInt()
+        }
+        return super.getInteger(id)
     }
 
     override fun updateInteger(id: Int, value: Int) {
@@ -145,10 +172,7 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
 
     // --- Color ---
     override fun getColor(id: Int): Int {
-        if (id !in colors) {
-            colors[id] = super.getColor(id)
-        }
-        return colors[id] ?: 0
+        return colors[id] ?: super.getColor(id)
     }
 
     override fun overrideColor(id: Int, color: Int) {
@@ -207,6 +231,7 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
     }
 
     override fun cacheData(id: Int, item: Any) {
+        updateBitmapDimensions(id, item)
         super.cacheData(id, item)
         data[id] = item
     }
@@ -216,6 +241,7 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
         // other update of an *existing* data id) goes through here, and without the mirror the
         // stale snapshot entry keeps being served and nothing recomposes — the update would not
         // be visible until some unrelated write refreshed the id.
+        updateBitmapDimensions(id, item)
         val old = data[id]
         super.updateData(id, item)
         val new = super.getFromId(id)
@@ -226,13 +252,22 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
 
     override fun updateObject(id: Int, item: Any) {
         super.updateObject(id, item)
-        objects[id] = item
+        if (objects[id] !== item) {
+            objects[id] = item
+        }
     }
 
     override fun overrideData(id: Int, item: Any) {
+        updateBitmapDimensions(id, item)
         super.overrideData(id, item)
         overriddenData[id] = true
         data[id] = item
+    }
+
+    private fun updateBitmapDimensions(id: Int, item: Any) {
+        if (item is Bitmap) {
+            (getObject(id) as? BitmapData)?.setDimensions(item)
+        }
     }
 
     override fun clearDataOverride(id: Int) {

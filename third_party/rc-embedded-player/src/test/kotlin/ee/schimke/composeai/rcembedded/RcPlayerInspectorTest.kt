@@ -29,8 +29,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcembedded.player.RcPlayer
-import ee.schimke.composeai.rcembedded.player.RcPlayerInspector
 import ee.schimke.composeai.rcembedded.player.RcPlayerState
+import ee.schimke.composeai.rcembedded.player.inspectable.RcPlayerInspector
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

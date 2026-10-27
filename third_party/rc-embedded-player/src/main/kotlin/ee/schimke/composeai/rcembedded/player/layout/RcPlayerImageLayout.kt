@@ -22,17 +22,21 @@ import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.remote.core.operations.BitmapData
 import androidx.compose.remote.core.operations.layout.managers.ImageLayout
 import androidx.compose.remote.core.operations.utilities.ImageScaling
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
-import ee.schimke.composeai.rcembedded.player.DrawablePainter
 import ee.schimke.composeai.rcembedded.player.LocalRcImageLoader
+import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
+import ee.schimke.composeai.rcembedded.player.resources.DrawablePainter
+import ee.schimke.composeai.rcembedded.player.resources.fillIntrinsicDimensions
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 @Composable
@@ -40,12 +44,19 @@ internal fun RcPlayerImageLayout(layout: ImageLayout, modifier: Modifier) {
     // Resolve the image through the pluggable RcImageLoader (default: the document's embedded
     // bitmap;
     // a host can override to load from elsewhere) — no image-loading library dependency.
+    val remoteContext = LocalRemoteContext.current
     val drawable by LocalRcImageLoader.current.loadImage(layout.bitmapId)
     val alpha by rememberRemoteFloatAsState(layout.alpha)
 
     Box(modifier = modifier) {
         val resolved = drawable
         if (resolved != null) {
+            // Populate placeholder BitmapData dimensions from the loaded image after composition,
+            // so ImageAttribute reads the real size without mutating state during composition.
+            SideEffect {
+                (remoteContext.mRemoteComposeState.getObject(layout.bitmapId) as? BitmapData)
+                    ?.fillIntrinsicDimensions(resolved)
+            }
             Image(
                 painter =
                     remember(resolved) {

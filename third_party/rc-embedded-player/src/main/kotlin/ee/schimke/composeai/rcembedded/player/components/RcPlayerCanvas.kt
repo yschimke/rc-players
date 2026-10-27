@@ -16,7 +16,7 @@
 
 @file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection")
 
-package ee.schimke.composeai.rcembedded.player
+package ee.schimke.composeai.rcembedded.player.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
@@ -30,6 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.util.fastForEach
+import ee.schimke.composeai.rcembedded.player.LocalGraphContext
+import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
+import ee.schimke.composeai.rcembedded.player.draw.executeOperations
 
 @Composable
 internal fun RcPlayerCanvas(layout: CanvasLayout, modifier: Modifier) {

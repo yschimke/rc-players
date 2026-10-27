@@ -16,6 +16,7 @@
 
 package ee.schimke.composeai.rcembedded
 
+import androidx.compose.remote.creation.compose.state.AndroidSystemColorMap
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -26,31 +27,27 @@ import org.junit.Test
  * agree.
  *
  * A document records an *index*, so the table is how a player decides which resource that index
- * meant. The embedded player carries upstream's `AndroidSystemColorMap` (vendored into
- * `AndroidSystemColorMap.kt` until the pinned release ships it) and the CMP player carries it in
- * `:rc-player-protocol`'s `RcAndroidSystemColors`; neither module can depend on the other (one is
- * an Android library in a vendored AOSP package, the other is KMP with no Android target), so the
- * duplication is structural. What must not be structural is *drift*: two players reading the same
- * index as different resources would show up as a colour difference between render lanes, with
- * nothing in either file looking wrong.
+ * meant. The embedded player reads `remote-creation-compose`'s `AndroidSystemColorMap` and the CMP
+ * player carries the table in `:rc-player-protocol`'s `RcAndroidSystemColors`; the KMP module has
+ * no Android target and cannot depend on the AndroidX one, so the duplication is structural. What
+ * must not be structural is *drift*: two players reading the same index as different resources
+ * would show up as a colour difference between render lanes, with nothing in either file looking
+ * wrong.
  *
- * Compared as source text rather than as loaded classes because only one of the two is on this
- * module's classpath.
+ * AndroidX's table is read from the class this module resolves, each id named through the
+ * `android.R.color` field that holds it. The CMP table is read as source text, because that module
+ * is not on this one's classpath.
  */
 class AndroidColorTableDriftTest {
 
     @Test
     fun bothPlayersReadAnIndexAsTheSameResource() {
+        val colorNames = android.R.color::class.java.fields.associate { it.getInt(null) to it.name }
         val embedded =
-            names(
-                repoFile(
-                    "third_party/rc-embedded-player/src/main/kotlin/ee/schimke/composeai/" +
-                        "rcembedded/player/AndroidSystemColorMap.kt"
-                ),
-                marker = "val colorResourceIds",
-                opener = "intArrayOf(",
-                entry = Regex("R\\.color\\.([a-z0-9_]+)"),
-            )
+            (0 until AndroidSystemColorMap.size).map { index ->
+                val id = AndroidSystemColorMap.getResourceId(index)
+                colorNames[id] ?: error("index $index maps to $id, which is no android.R.color")
+            }
         val cmp =
             names(
                 repoFile(
@@ -63,7 +60,7 @@ class AndroidColorTableDriftTest {
             )
 
         assertTrue(
-            "embedded table looks empty — did the marker or the file move?",
+            "AndroidX table looks empty — did AndroidSystemColorMap move?",
             embedded.size > 100,
         )
         assertEquals("the two tables disagree on their length", embedded.size, cmp.size)

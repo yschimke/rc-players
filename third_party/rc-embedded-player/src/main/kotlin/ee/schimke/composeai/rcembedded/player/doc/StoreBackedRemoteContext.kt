@@ -16,7 +16,7 @@
 
 @file:Suppress("RestrictedApiAndroidX")
 
-package ee.schimke.composeai.rcembedded.player
+package ee.schimke.composeai.rcembedded.player.doc
 
 import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.RemoteComposeState

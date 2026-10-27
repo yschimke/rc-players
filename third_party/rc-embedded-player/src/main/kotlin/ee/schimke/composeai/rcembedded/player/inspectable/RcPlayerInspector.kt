@@ -16,15 +16,24 @@
 
 @file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection")
 
-package ee.schimke.composeai.rcembedded.player
+package ee.schimke.composeai.rcembedded.player.inspectable
 
-import androidx.annotation.RestrictTo
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.MatrixAccess
 import androidx.compose.remote.core.Operation
 import androidx.compose.remote.core.RemoteContext
+import androidx.compose.remote.core.operations.ColorConstant
+import androidx.compose.remote.core.operations.ColorExpression
+import androidx.compose.remote.core.operations.ColorTheme
+import androidx.compose.remote.core.operations.ConditionalOperations
+import androidx.compose.remote.core.operations.DataListFloat
+import androidx.compose.remote.core.operations.FloatConstant
+import androidx.compose.remote.core.operations.FloatExpression
+import androidx.compose.remote.core.operations.FloatFunctionDefine
+import androidx.compose.remote.core.operations.IntegerExpression
 import androidx.compose.remote.core.operations.NamedVariable
 import androidx.compose.remote.core.operations.ParticlesCreate
+import androidx.compose.remote.core.operations.TextFromFloat
 import androidx.compose.remote.core.operations.layout.ClickModifierOperation
 import androidx.compose.remote.core.operations.layout.Component
 import androidx.compose.remote.core.operations.layout.Container
@@ -34,10 +43,26 @@ import androidx.compose.remote.core.operations.layout.RootLayoutComponent
 import androidx.compose.remote.core.operations.layout.TouchCancelModifierOperation
 import androidx.compose.remote.core.operations.layout.TouchDownModifierOperation
 import androidx.compose.remote.core.operations.layout.TouchUpModifierOperation
+import androidx.compose.remote.core.operations.layout.animation.AnimationSpec
 import androidx.compose.remote.core.operations.layout.managers.FitBoxLayout
 import androidx.compose.remote.core.operations.layout.managers.StateLayout
+import androidx.compose.remote.core.operations.layout.modifiers.BackgroundModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.BorderModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.ComponentVisibilityOperation
+import androidx.compose.remote.core.operations.layout.modifiers.DimensionConstraintsModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.DrawContentOperation
+import androidx.compose.remote.core.operations.layout.modifiers.GraphicsLayerModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.HeightInModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.HeightModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.MarqueeModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.OffsetModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.PaddingModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.ScrollModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.WidthInModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.WidthModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.ZIndexModifierOperation
 import androidx.compose.remote.core.operations.utilities.ArrayAccess
+import androidx.compose.remote.core.semantics.CoreSemantics
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -47,11 +72,18 @@ import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.SemanticsModifierNode
 import androidx.compose.ui.platform.InspectableValue
 import androidx.compose.ui.platform.InspectorInfo
+import androidx.compose.ui.platform.debugInspectorInfo
 import androidx.compose.ui.platform.isDebugInspectorInfoEnabled
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.util.fastFirstOrNull
+import ee.schimke.composeai.rcembedded.player.LocalGraphContext
+import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
+import ee.schimke.composeai.rcembedded.player.RcPlayer
+import ee.schimke.composeai.rcembedded.player.RcPlayerState
+import ee.schimke.composeai.rcembedded.player.doc.findVariableId
+import ee.schimke.composeai.rcembedded.player.state.MaybeVariableFloat
 
 /**
  * Inspection and test-harness utilities for [RcPlayer] built on Compose's [InspectableValue],
@@ -61,51 +93,47 @@ import androidx.compose.ui.util.fastFirstOrNull
  * inspection modifiers (`Modifier`), incurring zero object allocations and zero layout or draw
  * overhead.
  *
- * When [isDebugInspectorInfoEnabled] is set to `true`, [RcPlayer] attaches lightweight
- * [ModifierNodeElement]s (`rcPlayerRoot`, `rcComponentOuter`, and `rcComponentContent`) that expose
- * component identity, visibility, and [RcPlayerState] through [InspectableValue] while Compose's
- * [LayoutInfo.getModifierInfo] provides the exact outer and inner content [LayoutCoordinates] for
- * each component.
+ * When [isDebugInspectorInfoEnabled] is set to `true`, [RcPlayer] attaches lightweight, disposable
+ * [ModifierNodeElement]s ([RcComponentInspectable], [RcModifierInspectable], `rcPlayerRoot`, and
+ * `rcComponentContent`) that store only object references on creation and compute all properties
+ * lazily on demand when inspected.
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public object RcPlayerInspector {
+internal object RcPlayerInspector {
 
-    public const val INSPECTOR_ROOT_NAME: String = "rcPlayerRoot"
-    public const val INSPECTOR_OUTER_NAME: String = "rcComponentOuter"
-    public const val INSPECTOR_CONTENT_NAME: String = "rcComponentContent"
-    public const val INSPECTOR_MODIFIER_NAME: String = "rcModifier"
+    const val INSPECTOR_ROOT_NAME: String = "rcPlayerRoot"
+    const val INSPECTOR_OUTER_NAME: String = "rcComponentOuter"
+    const val INSPECTOR_CONTENT_NAME: String = "rcComponentContent"
+    const val INSPECTOR_MODIFIER_NAME: String = "rcModifier"
 
-    public val PlayerStateKey: SemanticsPropertyKey<RcPlayerState> =
-        SemanticsPropertyKey("RcPlayerState")
+    val PlayerStateKey: SemanticsPropertyKey<RcPlayerState> = SemanticsPropertyKey("RcPlayerState")
 
-    public val ComponentIdKey: SemanticsPropertyKey<Int> = SemanticsPropertyKey("RcComponentId")
+    val ComponentIdKey: SemanticsPropertyKey<Int> = SemanticsPropertyKey("RcComponentId")
 
-    public val ContentComponentIdKey: SemanticsPropertyKey<Int> =
+    val ContentComponentIdKey: SemanticsPropertyKey<Int> =
         SemanticsPropertyKey("RcContentComponentId")
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public data class TreeNodeSnapshot(
-        public val id: Int,
-        public val kind: String,
-        public val x: Float,
-        public val y: Float,
-        public val width: Float,
-        public val height: Float,
-        public val depth: Int,
-        public val isGone: Boolean,
-        public val visibility: String,
-        public val absX: Float = x,
-        public val absY: Float = y,
+    internal data class TreeNodeSnapshot(
+        val id: Int,
+        val kind: String,
+        val x: Float,
+        val y: Float,
+        val width: Float,
+        val height: Float,
+        val depth: Int,
+        val isGone: Boolean,
+        val visibility: String,
+        val absX: Float = x,
+        val absY: Float = y,
     )
 
     /**
      * Captures the live Compose layout tree for [RcPlayer] from [rootSemanticsNode] by inspecting
-     * [LayoutInfo.getModifierInfo] and reading [InspectableValue] elements (`rcPlayerRoot`,
-     * `rcComponentOuter`, `rcComponentContent`).
+     * [LayoutInfo.getModifierInfo] and reading [RcComponentInspectable] / [InspectableValue]
+     * elements (`rcPlayerRoot`, `rcComponentOuter`, `rcComponentContent`).
      *
      * Requires [isDebugInspectorInfoEnabled] to be `true` when [RcPlayer] was composed.
      */
-    public fun captureTreeSnapshot(
+    fun captureTreeSnapshot(
         rootSemanticsNode: SemanticsNode,
         state: RcPlayerState? = null,
     ): List<TreeNodeSnapshot> {
@@ -121,35 +149,56 @@ public object RcPlayerInspector {
                 val modifierInfos = current.getModifierInfo()
                 for (i in modifierInfos.indices) {
                     val modInfo = modifierInfos[i]
-                    val inspectable = modInfo.modifier as? InspectableValue ?: continue
-                    when (inspectable.nameFallback) {
-                        INSPECTOR_ROOT_NAME -> {
+                    when (val mod = modInfo.modifier) {
+                        is RcPlayerRootInspectorElement -> {
                             rootCoords = modInfo.coordinates
                             if (resolvedState == null) {
-                                resolvedState =
-                                    inspectable.inspectableElements
-                                        .firstOrNull { it.name == "state" }
-                                        ?.value as? RcPlayerState
+                                resolvedState = mod.state
                             }
                         }
-                        INSPECTOR_OUTER_NAME -> {
-                            val id =
-                                (inspectable.valueOverride as? Int)
-                                    ?: (inspectable.inspectableElements
-                                        .firstOrNull { it.name == "componentId" }
-                                        ?.value as? Int)
-                            if (id != null && !outerCoords.containsKey(id)) {
+                        is RcComponentInspectable -> {
+                            val id = mod.componentId
+                            if (!outerCoords.containsKey(id)) {
                                 outerCoords[id] = modInfo.coordinates
                             }
                         }
-                        INSPECTOR_CONTENT_NAME -> {
-                            val id =
-                                (inspectable.valueOverride as? Int)
-                                    ?: (inspectable.inspectableElements
-                                        .firstOrNull { it.name == "componentId" }
-                                        ?.value as? Int)
-                            if (id != null && !contentCoords.containsKey(id)) {
+                        is RcComponentContentInspectorElement -> {
+                            val id = mod.component.getId()
+                            if (!contentCoords.containsKey(id)) {
                                 contentCoords[id] = modInfo.coordinates
+                            }
+                        }
+                        is InspectableValue -> {
+                            when (mod.nameFallback) {
+                                INSPECTOR_ROOT_NAME -> {
+                                    rootCoords = modInfo.coordinates
+                                    if (resolvedState == null) {
+                                        resolvedState =
+                                            mod.inspectableElements
+                                                .firstOrNull { it.name == "state" }
+                                                ?.value as? RcPlayerState
+                                    }
+                                }
+                                INSPECTOR_OUTER_NAME -> {
+                                    val id =
+                                        (mod.valueOverride as? Int)
+                                            ?: (mod.inspectableElements
+                                                .firstOrNull { it.name == "componentId" }
+                                                ?.value as? Int)
+                                    if (id != null && !outerCoords.containsKey(id)) {
+                                        outerCoords[id] = modInfo.coordinates
+                                    }
+                                }
+                                INSPECTOR_CONTENT_NAME -> {
+                                    val id =
+                                        (mod.valueOverride as? Int)
+                                            ?: (mod.inspectableElements
+                                                .firstOrNull { it.name == "componentId" }
+                                                ?.value as? Int)
+                                    if (id != null && !contentCoords.containsKey(id)) {
+                                        contentCoords[id] = modInfo.coordinates
+                                    }
+                                }
                             }
                         }
                     }
@@ -339,14 +388,17 @@ public object RcPlayerInspector {
                     it is ComponentVisibilityOperation
                 } as? ComponentVisibilityOperation
             if (visibilityOp != null) {
-                val visId = visibilityOp.getVisibilityIdReflection()
+                val visId = visibilityOp.getVisibilityId()
                 return remoteContext.getInteger(visId)
             }
         }
         return component.mVisibility
     }
 
-    public fun resolveVariableId(state: RcPlayerState, target: Any): Int? {
+    internal fun resolveFloatOrRaw(raw: Float, remoteContext: RemoteContext): Float =
+        MaybeVariableFloat(raw).resolve(remoteContext)
+
+    fun resolveVariableId(state: RcPlayerState, target: Any): Int? {
         if (target is Number) return target.toInt()
         val name = target.toString()
         val asInt = name.toIntOrNull()
@@ -363,7 +415,7 @@ public object RcPlayerInspector {
 
         for (i in candidates.indices) {
             val candidate = candidates[i]
-            val varId = state.remoteContext.getVariableIdReflection(candidate)
+            val varId = state.remoteContext.findVariableId(candidate)
             if (varId != -1) {
                 return varId
             }
@@ -379,28 +431,28 @@ public object RcPlayerInspector {
         return null
     }
 
-    public fun resolveFloat(state: RcPlayerState, target: Any): Float? {
+    fun resolveFloat(state: RcPlayerState, target: Any): Float? {
         val id = resolveVariableId(state, target) ?: return null
         return state.graphContext.getFloat(id)
     }
 
-    public fun resolveInt(state: RcPlayerState, target: Any): Int? {
+    fun resolveInt(state: RcPlayerState, target: Any): Int? {
         val id = resolveVariableId(state, target) ?: return null
         return state.graphContext.getInteger(id)
     }
 
-    public fun resolveColor(state: RcPlayerState, target: Any): Long? {
+    fun resolveColor(state: RcPlayerState, target: Any): Long? {
         val id = resolveVariableId(state, target) ?: return null
         val argb = state.graphContext.getColor(id)
         return argb.toLong() and 0xFFFFFFFFL
     }
 
-    public fun resolveText(state: RcPlayerState, target: Any): String? {
+    fun resolveText(state: RcPlayerState, target: Any): String? {
         val id = resolveVariableId(state, target) ?: return null
         return state.graphContext.getText(id)
     }
 
-    public fun resolveMatrix(state: RcPlayerState, target: Int): FloatArray? {
+    fun resolveMatrix(state: RcPlayerState, target: Int): FloatArray? {
         val obj = state.remoteContext.getObject(target)
         if (obj is MatrixAccess) {
             return obj.get()
@@ -408,7 +460,7 @@ public object RcPlayerInspector {
         return null
     }
 
-    public fun resolveFloatArray(state: RcPlayerState, target: Int): FloatArray? {
+    fun resolveFloatArray(state: RcPlayerState, target: Int): FloatArray? {
         val remoteContext = state.remoteContext
         val fromCollections = remoteContext.getCollectionsAccess()?.getFloats(target)
         if (fromCollections != null) return fromCollections
@@ -425,7 +477,7 @@ public object RcPlayerInspector {
         return null
     }
 
-    public fun resolveParticles(state: RcPlayerState): List<FloatArray> {
+    fun resolveParticles(state: RcPlayerState): List<FloatArray> {
         val result = ArrayList<FloatArray>()
         val ops = collectAllOperations(state.document)
         for (i in ops.indices) {
@@ -439,7 +491,7 @@ public object RcPlayerInspector {
         return result
     }
 
-    public fun collectAllOperations(document: CoreDocument): List<Operation> {
+    fun collectAllOperations(document: CoreDocument): List<Operation> {
         val result = ArrayList<Operation>()
         fun walk(ops: Collection<Operation>) {
             for (op in ops) {
@@ -448,7 +500,7 @@ public object RcPlayerInspector {
                     walk(op.getList())
                 }
                 if (op is LayoutComponent) {
-                    val content = op.getContentReflection()
+                    val content = op.getLayoutContent()
                     if (content != null) {
                         walk(listOf(content))
                     }
@@ -463,7 +515,72 @@ public object RcPlayerInspector {
                 }
             }
         }
-        walk(document.getOperationsReflection())
+        walk(document.operations)
+        return result
+    }
+
+    /**
+     * Collects operations in the document's active execution hierarchy (walking into [Component]
+     * and [ConditionalOperations] lists).
+     */
+    fun collectActiveOperations(document: CoreDocument): List<Operation> {
+        val result = ArrayList<Operation>()
+        fun visit(ops: List<Operation>) {
+            for (i in ops.indices) {
+                val op = ops[i]
+                result.add(op)
+                if (op is Component) {
+                    visit(op.list)
+                } else if (op is ConditionalOperations) {
+                    visit(op.list)
+                }
+            }
+        }
+        visit(document.operations)
+        return result
+    }
+
+    /**
+     * Returns lazy [RcVariableInspectable] wrappers for all variable/constant/expression
+     * definitions in [state].
+     */
+    fun inspectVariables(state: RcPlayerState): List<RcVariableInspectable> {
+        val result = ArrayList<RcVariableInspectable>()
+        val ops = collectAllOperations(state.document)
+        val remoteContext = state.graphContext
+        for (i in ops.indices) {
+            val op = ops[i]
+            if (
+                op is NamedVariable ||
+                    op is FloatConstant ||
+                    op is ColorConstant ||
+                    op is ColorTheme ||
+                    op is FloatExpression ||
+                    op is IntegerExpression ||
+                    op is ColorExpression ||
+                    op is DataListFloat ||
+                    op is TextFromFloat
+            ) {
+                result.add(RcVariableInspectable(op, remoteContext))
+            }
+        }
+        return result
+    }
+
+    /**
+     * Returns lazy [RcFunctionDefineInspectable] wrappers for all [FloatFunctionDefine] operations
+     * in [state].
+     */
+    fun inspectFunctions(state: RcPlayerState): List<RcFunctionDefineInspectable> {
+        val result = ArrayList<RcFunctionDefineInspectable>()
+        val ops = collectAllOperations(state.document)
+        val remoteContext = state.graphContext
+        for (i in ops.indices) {
+            val op = ops[i]
+            if (op is FloatFunctionDefine) {
+                result.add(RcFunctionDefineInspectable(op, remoteContext))
+            }
+        }
         return result
     }
 
@@ -473,7 +590,7 @@ public object RcPlayerInspector {
      * `MultiClickModifier`, `TouchDownModifierOperation`, `TouchUpModifierOperation`, or
      * `TouchCancelModifierOperation`).
      */
-    public fun isInteractivePoint(
+    fun isInteractivePoint(
         rootSemanticsNode: SemanticsNode,
         state: RcPlayerState,
         x: Float,
@@ -530,7 +647,7 @@ public object RcPlayerInspector {
         return false
     }
 
-    public fun findComponentById(comp: Component, id: Int): Component? {
+    fun findComponentById(comp: Component, id: Int): Component? {
         if (comp.getId() == id || comp.componentId == id) return comp
         val children = ArrayList<Component>()
         if (comp is LayoutComponent) {
@@ -544,14 +661,39 @@ public object RcPlayerInspector {
         }
         return null
     }
+
+    fun wrapOperation(operation: Operation, remoteContext: RemoteContext): InspectableValue =
+        when (operation) {
+            is Component -> RcComponentInspectable.of(operation, remoteContext)
+            is PaddingModifierOperation,
+            is WidthModifierOperation,
+            is HeightModifierOperation,
+            is WidthInModifierOperation,
+            is HeightInModifierOperation,
+            is DimensionConstraintsModifierOperation,
+            is BackgroundModifierOperation,
+            is BorderModifierOperation,
+            is OffsetModifierOperation,
+            is ZIndexModifierOperation,
+            is GraphicsLayerModifierOperation,
+            is ScrollModifierOperation,
+            is MarqueeModifierOperation,
+            is ComponentVisibilityOperation,
+            is CoreSemantics,
+            is ClickModifierOperation,
+            is MultiClickModifier,
+            is DrawContentOperation,
+            is AnimationSpec -> RcModifierInspectable.of(operation, remoteContext)
+            else -> RcOperationInspectable.of(operation, remoteContext)
+        }
 }
 
 /**
  * Attaches an inspectable [Modifier.Element] when [isDebugInspectorInfoEnabled] is `true`, or
  * returns `this` [Modifier] unchanged (zero allocations, zero node creation) when `false`.
  *
- * Mirrors Compose UI's [androidx.compose.ui.platform.debugInspectorInfo] inline gating pattern so
- * call sites remain clean, unconditional modifier chain calls.
+ * Mirrors Compose UI's [debugInspectorInfo] inline gating pattern so call sites remain clean,
+ * unconditional modifier chain calls.
  */
 internal inline fun Modifier.remoteInspectable(element: () -> Modifier.Element): Modifier =
     if (isDebugInspectorInfoEnabled) this.then(element()) else this
@@ -563,12 +705,10 @@ internal fun Modifier.rcPlayerRootInspector(state: RcPlayerState): Modifier = re
 @Composable
 internal fun Modifier.rcComponentOuterInspector(component: Component): Modifier =
     remoteInspectable {
-        val visCode =
-            RcPlayerInspector.resolveComponentVisibilityCode(
-                component,
-                LocalRemoteContext.current,
-            )
-        RcComponentOuterInspectorElement(component, visCode)
+        RcComponentInspectable.of(
+            component,
+            LocalGraphContext.current ?: LocalRemoteContext.current,
+        )
     }
 
 internal fun Modifier.rcComponentContentInspector(
@@ -581,8 +721,9 @@ internal fun Modifier.rcComponentContentInspector(
         remoteInspectable { RcComponentContentInspectorElement(component) }
     }
 
+@Composable
 internal fun Modifier.rcModifierInspector(operation: Operation): Modifier = remoteInspectable {
-    RcModifierInspectorElement(operation)
+    RcModifierInspectable.of(operation, LocalGraphContext.current ?: LocalRemoteContext.current)
 }
 
 private data class RcPlayerRootInspectorElement(val state: RcPlayerState) :
@@ -612,39 +753,6 @@ private class RcPlayerRootInspectorNode(var state: RcPlayerState) :
     }
 }
 
-private data class RcComponentOuterInspectorElement(
-    val component: Component,
-    val visibilityCode: Int,
-) : ModifierNodeElement<RcComponentOuterInspectorNode>() {
-    override fun create(): RcComponentOuterInspectorNode =
-        RcComponentOuterInspectorNode(component.getId())
-
-    override fun update(node: RcComponentOuterInspectorNode) {
-        node.componentId = component.getId()
-    }
-
-    override fun InspectorInfo.inspectableProperties() {
-        name = RcPlayerInspector.INSPECTOR_OUTER_NAME
-        value = component.getId()
-        properties["component"] = component
-        properties["componentId"] = component.getId()
-        properties["kind"] = component::class.java.simpleName.trimStart('_')
-        properties["visibility"] =
-            when (visibilityCode) {
-                Component.Visibility.GONE -> "GONE"
-                Component.Visibility.INVISIBLE -> "INVISIBLE"
-                else -> "VISIBLE"
-            }
-    }
-}
-
-private class RcComponentOuterInspectorNode(var componentId: Int) :
-    Modifier.Node(), SemanticsModifierNode {
-    override fun SemanticsPropertyReceiver.applySemantics() {
-        this[RcPlayerInspector.ComponentIdKey] = componentId
-    }
-}
-
 private data class RcComponentContentInspectorElement(val component: Component) :
     ModifierNodeElement<RcComponentContentInspectorNode>() {
     override fun create(): RcComponentContentInspectorNode =
@@ -668,21 +776,3 @@ private class RcComponentContentInspectorNode(var componentId: Int) :
         this[RcPlayerInspector.ContentComponentIdKey] = componentId
     }
 }
-
-private data class RcModifierInspectorElement(val operation: Operation) :
-    ModifierNodeElement<RcModifierInspectorNode>() {
-    override fun create(): RcModifierInspectorNode = RcModifierInspectorNode(operation)
-
-    override fun update(node: RcModifierInspectorNode) {
-        node.operation = operation
-    }
-
-    override fun InspectorInfo.inspectableProperties() {
-        name = RcPlayerInspector.INSPECTOR_MODIFIER_NAME
-        value = operation
-        properties["operation"] = operation
-        properties["kind"] = operation::class.java.simpleName
-    }
-}
-
-private class RcModifierInspectorNode(var operation: Operation) : Modifier.Node()

@@ -17,7 +17,6 @@
 @file:Suppress(
     "RestrictedApiAndroidX",
     "PrimitiveInCollection",
-    "VisibleForTests",
     "RememberReturnType",
     "ModifierParameter",
     "AutoboxingStateCreation",
@@ -27,113 +26,61 @@ package ee.schimke.composeai.rcembedded.player
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
-import android.util.Log
+import android.view.ViewTreeObserver
 import androidx.annotation.RestrictTo
 import androidx.collection.IntObjectMap
+import androidx.collection.MutableIntList
 import androidx.collection.emptyIntObjectMap
-import androidx.collection.mutableIntObjectMapOf
-import androidx.compose.animation.core.Easing as ComposeEasing
-import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.Box
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.Limiter
 import androidx.compose.remote.core.Limits
-import androidx.compose.remote.core.Operation
-import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.RemoteContext
-import androidx.compose.remote.core.VariableProvider
-import androidx.compose.remote.core.VariableSupport
-import androidx.compose.remote.core.operations.ColorConstant
-import androidx.compose.remote.core.operations.ColorTheme
-import androidx.compose.remote.core.operations.ComponentValue
-import androidx.compose.remote.core.operations.FloatConstant
-import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.Header
-import androidx.compose.remote.core.operations.ImageAttribute
-import androidx.compose.remote.core.operations.IntegerExpression
-import androidx.compose.remote.core.operations.NamedVariable
-import androidx.compose.remote.core.operations.ParticlesCompare
-import androidx.compose.remote.core.operations.ParticlesLoop
-import androidx.compose.remote.core.operations.PathCombine
-import androidx.compose.remote.core.operations.PathCreate
-import androidx.compose.remote.core.operations.PathData
-import androidx.compose.remote.core.operations.PathExpression
-import androidx.compose.remote.core.operations.PathTween
-import androidx.compose.remote.core.operations.TextFromFloat
-import androidx.compose.remote.core.operations.TextLookupInt
-import androidx.compose.remote.core.operations.TextMeasure
+import androidx.compose.remote.core.operations.RootContentBehavior
 import androidx.compose.remote.core.operations.Theme
-import androidx.compose.remote.core.operations.TimeAttribute
-import androidx.compose.remote.core.operations.Utils
-import androidx.compose.remote.core.operations.WakeIn
-import androidx.compose.remote.core.operations.layout.Component
-import androidx.compose.remote.core.operations.layout.Container
-import androidx.compose.remote.core.operations.layout.LayoutComponent
-import androidx.compose.remote.core.operations.layout.LayoutComponentContent
-import androidx.compose.remote.core.operations.layout.RootLayoutComponent
-import androidx.compose.remote.core.operations.layout.managers.BoxLayout
-import androidx.compose.remote.core.operations.layout.managers.CanvasLayout
-import androidx.compose.remote.core.operations.layout.managers.ColumnLayout
-import androidx.compose.remote.core.operations.layout.managers.CoreText
-import androidx.compose.remote.core.operations.layout.managers.Custom
-import androidx.compose.remote.core.operations.layout.managers.FitBoxLayout
-import androidx.compose.remote.core.operations.layout.managers.FlowLayout
-import androidx.compose.remote.core.operations.layout.managers.ImageLayout
-import androidx.compose.remote.core.operations.layout.managers.RowLayout
-import androidx.compose.remote.core.operations.layout.managers.StateLayout
-import androidx.compose.remote.core.operations.layout.managers.TextLayout
-import androidx.compose.remote.core.operations.layout.modifiers.ComponentVisibilityOperation
-import androidx.compose.remote.core.operations.utilities.AnimatedFloatExpression
-import androidx.compose.remote.core.operations.utilities.NanMap
-import androidx.compose.remote.core.operations.utilities.easing.Easing as RemoteEasing
 import androidx.compose.remote.creation.compose.action.LambdaAction
-import androidx.compose.remote.creation.compose.action.PendingIntentAction
+import androidx.compose.remote.creation.compose.action.PendingIntentActionHandler
 import androidx.compose.remote.creation.compose.capture.CapturedDocument
 import androidx.compose.remote.player.compose.ExperimentalRemotePlayerApi
-import androidx.compose.remote.player.core.platform.AndroidRemoteContext
-import androidx.compose.remote.player.core.platform.TypefaceResolver
 import androidx.compose.remote.player.core.state.StateUpdater
 import androidx.compose.remote.player.core.state.StateUpdaterImpl
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onPlaced
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.util.fastFilter
-import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEach
-import ee.schimke.composeai.rcembedded.player.layout.RcPlayerBox
-import ee.schimke.composeai.rcembedded.player.layout.RcPlayerColumn
-import ee.schimke.composeai.rcembedded.player.layout.RcPlayerFitBoxLayout
-import ee.schimke.composeai.rcembedded.player.layout.RcPlayerFlowRow
-import ee.schimke.composeai.rcembedded.player.layout.RcPlayerImageLayout
-import ee.schimke.composeai.rcembedded.player.layout.RcPlayerRow
-import ee.schimke.composeai.rcembedded.player.layout.RcPlayerStateLayout
-import kotlin.math.abs
+import ee.schimke.composeai.rcembedded.player.components.RcPlayerClickAreas
+import ee.schimke.composeai.rcembedded.player.components.RcPlayerHapticEffect
+import ee.schimke.composeai.rcembedded.player.components.RcPlayerRawDocument
+import ee.schimke.composeai.rcembedded.player.components.RcPlayerRootLayoutComponent
+import ee.schimke.composeai.rcembedded.player.components.publishComponentValues
+import ee.schimke.composeai.rcembedded.player.components.rootTouchExpressions
+import ee.schimke.composeai.rcembedded.player.doc.ClockScheduler
+import ee.schimke.composeai.rcembedded.player.doc.SnapshotRemoteComposeState
+import ee.schimke.composeai.rcembedded.player.inspectable.rcPlayerRootInspector
+import ee.schimke.composeai.rcembedded.player.resources.AndroidColorThemeResolver
+import ee.schimke.composeai.rcembedded.player.resources.EmbeddedRcImageLoader
+import ee.schimke.composeai.rcembedded.player.resources.resolveThemeMode
+import ee.schimke.composeai.rcembedded.player.state.hasAnimation
+import ee.schimke.composeai.rcembedded.player.state.rememberAnimatedRemoteFloat
 import kotlinx.coroutines.delay
 
 /**
@@ -156,20 +103,23 @@ public fun RcPlayer(
     state: RcPlayerState,
     modifier: Modifier = Modifier,
     imageLoader: RcImageLoader? = null,
-    isShaderValid: (shaderSource: String) -> Boolean = { true },
+    trustedContent: Boolean = false,
     onAction: (actionId: Int, value: String?) -> Unit = { _, _ -> },
     onNamedAction: (name: String, value: Any?, stateUpdater: StateUpdater) -> Unit = { _, _, _ -> },
     customPlugins: CustomPluginRegistry? = null,
     lambdas: IntObjectMap<() -> Unit> = emptyIntObjectMap(),
     pendingIntents: IntObjectMap<PendingIntent> = emptyIntObjectMap(),
-    typefaceResolver: TypefaceResolver? = LocalTypefaceResolver.current,
+    typefaceResolver: RcTypefaceResolver? = LocalRcTypefaceResolver.current,
     theme: Int = Theme.SYSTEM,
 ) {
-    // LOCAL PATCH (rc-players): upstream gates this on `RemoteComposePlayerFlags
-    // .isEmbeddedPlayerEnabled`. That flag belongs to AndroidX's own `remote-player-compose` and
-    // also
-    // routes its `RemoteDocumentPlayer` onto AndroidX's embedded player, so turning it on for this
-    // copy would change the View-player control lane too. Depending on this copy is the opt-in.
+    // LOCAL PATCH (rc-players): upstream gates this on
+    // `RemoteComposePlayerFlags.isEmbeddedPlayerEnabled`. That flag belongs to AndroidX's own
+    // `remote-player-compose` and also routes its `RemoteDocumentPlayer` onto AndroidX's embedded
+    // player, so turning it on for this copy would change the View-player control lane too.
+    // Depending on this copy is the opt-in.
+
+    (state.remoteContext.mRemoteComposeState as? SnapshotRemoteComposeState)?.trustedContent =
+        trustedContent
 
     val document = state.document
     val clock = remember(document) { document.clock }
@@ -182,10 +132,8 @@ public fun RcPlayer(
 
     val density = LocalDensity.current
     val remoteContext =
-        remember(typefaceResolver, preprocessed, state) {
+        remember(preprocessed, state, trustedContent) {
             val ctx = state.remoteContext
-            val resolvedResolver = typefaceResolver ?: EmbeddedPlayerTypefaceResolver
-            ctx.setTypefaceResolver(resolvedResolver)
             ctx.useChoreographer = true
             ctx.loadFloat(RemoteContext.ID_FONT_SIZE, 14f * density.fontScale * density.density)
             ctx.loadFloat(RemoteContext.ID_DENSITY, density.density)
@@ -199,7 +147,7 @@ public fun RcPlayer(
             }
             document.checkShaders(
                 ctx,
-                CoreDocument.ShaderControl { source -> isShaderValid(source) },
+                CoreDocument.ShaderControl { trustedContent },
             )
             ctx
         }
@@ -215,31 +163,56 @@ public fun RcPlayer(
 
     // Time is driven on demand:
     // - Documents with continuous time variables (ID_CONTINUOUS_SEC, ID_ANIMATION_TIME), particles,
-    //   or WakeIn run the per-frame loop via withInfiniteAnimationFrameMillis.
+    //   WakeIn or impulses run the per-frame loop via withInfiniteAnimationFrameMillis. Impulses
+    //   count as continuous time: their draw reads the animation time only until their window
+    //   closes, so the loop can idle afterwards.
     // - Documents with only discrete wall-clock/calendar variables (ID_TIME_IN_SEC, ID_TIME_IN_MIN,
     //   ID_CALENDAR_MONTH, etc.) sleep between whole second boundaries via delay().
     // - Static documents and documents whose animations are driven by Compose's own animation
-    // clocks
-    //   (FloatAnimation via Animatable, StateLayout via AnimatedContent) initialize t=0 once and
-    //   settle immediately to idle without a background loop.
+    //   clocks (FloatAnimation via Animatable, StateLayout via AnimatedContent) keep the t=0 seeded
+    //   by GraphTimeState and never request a frame.
+    // The loop awaits infinite-animation frames, so a host can pause clock-driven content (e.g. in
+    // previews or offscreen) with an InfiniteAnimationPolicy in the composition's coroutine
+    // context; finite tween, spring and visibility animations keep running.
+    // The document scan is an upper bound. ClockScheduler narrows it from the time reads that the
+    // active composition, layout and draw passes make, so an unreferenced expression or an
+    // inactive state or fit-box branch that reads time doesn't keep the loop ticking.
     val currentTimeMillisState = state.currentTimeMillisState
     val needsContinuousLoop =
-        preprocessed.hasContinuousTime || preprocessed.hasParticles || preprocessed.hasWakeIn
-    val needsDiscreteLoop = !needsContinuousLoop && preprocessed.hasDiscreteTime
+        state.hasContinuousTime || preprocessed.hasParticles || preprocessed.hasWakeIn
+    val needsDiscreteLoop = !needsContinuousLoop && state.hasDiscreteTime
 
     // Pure-Compose evaluation of *derived/computed* operations (color & text expressions,
-    // attributes,
-    // lookups). Each computed id resolves to a derivedStateOf that runs the op's existing
-    // updateVariables+apply against this GraphContext, which routes the op's reads to the reactive
-    // store / other computed States and captures its write as the result. No imperative recompute
-    // pass, no dirty flags — changing an input invalidates exactly the dependent States, and chains
-    // compose naturally.
+    // attributes, lookups). Each computed id resolves to a derivedStateOf that runs the op's
+    // existing updateVariables+apply against this GraphContext, which routes the op's reads to the
+    // reactive store / other computed States and captures its write as the result. No imperative
+    // recompute pass, no dirty flags — changing an input invalidates exactly the dependent States,
+    // and chains compose naturally.
     val textMeasurer = rememberTextMeasurer()
     val graphContext =
         state.graphContext.also { gc ->
-            gc.setTypefaceResolver(remoteContext.typefaceResolver)
+            gc.typefaceResolver = typefaceResolver
             gc.textMeasurer = textMeasurer
         }
+    DisposableEffect(graphContext, typefaceResolver) {
+        graphContext.typefaceCache.onAttach(typefaceResolver)
+        onDispose { graphContext.typefaceCache.onDetach() }
+    }
+
+    // Frame draws of the host window mean draw passes really run, so from then on time fields that
+    // nobody reads after a change let the clock loop idle. Environments that never run frame draws
+    // (such as Robolectric without real draw traversals) never see this and keep ticking.
+    val view = LocalView.current
+    DisposableEffect(view, state) {
+        val timeReads = state.timeReads
+        val listener = ViewTreeObserver.OnDrawListener { timeReads.drawObserved = true }
+        // A detached view's observer is merged into the window's when the view is attached.
+        view.viewTreeObserver.addOnDrawListener(listener)
+        onDispose {
+            val observer = view.viewTreeObserver
+            if (observer.isAlive) observer.removeOnDrawListener(listener)
+        }
+    }
 
     val startClockMillis = remember(document, clock) { clock.millis() }
     val limiter = remember(document) { Limiter() }
@@ -249,22 +222,41 @@ public fun RcPlayer(
         needsContinuousLoop,
         needsDiscreteLoop,
     ) {
+        remoteContext.currentTime = startClockMillis
+        // Static document: time stays at the t = 0 seeded at setup, so don't wait for any frame.
+        if (!needsContinuousLoop && !needsDiscreteLoop) return@LaunchedEffect
+
+        val scheduler =
+            ClockScheduler(
+                reads = state.timeReads,
+                needsContinuous = needsContinuousLoop,
+                discreteTimeMask = state.discreteTimeMask,
+                // Particles and wake-in operations need frames whether or not time is read.
+                canIdle = !preprocessed.hasParticles && !preprocessed.hasWakeIn,
+            )
         val startMillis = withInfiniteAnimationFrameMillis { it }
         while (true) {
             val frameMillis = withInfiniteAnimationFrameMillis { it } - startMillis
+            if (scheduler.evaluate() == ClockScheduler.Mode.PARKED) {
+                // Nothing composed, laid out or drawn reads time: wait for a read, then take a
+                // fresh frame so the reader sees the current time.
+                scheduler.awaitRead()
+                continue
+            }
+            val continuous = scheduler.mode == ClockScheduler.Mode.CONTINUOUS
             limiter.recordDrawStart(frameMillis * 1_000_000L)
-            state.updateTime(
-                frameMillis = frameMillis.toFloat(),
-                updateContinuous = needsContinuousLoop,
-            )
+            state.updateTime(frameMillis = frameMillis.toFloat(), updateContinuous = continuous)
             remoteContext.currentTime = startClockMillis + frameMillis
+            val timeState = graphContext.timeState
+            // Slow fields (hour, day, year, ...) rarely change, so probe whether anything reads
+            // them.
+            timeState.probe(scheduler.probeMask(timeState.lastChangedDiscreteMask))
+            scheduler.afterWrite(timeState.lastChangedDiscreteMask)
 
-            if (!needsContinuousLoop && !needsDiscreteLoop) break
-
-            if (needsDiscreteLoop) {
+            if (!continuous) {
                 val currentMillis = startClockMillis + frameMillis
                 val millisToNextSecond = 1000L - Math.floorMod(currentMillis, 1000L)
-                delay(millisToNextSecond)
+                scheduler.awaitDiscreteTick(millisToNextSecond)
             } else {
                 val delayNs = limiter.computeDelay(0L, frameMillis * 1_000_000L)
                 if (delayNs > limiter.minIntervalNs) {
@@ -286,16 +278,18 @@ public fun RcPlayer(
         }
     }
     // The document's root content description (Header DOC_CONTENT_DESCRIPTION /
-    // RootContentDescription
-    // op, resolved onto the document during initializeContext) labels the whole player for
-    // accessibility — the embedded equivalent of the View player's root-view contentDescription.
+    // RootContentDescription op, resolved onto the document during initializeContext) labels the
+    // whole player for accessibility — the embedded equivalent of the View player's root-view
+    // contentDescription.
     val rootContentDescription = remember(document) { document.contentDescription }
+
+    RcPlayerHapticEffect(document)
 
     // Desired frame rate (Header DOC_DESIRED_FPS): expressed as a platform hint via Compose's
     // preferredFrameRate modifier (which sets the layer's frame rate) rather than throttling the
-    // time
-    // ticker ourselves — the system then drives frames at this rate and the withFrameMillis loop
-    // above advances time at the same cadence. 0 = no preference (absent / non-positive value).
+    // time ticker ourselves — the system then drives frames at this rate and the withFrameMillis
+    // loop above advances time at the same cadence. 0 = no preference (absent / non-positive
+    // value).
     val desiredFps =
         remember(document) {
             (document.getProperty(Header.DOC_DESIRED_FPS) as? Int)
@@ -304,8 +298,24 @@ public fun RcPlayer(
                 ?.toFloat() ?: 0f
         }
 
-    var size by remember { mutableStateOf(IntSize.Zero) }
-    BoxWithConstraints(
+    val rootCoordsHolder = remember(document) { RootLayoutCoordinatesHolder() }
+
+    // Identify ComponentValue operations, each with reactive state that graph reads resolve first.
+    // Created here so the root's own values (published from its onPlaced below) reach it too.
+    val componentValueMap = preprocessed.componentValueMap
+    val componentValueStateMap =
+        remember(componentValueMap) {
+            val states = mutableMapOf<Int, MutableState<Float>>()
+            componentValueMap.values.forEach { list ->
+                list.fastForEach { op ->
+                    if (!states.containsKey(op.valueId)) {
+                        states[op.valueId] = mutableFloatStateOf(0f)
+                    }
+                }
+            }
+            states
+        }
+    Box(
         modifier =
             modifier
                 .then(
@@ -319,73 +329,149 @@ public fun RcPlayer(
                 )
                 .rcPlayerRootInspector(state)
                 .onPlaced {
+                    rootCoordsHolder.coordinates = it
                     val position = it.positionOnScreen()
                     document.setOrigin(position.x, position.y)
-                    size = it.size
+                    // Publish the player's placed size to core after layout, matching how child
+                    // components publish theirs (see RcPlayerComponent), rather than writing core
+                    // and snapshot state from composition or draw. Placement precedes draw, so
+                    // draws see the new size in the same frame; composition-phase readers of root
+                    // ComponentValues recompose on the next frame, as they do for child components.
+                    // Only write when the size changed, not on every re-placement (e.g. inside a
+                    // scrolling host), matching RcPlayerComponent.
+                    val size = it.size
+                    val previousSize = rootCoordsHolder.publishedSize
+                    if (size != previousSize) {
+                        rootCoordsHolder.publishedSize = size
+                        val root = document.rootLayoutComponent
+                        if (root != null) {
+                            val w = size.width.toFloat()
+                            val h = size.height.toFloat()
+                            root.setWidth(w)
+                            root.setHeight(h)
+                            // Re-evaluate the root's ComponentValues (its WIDTH / HEIGHT) in the
+                            // store.
+                            root.updateVariables(remoteContext)
+                            // Also publish them to their reactive state, which graph reads resolve
+                            // before the store. The root has no padding, so its content is its
+                            // whole size.
+                            val rootOps = componentValueMap[root.componentId]
+                            if (!rootOps.isNullOrEmpty()) {
+                                publishComponentValues(
+                                    ops = rootOps,
+                                    width = w,
+                                    height = h,
+                                    contentWidth = w,
+                                    contentHeight = h,
+                                    posInParent = Offset.Zero,
+                                    rootOffset = Offset.Zero,
+                                    store = remoteContext,
+                                    states = componentValueStateMap,
+                                    initial = previousSize == null,
+                                )
+                            }
+                        } else if (document.contentSizing != RootContentBehavior.SIZING_SCALE) {
+                            // Raw draw-list document: mirror CoreDocument.paint, so draws
+                            // positioned by the document size resolve. A document that scales
+                            // its content keeps its own size (see RcPlayerRawDocument).
+                            document.setWidth(size.width)
+                            document.setHeight(size.height)
+                        }
+                    }
                 }
+                .then(
+                    // Only listen when root touch expressions or touch position readers need the
+                    // pointer, so a press or drag on a document without them writes no state.
+                    if (preprocessed.rootTouchExpressions.isNotEmpty() || state.readsTouchPosition)
+                        Modifier.rootTouchExpressions(
+                            document,
+                            remoteContext,
+                            preprocessed,
+                            graphContext,
+                        )
+                    else Modifier
+                )
     ) {
         // ColorConstant / IntegerConstant / FloatExpression defaults already live in the
         // snapshot-backed store (applied by applyOperations during setup); the single store is the
         // source of truth for variables now, so there is no separate draw-path map to populate.
-
-        // Identify ComponentValue operations
-        val componentValueMap = preprocessed.componentValueMap
-
-        val componentValueStateMap = remember { mutableMapOf<Int, MutableState<Float>>() }
-        remember(componentValueMap) {
-            componentValueMap.values.forEach { list ->
-                list.fastForEach { op ->
-                    if (!componentValueStateMap.containsKey(op.valueId)) {
-                        componentValueStateMap[op.valueId] = mutableFloatStateOf(0f)
-                    }
-                }
-            }
-        }
         graphContext.componentValues = componentValueStateMap
 
         val stateUpdater = remember(remoteContext) { StateUpdaterImpl(remoteContext) }
+        val pendingIntentHandler =
+            remember(androidContext, pendingIntents) {
+                PendingIntentActionHandler(androidContext, pendingIntents)
+            }
         // The image loader: the caller-supplied one, or the default that wraps embedded bitmaps.
         val resolvedImageLoader =
             remember(remoteContext, imageLoader) {
                 imageLoader ?: EmbeddedRcImageLoader(remoteContext)
             }
         // Make it reachable from the (non-composable) canvas draw path too — the document image
-        // draws
-        // resolve through it via the GraphContext.
+        // draws resolve through it via the GraphContext.
         graphContext.imageLoader = resolvedImageLoader
         CompositionLocalProvider(
             LocalCoreDocument provides document,
             LocalRemoteContext provides remoteContext,
             LocalComponentValueMap provides componentValueMap,
             LocalComponentValueStateMap provides componentValueStateMap,
+            LocalComponentTouchExpressionsMap provides preprocessed.componentTouchExpressionsMap,
+            LocalHasTouchExpressions provides preprocessed.touchExpressions.isNotEmpty(),
+            LocalRootLayoutCoordinates provides rootCoordsHolder,
             LocalCurrentTimeMillis provides currentTimeMillisState,
             LocalGraphContext provides graphContext,
             LocalRcImageLoader provides resolvedImageLoader,
-            LocalRemoteActionHandler provides onAction,
+            // A host action either sends a PendingIntentAction's PendingIntent, whose id is
+            // allocated by the library, or is delivered to the host. Never both.
+            LocalRemoteActionHandler provides
+                { id, metadata ->
+                    if (!pendingIntentHandler.onAction(id, metadata)) {
+                        onAction(id, metadata)
+                    }
+                },
             LocalRemoteNamedActionHandler provides
                 { name, value ->
                     val lambdaId = LambdaAction.parseId(name)
                     if (lambdaId != null) {
                         lambdas[lambdaId]?.invoke()
-                    } else {
-                        val pendingIntentId = PendingIntentAction.parseId(name)
-                        if (pendingIntentId != null) {
-                            pendingIntents[pendingIntentId]?.send()
-                        }
+                        onNamedAction(name, value, stateUpdater)
+                    } else if (!pendingIntentHandler.onNamedAction(name, value)) {
+                        onNamedAction(name, value, stateUpdater)
                     }
-                    onNamedAction(name, value, stateUpdater)
                 },
             LocalRcCustomPlugins provides customPlugins,
-            LocalTypefaceResolver provides (typefaceResolver ?: remoteContext.typefaceResolver),
+            LocalRcTypefaceResolver provides typefaceResolver,
         ) {
-            val rootSize = IntSize(constraints.maxWidth, constraints.maxHeight)
-            if (document.rootLayoutComponent != null) {
-                RcPlayerRootLayoutComponent(rootSize)
+            val animatedExpressionIds =
+                remember(document) {
+                    val ids = MutableIntList()
+                    document.getFloatExpressions().forEach { (id, expr) ->
+                        if (expr.hasAnimation) ids.add(id)
+                    }
+                    ids.sort()
+                    ids
+                }
+            // Keyed to the document like animatedExpressionIds so the map isn't reallocated on
+            // every recomposition; the remembered animated States are stable across recompositions.
+            val animatedStates =
+                remember(document) { HashMap<Int, State<Float>>(animatedExpressionIds.size) }
+            for (i in animatedExpressionIds.indices) {
+                val animId = animatedExpressionIds[i]
+                animatedStates[animId] = rememberAnimatedRemoteFloat(animId)
+            }
+            graphContext.animatedFloatStates = animatedStates
+
+            val root = document.rootLayoutComponent
+            if (root != null) {
+                RcPlayerRootLayoutComponent(root)
             } else {
                 // Raw draw-list document (no layout component tree): render its operations
                 // directly.
-                RcPlayerRawDocument(rootSize)
+                RcPlayerRawDocument()
             }
+            // Click area boxes obscure areas below them, matching the View player's ClickAreaView
+            // overlay behavior.
+            RcPlayerClickAreas(document)
         }
     }
 }
@@ -399,6 +485,7 @@ public fun RcPlayer(
  * the same `CoreDocument` concurrently — give each its own document (re-`initFromBuffer`).
  * Re-installing onto an already-initialized document is guarded against below so an accidental
  * reuse doesn't clobber existing state, but the two players would then share one state, which is
+ * not supported.
  */
 @OptIn(ExperimentalRemotePlayerApi::class)
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -409,13 +496,13 @@ public fun RcPlayer(
     document: CoreDocument,
     modifier: Modifier = Modifier,
     imageLoader: RcImageLoader? = null,
-    isShaderValid: (shaderSource: String) -> Boolean = { true },
+    trustedContent: Boolean = false,
     onAction: (actionId: Int, value: String?) -> Unit = { _, _ -> },
     onNamedAction: (name: String, value: Any?, stateUpdater: StateUpdater) -> Unit = { _, _, _ -> },
     customPlugins: CustomPluginRegistry? = null,
     lambdas: IntObjectMap<() -> Unit> = emptyIntObjectMap(),
     pendingIntents: IntObjectMap<PendingIntent> = emptyIntObjectMap(),
-    typefaceResolver: TypefaceResolver? = LocalTypefaceResolver.current,
+    typefaceResolver: RcTypefaceResolver? = LocalRcTypefaceResolver.current,
     theme: Int = Theme.SYSTEM,
 ) {
     val state = rememberRcPlayerState(document)
@@ -423,7 +510,7 @@ public fun RcPlayer(
         state = state,
         modifier = modifier,
         imageLoader = imageLoader,
-        isShaderValid = isShaderValid,
+        trustedContent = trustedContent,
         onAction = onAction,
         onNamedAction = onNamedAction,
         customPlugins = customPlugins,
@@ -449,10 +536,11 @@ public fun RcPlayer(
     capturedDocument: CapturedDocument,
     modifier: Modifier = Modifier,
     imageLoader: RcImageLoader? = null,
-    isShaderValid: (shaderSource: String) -> Boolean = { true },
+    trustedContent: Boolean = false,
     onAction: (actionId: Int, value: String?) -> Unit = { _, _ -> },
     onNamedAction: (name: String, value: Any?, stateUpdater: StateUpdater) -> Unit = { _, _, _ -> },
     customPlugins: CustomPluginRegistry? = null,
+    typefaceResolver: RcTypefaceResolver? = LocalRcTypefaceResolver.current,
     theme: Int = Theme.SYSTEM,
 ) {
     val state = rememberRcPlayerState(capturedDocument)
@@ -460,446 +548,13 @@ public fun RcPlayer(
         state = state,
         modifier = modifier,
         imageLoader = imageLoader,
-        isShaderValid = isShaderValid,
+        trustedContent = trustedContent,
         onAction = onAction,
         onNamedAction = onNamedAction,
         customPlugins = customPlugins,
         lambdas = capturedDocument.lambdas,
         pendingIntents = capturedDocument.pendingIntents,
+        typefaceResolver = typefaceResolver,
         theme = theme,
     )
-}
-
-/**
- * Renders a document that has no root layout component — a raw draw-list document whose draw
- * operations live at the top level of `mOperations` rather than inside a component tree (e.g.
- * shader / canvas demos built without the layout DSL). The View player renders these via
- * `CoreDocument.paint`; here the document's operations are executed directly in a Canvas. Without
- * this fallback the layout-tree renderer dereferenced a null `rootLayoutComponent` and crashed
- * (NPE) for such documents.
- */
-@Composable
-internal fun RcPlayerRawDocument(size: IntSize) {
-    val document = LocalCoreDocument.current
-    val remoteContext = LocalRemoteContext.current
-    val graph = LocalGraphContext.current
-    val textMeasurer = rememberTextMeasurer()
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        // Publish the on-screen size as the document dimensions before painting, mirroring
-        // CoreDocument.paint, so draws positioned by the document size resolve.
-        document.setWidth(size.width)
-        document.setHeight(size.height)
-        executeOperations(
-            document.getOperationsReflection(),
-            remoteContext,
-            graph = graph,
-            textMeasurer = textMeasurer,
-        )
-    }
-}
-
-@Composable
-internal fun RcPlayerRootLayoutComponent(size: IntSize) {
-    val document = LocalCoreDocument.current
-    val root: RootLayoutComponent = document.rootLayoutComponent!!
-    val remoteContext = LocalRemoteContext.current
-    val graph = LocalGraphContext.current
-
-    root.setWidth(size.width.toFloat())
-    root.setHeight(size.height.toFloat())
-    root.updateVariables(remoteContext)
-
-    val drawOps = remember(root) { root.list.fastFilter { it !is Component } }
-    if (drawOps.isNotEmpty()) {
-        val textMeasurer = rememberTextMeasurer()
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            executeOperations(
-                drawOps,
-                remoteContext,
-                graph = graph,
-                textMeasurer = textMeasurer,
-            )
-        }
-    }
-
-    RcPlayerChildren(root)
-}
-
-@Composable
-internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifier) {
-    if (component is LayoutComponent) {
-        val componentValueMap = LocalComponentValueMap.current
-        val componentValueStateMap = LocalComponentValueStateMap.current
-
-        val visibilityOp =
-            component.componentModifiers.list.fastFirstOrNull { it is ComponentVisibilityOperation }
-                as? ComponentVisibilityOperation
-        // FitBoxLayout and StateLayout unconditionally override the visibility of their direct
-        // candidate/page children (matching FitBoxLayout.addVisibilityOverride and
-        // StateLayout.measure in remote-core).
-        val visibilityDelegatedToParent =
-            component.parent is FitBoxLayout || component.parent is StateLayout
-        if (visibilityOp != null && !visibilityDelegatedToParent) {
-            val visible = rememberComponentVisibility(visibilityOp)
-            if (visible == Component.Visibility.GONE) {
-                return
-            }
-        }
-
-        // Custom components whose plugin handles clicks itself (e.g. a native button) receive the
-        // click actions via RcCustomComponent instead of a wrapping clickable.
-        val customClickHandlers =
-            if (component is Custom) rememberCustomClickHandlers(component) else null
-
-        var modifier =
-            Modifier.sharedElementTransition(component)
-                .then(
-                    // Allow StateLayout to adopt its active child's measured dimensions rather than
-                    // expanding to incoming minimum parent constraints.
-                    if (component is StateLayout) {
-                        Modifier.wrapContentSize(Alignment.TopStart)
-                    } else {
-                        Modifier
-                    }
-                )
-                .rcComponentOuterInspector(component)
-                .then(
-                    component.componentModifiers.toModifier(
-                        component.getDrawContentOperationsListReflection(),
-                        ignoreVisibility = visibilityDelegatedToParent,
-                        ignoreClicks = customClickHandlers != null,
-                    )
-                )
-                .rcComponentContentInspector(component)
-                .then(modifier)
-
-        // Publish the component's measured WIDTH/HEIGHT (read by ComponentValue expressions) from
-        // an onSizeChanged callback rather than a custom Modifier.layout that wrote snapshot state
-        // during the measure pass (a relayout hazard) and sat ahead of the real modifiers (which
-        // disturbed constraint propagation, e.g. FILL children collapsing to wrap size). As the
-        // outermost modifier, onSizeChanged reports the full component size and fires after layout.
-        val sizeFeedbackOps = componentValueMap[component.getId()]
-        if (!sizeFeedbackOps.isNullOrEmpty()) {
-            modifier =
-                Modifier.onSizeChanged { sz ->
-                        sizeFeedbackOps.fastForEach { op ->
-                            val state = componentValueStateMap[op.valueId] ?: return@fastForEach
-                            val w = sz.width.toFloat()
-                            val h = sz.height.toFloat()
-                            if (op.type == ComponentValue.WIDTH && abs(w - state.value) > 2.0f) {
-                                state.value = w
-                            } else if (
-                                op.type == ComponentValue.HEIGHT && abs(h - state.value) > 2.0f
-                            ) {
-                                state.value = h
-                            }
-                        }
-                    }
-                    .then(modifier)
-        }
-
-        when (component) {
-            is CanvasLayout -> RcPlayerCanvas(component, modifier)
-            is ColumnLayout -> RcPlayerColumn(component, modifier)
-            is FlowLayout -> RcPlayerFlowRow(component, modifier)
-            is RowLayout -> RcPlayerRow(component, modifier)
-            is CoreText -> RcPlayerText(component, modifier)
-            is TextLayout -> RcPlayerText(component, modifier)
-            is FitBoxLayout -> RcPlayerFitBoxLayout(component, modifier)
-            is StateLayout -> RcPlayerStateLayout(component, modifier)
-            is ImageLayout -> RcPlayerImageLayout(component, modifier)
-            is Custom -> RcPlayerCustom(component, modifier, customClickHandlers)
-            // Last as others are often BoxLayout subclasses
-            is BoxLayout -> RcPlayerBox(component, modifier)
-            else -> {
-                // Unsupported layout type. Render nothing rather than crash; see
-                // operation_coverage.md. The modifier (incl. any drawContent) was still applied
-                // above.
-                println(
-                    "Warning: unsupported layout component ${component::class.java.simpleName}; rendering nothing"
-                )
-            }
-        }
-    } else {
-        // Non-LayoutComponent component reached dispatch — skip gracefully instead of crashing.
-        println(
-            "Warning: unsupported component ${component?.let { it::class.java.simpleName }}; rendering nothing"
-        )
-    }
-}
-
-@Composable
-internal fun RcPlayerChildren(
-    layout: Component,
-    modifierProvider: @Composable (Component) -> Modifier = { Modifier },
-) {
-    if (layout is LayoutComponent) {
-        layout.childrenComponents.fastForEach { child ->
-            val scopeModifier = modifierProvider(child)
-            RcPlayerComponent(child, scopeModifier)
-        }
-    } else {
-        val children =
-            remember(layout) { ArrayList<Component>().apply { layout.getComponents(this) } }
-        children.fastForEach { op -> RcPlayerComponent(op) }
-    }
-}
-
-internal class DocumentPreprocessResult(
-    val globalOps: ArrayList<Operation>,
-    val constantOps: ArrayList<Operation>,
-    val computedOpIndex: IntObjectMap<Operation>,
-    val componentValueMap: Map<Int, List<ComponentValue>>,
-    val hasParticles: Boolean,
-    val hasWakeIn: Boolean,
-    val hasContinuousTime: Boolean,
-    val hasDiscreteTime: Boolean,
-)
-
-internal fun preprocessDocument(document: CoreDocument): DocumentPreprocessResult {
-    val rootComponent = document.rootLayoutComponent
-    val ops = document.getOperationsReflection()
-    val globalOps = ArrayList<Operation>()
-    if (rootComponent != null) {
-        for (i in 0 until ops.size) {
-            val op = ops[i]
-            if (op === rootComponent) break
-            globalOps.add(op)
-        }
-    } else {
-        globalOps.addAll(ops)
-    }
-
-    val constantOps = ArrayList<Operation>()
-    val computedOpIndex = mutableIntObjectMapOf<Operation>()
-    val rawComponentValues = ArrayList<ComponentValue>()
-    val componentsById = mutableIntObjectMapOf<Component>()
-    var hasParticles = false
-    var hasWakeIn = false
-    var hasContinuousTime = false
-    var hasDiscreteTime = false
-
-    val timeListenerCollector =
-        object : StoreBackedRemoteContext(document.clock) {
-            override fun listensTo(id: Int, variableSupport: VariableSupport) {
-                if (isContinuousTimeVariable(id)) {
-                    hasContinuousTime = true
-                } else if (isDiscreteTimeVariable(id)) {
-                    hasDiscreteTime = true
-                }
-            }
-        }
-
-    fun visitOp(op: Operation) {
-        val definedId =
-            when (op) {
-                is NamedVariable -> op.mVarId
-                is VariableProvider -> op.id
-                is TextMeasure -> op.mId
-                is ImageAttribute -> op.mId
-                else -> -1
-            }
-        // Warn when a document operation defines an ID that collides with a reserved system
-        // variable.
-        if (definedId > 0 && isTimeVariable(definedId)) {
-            Log.w(
-                "RcPlayer",
-                "Operation ${op.javaClass.simpleName} defines reserved system variable ID $definedId",
-            )
-        }
-
-        // Collect direct references to continuous or discrete time variables from expressions and
-        // variable-reading operations so we know which clock loop (if any) needs to run.
-        if (
-            op is FloatExpression ||
-                op is IntegerExpression ||
-                op is TextFromFloat ||
-                op is TextLookupInt ||
-                op is ComponentVisibilityOperation
-        ) {
-            op.registerListening(timeListenerCollector)
-        } else if (op is StateLayout) {
-            // StateLayout does not implement VariableSupport, so inspect its indexId directly.
-            val id = op.indexIdReflection
-            if (isContinuousTimeVariable(id)) {
-                hasContinuousTime = true
-            } else if (isDiscreteTimeVariable(id)) {
-                hasDiscreteTime = true
-            }
-        }
-
-        if (op is TimeAttribute) {
-            val type = op.mType.toInt() and 255
-            if (
-                type == TimeAttribute.TIME_FROM_NOW_SEC.toInt() ||
-                    type == TimeAttribute.TIME_FROM_NOW_MIN.toInt() ||
-                    type == TimeAttribute.TIME_FROM_NOW_HR.toInt() ||
-                    type == TimeAttribute.TIME_FROM_LOAD_SEC.toInt()
-            ) {
-                hasContinuousTime = true
-            } else {
-                hasDiscreteTime = true
-            }
-        }
-
-        if (
-            op is ColorConstant ||
-                op is FloatConstant ||
-                op is ColorTheme ||
-                op is NamedVariable ||
-                op.javaClass.simpleName.endsWith("Constant")
-        ) {
-            constantOps.add(op)
-        }
-
-        if (op is ParticlesLoop || op is ParticlesCompare) {
-            hasParticles = true
-        }
-
-        if (op is WakeIn) {
-            hasWakeIn = true
-        }
-
-        if (
-            op is VariableSupport &&
-                op is VariableProvider &&
-                op !is PathData &&
-                op !is PathCreate &&
-                op !is PathCombine &&
-                op !is PathTween &&
-                op !is PathExpression
-        ) {
-            // LOCAL PATCH (rc-players): a spring animates too (#551).
-            val animated = op is FloatExpression && op.isAnimatedExpression
-            val id = op.id
-            if (!animated && id > 0 && !computedOpIndex.containsKey(id)) {
-                computedOpIndex[id] = op
-            }
-        } else if (op is TextMeasure) {
-            val id = op.mId
-            if (id > 0 && !computedOpIndex.containsKey(id)) {
-                computedOpIndex[id] = op
-            }
-        } else if (op is ImageAttribute) {
-            val id = op.mId
-            if (id > 0 && !computedOpIndex.containsKey(id)) {
-                computedOpIndex[id] = op
-            }
-        }
-
-        if (op is ComponentValue) {
-            rawComponentValues.add(op)
-        }
-
-        if (op is Component) {
-            if (op.componentId !in componentsById) {
-                componentsById[op.componentId] = op
-            }
-        }
-
-        if (op is LayoutComponent) {
-            val content = op.getContentReflection()
-            if (content != null && content.componentId !in componentsById) {
-                componentsById[content.componentId] = content
-            }
-            op.componentModifiers?.list?.fastForEach { visitOp(it) }
-            val canvasOps = op.getCanvasOperations()
-            if (canvasOps != null) {
-                visitOp(canvasOps)
-            }
-        }
-
-        if (op is Container) {
-            val list = op.getList()
-            for (i in 0 until list.size) {
-                visitOp(list[i])
-            }
-        }
-    }
-
-    for (i in 0 until ops.size) {
-        visitOp(ops[i])
-    }
-
-    val componentValueMap = HashMap<Int, MutableList<ComponentValue>>()
-    for (i in 0 until rawComponentValues.size) {
-        val op = rawComponentValues[i]
-        var targetId = op.componentId
-        val targetComponent = componentsById[targetId]
-        if (targetComponent is LayoutComponentContent) {
-            val parent = targetComponent.parent
-            parent?.let { targetId = it.id }
-        }
-        componentValueMap.getOrPut(targetId) { ArrayList() }.add(op)
-    }
-
-    return DocumentPreprocessResult(
-        globalOps = globalOps,
-        constantOps = constantOps,
-        computedOpIndex = computedOpIndex,
-        componentValueMap = componentValueMap,
-        hasParticles = hasParticles,
-        hasWakeIn = hasWakeIn,
-        hasContinuousTime = hasContinuousTime,
-        hasDiscreteTime = hasDiscreteTime,
-    )
-}
-
-internal fun isExpressionContinuousTimeDependent(expr: FloatExpression): Boolean {
-    val srcValues = expr.mSrcValue
-    for (j in 0 until srcValues.size) {
-        val v = srcValues[j]
-        if (v.isNaN() && !AnimatedFloatExpression.isMathOperator(v) && !NanMap.isDataVariable(v)) {
-            if (isContinuousTimeVariable(Utils.idFromNan(v))) return true
-        }
-    }
-    return false
-}
-
-internal fun isExpressionDiscreteTimeDependent(expr: FloatExpression): Boolean {
-    val srcValues = expr.mSrcValue
-    for (j in 0 until srcValues.size) {
-        val v = srcValues[j]
-        if (v.isNaN() && !AnimatedFloatExpression.isMathOperator(v) && !NanMap.isDataVariable(v)) {
-            if (isDiscreteTimeVariable(Utils.idFromNan(v))) return true
-        }
-    }
-    return false
-}
-
-internal fun isExpressionTimeDependent(expr: FloatExpression): Boolean =
-    isExpressionContinuousTimeDependent(expr) || isExpressionDiscreteTimeDependent(expr)
-
-internal fun mapEasing(type: Int): ComposeEasing {
-    return when (type) {
-        RemoteEasing.CUBIC_LINEAR -> LinearEasing
-        RemoteEasing.CUBIC_STANDARD -> FastOutSlowInEasing
-        RemoteEasing.CUBIC_ACCELERATE -> FastOutLinearInEasing
-        RemoteEasing.CUBIC_DECELERATE -> LinearOutSlowInEasing
-        else -> LinearEasing
-    }
-}
-
-internal fun initializePlayerRemoteContext(
-    document: CoreDocument,
-    clock: RemoteClock,
-    preprocessed: DocumentPreprocessResult,
-): AndroidRemoteContext {
-    val ctx = AndroidRemoteContext(clock)
-    ctx.useChoreographer = true
-    if (document.remoteComposeState !is SnapshotRemoteComposeState) {
-        document.setRemoteComposeState(SnapshotRemoteComposeState())
-        document.recollectCollectionsReflection()
-    }
-    ctx.withOpCountReset {
-        document.initializeContext(ctx, null)
-        document.applyDataOperationsWithoutBitmaps(ctx)
-        document.setLayoutCallback {}
-        document.applyOperationsReflection(ctx, preprocessed.globalOps)
-        document.applyOperationsReflection(ctx, preprocessed.constantOps)
-        val dataOps = ArrayList<Operation>()
-        document.rootLayoutComponent?.getData(dataOps, true)
-        document.applyOperationsReflection(ctx, dataOps)
-    }
-    return ctx
 }

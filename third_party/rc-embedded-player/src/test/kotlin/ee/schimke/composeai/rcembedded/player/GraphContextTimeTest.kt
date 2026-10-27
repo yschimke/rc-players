@@ -20,7 +20,10 @@ package ee.schimke.composeai.rcembedded.player
 
 import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.RemoteContext
-import androidx.compose.runtime.mutableFloatStateOf
+import ee.schimke.composeai.rcembedded.player.doc.GraphContext
+import ee.schimke.composeai.rcembedded.player.doc.GraphTimeState
+import ee.schimke.composeai.rcembedded.player.doc.SnapshotRemoteComposeState
+import ee.schimke.composeai.rcembedded.player.doc.TimeReadTracker
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
@@ -28,6 +31,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * The time variables answer the [RemoteClock], not the frame clock.
@@ -41,6 +47,10 @@ import org.junit.Test
 private fun zoned(millis: Long) =
     ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneOffset.UTC)
 
+// `androidx.tracing` sections in the player call `android.os.Trace`, which the plain unit-test
+// android.jar does not implement.
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class GraphContextTimeTest {
 
     /** A [RemoteClock] whose readings are pure UTC arithmetic on [baseMillis]. */
@@ -86,8 +96,7 @@ class GraphContextTimeTest {
         GraphContext(
             realState = SnapshotRemoteComposeState(),
             computedOps = androidx.collection.emptyIntObjectMap(),
-            timeMillis = mutableFloatStateOf(0f),
-            clock = clock,
+            timeState = GraphTimeState(clock, TimeReadTracker()),
         )
 
     /** The `timeInSec` reading at [millis] — the same quantity the snapshot's default derives. */
@@ -99,7 +108,7 @@ class GraphContextTimeTest {
     @Test
     fun continuousSecondsTrackTheWallClockSecond() {
         val context = graphContext(FakeClock(baseMillis))
-        context.updateTime(0f)
+        context.timeState.updateTime(0f)
 
         // Second + fraction: exactly on a boundary the fraction is zero.
         assertEquals(
@@ -111,7 +120,7 @@ class GraphContextTimeTest {
         // 1.75 s later: a new second (the base is aligned to one), so the continuous second reads
         // the
         // new boundary's timeInSec plus the 750 ms fraction.
-        context.updateTime(1_750f)
+        context.timeState.updateTime(1_750f)
         assertEquals(
             expectedTimeInSec(baseMillis + 1_000L) + 0.75f,
             context.getFloat(RemoteContext.ID_CONTINUOUS_SEC),
@@ -126,7 +135,7 @@ class GraphContextTimeTest {
     @Test
     fun epochSecondIsTheWallClockSecondOnBothChannels() {
         val context = graphContext(FakeClock(baseMillis))
-        context.updateTime(0f)
+        context.timeState.updateTime(0f)
 
         val start = zoned(baseMillis).toEpochSecond()
         assertEquals(start.toInt(), context.getInteger(RemoteContext.ID_EPOCH_SECOND))
@@ -134,7 +143,7 @@ class GraphContextTimeTest {
 
         // Ten minutes of frames later. The float channel quantizes to the whole second — it updates
         // when the second changes, so ten whole minutes land exactly on both channels.
-        context.updateTime(600_000f)
+        context.timeState.updateTime(600_000f)
         assertEquals(start + 600, context.getInteger(RemoteContext.ID_EPOCH_SECOND).toLong())
         assertEquals((start + 600).toFloat(), context.getFloat(RemoteContext.ID_EPOCH_SECOND), 0f)
     }
@@ -142,19 +151,19 @@ class GraphContextTimeTest {
     @Test
     fun discreteTimeDoesNotUpdateWithinASecond() {
         val context = graphContext(FakeClock(baseMillis))
-        context.updateTime(0f)
+        context.timeState.updateTime(0f)
         val secAtStart = context.getFloat(RemoteContext.ID_TIME_IN_SEC)
 
         // Half a second of frames: no second boundary crossed, so nothing discrete moves and the
         // update reports false (the frame loop uses that to sleep instead of ticking).
-        val moved = context.updateTime(500f, updateContinuous = false)
+        val moved = context.timeState.updateTime(500f, updateContinuous = false)
 
         assertFalse("a sub-second frame reported a discrete update", moved)
         assertEquals(secAtStart, context.getFloat(RemoteContext.ID_TIME_IN_SEC), 0f)
 
         // One second of frames, which does cross the boundary: the discrete fields move, and say
         // so.
-        val movedAcross = context.updateTime(1_000f, updateContinuous = false)
+        val movedAcross = context.timeState.updateTime(1_000f, updateContinuous = false)
         assertTrue("crossing a second boundary reported no update", movedAcross)
         assertEquals(
             expectedTimeInSec(baseMillis + 1_000L),
