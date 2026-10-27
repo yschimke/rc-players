@@ -7,7 +7,7 @@ public final class ee/schimke/composeai/rcwidget/launcher/ComposableSingletons$R
 public final class ee/schimke/composeai/rcwidget/launcher/ComposableSingletons$RcLauncherWidgetPreviewKt {
 	public static final field INSTANCE Lee/schimke/composeai/rcwidget/launcher/ComposableSingletons$RcLauncherWidgetPreviewKt;
 	public fun <init> ()V
-	public final fun getLambda$514983618$ee_schimke_composeai_rc_widget_launcher ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$1024837666$ee_schimke_composeai_rc_widget_launcher ()Lkotlin/jvm/functions/Function2;
 }
 
 public final class ee/schimke/composeai/rcwidget/launcher/RcAdaptiveRemoteDocumentPlayerKt {
@@ -55,7 +55,7 @@ public final class ee/schimke/composeai/rcwidget/launcher/RcLauncherWidgetCaptur
 
 public final class ee/schimke/composeai/rcwidget/launcher/RcLauncherWidgetPreviewKt {
 	public static final fun RcLauncherGrid-D3g__18 (Lee/schimke/composeai/rcwidget/launcher/RcLauncherGridBounds;IILkotlin/jvm/functions/Function2;Landroidx/compose/ui/Modifier;JJJJFLkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;III)V
-	public static final fun RcLauncherWidgetPreview (Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;Lkotlin/jvm/functions/Function3;Landroidx/compose/ui/Modifier;Ljava/lang/String;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RcLauncherWidgetPreview (Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;Lkotlin/jvm/functions/Function3;Landroidx/compose/ui/Modifier;Ljava/lang/Object;Ljava/lang/String;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
 	public static final fun inflateWidgetPreview (Landroid/content/Context;Landroid/widget/RemoteViews;)Landroid/widget/FrameLayout;
 }
 

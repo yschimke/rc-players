@@ -71,6 +71,8 @@ public fun RcLauncherWidgetPreview(
   size: RcWidgetCaptureSize,
   capture: suspend (Context, RcWidgetCaptureSize) -> RemoteViews?,
   modifier: Modifier = Modifier,
+  /** What the widget shows (a design, its data): a change recaptures at the same size. */
+  contentKey: Any? = null,
   contentDescription: String? = null,
   onError: (Throwable) -> Unit = {},
   placeholder: @Composable () -> Unit = {},
@@ -83,7 +85,7 @@ public fun RcLauncherWidgetPreview(
   var frame by remember { mutableStateOf<FrameLayout?>(null) }
   val latestCapture by rememberUpdatedState(capture)
   val latestOnError by rememberUpdatedState(onError)
-  LaunchedEffect(size) {
+  LaunchedEffect(size, contentKey) {
     delay(100)
     val views =
       try {

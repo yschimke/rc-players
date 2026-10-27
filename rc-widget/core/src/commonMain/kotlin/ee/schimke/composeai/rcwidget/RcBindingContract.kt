@@ -139,8 +139,10 @@ public object RcTemplateCheck {
     allowedNames: Set<String> = emptySet(),
     allowedPrefixes: Set<String> = emptySet(),
   ): List<RcTemplateProblem> = buildList {
-    val tolerated = base?.validateFor(target).orEmpty().toSet()
-    val violations = candidate.validateFor(target).filterNot { it in tolerated }
+    // A violation the base already has is tolerated wherever it sits: compared by what it is (kind
+    // and operation), not by its index, which any operation added before it shifts.
+    val tolerated = base?.validateFor(target).orEmpty().mapTo(HashSet()) { it.kind to it.opcode }
+    val violations = candidate.validateFor(target).filterNot { (it.kind to it.opcode) in tolerated }
     if (violations.isNotEmpty()) add(RcTemplateProblem.Unplayable(violations))
     val known = base?.let(RcBindingContract::of)?.byName.orEmpty()
     for (binding in RcBindingContract.of(candidate).bindings) {

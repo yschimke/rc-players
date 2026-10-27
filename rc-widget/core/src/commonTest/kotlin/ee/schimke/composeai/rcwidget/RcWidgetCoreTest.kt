@@ -5,6 +5,7 @@ import ee.schimke.composeai.rcplayer.edit.RcHardcodedValue
 import ee.schimke.composeai.rcplayer.edit.RcProfiles
 import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
 import ee.schimke.composeai.rcplayer.edit.namedVariables
+import ee.schimke.composeai.rcplayer.edit.validateFor
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
@@ -17,6 +18,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcHostNamedAction
 import ee.schimke.composeai.rcplayer.protocol.RcHostNamedActionValue
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
+import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
@@ -193,6 +196,21 @@ class RcBindingContractTest {
       emptyList(),
       RcTemplateCheck.problems(template, template, RcTargetProfiles.ANDROIDX_EXPERIMENTAL),
     )
+  }
+
+  @Test
+  fun aViolationTheBaseHasIsToleratedWhereverItMoves() {
+    // Macros are experimental: the plain AndroidX player doesn't decode them.
+    val macro =
+      arrayOf<RcOperation>(
+        RcMacroDefine(500, emptyList(), ByteArray(0)),
+        RcMacroCall(500, emptyList()),
+      )
+    val base = document(*macro)
+    assertTrue(base.validateFor(RcTargetProfiles.ANDROIDX).isNotEmpty())
+    val shifted = document(RcTextData(1, "new"), *macro)
+    assertEquals(emptyList(), RcTemplateCheck.problems(shifted, base, RcTargetProfiles.ANDROIDX))
+    assertTrue(RcTemplateCheck.problems(shifted, null, RcTargetProfiles.ANDROIDX).isNotEmpty())
   }
 }
 
