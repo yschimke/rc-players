@@ -1,0 +1,263 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, macosArm64, wasmJs]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <ee.schimke.composeai:rc-widget-creation>
+final enum class ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis : kotlin/Enum<ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis> { // ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis|null[0]
+    enum entry Height // ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis.Height|null[0]
+    enum entry Width // ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis.Width|null[0]
+
+    final val entries // ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis> // ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis // ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis> // ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis.values|values#static(){}[0]
+}
+
+sealed interface ee.schimke.composeai.rcwidget.creation/RcWearLayer // ee.schimke.composeai.rcwidget.creation/RcWearLayer|null[0]
+
+final class ee.schimke.composeai.rcwidget.creation/RcExpressionNames { // ee.schimke.composeai.rcwidget.creation/RcExpressionNames|null[0]
+    constructor <init>() // ee.schimke.composeai.rcwidget.creation/RcExpressionNames.<init>|<init>(){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget.creation/RcWearBackground { // ee.schimke.composeai.rcwidget.creation/RcWearBackground|null[0]
+    constructor <init>(androidx.compose.ui.graphics/Color, kotlin.collections/List<ee.schimke.composeai.rcwidget.creation/RcWearLayer> = ..., ee.schimke.composeai.rcwidget.creation/RcWearEdge? = ...) // ee.schimke.composeai.rcwidget.creation/RcWearBackground.<init>|<init>(androidx.compose.ui.graphics.Color;kotlin.collections.List<ee.schimke.composeai.rcwidget.creation.RcWearLayer>;ee.schimke.composeai.rcwidget.creation.RcWearEdge?){}[0]
+
+    final val base // ee.schimke.composeai.rcwidget.creation/RcWearBackground.base|{}base[0]
+        final fun <get-base>(): androidx.compose.ui.graphics/Color // ee.schimke.composeai.rcwidget.creation/RcWearBackground.base.<get-base>|<get-base>(){}[0]
+    final val edge // ee.schimke.composeai.rcwidget.creation/RcWearBackground.edge|{}edge[0]
+        final fun <get-edge>(): ee.schimke.composeai.rcwidget.creation/RcWearEdge? // ee.schimke.composeai.rcwidget.creation/RcWearBackground.edge.<get-edge>|<get-edge>(){}[0]
+    final val layers // ee.schimke.composeai.rcwidget.creation/RcWearBackground.layers|{}layers[0]
+        final fun <get-layers>(): kotlin.collections/List<ee.schimke.composeai.rcwidget.creation/RcWearLayer> // ee.schimke.composeai.rcwidget.creation/RcWearBackground.layers.<get-layers>|<get-layers>(){}[0]
+
+    final fun component1(): androidx.compose.ui.graphics/Color // ee.schimke.composeai.rcwidget.creation/RcWearBackground.component1|component1(){}[0]
+    final fun component2(): kotlin.collections/List<ee.schimke.composeai.rcwidget.creation/RcWearLayer> // ee.schimke.composeai.rcwidget.creation/RcWearBackground.component2|component2(){}[0]
+    final fun component3(): ee.schimke.composeai.rcwidget.creation/RcWearEdge? // ee.schimke.composeai.rcwidget.creation/RcWearBackground.component3|component3(){}[0]
+    final fun copy(androidx.compose.ui.graphics/Color = ..., kotlin.collections/List<ee.schimke.composeai.rcwidget.creation/RcWearLayer> = ..., ee.schimke.composeai.rcwidget.creation/RcWearEdge? = ...): ee.schimke.composeai.rcwidget.creation/RcWearBackground // ee.schimke.composeai.rcwidget.creation/RcWearBackground.copy|copy(androidx.compose.ui.graphics.Color;kotlin.collections.List<ee.schimke.composeai.rcwidget.creation.RcWearLayer>;ee.schimke.composeai.rcwidget.creation.RcWearEdge?){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearBackground.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWearBackground.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget.creation/RcWearBackground.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget.creation/RcWearBand : ee.schimke.composeai.rcwidget.creation/RcWearLayer { // ee.schimke.composeai.rcwidget.creation/RcWearBand|null[0]
+    constructor <init>(androidx.compose.ui.graphics/Color, ee.schimke.composeai.rcwidget.creation/RcWearBand.Side, kotlin/Float) // ee.schimke.composeai.rcwidget.creation/RcWearBand.<init>|<init>(androidx.compose.ui.graphics.Color;ee.schimke.composeai.rcwidget.creation.RcWearBand.Side;kotlin.Float){}[0]
+
+    final val color // ee.schimke.composeai.rcwidget.creation/RcWearBand.color|{}color[0]
+        final fun <get-color>(): androidx.compose.ui.graphics/Color // ee.schimke.composeai.rcwidget.creation/RcWearBand.color.<get-color>|<get-color>(){}[0]
+    final val side // ee.schimke.composeai.rcwidget.creation/RcWearBand.side|{}side[0]
+        final fun <get-side>(): ee.schimke.composeai.rcwidget.creation/RcWearBand.Side // ee.schimke.composeai.rcwidget.creation/RcWearBand.side.<get-side>|<get-side>(){}[0]
+    final val thicknessDp // ee.schimke.composeai.rcwidget.creation/RcWearBand.thicknessDp|{}thicknessDp[0]
+        final fun <get-thicknessDp>(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearBand.thicknessDp.<get-thicknessDp>|<get-thicknessDp>(){}[0]
+
+    final fun component1(): androidx.compose.ui.graphics/Color // ee.schimke.composeai.rcwidget.creation/RcWearBand.component1|component1(){}[0]
+    final fun component2(): ee.schimke.composeai.rcwidget.creation/RcWearBand.Side // ee.schimke.composeai.rcwidget.creation/RcWearBand.component2|component2(){}[0]
+    final fun component3(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearBand.component3|component3(){}[0]
+    final fun copy(androidx.compose.ui.graphics/Color = ..., ee.schimke.composeai.rcwidget.creation/RcWearBand.Side = ..., kotlin/Float = ...): ee.schimke.composeai.rcwidget.creation/RcWearBand // ee.schimke.composeai.rcwidget.creation/RcWearBand.copy|copy(androidx.compose.ui.graphics.Color;ee.schimke.composeai.rcwidget.creation.RcWearBand.Side;kotlin.Float){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearBand.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWearBand.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget.creation/RcWearBand.toString|toString(){}[0]
+
+    final enum class Side : kotlin/Enum<ee.schimke.composeai.rcwidget.creation/RcWearBand.Side> { // ee.schimke.composeai.rcwidget.creation/RcWearBand.Side|null[0]
+        enum entry Bottom // ee.schimke.composeai.rcwidget.creation/RcWearBand.Side.Bottom|null[0]
+        enum entry Start // ee.schimke.composeai.rcwidget.creation/RcWearBand.Side.Start|null[0]
+        enum entry Top // ee.schimke.composeai.rcwidget.creation/RcWearBand.Side.Top|null[0]
+
+        final val entries // ee.schimke.composeai.rcwidget.creation/RcWearBand.Side.entries|#static{}entries[0]
+            final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rcwidget.creation/RcWearBand.Side> // ee.schimke.composeai.rcwidget.creation/RcWearBand.Side.entries.<get-entries>|<get-entries>#static(){}[0]
+
+        final fun valueOf(kotlin/String): ee.schimke.composeai.rcwidget.creation/RcWearBand.Side // ee.schimke.composeai.rcwidget.creation/RcWearBand.Side.valueOf|valueOf#static(kotlin.String){}[0]
+        final fun values(): kotlin/Array<ee.schimke.composeai.rcwidget.creation/RcWearBand.Side> // ee.schimke.composeai.rcwidget.creation/RcWearBand.Side.values|values#static(){}[0]
+    }
+}
+
+final class ee.schimke.composeai.rcwidget.creation/RcWearDiagonal : ee.schimke.composeai.rcwidget.creation/RcWearLayer { // ee.schimke.composeai.rcwidget.creation/RcWearDiagonal|null[0]
+    constructor <init>(kotlin.collections/List<androidx.compose.ui.graphics/Color>) // ee.schimke.composeai.rcwidget.creation/RcWearDiagonal.<init>|<init>(kotlin.collections.List<androidx.compose.ui.graphics.Color>){}[0]
+
+    final val colors // ee.schimke.composeai.rcwidget.creation/RcWearDiagonal.colors|{}colors[0]
+        final fun <get-colors>(): kotlin.collections/List<androidx.compose.ui.graphics/Color> // ee.schimke.composeai.rcwidget.creation/RcWearDiagonal.colors.<get-colors>|<get-colors>(){}[0]
+
+    final fun component1(): kotlin.collections/List<androidx.compose.ui.graphics/Color> // ee.schimke.composeai.rcwidget.creation/RcWearDiagonal.component1|component1(){}[0]
+    final fun copy(kotlin.collections/List<androidx.compose.ui.graphics/Color> = ...): ee.schimke.composeai.rcwidget.creation/RcWearDiagonal // ee.schimke.composeai.rcwidget.creation/RcWearDiagonal.copy|copy(kotlin.collections.List<androidx.compose.ui.graphics.Color>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearDiagonal.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWearDiagonal.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget.creation/RcWearDiagonal.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget.creation/RcWearEdge { // ee.schimke.composeai.rcwidget.creation/RcWearEdge|null[0]
+    constructor <init>(kotlin.collections/List<androidx.compose.ui.graphics/Color>, kotlin/Float, kotlin/Float = ...) // ee.schimke.composeai.rcwidget.creation/RcWearEdge.<init>|<init>(kotlin.collections.List<androidx.compose.ui.graphics.Color>;kotlin.Float;kotlin.Float){}[0]
+
+    final val colors // ee.schimke.composeai.rcwidget.creation/RcWearEdge.colors|{}colors[0]
+        final fun <get-colors>(): kotlin.collections/List<androidx.compose.ui.graphics/Color> // ee.schimke.composeai.rcwidget.creation/RcWearEdge.colors.<get-colors>|<get-colors>(){}[0]
+    final val insetDp // ee.schimke.composeai.rcwidget.creation/RcWearEdge.insetDp|{}insetDp[0]
+        final fun <get-insetDp>(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearEdge.insetDp.<get-insetDp>|<get-insetDp>(){}[0]
+    final val widthDp // ee.schimke.composeai.rcwidget.creation/RcWearEdge.widthDp|{}widthDp[0]
+        final fun <get-widthDp>(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearEdge.widthDp.<get-widthDp>|<get-widthDp>(){}[0]
+
+    final fun component1(): kotlin.collections/List<androidx.compose.ui.graphics/Color> // ee.schimke.composeai.rcwidget.creation/RcWearEdge.component1|component1(){}[0]
+    final fun component2(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearEdge.component2|component2(){}[0]
+    final fun component3(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearEdge.component3|component3(){}[0]
+    final fun copy(kotlin.collections/List<androidx.compose.ui.graphics/Color> = ..., kotlin/Float = ..., kotlin/Float = ...): ee.schimke.composeai.rcwidget.creation/RcWearEdge // ee.schimke.composeai.rcwidget.creation/RcWearEdge.copy|copy(kotlin.collections.List<androidx.compose.ui.graphics.Color>;kotlin.Float;kotlin.Float){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearEdge.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWearEdge.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget.creation/RcWearEdge.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget.creation/RcWearGlow : ee.schimke.composeai.rcwidget.creation/RcWearLayer { // ee.schimke.composeai.rcwidget.creation/RcWearGlow|null[0]
+    constructor <init>(kotlin.collections/List<androidx.compose.ui.graphics/Color>, kotlin/Float, kotlin/Float, kotlin/Float) // ee.schimke.composeai.rcwidget.creation/RcWearGlow.<init>|<init>(kotlin.collections.List<androidx.compose.ui.graphics.Color>;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
+
+    final val colors // ee.schimke.composeai.rcwidget.creation/RcWearGlow.colors|{}colors[0]
+        final fun <get-colors>(): kotlin.collections/List<androidx.compose.ui.graphics/Color> // ee.schimke.composeai.rcwidget.creation/RcWearGlow.colors.<get-colors>|<get-colors>(){}[0]
+    final val radius // ee.schimke.composeai.rcwidget.creation/RcWearGlow.radius|{}radius[0]
+        final fun <get-radius>(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearGlow.radius.<get-radius>|<get-radius>(){}[0]
+    final val x // ee.schimke.composeai.rcwidget.creation/RcWearGlow.x|{}x[0]
+        final fun <get-x>(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearGlow.x.<get-x>|<get-x>(){}[0]
+    final val y // ee.schimke.composeai.rcwidget.creation/RcWearGlow.y|{}y[0]
+        final fun <get-y>(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearGlow.y.<get-y>|<get-y>(){}[0]
+
+    final fun component1(): kotlin.collections/List<androidx.compose.ui.graphics/Color> // ee.schimke.composeai.rcwidget.creation/RcWearGlow.component1|component1(){}[0]
+    final fun component2(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearGlow.component2|component2(){}[0]
+    final fun component3(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearGlow.component3|component3(){}[0]
+    final fun component4(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearGlow.component4|component4(){}[0]
+    final fun copy(kotlin.collections/List<androidx.compose.ui.graphics/Color> = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ...): ee.schimke.composeai.rcwidget.creation/RcWearGlow // ee.schimke.composeai.rcwidget.creation/RcWearGlow.copy|copy(kotlin.collections.List<androidx.compose.ui.graphics.Color>;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearGlow.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWearGlow.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget.creation/RcWearGlow.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget.creation/RcWearGradient : ee.schimke.composeai.rcwidget.creation/RcWearLayer { // ee.schimke.composeai.rcwidget.creation/RcWearGradient|null[0]
+    constructor <init>(kotlin.collections/List<androidx.compose.ui.graphics/Color>, kotlin/Boolean = ...) // ee.schimke.composeai.rcwidget.creation/RcWearGradient.<init>|<init>(kotlin.collections.List<androidx.compose.ui.graphics.Color>;kotlin.Boolean){}[0]
+
+    final val colors // ee.schimke.composeai.rcwidget.creation/RcWearGradient.colors|{}colors[0]
+        final fun <get-colors>(): kotlin.collections/List<androidx.compose.ui.graphics/Color> // ee.schimke.composeai.rcwidget.creation/RcWearGradient.colors.<get-colors>|<get-colors>(){}[0]
+    final val vertical // ee.schimke.composeai.rcwidget.creation/RcWearGradient.vertical|{}vertical[0]
+        final fun <get-vertical>(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearGradient.vertical.<get-vertical>|<get-vertical>(){}[0]
+
+    final fun component1(): kotlin.collections/List<androidx.compose.ui.graphics/Color> // ee.schimke.composeai.rcwidget.creation/RcWearGradient.component1|component1(){}[0]
+    final fun component2(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearGradient.component2|component2(){}[0]
+    final fun copy(kotlin.collections/List<androidx.compose.ui.graphics/Color> = ..., kotlin/Boolean = ...): ee.schimke.composeai.rcwidget.creation/RcWearGradient // ee.schimke.composeai.rcwidget.creation/RcWearGradient.copy|copy(kotlin.collections.List<androidx.compose.ui.graphics.Color>;kotlin.Boolean){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearGradient.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWearGradient.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget.creation/RcWearGradient.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget.creation/RcWearLevel { // ee.schimke.composeai.rcwidget.creation/RcWearLevel|null[0]
+    constructor <init>(androidx.compose.remote.creation.compose.state/RemoteFloat, kotlin/Boolean = ...) // ee.schimke.composeai.rcwidget.creation/RcWearLevel.<init>|<init>(androidx.compose.remote.creation.compose.state.RemoteFloat;kotlin.Boolean){}[0]
+
+    final val fraction // ee.schimke.composeai.rcwidget.creation/RcWearLevel.fraction|{}fraction[0]
+        final fun <get-fraction>(): androidx.compose.remote.creation.compose.state/RemoteFloat // ee.schimke.composeai.rcwidget.creation/RcWearLevel.fraction.<get-fraction>|<get-fraction>(){}[0]
+    final val vertical // ee.schimke.composeai.rcwidget.creation/RcWearLevel.vertical|{}vertical[0]
+        final fun <get-vertical>(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevel.vertical.<get-vertical>|<get-vertical>(){}[0]
+
+    final fun component1(): androidx.compose.remote.creation.compose.state/RemoteFloat // ee.schimke.composeai.rcwidget.creation/RcWearLevel.component1|component1(){}[0]
+    final fun component2(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevel.component2|component2(){}[0]
+    final fun copy(androidx.compose.remote.creation.compose.state/RemoteFloat = ..., kotlin/Boolean = ...): ee.schimke.composeai.rcwidget.creation/RcWearLevel // ee.schimke.composeai.rcwidget.creation/RcWearLevel.copy|copy(androidx.compose.remote.creation.compose.state.RemoteFloat;kotlin.Boolean){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevel.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWearLevel.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget.creation/RcWearLevel.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcwidget.creation/RcWearLevel.Companion|null[0]
+        final fun of(androidx.compose.remote.creation.compose.state/RemoteFloat, kotlin/Float, kotlin/Float, kotlin/Boolean = ...): ee.schimke.composeai.rcwidget.creation/RcWearLevel // ee.schimke.composeai.rcwidget.creation/RcWearLevel.Companion.of|of(androidx.compose.remote.creation.compose.state.RemoteFloat;kotlin.Float;kotlin.Float;kotlin.Boolean){}[0]
+    }
+}
+
+final class ee.schimke.composeai.rcwidget.creation/RcWearLevelLook { // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook|null[0]
+    constructor <init>(androidx.compose.ui.graphics/Color, kotlin/Float, kotlin/Float = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., kotlin.collections/List<androidx.compose.ui.graphics/Color> = ..., kotlin/Int = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., kotlin/Float = ..., kotlin/Boolean = ...) // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.<init>|<init>(androidx.compose.ui.graphics.Color;kotlin.Float;kotlin.Float;kotlin.Boolean;kotlin.Boolean;kotlin.collections.List<androidx.compose.ui.graphics.Color>;kotlin.Int;kotlin.Boolean;kotlin.Boolean;kotlin.Float;kotlin.Boolean){}[0]
+
+    final val alpha // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.alpha|{}alpha[0]
+        final fun <get-alpha>(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.alpha.<get-alpha>|<get-alpha>(){}[0]
+    final val color // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.color|{}color[0]
+        final fun <get-color>(): androidx.compose.ui.graphics/Color // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.color.<get-color>|<get-color>(){}[0]
+    final val fades // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.fades|{}fades[0]
+        final fun <get-fades>(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.fades.<get-fades>|<get-fades>(){}[0]
+    final val ghosts // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.ghosts|{}ghosts[0]
+        final fun <get-ghosts>(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.ghosts.<get-ghosts>|<get-ghosts>(){}[0]
+    final val marker // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.marker|{}marker[0]
+        final fun <get-marker>(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.marker.<get-marker>|<get-marker>(){}[0]
+    final val markerAlpha // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.markerAlpha|{}markerAlpha[0]
+        final fun <get-markerAlpha>(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.markerAlpha.<get-markerAlpha>|<get-markerAlpha>(){}[0]
+    final val pointer // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.pointer|{}pointer[0]
+        final fun <get-pointer>(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.pointer.<get-pointer>|<get-pointer>(){}[0]
+    final val ringDp // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.ringDp|{}ringDp[0]
+        final fun <get-ringDp>(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.ringDp.<get-ringDp>|<get-ringDp>(){}[0]
+    final val segments // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.segments|{}segments[0]
+        final fun <get-segments>(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.segments.<get-segments>|<get-segments>(){}[0]
+    final val sweep // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.sweep|{}sweep[0]
+        final fun <get-sweep>(): kotlin.collections/List<androidx.compose.ui.graphics/Color> // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.sweep.<get-sweep>|<get-sweep>(){}[0]
+    final val track // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.track|{}track[0]
+        final fun <get-track>(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.track.<get-track>|<get-track>(){}[0]
+
+    final fun component1(): androidx.compose.ui.graphics/Color // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.component1|component1(){}[0]
+    final fun component10(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.component10|component10(){}[0]
+    final fun component11(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.component11|component11(){}[0]
+    final fun component2(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.component2|component2(){}[0]
+    final fun component3(): kotlin/Float // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.component3|component3(){}[0]
+    final fun component4(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.component4|component4(){}[0]
+    final fun component5(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.component5|component5(){}[0]
+    final fun component6(): kotlin.collections/List<androidx.compose.ui.graphics/Color> // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.component6|component6(){}[0]
+    final fun component7(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.component7|component7(){}[0]
+    final fun component8(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.component8|component8(){}[0]
+    final fun component9(): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.component9|component9(){}[0]
+    final fun copy(androidx.compose.ui.graphics/Color = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., kotlin.collections/List<androidx.compose.ui.graphics/Color> = ..., kotlin/Int = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., kotlin/Float = ..., kotlin/Boolean = ...): ee.schimke.composeai.rcwidget.creation/RcWearLevelLook // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.copy|copy(androidx.compose.ui.graphics.Color;kotlin.Float;kotlin.Float;kotlin.Boolean;kotlin.Boolean;kotlin.collections.List<androidx.compose.ui.graphics.Color>;kotlin.Int;kotlin.Boolean;kotlin.Boolean;kotlin.Float;kotlin.Boolean){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget.creation/RcWearLevelLook.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize { // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize.<init>|<init>(kotlin.Int;kotlin.Int){}[0]
+
+    final val heightDp // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize.heightDp|{}heightDp[0]
+        final fun <get-heightDp>(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize.heightDp.<get-heightDp>|<get-heightDp>(){}[0]
+    final val widthDp // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize.widthDp|{}widthDp[0]
+        final fun <get-widthDp>(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize.widthDp.<get-widthDp>|<get-widthDp>(){}[0]
+
+    final fun component1(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize.component1|component1(){}[0]
+    final fun component2(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize.component2|component2(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Int = ...): ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize.copy|copy(kotlin.Int;kotlin.Int){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize.toString|toString(){}[0]
+}
+
+final val ee.schimke.composeai.rcwidget.creation/LocalRcWidgetCaptureSize // ee.schimke.composeai.rcwidget.creation/LocalRcWidgetCaptureSize|{}LocalRcWidgetCaptureSize[0]
+    final fun <get-LocalRcWidgetCaptureSize>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize?> // ee.schimke.composeai.rcwidget.creation/LocalRcWidgetCaptureSize.<get-LocalRcWidgetCaptureSize>|<get-LocalRcWidgetCaptureSize>(){}[0]
+final val ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcExpressionNames$stableprop // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcExpressionNames$stableprop|#static{}ee_schimke_composeai_rcwidget_creation_RcExpressionNames$stableprop[0]
+final val ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearBackground$stableprop // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearBackground$stableprop|#static{}ee_schimke_composeai_rcwidget_creation_RcWearBackground$stableprop[0]
+final val ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearBand$stableprop // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearBand$stableprop|#static{}ee_schimke_composeai_rcwidget_creation_RcWearBand$stableprop[0]
+final val ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearDiagonal$stableprop // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearDiagonal$stableprop|#static{}ee_schimke_composeai_rcwidget_creation_RcWearDiagonal$stableprop[0]
+final val ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearEdge$stableprop // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearEdge$stableprop|#static{}ee_schimke_composeai_rcwidget_creation_RcWearEdge$stableprop[0]
+final val ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearGlow$stableprop // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearGlow$stableprop|#static{}ee_schimke_composeai_rcwidget_creation_RcWearGlow$stableprop[0]
+final val ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearGradient$stableprop // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearGradient$stableprop|#static{}ee_schimke_composeai_rcwidget_creation_RcWearGradient$stableprop[0]
+final val ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearLevel$stableprop // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearLevel$stableprop|#static{}ee_schimke_composeai_rcwidget_creation_RcWearLevel$stableprop[0]
+final val ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearLevelLook$stableprop // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearLevelLook$stableprop|#static{}ee_schimke_composeai_rcwidget_creation_RcWearLevelLook$stableprop[0]
+final val ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWidgetCaptureSize$stableprop // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWidgetCaptureSize$stableprop|#static{}ee_schimke_composeai_rcwidget_creation_RcWidgetCaptureSize$stableprop[0]
+
+final fun (androidx.compose.remote.creation.compose.modifier/RemoteModifier).ee.schimke.composeai.rcwidget.creation/immediateSwap(): androidx.compose.remote.creation.compose.modifier/RemoteModifier // ee.schimke.composeai.rcwidget.creation/immediateSwap|immediateSwap@androidx.compose.remote.creation.compose.modifier.RemoteModifier(){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ProvideRcChildCaptureShare(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcwidget.creation/ProvideRcChildCaptureShare|ProvideRcChildCaptureShare(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ProvideRcExpressionNames(kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int) // ee.schimke.composeai.rcwidget.creation/ProvideRcExpressionNames|ProvideRcExpressionNames(kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ProvideRcWidgetActions(ee.schimke.composeai.rcwidget/RcWidgetActionIds, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int) // ee.schimke.composeai.rcwidget.creation/ProvideRcWidgetActions|ProvideRcWidgetActions(ee.schimke.composeai.rcwidget.RcWidgetActionIds;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ProvideRcWidgetCaptureSize(ee.schimke.composeai.rcwidget.creation/RcWidgetCaptureSize?, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int) // ee.schimke.composeai.rcwidget.creation/ProvideRcWidgetCaptureSize|ProvideRcWidgetCaptureSize(ee.schimke.composeai.rcwidget.creation.RcWidgetCaptureSize?;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/RcMinSizeGate(kotlin/Int, kotlin/Int, androidx.compose.remote.creation.compose.modifier/RemoteModifier?, kotlin/Function3<kotlin/Boolean, androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcwidget.creation/RcMinSizeGate|RcMinSizeGate(kotlin.Int;kotlin.Int;androidx.compose.remote.creation.compose.modifier.RemoteModifier?;kotlin.Function3<kotlin.Boolean,androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/RcSizeBreakpoint(kotlin/IntArray, androidx.compose.remote.creation.compose.modifier/RemoteModifier?, ee.schimke.composeai.rcwidget.creation/RcBreakpointAxis?, kotlin/Function3<kotlin/Int, androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcwidget.creation/RcSizeBreakpoint|RcSizeBreakpoint(kotlin.IntArray;androidx.compose.remote.creation.compose.modifier.RemoteModifier?;ee.schimke.composeai.rcwidget.creation.RcBreakpointAxis?;kotlin.Function3<kotlin.Int,androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/RcWearContainerFrame(androidx.compose.remote.creation.compose.state/RemoteColor, androidx.compose.remote.creation.compose.state/RemoteDp, androidx.compose.remote.creation.compose.state/RemoteDp, androidx.compose.remote.creation.compose.state/RemoteDp, androidx.compose.remote.creation.compose.modifier/RemoteModifier?, ee.schimke.composeai.rcwidget.creation/RcWearBackground?, ee.schimke.composeai.rcwidget.creation/RcWearLevel?, ee.schimke.composeai.rcwidget.creation/RcWearLevelLook?, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcwidget.creation/RcWearContainerFrame|RcWearContainerFrame(androidx.compose.remote.creation.compose.state.RemoteColor;androidx.compose.remote.creation.compose.state.RemoteDp;androidx.compose.remote.creation.compose.state.RemoteDp;androidx.compose.remote.creation.compose.state.RemoteDp;androidx.compose.remote.creation.compose.modifier.RemoteModifier?;ee.schimke.composeai.rcwidget.creation.RcWearBackground?;ee.schimke.composeai.rcwidget.creation.RcWearLevel?;ee.schimke.composeai.rcwidget.creation.RcWearLevelLook?;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/RcWearDecoratedContainer(ee.schimke.composeai.rcwidget.creation/RcWearBackground?, androidx.compose.remote.creation.compose.state/RemoteColor, androidx.compose.remote.creation.compose.state/RemoteDp, androidx.compose.remote.creation.compose.modifier/RemoteModifier?, ee.schimke.composeai.rcwidget.creation/RcWearLevel?, ee.schimke.composeai.rcwidget.creation/RcWearLevelLook?, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcwidget.creation/RcWearDecoratedContainer|RcWearDecoratedContainer(ee.schimke.composeai.rcwidget.creation.RcWearBackground?;androidx.compose.remote.creation.compose.state.RemoteColor;androidx.compose.remote.creation.compose.state.RemoteDp;androidx.compose.remote.creation.compose.modifier.RemoteModifier?;ee.schimke.composeai.rcwidget.creation.RcWearLevel?;ee.schimke.composeai.rcwidget.creation.RcWearLevelLook?;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/RcWearTemplateContainer(androidx.compose.remote.creation.compose.modifier/RemoteModifier?, ee.schimke.composeai.rcwidget.creation/RcWearBackground?, ee.schimke.composeai.rcwidget.creation/RcWearLevel?, ee.schimke.composeai.rcwidget.creation/RcWearLevelLook?, ee.schimke.composeai.rcwidget/RcWearFrame?, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcwidget.creation/RcWearTemplateContainer|RcWearTemplateContainer(androidx.compose.remote.creation.compose.modifier.RemoteModifier?;ee.schimke.composeai.rcwidget.creation.RcWearBackground?;ee.schimke.composeai.rcwidget.creation.RcWearLevel?;ee.schimke.composeai.rcwidget.creation.RcWearLevelLook?;ee.schimke.composeai.rcwidget.RcWearFrame?;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcExpressionNames$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcExpressionNames$stableprop_getter|ee_schimke_composeai_rcwidget_creation_RcExpressionNames$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearBackground$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearBackground$stableprop_getter|ee_schimke_composeai_rcwidget_creation_RcWearBackground$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearBand$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearBand$stableprop_getter|ee_schimke_composeai_rcwidget_creation_RcWearBand$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearDiagonal$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearDiagonal$stableprop_getter|ee_schimke_composeai_rcwidget_creation_RcWearDiagonal$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearEdge$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearEdge$stableprop_getter|ee_schimke_composeai_rcwidget_creation_RcWearEdge$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearGlow$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearGlow$stableprop_getter|ee_schimke_composeai_rcwidget_creation_RcWearGlow$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearGradient$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearGradient$stableprop_getter|ee_schimke_composeai_rcwidget_creation_RcWearGradient$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearLevel$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearLevel$stableprop_getter|ee_schimke_composeai_rcwidget_creation_RcWearLevel$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearLevelLook$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWearLevelLook$stableprop_getter|ee_schimke_composeai_rcwidget_creation_RcWearLevelLook$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWidgetCaptureSize$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcwidget.creation/ee_schimke_composeai_rcwidget_creation_RcWidgetCaptureSize$stableprop_getter|ee_schimke_composeai_rcwidget_creation_RcWidgetCaptureSize$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/isRcWidgetActionCapture(androidx.compose.runtime/Composer?, kotlin/Int): kotlin/Boolean // ee.schimke.composeai.rcwidget.creation/isRcWidgetActionCapture|isRcWidgetActionCapture(androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/rcContrast(androidx.compose.ui.graphics/Color, androidx.compose.ui.graphics/Color): kotlin/Float // ee.schimke.composeai.rcwidget.creation/rcContrast|rcContrast(androidx.compose.ui.graphics.Color;androidx.compose.ui.graphics.Color){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/rcReadableAlpha(androidx.compose.ui.graphics/Color, androidx.compose.ui.graphics/Color, androidx.compose.ui.graphics/Color, androidx.compose.ui.graphics/Color, kotlin/Float): kotlin/Float // ee.schimke.composeai.rcwidget.creation/rcReadableAlpha|rcReadableAlpha(androidx.compose.ui.graphics.Color;androidx.compose.ui.graphics.Color;androidx.compose.ui.graphics.Color;androidx.compose.ui.graphics.Color;kotlin.Float){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/rcWidgetActionMetadata(androidx.compose.remote.creation.compose.state/RemoteString, kotlin/String? = ..., androidx.compose.remote.creation.compose.state/RemoteString = ..., androidx.compose.remote.creation.compose.state/RemoteString = ...): androidx.compose.remote.creation.compose.state/RemoteString // ee.schimke.composeai.rcwidget.creation/rcWidgetActionMetadata|rcWidgetActionMetadata(androidx.compose.remote.creation.compose.state.RemoteString;kotlin.String?;androidx.compose.remote.creation.compose.state.RemoteString;androidx.compose.remote.creation.compose.state.RemoteString){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/rcWidgetHostAction(kotlin/String, kotlin/String, androidx.compose.remote.creation.compose.state/RemoteString?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): androidx.compose.remote.creation.compose.action/Action // ee.schimke.composeai.rcwidget.creation/rcWidgetHostAction|rcWidgetHostAction(kotlin.String;kotlin.String;androidx.compose.remote.creation.compose.state.RemoteString?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcwidget.creation/rememberRcExpressionName(kotlin/String, androidx.compose.runtime/Composer?, kotlin/Int): kotlin/String // ee.schimke.composeai.rcwidget.creation/rememberRcExpressionName|rememberRcExpressionName(kotlin.String;androidx.compose.runtime.Composer?;kotlin.Int){}[0]

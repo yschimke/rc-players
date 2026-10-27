@@ -82,6 +82,14 @@ jobs:
             :rc-player-metrics:test \
             :rc-player-profile:test \
             :third-party-rc-embedded-player:testDebugUnitTest \
+            :rc-widget-core:jvmTest \
+            :rc-widget-core:testAndroidHostTest \
+            :rc-widget-launcher:testAndroidHostTest \
+            :rc-widget-wear:testAndroidHostTest \
+            :rc-widget-core:checkKotlinAbi \
+            :rc-widget-creation:checkKotlinAbi \
+            :rc-widget-launcher:checkKotlinAbi \
+            :rc-widget-wear:checkKotlinAbi \
             :rc-player-trace:checkKotlinAbi \
             :rc-player-protocol:checkKotlinAbi \
             :rc-player-runtime:checkKotlinAbi \

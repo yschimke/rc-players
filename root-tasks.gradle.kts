@@ -55,6 +55,10 @@ val publishedProjects =
     ":rc-creation-bridge" to "rc-creation-bridge",
     ":third-party-remote-creation-writer" to "third-party-remote-creation-writer",
     ":third-party-remote-creation-compose" to "third-party-remote-creation-compose",
+    ":rc-widget-core" to "rc-widget-core",
+    ":rc-widget-creation" to "rc-widget-creation",
+    ":rc-widget-launcher" to "rc-widget-launcher",
+    ":rc-widget-wear" to "rc-widget-wear",
     ":third-party-rc-embedded-player" to "third-party-rc-embedded-player",
     // Named for what it contains rather than for the project that wraps it. Kept in step with
     // `PublishedArtifactIds` in build-logic by `PublishedArtifactIdsTest`, which reads both.

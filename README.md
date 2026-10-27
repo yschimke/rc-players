@@ -186,6 +186,19 @@ All five run `explicitApi()` and an ABI dump gate: `checkKotlinAbi` diffs the re
 against the committed dumps in each module's `api/`, so a change to the published API shows up as a
 diff in review. Regenerate with `./gradlew updateKotlinAbi`.
 
+### Widgets (`rc-widget/`)
+
+Launcher widgets, Wear OS widgets and in-app cards drawn from one Remote Compose design, captured
+on the device. A server can also serve them. The design is in
+[`docs/design/RC_WIDGETS.md`](docs/design/RC_WIDGETS.md).
+
+| Module | Artifact | What it is |
+| --- | --- | --- |
+| `rc-widget/core` | `rc-widget-core` | Target negotiation (`RcPlayerCapabilities`, `RcWidgetTargets`), baking templates for hosts that cannot bind values (`RcWidgetDocuments`), binding contracts and template checks, the Wear container's named frame (`RcWearContainer`, `RcWearTemplates`), tap rewrites and numeric widget action ids, and a local template library with disk and bundled stores. No Compose and no Android; runs on a server. |
+| `rc-widget/creation` | `rc-widget-creation` | Reproducible expression names, size breakpoints a launcher capture resolves, numeric widget host actions, and custom host-framed Wear containers (backgrounds, edges, ring and fill levels). AndroidX's creation API on Android, the CMP fork elsewhere. |
+| `rc-widget/launcher` | `rc-widget-launcher` | Android launcher widgets: capture profiles, the Android 16 compatibility pass, local capture with embedded images, `RemoteViews` and `PendingIntent` assembly, sizing, and an in-app resizable preview of the real `RemoteViews`. |
+| `rc-widget/wear` | `rc-widget-wear` | Wear OS widgets through Glance Wear: templates captured once and instantiated per widget and watch, taps that open the app, the host-framed document, remembered frames, and the provider-configuration contract. |
+
 ### The browser host (`rc-player/wasm`)
 
 Published twice, because its two consumers resolve differently and neither channel substitutes for

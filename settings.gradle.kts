@@ -181,6 +181,22 @@ include(":rc-player-edit")
 
 project(":rc-player-edit").projectDir = file("rc-player/edit")
 
+include(":rc-widget-core")
+
+project(":rc-widget-core").projectDir = file("rc-widget/core")
+
+include(":rc-widget-creation")
+
+project(":rc-widget-creation").projectDir = file("rc-widget/creation")
+
+include(":rc-widget-launcher")
+
+project(":rc-widget-launcher").projectDir = file("rc-widget/launcher")
+
+include(":rc-widget-wear")
+
+project(":rc-widget-wear").projectDir = file("rc-widget/wear")
+
 include(":rc-player-wasm")
 
 project(":rc-player-wasm").projectDir = file("rc-player/wasm")
