@@ -17,10 +17,18 @@
 package androidx.compose.remote.creation.compose.text
 
 import androidx.annotation.RestrictTo
+import androidx.compose.remote.creation.compose.layout.toRemoteFontStyle
+import androidx.compose.remote.creation.compose.layout.toRemoteFontWeight
+import androidx.compose.remote.creation.compose.layout.toRemoteHyphens
+import androidx.compose.remote.creation.compose.layout.toRemoteLineBreak
+import androidx.compose.remote.creation.compose.layout.toRemoteTextAlign
+import androidx.compose.remote.creation.compose.layout.toRemoteTextDecoration
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteTextUnit
 import androidx.compose.remote.creation.compose.state.asRemoteTextUnit
 import androidx.compose.remote.creation.compose.state.rc
+import androidx.compose.remote.creation.compose.util.fastFilter
+import androidx.compose.remote.creation.compose.util.fastFirstOrNull
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -33,8 +41,6 @@ import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.util.fastFilter
-import androidx.compose.ui.util.fastFirstOrNull
 
 /**
  * A remote-aware text style that mirrors [androidx.compose.ui.text.TextStyle] but uses remote types
@@ -74,6 +80,44 @@ constructor(
     public val fontFeatureSettings: String? = null,
     public val fontVariationSettings: FontVariation.Settings? = null,
 ) {
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public val remoteFontWeight: RemoteFontWeight?
+        get() = fontWeight?.toRemoteFontWeight()
+
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public val remoteFontStyle: RemoteFontStyle?
+        get() = fontStyle?.toRemoteFontStyle()
+
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public val remoteTextAlign: RemoteTextAlign?
+        get() =
+            if (textAlign == null || textAlign == TextAlign.Unspecified) {
+                null
+            } else {
+                textAlign.toRemoteTextAlign()
+            }
+
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public val remoteTextDecoration: RemoteTextDecoration?
+        get() = textDecoration?.toRemoteTextDecoration()
+
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public val remoteLineBreak: RemoteLineBreak?
+        get() =
+            if (lineBreak == LineBreak.Unspecified) {
+                null
+            } else {
+                lineBreak.toRemoteLineBreak()
+            }
+
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public val remoteHyphens: RemoteHyphens?
+        get() =
+            if (hyphens == Hyphens.Unspecified) {
+                null
+            } else {
+                hyphens.toRemoteHyphens()
+            }
 
     /**
      * Returns a new [RemoteTextStyle] that is a combination of this style and the given [other]
@@ -106,6 +150,28 @@ constructor(
         )
     }
 
+    /**
+     * Returns a new [RemoteTextStyle] that is a combination of this style and the given attributes,
+     * keeping this style's values for any attributes left unspecified (`null` or `Unspecified`).
+     *
+     * @param color The color of the text.
+     * @param fontSize The size of glyphs to use when painting the text in [RemoteTextUnit].
+     * @param fontWeight The typeface thickness to use when painting the text (e.g.,
+     *   [FontWeight.Bold]).
+     * @param fontStyle The font style to use when painting the text (e.g., [FontStyle.Italic]).
+     * @param fontFamily The font family to be used when rendering the text.
+     * @param letterSpacing The amount of space to add between each letter in [RemoteTextUnit].
+     * @param background The background color for the text.
+     * @param textAlign The alignment of the text within the lines of the paragraph.
+     * @param lineHeight Line height for the text in [RemoteTextUnit] unit, e.g. SP or EM.
+     * @param textDecoration The decorations to paint on the text (e.g.,
+     *   [TextDecoration.Underline]).
+     * @param lineBreak The configuration of line break.
+     * @param hyphens The configuration of hyphenation.
+     * @param fontFeatureSettings The advanced typography settings provided by font in CSS format
+     *   (e.g. "smcp" or "tnum").
+     * @param fontVariationSettings The font variation settings to be applied to the text.
+     */
     public fun merge(
         color: RemoteColor? = null,
         fontSize: RemoteTextUnit? = null,
@@ -142,6 +208,24 @@ constructor(
 
     /**
      * Creates a copy of this [RemoteTextStyle] with the ability to override individual attributes.
+     *
+     * @param color The color of the text.
+     * @param fontSize The size of glyphs to use when painting the text in [RemoteTextUnit].
+     * @param fontWeight The typeface thickness to use when painting the text (e.g.,
+     *   [FontWeight.Bold]).
+     * @param fontStyle The font style to use when painting the text (e.g., [FontStyle.Italic]).
+     * @param fontFamily The font family to be used when rendering the text.
+     * @param letterSpacing The amount of space to add between each letter in [RemoteTextUnit].
+     * @param background The background color for the text.
+     * @param textAlign The alignment of the text within the lines of the paragraph.
+     * @param lineHeight Line height for the text in [RemoteTextUnit] unit, e.g. SP or EM.
+     * @param textDecoration The decorations to paint on the text (e.g.,
+     *   [TextDecoration.Underline]).
+     * @param lineBreak The configuration of line break.
+     * @param hyphens The configuration of hyphenation.
+     * @param fontFeatureSettings The advanced typography settings provided by font in CSS format
+     *   (e.g. "smcp" or "tnum").
+     * @param fontVariationSettings The font variation settings to be applied to the text.
      */
     public fun copy(
         color: RemoteColor? = this.color,
@@ -178,6 +262,7 @@ constructor(
     }
 
     public companion object {
+        /** Constant for default [RemoteTextStyle] with no overridden properties. */
         public val Default: RemoteTextStyle = RemoteTextStyle()
 
         /**
@@ -188,6 +273,8 @@ constructor(
          * taken from the [Font] in the [FontListFontFamily] that best matches the style's
          * [FontWeight] and [FontStyle], using the same CSS font matching rules as Compose, among
          * the fonts that declare variation settings.
+         *
+         * @param style The Compose [TextStyle] to convert.
          */
         public fun fromTextStyle(style: TextStyle): RemoteTextStyle {
             // Maps unspecified color into null as it's not supported in remote compose.

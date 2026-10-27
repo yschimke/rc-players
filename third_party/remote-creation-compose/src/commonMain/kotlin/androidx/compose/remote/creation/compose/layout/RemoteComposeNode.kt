@@ -19,6 +19,7 @@ package androidx.compose.remote.creation.compose.layout
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.RemoteModifierData
 import androidx.compose.remote.creation.compose.capture.LocalRemoteDensity
+import androidx.compose.remote.creation.compose.capture.LocalRemoteLayoutDirection
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.RemoteDensity
 import androidx.compose.remote.creation.compose.capture.WriterOp
@@ -27,19 +28,20 @@ import androidx.compose.remote.creation.compose.modifier.drawWithContent
 import androidx.compose.remote.creation.compose.modifier.hasDrawWithContent
 import androidx.compose.remote.creation.compose.modifier.requestedComponentId
 import androidx.compose.remote.creation.compose.modifier.toRemoteModifierData
+import androidx.compose.remote.creation.compose.state.PlatformRemoteStateScope
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
+import androidx.compose.remote.creation.compose.util.fastForEach
+import androidx.compose.remote.creation.compose.util.fastForEachReversed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
 import androidx.compose.runtime.DisallowComposableCalls
 import androidx.compose.runtime.Updater
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.util.fastForEach
-import androidx.compose.ui.util.fastForEachReversed
 
 internal abstract class RemoteComposeNode {
     val children = mutableListOf<RemoteComposeNode>()
     var modifier: RemoteModifier = RemoteModifier
     var remoteDensity: RemoteDensity = RemoteDensity.Host
+    var layoutDirection: RemoteLayoutDirection = RemoteLayoutDirection.Ltr
     private var renderedComponentId: Int = 0
 
     // LOCAL PATCH (rc-players): whether the writer follows this component with a content section
@@ -47,7 +49,7 @@ internal abstract class RemoteComposeNode {
     protected open val writesContentSection: Boolean = true
 
     fun overriddenScope(creationState: RemoteComposeCreationState): RemoteStateScope {
-        return OverriddenScope(creationState, remoteDensity, creationState.layoutDirection)
+        return OverriddenScope(creationState, remoteDensity, creationState.remoteLayoutDirection)
     }
 
     abstract fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas)
@@ -85,7 +87,7 @@ internal abstract class RemoteComposeNode {
         try {
             if (modifier.hasDrawWithContent()) {
                 remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.StartCanvasOperations)
-                modifier.drawWithContent(remoteCanvas) {
+                modifier.drawWithContent(overriddenScope(creationState), remoteCanvas) {
                     remoteCanvas.internalCanvas.drawComponentContent()
                 }
                 remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndCanvasOperations)
@@ -117,9 +119,11 @@ internal inline fun <T : RemoteComposeNode> RemoteComposeNode(
     update: @DisallowComposableCalls Updater<T>.() -> Unit,
 ) {
     val remoteDensity = LocalRemoteDensity.current
+    val layoutDirection = LocalRemoteLayoutDirection.current
     ComposeNode<T, RemoteComposeApplier>(factory) {
         update()
         set(remoteDensity) { this.remoteDensity = it }
+        set(layoutDirection) { this.layoutDirection = it }
     }
 }
 
@@ -131,11 +135,13 @@ internal inline fun <T : RemoteComposeNode> RemoteComposeNode(
     content: @Composable @RemoteComposable () -> Unit,
 ) {
     val remoteDensity = LocalRemoteDensity.current
+    val layoutDirection = LocalRemoteLayoutDirection.current
     ComposeNode<T, RemoteComposeApplier>(
         factory,
         {
             update()
             set(remoteDensity) { this.remoteDensity = it }
+            set(layoutDirection) { this.layoutDirection = it }
         },
         content,
     )
@@ -143,9 +149,9 @@ internal inline fun <T : RemoteComposeNode> RemoteComposeNode(
 
 internal fun shouldReverse(
     horizontalArrangement: RemoteArrangement.Horizontal,
-    layoutDirection: LayoutDirection,
+    layoutDirection: RemoteLayoutDirection,
 ): Boolean =
-    if (layoutDirection == LayoutDirection.Rtl) {
+    if (layoutDirection == RemoteLayoutDirection.Rtl) {
         when (horizontalArrangement) {
             is HorizontalArrangement -> !horizontalArrangement.isAbsolute()
 
@@ -161,5 +167,5 @@ internal fun shouldReverse(
 internal class OverriddenScope(
     override val parentScope: RemoteStateScope,
     override val remoteDensity: RemoteDensity,
-    override val layoutDirection: LayoutDirection,
-) : RemoteStateScope
+    override val remoteLayoutDirection: RemoteLayoutDirection,
+) : PlatformRemoteStateScope

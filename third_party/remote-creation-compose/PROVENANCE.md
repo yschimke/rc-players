@@ -22,7 +22,8 @@ layer cannot reach from outside, and each one is a marked local patch.
 - AndroidX change [4307936](https://android-review.googlesource.com/c/platform/frameworks/support/+/4307936)
   patch set 17, commit `01398020c7ec20f51e51bfc2b65b9b425e338be9`, refreshed to androidx.dev
   snapshot `16547072` (androidx-main `40ff48144`), then to androidx-main `51b1c49d7`
-  (2026-10-15, a superset of snapshot `16617687` = `522d8695c`).
+  (2026-10-15, a superset of snapshot `16617687` = `522d8695c`), then to androidx-main
+  `5dab33683` (2026-10-27).
 - License: Apache-2.0
 - Paths:
 
@@ -116,6 +117,83 @@ Deliberately skipped:
   lists only opted-in operations, so the helpers would report false by default.
 - `4e646d52e`: KDoc only, and it names upstream's `RemotePath`.
 
+## Refresh 51b1c49d7 → androidx-main 5dab33683
+
+The range is mostly Compose UI decoupling: upstream adds `Remote*` value types and moves the Compose
+UI overloads into `*Android.kt` files. CMP has those types in common, so the split files that need
+only Compose UI are carried in `commonMain` under upstream's names, which keeps the mapping 1:1. Its
+`DrawHelpersAndroid.kt` conversions replace the port's `layout/DrawHelpers.kt`. The `remote-core`
+constants the new types read are added to `../remote-creation-writer` (`CoreText`,
+`PaintBundle.STYLE_*`).
+
+Taken:
+
+- Decoupling: `RemoteBlendMode` (`14f2588ba`, `8cb61b2dd`, `aeda599f7`), `RemoteTileMode`
+  (`e06f18f2c`, `d4b9ca4bc`), `RemoteContentScale` (`bbeaf2e64`, `077424ee0`), `RemoteFontWeight`
+  and `RemoteFontStyle` (`c37b396ba`, `9649a609f`), `RemoteTextAlign`/`RemoteTextOverflow`
+  (`82dda3a2a`), `RemoteTextDecoration`/`RemoteLineBreak`/`RemoteHyphens` (`35e0a1097`),
+  `RemoteLayoutDirection`, `LocalRemoteLayoutDirection` and `RemoteStateScope.remoteLayoutDirection`
+  (`dec095528`, `d94310113`, `f44a94348`, `81608b392`), `RemoteRole` (`ae4402ae9`; written as the
+  `AccessibleComponent.Role` ordinal), `RemoteStrokeCap`/`Join` (`09d495416`, `16c82eeba`),
+  `RemotePaintingStyle` (`80aa0bed6`), `RemotePathFillType` (`a18703165`), `RemoteFilterQuality`
+  (`923c036ab`), `RemoteCompositingStrategy` (`690d61b02`), `RemoteColorFilter.applyToPaintBundle`
+  (`0fb296d3f`), and the bridge splits (`69b196837`, `b420d4759`, `db7c0e82e`, `26d1d2931`,
+  `0bbb15f98`, `25b11cab9`, `0f63d733f`, `cb6e68901`, `f0c1b60e2`). The capture provides
+  `LocalRemoteLayoutDirection` computed from `LocalLayoutDirection`, as upstream's Android capture does.
+- Removals: `RemoteModifier.animationSpec` (`5ef70121c`), `painterRemoteColor(Color)`
+  (`673052411`), `ComposeRemoteColorFilter` (`c30e9d159`, so the port's `setComposeColorFilter`
+  expect/actuals go), `RemoteCustomPropertiesScope.property(id, Color)` (`c4af53541`), unused
+  `ClipOp` parameters (`30ad6b28f`), `RemoteBrush.fromComposeUi` (`97e519eba`), the Compose
+  `Offset`/`Size` conversions (`2deadc573`, `bec5e5508`), `RemoteTypeface`'s Android conversions
+  (`183d083fb`), `RemoteGroupComponent` tint tracking (`037843b55`), `PathEffect` (`f05536a5b`),
+  `ready`/`time` (`c7cdd34fc`), `AnimatedRemoteFloat`'s unused fields (`7915a136e`).
+- `RemoteCanvas` (from the `RecordingCanvas` moves `e39ea21a5`, `bc2d34478`, `391c03af9`,
+  `c5161ae3d`): public `flush()`, `scale`/`rotate` about (`px`, `py`), `drawText`/`drawTextRun`/
+  `drawTextOnPath` with plain text, `drawBitmap` into a rectangle, `loop(Int, RemoteInt)`, and
+  `drawPath(RemotePathFillType)`.
+- `1d18c52eb`: a component writes one `DrawContent` marker however many `drawWithContent`s it
+  chains. The port already nested chained modifiers (its local patch); that patch now resolves
+  padding as upstream does, through `resolveLeft`/`Top`/`Right`/`Bottom` (layout direction, and dp
+  under `RemoteDensityBehavior.Dp`).
+- `8002ce4e0`: `RemoteDrawScope.clipOutline`, in `shapes/RemoteOutlineDraw.kt`.
+- `fda5f7c27`: `RemoteBrush` fills and strokes in `RemoteImageVector`.
+- `fb80250be`: `RemoteComponent.x`/`y`/`rootX`/`rootY`, through new `RemoteWriter.addComponent*Value`
+  (`ComponentValue` types 2-5), keyed on the last component like width and height.
+- `a97f4da26`: `RemoteImageBitmap.IntrinsicSize` and the `size` overloads.
+- `e91e0524a`: the constructor-wrapping `remember*` factories are deprecated, and
+  `MutableRemoteBoolean(Boolean)` / `RemoteScrollState(Float, Int)` are public, as upstream.
+- Val-ification (`aff8be7df`, `9c24f3ac4`, `88da8dbad`, `8f2515dea`, `78a8cd4df`, `db6f41f07`,
+  `efa25d41a`, `3deb92820`), `ListUtils` (`1f72da5c5`, `6bc85dcbc`), `368f0e3a7`, and the KDoc
+  passes on carried files (`bd8c4fe69`, `71f64acb1`, `42f5cfd67`).
+
+Already in the port: `61b971e7a` (the port's modifier folding already uses `mutableSetOf`); the
+nesting half of `1d18c52eb` (see above).
+
+Not applicable:
+
+- Upstream's capture loop and headless package, which the port replaces with
+  `RemoteDocumentSession`: `143ef54f9`, `99db52477`, `304dcdff4`, `e1253ffde`, `73133f2dd`,
+  `142e7e07c`, `54d22ac14`, `18620d630`, `20643465d`, `da54ebbec`, `efe35bdd7`, `45d191140`,
+  `12d05312a`, `f7b819280`, `c20632eae`, `d5ec98641`, `23bce7a38`. The session already renders in a
+  mutable snapshot and tracks what a render reads; it still applies a render's own writes, as
+  upstream's single-shot capture does without enforced clean recomposition.
+- `RcPlatformServices` logging (`9bade0df2`, `9d116b015`, `c0d32f135`), `PendingIntentAction`
+  (`c622a0ab5`), `Profile`/`RcPlatformProfiles` (`164305fee`), `remote-core` (`b7649f8f8`,
+  `e37d48c74`: the writer validates no operation list), `RemoteCanvasAndroid`'s `android.graphics`
+  overloads (`d65779c59`, `c16ab834e`, `6802c2286`, `f2f548a81`, `084fd1f2c`),
+  `RemoteAnimatedVectorPainter` (`def66c97b`), and test-only migrations (`e52229d46`, `087694c20`,
+  `c7346cf07`, `99095c2c2`, `930e88d43`, `1788a8ba6`).
+
+Deliberately skipped:
+
+- `RemoteCanvas` Loom patterns and `forEach` (`dafb6ee95`, `efcc8513d`) and
+  `drawBitmapFontTextRun*` (`f9b2770ce`): `RemoteWriter` has no pattern-define or bitmap-font-run
+  operations. `skew`, `saveCount`/`restoreToCount` (`33de12812`), `custom` and
+  `startStateLayout`/`endStateLayout` on `RemoteCanvas` stay out, as before.
+- `currentProfileSupportsPathClip` (`8002ce4e0`): as with `c93e26675`, the port has no `Profile`.
+- `RemoteComposeCreationState` keeps `layoutDirection` as its stored property and derives
+  `remoteLayoutDirection`; upstream stores the remote one. Same values, no constructor change.
+
 ## Local patches
 
 Every patched line sits under a `// LOCAL PATCH (rc-players)` comment. Each patch is generic enough
@@ -130,7 +208,6 @@ to offer upstream, and the list is meant to shrink.
 | `modifier/ComponentIdModifier.kt` (new), `layout/RemoteComposeNode.kt`, `capture/CommonCreationState.kt`, `modifier/RemoteModifier.kt` | `RemoteModifier.componentId(id)`: a node takes a requested component id (at most `MaxExplicitComponentId`, -2,000,000, below both ranges a document allocates) instead of a positional one, once per render | Lets a host name components: an editor maps the player's geometry back to its own nodes (`RcComponentIds` in `:rc-creation-bridge`) |
 | `capture/DisplayInfo.kt` | `RemoteDensityBehavior.wireValue` | Lets a writer outside the module describe the same display |
 | `../remote-creation-writer/.../RemoteDocumentWriter.kt` | `startCustom` content section takes a fresh component id | **Port bug.** Upstream's `addContentStart` allocates one; the port reused the layout's own id, and rc-players' player rejects the duplicate. The same fix is in yschimke/remote-m3-catalog's vendor copy (yschimke/remote-m3-catalog#133); this patch retires when that lands and the fork is re-taken from it. |
-| `src/androidMain/.../ComposeColorFilter.android.kt` | Inlines the port's blend-mode mapping | The rest of the port's Android sources are not carried |
 | `modifier/DrawWithContentModifier.kt`, `layout/RemoteDrawScope.kt`, `layout/RemoteContentDrawScope.kt` | A `drawWithContent` after padding draws inside it: translated past the padding before it, its scope's `width`/`height` reduced by it, its content drawn back at the component's origin | **Port bug.** AndroidX writes it this way, and the player does not inset a draw modifier itself, so the fork drew a padded component's decoration over its padding |
 
 ## Upstream follow-ups

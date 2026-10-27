@@ -31,7 +31,7 @@ internal class RemoteCanvasNode : RemoteComposeNode() {
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.StartCanvas(remoteModifier))
         val previousComponent = creationState.enterComponentScope(remoteModifier.componentId)
         try {
-            if (!modifier.drawWithContent(remoteCanvas, onDraw)) {
+            if (!modifier.drawWithContent(scope, remoteCanvas, onDraw)) {
                 val drawScope = RemoteDrawScope(remoteCanvas)
                 drawScope.onDraw()
             }

@@ -626,6 +626,18 @@ public class RemoteDocumentWriter(
   override fun addComponentHeightValue(componentId: Int): Float =
     componentValue(ComponentHeight, componentId)
 
+  override fun addComponentXValue(componentId: Int): Float =
+    componentValue(ComponentPosX, componentId)
+
+  override fun addComponentYValue(componentId: Int): Float =
+    componentValue(ComponentPosY, componentId)
+
+  override fun addComponentRootXValue(componentId: Int): Float =
+    componentValue(ComponentPosRootX, componentId)
+
+  override fun addComponentRootYValue(componentId: Int): Float =
+    componentValue(ComponentPosRootY, componentId)
+
   override fun setNamedVariable(id: Int, name: String, type: Int): Unit =
     writeNamedVariable(id, type, name)
 
@@ -1639,6 +1651,10 @@ public class RemoteDocumentWriter(
     private const val ColorIdArgbMode = 6
     private const val ComponentWidth = 0
     private const val ComponentHeight = 1
+    private const val ComponentPosX = 2
+    private const val ComponentPosY = 3
+    private const val ComponentPosRootX = 4
+    private const val ComponentPosRootY = 5
 
     private const val MagicNumber = 0x048C0000
     private const val MajorVersion = 1

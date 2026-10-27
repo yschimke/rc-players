@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+@file:kotlin.jvm.JvmName("RemoteRadialGradientKt")
+@file:kotlin.jvm.JvmMultifileClass
+
 package androidx.compose.remote.creation.compose.shaders
 
 import androidx.annotation.RestrictTo
@@ -20,27 +24,25 @@ import androidx.compose.remote.creation.common.PaintBundleData
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
 import androidx.compose.remote.creation.compose.layout.RemoteOffset
 import androidx.compose.remote.creation.compose.layout.RemoteSize
-import androidx.compose.remote.creation.compose.layout.toTileModeInt
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
+import androidx.compose.remote.creation.compose.state.RemoteTileMode
+import androidx.compose.remote.creation.compose.util.fastMap
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.TileMode as ComposeTileMode
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.util.fastMap
 
 /**
  * Creates a radial gradient with the given colors at the provided offset defined in the colorstop
  * pair.
  *
  * ```
- * Brush.radialGradient(
- *      0.0f to Color.Red.rc,
- *      0.3f to Color.Green.rc,
- *      1.0f to Color.Blue.rc,
- *      center = Offset(side1 / 2.0f, side2 / 2.0f),
+ * RemoteBrush.radialGradient(
+ *      0.0f.rf to Color.Red.rc,
+ *      0.3f.rf to Color.Green.rc,
+ *      1.0f.rf to Color.Blue.rc,
+ *      center = RemoteOffset(side1 / 2.0f, side2 / 2.0f),
  *      radius = side1 / 2.0f,
  *      tileMode = TileMode.Repeated
  * )
@@ -48,21 +50,22 @@ import androidx.compose.ui.util.fastMap
  *
  * @param colorStops Colors and offsets to determine how the colors are dispersed throughout the
  *   radial gradient
- * @param center Center position of the radial gradient circle. If this is set to
- *   [Offset.Unspecified] then the center of the drawing area is used as the center for the radial
- *   gradient. [Float.POSITIVE_INFINITY] can be used for either [Offset.x] or [Offset.y] to indicate
- *   the far right or far bottom of the drawing area respectively.
+ * @param center Center position of the radial gradient circle. If this is set to `null` then the
+ *   center of the drawing area is used as the center for the radial gradient.
+ *   [Float.POSITIVE_INFINITY] can be used for either [RemoteOffset.x] or [RemoteOffset.y] to
+ *   indicate the far right or far bottom of the drawing area respectively.
  * @param radius Radius for the radial gradient. Defaults to positive infinity to indicate the
  *   largest radius that can fit within the bounds of the drawing area
  * @param tileMode Determines the behavior for how the shader is to fill a region outside its
- *   bounds. Defaults to [ComposeTileMode.Clamp] to repeat the edge pixels
+ *   bounds. Defaults to [RemoteTileMode.Clamp] to repeat the edge pixels
  */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Stable
 public fun RemoteBrush.Companion.radialGradient(
     vararg colorStops: Pair<RemoteFloat, RemoteColor>,
     center: RemoteOffset? = null,
     radius: RemoteFloat? = null,
-    tileMode: ComposeTileMode = ComposeTileMode.Clamp,
+    tileMode: RemoteTileMode,
 ): RemoteShaderBrush =
     RemoteRadialGradient(
         colors = List(colorStops.size) { i -> colorStops[i].second },
@@ -76,30 +79,31 @@ public fun RemoteBrush.Companion.radialGradient(
  * Creates a radial gradient with the given colors evenly dispersed within the gradient
  *
  * ```
- * Brush.radialGradient(
+ * RemoteBrush.radialGradient(
  *      listOf(Color.Red.rc, Color.Blue.rc),
- *      center = Offset(side1 / 2.0f, side2 / 2.0f),
+ *      center = RemoteOffset(side1 / 2.0f, side2 / 2.0f),
  *      radius = side1 / 2.0f,
  *      tileMode = TileMode.Repeated
  * )
  * ```
  *
  * @param colors Colors to be rendered as part of the gradient
- * @param center Center position of the radial gradient circle. If this is set to
- *   [Offset.Unspecified] then the center of the drawing area is used as the center for the radial
- *   gradient. [Float.POSITIVE_INFINITY] can be used for either [Offset.x] or [Offset.y] to indicate
- *   the far right or far bottom of the drawing area respectively.
+ * @param center Center position of the radial gradient circle. If this is set to `null` then the
+ *   center of the drawing area is used as the center for the radial gradient.
+ *   [Float.POSITIVE_INFINITY] can be used for either [RemoteOffset.x] or [RemoteOffset.y] to
+ *   indicate the far right or far bottom of the drawing area respectively.
  * @param radius Radius for the radial gradient. Defaults to positive infinity to indicate the
  *   largest radius that can fit within the bounds of the drawing area
  * @param tileMode Determines the behavior for how the shader is to fill a region outside its
- *   bounds. Defaults to [ComposeTileMode.Clamp] to repeat the edge pixels
+ *   bounds. Defaults to [RemoteTileMode.Clamp] to repeat the edge pixels
  */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Stable
 public fun RemoteBrush.Companion.radialGradient(
     colors: List<RemoteColor>,
     center: RemoteOffset? = null,
     radius: RemoteFloat? = null,
-    tileMode: ComposeTileMode = ComposeTileMode.Clamp,
+    tileMode: RemoteTileMode,
 ): RemoteShaderBrush =
     RemoteRadialGradient(
         colors = colors,
@@ -116,7 +120,7 @@ public data class RemoteRadialGradient(
     private val stops: List<RemoteFloat>? = null,
     private val center: RemoteOffset?,
     private val radius: RemoteFloat?,
-    private val tileMode: ComposeTileMode = ComposeTileMode.Clamp,
+    private val tileMode: RemoteTileMode = RemoteTileMode.Clamp,
 ) : RemoteShaderBrush() {
 
     override fun RemoteStateScope.createShader(size: RemoteSize): RemoteShader {
@@ -140,12 +144,12 @@ public data class RemoteRadialGradient(
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class RemoteRadialShader(
-    public var centerX: RemoteFloat,
-    public var centerY: RemoteFloat,
-    public var radius: RemoteFloat,
-    public var colors: List<RemoteColor>,
-    public var positions: List<RemoteFloat>?,
-    public var tileMode: ComposeTileMode,
+    public val centerX: RemoteFloat,
+    public val centerY: RemoteFloat,
+    public val radius: RemoteFloat,
+    public val colors: List<RemoteColor>,
+    public val positions: List<RemoteFloat>?,
+    public val tileMode: RemoteTileMode,
 ) : RemoteShader() {
 
     override fun apply(creationState: RemoteComposeCreationContext, paintBundle: PaintBundleData) {
@@ -171,7 +175,7 @@ public class RemoteRadialShader(
             centerX.getFloatIdForCreationState(creationState),
             centerY.getFloatIdForCreationState(creationState),
             radius.getFloatIdForCreationState(creationState),
-            tileMode.toTileModeInt(),
+            tileMode.value,
         )
     }
 }

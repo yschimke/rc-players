@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+@file:kotlin.jvm.JvmName("RemoteTextKt")
+@file:kotlin.jvm.JvmMultifileClass
+
 package androidx.compose.remote.creation.compose.layout
 
 import androidx.annotation.RestrictTo
@@ -31,20 +34,19 @@ import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rsp
 import androidx.compose.remote.creation.compose.text.RemoteFontFamily
+import androidx.compose.remote.creation.compose.text.RemoteFontStyle
+import androidx.compose.remote.creation.compose.text.RemoteFontWeight
+import androidx.compose.remote.creation.compose.text.RemoteHyphens
+import androidx.compose.remote.creation.compose.text.RemoteLineBreak
+import androidx.compose.remote.creation.compose.text.RemoteTextAlign
+import androidx.compose.remote.creation.compose.text.RemoteTextDecoration
+import androidx.compose.remote.creation.compose.text.RemoteTextOverflow
 import androidx.compose.remote.creation.compose.text.RemoteTextStyle
 import androidx.compose.remote.creation.compose.text.combineFontSettings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.Hyphens
-import androidx.compose.ui.text.style.LineBreak
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.LayoutDirection
 
 /**
  * Remote composable that displays text.
@@ -60,7 +62,7 @@ import androidx.compose.ui.unit.LayoutDirection
  * @param text The text to be displayed.
  * @param modifier The [RemoteModifier] to be applied to this text.
  * @param color [RemoteColor] to apply to the text. If [color] is not specified, and it is not
- *   provided in [style], then [Color.Black] will be used.
+ *   provided in [style], then [androidx.compose.ui.graphics.Color.Black] will be used.
  * @param fontSize The size of the font.
  * @param fontStyle The font style to be applied to the text.
  * @param fontWeight The font weight to be applied to the text.
@@ -73,6 +75,7 @@ import androidx.compose.ui.unit.LayoutDirection
  *   "smcp" or "tnum").
  * @param fontVariationSettings The font variation settings to be applied to the text.
  */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Composable
 @RemoteComposable
 public fun RemoteText(
@@ -80,84 +83,73 @@ public fun RemoteText(
     modifier: RemoteModifier = RemoteModifier,
     color: RemoteColor? = null,
     fontSize: RemoteTextUnit? = null,
-    fontStyle: FontStyle? = null,
-    fontWeight: FontWeight? = null,
+    fontStyle: RemoteFontStyle? = null,
+    fontWeight: RemoteFontWeight? = null,
     fontFamily: RemoteFontFamily? = null,
-    textAlign: TextAlign? = null,
-    overflow: TextOverflow = TextOverflow.Clip,
+    textAlign: RemoteTextAlign? = null,
+    overflow: RemoteTextOverflow,
     maxLines: Int = Int.MAX_VALUE,
     style: RemoteTextStyle = RemoteTextStyle.Default,
     fontFeatureSettings: String? = null,
     fontVariationSettings: FontVariation.Settings? = null,
 ) {
-    val style =
-        style.merge(
-            fontSize = fontSize,
-            fontWeight = fontWeight,
-            textAlign = textAlign ?: TextAlign.Unspecified,
-            fontFamily = fontFamily,
-            fontStyle = fontStyle,
-            fontFeatureSettings = fontFeatureSettings,
-            fontVariationSettings = fontVariationSettings,
-        )
-    val fontSizeUnit = style.fontSize ?: 12.rsp
+    val resolvedFontSize = fontSize ?: style.fontSize ?: 12.rsp
     // TODO handles dynamic letter spacing and line height in CoreText
     val letterSpacing: RemoteFloat =
         if (style.letterSpacing == null || !style.letterSpacing.hasConstantValue) 0f.rf
-        else style.letterSpacing.value / fontSizeUnit.value
+        else style.letterSpacing.value / resolvedFontSize.value
 
     val lineHeightMultiply =
         if (style.lineHeight == null || !style.lineHeight.hasConstantValue) 1f.rf
         else // default lineHeight is descent — ascent
-         style.lineHeight.value / fontSizeUnit.value
-    val unadjustedFontWeight = style.fontWeight?.weight ?: 400
+         style.lineHeight.value / resolvedFontSize.value
+    val unadjustedFontWeight = (fontWeight ?: style.remoteFontWeight)?.weight ?: 400
 
     RemoteText(
         text = text,
         color = color ?: style.color ?: Color.Black.rc,
-        fontSize = fontSizeUnit,
+        fontSize = resolvedFontSize,
         modifier = modifier,
-        fontStyle = style.fontStyle ?: FontStyle.Normal,
+        fontStyle = fontStyle ?: style.remoteFontStyle ?: RemoteFontStyle.Normal,
         fontWeight = unadjustedFontWeight.rf,
-        textAlign = style.textAlign ?: TextAlign.Start,
-        fontFamily = style.fontFamily?.name,
+        textAlign = textAlign ?: style.remoteTextAlign ?: RemoteTextAlign.Start,
+        fontFamily = (fontFamily ?: style.fontFamily)?.name,
         overflow = overflow,
         maxLines = maxLines,
         letterSpacing = letterSpacing,
         lineHeightMultiply = lineHeightMultiply,
-        lineBreak = style.lineBreak,
-        hyphens = style.hyphens,
-        textDecoration = style.textDecoration,
-        fontVariationSettings = style.fontVariationSettings,
-        fontFeatureSettings = style.fontFeatureSettings,
+        lineBreak = style.remoteLineBreak ?: RemoteLineBreak.Simple,
+        hyphens = style.remoteHyphens ?: RemoteHyphens.None,
+        textDecoration = style.remoteTextDecoration,
+        fontVariationSettings = fontVariationSettings ?: style.fontVariationSettings,
+        fontFeatureSettings = fontFeatureSettings ?: style.fontFeatureSettings,
     )
 }
 
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Composable
 @RemoteComposable
 @Suppress("RemoteCompositionLocalUsage")
-public fun RemoteText(
+internal fun RemoteText(
     text: RemoteString,
     color: RemoteColor,
     fontSize: RemoteTextUnit,
-    modifier: RemoteModifier = RemoteModifier,
+    modifier: RemoteModifier,
     minFontSize: Float? = null,
     maxFontSize: Float? = null,
-    fontStyle: FontStyle = FontStyle.Normal,
-    fontWeight: RemoteFloat = 400.rf,
-    textAlign: TextAlign = TextAlign.Start,
-    fontFamily: String? = null,
-    overflow: TextOverflow = TextOverflow.Clip,
-    maxLines: Int = Int.MAX_VALUE,
-    letterSpacing: RemoteFloat = 0f.rf,
+    fontStyle: RemoteFontStyle,
+    fontWeight: RemoteFloat,
+    textAlign: RemoteTextAlign,
+    fontFamily: String?,
+    overflow: RemoteTextOverflow,
+    maxLines: Int,
+    letterSpacing: RemoteFloat,
     lineHeightAdd: Float? = null,
-    lineHeightMultiply: RemoteFloat = 1f.rf,
-    lineBreak: LineBreak = LineBreak.Unspecified,
-    hyphens: Hyphens = Hyphens.Unspecified,
-    textDecoration: TextDecoration? = null,
-    fontVariationSettings: FontVariation.Settings? = null,
-    fontFeatureSettings: String? = null,
+    lineHeightMultiply: RemoteFloat,
+    lineBreak: RemoteLineBreak,
+    hyphens: RemoteHyphens,
+    textDecoration: RemoteTextDecoration?,
+    fontVariationSettings: FontVariation.Settings?,
+    fontFeatureSettings: String?,
 ) {
     val fontWeightAdjustment = LocalFontWeightAdjustment.current
 
@@ -180,9 +172,9 @@ public fun RemoteText(
             set(letterSpacing) { this.letterSpacing = it }
             set(lineHeightAdd) { this.lineHeightAdd = it }
             set(lineHeightMultiply) { this.lineHeightMultiply = it }
-            set(textDecoration ?: TextDecoration.None) { this.textDecoration = it }
-            set(lineBreak) { this.lineBreakStrategy = lineBreak.encode() }
-            set(hyphens) { this.hyphenationFrequency = hyphens.encode() }
+            set(textDecoration ?: RemoteTextDecoration.None) { this.textDecoration = it }
+            set(lineBreak) { this.lineBreakStrategy = lineBreak.value }
+            set(hyphens) { this.hyphenationFrequency = hyphens.value }
             set(fontVariationSettings) { this.fontVariationSettings = it }
             set(fontFeatureSettings) { this.fontFeatureSettings = it }
         },
@@ -195,17 +187,17 @@ internal class RemoteTextNode : RemoteComposeNode() {
     lateinit var fontSize: RemoteTextUnit
     var fontWeightAdjustment: Int = 0
     var fontWeight: RemoteFloat = 400f.rf
-    var fontStyle: FontStyle = FontStyle.Normal
+    var fontStyle: RemoteFontStyle = RemoteFontStyle.Normal
     var fontFamily: String? = null
-    var textAlign: TextAlign = TextAlign.Start
-    var overflow: TextOverflow = TextOverflow.Clip
+    var textAlign: RemoteTextAlign = RemoteTextAlign.Start
+    var overflow: RemoteTextOverflow = RemoteTextOverflow.Clip
     var maxLines: Int = Int.MAX_VALUE
     var minFontSize: Float? = null
     var maxFontSize: Float? = null
     var letterSpacing: RemoteFloat = 0f.rf
     var lineHeightAdd: Float? = null
     var lineHeightMultiply: RemoteFloat = 1f.rf
-    var textDecoration: TextDecoration = TextDecoration.None
+    var textDecoration: RemoteTextDecoration = RemoteTextDecoration.None
     var lineBreakStrategy: Int = 0
     var hyphenationFrequency: Int = 0
     var fontVariationSettings: FontVariation.Settings? = null
@@ -243,12 +235,18 @@ internal class RemoteTextNode : RemoteComposeNode() {
 
         val resolvedTextAlign =
             when (textAlign) {
-                TextAlign.Start ->
-                    if (creationState.layoutDirection == LayoutDirection.Rtl) TextAlign.End
-                    else TextAlign.Start
-                TextAlign.End ->
-                    if (creationState.layoutDirection == LayoutDirection.Rtl) TextAlign.Start
-                    else TextAlign.End
+                RemoteTextAlign.Start ->
+                    if (creationState.remoteLayoutDirection == RemoteLayoutDirection.Rtl) {
+                        RemoteTextAlign.End
+                    } else {
+                        RemoteTextAlign.Start
+                    }
+                RemoteTextAlign.End ->
+                    if (creationState.remoteLayoutDirection == RemoteLayoutDirection.Rtl) {
+                        RemoteTextAlign.Start
+                    } else {
+                        RemoteTextAlign.End
+                    }
                 else -> textAlign
             }
 
@@ -274,19 +272,19 @@ internal class RemoteTextNode : RemoteComposeNode() {
                     fontSize = fontSizePxId,
                     minFontSize = minFontSize ?: -1f,
                     maxFontSize = maxFontSize ?: -1f,
-                    fontStyle = fontStyle.encode(),
+                    fontStyle = fontStyle.value,
                     fontWeight = adjustedFontWeight,
                     fontFamilyId = fontFamily?.let { creationState.writer.addText(it) } ?: -1,
-                    textAlign = resolvedTextAlign.encode(),
-                    overflow = overflow.encode(),
+                    textAlign = resolvedTextAlign.value,
+                    overflow = overflow.value,
                     maxLines = maxLines,
                     letterSpacing = letterSpacingId,
                     lineHeightAdd = lineHeightAdd ?: 0f,
                     lineHeightMultiplier = lineHeightMultiplyId,
                     lineBreakStrategy = lineBreakStrategy,
                     hyphenationFrequency = hyphenationFrequency,
-                    underline = textDecoration.contains(TextDecoration.Underline),
-                    strikethrough = textDecoration.contains(TextDecoration.LineThrough),
+                    underline = textDecoration.contains(RemoteTextDecoration.Underline),
+                    strikethrough = textDecoration.contains(RemoteTextDecoration.LineThrough),
                     fontAxisIds =
                         fontAxisNames?.map { creationState.writer.addText(it) }?.toIntArray()
                             ?: intArrayOf(),

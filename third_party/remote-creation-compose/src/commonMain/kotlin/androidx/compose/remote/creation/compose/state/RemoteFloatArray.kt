@@ -22,7 +22,7 @@ import androidx.compose.remote.creation.common.AnimatedFloatExpression
 import androidx.compose.remote.creation.common.NamedVariableType
 import androidx.compose.remote.creation.common.Utils
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
-import androidx.compose.ui.util.fastMap
+import androidx.compose.remote.creation.compose.util.fastMap
 
 /** Represents an array of floats. */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)

@@ -17,6 +17,18 @@ public interface RemoteWriter {
 
   public fun addComponentHeightValue(componentId: Int): Float
 
+  /** The x position of [componentId] in its parent's coordinates. */
+  public fun addComponentXValue(componentId: Int): Float
+
+  /** The y position of [componentId] in its parent's coordinates. */
+  public fun addComponentYValue(componentId: Int): Float
+
+  /** The x position of [componentId] in root coordinates. */
+  public fun addComponentRootXValue(componentId: Int): Float
+
+  /** The y position of [componentId] in root coordinates. */
+  public fun addComponentRootYValue(componentId: Int): Float
+
   public fun startRoot()
 
   public fun endRoot()

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+@file:kotlin.jvm.JvmName("RemoteLinearGradientKt")
+@file:kotlin.jvm.JvmMultifileClass
+
 package androidx.compose.remote.creation.compose.shaders
 
 import androidx.annotation.RestrictTo
@@ -21,16 +24,15 @@ import androidx.compose.remote.creation.common.PaintBundleData
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
 import androidx.compose.remote.creation.compose.layout.RemoteOffset
 import androidx.compose.remote.creation.compose.layout.RemoteSize
-import androidx.compose.remote.creation.compose.layout.toTileModeInt
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
+import androidx.compose.remote.creation.compose.state.RemoteTileMode
 import androidx.compose.remote.creation.compose.state.rf
+import androidx.compose.remote.creation.compose.util.fastMap
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
-import androidx.compose.ui.graphics.TileMode as ComposeTileMode
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.util.fastMap
 import kotlin.collections.toFloatArray
 
 /**
@@ -38,7 +40,7 @@ import kotlin.collections.toFloatArray
  * colors are dispersed at the provided offset defined in the colorstop pair.
  *
  * ```
- *  Brush.linearGradient(
+ *  RemoteBrush.linearGradient(
  *      0.0f.rf to Color.Red.rc,
  *      0.3f.rf to Color.Green.rc,
  *      1.0f.rf to Color.Blue.rc,
@@ -53,7 +55,7 @@ import kotlin.collections.toFloatArray
  * @param end Ending position of the linear gradient. This can be set to [RemoteOffset] Inifnite to
  *   position at the far right and bottom of the drawing area
  * @param tileMode Determines the behavior for how the shader is to fill a region outside its
- *   bounds. Defaults to [ComposeTileMode.Clamp] to repeat the edge pixels
+ *   bounds. Defaults to [RemoteTileMode.Clamp] to repeat the edge pixels
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Stable
@@ -61,7 +63,7 @@ public fun RemoteBrush.Companion.linearGradient(
     vararg colorStops: Pair<RemoteFloat, RemoteColor>,
     start: RemoteOffset? = null,
     end: RemoteOffset? = null,
-    tileMode: ComposeTileMode = ComposeTileMode.Clamp,
+    tileMode: RemoteTileMode = RemoteTileMode.Clamp,
 ): RemoteShaderBrush =
     RemoteLinearGradient(
         colors = List(colorStops.size) { i -> colorStops[i].second },
@@ -75,10 +77,10 @@ public fun RemoteBrush.Companion.linearGradient(
  * Creates a linear gradient with the provided colors along the given start and end coordinates.
  *
  * ```
- *  Brush.linearGradient(
+ *  RemoteBrush.linearGradient(
  *      listOf(Color.Red.rc, Color.Blue.rc),
- *      start = Offset(0.rf, 50.rf)
- *      end = Offset(0.rf, 100.rf)
+ *      start = RemoteOffset(0.rf, 50.rf)
+ *      end = RemoteOffset(0.rf, 100.rf)
  * )
  * ```
  *
@@ -88,14 +90,15 @@ public fun RemoteBrush.Companion.linearGradient(
  * @param end Ending position of the linear gradient. This can be set to [RemoteOffset] Infinite to
  *   position at the far right and bottom of the drawing area
  * @param tileMode Determines the behavior for how the shader is to fill a region outside its
- *   bounds. Defaults to [ComposeTileMode.Clamp] to repeat the edge pixels
+ *   bounds. Defaults to [RemoteTileMode.Clamp] to repeat the edge pixels
  */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Stable
 public fun RemoteBrush.Companion.linearGradient(
     colors: List<RemoteColor>,
     start: RemoteOffset? = null,
     end: RemoteOffset? = null,
-    tileMode: ComposeTileMode = ComposeTileMode.Clamp,
+    tileMode: RemoteTileMode,
 ): RemoteShaderBrush =
     RemoteLinearGradient(
         colors = colors,
@@ -110,7 +113,7 @@ public fun RemoteBrush.Companion.linearGradient(
  *
  * Ex:
  * ```
- *  Brush.horizontalGradient(
+ *  RemoteBrush.horizontalGradient(
  *      listOf(Color.Red.rc, Color.Green.rc, Color.Blue.rc),
  *      startX = 10.rf,
  *      endX = 20.rf
@@ -123,14 +126,15 @@ public fun RemoteBrush.Companion.linearGradient(
  * @param endX Ending x position of the horizontal gradient. Defaults to [Float.POSITIVE_INFINITY]
  *   which indicates the right of the specified drawing area
  * @param tileMode Determines the behavior for how the shader is to fill a region outside its
- *   bounds. Defaults to [ComposeTileMode.Clamp] to repeat the edge pixels
+ *   bounds. Defaults to [RemoteTileMode.Clamp] to repeat the edge pixels
  */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Stable
 public fun RemoteBrush.Companion.horizontalGradient(
     colors: List<RemoteColor>,
     startX: RemoteFloat? = null,
     endX: RemoteFloat? = null,
-    tileMode: ComposeTileMode = ComposeTileMode.Clamp,
+    tileMode: RemoteTileMode,
 ): RemoteShaderBrush =
     RemoteLinearGradient(
         colors = colors,
@@ -147,9 +151,9 @@ public fun RemoteBrush.Companion.horizontalGradient(
  *
  * Ex:
  * ```
- *  Brush.horizontalGradient(
+ *  RemoteBrush.horizontalGradient(
  *      0.rf to Color.Red.rc,
- *      0.3.rf to Color.Green.rc,
+ *      0.3f.rf to Color.Green.rc,
  *      1.rf to Color.Blue.rc,
  *      startX = 0.rf,
  *      endX = 100.rf
@@ -163,7 +167,7 @@ public fun RemoteBrush.Companion.horizontalGradient(
  * @param endX Ending x position of the horizontal gradient. Defaults to [Float.POSITIVE_INFINITY]
  *   which indicates the right of the specified drawing area
  * @param tileMode Determines the behavior for how the shader is to fill a region outside its
- *   bounds. Defaults to [ComposeTileMode.Clamp] to repeat the edge pixels
+ *   bounds. Defaults to [RemoteTileMode.Clamp] to repeat the edge pixels
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Stable
@@ -171,7 +175,7 @@ public fun RemoteBrush.Companion.horizontalGradient(
     vararg colorStops: Pair<RemoteFloat, RemoteColor>,
     startX: RemoteFloat?,
     endX: RemoteFloat?,
-    tileMode: ComposeTileMode = ComposeTileMode.Clamp,
+    tileMode: RemoteTileMode = RemoteTileMode.Clamp,
 ): RemoteShaderBrush =
     RemoteLinearGradient(
         colors = List(colorStops.size) { i -> colorStops[i].second },
@@ -185,7 +189,7 @@ public fun RemoteBrush.Companion.horizontalGradient(
 /**
  * Creates a vertical gradient with the given colors evenly dispersed within the gradient Ex:
  * ```
- *  Brush.verticalGradient(
+ *  RemoteBrush.verticalGradient(
  *      listOf(Color.Red.rc, Color.Green.rc, Color.Blue.rc),
  *      startY = 0.rf,
  *      endY = 100.rf
@@ -198,15 +202,16 @@ public fun RemoteBrush.Companion.horizontalGradient(
  * @param endY Ending y position of the vertical gradient. Defaults to [Float.POSITIVE_INFINITY]
  *   which indicates the bottom of the specified drawing area
  * @param tileMode Determines the behavior for how the shader is to fill a region outside its
- *   bounds. Defaults to [ComposeTileMode.Clamp] to repeat the edge pixels
+ *   bounds. Defaults to [RemoteTileMode.Clamp] to repeat the edge pixels
  */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Stable
 @Suppress("PrimitiveInCollection")
 public fun RemoteBrush.Companion.verticalGradient(
     colors: List<RemoteColor>,
     startY: RemoteFloat? = null,
     endY: RemoteFloat? = null,
-    tileMode: ComposeTileMode = ComposeTileMode.Clamp,
+    tileMode: RemoteTileMode,
 ): RemoteShaderBrush =
     RemoteLinearGradient(
         colors = colors,
@@ -219,16 +224,16 @@ public fun RemoteBrush.Companion.verticalGradient(
 
 /**
  * Creates a vertical gradient with the given colors at the provided offset defined in the
- * [Pair<Float, Color>]
+ * [Pair<RemoteFloat, RemoteColor>]
  *
  * Ex:
  * ```
- *  Brush.verticalGradient(
- *      0.1f to Color.Red,
- *      0.3f to Color.Green,
- *      0.5f to Color.Blue,
- *      startY = 0.0f,
- *      endY = 100.0f
+ *  RemoteBrush.verticalGradient(
+ *      0.1f.rf to Color.Red.rc,
+ *      0.3f.rf to Color.Green.rc,
+ *      0.5f.rf to Color.Blue.rc,
+ *      startY = 0.0f.rf,
+ *      endY = 100.0f.rf
  * )
  * ```
  *
@@ -239,7 +244,7 @@ public fun RemoteBrush.Companion.verticalGradient(
  * @param endY Ending y position of the vertical gradient. Defaults to [Float.POSITIVE_INFINITY]
  *   which indicates the bottom of the specified drawing area
  * @param tileMode Determines the behavior for how the shader is to fill a region outside its
- *   bounds. Defaults to [ComposeTileMode.Clamp] to repeat the edge pixels
+ *   bounds. Defaults to [RemoteTileMode.Clamp] to repeat the edge pixels
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Stable
@@ -247,7 +252,7 @@ public fun RemoteBrush.Companion.verticalGradient(
     vararg colorStops: Pair<RemoteFloat, RemoteColor>,
     startY: RemoteFloat?,
     endY: RemoteFloat?,
-    tileMode: ComposeTileMode = ComposeTileMode.Clamp,
+    tileMode: RemoteTileMode = RemoteTileMode.Clamp,
 ): RemoteShaderBrush =
     RemoteLinearGradient(
         colors = List(colorStops.size) { i -> colorStops[i].second },
@@ -260,13 +265,13 @@ public fun RemoteBrush.Companion.verticalGradient(
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class RemoteLinearShader(
-    public var x0: RemoteFloat,
-    public var y0: RemoteFloat,
-    public var x1: RemoteFloat,
-    public var y1: RemoteFloat,
-    public var colors: List<RemoteColor>,
-    public var positions: List<RemoteFloat>?,
-    public var tileMode: ComposeTileMode,
+    public val x0: RemoteFloat,
+    public val y0: RemoteFloat,
+    public val x1: RemoteFloat,
+    public val y1: RemoteFloat,
+    public val colors: List<RemoteColor>,
+    public val positions: List<RemoteFloat>?,
+    public val tileMode: RemoteTileMode,
 ) : RemoteShader() {
     override fun apply(creationState: RemoteComposeCreationContext, paintBundle: PaintBundleData) {
         var mask = 0
@@ -292,7 +297,7 @@ public class RemoteLinearShader(
             y0.getFloatIdForCreationState(creationState),
             x1.getFloatIdForCreationState(creationState),
             y1.getFloatIdForCreationState(creationState),
-            tileMode.toTileModeInt(),
+            tileMode.value,
         )
     }
 }
@@ -307,7 +312,7 @@ public data class RemoteLinearGradient(
     private val endVector: (RemoteSize) -> RemoteOffset = { size ->
         RemoteOffset(size.width, size.height)
     },
-    private val tileMode: ComposeTileMode = ComposeTileMode.Clamp,
+    private val tileMode: RemoteTileMode = RemoteTileMode.Clamp,
 ) : RemoteShaderBrush() {
 
     override fun RemoteStateScope.createShader(size: RemoteSize): RemoteShader {

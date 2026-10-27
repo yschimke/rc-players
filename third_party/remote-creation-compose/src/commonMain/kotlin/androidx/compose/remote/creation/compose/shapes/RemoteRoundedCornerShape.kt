@@ -17,18 +17,18 @@
 package androidx.compose.remote.creation.compose.shapes
 
 import androidx.annotation.IntRange
+import androidx.compose.remote.creation.compose.layout.RemoteLayoutDirection
 import androidx.compose.remote.creation.compose.layout.RemoteOffset
 import androidx.compose.remote.creation.compose.layout.RemoteSize
 import androidx.compose.remote.creation.compose.state.RemoteDp
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rf
-import androidx.compose.ui.unit.LayoutDirection
 
 /**
  * A shape describing the rectangle with rounded corners.
  *
- * This shape will automatically mirror the corner sizes in [LayoutDirection.Rtl].
+ * This shape will automatically mirror the corner sizes in [RemoteLayoutDirection.Rtl].
  *
  * @param topStart a size of the top start corner
  * @param topEnd a size of the top end corner
@@ -119,7 +119,14 @@ public fun RemoteRoundedCornerShape(
     @IntRange(from = 0, to = 100) percent: Int
 ): RemoteRoundedCornerShape = RemoteRoundedCornerShape(RemoteCornerSize(percent))
 
-/** Creates [RemoteRoundedCornerShape] with sizes defined in [RemoteDp]. */
+/**
+ * Creates [RemoteRoundedCornerShape] with sizes defined in [RemoteDp].
+ *
+ * @param topStart A size of the top start corner.
+ * @param topEnd A size of the top end corner.
+ * @param bottomEnd A size of the bottom end corner.
+ * @param bottomStart A size of the bottom start corner.
+ */
 public fun RemoteRoundedCornerShape(
     topStart: RemoteDp = 0.rdp,
     topEnd: RemoteDp = 0.rdp,
@@ -133,7 +140,14 @@ public fun RemoteRoundedCornerShape(
         bottomStart = RemoteCornerSize(bottomStart),
     )
 
-/** Creates [RemoteRoundedCornerShape] with sizes defined in pixels. */
+/**
+ * Creates [RemoteRoundedCornerShape] with sizes defined in pixels.
+ *
+ * @param topStart A size of the top start corner in pixels.
+ * @param topEnd A size of the top end corner in pixels.
+ * @param bottomEnd A size of the bottom end corner in pixels.
+ * @param bottomStart A size of the bottom start corner in pixels.
+ */
 public fun RemoteRoundedCornerShape(
     topStart: RemoteFloat = 0.rf,
     topEnd: RemoteFloat = 0.rf,

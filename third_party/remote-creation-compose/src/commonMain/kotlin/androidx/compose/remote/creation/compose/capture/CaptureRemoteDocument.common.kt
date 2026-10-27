@@ -6,6 +6,7 @@ import androidx.compose.remote.creation.compose.layout.RemoteCanvas
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.remote.creation.compose.layout.RemoteComposeApplier
 import androidx.compose.remote.creation.compose.layout.RemoteRootNode
+import androidx.compose.remote.creation.compose.layout.toRemoteLayoutDirection
 import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
@@ -99,6 +100,11 @@ public suspend fun captureCommonRemoteDocumentInto(
                     LocalDensity provides creationDisplayInfo.density,
                     LocalInspectionMode provides creationDisplayInfo.isInspectionMode,
                     LocalLayoutDirection provides layoutDirection,
+                    // As upstream's Android capture: follows a nested LocalLayoutDirection.
+                    LocalRemoteLayoutDirection providesComputed
+                        {
+                            LocalLayoutDirection.currentValue.toRemoteLayoutDirection()
+                        },
                     content = content,
                 )
             }

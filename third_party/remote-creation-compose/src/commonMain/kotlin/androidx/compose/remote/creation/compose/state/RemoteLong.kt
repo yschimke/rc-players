@@ -52,7 +52,11 @@ internal constructor(
         throw UnsupportedOperationException("RemoteLong cannot be directly written to document yet")
     }
 
-    /** Returns a new [RemoteLong] that evaluates to this [RemoteLong] plus [v]. */
+    /**
+     * Returns a new [RemoteLong] that evaluates to this [RemoteLong] plus [v].
+     *
+     * @param v The [RemoteLong] to add.
+     */
     public operator fun plus(v: RemoteLong): RemoteLong {
         // Emulates 64-bit addition using 32-bit integer arithmetic (Multiple-precision arithmetic).
         //
@@ -69,7 +73,11 @@ internal constructor(
         return object : RemoteLong(lowAdd, highAdd, key) {}
     }
 
-    /** Returns a new [RemoteLong] that evaluates to this [RemoteLong] minus [v]. */
+    /**
+     * Returns a new [RemoteLong] that evaluates to this [RemoteLong] minus [v].
+     *
+     * @param v The [RemoteLong] to subtract.
+     */
     public operator fun minus(v: RemoteLong): RemoteLong {
         // Emulates 64-bit subtraction using 32-bit integer arithmetic (Multiple-precision
         // arithmetic).
@@ -89,7 +97,11 @@ internal constructor(
         return object : RemoteLong(lowSub, highSub, key) {}
     }
 
-    /** Returns a new [RemoteLong] that evaluates to this [RemoteLong] times [v]. */
+    /**
+     * Returns a new [RemoteLong] that evaluates to this [RemoteLong] times [v].
+     *
+     * @param v The [RemoteLong] to multiply by.
+     */
     public operator fun times(v: RemoteLong): RemoteLong {
         // Emulates 64-bit multiplication using 32-bit integer arithmetic.
         //
@@ -143,7 +155,7 @@ internal constructor(
          * a constant to the remote document.
          *
          * @param value The constant [Long] value.
-         * @return A [MutableRemoteLong] representing the constant value.
+         * @return A [RemoteLong] representing the constant value.
          */
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
         public operator fun invoke(value: Long): RemoteLong {
@@ -281,6 +293,14 @@ internal constructor(
  * @param initialValue The initial [Long] value.
  * @return A [MutableRemoteLong] instance that will be remembered across recompositions.
  */
+@Deprecated(
+    message = "Use remember { MutableRemoteLong(initialValue) } instead.",
+    replaceWith =
+        ReplaceWith(
+            "remember { MutableRemoteLong(initialValue) }",
+            "androidx.compose.runtime.remember",
+        ),
+)
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Composable
 public fun rememberMutableRemoteLong(initialValue: Long): MutableRemoteLong {

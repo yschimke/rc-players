@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.LayoutDirection
 public open class RemoteComposeCreationState(
     public val creationDisplayInfo: RemoteCreationDisplayInfo,
     writer: RemoteWriter,
-    public override var remoteDensity: RemoteDensity = RemoteDensity.from(creationDisplayInfo),
-    public override var layoutDirection: LayoutDirection = LayoutDirection.Ltr,
+    public override val remoteDensity: RemoteDensity = RemoteDensity.from(creationDisplayInfo),
+    public override val layoutDirection: LayoutDirection = LayoutDirection.Ltr,
     public val supportedOperations: Set<Int> = emptySet(),
     private val platformImageProvider: PlatformImageProvider = NoOpPlatformImageProvider,
     internal var platformState: Any? = null,
@@ -63,7 +63,6 @@ public open class RemoteComposeCreationState(
      */
     internal val intExpressionIds: MutableObjectIntMap<LoweredIntExpressionKey> =
         MutableObjectIntMap()
-    public var ready: Boolean = true
     internal val remoteVariableToId: MutableObjectIntMap<RemoteStateCacheKey> =
         MutableObjectIntMap()
     internal val floatArrayCache: HashMap<RemoteStateCacheKey, FloatArray> = HashMap()

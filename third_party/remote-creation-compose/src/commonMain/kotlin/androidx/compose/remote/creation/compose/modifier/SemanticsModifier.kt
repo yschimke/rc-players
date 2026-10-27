@@ -51,6 +51,12 @@ internal constructor(
  * pairs primarily via extension functions.
  */
 public interface SemanticsPropertyReceiver {
+    /**
+     * Sets the semantics property [key] to [value].
+     *
+     * @param key The [SemanticsPropertyKey] to set.
+     * @param value The value to associate with [key].
+     */
     public operator fun <T> set(key: SemanticsPropertyKey<T>, value: T?)
 
     @Suppress("HiddenAbstractMethodInInterface")
@@ -60,12 +66,25 @@ public interface SemanticsPropertyReceiver {
 
 /** General semantics properties, mainly used for accessibility and testing. */
 public object SemanticsProperties {
+    /** Semantics property key for [SemanticsPropertyReceiver.contentDescription]. */
     public val ContentDescription: SemanticsPropertyKey<RemoteString> =
         SemanticsPropertyKey("ContentDescription")
+
+    /** Semantics property key for [SemanticsPropertyReceiver.role]. */
     public val Role: SemanticsPropertyKey<Role> = SemanticsPropertyKey("Role")
+
+    /** Semantics property key for [SemanticsPropertyReceiver.remoteRole]. */
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public val RemoteRole: SemanticsPropertyKey<RemoteRole> = SemanticsPropertyKey("RemoteRole")
+
+    /** Semantics property key for [SemanticsPropertyReceiver.text]. */
     public val Text: SemanticsPropertyKey<RemoteString> = SemanticsPropertyKey("Text")
+
+    /** Semantics property key for [SemanticsPropertyReceiver.stateDescription]. */
     public val StateDescription: SemanticsPropertyKey<RemoteString> =
         SemanticsPropertyKey("StateDescription")
+
+    /** Semantics property key for [SemanticsPropertyReceiver.enabled]. */
     public val Enabled: SemanticsPropertyKey<Boolean> = SemanticsPropertyKey("Enabled")
 }
 
@@ -84,6 +103,15 @@ public var SemanticsPropertyReceiver.role: Role?
     get() = get(SemanticsProperties.Role)
     set(value) {
         set(SemanticsProperties.Role, value)
+    }
+
+/** The type of user interface element. Accessibility services can use this to describe the node. */
+@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+@set:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public var SemanticsPropertyReceiver.remoteRole: RemoteRole?
+    get() = get(SemanticsProperties.RemoteRole)
+    set(value) {
+        set(SemanticsProperties.RemoteRole, value)
     }
 
 /** Text content for the semantics node. */
@@ -115,7 +143,9 @@ internal data class SemanticsModifier(
         RemoteModifierOperation.Semantics(
             contentDescriptionId =
                 (properties[SemanticsProperties.ContentDescription] as? RemoteString)?.id ?: 0,
-            role = roleValue(properties[SemanticsProperties.Role] as? Role),
+            role =
+                (properties[SemanticsProperties.RemoteRole] as? RemoteRole)?.toAccessibleRole()
+                    ?: roleValue(properties[SemanticsProperties.Role] as? Role),
             textId = (properties[SemanticsProperties.Text] as? RemoteString)?.id ?: 0,
             stateDescriptionId =
                 (properties[SemanticsProperties.StateDescription] as? RemoteString)?.id ?: 0,

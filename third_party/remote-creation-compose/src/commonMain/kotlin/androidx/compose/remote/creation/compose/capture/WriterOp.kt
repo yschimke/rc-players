@@ -355,6 +355,24 @@ internal sealed interface WriterOp {
             )
     }
 
+    data class DrawBitmapRect(
+        val bitmap: RemoteImageBitmap,
+        val left: RemoteFloat,
+        val top: RemoteFloat,
+        val right: RemoteFloat,
+        val bottom: RemoteFloat,
+    ) : WriterOp {
+        override fun write(writer: RemoteWriter, creationState: RemoteComposeCreationState) =
+            writer.drawBitmap(
+                bitmap.idIn(creationState),
+                left.valueIn(creationState),
+                top.valueIn(creationState),
+                right.valueIn(creationState),
+                bottom.valueIn(creationState),
+                0,
+            )
+    }
+
     data object DrawComponentContent : WriterOp {
         override fun write(writer: RemoteWriter, creationState: RemoteComposeCreationState) =
             writer.drawComponentContent()
