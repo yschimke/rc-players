@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.20.1](https://github.com/yschimke/rc-players/compare/v2.20.0...v2.20.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **rc-widget-creation:** compile the common metadata the release publishes ([#753](https://github.com/yschimke/rc-players/issues/753)) ([0466048](https://github.com/yschimke/rc-players/commit/046604875eba148ad8c87d9f210b50762fcba62e))
+
 ## [2.20.0](https://github.com/yschimke/rc-players/compare/v2.19.0...v2.20.0) (2026-10-27)
 
 
