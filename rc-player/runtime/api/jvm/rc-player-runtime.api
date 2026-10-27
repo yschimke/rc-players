@@ -938,6 +938,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun publishTouchPosition (FF)Z
 	public final fun requestWakeIn (Lee/schimke/composeai/rcplayer/protocol/RcWakeIn;)V
 	public final fun resolve-jeHuU8k (I)F
+	public final fun seedParticles (Lee/schimke/composeai/rcplayer/protocol/RcParticleDefine;)V
 	public final fun setColor (II)V
 	public final fun setDynamicFloatValues (I[F)V
 	public final fun setFloat (IF)V

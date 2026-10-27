@@ -552,6 +552,12 @@ public class RcPlayerState(
       particleRuntime.beginFrame()
     }
 
+  /**
+   * Runs a `ParticlesCreate` the draw stream reached: it re-seeds the system's particles, as the
+   * View player's `ParticlesCreate.paint` does on every paint.
+   */
+  public fun seedParticles(operation: RcParticleDefine): Unit = particleRuntime.reseed(operation.id)
+
   /** Immutable particle values for deterministic conformance traces. */
   public fun particleSnapshot(id: Int): List<List<Float>> = particleRuntime.snapshot(id)
 

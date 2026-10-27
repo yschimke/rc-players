@@ -31,6 +31,26 @@ class RcParticleRuntimeTest {
   }
 
   @Test
+  fun aCreateInTheDrawStreamReseedsEvolvedParticles() {
+    val definition = definition(3, listOf(indexExpression()))
+    val state = state(definition)
+    val loop =
+      RcParticleLoop(
+        50,
+        emptyList(),
+        listOf(listOf(reference(VARIABLE), literal(1f), operator(1))),
+      )
+    state.forEachParticle(loop) {}
+    state.forEachParticle(loop) {}
+    assertEquals(listOf(listOf(2f), listOf(3f), listOf(4f)), state.particleSnapshot(50))
+
+    // The View player paints `ParticlesCreate` each frame, which seeds the system again.
+    state.seedParticles(definition)
+
+    assertEquals(listOf(listOf(0f), listOf(1f), listOf(2f)), state.particleSnapshot(50))
+  }
+
+  @Test
   fun identicalSeedsAndFrameTimesProduceIdenticalRandomTraces() {
     val random = listOf(operator(39))
     val first = state(definition(3, listOf(random)), randomSeed = 1234L)

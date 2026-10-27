@@ -45,6 +45,18 @@ internal class RcParticleRuntime(
     }
   }
 
+  /**
+   * A `ParticlesCreate` reached in the draw stream: seeds every particle again from its
+   * initialization equations, as `ParticlesCreate.paint` does each time the View player paints it.
+   * A simulation only accumulates when its create sits outside the stream or inside an impulse,
+   * whose initial pass runs once per window; one the stream never reaches keeps the seeding done
+   * once per document at the first frame.
+   */
+  fun reseed(id: Int) {
+    val system = requireSystem(id)
+    system.particles.indices.forEach { initialize(system, it) }
+  }
+
   fun snapshot(id: Int): List<List<Float>> =
     systems[id]?.particles?.map { it.toList() } ?: emptyList()
 

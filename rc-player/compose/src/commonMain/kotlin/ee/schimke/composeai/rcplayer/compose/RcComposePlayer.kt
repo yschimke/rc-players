@@ -268,6 +268,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
+import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
 import ee.schimke.composeai.rcplayer.protocol.RcPathAppend
 import ee.schimke.composeai.rcplayer.protocol.RcPathCombine
@@ -5162,6 +5163,8 @@ private fun DrawScope.drawOperationsRouted(
       is RcPlaySound -> state.playSound(operation)
       is RcTimeAttribute -> state.applyTimeAttribute(operation)
       is RcWakeIn -> state.requestWakeIn(operation)
+      // Re-seeds on every paint, as in the View player; an impulse around it seeds once.
+      is RcParticleDefine -> state.seedParticles(operation)
       is RcDebugMessage -> state.emitDebugMessage(operation)
       is RcDrawText -> drawTextOperation(operation, state, paint, textMeasurer)
       is RcDrawTextAnchored -> drawTextAnchored(operation, state, paint, textMeasurer)
