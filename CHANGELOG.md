@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.20.0](https://github.com/yschimke/rc-players/compare/v2.19.0...v2.20.0) (2026-10-27)
+
+
+### Features
+
+* add rc-widget libraries for launcher and Wear widgets ([#752](https://github.com/yschimke/rc-players/issues/752)) ([6c53095](https://github.com/yschimke/rc-players/commit/6c53095356aaea4b951ea2a7768fb6e34a584416))
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.25.1 ([#741](https://github.com/yschimke/rc-players/issues/741)) ([2227be4](https://github.com/yschimke/rc-players/commit/2227be43ecfa5695e231c4be93728e831efd6e82))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.26.0 ([#751](https://github.com/yschimke/rc-players/issues/751)) ([0c0b4f3](https://github.com/yschimke/rc-players/commit/0c0b4f32ae641b7a1303b69b3db33188c70639b8))
+
 ## [2.19.0](https://github.com/yschimke/rc-players/compare/v2.18.0...v2.19.0) (2026-10-24)
 
 
