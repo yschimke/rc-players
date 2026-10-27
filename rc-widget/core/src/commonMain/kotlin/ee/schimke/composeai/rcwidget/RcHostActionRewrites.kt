@@ -4,6 +4,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcHostNamedAction
 import ee.schimke.composeai.rcplayer.protocol.RcHostNamedActionValue
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 
 /**
@@ -25,8 +26,9 @@ public object RcHostActionRewrites {
 
   /**
    * [document] with each host action named in [actionNames] sending the widget's `PendingIntent`
-   * [index] instead. The ids stay; only what they hold changes: the name text becomes
-   * [SEND_PENDING_INTENT] and each tap's text payload the integer [index]. Unchanged when it has no
+   * [index] instead: it names [SEND_PENDING_INTENT] with the integer [index]. Both are new
+   * definitions; the action's own name and payload are left as they were, since a writer that
+   * interns equal strings may share them with text the document shows. Unchanged when it has no
    * such action.
    */
   public fun toPendingIntent(
@@ -34,30 +36,27 @@ public object RcHostActionRewrites {
     actionNames: Set<String>,
     index: Int = 0,
   ): RcDocument {
-    val texts = document.operations.filterIsInstance<RcTextData>().associateBy { it.id }
-    val nameIds = texts.values.filter { it.text in actionNames }.mapTo(HashSet()) { it.id }
-    val taps =
-      document.operations.filterIsInstance<RcHostNamedAction>().filter { it.nameTextId in nameIds }
-    if (taps.isEmpty()) return document
-    // A payload is rewritten only when nothing but these taps reads it: the host reads an integer.
-    val payloads =
-      taps
-        .mapNotNull { (it.value as? RcHostNamedActionValue.TextValue)?.valueId }
-        .filterTo(HashSet()) { it in texts }
-    val operations =
-      document.operations.map { op ->
-        when {
-          op is RcTextData && op.id in nameIds -> RcTextData(op.id, SEND_PENDING_INTENT)
-          op is RcTextData && op.id in payloads -> RcIntegerConstant(op.id, index)
-          op is RcHostNamedAction && op.nameTextId in nameIds -> {
-            val payload = (op.value as? RcHostNamedActionValue.TextValue)?.valueId
-            if (payload != null && payload in payloads)
-              RcHostNamedAction(op.nameTextId, RcHostNamedActionValue.IntegerValue(payload))
-            else op
-          }
-          else -> op
-        }
+    val nameIds =
+      document.operations
+        .filterIsInstance<RcTextData>()
+        .filter { it.text in actionNames }
+        .mapTo(HashSet()) { it.id }
+    val first =
+      document.operations.indexOfFirst { it is RcHostNamedAction && it.nameTextId in nameIds }
+    if (first < 0) return document
+    val (nameId, indexId) = freshIds(document, count = 2)
+    val operations = ArrayList<RcOperation>(document.operations.size + 2)
+    document.operations.forEachIndexed { i, op ->
+      // Declared before the first action that reads them.
+      if (i == first) {
+        operations += RcTextData(nameId, SEND_PENDING_INTENT)
+        operations += RcIntegerConstant(indexId, index)
       }
+      operations +=
+        if (op is RcHostNamedAction && op.nameTextId in nameIds)
+          RcHostNamedAction(nameId, RcHostNamedActionValue.IntegerValue(indexId))
+        else op
+    }
     return document.copy(operations = operations)
   }
 

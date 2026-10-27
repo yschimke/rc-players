@@ -1,11 +1,13 @@
 package ee.schimke.composeai.rcwidget
 
+import ee.schimke.composeai.rcplayer.edit.RcDisplay
 import ee.schimke.composeai.rcplayer.edit.RcHardcodedValue
 import ee.schimke.composeai.rcplayer.edit.RcProfiles
 import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
 import ee.schimke.composeai.rcplayer.edit.namedVariables
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
+import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
@@ -215,6 +217,34 @@ class RcWearTemplatesTest {
   }
 
   @Test
+  fun aTemplatesOwnFillStaysWithoutATint() {
+    val withFill =
+      document(
+        *template.operations.toTypedArray(),
+        RcColorConstant(44, 0xFF101820.toInt()),
+        RcNamedVariable(44, RcNamedVariable.COLOR_TYPE, "USER:${RcWearContainer.COLOR}"),
+      )
+    val widget =
+      RcWearTemplates.instantiate(withFill, RcWearHost.Pixel.large, RcDisplay(2f)).document
+    assertTrue(widget.operations.contains(RcColorConstant(44, 0xFF101820.toInt())))
+    assertTrue(widget.namedVariables.none { it.name.endsWith(RcWearContainer.COLOR) })
+    val tinted =
+      RcWearTemplates.instantiate(
+        withFill,
+        RcWearHost.Pixel.large,
+        RcDisplay(2f),
+        0xFF00FF00.toInt(),
+      )
+    assertTrue(tinted.document.operations.contains(RcColorConstant(44, 0xFF00FF00.toInt())))
+    // The app's player can still push a tint.
+    assertTrue(
+      RcWearTemplates.forApp(withFill, RcWearHost.Pixel.large).namedVariables.any {
+        it.name.endsWith(RcWearContainer.COLOR)
+      }
+    )
+  }
+
+  @Test
   fun forAppWritesTheFrameAndKeepsOtherBindings() {
     val frame = RcWearHost.Galaxy.large
     val app = RcWearTemplates.forApp(template, frame)
@@ -305,17 +335,21 @@ class RcHostActionRewritesTest {
       )
     assertEquals(setOf("ha", "other"), RcHostActionRewrites.actionNames(source))
     val rewritten = RcHostActionRewrites.toPendingIntent(source, setOf("ha"), index = 3)
+    val name =
+      rewritten.operations.filterIsInstance<RcTextData>().single {
+        it.text == RcHostActionRewrites.SEND_PENDING_INTENT
+      }
+    val index = rewritten.operations.filterIsInstance<RcIntegerConstant>().single()
+    assertEquals(3, index.value)
     assertEquals(
       listOf(
-        RcTextData(10, RcHostActionRewrites.SEND_PENDING_INTENT),
-        RcIntegerConstant(11, 3),
-        RcTextData(12, "other"),
-        RcTextData(13, "payload"),
-        RcHostNamedAction(10, RcHostNamedActionValue.IntegerValue(11)),
+        RcHostNamedAction(name.id, RcHostNamedActionValue.IntegerValue(index.id)),
         RcHostNamedAction(12, RcHostNamedActionValue.TextValue(13)),
       ),
-      rewritten.operations,
+      rewritten.operations.filterIsInstance<RcHostNamedAction>(),
     )
+    // The tap's own name and payload stay: a writer may share them with text the document shows.
+    assertTrue(source.operations.filterIsInstance<RcTextData>().all { it in rewritten.operations })
     assertEquals(rewritten, roundTrip(rewritten))
     assertSame(source, RcHostActionRewrites.toPendingIntent(source, setOf("none")))
   }

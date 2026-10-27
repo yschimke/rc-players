@@ -5,11 +5,15 @@ package ee.schimke.composeai.rcwidget.wear
 import android.app.PendingIntent
 import android.content.Intent
 import androidx.compose.remote.creation.compose.layout.RemoteText
+import androidx.compose.remote.creation.compose.action.hostAction
+import androidx.compose.remote.creation.compose.modifier.RemoteModifier
+import androidx.compose.remote.creation.compose.modifier.clickable
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.ui.graphics.Color
 import androidx.glance.wear.WearWidgetBrush
 import androidx.glance.wear.core.ContainerInfo
 import androidx.glance.wear.core.WearWidgetParams
+import androidx.glance.wear.core.WearWidgetRawContent
 import androidx.glance.wear.core.WidgetInstanceId
 import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
 import ee.schimke.composeai.rcplayer.edit.namedVariables
@@ -96,15 +100,39 @@ class RcWearWidgetTemplateTest {
   }
 
   @Test
-  fun tapsSendTheWidgetsPendingIntent() {
+  fun tapsSendTheWidgetsPendingIntentAndKeepTheContentsOwn() {
     runBlocking {
-    val raw =
-      RcHostFramedWearWidgetDocument(WearWidgetBrush.Companion) { RemoteText("Hi".rs) }
-        .captureRawContent(context, params(RcWearHost.Pixel.large), false)
-    val intent =
-      PendingIntent.getActivity(context, 0, Intent("open"), PendingIntent.FLAG_IMMUTABLE)
-    val sent = RcWearWidgetTaps.sending(raw, setOf("open"), intent)
-    assertNotNull(sent.extras.getBundle(RcWearWidgetTaps.PENDING_INTENTS))
+      val template =
+        RcWearWidgetTemplate.capture(context) {
+          RemoteText(
+            "Hi".rs,
+            RemoteModifier.clickable(hostAction("open".rs, "{}".rs)),
+          )
+        }
+      val raw = assertNotNull(RcWearWidgetTemplate.instantiate(context, template, params(RcWearHost.Pixel.large)))
+      val own = PendingIntent.getActivity(context, 1, Intent("own"), PendingIntent.FLAG_IMMUTABLE)
+      val withOwn =
+        WearWidgetRawContent(
+          raw.rcDocument,
+          android.os.Bundle(raw.extras).apply {
+            putBundle(
+              RcWearWidgetTaps.PENDING_INTENTS,
+              android.os.Bundle().apply { putParcelable("0", own) },
+            )
+          },
+          raw.widgetTitle,
+        )
+      val intent = PendingIntent.getActivity(context, 0, Intent("open"), PendingIntent.FLAG_IMMUTABLE)
+      val sent = RcWearWidgetTaps.sending(withOwn, setOf("open"), intent)
+      val intents = assertNotNull(sent.extras.getBundle(RcWearWidgetTaps.PENDING_INTENTS))
+      assertEquals(setOf("0", "1"), intents.keySet())
+      assertTrue(
+        decode(sent.rcDocument).operations.any {
+          it is ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant && it.value == 1
+        }
+      )
+      // No named tap: nothing changes.
+      assertTrue(RcWearWidgetTaps.sending(withOwn, setOf("none"), intent) === withOwn)
     }
   }
 

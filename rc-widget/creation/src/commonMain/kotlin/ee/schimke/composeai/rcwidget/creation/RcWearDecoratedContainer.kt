@@ -21,6 +21,7 @@ import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemotePaint
 import androidx.compose.remote.creation.compose.state.clamp
 import androidx.compose.remote.creation.compose.state.max
+import androidx.compose.remote.creation.compose.state.min
 import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rf
@@ -289,13 +290,16 @@ private class Outline(
   width: RemoteFloat,
 ) {
   private val o = inset + width / 2f.rf
-  private val r = max(corner - o, 0f)
   private val w = scope.size.width
   private val h = scope.size.height
   private val left = o
   private val top = o
   private val right = w - o
   private val bottom = h - o
+
+  // A host's stadium says "as round as it gets" with a huge radius (Galaxy's 999dp); the lines
+  // and arcs below are built from it, so it is clamped to half the outline's shorter side.
+  private val r = min(max(corner - o, 0f), min(right - left, bottom - top) / 2f.rf)
   private val horizontal = max(right - left - r * 2f, 0f)
   private val vertical = max(bottom - top - r * 2f, 0f)
   private val arc = r * QUARTER_TURN

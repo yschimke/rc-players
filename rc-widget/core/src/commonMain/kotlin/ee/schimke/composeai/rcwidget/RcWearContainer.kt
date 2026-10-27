@@ -88,16 +88,14 @@ public data class RcWearFrame(
 
   /**
    * This frame as the named values a template reads ([RcWearContainer]), with the container filled
-   * in [containerArgb] ([RcWearContainer.DEFAULT_SURFACE_ARGB] when null).
+   * in [containerArgb]; null leaves the fill the template's own.
    */
-  public fun namedValues(containerArgb: Int? = null): Map<String, RcHardcodedValue> =
-    mapOf(
-      RcWearContainer.HORIZONTAL_PADDING to RcHardcodedValue.FloatValue(horizontalPaddingDp),
-      RcWearContainer.VERTICAL_PADDING to RcHardcodedValue.FloatValue(verticalPaddingDp),
-      RcWearContainer.CORNER_RADIUS to RcHardcodedValue.FloatValue(cornerRadiusDp),
-      RcWearContainer.COLOR to
-        RcHardcodedValue.Color(containerArgb ?: RcWearContainer.DEFAULT_SURFACE_ARGB),
-    )
+  public fun namedValues(containerArgb: Int? = null): Map<String, RcHardcodedValue> = buildMap {
+    put(RcWearContainer.HORIZONTAL_PADDING, RcHardcodedValue.FloatValue(horizontalPaddingDp))
+    put(RcWearContainer.VERTICAL_PADDING, RcHardcodedValue.FloatValue(verticalPaddingDp))
+    put(RcWearContainer.CORNER_RADIUS, RcHardcodedValue.FloatValue(cornerRadiusDp))
+    containerArgb?.let { put(RcWearContainer.COLOR, RcHardcodedValue.Color(it)) }
+  }
 }
 
 /**

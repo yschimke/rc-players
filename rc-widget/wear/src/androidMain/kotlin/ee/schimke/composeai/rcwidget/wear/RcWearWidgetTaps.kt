@@ -19,34 +19,36 @@ import ee.schimke.composeai.rcwidget.RcHostActionRewrites
  * `PendingIntent` instead — typically the app, opened on what the widget shows.
  */
 public object RcWearWidgetTaps {
-  /** The index of the widget's one `PendingIntent`: the first a capture would store. */
+  /** The index a widget's open-app `PendingIntent` takes when the content has none of its own. */
   public const val OPEN_APP_INDEX: Int = 0
 
   /** Glance Wear's extras key for a widget's `PendingIntent`s by index (internal to it). */
   public const val PENDING_INTENTS: String = "pending_intents"
 
-  /** [content] whose taps named in [actionNames] send [intent]. Its extras keep everything else. */
+  /**
+   * [content] whose taps named in [actionNames] send [intent]. The intent takes the first index
+   * the content's own `PendingIntent`s leave free ([OPEN_APP_INDEX] when it has none), so taps it
+   * already had keep theirs; its extras keep everything else. Unchanged when no tap is named.
+   */
   public fun sending(
     content: WearWidgetRawContent,
     actionNames: Set<String>,
     intent: PendingIntent,
   ): WearWidgetRawContent {
-    val document =
-      runCatching {
-          RcDocumentCodec.encode(
-            RcHostActionRewrites.toPendingIntent(
-              RcDocumentCodec.decode(content.rcDocument, RcWireLimits()),
-              actionNames,
-              OPEN_APP_INDEX,
-            )
-          )
-        }
-        .getOrNull() ?: return content
+    val existing = content.extras.getBundle(PENDING_INTENTS)
+    val index =
+      existing?.keySet()?.mapNotNull { it.toIntOrNull() }?.maxOrNull()?.plus(1) ?: OPEN_APP_INDEX
+    val decoded =
+      runCatching { RcDocumentCodec.decode(content.rcDocument, RcWireLimits()) }.getOrNull()
+        ?: return content
+    val rewritten = RcHostActionRewrites.toPendingIntent(decoded, actionNames, index)
+    if (rewritten === decoded) return content
+    val document = runCatching { RcDocumentCodec.encode(rewritten) }.getOrNull() ?: return content
     val extras =
       Bundle(content.extras).apply {
-        putParcelable(
+        putBundle(
           PENDING_INTENTS,
-          Bundle().apply { putParcelable(OPEN_APP_INDEX.toString(), intent) },
+          Bundle(existing ?: Bundle()).apply { putParcelable(index.toString(), intent) },
         )
       }
     return WearWidgetRawContent(document, extras, content.widgetTitle)

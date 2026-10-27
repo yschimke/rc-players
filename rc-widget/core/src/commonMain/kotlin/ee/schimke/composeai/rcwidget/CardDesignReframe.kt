@@ -8,7 +8,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
-import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
@@ -244,25 +243,6 @@ internal object CardDesignReframe {
       ),
     )
 
-  /**
-   * [count] ids [document] doesn't use. Every 4-byte window of its encoding is read as one, which
-   * over-counts (any value, not only ids) but never misses one.
-   */
-  private fun freshIds(document: RcDocument, count: Int): List<Int> {
-    val bytes = RcDocumentCodec.encode(document)
-    val used = HashSet<Int>()
-    for (i in 0..bytes.size - 4) {
-      val word =
-        (bytes[i].toInt() and 0xff shl 24) or
-          (bytes[i + 1].toInt() and 0xff shl 16) or
-          (bytes[i + 2].toInt() and 0xff shl 8) or
-          (bytes[i + 3].toInt() and 0xff)
-      used += word
-      used += word and ID_MASK
-    }
-    return generateSequence(FIRST_ID) { it + 1 }.filter { it !in used }.take(count).toList()
-  }
-
   /** A float word reading id [id]. */
   private fun ref(id: Int) = RcFloatWord(NAN_BOX or id)
 
@@ -271,8 +251,6 @@ internal object CardDesignReframe {
   private const val TOP = 4
 
   private const val USER_PREFIX = "USER:"
-  private const val FIRST_ID = 42
-  private const val ID_MASK = 0x003fffff
   private const val NAN_BOX = 0xff800000.toInt()
 
   /** The float expression multiply operator, NaN-boxed as the player reads it. */
