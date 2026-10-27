@@ -5283,7 +5283,9 @@ internal fun fontVariationSettings(
 ): RcFontVariations? {
   val axes = axisTags.mapIndexedNotNull { index, tag ->
     val value = axisValues.getOrNull(index) ?: return@mapIndexedNotNull null
-    tag?.takeIf { it.isNotBlank() }?.let { RcFontAxis(it, value) }
+    // A malformed tag fails when the face is instanced, or when Compose builds the setting, and
+    // takes the whole text down with it; the paint's FONT_AXIS path already drops one.
+    tag?.takeIf(::isFontAxisTag)?.let { RcFontAxis(it, value) }
   }
   return if (axes.isEmpty()) null else RcFontVariations(axes)
 }
