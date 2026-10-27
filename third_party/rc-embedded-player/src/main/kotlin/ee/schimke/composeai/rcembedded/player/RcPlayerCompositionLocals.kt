@@ -17,26 +17,21 @@
 package ee.schimke.composeai.rcembedded.player
 
 import androidx.annotation.RestrictTo
-import androidx.collection.IntObjectMap
-import androidx.collection.mutableIntObjectMapOf
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.remote.core.CoreDocument
-import androidx.compose.remote.core.Operation
 import androidx.compose.remote.core.RemoteContext
-import androidx.compose.remote.core.VariableProvider
-import androidx.compose.remote.core.VariableSupport
 import androidx.compose.remote.core.operations.ComponentValue
-import androidx.compose.remote.core.operations.FloatExpression
-import androidx.compose.remote.core.operations.layout.Container
-import androidx.compose.remote.core.operations.layout.LayoutComponent
-import androidx.compose.remote.player.core.platform.TypefaceResolver
+import androidx.compose.remote.core.operations.TouchExpression
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.unit.IntSize
+import ee.schimke.composeai.rcembedded.player.doc.GraphContext
 
 internal val LocalCoreDocument: ProvidableCompositionLocal<CoreDocument> = compositionLocalOf {
     throw IllegalStateException("No document")
@@ -50,36 +45,6 @@ internal val LocalCoreDocument: ProvidableCompositionLocal<CoreDocument> = compo
  */
 internal val LocalGraphContext: ProvidableCompositionLocal<GraphContext?> = compositionLocalOf {
     null
-}
-
-/**
- * Index of computed-value operations by the id they produce — `VariableSupport`+`VariableProvider`
- * ops that compute from other variables. Animation/spring-bearing `FloatExpression`s are excluded
- * (those are displayed via `rememberAnimatedRemoteFloat`); everything else, including plain
- * `FloatExpression`/`IntegerExpression`, is included so the graph can resolve them when a derived
- * op reads them as an input (chains).
- */
-internal fun buildComputedOpIndex(operations: Collection<Operation>): IntObjectMap<Operation> {
-    val map = mutableIntObjectMapOf<Operation>()
-    fun walk(ops: Collection<Operation>) {
-        for (op in ops) {
-            if (op is VariableSupport && op is VariableProvider) {
-                // LOCAL PATCH (rc-players): a spring animates too (#551).
-                val animated = op is FloatExpression && op.isAnimatedExpression
-                val id = op.id
-                if (!animated && id > 0 && !map.containsKey(id)) map[id] = op as Operation
-            }
-            if (op is Container) walk(op.getList())
-            if (op is LayoutComponent) {
-                val canvasOps = op.getCanvasOperations()
-                if (canvasOps != null) {
-                    walk(listOf(canvasOps))
-                }
-            }
-        }
-    }
-    walk(operations)
-    return map
 }
 
 @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -96,6 +61,26 @@ internal val LocalComponentValueStateMap:
     ProvidableCompositionLocal<Map<Int, MutableState<Float>>> =
     compositionLocalOf {
         emptyMap()
+    }
+
+internal val LocalComponentTouchExpressionsMap:
+    ProvidableCompositionLocal<Map<Int, List<TouchExpression>>> =
+    compositionLocalOf {
+        emptyMap()
+    }
+
+internal val LocalHasTouchExpressions: ProvidableCompositionLocal<Boolean> = compositionLocalOf {
+    false
+}
+
+internal class RootLayoutCoordinatesHolder(var coordinates: LayoutCoordinates? = null) {
+    /** The player size last published to the core document, or null before the first placement. */
+    var publishedSize: IntSize? = null
+}
+
+internal val LocalRootLayoutCoordinates: ProvidableCompositionLocal<RootLayoutCoordinatesHolder> =
+    compositionLocalOf {
+        RootLayoutCoordinatesHolder()
     }
 
 internal val LocalCurrentTimeMillis: ProvidableCompositionLocal<State<Float>> = compositionLocalOf {
@@ -117,11 +102,11 @@ internal val LocalRemoteNamedActionHandler: ProvidableCompositionLocal<(String, 
     }
 
 /**
- * [TypefaceResolver] for resolving typefaces in the player. Null when using the default built-in
- * resolver.
+ * [RcTypefaceResolver] for resolving typefaces in the embedded player. Null when using the default
+ * built-in resolver.
  */
 @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public val LocalTypefaceResolver: ProvidableCompositionLocal<TypefaceResolver?> =
+public val LocalRcTypefaceResolver: ProvidableCompositionLocal<RcTypefaceResolver?> =
     compositionLocalOf {
         null
     }

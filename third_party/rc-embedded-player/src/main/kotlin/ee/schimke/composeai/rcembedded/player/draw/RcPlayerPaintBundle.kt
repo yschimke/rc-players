@@ -16,11 +16,10 @@
 
 @file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection")
 
-package ee.schimke.composeai.rcembedded.player
+package ee.schimke.composeai.rcembedded.player.draw
 
 import android.graphics.DiscretePathEffect
 import android.graphics.Matrix
-import android.graphics.Paint
 import android.graphics.PathDashPathEffect
 import android.graphics.RuntimeShader
 import android.graphics.Shader
@@ -30,281 +29,34 @@ import androidx.annotation.RestrictTo
 import androidx.compose.remote.core.MatrixAccess
 import androidx.compose.remote.core.RemoteContext
 import androidx.compose.remote.core.operations.ShaderData
-import androidx.compose.remote.core.operations.Utils
+import androidx.compose.remote.core.operations.matrix.MatrixExpression
 import androidx.compose.remote.core.operations.paint.PaintBundle
 import androidx.compose.remote.core.operations.paint.PaintPathEffects
-import androidx.compose.remote.player.core.platform.AndroidRemoteContext
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageShader
+import androidx.compose.ui.graphics.LinearGradientShader
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.RadialGradientShader
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.SweepGradientShader
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asAndroidPathEffect
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawStyle
-import androidx.compose.ui.graphics.drawscope.Fill
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toComposePathEffect
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Density
+import ee.schimke.composeai.rcembedded.player.doc.GraphContext
+import ee.schimke.composeai.rcembedded.player.doc.SnapshotRemoteComposeState
+import ee.schimke.composeai.rcembedded.player.doc.writeContext
+import ee.schimke.composeai.rcembedded.player.resources.resolveBitmap
+import ee.schimke.composeai.rcembedded.player.state.MaybeVariableFloat
 import ee.schimke.composeai.rcembedded.player.utils.getPath
 import ee.schimke.composeai.rcembedded.player.utils.toStampedPathEffectStyle
-
-/*
- * Paint state + PaintBundle decoding for the embedded player's canvas draw path. Splits the paint
- * concerns (ComposeLocalPaint, stroke/blend/tile mappers, shader-brush builders, updatePaintFromBundle)
- * out of RcPlayerDrawing. Shares the snapshot store via the passed RemoteContext and resolveBitmap.
- */
-
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public class ComposeLocalPaint {
-    // android.graphics.Paint defaults to opaque black; isColorSet remains false until an explicit
-    // color is configured via PaintBundle.
-    public var color: Int = 0xFF000000.toInt()
-    public var isColorSet: Boolean = false
-    public var strokeWidth: Float = 1f
-    public var isStrokeWidthSet: Boolean = false
-    public var strokeMiter: Float = Stroke.DefaultMiter
-    public var isStroke: Boolean = false
-    public var isStyleSet: Boolean = false
-    public var strokeCap: Int = 0
-    public var isStrokeCapSet: Boolean = false
-    public var strokeJoin: Int = 0
-    public var isStrokeJoinSet: Boolean = false
-    public var pathEffect: PathEffect? = null
-    public var textSize: Float = Float.NaN
-    public var isTextSizeSet: Boolean = false
-    public var fontFamily: Int = 0
-    public var isTypefaceSet: Boolean = false
-    public var fontWeight: Int = 400
-    public var fontStyle: FontStyle = FontStyle.Normal
-    internal var fontAxis: IntArray? = null
-    internal var fontAxisValues: FloatArray? = null
-    public var brush: Brush? = null
-    // The framework shader backing [brush] (SHADER/TEXTURE), kept so SHADER_MATRIX can set a local
-    // matrix on it.
-    public var nativeShader: Shader? = null
-    public var colorFilter: ColorFilter? = null
-    public var blendMode: BlendMode = BlendMode.SrcOver
-    public var isBlendModeSet: Boolean = false
-    public var filterQuality: FilterQuality = FilterQuality.Low
-
-    /**
-     * Paint alpha in [0,1] from the PaintBundle ALPHA op; multiplies the draw color's own alpha.
-     */
-    public var alpha: Float = 1f
-
-    /**
-     * The [PaintBundle]s applied to this paint state, in application order. Replayed into a core
-     * [androidx.compose.remote.core.PaintContext] when a draw op is bridged to the View player
-     * implementation (see RcPlayerParticles), so paint set outside that subtree still applies.
-     */
-    public val sourceBundles: MutableList<PaintBundle> = mutableListOf()
-
-    /** The fill color with the paint's [alpha] folded into its alpha channel. */
-    public fun effectiveColor(): Color = Color(color).let { it.copy(alpha = it.alpha * alpha) }
-
-    internal fun toDrawStyle(): DrawStyle =
-        if (isStroke) {
-            Stroke(
-                width = strokeWidth,
-                miter = strokeMiter,
-                cap = mapStrokeCap(strokeCap),
-                join = mapStrokeJoin(strokeJoin),
-                pathEffect = pathEffect,
-            )
-        } else {
-            Fill
-        }
-
-    /**
-     * Build a framework [android.graphics.Paint] for the canvas text draw ops (DRAW_TEXT and its
-     * on-path/anchored variants) from the current paint state: anti-aliased, the effective color,
-     * the text size, and a bold/italic [android.graphics.Typeface] derived from font weight/style.
-     */
-    public fun toNativeTextPaint(context: RemoteContext): Paint {
-        // Reuse the context's configured TypefaceResolver (e.g. GmsFontTypefaceResolver) if
-        // present, falling back to the embedded player's singleton system resolver.
-        val resolver =
-            (context as? AndroidRemoteContext)?.typefaceResolver
-                ?: (context as? GraphContext)?.typefaceResolver
-                ?: EmbeddedPlayerTypefaceResolver
-        val italic = fontStyle == FontStyle.Italic
-
-        val fontInstance =
-            if (isTypefaceSet) {
-                if (fontFamily in 0..3) {
-                    resolver.resolve(fontFamily, fontWeight, italic, null, 400, false)
-                } else {
-                    val name = context.getText(fontFamily)
-                    if (name != null) {
-                        resolver.resolve(name, fontWeight, italic, null, 400, false)
-                    } else {
-                        resolver.resolve(0, fontWeight, italic, null, 400, false)
-                    }
-                }
-            } else {
-                resolver.resolve(0, fontWeight, italic, null, 400, false)
-            }
-
-        return Paint().apply {
-            isAntiAlias = true
-            color = effectiveColor().toArgb()
-            if (!this@ComposeLocalPaint.textSize.isNaN()) {
-                textSize = this@ComposeLocalPaint.textSize
-            }
-            typeface = fontInstance.getTypeface()
-        }
-    }
-
-    internal fun toTextStyle(density: Density, context: RemoteContext): TextStyle {
-        val weight = FontWeight(fontWeight)
-        val resolver =
-            (context as? AndroidRemoteContext)?.typefaceResolver
-                ?: (context as? GraphContext)?.typefaceResolver
-        val fontCertsResId = (resolver as? HasFontCerts)?.fontCertsResId ?: 0
-        val effectiveFontFamilyType = if (isTypefaceSet) fontFamily else 0
-        val fontName =
-            when (effectiveFontFamilyType) {
-                0 -> "default"
-                1 -> "sans-serif"
-                2 -> "serif"
-                3 -> "monospace"
-                else -> context.getText(effectiveFontFamilyType)
-            }
-        val resolvedFontFamily =
-            resolveFontFamily(
-                fontFamilyType = effectiveFontFamilyType,
-                fontName = fontName,
-                fontWeight = weight,
-                fontStyle = fontStyle,
-                fontAxis = fontAxis,
-                fontAxisValues = fontAxisValues,
-                context = context,
-                fontCertsResId = fontCertsResId,
-                typefaceResolver = resolver,
-            )
-        val drawStyle = toDrawStyle()
-        val resolvedPx = if (textSize.isNaN()) 12f else textSize
-        val fontSizeSp = with(density) { resolvedPx.toSp() }
-        return if (brush != null) {
-            TextStyle(
-                brush = brush,
-                alpha = alpha,
-                fontSize = fontSizeSp,
-                fontWeight = weight,
-                fontStyle = fontStyle,
-                fontFamily = resolvedFontFamily,
-                drawStyle = drawStyle,
-            )
-        } else {
-            TextStyle(
-                color = effectiveColor(),
-                fontSize = fontSizeSp,
-                fontWeight = weight,
-                fontStyle = fontStyle,
-                fontFamily = resolvedFontFamily,
-                drawStyle = drawStyle,
-            )
-        }
-    }
-
-    public fun reset() {
-        color = 0xFF000000.toInt()
-        isColorSet = false
-        strokeWidth = 1f
-        isStrokeWidthSet = false
-        strokeMiter = Stroke.DefaultMiter
-        isStroke = false
-        isStyleSet = false
-        strokeCap = 0
-        isStrokeCapSet = false
-        strokeJoin = 0
-        isStrokeJoinSet = false
-        pathEffect = null
-        textSize = Float.NaN
-        isTextSizeSet = false
-        fontFamily = 0
-        isTypefaceSet = false
-        fontWeight = 400
-        fontStyle = FontStyle.Normal
-        fontAxis = null
-        fontAxisValues = null
-        brush = null
-        nativeShader = null
-        colorFilter = null
-        blendMode = BlendMode.SrcOver
-        isBlendModeSet = false
-        filterQuality = FilterQuality.Low
-        alpha = 1f
-        sourceBundles.clear()
-    }
-
-    internal fun copy(): ComposeLocalPaint =
-        ComposeLocalPaint().also { copy ->
-            copy.color = color
-            copy.isColorSet = isColorSet
-            copy.strokeWidth = strokeWidth
-            copy.isStrokeWidthSet = isStrokeWidthSet
-            copy.strokeMiter = strokeMiter
-            copy.isStroke = isStroke
-            copy.isStyleSet = isStyleSet
-            copy.strokeCap = strokeCap
-            copy.isStrokeCapSet = isStrokeCapSet
-            copy.strokeJoin = strokeJoin
-            copy.isStrokeJoinSet = isStrokeJoinSet
-            copy.pathEffect = pathEffect
-            copy.textSize = textSize
-            copy.isTextSizeSet = isTextSizeSet
-            copy.fontFamily = fontFamily
-            copy.isTypefaceSet = isTypefaceSet
-            copy.fontWeight = fontWeight
-            copy.fontStyle = fontStyle
-            copy.fontAxis = fontAxis?.copyOf()
-            copy.fontAxisValues = fontAxisValues?.copyOf()
-            copy.brush = brush
-            copy.nativeShader = nativeShader
-            copy.colorFilter = colorFilter
-            copy.blendMode = blendMode
-            copy.isBlendModeSet = isBlendModeSet
-            copy.filterQuality = filterQuality
-            copy.alpha = alpha
-            copy.sourceBundles.addAll(sourceBundles)
-        }
-}
-
-internal fun mapStrokeCap(cap: Int): StrokeCap =
-    when (cap) {
-        1 -> StrokeCap.Round
-        2 -> StrokeCap.Square
-        else -> StrokeCap.Butt
-    }
-
-internal fun mapStrokeJoin(join: Int): StrokeJoin =
-    when (join) {
-        1 -> StrokeJoin.Round
-        2 -> StrokeJoin.Bevel
-        else -> StrokeJoin.Miter
-    }
-
-internal fun mapTileMode(mode: Int): TileMode =
-    when (mode) {
-        1 -> TileMode.Repeated
-        2 -> TileMode.Mirror
-        else -> TileMode.Clamp
-    }
 
 /** Wraps a framework [Shader] as a Compose [Brush] for the DrawScope paint path. */
 private fun nativeShaderBrush(shader: Shader): Brush =
@@ -313,17 +65,22 @@ private fun nativeShaderBrush(shader: Shader): Brush =
     }
 
 /**
- * Builds the AGSL [android.graphics.RuntimeShader] for a PaintBundle `SHADER` op (from a
- * [ShaderData], with its float/int/bitmap uniforms applied), mirroring the View player's
- * `AndroidPaintContext.setShader`. Returns null — for id 0, a missing [ShaderData] or shader text,
- * or below API 33 (RuntimeShader is API 33+); the caller then falls back to the solid color. The
- * caller wraps it as a Compose [Brush] (and keeps it for SHADER_MATRIX).
+ * Builds the AGSL [RuntimeShader] for a PaintBundle `SHADER` op (from a [ShaderData], with its
+ * float/int/bitmap uniforms applied), mirroring the View player's `AndroidPaintContext.setShader`.
+ * Returns null — for id 0, a missing [ShaderData] or shader text, or below API 33 (RuntimeShader is
+ * API 33+); the caller then falls back to the solid color. The caller wraps it as a Compose [Brush]
+ * (and keeps it for SHADER_MATRIX).
  */
-private fun buildRuntimeShader(shaderId: Int, remoteContext: RemoteContext): Shader? {
+private fun buildRuntimeShader(
+    shaderId: Int,
+    remoteContext: RemoteContext,
+): Shader? {
     if (shaderId == 0) return null
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
     val data = remoteContext.mRemoteComposeState.getFromId(shaderId) as? ShaderData ?: return null
     val text = remoteContext.getText(data.shaderTextId) ?: return null
+    val state = remoteContext.mRemoteComposeState as? SnapshotRemoteComposeState
+    if (state != null && !state.trustedContent) return null
     // A shader that fails to compile or bind its uniforms (e.g. malformed AGSL, or a runtime that
     // doesn't fully support RuntimeShader such as a host without GPU shader compilation) must not
     // crash the whole document draw — fall back to no shader so the rest of the frame still
@@ -331,7 +88,22 @@ private fun buildRuntimeShader(shaderId: Int, remoteContext: RemoteContext): Sha
     return try {
         val shader = RuntimeShader(text)
         for (name in data.uniformFloatNames) {
-            shader.setFloatUniform(name, data.getUniformFloats(name))
+            val values = data.getUniformFloats(name)
+            // A single NaN-encoded value may reference a dynamic float list (e.g. a vec4 uniform);
+            // otherwise resolve each NaN-encoded variable to its current value.
+            val dynamicList =
+                values
+                    .singleOrNull()
+                    ?.let { MaybeVariableFloat(it) }
+                    ?.takeIf { it.isReference }
+                    ?.let { remoteContext.collectionsAccess?.getDynamicFloats(it.id) }
+            shader.setFloatUniform(
+                name,
+                dynamicList
+                    ?: FloatArray(values.size) { k ->
+                        MaybeVariableFloat(values[k]).resolveOr(values[k], remoteContext)
+                    },
+            )
         }
         for (name in data.uniformIntegerNames) {
             shader.setIntUniform(name, data.getUniformInts(name))
@@ -358,12 +130,16 @@ private fun buildRuntimeShader(shaderId: Int, remoteContext: RemoteContext): Sha
  */
 private fun applyShaderMatrix(paintState: ComposeLocalPaint, matrixWord: Int, read: RemoteContext) {
     val shader = paintState.nativeShader ?: return
-    val id = Utils.idFromNan(Float.fromBits(matrixWord))
+    val id = MaybeVariableFloat(Float.fromBits(matrixWord)).id
     if (id == 0) {
         shader.setLocalMatrix(null)
         return
     }
     val matrix = read.getObject(id) as? MatrixAccess ?: return
+    if (matrix is MatrixExpression) {
+        matrix.updateVariables(read)
+        matrix.apply(read)
+    }
     val values = matrix.get()
     // MatrixAccess.to3x3: a 4x4 (16) collapses to the 3x3 (9) android Matrix layout; a 9 is as-is.
     val m3x3 =
@@ -386,60 +162,30 @@ private fun applyShaderMatrix(paintState: ComposeLocalPaint, matrixWord: Int, re
     shader.setLocalMatrix(Matrix().apply { setValues(m3x3) })
 }
 
-internal fun mapBlendMode(mode: Int): BlendMode =
-    when (mode) {
-        0 -> BlendMode.Clear
-        1 -> BlendMode.Src
-        2 -> BlendMode.Dst
-        3 -> BlendMode.SrcOver
-        4 -> BlendMode.DstOver
-        5 -> BlendMode.SrcIn
-        6 -> BlendMode.DstIn
-        7 -> BlendMode.SrcOut
-        8 -> BlendMode.DstOut
-        9 -> BlendMode.SrcAtop
-        10 -> BlendMode.DstAtop
-        11 -> BlendMode.Xor
-        12 -> BlendMode.Plus
-        13 -> BlendMode.Modulate
-        14 -> BlendMode.Screen
-        15 -> BlendMode.Overlay
-        16 -> BlendMode.Darken
-        17 -> BlendMode.Lighten
-        18 -> BlendMode.ColorDodge
-        19 -> BlendMode.ColorBurn
-        20 -> BlendMode.Hardlight
-        21 -> BlendMode.Softlight
-        22 -> BlendMode.Difference
-        23 -> BlendMode.Exclusion
-        24 -> BlendMode.Multiply
-        25 -> BlendMode.Hue
-        26 -> BlendMode.Saturation
-        27 -> BlendMode.Color
-        28 -> BlendMode.Luminosity
-        else -> BlendMode.SrcOver
-    }
-
 private fun resolvePaintFloat(bits: Int, read: RemoteContext): Float {
     val value = Float.fromBits(bits)
     return resolveFloat(value, value, read)
 }
 
+/**
+ * Applies [bundle] to [paintState]. Variable references are resolved through [remoteContext]; pass
+ * the player's [GraphContext] so computed values are current and reads are observed. Writes that
+ * must persist (e.g. lazy bitmap decode) go through its [writeContext].
+ */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun updatePaintFromBundle(
     bundle: PaintBundle,
     paintState: ComposeLocalPaint,
     remoteContext: RemoteContext,
-    read: RemoteContext = remoteContext,
 ) {
     paintState.sourceBundles.add(bundle)
-    val array = bundle.getArrayReflection()
+    val array = bundle.getArray()
     var i = 0
-    while (i < bundle.getPosReflection()) {
+    while (i < bundle.getPos()) {
         val cmd = array[i++]
         when (cmd and 0xFFFF) {
             PaintBundle.TEXT_SIZE -> {
-                paintState.textSize = resolvePaintFloat(array[i++], read)
+                paintState.textSize = resolvePaintFloat(array[i++], remoteContext)
                 paintState.isTextSizeSet = true
             }
             PaintBundle.TYPEFACE -> {
@@ -457,12 +203,13 @@ public fun updatePaintFromBundle(
             }
             PaintBundle.COLOR_ID -> {
                 val colorId = array[i++]
-                // Reactive read: an animated/variable color re-runs the draw when it changes.
-                paintState.color = read.getColor(colorId)
+                // Reactive remoteContext: an animated/variable color re-runs the draw when it
+                // changes.
+                paintState.color = remoteContext.getColor(colorId)
                 paintState.isColorSet = true
             }
             PaintBundle.STROKE_WIDTH -> {
-                paintState.strokeWidth = resolvePaintFloat(array[i++], read)
+                paintState.strokeWidth = resolvePaintFloat(array[i++], remoteContext)
                 paintState.isStrokeWidthSet = true
             }
             PaintBundle.STYLE -> {
@@ -484,7 +231,7 @@ public fun updatePaintFromBundle(
                     val values = FloatArray(count)
                     for (j in 0 until count) {
                         tags[j] = array[i++]
-                        values[j] = resolvePaintFloat(array[i++], read)
+                        values[j] = resolvePaintFloat(array[i++], remoteContext)
                     }
                     paintState.fontAxis = tags
                     paintState.fontAxisValues = values
@@ -506,7 +253,7 @@ public fun updatePaintFromBundle(
             PaintBundle.COLOR_FILTER_ID -> {
                 val mode = (cmd shr 16)
                 val colorId = array[i++]
-                val color = read.getColor(colorId)
+                val color = remoteContext.getColor(colorId)
                 paintState.colorFilter = ColorFilter.tint(Color(color), mapBlendMode(mode))
             }
             PaintBundle.CLEAR_COLOR_FILTER -> {
@@ -516,7 +263,7 @@ public fun updatePaintFromBundle(
                 // AGSL RuntimeShader on the paint, wrapped as a Compose Brush (mirrors the View
                 // player's AndroidPaintContext.setShader). Null (id 0 / missing data / pre-API-33)
                 // clears it. Keep the native shader so SHADER_MATRIX can set a local matrix.
-                val shaderId = array[i++]
+                val shaderId = derefId(array[i++], remoteContext)
                 val shader = buildRuntimeShader(shaderId, remoteContext)
                 paintState.nativeShader = shader
                 paintState.brush = shader?.let { nativeShaderBrush(it) }
@@ -543,7 +290,7 @@ public fun updatePaintFromBundle(
             PaintBundle.ALPHA -> {
                 // 1 float word (see PaintBundle.resolveIds). Folded into the draw color via
                 // ComposeLocalPaint.effectiveColor().
-                paintState.alpha = resolvePaintFloat(array[i++], read).coerceIn(0f, 1f)
+                paintState.alpha = resolvePaintFloat(array[i++], remoteContext).coerceIn(0f, 1f)
             }
             PaintBundle.ANTI_ALIAS -> {
                 // Value is packed in the high bits of `cmd`; no extra words.
@@ -564,10 +311,10 @@ public fun updatePaintFromBundle(
             }
             PaintBundle.SHADER_MATRIX -> {
                 // Local matrix on the current shader (1 word: NaN-encoded MatrixAccess id).
-                applyShaderMatrix(paintState, array[i++], read)
+                applyShaderMatrix(paintState, array[i++], remoteContext)
             }
             PaintBundle.STROKE_MITER -> {
-                paintState.strokeMiter = resolvePaintFloat(array[i++], read)
+                paintState.strokeMiter = resolvePaintFloat(array[i++], remoteContext)
             }
             PaintBundle.FALLBACK_TYPEFACE -> {
                 i++ // 1 word (PaintBundle.resolveIds); not applied yet, consumed to stay in sync.
@@ -577,7 +324,7 @@ public fun updatePaintFromBundle(
                 if (pathEffectCount > 0) {
                     val pathEffectData = FloatArray(pathEffectCount)
                     for (j in 0 until pathEffectCount) {
-                        pathEffectData[j] = resolvePaintFloat(array[i++], read)
+                        pathEffectData[j] = resolvePaintFloat(array[i++], remoteContext)
                     }
                     val parsed = runCatching {
                         PaintPathEffects.parse(pathEffectData, 0)
@@ -596,12 +343,13 @@ public fun updatePaintFromBundle(
                 val colors = IntArray(len)
                 for (j in 0 until len) {
                     val word = array[i++]
-                    colors[j] = if ((register and (1 shl j)) != 0) read.getColor(word) else word
+                    colors[j] =
+                        if ((register and (1 shl j)) != 0) remoteContext.getColor(word) else word
                 }
                 len = array[i++] // stops count
                 val stops = FloatArray(len)
                 for (j in 0 until len) {
-                    stops[j] = resolvePaintFloat(array[i++], read)
+                    stops[j] = resolvePaintFloat(array[i++], remoteContext)
                 }
 
                 val colorsList = colors.map { Color(it) }
@@ -618,19 +366,19 @@ public fun updatePaintFromBundle(
                         }
                     }
                 }
-                val colorStops: Array<Pair<Float, Color>>? =
+                val colorStopsList: List<Float>? =
                     if (stopsAscending) {
-                        Array(colorsList.size) { stops[it] to colorsList[it] }
+                        stops.asList()
                     } else {
                         null
                     }
 
                 when (gradientType) {
                     0 -> { // LINEAR_GRADIENT
-                        val startX = resolvePaintFloat(array[i++], read)
-                        val startY = resolvePaintFloat(array[i++], read)
-                        val endX = resolvePaintFloat(array[i++], read)
-                        val endY = resolvePaintFloat(array[i++], read)
+                        val startX = resolvePaintFloat(array[i++], remoteContext)
+                        val startY = resolvePaintFloat(array[i++], remoteContext)
+                        val endX = resolvePaintFloat(array[i++], remoteContext)
+                        val endY = resolvePaintFloat(array[i++], remoteContext)
                         val tileMode = array[i++]
                         val start = Offset(startX, startY)
                         val end = Offset(endX, endY)
@@ -643,29 +391,25 @@ public fun updatePaintFromBundle(
                                 endY.isFinite() &&
                                 (startX != endX || startY != endY)
                         ) {
-                            paintState.brush =
-                                if (colorStops != null)
-                                    Brush.linearGradient(
-                                        colorStops = colorStops,
-                                        start = start,
-                                        end = end,
-                                        tileMode = tm,
-                                    )
-                                else
-                                    Brush.linearGradient(
-                                        colors = colorsList,
-                                        start = start,
-                                        end = end,
-                                        tileMode = tm,
-                                    )
+                            val shader =
+                                LinearGradientShader(
+                                    from = start,
+                                    to = end,
+                                    colors = colorsList,
+                                    colorStops = colorStopsList,
+                                    tileMode = tm,
+                                )
+                            paintState.nativeShader = shader
+                            paintState.brush = nativeShaderBrush(shader)
                         } else if (colorsList.isNotEmpty()) {
+                            paintState.nativeShader = null
                             paintState.brush = SolidColor(colorsList[0])
                         }
                     }
                     1 -> { // RADIAL_GRADIENT
-                        val centerX = resolvePaintFloat(array[i++], read)
-                        val centerY = resolvePaintFloat(array[i++], read)
-                        val radius = resolvePaintFloat(array[i++], read)
+                        val centerX = resolvePaintFloat(array[i++], remoteContext)
+                        val centerY = resolvePaintFloat(array[i++], remoteContext)
+                        val radius = resolvePaintFloat(array[i++], remoteContext)
                         val tileMode = array[i++]
                         val center = Offset(centerX, centerY)
                         val tm = mapTileMode(tileMode)
@@ -676,35 +420,36 @@ public fun updatePaintFromBundle(
                                 radius.isFinite() &&
                                 radius > 0
                         ) {
-                            paintState.brush =
-                                if (colorStops != null)
-                                    Brush.radialGradient(
-                                        colorStops = colorStops,
-                                        center = center,
-                                        radius = radius,
-                                        tileMode = tm,
-                                    )
-                                else
-                                    Brush.radialGradient(
-                                        colors = colorsList,
-                                        center = center,
-                                        radius = radius,
-                                        tileMode = tm,
-                                    )
+                            val shader =
+                                RadialGradientShader(
+                                    center = center,
+                                    radius = radius,
+                                    colors = colorsList,
+                                    colorStops = colorStopsList,
+                                    tileMode = tm,
+                                )
+                            paintState.nativeShader = shader
+                            paintState.brush = nativeShaderBrush(shader)
                         } else if (colorsList.isNotEmpty()) {
+                            paintState.nativeShader = null
                             paintState.brush = SolidColor(colorsList[0])
                         }
                     }
                     2 -> { // SWEEP_GRADIENT
-                        val centerX = resolvePaintFloat(array[i++], read)
-                        val centerY = resolvePaintFloat(array[i++], read)
+                        val centerX = resolvePaintFloat(array[i++], remoteContext)
+                        val centerY = resolvePaintFloat(array[i++], remoteContext)
                         val center = Offset(centerX, centerY)
                         if (colorsList.size >= 2 && centerX.isFinite() && centerY.isFinite()) {
-                            paintState.brush =
-                                if (colorStops != null)
-                                    Brush.sweepGradient(colorStops = colorStops, center = center)
-                                else Brush.sweepGradient(colors = colorsList, center = center)
+                            val shader =
+                                SweepGradientShader(
+                                    center = center,
+                                    colors = colorsList,
+                                    colorStops = colorStopsList,
+                                )
+                            paintState.nativeShader = shader
+                            paintState.brush = nativeShaderBrush(shader)
                         } else if (colorsList.isNotEmpty()) {
+                            paintState.nativeShader = null
                             paintState.brush = SolidColor(colorsList[0])
                         }
                     }

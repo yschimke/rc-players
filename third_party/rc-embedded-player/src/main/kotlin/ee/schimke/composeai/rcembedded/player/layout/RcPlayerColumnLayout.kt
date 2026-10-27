@@ -26,11 +26,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
-import ee.schimke.composeai.rcembedded.player.RcPlayerChildren
-import ee.schimke.composeai.rcembedded.player.columnSpacedBy
-import ee.schimke.composeai.rcembedded.player.horizontalPositioningReflection
+import ee.schimke.composeai.rcembedded.player.components.RcPlayerChildren
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
-import ee.schimke.composeai.rcembedded.player.verticalPositioningReflection
 
 @Composable
 internal fun RcPlayerColumn(layout: ColumnLayout, modifier: Modifier) {
@@ -38,7 +35,7 @@ internal fun RcPlayerColumn(layout: ColumnLayout, modifier: Modifier) {
     val density = LocalDensity.current.density
     // spacedBy may be a NaN-encoded variable/expression (dp recorded against the density variable),
     // so resolve it before the arrangement helper applies the density behavior.
-    val spacedBy = rememberRemoteFloatAsState(columnSpacedBy(layout)).value
+    val spacedBy = rememberRemoteFloatAsState(layout.spacedBy).value
 
     if (layout is CollapsibleColumnLayout) {
         // Priority-aware collapsing: drop lowest-CollapsiblePriority children until the rest fit.
@@ -48,12 +45,12 @@ internal fun RcPlayerColumn(layout: ColumnLayout, modifier: Modifier) {
             modifier = modifier,
             verticalArrangement =
                 columnVerticalArrangement(
-                    layout.verticalPositioningReflection,
+                    layout.verticalPositioning,
                     spacedBy,
                     behavior,
                     density,
                 ),
-            horizontalAlignment = columnHorizontalAlignment(layout.horizontalPositioningReflection),
+            horizontalAlignment = columnHorizontalAlignment(layout.horizontalPositioning),
         ) {
             RcPlayerChildren(layout) { child ->
                 val layoutChild = child as? LayoutComponent

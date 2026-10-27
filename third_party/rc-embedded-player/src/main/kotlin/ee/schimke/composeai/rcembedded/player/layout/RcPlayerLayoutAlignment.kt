@@ -21,7 +21,7 @@ package ee.schimke.composeai.rcembedded.player.layout
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
-import ee.schimke.composeai.rcembedded.player.rawDimensionDp
+import ee.schimke.composeai.rcembedded.player.doc.rawDimensionDp
 
 /*
  * Shared mapping from RemoteCompose layout positioning to Compose Alignment/Arrangement.

@@ -21,7 +21,6 @@ package ee.schimke.composeai.rcembedded.player.layout
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.LayoutComponent
 import androidx.compose.remote.core.operations.layout.managers.CollapsibleRowLayout
 import androidx.compose.remote.core.operations.layout.managers.FlowLayout
@@ -36,12 +35,9 @@ import androidx.compose.ui.util.fastFirstOrNull
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
 import ee.schimke.composeai.rcembedded.player.LocalGraphContext
 import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
-import ee.schimke.composeai.rcembedded.player.RcPlayerChildren
-import ee.schimke.composeai.rcembedded.player.horizontalPositioningReflection
-import ee.schimke.composeai.rcembedded.player.lineReflection
-import ee.schimke.composeai.rcembedded.player.rowSpacedBy
+import ee.schimke.composeai.rcembedded.player.components.RcPlayerChildren
+import ee.schimke.composeai.rcembedded.player.state.MaybeVariableFloat
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
-import ee.schimke.composeai.rcembedded.player.verticalPositioningReflection
 
 @Composable
 internal fun RcPlayerRow(layout: RowLayout, modifier: Modifier) {
@@ -50,7 +46,7 @@ internal fun RcPlayerRow(layout: RowLayout, modifier: Modifier) {
     val behavior = LocalCoreDocument.current.densityBehavior
     val density = LocalDensity.current.density
     // Resolve spacedBy (may be a NaN-encoded variable/expression) before scaling.
-    val spacedBy = rememberRemoteFloatAsState(rowSpacedBy(layout)).value
+    val spacedBy = rememberRemoteFloatAsState(layout.spacedBy).value
     if (layout is CollapsibleRowLayout) {
         // Priority-aware collapsing: drop lowest-CollapsiblePriority children until the rest fit.
         RcPlayerCollapsible(layout, modifier, vertical = false, spacedBy = spacedBy)
@@ -59,12 +55,12 @@ internal fun RcPlayerRow(layout: RowLayout, modifier: Modifier) {
             modifier = modifier,
             horizontalArrangement =
                 rowHorizontalArrangement(
-                    layout.horizontalPositioningReflection,
+                    layout.horizontalPositioning,
                     spacedBy,
                     behavior,
                     density,
                 ),
-            verticalAlignment = rowVerticalAlignment(layout.verticalPositioningReflection),
+            verticalAlignment = rowVerticalAlignment(layout.verticalPositioning),
         ) {
             RcPlayerChildren(layout) { child ->
                 val mods = (child as? LayoutComponent)?.componentModifiers?.getList()
@@ -83,9 +79,9 @@ internal fun RcPlayerRow(layout: RowLayout, modifier: Modifier) {
                     mods?.fastFirstOrNull { it is AlignByModifierOperation }
                         as? AlignByModifierOperation
                 if (alignByOp != null) {
-                    val line = alignByOp.lineReflection
-                    if (Utils.isVariable(line)) {
-                        val id = Utils.idFromNan(line)
+                    val line = MaybeVariableFloat(alignByOp.line)
+                    if (line.isReference) {
+                        val id = line.id
                         if (
                             id == AlignByModifierOperation.ID_FIRST_BASELINE ||
                                 id == AlignByModifierOperation.ID_LAST_BASELINE
@@ -107,24 +103,24 @@ internal fun RcPlayerFlowRow(layout: FlowLayout, modifier: Modifier) {
     val graph = LocalGraphContext.current
     val behavior = LocalCoreDocument.current.densityBehavior
     val density = LocalDensity.current.density
-    val spacedBy = rememberRemoteFloatAsState(rowSpacedBy(layout)).value
+    val spacedBy = rememberRemoteFloatAsState(layout.spacedBy).value
     FlowRow(
         modifier = modifier,
         horizontalArrangement =
             rowHorizontalArrangement(
-                layout.horizontalPositioningReflection,
+                layout.horizontalPositioning,
                 spacedBy,
                 behavior,
                 density,
             ),
         verticalArrangement =
             columnVerticalArrangement(
-                layout.verticalPositioningReflection,
+                layout.verticalPositioning,
                 0f,
                 behavior,
                 density,
             ),
-        itemVerticalAlignment = rowVerticalAlignment(layout.verticalPositioningReflection),
+        itemVerticalAlignment = rowVerticalAlignment(layout.verticalPositioning),
         maxItemsInEachRow = layout.mMaxItemsInEachRow,
         maxLines = layout.mMaxLines,
     ) {
@@ -145,9 +141,9 @@ internal fun RcPlayerFlowRow(layout: FlowLayout, modifier: Modifier) {
                 mods?.fastFirstOrNull { it is AlignByModifierOperation }
                     as? AlignByModifierOperation
             if (alignByOp != null) {
-                val line = alignByOp.lineReflection
-                if (Utils.isVariable(line)) {
-                    val id = Utils.idFromNan(line)
+                val line = MaybeVariableFloat(alignByOp.line)
+                if (line.isReference) {
+                    val id = line.id
                     if (
                         id == AlignByModifierOperation.ID_FIRST_BASELINE ||
                             id == AlignByModifierOperation.ID_LAST_BASELINE

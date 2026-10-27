@@ -18,12 +18,16 @@ package ee.schimke.composeai.rcembedded
 
 import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.operations.ColorAttribute
-import androidx.compose.runtime.mutableFloatStateOf
-import ee.schimke.composeai.rcembedded.player.GraphContext
-import ee.schimke.composeai.rcembedded.player.SnapshotRemoteComposeState
-import ee.schimke.composeai.rcembedded.player.buildComputedOpIndex
+import ee.schimke.composeai.rcembedded.player.doc.GraphContext
+import ee.schimke.composeai.rcembedded.player.doc.GraphTimeState
+import ee.schimke.composeai.rcembedded.player.doc.SnapshotRemoteComposeState
+import ee.schimke.composeai.rcembedded.player.doc.TimeReadTracker
+import ee.schimke.composeai.rcembedded.player.doc.buildComputedOpIndex
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * The embedded player's graph must be able to evaluate an operation that publishes its value from
@@ -39,6 +43,10 @@ import org.junit.Test
  * happened to land on a same-coloured background, and would say nothing about *which* of the two
  * value channels ran.
  */
+// `androidx.tracing` sections in the player call `android.os.Trace`, which the plain unit-test
+// android.jar does not implement.
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class GraphContextPaintOperationTest {
 
     @Test
@@ -95,8 +103,7 @@ class GraphContextPaintOperationTest {
         GraphContext(
             state,
             buildComputedOpIndex(listOf(attribute)),
-            mutableFloatStateOf(0f),
-            RemoteClock.SYSTEM,
+            GraphTimeState(RemoteClock.SYSTEM, TimeReadTracker()),
         )
 
     private companion object {

@@ -30,8 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
-import ee.schimke.composeai.rcembedded.player.dimensionInRawValues
-import ee.schimke.composeai.rcembedded.player.dimensionRawValue
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 @Composable
@@ -44,7 +42,7 @@ internal fun Modifier.height(op: HeightModifierOperation): Modifier {
             // dynamic dimensions) reactively rather than the core-flattened `getValue()`, so
             // time-/animation-/host-driven heights update like normal Compose.
             val behavior = LocalCoreDocument.current.densityBehavior
-            val resolved = rememberRemoteFloatAsState(dimensionRawValue(op)).value
+            val resolved = rememberRemoteFloatAsState(op.rawValue).value
             val heightDp =
                 if (
                     op.type == DimensionModifierOperation.Type.EXACT &&
@@ -68,10 +66,9 @@ internal fun Modifier.height(op: HeightModifierOperation): Modifier {
 internal fun Modifier.heightIn(op: HeightInModifierOperation): Modifier {
     val density = LocalDensity.current.density
     val behavior = LocalCoreDocument.current.densityBehavior
-    val (minDimension, maxDimension) = dimensionInRawValues(op)
     val heightMinDp =
-        rememberRemoteFloatAsState(minDimension).value.constraintDimensionToDp(behavior, density)
+        rememberRemoteFloatAsState(op.rawMin).value.constraintDimensionToDp(behavior, density)
     val heightMaxDp =
-        rememberRemoteFloatAsState(maxDimension).value.constraintDimensionToDp(behavior, density)
+        rememberRemoteFloatAsState(op.rawMax).value.constraintDimensionToDp(behavior, density)
     return this.heightIn(heightMinDp, heightMaxDp)
 }

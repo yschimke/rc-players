@@ -32,7 +32,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcembedded.player.ExperimentalRemoteDocumentPlayer
-import ee.schimke.composeai.rcembedded.player.RemoteImageSupport
+import ee.schimke.composeai.rcembedded.player.resources.RemoteImageSupport
 import java.io.File
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

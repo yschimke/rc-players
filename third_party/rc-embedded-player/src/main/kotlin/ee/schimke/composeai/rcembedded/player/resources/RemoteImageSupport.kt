@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package ee.schimke.composeai.rcembedded.player
+package ee.schimke.composeai.rcembedded.player.resources
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.core.Limits

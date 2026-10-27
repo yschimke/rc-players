@@ -16,25 +16,33 @@
 
 @file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection", "BanConcurrentHashMap")
 
-package ee.schimke.composeai.rcembedded.player
+package ee.schimke.composeai.rcembedded.player.doc
 
 import androidx.collection.IntObjectMap
+import androidx.collection.IntSet
 import androidx.collection.MutableIntObjectMap
 import androidx.collection.MutableIntSet
+import androidx.collection.MutableLongObjectMap
+import androidx.collection.emptyIntSet
 import androidx.compose.remote.core.Operation
 import androidx.compose.remote.core.PaintOperation
-import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.RemoteContext
 import androidx.compose.remote.core.VariableSupport
 import androidx.compose.remote.core.operations.FloatExpression
+import androidx.compose.remote.core.operations.ImageAttribute
 import androidx.compose.remote.core.operations.ShaderData
 import androidx.compose.remote.core.operations.layout.Component
 import androidx.compose.remote.core.operations.utilities.ArrayAccess
-import androidx.compose.remote.player.core.platform.TypefaceResolver
-import androidx.compose.runtime.IntState
+import androidx.compose.remote.player.core.platform.AndroidRemoteContext
 import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.text.TextMeasurer
+import ee.schimke.composeai.rcembedded.player.RcImageLoader
+import ee.schimke.composeai.rcembedded.player.RcTypefaceResolver
+import ee.schimke.composeai.rcembedded.player.draw.ComposeLocalPaint
+import ee.schimke.composeai.rcembedded.player.draw.GraphPaintContext
+import ee.schimke.composeai.rcembedded.player.draw.derefId
+import ee.schimke.composeai.rcembedded.player.resources.RcTypefaceCache
+import ee.schimke.composeai.rcembedded.player.resources.resolveImageAttributeDimensions
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -63,41 +71,46 @@ import java.util.concurrent.ConcurrentHashMap
 internal class GraphContext(
     private val realState: SnapshotRemoteComposeState,
     private val computedOps: IntObjectMap<Operation>,
-    timeMillis: State<Float> = mutableFloatStateOf(0f),
-    clock: RemoteClock = RemoteClock.SYSTEM,
+    /** Reactive time fields and clock that time reads in this context resolve against. */
+    internal val timeState: GraphTimeState,
     internal var componentValues: Map<Int, State<Float>> = emptyMap(),
-) : StoreBackedRemoteContext(clock) {
+    private val touchExpressionIds: IntSet = emptyIntSet(),
+    internal var animatedFloatStates: Map<Int, State<Float>> = emptyMap(),
+) : StoreBackedRemoteContext(timeState.baseClock) {
 
-    internal var typefaceResolver: TypefaceResolver? = null
+    internal val typefaceCache = RcTypefaceCache()
 
-    fun setTypefaceResolver(resolver: TypefaceResolver?) {
-        this.typefaceResolver = resolver
-    }
+    internal var typefaceResolver: RcTypefaceResolver?
+        get() = typefaceCache.resolver
+        set(value) {
+            typefaceCache.resolver = value
+            (store as? AndroidRemoteContext)?.setTypefaceResolver(
+                typefaceCache.coreTypefaceResolver
+            )
+        }
 
-    private var _timeState: GraphTimeState? = null
-
-    internal val timeState: GraphTimeState
-        get() = _timeState!!
+    /**
+     * The context that owns the shared store. This context drops non-scalar writes (see
+     * [loadBitmap], [putObject]) to keep evaluation pure, so writes that must persist, such as
+     * lazily decoding a bitmap, go here instead. See [writeContext].
+     */
+    internal var store: RemoteContext? = null
+        set(value) {
+            field = value
+            (value as? AndroidRemoteContext)?.setTypefaceResolver(
+                typefaceCache.coreTypefaceResolver
+            )
+        }
 
     init {
         // Share the leaf store so collections/objects/paths and plain variables resolve against the
         // same (snapshot-backed) data the rest of the player uses.
         mRemoteComposeState = realState
-        _timeState = GraphTimeState(clock, timeMillis.value)
+        // The base clock goes to the super constructor, which reads the clock (for the document
+        // load time) before this class's properties are initialised. Switch to the reactive clock
+        // afterwards, so operations that read time through getClock() record a time read.
+        setClock(timeState.reactiveClock)
     }
-
-    internal val startClockMillis: Long
-        get() = timeState.startClockMillis
-
-    internal val epochSecondState: IntState
-        get() = timeState.epochSecondState
-
-    internal fun updateTime(frameMillis: Float, updateContinuous: Boolean = true): Boolean =
-        timeState.updateTime(frameMillis, updateContinuous)
-
-    internal fun timeFloatState(id: Int): State<Float> = timeState.timeFloatState(id)
-
-    override fun getClock(): RemoteClock = _timeState?.reactiveClock ?: super.getClock()
 
     private val graphPaintContext = GraphPaintContext(this)
     private val textMeasurePaints = MutableIntObjectMap<ComposeLocalPaint>()
@@ -112,8 +125,42 @@ internal class GraphContext(
         textMeasurePaints[id] = paintState
     }
 
-    @Suppress("BanConcurrentHashMap")
-    internal val particlesInitialized: MutableSet<Int> = ConcurrentHashMap.newKeySet()
+    /**
+     * IDs (`ParticlesCreate.getId()`) of `ParticlesCreate` ops that have seeded their particles at
+     * least once, so a `ParticlesLoop` only falls back to seeding a source the draw stream never
+     * painted.
+     */
+    internal val particlesInitialized: MutableIntSet = MutableIntSet()
+
+    /**
+     * Fire state of each impulse whose window is open, keyed by the operation (identity: operations
+     * don't override equals) and then by the canvas loop iteration path it runs under (0 outside
+     * any loop). An entry exists only while that window is open and records that its initial pass
+     * already ran: the embedded equivalent of core `ImpulseOperation.mInitialPass` being false.
+     * Entries are dropped when the window closes or is pending, so the map stays bounded by the
+     * impulses currently in their window.
+     */
+    internal val impulseWindows: MutableMap<Any, MutableLongObjectMap<ImpulseWindowState>> =
+        ConcurrentHashMap()
+
+    /** Removes the fire state of [op] under [loopScope], if any, without allocating. */
+    internal fun clearImpulseWindow(op: Any, loopScope: Long) {
+        val states = impulseWindows[op] ?: return
+        states.remove(loopScope)
+        if (states.isEmpty()) impulseWindows.remove(op)
+    }
+
+    /** Returns the fire state of [op] under [loopScope], or null if its window was not open. */
+    internal fun impulseWindow(op: Any, loopScope: Long): ImpulseWindowState? =
+        impulseWindows[op]?.get(loopScope)
+
+    /** Records that the initial pass of [op] under [loopScope] ran for [startAt] at time [now]. */
+    internal fun openImpulseWindow(op: Any, loopScope: Long, startAt: Float, now: Float) {
+        impulseWindows
+            .getOrPut(op) { MutableLongObjectMap() }
+            .getOrPut(loopScope) { ImpulseWindowState() }
+            .restart(startAt, now)
+    }
 
     internal var imageLoader: RcImageLoader? = null
 
@@ -131,6 +178,8 @@ internal class GraphContext(
     private val evalState = ThreadLocal.withInitial { EvalPassState() }
 
     internal fun isComputed(id: Int): Boolean = computedOps.containsKey(id)
+
+    internal fun isTouchExpression(id: Int): Boolean = touchExpressionIds.contains(id)
 
     private fun computedValue(id: Int): Any? {
         val state = evalState.get()!!
@@ -152,15 +201,20 @@ internal class GraphContext(
         state.captured = null
         state.computing.add(id)
         try {
-            if (op is VariableSupport) {
+            if (op is VariableSupport && op !is FloatExpression) {
                 op.updateVariables(this) // reads inputs (tracked)
             }
             // Value-producing PaintOperations (e.g. ColorAttribute, TextMeasure, ImageAttribute)
             // compute and write their outputs during paint(paintContext) rather than
             // apply(remoteContext).
             if (op is PaintOperation && op !is Component) {
+                if (op is ImageAttribute) {
+                    resolveImageAttributeDimensions(this, writeContext, derefId(op.imageId, this))
+                }
                 graphPaintContext.paintState = textMeasurePaints[id] ?: ComposeLocalPaint()
                 op.paint(graphPaintContext)
+            } else if (op is FloatExpression) {
+                loadFloat(id, op.evaluate(this))
             } else {
                 op.apply(this) // writes output -> captured
             }
@@ -183,11 +237,13 @@ internal class GraphContext(
 
     override fun getFloat(id: Int): Float {
         val compVal = componentValues[id]
+        val animVal = animatedFloatStates[id]
         return when {
             compVal != null -> compVal.value
             realState.isFloatOverridden(id) -> super.getFloat(id)
+            animVal != null -> animVal.value
             isComputed(id) -> (computedValue(id) as? Number)?.toFloat() ?: 0f
-            isTimeVariable(id) -> timeFloatState(id).value
+            isTimeVariable(id) -> timeState.timeFloatState(id).value
             else -> super.getFloat(id)
         }
     }
@@ -196,8 +252,8 @@ internal class GraphContext(
         when {
             realState.isIntegerOverridden(id) -> super.getInteger(id)
             isComputed(id) -> (computedValue(id) as? Number)?.toInt() ?: 0
-            id == RemoteContext.ID_EPOCH_SECOND -> epochSecondState.intValue
-            isTimeVariable(id) -> timeFloatState(id).value.toInt()
+            id == RemoteContext.ID_EPOCH_SECOND -> timeState.epochSecondState.intValue
+            isTimeVariable(id) -> timeState.timeFloatState(id).value.toInt()
             else -> super.getInteger(id)
         }
 
@@ -271,4 +327,40 @@ internal class GraphContext(
     ) {}
 
     override fun needsRepaint() {}
+}
+
+/**
+ * The context to write through: the [GraphContext.store] behind a [GraphContext], otherwise this
+ * context itself. Lets helpers take a single (read) context and still persist writes.
+ */
+internal val RemoteContext.writeContext: RemoteContext
+    get() = (this as? GraphContext)?.store ?: this
+
+/**
+ * Fire state of one open impulse window (see [GraphContext.impulseWindows]): the start time its
+ * initial pass ran for, and the first and latest animation times that start was seen at.
+ */
+internal class ImpulseWindowState {
+    var startAt: Float = Float.NaN
+        private set
+
+    private var firstSeen = 0f
+    private var lastSeen = 0f
+
+    /**
+     * True once [startAt] has been seen at two different animation times, i.e. it held across a
+     * frame rather than following the clock.
+     */
+    val isStartStable: Boolean
+        get() = lastSeen > firstSeen
+
+    fun restart(startAt: Float, now: Float) {
+        this.startAt = startAt
+        firstSeen = now
+        lastSeen = now
+    }
+
+    fun seen(now: Float) {
+        if (now > lastSeen) lastSeen = now
+    }
 }

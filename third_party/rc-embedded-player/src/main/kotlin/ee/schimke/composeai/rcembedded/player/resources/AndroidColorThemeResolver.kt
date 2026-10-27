@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
-package ee.schimke.composeai.rcembedded.player
+package ee.schimke.composeai.rcembedded.player.resources
 
+import android.R
 import android.content.Context
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.operations.ColorTheme
+import androidx.compose.remote.creation.compose.state.AndroidSystemColorMap
 
 /**
  * Resolves Android system color resources for [ColorTheme] operations.
  *
  * In remote-core documents, Android theme colors are stored as indexed tokens referencing framework
- * color resources. This resolver maps the 196 standard [android.R.color] resources into the
- * document's [ColorTheme] operations to match the View player's theme resolution.
+ * color resources. This resolver maps the 196 standard [R.color] resources into the document's
+ * [ColorTheme] operations to match the View player's theme resolution.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 internal object AndroidColorThemeResolver {

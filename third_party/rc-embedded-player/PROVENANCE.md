@@ -19,40 +19,67 @@ removed on 2026-09-25; the CMP player (`rc-player/compose`) is this repository's
 - Paths:
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/embedded`
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/utils`
-- Commit: `11ece46a49d485c7644e53cb0684a611d7a0ec10` (`androidx-main`, 2026-10-02)
+- Commit: `5dab33683cfbf392f649287d4e21ca03864337bf` (`androidx-main`, 2026-10-27)
 - License: Apache-2.0
 
 ## How the copy is made
 
 1. Copy both upstream directories into `src/main/kotlin/ee/schimke/composeai/rcembedded/player/`
-   (`utils/` under `player/utils/`). Leave out upstream's `README.md`.
-2. Rewrite the packages: `androidx.compose.remote.player.compose.embedded` →
-   `ee.schimke.composeai.rcembedded.player`, and `androidx.compose.remote.player.compose.utils` →
-   `ee.schimke.composeai.rcembedded.player.utils`. Upstream publishes its own embedded player in the
-   original package, so this copy cannot share it.
+   (`utils/` under `player/utils/`), keeping upstream's subpackages (`components/`, `doc/`, `draw/`,
+   `inspectable/`, `layout/`, `modifier/`, `resources/`, `state/`, from `82ec7b31a8c`) as they are.
+   Leave out upstream's `README.md`.
+2. Rewrite the packages: `androidx.compose.remote.player.compose.embedded` (and every subpackage
+   under it) → `ee.schimke.composeai.rcembedded.player`, and
+   `androidx.compose.remote.player.compose.utils` → `ee.schimke.composeai.rcembedded.player.utils`.
+   Upstream publishes its own embedded player in the original package, so this copy cannot share
+   it.
 3. Run `./gradlew :third-party-rc-embedded-player:ktfmtFormat`. This module is formatted in ktfmt's
    kotlinlang style, which is what AndroidX uses (`build.gradle.kts`). The formatter changes import
    order in an upstream file, since the renamed imports sort differently. It also rewraps the odd
-   line where AndroidX's ktfmt version differs from this one: `RcPlayerState.kt` at this pin.
-4. Re-apply the patches below. Every patched line sits under a `// LOCAL PATCH (rc-players)`
-   comment, and the helpers they need live in files of their own.
+   line where AndroidX's ktfmt version differs from this one: `RcPlayerState.kt`,
+   `components/RcPlayerTouch.kt` and `modifier/ClickModifier.kt` at this pin.
+4. Re-apply the patches and version-skew shims below. Every patched line sits under a
+   `// LOCAL PATCH (rc-players)` or `// VERSION SKEW (rc-players)` comment, and the helpers they need
+   live in files of their own.
 
 `scripts/diff-upstream.sh <androidx checkout>` diffs this copy against a checkout with the package
-rewrite and import order normalised. Its output should be the patches listed here and nothing more
+rewrite and import order normalised. Its output should be the patches and shims listed here and nothing more
 than that rewrapping.
 
 ## Version skew
 
 Upstream builds this player against the in-tree `remote-core` / `remote-player-core`. This module
-builds it against the published alphas the version catalog pins (`compose-remote = 1.0.0-alpha19`).
-The player reaches `@RestrictTo(LIBRARY_GROUP)` members, and `CoreDataAccessors.kt` reaches private
-`CoreDocument` state reflectively. Both are sensitive to the gap between `androidx-main` and the
-pinned alpha, so pair a refresh with a render of the embedded lane (`scripts/rc-lane-ab/render-ab.sh`),
-not just a compile.
+builds it against the published alphas the version catalog pins (`compose-remote = 1.0.0-alpha22`).
+The player reaches `@RestrictTo(LIBRARY_GROUP)` members of the core, so it is sensitive to the gap
+between `androidx-main` and the pinned alpha: pair a refresh with a render of the embedded lane
+(`scripts/rc-lane-ab/render-ab.sh`), not just a compile. There is no reflection left in the copied
+sources: upstream moved every private `CoreDocument` / operation read onto core accessors
+(`1cfe2843caf`, `157d42d43cf`, `d3d6aa83f17`), and alpha22 ships them. (The local
+`RcPlayerLocalPatches.kt` reflects nothing either.)
 
-At this pin the only source the alphas lack is `remote-creation-compose`'s `AndroidSystemColorMap`,
-which `AndroidColorThemeResolver.kt` imports. `AndroidSystemColorMap.kt` is a copy of it, made
-`internal`. Delete it, and restore the upstream import, once the pinned release ships it.
+**Which commit, and why.** alpha22 was cut from `androidx-main` at `0b7d5401bee` (2026-10-16): its
+`remote-core`, `remote-player-compose` and `remote-creation-compose` `-sources.jar`s match that
+tree file for file (302/302, 71/71 and 172/172; the next first-parent change to `compose/remote`,
+`d26ce36655c`, already differs). The pin is `androidx-main` HEAD rather than that commit because
+HEAD compiles against alpha22 with the two small shims below, and the eleven days of player work
+since the cut (subpackages, typeface resolver, host actions, haptics, visibility animations, touch,
+font variations, spring animations, the setup walk that no longer evaluates draw streams, …) are
+what retired five of the local patches. Move the pin back to the newest commit that compiles if
+a later refresh needs more shimming than this.
+
+The shims, each to be removed once the pinned release catches up:
+
+- `doc/RcPlayerPreprocess.kt` re-adds the `document.floatExpressions[op.mId] = op` registration
+  for expressions found inside a component's draw stream. Upstream dropped it (`8aac4fef43c`) when
+  `CoreDocument.collectExpressionsRecursive` started walking `LayoutComponent` canvas operations
+  (`461d551382f`, after the cut). Without it, against alpha22, an animated expression first defined
+  in `drawWithContent` is missing from `floatExpressions`.
+- `doc/CoreVersionSkew.kt` and `draw/CoreVersionSkew.kt` give `ImageAttribute` the `imageId`
+  property `d18fe8f34fb` added to the core after the cut, by reading the package-private `mImageId`
+  field alpha22 has. One file per package so the upstream call sites stay untouched.
+
+alpha22 ships `remote-creation-compose`'s `AndroidSystemColorMap`, so the local copy of it the
+previous pin carried is gone and `AndroidColorThemeResolver.kt` uses upstream's import.
 
 ## Local patches
 
@@ -62,20 +89,39 @@ upstream and where it is retired from. The list is meant to shrink.
 | Where | Patch | Issue |
 | --- | --- | --- |
 | `RcPlayer.kt` | Drops the `RemoteComposePlayerFlags.isEmbeddedPlayerEnabled` check. That flag belongs to AndroidX's own `remote-player-compose` and also routes its `RemoteDocumentPlayer` onto AndroidX's embedded player, so enabling it for this copy would change the View-player control lane too. Depending on this copy is the opt-in. | — (local by design) |
-| `CoreDataAccessors.kt` (`applyOperationsWithoutBitmaps`) | A component's canvas stream contributes only its `BitmapData` registrations to setup. Upstream (`3876c8b86`) applies the whole stream there, which against the pinned core evaluates its expressions before layout: an edge button's width expression reads a component value that does not exist yet and throws (`DynamicDimensionConstraintRenderTest`), taking the image-background button's bitmap registration down with it (`RcCanvasStreamBitmapRenderTest`). | [#54](https://github.com/yschimke/rc-players/issues/54) |
-| `RcPlayerDrawing.kt` (`resolveBitmap`) | A failed decode is cached so it is not retried every frame. Upstream now catches the failure and leaves the slot empty (`3876c8b86`), but retries it on every draw. | [#509](https://github.com/yschimke/rc-players/issues/509) |
-| `RcPlayerTextLayout.kt` (`resolveFontFamily`) | A `google:` family is resolved from the shared machine-local Google Fonts cache first, at the document's variation axes, which the downloadable-font factory cannot apply. There is no cache on a device, so this only affects test renders; upstream's path runs everywhere else. | — (render-side; see [#501](https://github.com/yschimke/rc-players/pull/501)) |
-| `RcPlayerTextLayout.kt` (`RcPlayerText`, both overloads) | `maxLines` truncates only where the View player's does. (The line-height half of this patch is upstream now, `530b47a2e`.) | [#511](https://github.com/yschimke/rc-players/issues/511) |
-| `state/RcPlayerExpression.kt` (`rememberAnimatedRemoteFloat`), `state/RcPlayerState.kt`, `RcPlayer.kt`, `RcPlayerCompositionLocals.kt` | A spring-animated float (`remoteSpring`) animates. Upstream tests `mFloatAnimation != null`, which the core leaves null for a spring, and decodes every animation array as a tween, so a spring started from a value taken from its other fields and never reached its target in a still. It now starts settled at its target, as `FloatExpression` does, and springs toward later ones. | [#551](https://github.com/yschimke/rc-players/issues/551) |
-| `RcPlayerTextLayout.kt` (`RcPlayerText`, both overloads) | A font size the document deferred to the host (a `RemoteDensity.Host` capture, where it is an expression over `DENSITY` and `FONT_SIZE`) resolves by id. Upstream reads `mFontSizeValue` once, at composition, and the core's constructor seeds it with the raw NaN-boxed word, so such text was laid out at `NaN.sp` and drew nothing. | [#558](https://github.com/yschimke/rc-players/issues/558) |
-| `RcPlayerTextLayout.kt` (`RcPlayerText`, the `CoreText` overload) | The text node is as wide as its lines, `ceil(max lineRight) - floor(min lineLeft)`, which is what `CoreText.computeWrapSize` takes from `AndroidPaintContext.getTightBoundingBox`. Upstream keeps `BasicText`'s own width, `ceil(maxIntrinsicWidth)`. With letter spacing that runs up to a pixel past the line's end, so a wrap-width button holding a 198.43 px label measured 320 rather than 319 and sat one pixel left of the core's layout and of the CMP player. A truncated or overflowing run keeps its full width. `RcCoreTextTightWidthTest` covers it. | [#572](https://github.com/yschimke/rc-players/issues/572) |
+| `resources/RcPlayerFontResolution.kt` (`resolveFontFamily`) | A `google:` family is resolved from the shared machine-local Google Fonts cache first, at the document's variation axes, which the downloadable-font factory cannot apply. There is no cache on a device, so this only affects test renders; upstream's path runs everywhere else. | — (render-side; see [#501](https://github.com/yschimke/rc-players/pull/501)) |
+| `components/RcPlayerTextLayout.kt` (`RcPlayerText`, the `CoreText` overload) | The text node is as wide as its lines, `ceil(max lineRight) - floor(min lineLeft)`, which is what `CoreText.computeWrapSize` takes from `AndroidPaintContext.getTightBoundingBox`. Upstream keeps `BasicText`'s own width, `ceil(maxIntrinsicWidth)`. With letter spacing that runs up to a pixel past the line's end, so a wrap-width button holding a 198.43 px label measured 320 rather than 319 and sat one pixel left of the core's layout and of the CMP player. A truncated or overflowing run keeps its full width. `RcCoreTextTightWidthTest` covers it. | [#572](https://github.com/yschimke/rc-players/issues/572) |
 
 Files that exist only here:
 
 - `RcPlayerLocalPatches.kt`: helpers for the patches above.
-- `AndroidSystemColorMap.kt`: the version-skew copy described above.
+- `doc/CoreVersionSkew.kt`, `draw/CoreVersionSkew.kt`: the version-skew shims described above.
 - `../GoogleFontFamilies.kt`: the Google Fonts cache resolver behind the `google:` patch. It is null
   unless `composeai.fonts.cacheDir` is set, which is a render-side property no app sets.
+
+### Retired by the 2026-10-27 refresh
+
+Upstream from `11ece46a49` to `5dab33683c` took over five of the patches above, and this copy now
+runs upstream's version. The regression tests written for them still pass against it.
+
+- A component's canvas stream during setup (#54): upstream registers only the stream's static
+  resources (bitmap metadata, text, fonts, sounds) and no longer evaluates it before layout
+  (`55c1057c63d`), which is what the local walk did. `DynamicDimensionConstraintRenderTest` and
+  `RcCanvasStreamBitmapRenderTest` pass on upstream's.
+- Failed bitmap decodes are cached (#509): `7677a999c19`, the same `FailedBitmapDecode` marker.
+- `maxLines` only truncates where the View player's does (#511): `resolveEffectiveMaxLines`
+  (`0b4724b092f`).
+- A font size deferred to the host resolves by id (#558): `resolveTextFontSizePx` reads the raw
+  size through the reactive float graph (`9c7bf332b3c`). `RcHostDensityTextRenderTest` passes on it.
+- Spring-animated floats (#551): upstream's `hasAnimation` counts a spring, and
+  `rememberAnimatedRemoteFloat` decodes it as a spring and starts settled at its target.
+
+This repository's tests followed the copy: they import from the new subpackages, build a
+`GraphContext` over a `GraphTimeState`, run under Robolectric where the player now calls
+`androidx.tracing` (`android.os.Trace` is not in the plain unit-test `android.jar`), and read the
+core's own `raw*` accessors where they used to call this copy's reflective helpers.
+`AndroidColorTableDriftTest` now compares the CMP table with AndroidX's shipped
+`AndroidSystemColorMap`.
 
 ### Retired by the 2026-10-02 refresh
 

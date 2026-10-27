@@ -68,7 +68,7 @@ dependencyResolutionManagement {
     }
   }
 
-  // Snapshot mode rewrites the Remote Compose version ref in place, so the catalog file keeps
+  // Snapshot mode rewrites the Remote Compose version refs in place, so the catalog file keeps
   // exactly one set of coordinates — the released ones — and `-Pcomposeai.remoteCompose=snapshot`
   // is the only thing that can move them.
   if (useRemoteComposeSnapshot) {
@@ -78,7 +78,10 @@ dependencyResolutionManagement {
       // returns that same builder with `gradle/libs.versions.toml` ALREADY imported (calling
       // `from(...)` on it fails with "Multiple 'from' invocations"), so this line overrides one
       // version and leaves every other entry as the TOML has it.
-      create("libs") { version("compose-remote", "1.0.0-SNAPSHOT") }
+      create("libs") {
+        version("compose-remote", "1.0.0-SNAPSHOT")
+        version("compose-remote-foundation", "1.0.0-SNAPSHOT")
+      }
     }
   }
 }

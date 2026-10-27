@@ -16,12 +16,15 @@
 
 @file:Suppress("RestrictedApiAndroidX")
 
-package ee.schimke.composeai.rcembedded.player
+package ee.schimke.composeai.rcembedded.player.doc
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.core.CoreDocument
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
 
 /**
  * Resolves a **raw** (unscaled) RemoteCompose dimension to a Compose [Dp], honoring the document's
@@ -44,3 +47,21 @@ import androidx.compose.ui.unit.dp
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun rawDimensionDp(value: Float, behavior: Int, density: Float): Dp =
     if (behavior == CoreDocument.DENSITY_BEHAVIOR_DP) value.dp else (value / density).dp
+
+/**
+ * Resolves a **raw** (unscaled) RemoteCompose dimension to pixels, honoring the document's
+ * [behavior]: [CoreDocument.DENSITY_BEHAVIOR_DP] scales [value] by [density], while
+ * [CoreDocument.DENSITY_BEHAVIOR_PIXELS] and [CoreDocument.DENSITY_BEHAVIOR_LEGACY] treat [value]
+ * as pixels.
+ */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public fun rawDimensionPx(value: Float, behavior: Int, density: Float): Float =
+    if (behavior == CoreDocument.DENSITY_BEHAVIOR_DP) value * density else value
+
+@Composable
+internal fun rawDimensionDp(value: Float): Dp =
+    rawDimensionDp(value, LocalCoreDocument.current.densityBehavior, LocalDensity.current.density)
+
+@Composable
+internal fun rawDimensionPx(value: Float): Float =
+    rawDimensionPx(value, LocalCoreDocument.current.densityBehavior, LocalDensity.current.density)

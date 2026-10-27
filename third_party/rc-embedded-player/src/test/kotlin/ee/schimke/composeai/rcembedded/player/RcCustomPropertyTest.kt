@@ -25,6 +25,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import ee.schimke.composeai.rcembedded.player.doc.SnapshotRemoteComposeState
+import ee.schimke.composeai.rcembedded.player.doc.StoreBackedRemoteContext
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

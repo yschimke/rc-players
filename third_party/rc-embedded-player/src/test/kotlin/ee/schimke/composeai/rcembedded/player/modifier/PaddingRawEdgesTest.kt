@@ -19,13 +19,12 @@
 package ee.schimke.composeai.rcembedded.player.modifier
 
 import androidx.compose.remote.core.operations.layout.modifiers.PaddingModifierOperation
-import ee.schimke.composeai.rcembedded.player.paddingRawValues
 import org.junit.Assert.assertArrayEquals
 import org.junit.Test
 
 /**
- * The padding edges the player reads must be the operation's SOURCE fields, not the `…Value` ones
- * `getLeft()`..`getBottom()` return.
+ * The padding edges the player reads (`rawLeft`..`rawBottom`) must be the operation's SOURCE
+ * fields, not the `…Value` ones `getLeft()`..`getBottom()` return.
  *
  * `updateVariables` writes the resolved fields by scaling the source by the display density — on a
  * value that is already in pixels. Reading the resolved field and dividing by density therefore
@@ -40,7 +39,11 @@ class PaddingRawEdgesTest {
         // fields.
         setResolved(op, 2f, 16f, 6f, 8f)
 
-        assertArrayEquals(floatArrayOf(1f, 8f, 3f, 4f), paddingRawValues(op), 0f)
+        assertArrayEquals(
+            floatArrayOf(1f, 8f, 3f, 4f),
+            floatArrayOf(op.rawLeft, op.rawTop, op.rawRight, op.rawBottom),
+            0f,
+        )
     }
 
     @Test

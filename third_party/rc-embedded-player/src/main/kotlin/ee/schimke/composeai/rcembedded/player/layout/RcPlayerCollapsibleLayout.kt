@@ -40,11 +40,8 @@ import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastForEachIndexed
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
-import ee.schimke.composeai.rcembedded.player.RcPlayerChildren
-import ee.schimke.composeai.rcembedded.player.horizontalPositioningReflection
-import ee.schimke.composeai.rcembedded.player.rawDimensionDp
-import ee.schimke.composeai.rcembedded.player.sortWithPriorities
-import ee.schimke.composeai.rcembedded.player.verticalPositioningReflection
+import ee.schimke.composeai.rcembedded.player.components.RcPlayerChildren
+import ee.schimke.composeai.rcembedded.player.doc.rawDimensionDp
 
 @Composable
 internal fun RcPlayerCollapsible(
@@ -58,14 +55,14 @@ internal fun RcPlayerCollapsible(
     val density = LocalDensity.current.density
     val horizontalPositioning =
         when (layout) {
-            is RowLayout -> layout.horizontalPositioningReflection
-            is ColumnLayout -> layout.horizontalPositioningReflection
+            is RowLayout -> layout.horizontalPositioning
+            is ColumnLayout -> layout.horizontalPositioning
             else -> RowLayout.START
         }
     val verticalPositioning =
         when (layout) {
-            is RowLayout -> layout.verticalPositioningReflection
-            is ColumnLayout -> layout.verticalPositioningReflection
+            is RowLayout -> layout.verticalPositioning
+            is ColumnLayout -> layout.verticalPositioning
             else -> ColumnLayout.TOP
         }
     val horizontalArrangement =
@@ -147,7 +144,9 @@ internal fun RcPlayerCollapsible(
 
         // Only sort by CollapsiblePriority when at least one child defines a priority modifier;
         // otherwise collapse in document order, matching CollapsibleRowLayout.java.
-        val visitOrder = if (hasPriorities) sortWithPriorities(children, orientation) else children
+        val visitOrder =
+            if (hasPriorities) CollapsiblePriority.sortWithPriorities(children, orientation)
+            else children
         val kept = BooleanArray(n)
         var usedUnweighted = 0
         var keptCount = 0

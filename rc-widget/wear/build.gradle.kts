@@ -28,10 +28,10 @@ kotlin {
   sourceSets {
     androidMain.dependencies {
       api(project(":rc-widget-creation"))
-      api(libs.widgets.remote.core)
-      api(libs.widgets.remote.creation)
-      api(libs.widgets.remote.creation.core)
-      api(libs.widgets.remote.creation.compose)
+      api(libs.compose.remote.core)
+      api(libs.compose.remote.creation)
+      api(libs.compose.remote.creation.core)
+      api(libs.compose.remote.creation.compose)
       api(libs.glance.wear)
       api(libs.glance.wear.core)
       implementation(libs.compose.runtime)

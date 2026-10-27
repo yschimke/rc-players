@@ -24,9 +24,9 @@ import androidx.compose.remote.core.VariableProvider
 import androidx.compose.remote.core.operations.layout.Container
 import androidx.compose.remote.core.operations.layout.LayoutComponent
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import ee.schimke.composeai.rcembedded.player.RemoteImageSupport
-import ee.schimke.composeai.rcembedded.player.buildComputedOpIndex
-import ee.schimke.composeai.rcembedded.player.getOperationsReflection
+import ee.schimke.composeai.rcembedded.player.doc.buildComputedOpIndex
+import ee.schimke.composeai.rcembedded.player.doc.getOperationsList
+import ee.schimke.composeai.rcembedded.player.resources.RemoteImageSupport
 import java.io.ByteArrayInputStream
 import java.io.File
 import kotlinx.serialization.json.Json
@@ -87,7 +87,7 @@ class DynamicColorDiagTest {
                             initFromBuffer(RemoteComposeBuffer.fromInputStream(it))
                         }
                     }
-                val index = buildComputedOpIndex(document.getOperationsReflection())
+                val index = buildComputedOpIndex(document.getOperationsList())
 
                 // Where every op of interest actually sits: top level, inside a container, or only
                 // reachable through a component's canvas operations.
@@ -105,7 +105,7 @@ class DynamicColorDiagTest {
                         }
                     }
                 }
-                visit(document.getOperationsReflection(), "root")
+                visit(document.getOperationsList(), "root")
 
                 report.appendLine("=== ${entry.id}")
                 report.appendLine(
