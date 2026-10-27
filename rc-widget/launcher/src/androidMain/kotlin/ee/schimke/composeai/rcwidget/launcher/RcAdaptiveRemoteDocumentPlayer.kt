@@ -94,7 +94,13 @@ public fun RcAdaptiveRemoteDocumentPlayer(
   val fail: (Throwable) -> Unit = {
     failure = it
     latestOnError(it)
-  }
+  }  // Named host actions (an app's own taps) reach the document's action callbacks; numeric ones
+  // (a launcher widget's) reach the View's id listener below. Both go to [onNamedAction].
+  val namedActions =
+    CoreDocument.ActionCallback { name, value ->
+      runCatching { latestOnNamedAction(name, value) }.onFailure(fail)
+    }
+
   failure?.let {
     Box(modifier) { error(it) }
     return
@@ -126,7 +132,7 @@ public fun RcAdaptiveRemoteDocumentPlayer(
             runCatching {
                 RemoteComposePlayer(context).apply {
                   setBitmapLoader(bitmapLoader)
-                  setDocument(RemoteDocument(decode(documentBytes)))
+                  setDocument(RemoteDocument(decode(documentBytes, namedActions)))
                   // The live values before the first draw, so the View starts settled on them
                   // rather than tweening in from the document's baked ones a frame later.
                   seed(this)
@@ -152,7 +158,7 @@ public fun RcAdaptiveRemoteDocumentPlayer(
             runCatching {
                 RemoteComposePlayer(context).apply {
                   setBitmapLoader(bitmapLoader)
-                  setDocument(RemoteDocument(decode(documentBytes)))
+                  setDocument(RemoteDocument(decode(documentBytes, namedActions)))
                   // The live values before the first draw, so the View starts settled on them
                   // rather than tweening in from the document's baked ones a frame later.
                   seed(this)
@@ -184,13 +190,14 @@ public fun RcAdaptiveRemoteDocumentPlayer(
   }
 }
 
-private fun decode(bytes: ByteArray): CoreDocument {
+private fun decode(bytes: ByteArray, actions: CoreDocument.ActionCallback): CoreDocument {
   // The player rejects URL and file image operations at parse time unless opted in; a host that
   // plays one passes a BitmapLoader that resolves them.
   Limits.ENABLE_IMAGE_URLS = true
   Limits.ENABLE_IMAGE_FILES = true
   return CoreDocument().apply {
     initFromBuffer(RemoteComposeBuffer.fromInputStream(ByteArrayInputStream(bytes)))
+    addActionCallback(actions)
   }
 }
 
