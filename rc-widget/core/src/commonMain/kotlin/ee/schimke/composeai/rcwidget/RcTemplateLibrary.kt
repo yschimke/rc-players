@@ -45,9 +45,22 @@ public class RcTemplateLibrary(
       locks.getOrPut(key) { Mutex() }
     }
     return keyLock.withLock {
-      lock.withLock { memory[key] }
-        ?: (read(key) ?: captureAndStore(key))?.also { lock.withLock { memory[key] = it } }
+      // A caller that queued behind a capture finds its result, or its failure, here.
+      val settled = lock.withLock {
+        if (key in failed) Settled.Failed else memory[key]?.let(Settled::Held)
+      }
+      when (settled) {
+        Settled.Failed -> null
+        is Settled.Held -> settled.bytes
+        null -> (read(key) ?: captureAndStore(key))?.also { lock.withLock { memory[key] = it } }
+      }
     }
+  }
+
+  private sealed interface Settled {
+    data object Failed : Settled
+
+    class Held(val bytes: ByteArray) : Settled
   }
 
   private fun read(key: String): ByteArray? = stores.firstNotNullOfOrNull {

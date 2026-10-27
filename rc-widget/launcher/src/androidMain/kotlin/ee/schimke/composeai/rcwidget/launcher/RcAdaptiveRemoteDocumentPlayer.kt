@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -87,9 +88,12 @@ public fun RcAdaptiveRemoteDocumentPlayer(
   // A document that throws while it decodes, warms up or measures is disabled, and [error] takes
   // its place until the bytes change.
   var failure by remember(documentBytes) { mutableStateOf<Throwable?>(null) }
+  // The player is remembered across recompositions; its listener reads the latest callbacks.
+  val latestOnNamedAction by rememberUpdatedState(onNamedAction)
+  val latestOnError by rememberUpdatedState(onError)
   val fail: (Throwable) -> Unit = {
     failure = it
-    onError(it)
+    latestOnError(it)
   }
   failure?.let {
     Box(modifier) { error(it) }
@@ -132,7 +136,7 @@ public fun RcAdaptiveRemoteDocumentPlayer(
                   primeFixed(this, maxWPx, maxHPx)
                   init(this)
                   addIdActionListener { id, value ->
-                    runCatching { onNamedAction(id.toString(), value) }.onFailure(fail)
+                    runCatching { latestOnNamedAction(id.toString(), value) }.onFailure(fail)
                   }
                 }
               }
@@ -159,7 +163,7 @@ public fun RcAdaptiveRemoteDocumentPlayer(
                   // the id is surfaced as the name and the value
                   // passed through.
                   addIdActionListener { id, value ->
-                    runCatching { onNamedAction(id.toString(), value) }.onFailure(fail)
+                    runCatching { latestOnNamedAction(id.toString(), value) }.onFailure(fail)
                   }
                 }
               }

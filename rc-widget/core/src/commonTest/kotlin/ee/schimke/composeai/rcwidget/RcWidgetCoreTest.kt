@@ -35,6 +35,8 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 
 private val END: RcOperation = RcNoArg(RcOpcodes.CONTAINER_END)
 
@@ -445,6 +447,23 @@ class RcTemplateLibraryTest {
       library.invalidate("a")
       assertNull(library.get("a"))
       assertEquals(2, captures)
+    }
+
+  @Test
+  fun callersQueuedBehindAFailedCaptureDoNotRetryIt() =
+    kotlinx.coroutines.test.runTest {
+      var captures = 0
+      val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+      val library = RcTemplateLibrary { _ ->
+        captures++
+        gate.await()
+        error("no")
+      }
+      val callers = List(3) { async { library.get("a") } }
+      kotlinx.coroutines.yield()
+      gate.complete(Unit)
+      assertTrue(callers.awaitAll().all { it == null })
+      assertEquals(1, captures)
     }
 
   @Test
