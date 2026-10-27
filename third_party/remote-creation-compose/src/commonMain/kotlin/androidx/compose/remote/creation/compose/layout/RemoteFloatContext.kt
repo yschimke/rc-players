@@ -80,4 +80,52 @@ public class RemoteFloatContext internal constructor(internal val state: RemoteS
             },
         )
     }
+
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun componentX(): RemoteFloat {
+        val componentKey = (state.creationState as RemoteComposeCreationState).lastComponentId
+        return RemoteFloatExpression(
+            constantValueOrNull = null,
+            cacheKey = RemoteComponentCacheKey(componentKey, "x"),
+            arrayProvider = { creationState ->
+                floatArrayOf(creationState.writer.addComponentXValue(componentKey))
+            },
+        )
+    }
+
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun componentY(): RemoteFloat {
+        val componentKey = (state.creationState as RemoteComposeCreationState).lastComponentId
+        return RemoteFloatExpression(
+            constantValueOrNull = null,
+            cacheKey = RemoteComponentCacheKey(componentKey, "y"),
+            arrayProvider = { creationState ->
+                floatArrayOf(creationState.writer.addComponentYValue(componentKey))
+            },
+        )
+    }
+
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun componentRootX(): RemoteFloat {
+        val componentKey = (state.creationState as RemoteComposeCreationState).lastComponentId
+        return RemoteFloatExpression(
+            constantValueOrNull = null,
+            cacheKey = RemoteComponentCacheKey(componentKey, "rootX"),
+            arrayProvider = { creationState ->
+                floatArrayOf(creationState.writer.addComponentRootXValue(componentKey))
+            },
+        )
+    }
+
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun componentRootY(): RemoteFloat {
+        val componentKey = (state.creationState as RemoteComposeCreationState).lastComponentId
+        return RemoteFloatExpression(
+            constantValueOrNull = null,
+            cacheKey = RemoteComponentCacheKey(componentKey, "rootY"),
+            arrayProvider = { creationState ->
+                floatArrayOf(creationState.writer.addComponentRootYValue(componentKey))
+            },
+        )
+    }
 }

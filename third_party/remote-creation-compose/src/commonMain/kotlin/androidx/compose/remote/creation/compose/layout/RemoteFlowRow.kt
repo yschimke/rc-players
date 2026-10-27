@@ -21,15 +21,12 @@ import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationSta
 import androidx.compose.remote.creation.compose.capture.WriterOp
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 
 internal class RemoteFlowRowNode : RemoteComposeNode() {
     var horizontalArrangement: RemoteArrangement.Horizontal = RemoteArrangement.Start
     var verticalArrangement: RemoteArrangement.Vertical = RemoteArrangement.Top
     var maxItemsInEachRow: Int = Int.MAX_VALUE
     var maxLines: Int = Int.MAX_VALUE
-    var layoutDirection: LayoutDirection = LayoutDirection.Ltr
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
         val scope = overriddenScope(creationState)
@@ -58,8 +55,8 @@ internal class RemoteFlowRowNode : RemoteComposeNode() {
 /**
  * A layout composable that places its children in a horizontal flow.
  *
- * `RemoteFlow` allows you to wrap multiple children and position them using [horizontalArrangement]
- * and [verticalArrangement].
+ * `RemoteFlowRow` allows you to wrap multiple children and position them using
+ * [horizontalArrangement] and [verticalArrangement].
  *
  * @param modifier The modifier to be applied to this flow.
  * @param horizontalArrangement The horizontal arrangement of the children.
@@ -79,7 +76,6 @@ public fun RemoteFlowRow(
     maxLines: Int = Int.MAX_VALUE,
     content: @Composable () -> Unit,
 ) {
-    val layoutDirection = LocalLayoutDirection.current
     RemoteComposeNode(
         factory = ::RemoteFlowRowNode,
         update = {
@@ -94,9 +90,6 @@ public fun RemoteFlowRow(
                 this.maxItemsInEachRow = nodeMaxItemsInEachRow
             }
             set(maxLines) { nodeMaxLines -> this.maxLines = nodeMaxLines }
-            set(layoutDirection) { nodeLayoutDirection ->
-                this.layoutDirection = nodeLayoutDirection
-            }
         },
         content = content,
     )

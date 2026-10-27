@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
+@file:kotlin.jvm.JvmName("ClickableModifierKt")
+@file:kotlin.jvm.JvmMultifileClass
+
 package androidx.compose.remote.creation.compose.modifier
 
+import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.RemoteModifierOperation
 import androidx.compose.remote.creation.compose.action.Action
 import androidx.compose.remote.creation.compose.action.CombinedAction
 import androidx.compose.remote.creation.compose.action.resolveAction
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
-import androidx.compose.ui.semantics.Role
 
 internal class ClickableModifier(
     public val actions: List<Action>,
@@ -46,10 +49,17 @@ internal class ClickableModifier(
  * @param role the type of user interface element. Accessibility services might use this to describe
  *   the element or do customizations
  */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteModifier.clickable(
     action: Action,
     enabled: Boolean = true,
-    role: Role? = Role.Button,
+    role: RemoteRole,
+): RemoteModifier = clickableImpl(action = action, enabled = enabled, role = role)
+
+internal fun RemoteModifier.clickableImpl(
+    action: Action,
+    enabled: Boolean = true,
+    role: RemoteRole? = RemoteRole.Button,
 ): RemoteModifier =
     then(
             if (enabled) {
@@ -66,7 +76,7 @@ public fun RemoteModifier.clickable(
         .then(
             if (role != null)
                 RemoteModifier.semantics {
-                    this.role = role
+                    this.remoteRole = role
                     this.enabled = enabled
                 }
             else RemoteModifier

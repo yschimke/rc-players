@@ -24,7 +24,6 @@ import androidx.compose.remote.creation.compose.layout.RemoteAlignment.Companion
 import androidx.compose.remote.creation.compose.layout.RemoteAlignment.Companion.End
 import androidx.compose.remote.creation.compose.layout.RemoteAlignment.Companion.Start
 import androidx.compose.remote.creation.compose.layout.RemoteAlignment.Companion.Top
-import androidx.compose.ui.unit.LayoutDirection
 
 /**
  * A remote equivalent of [androidx.compose.ui.Alignment]. It is used to define how a layout's
@@ -50,7 +49,7 @@ public interface RemoteAlignment {
      */
     public sealed interface Horizontal {
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-        public fun toRemote(layoutDirection: LayoutDirection): Int
+        public fun toRemote(layoutDirection: RemoteLayoutDirection): Int
     }
 
     /**
@@ -68,33 +67,63 @@ public interface RemoteAlignment {
     /** A collection of common [RemoteAlignment]s aware of layout direction. */
     public companion object {
         // 2D Alignments.
+
+        /** Aligns the child at the top-start corner of the parent. */
         public val TopStart: RemoteAlignment =
             RemoteBiasAlignment(ColumnLayout.START, ColumnLayout.TOP)
+
+        /** Aligns the child at the top-center edge of the parent. */
         public val TopCenter: RemoteAlignment =
             RemoteBiasAlignment(ColumnLayout.CENTER, ColumnLayout.TOP)
+
+        /** Aligns the child at the top-end corner of the parent. */
         public val TopEnd: RemoteAlignment = RemoteBiasAlignment(ColumnLayout.END, ColumnLayout.TOP)
+
+        /** Aligns the child at the center-start edge of the parent. */
         public val CenterStart: RemoteAlignment =
             RemoteBiasAlignment(ColumnLayout.START, ColumnLayout.CENTER)
+
+        /** Aligns the child at the center of the parent both horizontally and vertically. */
         public val Center: RemoteAlignment =
             RemoteBiasAlignment(ColumnLayout.CENTER, ColumnLayout.CENTER)
+
+        /** Aligns the child at the center-end edge of the parent. */
         public val CenterEnd: RemoteAlignment =
             RemoteBiasAlignment(ColumnLayout.END, ColumnLayout.CENTER)
+
+        /** Aligns the child at the bottom-start corner of the parent. */
         public val BottomStart: RemoteAlignment =
             RemoteBiasAlignment(ColumnLayout.START, ColumnLayout.BOTTOM)
+
+        /** Aligns the child at the bottom-center edge of the parent. */
         public val BottomCenter: RemoteAlignment =
             RemoteBiasAlignment(ColumnLayout.CENTER, ColumnLayout.BOTTOM)
+
+        /** Aligns the child at the bottom-end corner of the parent. */
         public val BottomEnd: RemoteAlignment =
             RemoteBiasAlignment(ColumnLayout.END, ColumnLayout.BOTTOM)
 
         // 1D Alignment.Verticals.
+
+        /** Aligns the child at the top edge of the parent. */
         public val Top: Vertical = RemoteBiasAlignment.Vertical(ColumnLayout.TOP)
+
+        /** Aligns the child vertically in the center of the parent. */
         public val CenterVertically: Vertical = RemoteBiasAlignment.Vertical(ColumnLayout.CENTER)
+
+        /** Aligns the child at the bottom edge of the parent. */
         public val Bottom: Vertical = RemoteBiasAlignment.Vertical(ColumnLayout.BOTTOM)
 
         // 1D Alignment.Horizontals.
+
+        /** Aligns the child at the start edge of the parent. */
         public val Start: Horizontal = RemoteBiasAlignment.Horizontal(ColumnLayout.START)
+
+        /** Aligns the child horizontally in the center of the parent. */
         public val CenterHorizontally: Horizontal =
             RemoteBiasAlignment.Horizontal(ColumnLayout.CENTER)
+
+        /** Aligns the child at the end edge of the parent. */
         public val End: Horizontal = RemoteBiasAlignment.Horizontal(ColumnLayout.END)
     }
 }
@@ -158,12 +187,12 @@ internal data class RemoteBiasAlignment(val horizontalBias: Int, val verticalBia
      */
     internal data class Horizontal(val type: Int) : RemoteAlignment.Horizontal {
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-        override fun toRemote(layoutDirection: LayoutDirection): Int =
+        override fun toRemote(layoutDirection: RemoteLayoutDirection): Int =
             when (type) {
                 ColumnLayout.START ->
-                    if (layoutDirection == LayoutDirection.Ltr) type else ColumnLayout.END
+                    if (layoutDirection == RemoteLayoutDirection.Ltr) type else ColumnLayout.END
                 ColumnLayout.END ->
-                    if (layoutDirection == LayoutDirection.Ltr) type else ColumnLayout.START
+                    if (layoutDirection == RemoteLayoutDirection.Ltr) type else ColumnLayout.START
                 else -> type
             }
     }
@@ -174,7 +203,7 @@ internal data class RemoteBiasAlignment(val horizontalBias: Int, val verticalBia
      *
      * @see Horizontal
      */
-    internal data class Vertical(var type: Int) : RemoteAlignment.Vertical {
+    internal data class Vertical(val type: Int) : RemoteAlignment.Vertical {
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) override fun toRemote(): Int = type
     }
 }
@@ -201,7 +230,7 @@ internal data class RemoteBiasAbsoluteAlignment(val horizontalBias: Int, val ver
      */
     internal data class Horizontal(val bias: Int) : RemoteAlignment.Horizontal {
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-        override fun toRemote(layoutDirection: LayoutDirection): Int = bias
+        override fun toRemote(layoutDirection: RemoteLayoutDirection): Int = bias
     }
 
     /**

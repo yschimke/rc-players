@@ -30,12 +30,14 @@ import androidx.compose.remote.creation.compose.state.MutableRemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
+import androidx.compose.remote.creation.compose.state.RemoteInt
 import androidx.compose.remote.creation.compose.state.RemotePaint
+import androidx.compose.remote.creation.compose.state.RemotePathFillType
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.RemoteString
-import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.remote.creation.compose.state.rf
+import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.ui.graphics.Matrix
-import androidx.compose.ui.graphics.PathFillType
 import androidx.graphics.shapes.RoundedPolygon
 
 /**
@@ -49,6 +51,11 @@ public class RemoteCanvas(
 ) : RemoteStateScope by internalCanvas {
     public val drawScope: RemoteDrawScope = RemoteDrawScope(this)
     public val remote: RemoteAccess = RemoteAccess(drawScope)
+
+    /** Flushes recorded operations to the underlying creation state. */
+    public fun flush() {
+        internalCanvas.flush()
+    }
 
     /** Processes a [RemotePaint] object and serializes its changes to the remote document. */
     public fun usePaint(paint: RemotePaint?) {
@@ -94,7 +101,12 @@ public class RemoteCanvas(
      * @param pivot The pivot point around which to scale.
      */
     public fun scale(sx: RemoteFloat, sy: RemoteFloat, pivot: RemoteOffset) {
-        internalCanvas.scale(sx, sy, pivot.x, pivot.y)
+        scale(sx, sy, pivot.x, pivot.y)
+    }
+
+    /** Scales the canvas by [sx] and [sy] around the pivot point ([px], [py]). */
+    public fun scale(sx: RemoteFloat, sy: RemoteFloat, px: RemoteFloat, py: RemoteFloat) {
+        internalCanvas.scale(sx, sy, px, py)
     }
 
     /**
@@ -113,20 +125,12 @@ public class RemoteCanvas(
      * @param pivot The pivot point around which to rotate.
      */
     public fun rotate(degrees: RemoteFloat, pivot: RemoteOffset) {
-        // Temporarily use Android graphics Canvas rotate, with does translate/rotate/translate
-        internalCanvas.rotate(degrees, pivot.x, pivot.y)
+        rotate(degrees, pivot.x, pivot.y)
     }
 
-    /**
-     * Rotates the canvas by [degrees] around the pivot point ([centerX], [centerY]).
-     *
-     * @param degrees The angle of rotation in degrees.
-     * @param centerX The x-coordinate of the pivot point.
-     * @param centerY The y-coordinate of the pivot point.
-     */
-    public fun rotate(degrees: RemoteFloat, centerX: RemoteFloat, centerY: RemoteFloat) {
-        // Temporarily use Android graphics Canvas rotate
-        internalCanvas.rotate(degrees, centerX, centerY)
+    /** Rotates the canvas by [degrees] around the pivot point ([px], [py]). */
+    public fun rotate(degrees: RemoteFloat, px: RemoteFloat, py: RemoteFloat) {
+        internalCanvas.rotate(degrees, px, py)
     }
 
     /**
@@ -289,6 +293,16 @@ public class RemoteCanvas(
 
     /** Draws text from [text] at ([x], [y]) using the specified [paint]. */
     public fun drawText(
+        text: String,
+        x: RemoteFloat,
+        y: RemoteFloat,
+        paint: RemotePaint? = null,
+    ) {
+        drawText(text.rs, x, y, paint)
+    }
+
+    /** Draws text from [text] at ([x], [y]) using the specified [paint]. */
+    public fun drawText(
         text: RemoteString,
         x: RemoteFloat,
         y: RemoteFloat,
@@ -296,6 +310,30 @@ public class RemoteCanvas(
     ) {
         val op = recordRenderingOp(paint, WriterOp.DrawTextRun(text, 0, -1, 0, -1, x, y, false))
         internalCanvas.buffer.addRoots(op, text, x, y)
+    }
+
+    public fun drawTextRun(
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        contextStart: Int,
+        contextEnd: Int,
+        x: Float,
+        y: Float,
+        isRtl: Boolean,
+        paint: RemotePaint? = null,
+    ) {
+        drawTextRun(
+            text.toString().rs,
+            start,
+            end,
+            contextStart,
+            contextEnd,
+            x.rf,
+            y.rf,
+            isRtl,
+            paint,
+        )
     }
 
     public fun drawTextRun(
@@ -344,6 +382,16 @@ public class RemoteCanvas(
     }
 
     public fun drawTextOnPath(
+        text: String,
+        path: RemotePath,
+        hOffset: RemoteFloat,
+        vOffset: RemoteFloat,
+        paint: RemotePaint? = null,
+    ) {
+        drawTextOnPath(text.rs, path, hOffset, vOffset, paint)
+    }
+
+    public fun drawTextOnPath(
         text: RemoteString,
         path: RemotePath,
         hOffset: RemoteFloat,
@@ -358,19 +406,16 @@ public class RemoteCanvas(
         internalCanvas.buffer.addRoots(op, text, path, hOffset, vOffset)
     }
 
-    /** Draws a path using the specified [paint]. */
+    /** Draws a path using the specified [pathFillType] and [paint]. */
     public fun drawPath(
         path: RemotePath,
-        pathFillType: PathFillType = PathFillType.NonZero,
+        pathFillType: RemotePathFillType = RemotePathFillType.NonZero,
         paint: RemotePaint? = null,
     ) {
         val op =
             recordRenderingOp(
                 paint,
-                WriterOp.DrawPath(
-                    path.snapshotData(),
-                    winding = if (pathFillType == PathFillType.EvenOdd) 1 else 0,
-                ),
+                WriterOp.DrawPath(path.snapshotData(), winding = pathFillType.value),
             )
         internalCanvas.buffer.addRoots(op, path)
     }
@@ -399,6 +444,28 @@ public class RemoteCanvas(
     ) {
         val op = recordRenderingOp(paint, WriterOp.DrawBitmap(bitmap, left, top))
         internalCanvas.buffer.addRoots(op, bitmap, left, top)
+    }
+
+    /**
+     * Draws a [bitmap] into the destination rectangle `[left, top, right, bottom]`.
+     *
+     * @param bitmap The [RemoteImageBitmap] to draw.
+     * @param left The left coordinate of the destination rectangle.
+     * @param top The top coordinate of the destination rectangle.
+     * @param right The right coordinate of the destination rectangle.
+     * @param bottom The bottom coordinate of the destination rectangle.
+     * @param paint The [RemotePaint] to use for rendering, or `null` to use the current paint.
+     */
+    public fun drawBitmap(
+        bitmap: RemoteImageBitmap,
+        left: RemoteFloat,
+        top: RemoteFloat,
+        right: RemoteFloat,
+        bottom: RemoteFloat,
+        paint: RemotePaint? = null,
+    ) {
+        val op = recordRenderingOp(paint, WriterOp.DrawBitmapRect(bitmap, left, top, right, bottom))
+        internalCanvas.buffer.addRoots(op, bitmap, left, top, right, bottom)
     }
 
     /** Draws a bitmap scaled to the destination rectangle. */
@@ -492,14 +559,13 @@ public class RemoteCanvas(
         top: RemoteFloat,
         right: RemoteFloat,
         bottom: RemoteFloat,
-        clipOp: ClipOp = ClipOp.Intersect,
     ) {
         val op = recordRenderingOp(WriterOp.ClipRect(left, top, right, bottom))
         internalCanvas.buffer.addRoots(op, left, top, right, bottom)
     }
 
     /** Clips the current canvas state to the specified [path]. */
-    public fun clipPath(path: RemotePath, clipOp: ClipOp = ClipOp.Intersect) {
+    public fun clipPath(path: RemotePath) {
         val op = recordRenderingOp(WriterOp.ClipPath(path.snapshotData()))
         internalCanvas.buffer.addRoots(op, path)
     }
@@ -587,6 +653,20 @@ public class RemoteCanvas(
                 )
             )
         internalCanvas.buffer.addRoots(op, from, until, step)
+    }
+
+    /**
+     * Executes [body] commands in a loop, with the index in the range [from .. until).
+     *
+     * Note there is a maximum number of operations that will be executed, which may be less than
+     * the total number of iterations needed to fully realize this loop.
+     *
+     * @param from The initial value of index.
+     * @param until The loop will be executed until the index is >= this value.
+     * @param body Code that generates draw calls to run in a loop.
+     */
+    public fun loop(from: Int, until: RemoteInt, body: (index: RemoteInt) -> Unit) {
+        loop(from.rf, until.toRemoteFloat(), 1.rf) { index -> body(index.toRemoteInt()) }
     }
 }
 

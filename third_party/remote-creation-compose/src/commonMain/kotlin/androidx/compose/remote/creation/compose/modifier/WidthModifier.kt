@@ -32,11 +32,19 @@ internal class WidthModifier(public val type: RemoteDimensionType, public val va
     override fun toString(): String = "WidthModifier(type=$type, value=$value)"
 }
 
-/** Sets the width of the content using [RemoteDp]. */
+/**
+ * Sets the width of the content using [RemoteDp].
+ *
+ * @param width The width to apply in [RemoteDp].
+ */
 public fun RemoteModifier.width(width: RemoteDp): RemoteModifier =
     then(WidthModifier(RemoteDimensionType.EXACT_DP, width.value))
 
-/** Sets the width of the content using [RemoteFloat]. */
+/**
+ * Sets the width of the content using [RemoteFloat].
+ *
+ * @param width The width to apply in pixels.
+ */
 public fun RemoteModifier.width(width: RemoteFloat): RemoteModifier =
     then(WidthModifier(RemoteDimensionType.EXACT, width))
 

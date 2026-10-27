@@ -20,6 +20,7 @@ import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.RemoteModifierOperation
 import androidx.compose.remote.creation.compose.capture.RemoteDensityBehavior
 import androidx.compose.remote.creation.compose.layout.RemoteFloatContext
+import androidx.compose.remote.creation.compose.layout.RemoteLayoutDirection
 import androidx.compose.remote.creation.compose.layout.RemoteSize
 import androidx.compose.remote.creation.compose.shapes.RemoteCircleShape
 import androidx.compose.remote.creation.compose.shapes.RemoteRectangleShape
@@ -28,7 +29,6 @@ import androidx.compose.remote.creation.compose.shapes.RemoteShape
 import androidx.compose.remote.creation.compose.shapes.toDimension
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.min
-import androidx.compose.ui.unit.LayoutDirection
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class ClipModifier(public val shape: RemoteShape = RemoteRectangleShape) :
@@ -52,7 +52,7 @@ public class ClipModifier(public val shape: RemoteShape = RemoteRectangleShape) 
             )
         }
         if (shape is RemoteRoundedCornerShape) {
-            val isRtl = layoutDirection == LayoutDirection.Rtl
+            val isRtl = remoteLayoutDirection == RemoteLayoutDirection.Rtl
             return RemoteModifierOperation.RoundedClipRect(
                 (if (isRtl) shape.topEnd else shape.topStart)
                     .toDimension(remoteSize, remoteDensity, densityBehavior)
@@ -72,5 +72,10 @@ public class ClipModifier(public val shape: RemoteShape = RemoteRectangleShape) 
     }
 }
 
+/**
+ * Clips the content to [shape].
+ *
+ * @param shape The [RemoteShape] to clip the content to.
+ */
 public fun RemoteModifier.clip(shape: RemoteShape = RemoteRectangleShape): RemoteModifier =
     then(ClipModifier(shape))

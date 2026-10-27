@@ -20,11 +20,11 @@ import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.remote.creation.compose.state.RemoteInt.Companion.createNamedRemoteInt
+import androidx.compose.remote.creation.compose.util.fastFold
+import androidx.compose.remote.creation.compose.util.fastForEach
+import androidx.compose.remote.creation.compose.util.fastMap
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.util.fastFold
-import androidx.compose.ui.util.fastForEach
-import androidx.compose.ui.util.fastMap
 import kotlin.enums.EnumEntries
 import kotlin.enums.enumEntries
 
@@ -262,6 +262,14 @@ public constructor(public val remoteInt: MutableRemoteInt, enumEntries: EnumEntr
  * @param initialValue The initial [Enum] value.
  * @return A [MutableRemoteEnum] instance that will be remembered across recompositions.
  */
+@Deprecated(
+    message = "Use remember { MutableRemoteEnum(initialValue) } instead.",
+    replaceWith =
+        ReplaceWith(
+            "remember { MutableRemoteEnum(initialValue) }",
+            "androidx.compose.runtime.remember",
+        ),
+)
 @Composable
 @RemoteComposable
 public inline fun <reified T : Enum<T>> rememberMutableRemoteEnum(
@@ -288,6 +296,15 @@ public inline fun <reified T : Enum<T>> rememberNamedRemoteEnum(
     return rememberNamedRemoteEnum(name, initialValue, enumEntries(), domain)
 }
 
+/**
+ * Remembers a named remote enum expression using the provided [enumEntries].
+ *
+ * @param name A unique name to identify this state within its [domain].
+ * @param initialValue The initial [Enum] value.
+ * @param enumEntries The [EnumEntries] containing all values of the enum.
+ * @param domain The domain for the named state. Defaults to [RemoteState.Domain.User].
+ * @return A [RemoteEnum] instance representing the named expression.
+ */
 @Composable
 @RemoteComposable
 public fun <T : Enum<T>> rememberNamedRemoteEnum(

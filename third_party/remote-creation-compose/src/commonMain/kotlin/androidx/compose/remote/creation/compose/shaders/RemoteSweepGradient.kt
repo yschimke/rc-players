@@ -23,10 +23,10 @@ import androidx.compose.remote.creation.compose.layout.RemoteSize
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
+import androidx.compose.remote.creation.compose.util.fastMap
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.util.fastMap
 
 /**
  * Creates a sweep gradient with the given colors dispersed around the center with offsets defined
@@ -35,11 +35,11 @@ import androidx.compose.ui.util.fastMap
  *
  * Ex:
  * ```
- *  Brush.sweepGradient(
- *      0.0.rf to Color.Red.rc,
- *      0.3.rf to Color.Green.rc,
- *      1.0.rf to Color.Blue.rc,
- *      center = Offset(0.rf, 100.rf)
+ *  RemoteBrush.sweepGradient(
+ *      0.0f.rf to Color.Red.rc,
+ *      0.3f.rf to Color.Green.rc,
+ *      1.0f.rf to Color.Blue.rc,
+ *      center = RemoteOffset(0.rf, 100.rf)
  * )
  * ```
  *
@@ -66,9 +66,9 @@ public fun RemoteBrush.Companion.sweepGradient(
  *
  * Ex:
  * ```
- *  Brush.sweepGradient(
+ *  RemoteBrush.sweepGradient(
  *      listOf(Color.Red.rc, Color.Blue.rc),
- *      center = Offset(10.rf, 20.rf)
+ *      center = RemoteOffset(10.rf, 20.rf)
  * )
  * ```
  *
@@ -105,10 +105,10 @@ public data class RemoteSweepGradient(
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class RemoteSweepShader(
-    public var centerX: RemoteFloat,
-    public var centerY: RemoteFloat,
-    public var colors: List<RemoteColor>,
-    public var positions: List<RemoteFloat>?,
+    public val centerX: RemoteFloat,
+    public val centerY: RemoteFloat,
+    public val colors: List<RemoteColor>,
+    public val positions: List<RemoteFloat>?,
 ) : RemoteShader() {
 
     override fun apply(creationState: RemoteComposeCreationContext, paintBundle: PaintBundleData) {

@@ -174,6 +174,10 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
             }
         }
 
+    /**
+     * Returns a [RemoteBoolean] that evaluates to `true` if this [RemoteString] is empty (`length
+     * == 0`).
+     */
     public val isEmpty: RemoteBoolean
         get() {
             constantValueOrNull?.let {
@@ -201,6 +205,10 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
             )
         }
 
+    /**
+     * Returns a [RemoteBoolean] that evaluates to `true` if this [RemoteString] is not empty
+     * (`length > 0`).
+     */
     public val isNotEmpty: RemoteBoolean
         get() {
             constantValueOrNull?.let {
@@ -232,7 +240,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
      * Concatenates this [RemoteString] with another [RemoteString].
      *
      * @param v The other [RemoteString] to concatenate.
-     * @return A new [MutableRemoteString] representing the concatenated string.
+     * @return A new [RemoteString] representing the concatenated string.
      */
     public operator fun plus(v: RemoteString): RemoteString {
         if (constantValueOrNull != null && v.constantValueOrNull != null) {
@@ -264,7 +272,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
      * Concatenates this [RemoteString] with a [String].
      *
      * @param v The [String] to concatenate.
-     * @return A new [MutableRemoteString] representing the concatenated string.
+     * @return A new [RemoteString] representing the concatenated string.
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public operator fun plus(v: String): RemoteString {
@@ -275,7 +283,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
      * Returns a [RemoteString] that evaluates to a substring of this [RemoteString].
      *
      * @param start The inclusive index of the character at which the substring starts.
-     * @return A new [MutableRemoteString] representing the substring.
+     * @return A new [RemoteString] representing the substring.
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun substring(start: Int): RemoteString {
@@ -306,7 +314,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
      * Returns a [RemoteString] that evaluates to a upper case version of this [RemoteString] using
      * the system default locale.
      *
-     * @return A new [MutableRemoteString] representing the upper case version of this string.
+     * @return A new [RemoteString] representing the upper case version of this string.
      */
     public fun uppercase(): RemoteString {
         constantValueOrNull?.let {
@@ -348,7 +356,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
      * Returns a [RemoteString] that evaluates to a lower case version of this [RemoteString] using
      * the system default locale.
      *
-     * @return A new [MutableRemoteString] representing the lower case version of this string.
+     * @return A new [RemoteString] representing the lower case version of this string.
      */
     public fun lowercase(): RemoteString {
         constantValueOrNull?.let {
@@ -387,10 +395,10 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
     }
 
     /**
-     * Returns a [RemoteString] that evaluates to the trimmed version of this this [RemoteString]
-     * where leading and trailing whitespace characters have been removed.
+     * Returns a [RemoteString] that evaluates to the trimmed version of this [RemoteString] where
+     * leading and trailing whitespace characters have been removed.
      *
-     * @return A new [MutableRemoteString] representing the trimmed version of this string.
+     * @return A new [RemoteString] representing the trimmed version of this string.
      */
     public fun trim(): RemoteString {
         constantValueOrNull?.let {
@@ -425,7 +433,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
      *
      * @param start The [RemoteInt] representing the inclusive index of the character at which the
      *   substring starts.
-     * @return A new [MutableRemoteString] representing the substring.
+     * @return A new [RemoteString] representing the substring.
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun substring(start: RemoteInt): RemoteString {
@@ -460,7 +468,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
      *
      * @param start The inclusive index of the character at which the substring starts.
      * @param end The exclusive index after the last character of the substring.
-     * @return A new [MutableRemoteString] representing the substring.
+     * @return A new [RemoteString] representing the substring.
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun substring(start: Int, end: Int): RemoteString {
@@ -494,7 +502,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
      * @param start The inclusive index of the character at which the substring starts.
      * @param end The [RemoteInt] representing the exclusive index after the last character of the
      *   substring.
-     * @return A new [MutableRemoteString] representing the substring.
+     * @return A new [RemoteString] representing the substring.
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun substring(start: Int, end: RemoteInt): RemoteString {
@@ -532,7 +540,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
      *   substring starts.
      * @param end The [RemoteInt] representing the exclusive index after the last character of the
      *   substring.
-     * @return A new [MutableRemoteString] representing the substring.
+     * @return A new [RemoteString] representing the substring.
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun substring(start: RemoteInt, end: RemoteInt): RemoteString {
@@ -586,7 +594,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
          * Creates a [RemoteString] instance from a constant [String] literal.
          *
          * @param value The constant [String] value.
-         * @return A [MutableRemoteString] representing the constant string.
+         * @return A [RemoteString] representing the constant string.
          */
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
         public operator fun invoke(value: String): RemoteString {
@@ -736,14 +744,14 @@ private class SelectIntImpl(
 }
 
 /**
- * Returns a [RemoteFloat] that evaluates to [ifTrue] if [a] is less than [b], otherwise returns
+ * Returns a [RemoteString] that evaluates to [ifTrue] if [a] is less than [b], otherwise returns
  * [ifFalse].
  *
  * @param a The left-hand side [RemoteFloat] for the less-than comparison.
  * @param b The right-hand side [RemoteFloat] for the less-than comparison.
- * @param ifTrue The [RemoteFloat] expression to return if `a < b` evaluates to true.
- * @param ifFalse The [RemoteFloat] expression to return if `a < b` evaluates to false.
- * @return A new [RemoteFloat] representing the selected value, evaluated remotely.
+ * @param ifTrue The [RemoteString] expression to return if `a < b` evaluates to true.
+ * @param ifFalse The [RemoteString] expression to return if `a < b` evaluates to false.
+ * @return A new [RemoteString] representing the selected value, evaluated remotely.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun selectIfLt(
@@ -770,14 +778,14 @@ public fun selectIfLt(
 }
 
 /**
- * Returns a [RemoteInt] that evaluates to [ifTrue] if [a] is less than [b], otherwise returns
+ * Returns a [RemoteString] that evaluates to [ifTrue] if [a] is less than [b], otherwise returns
  * [ifFalse].
  *
  * @param a The left-hand side [RemoteInt] for the less-than comparison.
  * @param b The right-hand side [RemoteInt] for the less-than comparison.
- * @param ifTrue The [RemoteInt] expression to return if `a < b` evaluates to true.
- * @param ifFalse The [RemoteInt] expression to return if `a < b` evaluates to false.
- * @return A new [RemoteInt] representing the selected value, evaluated remotely.
+ * @param ifTrue The [RemoteString] expression to return if `a < b` evaluates to true.
+ * @param ifFalse The [RemoteString] expression to return if `a < b` evaluates to false.
+ * @return A new [RemoteString] representing the selected value, evaluated remotely.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun selectIfLt(
@@ -804,14 +812,14 @@ public fun selectIfLt(
 }
 
 /**
- * Returns a [RemoteFloat] that evaluates to [ifTrue] if [a] is less than or equal to [b], otherwise
- * returns [ifFalse].
+ * Returns a [RemoteString] that evaluates to [ifTrue] if [a] is less than or equal to [b],
+ * otherwise returns [ifFalse].
  *
  * @param a The left-hand side [RemoteFloat] for the comparison.
  * @param b The right-hand side [RemoteFloat] for the comparison.
- * @param ifTrue The [RemoteFloat] expression to return if `a <= b` evaluates to true.
- * @param ifFalse The [RemoteFloat] expression to return if `a <= b` evaluates to false.
- * @return A new [RemoteFloat] representing the selected value, evaluated remotely.
+ * @param ifTrue The [RemoteString] expression to return if `a <= b` evaluates to true.
+ * @param ifFalse The [RemoteString] expression to return if `a <= b` evaluates to false.
+ * @return A new [RemoteString] representing the selected value, evaluated remotely.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun selectIfLe(
@@ -838,14 +846,14 @@ public fun selectIfLe(
 }
 
 /**
- * Returns a [RemoteInt] that evaluates to [ifTrue] if [a] is less than or equal to [b], otherwise
- * returns [ifFalse].
+ * Returns a [RemoteString] that evaluates to [ifTrue] if [a] is less than or equal to [b],
+ * otherwise returns [ifFalse].
  *
  * @param a The left-hand side [RemoteInt] for the comparison.
  * @param b The right-hand side [RemoteInt] for the comparison.
- * @param ifTrue The [RemoteInt] expression to return if `a <= b` evaluates to true.
- * @param ifFalse The [RemoteInt] expression to return if `a <= b` evaluates to false.
- * @return A new [RemoteInt] representing the selected value, evaluated remotely.
+ * @param ifTrue The [RemoteString] expression to return if `a <= b` evaluates to true.
+ * @param ifFalse The [RemoteString] expression to return if `a <= b` evaluates to false.
+ * @return A new [RemoteString] representing the selected value, evaluated remotely.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun selectIfLe(
@@ -872,14 +880,14 @@ public fun selectIfLe(
 }
 
 /**
- * Returns a [RemoteFloat] that evaluates to [ifTrue] if [a] is greater than [b], otherwise returns
- * [RemoteFloat].
+ * Returns a [RemoteString] that evaluates to [ifTrue] if [a] is greater than [b], otherwise returns
+ * [ifFalse].
  *
  * @param a The left-hand side [RemoteFloat] for the comparison.
  * @param b The right-hand side [RemoteFloat] for the comparison.
- * @param ifTrue The [RemoteFloat] expression to return if `a > b` evaluates to true.
- * @param ifFalse The [RemoteFloat] expression to return if `a > b` evaluates to false.
- * @return A new [RemoteFloat] representing the selected value, evaluated remotely.
+ * @param ifTrue The [RemoteString] expression to return if `a > b` evaluates to true.
+ * @param ifFalse The [RemoteString] expression to return if `a > b` evaluates to false.
+ * @return A new [RemoteString] representing the selected value, evaluated remotely.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun selectIfGt(
@@ -906,14 +914,14 @@ public fun selectIfGt(
 }
 
 /**
- * Returns a [RemoteInt] that evaluates to [ifTrue] if [a] is greater than [b], otherwise returns
+ * Returns a [RemoteString] that evaluates to [ifTrue] if [a] is greater than [b], otherwise returns
  * [ifFalse].
  *
  * @param a The left-hand side [RemoteInt] for the comparison.
  * @param b The right-hand side [RemoteInt] for the comparison.
- * @param ifTrue The [RemoteInt] expression to return if `a > b` evaluates to true.
- * @param ifFalse The [RemoteInt] expression to return if `a > b` evaluates to false.
- * @return A new [RemoteInt] representing the selected value, evaluated remotely.
+ * @param ifTrue The [RemoteString] expression to return if `a > b` evaluates to true.
+ * @param ifFalse The [RemoteString] expression to return if `a > b` evaluates to false.
+ * @return A new [RemoteString] representing the selected value, evaluated remotely.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun selectIfGt(
@@ -940,14 +948,14 @@ public fun selectIfGt(
 }
 
 /**
- * Returns a [RemoteFloat] that evaluates to [ifTrue] if [a] is greater than or equal to [b],
+ * Returns a [RemoteString] that evaluates to [ifTrue] if [a] is greater than or equal to [b],
  * otherwise returns [ifFalse].
  *
  * @param a The left-hand side [RemoteFloat] for the comparison.
  * @param b The right-hand side [RemoteFloat] for the comparison.
- * @param ifTrue The [RemoteFloat] expression to return if `a >= b` evaluates to true.
- * @param ifFalse The [RemoteFloat] expression to return if `a >= b` evaluates to false.
- * @return A new [RemoteFloat] representing the selected value, evaluated remotely.
+ * @param ifTrue The [RemoteString] expression to return if `a >= b` evaluates to true.
+ * @param ifFalse The [RemoteString] expression to return if `a >= b` evaluates to false.
+ * @return A new [RemoteString] representing the selected value, evaluated remotely.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun selectIfGe(
@@ -974,14 +982,14 @@ public fun selectIfGe(
 }
 
 /**
- * Returns a [RemoteInt] that evaluates to [ifTrue] if [a] is greater than or equal to [b],
+ * Returns a [RemoteString] that evaluates to [ifTrue] if [a] is greater than or equal to [b],
  * otherwise returns [ifFalse].
  *
  * @param a The left-hand side [RemoteInt] for the comparison.
  * @param b The right-hand side [RemoteInt] for the comparison.
- * @param ifTrue The [RemoteInt] expression to return if `a >= b` evaluates to true.
- * @param ifFalse The [RemoteInt] expression to return if `a >= b` evaluates to false.
- * @return A new [RemoteInt] representing the selected value, evaluated remotely.
+ * @param ifTrue The [RemoteString] expression to return if `a >= b` evaluates to true.
+ * @param ifFalse The [RemoteString] expression to return if `a >= b` evaluates to false.
+ * @return A new [RemoteString] representing the selected value, evaluated remotely.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun selectIfGe(
@@ -1046,7 +1054,7 @@ internal fun mergeSets(a: Set<String>?, b: Set<String>?): Set<String>? {
     return a + b
 }
 
-/** An implementation of [RemoteString] that holds its value in a [MutableState<String>]. */
+/** An implementation of [RemoteString] that holds its value in a [MutableRemoteState<String>]. */
 public class MutableRemoteString
 @RememberInComposition
 internal constructor(
@@ -1130,6 +1138,14 @@ internal constructor(
  * @param initialValue The initial [String] value.
  * @return A [MutableRemoteString] instance that will be remembered across recompositions.
  */
+@Deprecated(
+    message = "Use remember { MutableRemoteString(initialValue) } instead.",
+    replaceWith =
+        ReplaceWith(
+            "remember { MutableRemoteString(initialValue) }",
+            "androidx.compose.runtime.remember",
+        ),
+)
 @Composable
 public fun rememberMutableRemoteString(initialValue: String): MutableRemoteString {
     return remember { MutableRemoteString(initialValue) }

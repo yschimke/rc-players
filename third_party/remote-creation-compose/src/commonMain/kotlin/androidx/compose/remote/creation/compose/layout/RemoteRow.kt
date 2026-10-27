@@ -25,8 +25,6 @@ import androidx.compose.remote.creation.compose.modifier.WidthModifier
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 
 /** Receiver scope used by [RemoteRow] for its content. */
 public class RemoteRowScope {
@@ -46,7 +44,6 @@ public class RemoteRowScope {
 internal class RemoteRowNode : RemoteComposeNode() {
     var horizontalArrangement: RemoteArrangement.Horizontal = RemoteArrangement.Start
     var verticalAlignment: RemoteAlignment.Vertical = RemoteAlignment.Top
-    var layoutDirection: LayoutDirection = LayoutDirection.Ltr
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
         val scope = overriddenScope(creationState)
@@ -92,7 +89,6 @@ public fun RemoteRow(
     content: @Composable RemoteRowScope.() -> Unit,
 ) {
     val scope = remember { RemoteRowScope() }
-    val layoutDirection = LocalLayoutDirection.current
     RemoteComposeNode(
         factory = ::RemoteRowNode,
         update = {
@@ -102,9 +98,6 @@ public fun RemoteRow(
             }
             set(verticalAlignment) { nodeVerticalAlignment ->
                 this.verticalAlignment = nodeVerticalAlignment
-            }
-            set(layoutDirection) { nodeLayoutDirection ->
-                this.layoutDirection = nodeLayoutDirection
             }
         },
         content = { scope.content() },

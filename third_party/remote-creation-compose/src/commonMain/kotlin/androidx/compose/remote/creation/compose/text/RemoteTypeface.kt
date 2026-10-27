@@ -82,7 +82,7 @@ public sealed interface RemoteTypeface {
         }
     }
 
-    /** Represents the style of a RemoteTypeface (e.g., Normal, Bold, Italic). */
+    /** Represents the style of a [RemoteTypeface] (e.g., Normal, Bold, Italic). */
     public enum class Style {
         Normal,
         Bold,
@@ -91,7 +91,12 @@ public sealed interface RemoteTypeface {
     }
 
     public companion object {
-        /** Creates a RemoteTypeface with the given font name and style. */
+        /**
+         * Creates a [RemoteTypeface] with the given [fontName] and [style].
+         *
+         * @param fontName The font family name, or `null` for the default font.
+         * @param style The [Style] of the typeface.
+         */
         public fun create(fontName: String?, style: Style = Style.Normal): RemoteTypeface {
             val weight = if (style == Style.Bold || style == Style.BoldItalic) 700 else 400
             val isItalic = style == Style.Italic || style == Style.BoldItalic
