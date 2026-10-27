@@ -66,7 +66,58 @@ class RcGradientPrimitiveRenderTest {
     }
   }
 
+  @Test
+  fun thePaintColoursAlphaFadesAGradient() {
+    // `RemotePaint` writes its alpha into COLOR, not a separate ALPHA: a half-transparent black
+    // COLOR ahead of the gradient draws it at half alpha, as an Android `Paint` would. Only ALPHA
+    // was read, so the gradient drew opaque.
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 40, legacyHeight = 40, modern = false),
+        listOf(
+          RcPaintData(
+            listOf(
+              COLOR,
+              0x80000000.toInt(),
+              GRADIENT,
+              2,
+              0xffff0000.toInt(),
+              0xff0000ff.toInt(),
+              0,
+              0f.toRawBits(),
+              0f.toRawBits(),
+              40f.toRawBits(),
+              0f.toRawBits(),
+              0,
+            )
+          ),
+          RcDraw3(
+            RcOpcodes.DRAW_CIRCLE,
+            RcFloatWord.literal(20f),
+            RcFloatWord.literal(20f),
+            RcFloatWord.literal(18f),
+          ),
+        ),
+      )
+    val scene =
+      ImageComposeScene(width = 40, height = 40, density = Density(1f)) {
+        RcComposePlayer(document, Modifier.fillMaxSize())
+      }
+    try {
+      val bitmap = Bitmap().apply { allocN32Pixels(40, 40) }
+      check(scene.render().readPixels(bitmap))
+      val alpha = bitmap.getColor(20, 20) ushr 24
+
+      assertTrue(alpha in 0x70..0x90, "the gradient is not at half alpha: ${alpha.toString(16)}")
+    } finally {
+      scene.close()
+    }
+  }
+
   private companion object {
+    /** PaintBundle.COLOR. */
+    const val COLOR = 4
+
     /** PaintBundle.GRADIENT, linear (type 0 in the high half-word). */
     const val GRADIENT = 11
   }

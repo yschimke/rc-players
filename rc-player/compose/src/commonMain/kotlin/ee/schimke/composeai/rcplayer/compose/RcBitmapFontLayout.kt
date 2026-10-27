@@ -2,11 +2,14 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.unit.IntSize
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontGlyph
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapTextMeasure
@@ -224,8 +227,7 @@ internal fun DrawScope.drawBitmapFontTextRun(
   operation: RcDrawBitmapFontTextRun,
   state: RcPlayerState,
   images: Map<Int, ImageBitmap>,
-  alpha: Float,
-  blendMode: BlendMode,
+  paint: RcGlyphPaint,
 ) {
   val font = state.bitmapFont(operation.bitmapFontId) ?: return
   val text = state.bitmapTextSlice(operation.textId, operation.start, operation.end) ?: return
@@ -238,8 +240,7 @@ internal fun DrawScope.drawBitmapFontTextRun(
       state.resolve(operation.glyphSpacing),
     ),
     images,
-    alpha,
-    blendMode,
+    paint,
   )
 }
 
@@ -247,8 +248,7 @@ internal fun DrawScope.drawAnchoredBitmapText(
   operation: RcDrawBitmapTextAnchored,
   state: RcPlayerState,
   images: Map<Int, ImageBitmap>,
-  alpha: Float,
-  blendMode: BlendMode,
+  paint: RcGlyphPaint,
 ) {
   val font = state.bitmapFont(operation.bitmapFontId) ?: return
   val text =
@@ -268,8 +268,7 @@ internal fun DrawScope.drawAnchoredBitmapText(
       state.resolve(operation.glyphSpacing),
     ),
     images,
-    alpha,
-    blendMode,
+    paint,
   )
 }
 
@@ -278,8 +277,7 @@ internal fun DrawScope.drawBitmapFontTextOnPath(
   path: Path,
   state: RcPlayerState,
   images: Map<Int, ImageBitmap>,
-  alpha: Float,
-  blendMode: BlendMode,
+  paint: RcGlyphPaint,
 ) {
   val font = state.bitmapFont(operation.bitmapFontId) ?: return
   val text = state.bitmapTextSlice(operation.textId, operation.start, operation.end) ?: return
@@ -292,8 +290,7 @@ internal fun DrawScope.drawBitmapFontTextOnPath(
       state.resolve(operation.glyphSpacing),
     ),
     images,
-    alpha,
-    blendMode,
+    paint,
   )
 }
 
@@ -330,8 +327,7 @@ private fun RcPlayerState.bitmapTextSlice(textId: Int, start: Int, end: Int): St
 private fun DrawScope.drawBitmapGlyphs(
   placements: List<RcBitmapGlyphPlacement>,
   images: Map<Int, ImageBitmap>,
-  alpha: Float,
-  blendMode: BlendMode,
+  paint: RcGlyphPaint,
 ) {
   placements.forEach { placement ->
     val image = images[placement.bitmapId] ?: return@forEach
@@ -343,10 +339,27 @@ private fun DrawScope.drawBitmapGlyphs(
       translate(placement.left, placement.top)
       scale(placement.width / image.width, placement.height / image.height, Offset.Zero)
     }) {
-      drawImage(image, Offset.Zero, alpha = alpha, blendMode = blendMode)
+      // The rect overload, the one that takes a sampling quality, with the whole paint: AndroidX
+      // draws each glyph through `drawBitmap`, so a colour filter tints it as it tints a bitmap.
+      drawImage(
+        image = image,
+        dstSize = IntSize(image.width, image.height),
+        alpha = paint.alpha,
+        colorFilter = paint.colorFilter,
+        blendMode = paint.blendMode,
+        filterQuality = paint.filterQuality,
+      )
     }
   }
 }
+
+/** The parts of the canvas paint a bitmap-font glyph is drawn with, as `DrawBitmap` uses them. */
+internal class RcGlyphPaint(
+  val alpha: Float,
+  val colorFilter: ColorFilter?,
+  val blendMode: BlendMode,
+  val filterQuality: FilterQuality,
+)
 
 private const val BITMAP_FONT_POINTER_FLAG = 0x40000000
 private const val BITMAP_FONT_ID_MASK = 0xffff

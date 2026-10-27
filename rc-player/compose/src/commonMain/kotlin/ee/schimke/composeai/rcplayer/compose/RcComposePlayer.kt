@@ -4748,6 +4748,16 @@ private class RcPaintState(
     return color.copy(alpha = color.alpha * alpha)
   }
 
+  /**
+   * The paint's alpha as an Android `Paint` applies it to a shader, brush or bitmap: the colour's
+   * own alpha channel times [alpha]. `RemotePaint` writes its alpha into `COLOR` rather than a
+   * separate `ALPHA`, so reading [alpha] alone drew translucent gradients and bitmaps opaque.
+   */
+  fun effectiveAlpha(): Float = (Color(color).alpha * alpha).coerceIn(0f, 1f)
+
+  fun glyphPaint(): RcGlyphPaint =
+    RcGlyphPaint(effectiveAlpha(), colorFilter, blendMode, filterQuality)
+
   fun style() =
     if (stroke) Stroke(width = strokeWidth, cap = strokeCap, join = strokeJoin) else Fill
 }
@@ -5161,18 +5171,17 @@ private fun DrawScope.drawOperationsRouted(
       is RcDrawBitmapInt -> drawBitmapInt(operation, state, paint, images)
       is RcDrawBitmapScaled -> drawBitmapScaled(operation, state, paint, images)
       is RcDrawBitmapFontTextRun ->
-        drawBitmapFontTextRun(operation, state, images, paint.alpha, paint.blendMode)
+        drawBitmapFontTextRun(operation, state, images, paint.glyphPaint())
       is RcDrawBitmapFontTextRunOnPath ->
         drawBitmapFontTextOnPath(
           operation,
           pathForId(resolveBitmapFontPathId(operation.pathId, state), state, computedPaths),
           state,
           images,
-          paint.alpha,
-          paint.blendMode,
+          paint.glyphPaint(),
         )
       is RcDrawBitmapTextAnchored ->
-        drawAnchoredBitmapText(operation, state, images, paint.alpha, paint.blendMode)
+        drawAnchoredBitmapText(operation, state, images, paint.glyphPaint())
       is RcBitmapTextMeasure -> applyBitmapTextMeasure(operation, state)
       is RcTextMeasure -> measureTextOperation(operation, state, paint, textMeasurer)
       is RcTextAttribute ->
@@ -5401,7 +5410,7 @@ private fun DrawScope.drawBitmap(
     drawImage(
       image = image,
       dstSize = IntSize(image.width, image.height),
-      alpha = paint.alpha,
+      alpha = paint.effectiveAlpha(),
       // AndroidX draws a bitmap with the whole paint (`AndroidPaintContext.drawBitmap`), so a
       // colour filter tints it: a text mask drawn in a host colour, say.
       colorFilter = paint.colorFilter,
@@ -5499,7 +5508,7 @@ private fun DrawScope.drawBitmapRegion(
     srcSize = IntSize(srcWidth, srcHeight),
     dstOffset = IntOffset(dstLeft, dstTop),
     dstSize = IntSize(dstWidth, dstHeight),
-    alpha = paint.alpha,
+    alpha = paint.effectiveAlpha(),
     colorFilter = paint.colorFilter,
     blendMode = paint.blendMode,
     filterQuality = paint.filterQuality,
@@ -5642,7 +5651,7 @@ private fun DrawScope.drawRcTextLayout(
       layout,
       brush = brush,
       topLeft = topLeft,
-      alpha = paint.alpha,
+      alpha = paint.effectiveAlpha(),
       drawStyle = paint.style(),
       blendMode = paint.blendMode,
     )
@@ -6239,7 +6248,7 @@ private fun DrawScope.drawRcPath(path: Path, paint: RcPaintState) {
     drawPath(
       path = path,
       brush = brush,
-      alpha = paint.alpha,
+      alpha = paint.effectiveAlpha(),
       style = paint.style(),
       colorFilter = paint.colorFilter,
       blendMode = paint.blendMode,
@@ -6352,7 +6361,7 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
           brush,
           topLeft,
           size,
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           style = paint.style(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,
@@ -6375,7 +6384,7 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
           brush,
           Offset(a, b),
           Size(c - a, d - b),
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           style = paint.style(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,
@@ -6401,7 +6410,7 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
           Offset(c, d),
           strokeWidth = paint.strokeWidth,
           cap = paint.strokeCap,
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,
         )
@@ -6435,7 +6444,7 @@ private fun DrawScope.draw3(operation: RcDraw3, paint: RcPaintState, state: RcPl
           brush,
           c,
           Offset(a, b),
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           style = paint.style(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,
@@ -6479,7 +6488,7 @@ private fun DrawScope.draw6(operation: RcDraw6, paint: RcPaintState, state: RcPl
           topLeft,
           size,
           cornerRadius,
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           style = paint.style(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,
@@ -6510,7 +6519,7 @@ private fun DrawScope.draw6(operation: RcDraw6, paint: RcPaintState, state: RcPl
           useCenter = useCenter,
           topLeft = Offset(a, b),
           size = Size(c - a, d - b),
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           style = paint.style(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,
