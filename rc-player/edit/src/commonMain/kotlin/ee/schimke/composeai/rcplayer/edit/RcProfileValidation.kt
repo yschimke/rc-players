@@ -24,7 +24,10 @@ public data class RcProfileViolation(
     /** The header declares a newer document API level than the target reads, or none it reads. */
     HEADER_API_LEVEL,
 
-    /** The header's form is one the target cannot read: a property header below level 7. */
+    /**
+     * The header's form is one the target cannot read: a property header below level 6. Android
+     * 16's platform player, the first at level 6, reads both forms.
+     */
     HEADER_FORMAT,
 
     /** The target does not decode this operation at all. */
@@ -82,7 +85,9 @@ public fun RcDocument.validateFor(target: RcTargetProfile): List<RcProfileViolat
         )
       )
   }
-  if (target.apiLevel < 7 && header.modern) {
+  // Android 16's platform `Header.read` takes a major version carrying the property-header magic
+  // as a property map, so from level 6 either form plays.
+  if (target.apiLevel < 6 && header.modern) {
     add(
       headerViolation(
         RcProfileViolation.Kind.HEADER_FORMAT,

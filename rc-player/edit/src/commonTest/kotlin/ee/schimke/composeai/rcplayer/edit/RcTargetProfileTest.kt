@@ -96,7 +96,6 @@ class RcTargetProfileTest {
     assertEquals(
       listOf(
         Kind.HEADER_API_LEVEL to null,
-        Kind.HEADER_FORMAT to null,
         Kind.DYNAMIC_VALUE to 2,
         Kind.FLOAT_OPERATOR to 3,
         Kind.UNSUPPORTED_OPERATION to 4,
@@ -108,6 +107,26 @@ class RcTargetProfileTest {
       violations.last().message,
     )
     assertTrue(document.validateFor(RcTargetProfiles.ANDROIDX).isEmpty())
+  }
+
+  /** Android 16's player reads a property header too: only the level it declares matters. */
+  @Test
+  fun aLevelSixPropertyHeaderPlaysOnBaklavaWidgets() {
+    val document =
+      RcDocument(
+        RcHeader(
+          RcVersion(1, 0, 0),
+          properties =
+            listOf(
+              RcHeaderProperty(RcHeader.DOC_WIDTH, RcHeaderValue.IntValue(200)),
+              RcHeaderProperty(RcHeader.DOC_HEIGHT, RcHeaderValue.IntValue(100)),
+            ),
+        ),
+        listOf(RcFloatConstant(60, RcFloatWord.literal(0.5f)), image(RcFloatWord.literal(0.5f))),
+      )
+
+    assertTrue(document.header.modern)
+    assertEquals(emptyList(), document.validateFor(RcTargetProfiles.WIDGETS_V6))
   }
 
   @Test
