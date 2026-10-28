@@ -18,6 +18,31 @@ enum NativeSwiftDocumentDecoder {
   /// AndroidX's own bounds for a sound resource and a sound expression's parameters.
   private static let maximumSoundBytes = 256 * 1024
   private static let maximumSoundParameters = 64
+  /// What a `FloatFunctionDefine` body may hold here: drawing, paint, the matrix and clip stack,
+  /// offscreen redirects, `DrawContent`, its own float expressions and plain data declarations. Each
+  /// of these either draws into the body or declares a value that does not depend on when the body
+  /// runs. Anything else — a conditional, a loop, an integer or colour expression, a nested
+  /// definition — would be decided once at decode or with the frame's values rather than per call,
+  /// so it is refused rather than run at the wrong time.
+  private static let functionBodyOpcodes: Set<Int> = [
+    NativeSwiftWireOpcode.containerEnd, NativeSwiftWireOpcode.paintValues,
+    NativeSwiftWireOpcode.clipPath, NativeSwiftWireOpcode.clipRect,
+    NativeSwiftWireOpcode.drawRect, NativeSwiftWireOpcode.drawCircle,
+    NativeSwiftWireOpcode.drawLine, NativeSwiftWireOpcode.drawOval,
+    NativeSwiftWireOpcode.drawRoundRect, NativeSwiftWireOpcode.drawSector,
+    NativeSwiftWireOpcode.drawArc, NativeSwiftWireOpcode.drawPath,
+    NativeSwiftWireOpcode.drawTweenPath, NativeSwiftWireOpcode.drawText,
+    NativeSwiftWireOpcode.drawTextAnchored, NativeSwiftWireOpcode.drawTextOnPath,
+    NativeSwiftWireOpcode.drawTextOnCircle, NativeSwiftWireOpcode.drawBitmap,
+    NativeSwiftWireOpcode.drawBitmapScaled, NativeSwiftWireOpcode.matrixSave,
+    NativeSwiftWireOpcode.matrixRestore, NativeSwiftWireOpcode.matrixTranslate,
+    NativeSwiftWireOpcode.matrixScale, NativeSwiftWireOpcode.matrixRotate,
+    NativeSwiftWireOpcode.matrixSkew, NativeSwiftWireOpcode.matrixFromPath,
+    NativeSwiftWireOpcode.drawToBitmap, NativeSwiftWireOpcode.drawContent,
+    NativeSwiftWireOpcode.dataBitmap, NativeSwiftWireOpcode.dataFloat,
+    NativeSwiftWireOpcode.animatedFloat, NativeSwiftWireOpcode.colorConstant,
+    NativeSwiftWireOpcode.dataText, NativeSwiftWireOpcode.dataPath,
+  ]
 
   static func decode(_ data: Data, toleratingRootlessData: Bool = false) throws -> ParsedDocument {
     var spans: [NativeSwiftOperationSpan] = []
@@ -164,6 +189,19 @@ enum NativeSwiftDocumentDecoder {
     var particleOperations: [ParsedParticleOperation] = []
     var eventHandlers: [ParsedEventHandler] = []
     var runActions: [ParsedRunAction] = []
+    var functions: [Int: ParsedFunction] = [:]
+    /// The `FloatFunctionDefine` whose body is being read: its drawing goes to `body` rather than
+    /// a component, its expressions to `expressions` rather than the frame's, and the paint state
+    /// outside it comes back when it ends.
+    struct FunctionScope {
+      let id: Int
+      let argumentIDs: [Int]
+      let body: ParsedNode
+      var expressions: [ParsedFloatExpression]
+      let outerPaint: ParsedPaint
+      let offset: Int
+    }
+    var functionScope: FunctionScope?
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
@@ -407,6 +445,7 @@ enum NativeSwiftDocumentDecoder {
     }
 
     func drawingTarget() throws -> ParsedNode {
+      if let functionScope { return functionScope.body }
       if stack.isEmpty {
         if let implicitCanvasRoot { return implicitCanvasRoot }
         guard root == nil, nodes.count < maximumNodes else {
@@ -903,6 +942,11 @@ enum NativeSwiftDocumentDecoder {
       census(opcode)
       let impulseScope = impulseScopes.last
       let frameEffectCountBeforeOperation = frameEffects.count
+      if functionScope != nil, !functionBodyOpcodes.contains(opcode) {
+        throw NativeSwiftCoreError.unsupported(
+          opcode: opcode, offset: opcodeOffset,
+          reason: "operation inside a FloatFunctionDefine body is not migrated")
+      }
       // `ops:count` is a census of the linked top-level tree, not decoder iterations. Containers
       // own their children; macro definitions and calls expand into those children; neither is an
       // independent top-level operation. Template bytes execute through `suspendedInputs` and are
@@ -1239,7 +1283,8 @@ enum NativeSwiftDocumentDecoder {
               source: [0, 0, Float(bitmap.width).bitPattern, Float(bitmap.height).bitPattern],
               destination: destination, scaleType: NativeSwiftImageScaleType.fillBounds,
               scaleFactor: Float(1).bitPattern,
-              contentDescriptionID: descriptionID)))
+              contentDescriptionID: descriptionID,
+              sourceIsWholeBitmap: bitmap.isComponentOffscreenBuffer)))
       case NativeSwiftWireOpcode.drawBitmapScaled:
         // Draw bitmap with explicit source, destination and scale mode.
         let imageID = try input.int("scaled bitmap image id")
@@ -1282,6 +1327,8 @@ enum NativeSwiftDocumentDecoder {
         let bitmapID = rawBitmapID & NativeSwiftDrawToBitmapID.valueMask
         var width = 0
         var height = 0
+        var isComponentBuffer = false
+        var bufferComponentID = NativeSwiftComponentOffscreenBuffer.activeComponent
         if bitmapID != NativeSwiftDrawToBitmapID.mainCanvas {
           // The reference `requireNonNull`s the bitmap, so an undeclared one is a document error.
           guard let bitmap = images[bitmapID] else {
@@ -1289,6 +1336,14 @@ enum NativeSwiftDocumentDecoder {
           }
           width = bitmap.width
           height = bitmap.height
+          // A component offscreen buffer's declared size is a placeholder: the host sizes it to its
+          // component when drawing is redirected into it, within the reference's own bounds
+          // (`NativeSwiftComponentOffscreenBuffer`). It counts as a target here like any other.
+          isComponentBuffer = bitmap.isComponentOffscreenBuffer
+          if isComponentBuffer {
+            bufferComponentID = NativeSwiftComponentOffscreenBuffer.componentID(
+              payload: bitmap.data)
+          }
           if !offscreenTargetIDs.contains(bitmapID) {
             guard offscreenTargetIDs.count < 64 else {
               throw input.malformed("DrawToBitmap exceeds 64 offscreen targets")
@@ -1301,11 +1356,19 @@ enum NativeSwiftDocumentDecoder {
             offscreenTargetPixels += width * height
           }
         }
+        // `MODE_COMPONENT_ID`: the colour word names the component the target captures, and the
+        // target is erased to transparent. On the canvas redirect the reference ignores the mode.
+        let capturesComponent =
+          bitmapID != NativeSwiftDrawToBitmapID.mainCanvas
+          && mode & NativeSwiftDrawToBitmapMode.componentID != 0
         try drawingNode().commands.append(
           ParsedDrawCommand(
             kind: NativeSwiftDrawKind.drawToBitmap, words: [], paint: paint,
             offscreenTarget: NativeSwiftOffscreenTargetSnapshot(
-              bitmapID: bitmapID, mode: mode, colorARGB: color, width: width, height: height)))
+              bitmapID: bitmapID, mode: mode, colorARGB: capturesComponent ? 0 : color,
+              width: width, height: height, isComponentBuffer: isComponentBuffer,
+              bufferComponentID: bufferComponentID,
+              capturedComponentID: capturesComponent ? colorWord : nil)))
       case NativeSwiftWireOpcode.drawCircle:  // Draw circle
         let words = try (0..<3).map { _ in try input.word("draw circle value") }
         try drawingNode().commands.append(
@@ -1383,9 +1446,44 @@ enum NativeSwiftDocumentDecoder {
           ParsedDrawCommand(kind: NativeSwiftDrawKind.matrixRestore, words: [], paint: paint))
       case NativeSwiftWireOpcode.canvasOperations:  // Canvas operations container
         modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
+      case NativeSwiftWireOpcode.functionDefine:  // FloatFunctionDefine container
+        // An id, an argument count and that many argument ids (`FloatFunctionDefine.read`), then
+        // a body up to its ContainerEnd. The allow-list above already refused a nested one.
+        let id = try input.int("function id")
+        let count = try input.count(
+          "function argument count", maximum: NativeSwiftFunctionDefine.maximumArguments)
+        var argumentIDs: [Int] = []
+        argumentIDs.reserveCapacity(count)
+        for _ in 0..<count { argumentIDs.append(try input.int("function argument id")) }
+        let body = ParsedNode(kind: .canvas, componentID: id)
+        body.componentKind = "FloatFunctionDefine"
+        functionScope = FunctionScope(
+          id: id, argumentIDs: argumentIDs, body: body, expressions: [], outerPaint: paint,
+          offset: opcodeOffset)
+        // The reference resets the paint before running a function, so its body starts from the
+        // default paint whatever the document had set before the definition.
+        paint = ParsedPaint()
+        modifierContainers.append(
+          ParsedModifierContainer(node: nil, gesture: nil, isFunctionBody: true))
       case NativeSwiftWireOpcode.drawContent, NativeSwiftWireOpcode.modifierDrawContent:
-        // Marker/modifier operations without payload
-        break
+        // A modifier marker without payload, where the component's content draws among its
+        // modifiers; the component views draw content anyway. `DrawContent` draws a component in
+        // two places, and only those are kept: in a function body (the animating component), and
+        // after a redirect into a component offscreen target (the target's component).
+        guard opcode == NativeSwiftWireOpcode.drawContent else { break }
+        let target: ParsedNode?
+        if let functionScope {
+          target = functionScope.body
+        } else if let node = stack.last ?? implicitCanvasRoot,
+          node.commands.last(where: { $0.kind == NativeSwiftDrawKind.drawToBitmap })?
+            .offscreenTarget?.capturesComponent == true
+        {
+          target = node
+        } else {
+          target = nil
+        }
+        target?.commands.append(
+          ParsedDrawCommand(kind: NativeSwiftDrawKind.drawContent, words: [], paint: paint))
       case NativeSwiftWireOpcode.modifierWidth:  // Width
         let node = try currentNode(stack, input: input)
         let widthType = try input.dimensionType("width type")
@@ -1447,11 +1545,16 @@ enum NativeSwiftDocumentDecoder {
           // A constant that names another value is an alias, not a number. Expressing it as a
           // one-word expression runs it through the same ordered evaluation as any other computed
           // value, instead of freezing a reference's raw NaN bits into the seed map.
-          expressions.append(
-            ParsedFloatExpression(
-              id: floatID, words: [constantWord], animationWords: nil, opcode: opcode,
-              offset: opcodeOffset))
-          expressionIDs.insert(floatID)
+          let alias = ParsedFloatExpression(
+            id: floatID, words: [constantWord], animationWords: nil, opcode: opcode,
+            offset: opcodeOffset)
+          // Inside a function body it may name an argument, so it is evaluated per call.
+          if functionScope != nil {
+            functionScope?.expressions.append(alias)
+          } else {
+            expressions.append(alias)
+            expressionIDs.insert(floatID)
+          }
         } else {
           let value = Float(bitPattern: constantWord)
           guard value.isFinite else { throw input.malformed("float value must be finite") }
@@ -1469,10 +1572,19 @@ enum NativeSwiftDocumentDecoder {
         guard width > 0, height > 0, width <= 4_096, height <= 4_096 else {
           throw input.malformed("Invalid bitmap dimensions \(width)x\(height)")
         }
-        guard images[imageID] == nil else { throw input.malformed("Duplicate bitmap \(imageID)") }
+        let data = try input.data("bitmap data", maximum: 8 * 1_024 * 1_024)
+        if let existing = images[imageID] {
+          // A component offscreen buffer is declared where it is drawn into — inside a function
+          // body that runs once per animating component, say — and the reference re-applies the
+          // declaration each time. The same declaration again is that, not a duplicate.
+          guard existing.isComponentOffscreenBuffer,
+            encoding == NativeSwiftBitmapEncoding.componentOffscreenBuffer,
+            NativeSwiftComponentOffscreenBuffer.componentID(payload: existing.data)
+              == NativeSwiftComponentOffscreenBuffer.componentID(payload: data)
+          else { throw input.malformed("Duplicate bitmap \(imageID)") }
+        }
         images[imageID] = ParsedImageResource(
-          id: imageID, width: width, height: height, type: type, encoding: encoding,
-          data: try input.data("bitmap data", maximum: 8 * 1_024 * 1_024))
+          id: imageID, width: width, height: height, type: type, encoding: encoding, data: data)
       case NativeSwiftWireOpcode.animatedFloat:  // Float expression
         let id = try input.int("float expression id")
         // The length word packs the expression token count in its low half and an optional packed
@@ -1496,11 +1608,22 @@ enum NativeSwiftDocumentDecoder {
           _ = try NativeSwiftFloatAnimationRuntime(
             animationWords: animationWords, offset: opcodeOffset)
         }
-        expressions.append(
-          ParsedFloatExpression(
-            id: id, words: Array(words.prefix(valueCount)), animationWords: animationWords,
-            opcode: opcode, offset: opcodeOffset))
-        expressionIDs.insert(id)
+        let expression = ParsedFloatExpression(
+          id: id, words: Array(words.prefix(valueCount)), animationWords: animationWords,
+          opcode: opcode, offset: opcodeOffset)
+        if functionScope != nil {
+          // A function's expression reads its arguments, so it is evaluated per call. An animated
+          // one would need a retained runtime per call site, which is not migrated.
+          guard animationWords == nil else {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: opcode, offset: opcodeOffset,
+              reason: "an animated float inside a FloatFunctionDefine body is not migrated")
+          }
+          functionScope?.expressions.append(expression)
+        } else {
+          expressions.append(expression)
+          expressionIDs.insert(id)
+        }
       case NativeSwiftWireOpcode.layoutCustom:  // Custom
         let id = try input.int("custom component id")
         _ = try input.int("custom animation id")
@@ -1967,12 +2090,15 @@ enum NativeSwiftDocumentDecoder {
         let enterAnimation = try input.int("animation spec enter animation")
         let exitAnimation = try input.int("animation spec exit animation")
         // alpha22 then appends the enter and exit function ids when either side is CUSTOM, which
-        // AnimationSpec.read tests on the animation byte alone. This player does not run them.
-        let animationKind = NativeSwiftLayoutAnimation.kindMask
+        // AnimationSpec.read tests on the animation byte alone.
+        var enterFunctionID = NativeSwiftFunctionDefine.unsetID
+        var exitFunctionID = NativeSwiftFunctionDefine.unsetID
         let custom = NativeSwiftLayoutAnimation.custom
-        if enterAnimation & animationKind == custom || exitAnimation & animationKind == custom {
-          _ = try input.int("animation spec enter function id")
-          _ = try input.int("animation spec exit function id")
+        if NativeSwiftLayoutAnimation.kind(ofWord: enterAnimation) == custom
+          || NativeSwiftLayoutAnimation.kind(ofWord: exitAnimation) == custom
+        {
+          enterFunctionID = try input.int("animation spec enter function id")
+          exitFunctionID = try input.int("animation spec exit function id")
         }
         guard motionDuration.isFinite, motionDuration >= 0, visibilityDuration.isFinite,
           visibilityDuration >= 0
@@ -1982,7 +2108,8 @@ enum NativeSwiftDocumentDecoder {
         let spec = NativeSwiftAnimationSpec(
           motionDuration: motionDuration, motionEasingType: motionEasingType,
           visibilityDuration: visibilityDuration, visibilityEasingType: visibilityEasingType,
-          enterAnimation: enterAnimation, exitAnimation: exitAnimation)
+          enterAnimation: enterAnimation, exitAnimation: exitAnimation,
+          enterFunctionID: enterFunctionID, exitFunctionID: exitFunctionID)
         animationSpecs[id] = spec
         animationSpecOrder.append(id)
         // A spec among a component's own operations is that component's, the last one winning, as
@@ -2433,6 +2560,13 @@ enum NativeSwiftDocumentDecoder {
         }
         appendAction(.integerValue(targetID: targetID, value: value), to: container)
       case NativeSwiftWireOpcode.containerEnd:  // Container end
+        if let scope = functionScope, modifierContainers.last?.isFunctionBody == true {
+          functions[scope.id] = ParsedFunction(
+            id: scope.id, argumentIDs: scope.argumentIDs, expressions: scope.expressions,
+            commands: scope.body.commands, offset: scope.offset)
+          paint = scope.outerPaint
+          functionScope = nil
+        }
         if !modifierContainers.isEmpty {
           if let scope = impulseScopes.last, scope.depth == modifierContainers.count {
             impulseScopes.removeLast()
@@ -2812,6 +2946,7 @@ enum NativeSwiftDocumentDecoder {
           opcode: opcode, offset: opcodeOffset, endOffset: input.offset))
     }
     guard impulseScopes.isEmpty else { throw input.malformed("Unclosed impulse") }
+    guard functionScope == nil else { throw input.malformed("Unclosed FloatFunctionDefine") }
     guard stack.isEmpty else { throw input.malformed("Unclosed layout container") }
     // A *data-only* document declares expressions, colours and text with nothing to draw, so it
     // carries no root component at all. A renderer handed one has been given something it cannot
@@ -2921,13 +3056,15 @@ enum NativeSwiftDocumentDecoder {
       shaderUniformNames: shaderUniformNames, conditionalTraces: conditionalTraces,
       impulses: impulses, darkColors: darkColors, wakeWords: wakeWords,
       particleDefinitions: particleDefinitions, particleOperations: particleOperations,
-      eventHandlers: eventHandlers, runActions: runActions,
+      eventHandlers: eventHandlers, runActions: runActions, functions: functions,
       needsContinuousFrames: needsContinuousFrames,
       hasMarquee: hasMarquee,
       needsWallClockRefresh: needsWallClockRefresh,
       linkedOperationCount: 1 + linkedTopLevelOperationCount + (syntheticRootWasAdded ? 1 : 0),
       operationCensus: operationCensus,
-      imageSnapshots: images.values.sorted { $0.id < $1.id }.map(\.snapshot),
+      // A component offscreen buffer is not an image a host loads; it is drawn into.
+      imageSnapshots: images.values.filter { !$0.isComponentOffscreenBuffer }
+        .sorted { $0.id < $1.id }.map(\.snapshot),
       boundComponentIDs: Set(componentValues.map(\.componentID)),
       needsTolerantExpressionPass: !componentValues.isEmpty || expressionsReadForward,
       layoutReadsComponentValues: !componentValueIDs.isEmpty

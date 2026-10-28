@@ -561,12 +561,13 @@ final class NativeFontRegistry {
     ) throws -> UIImage {
       let image: UIImage?
       switch resource.type {
-      case 0, 1, 4:
+      case NativeSwiftBitmapType.pngARGB8888, NativeSwiftBitmapType.png,
+        NativeSwiftBitmapType.pngAlpha8:
         image = UIImage(data: data, scale: 1)
-      case 2:
+      case NativeSwiftBitmapType.raw8:
         image = rawImage(
           data: data, width: resource.width, height: resource.height, alphaOnly: true)
-      case 3:
+      case NativeSwiftBitmapType.raw8888:
         image = rawImage(
           data: data, width: resource.width, height: resource.height, alphaOnly: false)
       default:

@@ -3625,7 +3625,7 @@ private final class FailureLog: @unchecked Sendable {
   }
 }
 
-private final class Writer {
+final class Writer {
   static func nanReference(_ id: Int) -> Int {
     Int(Int32(bitPattern: 0xff80_0000 | UInt32(id)))
   }
