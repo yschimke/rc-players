@@ -613,6 +613,7 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun applyPaint (Landroidx/compose/remote/creation/common/PaintBundleData;)V
 	public fun bitmapAttribute (IS)F
 	public fun bitmapTextMeasure (IIIF)F
+	public fun callFloatFunction (I[F)V
 	public fun clipPath (I)V
 	public fun clipRect (FFFF)V
 	public fun colorAttribute (IS)F
@@ -620,12 +621,16 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public static synthetic fun column$default (Landroidx/compose/remote/creation/common/RemoteDocumentWriter;IIFILkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 	public fun consumePaintReset ()Z
 	public fun createBitmap (II)I
+	public fun createFloatFunction ([F)I
 	public fun createFloatId ()F
+	public fun createOffscreenBitmap (I)I
 	public fun createTextFromFloat (FIII)I
 	public fun drawArc (FFFFFF)V
 	public fun drawBitmap (IFFFFI)V
 	public fun drawCircle (FFF)V
 	public fun drawComponentContent ()V
+	public fun drawComponentToBitmap (I)V
+	public fun drawComponentToBitmap (II)V
 	public fun drawLine (FFFF)V
 	public fun drawOnBitmap (III)V
 	public fun drawOval (FFFF)V
@@ -649,6 +654,7 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun endConditional ()V
 	public fun endCustom ()V
 	public fun endFitBox ()V
+	public fun endFloatFunction ()V
 	public fun endFlow ()V
 	public fun endLoop ()V
 	public fun endPatternDefinition ()V
@@ -1238,17 +1244,23 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun applyPaint (Landroidx/compose/remote/creation/common/PaintBundleData;)V
 	public abstract fun bitmapAttribute (IS)F
 	public abstract fun bitmapTextMeasure (IIIF)F
+	public abstract fun callFloatFunction (I[F)V
 	public abstract fun clipPath (I)V
 	public abstract fun clipRect (FFFF)V
 	public abstract fun colorAttribute (IS)F
 	public abstract fun consumePaintReset ()Z
 	public abstract fun createBitmap (II)I
+	public abstract fun createFloatFunction ([F)I
 	public abstract fun createFloatId ()F
+	public abstract fun createOffscreenBitmap (I)I
+	public static synthetic fun createOffscreenBitmap$default (Landroidx/compose/remote/creation/common/RemoteWriter;IILjava/lang/Object;)I
 	public abstract fun createTextFromFloat (FIII)I
 	public abstract fun drawArc (FFFFFF)V
 	public abstract fun drawBitmap (IFFFFI)V
 	public abstract fun drawCircle (FFF)V
 	public abstract fun drawComponentContent ()V
+	public fun drawComponentToBitmap (I)V
+	public fun drawComponentToBitmap (II)V
 	public abstract fun drawLine (FFFF)V
 	public abstract fun drawOnBitmap (III)V
 	public abstract fun drawOval (FFFF)V
@@ -1271,6 +1283,7 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun endConditional ()V
 	public abstract fun endCustom ()V
 	public abstract fun endFitBox ()V
+	public abstract fun endFloatFunction ()V
 	public abstract fun endFlow ()V
 	public abstract fun endLoop ()V
 	public abstract fun endPatternDefinition ()V
@@ -1329,6 +1342,9 @@ public final class androidx/compose/remote/creation/common/RemoteWriter$DefaultI
 	public static synthetic fun addBitmapFont$default (Landroidx/compose/remote/creation/common/RemoteWriter;Ljava/util/List;Ljava/util/Map;ILjava/lang/Object;)I
 	public static synthetic fun addBitmapUrl$default (Landroidx/compose/remote/creation/common/RemoteWriter;Ljava/lang/String;IIILjava/lang/Object;)I
 	public static synthetic fun addPathData$default (Landroidx/compose/remote/creation/common/RemoteWriter;[FIILjava/lang/Object;)I
+	public static synthetic fun createOffscreenBitmap$default (Landroidx/compose/remote/creation/common/RemoteWriter;IILjava/lang/Object;)I
+	public static fun drawComponentToBitmap (Landroidx/compose/remote/creation/common/RemoteWriter;I)V
+	public static fun drawComponentToBitmap (Landroidx/compose/remote/creation/common/RemoteWriter;II)V
 }
 
 public final class androidx/compose/remote/creation/common/StringUtils {
