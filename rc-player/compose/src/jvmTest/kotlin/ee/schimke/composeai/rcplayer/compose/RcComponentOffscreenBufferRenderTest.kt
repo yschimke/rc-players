@@ -123,6 +123,21 @@ class RcComponentOffscreenBufferRenderTest {
     }
 
   /**
+   * The same capture with the function defined at the document's top level, ahead of the layout,
+   * where writers put it: the draw modifier's call resolves it document-wide, as core does.
+   */
+  @Test
+  fun aDrawModifierCallsAFunctionTheDocumentDefinesAheadOfTheLayout() =
+    runSkikoComposeUiTest(size = Size(100f, 20f), density = Density(1f)) {
+      start(captureByIdDocument(targetFirst = true, functionAtTopLevel = true), click = false)
+
+      val frame = sample(32)
+      assertTrue(frame.isRed(5) && frame.isBlue(35), "target: ${frame.row()}")
+      assertTrue(frame.isBlue(45) && frame.isBlue(66), "capture left: ${frame.row()}")
+      assertTrue(frame.isRed(74) && frame.isRed(95), "capture right: ${frame.row()}")
+    }
+
+  /**
    * A capture of a component that draws after the capturing one: its recording does not exist on
    * the capturing component's first draw, and the capture follows once it does.
    */
@@ -311,10 +326,22 @@ class RcComponentOffscreenBufferRenderTest {
    * into [BUFFER] (declared with that id, so sized to it), and the modifier draws the buffer
    * mirrored over its own 60 px. [targetFirst] puts the target before the capturing canvas.
    */
-  private fun captureByIdDocument(targetFirst: Boolean): RcDocument {
+  private fun captureByIdDocument(
+    targetFirst: Boolean,
+    functionAtTopLevel: Boolean = false,
+  ): RcDocument {
     val named = BY_ID + 1
+    val function =
+      listOf(
+        RcFloatFunctionDefine(BY_ID, listOf(named)),
+        RcDrawToBitmap(BUFFER, RcDrawToBitmap.MODE_COMPONENT_ID, named),
+        RcNoArg(RcOpcodes.DRAW_CONTENT),
+        RcDrawToBitmap(0, 0, 0),
+        END,
+      )
     val operations = mutableListOf<RcOperation>()
     operations += buffer(BUFFER, component = TARGET)
+    if (functionAtTopLevel) operations += function
     operations += RcRootLayout(1)
     operations += RcLayoutContent(2)
     operations += RcRowLayout(3, -1, 1, 4, RcFloatWord.literal(0f))
@@ -326,16 +353,14 @@ class RcComponentOffscreenBufferRenderTest {
         RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
         RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
         RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
-        RcFloatFunctionDefine(BY_ID, listOf(named)),
-        RcDrawToBitmap(BUFFER, RcDrawToBitmap.MODE_COMPONENT_ID, named),
-        RcNoArg(RcOpcodes.DRAW_CONTENT),
-        RcDrawToBitmap(0, 0, 0),
-        END,
-        RcFloatFunctionCall(BY_ID, listOf(RcFloatWord.literal(TARGET.toFloat()))),
-        RcDrawBitmap(BUFFER, literal(60f), literal(0f), literal(0f), literal(20f), 0),
-        END,
-        END,
-      )
+      ) +
+        (if (functionAtTopLevel) emptyList() else function) +
+        listOf(
+          RcFloatFunctionCall(BY_ID, listOf(RcFloatWord.literal(TARGET.toFloat()))),
+          RcDrawBitmap(BUFFER, literal(60f), literal(0f), literal(0f), literal(20f), 0),
+          END,
+          END,
+        )
     operations += if (targetFirst) target + capturing else capturing + target
     repeat(4) { operations += END }
     return RcDocument(

@@ -1176,6 +1176,7 @@ private fun RenderLayoutNode(
             theme,
           )
         ) {
+          val documentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
           node.content
             ?.operations
             ?.takeIf { it.isNotEmpty() }
@@ -1191,7 +1192,7 @@ private fun RenderLayoutNode(
                     mutableMapOf(),
                     textMeasurer,
                     images,
-                    RcFloatFunctionRuntime(),
+                    RcFloatFunctionRuntime(documentFunctions),
                     theme,
                     filterTheme = true,
                     offscreenTargets = offscreenTargets,
@@ -1217,7 +1218,8 @@ private fun RenderLayoutNode(
             )
           }
         }
-      is RcLayoutNode.CanvasContent ->
+      is RcLayoutNode.CanvasContent -> {
+        val canvasDocumentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
         // `effectiveModifier` carries [trackComponentGeometry]: a document that binds a
         // `ComponentValue` to the canvas content's own id (the AndroidX `RemoteCanvas` writer
         // does) reads its width and height back, and drawing with `Modifier.fillMaxSize()` alone
@@ -1233,7 +1235,7 @@ private fun RenderLayoutNode(
               mutableMapOf(),
               textMeasurer,
               images,
-              RcFloatFunctionRuntime(),
+              RcFloatFunctionRuntime(canvasDocumentFunctions),
               theme,
               filterTheme = true,
               offscreenTargets = offscreenTargets,
@@ -1242,6 +1244,7 @@ private fun RenderLayoutNode(
             )
           }
         }
+      }
       is RcLayoutNode.Custom -> {
         val customModifier =
           effectiveModifier.applyComponentModifiers(
@@ -2697,6 +2700,8 @@ private fun Modifier.applyComponentModifiers(
     return modifier.applyGraphicsLayer(layer, state)
   }
 
+  val documentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
+
   fun applyCanvasOperations(modifier: Modifier): Modifier {
     val operations = canvasOperations ?: return modifier
     appliedCanvasOperations = true
@@ -2711,7 +2716,7 @@ private fun Modifier.applyComponentModifiers(
           mutableMapOf(),
           textMeasurer,
           images,
-          RcFloatFunctionRuntime(),
+          RcFloatFunctionRuntime(documentFunctions),
           theme,
           filterTheme = true,
           offscreenTargets = offscreenTargets,
@@ -4870,8 +4875,19 @@ private class RcPaintState(
     if (stroke) Stroke(width = strokeWidth, cap = strokeCap, join = strokeJoin) else Fill
 }
 
-private class RcFloatFunctionRuntime {
+/**
+ * The float functions a draw stream can call: those it defines itself, then any the document
+ * defines elsewhere ([document]). Core resolves a `FloatFunctionCall` against the whole document,
+ * and writers put definitions ahead of the layout, so a component's stream calls functions it does
+ * not contain.
+ */
+private class RcFloatFunctionRuntime(
+  private val document: Map<Int, RcLinkedNode.Container> = emptyMap()
+) {
   val definitions = mutableMapOf<Int, RcLinkedNode.Container>()
+
+  fun definition(id: Int): RcLinkedNode.Container? = definitions[id] ?: document[id]
+
   val executing = mutableSetOf<Int>()
   val shaders = mutableMapOf<Int, RcShaderData>()
 }
@@ -4900,8 +4916,8 @@ internal class RcVisibilityFunctions(
   private val offscreenTargets: RcOffscreenTargetPool,
   private val captures: RcComponentCaptures? = null,
 ) {
-  /** Every function the document defines, wherever it sits; found on the first animation. */
-  private val definitions: Map<Int, RcLinkedNode.Container> by lazy {
+  /** Every function the document defines, wherever it sits; found on first use. */
+  val definitions: Map<Int, RcLinkedNode.Container> by lazy {
     buildMap {
       fun collect(nodes: List<RcLinkedNode>) {
         for (node in nodes) {
@@ -5517,7 +5533,7 @@ private fun DrawScope.drawOperationsRouted(
       is RcUpdateDynamicFloatList -> state.applyDataOperation(operation)
       is RcFloatFunctionCall -> {
         val definition =
-          requireNotNull(functions.definitions[operation.functionId]) {
+          requireNotNull(functions.definition(operation.functionId)) {
             "Missing float function ${operation.functionId}"
           }
         val descriptor = definition.operation as RcFloatFunctionDefine
