@@ -171,8 +171,8 @@ public struct NativeSwiftVisibilityFunction: @unchecked Sendable {
   /// The function's drawing for a component at `x`, `y` and `width` by `height` in its parent.
   ///
   /// The arguments are loaded into the function's argument ids — as many as it declares — the
-  /// component id as an integer too, then the body's expressions run in wire order and its
-  /// commands resolve against the result. Throws when an expression does not evaluate to a finite
+  /// component id as an integer too, then the body runs in wire order: each expression just before
+  /// the command that follows it, each command against the values at its position. Throws when an expression does not evaluate to a finite
   /// number, a command cannot resolve or resolves to a non-finite value; a host then paints the
   /// component as it is.
   public func commands(x: Float, y: Float, width: Float, height: Float) throws
@@ -187,12 +187,24 @@ public struct NativeSwiftVisibilityFunction: @unchecked Sendable {
         integers[id] = componentID
       }
     }
-    for expression in function.expressions {
-      values[expression.id] = try NativeSwiftFloatExpression.evaluate(
-        expression.words, values: values, opcode: expression.opcode, offset: expression.offset)
+    // Expressions and draws run in body order: an id the body sets again between two draws gives
+    // each draw the value at its own position, as the reference's sequential execution does.
+    var nextExpression = 0
+    func evaluateExpressions(through position: Int) throws {
+      while nextExpression < function.expressions.count,
+        function.expressionPositions[nextExpression] <= position
+      {
+        let expression = function.expressions[nextExpression]
+        values[expression.id] = try NativeSwiftFloatExpression.evaluate(
+          expression.words, values: values, opcode: expression.opcode, offset: expression.offset)
+        nextExpression += 1
+      }
     }
-    return try function.commands.map {
-      let command = try $0.resolve(
+    var resolved: [NativeSwiftDrawCommandSnapshot] = []
+    resolved.reserveCapacity(function.commands.count)
+    for (position, parsed) in function.commands.enumerated() {
+      try evaluateExpressions(through: position)
+      let command = try parsed.resolve(
         values: values, integers: integers, colors: colors, texts: texts, matrices: matrices)
       // The frame's own commands pass a host's numeric budget; these are resolved after it, so the
       // same rule — every geometry value finite — is applied here.
@@ -204,8 +216,11 @@ public struct NativeSwiftVisibilityFunction: @unchecked Sendable {
           offset: function.offset,
           reason: "FloatFunctionDefine \(function.id) drew a non-finite value")
       }
-      return command
+      resolved.append(command)
     }
+    // Trailing expressions draw nothing, but a non-finite one is still a malformed body.
+    try evaluateExpressions(through: function.commands.count)
+    return resolved
   }
 }
 

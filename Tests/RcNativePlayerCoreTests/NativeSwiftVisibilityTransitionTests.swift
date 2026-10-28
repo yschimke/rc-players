@@ -473,6 +473,29 @@ import Testing
     #expect(try Self.box(session.snapshot(timeSeconds: 1.25)).visibilityTransition == nil)
   }
 
+  @Test func aBodyRunsItsExpressionsAndDrawsInOrder() throws {
+    // `900 = 10; drawRect(…900…); 900 = 20; drawRect(…900…)`: each draw sees the value at its own
+    // position, as the reference runs the body sequentially.
+    let custom = NativeSwiftLayoutAnimation.custom
+    let data = Self.document(
+      specs: { Self.spec($0, enter: custom, exit: custom, enterFunction: 9, exitFunction: 9) },
+      functions: { writer in
+        writer.u8(Op.functionDefine).int(9).int(1).int(500)
+        writer.u8(Op.animatedFloat).int(900).int(1).int(Writer.literal(10))
+        writer.u8(Op.drawRect).float(0).float(0).int(Writer.nanReference(900)).float(1)
+        writer.u8(Op.animatedFloat).int(900).int(1).int(Writer.literal(20))
+        writer.u8(Op.drawRect).float(0).float(0).int(Writer.nanReference(900)).float(1)
+        writer.u8(Op.containerEnd)
+      })
+    let session = try NativeSwiftDocumentSession.open(data: data)
+    _ = try session.snapshot(timeSeconds: 0)
+    #expect(session.setInteger(NativeSwiftVisibility.gone, for: "shown"))
+    let function = try #require(
+      try Self.box(session.snapshot(timeSeconds: 0.1)).visibilityTransition?.function)
+    let commands = try function.commands(x: 0, y: 0, width: 10, height: 10)
+    #expect(commands.map { $0.values[2] } == [10, 20])
+  }
+
   @Test func aFunctionThatCannotEvaluateThrowsForTheHostToDegrade() throws {
     let custom = NativeSwiftLayoutAnimation.custom
     let data = Self.document(

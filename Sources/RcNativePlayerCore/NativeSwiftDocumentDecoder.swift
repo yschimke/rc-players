@@ -198,6 +198,8 @@ enum NativeSwiftDocumentDecoder {
       let argumentIDs: [Int]
       let body: ParsedNode
       var expressions: [ParsedFloatExpression]
+      /// How many body commands precede each of `expressions`.
+      var expressionPositions: [Int] = []
       let outerPaint: ParsedPaint
       let offset: Int
     }
@@ -1551,6 +1553,8 @@ enum NativeSwiftDocumentDecoder {
           // Inside a function body it may name an argument, so it is evaluated per call.
           if functionScope != nil {
             functionScope?.expressions.append(alias)
+            let position = functionScope?.body.commands.count ?? 0
+            functionScope?.expressionPositions.append(position)
           } else {
             expressions.append(alias)
             expressionIDs.insert(floatID)
@@ -1620,6 +1624,8 @@ enum NativeSwiftDocumentDecoder {
               reason: "an animated float inside a FloatFunctionDefine body is not migrated")
           }
           functionScope?.expressions.append(expression)
+          let position = functionScope?.body.commands.count ?? 0
+          functionScope?.expressionPositions.append(position)
         } else {
           expressions.append(expression)
           expressionIDs.insert(id)
@@ -2563,7 +2569,8 @@ enum NativeSwiftDocumentDecoder {
         if let scope = functionScope, modifierContainers.last?.isFunctionBody == true {
           functions[scope.id] = ParsedFunction(
             id: scope.id, argumentIDs: scope.argumentIDs, expressions: scope.expressions,
-            commands: scope.body.commands, offset: scope.offset)
+            expressionPositions: scope.expressionPositions, commands: scope.body.commands,
+            offset: scope.offset)
           paint = scope.outerPaint
           functionScope = nil
         }

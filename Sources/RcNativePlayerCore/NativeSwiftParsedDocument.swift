@@ -254,6 +254,9 @@ struct ParsedFunction {
   let id: Int
   let argumentIDs: [Int]
   let expressions: [ParsedFloatExpression]
+  /// For each of `expressions`, how many of `commands` precede it in the body. A body may set the
+  /// same id between draws, so each expression runs just before the first command after it.
+  let expressionPositions: [Int]
   let commands: [ParsedDrawCommand]
   /// The `FUNCTION_DEFINE` operation's byte offset, for evaluation failures.
   let offset: Int
