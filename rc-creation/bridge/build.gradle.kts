@@ -34,7 +34,12 @@ kotlin {
 
   sourceSets {
     commonTest.dependencies { implementation(kotlin("test")) }
-    getByName("jvmTest").dependencies { implementation(libs.kotlinx.coroutines.core) }
+    getByName("jvmTest").dependencies {
+      implementation(libs.kotlinx.coroutines.core)
+      // AndroidX alpha22: its writer for byte-equality tests of what the fork writes, and its
+      // reader (remote-core) for read-back tests.
+      implementation(libs.compose.remote.creation.core)
+    }
     commonMain.dependencies {
       api(project(":third-party-remote-creation-compose"))
       api(project(":rc-player-protocol"))

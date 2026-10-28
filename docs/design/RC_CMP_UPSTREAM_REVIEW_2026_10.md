@@ -113,4 +113,6 @@ ported. CoreDocument accessors, reflection, `GraphContext` plumbing and tracing 
 | [TextSubtext/TextTransform](https://github.com/androidx/androidx/commit/c1c31ea5a6621fd080547ebe750760c3a87fa2d3), [text and time attributes](https://github.com/androidx/androidx/commit/03ba86c21377908e0ddf8b78240e3ba965f38501) | Already: evaluated in draw order, including `BitmapTextMeasure`. |
 | [Subpackages](https://github.com/androidx/androidx/commit/82ec7b31a8cc3356824be0cdf69f3dc7dc977de2), [CoreDataModel removal](https://github.com/androidx/androidx/commit/d3d6aa83f1758e4c350ba6d71d306ba9b099aacd), [accessor renames](https://github.com/androidx/androidx/commit/157d42d43cf466e1e6106c07744bc4efcf53ccbc), [core accessors](https://github.com/androidx/androidx/commit/1cfe2843cafce5e11194619691e9e11fccc357b7) | Not applicable: refactors. |
 
-Follow-ups: let the creation fork define visibility functions.
+Follow-ups: the native Swift player runs neither built-in visibility animations nor a draw
+stream's `FunctionCall`; and the creation fork defines visibility functions on the writer only
+(through `:rc-creation-bridge`), since upstream has no compose-level API for them.

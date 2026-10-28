@@ -113,6 +113,42 @@ public interface RemoteWriter {
 
   public fun drawOnBitmap(bitmapId: Int, mode: Int, color: Int)
 
+  /**
+   * Renders the content of the component [componentId] (or the variable id holding it) into the
+   * offscreen [bitmapId], as `RemoteComposeWriter.drawComponentToBitmap(int, int)`.
+   */
+  public fun drawComponentToBitmap(componentId: Int, bitmapId: Int) {
+    drawOnBitmap(bitmapId, DrawToBitmapModeComponentId, componentId)
+    drawComponentContent()
+    drawOnBitmap(0, 0, 0)
+  }
+
+  /**
+   * Renders the active component's content into the offscreen [bitmapId], as
+   * `RemoteComposeWriter.drawComponentToBitmap(int)`.
+   */
+  public fun drawComponentToBitmap(bitmapId: Int) {
+    drawOnBitmap(bitmapId, 0, 0)
+    drawComponentContent()
+    drawOnBitmap(0, 0, 0)
+  }
+
+  /**
+   * Starts the definition of a float function, as `RemoteComposeWriter.createFloatFunction`: [args]
+   * is filled with the NaN ids of the function's parameters, and the operations written until
+   * [endFloatFunction] are its body. Returns the function's id.
+   *
+   * A visibility animation (`AnimationSpec`'s enter or exit function id) is a function of six
+   * parameters, which the player binds to progress, width, height, x, y and the component's id.
+   */
+  public fun createFloatFunction(args: FloatArray): Int
+
+  /** Ends the function [createFloatFunction] started. */
+  public fun endFloatFunction()
+
+  /** Calls the function [id] with [args], as `RemoteComposeWriter.callFloatFunction`. */
+  public fun callFloatFunction(id: Int, vararg args: Float)
+
   public fun startLoop(indexId: Int, from: Float, step: Float, until: Float)
 
   public fun endLoop()
@@ -177,6 +213,13 @@ public interface RemoteWriter {
   public fun addNamedBitmapUrl(name: String, url: String): Int
 
   public fun createBitmap(width: Int, height: Int): Int
+
+  /**
+   * Reserves an offscreen bitmap sized to the component [componentId] (0: the component being
+   * drawn), whose backing bitmap the player takes from its pool when it is drawn into, as
+   * `RemoteComposeWriter.createOffscreenBitmap`. Returns the bitmap's id.
+   */
+  public fun createOffscreenBitmap(componentId: Int = 0): Int
 
   public fun addBitmapFont(
     glyphs: List<BitmapFontGlyph>,
@@ -339,6 +382,9 @@ public interface RemoteWriter {
     contentDescription: String?,
   )
 }
+
+/** `DrawToBitmap.MODE_COMPONENT_ID`: the color argument names the component to draw. */
+private const val DrawToBitmapModeComponentId = 2
 
 public data class BitmapFontGlyph(
   val chars: String,
