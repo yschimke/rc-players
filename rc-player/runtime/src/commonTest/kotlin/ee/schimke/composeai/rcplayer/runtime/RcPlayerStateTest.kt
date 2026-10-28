@@ -609,6 +609,135 @@ class RcPlayerStateTest {
   }
 
   @Test
+  fun anActionSendsTheTextItsOpsComputeFromCurrentValues() {
+    // A slider's release: a payload a canvas formats from its touch value. Between frames the
+    // computed text reads as it was at load; the action computes it again from the moved value.
+    val events = mutableListOf<RcPlayerEvent>()
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0)),
+          listOf(
+            RcTextData(1, "ha"),
+            RcFloatConstant(2, RcFloatWord.literal(30f)),
+            RcTextData(3, "ticks="),
+            RcTextFromFloat(4, RcFloatWord(0x7fc00000 or 2), 255, 0, 517),
+            RcTextMerge(5, 3, 4),
+          ),
+        ),
+        eventSink = events::add,
+      )
+    state.setFloat(2, 50f)
+    state.beginFrame()
+
+    state.executeTouch(
+      RcTouchActionBlock(
+        RcTouchActionType.UP,
+        listOf(RcLinkedNode.Operation(RcHostNamedAction(1, RcHostNamedActionValue.TextValue(5)))),
+      )
+    )
+
+    assertEquals(
+      listOf<RcPlayerEvent>(
+        RcPlayerEvent.HostNamedAction("ha", RcHostActionValue.TextValue("ticks=50"))
+      ),
+      events,
+    )
+  }
+
+  @Test
+  fun anActionLeavesATextAConditionalOrLoopComputesAsTheLastFrameLeftIt() {
+    // The merge runs only when its branch does, or as many times as its loop runs (here none);
+    // replaying it for the action would send a text no frame computed.
+    val scopes =
+      listOf(
+        RcConditionalOperations(
+          RcConditionalOperations.EQUAL,
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(1f),
+        ),
+        RcLoopOperation(
+          9,
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(1f),
+          RcFloatWord.literal(0f),
+        ),
+      )
+    for (scope in scopes) {
+      val events = mutableListOf<RcPlayerEvent>()
+      val state =
+        RcPlayerState(
+          RcDocument(
+            RcHeader(RcVersion(1, 0, 0)),
+            listOf(
+              RcTextData(1, "ha"),
+              RcTextData(3, "a"),
+              RcTextData(4, "b"),
+              RcTextData(5, "initial"),
+              scope,
+              RcTextMerge(5, 3, 4),
+              RcNoArg(RcOpcodes.CONTAINER_END),
+            ),
+          ),
+          eventSink = events::add,
+        )
+      state.beginFrame()
+
+      state.executeTouch(
+        RcTouchActionBlock(
+          RcTouchActionType.UP,
+          listOf(RcLinkedNode.Operation(RcHostNamedAction(1, RcHostNamedActionValue.TextValue(5)))),
+        )
+      )
+
+      assertEquals(
+        listOf<RcPlayerEvent>(
+          RcPlayerEvent.HostNamedAction("ha", RcHostActionValue.TextValue("initial"))
+        ),
+        events,
+        "$scope",
+      )
+    }
+  }
+
+  @Test
+  fun anActionLeavesATextAnOpAppendsToAsTheLastFrameLeftIt() {
+    // The frame's merge appends to its own output; running it again would append twice.
+    val events = mutableListOf<RcPlayerEvent>()
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0)),
+          listOf(
+            RcTextData(1, "ha"),
+            RcTextData(3, "b"),
+            RcTextData(5, "a"),
+            RcTextMerge(5, 5, 3),
+          ),
+        ),
+        eventSink = events::add,
+      )
+    state.beginFrame()
+    val drawn = state.text(5)
+
+    repeat(2) {
+      state.executeTouch(
+        RcTouchActionBlock(
+          RcTouchActionType.UP,
+          listOf(RcLinkedNode.Operation(RcHostNamedAction(1, RcHostNamedActionValue.TextValue(5)))),
+        )
+      )
+    }
+
+    assertEquals(
+      List<RcPlayerEvent>(2) {
+        RcPlayerEvent.HostNamedAction("ha", RcHostActionValue.TextValue(drawn!!))
+      },
+      events,
+    )
+  }
+
+  @Test
   fun touchLifecycleActionsDispatchAndInvalidate() {
     val events = mutableListOf<RcPlayerEvent>()
     var invalidations = 0

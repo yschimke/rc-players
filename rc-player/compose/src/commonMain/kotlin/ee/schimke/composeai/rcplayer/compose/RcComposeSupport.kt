@@ -1309,25 +1309,28 @@ private val PNG_SIGNATURE =
 
 private val IHDR = byteArrayOf(73, 72, 68, 82) // I H D R
 
-private fun invalidScrollChild(nodes: List<RcLinkedNode>, insideScroll: Boolean = false): String? {
+/**
+ * A scroll's content is one touch expression, its position. Any other touch expression moves for
+ * drags inside the component it is written in (`rcTouchExpressions`), which settles a snapping mode
+ * on release but has no fling: a `STOP_GENTLY` one would stop dead where AndroidX decelerates.
+ */
+private fun invalidScrollChild(nodes: List<RcLinkedNode>): String? {
   nodes.forEach { node ->
-    if (node is RcLinkedNode.Operation && node.operation is RcTouchExpression && !insideScroll) {
-      return "TouchExpression is only implemented as a direct scroll child"
+    val operation = (node as? RcLinkedNode.Operation)?.operation
+    if (operation is RcTouchExpression && operation.stopMode == RcTouchExpression.STOP_GENTLY) {
+      return "TouchExpression STOP_GENTLY is only implemented as a scroll's position"
     }
-    if (node is RcLinkedNode.Container && node.operation is RcScrollModifier) {
+    if (node !is RcLinkedNode.Container) return@forEach
+    if (node.operation is RcScrollModifier) {
       val children = node.children.map { it.operation() }
       if (children.size != 1 || children.singleOrNull() !is RcTouchExpression) {
         return "container requires exactly one TouchExpression child"
       }
-      invalidScrollChild(node.children, insideScroll = true)?.let {
-        return it
-      }
       return@forEach
     }
-    if (node is RcLinkedNode.Container)
-      invalidScrollChild(node.children, insideScroll)?.let {
-        return it
-      }
+    invalidScrollChild(node.children)?.let {
+      return it
+    }
   }
   return null
 }

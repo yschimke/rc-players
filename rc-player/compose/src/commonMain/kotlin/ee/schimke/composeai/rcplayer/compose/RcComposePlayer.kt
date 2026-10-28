@@ -1068,6 +1068,7 @@ private fun RenderLayoutNode(
           LocalRcTouchExpressions.current[node.componentId].orEmpty(),
           state,
           invalidate,
+          owner = node.componentId,
         )
         .trackComponentGeometry(geometryIds, state, geometryProbe, playerRoot)
         .inspectComponent(
@@ -2745,7 +2746,7 @@ private fun Modifier.applyComponentModifiers(
       }
   }
   if (modifiers.touchActions.isNotEmpty()) {
-    result = result.applyAndroidXTouchActions(modifiers, state)
+    result = result.applyAndroidXTouchActions(modifiers, state, geometryComponentIds)
   }
   modifiers.accessibility.forEach { semantics ->
     result =
@@ -3269,18 +3270,21 @@ private class RcMultiClickNode(
 private fun Modifier.applyAndroidXTouchActions(
   modifiers: RcLayoutModifiers,
   state: RcPlayerState,
-): Modifier = then(RcTouchActionsElement(modifiers.touchActions, state))
+  componentIds: List<Int>,
+): Modifier = then(RcTouchActionsElement(modifiers.touchActions, state, componentIds))
 
 private data class RcTouchActionsElement(
   val actions: List<RcTouchActionBlock>,
   val state: RcPlayerState,
+  val componentIds: List<Int>,
 ) : ModifierNodeElement<RcTouchActionsNode>() {
-  override fun create(): RcTouchActionsNode = RcTouchActionsNode(actions, state)
+  override fun create(): RcTouchActionsNode = RcTouchActionsNode(actions, state, componentIds)
 
   override fun update(node: RcTouchActionsNode) {
     if (node.actions != actions || node.state !== state) node.onCancelPointerInput()
     node.actions = actions
     node.state = state
+    node.componentIds = componentIds
   }
 
   override fun InspectorInfo.inspectableProperties() {
@@ -3288,8 +3292,11 @@ private data class RcTouchActionsElement(
   }
 }
 
-private class RcTouchActionsNode(var actions: List<RcTouchActionBlock>, var state: RcPlayerState) :
-  Modifier.Node(), PointerInputModifierNode {
+private class RcTouchActionsNode(
+  var actions: List<RcTouchActionBlock>,
+  var state: RcPlayerState,
+  var componentIds: List<Int>,
+) : Modifier.Node(), PointerInputModifierNode {
   private var pointer: PointerId? = null
 
   override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
@@ -3305,8 +3312,12 @@ private class RcTouchActionsNode(var actions: List<RcTouchActionBlock>, var stat
     val change = pointerEvent.changes.firstOrNull { it.id == pointer } ?: return
     when {
       change.changedToUpIgnoreConsumed() -> finish(RcTouchActionType.UP)
-      !change.pressed || (change.isConsumed && change.position != change.previousPosition) ->
-        finish(RcTouchActionType.CANCEL)
+      !change.pressed -> finish(RcTouchActionType.CANCEL)
+      // A drag a child or a scroll took cancels; one the component's own touch expression took (a
+      // slider) is still this component's touch, and releases with UP as in AndroidX.
+      change.isConsumed &&
+        change.position != change.previousPosition &&
+        !isOwnTouchExpressionDrag(change.id, componentIds) -> finish(RcTouchActionType.CANCEL)
     }
   }
 

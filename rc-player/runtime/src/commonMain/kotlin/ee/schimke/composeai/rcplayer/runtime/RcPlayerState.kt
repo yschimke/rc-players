@@ -1509,7 +1509,7 @@ public class RcPlayerState(
           eventSink(
             RcPlayerEvent.HostActionMetadata(
               operation.actionId,
-              text(operation.metadataTextId).orEmpty(),
+              currentText(operation.metadataTextId).orEmpty(),
             )
           )
         is RcHostNamedAction ->
@@ -1545,7 +1545,9 @@ public class RcPlayerState(
         is RcValueStringChangeAction -> {
           setText(
             operation.targetValueId,
-            requireNotNull(text(operation.valueId)) { "Missing action text ${operation.valueId}" },
+            requireNotNull(currentText(operation.valueId)) {
+              "Missing action text ${operation.valueId}"
+            },
           )
           changed = true
         }
@@ -1574,6 +1576,98 @@ public class RcPlayerState(
     if (changed && invalidateAfterChanges) onInvalidated()
   }
 
+  /**
+   * The op that computes each text an action can compute again ([currentText]), by the text it
+   * writes. Only a text whose every input is plain qualifies: written by exactly one draw-time text
+   * op ([applyTextOperation]) that runs once each frame — at the top level, or in components and
+   * canvases (never inside a conditional, loop, impulse, function, state branch or theme) — from
+   * texts that are constant or qualify themselves, with no op reading its own output. Whether any
+   * other op ran, or how often, is the draw's to know, so such a text is sent as the last frame
+   * left it.
+   */
+  private val textProducers: Map<Int, RcOperation> by lazy {
+    val producers = mutableMapOf<Int, MutableList<RcOperation>>()
+    val scoped = mutableSetOf<Int>()
+    var theme = RcTheme.UNSPECIFIED
+    fun visit(nodes: List<RcLinkedNode>, plain: Boolean) {
+      nodes.forEach { node ->
+        val operation =
+          when (node) {
+            is RcLinkedNode.Operation -> node.operation
+            is RcLinkedNode.Container -> node.operation
+          }
+        if (operation is RcTheme) theme = operation.theme
+        textOutput(operation)?.let { outId ->
+          producers.getOrPut(outId) { mutableListOf() } += operation
+          if (!plain || theme != RcTheme.UNSPECIFIED) scoped += outId
+        }
+        if (node is RcLinkedNode.Container) {
+          visit(node.children, plain && operation.opcode in EVERY_FRAME_CONTAINERS)
+        }
+      }
+    }
+    // A document that doesn't link plays nothing anyway.
+    val linked = runCatching { RcDocumentLinker.link(document) }.getOrNull()
+    linked?.let { visit(it.operations, plain = true) }
+
+    val qualifies = mutableMapOf<Int, Boolean>()
+    fun qualifies(id: Int, path: MutableSet<Int>): Boolean {
+      val written = producers[id] ?: return true
+      qualifies[id]?.let {
+        return it
+      }
+      if (!path.add(id)) return false
+      val result =
+        written.size == 1 &&
+          id !in scoped &&
+          textInputs(written.single()).all { it != id && qualifies(it, path) }
+      path.remove(id)
+      qualifies[id] = result
+      return result
+    }
+    producers.keys
+      .filter { qualifies(it, mutableSetOf()) }
+      .associateWith { producers.getValue(it).single() }
+  }
+
+  private fun textOutput(operation: RcOperation): Int? =
+    when (operation) {
+      is RcTextMerge -> operation.outId
+      is RcTextSubtext -> operation.outId
+      is RcTextTransform -> operation.outId
+      is RcTextFromFloat -> operation.outId
+      is RcTextLookup -> operation.outId
+      is RcTextLookupInt -> operation.outId
+      else -> null
+    }
+
+  private fun textInputs(operation: RcOperation): List<Int> =
+    when (operation) {
+      is RcTextMerge -> listOf(operation.leftId, operation.rightId)
+      is RcTextSubtext -> listOf(operation.textId)
+      is RcTextTransform -> listOf(operation.textId)
+      is RcTextLookup -> idLists[operation.listId]?.ids.orEmpty()
+      is RcTextLookupInt -> idLists[operation.listId]?.ids.orEmpty()
+      else -> emptyList()
+    }
+
+  /**
+   * Text [id] as it stands now, for an action that sends or stores it.
+   *
+   * [beginFrame] resets every text to its load-time value and a draw computes it again, so between
+   * frames — when input runs — a text a canvas computes reads as it was at load unless that canvas
+   * redrew this frame. AndroidX keeps a computed text until the op runs again: a slider's release
+   * sends the value the drag left, formatted in the canvas, though nothing has redrawn since. So
+   * the ops that compute [id] run again here, from the current values, inputs first.
+   */
+  private fun currentText(id: Int): String? {
+    if (id in textOverrides) return texts[id]
+    val producer = textProducers[id] ?: return texts[id]
+    textInputs(producer).forEach(::currentText)
+    runCatching { applyTextOperation(producer) }
+    return texts[id]
+  }
+
   /** Dispatches a player-local effect without exposing it as a host action callback. */
   public fun performHapticFeedback(operation: RcHapticFeedback) {
     require(operation.type.wireValue >= 0) {
@@ -1600,7 +1694,7 @@ public class RcPlayerState(
         )
       is RcHostNamedActionValue.TextValue ->
         RcHostActionValue.TextValue(
-          requireNotNull(text(value.valueId)) { "Missing host action text ${value.valueId}" }
+          requireNotNull(currentText(value.valueId)) { "Missing host action text ${value.valueId}" }
         )
       is RcHostNamedActionValue.FloatListValue ->
         RcHostActionValue.FloatListValue(
@@ -2091,3 +2185,19 @@ internal class RcIdSet {
     const val DENSE_LIMIT = 1 shl 16
   }
 }
+
+/**
+ * Containers whose content draws once each frame: the components and canvases a text op can sit in
+ * and still run every frame. A state layout draws one branch; everything else (conditionals, loops,
+ * impulses, functions) runs its body some number of times the draw decides.
+ */
+private val EVERY_FRAME_CONTAINERS: Set<Int> =
+  setOf(
+    RcOpcodes.LAYOUT_ROOT,
+    RcOpcodes.LAYOUT_CONTENT,
+    RcOpcodes.LAYOUT_BOX,
+    RcOpcodes.LAYOUT_ROW,
+    RcOpcodes.LAYOUT_COLUMN,
+    RcOpcodes.LAYOUT_CANVAS,
+    RcOpcodes.LAYOUT_CANVAS_CONTENT,
+  )
