@@ -769,7 +769,10 @@ private fun RcComposePlayerResolved(
   val inlineImages = remember(document) { decodeInlineImages(document) }
   val images = rememberRcImages(document, linkedDocument, inlineImages) { invalidationVersion += 1 }
   val touchExpressions = remember(linkedDocument) { rcTouchExpressions(linkedDocument.operations) }
-  val offscreenTargets = remember(document) { RcOffscreenTargetPool() }
+  val offscreenTargets =
+    remember(document) {
+      RcOffscreenTargetPool(componentBuffers = rcComponentOffscreenBuffers(document))
+    }
   DisposableEffect(offscreenTargets) { onDispose { offscreenTargets.dispose() } }
   val fonts = remember(document) { decodeInlineFonts(document) }
   val textMeasurer = rememberTextMeasurer()
@@ -853,8 +856,21 @@ private fun RcComposePlayerResolved(
     state.applyLayoutContentStateOperations(linkedDocument.operations, theme)
     val version = invalidationVersion
     val settles = state.hasAnyComponentValues
+    val captures =
+      remember(document, linkedDocument, layout) {
+        RcComponentCaptures.of(document, linkedDocument.operations, layout)
+      }
     val visibilityFunctions =
-      remember(linkedDocument, state, textMeasurer, images, theme, typefaces, drawObserver) {
+      remember(
+        linkedDocument,
+        state,
+        textMeasurer,
+        images,
+        theme,
+        typefaces,
+        drawObserver,
+        captures,
+      ) {
         RcVisibilityFunctions(
           linkedDocument.operations,
           state,
@@ -864,6 +880,7 @@ private fun RcComposePlayerResolved(
           typefaces,
           drawObserver,
           offscreenTargets,
+          captures,
         )
       }
     val tree: @Composable (probe: RcGeometryProbe?) -> Unit = { probe ->
@@ -882,6 +899,7 @@ private fun RcComposePlayerResolved(
           LocalRcOffscreenTargets provides offscreenTargets,
           LocalRcTouchExpressions provides touchExpressions,
           LocalRcVisibilityFunctions provides visibilityFunctions,
+          LocalRcComponentCaptures provides captures,
         ) {
           // The root sits at the window's origin at its own size. A root smaller than the window's
           // minimum — one still animating toward a resize, or one the document sizes below the
@@ -1002,6 +1020,7 @@ private fun RenderLayoutNode(
   val customComponents = LocalRcCustomComponents.current
   val invalidate = LocalRcInvalidate.current
   val offscreenTargets = LocalRcOffscreenTargets.current
+  val captures = LocalRcComponentCaptures.current
   val density = androidx.compose.ui.platform.LocalDensity.current
   val visibility =
     if (forceGone) {
@@ -1082,6 +1101,9 @@ private fun RenderLayoutNode(
       } else null
     val effectiveModifier =
       (collapse?.let { Modifier.goneWhenCollapsed(it).then(visibleModifier) } ?: visibleModifier)
+        // Inside the visibility animation, outside everything the component draws itself: what a
+        // component offscreen buffer captures of it by id.
+        .rcComponentCapture(node.componentId, captures)
         .rcTouchExpressions(
           LocalRcTouchExpressions.current[node.componentId].orEmpty(),
           state,
@@ -1173,6 +1195,14 @@ private fun RenderLayoutNode(
                     theme,
                     filterTheme = true,
                     offscreenTargets = offscreenTargets,
+                    // Core paints a canvas's operations as its content component.
+                    active =
+                      RcActiveComponent(
+                        node.content?.componentId?.takeIf { it > 0 } ?: node.componentId,
+                        size,
+                        drawSelf = null,
+                      ),
+                    captures = captures,
                   )
                 }
               }
@@ -1207,6 +1237,8 @@ private fun RenderLayoutNode(
               theme,
               filterTheme = true,
               offscreenTargets = offscreenTargets,
+              active = RcActiveComponent(node.componentId, size, drawSelf = null),
+              captures = captures,
             )
           }
         }
@@ -2616,6 +2648,7 @@ private fun Modifier.applyComponentModifiers(
 ): Modifier {
   val density = androidx.compose.ui.platform.LocalDensity.current
   val offscreenTargets = LocalRcOffscreenTargets.current
+  val captures = LocalRcComponentCaptures.current
   val typefaces = LocalRcTypefaces.current
   val documentFonts = LocalRcFonts.current
   val drawObserver = LocalRcDrawObserver.current
@@ -2683,6 +2716,11 @@ private fun Modifier.applyComponentModifiers(
           filterTheme = true,
           offscreenTargets = offscreenTargets,
           drawContent = { drawContent() },
+          active =
+            geometryComponentIds.firstOrNull()?.let {
+              RcActiveComponent(it, size, drawSelf = { drawContent() })
+            },
+          captures = captures,
         )
       }
     }
@@ -4846,7 +4884,10 @@ private class RcFloatFunctionRuntime {
  * The function is bound as core binds it — (progress, width, height, x, y, component id), the
  * position in the component's parent — and draws in its parent's space from a reset paint. Its
  * `DrawContent` draws the component, clipped to its bounds in a layer at the paint's alpha, as
- * core's `DrawContent` composites an animating component.
+ * core's `DrawContent` composites an animating component. The component is also the *active* one
+ * for alpha22's component offscreen buffers: one drawn into is sized to it, and a `DrawContent`
+ * while the buffer is the target paints the component into it at the buffer's origin. Each call
+ * runs in an offscreen-buffer scope of its own, as core's `AnimateMeasure` does.
  */
 internal class RcVisibilityFunctions(
   private val operations: List<RcLinkedNode>,
@@ -4857,6 +4898,7 @@ internal class RcVisibilityFunctions(
   private val typefaces: RcTypefaceLoader,
   private val drawObserver: RcDrawObserver?,
   private val offscreenTargets: RcOffscreenTargetPool,
+  private val captures: RcComponentCaptures? = null,
 ) {
   /** Every function the document defines, wherever it sits; found on the first animation. */
   private val definitions: Map<Int, RcLinkedNode.Container> by lazy {
@@ -4915,6 +4957,9 @@ internal class RcVisibilityFunctions(
     val paint = RcPaintState(typefaces, drawObserver)
     canvas.save()
     canvas.translate(-position.x, -position.y)
+    // Core's `AnimateMeasure` runs the function in an offscreen-buffer scope of its own, so a
+    // nested component animating with this function gets its own buffers.
+    offscreenTargets.pushScope()
     try {
       scope.drawOperations(
         definition.children,
@@ -4939,8 +4984,14 @@ internal class RcVisibilityFunctions(
           target.restore()
         },
         offscreenTargets = offscreenTargets,
+        // The animating component is the active one: a buffer it is captured into is sized to it,
+        // and core's `DrawContent` paints it there as it is, at the buffer's origin.
+        active = RcActiveComponent(componentId, scope.size, drawSelf = { scope.drawContent() }),
+        captures = captures,
+        inFunction = true,
       )
     } finally {
+      offscreenTargets.popScope(images)
       canvas.restore()
       if (depth == 0) depths.remove(functionId) else depths[functionId] = depth
       outer?.forEachIndexed { index, value -> state.setFloat(bound[index], value) }
@@ -4955,14 +5006,41 @@ internal class RcVisibilityFunctions(
   }
 }
 
-/** Per-draw-pass canvas routing for AndroidX's mutable bitmap targets. */
+/**
+ * Per-draw-pass canvas routing for AndroidX's mutable bitmap targets, after core's `DrawToBitmap`.
+ *
+ * A declared bitmap is redirected to as it always was. A component offscreen buffer (alpha22) is
+ * sized to its component first, cleared, clipped to its size and pushed as an *offscreen target*
+ * with the component it captures; so is any bitmap drawn to with `MODE_COMPONENT_ID`. While one is
+ * the innermost target, a function body's `DrawContent` draws that component into it
+ * ([drawContent]), and `DrawToBitmap(0)` pops it and resumes the target it interrupted rather than
+ * the main canvas — core's `PaintContext.pushOffscreenTarget` / `popOffscreenTarget`.
+ *
+ * [active] is the component whose stream this pass runs (core's `mLastComponent`), [functionDepth]
+ * counts the function bodies the pass is inside: core's `DrawContent` paints the offscreen target's
+ * component only when no component owns it, which in a stream is only the case in a function body.
+ */
 private class RcDrawTargetState(
   private val mainCanvas: androidx.compose.ui.graphics.Canvas,
   private val mainSize: Size,
   private val images: MutableMap<Int, ImageBitmap>,
   private val offscreenTargets: RcOffscreenTargetPool,
+  private val state: RcPlayerState,
+  private val active: RcActiveComponent?,
+  private val captures: RcComponentCaptures?,
+  var functionDepth: Int = 0,
 ) {
   private var depth = 0
+
+  /** An offscreen target: the component it captures, if any, and the canvas to resume. */
+  private class Offscreen(
+    val componentId: Int?,
+    val canvas: androidx.compose.ui.graphics.Canvas,
+    val size: Size,
+    val clipped: Boolean,
+  )
+
+  private val offscreen = ArrayList<Offscreen>()
 
   fun enter() {
     depth++
@@ -4971,36 +5049,160 @@ private class RcDrawTargetState(
   fun leave(scope: DrawScope) {
     depth--
     check(depth >= 0) { "Unbalanced bitmap draw-target scope" }
-    if (depth == 0) restoreMain(scope)
+    if (depth == 0) {
+      // A stream that never returned to the main canvas still leaves every buffer unclipped.
+      while (offscreen.isNotEmpty()) popOffscreen()
+      restoreMain(scope)
+    }
   }
 
   fun redirect(scope: DrawScope, operation: RcDrawToBitmap, bitmapId: Int) {
     if (bitmapId == 0) {
+      if (offscreen.isNotEmpty()) {
+        popOffscreen()
+        offscreen.lastOrNull()?.let {
+          // Back to the target this one interrupted, without clearing it.
+          scope.drawContext.canvas = it.canvas
+          scope.drawContext.size = it.size
+          return
+        }
+      }
       restoreMain(scope)
+      return
+    }
+    val byComponent = operation.mode and RcDrawToBitmap.MODE_COMPONENT_ID != 0
+    var mode = operation.mode
+    var color = operation.color
+    // Core draws the active component unless the colour word names one the document has.
+    var target = active?.componentId
+    if (byComponent) {
+      mode = mode and RcDrawToBitmap.MODE_COMPONENT_ID.inv()
+      val named = state.resolveComponentReference(operation.color)
+      if (named == active?.componentId || captures?.exists(named) == true) target = named
+      color = 0
+    }
+    val buffer = offscreenTargets.componentBuffers[bitmapId]
+    if (buffer != null) {
+      val bound = ensureComponentBuffer(bitmapId, buffer, target)
+      val size = Size(bound.image.width.toFloat(), bound.image.height.toFloat())
+      redirectTo(scope, bound.canvas, size, mode, color)
+      bound.canvas.save()
+      bound.canvas.clipRect(0f, 0f, size.width, size.height)
+      offscreen += Offscreen(target, bound.canvas, size, clipped = true)
       return
     }
     val source =
       requireNotNull(images[bitmapId]) { "DrawToBitmap references missing bitmap $bitmapId" }
     val canvas = offscreenTargets.canvasFor(bitmapId, source, images)
+    val size = Size(source.width.toFloat(), source.height.toFloat())
+    if (byComponent) offscreen += Offscreen(target, canvas, size, clipped = false)
+    redirectTo(scope, canvas, size, mode, color)
+  }
+
+  /**
+   * A component offscreen buffer the stream declares inline: core's `BitmapData.apply` sizes it
+   * there and then, to its own component or the current target's or the active one.
+   */
+  fun declare(operation: RcBitmapData) {
+    if (operation.encoding != RcBitmapData.ENCODING_COMPONENT_OFFSCREEN_BUFFER) return
+    val buffer = offscreenTargets.componentBuffers[operation.imageId] ?: operation
+    val sized = sizeFor(buffer, offscreen.lastOrNull()?.componentId ?: active?.componentId)
+    if (sized != null) bind(operation.imageId, sized)
+  }
+
+  /**
+   * `DrawContent`. Inside a function body, while an offscreen target captures a component, that is
+   * the component to draw, into the target; anywhere else it is the stream's own content.
+   */
+  fun drawContent(scope: DrawScope, drawContent: (() -> Unit)?) {
+    val captured = offscreen.lastOrNull()?.componentId
+    if (captured == null || functionDepth == 0) {
+      drawContent?.invoke()
+      return
+    }
+    if (captured == active?.componentId) {
+      active.drawSelf?.invoke()
+    } else {
+      captures?.draw(scope, captured)
+    }
+  }
+
+  private fun ensureComponentBuffer(
+    bitmapId: Int,
+    buffer: RcBitmapData,
+    target: Int?,
+  ): RcOffscreenTargetPool.Target {
+    val size = sizeFor(buffer, target)
+    if (size != null) return bind(bitmapId, size)
+    // Nothing to size it to: core keeps whatever the bitmap was last bound to, and has nothing to
+    // draw into when it never was.
+    return requireNotNull(offscreenTargets.boundComponentBuffer(bitmapId)) {
+      "DrawToBitmap component offscreen buffer $bitmapId has no component to size it to"
+    }
+  }
+
+  /**
+   * The size core's `ensureOffscreenBitmap` gives [buffer]: its payload's component when the
+   * document has it, else [fallback] — the component being drawn into it, or the active one.
+   */
+  private fun sizeFor(buffer: RcBitmapData, fallback: Int?): Size? {
+    val named =
+      buffer.offscreenComponentId.takeIf { it != 0 }?.let(state::resolveComponentReference)
+    val component =
+      named?.takeIf { it == active?.componentId || captures?.exists(it) == true } ?: fallback
+    return when {
+      component == null -> null
+      component == active?.componentId -> active.size
+      else -> captures?.size(component)?.let { Size(it.width.toFloat(), it.height.toFloat()) }
+    }
+  }
+
+  private fun bind(bitmapId: Int, size: Size): RcOffscreenTargetPool.Target {
+    // Core's `ensureOffscreenBitmap`: whole pixels covering the component, at least one each way.
+    val width = ceil(size.width).toInt().coerceAtLeast(1)
+    val height = ceil(size.height).toInt().coerceAtLeast(1)
+    require(width <= MAX_OFFSCREEN_DIMENSION && height <= MAX_OFFSCREEN_DIMENSION) {
+      "Dimension of image is invalid ${width}x$height"
+    }
+    return offscreenTargets.componentBuffer(bitmapId, width, height, images)
+  }
+
+  private fun redirectTo(
+    scope: DrawScope,
+    canvas: androidx.compose.ui.graphics.Canvas,
+    size: Size,
+    mode: Int,
+    color: Int,
+  ) {
     scope.drawContext.canvas = canvas
-    scope.drawContext.size = Size(source.width.toFloat(), source.height.toFloat())
-    if (operation.mode and RcDrawToBitmap.MODE_NO_INITIALIZE == 0) {
+    scope.drawContext.size = size
+    if (mode and RcDrawToBitmap.MODE_NO_INITIALIZE == 0) {
       canvas.drawRect(
         0f,
         0f,
-        source.width.toFloat(),
-        source.height.toFloat(),
+        size.width,
+        size.height,
         Paint().apply {
-          color = Color(operation.color)
+          this.color = Color(color)
           blendMode = BlendMode.Src
         },
       )
     }
   }
 
+  private fun popOffscreen() {
+    val popped = offscreen.removeAt(offscreen.lastIndex)
+    if (popped.clipped) popped.canvas.restore()
+  }
+
   private fun restoreMain(scope: DrawScope) {
     scope.drawContext.canvas = mainCanvas
     scope.drawContext.size = mainSize
+  }
+
+  private companion object {
+    /** Core's `Limits.MAX_IMAGE_DIMENSION`. */
+    const val MAX_OFFSCREEN_DIMENSION = 8000
   }
 }
 
@@ -5017,6 +5219,9 @@ private fun DrawScope.drawOperations(
   drawContent: (() -> Unit)? = null,
   offscreenTargets: RcOffscreenTargetPool? = null,
   targets: RcDrawTargetState? = null,
+  active: RcActiveComponent? = null,
+  captures: RcComponentCaptures? = null,
+  inFunction: Boolean = false,
 ) {
   val activeTargets =
     targets
@@ -5025,6 +5230,10 @@ private fun DrawScope.drawOperations(
         drawContext.size,
         images,
         requireNotNull(offscreenTargets) { "Top-level drawing requires an offscreen target pool" },
+        state,
+        active,
+        captures,
+        functionDepth = if (inFunction) 1 else 0,
       )
   activeTargets.enter()
   state.beginPaint()
@@ -5319,6 +5528,7 @@ private fun DrawScope.drawOperationsRouted(
         require(functions.executing.add(operation.functionId)) {
           "Recursive float function ${operation.functionId} is not allowed"
         }
+        targets.functionDepth++
         try {
           operation.arguments.forEachIndexed { index, argument ->
             state.setFloat(descriptor.parameterIds[index], state.resolve(argument))
@@ -5337,6 +5547,7 @@ private fun DrawScope.drawOperationsRouted(
             targets = targets,
           )
         } finally {
+          targets.functionDepth--
           functions.executing.remove(operation.functionId)
         }
       }
@@ -5390,12 +5601,13 @@ private fun DrawScope.drawOperationsRouted(
         )
       is RcDrawTweenPath -> drawTweenPath(operation, paint, state)
       is RcDrawToBitmap -> targets.redirect(this, operation, state.drawId(operation.bitmapId))
+      is RcBitmapData -> targets.declare(operation)
       is RcShaderData -> functions.shaders[operation.shaderId] = operation
       is RcNoArg ->
         when (operation.opcode) {
           RcOpcodes.MATRIX_SAVE -> drawContext.canvas.save()
           RcOpcodes.MATRIX_RESTORE -> drawContext.canvas.restore()
-          RcOpcodes.DRAW_CONTENT -> drawContent?.invoke()
+          RcOpcodes.DRAW_CONTENT -> targets.drawContent(this, drawContent)
         }
       else -> Unit // Constants/data have already populated RcPlayerState.
     }
@@ -5409,8 +5621,13 @@ private fun decodeInlineImagesUncounted(document: RcDocument): MutableMap<Int, I
   document.operations
     .filterIsInstance<RcBitmapData>()
     .mapNotNull { bitmap ->
-      if (bitmap.encoding != RcBitmapData.ENCODING_INLINE) null
-      else runCatching { bitmap.imageId to decodeInlineImage(bitmap) }.getOrNull()
+      when (bitmap.encoding) {
+        RcBitmapData.ENCODING_INLINE ->
+          runCatching { bitmap.imageId to decodeInlineImage(bitmap) }.getOrNull()
+        // `createBitmap(id, width, height)`: a blank bitmap to draw into, as core allocates one.
+        RcBitmapData.ENCODING_EMPTY -> bitmap.imageId to ImageBitmap(bitmap.width, bitmap.height)
+        else -> null
+      }
     }
     .toMap()
     .toMutableMap()

@@ -1904,6 +1904,8 @@ final class ee.schimke.composeai.rcplayer.protocol/RcDrawToBitmap : ee.schimke.c
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcDrawToBitmap.toString|toString(){}[0]
 
     final object Companion { // ee.schimke.composeai.rcplayer.protocol/RcDrawToBitmap.Companion|null[0]
+        final const val MODE_COMPONENT_ID // ee.schimke.composeai.rcplayer.protocol/RcDrawToBitmap.Companion.MODE_COMPONENT_ID|{}MODE_COMPONENT_ID[0]
+            final fun <get-MODE_COMPONENT_ID>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDrawToBitmap.Companion.MODE_COMPONENT_ID.<get-MODE_COMPONENT_ID>|<get-MODE_COMPONENT_ID>(){}[0]
         final const val MODE_NO_INITIALIZE // ee.schimke.composeai.rcplayer.protocol/RcDrawToBitmap.Companion.MODE_NO_INITIALIZE|{}MODE_NO_INITIALIZE[0]
             final fun <get-MODE_NO_INITIALIZE>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDrawToBitmap.Companion.MODE_NO_INITIALIZE.<get-MODE_NO_INITIALIZE>|<get-MODE_NO_INITIALIZE>(){}[0]
     }

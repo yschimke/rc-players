@@ -67,6 +67,46 @@ class RcGraphicsResourceRenderTest {
     }
   }
 
+  /** A component offscreen buffer follows its component's size and keeps one buffer per size. */
+  @Test
+  fun aComponentBufferIsReboundWhenItsComponentResizes() {
+    val images = mutableMapOf<Int, ImageBitmap>()
+    val targets = RcOffscreenTargetPool()
+
+    val first = targets.componentBuffer(820, 30, 20, images)
+    assertSame(first, targets.componentBuffer(820, 30, 20, images))
+    assertSame(first.image, images[820])
+    val resized = targets.componentBuffer(820, 40, 20, images)
+
+    assertEquals(40, resized.image.width)
+    assertSame(resized.image, images[820])
+    // The 30 x 20 buffer is kept as a spare and comes back when the size does.
+    assertSame(first, targets.componentBuffer(820, 30, 20, images))
+  }
+
+  /**
+   * Core's offscreen scopes: a nested custom visibility function binding the same bitmap id gets a
+   * buffer of its own, and the outer binding is restored when it finishes.
+   */
+  @Test
+  fun aNestedScopeBindsItsOwnBufferAndRestoresTheOuterOne() {
+    val images = mutableMapOf<Int, ImageBitmap>()
+    val targets = RcOffscreenTargetPool()
+
+    targets.pushScope()
+    val outer = targets.componentBuffer(820, 30, 20, images)
+    targets.pushScope()
+    val inner = targets.componentBuffer(820, 30, 20, images)
+    assertTrue(inner !== outer)
+    assertSame(inner.image, images[820])
+    targets.popScope(images)
+
+    assertSame(outer.image, images[820])
+    assertSame(outer, targets.boundComponentBuffer(820))
+    targets.popScope(images)
+    assertEquals(null, images[820])
+  }
+
   @Test
   fun runtimeShaderUsesFloatUniforms() {
     val document =
@@ -178,6 +218,38 @@ class RcGraphicsResourceRenderTest {
     } finally {
       scene.close()
     }
+  }
+
+  /**
+   * `createBitmap(id, width, height)` declares an `ENCODING_EMPTY` bitmap: no pixels, only a size
+   * to draw into. Core allocates it blank; the player used to have no bitmap for it and threw on
+   * the first `DrawToBitmap`.
+   */
+  @Test
+  fun anEmptyBitmapIsAllocatedToDrawInto() {
+    val document =
+      document(
+        RcBitmapData(
+          20,
+          4,
+          4,
+          RcBitmapData.TYPE_RAW8888,
+          RcBitmapData.ENCODING_EMPTY,
+          ByteArray(0),
+        ),
+        RcDrawToBitmap(20, 0, 0xff00ff00.toInt()),
+        RcDrawToBitmap(0, 0, 0),
+        RcDrawBitmap(
+          20,
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(8f),
+          RcFloatWord.literal(8f),
+          0,
+        ),
+      )
+
+    assertEquals(0xff00ff00.toInt(), render(document, 8, 8).getColor(4, 4))
   }
 
   @Test

@@ -203,6 +203,8 @@ public fun RcDocument.composeSupportReport(
 ): RcComposeSupportReport {
   val issues = mutableListOf<RcComposeSupportIssue>()
   val bitmapIds = operations.filterIsInstance<RcBitmapData>().mapTo(mutableSetOf()) { it.imageId }
+  val componentBufferIds = rcComponentOffscreenBuffers(this).keys
+  val hasLayout = operations.any { it is ee.schimke.composeai.rcplayer.protocol.RcRootLayout }
   val shaderIds = operations.filterIsInstance<RcShaderData>().mapTo(mutableSetOf()) { it.shaderId }
   // Both the shader-install scan and the offscreen audit ask what the RENDERER will do, and the
   // renderer draws the LINKED stream, not the wire stream. `RcDocumentLinker` drops a
@@ -451,6 +453,17 @@ public fun RcDocument.composeSupportReport(
           "bitmap id ${operation.bitmapId} is not declared",
         )
     }
+    // A component offscreen buffer is sized to a component when it is drawn into. A document with
+    // no layout has none, so there is nothing to size it to and nothing to draw into: core's
+    // `DrawToBitmap` fails on the missing bitmap, and so does the player.
+    if (!hasLayout && operation is RcDrawToBitmap && operation.bitmapId in componentBufferIds) {
+      issues +=
+        RcComposeSupportIssue(
+          index,
+          "DrawToBitmap",
+          "component offscreen buffer ${operation.bitmapId} has no component to size it to",
+        )
+    }
     if (operation is RcDebugMessage && operation.textId !in textIds) {
       issues +=
         RcComposeSupportIssue(index, "DebugMessage", "text id ${operation.textId} is not declared")
@@ -503,6 +516,10 @@ public fun RcDocument.composeSupportReport(
     }
     if (operation is RcBitmapData) {
       when {
+        // Allocated by the player: a blank bitmap to draw into, and alpha22's component offscreen
+        // buffer, sized to its component as it is drawn into.
+        operation.encoding == RcBitmapData.ENCODING_EMPTY ||
+          operation.encoding == RcBitmapData.ENCODING_COMPONENT_OFFSCREEN_BUFFER -> Unit
         operation.encoding != RcBitmapData.ENCODING_INLINE &&
           !allowExternalImagePlaceholders &&
           operation.imageId !in availableImageIds ->
@@ -1202,7 +1219,9 @@ private fun referencedShaderIds(
  * - sized by [offscreenTargetSize], because the pool charges `source.width * source.height` of the
  *   DECODED image rather than the declared fields;
  * - `bitmapId == 0` means the stage rather than a target, and an undeclared id is already reported
- *   next to the operation — neither reaches an allocation, so neither is counted here.
+ *   next to the operation — neither reaches an allocation, so neither is counted here;
+ * - a component offscreen buffer (alpha22) counts as a target, but its pixels are its component's,
+ *   which only the laid-out document knows; it is charged its declared 1 x 1 here.
  */
 private fun offscreenAllocationIssues(
   reachable: List<RcOperation>,
@@ -1540,8 +1559,14 @@ private fun hasInvalidDrawContent(
               RcOpcodes.LAYOUT_FIT_BOX,
             )
       val available =
-        if (node.operation.opcode == RcOpcodes.CANVAS_OPERATIONS) component
-        else drawContentAvailable
+        when {
+          node.operation.opcode == RcOpcodes.CANVAS_OPERATIONS -> component
+          // A function body's `DrawContent` draws whatever runs it: the component a custom
+          // visibility function animates, the caller's content, or the component an offscreen
+          // buffer captures. Core gives it no component of its own, and neither does the player.
+          node.operation is ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine -> true
+          else -> drawContentAvailable
+        }
       hasInvalidDrawContent(node.children, component, available)
     }
   }

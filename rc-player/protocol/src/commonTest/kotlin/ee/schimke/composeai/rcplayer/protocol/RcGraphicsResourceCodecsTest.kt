@@ -82,6 +82,51 @@ class RcGraphicsResourceCodecsTest {
     assertEquals("sizes", failure.fieldName)
   }
 
+  /**
+   * remote-core alpha22's component offscreen buffer: `createOffscreenBitmap(imageId[,
+   * componentId])` writes a RAW8888, 1 x 1 `BitmapData` with encoding 4 and an empty payload (the
+   * active component) or the component id big-endian; `drawComponentToBitmap(componentId,
+   * bitmapId)` writes a `DrawToBitmap` whose colour word is the component id.
+   */
+  @Test
+  fun componentOffscreenBuffersRoundTripWithAndroidxWireLayout() {
+    val active =
+      RcBitmapData(
+        820,
+        1,
+        1,
+        RcBitmapData.TYPE_RAW8888,
+        RcBitmapData.ENCODING_COMPONENT_OFFSCREEN_BUFFER,
+        ByteArray(0),
+      )
+    val named = active.copy(imageId = 821, data = byteArrayOf(0, 0, 0, 15))
+    val capture = RcDrawToBitmap(821, RcDrawToBitmap.MODE_COMPONENT_ID, 15)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), modern = false),
+        listOf(active, named, capture, RcDrawToBitmap(0, 0, 0)),
+      )
+
+    val encoded = RcDocumentCodec.encode(document)
+    val decoded = RcDocumentCodec.decode(encoded)
+
+    assertEquals(document, decoded)
+    assertContentEquals(encoded, RcDocumentCodec.encode(decoded))
+    val bitmap = decoded.operations[1] as RcBitmapData
+    assertEquals(RcBitmapData.ENCODING_COMPONENT_OFFSCREEN_BUFFER, bitmap.encoding)
+    assertEquals(RcBitmapData.TYPE_RAW8888, bitmap.type)
+
+    val wire = RcWireWriter()
+    RcDocumentCodec.encodeOperation(wire, named)
+    assertContentEquals(
+      hex("65 00000335 00030001 00040001 00000004 0000000f"),
+      wire.toByteArray(),
+    )
+    val target = RcWireWriter()
+    RcDocumentCodec.encodeOperation(target, capture)
+    assertContentEquals(hex("be 00000335 00000002 0000000f"), target.toByteArray())
+  }
+
   private fun hex(value: String): ByteArray =
     value.filterNot(Char::isWhitespace).chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }

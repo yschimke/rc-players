@@ -1186,6 +1186,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcDrawTextOnPath : ee/
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcDrawToBitmap : ee/schimke/composeai/rcplayer/protocol/RcOperation {
 	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcDrawToBitmap$Companion;
+	public static final field MODE_COMPONENT_ID I
 	public static final field MODE_NO_INITIALIZE I
 	public fun <init> (III)V
 	public final fun component1 ()I
