@@ -53,13 +53,19 @@ rc_await_boot "$udid"
 # generated `<package>-Package` scheme is the one that carries the test targets.
 rm -rf "$result"
 cd "$repo_root"
-RC_COMPOSE_PLAYER_NATIVE_ONLY=1 xcodebuild test -quiet \
+# `-quiet` keeps a passing run short but lists a failing Swift Testing test under "Failing tests:"
+# with no name, so a failure prints the result bundle's summary, which names each one.
+if ! RC_COMPOSE_PLAYER_NATIVE_ONLY=1 xcodebuild test -quiet \
   -scheme RcComposePlayer-Package \
   -destination "platform=iOS Simulator,id=$udid" \
   -derivedDataPath "$derived_data" \
   -resultBundlePath "$result" \
   -only-testing:RcNativePlayerCoreTests \
   -only-testing:RcNativePlayerUIKitTests \
-  CODE_SIGNING_ALLOWED=NO
+  CODE_SIGNING_ALLOWED=NO; then
+  echo "native Swift iOS simulator tests failed; summary:" >&2
+  xcrun xcresulttool get test-results summary --path "$result" >&2 || true
+  exit 1
+fi
 
 echo "native Swift iOS simulator tests: ok ($result)"
