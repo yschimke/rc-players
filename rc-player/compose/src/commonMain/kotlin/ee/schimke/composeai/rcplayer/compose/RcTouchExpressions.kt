@@ -10,9 +10,12 @@ import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
+import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.PointerInputModifierNode
+import androidx.compose.ui.node.TraversableNode
 import androidx.compose.ui.node.currentValueOf
+import androidx.compose.ui.node.traverseAncestors
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.IntSize
@@ -81,25 +84,51 @@ internal fun rcTouchExpressions(nodes: List<RcLinkedNode>): Map<Int?, List<RcTou
   return result
 }
 
+/**
+ * The touch expressions [owner] (a component id, null for the document's root) moves. A drag they
+ * take is the component's own: its touch-up actions still run on release (see
+ * [isOwnTouchExpressionDrag]), as AndroidX runs them for the component that took the touch-down.
+ */
 internal fun Modifier.rcTouchExpressions(
   expressions: List<RcTouchExpression>,
   state: RcPlayerState,
   invalidate: () -> Unit,
   root: Boolean = false,
+  owner: Int? = null,
 ): Modifier =
   if (expressions.isEmpty()) this
-  else then(RcTouchExpressionElement(expressions, state, invalidate, root))
+  else then(RcTouchExpressionElement(expressions, state, invalidate, root, owner))
+
+/**
+ * Whether [pointer]'s drag was taken by a touch expression of one of [componentIds] — one written
+ * in the same component as the node asking, earlier in its modifier chain — rather than by a child
+ * or a scroll.
+ */
+internal fun DelegatableNode.isOwnTouchExpressionDrag(
+  pointer: PointerId,
+  componentIds: Collection<Int>,
+): Boolean {
+  var own = false
+  traverseAncestors(RcTouchExpressionNode.TraverseKey) { node ->
+    if (node is RcTouchExpressionNode && node.dragged == pointer && node.owner in componentIds) {
+      own = true
+      false
+    } else true
+  }
+  return own
+}
 
 private data class RcTouchExpressionElement(
   val expressions: List<RcTouchExpression>,
   val state: RcPlayerState,
   val invalidate: () -> Unit,
   val root: Boolean,
+  val owner: Int?,
 ) : ModifierNodeElement<RcTouchExpressionNode>() {
-  override fun create() = RcTouchExpressionNode(expressions, state, invalidate, root)
+  override fun create() = RcTouchExpressionNode(expressions, state, invalidate, root, owner)
 
   override fun update(node: RcTouchExpressionNode) {
-    node.reset(expressions, state, invalidate, root)
+    node.reset(expressions, state, invalidate, root, owner)
   }
 
   override fun InspectorInfo.inspectableProperties() {
@@ -112,8 +141,20 @@ private class RcTouchExpressionNode(
   private var state: RcPlayerState,
   private var invalidate: () -> Unit,
   private var root: Boolean,
-) : Modifier.Node(), PointerInputModifierNode, CompositionLocalConsumerModifierNode {
+  var owner: Int?,
+) :
+  Modifier.Node(), PointerInputModifierNode, CompositionLocalConsumerModifierNode, TraversableNode {
+  object TraverseKey
+
+  override val traverseKey: Any
+    get() = TraverseKey
+
   private var pointer: PointerId? = null
+
+  /** The pointer whose drag these expressions have taken, until it lifts or is cancelled. */
+  var dragged: PointerId? = null
+    private set
+
   private var runtimes = expressions.map { RcTouchExpressionRuntime(it, state::floatValues) }
   private var last = Offset.Zero
   private var down = Offset.Zero
@@ -141,6 +182,7 @@ private class RcTouchExpressionNode(
     state: RcPlayerState,
     invalidate: () -> Unit,
     root: Boolean,
+    owner: Int?,
   ) {
     if (this.expressions != expressions || this.state !== state) {
       finish()
@@ -150,6 +192,7 @@ private class RcTouchExpressionNode(
     }
     this.invalidate = invalidate
     this.root = root
+    this.owner = owner
   }
 
   override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
@@ -211,6 +254,7 @@ private class RcTouchExpressionNode(
               currentValueOf(LocalViewConfiguration).touchSlop)
       ) {
         dragging = true
+        dragged = change.id
         if (root) state.publishTouchPosition(position.x, position.y)
         velocity.addPosition(change.uptimeMillis, position)
         val speed = velocity.calculateVelocity()
@@ -237,6 +281,7 @@ private class RcTouchExpressionNode(
   private fun finish() {
     if (pointer == null) return
     pointer = null
+    dragged = null
     // Cancel releases with zero velocity too: there must be no pressed expression after disposal
     // or after a child/scroller has taken the gesture.
     expressions.forEachIndexed { index, expression ->

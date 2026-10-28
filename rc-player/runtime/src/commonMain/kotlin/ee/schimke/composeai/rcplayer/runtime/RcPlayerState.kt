@@ -1509,7 +1509,7 @@ public class RcPlayerState(
           eventSink(
             RcPlayerEvent.HostActionMetadata(
               operation.actionId,
-              text(operation.metadataTextId).orEmpty(),
+              currentText(operation.metadataTextId).orEmpty(),
             )
           )
         is RcHostNamedAction ->
@@ -1545,7 +1545,9 @@ public class RcPlayerState(
         is RcValueStringChangeAction -> {
           setText(
             operation.targetValueId,
-            requireNotNull(text(operation.valueId)) { "Missing action text ${operation.valueId}" },
+            requireNotNull(currentText(operation.valueId)) {
+              "Missing action text ${operation.valueId}"
+            },
           )
           changed = true
         }
@@ -1574,6 +1576,52 @@ public class RcPlayerState(
     if (changed && invalidateAfterChanges) onInvalidated()
   }
 
+  /**
+   * The last operation that computes each text at run time, by the text it writes: the draw-time
+   * text ops ([applyTextOperation]).
+   */
+  private val textProducers: Map<Int, RcOperation> by lazy {
+    buildMap {
+      document.operations.forEach { operation ->
+        when (operation) {
+          is RcTextMerge -> put(operation.outId, operation)
+          is RcTextSubtext -> put(operation.outId, operation)
+          is RcTextTransform -> put(operation.outId, operation)
+          is RcTextFromFloat -> put(operation.outId, operation)
+          is RcTextLookup -> put(operation.outId, operation)
+          is RcTextLookupInt -> put(operation.outId, operation)
+          else -> Unit
+        }
+      }
+    }
+  }
+
+  /**
+   * Text [id] as it stands now, for an action that sends or stores it.
+   *
+   * [beginFrame] resets every text to its load-time value and a draw computes it again, so between
+   * frames — when input runs — a text a canvas computes reads as it was at load unless that canvas
+   * redrew this frame. AndroidX keeps a computed text until the op runs again: a slider's release
+   * sends the value the drag left, formatted in the canvas, though nothing has redrawn since. So
+   * the ops that compute [id] run again here, from the current values, inputs first.
+   */
+  private fun currentText(id: Int, seen: MutableSet<Int> = mutableSetOf()): String? {
+    if (id in textOverrides || !seen.add(id)) return texts[id]
+    val producer = textProducers[id] ?: return texts[id]
+    val inputs =
+      when (producer) {
+        is RcTextMerge -> listOf(producer.leftId, producer.rightId)
+        is RcTextSubtext -> listOf(producer.textId)
+        is RcTextTransform -> listOf(producer.textId)
+        is RcTextLookup -> idLists[producer.listId]?.ids.orEmpty()
+        is RcTextLookupInt -> idLists[producer.listId]?.ids.orEmpty()
+        else -> emptyList()
+      }
+    inputs.forEach { currentText(it, seen) }
+    runCatching { applyTextOperation(producer) }
+    return texts[id]
+  }
+
   /** Dispatches a player-local effect without exposing it as a host action callback. */
   public fun performHapticFeedback(operation: RcHapticFeedback) {
     require(operation.type.wireValue >= 0) {
@@ -1600,7 +1648,7 @@ public class RcPlayerState(
         )
       is RcHostNamedActionValue.TextValue ->
         RcHostActionValue.TextValue(
-          requireNotNull(text(value.valueId)) { "Missing host action text ${value.valueId}" }
+          requireNotNull(currentText(value.valueId)) { "Missing host action text ${value.valueId}" }
         )
       is RcHostNamedActionValue.FloatListValue ->
         RcHostActionValue.FloatListValue(
