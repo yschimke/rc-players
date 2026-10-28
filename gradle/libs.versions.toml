@@ -21,7 +21,7 @@ kotlin = "2.4.21"
 # `configureKotlinCompatibility(...)`; remove the flag (and bump this to
 # `2.1.x`) when the removal lands and we're ready to drop 2.0.x consumers.
 kotlinCoreLibraries = "2.0.21"
-agp = "9.4.1"
+agp = "9.5.0"
 # Android levels for the published CMP player stack (`rc-player/*`). compileSdk follows the SDK the
 # stack's Compose artifacts compile against; minSdk is Compose's own floor, so the player adds none.
 rc-player-compileSdk = "37"
