@@ -854,6 +854,19 @@ private fun RcComposePlayerResolved(
     state.applyLayoutContentStateOperations(linkedDocument.operations, theme)
     val version = invalidationVersion
     val settles = state.hasAnyComponentValues
+    val visibilityFunctions =
+      remember(linkedDocument, state, textMeasurer, images, theme, typefaces, drawObserver) {
+        RcVisibilityFunctions(
+          linkedDocument.operations,
+          state,
+          textMeasurer,
+          images,
+          theme,
+          typefaces,
+          drawObserver,
+          offscreenTargets,
+        )
+      }
     val tree: @Composable (probe: RcGeometryProbe?) -> Unit = { probe ->
       LookaheadScope {
         CompositionLocalProvider(
@@ -869,6 +882,7 @@ private fun RcComposePlayerResolved(
           LocalRcInvalidate provides { invalidationVersion += 1 },
           LocalRcOffscreenTargets provides offscreenTargets,
           LocalRcTouchExpressions provides touchExpressions,
+          LocalRcVisibilityFunctions provides visibilityFunctions,
         ) {
           // The root sits at the window's origin at its own size. A root smaller than the window's
           // minimum — one still animating toward a resize, or one the document sizes below the
@@ -1016,7 +1030,12 @@ private fun RenderLayoutNode(
       )
   val branchEnterExit =
     if (node is RcLayoutNode.Content) null
-    else rcBranchEnterExitModifier(node.modifiers.animationSpec, sharedElementModifier != null)
+    else
+      rcBranchEnterExitModifier(
+        node.modifiers.animationSpec,
+        sharedElementModifier != null,
+        node.componentId,
+      )
   val outerModifier = if (branchEnterExit != null) modifier.then(branchEnterExit) else modifier
   val boundsModifier =
     if (sharedElementModifier != null) {
@@ -1937,6 +1956,7 @@ private fun RenderLayoutNode(
       RcVisibilityTransition(
         visibility = visibility,
         spec = node.modifiers.animationSpec,
+        componentId = node.componentId,
         enabled = layoutAnimations,
         // The parent orders its children by `zIndex`, and the child it orders is the visibility
         // wrapper, so that is where the component's own `zIndex` has to be.
@@ -4794,6 +4814,123 @@ private class RcFloatFunctionRuntime {
   val definitions = mutableMapOf<Int, RcLinkedNode.Container>()
   val executing = mutableSetOf<Int>()
   val shaders = mutableMapOf<Int, RcShaderData>()
+}
+
+/**
+ * Runs a document's custom visibility animations: the `FloatFunctionDefine` an `AnimationSpec`
+ * names with `enterFunctionId` / `exitFunctionId` for a `CUSTOM` enter or exit (remote-core alpha22
+ * `AnimateMeasure.executeCustomAnimation`).
+ *
+ * The function is bound as core binds it — (progress, width, height, x, y, component id), the
+ * position in the component's parent — and draws in its parent's space from a reset paint. Its
+ * `DrawContent` draws the component, clipped to its bounds in a layer at the paint's alpha, as
+ * core's `DrawContent` composites an animating component.
+ */
+internal class RcVisibilityFunctions(
+  private val operations: List<RcLinkedNode>,
+  private val state: RcPlayerState,
+  private val textMeasurer: TextMeasurer,
+  private val images: MutableMap<Int, ImageBitmap>,
+  private val theme: Int,
+  private val typefaces: RcTypefaceLoader,
+  private val drawObserver: RcDrawObserver?,
+  private val offscreenTargets: RcOffscreenTargetPool,
+) {
+  /** Every function the document defines, wherever it sits; found on the first animation. */
+  private val definitions: Map<Int, RcLinkedNode.Container> by lazy {
+    buildMap {
+      fun collect(nodes: List<RcLinkedNode>) {
+        for (node in nodes) {
+          if (node !is RcLinkedNode.Container) continue
+          (node.operation as? RcFloatFunctionDefine)?.let { put(it.id, node) }
+          collect(node.children)
+        }
+      }
+      collect(operations)
+    }
+  }
+
+  /** How deep each function is running: a nested component can animate with the same one. */
+  private val depths = mutableMapOf<Int, Int>()
+
+  /**
+   * Draws [scope]'s component through function [functionId] at [progress], or returns false — and
+   * draws nothing — when the document defines no such function, so the caller paints the component
+   * as it is, as core does.
+   */
+  fun draw(
+    scope: ContentDrawScope,
+    functionId: Int,
+    progress: Float,
+    position: Offset,
+    componentId: Int,
+  ): Boolean {
+    val definition = definitions[functionId] ?: return false
+    val parameters = (definition.operation as RcFloatFunctionDefine).parameterIds
+    val depth = depths[functionId] ?: 0
+    // Core's `FloatFunctionDefine.MAX_EXECUTION_DEPTH`; past it core throws and we paint plainly.
+    if (depth >= MAX_FUNCTION_DEPTH) return false
+    val x = floor(position.x)
+    val y = floor(position.y)
+    val arguments =
+      floatArrayOf(
+        progress,
+        ceil(position.x - x + scope.size.width),
+        ceil(position.y - y + scope.size.height),
+        x,
+        y,
+        // Core loads the component id as both an integer and a float; `setFloat` keeps both.
+        componentId.toFloat(),
+      )
+    val bound = parameters.take(arguments.size)
+    // Re-entered from a nested component's content: the outer call's arguments come back after.
+    val outer =
+      if (depth > 0) bound.map { state.resolve(RcFloatWord(NAN_REFERENCE or (it and ID_MASK))) }
+      else null
+    bound.forEachIndexed { index, id -> state.setFloat(id, arguments[index]) }
+    depths[functionId] = depth + 1
+    val canvas = scope.drawContext.canvas
+    val paint = RcPaintState(typefaces, drawObserver)
+    canvas.save()
+    canvas.translate(-position.x, -position.y)
+    try {
+      scope.drawOperations(
+        definition.children,
+        state,
+        paint,
+        mutableMapOf(),
+        textMeasurer,
+        images,
+        RcFloatFunctionRuntime().also { it.definitions.putAll(definitions) },
+        theme,
+        filterTheme = false,
+        drawContent = {
+          val target = scope.drawContext.canvas
+          target.save()
+          target.translate(position.x, position.y)
+          target.saveLayer(
+            Rect(0f, 0f, scope.size.width, scope.size.height),
+            Paint().apply { alpha = paint.effectiveAlpha() },
+          )
+          scope.drawContent()
+          target.restore()
+          target.restore()
+        },
+        offscreenTargets = offscreenTargets,
+      )
+    } finally {
+      canvas.restore()
+      if (depth == 0) depths.remove(functionId) else depths[functionId] = depth
+      outer?.forEachIndexed { index, value -> state.setFloat(bound[index], value) }
+    }
+    return true
+  }
+
+  private companion object {
+    const val MAX_FUNCTION_DEPTH = 16
+    const val NAN_REFERENCE = 0x7fc00000
+    const val ID_MASK = 0x003fffff
+  }
 }
 
 /** Per-draw-pass canvas routing for AndroidX's mutable bitmap targets. */
