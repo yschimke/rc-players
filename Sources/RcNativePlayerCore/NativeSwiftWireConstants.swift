@@ -740,6 +740,11 @@ public enum NativeSwiftLayoutAnimation {
   public static let slideBottom = 5
   public static let rotate = 6
   public static let particle = 7
+  /// Drawn by the spec's enter or exit `FloatFunctionDefine` (remote-core 1.0.0-alpha22).
+  public static let custom = 8
+  /// The animation's byte of the wire word. Since alpha22 the byte above it is the side's
+  /// `AnimationSpec.SEQUENCE` (`AnimationSpec.packAnimation`).
+  public static let kindMask = 0xFF
 }
 
 /// The winding of a `PATH_DATA` path, the top byte of its id word (`RcPathData.winding` in

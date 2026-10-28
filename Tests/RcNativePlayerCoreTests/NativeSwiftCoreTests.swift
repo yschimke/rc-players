@@ -2115,6 +2115,30 @@ import Testing
     #expect(durations == [120, 900], Comment(rawValue: "boxes adopted durations \(durations)"))
   }
 
+  /// alpha22 appends a CUSTOM spec's enter and exit function ids, whatever sequence is packed above
+  /// its animation byte; the operations after it still decode.
+  @Test func aCustomSpecsFunctionIDsAreRead() throws {
+    let custom = NativeSwiftLayoutAnimation.custom | (1 << 8)
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(200).int(1)
+    document.u8(202).int(3).int(-1).int(1).int(1)
+    document.u8(14).int(5).float(120).int(2).float(640).int(4).int(0).int(custom).int(-1).int(42)
+    document.u8(214)
+    document.u8(202).int(4).int(-1).int(1).int(1)
+    document.u8(14).int(6).float(900).int(3).float(40).int(5).int(0).int(1)
+    document.u8(214)
+    document.u8(214)
+    let root = try NativeSwiftDocumentSession.open(data: document.data).snapshot().root
+    var durations: [Float?] = []
+    func collect(_ node: NativeSwiftNodeSnapshot) {
+      if node.componentKind == "BoxLayout" { durations.append(node.animationSpec?.motionDuration) }
+      node.children.forEach(collect)
+    }
+    collect(root)
+    #expect(durations == [120, 900], Comment(rawValue: "boxes adopted durations \(durations)"))
+  }
+
   /// A spec nested in a body inside a component (here a canvas-operations body) is not one of the
   /// component's own operations, and the component keeps the default.
   @Test func aNestedSpecIsNotAdopted() throws {
