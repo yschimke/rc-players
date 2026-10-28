@@ -122,6 +122,18 @@ public final class androidx/compose/remote/creation/common/CoreDocument {
 	public static final field INSTANCE Landroidx/compose/remote/creation/common/CoreDocument;
 }
 
+public final class androidx/compose/remote/creation/common/CoreText {
+	public static final field BREAK_STRATEGY_BALANCED I
+	public static final field BREAK_STRATEGY_HIGH_QUALITY I
+	public static final field BREAK_STRATEGY_SIMPLE I
+	public static final field HYPHENATION_FREQUENCY_FULL I
+	public static final field HYPHENATION_FREQUENCY_FULL_FAST I
+	public static final field HYPHENATION_FREQUENCY_NONE I
+	public static final field HYPHENATION_FREQUENCY_NORMAL I
+	public static final field HYPHENATION_FREQUENCY_NORMAL_FAST I
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/CoreText;
+}
+
 public final class androidx/compose/remote/creation/common/CubicEasing {
 	public fun <init> ()V
 	public final fun get (F)F
@@ -261,6 +273,9 @@ public final class androidx/compose/remote/creation/common/PaintBundle {
 	public static final field BLEND_MODE_SRC_OVER I
 	public static final field BLEND_MODE_XOR I
 	public static final field INSTANCE Landroidx/compose/remote/creation/common/PaintBundle;
+	public static final field STYLE_FILL I
+	public static final field STYLE_FILL_AND_STROKE I
+	public static final field STYLE_STROKE I
 }
 
 public final class androidx/compose/remote/creation/common/PaintBundleData {
@@ -575,7 +590,11 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun addColorExpression (IIF)S
 	public fun addColorExpression (SSF)S
 	public fun addComponentHeightValue (I)F
+	public fun addComponentRootXValue (I)F
+	public fun addComponentRootYValue (I)F
 	public fun addComponentWidthValue (I)F
+	public fun addComponentXValue (I)F
+	public fun addComponentYValue (I)F
 	public fun addDynamicFloatArray (F)F
 	public fun addFloatArray ([F)F
 	public fun addIdList ([I)F
@@ -1196,7 +1215,11 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun addColorExpression (IIF)S
 	public abstract fun addColorExpression (SSF)S
 	public abstract fun addComponentHeightValue (I)F
+	public abstract fun addComponentRootXValue (I)F
+	public abstract fun addComponentRootYValue (I)F
 	public abstract fun addComponentWidthValue (I)F
+	public abstract fun addComponentXValue (I)F
+	public abstract fun addComponentYValue (I)F
 	public abstract fun addDynamicFloatArray (F)F
 	public abstract fun addFloatArray ([F)F
 	public abstract fun addIdList ([I)F

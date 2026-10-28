@@ -23,10 +23,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
-import ee.schimke.composeai.rcembedded.player.valueReflection
 
 @Composable
 internal fun Modifier.zIndex(op: ZIndexModifierOperation): Modifier {
-    val zIndexValue = rememberRemoteFloatAsState(op.valueReflection).value
+    val zIndexValue = rememberRemoteFloatAsState(op.rawValue).value
     return this.zIndex(zIndexValue)
 }

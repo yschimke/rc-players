@@ -18,14 +18,11 @@ package androidx.compose.remote.creation.compose.vector
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.compose.capture.DefaultGroupName
-import androidx.compose.remote.creation.compose.capture.DefaultPathName
 import androidx.compose.remote.creation.compose.capture.DefaultPivotX
 import androidx.compose.remote.creation.compose.capture.DefaultPivotY
 import androidx.compose.remote.creation.compose.capture.DefaultRotation
 import androidx.compose.remote.creation.compose.capture.DefaultScaleX
 import androidx.compose.remote.creation.compose.capture.DefaultScaleY
-import androidx.compose.remote.creation.compose.capture.DefaultStrokeLineCap
-import androidx.compose.remote.creation.compose.capture.DefaultStrokeLineJoin
 import androidx.compose.remote.creation.compose.capture.DefaultStrokeLineMiter
 import androidx.compose.remote.creation.compose.capture.DefaultStrokeLineWidth
 import androidx.compose.remote.creation.compose.capture.DefaultTranslationX
@@ -38,25 +35,18 @@ import androidx.compose.remote.creation.compose.capture.toRemotePath
 import androidx.compose.remote.creation.compose.layout.RemoteDrawScope
 import androidx.compose.remote.creation.compose.layout.RemoteSize
 import androidx.compose.remote.creation.compose.path.RemotePath
+import androidx.compose.remote.creation.compose.shaders.RemoteBrush
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteColorFilter
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemotePaint
+import androidx.compose.remote.creation.compose.state.RemotePaintingStyle
+import androidx.compose.remote.creation.compose.state.RemotePathFillType
+import androidx.compose.remote.creation.compose.state.RemoteStrokeCap
+import androidx.compose.remote.creation.compose.state.RemoteStrokeJoin
 import androidx.compose.remote.creation.compose.state.creationState
-import androidx.compose.remote.creation.compose.state.rb
 import androidx.compose.remote.creation.compose.state.rf
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PaintingStyle
-import androidx.compose.ui.graphics.PathFillType
-import androidx.compose.ui.graphics.ShaderBrush
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.isSpecified
-import androidx.compose.ui.graphics.isUnspecified
-import androidx.compose.ui.graphics.vector.DefaultFillType
-import androidx.compose.ui.graphics.vector.PathNode
-import androidx.compose.ui.util.fastForEach
-import androidx.compose.ui.util.fastMap
+import androidx.compose.remote.creation.compose.util.fastForEach
 
 /** DSL for building a vector with [RemotePathScope]. */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -67,7 +57,10 @@ public fun RemotePathData(block: RemotePathScope.() -> Unit): List<RemotePathNod
     }
 
 internal sealed class RemoteVNode {
-    abstract fun RemoteDrawScope.draw(colorFilter: RemoteColorFilter?)
+    abstract fun RemoteDrawScope.draw(
+        colorFilter: RemoteColorFilter?,
+        viewportSize: RemoteSize,
+    )
 }
 
 internal class RemoteVectorComponent(val root: RemoteGroupComponent) : RemoteVNode() {
@@ -81,12 +74,20 @@ internal class RemoteVectorComponent(val root: RemoteGroupComponent) : RemoteVNo
     private var rootScaleY = 1f.rf
 
     private fun RemoteDrawScope.drawVector(tintFilter: RemoteColorFilter?) {
-        with(root) { scale(rootScaleX, rootScaleY) { draw(tintFilter) } }
+        val targetViewportSize = this@RemoteVectorComponent.viewportSize
+        with(root) { scale(rootScaleX, rootScaleY) { draw(tintFilter, targetViewportSize) } }
     }
 
-    override fun RemoteDrawScope.draw(colorFilter: RemoteColorFilter?) {
-        rootScaleX = width / viewportSize.width
-        rootScaleY = height / viewportSize.height
+    fun RemoteDrawScope.draw(colorFilter: RemoteColorFilter?) {
+        draw(colorFilter, this@RemoteVectorComponent.viewportSize)
+    }
+
+    override fun RemoteDrawScope.draw(
+        colorFilter: RemoteColorFilter?,
+        viewportSize: RemoteSize,
+    ) {
+        rootScaleX = width / this@RemoteVectorComponent.viewportSize.width
+        rootScaleY = height / this@RemoteVectorComponent.viewportSize.height
         val targetFilter = colorFilter ?: intrinsicColorFilter
         drawVector(targetFilter)
     }
@@ -102,54 +103,30 @@ internal class RemoteVectorComponent(val root: RemoteGroupComponent) : RemoteVNo
 }
 
 internal class RemotePathComponent : RemoteVNode() {
-    var name = DefaultPathName
-    var fill: Brush? = null
+    var name = DefaultGroupName
+    var fill: RemoteBrush? = null
     var fillAlpha = 1.0f.rf
-    var pathFillType: PathFillType = DefaultFillType
+    var pathFillType: RemotePathFillType = RemotePathFillType.NonZero
     var pathData: List<RemotePathNode> = EmptyPath
     var targetPathData: List<RemotePathNode>? = null
     var pathTween: RemoteFloat = 0f.rf
     var strokeAlpha = 1.0f.rf
     var strokeLineWidth = DefaultStrokeLineWidth
-    var stroke: Brush? = null
-    var strokeLineCap = DefaultStrokeLineCap
-    var strokeLineJoin = DefaultStrokeLineJoin
+    var stroke: RemoteBrush? = null
+    var strokeLineCap: RemoteStrokeCap = RemoteStrokeCap.Butt
+    var strokeLineJoin: RemoteStrokeJoin = RemoteStrokeJoin.Miter
     var strokeLineMiter = DefaultStrokeLineMiter
     var trimPathStart = DefaultTrimPathStart
     var trimPathEnd = DefaultTrimPathEnd
     var trimPathOffset = DefaultTrimPathOffset
-    var remoteFillColor: RemoteColor? = null
-    var remoteStrokeColor: RemoteColor? = null
 
     private val path = RemotePath()
     private val targetPath = RemotePath()
 
-    private fun RemoteDrawScope.applyBrushToPaint(
-        brush: Brush?,
-        alpha: RemoteFloat,
-        paint: RemotePaint,
+    override fun RemoteDrawScope.draw(
+        colorFilter: RemoteColorFilter?,
+        viewportSize: RemoteSize,
     ) {
-        if (brush == null) return
-        when (brush) {
-            is SolidColor -> {
-                val c = brush.value
-                paint.color =
-                    RemoteColor.rgb(
-                        red = c.red.rf,
-                        green = c.green.rf,
-                        blue = c.blue.rf,
-                        alpha = c.alpha.rf * alpha,
-                    )
-            }
-            is ShaderBrush -> {
-                // Compose ShaderBrush cannot be serialized directly without reflection,
-                // degrade to transparent paint
-                paint.color = RemoteColor.rgb(0f.rf, 0f.rf, 0f.rf, 0f.rf)
-            }
-        }
-    }
-
-    override fun RemoteDrawScope.draw(colorFilter: RemoteColorFilter?) {
         // The call below resets the path
         pathData.toRemotePath(path, this.remoteCanvas.creationState)
         val hasTween = targetPathData != null && targetPathData!!.isNotEmpty()
@@ -178,24 +155,13 @@ internal class RemotePathComponent : RemoteVNode() {
             }
 
         val effectiveFillBrush = fill
-        val effectiveFillColor = remoteFillColor
 
-        if (effectiveFillBrush != null || effectiveFillColor != null) {
+        if (effectiveFillBrush != null) {
             val fillPaint = RemotePaint {
                 this.colorFilter = colorFilter
-                this.style = PaintingStyle.Fill
+                this.remoteStyle = RemotePaintingStyle.Fill
             }
-            if (effectiveFillColor != null) {
-                val paintColor =
-                    if (fillAlpha.hasConstantValue && fillAlpha.constantValue == 1f) {
-                        effectiveFillColor
-                    } else {
-                        effectiveFillColor.copy(alpha = effectiveFillColor.alpha * fillAlpha)
-                    }
-                fillPaint.color = paintColor
-            } else if (effectiveFillBrush != null) {
-                applyBrushToPaint(effectiveFillBrush, fillAlpha, fillPaint)
-            }
+            applyBrushToPaint(fillPaint, effectiveFillBrush, fillAlpha, viewportSize)
             if (hasTween) {
                 drawTweenPath(path, targetPath, pathTween, start, stop, fillPaint)
             } else if (isTrimmed) {
@@ -206,27 +172,16 @@ internal class RemotePathComponent : RemoteVNode() {
         }
 
         val effectiveStrokeBrush = stroke
-        val effectiveStrokeColor = remoteStrokeColor
 
-        if (effectiveStrokeBrush != null || effectiveStrokeColor != null) {
+        if (effectiveStrokeBrush != null) {
             val strokePaint = RemotePaint {
                 this.colorFilter = colorFilter
-                this.style = PaintingStyle.Stroke
+                this.remoteStyle = RemotePaintingStyle.Stroke
                 this.strokeWidth = strokeLineWidth
-                this.strokeCap = strokeLineCap
-                this.strokeJoin = strokeLineJoin
+                this.remoteStrokeCap = strokeLineCap
+                this.remoteStrokeJoin = strokeLineJoin
             }
-            if (effectiveStrokeColor != null) {
-                val paintColor =
-                    if (strokeAlpha.hasConstantValue && strokeAlpha.constantValue == 1f) {
-                        effectiveStrokeColor
-                    } else {
-                        effectiveStrokeColor.copy(alpha = effectiveStrokeColor.alpha * strokeAlpha)
-                    }
-                strokePaint.color = paintColor
-            } else if (effectiveStrokeBrush != null) {
-                applyBrushToPaint(effectiveStrokeBrush, strokeAlpha, strokePaint)
-            }
+            applyBrushToPaint(strokePaint, effectiveStrokeBrush, strokeAlpha, viewportSize)
             if (hasTween) {
                 drawTweenPath(path, targetPath, pathTween, start, stop, strokePaint)
             } else if (isTrimmed) {
@@ -237,94 +192,28 @@ internal class RemotePathComponent : RemoteVNode() {
         }
     }
 
+    private fun RemoteDrawScope.applyBrushToPaint(
+        paint: RemotePaint,
+        brush: RemoteBrush,
+        alpha: RemoteFloat,
+        viewportSize: RemoteSize,
+    ) {
+        with(brush) { applyTo(paint, viewportSize) }
+        if (!(alpha.hasConstantValue && alpha.constantValue == 1f)) {
+            paint.color =
+                if (paint.shader != null) {
+                    RemoteColor.rgb(red = 0f.rf, green = 0f.rf, blue = 0f.rf, alpha = alpha)
+                } else {
+                    paint.color.copy(alpha = paint.color.alpha * alpha)
+                }
+        }
+    }
+
     override fun toString() = path.toString()
 }
 
 internal class RemoteGroupComponent : RemoteVNode() {
     private val children = mutableListOf<RemoteVNode>()
-
-    /**
-     * Flag to determine if the contents of this group can be rendered with a single color This is
-     * true if all the paths and groups within this group can be rendered with the same color
-     */
-    var isTintable: Boolean = true
-        private set
-
-    /**
-     * Tint color to render all the contents of this group. This is configured only if all the
-     * contents within the group are the same color
-     */
-    var tintColor: Color = Color.Unspecified
-        private set
-
-    /**
-     * Helper method to inspect whether the provided brush matches the current color of paths within
-     * the group in order to help determine if only an alpha channel bitmap can be allocated and
-     * tinted in order to save on memory overhead.
-     */
-    private fun markTintForBrush(brush: Brush?) {
-        if (!isTintable) {
-            return
-        }
-        if (brush != null) {
-            if (brush is SolidColor) {
-                markTintForColor(brush.value)
-            } else {
-                // If the brush is not a solid color then we require a explicit ARGB channels in the
-                // cached bitmap
-                markNotTintable()
-            }
-        }
-    }
-
-    /**
-     * Helper method to inspect whether the provided color matches the current color of paths within
-     * the group in order to help determine if only an alpha channel bitmap can be allocated and
-     * tinted in order to save on memory overhead.
-     */
-    private fun markTintForColor(color: Color) {
-        if (!isTintable) {
-            return
-        }
-
-        if (color.isSpecified) {
-            if (tintColor.isUnspecified) {
-                // Initial color has not been specified, initialize the target color to the
-                // one provided
-                tintColor = color
-            } else if (!tintColor.rgbEqual(color)) {
-                // The given color does not match the rgb channels if our previous color
-                // Therefore we require explicit ARGB channels in the cached bitmap
-                markNotTintable()
-            }
-        }
-    }
-
-    private fun markTintForVNode(node: RemoteVNode) {
-        if (node is RemotePathComponent) {
-            markTintForBrush(node.fill)
-            markTintForBrush(node.stroke)
-            if (node.remoteFillColor != null) {
-                node.remoteFillColor?.constantValueOrNull?.let { markTintForColor(it) }
-                    ?: markNotTintable()
-            }
-            if (node.remoteStrokeColor != null) {
-                node.remoteStrokeColor?.constantValueOrNull?.let { markTintForColor(it) }
-                    ?: markNotTintable()
-            }
-        } else if (node is RemoteGroupComponent) {
-            if (node.isTintable && isTintable) {
-                markTintForColor(node.tintColor)
-            } else {
-                markNotTintable()
-            }
-        }
-    }
-
-    private fun markNotTintable() {
-        isTintable = false
-        tintColor = Color.Unspecified
-    }
 
     // If the name changes we should re-draw as individual nodes could
     // be modified based off of this name parameter.
@@ -359,11 +248,12 @@ internal class RemoteGroupComponent : RemoteVNode() {
         } else {
             children.add(instance)
         }
-
-        markTintForVNode(instance)
     }
 
-    override fun RemoteDrawScope.draw(colorFilter: RemoteColorFilter?) {
+    override fun RemoteDrawScope.draw(
+        colorFilter: RemoteColorFilter?,
+        viewportSize: RemoteSize,
+    ) {
         val hasTransform =
             !(translationX.hasConstantValue &&
                 translationX.constantValue == 0f &&
@@ -392,10 +282,14 @@ internal class RemoteGroupComponent : RemoteVNode() {
                     clipPath(clipPath)
                 }
             }) {
-                children.fastForEach { node -> with(node) { this@draw.draw(colorFilter) } }
+                children.fastForEach { node ->
+                    with(node) { this@draw.draw(colorFilter, viewportSize) }
+                }
             }
         } else {
-            children.fastForEach { node -> with(node) { this@draw.draw(colorFilter) } }
+            children.fastForEach { node ->
+                with(node) { this@draw.draw(colorFilter, viewportSize) }
+            }
         }
     }
 
@@ -403,82 +297,5 @@ internal class RemoteGroupComponent : RemoteVNode() {
         val sb = StringBuilder().append("VGroup: ").append(name)
         children.fastForEach { node -> sb.append("\t").append(node.toString()).append("\n") }
         return sb.toString()
-    }
-}
-
-/**
- * helper method to verify if the rgb channels are equal excluding comparison of the alpha channel
- */
-internal fun Color.rgbEqual(other: Color) =
-    this.red == other.red && this.green == other.green && this.blue == other.blue
-
-internal fun List<PathNode>.toRemotePathNodes(): List<RemotePathNode> {
-    return this.fastMap { it.toRemotePathNode() }
-}
-
-private fun PathNode.toRemotePathNode(): RemotePathNode {
-    return when (this) {
-        is PathNode.MoveTo -> RemotePathNode.MoveTo(this.x.rf, this.y.rf)
-        is PathNode.LineTo -> RemotePathNode.LineTo(this.x.rf, this.y.rf)
-        is PathNode.CurveTo ->
-            RemotePathNode.CurveTo(
-                this.x1.rf,
-                this.y1.rf,
-                this.x2.rf,
-                this.y2.rf,
-                this.x3.rf,
-                this.y3.rf,
-            )
-        is PathNode.RelativeMoveTo -> RemotePathNode.RelativeMoveTo(this.dx.rf, this.dy.rf)
-        is PathNode.QuadTo -> RemotePathNode.QuadTo(this.x1.rf, this.y1.rf, this.x2.rf, this.y2.rf)
-        is PathNode.ArcTo ->
-            RemotePathNode.ArcTo(
-                this.horizontalEllipseRadius.rf,
-                this.verticalEllipseRadius.rf,
-                this.theta.rf,
-                this.isMoreThanHalf.rb,
-                this.isPositiveArc.rb,
-                this.arcStartX.rf,
-                this.arcStartY.rf,
-            )
-        is PathNode.HorizontalTo -> RemotePathNode.HorizontalTo(this.x.rf)
-        is PathNode.VerticalTo -> RemotePathNode.VerticalTo(this.y.rf)
-        is PathNode.Close -> RemotePathNode.Close
-        is PathNode.RelativeHorizontalTo -> RemotePathNode.RelativeHorizontalTo(this.dx.rf)
-        is PathNode.RelativeVerticalTo -> RemotePathNode.RelativeVerticalTo(this.dy.rf)
-        is PathNode.ReflectiveQuadTo -> RemotePathNode.ReflectiveQuadTo(this.x.rf, this.y.rf)
-        is PathNode.ReflectiveCurveTo ->
-            RemotePathNode.ReflectiveCurveTo(this.x1.rf, this.y1.rf, this.x2.rf, this.y2.rf)
-        is PathNode.RelativeArcTo ->
-            RemotePathNode.RelativeArcTo(
-                this.horizontalEllipseRadius.rf,
-                this.verticalEllipseRadius.rf,
-                this.theta.rf,
-                this.isMoreThanHalf.rb,
-                this.isPositiveArc.rb,
-                this.arcStartDx.rf,
-                this.arcStartDy.rf,
-            )
-        is PathNode.RelativeCurveTo ->
-            RemotePathNode.RelativeCurveTo(
-                this.dx1.rf,
-                this.dy1.rf,
-                this.dx2.rf,
-                this.dy2.rf,
-                this.dx3.rf,
-                this.dy3.rf,
-            )
-        is PathNode.RelativeLineTo -> RemotePathNode.RelativeLineTo(this.dx.rf, this.dy.rf)
-        is PathNode.RelativeQuadTo ->
-            RemotePathNode.RelativeQuadTo(this.dx1.rf, this.dy1.rf, this.dx2.rf, this.dy2.rf)
-        is PathNode.RelativeReflectiveCurveTo ->
-            RemotePathNode.RelativeReflectiveCurveTo(
-                this.dx1.rf,
-                this.dy1.rf,
-                this.dx2.rf,
-                this.dy2.rf,
-            )
-        is PathNode.RelativeReflectiveQuadTo ->
-            RemotePathNode.RelativeReflectiveQuadTo(this.dx.rf, this.dy.rf)
     }
 }

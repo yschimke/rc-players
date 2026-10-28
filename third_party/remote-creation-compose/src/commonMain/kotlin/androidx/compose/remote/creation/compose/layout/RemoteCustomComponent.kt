@@ -29,7 +29,6 @@ import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
 import androidx.compose.remote.creation.compose.state.RemoteInt
 import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 
 internal class RemoteCustomComponentNode : RemoteComposeNode() {
@@ -100,14 +99,6 @@ internal class IntPropertyEntry(
 ) : CustomPropertyEntry() {
     override fun toCustomProperty(creationState: RemoteComposeCreationState) =
         RemoteCustomPropertyData.int(id, RemoteCustomPropertyData.IntProperty, value)
-}
-
-internal class ColorPropertyEntry(
-    override val id: Short,
-    val color: Color,
-) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.int(id, RemoteCustomPropertyData.ColorProperty, color.toArgb())
 }
 
 internal class FloatPropertyEntry(
@@ -316,10 +307,6 @@ public constructor(private val creationState: RemoteComposeCreationState? = null
 
     public fun property(id: Int, value: Int) {
         entries.add(IntPropertyEntry(id.toShort(), value))
-    }
-
-    public fun property(id: Int, value: Color) {
-        entries.add(ColorPropertyEntry(id.toShort(), value))
     }
 
     public fun property(id: Int, value: Float) {

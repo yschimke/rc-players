@@ -26,6 +26,7 @@ import androidx.compose.remote.player.core.RemoteDocument
 import androidx.compose.remote.player.core.state.StateUpdater
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import ee.schimke.composeai.rcembedded.player.resources.RemoteImageSupport
 
 /**
  * A preview-friendly/experimental wrapper of [RcPlayer] that accepts a [RemoteDocument] instead of
@@ -41,7 +42,7 @@ public fun ExperimentalRemoteDocumentPlayer(
     document: RemoteDocument,
     modifier: Modifier = Modifier,
     imageLoader: RcImageLoader? = null,
-    isShaderValid: (shaderSource: String) -> Boolean = { true },
+    trustedContent: Boolean = false,
     onAction: (actionId: Int, value: String?) -> Unit = { _, _ -> },
     onNamedAction: (name: String, value: Any?, stateUpdater: StateUpdater) -> Unit = { _, _, _ -> },
     theme: Int = Theme.SYSTEM,
@@ -51,7 +52,7 @@ public fun ExperimentalRemoteDocumentPlayer(
         document = document.document,
         modifier = modifier,
         imageLoader = imageLoader,
-        isShaderValid = isShaderValid,
+        trustedContent = trustedContent,
         onAction = onAction,
         onNamedAction = onNamedAction,
         theme = theme,

@@ -268,6 +268,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
+import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
 import ee.schimke.composeai.rcplayer.protocol.RcPathAppend
 import ee.schimke.composeai.rcplayer.protocol.RcPathCombine
@@ -4748,6 +4749,16 @@ private class RcPaintState(
     return color.copy(alpha = color.alpha * alpha)
   }
 
+  /**
+   * The paint's alpha as an Android `Paint` applies it to a shader, brush or bitmap: the colour's
+   * own alpha channel times [alpha]. `RemotePaint` writes its alpha into `COLOR` rather than a
+   * separate `ALPHA`, so reading [alpha] alone drew translucent gradients and bitmaps opaque.
+   */
+  fun effectiveAlpha(): Float = (Color(color).alpha * alpha).coerceIn(0f, 1f)
+
+  fun glyphPaint(): RcGlyphPaint =
+    RcGlyphPaint(effectiveAlpha(), colorFilter, blendMode, filterQuality)
+
   fun style() =
     if (stroke) Stroke(width = strokeWidth, cap = strokeCap, join = strokeJoin) else Fill
 }
@@ -5143,7 +5154,13 @@ private fun DrawScope.drawOperationsRouted(
           functions.executing.remove(operation.functionId)
         }
       }
-      is RcImageAttribute -> state.applyImageAttribute(operation)
+      is RcImageAttribute -> {
+        // A URL or file bitmap's declared size is a placeholder until the image arrives.
+        images[operation.imageId]?.let {
+          state.setLoadedImageSize(operation.imageId, it.width, it.height)
+        }
+        state.applyImageAttribute(operation)
+      }
       is RcColorAttribute -> state.applyColorAttribute(operation)
       is RcColorExpression -> state.applyColorExpression(operation)
       is RcColorTheme -> state.applyColorTheme(operation, requestedTheme)
@@ -5152,6 +5169,8 @@ private fun DrawScope.drawOperationsRouted(
       is RcPlaySound -> state.playSound(operation)
       is RcTimeAttribute -> state.applyTimeAttribute(operation)
       is RcWakeIn -> state.requestWakeIn(operation)
+      // Re-seeds on every paint, as in the View player; an impulse around it seeds once.
+      is RcParticleDefine -> state.seedParticles(operation)
       is RcDebugMessage -> state.emitDebugMessage(operation)
       is RcDrawText -> drawTextOperation(operation, state, paint, textMeasurer)
       is RcDrawTextAnchored -> drawTextAnchored(operation, state, paint, textMeasurer)
@@ -5161,18 +5180,17 @@ private fun DrawScope.drawOperationsRouted(
       is RcDrawBitmapInt -> drawBitmapInt(operation, state, paint, images)
       is RcDrawBitmapScaled -> drawBitmapScaled(operation, state, paint, images)
       is RcDrawBitmapFontTextRun ->
-        drawBitmapFontTextRun(operation, state, images, paint.alpha, paint.blendMode)
+        drawBitmapFontTextRun(operation, state, images, paint.glyphPaint())
       is RcDrawBitmapFontTextRunOnPath ->
         drawBitmapFontTextOnPath(
           operation,
           pathForId(resolveBitmapFontPathId(operation.pathId, state), state, computedPaths),
           state,
           images,
-          paint.alpha,
-          paint.blendMode,
+          paint.glyphPaint(),
         )
       is RcDrawBitmapTextAnchored ->
-        drawAnchoredBitmapText(operation, state, images, paint.alpha, paint.blendMode)
+        drawAnchoredBitmapText(operation, state, images, paint.glyphPaint())
       is RcBitmapTextMeasure -> applyBitmapTextMeasure(operation, state)
       is RcTextMeasure -> measureTextOperation(operation, state, paint, textMeasurer)
       is RcTextAttribute ->
@@ -5265,7 +5283,9 @@ internal fun fontVariationSettings(
 ): RcFontVariations? {
   val axes = axisTags.mapIndexedNotNull { index, tag ->
     val value = axisValues.getOrNull(index) ?: return@mapIndexedNotNull null
-    tag?.takeIf { it.isNotBlank() }?.let { RcFontAxis(it, value) }
+    // A malformed tag fails when the face is instanced, or when Compose builds the setting, and
+    // takes the whole text down with it; the paint's FONT_AXIS path already drops one.
+    tag?.takeIf(::isFontAxisTag)?.let { RcFontAxis(it, value) }
   }
   return if (axes.isEmpty()) null else RcFontVariations(axes)
 }
@@ -5401,7 +5421,7 @@ private fun DrawScope.drawBitmap(
     drawImage(
       image = image,
       dstSize = IntSize(image.width, image.height),
-      alpha = paint.alpha,
+      alpha = paint.effectiveAlpha(),
       // AndroidX draws a bitmap with the whole paint (`AndroidPaintContext.drawBitmap`), so a
       // colour filter tints it: a text mask drawn in a host colour, say.
       colorFilter = paint.colorFilter,
@@ -5499,7 +5519,7 @@ private fun DrawScope.drawBitmapRegion(
     srcSize = IntSize(srcWidth, srcHeight),
     dstOffset = IntOffset(dstLeft, dstTop),
     dstSize = IntSize(dstWidth, dstHeight),
-    alpha = paint.alpha,
+    alpha = paint.effectiveAlpha(),
     colorFilter = paint.colorFilter,
     blendMode = paint.blendMode,
     filterQuality = paint.filterQuality,
@@ -5642,7 +5662,7 @@ private fun DrawScope.drawRcTextLayout(
       layout,
       brush = brush,
       topLeft = topLeft,
-      alpha = paint.alpha,
+      alpha = paint.effectiveAlpha(),
       drawStyle = paint.style(),
       blendMode = paint.blendMode,
     )
@@ -6239,7 +6259,7 @@ private fun DrawScope.drawRcPath(path: Path, paint: RcPaintState) {
     drawPath(
       path = path,
       brush = brush,
-      alpha = paint.alpha,
+      alpha = paint.effectiveAlpha(),
       style = paint.style(),
       colorFilter = paint.colorFilter,
       blendMode = paint.blendMode,
@@ -6352,7 +6372,7 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
           brush,
           topLeft,
           size,
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           style = paint.style(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,
@@ -6375,7 +6395,7 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
           brush,
           Offset(a, b),
           Size(c - a, d - b),
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           style = paint.style(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,
@@ -6401,7 +6421,7 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
           Offset(c, d),
           strokeWidth = paint.strokeWidth,
           cap = paint.strokeCap,
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,
         )
@@ -6435,7 +6455,7 @@ private fun DrawScope.draw3(operation: RcDraw3, paint: RcPaintState, state: RcPl
           brush,
           c,
           Offset(a, b),
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           style = paint.style(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,
@@ -6479,7 +6499,7 @@ private fun DrawScope.draw6(operation: RcDraw6, paint: RcPaintState, state: RcPl
           topLeft,
           size,
           cornerRadius,
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           style = paint.style(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,
@@ -6510,7 +6530,7 @@ private fun DrawScope.draw6(operation: RcDraw6, paint: RcPaintState, state: RcPl
           useCenter = useCenter,
           topLeft = Offset(a, b),
           size = Size(c - a, d - b),
-          alpha = paint.alpha,
+          alpha = paint.effectiveAlpha(),
           style = paint.style(),
           colorFilter = paint.colorFilter,
           blendMode = paint.blendMode,

@@ -27,8 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
-import ee.schimke.composeai.rcembedded.player.rawDimensionDp
-import ee.schimke.composeai.rcembedded.player.readDataReflection
+import ee.schimke.composeai.rcembedded.player.doc.rawDimensionDp
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 @Composable
@@ -38,18 +37,17 @@ internal fun Modifier.marquee(op: MarqueeModifierOperation): Modifier {
     // variable/expression (e.g. a dp recorded against the density variable), so resolve it before
     // scaling; remote-core scales it by density only under DP (rawDimensionDp). Velocity is not
     // density-scaled.
-    val data = op.readDataReflection()
     val density = LocalDensity.current.density
     val behavior = LocalCoreDocument.current.densityBehavior
-    val spacing = rememberRemoteFloatAsState(data.spacing).value
+    val spacing = rememberRemoteFloatAsState(op.spacing).value
     return this.basicMarquee(
-        iterations = if (data.iterations == -1) Int.MAX_VALUE else data.iterations,
+        iterations = if (op.iterations == -1) Int.MAX_VALUE else op.iterations,
         animationMode =
-            if (data.animationMode == 0) MarqueeAnimationMode.Immediately
+            if (op.animationMode == 0) MarqueeAnimationMode.Immediately
             else MarqueeAnimationMode.WhileFocused,
-        repeatDelayMillis = data.repeatDelayMillis.toInt(),
-        initialDelayMillis = data.initialDelayMillis.toInt(),
+        repeatDelayMillis = op.repeatDelayMillis.toInt(),
+        initialDelayMillis = op.initialDelayMillis.toInt(),
         spacing = MarqueeSpacing(rawDimensionDp(spacing, behavior, density)),
-        velocity = data.velocity.dp,
+        velocity = op.velocity.dp,
     )
 }

@@ -52,9 +52,7 @@ import androidx.compose.ui.util.fastMaxOfOrNull
 import ee.schimke.composeai.rcembedded.player.LocalAnimatedVisibilityScope
 import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
 import ee.schimke.composeai.rcembedded.player.LocalSharedTransitionScope
-import ee.schimke.composeai.rcembedded.player.RcPlayerComponent
-import ee.schimke.composeai.rcembedded.player.horizontalPositioningReflection
-import ee.schimke.composeai.rcembedded.player.verticalPositioningReflection
+import ee.schimke.composeai.rcembedded.player.components.RcPlayerComponent
 
 /**
  * Renders a [FitBoxLayout]: its children are *alternatives* and only the first one whose natural
@@ -87,8 +85,8 @@ internal fun RcPlayerFitBoxLayout(layout: FitBoxLayout, modifier: Modifier) {
     val easing = transitionConfig.easing
     val alignment =
         mapFitBoxAlignment(
-            layout.horizontalPositioningReflection,
-            layout.verticalPositioningReflection,
+            layout.horizontalPositioning,
+            layout.verticalPositioning,
         )
 
     SubcomposeLayout(modifier = modifier) { constraints ->

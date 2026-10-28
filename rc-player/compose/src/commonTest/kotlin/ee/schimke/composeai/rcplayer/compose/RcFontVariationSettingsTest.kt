@@ -37,6 +37,19 @@ class RcFontVariationSettingsTest {
   }
 
   @Test
+  fun aMalformedTagDropsItsAxisAndKeepsTheRest() {
+    // Not four printable ASCII characters: Compose's `FontVariation.Setting` rejects such a tag
+    // and the platform cannot instance a face with it.
+    val settings =
+      fontVariationSettings(
+        axisTags = listOf("weight", "wd", " wdt", "wd\u0000h", "GRAD"),
+        axisValues = listOf(700f, 25f, 25f, 25f, 50f),
+      )
+
+    assertEquals(listOf("GRAD" to 50f), settings.pairs())
+  }
+
+  @Test
   fun a_tag_without_a_value_is_dropped_rather_than_taking_the_next_one() {
     val settings =
       fontVariationSettings(axisTags = listOf("wght", "wdth"), axisValues = listOf(700f))

@@ -23,6 +23,10 @@ import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.operations.BitmapData
 import androidx.compose.remote.core.operations.layout.managers.BoxLayout
 import androidx.compose.remote.player.core.platform.AndroidRemoteContext
+import ee.schimke.composeai.rcembedded.player.doc.SnapshotRemoteComposeState
+import ee.schimke.composeai.rcembedded.player.doc.applyDataOperationsWithoutBitmaps
+import ee.schimke.composeai.rcembedded.player.doc.getOperationsList
+import ee.schimke.composeai.rcembedded.player.resources.resolveBitmap
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -66,7 +70,7 @@ class RcPlayerBitmapFailureTest {
         val bitmap = relativeUriBitmap()
         val boxLayout = BoxLayout(null, 1, 0, 0f, 0f, 100f, 100f, BoxLayout.START, BoxLayout.TOP)
         boxLayout.getList().add(bitmap)
-        document.getOperationsReflection().add(boxLayout)
+        document.getOperationsList().add(boxLayout)
 
         document.initializeContext(context, null)
         document.applyDataOperationsWithoutBitmaps(context)

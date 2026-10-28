@@ -21,7 +21,6 @@ package ee.schimke.composeai.rcembedded.player.modifier
 import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionInModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.WidthInModifierOperation
-import ee.schimke.composeai.rcembedded.player.dimensionInRawValues
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -32,7 +31,8 @@ class DimensionInRawValuesTest {
         val op = WidthInModifierOperation(12f, maxSource)
         setResolved(op, 24f, 0f)
 
-        val (min, max) = dimensionInRawValues(op)
+        val min = op.rawMin
+        val max = op.rawMax
 
         assertEquals(12f, min, 0f)
         assertEquals(42, Utils.idFromNan(max))

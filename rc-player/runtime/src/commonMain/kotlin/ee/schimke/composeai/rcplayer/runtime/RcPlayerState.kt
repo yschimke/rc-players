@@ -552,6 +552,12 @@ public class RcPlayerState(
       particleRuntime.beginFrame()
     }
 
+  /**
+   * Runs a `ParticlesCreate` the draw stream reached: it re-seeds the system's particles, as the
+   * View player's `ParticlesCreate.paint` does on every paint.
+   */
+  public fun seedParticles(operation: RcParticleDefine): Unit = particleRuntime.reseed(operation.id)
+
   /** Immutable particle values for deterministic conformance traces. */
   public fun particleSnapshot(id: Int): List<List<Float>> = particleRuntime.snapshot(id)
 
@@ -944,15 +950,35 @@ public class RcPlayerState(
   public fun applyImageAttribute(operation: RcImageAttribute) {
     val bitmap =
       requireNotNull(bitmaps[operation.imageId]) { "Missing bitmap ${operation.imageId}" }
+    val loaded = loadedImageSizes[operation.imageId]?.takeIf { bitmap.hasPlaceholderSize() }
     setFloat(
       operation.outId,
       when (operation.type) {
-        RcImageAttribute.IMAGE_WIDTH -> bitmap.width.toFloat()
-        RcImageAttribute.IMAGE_HEIGHT -> bitmap.height.toFloat()
+        RcImageAttribute.IMAGE_WIDTH -> (loaded?.ushr(32)?.toInt() ?: bitmap.width).toFloat()
+        RcImageAttribute.IMAGE_HEIGHT -> (loaded?.toInt() ?: bitmap.height).toFloat()
         else -> error("Unknown AndroidX image attribute ${operation.type}")
       },
     )
   }
+
+  private val loadedImageSizes = mutableMapOf<Int, Long>()
+
+  /**
+   * Records the decoded size of bitmap [imageId], once the renderer has it. A URL or file bitmap is
+   * declared with a placeholder size — 1 x 1, or 0 x 0 for any encoding — so until then
+   * `ImageAttribute` can only report the placeholder; afterwards it reports the image's own size,
+   * as AndroidX does once its loader updates the `BitmapData`.
+   */
+  public fun setLoadedImageSize(imageId: Int, width: Int, height: Int) {
+    loadedImageSizes[imageId] = (width.toLong() shl 32) or (height.toLong() and 0xffffffffL)
+  }
+
+  private fun RcBitmapData.hasPlaceholderSize(): Boolean =
+    width <= 0 ||
+      height <= 0 ||
+      (width == 1 &&
+        height == 1 &&
+        (encoding == RcBitmapData.ENCODING_URL || encoding == RcBitmapData.ENCODING_FILE))
 
   public fun applyColorAttribute(operation: RcColorAttribute) {
     val color = color(operation.colorId)

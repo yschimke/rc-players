@@ -24,18 +24,20 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.remote.core.operations.TouchExpression
-import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.modifiers.ScrollModifierOperation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.util.fastFirstOrNull
 import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
-import ee.schimke.composeai.rcembedded.player.scrollPosition
-import ee.schimke.composeai.rcembedded.player.touchStopMode
-import ee.schimke.composeai.rcembedded.player.touchStopSpec
+import ee.schimke.composeai.rcembedded.player.state.MaybeVariableFloat
 import kotlin.math.roundToInt
 
 /**
@@ -46,8 +48,8 @@ import kotlin.math.roundToInt
  */
 private fun evenNotchCount(op: ScrollModifierOperation): Int {
     val touch = op.list.fastFirstOrNull { it is TouchExpression } as? TouchExpression ?: return 0
-    if (touchStopMode(touch) != TouchExpression.STOP_NOTCHES_EVEN) return 0
-    val spec = touchStopSpec(touch) ?: return 0
+    if (touch.stopMode != TouchExpression.STOP_NOTCHES_EVEN) return 0
+    val spec = touch.stopSpec ?: return 0
     return spec.firstOrNull()?.toInt()?.coerceAtLeast(0) ?: 0
 }
 
@@ -67,8 +69,8 @@ internal fun Modifier.scroll(op: ScrollModifierOperation): Modifier {
     // directly.
     val positionId =
         remember(op) {
-            val raw = scrollPosition(op)
-            if (Utils.isVariable(raw)) Utils.idFromNan(raw) else -1
+            val raw = MaybeVariableFloat(op.positionExpression)
+            if (raw.isReference) raw.id else -1
         }
     if (positionId > 0) {
         LaunchedEffect(scrollState, positionId) {
@@ -99,9 +101,42 @@ internal fun Modifier.scroll(op: ScrollModifierOperation): Modifier {
             rememberSnapFlingBehavior(provider)
         } else null
 
-    return if (op.isVerticalScroll) {
-        this.verticalScroll(scrollState, flingBehavior = flingBehavior)
+    val isVertical = op.isVerticalScroll
+    // Keep leftover same-axis scroll and fling at the remote scroller's edge so a drag inside it
+    // does not scroll an enclosing host list. A scroller whose content already fits
+    // (maxValue == 0) has nothing to scroll and passes everything through, like any other
+    // non-scrolling content.
+    val consumeScrollOnAxis =
+        remember(isVertical, scrollState) {
+            object : NestedScrollConnection {
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource,
+                ): Offset =
+                    when {
+                        scrollState.maxValue <= 0 -> Offset.Zero
+                        isVertical -> Offset(0f, available.y)
+                        else -> Offset(available.x, 0f)
+                    }
+
+                override suspend fun onPostFling(
+                    consumed: Velocity,
+                    available: Velocity,
+                ): Velocity =
+                    when {
+                        scrollState.maxValue <= 0 -> Velocity.Zero
+                        isVertical -> Velocity(0f, available.y)
+                        else -> Velocity(available.x, 0f)
+                    }
+            }
+        }
+
+    return if (isVertical) {
+        this.nestedScroll(consumeScrollOnAxis)
+            .verticalScroll(scrollState, flingBehavior = flingBehavior)
     } else {
-        this.horizontalScroll(scrollState, flingBehavior = flingBehavior)
+        this.nestedScroll(consumeScrollOnAxis)
+            .horizontalScroll(scrollState, flingBehavior = flingBehavior)
     }
 }

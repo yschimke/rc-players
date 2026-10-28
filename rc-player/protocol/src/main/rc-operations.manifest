@@ -1,5 +1,7 @@
 # AndroidX remote-core 1.0.0-alpha18 Operations.java
 # opcode|constant|cluster|status|androidx class ("-" when AndroidX has no reader class)
+# 100, 104-106 (EVENT_ACTION and the 2D mesh ops) are constants new in 1.0.0-alpha22, registered only in
+# its experimental V7 reader set; they stay unavailable so the alpha18 profiles are unchanged.
 0|HEADER|0|implemented|Header
 2|COMPONENT_START|6|implemented|ComponentStart
 4|LOAD_BITMAP|4|unavailable|-
@@ -34,9 +36,13 @@
 81|ANIMATED_FLOAT|8|implemented|FloatExpression
 83|MODIFIER_MULTI_CLICK|6|implemented|MultiClickModifier
 93|LAYOUT_CUSTOM|6|implemented|Custom
+100|EVENT_ACTION|8|unavailable|-
 101|DATA_BITMAP|4|implemented|BitmapData
 102|DATA_TEXT|1|implemented|TextData
 103|ROOT_CONTENT_DESCRIPTION|1|implemented|RootContentDescription
+104|ADD_MESH_2D|1|unavailable|-
+105|DRAW_MESH_2D|1|unavailable|-
+106|MATRIX_FROM_MESH_2D|2|unavailable|-
 107|MODIFIER_BORDER|6|implemented|BorderModifierOperation
 108|MODIFIER_CLIP_RECT|6|implemented|ClipRectModifierOperation
 123|DATA_PATH|1|implemented|PathData

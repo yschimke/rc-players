@@ -20,23 +20,14 @@
 
 package ee.schimke.composeai.rcembedded.player
 
-import androidx.compose.animation.core.SpringSpec
-import androidx.compose.animation.core.spring
 import androidx.compose.remote.core.RemoteContext
-import androidx.compose.remote.core.operations.FloatExpression
-import androidx.compose.remote.core.operations.Utils
-import androidx.compose.remote.core.operations.layout.managers.CoreText
-import androidx.compose.remote.core.operations.layout.managers.TextLayout
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.constrainWidth
 import ee.schimke.composeai.rcembedded.GoogleFontFamilies
-import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 import kotlin.math.ceil
 import kotlin.math.floor
-import kotlin.math.sqrt
 
 /**
  * The document's font-variation axes as `(tag, value)` pairs, empty when it declares none.
@@ -66,91 +57,6 @@ private fun axisName(tag: Int, context: RemoteContext): String? =
         ?: CharArray(4) { index -> ((tag shr (24 - index * 8)) and 0xff).toChar() }
             .concatToString()
             .takeIf { name -> name.all { it in '!'..'~' } }
-
-/**
- * Match `AndroidPaintContext`'s `StaticLayout` result rather than Compose's stricter line cap.
- *
- * The AndroidX View player only makes `maxLines` truncate a paragraph when an ellipsis mode is
- * selected. Clip/visible paragraphs with more than one requested line keep laying out and are
- * bounded by the component's clip instead. A one-line request stays one line because `CoreText`
- * uses its unwrapped fast path for that case.
- */
-internal fun javaPlayerMaxLines(overflow: Int, maxLines: Int): Int =
-    if (
-        maxLines > 1 &&
-            (overflow == CoreText.OVERFLOW_CLIP || overflow == CoreText.OVERFLOW_VISIBLE)
-    ) {
-        Int.MAX_VALUE
-    } else {
-        maxLines
-    }
-
-/**
- * A spring-animated float, as `remote-creation-compose`'s `RemoteSpringSpec` encodes it: `[0,
- * stiffness, dampingCoefficient, stopThreshold, boundaryMode]`, with `dampingCoefficient` the
- * unit-mass `2 * dampingRatio * sqrt(stiffness)`. `FloatExpression` routes the same shape to
- * `SpringStopEngine`.
- */
-internal class RemoteSpring(
-    val stiffness: Float,
-    val dampingCoefficient: Float,
-    val stopThreshold: Float,
-) {
-    /** The Compose spring with the same motion, converting the coefficient back to a ratio. */
-    fun toAnimationSpec(): SpringSpec<Float> =
-        spring(
-            dampingRatio = dampingCoefficient / (2f * sqrt(stiffness)),
-            stiffness = stiffness,
-            visibilityThreshold = stopThreshold,
-        )
-}
-
-/** The spring [animation] encodes, or null for a tween; the same test `FloatExpression` applies. */
-internal fun remoteSpringOrNull(animation: FloatArray?): RemoteSpring? =
-    if (animation != null && animation.size > 4 && animation[0] == 0f) {
-        RemoteSpring(
-            stiffness = animation[1],
-            dampingCoefficient = animation[2],
-            stopThreshold = animation[3],
-        )
-    } else {
-        null
-    }
-
-/**
- * Whether this expression animates: a tween (`mFloatAnimation`) or a spring. Upstream tests
- * `mFloatAnimation != null` alone, which the core leaves null for a spring (it builds `mSpring`
- * instead), so a spring-animated value was evaluated as a plain expression.
- */
-internal val FloatExpression.isAnimatedExpression: Boolean
-    get() = mFloatAnimation != null || remoteSpringOrNull(mSrcAnimation) != null
-
-private val coreTextRawFontSizeField =
-    CoreText::class.java.getDeclaredField("mFontSize").apply { isAccessible = true }
-private val textLayoutRawFontSizeField =
-    TextLayout::class.java.getDeclaredField("mFontSize").apply { isAccessible = true }
-
-/** The font size as the document wrote it: a literal, or a NaN-boxed id. */
-internal val CoreText.rawFontSize: Float
-    get() = coreTextRawFontSizeField.getFloat(this)
-
-/** The font size as the document wrote it: a literal, or a NaN-boxed id. */
-internal val TextLayout.rawFontSize: Float
-    get() = textLayoutRawFontSizeField.getFloat(this)
-
-/**
- * The font size to draw at, resolving one the document deferred to the host by id.
- *
- * A `RemoteDensity.Host` capture writes a text's size as an expression over the player's `DENSITY`
- * and `FONT_SIZE` variables. The core resolves it into `mFontSizeValue` in `updateVariables`, but
- * its constructor seeds that field with the same NaN-boxed word, and the text composables read it
- * once, at composition — so the text was laid out at `NaN.sp` and drew nothing. [resolved] is still
- * used for a literal: it carries the core's `DENSITY_BEHAVIOR_DP` scaling, which a deferred size
- * has already applied through `DENSITY`.
- */
-@Composable
-internal fun rememberTextFontSize(raw: Float, resolved: Float): Float =
-    if (Utils.isVariable(raw)) rememberRemoteFloatAsState(raw).value else resolved
 
 /** The latest layout of one `CoreText`'s paragraph, written by `BasicText` during its measure. */
 internal class CoreTextLines {

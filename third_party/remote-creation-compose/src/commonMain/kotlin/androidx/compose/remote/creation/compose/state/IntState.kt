@@ -208,7 +208,7 @@ internal constructor(
      * converted to a float. Otherwise, a [RemoteFloatExpression] is created that references the
      * remote float ID of this integer.
      *
-     * @return A [RemoteFloatExpression] representing this integer as a float.
+     * @return A [RemoteFloat] representing this integer as a float.
      */
     public fun toRemoteFloat(): RemoteFloat {
         constantValueOrNull?.let {
@@ -405,6 +405,12 @@ internal constructor(
         get() = unaryOp(OperationKey.Abs, OP_ABS) { v -> abs(v) }
 
     public companion object {
+        /**
+         * Creates a [RemoteInt] from a literal constant [Int] value.
+         *
+         * @param value The constant [Int] value.
+         * @return A [RemoteInt] representing the constant integer.
+         */
         public operator fun invoke(value: Int): RemoteInt {
             return RemoteIntExpression(
                 value,
@@ -485,7 +491,7 @@ internal constructor(
          * Creates a named [RemoteInt] with an initial value. Named remote ints can be set via
          * AndroidRemoteContext.setNamedInt.
          *
-         * @param name The unique name for this remote long.
+         * @param name The unique name for this remote int.
          * @param defaultValue The initial [Int] value for the named remote int.
          * @param domain The domain of the named integer (defaults to [RemoteState.Domain.User]).
          * @return A [RemoteInt] representing the named int.
@@ -505,8 +511,9 @@ internal constructor(
     }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if [other] is equal to the value of this
-     * [RemoteInt] or `false` otherwise.
+     * Returns a [RemoteBoolean] that evaluates to `true` if [other] is equal to this [RemoteInt].
+     *
+     * @param other The [RemoteInt] to compare with.
      */
     public fun isEqualTo(other: RemoteInt): RemoteBoolean =
         comparisonOp(
@@ -520,8 +527,10 @@ internal constructor(
         }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if [other] is not equal to the value of
-     * this [RemoteInt] or `false` otherwise.
+     * Returns a [RemoteBoolean] that evaluates to `true` if [other] is not equal to this
+     * [RemoteInt].
+     *
+     * @param other The [RemoteInt] to compare with.
      */
     public fun isNotEqualTo(other: RemoteInt): RemoteBoolean =
         comparisonOp(
@@ -535,8 +544,9 @@ internal constructor(
         }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if [other] is less than the value of this
-     * [RemoteInt] or `false` otherwise.
+     * Returns a [RemoteBoolean] that evaluates to `true` if this [RemoteInt] is less than [other].
+     *
+     * @param other The [RemoteInt] to compare with.
      */
     public fun isLessThan(other: RemoteInt): RemoteBoolean =
         comparisonOp(
@@ -550,8 +560,10 @@ internal constructor(
         }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if [other] is less than or equal to the
-     * value of this [RemoteInt] or `false` otherwise.
+     * Returns a [RemoteBoolean] that evaluates to `true` if this [RemoteInt] is less than or equal
+     * to [other].
+     *
+     * @param other The [RemoteInt] to compare with.
      */
     public fun isLessThanOrEqualTo(other: RemoteInt): RemoteBoolean =
         comparisonOp(
@@ -565,8 +577,10 @@ internal constructor(
         }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if [other] is greater than the value of
-     * this [RemoteInt] or `false` otherwise.
+     * Returns a [RemoteBoolean] that evaluates to `true` if this [RemoteInt] is greater than
+     * [other].
+     *
+     * @param other The [RemoteInt] to compare with.
      */
     public fun isGreaterThan(other: RemoteInt): RemoteBoolean =
         comparisonOp(
@@ -580,8 +594,10 @@ internal constructor(
         }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if [other] is greater than or equal to the
-     * value of this [RemoteInt] or `false` otherwise.
+     * Returns a [RemoteBoolean] that evaluates to `true` if this [RemoteInt] is greater than or
+     * equal to [other].
+     *
+     * @param other The [RemoteInt] to compare with.
      */
     public fun isGreaterThanOrEqualTo(other: RemoteInt): RemoteBoolean =
         comparisonOp(
@@ -1202,7 +1218,7 @@ public fun selectIfGe(
  * An implementation of [RemoteInt] that represents an integer expression.
  *
  * @param arrayProvider A lambda that provides the [LongArray] representing the expression.
- * @property hasConstantValue Indicates if this expression will always yield the same value.
+ * @property constantValueOrNull The constant [Int] value, or `null` if this expression is dynamic.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public open class RemoteIntExpression
@@ -1363,6 +1379,14 @@ internal class RemoteIntSelect(
  * @param initialValue The initial [Int] value.
  * @return A [MutableRemoteInt] instance that will be remembered across recompositions.
  */
+@Deprecated(
+    message = "Use remember { MutableRemoteInt(initialValue) } instead.",
+    replaceWith =
+        ReplaceWith(
+            "remember { MutableRemoteInt(initialValue) }",
+            "androidx.compose.runtime.remember",
+        ),
+)
 @Composable
 @RemoteComposable
 public fun rememberMutableRemoteInt(initialValue: Int): MutableRemoteInt {

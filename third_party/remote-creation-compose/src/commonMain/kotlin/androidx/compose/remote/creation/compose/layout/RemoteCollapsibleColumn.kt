@@ -27,8 +27,6 @@ import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 
 /** Scope for the children of [RemoteCollapsibleColumn]. */
 @LayoutScopeMarker
@@ -67,7 +65,6 @@ public class RemoteCollapsibleColumnScope {
 internal class RemoteCollapsibleColumnNode : RemoteComposeNode() {
     var verticalArrangement: RemoteArrangement.Vertical = RemoteArrangement.Top
     var horizontalAlignment: RemoteAlignment.Horizontal = RemoteAlignment.Start
-    var layoutDirection: LayoutDirection = LayoutDirection.Ltr
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
         val scope = overriddenScope(creationState)
@@ -114,7 +111,6 @@ public fun RemoteCollapsibleColumn(
     content: @Composable RemoteCollapsibleColumnScope.() -> Unit,
 ) {
     val scope = remember { RemoteCollapsibleColumnScope() }
-    val layoutDirection = LocalLayoutDirection.current
     RemoteComposeNode(
         factory = ::RemoteCollapsibleColumnNode,
         update = {
@@ -124,9 +120,6 @@ public fun RemoteCollapsibleColumn(
             }
             set(verticalArrangement) { nodeVerticalArrangement ->
                 this.verticalArrangement = nodeVerticalArrangement
-            }
-            set(layoutDirection) { nodeLayoutDirection ->
-                this.layoutDirection = nodeLayoutDirection
             }
         },
         content = { scope.content() },

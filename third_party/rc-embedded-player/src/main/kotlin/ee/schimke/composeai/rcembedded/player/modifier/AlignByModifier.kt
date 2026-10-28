@@ -19,17 +19,16 @@
 package ee.schimke.composeai.rcembedded.player.modifier
 
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.modifiers.AlignByModifierOperation
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import ee.schimke.composeai.rcembedded.player.lineReflection
+import ee.schimke.composeai.rcembedded.player.state.MaybeVariableFloat
 
 @Composable
 internal fun Modifier.alignBy(op: AlignByModifierOperation, rowScope: RowScope? = null): Modifier {
-    val line = op.lineReflection
-    return if (Utils.isVariable(line)) {
-        when (Utils.idFromNan(line)) {
+    val line = MaybeVariableFloat(op.line)
+    return if (line.isReference) {
+        when (line.id) {
             AlignByModifierOperation.ID_FIRST_BASELINE -> with(rowScope!!) { alignByBaseline() }
             AlignByModifierOperation.ID_LAST_BASELINE -> with(rowScope!!) { alignByBaseline() }
             else -> this

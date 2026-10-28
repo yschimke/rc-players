@@ -20,7 +20,7 @@ package androidx.compose.remote.creation.compose.state
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.Utils
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
-import androidx.compose.ui.util.fastMap
+import androidx.compose.remote.creation.compose.util.fastMap
 
 /** Represents an array of remote integers. */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)

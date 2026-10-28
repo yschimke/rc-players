@@ -36,7 +36,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
-import ee.schimke.composeai.rcembedded.player.readDataReflection
+import ee.schimke.composeai.rcembedded.player.doc.rawDimensionPx
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 import kotlin.math.min
 
@@ -51,14 +51,13 @@ internal fun Modifier.roundedClipRect(
     hoistBeforeDraw: Boolean = false,
 ): Modifier {
     val behavior = LocalCoreDocument.current.densityBehavior
-    val data = op.readDataReflection()
 
     val shape =
         RemoteRoundedClipShape(
-            topStart = rememberRemoteFloatAsState(data.x1Value),
-            topEnd = rememberRemoteFloatAsState(data.y1Value),
-            bottomEnd = rememberRemoteFloatAsState(data.y2Value),
-            bottomStart = rememberRemoteFloatAsState(data.x2Value),
+            topStart = rememberRemoteFloatAsState(op.x1Value),
+            topEnd = rememberRemoteFloatAsState(op.y1Value),
+            bottomEnd = rememberRemoteFloatAsState(op.y2Value),
+            bottomStart = rememberRemoteFloatAsState(op.x2Value),
             densityBehavior = behavior,
         )
     // When draw content has already been processed in the modifier list (hoistBeforeDraw == true),
@@ -136,11 +135,7 @@ internal fun State<Float>.resolveRadius(
     densityBehavior: Int,
 ): Float {
     val v = value
-    return when {
-        !v.isFinite() -> fallback
-        // Under DENSITY_BEHAVIOR_DP, both literal and variable-backed corner radii represent DP
-        // values and must be scaled by density to match remote-core behavior.
-        densityBehavior == CoreDocument.DENSITY_BEHAVIOR_DP -> v * density
-        else -> v
-    }
+    // Under DENSITY_BEHAVIOR_DP, both literal and variable-backed corner radii represent DP
+    // values and must be scaled by density to match remote-core behavior.
+    return if (!v.isFinite()) fallback else rawDimensionPx(v, densityBehavior, density)
 }

@@ -27,12 +27,13 @@ import androidx.compose.remote.creation.compose.shapes.RemoteRectangleShape
 import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
 import androidx.compose.remote.creation.compose.shapes.RemoteShape
 import androidx.compose.remote.creation.compose.shapes.toDimension
+import androidx.compose.remote.creation.compose.state.RemoteCompositingStrategy
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
+import androidx.compose.remote.creation.compose.state.RemoteTileMode
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.layer.CompositingStrategy
 import androidx.compose.ui.graphics.layer.CompositingStrategy.Companion.Auto
 import androidx.compose.ui.graphics.layer.CompositingStrategy.Companion.ModulateAlpha
@@ -51,7 +52,7 @@ public class GraphicsLayerModifier(
     public val translationX: RemoteFloat,
     public val translationY: RemoteFloat,
     public val shape: RemoteShape = RemoteRectangleShape,
-    public val compositingStrategy: Int,
+    public val compositingStrategy: RemoteCompositingStrategy = RemoteCompositingStrategy.Auto,
     public val alpha: RemoteFloat,
     public val cameraDistance: RemoteFloat,
     public val renderEffect: RenderEffect?,
@@ -79,7 +80,7 @@ public class GraphicsLayerModifier(
         float(Layer.SHADOW_ELEVATION, shadowElevation, 0f)
         float(Layer.ALPHA, alpha, 1f)
         float(Layer.CAMERA_DISTANCE, cameraDistance, 8f)
-        int(Layer.COMPOSITING_STRATEGY, compositingStrategy, 0)
+        int(Layer.COMPOSITING_STRATEGY, compositingStrategy.value, 0)
         if (renderEffect is BlurEffect) {
             attributes +=
                 RemoteLayerAttribute.FloatValue(
@@ -93,10 +94,10 @@ public class GraphicsLayerModifier(
                 )
             val tileMode =
                 when (renderEffect.edgeTreatment) {
-                    TileMode.Clamp -> Layer.TILE_MODE_CLAMP
-                    TileMode.Repeated -> Layer.TILE_MODE_REPEATED
-                    TileMode.Mirror -> Layer.TILE_MODE_MIRROR
-                    TileMode.Decal -> Layer.TILE_MODE_DECAL
+                    RemoteTileMode.Clamp -> Layer.TILE_MODE_CLAMP
+                    RemoteTileMode.Repeated -> Layer.TILE_MODE_REPEATED
+                    RemoteTileMode.Mirror -> Layer.TILE_MODE_MIRROR
+                    RemoteTileMode.Decal -> Layer.TILE_MODE_DECAL
                     else -> Layer.TILE_MODE_CLAMP
                 }
             attributes +=
@@ -183,38 +184,29 @@ public fun RemoteModifier.graphicsLayer(
     translationY: RemoteFloat = 0f.rf,
     alpha: RemoteFloat = 1f.rf,
     shape: RemoteShape,
-    compositingStrategy: CompositingStrategy = Auto,
+    compositingStrategy: RemoteCompositingStrategy = RemoteCompositingStrategy.Auto,
     cameraDistance: RemoteFloat = 8f.rf, // Default Value for Camera Distance
     renderEffect: RenderEffect? = null,
-): RemoteModifier {
-
-    val cS =
-        when (compositingStrategy) {
-            Auto -> 0
-            Offscreen -> 1
-            ModulateAlpha -> 2
-            else -> 0
-        }
-    return then(
+): RemoteModifier =
+    then(
         GraphicsLayerModifier(
-            scaleX,
-            scaleY,
-            rotationX,
-            rotationY,
-            rotationZ,
-            shadowElevation,
-            transformOriginX,
-            transformOriginY,
-            translationX,
-            translationY,
-            shape,
-            cS,
-            alpha,
-            cameraDistance,
-            renderEffect,
+            scaleX = scaleX,
+            scaleY = scaleY,
+            rotationX = rotationX,
+            rotationY = rotationY,
+            rotationZ = rotationZ,
+            shadowElevation = shadowElevation,
+            transformOriginX = transformOriginX,
+            transformOriginY = transformOriginY,
+            translationX = translationX,
+            translationY = translationY,
+            shape = shape,
+            compositingStrategy = compositingStrategy,
+            alpha = alpha,
+            cameraDistance = cameraDistance,
+            renderEffect = renderEffect,
         )
     )
-}
 
 /**
  * Applies a graphics layer modifier to the [RemoteModifier].
@@ -271,7 +263,7 @@ public fun RemoteModifier.graphicsLayer(
         translationY = translationY,
         alpha = alpha,
         shape = shape.toRemoteShape(),
-        compositingStrategy = compositingStrategy,
+        compositingStrategy = compositingStrategy.toRemoteCompositingStrategy(),
         cameraDistance = cameraDistance,
         renderEffect = renderEffect,
     )
@@ -360,13 +352,6 @@ internal class GraphicsLayerScopeImpl : GraphicsLayerScope {
  */
 public fun RemoteModifier.graphicsLayer(block: GraphicsLayerScope.() -> Unit): RemoteModifier {
     val scope = GraphicsLayerScopeImpl().apply(block)
-    val cS =
-        when (scope.compositingStrategy) {
-            Auto -> 0
-            Offscreen -> 1
-            ModulateAlpha -> 2
-            else -> 0
-        }
     return then(
         GraphicsLayerModifier(
             scaleX = scope.scaleX,
@@ -380,7 +365,7 @@ public fun RemoteModifier.graphicsLayer(block: GraphicsLayerScope.() -> Unit): R
             translationX = scope.translationX,
             translationY = scope.translationY,
             shape = scope.shape.toRemoteShape(),
-            compositingStrategy = cS,
+            compositingStrategy = scope.compositingStrategy.toRemoteCompositingStrategy(),
             alpha = scope.alpha,
             cameraDistance = scope.cameraDistance,
             renderEffect = scope.renderEffect,
@@ -394,6 +379,14 @@ internal fun Shape.toRemoteShape(): RemoteShape =
         is RoundedCornerShape -> RemoteRoundedCornerShape(40f.rf)
         RectangleShape -> RemoteRectangleShape
         else -> RemoteRectangleShape
+    }
+
+private fun CompositingStrategy.toRemoteCompositingStrategy(): RemoteCompositingStrategy =
+    when (this) {
+        Auto -> RemoteCompositingStrategy.Auto
+        Offscreen -> RemoteCompositingStrategy.Offscreen
+        ModulateAlpha -> RemoteCompositingStrategy.ModulateAlpha
+        else -> RemoteCompositingStrategy.Auto
     }
 
 private object Layer {

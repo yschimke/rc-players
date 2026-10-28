@@ -27,6 +27,10 @@ import androidx.compose.remote.core.operations.paint.PaintBundle
 import androidx.compose.remote.player.core.platform.AndroidRemoteContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import ee.schimke.composeai.rcembedded.player.draw.ComposeLocalPaint
+import ee.schimke.composeai.rcembedded.player.draw.derefId
+import ee.schimke.composeai.rcembedded.player.draw.resolveFloat
+import ee.schimke.composeai.rcembedded.player.draw.updatePaintFromBundle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -75,19 +79,16 @@ class RcPlayerPaintTest {
     fun circleAndOvalCoordinatesResolve() {
         val context = AndroidRemoteContext(RemoteClock.SYSTEM)
         (101..107).forEach { context.loadFloat(it, it.toFloat()) }
-        val circle =
-            DrawCircle(Utils.asNan(101), Utils.asNan(102), Utils.asNan(103)).readDataReflection()
-        val oval =
-            DrawOval(Utils.asNan(104), Utils.asNan(105), Utils.asNan(106), Utils.asNan(107))
-                .readDataReflection()
+        val circle = DrawCircle(Utils.asNan(101), Utils.asNan(102), Utils.asNan(103))
+        val oval = DrawOval(Utils.asNan(104), Utils.asNan(105), Utils.asNan(106), Utils.asNan(107))
 
         assertEquals(101f, resolveFloat(circle.value1, circle.v1, context))
         assertEquals(102f, resolveFloat(circle.value2, circle.v2, context))
         assertEquals(103f, resolveFloat(circle.value3, circle.v3, context))
-        assertEquals(104f, resolveFloat(oval.x1Value, oval.x1, context))
-        assertEquals(105f, resolveFloat(oval.y1Value, oval.y1, context))
-        assertEquals(106f, resolveFloat(oval.x2Value, oval.x2, context))
-        assertEquals(107f, resolveFloat(oval.y2Value, oval.y2, context))
+        assertEquals(104f, resolveFloat(oval.x1Value, oval.rawX1, context))
+        assertEquals(105f, resolveFloat(oval.y1Value, oval.rawY1, context))
+        assertEquals(106f, resolveFloat(oval.x2Value, oval.rawX2, context))
+        assertEquals(107f, resolveFloat(oval.y2Value, oval.rawY2, context))
     }
 
     @Test
@@ -95,10 +96,10 @@ class RcPlayerPaintTest {
         val context = AndroidRemoteContext(RemoteClock.SYSTEM)
         context.mRemoteComposeState.updateInteger(201, 301)
         val encoded = (201 and PaintOperation.VALUE_MASK) or PaintOperation.PTR_DEREFERENCE
-        val drawPath = DrawPath(encoded).readDataReflection()
-        val clipPath = ClipPath(encoded, ClipPath.PATH_CLIP_INTERSECT).readData()
+        val drawPath = DrawPath(encoded)
+        val clipPath = ClipPath(encoded, ClipPath.PATH_CLIP_INTERSECT)
 
-        assertEquals(301, derefId(drawPath.id, context))
+        assertEquals(301, derefId(drawPath.pathId, context))
         assertEquals(301, derefId(clipPath.id, context))
     }
 }

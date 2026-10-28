@@ -16,117 +16,223 @@
 
 package androidx.compose.remote.creation.compose.layout
 
-import androidx.compose.remote.creation.common.ImageScaling
-import androidx.compose.remote.creation.common.PaintBundle
-import androidx.compose.remote.creation.common.TextLayout
+import androidx.compose.remote.creation.compose.state.RemoteBlendMode
+import androidx.compose.remote.creation.compose.state.RemotePaintingStyle
+import androidx.compose.remote.creation.compose.state.RemotePathFillType
+import androidx.compose.remote.creation.compose.state.RemoteStrokeCap
+import androidx.compose.remote.creation.compose.state.RemoteStrokeJoin
+import androidx.compose.remote.creation.compose.state.RemoteTileMode
+import androidx.compose.remote.creation.compose.text.RemoteFontStyle
+import androidx.compose.remote.creation.compose.text.RemoteFontWeight
+import androidx.compose.remote.creation.compose.text.RemoteHyphens
+import androidx.compose.remote.creation.compose.text.RemoteLineBreak
+import androidx.compose.remote.creation.compose.text.RemoteTextAlign
+import androidx.compose.remote.creation.compose.text.RemoteTextDecoration
+import androidx.compose.remote.creation.compose.text.RemoteTextOverflow
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.PaintingStyle
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 
-/** Converts [ContentScale] to [ImageScaling]. */
-internal fun ContentScale.toImageScalingInt(): Int {
-    return when (this) {
-        ContentScale.Fit -> ImageScaling.SCALE_FIT
-        ContentScale.Crop -> ImageScaling.SCALE_CROP
-        ContentScale.None -> ImageScaling.SCALE_NONE
-        ContentScale.Inside -> ImageScaling.SCALE_INSIDE
-        ContentScale.FillWidth -> ImageScaling.SCALE_FILL_WIDTH
-        ContentScale.FillHeight -> ImageScaling.SCALE_FILL_HEIGHT
-        ContentScale.FillBounds -> ImageScaling.SCALE_FILL_BOUNDS
-        else -> ImageScaling.SCALE_NONE
-    }
-}
-
-internal fun TextOverflow.encode(): Int =
+internal fun TextOverflow.toRemoteTextOverflow(): RemoteTextOverflow =
     when (this) {
-        TextOverflow.Clip -> TextLayout.OVERFLOW_CLIP
-        TextOverflow.Visible -> TextLayout.OVERFLOW_VISIBLE
-        TextOverflow.Ellipsis -> TextLayout.OVERFLOW_ELLIPSIS
-        TextOverflow.StartEllipsis -> TextLayout.OVERFLOW_START_ELLIPSIS
-        TextOverflow.MiddleEllipsis -> TextLayout.OVERFLOW_MIDDLE_ELLIPSIS
-        else -> -1
+        TextOverflow.Clip -> RemoteTextOverflow.Clip
+        TextOverflow.Visible -> RemoteTextOverflow.Visible
+        TextOverflow.Ellipsis -> RemoteTextOverflow.Ellipsis
+        TextOverflow.StartEllipsis -> RemoteTextOverflow.StartEllipsis
+        TextOverflow.MiddleEllipsis -> RemoteTextOverflow.MiddleEllipsis
+        else -> RemoteTextOverflow.Clip
     }
 
-internal fun TextAlign.encode(): Int =
+internal fun TextAlign.toRemoteTextAlign(): RemoteTextAlign =
     when (this) {
-        TextAlign.Left -> TextLayout.TEXT_ALIGN_LEFT
-        TextAlign.Right -> TextLayout.TEXT_ALIGN_RIGHT
-        TextAlign.Center -> TextLayout.TEXT_ALIGN_CENTER
-        TextAlign.Justify -> TextLayout.TEXT_ALIGN_JUSTIFY
-        TextAlign.Start -> TextLayout.TEXT_ALIGN_START
-        TextAlign.End -> TextLayout.TEXT_ALIGN_END
-        TextAlign.Unspecified -> TextLayout.TEXT_ALIGN_LEFT
-        else -> -1
+        TextAlign.Left,
+        TextAlign.Unspecified -> RemoteTextAlign.Left
+        TextAlign.Right -> RemoteTextAlign.Right
+        TextAlign.Center -> RemoteTextAlign.Center
+        TextAlign.Justify -> RemoteTextAlign.Justify
+        TextAlign.Start -> RemoteTextAlign.Start
+        TextAlign.End -> RemoteTextAlign.End
+        else -> RemoteTextAlign.Left
     }
 
-internal fun FontStyle.encode(): Int =
+internal fun BlendMode.toRemoteBlendMode(): RemoteBlendMode =
     when (this) {
-        FontStyle.Normal -> 0
-        FontStyle.Italic -> 1
-        else -> -1
+        BlendMode.Clear -> RemoteBlendMode.Clear
+        BlendMode.Src -> RemoteBlendMode.Src
+        BlendMode.Dst -> RemoteBlendMode.Dst
+        BlendMode.SrcOver -> RemoteBlendMode.SrcOver
+        BlendMode.DstOver -> RemoteBlendMode.DstOver
+        BlendMode.SrcIn -> RemoteBlendMode.SrcIn
+        BlendMode.DstIn -> RemoteBlendMode.DstIn
+        BlendMode.SrcOut -> RemoteBlendMode.SrcOut
+        BlendMode.DstOut -> RemoteBlendMode.DstOut
+        BlendMode.SrcAtop -> RemoteBlendMode.SrcAtop
+        BlendMode.DstAtop -> RemoteBlendMode.DstAtop
+        BlendMode.Xor -> RemoteBlendMode.Xor
+        BlendMode.Plus -> RemoteBlendMode.Plus
+        BlendMode.Modulate -> RemoteBlendMode.Modulate
+        BlendMode.Screen -> RemoteBlendMode.Screen
+        BlendMode.Overlay -> RemoteBlendMode.Overlay
+        BlendMode.Darken -> RemoteBlendMode.Darken
+        BlendMode.Lighten -> RemoteBlendMode.Lighten
+        BlendMode.ColorDodge -> RemoteBlendMode.ColorDodge
+        BlendMode.ColorBurn -> RemoteBlendMode.ColorBurn
+        BlendMode.Hardlight -> RemoteBlendMode.Hardlight
+        BlendMode.Softlight -> RemoteBlendMode.Softlight
+        BlendMode.Difference -> RemoteBlendMode.Difference
+        BlendMode.Exclusion -> RemoteBlendMode.Exclusion
+        BlendMode.Multiply -> RemoteBlendMode.Multiply
+        BlendMode.Hue -> RemoteBlendMode.Hue
+        BlendMode.Saturation -> RemoteBlendMode.Saturation
+        BlendMode.Color -> RemoteBlendMode.Color
+        BlendMode.Luminosity -> RemoteBlendMode.Luminosity
+        else -> RemoteBlendMode.SrcOver
     }
 
-internal fun BlendMode.toInt(): Int {
-    return when (this) {
-        BlendMode.Clear -> PaintBundle.BLEND_MODE_CLEAR
-        BlendMode.Src -> PaintBundle.BLEND_MODE_SRC
-        BlendMode.Dst -> PaintBundle.BLEND_MODE_DST
-        BlendMode.SrcOver -> PaintBundle.BLEND_MODE_SRC_OVER
-        BlendMode.DstOver -> PaintBundle.BLEND_MODE_DST_OVER
-        BlendMode.SrcIn -> PaintBundle.BLEND_MODE_SRC_IN
-        BlendMode.DstIn -> PaintBundle.BLEND_MODE_DST_IN
-        BlendMode.SrcOut -> PaintBundle.BLEND_MODE_SRC_OUT
-        BlendMode.DstOut -> PaintBundle.BLEND_MODE_DST_OUT
-        BlendMode.SrcAtop -> PaintBundle.BLEND_MODE_SRC_ATOP
-        BlendMode.DstAtop -> PaintBundle.BLEND_MODE_DST_ATOP
-        BlendMode.Xor -> PaintBundle.BLEND_MODE_XOR
-        BlendMode.Plus -> PaintBundle.BLEND_MODE_PLUS
-        BlendMode.Modulate -> PaintBundle.BLEND_MODE_MODULATE
-        BlendMode.Screen -> PaintBundle.BLEND_MODE_SCREEN
-        BlendMode.Overlay -> PaintBundle.BLEND_MODE_OVERLAY
-        BlendMode.Darken -> PaintBundle.BLEND_MODE_DARKEN
-        BlendMode.Lighten -> PaintBundle.BLEND_MODE_LIGHTEN
-        BlendMode.ColorDodge -> PaintBundle.BLEND_MODE_COLOR_DODGE
-        BlendMode.ColorBurn -> PaintBundle.BLEND_MODE_COLOR_BURN
-        BlendMode.Hardlight -> PaintBundle.BLEND_MODE_HARD_LIGHT
-        BlendMode.Softlight -> PaintBundle.BLEND_MODE_SOFT_LIGHT
-        BlendMode.Difference -> PaintBundle.BLEND_MODE_DIFFERENCE
-        BlendMode.Exclusion -> PaintBundle.BLEND_MODE_EXCLUSION
-        BlendMode.Multiply -> PaintBundle.BLEND_MODE_MULTIPLY
-        BlendMode.Hue -> PaintBundle.BLEND_MODE_HUE
-        BlendMode.Saturation -> PaintBundle.BLEND_MODE_SATURATION
-        BlendMode.Color -> PaintBundle.BLEND_MODE_COLOR
-        BlendMode.Luminosity -> PaintBundle.BLEND_MODE_LUMINOSITY
-        else -> PaintBundle.BLEND_MODE_SRC_OVER
-    }
-}
-
-internal fun LineBreak.encode(): Int =
+internal fun RemoteBlendMode.toComposeBlendMode(): BlendMode =
     when (this) {
-        LineBreak.Simple -> 0
-        LineBreak.Paragraph -> 1
-        LineBreak.Heading -> 2
-        else -> 0
+        RemoteBlendMode.Clear -> BlendMode.Clear
+        RemoteBlendMode.Src -> BlendMode.Src
+        RemoteBlendMode.Dst -> BlendMode.Dst
+        RemoteBlendMode.SrcOver -> BlendMode.SrcOver
+        RemoteBlendMode.DstOver -> BlendMode.DstOver
+        RemoteBlendMode.SrcIn -> BlendMode.SrcIn
+        RemoteBlendMode.DstIn -> BlendMode.DstIn
+        RemoteBlendMode.SrcOut -> BlendMode.SrcOut
+        RemoteBlendMode.DstOut -> BlendMode.DstOut
+        RemoteBlendMode.SrcAtop -> BlendMode.SrcAtop
+        RemoteBlendMode.DstAtop -> BlendMode.DstAtop
+        RemoteBlendMode.Xor -> BlendMode.Xor
+        RemoteBlendMode.Plus -> BlendMode.Plus
+        RemoteBlendMode.Modulate -> BlendMode.Modulate
+        RemoteBlendMode.Screen -> BlendMode.Screen
+        RemoteBlendMode.Overlay -> BlendMode.Overlay
+        RemoteBlendMode.Darken -> BlendMode.Darken
+        RemoteBlendMode.Lighten -> BlendMode.Lighten
+        RemoteBlendMode.ColorDodge -> BlendMode.ColorDodge
+        RemoteBlendMode.ColorBurn -> BlendMode.ColorBurn
+        RemoteBlendMode.Hardlight -> BlendMode.Hardlight
+        RemoteBlendMode.Softlight -> BlendMode.Softlight
+        RemoteBlendMode.Difference -> BlendMode.Difference
+        RemoteBlendMode.Exclusion -> BlendMode.Exclusion
+        RemoteBlendMode.Multiply -> BlendMode.Multiply
+        RemoteBlendMode.Hue -> BlendMode.Hue
+        RemoteBlendMode.Saturation -> BlendMode.Saturation
+        RemoteBlendMode.Color -> BlendMode.Color
+        RemoteBlendMode.Luminosity -> BlendMode.Luminosity
+        else -> BlendMode.SrcOver
     }
 
-internal fun Hyphens.encode(): Int =
+internal fun StrokeCap.toRemoteStrokeCap(): RemoteStrokeCap =
     when (this) {
-        Hyphens.Auto -> 2 // Layout.HYPHENATION_FREQUENCY_FULL
+        StrokeCap.Butt -> RemoteStrokeCap.Butt
+        StrokeCap.Round -> RemoteStrokeCap.Round
+        StrokeCap.Square -> RemoteStrokeCap.Square
+        else -> RemoteStrokeCap.Butt
+    }
+
+internal fun RemoteStrokeCap.toComposeStrokeCap(): StrokeCap =
+    when (this) {
+        RemoteStrokeCap.Butt -> StrokeCap.Butt
+        RemoteStrokeCap.Round -> StrokeCap.Round
+        RemoteStrokeCap.Square -> StrokeCap.Square
+        else -> StrokeCap.Butt
+    }
+
+internal fun StrokeJoin.toRemoteStrokeJoin(): RemoteStrokeJoin =
+    when (this) {
+        StrokeJoin.Miter -> RemoteStrokeJoin.Miter
+        StrokeJoin.Round -> RemoteStrokeJoin.Round
+        StrokeJoin.Bevel -> RemoteStrokeJoin.Bevel
+        else -> RemoteStrokeJoin.Miter
+    }
+
+internal fun RemoteStrokeJoin.toComposeStrokeJoin(): StrokeJoin =
+    when (this) {
+        RemoteStrokeJoin.Miter -> StrokeJoin.Miter
+        RemoteStrokeJoin.Round -> StrokeJoin.Round
+        RemoteStrokeJoin.Bevel -> StrokeJoin.Bevel
+        else -> StrokeJoin.Miter
+    }
+
+// Port: Compose Multiplatform's common `LineBreak` has no `strategy`; its presets map 1:1.
+internal fun LineBreak.toRemoteLineBreak(): RemoteLineBreak =
+    when (this) {
+        LineBreak.Simple -> RemoteLineBreak.Simple
+        LineBreak.Paragraph -> RemoteLineBreak.Paragraph
+        LineBreak.Heading -> RemoteLineBreak.Heading
+        else -> RemoteLineBreak.Simple
+    }
+
+internal fun Hyphens.toRemoteHyphens(): RemoteHyphens =
+    when (this) {
+        Hyphens.Auto -> RemoteHyphens.Auto
         Hyphens.None,
-        Hyphens.Unspecified -> 0 // Layout.HYPHENATION_FREQUENCY_NONE
-        else -> 0
+        Hyphens.Unspecified -> RemoteHyphens.None
+        else -> RemoteHyphens.None
     }
 
-internal fun TileMode.toTileModeInt(): Int =
+internal fun TextDecoration.toRemoteTextDecoration(): RemoteTextDecoration {
+    val underline =
+        if (contains(TextDecoration.Underline)) {
+            RemoteTextDecoration.Underline
+        } else {
+            RemoteTextDecoration.None
+        }
+    val lineThrough =
+        if (contains(TextDecoration.LineThrough)) {
+            RemoteTextDecoration.LineThrough
+        } else {
+            RemoteTextDecoration.None
+        }
+    return underline + lineThrough
+}
+
+internal fun TileMode.toRemoteTileMode(): RemoteTileMode =
     when (this) {
-        TileMode.Clamp -> 0
-        TileMode.Repeated -> 1
-        TileMode.Mirror -> 2
-        TileMode.Decal -> 3
-        else -> 0
+        TileMode.Clamp -> RemoteTileMode.Clamp
+        TileMode.Repeated -> RemoteTileMode.Repeated
+        TileMode.Mirror -> RemoteTileMode.Mirror
+        TileMode.Decal -> RemoteTileMode.Decal
+        else -> RemoteTileMode.Clamp
+    }
+
+internal fun FontStyle.toRemoteFontStyle(): RemoteFontStyle =
+    when (this) {
+        FontStyle.Normal -> RemoteFontStyle.Normal
+        FontStyle.Italic -> RemoteFontStyle.Italic
+        else -> RemoteFontStyle.Normal
+    }
+
+internal fun FontWeight.toRemoteFontWeight(): RemoteFontWeight = RemoteFontWeight(weight)
+
+internal fun PathFillType.toRemotePathFillType(): RemotePathFillType =
+    when (this) {
+        PathFillType.NonZero -> RemotePathFillType.NonZero
+        PathFillType.EvenOdd -> RemotePathFillType.EvenOdd
+        else -> RemotePathFillType.NonZero
+    }
+
+internal fun PaintingStyle.toRemotePaintingStyle(): RemotePaintingStyle =
+    when (this) {
+        PaintingStyle.Fill -> RemotePaintingStyle.Fill
+        PaintingStyle.Stroke -> RemotePaintingStyle.Stroke
+        else -> RemotePaintingStyle.Fill
+    }
+
+internal fun RemotePaintingStyle.toComposePaintingStyle(): PaintingStyle =
+    when (this) {
+        RemotePaintingStyle.Fill -> PaintingStyle.Fill
+        RemotePaintingStyle.Stroke -> PaintingStyle.Stroke
+        else -> PaintingStyle.Fill
     }

@@ -24,20 +24,17 @@ import androidx.compose.remote.creation.compose.state.RemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
 import androidx.compose.remote.creation.compose.state.RemotePaint
+import androidx.compose.remote.creation.compose.state.RemotePathFillType
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.remote.creation.compose.state.creationState
 import androidx.compose.remote.creation.compose.state.rf
-import androidx.compose.ui.graphics.ClipOp
-import androidx.compose.ui.graphics.PathFillType
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.layout.ContentScale
-import androidx.graphics.shapes.RoundedPolygon
 
 /**
- * A remote-compatible drawing scope for RemoteCompose. Unlike [DrawScope], this class uses remote
- * types consistently and does not attempt to implement the standard [DrawScope] interface to avoid
- * API incompatibilities.
+ * A remote-compatible drawing scope for RemoteCompose. Unlike
+ * [androidx.compose.ui.graphics.drawscope.DrawScope], this class uses remote types consistently and
+ * does not attempt to implement the standard [androidx.compose.ui.graphics.drawscope.DrawScope]
+ * interface to avoid API incompatibilities.
  */
 public open class RemoteDrawScope
 internal constructor(
@@ -72,6 +69,12 @@ internal constructor(
     public val size: RemoteSize
         get() = RemoteSize(width, height)
 
+    /**
+     * Applies [paint] for drawing commands executed within [block].
+     *
+     * @param paint The [RemotePaint] to apply before executing [block].
+     * @param block Drawing commands to execute with [paint] active.
+     */
     public fun usePaint(paint: RemotePaint, block: () -> Unit) {
         remoteCanvas.usePaint(paint)
         block()
@@ -99,6 +102,15 @@ internal constructor(
         )
     }
 
+    /**
+     * Draws a rounded rectangle with the given [paint], [topLeft] offset, [size], and
+     * [cornerRadius].
+     *
+     * @param paint The [RemotePaint] to use for drawing the rounded rectangle.
+     * @param topLeft The top-left offset of the rounded rectangle.
+     * @param size The size of the rounded rectangle.
+     * @param cornerRadius The x and y radii of the rounded corners.
+     */
     public fun drawRoundRect(
         paint: RemotePaint?,
         topLeft: RemoteOffset = RemoteOffset.Zero,
@@ -116,7 +128,13 @@ internal constructor(
         )
     }
 
-    /** Draws a circle. */
+    /**
+     * Draws a circle at [center] with the given [radius] and [paint].
+     *
+     * @param paint The [RemotePaint] to use for drawing the circle.
+     * @param radius The radius of the circle in pixels.
+     * @param center The center coordinate of the circle.
+     */
     public fun drawCircle(
         paint: RemotePaint?,
         radius: RemoteFloat,
@@ -126,6 +144,13 @@ internal constructor(
         remoteCanvas.drawCircle(center.x, center.y, radius, paint)
     }
 
+    /**
+     * Draws an oval bounded by the rectangle defined by [topLeft] and [size].
+     *
+     * @param paint The [RemotePaint] to use for drawing the oval.
+     * @param topLeft The top-left offset of the bounding rectangle.
+     * @param size The size of the bounding rectangle.
+     */
     public fun drawOval(
         paint: RemotePaint?,
         topLeft: RemoteOffset = RemoteOffset.Zero,
@@ -140,6 +165,16 @@ internal constructor(
         )
     }
 
+    /**
+     * Draws an arc scaled to fit inside the rectangle defined by [topLeft] and [size].
+     *
+     * @param paint The [RemotePaint] to use for drawing the arc.
+     * @param startAngle Starting angle in degrees where 0 degrees is at 3 o'clock.
+     * @param sweepAngle Clockwise sweep angle in degrees relative to [startAngle].
+     * @param useCenter Whether the arc is connected to the center of the oval (forming a wedge).
+     * @param topLeft The top-left offset of the bounding rectangle.
+     * @param size The size of the bounding rectangle.
+     */
     public fun drawArc(
         paint: RemotePaint?,
         startAngle: RemoteFloat,
@@ -160,7 +195,13 @@ internal constructor(
         )
     }
 
-    /** Draws a line. */
+    /**
+     * Draws a line segment between [start] and [end] using the given [paint].
+     *
+     * @param paint The [RemotePaint] to use for drawing the line.
+     * @param start The starting point of the line.
+     * @param end The ending point of the line.
+     */
     public fun drawLine(paint: RemotePaint?, start: RemoteOffset, end: RemoteOffset) {
         remoteCanvas.drawLine(start.x, start.y, end.x, end.y, paint)
     }
@@ -183,7 +224,7 @@ internal constructor(
         srcSize: RemoteSize = RemoteSize(image.width, image.height),
         dstOffset: RemoteOffset = RemoteOffset.Zero,
         dstSize: RemoteSize = size,
-        scaleType: ContentScale = ContentScale.Fit,
+        scaleType: RemoteContentScale = RemoteContentScale.Fit,
         scaleFactor: RemoteFloat = 1f.rf,
         contentDescription: String? = null,
     ) {
@@ -197,7 +238,7 @@ internal constructor(
             dstOffset.y,
             dstOffset.x + dstSize.width,
             dstOffset.y + dstSize.height,
-            scaleType.toImageScalingInt(),
+            scaleType.value,
             scaleFactor,
             contentDescription,
         )
@@ -207,7 +248,7 @@ internal constructor(
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun drawPath(
         path: RemotePath,
-        pathFillType: PathFillType = PathFillType.NonZero,
+        pathFillType: RemotePathFillType = RemotePathFillType.NonZero,
         paint: RemotePaint?,
     ) {
         remoteCanvas.drawPath(path, pathFillType, paint)
@@ -217,23 +258,6 @@ internal constructor(
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun drawPath(path: RemotePath, paint: RemotePaint?) {
         remoteCanvas.drawPath(path, paint = paint)
-    }
-
-    /** Draws a rounded polygon. */
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public fun drawRoundedPolygon(roundedPolygon: RoundedPolygon, paint: RemotePaint?) {
-        remoteCanvas.drawRoundedPolygon(roundedPolygon, paint)
-    }
-
-    /** Draws a morph between two rounded polygons. */
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public fun drawRoundedPolygonMorph(
-        from: RoundedPolygon,
-        to: RoundedPolygon,
-        progress: RemoteFloat,
-        paint: RemotePaint?,
-    ) {
-        remoteCanvas.drawRoundedPolygonMorph(from, to, progress, paint)
     }
 
     /** Draws a tween path. */
@@ -420,20 +444,15 @@ internal constructor(
         top: RemoteFloat,
         right: RemoteFloat,
         bottom: RemoteFloat,
-        clipOp: ClipOp = ClipOp.Intersect,
         block: RemoteDrawScope.() -> Unit,
     ) {
-        withTransform({ clipRect(left, top, right, bottom, clipOp) }, block)
+        withTransform({ clipRect(left, top, right, bottom) }, block)
     }
 
     /** Clips the drawing area to the specified [path] and executes [block] within it. */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public fun clipPath(
-        path: RemotePath,
-        clipOp: ClipOp = ClipOp.Intersect,
-        block: RemoteDrawScope.() -> Unit,
-    ) {
-        withTransform({ clipPath(path, clipOp) }, block)
+    public fun clipPath(path: RemotePath, block: RemoteDrawScope.() -> Unit) {
+        withTransform({ clipPath(path) }, block)
     }
 
     /** Executes [body] if [condition] evaluates to true. */

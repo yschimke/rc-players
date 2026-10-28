@@ -44,10 +44,12 @@ internal fun RemoteModifier.hasDrawWithContent(): Boolean = any { it is DrawWith
  * Runs every draw-with-content modifier in order, nesting each modifier's content lambda.
  *
  * LOCAL PATCH (rc-players): a draw modifier after padding draws inside it, as AndroidX writes it:
- * translated past the padding before it, its scope's size reduced by it, and its content drawn back
- * at the component's own origin.
+ * translated past the padding before it (resolved for [scope]'s layout direction and density
+ * behavior), its scope's size reduced by it, and its content drawn back at the component's own
+ * origin.
  */
 internal fun RemoteModifier.drawWithContent(
+    scope: RemoteStateScope,
     remoteCanvas: RemoteCanvas,
     content: RemoteDrawScope.() -> Unit,
 ): Boolean {
@@ -55,22 +57,21 @@ internal fun RemoteModifier.drawWithContent(
     var inset: DrawInset? = null
     foldIn(Unit) { _, element ->
         when (element) {
-            is PaddingModifier ->
+            is PaddingModifier -> {
+                val left = element.resolveLeft(scope)
+                val top = element.resolveTop(scope)
+                val right = element.resolveRight(scope)
+                val bottom = element.resolveBottom(scope)
                 inset =
                     inset?.let {
                         DrawInset(
-                            it.left + element.start,
-                            it.top + element.top,
-                            it.horizontal + element.start + element.end,
-                            it.vertical + element.top + element.bottom,
+                            it.left + left,
+                            it.top + top,
+                            it.horizontal + left + right,
+                            it.vertical + top + bottom,
                         )
-                    }
-                        ?: DrawInset(
-                            element.start,
-                            element.top,
-                            element.start + element.end,
-                            element.top + element.bottom,
-                        )
+                    } ?: DrawInset(left, top, left + right, top + bottom)
+            }
             is DrawWithContentModifier -> modifiers += element to inset
             else -> {}
         }

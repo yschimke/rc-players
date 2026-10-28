@@ -72,6 +72,8 @@ public sealed interface RemoteModifier {
      * Concatenates this modifier with another.
      *
      * Returns a [RemoteModifier] representing this modifier followed by [other] in sequence.
+     *
+     * @param other The [RemoteModifier] to append after this modifier.
      */
     public infix fun then(other: RemoteModifier): RemoteModifier =
         if (other === RemoteModifier) this else CombinedRemoteModifier(this, other)
@@ -101,7 +103,7 @@ public sealed interface RemoteModifier {
      * contains no [elements][Element]. Use it to create a new [RemoteModifier] using modifier
      * extension factory functions.
      *
-     * Example: `RemoteModifier.padding(16.rdp).background(RemoteColor.Red)`
+     * Example: `RemoteModifier.padding(16.rdp).background(Color.Red.rc)`
      */
     // The companion object implements `Modifier` so that it may be used  as the start of a
     // modifier extension factory expression.
@@ -129,13 +131,20 @@ public fun RemoteStateScope.toRemoteModifierData(modifier: RemoteModifier): Remo
     val scope = this
     val result = RemoteModifierData()
     val seenNonRepeatable = mutableSetOf<NonRepeatableModifier>()
+    var seenDrawWithContent = false
     modifier.foldIn(Unit) { _, element ->
         // LOCAL PATCH (rc-players): a component id is not an operation; see ComponentIdModifier.
         if (element is ComponentIdModifier) return@foldIn
         val nonRepeatable = element.nonRepeatableType()
-        if (nonRepeatable == null || seenNonRepeatable.add(nonRepeatable)) {
-            result.then(with(element) { scope.toRemoteModifierOperation() })
+        if (nonRepeatable != null && !seenNonRepeatable.add(nonRepeatable)) return@foldIn
+        if (element is DrawWithContentModifier) {
+            // RemoteComposeNode and RemoteCanvasNode merge all DrawWithContentModifiers into a
+            // single CanvasOperations block positioned at the outermost DrawWithContentModifier,
+            // so emit only one DrawContentOperation marker on the wire.
+            if (seenDrawWithContent) return@foldIn
+            seenDrawWithContent = true
         }
+        result.then(with(element) { scope.toRemoteModifierOperation() })
     }
     return result
 }

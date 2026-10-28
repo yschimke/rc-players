@@ -49,11 +49,11 @@ internal class AlignByBaselineModifier() : RemoteModifier.Element {
  *     modifier = RemoteModifier.fillMaxWidth()
  * ) {
  *     RemoteText(
- *         text = "First",
+ *         text = "First".rs,
  *         modifier = RemoteModifier.alignByBaseline()
  *     )
  *     RemoteText(
- *         text = "Second",
+ *         text = "Second".rs,
  *         modifier = RemoteModifier.alignByBaseline()
  *     )
  * }

@@ -19,20 +19,14 @@ package androidx.compose.remote.creation.compose.capture
 
 import androidx.compose.remote.creation.common.PaintBundleData
 import androidx.compose.remote.creation.compose.RemoteComposeCreationComposeFlags
-import androidx.compose.remote.creation.compose.layout.toInt
 import androidx.compose.remote.creation.compose.shaders.RemoteShader
-import androidx.compose.remote.creation.compose.state.ComposeRemoteColorFilter
-import androidx.compose.remote.creation.compose.state.RemoteBlendModeColorFilter
+import androidx.compose.remote.creation.compose.state.RemoteBlendMode
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteColorFilter
+import androidx.compose.remote.creation.compose.state.RemoteFilterQuality
 import androidx.compose.remote.creation.compose.state.RemotePaint
 import androidx.compose.remote.creation.compose.text.RemoteTypeface
 import androidx.compose.remote.creation.compose.text.combineFontSettings
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.graphics.PaintingStyle
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontVariation
 
@@ -52,8 +46,8 @@ internal class PaintTracker {
     var typefaceWeight: Int = -1
     var typefaceIsItalic: Boolean = false
     var colorFilter: RemoteColorFilter? = null
-    var blendMode: BlendMode? = null
-    var filterQuality: FilterQuality? = null
+    var blendMode: RemoteBlendMode? = null
+    var filterQuality: RemoteFilterQuality? = null
     var shader: RemoteShader? = null
     var usingShaderMatrix: Boolean = false
     var fontVariationSettings: FontVariation.Settings? = null
@@ -125,19 +119,19 @@ internal class PaintTracker {
                 paintBundle.setStrokeWidth(it)
             }
 
-        val targetCap = newPaint.strokeCap.remoteInt
+        val targetCap = newPaint.remoteStrokeCap.value
         updateIfChanged(targetCap, strokeCap) {
             strokeCap = targetCap
             paintBundle.setStrokeCap(targetCap)
         }
 
-        val targetJoin = newPaint.strokeJoin.remoteInt
+        val targetJoin = newPaint.remoteStrokeJoin.value
         updateIfChanged(targetJoin, strokeJoin) {
             strokeJoin = targetJoin
             paintBundle.setStrokeJoin(targetJoin)
         }
 
-        val targetStyle = newPaint.style.remoteInt
+        val targetStyle = newPaint.remoteStyle.value
         updateIfChanged(targetStyle, style) {
             style = targetStyle
             paintBundle.setStyle(targetStyle)
@@ -203,39 +197,25 @@ internal class PaintTracker {
         updateIfChanged(targetColorFilter, colorFilter) {
             val wasSet = colorFilter != null
             colorFilter = targetColorFilter
-            when (targetColorFilter) {
-                null -> {
-                    if (wasSet || force) {
-                        paintBundle.clearColorFilter()
-                    }
+            if (targetColorFilter == null) {
+                if (wasSet || force) {
+                    paintBundle.clearColorFilter()
                 }
-                is RemoteBlendModeColorFilter -> {
-                    val constantColor = targetColorFilter.color.constantValueOrNull
-                    if (constantColor != null) {
-                        paintBundle.setColorFilter(
-                            constantColor.toArgb(),
-                            targetColorFilter.blendMode.toInt(),
-                        )
-                    } else {
-                        val colorId = targetColorFilter.color.getIdForCreationState(creationState)
-                        paintBundle.setColorFilterId(colorId, targetColorFilter.blendMode.toInt())
-                    }
-                }
-
-                is ComposeRemoteColorFilter -> paintBundle.setComposeColorFilter(targetColorFilter)
+            } else {
+                targetColorFilter.applyToPaintBundle(paintBundle, creationState)
             }
         }
 
-        val composeBlendMode = newPaint.blendMode
-        updateIfChanged(composeBlendMode, blendMode) {
-            blendMode = composeBlendMode
-            paintBundle.setBlendMode(composeBlendMode.toInt())
+        val targetBlendMode = newPaint.remoteBlendMode
+        updateIfChanged(targetBlendMode, blendMode) {
+            blendMode = targetBlendMode
+            paintBundle.setBlendMode(targetBlendMode.value)
         }
 
         val targetFilterQuality = newPaint.filterQuality
         updateIfChanged(targetFilterQuality, filterQuality) {
             filterQuality = targetFilterQuality
-            paintBundle.setFilterBitmap(targetFilterQuality != FilterQuality.None)
+            paintBundle.setFilterBitmap(targetFilterQuality != RemoteFilterQuality.None)
         }
 
         val targetShader = newPaint.shader
@@ -301,24 +281,3 @@ internal class PaintTracker {
         const val DEFAULT_FONT_WEIGHT = 400
     }
 }
-
-private val StrokeCap.remoteInt: Int
-    get() =
-        when (this) {
-            StrokeCap.Butt -> 0
-            StrokeCap.Round -> 1
-            StrokeCap.Square -> 2
-            else -> 0
-        }
-
-private val StrokeJoin.remoteInt: Int
-    get() =
-        when (this) {
-            StrokeJoin.Miter -> 0
-            StrokeJoin.Round -> 1
-            StrokeJoin.Bevel -> 2
-            else -> 0
-        }
-
-private val PaintingStyle.remoteInt: Int
-    get() = if (this == PaintingStyle.Stroke) 1 else 0

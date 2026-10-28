@@ -94,6 +94,7 @@ public final class androidx/compose/remote/creation/compose/capture/RecordingCan
 	public static fun getFloatId (Landroidx/compose/remote/creation/compose/capture/RecordingCanvas;Landroidx/compose/remote/creation/compose/state/RemoteState;)F
 	public static fun getId (Landroidx/compose/remote/creation/compose/capture/RecordingCanvas;Landroidx/compose/remote/creation/compose/state/RemoteState;)I
 	public static fun getLongId (Landroidx/compose/remote/creation/compose/capture/RecordingCanvas;Landroidx/compose/remote/creation/compose/state/RemoteState;)J
+	public static fun getRemoteLayoutDirection (Landroidx/compose/remote/creation/compose/capture/RecordingCanvas;)Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;
 }
 
 public abstract interface class androidx/compose/remote/creation/compose/capture/RemoteComposeCreationContext : androidx/compose/remote/creation/compose/state/RemoteStateScope {
@@ -116,6 +117,7 @@ public final class androidx/compose/remote/creation/compose/capture/RemoteCompos
 	public static fun getFloatId (Landroidx/compose/remote/creation/compose/capture/RemoteComposeCreationContext;Landroidx/compose/remote/creation/compose/state/RemoteState;)F
 	public static fun getId (Landroidx/compose/remote/creation/compose/capture/RemoteComposeCreationContext;Landroidx/compose/remote/creation/compose/state/RemoteState;)I
 	public static fun getLongId (Landroidx/compose/remote/creation/compose/capture/RemoteComposeCreationContext;Landroidx/compose/remote/creation/compose/state/RemoteState;)J
+	public static fun getRemoteLayoutDirection (Landroidx/compose/remote/creation/compose/capture/RemoteComposeCreationContext;)Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;
 }
 
 public class androidx/compose/remote/creation/compose/capture/RemoteComposeCreationState : androidx/compose/remote/creation/compose/capture/RemoteComposeCreationContext {
@@ -138,15 +140,12 @@ public class androidx/compose/remote/creation/compose/capture/RemoteComposeCreat
 	public fun getOrPutVariableId (Ljava/lang/Object;Lkotlin/jvm/functions/Function0;)I
 	public fun getParentScope ()Landroidx/compose/remote/creation/compose/capture/RemoteComposeCreationState;
 	public synthetic fun getParentScope ()Landroidx/compose/remote/creation/compose/state/RemoteStateScope;
-	public final fun getReady ()Z
 	public fun getRemoteDensity ()Landroidx/compose/remote/creation/compose/capture/RemoteDensity;
+	public fun getRemoteLayoutDirection ()Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;
 	public final fun getSupportedOperations ()Ljava/util/Set;
 	public final fun getTime ()Landroidx/compose/runtime/MutableState;
 	public final fun getWriter ()Landroidx/compose/remote/creation/common/RemoteWriter;
 	public fun hasVariableId (Ljava/lang/Object;)Z
-	public fun setLayoutDirection (Landroidx/compose/ui/unit/LayoutDirection;)V
-	public final fun setReady (Z)V
-	public fun setRemoteDensity (Landroidx/compose/remote/creation/compose/capture/RemoteDensity;)V
 }
 
 public final class androidx/compose/remote/creation/compose/capture/RemoteComposeCreationStateKt {
@@ -155,6 +154,7 @@ public final class androidx/compose/remote/creation/compose/capture/RemoteCompos
 
 public final class androidx/compose/remote/creation/compose/capture/RemoteCompositionLocalsKt {
 	public static final fun getLocalRemoteDensity ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+	public static final fun getLocalRemoteLayoutDirection ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 }
 
 public final class androidx/compose/remote/creation/compose/capture/RemoteCreationDisplayInfo {
@@ -198,7 +198,6 @@ public final class androidx/compose/remote/creation/compose/capture/RemoteDensit
 }
 
 public final class androidx/compose/remote/creation/compose/capture/RemoteDensityKt {
-	public static final fun from (Landroidx/compose/remote/creation/compose/capture/RemoteDensity$Companion;Landroidx/compose/remote/creation/compose/capture/RemoteCreationDisplayInfo;)Landroidx/compose/remote/creation/compose/capture/RemoteDensity;
 	public static final fun toPx-3ABfNKs (Landroidx/compose/remote/creation/compose/capture/RemoteDensity;F)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public static final fun toPx-D5KLDUw (FLandroidx/compose/remote/creation/compose/capture/RemoteDensity;)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public static final fun toPx-eAf_CNQ (JLandroidx/compose/remote/creation/compose/capture/RemoteDensity;)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
@@ -234,6 +233,8 @@ public final class androidx/compose/remote/creation/compose/capture/RemoteImageV
 	public synthetic fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteDp;Landroidx/compose/remote/creation/compose/state/RemoteDp;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteColor;Ljava/lang/String;IZLkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public synthetic fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteColor;Ljava/lang/String;IZILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public synthetic fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteColor;Ljava/lang/String;IZLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun addPath-cmredu4 (Ljava/util/List;ILjava/lang/String;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;
+	public static synthetic fun addPath-cmredu4$default (Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;Ljava/util/List;ILjava/lang/String;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;
 	public final fun build ()Landroidx/compose/remote/creation/compose/capture/RemoteImageVector;
 }
 
@@ -243,7 +244,11 @@ public final class androidx/compose/remote/creation/compose/capture/RemoteImageV
 public final class androidx/compose/remote/creation/compose/capture/RemoteImageVectorKt {
 	public static final fun group (Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Ljava/util/List;Lkotlin/jvm/functions/Function1;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;
 	public static synthetic fun group$default (Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Ljava/util/List;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;
+	public static final fun path-3p5RWj4 (Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;Ljava/lang/String;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILandroidx/compose/remote/creation/compose/state/RemoteFloat;ILkotlin/jvm/functions/Function1;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;
+	public static synthetic fun path-3p5RWj4$default (Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;Ljava/lang/String;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILandroidx/compose/remote/creation/compose/state/RemoteFloat;ILkotlin/jvm/functions/Function1;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;
+	public static final fun path-R_LF-3I (Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;Ljava/lang/String;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILandroidx/compose/remote/creation/compose/state/RemoteFloat;ILkotlin/jvm/functions/Function1;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;
 	public static final fun path-R_LF-3I (Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;Ljava/lang/String;Landroidx/compose/ui/graphics/Brush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/ui/graphics/Brush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILandroidx/compose/remote/creation/compose/state/RemoteFloat;ILkotlin/jvm/functions/Function1;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;
+	public static synthetic fun path-R_LF-3I$default (Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;Ljava/lang/String;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILandroidx/compose/remote/creation/compose/state/RemoteFloat;ILkotlin/jvm/functions/Function1;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;
 	public static synthetic fun path-R_LF-3I$default (Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;Ljava/lang/String;Landroidx/compose/ui/graphics/Brush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/ui/graphics/Brush;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILandroidx/compose/remote/creation/compose/state/RemoteFloat;ILkotlin/jvm/functions/Function1;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector$Builder;
 	public static final fun toRemoteImageVector (Landroidx/compose/ui/graphics/vector/ImageVector;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector;
 }
@@ -325,7 +330,7 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteAlignme
 }
 
 public abstract interface class androidx/compose/remote/creation/compose/layout/RemoteAlignment$Horizontal {
-	public abstract fun toRemote (Landroidx/compose/ui/unit/LayoutDirection;)I
+	public abstract fun toRemote (Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;)I
 }
 
 public abstract interface class androidx/compose/remote/creation/compose/layout/RemoteAlignment$Vertical {
@@ -369,12 +374,12 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteArrange
 }
 
 public abstract interface class androidx/compose/remote/creation/compose/layout/RemoteArrangement$Horizontal {
-	public abstract fun toRemote (Landroidx/compose/ui/unit/LayoutDirection;)I
+	public abstract fun toRemote (Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;)I
 }
 
 public abstract interface class androidx/compose/remote/creation/compose/layout/RemoteArrangement$HorizontalOrVertical : androidx/compose/remote/creation/compose/layout/RemoteArrangement$Horizontal, androidx/compose/remote/creation/compose/layout/RemoteArrangement$Vertical {
 	public abstract fun toRemote ()I
-	public abstract fun toRemote (Landroidx/compose/ui/unit/LayoutDirection;)I
+	public abstract fun toRemote (Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;)I
 }
 
 public abstract interface class androidx/compose/remote/creation/compose/layout/RemoteArrangement$Vertical {
@@ -394,15 +399,15 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteBoxScop
 public final class androidx/compose/remote/creation/compose/layout/RemoteCanvas : androidx/compose/remote/creation/compose/state/RemoteStateScope {
 	public static final field $stable I
 	public fun <init> (Landroidx/compose/remote/creation/compose/capture/RecordingCanvas;)V
-	public final fun clipPath-mtrdD-E (Landroidx/compose/remote/creation/compose/path/RemotePath;I)V
-	public static synthetic fun clipPath-mtrdD-E$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/path/RemotePath;IILjava/lang/Object;)V
-	public final fun clipRect-N_I0leg (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)V
-	public static synthetic fun clipRect-N_I0leg$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)V
+	public final fun clipPath (Landroidx/compose/remote/creation/compose/path/RemotePath;)V
+	public final fun clipRect (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
 	public final fun drawAnchoredText (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ILandroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public static synthetic fun drawAnchoredText$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ILandroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawArc (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ZLandroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public static synthetic fun drawArc$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ZLandroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
+	public final fun drawBitmap (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public final fun drawBitmap (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
+	public static synthetic fun drawBitmap$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public static synthetic fun drawBitmap$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawCircle (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public static synthetic fun drawCircle$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
@@ -411,8 +416,8 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteCanvas 
 	public static synthetic fun drawLine$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawOval (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public static synthetic fun drawOval$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
-	public final fun drawPath-UyHNrJM (Landroidx/compose/remote/creation/compose/path/RemotePath;ILandroidx/compose/remote/creation/compose/state/RemotePaint;)V
-	public static synthetic fun drawPath-UyHNrJM$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/path/RemotePath;ILandroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
+	public final fun drawPath-ew3ZX5Q (Landroidx/compose/remote/creation/compose/path/RemotePath;ILandroidx/compose/remote/creation/compose/state/RemotePaint;)V
+	public static synthetic fun drawPath-ew3ZX5Q$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/path/RemotePath;ILandroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawRect (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public static synthetic fun drawRect$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawRoundRect (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
@@ -422,17 +427,24 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteCanvas 
 	public final fun drawScaledBitmap (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public static synthetic fun drawScaledBitmap$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawText (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
+	public final fun drawText (Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public static synthetic fun drawText$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
+	public static synthetic fun drawText$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawTextOnCircle (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/common/DrawTextOnCircle$Alignment;Landroidx/compose/remote/creation/common/DrawTextOnCircle$Placement;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public static synthetic fun drawTextOnCircle$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/common/DrawTextOnCircle$Alignment;Landroidx/compose/remote/creation/common/DrawTextOnCircle$Placement;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawTextOnPath (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/path/RemotePath;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
+	public final fun drawTextOnPath (Ljava/lang/String;Landroidx/compose/remote/creation/compose/path/RemotePath;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public static synthetic fun drawTextOnPath$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/path/RemotePath;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
+	public static synthetic fun drawTextOnPath$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Ljava/lang/String;Landroidx/compose/remote/creation/compose/path/RemotePath;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawTextRun (Landroidx/compose/remote/creation/compose/state/RemoteString;IIIILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ZLandroidx/compose/remote/creation/compose/state/RemotePaint;)V
+	public final fun drawTextRun (Ljava/lang/CharSequence;IIIIFFZLandroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public static synthetic fun drawTextRun$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/state/RemoteString;IIIILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ZLandroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
+	public static synthetic fun drawTextRun$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Ljava/lang/CharSequence;IIIIFFZLandroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawToOffscreenBitmap (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;ILkotlin/jvm/functions/Function0;)V
 	public final fun drawToOffscreenBitmap (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Lkotlin/jvm/functions/Function0;)V
 	public final fun drawTweenPath (Landroidx/compose/remote/creation/compose/path/RemotePath;Landroidx/compose/remote/creation/compose/path/RemotePath;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public static synthetic fun drawTweenPath$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;Landroidx/compose/remote/creation/compose/path/RemotePath;Landroidx/compose/remote/creation/compose/path/RemotePath;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
+	public final fun flush ()V
 	public fun getDensityBehavior ()Landroidx/compose/remote/creation/compose/capture/RemoteDensityBehavior;
 	public final fun getDrawScope ()Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;
 	public fun getFloatId (Landroidx/compose/remote/creation/compose/state/RemoteState;)F
@@ -443,6 +455,8 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteCanvas 
 	public fun getParentScope ()Landroidx/compose/remote/creation/compose/state/RemoteStateScope;
 	public final fun getRemote ()Landroidx/compose/remote/creation/compose/layout/RemoteAccess;
 	public fun getRemoteDensity ()Landroidx/compose/remote/creation/compose/capture/RemoteDensity;
+	public fun getRemoteLayoutDirection ()Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;
+	public final fun loop (ILandroidx/compose/remote/creation/compose/state/RemoteInt;Lkotlin/jvm/functions/Function1;)V
 	public final fun loop (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;)V
 	public final fun restore ()V
 	public final fun rotate (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
@@ -451,6 +465,7 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteCanvas 
 	public final fun save ()V
 	public final fun scale (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
 	public final fun scale (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;)V
+	public final fun scale (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
 	public final fun transform-58bKbWc ([F)V
 	public final fun translate (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
 	public final fun usePaint (Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
@@ -501,7 +516,11 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteCompone
 	public final fun getCenterX ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getCenterY ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getHeight ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getRootX ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getRootY ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getWidth ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getX ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getY ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 }
 
 public abstract interface annotation class androidx/compose/remote/creation/compose/layout/RemoteComposable : java/lang/annotation/Annotation {
@@ -510,6 +529,30 @@ public abstract interface annotation class androidx/compose/remote/creation/comp
 public final class androidx/compose/remote/creation/compose/layout/RemoteContentDrawScope : androidx/compose/remote/creation/compose/layout/RemoteDrawScope {
 	public static final field $stable I
 	public final fun drawContent ()V
+}
+
+public final class androidx/compose/remote/creation/compose/layout/RemoteContentScale {
+	public static final field Companion Landroidx/compose/remote/creation/compose/layout/RemoteContentScale$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/layout/RemoteContentScale;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/layout/RemoteContentScale$Companion {
+	public final fun getCrop-hNhX1dw ()I
+	public final fun getFillBounds-hNhX1dw ()I
+	public final fun getFillHeight-hNhX1dw ()I
+	public final fun getFillWidth-hNhX1dw ()I
+	public final fun getFit-hNhX1dw ()I
+	public final fun getInside-hNhX1dw ()I
+	public final fun getNone-hNhX1dw ()I
 }
 
 public final class androidx/compose/remote/creation/compose/layout/RemoteCustomComponentKt {
@@ -537,15 +580,12 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteCustomP
 	public final fun property (ILandroidx/compose/remote/creation/compose/state/RemoteString;)V
 	public final fun property (ILjava/lang/String;)V
 	public final fun property (IZ)V
-	public final fun property-4WTKRHQ (IJ)V
 }
 
 public class androidx/compose/remote/creation/compose/layout/RemoteDrawScope : androidx/compose/remote/creation/compose/state/RemoteStateScope {
 	public static final field $stable I
-	public final fun clipPath-LFkaK-o (Landroidx/compose/remote/creation/compose/path/RemotePath;ILkotlin/jvm/functions/Function1;)V
-	public static synthetic fun clipPath-LFkaK-o$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/path/RemotePath;ILkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
-	public final fun clipRect-1rYREG4 (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ILkotlin/jvm/functions/Function1;)V
-	public static synthetic fun clipRect-1rYREG4$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ILkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
+	public final fun clipPath (Landroidx/compose/remote/creation/compose/path/RemotePath;Lkotlin/jvm/functions/Function1;)V
+	public final fun clipRect (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;)V
 	public final fun drawAnchoredText (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)V
 	public static synthetic fun drawAnchoredText$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)V
 	public final fun drawArc (Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ZLandroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;)V
@@ -559,16 +599,14 @@ public class androidx/compose/remote/creation/compose/layout/RemoteDrawScope : a
 	public final fun drawOval (Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;)V
 	public static synthetic fun drawOval$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;ILjava/lang/Object;)V
 	public final fun drawPath (Landroidx/compose/remote/creation/compose/path/RemotePath;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
-	public final fun drawPath-UyHNrJM (Landroidx/compose/remote/creation/compose/path/RemotePath;ILandroidx/compose/remote/creation/compose/state/RemotePaint;)V
-	public static synthetic fun drawPath-UyHNrJM$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/path/RemotePath;ILandroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
+	public final fun drawPath-ew3ZX5Q (Landroidx/compose/remote/creation/compose/path/RemotePath;ILandroidx/compose/remote/creation/compose/state/RemotePaint;)V
+	public static synthetic fun drawPath-ew3ZX5Q$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/path/RemotePath;ILandroidx/compose/remote/creation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawRect (Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;)V
 	public static synthetic fun drawRect$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;ILjava/lang/Object;)V
 	public final fun drawRoundRect (Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;)V
 	public static synthetic fun drawRoundRect$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;ILjava/lang/Object;)V
-	public final fun drawRoundedPolygon (Landroidx/graphics/shapes/RoundedPolygon;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
-	public final fun drawRoundedPolygonMorph (Landroidx/graphics/shapes/RoundedPolygon;Landroidx/graphics/shapes/RoundedPolygon;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
-	public final fun drawScaledBitmap (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;Landroidx/compose/ui/layout/ContentScale;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Ljava/lang/String;)V
-	public static synthetic fun drawScaledBitmap$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;Landroidx/compose/ui/layout/ContentScale;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Ljava/lang/String;ILjava/lang/Object;)V
+	public final fun drawScaledBitmap-wpQBDg0 (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Ljava/lang/String;)V
+	public static synthetic fun drawScaledBitmap-wpQBDg0$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteSize;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Ljava/lang/String;ILjava/lang/Object;)V
 	public final fun drawText (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
 	public final fun drawTextOnCircle (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope$CircularAlignment;Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope$CircularPlacement;)V
 	public static synthetic fun drawTextOnCircle$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope$CircularAlignment;Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope$CircularPlacement;ILjava/lang/Object;)V
@@ -589,6 +627,7 @@ public class androidx/compose/remote/creation/compose/layout/RemoteDrawScope : a
 	public final fun getRemoteCanvas ()Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;
 	public final fun getRemoteComposeCreationState ()Landroidx/compose/remote/creation/compose/capture/RemoteComposeCreationState;
 	public fun getRemoteDensity ()Landroidx/compose/remote/creation/compose/capture/RemoteDensity;
+	public fun getRemoteLayoutDirection ()Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;
 	public final fun getSize ()Landroidx/compose/remote/creation/compose/layout/RemoteSize;
 	public final fun getWidth ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun loop (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function2;)V
@@ -619,6 +658,11 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteDrawSco
 	public static fun values ()[Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope$CircularPlacement;
 }
 
+public final class androidx/compose/remote/creation/compose/layout/RemoteDrawScopeAndroidKt {
+	public static final fun drawRoundedPolygon (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/graphics/shapes/RoundedPolygon;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
+	public static final fun drawRoundedPolygonMorph (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/graphics/shapes/RoundedPolygon;Landroidx/graphics/shapes/RoundedPolygon;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
+}
+
 public final class androidx/compose/remote/creation/compose/layout/RemoteFitBoxKt {
 	public static final fun RemoteFitBox (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/layout/RemoteAlignment$Horizontal;Landroidx/compose/remote/creation/compose/layout/RemoteArrangement$Vertical;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
 }
@@ -628,7 +672,11 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteFloatCo
 	public final fun componentCenterX ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun componentCenterY ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun componentHeight ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun componentRootX ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun componentRootY ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun componentWidth ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun componentX ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun componentY ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 }
 
 public final class androidx/compose/remote/creation/compose/layout/RemoteFlowRowKt {
@@ -637,6 +685,15 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteFlowRow
 
 public final class androidx/compose/remote/creation/compose/layout/RemoteImageKt {
 	public static final fun RemoteImage (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/ui/layout/ContentScale;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RemoteImage-6b2iFsU (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class androidx/compose/remote/creation/compose/layout/RemoteLayoutDirection : java/lang/Enum {
+	public static final field Ltr Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;
+	public static final field Rtl Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;
+	public static fun values ()[Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;
 }
 
 public final class androidx/compose/remote/creation/compose/layout/RemoteOffset {
@@ -644,10 +701,8 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteOffset 
 	public static final field Companion Landroidx/compose/remote/creation/compose/layout/RemoteOffset$Companion;
 	public fun <init> (FF)V
 	public fun <init> (FLandroidx/compose/remote/creation/compose/state/RemoteFloat;)V
-	public synthetic fun <init> (JLkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;F)V
 	public fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
-	public final fun asOffset-tuRUvjQ (Landroidx/compose/remote/creation/compose/state/RemoteStateScope;)J
 	public final fun getMinDimension ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getX ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getY ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
@@ -688,9 +743,7 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteRowScop
 public final class androidx/compose/remote/creation/compose/layout/RemoteSize {
 	public static final field $stable I
 	public static final field Companion Landroidx/compose/remote/creation/compose/layout/RemoteSize$Companion;
-	public synthetic fun <init> (JLkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
-	public final fun asSize-7Ah8Wj8 (Landroidx/compose/remote/creation/compose/state/RemoteStateScope;)J
 	public final fun getCenter ()Landroidx/compose/remote/creation/compose/layout/RemoteOffset;
 	public final fun getHeight ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getMinDimension ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
@@ -710,7 +763,7 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteStateLa
 
 public final class androidx/compose/remote/creation/compose/layout/RemoteTextKt {
 	public static final fun RemoteText-2PQCTIY (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/state/RemoteColor;Landroidx/compose/remote/creation/compose/state/RemoteTextUnit;Landroidx/compose/ui/text/font/FontStyle;Landroidx/compose/ui/text/font/FontWeight;Landroidx/compose/remote/creation/compose/text/RemoteFontFamily;Landroidx/compose/ui/text/style/TextAlign;IILandroidx/compose/remote/creation/compose/text/RemoteTextStyle;Ljava/lang/String;Landroidx/compose/ui/text/font/FontVariation$Settings;Landroidx/compose/runtime/Composer;III)V
-	public static final fun RemoteText-V2_wicY (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteColor;Landroidx/compose/remote/creation/compose/state/RemoteTextUnit;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Ljava/lang/Float;Ljava/lang/Float;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;ILjava/lang/String;IILandroidx/compose/remote/creation/compose/state/RemoteFloat;Ljava/lang/Float;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILandroidx/compose/ui/text/style/TextDecoration;Landroidx/compose/ui/text/font/FontVariation$Settings;Ljava/lang/String;Landroidx/compose/runtime/Composer;III)V
+	public static final fun RemoteText-Uyfyhk4 (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/state/RemoteColor;Landroidx/compose/remote/creation/compose/state/RemoteTextUnit;Landroidx/compose/remote/creation/compose/text/RemoteFontStyle;Landroidx/compose/remote/creation/compose/text/RemoteFontWeight;Landroidx/compose/remote/creation/compose/text/RemoteFontFamily;Landroidx/compose/remote/creation/compose/text/RemoteTextAlign;IILandroidx/compose/remote/creation/compose/text/RemoteTextStyle;Ljava/lang/String;Landroidx/compose/ui/text/font/FontVariation$Settings;Landroidx/compose/runtime/Composer;III)V
 }
 
 public final class androidx/compose/remote/creation/compose/layout/RemoteTime {
@@ -737,12 +790,10 @@ public final class androidx/compose/remote/creation/compose/modifier/AnimateSpec
 	public static final fun animateEnterExit (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/modifier/RemoteEnterTransition;Landroidx/compose/remote/creation/compose/modifier/RemoteExitTransition;Landroidx/compose/remote/creation/compose/state/RemoteTweenSpec;I)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static synthetic fun animateEnterExit$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/modifier/RemoteEnterTransition;Landroidx/compose/remote/creation/compose/modifier/RemoteExitTransition;Landroidx/compose/remote/creation/compose/state/RemoteTweenSpec;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static final fun animationSpec (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;IFIFILandroidx/compose/remote/creation/compose/modifier/RemoteAnimation;Landroidx/compose/remote/creation/compose/modifier/RemoteAnimation;IILandroidx/compose/remote/creation/compose/modifier/RemoteAnimationSequence;Landroidx/compose/remote/creation/compose/modifier/RemoteAnimationSequence;Z)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
-	public static final fun animationSpec (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;IFIFILandroidx/compose/remote/creation/compose/modifier/RemoteAnimation;Landroidx/compose/remote/creation/compose/modifier/RemoteAnimation;Z)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static final fun animationSpec (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;ILandroidx/compose/remote/creation/compose/state/RemoteTweenSpec;Landroidx/compose/remote/creation/compose/state/RemoteTweenSpec;Landroidx/compose/remote/creation/compose/modifier/RemoteEnterTransition;Landroidx/compose/remote/creation/compose/modifier/RemoteExitTransition;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static final fun animationSpec (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;IZ)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static final fun animationSpec (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Z)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static synthetic fun animationSpec$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;IFIFILandroidx/compose/remote/creation/compose/modifier/RemoteAnimation;Landroidx/compose/remote/creation/compose/modifier/RemoteAnimation;IILandroidx/compose/remote/creation/compose/modifier/RemoteAnimationSequence;Landroidx/compose/remote/creation/compose/modifier/RemoteAnimationSequence;ZILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
-	public static synthetic fun animationSpec$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;IFIFILandroidx/compose/remote/creation/compose/modifier/RemoteAnimation;Landroidx/compose/remote/creation/compose/modifier/RemoteAnimation;ZILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static synthetic fun animationSpec$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;ILandroidx/compose/remote/creation/compose/state/RemoteTweenSpec;Landroidx/compose/remote/creation/compose/state/RemoteTweenSpec;Landroidx/compose/remote/creation/compose/modifier/RemoteEnterTransition;Landroidx/compose/remote/creation/compose/modifier/RemoteExitTransition;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static final fun remoteFadeIn ()Landroidx/compose/remote/creation/compose/modifier/RemoteEnterTransition;
 	public static final fun remoteFadeOut ()Landroidx/compose/remote/creation/compose/modifier/RemoteExitTransition;
@@ -762,7 +813,7 @@ public final class androidx/compose/remote/creation/compose/modifier/BlurEffect 
 	public static final field $stable I
 	public synthetic fun <init> (FFIILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public synthetic fun <init> (FFILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun getEdgeTreatment-3opZhB0 ()I
+	public final fun getEdgeTreatment-MnlTbZo ()I
 	public final fun getRadiusX ()F
 	public final fun getRadiusY ()F
 	public fun toComposeRenderEffect ()Landroidx/compose/ui/graphics/RenderEffect;
@@ -776,6 +827,8 @@ public final class androidx/compose/remote/creation/compose/modifier/BorderModif
 public final class androidx/compose/remote/creation/compose/modifier/ClickableModifierKt {
 	public static final fun clickable-NVUIbCQ (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/action/Action;ZLandroidx/compose/ui/semantics/Role;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static synthetic fun clickable-NVUIbCQ$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/action/Action;ZLandroidx/compose/ui/semantics/Role;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
+	public static final fun clickable-f_Rqj2E (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/action/Action;ZI)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
+	public static synthetic fun clickable-f_Rqj2E$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/action/Action;ZIILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 }
 
 public final class androidx/compose/remote/creation/compose/modifier/ClipModifier : androidx/compose/remote/creation/compose/modifier/RemoteModifier$Element {
@@ -811,8 +864,8 @@ public final class androidx/compose/remote/creation/compose/modifier/Collapsible
 }
 
 public final class androidx/compose/remote/creation/compose/modifier/CombinedClickableModifierKt {
-	public static final fun combinedClickable-NpxF4qI (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/action/Action;Landroidx/compose/remote/creation/compose/action/Action;Landroidx/compose/remote/creation/compose/action/Action;ZLandroidx/compose/ui/semantics/Role;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
-	public static synthetic fun combinedClickable-NpxF4qI$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/action/Action;Landroidx/compose/remote/creation/compose/action/Action;Landroidx/compose/remote/creation/compose/action/Action;ZLandroidx/compose/ui/semantics/Role;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
+	public static final fun combinedClickable-vI0Uur0 (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/action/Action;Landroidx/compose/remote/creation/compose/action/Action;Landroidx/compose/remote/creation/compose/action/Action;ZLandroidx/compose/remote/creation/compose/modifier/RemoteRole;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
+	public static synthetic fun combinedClickable-vI0Uur0$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/action/Action;Landroidx/compose/remote/creation/compose/action/Action;Landroidx/compose/remote/creation/compose/action/Action;ZLandroidx/compose/remote/creation/compose/modifier/RemoteRole;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 }
 
 public final class androidx/compose/remote/creation/compose/modifier/ComponentIdModifierKt {
@@ -831,15 +884,15 @@ public final class androidx/compose/remote/creation/compose/modifier/DrawWithCon
 
 public final class androidx/compose/remote/creation/compose/modifier/GraphicsLayerModifier : androidx/compose/remote/creation/compose/modifier/RemoteModifier$Element {
 	public static final field $stable I
-	public fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shapes/RemoteShape;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/modifier/RenderEffect;)V
 	public synthetic fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shapes/RemoteShape;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/modifier/RenderEffect;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shapes/RemoteShape;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/modifier/RenderEffect;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun all (Lkotlin/jvm/functions/Function1;)Z
 	public fun any (Lkotlin/jvm/functions/Function1;)Z
 	public fun foldIn (Ljava/lang/Object;Lkotlin/jvm/functions/Function2;)Ljava/lang/Object;
 	public fun foldOut (Ljava/lang/Object;Lkotlin/jvm/functions/Function2;)Ljava/lang/Object;
 	public final fun getAlpha ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getCameraDistance ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
-	public final fun getCompositingStrategy ()I
+	public final fun getCompositingStrategy-5qfakAM ()I
 	public final fun getRenderEffect ()Landroidx/compose/remote/creation/compose/modifier/RenderEffect;
 	public final fun getRotationX ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getRotationY ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
@@ -858,10 +911,10 @@ public final class androidx/compose/remote/creation/compose/modifier/GraphicsLay
 
 public final class androidx/compose/remote/creation/compose/modifier/GraphicsLayerModifierKt {
 	public static final fun graphicsLayer (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function1;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
-	public static final fun graphicsLayer-3oxIIGE (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shapes/RemoteShape;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/modifier/RenderEffect;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static final fun graphicsLayer-3oxIIGE (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/ui/graphics/Shape;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/modifier/RenderEffect;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
-	public static synthetic fun graphicsLayer-3oxIIGE$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shapes/RemoteShape;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/modifier/RenderEffect;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static synthetic fun graphicsLayer-3oxIIGE$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/ui/graphics/Shape;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/modifier/RenderEffect;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
+	public static final fun graphicsLayer-TEzLLdU (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shapes/RemoteShape;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/modifier/RenderEffect;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
+	public static synthetic fun graphicsLayer-TEzLLdU$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/shapes/RemoteShape;ILandroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/modifier/RenderEffect;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 }
 
 public abstract interface class androidx/compose/remote/creation/compose/modifier/GraphicsLayerScope {
@@ -1065,8 +1118,32 @@ public final class androidx/compose/remote/creation/compose/modifier/RemoteModif
 	public static final fun toRemoteModifierData (Landroidx/compose/remote/creation/compose/state/RemoteStateScope;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;)Landroidx/compose/remote/creation/common/RemoteModifierData;
 }
 
+public final class androidx/compose/remote/creation/compose/modifier/RemoteRole {
+	public static final field Companion Landroidx/compose/remote/creation/compose/modifier/RemoteRole$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/modifier/RemoteRole;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/modifier/RemoteRole$Companion {
+	public final fun getButton-S3nNluk ()I
+	public final fun getCheckbox-S3nNluk ()I
+	public final fun getDropdownList-S3nNluk ()I
+	public final fun getImage-S3nNluk ()I
+	public final fun getRadioButton-S3nNluk ()I
+	public final fun getSwitch-S3nNluk ()I
+	public final fun getTab-S3nNluk ()I
+}
+
 public final class androidx/compose/remote/creation/compose/modifier/RemoteScrollState {
 	public static final field $stable I
+	public fun <init> (FI)V
 	public fun <init> (I)V
 	public synthetic fun <init> (IILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun <init> (Landroidx/compose/remote/creation/compose/state/MutableRemoteFloat;I)V
@@ -1117,6 +1194,7 @@ public final class androidx/compose/remote/creation/compose/modifier/SemanticsMo
 	public static final fun clearAndSetSemantics (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function1;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static final fun getContentDescription (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;)Landroidx/compose/remote/creation/compose/state/RemoteString;
 	public static final fun getEnabled (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;)Z
+	public static final fun getRemoteRole (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;)Landroidx/compose/remote/creation/compose/modifier/RemoteRole;
 	public static final fun getRole (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;)Landroidx/compose/ui/semantics/Role;
 	public static final fun getStateDescription (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;)Landroidx/compose/remote/creation/compose/state/RemoteString;
 	public static final fun getText (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;)Landroidx/compose/remote/creation/compose/state/RemoteString;
@@ -1124,6 +1202,7 @@ public final class androidx/compose/remote/creation/compose/modifier/SemanticsMo
 	public static synthetic fun semantics$default (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;ZLkotlin/jvm/functions/Function1;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
 	public static final fun setContentDescription (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;Landroidx/compose/remote/creation/compose/state/RemoteString;)V
 	public static final fun setEnabled (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;Z)V
+	public static final fun setRemoteRole-nl-zDNQ (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;Landroidx/compose/remote/creation/compose/modifier/RemoteRole;)V
 	public static final fun setRole-0qwdnHY (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;Landroidx/compose/ui/semantics/Role;)V
 	public static final fun setStateDescription (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;Landroidx/compose/remote/creation/compose/state/RemoteString;)V
 	public static final fun setText (Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyReceiver;Landroidx/compose/remote/creation/compose/state/RemoteString;)V
@@ -1134,6 +1213,7 @@ public final class androidx/compose/remote/creation/compose/modifier/SemanticsPr
 	public static final field INSTANCE Landroidx/compose/remote/creation/compose/modifier/SemanticsProperties;
 	public final fun getContentDescription ()Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyKey;
 	public final fun getEnabled ()Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyKey;
+	public final fun getRemoteRole ()Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyKey;
 	public final fun getRole ()Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyKey;
 	public final fun getStateDescription ()Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyKey;
 	public final fun getText ()Landroidx/compose/remote/creation/compose/modifier/SemanticsPropertyKey;
@@ -1211,7 +1291,6 @@ public final class androidx/compose/remote/creation/compose/painter/RemoteColorP
 
 public final class androidx/compose/remote/creation/compose/painter/RemoteColorPainterKt {
 	public static final fun painterRemoteColor (Landroidx/compose/remote/creation/compose/state/RemoteColor;)Landroidx/compose/remote/creation/compose/painter/RemotePainter;
-	public static final fun painterRemoteColor-8_81llA (J)Landroidx/compose/remote/creation/compose/painter/RemotePainter;
 }
 
 public final class androidx/compose/remote/creation/compose/painter/RemoteImageBitmapPainter : androidx/compose/remote/creation/compose/painter/RemotePainter {
@@ -1266,7 +1345,6 @@ public abstract class androidx/compose/remote/creation/compose/shaders/RemoteBru
 }
 
 public final class androidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion {
-	public final fun fromComposeUi (Landroidx/compose/ui/graphics/Brush;)Landroidx/compose/remote/creation/compose/shaders/RemoteBrush;
 }
 
 public final class androidx/compose/remote/creation/compose/shaders/RemoteImageBrushKt {
@@ -1278,8 +1356,8 @@ public final class androidx/compose/remote/creation/compose/shaders/RemoteLinear
 	public static final field $stable I
 	public synthetic fun <init> (Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public synthetic fun <init> (Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun copy-BjvZtRk (Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;I)Landroidx/compose/remote/creation/compose/shaders/RemoteLinearGradient;
-	public static synthetic fun copy-BjvZtRk$default (Landroidx/compose/remote/creation/compose/shaders/RemoteLinearGradient;Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteLinearGradient;
+	public final fun copy-IBmZOCI (Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;I)Landroidx/compose/remote/creation/compose/shaders/RemoteLinearGradient;
+	public static synthetic fun copy-IBmZOCI$default (Landroidx/compose/remote/creation/compose/shaders/RemoteLinearGradient;Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteLinearGradient;
 	public fun createShader (Landroidx/compose/remote/creation/compose/state/RemoteStateScope;Landroidx/compose/remote/creation/compose/layout/RemoteSize;)Landroidx/compose/remote/creation/compose/shaders/RemoteShader;
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
@@ -1288,17 +1366,23 @@ public final class androidx/compose/remote/creation/compose/shaders/RemoteLinear
 
 public final class androidx/compose/remote/creation/compose/shaders/RemoteLinearGradientKt {
 	public static final fun horizontalGradient-GM8hW4c (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
-	public static final fun horizontalGradient-GM8hW4c (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
 	public static synthetic fun horizontalGradient-GM8hW4c$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
-	public static synthetic fun horizontalGradient-GM8hW4c$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static final fun horizontalGradient-vy9yBWM (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static final fun horizontalGradient-vy9yBWM (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static synthetic fun horizontalGradient-vy9yBWM$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static synthetic fun horizontalGradient-vy9yBWM$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
 	public static final fun linearGradient-GM8hW4c (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
-	public static final fun linearGradient-GM8hW4c (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
 	public static synthetic fun linearGradient-GM8hW4c$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
-	public static synthetic fun linearGradient-GM8hW4c$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static final fun linearGradient-vy9yBWM (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static final fun linearGradient-vy9yBWM (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static synthetic fun linearGradient-vy9yBWM$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static synthetic fun linearGradient-vy9yBWM$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
 	public static final fun verticalGradient-GM8hW4c (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
-	public static final fun verticalGradient-GM8hW4c (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
 	public static synthetic fun verticalGradient-GM8hW4c$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
-	public static synthetic fun verticalGradient-GM8hW4c$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static final fun verticalGradient-vy9yBWM (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static final fun verticalGradient-vy9yBWM (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static synthetic fun verticalGradient-vy9yBWM$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static synthetic fun verticalGradient-vy9yBWM$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
 }
 
 public final class androidx/compose/remote/creation/compose/shaders/RemoteLinearShader : androidx/compose/remote/creation/compose/shaders/RemoteShader {
@@ -1307,26 +1391,19 @@ public final class androidx/compose/remote/creation/compose/shaders/RemoteLinear
 	public fun apply (Landroidx/compose/remote/creation/compose/capture/RemoteComposeCreationContext;Landroidx/compose/remote/creation/common/PaintBundleData;)V
 	public final fun getColors ()Ljava/util/List;
 	public final fun getPositions ()Ljava/util/List;
-	public final fun getTileMode-3opZhB0 ()I
+	public final fun getTileMode-MnlTbZo ()I
 	public final fun getX0 ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getX1 ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getY0 ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getY1 ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
-	public final fun setColors (Ljava/util/List;)V
-	public final fun setPositions (Ljava/util/List;)V
-	public final fun setTileMode-0vamqd0 (I)V
-	public final fun setX0 (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
-	public final fun setX1 (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
-	public final fun setY0 (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
-	public final fun setY1 (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
 }
 
 public final class androidx/compose/remote/creation/compose/shaders/RemoteRadialGradient : androidx/compose/remote/creation/compose/shaders/RemoteShaderBrush {
 	public static final field $stable I
 	public synthetic fun <init> (Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public synthetic fun <init> (Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun copy-GM8hW4c (Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteRadialGradient;
-	public static synthetic fun copy-GM8hW4c$default (Landroidx/compose/remote/creation/compose/shaders/RemoteRadialGradient;Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteRadialGradient;
+	public final fun copy-vy9yBWM (Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteRadialGradient;
+	public static synthetic fun copy-vy9yBWM$default (Landroidx/compose/remote/creation/compose/shaders/RemoteRadialGradient;Ljava/util/List;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteRadialGradient;
 	public fun createShader (Landroidx/compose/remote/creation/compose/state/RemoteStateScope;Landroidx/compose/remote/creation/compose/layout/RemoteSize;)Landroidx/compose/remote/creation/compose/shaders/RemoteShader;
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
@@ -1338,6 +1415,10 @@ public final class androidx/compose/remote/creation/compose/shaders/RemoteRadial
 	public static final fun radialGradient-GM8hW4c (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
 	public static synthetic fun radialGradient-GM8hW4c$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
 	public static synthetic fun radialGradient-GM8hW4c$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static final fun radialGradient-vy9yBWM (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static final fun radialGradient-vy9yBWM (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;I)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static synthetic fun radialGradient-vy9yBWM$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;Ljava/util/List;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
+	public static synthetic fun radialGradient-vy9yBWM$default (Landroidx/compose/remote/creation/compose/shaders/RemoteBrush$Companion;[Lkotlin/Pair;Landroidx/compose/remote/creation/compose/layout/RemoteOffset;Landroidx/compose/remote/creation/compose/state/RemoteFloat;IILjava/lang/Object;)Landroidx/compose/remote/creation/compose/shaders/RemoteShaderBrush;
 }
 
 public final class androidx/compose/remote/creation/compose/shaders/RemoteRadialShader : androidx/compose/remote/creation/compose/shaders/RemoteShader {
@@ -1349,13 +1430,7 @@ public final class androidx/compose/remote/creation/compose/shaders/RemoteRadial
 	public final fun getColors ()Ljava/util/List;
 	public final fun getPositions ()Ljava/util/List;
 	public final fun getRadius ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
-	public final fun getTileMode-3opZhB0 ()I
-	public final fun setCenterX (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
-	public final fun setCenterY (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
-	public final fun setColors (Ljava/util/List;)V
-	public final fun setPositions (Ljava/util/List;)V
-	public final fun setRadius (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
-	public final fun setTileMode-0vamqd0 (I)V
+	public final fun getTileMode-MnlTbZo ()I
 }
 
 public abstract class androidx/compose/remote/creation/compose/shaders/RemoteShader {
@@ -1377,7 +1452,10 @@ public final class androidx/compose/remote/creation/compose/shaders/RemoteSolidC
 	public static final field $stable I
 	public fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteColor;)V
 	public fun applyTo (Landroidx/compose/remote/creation/compose/state/RemoteStateScope;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/layout/RemoteSize;)V
+	public fun equals (Ljava/lang/Object;)Z
 	public final fun getColor ()Landroidx/compose/remote/creation/compose/state/RemoteColor;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class androidx/compose/remote/creation/compose/shaders/RemoteSolidColorKt {
@@ -1411,10 +1489,6 @@ public final class androidx/compose/remote/creation/compose/shaders/RemoteSweepS
 	public final fun getCenterY ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
 	public final fun getColors ()Ljava/util/List;
 	public final fun getPositions ()Ljava/util/List;
-	public final fun setCenterX (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
-	public final fun setCenterY (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
-	public final fun setColors (Ljava/util/List;)V
-	public final fun setPositions (Ljava/util/List;)V
 }
 
 public abstract class androidx/compose/remote/creation/compose/shapes/RemoteCornerBasedShape : androidx/compose/remote/creation/compose/shapes/RemoteShape {
@@ -1474,6 +1548,7 @@ public final class androidx/compose/remote/creation/compose/shapes/RemoteOutline
 }
 
 public final class androidx/compose/remote/creation/compose/shapes/RemoteOutlineDrawKt {
+	public static final fun clipOutline (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/shapes/RemoteOutline;Lkotlin/jvm/functions/Function1;)V
 	public static final fun drawOutline (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;Landroidx/compose/remote/creation/compose/shapes/RemoteOutline;Landroidx/compose/remote/creation/compose/state/RemotePaint;)V
 }
 
@@ -1507,17 +1582,11 @@ public final class androidx/compose/remote/creation/compose/state/AnimatedRemote
 	public static final field $stable I
 	public fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;[F)V
 	public final fun getAnim ()[F
-	public final fun getAnimationTime ()F
 	public fun getArrayProvider ()Lkotlin/jvm/functions/Function1;
 	public synthetic fun getArrayProvider$ee_schimke_composeai_third_party_remote_creation_compose ()Lkotlin/jvm/functions/Function1;
 	public fun getConstantValueOrNull ()Ljava/lang/Float;
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
-	public final fun getExp ()Landroidx/compose/remote/creation/common/AnimatedFloatExpression;
 	public final fun getInput ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
-	public final fun getLastChanged ()F
-	public final fun getLastValue ()F
-	public final fun setLastChanged (F)V
-	public final fun setLastValue (F)V
 	public fun writeToDocument (Landroidx/compose/remote/creation/compose/capture/RemoteComposeCreationContext;)I
 }
 
@@ -1536,14 +1605,6 @@ public abstract class androidx/compose/remote/creation/compose/state/BaseRemoteS
 	public fun isStructurallyEqual (Landroidx/compose/remote/creation/compose/state/BaseRemoteState;)Z
 	public fun toDebugString ()Ljava/lang/String;
 	public abstract fun writeToDocument (Landroidx/compose/remote/creation/compose/capture/RemoteComposeCreationContext;)I
-}
-
-public final class androidx/compose/remote/creation/compose/state/ComposeRemoteColorFilter : androidx/compose/remote/creation/compose/state/RemoteColorFilter {
-	public static final field $stable I
-	public fun <init> (Landroidx/compose/ui/graphics/ColorFilter;)V
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getComposeColorFilter ()Landroidx/compose/ui/graphics/ColorFilter;
-	public fun hashCode ()I
 }
 
 public final class androidx/compose/remote/creation/compose/state/DecimalFormat {
@@ -1739,11 +1800,58 @@ public final class androidx/compose/remote/creation/compose/state/RemoteBitmapFo
 	public final fun getWidth ()S
 }
 
+public final class androidx/compose/remote/creation/compose/state/RemoteBlendMode {
+	public static final field Companion Landroidx/compose/remote/creation/compose/state/RemoteBlendMode$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/state/RemoteBlendMode;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemoteBlendMode$Companion {
+	public final fun getClear-0vVSDDA ()I
+	public final fun getColor-0vVSDDA ()I
+	public final fun getColorBurn-0vVSDDA ()I
+	public final fun getColorDodge-0vVSDDA ()I
+	public final fun getDarken-0vVSDDA ()I
+	public final fun getDifference-0vVSDDA ()I
+	public final fun getDst-0vVSDDA ()I
+	public final fun getDstAtop-0vVSDDA ()I
+	public final fun getDstIn-0vVSDDA ()I
+	public final fun getDstOut-0vVSDDA ()I
+	public final fun getDstOver-0vVSDDA ()I
+	public final fun getExclusion-0vVSDDA ()I
+	public final fun getHardlight-0vVSDDA ()I
+	public final fun getHue-0vVSDDA ()I
+	public final fun getLighten-0vVSDDA ()I
+	public final fun getLuminosity-0vVSDDA ()I
+	public final fun getModulate-0vVSDDA ()I
+	public final fun getMultiply-0vVSDDA ()I
+	public final fun getOverlay-0vVSDDA ()I
+	public final fun getPlus-0vVSDDA ()I
+	public final fun getSaturation-0vVSDDA ()I
+	public final fun getScreen-0vVSDDA ()I
+	public final fun getSoftlight-0vVSDDA ()I
+	public final fun getSrc-0vVSDDA ()I
+	public final fun getSrcAtop-0vVSDDA ()I
+	public final fun getSrcIn-0vVSDDA ()I
+	public final fun getSrcOut-0vVSDDA ()I
+	public final fun getSrcOver-0vVSDDA ()I
+	public final fun getXor-0vVSDDA ()I
+}
+
 public final class androidx/compose/remote/creation/compose/state/RemoteBlendModeColorFilter : androidx/compose/remote/creation/compose/state/RemoteColorFilter {
 	public static final field $stable I
 	public synthetic fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteColor;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun applyToPaintBundle (Landroidx/compose/remote/creation/common/PaintBundleData;Landroidx/compose/remote/creation/compose/capture/RemoteComposeCreationContext;)V
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getBlendMode-0nO6VwU ()I
+	public final fun getBlendMode-0vVSDDA ()I
 	public final fun getColor ()Landroidx/compose/remote/creation/compose/state/RemoteColor;
 	public fun hashCode ()I
 }
@@ -1821,6 +1929,11 @@ public final class androidx/compose/remote/creation/compose/state/RemoteColor$Co
 }
 
 public abstract interface class androidx/compose/remote/creation/compose/state/RemoteColorFilter {
+	public abstract fun applyToPaintBundle (Landroidx/compose/remote/creation/common/PaintBundleData;Landroidx/compose/remote/creation/compose/capture/RemoteComposeCreationContext;)V
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemoteColorFilterAndroidKt {
+	public static final fun RemoteBlendModeColorFilter-GB0RdKg (Landroidx/compose/remote/creation/compose/state/RemoteColor;I)Landroidx/compose/remote/creation/compose/state/RemoteBlendModeColorFilter;
 }
 
 public final class androidx/compose/remote/creation/compose/state/RemoteColorKt {
@@ -1829,6 +1942,26 @@ public final class androidx/compose/remote/creation/compose/state/RemoteColorKt 
 	public static final fun rememberNamedRemoteColor-3IgeMak (Ljava/lang/String;JLandroidx/compose/remote/creation/compose/state/RemoteState$Domain;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/state/RemoteColor;
 	public static final fun tween (IILandroidx/compose/remote/creation/compose/state/RemoteFloat;)Landroidx/compose/remote/creation/compose/state/RemoteColor;
 	public static final fun tween (Landroidx/compose/remote/creation/compose/state/RemoteColor;Landroidx/compose/remote/creation/compose/state/RemoteColor;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)Landroidx/compose/remote/creation/compose/state/RemoteColor;
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemoteCompositingStrategy {
+	public static final field Companion Landroidx/compose/remote/creation/compose/state/RemoteCompositingStrategy$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/state/RemoteCompositingStrategy;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemoteCompositingStrategy$Companion {
+	public final fun getAuto-5qfakAM ()I
+	public final fun getModulateAlpha-5qfakAM ()I
+	public final fun getOffscreen-5qfakAM ()I
 }
 
 public final class androidx/compose/remote/creation/compose/state/RemoteConfiguration {
@@ -1953,6 +2086,27 @@ public final class androidx/compose/remote/creation/compose/state/RemoteEnum$Com
 
 public final class androidx/compose/remote/creation/compose/state/RemoteEnumKt {
 	public static final fun rememberNamedRemoteEnum (Ljava/lang/String;Ljava/lang/Enum;Lkotlin/enums/EnumEntries;Landroidx/compose/remote/creation/compose/state/RemoteState$Domain;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/state/RemoteEnum;
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemoteFilterQuality {
+	public static final field Companion Landroidx/compose/remote/creation/compose/state/RemoteFilterQuality$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/state/RemoteFilterQuality;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemoteFilterQuality$Companion {
+	public final fun getHigh-maZWJr4 ()I
+	public final fun getLow-maZWJr4 ()I
+	public final fun getMedium-maZWJr4 ()I
+	public final fun getNone-maZWJr4 ()I
 }
 
 public abstract class androidx/compose/remote/creation/compose/state/RemoteFloat : androidx/compose/remote/creation/compose/state/BaseRemoteState {
@@ -2134,7 +2288,10 @@ public final class androidx/compose/remote/creation/compose/state/RemoteImageBit
 	public static synthetic fun createNamedRemoteImageBitmap$default (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap$Companion;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteState$Domain;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
 	public static synthetic fun createNamedRemoteImageBitmap$default (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap$Companion;Ljava/lang/String;Landroidx/compose/ui/graphics/ImageBitmap;Landroidx/compose/remote/creation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
 	public static synthetic fun createNamedRemoteImageBitmap$default (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap$Companion;Ljava/lang/String;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
+	public final fun createNamedRemoteImageBitmap-mL-hObY (Ljava/lang/String;Ljava/lang/String;JLandroidx/compose/remote/creation/compose/state/RemoteState$Domain;)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
+	public static synthetic fun createNamedRemoteImageBitmap-mL-hObY$default (Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap$Companion;Ljava/lang/String;Ljava/lang/String;JLandroidx/compose/remote/creation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
 	public final fun createOffscreenRemoteBitmap (II)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
+	public final fun getIntrinsicSize-YbymL2g ()J
 	public final fun invoke (Landroidx/compose/ui/graphics/ImageBitmap;)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
 	public final fun invoke (Ljava/lang/String;)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
 }
@@ -2144,6 +2301,7 @@ public final class androidx/compose/remote/creation/compose/state/RemoteImageBit
 	public static final fun rememberMutableRemoteImageBitmap (Landroidx/compose/ui/graphics/ImageBitmap;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/MutableRemoteImageBitmap;
 	public static final fun rememberNamedRemoteImageBitmap (Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteState$Domain;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
 	public static final fun rememberNamedRemoteImageBitmap (Ljava/lang/String;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteState$Domain;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
+	public static final fun rememberNamedRemoteImageBitmap-fX9YHzY (Ljava/lang/String;Ljava/lang/String;JLandroidx/compose/remote/creation/compose/state/RemoteState$Domain;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
 	public static final fun rememberRemoteImageBitmap (Ljava/lang/String;Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;
 }
 
@@ -2290,10 +2448,13 @@ public abstract interface class androidx/compose/remote/creation/compose/state/R
 	public abstract fun getBlendMode-0nO6VwU ()I
 	public abstract fun getColor ()Landroidx/compose/remote/creation/compose/state/RemoteColor;
 	public abstract fun getColorFilter ()Landroidx/compose/remote/creation/compose/state/RemoteColorFilter;
-	public abstract fun getFilterQuality-f-v9h1I ()I
+	public abstract fun getFilterQuality-maZWJr4 ()I
 	public abstract fun getFontFeatureSettings ()Ljava/lang/String;
 	public abstract fun getFontVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
-	public abstract fun getPathEffect ()Landroidx/compose/ui/graphics/PathEffect;
+	public fun getRemoteBlendMode-0vVSDDA ()I
+	public fun getRemoteStrokeCap-7-imn-Y ()I
+	public fun getRemoteStrokeJoin-frcHR-o ()I
+	public fun getRemoteStyle-_ZYGA9Q ()I
 	public abstract fun getShader ()Landroidx/compose/remote/creation/compose/shaders/RemoteShader;
 	public abstract fun getStrokeCap-KaPHkGw ()I
 	public abstract fun getStrokeJoin-LxFBmk8 ()I
@@ -2306,10 +2467,13 @@ public abstract interface class androidx/compose/remote/creation/compose/state/R
 	public abstract fun setBlendMode-s9anfk8 (I)V
 	public abstract fun setColor (Landroidx/compose/remote/creation/compose/state/RemoteColor;)V
 	public abstract fun setColorFilter (Landroidx/compose/remote/creation/compose/state/RemoteColorFilter;)V
-	public abstract fun setFilterQuality-vDHp3xo (I)V
+	public abstract fun setFilterQuality-I3nZ6G0 (I)V
 	public abstract fun setFontFeatureSettings (Ljava/lang/String;)V
 	public abstract fun setFontVariationSettings (Landroidx/compose/ui/text/font/FontVariation$Settings;)V
-	public abstract fun setPathEffect (Landroidx/compose/ui/graphics/PathEffect;)V
+	public fun setRemoteBlendMode-1B-nx3I (I)V
+	public fun setRemoteStrokeCap-pGIva5w (I)V
+	public fun setRemoteStrokeJoin-wBp-flg (I)V
+	public fun setRemoteStyle-oRXru0U (I)V
 	public abstract fun setShader (Landroidx/compose/remote/creation/compose/shaders/RemoteShader;)V
 	public abstract fun setStrokeCap-BeK7IIE (I)V
 	public abstract fun setStrokeJoin-Ww9F2mQ (I)V
@@ -2322,6 +2486,55 @@ public abstract interface class androidx/compose/remote/creation/compose/state/R
 public final class androidx/compose/remote/creation/compose/state/RemotePaint$Companion {
 	public final fun invoke (Lkotlin/jvm/functions/Function1;)Landroidx/compose/remote/creation/compose/state/RemotePaint;
 	public static synthetic fun invoke$default (Landroidx/compose/remote/creation/compose/state/RemotePaint$Companion;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/state/RemotePaint;
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemotePaint$DefaultImpls {
+	public static fun getRemoteBlendMode-0vVSDDA (Landroidx/compose/remote/creation/compose/state/RemotePaint;)I
+	public static fun getRemoteStrokeCap-7-imn-Y (Landroidx/compose/remote/creation/compose/state/RemotePaint;)I
+	public static fun getRemoteStrokeJoin-frcHR-o (Landroidx/compose/remote/creation/compose/state/RemotePaint;)I
+	public static fun getRemoteStyle-_ZYGA9Q (Landroidx/compose/remote/creation/compose/state/RemotePaint;)I
+	public static fun setRemoteBlendMode-1B-nx3I (Landroidx/compose/remote/creation/compose/state/RemotePaint;I)V
+	public static fun setRemoteStrokeCap-pGIva5w (Landroidx/compose/remote/creation/compose/state/RemotePaint;I)V
+	public static fun setRemoteStrokeJoin-wBp-flg (Landroidx/compose/remote/creation/compose/state/RemotePaint;I)V
+	public static fun setRemoteStyle-oRXru0U (Landroidx/compose/remote/creation/compose/state/RemotePaint;I)V
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemotePaintingStyle {
+	public static final field Companion Landroidx/compose/remote/creation/compose/state/RemotePaintingStyle$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/state/RemotePaintingStyle;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemotePaintingStyle$Companion {
+	public final fun getFill-_ZYGA9Q ()I
+	public final fun getStroke-_ZYGA9Q ()I
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemotePathFillType {
+	public static final field Companion Landroidx/compose/remote/creation/compose/state/RemotePathFillType$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/state/RemotePathFillType;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemotePathFillType$Companion {
+	public final fun getEvenOdd-Y7Jnevs ()I
+	public final fun getNonZero-Y7Jnevs ()I
 }
 
 public abstract interface class androidx/compose/remote/creation/compose/state/RemoteState {
@@ -2372,6 +2585,7 @@ public abstract interface class androidx/compose/remote/creation/compose/state/R
 	public fun getLongId (Landroidx/compose/remote/creation/compose/state/RemoteState;)J
 	public abstract fun getParentScope ()Landroidx/compose/remote/creation/compose/state/RemoteStateScope;
 	public abstract fun getRemoteDensity ()Landroidx/compose/remote/creation/compose/capture/RemoteDensity;
+	public fun getRemoteLayoutDirection ()Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;
 }
 
 public final class androidx/compose/remote/creation/compose/state/RemoteStateScope$DefaultImpls {
@@ -2379,6 +2593,7 @@ public final class androidx/compose/remote/creation/compose/state/RemoteStateSco
 	public static fun getFloatId (Landroidx/compose/remote/creation/compose/state/RemoteStateScope;Landroidx/compose/remote/creation/compose/state/RemoteState;)F
 	public static fun getId (Landroidx/compose/remote/creation/compose/state/RemoteStateScope;Landroidx/compose/remote/creation/compose/state/RemoteState;)I
 	public static fun getLongId (Landroidx/compose/remote/creation/compose/state/RemoteStateScope;Landroidx/compose/remote/creation/compose/state/RemoteState;)J
+	public static fun getRemoteLayoutDirection (Landroidx/compose/remote/creation/compose/state/RemoteStateScope;)Landroidx/compose/remote/creation/compose/layout/RemoteLayoutDirection;
 }
 
 public final class androidx/compose/remote/creation/compose/state/RemoteStateScopeKt {
@@ -2440,6 +2655,46 @@ public final class androidx/compose/remote/creation/compose/state/RemoteStringKt
 	public static final fun selectIfLt (Landroidx/compose/remote/creation/compose/state/RemoteInt;Landroidx/compose/remote/creation/compose/state/RemoteInt;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteString;)Landroidx/compose/remote/creation/compose/state/RemoteString;
 }
 
+public final class androidx/compose/remote/creation/compose/state/RemoteStrokeCap {
+	public static final field Companion Landroidx/compose/remote/creation/compose/state/RemoteStrokeCap$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/state/RemoteStrokeCap;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemoteStrokeCap$Companion {
+	public final fun getButt-7-imn-Y ()I
+	public final fun getRound-7-imn-Y ()I
+	public final fun getSquare-7-imn-Y ()I
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemoteStrokeJoin {
+	public static final field Companion Landroidx/compose/remote/creation/compose/state/RemoteStrokeJoin$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/state/RemoteStrokeJoin;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemoteStrokeJoin$Companion {
+	public final fun getBevel-frcHR-o ()I
+	public final fun getMiter-frcHR-o ()I
+	public final fun getRound-frcHR-o ()I
+}
+
 public final class androidx/compose/remote/creation/compose/state/RemoteTextUnit : androidx/compose/remote/creation/compose/state/BaseRemoteState {
 	public static final field $stable I
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
@@ -2455,6 +2710,27 @@ public final class androidx/compose/remote/creation/compose/state/RemoteTextUnit
 	public static final fun asRemoteTextUnit--R2X_6o (J)Landroidx/compose/remote/creation/compose/state/RemoteTextUnit;
 	public static final fun getRsp (I)Landroidx/compose/remote/creation/compose/state/RemoteTextUnit;
 	public static final fun toRsp-0680j_4 (F)Landroidx/compose/remote/creation/compose/state/RemoteTextUnit;
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemoteTileMode {
+	public static final field Companion Landroidx/compose/remote/creation/compose/state/RemoteTileMode$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/state/RemoteTileMode;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/state/RemoteTileMode$Companion {
+	public final fun getClamp-MnlTbZo ()I
+	public final fun getDecal-MnlTbZo ()I
+	public final fun getMirror-MnlTbZo ()I
+	public final fun getRepeated-MnlTbZo ()I
 }
 
 public final class androidx/compose/remote/creation/compose/state/RemoteTimeVariables {
@@ -2503,10 +2779,13 @@ public final class androidx/compose/remote/creation/compose/state/StandardRemote
 	public fun getBlendMode-0nO6VwU ()I
 	public fun getColor ()Landroidx/compose/remote/creation/compose/state/RemoteColor;
 	public fun getColorFilter ()Landroidx/compose/remote/creation/compose/state/RemoteColorFilter;
-	public fun getFilterQuality-f-v9h1I ()I
+	public fun getFilterQuality-maZWJr4 ()I
 	public fun getFontFeatureSettings ()Ljava/lang/String;
 	public fun getFontVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
-	public fun getPathEffect ()Landroidx/compose/ui/graphics/PathEffect;
+	public fun getRemoteBlendMode-0vVSDDA ()I
+	public fun getRemoteStrokeCap-7-imn-Y ()I
+	public fun getRemoteStrokeJoin-frcHR-o ()I
+	public fun getRemoteStyle-_ZYGA9Q ()I
 	public fun getShader ()Landroidx/compose/remote/creation/compose/shaders/RemoteShader;
 	public fun getStrokeCap-KaPHkGw ()I
 	public fun getStrokeJoin-LxFBmk8 ()I
@@ -2519,10 +2798,13 @@ public final class androidx/compose/remote/creation/compose/state/StandardRemote
 	public fun setBlendMode-s9anfk8 (I)V
 	public fun setColor (Landroidx/compose/remote/creation/compose/state/RemoteColor;)V
 	public fun setColorFilter (Landroidx/compose/remote/creation/compose/state/RemoteColorFilter;)V
-	public fun setFilterQuality-vDHp3xo (I)V
+	public fun setFilterQuality-I3nZ6G0 (I)V
 	public fun setFontFeatureSettings (Ljava/lang/String;)V
 	public fun setFontVariationSettings (Landroidx/compose/ui/text/font/FontVariation$Settings;)V
-	public fun setPathEffect (Landroidx/compose/ui/graphics/PathEffect;)V
+	public fun setRemoteBlendMode-1B-nx3I (I)V
+	public fun setRemoteStrokeCap-pGIva5w (I)V
+	public fun setRemoteStrokeJoin-wBp-flg (I)V
+	public fun setRemoteStyle-oRXru0U (I)V
 	public fun setShader (Landroidx/compose/remote/creation/compose/shaders/RemoteShader;)V
 	public fun setStrokeCap-BeK7IIE (I)V
 	public fun setStrokeJoin-Ww9F2mQ (I)V
@@ -2581,6 +2863,167 @@ public final class androidx/compose/remote/creation/compose/text/RemoteFontFamil
 	public static final fun toRemoteTypeface (Landroidx/compose/remote/creation/compose/text/RemoteFontFamily;)Landroidx/compose/remote/creation/compose/text/RemoteTypeface;
 }
 
+public final class androidx/compose/remote/creation/compose/text/RemoteFontStyle {
+	public static final field Companion Landroidx/compose/remote/creation/compose/text/RemoteFontStyle$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/text/RemoteFontStyle;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteFontStyle$Companion {
+	public final fun getItalic-C-uzmvI ()I
+	public final fun getNormal-C-uzmvI ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteFontWeight : java/lang/Comparable {
+	public static final field Companion Landroidx/compose/remote/creation/compose/text/RemoteFontWeight$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/text/RemoteFontWeight;
+	public synthetic fun compareTo (Ljava/lang/Object;)I
+	public fun compareTo-4aa8Rns (I)I
+	public static fun compareTo-4aa8Rns (II)I
+	public static fun constructor-impl (I)I
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getWeight ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteFontWeight$Companion {
+	public final fun getBlack-4kMO9dw ()I
+	public final fun getBold-4kMO9dw ()I
+	public final fun getExtraBold-4kMO9dw ()I
+	public final fun getExtraLight-4kMO9dw ()I
+	public final fun getLight-4kMO9dw ()I
+	public final fun getMedium-4kMO9dw ()I
+	public final fun getNormal-4kMO9dw ()I
+	public final fun getSemiBold-4kMO9dw ()I
+	public final fun getThin-4kMO9dw ()I
+	public final fun getW100-4kMO9dw ()I
+	public final fun getW200-4kMO9dw ()I
+	public final fun getW300-4kMO9dw ()I
+	public final fun getW400-4kMO9dw ()I
+	public final fun getW500-4kMO9dw ()I
+	public final fun getW600-4kMO9dw ()I
+	public final fun getW700-4kMO9dw ()I
+	public final fun getW800-4kMO9dw ()I
+	public final fun getW900-4kMO9dw ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteHyphens {
+	public static final field Companion Landroidx/compose/remote/creation/compose/text/RemoteHyphens$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/text/RemoteHyphens;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteHyphens$Companion {
+	public final fun getAuto-CC6Bl3o ()I
+	public final fun getNone-CC6Bl3o ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteLineBreak {
+	public static final field Companion Landroidx/compose/remote/creation/compose/text/RemoteLineBreak$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/text/RemoteLineBreak;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteLineBreak$Companion {
+	public final fun getHeading-31ovqj0 ()I
+	public final fun getParagraph-31ovqj0 ()I
+	public final fun getSimple-31ovqj0 ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteTextAlign {
+	public static final field Companion Landroidx/compose/remote/creation/compose/text/RemoteTextAlign$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/text/RemoteTextAlign;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteTextAlign$Companion {
+	public final fun getCenter-OeM8DuM ()I
+	public final fun getEnd-OeM8DuM ()I
+	public final fun getJustify-OeM8DuM ()I
+	public final fun getLeft-OeM8DuM ()I
+	public final fun getRight-OeM8DuM ()I
+	public final fun getStart-OeM8DuM ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteTextDecoration {
+	public static final field Companion Landroidx/compose/remote/creation/compose/text/RemoteTextDecoration$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/text/RemoteTextDecoration;
+	public static final fun contains-nslsm8g (II)Z
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public static final fun plus--6as2og (II)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteTextDecoration$Companion {
+	public final fun getLineThrough-FifJeIA ()I
+	public final fun getNone-FifJeIA ()I
+	public final fun getUnderline-FifJeIA ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteTextOverflow {
+	public static final field Companion Landroidx/compose/remote/creation/compose/text/RemoteTextOverflow$Companion;
+	public static final synthetic fun box-impl (I)Landroidx/compose/remote/creation/compose/text/RemoteTextOverflow;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class androidx/compose/remote/creation/compose/text/RemoteTextOverflow$Companion {
+	public final fun getClip-W-PLe1g ()I
+	public final fun getEllipsis-W-PLe1g ()I
+	public final fun getMiddleEllipsis-W-PLe1g ()I
+	public final fun getStartEllipsis-W-PLe1g ()I
+	public final fun getVisible-W-PLe1g ()I
+}
+
 public final class androidx/compose/remote/creation/compose/text/RemoteTextStyle {
 	public static final field $stable I
 	public static final field Companion Landroidx/compose/remote/creation/compose/text/RemoteTextStyle$Companion;
@@ -2601,6 +3044,12 @@ public final class androidx/compose/remote/creation/compose/text/RemoteTextStyle
 	public final fun getLetterSpacing ()Landroidx/compose/remote/creation/compose/state/RemoteTextUnit;
 	public final fun getLineBreak-rAG3T2k ()I
 	public final fun getLineHeight ()Landroidx/compose/remote/creation/compose/state/RemoteTextUnit;
+	public final fun getRemoteFontStyle--iCHqws ()Landroidx/compose/remote/creation/compose/text/RemoteFontStyle;
+	public final fun getRemoteFontWeight-hWnIAx0 ()Landroidx/compose/remote/creation/compose/text/RemoteFontWeight;
+	public final fun getRemoteHyphens-WDn5VoY ()Landroidx/compose/remote/creation/compose/text/RemoteHyphens;
+	public final fun getRemoteLineBreak-3s_uRII ()Landroidx/compose/remote/creation/compose/text/RemoteLineBreak;
+	public final fun getRemoteTextAlign-BjsDkGs ()Landroidx/compose/remote/creation/compose/text/RemoteTextAlign;
+	public final fun getRemoteTextDecoration-LBllYf8 ()Landroidx/compose/remote/creation/compose/text/RemoteTextDecoration;
 	public final fun getTextAlign-buA522U ()Landroidx/compose/ui/text/style/TextAlign;
 	public final fun getTextDecoration ()Landroidx/compose/ui/text/style/TextDecoration;
 	public final fun merge (Landroidx/compose/remote/creation/compose/text/RemoteTextStyle;)Landroidx/compose/remote/creation/compose/text/RemoteTextStyle;

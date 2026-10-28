@@ -21,11 +21,16 @@ import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.utilities.AnimatedFloatExpression
 import androidx.compose.runtime.mutableFloatStateOf
-import ee.schimke.composeai.rcembedded.player.GraphContext
-import ee.schimke.composeai.rcembedded.player.SnapshotRemoteComposeState
-import ee.schimke.composeai.rcembedded.player.buildComputedOpIndex
+import ee.schimke.composeai.rcembedded.player.doc.GraphContext
+import ee.schimke.composeai.rcembedded.player.doc.GraphTimeState
+import ee.schimke.composeai.rcembedded.player.doc.SnapshotRemoteComposeState
+import ee.schimke.composeai.rcembedded.player.doc.TimeReadTracker
+import ee.schimke.composeai.rcembedded.player.doc.buildComputedOpIndex
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * An expression over a component's *measured* size must evaluate against that size.
@@ -40,6 +45,10 @@ import org.junit.Test
  * makes the thumb round. With the inputs unreadable it came out 0 and the thumb rendered square
  * (compose-ai-tools#3992), while the track's literal-radius clip beside it was fine.
  */
+// `androidx.tracing` sections in the player call `android.os.Trace`, which the plain unit-test
+// android.jar does not implement.
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class GraphContextComponentValueTest {
 
     @Test
@@ -100,8 +109,7 @@ class GraphContextComponentValueTest {
         return GraphContext(
                 SnapshotRemoteComposeState(),
                 buildComputedOpIndex(listOf(radius)),
-                mutableFloatStateOf(0f),
-                RemoteClock.SYSTEM,
+                GraphTimeState(RemoteClock.SYSTEM, TimeReadTracker()),
             )
             .also { it.componentValues = componentValues }
     }

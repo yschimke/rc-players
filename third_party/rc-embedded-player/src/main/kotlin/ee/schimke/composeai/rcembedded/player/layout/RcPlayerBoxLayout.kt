@@ -24,9 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import ee.schimke.composeai.rcembedded.player.LocalGraphContext
 import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
-import ee.schimke.composeai.rcembedded.player.RcPlayerChildren
-import ee.schimke.composeai.rcembedded.player.horizontalPositioningReflection
-import ee.schimke.composeai.rcembedded.player.verticalPositioningReflection
+import ee.schimke.composeai.rcembedded.player.components.RcPlayerChildren
 
 @Composable
 internal fun RcPlayerBox(layout: BoxLayout, modifier: Modifier) {
@@ -36,8 +34,8 @@ internal fun RcPlayerBox(layout: BoxLayout, modifier: Modifier) {
         modifier = modifier,
         contentAlignment =
             boxContentAlignment(
-                layout.horizontalPositioningReflection,
-                layout.verticalPositioningReflection,
+                layout.horizontalPositioning,
+                layout.verticalPositioning,
             ),
     ) {
         RcPlayerChildren(layout)

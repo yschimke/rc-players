@@ -115,69 +115,51 @@ wear-compose = "1.7.0-beta02"
 wear = "1.4.0"
 # Remote Compose — released alpha coordinates from Google Maven. See
 # https://developer.android.com/jetpack/androidx/releases/compose-remote.
-# Used by `:samples:remotecompose` to demonstrate `RemotePreview` +
-# `@PreviewWrapper(RemotePreviewWrapper::class)`, by the daemon connector, and
-# by the vendored embedded player. Re-check minCompileSdk / AGP requirements
-# when bumping — the line has historically tightened them.
-#  * ui-tooling-preview 1.11.0-rc01 is the first released artifact that
-#    contains `PreviewWrapper` / `PreviewWrapperProvider` — 1.10.x (the
-#    current BOM) doesn't have them. Declared explicitly because the
-#    sample doesn't depend on compose-bom.
-#  * This ref and the `wear-compose-remote` / `glance-wear` refs below MUST be
-#    bumped as one set, to versions built against the same `remote-creation*`.
-#    The three groups only work together when they were, and matching them by
-#    hand kept going wrong: alpha09 dropped
-#    `…creation.compose.modifier.ClickActionModifierKt` that
-#    `remote-material3:alpha02` still called, giving a runtime
-#    `NoClassDefFoundError` inside `RemoteButtonImpl` at render time; a Renovate
-#    bump of the `alpha11` / `alpha04` pair took CI red on both the Kotlin
-#    compile and the daemon-harness render; and #2823 once pinned a
-#    `wear-compose-remote` version that didn't exist yet (every artifact 404'd),
-#    making every Remote Compose module here unresolvable. Check the POMs
-#    before landing a bump: `remote-material3:1.0.0-alpha10` and
-#    `androidx.glance.wear:*:1.0.0-alpha17` both declare `remote-creation*`
-#    `1.0.0-alpha18`, which is what makes the current trio consistent.
+# One line for every consumer: the vendored embedded player, the compat tests, the
+# `remote-apple-components` prototype and the widget lane (`rc-widget/launcher`, `rc-widget/wear`,
+# the Android half of `rc-widget/creation`), which captures and publishes to real hosts — a
+# launcher's `RemoteViews.DrawInstructions` player and Glance Wear. The widget lane used to sit on
+# its own, newer `compose-remote-widgets` ref; it merged back into this one at alpha22, when the
+# player line caught up. Keep it on what the widget hosts' first consumer
+# (homeassistant-remotecompose) ships, so one app never resolves two lines. Re-check minCompileSdk /
+# AGP requirements when bumping — the line has historically tightened them.
+#  * This ref, `compose-remote-foundation`, `wear-compose-remote` and `glance-wear` MUST be bumped
+#    as one set, to versions built against the same `remote-creation*`. The groups only work
+#    together when they were, and matching them by hand has gone wrong before (a runtime
+#    `NoClassDefFoundError` inside `RemoteButtonImpl` after alpha09 dropped a class
+#    `remote-material3` still called; a pin of a `wear-compose-remote` that did not exist yet).
+#    Check the POMs before landing a bump: `remote-material3:1.0.0-alpha14`,
+#    `androidx.compose.remote.foundation:foundation:1.0.0-alpha05` and
+#    `androidx.glance.wear:*:1.0.0-alpha21` all declare `remote-creation*` `1.0.0-alpha22`, and
+#    `remote-material3:1.0.0-alpha14` declares `foundation` `1.0.0-alpha05`, which is what makes the
+#    current set consistent.
 #  * To try an API that has landed on androidx-main but is not released yet, run
 #    with `-Pcomposeai.remoteCompose=snapshot`: `settings.gradle.kts` then adds
-#    the build-id-pinned androidx.dev repository and rewrites all three refs to
-#    `1.0.0-SNAPSHOT`. The snapshot lane is opt-in and temporary — CI, published
-#    consumers and every default build stay on these released pins.
-#  * API drift still happens between alphas, and it lands in the samples +
-#    connector, not just in resolution. Past migrations, for shape: `HostAction`
-#    went `internal` (build actions via the public `hostAction(...)` factory
-#    returning `Action`); `captureSingleRemoteDocument` took on
-#    `RemoteCreationDisplayInfo` + `RemoteDensity` + `LayoutDirection`;
-#    `RemotePreview` became `RemoteContentPreview`; `RemoteDensity.from` dropped
-#    its trailing `Context` arg. Expect the same class of fix when these pins
-#    move — verify a render, not just a compile.
-compose-remote = "1.0.0-alpha19"
+#    the build-id-pinned androidx.dev repository and rewrites `compose-remote` and
+#    `compose-remote-foundation` to `1.0.0-SNAPSHOT`. The snapshot lane is opt-in and temporary — CI,
+#    published consumers and every default build stay on these released pins.
+#  * API drift still happens between alphas, and it lands in consumers, not just in resolution.
+#    Past migrations, for shape: `HostAction` went `internal` (build actions via the public
+#    `hostAction(...)` factory returning `Action`); `captureSingleRemoteDocument` took on
+#    `RemoteCreationDisplayInfo` + `RemoteDensity` + `LayoutDirection`; `RemotePreview` became
+#    `RemoteContentPreview`. Expect the same class of fix when these pins move — verify a render,
+#    not just a compile.
+compose-remote = "1.0.0-alpha22"
+# `androidx.compose.remote.foundation:foundation`, for the widget lane. Moves with `compose-remote`.
+compose-remote-foundation = "1.0.0-alpha05"
 # Matches what the `compose-bom-compat` Compose artifacts already resolve collection to; pinned
 # explicitly because `:third-party-rc-embedded-player` names `ObjectIntMap`/`IntObjectMap` directly.
 androidx-collection = "1.7.0"
 # `FontRequest` / `FontsContractCompat` — the downloadable-fonts provider API the vendored embedded
 # player's typeface resolver uses to service `google:` font prefixes.
 androidx-core = "1.19.1"
-# Wear Compose Remote Material 3 — `androidx.wear.compose.remote:remote-material3`,
-# the Wear M3 widget layer on top of Remote Compose, used by `:samples:remotecompose`
-# and `:samples:wear-widget` (and, out of tree, by the `remote-m3` catalog in
-# yschimke/wear-m3-catalog, which resolves this same coordinate from Google Maven).
-# Its POM declares the `remote-creation*`
-# version it was compiled against (alpha10 → alpha18), so bump it together with
-# `compose-remote` above and `glance-wear` below. It also pulls
-# `androidx.compose.remote.foundation:foundation`, which used to exist only on the
-# androidx-main snapshot line and now publishes to Google Maven — that is what
-# unblocked the move back to released coordinates.
-wear-compose-remote = "1.0.0-alpha10"
-# The widget lane (`rc-widget/launcher`, `rc-widget/wear`, the Android half of
-# `rc-widget/creation`). These modules capture and publish to real hosts — a launcher's
-# `RemoteViews.DrawInstructions` player and Glance Wear — so they compile against the AndroidX
-# creation stack those hosts are written for, a newer line than `compose-remote` above (which the
-# vendored player and compat tests pin). The three refs move as one set, as `compose-remote`'s note
-# explains: `glance-wear` 1.0.0-alpha21 declares `remote-creation*` 1.0.0-alpha22, and
-# `remote-foundation` 1.0.0-alpha05 is what that line resolves. Keep them on the versions the
-# widget hosts' first consumer (homeassistant-remotecompose) ships, so one app never resolves two.
-compose-remote-widgets = "1.0.0-alpha22"
-compose-remote-foundation-widgets = "1.0.0-alpha05"
+# Wear Compose Remote Material 3 — `androidx.wear.compose.remote:remote-material3`, the Wear M3
+# widget layer on top of Remote Compose. Nothing in this build depends on it today; it is kept so
+# the set above stays recorded in one place, and because the out-of-tree `remote-m3` catalog in
+# yschimke/wear-m3-catalog resolves the same coordinate. Its POM declares the `remote-creation*`
+# and `foundation` versions it was compiled against, so bump it with `compose-remote` above.
+wear-compose-remote = "1.0.0-alpha14"
+# Glance Wear, for `rc-widget/wear`. Moves with `compose-remote`.
 glance-wear = "1.0.0-alpha21"
 kotlinx-coroutines = "1.11.0"
 kotlinx-datetime = "0.8.0"
@@ -268,13 +250,8 @@ compose-remote-player-view = { module = "androidx.compose.remote:remote-player-v
 # vendored player reads `androidx.compose.remote.core.*` directly rather than only through the
 # Android-only `remote-player-core`.
 compose-remote-core = { module = "androidx.compose.remote:remote-core", version.ref = "compose-remote" }
-widgets-remote-core = { module = "androidx.compose.remote:remote-core", version.ref = "compose-remote-widgets" }
-widgets-remote-creation = { module = "androidx.compose.remote:remote-creation", version.ref = "compose-remote-widgets" }
-widgets-remote-creation-core = { module = "androidx.compose.remote:remote-creation-core", version.ref = "compose-remote-widgets" }
-widgets-remote-creation-compose = { module = "androidx.compose.remote:remote-creation-compose", version.ref = "compose-remote-widgets" }
-widgets-remote-player-core = { module = "androidx.compose.remote:remote-player-core", version.ref = "compose-remote-widgets" }
-widgets-remote-player-view = { module = "androidx.compose.remote:remote-player-view", version.ref = "compose-remote-widgets" }
-widgets-remote-foundation = { module = "androidx.compose.remote.foundation:foundation", version.ref = "compose-remote-foundation-widgets" }
+compose-remote-creation-core = { module = "androidx.compose.remote:remote-creation-core", version.ref = "compose-remote" }
+compose-remote-foundation = { module = "androidx.compose.remote.foundation:foundation", version.ref = "compose-remote-foundation" }
 glance-wear = { module = "androidx.glance.wear:wear", version.ref = "glance-wear" }
 glance-wear-core = { module = "androidx.glance.wear:wear-core", version.ref = "glance-wear" }
 # `ObjectIntMap` / `IntObjectMap` in the vendored embedded player's public signatures. Compose pulls

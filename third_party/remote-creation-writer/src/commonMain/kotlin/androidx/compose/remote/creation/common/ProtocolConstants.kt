@@ -124,6 +124,20 @@ public object PaintBundle {
   public const val BLEND_MODE_SATURATION: Int = 26
   public const val BLEND_MODE_COLOR: Int = 27
   public const val BLEND_MODE_LUMINOSITY: Int = 28
+  public const val STYLE_FILL: Int = 0
+  public const val STYLE_STROKE: Int = 1
+  public const val STYLE_FILL_AND_STROKE: Int = 2
+}
+
+public object CoreText {
+  public const val BREAK_STRATEGY_SIMPLE: Int = 0
+  public const val BREAK_STRATEGY_HIGH_QUALITY: Int = 1
+  public const val BREAK_STRATEGY_BALANCED: Int = 2
+  public const val HYPHENATION_FREQUENCY_NONE: Int = 0
+  public const val HYPHENATION_FREQUENCY_NORMAL: Int = 1
+  public const val HYPHENATION_FREQUENCY_FULL: Int = 2
+  public const val HYPHENATION_FREQUENCY_NORMAL_FAST: Int = 3
+  public const val HYPHENATION_FREQUENCY_FULL_FAST: Int = 4
 }
 
 public object TextLayout {

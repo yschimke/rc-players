@@ -26,5 +26,10 @@ internal class TouchCancelActionModifier(public val action: Action) : RemoteModi
         RemoteModifierOperation.Touch(2, resolveAction(action))
 }
 
+/**
+ * Performs [action] when a touch gesture is cancelled on the element.
+ *
+ * @param action The [Action] to perform when the touch is cancelled.
+ */
 public fun RemoteModifier.onTouchCancel(action: Action): RemoteModifier =
     then(TouchCancelActionModifier(action))

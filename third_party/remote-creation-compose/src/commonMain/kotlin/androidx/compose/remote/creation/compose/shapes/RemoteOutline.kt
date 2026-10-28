@@ -30,7 +30,12 @@ import androidx.compose.remote.creation.compose.vector.RemotePathScope
  */
 public sealed class RemoteOutline {
 
-    /** Rectangular area. */
+    /**
+     * Rectangular area.
+     *
+     * @param topLeft The top-left offset of the rectangle.
+     * @param size The dimensions of the rectangle.
+     */
     public class Rectangle(public val topLeft: RemoteOffset, public val size: RemoteSize) :
         RemoteOutline()
 
@@ -67,6 +72,11 @@ public sealed class RemoteOutline {
             this.block = null
         }
 
+        /**
+         * Creates a generic outline defined by [block].
+         *
+         * @param block A builder lambda that populates a [RemotePathScope].
+         */
         public constructor(block: RemotePathScope.() -> Unit) : super() {
             this.path = null
             this.block = block

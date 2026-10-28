@@ -23,10 +23,7 @@ import androidx.collection.mutableIntSetOf
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.remote.core.operations.FloatExpression
-import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.modifiers.GraphicsLayerModifierOperation
-import androidx.compose.remote.core.operations.utilities.AnimatedFloatExpression
-import androidx.compose.remote.core.operations.utilities.NanMap
 import androidx.compose.remote.core.operations.utilities.easing.GeneralEasing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -36,16 +33,16 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import ee.schimke.composeai.rcembedded.player.LocalComponentValueStateMap
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
-import ee.schimke.composeai.rcembedded.player.getFloatExpressionsReflection
-import ee.schimke.composeai.rcembedded.player.getValuesReflection
-import ee.schimke.composeai.rcembedded.player.isTimeVariable
-import ee.schimke.composeai.rcembedded.player.mapEasing
+import ee.schimke.composeai.rcembedded.player.doc.isTimeVariable
+import ee.schimke.composeai.rcembedded.player.doc.mapEasing
+import ee.schimke.composeai.rcembedded.player.state.MaybeVariableFloat
+import ee.schimke.composeai.rcembedded.player.state.anyScalarReference
 import ee.schimke.composeai.rcembedded.player.state.expressionDependsOnAnimation
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 @Composable
 internal fun Modifier.graphicsLayer(op: GraphicsLayerModifierOperation): Modifier {
-    val values = op.getValuesReflection()
+    val values = op.values
     val scaleX =
         rememberGraphicsLayerFloatAsState(values[GraphicsLayerModifierOperation.SCALE_X].source)
     val scaleY =
@@ -121,16 +118,17 @@ private val GraphicsLayerImplicitAnimationSpec =
 @Composable
 private fun rememberGraphicsLayerFloatAsState(source: Float): State<Float> {
     val state = rememberRemoteFloatAsState(source)
-    if (!Utils.isVariable(source)) {
+    val field = MaybeVariableFloat(source)
+    if (!field.isReference) {
         return state
     }
 
-    val id = Utils.idFromNan(source)
+    val id = field.id
     val document = LocalCoreDocument.current
     val componentValueStates = LocalComponentValueStateMap.current
     val shouldAnimate =
         remember(document, id, componentValueStates) {
-            val expressions = document.getFloatExpressionsReflection()
+            val expressions = document.getFloatExpressions()
             !isTimeVariable(id) &&
                 !componentValueStates.containsKey(id) &&
                 !expressionDependsOnAnimation(expressions, id) &&
@@ -155,11 +153,5 @@ private fun expressionDependsOnTime(
     if (!visited.add(id)) return false
     val expr = expressions[id] ?: return false
     val src = expr.mSrcValue ?: return false
-    for (v in src) {
-        if (v.isNaN() && !AnimatedFloatExpression.isMathOperator(v) && !NanMap.isDataVariable(v)) {
-            val varId = Utils.idFromNan(v)
-            if (expressionDependsOnTime(expressions, varId, visited)) return true
-        }
-    }
-    return false
+    return src.anyScalarReference { expressionDependsOnTime(expressions, it, visited) }
 }
