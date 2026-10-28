@@ -496,6 +496,31 @@ import Testing
     #expect(commands.map { $0.values[2] } == [10, 20])
   }
 
+  @Test func aFunctionFadesByAPaintAlphaBoundToItsProgress() throws {
+    // `PaintData(ALPHA, progress); DrawContent`: the alpha resolves against the call's arguments.
+    let custom = NativeSwiftLayoutAnimation.custom
+    let data = Self.document(
+      specs: { Self.spec($0, enter: custom, exit: custom, enterFunction: 9, exitFunction: 9) },
+      functions: { writer in
+        writer.u8(Op.functionDefine).int(9).int(1).int(500)
+        writer.u8(Op.paintValues).int(2).int(NativeSwiftPaintCommand.alpha)
+          .int(Writer.nanReference(500))
+        writer.u8(Op.drawContent)
+        writer.u8(Op.containerEnd)
+      })
+    let session = try NativeSwiftDocumentSession.open(data: data)
+    _ = try session.snapshot(timeSeconds: 1)
+    #expect(session.setInteger(NativeSwiftVisibility.gone, for: "shown"))
+    _ = try session.snapshot(timeSeconds: 1)  // The exit starts here.
+    let transition = try #require(
+      try Self.box(session.snapshot(timeSeconds: 1.15)).visibilityTransition)
+    let function = try #require(transition.function)
+    let commands = try function.commands(x: 0, y: 0, width: 10, height: 10)
+    #expect(commands.map(\.kind) == [NativeSwiftDrawKind.drawContent])
+    #expect(abs(commands[0].alpha - transition.progress) < 0.001)
+    #expect(transition.progress > 0.1 && transition.progress < 0.9)
+  }
+
   @Test func aFunctionThatCannotEvaluateThrowsForTheHostToDegrade() throws {
     let custom = NativeSwiftLayoutAnimation.custom
     let data = Self.document(

@@ -423,7 +423,8 @@ struct ParsedDrawCommand {
           fraction: resolvedValues.first ?? 0, flags: matrixFlags)
         : resolvedValues,
       colorARGB: try resolvePaintColor(colors: colors),
-      alpha: alphaWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? paint.alpha,
+      alpha: alphaWord.map { NativeSwiftFloatExpression.resolve($0, values: values) }
+        ?? min(max(NativeSwiftFloatExpression.resolve(paint.alpha, values: values), 0), 1),
       strokeWidth: NativeSwiftFloatExpression.resolve(paint.strokeWidth, values: values),
       isStroke: paint.isStroke,
       strokeCap: paint.strokeCap,
@@ -601,6 +602,7 @@ extension ParsedNode {
         if matches(image.scaleFactor) { return true }
       }
       if matches(command.paint.strokeWidth) { return true }
+      if matches(command.paint.alpha) { return true }
       if let alphaWord = command.alphaWord, matches(alphaWord) { return true }
     }
     return children.contains { $0.references(anyOf: ids) }

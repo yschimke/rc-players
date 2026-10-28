@@ -68,7 +68,9 @@ struct ParsedPaint {
   /// Byte offset of the bundle that installed the filter, for deferred draw diagnostics.
   var colorFilterOffset = 0
   var gradient: ParsedGradient?
-  var alpha: Float = 1
+  /// The paint's alpha word: a literal, or a reference resolved — and clamped to 0…1 — when a
+  /// command resolves, so a function can fade by one of its arguments.
+  var alpha: UInt32 = Float(1).bitPattern
   var strokeWidth: UInt32 = Float(1).bitPattern
   var isStroke = false
   var strokeCap = NativeSwiftStrokeCap.butt

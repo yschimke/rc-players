@@ -3140,7 +3140,7 @@ enum NativeSwiftDocumentDecoder {
       case NativeSwiftPaintCommand.style:
         paint.isStroke = highBits == NativeSwiftPaintStyle.stroke
       case NativeSwiftPaintCommand.alpha:
-        paint.alpha = min(max(Float(bitPattern: UInt32(bitPattern: Int32(words[index]))), 0), 1)
+        paint.alpha = UInt32(bitPattern: Int32(words[index]))
       case NativeSwiftPaintCommand.strokeJoin:
         paint.strokeJoin = NativeSwiftStrokeJoin(wireValue: highBits)
       case NativeSwiftPaintCommand.blendMode:
