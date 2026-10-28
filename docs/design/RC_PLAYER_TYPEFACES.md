@@ -21,13 +21,13 @@ question:
 | **JS** (vendored TS player, in-browser) | ✅ concrete stacks | ⚠️ passed to CSS; host must have the face | ✅ fetched from the Google Fonts CSS API | ✅ registered as a `FontFace` keyed by document font id |
 | **JS** — font-variation axes | ✅ `wght` exactly, `wdth` quantised to the nine `font-stretch` keywords | — | ✅ requested as axis *ranges*, which is what makes the face variable | ⚠️ the same canvas `wght`/`wdth` support; other axes have no canvas expression |
 | **CMP Wasm** (this repo's player, in-browser) | ✅ from the host manifest | ✅ if the manifest carries it | ⚠️ manifest only — no fetch | ✅ `decodeInlineFonts` |
-| **CMP Wasm** — font-variation axes | ✅ layout ops (`CoreText`) | — | — | ❌ canvas ops (reported, not silent) |
+| **CMP Wasm** — font-variation axes | ✅ layout ops (`CoreText`) | — | — | ✅ layout and canvas ops, instanced from the document's bytes (`RcDocumentFonts`) |
 | **Java** (AOSP `remote-player-view`, server-side) | ✅ framework typefaces | ⚠️ `/system/fonts/` filename scan | ✅ served by `RcGoogleFontTypefaceResolver` | ✅ `Font.Builder(ByteBuffer)` |
 | **Java** — font-variation axes | ❌ stock `SimpleFontInstance` ignores them | ⚠️ only if the scanned file is variable | ✅ `loadVariable` + `Typeface.Builder(file).setFontVariationSettings(…)` | ✅ `Font.Builder` rebuilt with the axes |
 | **CMP Android** (vendored embedded player, server-side) | ✅ framework typefaces | ⚠️ `Typeface.create(name)` | ✅ `FontsContractCompat` | ❌ ignored |
 | **CMP Android** — font-variation axes | ✅ layout ops, on the family's variable file | — | ✅ `loadVariable` + `Font(File, …, variationSettings)` | ❌ canvas ops |
 | **`rc-player-compose` on Android** (this repo's player, `android.graphics`) | ✅ from the host loader | ⚠️ host loader | ✅ `RcGoogleFontsTypefaceLoader`: the shared `composeai.fonts.cacheDir` cache, else the GMS provider | ✅ `decodeInlineFonts`, via a temp file per payload |
-| **`rc-player-compose` on Android** — font-variation axes | ✅ layout ops | — | ✅ on the cache's variable file; ❌ on the GMS path | ❌ canvas ops |
+| **`rc-player-compose` on Android** — font-variation axes | ✅ layout ops | — | ✅ on the cache's variable file; ❌ on the GMS path | ✅ layout and canvas ops on API 26+; below it Compose ignores file-font variation settings |
 | **CMP JVM** (vendored embedded player's JVM cut over Skiko, server-side — **removed 2026-09-25**) | ✅ | ⚠️ host families, else nearest standard | ✅ downloaded via `GoogleFontTypefaceResolver` | ❌ ignored |
 | **CMP JVM** (removed) — font-variation axes | ✅ layout ops, on the family's variable file | — | ✅ `loadVariable` + an axis-carrying font identity | ❌ canvas ops |
 | **CMP Apple Swift API** | ✅ Compose families | ⚠️ host loader | ✅ opt-in `RemoteComposeGoogleFontsResolver` | ✅ `decodeInlineFonts` |
@@ -187,8 +187,8 @@ host manifest — `<fontsBase>/fonts.json`, default `./fonts/` relative to the p
 (`rc-player/wasm/.../Main.kt`). `wasmPlayerDist` copies the catalog's vendored `fonts/` directory
 into the dist, so a `serve` that mounts `--rc-player-wasm-dir` serves the manifest at
 `/rc-player-wasm/fonts/fonts.json` and the lane has Roboto Flex (default), Noto Serif (`serif`),
-Droid Sans Mono (`monospace`) plus the catalog's named faces. Embedded `FontData` is decoded per
-document (`decodeInlineFonts`).
+Droid Sans Mono (`monospace`) plus the catalog's named faces. Embedded `FontData` is held per
+document (`decodeInlineFonts`, see [below](#embedded-fontdata-in-the-cmp-player)).
 
 **Every manifest role is loaded**, `default` included. A default-role family is a nameable family
 like any other — the catalog's own text face is `Roboto Flex` — and loading it only as "the
@@ -203,8 +203,35 @@ host hands the player [`RcFontFaces`](../../rc-player/compose/src/commonMain/kot
 (bytes + weight/slant) and instances are cached per axis set. Note the instance's *identity* has to
 carry the axes too: Compose's font cache keys on it, so two instances of one file sharing an identity
 are the same cached typeface and a `wght` ramp would draw every line at the first weight it saw.
-Canvas text ops (`DrawText…`, paint-bundle axes) still map only `wght`/`ital`/`slnt`, and the support
-report says so (`font axis wdth is not implemented`) rather than dropping them silently.
+Canvas text ops (`DrawText…`) instance the same faces at a paint's `FONT_AXIS` axes.
+
+#### Embedded `FontData` in the CMP player
+
+The same holds for a document's own font. `RcDocumentFonts` keeps each `FontData` payload as bytes
+and instances it at the text's axes, weight and slant, in `CoreText`, `TextLayout` and canvas text
+alike, through the same `rcFontFromBytes` call a host face goes through:
+
+- **Naming.** `CoreText` property 8 may be the `FontData` id itself with no text under it (what
+  AndroidX's creation API writes) or a family-name text sharing that id; a generic name always means
+  the generic. A paint `TYPEFACE` names the font with the font-data style bit
+  (`RcPaint.setTypeface(fontDataId)`), or by an id with no family text, as AndroidX's embedded player
+  falls through to `documentFontTypeface`. The support report accepts exactly those shapes.
+- **Caching.** Per font, weight, slant and axis set, least recently used out first (64 entries), as
+  upstream's `DocumentFontCache` keys them — an animated axis or weight asks for a new key per frame.
+  The face is registered at the text's own weight and slant: on Android, Compose synthesises bold or
+  italic only against the registered style, so this draws the file as AndroidX does; Skia decides from
+  the file's own `OS/2` weight and still emboldens a static regular face asked for bold. The cache
+  identity carries the payload's size and a 64-bit FNV-1a hash, because Compose's typeface cache is
+  process-wide and two documents may embed different fonts under one id.
+- **Platforms.** JVM, Wasm and Apple instance the in-memory font through Skia (Compose builds the
+  typeface from the bytes and `makeClone`s it at the settings); Android writes the payload once to a
+  temp file and builds a file `Font` with the settings, which Compose applies from API 26 and ignores
+  below.
+- **No trust gate.** AndroidX gates embedded fonts (and AGSL shaders) on `trustedContent`, off by
+  default. This player has never gated either — `CoreText` loaded `FontData` unconditionally — and
+  has no per-player trust model, so canvas text follows `CoreText` rather than introducing a gate
+  that would make the two text paths of one document disagree. Whether to play an untrusted document
+  at all is the host's decision, and it covers shaders as well as fonts.
 
 **That support is why the lane failed `remote-m3`'s strict pixel gate — the gate's reference was the
 side without it, and the reason was not the one first recorded here.** The gate scores each wasm
