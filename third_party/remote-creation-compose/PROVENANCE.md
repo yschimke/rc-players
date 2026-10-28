@@ -209,6 +209,7 @@ to offer upstream, and the list is meant to shrink.
 | `capture/DisplayInfo.kt` | `RemoteDensityBehavior.wireValue` | Lets a writer outside the module describe the same display |
 | `../remote-creation-writer/.../RemoteDocumentWriter.kt` | `startCustom` content section takes a fresh component id | **Port bug.** Upstream's `addContentStart` allocates one; the port reused the layout's own id, and rc-players' player rejects the duplicate. The same fix is in yschimke/remote-m3-catalog's vendor copy (yschimke/remote-m3-catalog#133); this patch retires when that lands and the fork is re-taken from it. |
 | `modifier/DrawWithContentModifier.kt`, `layout/RemoteDrawScope.kt`, `layout/RemoteContentDrawScope.kt` | A `drawWithContent` after padding draws inside it: translated past the padding before it, its scope's `width`/`height` reduced by it, its content drawn back at the component's origin | **Port bug.** AndroidX writes it this way, and the player does not inset a draw modifier itself, so the fork drew a padded component's decoration over its padding |
+| `layout/RemoteText.kt` (`dpDocumentFontSizeDp`) | In a `RemoteDensityBehavior.Dp` document a constant font size is written in dp, not the capture's pixels | **Upstream bug.** remote-core alpha22's `CoreText`/`TextLayout` multiply a literal font size by the host density in a DP document, as they do padding, so the pixels upstream writes drew text at density squared in the View player and the CMP player alike. A non-constant size stays the pixel expression, which the core reads unscaled. `DpDocumentFontSizeTest` covers it. |
 
 ## Upstream follow-ups
 
@@ -222,6 +223,10 @@ behaviour until a fix lands there and a refresh takes it.
   `compose/remote/remote-creation-compose/.../capture/RemoteCreationDisplayInfo.kt`. Here:
   `captureCommonRemoteDocument` and `RcEmbeddedPlayer.writerFor`, both marked `TODO(upstream)`.
   Raised in review of yschimke/rc-players#672.
+- **Dp font sizes.** `RemoteTextNode.render` writes `fontSize.toPx(remoteDensity)`, a pixel
+  literal when the density is constant, while `CoreText.updateVariables` scales a literal font size
+  by the host density in a DP document. The fork writes dp there (local patch above); upstream
+  should do the same, or the core should stop scaling. Upstream: `layout/RemoteText.kt`.
 
 ## Refreshing
 

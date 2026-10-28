@@ -24,16 +24,19 @@ import androidx.compose.remote.creation.common.RemoteTextData
 import androidx.compose.remote.creation.compose.capture.LocalFontWeightAdjustment
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.RemoteDensity
+import androidx.compose.remote.creation.compose.capture.RemoteDensityBehavior
 import androidx.compose.remote.creation.compose.capture.WriterOp
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteFloat
+import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.remote.creation.compose.state.RemoteTextUnit
 import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rsp
 import androidx.compose.remote.creation.compose.text.RemoteFontFamily
+import androidx.compose.remote.creation.compose.text.RemoteFontScaleConverter
 import androidx.compose.remote.creation.compose.text.RemoteFontStyle
 import androidx.compose.remote.creation.compose.text.RemoteFontWeight
 import androidx.compose.remote.creation.compose.text.RemoteHyphens
@@ -47,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.unit.TextUnitType
 
 /**
  * Remote composable that displays text.
@@ -228,7 +232,17 @@ internal class RemoteTextNode : RemoteComposeNode() {
         val combinedSettings = combineFontSettings(fontFeatureSettings, fontVariationSettings)
         val (fontAxisNames, fontAxisValues) = extractFontSettings(combinedSettings?.settings)
 
-        val fontSizePxId = fontSize.toPx(remoteDensity).getFloatIdForCreationState(creationState)
+        val scope = overriddenScope(creationState)
+        // LOCAL PATCH (rc-players): a DP document's literal font size is written in dp.
+        // remote-core's
+        // `CoreText.updateVariables` (alpha22) scales a literal size by the host density in a DP
+        // document, as padding and offsets already are, so writing the capture's pixels drew text
+        // at
+        // density squared. A size that is not constant stays the pixel expression the core reads
+        // unscaled.
+        val fontSizePxId =
+            dpDocumentFontSizeDp(scope)?.getFloatIdForCreationState(creationState)
+                ?: fontSize.toPx(remoteDensity).getFloatIdForCreationState(creationState)
 
         val letterSpacingId = letterSpacing.getFloatIdForCreationState(creationState)
         val lineHeightMultiplyId = lineHeightMultiply.getFloatIdForCreationState(creationState)
@@ -261,7 +275,6 @@ internal class RemoteTextNode : RemoteComposeNode() {
                     .coerceIn(FONT_WEIGHT_MIN, FONT_WEIGHT_MAX)
             }
 
-        val scope = overriddenScope(creationState)
         remoteCanvas.internalCanvas.recordRenderingOp(
             WriterOp.StartText(
                 RemoteTextData(
@@ -294,6 +307,19 @@ internal class RemoteTextNode : RemoteComposeNode() {
         )
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndText)
     }
+}
+
+/**
+ * LOCAL PATCH (rc-players): this node's font size in dp, when the document is DP-typed and the size
+ * and density are constants. Null when it must be written as its pixel expression.
+ */
+private fun RemoteTextNode.dpDocumentFontSizeDp(scope: RemoteStateScope): RemoteFloat? {
+    if (scope.densityBehavior != RemoteDensityBehavior.Dp) return null
+    if (fontSize.type != TextUnitType.Sp || !fontSize.value.hasConstantValue) return null
+    if (!remoteDensity.density.hasConstantValue || !remoteDensity.fontScale.hasConstantValue) {
+        return null
+    }
+    return RemoteFontScaleConverter.NonLinear.convertSpToDp(fontSize, remoteDensity.fontScale)
 }
 
 /**
