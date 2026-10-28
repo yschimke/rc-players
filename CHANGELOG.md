@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.21.0](https://github.com/yschimke/rc-players/compare/v2.20.1...v2.21.0) (2026-10-28)
+
+
+### Features
+
+* **compose:** play free-standing touch expressions (sliders) ([#759](https://github.com/yschimke/rc-players/issues/759)) ([74d30b0](https://github.com/yschimke/rc-players/commit/74d30b0110ff13635281abb89be2df3ee34b3afc))
+* port AndroidX remote-compose through androidx-main 5dab33683 and bump compose-remote to alpha22 ([#757](https://github.com/yschimke/rc-players/issues/757)) ([b52e8f2](https://github.com/yschimke/rc-players/commit/b52e8f24de031937db2f6118b422b2352e354285))
+
+
+### Bug Fixes
+
+* accept a property header on Android 16 widget targets ([#755](https://github.com/yschimke/rc-players/issues/755)) ([bda6540](https://github.com/yschimke/rc-players/commit/bda65406aca2d092c9fe78c277ea7949992b7edd))
+* read a DP document's literal font size in dp, as remote-core alpha22 does ([#761](https://github.com/yschimke/rc-players/issues/761)) ([50fa9dc](https://github.com/yschimke/rc-players/commit/50fa9dc28eaaf5962f32f76055c2ddf32e9376ad))
+
 ## [2.20.1](https://github.com/yschimke/rc-players/compare/v2.20.0...v2.20.1) (2026-10-27)
 
 
