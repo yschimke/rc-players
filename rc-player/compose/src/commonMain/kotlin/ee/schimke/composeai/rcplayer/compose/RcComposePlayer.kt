@@ -2006,7 +2006,7 @@ private fun RenderLayoutNode(
         // The parent orders its children by `zIndex`, and the child it orders is the visibility
         // wrapper, so that is where the component's own `zIndex` has to be.
         modifier =
-          node.modifiers.ordered.filterIsInstance<RcZIndexModifier>().lastOrNull()?.let {
+          (node.modifiers.ordered.lastOrNull { it is RcZIndexModifier } as RcZIndexModifier?)?.let {
             boundsModifier.zIndex(state.resolve(it.value))
           } ?: boundsModifier,
         gone = goneReport,
@@ -2435,24 +2435,27 @@ internal fun androidXMaxLines(overflow: Int, maxLines: Int): Int =
     maxLines
   }
 
+// A `CoreText` composes and measures through a couple of dozen of these lookups. Each scans the
+// style list from the end in place: `filterIsInstance` first would allocate a filtered copy of the
+// list per lookup, on every recomposition and measure of every text.
+private inline fun <reified T : RcTextStyleProperty> List<RcTextStyleProperty>.lastProperty(
+  id: Int
+): T? = lastOrNull { it is T && it.id == id } as T?
+
 private fun List<RcTextStyleProperty>.intProperty(id: Int, default: Int): Int =
-  filterIsInstance<RcTextStyleProperty.IntValue>().lastOrNull { it.id == id }?.value ?: default
+  lastProperty<RcTextStyleProperty.IntValue>(id)?.value ?: default
 
 private fun List<RcTextStyleProperty>.floatProperty(id: Int, default: Float): RcFloatWord =
-  filterIsInstance<RcTextStyleProperty.FloatValue>().lastOrNull { it.id == id }?.value
-    ?: RcFloatWord.literal(default)
+  lastProperty<RcTextStyleProperty.FloatValue>(id)?.value ?: RcFloatWord.literal(default)
 
 private fun List<RcTextStyleProperty>.booleanProperty(id: Int, default: Boolean): Boolean =
-  filterIsInstance<RcTextStyleProperty.BooleanValue>().lastOrNull { it.id == id }?.value ?: default
+  lastProperty<RcTextStyleProperty.BooleanValue>(id)?.value ?: default
 
 private fun List<RcTextStyleProperty>.intArrayProperty(id: Int): List<Int> =
-  filterIsInstance<RcTextStyleProperty.IntArrayValue>().lastOrNull { it.id == id }?.values.orEmpty()
+  lastProperty<RcTextStyleProperty.IntArrayValue>(id)?.values.orEmpty()
 
 private fun List<RcTextStyleProperty>.floatArrayProperty(id: Int): List<RcFloatWord> =
-  filterIsInstance<RcTextStyleProperty.FloatArrayValue>()
-    .lastOrNull { it.id == id }
-    ?.values
-    .orEmpty()
+  lastProperty<RcTextStyleProperty.FloatArrayValue>(id)?.values.orEmpty()
 
 /** Mirrors Component.Visibility, including the override-bit precedence used by AndroidX. */
 internal fun androidXVisibility(value: Int): Int =
