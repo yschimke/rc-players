@@ -870,6 +870,7 @@ private fun RcComposePlayerResolved(
         typefaces,
         drawObserver,
         captures,
+        fonts,
       ) {
         RcVisibilityFunctions(
           linkedDocument.operations,
@@ -881,6 +882,7 @@ private fun RcComposePlayerResolved(
           drawObserver,
           offscreenTargets,
           captures,
+          fonts,
         )
       }
     val tree: @Composable (probe: RcGeometryProbe?) -> Unit = { probe ->
@@ -4915,6 +4917,8 @@ internal class RcVisibilityFunctions(
   private val drawObserver: RcDrawObserver?,
   private val offscreenTargets: RcOffscreenTargetPool,
   private val captures: RcComponentCaptures? = null,
+  /** The document's `FontData` fonts, which a function's paint may name as other streams do. */
+  private val documentFonts: RcDocumentFonts = RcDocumentFonts.Empty,
 ) {
   /** Every function the document defines, wherever it sits; found on first use. */
   val definitions: Map<Int, RcLinkedNode.Container> by lazy {
@@ -4970,7 +4974,7 @@ internal class RcVisibilityFunctions(
     bound.forEachIndexed { index, id -> state.setFloat(id, arguments[index]) }
     depths[functionId] = depth + 1
     val canvas = scope.drawContext.canvas
-    val paint = RcPaintState(typefaces, drawObserver)
+    val paint = RcPaintState(typefaces, drawObserver, documentFonts)
     canvas.save()
     canvas.translate(-position.x, -position.y)
     // Core's `AnimateMeasure` runs the function in an offscreen-buffer scope of its own, so a

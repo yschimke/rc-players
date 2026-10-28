@@ -25,9 +25,11 @@ import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
+import ee.schimke.composeai.rcplayer.protocol.RcDrawText
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
@@ -39,6 +41,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
@@ -83,6 +86,28 @@ class RcCustomVisibilityAnimationRenderTest {
 
       val done = sample(250)
       assertTrue((10 until 40).all { done.isClear(it) }, "gone once the exit ends: ${done.row()}")
+    }
+
+  /**
+   * A function whose paint names the document's embedded `FontData` font draws its text in it,
+   * rather than failing to find the font: a function runs with the document's fonts like any other
+   * draw stream.
+   */
+  @Test
+  fun aCustomExitDrawsTextInTheDocumentsEmbeddedFont() =
+    runSkikoComposeUiTest(size = Size(40f, 20f), density = Density(1f)) {
+      start(
+        exitDocument(
+          exit = RcLayoutAnimation.Custom,
+          exitFunctionId = FONT_EXIT,
+          prelude = fontExit(FONT_EXIT),
+        )
+      )
+
+      val halfway = sample(150)
+      val ink =
+        (10 until 40).count { halfway.color(it, 12).let { c -> c.alpha > .5f && c.red < .3f } }
+      assertTrue(ink > 0, "the function's text drew: ${halfway.row(12)}")
     }
 
   @Test
@@ -280,8 +305,10 @@ class RcCustomVisibilityAnimationRenderTest {
     enterFunctionId: Int = -1,
     exitFunctionId: Int = -1,
     sibling: Boolean = false,
+    prelude: List<RcOperation> = emptyList(),
   ): RcDocument {
     val operations = mutableListOf<RcOperation>()
+    operations += prelude
     operations += RcIntegerConstant(VISIBILITY, if (initiallyVisible) 1 else 0)
     operations += wipe(WIPE, entering = false)
     operations += wipe(WIPE_IN, entering = true)
@@ -352,6 +379,32 @@ class RcCustomVisibilityAnimationRenderTest {
       RcNoArg(RcOpcodes.MATRIX_RESTORE),
       RcPaintData(listOf(4, GREEN)),
       RcDraw4(RcOpcodes.DRAW_RECT, ref(barLeft), y, ref(edge), ref(barBottom)),
+      END,
+    )
+  }
+
+  /** An exit drawing black text in the embedded Roboto Flex (font-data paint typeface) at x, y. */
+  private fun fontExit(id: Int): List<RcOperation> {
+    val face =
+      File(VARIABLE_FACE_PATH).takeIf { it.isFile }?.readBytes()
+        ?: error("vendored Roboto Flex not found at $VARIABLE_FACE_PATH")
+    val baseline = id + 7
+    return listOf(
+      RcFontData(FONT_ID, 0, face),
+      RcTextData(FONT_TEXT, "H"),
+      RcFloatFunctionDefine(id, (1..6).map { id + it }),
+      RcFloatExpression(baseline, listOf(ref(id + 5), RcFloatWord.literal(18f), ADD), null),
+      RcPaintData(
+        listOf(
+          4,
+          0xff000000.toInt(),
+          1,
+          RcFloatWord.literal(18f).bits,
+          16 or ((400 or PAINT_TYPEFACE_FONT_DATA) shl 16),
+          FONT_ID,
+        )
+      ),
+      RcDrawText(FONT_TEXT, 0, 1, 0, 1, ref(id + 4), ref(baseline), false),
       END,
     )
   }
@@ -544,6 +597,10 @@ class RcCustomVisibilityAnimationRenderTest {
     const val SIBLING = 16
     const val WIPE = 500
     const val WIPE_IN = 600
+    const val FONT_EXIT = 700
+    const val FONT_ID = 43
+    const val FONT_TEXT = 44
+    const val VARIABLE_FACE_PATH = "../../rc-player/wasm/dist-assets/fonts/RobotoFlex.ttf"
     const val RED = 0xffff0000.toInt()
     const val GREEN = 0xff00c000.toInt()
     const val BLUE = 0xff0000ff.toInt()
