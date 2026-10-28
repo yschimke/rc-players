@@ -1578,9 +1578,9 @@ public class RcPlayerState(
 
   /**
    * The last operation that computes each text at run time, by the text it writes: the draw-time
-   * text ops ([applyTextOperation]). A text any of whose ops runs only in some frames — inside a
-   * `ConditionalOperations` or under a `Theme` — has none: whether that op ran is the draw's to
-   * know, so the text is sent as the last frame left it.
+   * text ops ([applyTextOperation]). A text any of whose ops runs only in some frames, or a number
+   * of times a frame — inside a `ConditionalOperations` or a `Loop`, or under a `Theme` — has none:
+   * whether that op ran is the draw's to know, so the text is sent as the last frame left it.
    */
   private val textProducers: Map<Int, RcOperation> by lazy {
     val producers = mutableMapOf<Int, RcOperation>()
@@ -1609,7 +1609,10 @@ public class RcPlayerState(
           if (conditional || theme != RcTheme.UNSPECIFIED) scoped += outId
         }
         if (node is RcLinkedNode.Container) {
-          visit(node.children, conditional || operation is RcConditionalOperations)
+          visit(
+            node.children,
+            conditional || operation is RcConditionalOperations || operation is RcLoopOperation,
+          )
         }
       }
     }

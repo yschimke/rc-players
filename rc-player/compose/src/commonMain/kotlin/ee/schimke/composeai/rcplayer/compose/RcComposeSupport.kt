@@ -1311,10 +1311,15 @@ private val IHDR = byteArrayOf(73, 72, 68, 82) // I H D R
 
 /**
  * A scroll's content is one touch expression, its position. Any other touch expression moves for
- * drags inside the component it is written in (`rcTouchExpressions`).
+ * drags inside the component it is written in (`rcTouchExpressions`), which settles a snapping mode
+ * on release but has no fling: a `STOP_GENTLY` one would stop dead where AndroidX decelerates.
  */
 private fun invalidScrollChild(nodes: List<RcLinkedNode>): String? {
   nodes.forEach { node ->
+    val operation = (node as? RcLinkedNode.Operation)?.operation
+    if (operation is RcTouchExpression && operation.stopMode == RcTouchExpression.STOP_GENTLY) {
+      return "TouchExpression STOP_GENTLY is only implemented as a scroll's position"
+    }
     if (node !is RcLinkedNode.Container) return@forEach
     if (node.operation is RcScrollModifier) {
       val children = node.children.map { it.operation() }

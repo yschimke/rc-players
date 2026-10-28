@@ -193,6 +193,15 @@ class RcTouchExpressionInputTest {
       )
     }
 
+  @Test
+  fun aFreeStandingGentleStopKeepsTheFallback() {
+    // A component's expression settles snapping modes on release but has no fling yet.
+    val report =
+      document(root = false, stopMode = RcTouchExpression.STOP_GENTLY)
+        .composeSupportReport(availableCustomComponents = setOf("probe"))
+    assertTrue(!report.fullyRenderable, report.toString())
+  }
+
   private val sliderActions
     get() =
       listOf(
