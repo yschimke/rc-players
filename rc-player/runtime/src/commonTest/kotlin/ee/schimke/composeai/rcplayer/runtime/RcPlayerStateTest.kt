@@ -701,6 +701,43 @@ class RcPlayerStateTest {
   }
 
   @Test
+  fun anActionLeavesATextAnOpAppendsToAsTheLastFrameLeftIt() {
+    // The frame's merge appends to its own output; running it again would append twice.
+    val events = mutableListOf<RcPlayerEvent>()
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0)),
+          listOf(
+            RcTextData(1, "ha"),
+            RcTextData(3, "b"),
+            RcTextData(5, "a"),
+            RcTextMerge(5, 5, 3),
+          ),
+        ),
+        eventSink = events::add,
+      )
+    state.beginFrame()
+    val drawn = state.text(5)
+
+    repeat(2) {
+      state.executeTouch(
+        RcTouchActionBlock(
+          RcTouchActionType.UP,
+          listOf(RcLinkedNode.Operation(RcHostNamedAction(1, RcHostNamedActionValue.TextValue(5)))),
+        )
+      )
+    }
+
+    assertEquals(
+      List<RcPlayerEvent>(2) {
+        RcPlayerEvent.HostNamedAction("ha", RcHostActionValue.TextValue(drawn!!))
+      },
+      events,
+    )
+  }
+
+  @Test
   fun touchLifecycleActionsDispatchAndInvalidate() {
     val events = mutableListOf<RcPlayerEvent>()
     var invalidations = 0
