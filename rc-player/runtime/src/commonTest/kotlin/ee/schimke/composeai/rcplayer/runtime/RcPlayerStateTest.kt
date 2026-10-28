@@ -646,6 +646,48 @@ class RcPlayerStateTest {
   }
 
   @Test
+  fun anActionLeavesATextAConditionalComputesAsTheLastFrameLeftIt() {
+    // The merge runs only when its branch does; replaying it for the action would send a text no
+    // frame computed.
+    val events = mutableListOf<RcPlayerEvent>()
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0)),
+          listOf(
+            RcTextData(1, "ha"),
+            RcTextData(3, "a"),
+            RcTextData(4, "b"),
+            RcTextData(5, "initial"),
+            RcConditionalOperations(
+              RcConditionalOperations.EQUAL,
+              RcFloatWord.literal(0f),
+              RcFloatWord.literal(1f),
+            ),
+            RcTextMerge(5, 3, 4),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+        ),
+        eventSink = events::add,
+      )
+    state.beginFrame()
+
+    state.executeTouch(
+      RcTouchActionBlock(
+        RcTouchActionType.UP,
+        listOf(RcLinkedNode.Operation(RcHostNamedAction(1, RcHostNamedActionValue.TextValue(5)))),
+      )
+    )
+
+    assertEquals(
+      listOf<RcPlayerEvent>(
+        RcPlayerEvent.HostNamedAction("ha", RcHostActionValue.TextValue("initial"))
+      ),
+      events,
+    )
+  }
+
+  @Test
   fun touchLifecycleActionsDispatchAndInvalidate() {
     val events = mutableListOf<RcPlayerEvent>()
     var invalidations = 0

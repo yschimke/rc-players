@@ -1578,22 +1578,45 @@ public class RcPlayerState(
 
   /**
    * The last operation that computes each text at run time, by the text it writes: the draw-time
-   * text ops ([applyTextOperation]).
+   * text ops ([applyTextOperation]). A text any of whose ops runs only in some frames — inside a
+   * `ConditionalOperations` or under a `Theme` — has none: whether that op ran is the draw's to
+   * know, so the text is sent as the last frame left it.
    */
   private val textProducers: Map<Int, RcOperation> by lazy {
-    buildMap {
-      document.operations.forEach { operation ->
-        when (operation) {
-          is RcTextMerge -> put(operation.outId, operation)
-          is RcTextSubtext -> put(operation.outId, operation)
-          is RcTextTransform -> put(operation.outId, operation)
-          is RcTextFromFloat -> put(operation.outId, operation)
-          is RcTextLookup -> put(operation.outId, operation)
-          is RcTextLookupInt -> put(operation.outId, operation)
-          else -> Unit
+    val producers = mutableMapOf<Int, RcOperation>()
+    val scoped = mutableSetOf<Int>()
+    var theme = RcTheme.UNSPECIFIED
+    fun visit(nodes: List<RcLinkedNode>, conditional: Boolean) {
+      nodes.forEach { node ->
+        val operation =
+          when (node) {
+            is RcLinkedNode.Operation -> node.operation
+            is RcLinkedNode.Container -> node.operation
+          }
+        if (operation is RcTheme) theme = operation.theme
+        val outId =
+          when (operation) {
+            is RcTextMerge -> operation.outId
+            is RcTextSubtext -> operation.outId
+            is RcTextTransform -> operation.outId
+            is RcTextFromFloat -> operation.outId
+            is RcTextLookup -> operation.outId
+            is RcTextLookupInt -> operation.outId
+            else -> null
+          }
+        if (outId != null) {
+          producers[outId] = operation
+          if (conditional || theme != RcTheme.UNSPECIFIED) scoped += outId
+        }
+        if (node is RcLinkedNode.Container) {
+          visit(node.children, conditional || operation is RcConditionalOperations)
         }
       }
     }
+    // A document that doesn't link plays nothing anyway.
+    val linked = runCatching { RcDocumentLinker.link(document) }.getOrNull()
+    linked?.let { visit(it.operations, conditional = false) }
+    producers - scoped
   }
 
   /**
