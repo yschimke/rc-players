@@ -19,6 +19,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
+import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
@@ -254,8 +256,63 @@ class RcStateLayoutTransitionTest {
       assertEquals(40, widths.last(), "and lands flat at its own size, widths $widths")
     }
 
+  /**
+   * A `CUSTOM` enter runs its function on the branch's clock: halfway through the switch the
+   * function's wipe has uncovered the bar's left end and not yet its right. Without it the bar
+   * would paint nothing until the switch ended, as an unknown enter does.
+   */
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun aComponentRunsItsCustomEnterWithItsBranch() =
+    runSkikoComposeUiTest(size = Size(60f, 60f), density = Density(1f)) {
+      mainClock.autoAdvance = false
+      val reference = { id: Int -> RcFloatWord(0x7fc00000 or id) }
+      // wipe(progress 701, width 702, height 703, x 704, y 705): clip to x .. x + width * progress.
+      val wipe =
+        listOf(
+          RcFloatFunctionDefine(700, listOf(701, 702, 703, 704, 705)),
+          RcFloatExpression(706, listOf(reference(702), reference(701), MUL), null),
+          RcFloatExpression(707, listOf(reference(704), reference(706), ADD), null),
+          RcFloatExpression(708, listOf(reference(705), reference(703), ADD), null),
+          RcDraw4(
+            RcOpcodes.CLIP_RECT,
+            reference(704),
+            reference(705),
+            reference(707),
+            reference(708),
+          ),
+          RcNoArg(RcOpcodes.DRAW_CONTENT),
+          end,
+        )
+      val document =
+        stateLayoutDocument(
+          canvas(componentId = 5, animationId = 0, size = 60f, color = BLUE),
+          enteringBar(componentId = 6, enter = RcLayoutAnimation.Custom, enterFunctionId = 700),
+          preamble = wipe,
+        )
+      setContent { RcComposePlayer(document) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+
+      onNode(hasClickAction()).performTouchInput { click() }
+      mainClock.advanceTimeBy(150)
+      waitForIdle()
+      val halfway = onRoot().captureToImage().toPixelMap()
+      assertTrue(halfway[2, 5].red > 0.05f, "the left end is uncovered, ${halfway[2, 5]}")
+      assertTrue(halfway[36, 5].red < 0.05f, "the right end is not yet, ${halfway[36, 5]}")
+
+      mainClock.advanceTimeBy(1000)
+      waitForIdle()
+      val after = onRoot().captureToImage().toPixelMap()
+      assertTrue(after[36, 5].red > 0.5f, "and the whole bar is there once it has entered")
+    }
+
   /** A full-size box parking a 40x10 red bar top-left, entering the way [enter] names. */
-  private fun enteringBar(componentId: Int, enter: RcLayoutAnimation): List<RcOperation> =
+  private fun enteringBar(
+    componentId: Int,
+    enter: RcLayoutAnimation,
+    enterFunctionId: Int = -1,
+  ): List<RcOperation> =
     listOf(
       RcBoxLayout(componentId, 0, horizontalPositioning = 1, verticalPositioning = 4),
       RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
@@ -264,7 +321,7 @@ class RcStateLayoutTransitionTest {
       RcCanvasLayout(componentId * 100 + 1, -1),
       RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(40f)),
       RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(10f)),
-      animationSpec(-1).copy(enterAnimation = enter),
+      animationSpec(-1).copy(enterAnimation = enter, enterFunctionId = enterFunctionId),
       RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
       RcPaintData(listOf(4, RED)),
       RcDraw4(
@@ -310,27 +367,32 @@ class RcStateLayoutTransitionTest {
     first: List<RcOperation>,
     second: List<RcOperation>,
     specAnimationId: Int = 30,
+    preamble: List<RcOperation> = emptyList(),
   ): RcDocument {
     val operations =
-      listOf<RcOperation>(
-        RcIntegerConstant(indexId, 0),
-        RcRootLayout(1),
-        RcLayoutContent(2),
-        RcStateLayout(
-          componentId = 3,
-          animationId = 30,
-          horizontalPositioning = 1,
-          verticalPositioning = 4,
-          indexId = indexId,
-        ),
-        RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
-        RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
-        animationSpec(specAnimationId),
-        RcClickModifier,
-        RcValueIntegerChangeAction(indexId, 1),
-        end,
-        RcLayoutContent(4),
-      ) + first + second + List(4) { end }
+      preamble +
+        listOf<RcOperation>(
+          RcIntegerConstant(indexId, 0),
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcStateLayout(
+            componentId = 3,
+            animationId = 30,
+            horizontalPositioning = 1,
+            verticalPositioning = 4,
+            indexId = indexId,
+          ),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+          RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+          animationSpec(specAnimationId),
+          RcClickModifier,
+          RcValueIntegerChangeAction(indexId, 1),
+          end,
+          RcLayoutContent(4),
+        ) +
+        first +
+        second +
+        List(4) { end }
     return RcDocument(
       RcHeader(RcVersion(1, 0, 0), legacyWidth = 60, legacyHeight = 60, modern = false),
       operations,
@@ -451,5 +513,8 @@ class RcStateLayoutTransitionTest {
     const val RED = 0xffff0000.toInt()
     const val BLUE = 0xff0000ff.toInt()
     const val SHARED_ID = 500
+    // AndroidX `AnimatedFloatExpression` operators, NaN-boxed.
+    val ADD = RcFloatWord(0xffb10001.toInt())
+    val MUL = RcFloatWord(0xffb10003.toInt())
   }
 }

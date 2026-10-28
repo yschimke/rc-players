@@ -453,14 +453,18 @@ final class ee.schimke.composeai.rcplayer.protocol/RcAlignByModifier : ee.schimk
 }
 
 final class ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec : ee.schimke.composeai.rcplayer.protocol/RcOperation { // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec|null[0]
-    constructor <init>(kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcFloatWord, kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcFloatWord, kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation, ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation) // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.<init>|<init>(kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcFloatWord;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcFloatWord;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation;ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation){}[0]
+    constructor <init>(kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcFloatWord, kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcFloatWord, kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation, ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation, kotlin/Int = ..., kotlin/Int = ...) // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.<init>|<init>(kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcFloatWord;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcFloatWord;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation;ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation;kotlin.Int;kotlin.Int){}[0]
 
     final val animationId // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.animationId|{}animationId[0]
         final fun <get-animationId>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.animationId.<get-animationId>|<get-animationId>(){}[0]
     final val enterAnimation // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.enterAnimation|{}enterAnimation[0]
         final fun <get-enterAnimation>(): ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.enterAnimation.<get-enterAnimation>|<get-enterAnimation>(){}[0]
+    final val enterFunctionId // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.enterFunctionId|{}enterFunctionId[0]
+        final fun <get-enterFunctionId>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.enterFunctionId.<get-enterFunctionId>|<get-enterFunctionId>(){}[0]
     final val exitAnimation // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.exitAnimation|{}exitAnimation[0]
         final fun <get-exitAnimation>(): ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.exitAnimation.<get-exitAnimation>|<get-exitAnimation>(){}[0]
+    final val exitFunctionId // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.exitFunctionId|{}exitFunctionId[0]
+        final fun <get-exitFunctionId>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.exitFunctionId.<get-exitFunctionId>|<get-exitFunctionId>(){}[0]
     final val isEnabled // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.isEnabled|{}isEnabled[0]
         final fun <get-isEnabled>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.isEnabled.<get-isEnabled>|<get-isEnabled>(){}[0]
     final val motionDurationMillis // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.motionDurationMillis|{}motionDurationMillis[0]
@@ -481,7 +485,9 @@ final class ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec : ee.schimke.
     final fun component5(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.component5|component5(){}[0]
     final fun component6(): ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.component6|component6(){}[0]
     final fun component7(): ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.component7|component7(){}[0]
-    final fun copy(kotlin/Int = ..., ee.schimke.composeai.rcplayer.protocol/RcFloatWord = ..., kotlin/Int = ..., ee.schimke.composeai.rcplayer.protocol/RcFloatWord = ..., kotlin/Int = ..., ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation = ..., ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation = ...): ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.copy|copy(kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcFloatWord;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcFloatWord;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation;ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation){}[0]
+    final fun component8(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.component8|component8(){}[0]
+    final fun component9(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.component9|component9(){}[0]
+    final fun copy(kotlin/Int = ..., ee.schimke.composeai.rcplayer.protocol/RcFloatWord = ..., kotlin/Int = ..., ee.schimke.composeai.rcplayer.protocol/RcFloatWord = ..., kotlin/Int = ..., ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation = ..., ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation = ..., kotlin/Int = ..., kotlin/Int = ...): ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.copy|copy(kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcFloatWord;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcFloatWord;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation;ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation;kotlin.Int;kotlin.Int){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcAnimationSpec.toString|toString(){}[0]
@@ -4574,6 +4580,28 @@ final class ee.schimke.composeai.rcplayer.protocol/RcZIndexModifier : ee.schimke
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcZIndexModifier.toString|toString(){}[0]
 }
 
+final value class ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence { // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence|null[0]
+    constructor <init>(kotlin/Int) // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.<init>|<init>(kotlin.Int){}[0]
+
+    final val wireValue // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.wireValue|{}wireValue[0]
+        final fun <get-wireValue>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.wireValue.<get-wireValue>|<get-wireValue>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.Companion|null[0]
+        final val After // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.Companion.After|{}After[0]
+            final fun <get-After>(): ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.Companion.After.<get-After>|<get-After>(){}[0]
+        final val Before // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.Companion.Before|{}Before[0]
+            final fun <get-Before>(): ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.Companion.Before.<get-Before>|<get-Before>(){}[0]
+        final val Concurrent // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.Companion.Concurrent|{}Concurrent[0]
+            final fun <get-Concurrent>(): ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.Companion.Concurrent.<get-Concurrent>|<get-Concurrent>(){}[0]
+
+        final fun fromAndroidX(kotlin/Int): ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence // ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence.Companion.fromAndroidX|fromAndroidX(kotlin.Int){}[0]
+    }
+}
+
 final value class ee.schimke.composeai.rcplayer.protocol/RcFloatWord { // ee.schimke.composeai.rcplayer.protocol/RcFloatWord|null[0]
     constructor <init>(kotlin/Int) // ee.schimke.composeai.rcplayer.protocol/RcFloatWord.<init>|<init>(kotlin.Int){}[0]
 
@@ -4656,14 +4684,19 @@ final value class ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation { // 
 
     final val androidXValue // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.androidXValue|{}androidXValue[0]
         final fun <get-androidXValue>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.androidXValue.<get-androidXValue>|<get-androidXValue>(){}[0]
+    final val sequence // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.sequence|{}sequence[0]
+        final fun <get-sequence>(): ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.sequence.<get-sequence>|<get-sequence>(){}[0]
     final val wireValue // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.wireValue|{}wireValue[0]
         final fun <get-wireValue>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.wireValue.<get-wireValue>|<get-wireValue>(){}[0]
 
     final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.hashCode|hashCode(){}[0]
+    final fun sequenced(ee.schimke.composeai.rcplayer.protocol/RcAnimationSequence): ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.sequenced|sequenced(ee.schimke.composeai.rcplayer.protocol.RcAnimationSequence){}[0]
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.toString|toString(){}[0]
 
     final object Companion { // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.Companion|null[0]
+        final val Custom // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.Companion.Custom|{}Custom[0]
+            final fun <get-Custom>(): ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.Companion.Custom.<get-Custom>|<get-Custom>(){}[0]
         final val FadeIn // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.Companion.FadeIn|{}FadeIn[0]
             final fun <get-FadeIn>(): ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.Companion.FadeIn.<get-FadeIn>|<get-FadeIn>(){}[0]
         final val FadeOut // ee.schimke.composeai.rcplayer.protocol/RcLayoutAnimation.Companion.FadeOut|{}FadeOut[0]

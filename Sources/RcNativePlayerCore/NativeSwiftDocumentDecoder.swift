@@ -1955,7 +1955,7 @@ enum NativeSwiftDocumentDecoder {
       case NativeSwiftWireOpcode.animationSpec:  // Animation spec
         // Verified against AndroidX's own AnimationSpec.read in remote-core: an id, the motion
         // duration as a float, its easing as an int, the visibility duration as a float, its easing,
-        // then the enter and exit animation kinds. Seven words.
+        // then the enter and exit animation kinds. Seven words, and two more for a CUSTOM side.
         //
         let id = try input.int("animation spec id")
         let motionDuration = try input.floatWord(
@@ -1966,6 +1966,14 @@ enum NativeSwiftDocumentDecoder {
         let visibilityEasingType = try input.int("animation spec visibility easing")
         let enterAnimation = try input.int("animation spec enter animation")
         let exitAnimation = try input.int("animation spec exit animation")
+        // alpha22 then appends the enter and exit function ids when either side is CUSTOM, which
+        // AnimationSpec.read tests on the animation byte alone. This player does not run them.
+        let animationKind = NativeSwiftLayoutAnimation.kindMask
+        let custom = NativeSwiftLayoutAnimation.custom
+        if enterAnimation & animationKind == custom || exitAnimation & animationKind == custom {
+          _ = try input.int("animation spec enter function id")
+          _ = try input.int("animation spec exit function id")
+        }
         guard motionDuration.isFinite, motionDuration >= 0, visibilityDuration.isFinite,
           visibilityDuration >= 0
         else {

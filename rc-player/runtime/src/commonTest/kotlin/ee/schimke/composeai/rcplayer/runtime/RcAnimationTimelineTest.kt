@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.runtime
 
+import ee.schimke.composeai.rcplayer.protocol.RcAnimationSequence
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
@@ -96,5 +97,40 @@ class RcAnimationTimelineTest {
     assertEquals(.25f, rotate.scale)
     assertEquals(90f, rotate.rotationDegrees)
     assertFalse(base.copy(exitAnimation = RcLayoutAnimation.Rotate).hasPortableVisibilityAnimation)
+  }
+
+  @Test
+  fun customAndSequencedAnimationsReadTheirLowByteAsAndroidXDoes() {
+    val custom =
+      RcAnimationSpec(
+        animationId = 1,
+        motionDurationMillis = RcFloatWord.literal(300f),
+        motionEasingType = 1,
+        visibilityDurationMillis = RcFloatWord.literal(300f),
+        visibilityEasingType = 1,
+        enterAnimation = RcLayoutAnimation.Custom,
+        exitAnimation = RcLayoutAnimation.Custom.sequenced(RcAnimationSequence.Before),
+        enterFunctionId = 40,
+        exitFunctionId = 41,
+      )
+
+    // Drawn by the function: no transform of its own, on either side, and portable.
+    assertEquals(RcVisibilityTransform(), custom.visibilityTransform(entering = true, .25f))
+    assertEquals(RcVisibilityTransform(), custom.visibilityTransform(entering = false, .25f))
+    assertTrue(custom.hasPortableVisibilityAnimation)
+    // A sequence in the second byte leaves the animation in the first one alone.
+    val slideAfter = RcLayoutAnimation.SlideLeft.sequenced(RcAnimationSequence.After)
+    assertEquals(0x0202, slideAfter.wireValue)
+    assertEquals(RcLayoutAnimation.SlideLeft.wireValue, slideAfter.androidXValue)
+    assertEquals(RcAnimationSequence.After, slideAfter.sequence)
+    assertEquals(
+      -.25f,
+      custom
+        .copy(exitAnimation = slideAfter)
+        .visibilityTransform(entering = false, .25f)
+        .translationX,
+    )
+    // Unknown sequences are CONCURRENT, as AndroidX `intToSequence` reads them.
+    assertEquals(RcAnimationSequence.Concurrent, RcLayoutAnimation(0x0905).sequence)
   }
 }
