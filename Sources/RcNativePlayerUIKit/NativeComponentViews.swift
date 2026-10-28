@@ -2484,7 +2484,11 @@
         isDeferredComponentBackground || isDeferredShaderBackground
         ? CGPath(rect: bounds, transform: nil) : path
       context.addPath(effectivePath)
-      if let textureImageID = command.textureImageID, let image = images[textureImageID]?.cgImage {
+      // A texture names any bitmap, a `DrawToBitmap` target or component buffer included, which
+      // shows what it holds now, as `drawImage` reads one.
+      if let textureImageID = command.textureImageID,
+        let image = offscreenTargets.image(textureImageID) ?? images[textureImageID]?.cgImage
+      {
         context.saveGState()
         if isStroke { context.replacePathWithStrokedPath() }
         context.clip(using: isStroke ? .winding : fillRule)
