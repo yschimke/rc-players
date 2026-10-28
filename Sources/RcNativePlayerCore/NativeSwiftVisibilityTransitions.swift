@@ -173,7 +173,8 @@ public struct NativeSwiftVisibilityFunction: @unchecked Sendable {
   /// The arguments are loaded into the function's argument ids — as many as it declares — the
   /// component id as an integer too, then the body's expressions run in wire order and its
   /// commands resolve against the result. Throws when an expression does not evaluate to a finite
-  /// number or a command cannot resolve; a host then paints the component as it is.
+  /// number, a command cannot resolve or resolves to a non-finite value; a host then paints the
+  /// component as it is.
   public func commands(x: Float, y: Float, width: Float, height: Float) throws
     -> [NativeSwiftDrawCommandSnapshot]
   {
@@ -191,8 +192,19 @@ public struct NativeSwiftVisibilityFunction: @unchecked Sendable {
         expression.words, values: values, opcode: expression.opcode, offset: expression.offset)
     }
     return try function.commands.map {
-      try $0.resolve(
+      let command = try $0.resolve(
         values: values, integers: integers, colors: colors, texts: texts, matrices: matrices)
+      // The frame's own commands pass a host's numeric budget; these are resolved after it, so the
+      // same rule — every geometry value finite — is applied here.
+      let numbers =
+        command.geometryValues + command.path.flatMap(\.values)
+        + [command.strokeWidth, command.alpha]
+      guard numbers.allSatisfy(\.isFinite) else {
+        throw NativeSwiftCoreError.malformed(
+          offset: function.offset,
+          reason: "FloatFunctionDefine \(function.id) drew a non-finite value")
+      }
+      return command
     }
   }
 }

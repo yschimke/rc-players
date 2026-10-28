@@ -277,9 +277,16 @@
     let scrollDirection: NativeSwiftScrollDirection?
     /// What the shared layout engine reads of this node.
     let layout: NativeLayoutNode
+    /// The custom visibility animation the component is playing; its parent draws it in its place.
+    let visibilityTransition: NativeSwiftVisibilityTransitionSnapshot?
+    /// The opacity the component draws at when shown: its graphics layer's alpha.
+    var shownOpacity: Float {
+      graphicsLayer.map { max(0, min(1, $0.alpha)) } ?? 1
+    }
 
     init(swiftSnapshot snapshot: NativeSwiftNodeSnapshot, densityBehavior: Int) {
       layout = NativeLayoutNode(snapshot: snapshot)
+      visibilityTransition = snapshot.visibilityTransition
       switch snapshot.kind {
       case .root: kind = .root
       case .content: kind = .content
@@ -449,7 +456,7 @@
             width: CGFloat($0.destinationRight - $0.destinationLeft),
             height: CGFloat($0.destinationBottom - $0.destinationTop)),
           scaleType: $0.scaleType, scaleFactor: CGFloat($0.scaleFactor),
-          contentDescription: $0.contentDescription)
+          contentDescription: $0.contentDescription, sourceIsWholeBitmap: $0.sourceIsWholeBitmap)
       }
       textureImageID = snapshot.textureImageID
       textureTileModeX = snapshot.textureTileModeX
@@ -527,7 +534,14 @@
     let scaleType: Int
     let scaleFactor: CGFloat
     let contentDescription: String?
+    /// The source is the whole bitmap at its current size: a component offscreen buffer's, which
+    /// its host sized when it drew into it.
+    var sourceIsWholeBitmap = false
 
+    /// The source rectangle within `image`.
+    func source(in image: CGImage) -> CGRect {
+      sourceIsWholeBitmap ? CGRect(x: 0, y: 0, width: image.width, height: image.height) : source
+    }
   }
 
   struct NativeTextStyle: Equatable {
@@ -803,6 +817,18 @@
     private var customView: NativeCustomComponentView?
     private var componentChildren: [NativeComponentView]
     private var semanticElement: NativeSemanticElement?
+    /// The document's offscreen targets and resources, for the canvases this view adds while a
+    /// child plays a custom visibility animation.
+    private let offscreenTargets: NativeOffscreenTargets
+    private var images: [Int: UIImage]
+    private var fontNames: [Int: String]
+    /// Those canvases, by the child each draws in its place.
+    private var visibilityOverlays: [ObjectIdentifier: NativeCanvasView] = [:]
+    /// Set while this component is being drawn into another canvas, which must not draw it again
+    /// from inside (`DrawContent`'s own processing guard).
+    private var isRenderingContent = false
+    /// How deeply components are being drawn into one another's canvases.
+    private static var contentRenderDepth = 0
     /// Set by a `FitBox` on its alternatives. The reference ignores an alternative's own visibility
     /// modifier (a document switches alternatives with it), so accessibility reads the box's choice
     /// rather than the modifier's.
@@ -849,6 +875,9 @@
     ) {
       self.node = node
       self.onGesture = onGesture
+      self.offscreenTargets = offscreenTargets
+      self.images = images
+      self.fontNames = fontNames
       let promotesText = node.kind == .text
       let promotesImage = node.kind == .image
       let drawingCommands = node.commands.filter {
@@ -906,6 +935,7 @@
         node.cornerRadius > 0 || node.clipsToBounds || node.scrollDirection != nil
         || node.layout.marquee
       accessibilityIdentifier = "rc-native-component-\(node.componentID)"
+      canvasView?.owner = self
       if let canvasView { addSubview(canvasView) }
       textLabels.forEach(addSubview)
       imageViews.forEach(addSubview)
@@ -1034,6 +1064,8 @@
       }
       let local = Self.localContent(for: next, images: images)
       node = next
+      self.images = images
+      self.fontNames = fontNames
       // A FitBox parent sets this again during its layout, exactly as it does on a fresh view.
       ignoresOwnVisibility = false
       invalidatePreferredSizes()
@@ -1251,6 +1283,7 @@
       prepareStructuralChildren()
       if isStructural {
         updateStructuralSemanticFrames()
+        updateVisibilityTransitions()
         return
       }
 
@@ -1269,6 +1302,143 @@
       }
       semanticElement?.frameInOwner = bounds
       updateStructuralSemanticFrames()
+      updateVisibilityTransitions()
+    }
+
+    // MARK: Custom visibility animations
+
+    /// Draws each child playing a custom visibility animation through a canvas laid over this view,
+    /// in this view's space, in the child's place: the child itself is hidden from the screen and
+    /// drawn into that canvas. The child keeps the bounds layout last gave it, which is where an
+    /// exiting child's space was. Called after the children are placed, so the function sees the
+    /// bounds of this frame.
+    private func updateVisibilityTransitions() {
+      var playing: Set<ObjectIdentifier> = []
+      for child in componentChildren {
+        guard let transition = child.node.visibilityTransition else { continue }
+        let key = ObjectIdentifier(child)
+        playing.insert(key)
+        let overlay: NativeCanvasView
+        if let existing = visibilityOverlays[key] {
+          overlay = existing
+        } else {
+          overlay = NativeCanvasView(
+            commands: [], images: images, fontNames: fontNames, offscreenTargets: offscreenTargets)
+          overlay.accessibilityIdentifier = "rc-native-visibility-\(child.node.componentID)"
+          visibilityOverlays[key] = overlay
+          insertSubview(overlay, aboveSubview: child)
+        }
+        overlay.frame = bounds
+        overlay.documentScale = documentScale
+        // The child's own order among its siblings, just above it.
+        overlay.layer.zPosition = child.layer.zPosition
+        child.isHidden = true
+        child.layoutIfNeeded()
+        overlay.showVisibilityTransition(
+          of: child,
+          commands: Self.visibilityCommands(transition, of: child, documentScale: documentScale),
+          images: images, fontNames: fontNames)
+      }
+      for (key, overlay) in visibilityOverlays where !playing.contains(key) {
+        overlay.removeFromSuperview()
+        visibilityOverlays[key] = nil
+      }
+    }
+
+    /// What a child's overlay draws this frame: nothing while an `after` enter waits, the child as
+    /// it is (nil) while an `after` exit holds or when its side has no function or the function
+    /// cannot be evaluated, and otherwise the function's drawing for the child's bounds.
+    private static func visibilityCommands(
+      _ transition: NativeSwiftVisibilityTransitionSnapshot, of child: NativeComponentView,
+      documentScale: CGFloat
+    ) -> [NativeDrawCommand]? {
+      switch transition.phase {
+      case .waiting: return []
+      case .holding: return nil
+      case .playing:
+        guard let function = transition.function else { return nil }
+        let frame = child.documentFrame(documentScale: documentScale)
+        // A function that cannot be evaluated degrades to the reference's own fallback for a
+        // missing one: the component as it is.
+        guard
+          let commands = try? function.commands(
+            x: Float(frame.minX), y: Float(frame.minY), width: Float(frame.width),
+            height: Float(frame.height))
+        else { return nil }
+        return commands.map(NativeDrawCommand.init)
+      }
+    }
+
+    /// The topmost component view of this document.
+    var rootComponentView: NativeComponentView {
+      var root = self
+      while let parent = root.superview as? NativeComponentView { root = parent }
+      return root
+    }
+
+    /// The component `id` names in this subtree.
+    func descendant(withID id: Int) -> NativeComponentView? {
+      if node.componentID == id { return self }
+      for child in componentChildren {
+        if let found = child.descendant(withID: id) { return found }
+      }
+      return nil
+    }
+
+    /// This component's bounds in its parent, in document units: its untransformed frame, as the
+    /// reference's `getX`, `getY`, `getWidth` and `getHeight` read without its graphics layer.
+    func documentFrame(documentScale: CGFloat) -> CGRect {
+      let scale = documentScale > 0 ? documentScale : 1
+      let size = bounds.size
+      return CGRect(
+        x: (center.x - size.width * layer.anchorPoint.x) / scale,
+        y: (center.y - size.height * layer.anchorPoint.y) / scale,
+        width: size.width / scale, height: size.height / scale)
+    }
+
+    /// Draws this component as it displays — whether or not it is on screen, and at its shown
+    /// opacity — into `context`, whose units are document units, with its top-left corner at
+    /// `origin`.
+    ///
+    /// Core Animation renders the layer tree as it stands. The component is shown for exactly the
+    /// render, inside a transaction that animates nothing, because a component playing a custom
+    /// visibility animation is hidden from the screen and drawn only here. A component already
+    /// being drawn into a canvas is not drawn again from inside itself, and nesting stops at the
+    /// reference's function depth.
+    func renderContent(in context: CGContext, at origin: CGPoint, documentScale: CGFloat) {
+      guard !isRenderingContent,
+        Self.contentRenderDepth < NativeSwiftFunctionDefine.maximumExecutionDepth
+      else { return }
+      isRenderingContent = true
+      Self.contentRenderDepth += 1
+      defer {
+        isRenderingContent = false
+        Self.contentRenderDepth -= 1
+      }
+      Self.displayIfNeeded(layer)
+      let scale = documentScale > 0 ? documentScale : 1
+      context.saveGState()
+      context.translateBy(x: origin.x, y: origin.y)
+      context.scaleBy(x: 1 / scale, y: 1 / scale)
+      context.translateBy(x: -bounds.minX, y: -bounds.minY)
+      CATransaction.begin()
+      CATransaction.setDisableActions(true)
+      let wasHidden = layer.isHidden
+      let opacity = layer.opacity
+      layer.isHidden = false
+      layer.opacity = node.shownOpacity
+      layer.render(in: context)
+      layer.isHidden = wasHidden
+      layer.opacity = opacity
+      CATransaction.commit()
+      context.restoreGState()
+    }
+
+    /// Brings a hidden subtree's drawn content up to date before it is rendered: Core Animation
+    /// does not display a hidden layer for the screen.
+    private static func displayIfNeeded(_ layer: CALayer) {
+      layer.displayIfNeeded()
+      layer.sublayers?.forEach(displayIfNeeded)
     }
 
     // MARK: NativeLayoutItem
@@ -1988,6 +2158,13 @@
     }
   }
 
+  /// A component target a canvas's redirects have entered: the bitmap it draws into, and the
+  /// component a `DrawContent` inside it draws.
+  private struct NativeCanvasComponentTarget {
+    let bitmapID: Int
+    let component: NativeComponentView?
+  }
+
   final class NativeCanvasView: UIView {
     private var commands: [NativeDrawCommand]
     private var images: [Int: UIImage]
@@ -2000,6 +2177,18 @@
     var documentScale: CGFloat = 1 {
       didSet { if documentScale != oldValue { setNeedsDisplay() } }
     }
+    /// The component this canvas draws for: the one a component offscreen target or `DrawContent`
+    /// that names no component means, as the reference's `mLastComponent` is the component painting.
+    weak var owner: NativeComponentView?
+    /// Set when this canvas draws a component's custom visibility animation in its parent, in the
+    /// parent's space: the component the function's `DrawContent` draws, and the one it means by
+    /// "the active component".
+    private(set) weak var animatingComponent: NativeComponentView?
+    /// Whether the animating component is drawn as it is rather than through commands: an `after`
+    /// exit holding, or a function that is undefined or cannot be evaluated.
+    private var drawsAnimatingComponentAsItIs = false
+    /// The component this canvas means when a target or `DrawContent` names none.
+    private var activeComponent: NativeComponentView? { animatingComponent ?? owner }
 
     init(
       commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String],
@@ -2030,37 +2219,150 @@
       self.commands = commands
       self.images = images
       self.fontNames = fontNames
-      guard next != rendered else { return }
+      // A canvas that draws components shows what they display now, which its commands do not
+      // capture, so it redraws with every frame.
+      guard next != rendered || drawsComponents else { return }
       rendered = next
       setNeedsDisplay()
+    }
+
+    /// Shows `component`'s custom visibility animation for this frame: `commands`, the function's
+    /// drawing in this canvas's space, or the component as it is when `commands` is nil. An empty
+    /// list draws nothing, as an `after` enter waits.
+    func showVisibilityTransition(
+      of component: NativeComponentView, commands: [NativeDrawCommand]?,
+      images: [Int: UIImage], fontNames: [Int: String]
+    ) {
+      animatingComponent = component
+      drawsAnimatingComponentAsItIs = commands == nil
+      self.commands = commands ?? []
+      self.images = images
+      self.fontNames = fontNames
+      rendered = NativeCanvasRenderKey(
+        commands: self.commands, images: images, fontNames: fontNames)
+      setNeedsDisplay()
+    }
+
+    /// Whether any command draws a component: a `DrawContent`, or a redirect into a component
+    /// target.
+    private var drawsComponents: Bool {
+      commands.contains {
+        $0.kind == NativeSwiftDrawKind.drawContent || $0.offscreenTarget?.capturesComponent == true
+      }
     }
 
     override func draw(_ rect: CGRect) {
       guard let context = UIGraphicsGetCurrentContext() else { return }
       context.scaleBy(x: documentScale, y: documentScale)
+      if drawsAnimatingComponentAsItIs {
+        // The reference paints the component itself, at its bounds in the parent.
+        if let component = animatingComponent {
+          component.renderContent(
+            in: context, at: component.documentFrame(documentScale: documentScale).origin,
+            documentScale: documentScale)
+        }
+        return
+      }
+      // A custom visibility animation's call binds its component buffers in a scope of its own
+      // (`BitmapData.pushOffscreenScope`), so a nested component animating with the same function
+      // and buffer does not draw over this one's.
+      let scoped = animatingComponent != nil
+      if scoped { offscreenTargets.pushScope() }
+      defer { if scoped { offscreenTargets.popScope() } }
       // A `DrawToBitmap` sends the commands after it to an offscreen bitmap until the next one;
       // drawing returns to this canvas at the end of the node's commands, as the CMP player's
       // draw-target scope does. The target is pushed as UIKit's current context because text and
       // image draws go through `UIGraphicsGetCurrentContext()` rather than the context passed.
       // A target that cannot be allocated drops its commands rather than drawing them here.
       var redirect = NativeOffscreenRedirect.canvas
+      var componentTargets: [NativeCanvasComponentTarget] = []
       for command in commands {
-        guard command.kind == NativeSwiftDrawKind.drawToBitmap else {
+        switch command.kind {
+        case NativeSwiftDrawKind.drawToBitmap:
+          if case .offscreen = redirect { UIGraphicsPopContext() }
+          redirect = self.redirect(to: command.offscreenTarget, targets: &componentTargets)
+          if case .offscreen(let target) = redirect { UIGraphicsPushContext(target) }
+        case NativeSwiftDrawKind.drawContent:
+          switch redirect {
+          case .canvas: drawContent(command, in: context, target: componentTargets.last)
+          case .offscreen(let target):
+            drawContent(command, in: target, target: componentTargets.last)
+          case .dropped: break
+          }
+        default:
           switch redirect {
           case .canvas: draw(command, in: context)
           case .offscreen(let target): draw(command, in: target)
           case .dropped: break
           }
-          continue
         }
-        if case .offscreen = redirect { UIGraphicsPopContext() }
-        redirect =
-          command.offscreenTarget.map { next in
-            offscreenTargets.begin(next, seed: images[next.bitmapID]?.cgImage)
-          } ?? NativeOffscreenRedirect.canvas
-        if case .offscreen(let target) = redirect { UIGraphicsPushContext(target) }
       }
       if case .offscreen = redirect { UIGraphicsPopContext() }
+    }
+
+    /// Where drawing goes after a `DrawToBitmap`, as `DrawToBitmap.paint` decides.
+    ///
+    /// A target that captures a component — a component offscreen buffer, or a redirect naming a
+    /// component — is pushed on `targets`; a buffer is sized to its component: the one its payload
+    /// names, else the redirect's, else the active one (`BitmapData.ensureOffscreenBitmap`). The
+    /// component `DrawContent` then draws is the redirect's, else the active one. The redirect back
+    /// to bitmap 0 leaves the innermost component target and resumes the one enclosing it, without
+    /// erasing it, or returns to the canvas.
+    private func redirect(
+      to target: NativeSwiftOffscreenTargetSnapshot?,
+      targets: inout [NativeCanvasComponentTarget]
+    ) -> NativeOffscreenRedirect {
+      guard let target else { return .canvas }
+      if target.returnsToCanvas {
+        guard targets.popLast() != nil, let enclosing = targets.last else { return .canvas }
+        return offscreenTargets.resume(enclosing.bitmapID)
+      }
+      let seed = images[target.bitmapID]?.cgImage
+      guard target.capturesComponent else { return offscreenTargets.begin(target, seed: seed) }
+      let captured = target.capturedComponentID.flatMap(componentView(withID:))
+      let buffered =
+        target.bufferComponentID == NativeSwiftComponentOffscreenBuffer.activeComponent
+        ? nil : componentView(withID: target.bufferComponentID)
+      let drawn = captured ?? activeComponent
+      let sized = (buffered ?? drawn)?.documentFrame(documentScale: documentScale)
+      let size = sized.flatMap {
+        NativeSwiftComponentOffscreenBuffer.size(
+          x: Float($0.minX), y: Float($0.minY), width: Float($0.width), height: Float($0.height))
+      }
+      targets.append(NativeCanvasComponentTarget(bitmapID: target.bitmapID, component: drawn))
+      return offscreenTargets.begin(target, seed: seed, componentSize: size)
+    }
+
+    /// `DrawContent`: inside a component target, the target's component at the target's origin —
+    /// its pixel-aligned bounds' corner (`DrawContent.paint`'s offscreen root). Otherwise, in a
+    /// custom visibility animation, the animating component at its bounds in the parent, clipped to
+    /// them in a layer at the paint's alpha, as `DrawContent` composites an animating component.
+    /// Anywhere else it draws nothing: the component views draw a component's own content.
+    private func drawContent(
+      _ command: NativeDrawCommand, in context: CGContext, target: NativeCanvasComponentTarget?
+    ) {
+      if let target {
+        guard let component = target.component else { return }
+        let frame = component.documentFrame(documentScale: documentScale)
+        let offset = CGPoint(
+          x: frame.minX - frame.minX.rounded(.down), y: frame.minY - frame.minY.rounded(.down))
+        component.renderContent(in: context, at: offset, documentScale: documentScale)
+        return
+      }
+      guard let component = animatingComponent else { return }
+      let frame = component.documentFrame(documentScale: documentScale)
+      context.saveGState()
+      context.clip(to: frame)
+      context.setAlpha(command.alpha)
+      context.beginTransparencyLayer(in: frame, auxiliaryInfo: nil)
+      component.renderContent(in: context, at: frame.origin, documentScale: documentScale)
+      context.endTransparencyLayer()
+      context.restoreGState()
+    }
+
+    /// The component `id` names anywhere in this canvas's document.
+    private func componentView(withID id: Int) -> NativeComponentView? {
+      (owner ?? animatingComponent)?.rootComponentView.descendant(withID: id)
     }
 
     private func draw(_ command: NativeDrawCommand, in context: CGContext) {
@@ -2257,10 +2559,10 @@
         let draw = command.image,
         // A bitmap a `DrawToBitmap` drew into shows what it holds now.
         let source = offscreenTargets.image(draw.imageID) ?? images[draw.imageID]?.cgImage,
-        let cropped = source.cropping(to: draw.source)
+        let cropped = source.cropping(to: draw.source(in: source))
       else { return }
       let destination = NativeImageGeometry.destination(
-        source: draw.source,
+        source: draw.source(in: source),
         destination: draw.destination,
         scaleType: draw.scaleType,
         scaleFactor: draw.scaleFactor)

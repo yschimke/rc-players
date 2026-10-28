@@ -497,4 +497,25 @@ import Testing
       _ = try function.commands(x: 0, y: 0, width: 10, height: 10)
     }
   }
+
+  @Test func aFunctionDrawingANonFiniteValueThrows() throws {
+    let custom = NativeSwiftLayoutAnimation.custom
+    let data = Self.document(
+      specs: { Self.spec($0, enter: custom, exit: custom, enterFunction: 9, exitFunction: 9) },
+      functions: { writer in
+        // A rectangle as wide as an argument the call does not load: NaN reads as 0, but an
+        // infinite literal is drawn as written.
+        writer.u8(Op.functionDefine).int(9).int(1).int(500)
+        writer.u8(Op.drawRect).float(0).float(0).float(.infinity).float(1)
+        writer.u8(Op.containerEnd)
+      })
+    let session = try NativeSwiftDocumentSession.open(data: data)
+    _ = try session.snapshot(timeSeconds: 0)
+    #expect(session.setInteger(NativeSwiftVisibility.gone, for: "shown"))
+    let function = try #require(
+      try Self.box(session.snapshot(timeSeconds: 0.1)).visibilityTransition?.function)
+    #expect(throws: NativeSwiftCoreError.self) {
+      _ = try function.commands(x: 0, y: 0, width: 10, height: 10)
+    }
+  }
 }
