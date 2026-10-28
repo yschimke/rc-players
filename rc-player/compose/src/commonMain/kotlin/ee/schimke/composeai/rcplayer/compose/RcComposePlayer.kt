@@ -1626,7 +1626,8 @@ private fun RenderLayoutNode(
               // `CoreText` below held still. Worse than a doubling on a `RemoteDensity.Host`
               // document, whose sizes already carry Android's damped sp curve: a 44sp headline is
               // 50.4px at fontScale 2.0, and scaling that again gives 100.8.
-              fontSize = with(density) { state.resolve(operation.fontSize).toSp() },
+              fontSize =
+                with(density) { state.textFontSizePixels(operation.fontSize, density).toSp() },
               fontWeight = FontWeight(boldWeight),
               fontStyle =
                 if (operation.fontStyle and 2 != 0) FontStyle.Italic else FontStyle.Normal,
@@ -1641,7 +1642,7 @@ private fun RenderLayoutNode(
       is RcLayoutNode.CoreText -> {
         val density = androidx.compose.ui.platform.LocalDensity.current
         val properties = node.resolvedStyle
-        val fontSize = state.resolve(properties.floatProperty(5, 36f))
+        val fontSize = state.textFontSizePixels(properties.floatProperty(5, 36f), density)
         val lineHeightAdd = state.resolve(properties.floatProperty(13, 0f))
         val lineHeightMultiplier = state.resolve(properties.floatProperty(14, 1f))
         val fontStyle = properties.intProperty(6, 0)
@@ -2497,6 +2498,21 @@ private class RcVerticalArrangement(private val positioning: Int, override val s
 /** AndroidX fields that are pixels in LEGACY/PIXELS documents and dp in DP documents. */
 internal fun rcDpTypedPixels(value: Float, density: Float, densityBehavior: Int): Float =
   if (densityBehavior == RcHeader.DENSITY_BEHAVIOR_DP) value * density else value
+
+/**
+ * A `CoreText` / `TextLayout` font size, as remote-core's `updateVariables` resolves it: a literal
+ * is dp-typed in a DP document and scaled by the host density, while a variable is taken as the
+ * pixels it evaluates to.
+ */
+internal fun rcTextFontSizePixels(
+  word: RcFloatWord,
+  resolved: Float,
+  density: Float,
+  densityBehavior: Int,
+): Float = if (word.isNaNEncoded) resolved else rcDpTypedPixels(resolved, density, densityBehavior)
+
+private fun RcPlayerState.textFontSizePixels(word: RcFloatWord, density: Density): Float =
+  rcTextFontSizePixels(word, resolve(word), density.density, document.header.densityBehavior)
 
 private fun RcPlayerState.dpTypedPixels(value: Float, density: Density): Float =
   rcDpTypedPixels(value, density.density, document.header.densityBehavior)

@@ -120,6 +120,16 @@ class RcComposeSupportTest {
   }
 
   @Test
+  fun literalTextFontSizesAreDpTypedButVariablesArePixels() {
+    val literal = RcFloatWord.literal(14f)
+    val variable = RcFloatWord(0x7f800000 or 42)
+    assertEquals(14f, rcTextFontSizePixels(literal, 14f, 2f, RcHeader.DENSITY_BEHAVIOR_LEGACY))
+    assertEquals(14f, rcTextFontSizePixels(literal, 14f, 2f, RcHeader.DENSITY_BEHAVIOR_PIXELS))
+    assertEquals(28f, rcTextFontSizePixels(literal, 14f, 2f, RcHeader.DENSITY_BEHAVIOR_DP))
+    assertEquals(30f, rcTextFontSizePixels(variable, 30f, 2f, RcHeader.DENSITY_BEHAVIOR_DP))
+  }
+
+  @Test
   fun dimensionConstraintsRetainTheirAndroidXLegacyException() {
     assertEquals(52f, rcDimensionConstraintDp(52f, 2f, RcHeader.DENSITY_BEHAVIOR_LEGACY))
     assertEquals(26f, rcDimensionConstraintDp(52f, 2f, RcHeader.DENSITY_BEHAVIOR_PIXELS))
