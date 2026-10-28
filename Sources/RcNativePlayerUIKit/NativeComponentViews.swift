@@ -824,6 +824,9 @@
     private var fontNames: [Int: String]
     /// Those canvases, by the child each draws in its place.
     private var visibilityOverlays: [ObjectIdentifier: NativeCanvasView] = [:]
+    /// Set on an exiting child while its parent works out where it would sit if it were still
+    /// visible: its layout node then reads as visible.
+    private var arrangesAsVisible = false
     /// Set while this component is being drawn into another canvas, which must not draw it again
     /// from inside (`DrawContent`'s own processing guard).
     private var isRenderingContent = false
@@ -1298,7 +1301,9 @@
       case .custom: customView?.frame = bounds
       // Rows, columns, flows, boxes, FitBoxes and the root: the shared engine decides, this view
       // only writes the result onto its children.
-      default: apply(layoutEngine.arrange(self, in: bounds))
+      default:
+        apply(layoutEngine.arrange(self, in: bounds))
+        placeUnplacedExits()
       }
       semanticElement?.frameInOwner = bounds
       updateStructuralSemanticFrames()
@@ -1306,6 +1311,23 @@
     }
 
     // MARK: Custom visibility animations
+
+    /// Gives an exiting child that layout has never placed — a tree built from a snapshot already
+    /// mid-exit — the frame it would have had while visible, which is where its space was. Layout
+    /// leaves a GONE child where it last placed it, so a child it placed before keeps that frame;
+    /// its siblings keep the arrangement in which its space has closed.
+    private func placeUnplacedExits() {
+      let exits = componentChildren.filter {
+        $0.bounds.isEmpty && $0.node.visibilityTransition.map { !$0.isEntering } == true
+      }
+      guard !exits.isEmpty else { return }
+      for child in exits { child.arrangesAsVisible = true }
+      defer { for child in exits { child.arrangesAsVisible = false } }
+      let visible = layoutEngine.arrange(self, in: bounds)
+      for placement in visible.placements where exits.contains(where: { $0 === placement.item }) {
+        placement.item.frame = placement.frame
+      }
+    }
 
     /// Draws each child playing a custom visibility animation through a canvas laid over this view,
     /// in this view's space, in the child's place: the child itself is hidden from the screen and
@@ -1443,7 +1465,12 @@
 
     // MARK: NativeLayoutItem
 
-    var layoutNode: NativeLayoutNode { node.layout }
+    var layoutNode: NativeLayoutNode {
+      guard arrangesAsVisible else { return node.layout }
+      var layout = node.layout
+      layout.visibility = NativeSwiftVisibility.visible
+      return layout
+    }
 
     var layoutChildren: [NativeComponentView] { componentChildren }
 
