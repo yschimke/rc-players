@@ -96,8 +96,12 @@ public class RcBundledTypefaceLoader(faces: Map<String, RcFontFaces>) : RcTypefa
  * * the **generic** families (`sans-serif`, `serif`, `monospace`) try the host first and then fall
  *   back to Compose's built-ins, so a host may override a generic but does not have to supply one.
  *
- * [embedded] is consulted before the host for a non-generic name because a document that carries
- * its own `FontData` has said exactly which bytes it wants.
+ * [embedded] is consulted first unless the name is a generic, because a document that carries its
+ * own `FontData` under [fontFamilyId] has said exactly which bytes it wants. That covers both ways
+ * a document points at its font: by the `FontData`'s own id, with no text under it (what AndroidX's
+ * creation API writes, and what both AndroidX players resolve), and by a family-name text that
+ * shares the font's id. The embedded face is instanced at [variations], [weight] and [italic] — see
+ * [RcDocumentFonts] for why the weight and slant are part of that.
  *
  * Whether the generic fallback chain should move onto the loader — letting a host own it — is
  * deliberately left to #4061; this preserves today's behaviour exactly.
@@ -111,17 +115,29 @@ internal const val RC_DEFAULT_FAMILY: String = "default"
 internal fun rcResolveTypeface(
   recordedName: String?,
   fontFamilyId: Int,
-  embedded: Map<Int, FontFamily>,
+  embedded: RcDocumentFonts,
   loader: RcTypefaceLoader,
   variations: RcFontVariations? = null,
+  weight: Int = 400,
+  italic: Boolean = false,
 ): FontFamily {
   fun host(name: String): FontFamily? = loader.typeface(name, variations)
-  return when (val family = recordedName?.lowercase()) {
+  val family = recordedName?.lowercase()
+  if (family !in RC_GENERIC_FAMILIES) {
+    embedded.family(fontFamilyId, weight, italic, variations)?.let {
+      return it
+    }
+  }
+  return when (family) {
     null,
     RC_DEFAULT_FAMILY -> host(RC_DEFAULT_FAMILY) ?: FontFamily.Default
     "sans-serif" -> host(family) ?: FontFamily.SansSerif
     "serif" -> host(family) ?: FontFamily.Serif
     "monospace" -> host(family) ?: FontFamily.Monospace
-    else -> embedded[fontFamilyId] ?: host(family.removePrefix("google:")) ?: FontFamily.Default
+    else -> host(family.removePrefix("google:")) ?: FontFamily.Default
   }
 }
+
+/** The families [rcResolveTypeface] treats as generic: never an embedded font's name. */
+internal val RC_GENERIC_FAMILIES: Set<String?> =
+  setOf(RC_DEFAULT_FAMILY, "sans-serif", "serif", "monospace")

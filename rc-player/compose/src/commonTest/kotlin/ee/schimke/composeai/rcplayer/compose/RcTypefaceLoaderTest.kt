@@ -64,17 +64,79 @@ class RcTypefaceLoaderTest {
   @Test
   fun aDocumentsOwnEmbeddedFaceWinsOverTheHost() {
     val loader = RecordingLoader(setOf("acme"))
-    val embedded = FontFamily.Monospace
+    val embedded = RcDocumentFonts(mapOf(12 to byteArrayOf(1, 2, 3)))
     assertSame(
-      embedded,
-      rcResolveTypeface(
-        "Acme",
-        fontFamilyId = 12,
-        embedded = mapOf(12 to embedded),
-        loader = loader,
-      ),
+      embedded.family(12),
+      rcResolveTypeface("Acme", fontFamilyId = 12, embedded = embedded, loader = loader),
     )
     assertTrue(loader.asked.isEmpty(), "the host should not be consulted at all")
+  }
+
+  @Test
+  fun aFontDataIdWithNoFamilyNameResolvesToTheEmbeddedFont() {
+    // What AndroidX's creation API writes: the style's family id *is* the `FontData` id, and no
+    // text is declared under it. Both AndroidX players draw the embedded font; this one drew the
+    // default face.
+    val loader = RecordingLoader(emptySet())
+    val embedded = RcDocumentFonts(mapOf(42 to byteArrayOf(1, 2, 3)))
+    assertSame(
+      embedded.family(42),
+      rcResolveTypeface(null, fontFamilyId = 42, embedded = embedded, loader = loader),
+    )
+  }
+
+  @Test
+  fun aGenericNameIsNotAnEmbeddedFont() {
+    val embedded = RcDocumentFonts(mapOf(42 to byteArrayOf(1, 2, 3)))
+    assertSame(
+      FontFamily.Serif,
+      rcResolveTypeface(
+        "serif",
+        fontFamilyId = 42,
+        embedded = embedded,
+        loader = RecordingLoader(emptySet()),
+      ),
+    )
+  }
+
+  @Test
+  fun embeddedInstancesAreCachedPerWeightSlantAndAxisSet() {
+    val fonts = RcDocumentFonts(mapOf(42 to byteArrayOf(1, 2, 3)))
+    val wdth = RcFontVariations(listOf(RcFontAxis("wdth", 25f)))
+    val regular = fonts.family(42)
+    assertSame(regular, fonts.family(42, 400, false, RcFontVariations.None))
+    assertSame(fonts.family(42, variations = wdth), fonts.family(42, variations = wdth))
+    val distinct =
+      listOf(
+        regular,
+        fonts.family(42, weight = 700),
+        fonts.family(42, italic = true),
+        fonts.family(42, variations = wdth),
+      )
+    assertEquals(distinct.size, distinct.toSet().size, "each key must be its own instance")
+    assertNull(fonts.family(7), "an id the document embeds nothing under")
+  }
+
+  @Test
+  fun twoDocumentsEmbeddingDifferentFontsUnderOneIdDoNotShareAnInstance() {
+    // Compose's typeface cache is process-wide and keyed on the font's identity; an identity built
+    // from the document's id alone handed the second document the first one's typeface.
+    val first = RcDocumentFonts(mapOf(42 to byteArrayOf(1, 2, 3))).family(42)
+    val second = RcDocumentFonts(mapOf(42 to byteArrayOf(3, 2, 1))).family(42)
+    val again = RcDocumentFonts(mapOf(42 to byteArrayOf(1, 2, 3))).family(42)
+    assertTrue(first != second, "different bytes must be different fonts")
+    assertEquals(first, again, "the same bytes are the same font")
+  }
+
+  @Test
+  fun anAnimatedEmbeddedAxisKeepsABoundedNumberOfInstances() {
+    val fonts = RcDocumentFonts(mapOf(42 to byteArrayOf(1, 2, 3)))
+    repeat(RcDocumentFonts.MAX_INSTANCES * 3) { i ->
+      assertNotNull(
+        fonts.family(42, variations = RcFontVariations(listOf(RcFontAxis("wght", i + 1f))))
+      )
+    }
+    assertEquals(RcDocumentFonts.MAX_INSTANCES, fonts.cachedInstanceCount)
   }
 
   @Test
@@ -101,5 +163,10 @@ class RcTypefaceLoaderTest {
   }
 
   private fun resolve(recordedName: String?, loader: RcTypefaceLoader): FontFamily =
-    rcResolveTypeface(recordedName, fontFamilyId = -1, embedded = emptyMap(), loader = loader)
+    rcResolveTypeface(
+      recordedName,
+      fontFamilyId = -1,
+      embedded = RcDocumentFonts.Empty,
+      loader = loader,
+    )
 }

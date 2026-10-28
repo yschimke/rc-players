@@ -216,8 +216,8 @@ public fun RcDocument.composeSupportReport(
   // worse than what these checks would otherwise see.
   val linkResult = runCatching { RcDocumentLinker.link(this) }
   val reachable = reachableOperations(this, linkResult.getOrNull())
-  val paintedShaderIds = referencedShaderIds(reachable, shaderIds)
   val fontIds = operations.filterIsInstance<RcFontData>().mapTo(mutableSetOf()) { it.fontId }
+  val paintedShaderIds = referencedShaderIds(reachable, shaderIds, fontIds)
   val particleDefinitionGroups = operations.filterIsInstance<RcParticleDefine>().groupBy { it.id }
   val particleDefinitions = particleDefinitionGroups.mapValues { it.value.last() }
   val texts =
@@ -378,9 +378,10 @@ public fun RcDocument.composeSupportReport(
               else -> "font axis tag $word is not declared"
             }
           },
-          // A paint family is held to CoreText's rule: canvas text has no FontData path, so a
-          // named family must be a generic or one the host supplies.
-          familyIssue = { id -> fontFamilyIssue(id, texts, emptySet(), availableFontFamilies) },
+          // A paint family is held to CoreText's rule: a generic, one the host supplies, or a
+          // font the document embeds (`rcPaintTypeface`).
+          familyIssue = { id -> fontFamilyIssue(id, texts, fontIds, availableFontFamilies) },
+          embeddedFontIds = fontIds,
         )
         ?.let { detail -> issues += RcComposeSupportIssue(index, "PaintData", detail) }
     }
@@ -1174,9 +1175,15 @@ private fun reachableOperations(
  * fault is unknown — that paint is already reported as an issue of its own, and a document with one
  * is refused before any of this matters.
  */
-private fun referencedShaderIds(reachable: List<RcOperation>, shaderIds: Set<Int>): Set<Int> {
+private fun referencedShaderIds(
+  reachable: List<RcOperation>,
+  shaderIds: Set<Int>,
+  embeddedFontIds: Set<Int>,
+): Set<Int> {
   val referenced = mutableSetOf<Int>()
-  reachable.filterIsInstance<RcPaintData>().forEach { paintIssue(it, shaderIds, referenced) }
+  reachable.filterIsInstance<RcPaintData>().forEach {
+    paintIssue(it, shaderIds, referenced, embeddedFontIds = embeddedFontIds)
+  }
   return referenced
 }
 
@@ -1469,9 +1476,11 @@ private fun textStyleIssue(
   // unequal lengths mean the document cannot say which value belongs to which axis, and rendering
   // it would apply a silently wrong instance rather than a missing one.
   //
-  // Axes on a family the host doesn't supply as bytes (a generic, or an inline `FontData`) are
-  // dropped at render rather than rejected here: the text still draws in the right family, one
-  // instance off. That is a substitution the audit records, not a document this lane cannot read.
+  // Axes on a family whose bytes the player does not hold (a generic) are dropped at render rather
+  // than rejected here: the text still draws in the right family, one instance off. A host face and
+  // an inline `FontData` are both instanced at them. That is a substitution the audit records, not
+  // a
+  // document this lane cannot read.
   if (!axes?.values.isNullOrEmpty() || !axisValues?.values.isNullOrEmpty()) {
     if (axes?.values?.size != axisValues?.values?.size)
       return "font axis arrays have different sizes"
@@ -1488,6 +1497,8 @@ private fun fontFamilyIssue(
   availableFontFamilies: Set<String>,
 ): String? {
   if (fontFamilyId == -1) return null
+  // The document's own font, named by its `FontData` id — with or without a family-name text.
+  if (fontFamilyId in embeddedFontIds) return null
   val family = texts[fontFamilyId] ?: return "font family name id $fontFamilyId is not declared"
   val normalized = family.lowercase().removePrefix("google:")
   val available = availableFontFamilies.mapTo(mutableSetOf()) { it.lowercase() }
@@ -1550,6 +1561,8 @@ private fun paintIssue(
    * Why the family a `TYPEFACE` names by text id cannot be drawn, or null; null skips the check.
    */
   familyIssue: ((Int) -> String?)? = null,
+  /** The document's `FontData` ids, which a `TYPEFACE` may name (see `rcPaintTypeface`). */
+  embeddedFontIds: Set<Int> = emptySet(),
 ): String? {
   var index = 0
   while (index < paint.words.size) {
@@ -1622,11 +1635,12 @@ private fun paintIssue(
     }
     if (type == PAINT_TYPEFACE) {
       val fontType = paint.words[index]
-      val namedFamily =
-        fontType > PAINT_MAX_GENERIC_FONT_TYPE &&
-          (command ushr 16) and PAINT_TYPEFACE_FONT_DATA == 0
+      val fontData = (command ushr 16) and PAINT_TYPEFACE_FONT_DATA != 0
+      val namedFamily = fontType > PAINT_MAX_GENERIC_FONT_TYPE && !fontData
       when {
         fontType in 0..3 -> Unit
+        fontType in embeddedFontIds -> Unit
+        fontData -> return "FontData font $fontType is not declared"
         !namedFamily -> return "font id $fontType is not implemented"
         else ->
           familyIssue?.invoke(fontType)?.let {
@@ -1705,10 +1719,6 @@ private const val PAINT_CLEAR_COLOR_FILTER = 21
 private const val PAINT_SHADER_MATRIX = 22
 private const val PAINT_FONT_AXIS = 23
 private const val PAINT_TEXTURE = 24
-
-/** See the player's constant of the same name: font types above it name a family by text id. */
-private const val PAINT_MAX_GENERIC_FONT_TYPE = 10
-private const val PAINT_TYPEFACE_FONT_DATA = 1024
 
 private fun particleCompareWork(operation: RcParticleCompare, particleCount: Int): Long {
   fun literalIndex(word: RcFloatWord, fallback: Int): Int =

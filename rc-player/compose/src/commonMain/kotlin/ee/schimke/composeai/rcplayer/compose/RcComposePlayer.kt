@@ -240,7 +240,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
-import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHapticFeedback
@@ -932,7 +931,7 @@ private fun RcComposePlayerResolved(
           drawOperations(
             linkedDocument.operations,
             state,
-            RcPaintState(typefaces, drawObserver),
+            RcPaintState(typefaces, drawObserver, fonts),
             mutableMapOf(),
             textMeasurer,
             images,
@@ -1147,7 +1146,7 @@ private fun RenderLayoutNode(
                   drawOperations(
                     operations,
                     state,
-                    RcPaintState(typefaces, drawObserver),
+                    RcPaintState(typefaces, drawObserver, fontFamilies),
                     mutableMapOf(),
                     textMeasurer,
                     images,
@@ -1181,7 +1180,7 @@ private fun RenderLayoutNode(
             drawOperations(
               node.operations,
               state,
-              RcPaintState(typefaces, drawObserver),
+              RcPaintState(typefaces, drawObserver, fontFamilies),
               mutableMapOf(),
               textMeasurer,
               images,
@@ -1633,7 +1632,14 @@ private fun RenderLayoutNode(
               fontStyle =
                 if (operation.fontStyle and 2 != 0) FontStyle.Italic else FontStyle.Normal,
               fontFamily =
-                resolveFontFamily(operation.fontFamilyId, state, fontFamilies, typefaces),
+                resolveFontFamily(
+                  operation.fontFamilyId,
+                  state,
+                  fontFamilies,
+                  typefaces,
+                  weight = boldWeight,
+                  italic = operation.fontStyle and 2 != 0,
+                ),
               textAlign = operation.composeTextAlign(),
             ),
           overflow = operation.composeTextOverflow(),
@@ -1749,6 +1755,8 @@ private fun RenderLayoutNode(
                   fontFamilies,
                   typefaces,
                   withWeightAxis(withItalicAxis(variations, fontStyle and 2 != 0), boldWeight),
+                  boldWeight,
+                  fontStyle and 2 != 0,
                 ),
               textAlign =
                 if (properties.intProperty(17, 0) == 1) TextAlign.Justify
@@ -1988,7 +1996,7 @@ internal class RcPlayerRoot {
 }
 
 private val LocalRcPlayerRoot = staticCompositionLocalOf<RcPlayerRoot?> { null }
-private val LocalRcFonts = compositionLocalOf<Map<Int, FontFamily>> { emptyMap() }
+private val LocalRcFonts = compositionLocalOf { RcDocumentFonts.Empty }
 private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
 private val LocalRcCustomComponents = compositionLocalOf { RcCustomComponentRegistry.Empty }
 private val LocalRcInvalidate = compositionLocalOf<() -> Unit> { {} }
@@ -2589,6 +2597,7 @@ private fun Modifier.applyComponentModifiers(
   val density = androidx.compose.ui.platform.LocalDensity.current
   val offscreenTargets = LocalRcOffscreenTargets.current
   val typefaces = LocalRcTypefaces.current
+  val documentFonts = LocalRcFonts.current
   val drawObserver = LocalRcDrawObserver.current
   val frameTime = LocalRcFrameTime.current
   val paintVersion = LocalRcPaintVersion.current
@@ -2645,7 +2654,7 @@ private fun Modifier.applyComponentModifiers(
         drawOperations(
           operations,
           state,
-          RcPaintState(typefaces, drawObserver),
+          RcPaintState(typefaces, drawObserver, documentFonts),
           mutableMapOf(),
           textMeasurer,
           images,
@@ -4736,6 +4745,8 @@ private class RcPaintState(
   val typefaces: RcTypefaceLoader = RcTypefaceLoader.Empty,
   /** Told about each text run as it is drawn; null — the default — records nothing. */
   val observer: RcDrawObserver? = null,
+  /** The document's `FontData` fonts, which a `TYPEFACE` may name as `CoreText` does. */
+  val documentFonts: RcDocumentFonts = RcDocumentFonts.Empty,
 ) {
   var color: Int = 0xff000000.toInt()
   var strokeWidth: Float = 1f
@@ -4758,6 +4769,8 @@ private class RcPaintState(
    * same `PaintData`, and the family has to be instanced at those axes.
    */
   var fontName: String? = null
+  /** The `FontData` id a `TYPEFACE` named, or -1; see [rcPaintTypeface]. */
+  var fontDataId: Int = -1
   /** The axes the last `FONT_AXIS` command set; it replaces the whole set, as AndroidX does. */
   var fontVariations: RcFontVariations? = null
   /**
@@ -4765,7 +4778,16 @@ private class RcPaintState(
    * Resolved per use: the host caches each family per axis set, so this is a lookup.
    */
   val fontFamily: FontFamily
-    get() = rcResolveTypeface(fontName, -1, emptyMap(), typefaces, fontVariations)
+    get() =
+      rcResolveTypeface(
+        fontName,
+        fontDataId,
+        documentFonts,
+        typefaces,
+        fontVariations,
+        fontWeight.weight,
+        fontStyle == FontStyle.Italic,
+      )
 
   var fontWeight: FontWeight = FontWeight.Normal
   var fontStyle: FontStyle = FontStyle.Normal
@@ -5256,27 +5278,16 @@ private fun decodeInlineImagesUncounted(document: RcDocument): MutableMap<Int, I
     .toMap()
     .toMutableMap()
 
-private fun decodeInlineFonts(document: RcDocument): Map<Int, FontFamily> =
-  rcTrace(RcTraceCategory.DOCUMENT, "rc:decodeFonts") { decodeInlineFontsUncounted(document) }
-
-private fun decodeInlineFontsUncounted(document: RcDocument): Map<Int, FontFamily> =
-  document.operations
-    .filterIsInstance<RcFontData>()
-    .mapNotNull { font ->
-      runCatching {
-        font.fontId to FontFamily(rcFontFromBytes("remote-compose-${font.fontId}", font.data))
-      }
-        .getOrNull()
-    }
-    .toMap()
+private fun decodeInlineFonts(document: RcDocument): RcDocumentFonts =
+  rcTrace(RcTraceCategory.DOCUMENT, "rc:decodeFonts") { RcDocumentFonts.of(document) }
 
 /**
  * The [FontFamily] a text op's `fontFamilyId` names, instanced at [settings] when the host holds
  * the face's bytes.
  *
- * [variations] are the document's font-variation axes. They can only be applied to a host face
- * ([RcFontFaces] keeps the bytes for exactly this reason) — a generic family or an inline
- * `FontData` resolves to a `FontFamily` whose faces are already built, so for those the axes are
+ * [variations] are the document's font-variation axes. They apply to a face whose bytes the player
+ * holds — a host face ([RcFontFaces]) or the document's own `FontData` ([RcDocumentFonts]); a
+ * generic family resolves to a `FontFamily` whose faces are already built, so for that the axes are
  * dropped rather than approximated. That is a substitution the render shows honestly; approximating
  * `wdth` by scaling would not be.
  *
@@ -5286,11 +5297,21 @@ private fun decodeInlineFontsUncounted(document: RcDocument): Map<Int, FontFamil
 private fun resolveFontFamily(
   fontFamilyId: Int,
   state: RcPlayerState,
-  embeddedFonts: Map<Int, FontFamily>,
+  embeddedFonts: RcDocumentFonts,
   typefaces: RcTypefaceLoader,
   variations: RcFontVariations? = null,
+  weight: Int = 400,
+  italic: Boolean = false,
 ): FontFamily =
-  rcResolveTypeface(state.text(fontFamilyId), fontFamilyId, embeddedFonts, typefaces, variations)
+  rcResolveTypeface(
+    state.text(fontFamilyId),
+    fontFamilyId,
+    embeddedFonts,
+    typefaces,
+    variations,
+    weight,
+    italic,
+  )
 
 /**
  * The font-variation axes a `CoreText` style declares: property 20 is a list of *text ids* naming
@@ -6719,19 +6740,9 @@ private fun applyPaint(
         val style = command ushr 16
         val fontType = operation.words[index++]
         state.fontType = fontType
-        state.fontName =
-          when {
-            fontType == 0 -> RC_DEFAULT_FAMILY
-            fontType == 1 -> "sans-serif"
-            fontType == 2 -> "serif"
-            fontType == 3 -> "monospace"
-            // Above the generic range, and without the font-data bit, AndroidX reads the word as
-            // the text id of a family name — what `RcPaint.setTypeface(String)` writes.
-            fontType > PAINT_MAX_GENERIC_FONT_TYPE && style and PAINT_TYPEFACE_FONT_DATA == 0 ->
-              values.text(fontType)
-                ?: error("AndroidX font family text $fontType is not in the document")
-            else -> error("AndroidX font id $fontType is not implemented by the CMP backend")
-          }
+        val typeface = rcPaintTypeface(fontType, style, values::text, state.documentFonts)
+        state.fontName = typeface.familyName
+        state.fontDataId = typeface.fontDataId
         state.fontWeight = FontWeight((style and 0x3ff).takeIf { it > 0 } ?: 400)
         state.fontStyle = if (style and 0x800 != 0) FontStyle.Italic else FontStyle.Normal
       }
@@ -6885,15 +6896,6 @@ internal fun fourCharacterTag(word: Int): String? =
  */
 internal fun isFontAxisTag(tag: String): Boolean =
   tag.length == 4 && tag.all { it in ' '..'~' } && tag[0] != ' '
-
-/**
- * AndroidX `PaintBundle` reads a `TYPEFACE` font type above this as a text id naming the family; at
- * or below it, as a generic family (0–3) or a `FontData` id.
- */
-private const val PAINT_MAX_GENERIC_FONT_TYPE = 10
-
-/** The `TYPEFACE` style bit marking the font type as a `FontData` id rather than a family name. */
-private const val PAINT_TYPEFACE_FONT_DATA = 1024
 
 private fun blendMode(value: Int): BlendMode =
   when (value) {

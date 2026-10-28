@@ -887,6 +887,37 @@ class RcComposeSupportTest {
   }
 
   @Test
+  fun acceptsAFontDataIdAsTheFamilyWithNoNameDeclared() {
+    // AndroidX's creation API names an embedded font by the `FontData` id itself, with no text.
+    val style =
+      RcTextStyle(listOf(RcTextStyleProperty.IntValue(1, 100), RcTextStyleProperty.IntValue(8, 42)))
+    assertTrue(
+      RcDocument(header, listOf(RcFontData(42, 0, byteArrayOf(1)), style))
+        .composeSupportReport()
+        .fullyRenderable
+    )
+  }
+
+  @Test
+  fun canvasTextMayNameAnEmbeddedFont() {
+    val font = RcFontData(42, 0, byteArrayOf(1))
+    // `RcPaint.setTypeface(fontDataId)`: the font-data bit (1024) set on the TYPEFACE style.
+    val byFontData = RcPaintData(listOf(16 or ((400 or 1024) shl 16), 42))
+    // The same id without the bit and with no family-name text, as AndroidX also resolves it.
+    val byBareId = RcPaintData(listOf(16 or (400 shl 16), 42))
+    assertTrue(RcDocument(header, listOf(font, byFontData)).composeSupportReport().fullyRenderable)
+    assertTrue(RcDocument(header, listOf(font, byBareId)).composeSupportReport().fullyRenderable)
+    assertEquals(
+      "FontData font 42 is not declared",
+      RcDocument(header, listOf(byFontData)).composeSupportReport().issues.single().detail,
+    )
+    assertEquals(
+      "font family name id 42 is not declared",
+      RcDocument(header, listOf(byBareId)).composeSupportReport().issues.single().detail,
+    )
+  }
+
+  @Test
   fun acceptsEmbeddedFontReferencesAndRejectsMissingOnes() {
     fun document(fonts: List<RcFontData>, family: String? = "BrandFace") =
       RcDocument(
@@ -1268,9 +1299,10 @@ class RcComposeSupportTest {
         .single()
         .detail,
     )
-    // The font-data bit makes 42 a `FontData` id, which canvas text does not resolve.
+    // The font-data bit makes 42 a `FontData` id: renderable when the document embeds one under it
+    // (see `canvasTextMayNameAnEmbeddedFont`), and refused when it does not.
     assertEquals(
-      "font id 42 is not implemented",
+      "FontData font 42 is not declared",
       RcDocument(
           header,
           listOf(RcTextData(42, "Roboto Flex"), RcPaintData(listOf(16 or (1024 shl 16), 42))),
