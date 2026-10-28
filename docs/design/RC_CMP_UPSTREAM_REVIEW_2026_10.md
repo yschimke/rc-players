@@ -114,5 +114,5 @@ ported. CoreDocument accessors, reflection, `GraphContext` plumbing and tracing 
 | [Subpackages](https://github.com/androidx/androidx/commit/82ec7b31a8cc3356824be0cdf69f3dc7dc977de2), [CoreDataModel removal](https://github.com/androidx/androidx/commit/d3d6aa83f1758e4c350ba6d71d306ba9b099aacd), [accessor renames](https://github.com/androidx/androidx/commit/157d42d43cf466e1e6106c07744bc4efcf53ccbc), [core accessors](https://github.com/androidx/androidx/commit/1cfe2843cafce5e11194619691e9e11fccc357b7) | Not applicable: refactors. |
 
 Follow-ups: draw alpha22's component offscreen bitmaps (`drawComponentToBitmap`), which a custom
-visibility function can use; let the creation fork define visibility functions; and run custom
+visibility function can use; and run custom
 visibility animations in the native Swift player, which only decodes their function ids.
