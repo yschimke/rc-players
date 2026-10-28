@@ -362,17 +362,25 @@ public struct NativeSwiftImpulseSnapshot: Equatable, Sendable {
 }
 
 /// The native timing metadata a layout component names on the Remote Compose wire.
-public struct NativeSwiftAnimationSpec: Sendable {
+public struct NativeSwiftAnimationSpec: Sendable, Equatable {
   public let motionDuration: Float
   public let motionEasingType: Int
   public let visibilityDuration: Float
   public let visibilityEasingType: Int
+  /// The enter and exit words as the wire carries them: the animation in the low byte
+  /// (`NativeSwiftLayoutAnimation`) and, since alpha22, its `NativeSwiftAnimationSequence` above.
   public let enterAnimation: Int
   public let exitAnimation: Int
+  /// The `FloatFunctionDefine` a `CUSTOM` enter or exit runs, or `NativeSwiftFunctionDefine.unsetID`.
+  /// The wire carries both only when either side is `CUSTOM`.
+  public let enterFunctionID: Int
+  public let exitFunctionID: Int
 
   public init(
     motionDuration: Float, motionEasingType: Int, visibilityDuration: Float,
-    visibilityEasingType: Int, enterAnimation: Int, exitAnimation: Int
+    visibilityEasingType: Int, enterAnimation: Int, exitAnimation: Int,
+    enterFunctionID: Int = NativeSwiftFunctionDefine.unsetID,
+    exitFunctionID: Int = NativeSwiftFunctionDefine.unsetID
   ) {
     self.motionDuration = motionDuration
     self.motionEasingType = motionEasingType
@@ -380,7 +388,25 @@ public struct NativeSwiftAnimationSpec: Sendable {
     self.visibilityEasingType = visibilityEasingType
     self.enterAnimation = enterAnimation
     self.exitAnimation = exitAnimation
+    self.enterFunctionID = enterFunctionID
+    self.exitFunctionID = exitFunctionID
   }
+
+  /// AndroidX `AnimationSpec.DEFAULT`: 300 ms fades on the standard curve, concurrent with the
+  /// layout change.
+  public static let `default` = NativeSwiftAnimationSpec(
+    motionDuration: 300, motionEasingType: Int(NativeSwiftFloatEasingType.cubicStandard.rawValue),
+    visibilityDuration: 300,
+    visibilityEasingType: Int(NativeSwiftFloatEasingType.cubicStandard.rawValue),
+    enterAnimation: NativeSwiftLayoutAnimation.fadeIn,
+    exitAnimation: NativeSwiftLayoutAnimation.fadeOut)
+
+  /// The `NativeSwiftLayoutAnimation` each side runs, read as the reference reads the wire word.
+  public var enterKind: Int { NativeSwiftLayoutAnimation.kind(ofWord: enterAnimation) }
+  public var exitKind: Int { NativeSwiftLayoutAnimation.kind(ofWord: exitAnimation) }
+  /// The `NativeSwiftAnimationSequence` each side is ordered by.
+  public var enterSequence: Int { NativeSwiftAnimationSequence.sequence(ofWord: enterAnimation) }
+  public var exitSequence: Int { NativeSwiftAnimationSequence.sequence(ofWord: exitAnimation) }
 }
 
 public struct NativeSwiftImageResourceSnapshot: Sendable {
@@ -427,7 +453,8 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let offsetX: Float
   public let offsetY: Float
   public let zIndex: Float
-  /// 0 gone, 1 visible, 2 invisible — the protocol's own values, after its override bits.
+  /// 0 gone, 1 visible, 2 invisible — the protocol's own values, after its override bits — as the
+  /// component lays out; see `visibilityTransition`.
   public let visibility: Int
   public let backgroundARGB: UInt32?
   public let borderARGB: UInt32?
@@ -484,6 +511,10 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   /// `CanvasLayout`) parent runs the measure ones after measuring this component and the position
   /// ones after placing it.
   public let layoutComputes: [NativeSwiftLayoutComputeSnapshot]
+  /// The custom visibility animation this component is playing, if any. While it plays,
+  /// `visibility` is the visibility the component lays out with — its old one while an exit holds
+  /// its space — and the host draws the component as the transition says rather than as usual.
+  public let visibilityTransition: NativeSwiftVisibilityTransitionSnapshot?
 }
 
 /// The 2D subset of MODIFIER_GRAPHICS_LAYER this player applies. Rotation about X and Y, Z
@@ -679,6 +710,9 @@ public struct NativeSwiftImageDrawSnapshot: Sendable {
   public let scaleType: Int
   public let scaleFactor: Float
   public let contentDescription: String?
+  /// Set when the bitmap is a component offscreen buffer drawn whole: the source rectangle is the
+  /// buffer's current size, which only the host that sized it knows, rather than the one above.
+  public let sourceIsWholeBitmap: Bool
 }
 
 /// A `DrawToBitmap` redirect, from AndroidX `AndroidPaintContext.drawToBitmap`: drawing moves to
@@ -686,20 +720,45 @@ public struct NativeSwiftImageDrawSnapshot: Sendable {
 /// canvas when `bitmapID` is `NativeSwiftDrawToBitmapID.mainCanvas`. The bitmap keeps what was
 /// drawn into it; unless `mode` carries `NativeSwiftDrawToBitmapMode.noInitialize`, every redirect
 /// first erases it to `colorARGB`, ignoring the target's matrix and clip.
+///
+/// Since remote-core alpha22 a target can capture a component. The bitmap may be a component
+/// offscreen buffer (`NativeSwiftBitmapEncoding.componentOffscreenBuffer`), which a host sizes to
+/// its component each time drawing is redirected into it, and the redirect's mode may carry
+/// `NativeSwiftDrawToBitmapMode.componentID`, naming the component in place of a colour. Either
+/// way a `DrawContent` drawn into the target draws that component at the target's origin, and the
+/// redirect back to bitmap 0 resumes the enclosing component target, if any, rather than the canvas.
 public struct NativeSwiftOffscreenTargetSnapshot: Sendable, Equatable {
   public let bitmapID: Int
   public let mode: Int
   public let colorARGB: UInt32
-  /// The declared bitmap's size in pixels, which the offscreen target takes; 0 for the canvas.
+  /// The declared bitmap's size in pixels, which the offscreen target takes; 0 for the canvas. A
+  /// component offscreen buffer declares a placeholder size and takes its component's instead.
   public let width: Int
   public let height: Int
+  /// Whether the bitmap is a component offscreen buffer.
+  public let isComponentBuffer: Bool
+  /// The component a component offscreen buffer is sized to, as its payload names it once resolved
+  /// through any variable, or `NativeSwiftComponentOffscreenBuffer.activeComponent` for the one the
+  /// redirect captures (see `capturedComponentID`) or, failing that, the one drawing.
+  public let bufferComponentID: Int
+  /// The component a `NativeSwiftDrawToBitmapMode.componentID` redirect captures, resolved through
+  /// any variable; nil for a redirect without that mode.
+  public let capturedComponentID: Int?
 
-  public init(bitmapID: Int, mode: Int, colorARGB: UInt32, width: Int, height: Int) {
+  public init(
+    bitmapID: Int, mode: Int, colorARGB: UInt32, width: Int, height: Int,
+    isComponentBuffer: Bool = false,
+    bufferComponentID: Int = NativeSwiftComponentOffscreenBuffer.activeComponent,
+    capturedComponentID: Int? = nil
+  ) {
     self.bitmapID = bitmapID
     self.mode = mode
     self.colorARGB = colorARGB
     self.width = width
     self.height = height
+    self.isComponentBuffer = isComponentBuffer
+    self.bufferComponentID = bufferComponentID
+    self.capturedComponentID = capturedComponentID
   }
 
   /// Whether this redirect returns drawing to the canvas rather than naming a bitmap.
@@ -707,6 +766,42 @@ public struct NativeSwiftOffscreenTargetSnapshot: Sendable, Equatable {
 
   /// Whether the target is erased to `colorARGB` before drawing into it.
   public var erasesTarget: Bool { mode & NativeSwiftDrawToBitmapMode.noInitialize == 0 }
+
+  /// Whether the target captures a component: a component offscreen buffer, or a redirect naming
+  /// a component. The reference pushes such a target on its offscreen-target stack.
+  public var capturesComponent: Bool { isComponentBuffer || capturedComponentID != nil }
+
+  /// The component the target is sized to and draws for `DrawContent`, when the document names
+  /// one: the buffer's own component first, then the redirect's, as
+  /// `BitmapData.ensureOffscreenBitmap` looks them up. Nil means the component drawing.
+  public var targetComponentID: Int? {
+    if isComponentBuffer, bufferComponentID != NativeSwiftComponentOffscreenBuffer.activeComponent {
+      return bufferComponentID
+    }
+    return capturedComponentID
+  }
+
+  /// The component ids resolved for one frame or call: an id that names an integer variable
+  /// holding a non-zero value means that value, then one naming a float variable holding a
+  /// non-zero number, and otherwise the id itself — as `DrawToBitmap.paint` and
+  /// `BitmapData.ensureOffscreenBitmap` read them.
+  func resolvingComponents(values: [Int: Float], integers: [Int: Int]) -> Self {
+    func resolve(_ id: Int) -> Int {
+      if let integer = integers[id], integer != 0 { return integer }
+      if let value = values[id], value.isFinite, value != 0 { return nativeSwiftClampedInt(value) }
+      return id
+    }
+    let buffer =
+      bufferComponentID == NativeSwiftComponentOffscreenBuffer.activeComponent
+      ? bufferComponentID : resolve(bufferComponentID)
+    // The reference resolves a redirect's component only for a positive id.
+    let captured = capturedComponentID.map { $0 > 0 ? resolve($0) : $0 }
+    guard buffer != bufferComponentID || captured != capturedComponentID else { return self }
+    return Self(
+      bitmapID: bitmapID, mode: mode, colorARGB: colorARGB, width: width, height: height,
+      isComponentBuffer: isComponentBuffer, bufferComponentID: buffer,
+      capturedComponentID: captured)
+  }
 }
 
 public struct NativeSwiftPathElementSnapshot: Sendable {

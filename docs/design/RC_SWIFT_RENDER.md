@@ -61,5 +61,8 @@ release.
   pixels, not Apple's. On a Linux server the lane is simply not offered.
 - **AppKit is not UIKit.** This is the macOS renderer. iOS pixels still come from the simulator lane
   (`scripts/render-native-uikit-lane.sh`).
+- **No custom visibility animations or component buffers.** The AppKit renderer lays a component
+  out at the visibility the core reports but does not run remote-core alpha22's `CUSTOM` enter and
+  exit functions, and drops component offscreen buffers; the UIKit player draws both.
 - **Platform fonts only.** `google:` font families are not fetched, so text falls back to the
   platform faces.

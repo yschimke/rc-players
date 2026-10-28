@@ -528,12 +528,14 @@
       let downloadableFontResolver = downloadableFontResolver
       let resourceCache = resourceCache
       let wallClock = clock.wallClock()
+      // Reduce Motion stops the frames a visibility animation needs, so it lands at once instead.
+      let visibilityAnimations = !UIAccessibility.isReduceMotionEnabled
       let task = Task { [weak self] in
         do {
           let (engine, frame) = try await NativePlayerEngine.open(
             data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes,
             hostDensity: hostDensity, hostFontScale: hostFontScale,
-            wallClock: wallClock)
+            wallClock: wallClock, visibilityAnimations: visibilityAnimations)
           try Task.checkCancellation()
           let model = try NativeDocument(
             frame: frame, timeSeconds: 0, limits: executionLimits,
@@ -723,7 +725,8 @@
     ) async {
       do {
         let frame = try await presentation.engine.frame(
-          at: request.time, wallClock: request.wallClock)
+          at: request.time, wallClock: request.wallClock,
+          visibilityAnimations: !UIAccessibility.isReduceMotionEnabled)
         guard generation == self.generation else { return }
         let model = try NativeDocument(
           frame: frame, timeSeconds: request.time, limits: executionLimits,
