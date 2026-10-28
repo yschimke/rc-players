@@ -107,13 +107,12 @@ ported. CoreDocument accessors, reflection, `GraphContext` plumbing and tracing 
 | [Click areas](https://github.com/androidx/androidx/commit/9e030adfe3dc9b7fe14edb9c1bb2568a47db514e) | Already: `applyAndroidXClickAreas`. |
 | [Embedded document fonts](https://github.com/androidx/androidx/commit/f94b740d87c32fec53b8651d4ecaa5342188eec1) | `CoreText` already loads `FontData`. Follow-up: canvas text naming a `FontData` and the `trustedContent` gate. |
 | [maxLines](https://github.com/androidx/androidx/commit/0b4724b092fe553fefd9ffd9d24fbd8f9b2f8ead) | Already: `androidXMaxLines`. |
-| [Dynamic font size, DP density](https://github.com/androidx/androidx/commit/9c7bf332b3c02e3a5b09d5019061eb057689865d) | Dynamic size already. DP scaling is in alpha22's `CoreText` and `TextLayout` and is now ported: a literal size scales by the host density in a DP document (`rcTextFontSizePixels`). The creation fork writes DP-mode sizes in dp to match; see its PROVENANCE. |
+| [Dynamic font size, DP density](https://github.com/androidx/androidx/commit/9c7bf332b3c02e3a5b09d5019061eb057689865d) | Dynamic size already. DP scaling is in alpha22's `CoreText` and `TextLayout` and is now ported: a literal size scales by the host density in a DP document (`rcTextFontSizePixels`). The creation fork writes DP-mode sizes in dp to match; see its PROVENANCE. The native Swift player follows: the core marks a DP document's literal size dp-typed (`NativeSwiftTextSnapshot.sizeIsDensityTyped`) and UIKit resolves it with its dp-typed geometry scale, as it does padding. |
 | [Collections and loop bounds](https://github.com/androidx/androidx/commit/d1431a7e3c5f40f63de234db3faa72376eb20737) | Already: flat collection registration; loops write their index before the body. |
 | [RootContentBehavior scaling](https://github.com/androidx/androidx/commit/ce15fd60fad51be06e4a52d35721a9eb2620018c) | Already: raw documents scale and align by `RcRootContentBehavior`. |
 | [TextSubtext/TextTransform](https://github.com/androidx/androidx/commit/c1c31ea5a6621fd080547ebe750760c3a87fa2d3), [text and time attributes](https://github.com/androidx/androidx/commit/03ba86c21377908e0ddf8b78240e3ba965f38501) | Already: evaluated in draw order, including `BitmapTextMeasure`. |
 | [Subpackages](https://github.com/androidx/androidx/commit/82ec7b31a8cc3356824be0cdf69f3dc7dc977de2), [CoreDataModel removal](https://github.com/androidx/androidx/commit/d3d6aa83f1758e4c350ba6d71d306ba9b099aacd), [accessor renames](https://github.com/androidx/androidx/commit/157d42d43cf466e1e6106c07744bc4efcf53ccbc), [core accessors](https://github.com/androidx/androidx/commit/1cfe2843cafce5e11194619691e9e11fccc357b7) | Not applicable: refactors. |
 
 Follow-ups: apply variation axes to inline `FontData` fonts, keyed per font and axis set as
-`RcHostFonts` keys host faces; let canvas text name a `FontData` font; model the custom
-visibility-animation and sequencing fields of `AnimationSpec` before rendering them; and give
-the native Swift player the same DP font-size scaling.
+`RcHostFonts` keys host faces; let canvas text name a `FontData` font; and model the custom
+visibility-animation and sequencing fields of `AnimationSpec` before rendering them.

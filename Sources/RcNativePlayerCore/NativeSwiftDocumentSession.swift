@@ -822,7 +822,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
             minimumFontSize: min(minimum > 0 ? minimum : 4, resolvedMaximum),
             maximumFontSize: resolvedMaximum)
         },
-        fontSettings: fontSettings(source, values: values))
+        fontSettings: fontSettings(source, values: values),
+        sizeIsDensityTyped: NativeSwiftTextSnapshot.isDensityTypedFontSize(
+          source.sizeWord, densityBehavior: document.densityBehavior))
     } else {
       text = nil
     }

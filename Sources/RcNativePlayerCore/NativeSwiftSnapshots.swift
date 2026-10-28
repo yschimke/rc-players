@@ -880,7 +880,17 @@ public struct NativeSwiftInsets: Sendable {
 public struct NativeSwiftTextSnapshot: Sendable {
   public let value: String
   public let colorARGB: UInt32
+  /// The font size in document units, before any playback density: see `sizeIsDensityTyped`.
   public let size: Float
+  /// Whether `size` is dp-typed, so the host scales it with the playback density exactly as it
+  /// scales the document's other dp-typed geometry (padding, spacing, corner radii). `autosize`'s
+  /// bounds are not covered: remote-core reads those as they are written.
+  ///
+  /// remote-core 1.0.0-alpha22's `CoreText.updateVariables` and `TextLayout.updateVariables`
+  /// multiply a *literal* font size by the density in a `DENSITY_BEHAVIOR_DP` document. A font
+  /// size that is a variable is the pixels it evaluates to and is never scaled, and neither is any
+  /// font size in a LEGACY or PIXELS document. See `isDensityTypedFontSize(_:densityBehavior:)`.
+  public let sizeIsDensityTyped: Bool
   public let style: Int
   public let weight: Float
   public let familyID: Int
@@ -900,11 +910,12 @@ public struct NativeSwiftTextSnapshot: Sendable {
     value: String, colorARGB: UInt32, size: Float, style: Int, weight: Float,
     familyID: Int, familyName: String? = nil, alignment: NativeSwiftTextAlignment, overflow: Int,
     maximumLines: Int, autosize: NativeSwiftTextAutosize? = nil,
-    fontSettings: [NativeSwiftFontSetting] = []
+    fontSettings: [NativeSwiftFontSetting] = [], sizeIsDensityTyped: Bool = false
   ) {
     self.value = value
     self.colorARGB = colorARGB
     self.size = size
+    self.sizeIsDensityTyped = sizeIsDensityTyped
     self.style = style
     self.weight = weight
     self.familyID = familyID
@@ -914,6 +925,13 @@ public struct NativeSwiftTextSnapshot: Sendable {
     self.maximumLines = maximumLines
     self.autosize = autosize
     self.fontSettings = fontSettings
+  }
+
+  /// Whether a `CoreText` / `TextLayout` font-size word is dp-typed, as remote-core 1.0.0-alpha22's
+  /// `updateVariables` decides it: a literal in a DP document is; a NaN-encoded word (a variable
+  /// or an expression) is not, and nothing in a LEGACY or PIXELS document is.
+  static func isDensityTypedFontSize(_ word: UInt32, densityBehavior: Int) -> Bool {
+    densityBehavior == NativeSwiftDensityBehavior.dp && !Float(bitPattern: word).isNaN
   }
 }
 

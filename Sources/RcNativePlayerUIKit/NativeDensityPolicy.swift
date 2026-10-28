@@ -63,6 +63,22 @@ enum NativeDensityPolicy {
     densityBehavior == pixelBehavior ? documentScale : layoutDensityScale
   }
 
+  /// The scale a text's font size is resolved with.
+  ///
+  /// remote-core 1.0.0-alpha22's `CoreText` and `TextLayout` type a DP document's *literal* font
+  /// size in dp and multiply it by the density, as they do padding; that size resolves with the
+  /// dp-typed geometry scale, so it keeps its proportion to the padding around it. Any other font
+  /// size — a variable, which is the pixels it evaluates to, or any size in a LEGACY or PIXELS
+  /// document — scales with the document. The core decides which is which:
+  /// `NativeSwiftTextSnapshot.sizeIsDensityTyped`.
+  static func textSizeScale(
+    sizeIsDensityTyped: Bool,
+    layoutDensityScale: CGFloat,
+    documentScale: CGFloat
+  ) -> CGFloat {
+    sizeIsDensityTyped ? layoutDensityScale : documentScale
+  }
+
   /// Whether this document carries density-typed geometry at all.
   ///
   /// The generation density is deliberately not part of this decision. Both behaviors convert

@@ -389,6 +389,13 @@ is independent of renderer selection:
   makes the density-2 `TitleCardRemote-640x480` fixture match the CMP player, which always applies
   the Android contract because it is the compatibility oracle.
 
+A DP document's literal `CoreText` / `TextLayout` font size is dp-typed too, as remote-core
+1.0.0-alpha22's `updateVariables` reads it: the core keeps the size as written and sets
+`NativeSwiftTextSnapshot.sizeIsDensityTyped`, and the label resolves that size with the dp-typed
+geometry scale (`NativeDensityPolicy.textSizeScale`) — so at density 1.0 under `.disabled`, and at
+the playback density under `.enabled`. A variable font size is the pixels it evaluates to and keeps
+the document scale, as does every font size in a LEGACY or PIXELS document.
+
 `DENSITY_BEHAVIOR_PIXELS` is not implemented in either mode; a document that declares it at a
 non-unit density is diagnosed whichever mode is selected.
 

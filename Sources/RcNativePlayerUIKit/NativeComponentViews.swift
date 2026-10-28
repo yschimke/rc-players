@@ -392,6 +392,9 @@
     let strokeJoin: NativeSwiftStrokeJoin
     let blendMode: NativeSwiftPaintBlendMode
     let textSize: CGFloat
+    /// Whether `textSize` is dp-typed and so resolves with the dp-typed geometry scale rather
+    /// than the document scale; see `NativeSwiftTextSnapshot.sizeIsDensityTyped`.
+    let textSizeIsDensityTyped: Bool
     let textWeight: CGFloat
     let text: String?
     let path: [NativePathElement]
@@ -418,6 +421,7 @@
       strokeJoin = snapshot.strokeJoin
       blendMode = snapshot.blendMode
       textSize = 16
+      textSizeIsDensityTyped = false
       textWeight = 400
       text = nil
       path = snapshot.path.map {
@@ -467,6 +471,7 @@
       strokeJoin = .miter
       blendMode = .sourceOver
       textSize = CGFloat(snapshot.size)
+      textSizeIsDensityTyped = snapshot.sizeIsDensityTyped
       textWeight = CGFloat(snapshot.weight)
       text = snapshot.value
       path = []
@@ -490,6 +495,7 @@
         && Floats.same(lhs.strokeWidth, rhs.strokeWidth) && lhs.isStroke == rhs.isStroke
         && lhs.strokeCap == rhs.strokeCap && lhs.strokeJoin == rhs.strokeJoin
         && lhs.blendMode == rhs.blendMode && Floats.same(lhs.textSize, rhs.textSize)
+        && lhs.textSizeIsDensityTyped == rhs.textSizeIsDensityTyped
         && Floats.same(lhs.textWeight, rhs.textWeight) && lhs.text == rhs.text
         && lhs.path == rhs.path && lhs.pathWinding == rhs.pathWinding
         && lhs.gradient == rhs.gradient && lhs.textStyle == rhs.textStyle
@@ -1252,7 +1258,8 @@
       case .text:
         textLabels.forEach {
           $0.layoutInComponent(
-            bounds: bounds, documentScale: documentScale, layoutDirection: layoutDirection)
+            bounds: bounds, documentScale: documentScale,
+            layoutDensityScale: layoutDensityScale, layoutDirection: layoutDirection)
         }
       case .image: imageViews.forEach { $0.frame = bounds }
       case .custom: customView?.frame = bounds
@@ -1276,7 +1283,7 @@
       case .text:
         // Measuring only reads the label, so the scale it is measured at is applied first.
         guard let label = textLabels.first else { return .zero }
-        label.apply(documentScale: documentScale)
+        label.apply(documentScale: documentScale, layoutDensityScale: layoutDensityScale)
         return label.preferredSize(maximumWidth: available.width)
       case .image:
         return imageViews.first?.image?.size ?? .zero
@@ -1579,14 +1586,17 @@
   /// A Remote Compose text primitive promoted to a real UIKit text element. Geometry and font
   /// selection remain approximate until the native lane has a resolved layout/text profile.
   ///
-  /// Configuring and measuring are separate steps. `apply(documentScale:)` builds the font and
-  /// attributed string the label draws; `preferredSize(maximumWidth:)` only reads them, so a
-  /// measurement never changes what the label shows. The owner applies the scale before it
-  /// measures, at the same points in layout where measuring used to configure the label itself.
+  /// Configuring and measuring are separate steps. `apply(documentScale:layoutDensityScale:)`
+  /// builds the font and attributed string the label draws; `preferredSize(maximumWidth:)` only
+  /// reads them, so a measurement never changes what the label shows. The owner applies the scales
+  /// before it measures, at the same points in layout where measuring used to configure the label
+  /// itself.
   final class NativeTextLabel: UILabel {
     private var command: NativeDrawCommand
     private var fontNames: [Int: String]
     private var documentScale: CGFloat = 1
+    /// The owner's dp-typed geometry scale, which a dp-typed font size resolves with.
+    private var layoutDensityScale: CGFloat = 1
     private var layoutDirection: NativeLayoutDirection = .leftToRight
     // Text labels are measured while determining their parent's natural size and again after row
     // and flow layouts assign their final width. Keep the TextKit result only for an identical
@@ -1597,7 +1607,8 @@
     /// The TextKit stack the current text is measured with, built at the first measurement after
     /// the text changes and reused for every width until it changes again.
     private var textLayout: NativeTextKitLayout?
-    private var configuredTextScale: CGFloat?
+    /// The document scale and font-size scale the font and attributed string were built at.
+    private var configuredTextScales: (document: CGFloat, fontSize: CGFloat)?
     private var configuredInterfaceDirection: UIUserInterfaceLayoutDirection?
     private var configuredParagraph = false
 
@@ -1629,22 +1640,28 @@
       textColor = command.color.withAlphaComponent(command.alpha)
       invalidateTextLayout()
       configureParagraph(layoutDirection: layoutDirection)
-      configureFont(documentScale: documentScale)
+      configureFont()
       setNeedsLayout()
     }
 
-    /// Builds the label's font and attributed string at `documentScale`, unless they were already
-    /// built at that scale and the current layout direction. Call it before `preferredSize`.
-    func apply(documentScale: CGFloat) {
+    /// Builds the label's font and attributed string at `documentScale`, with a dp-typed font
+    /// size at `layoutDensityScale` instead, unless they were already built at those scales and
+    /// the current layout direction. Call it before `preferredSize`.
+    ///
+    /// - Parameter layoutDensityScale: the scale the owning component resolves dp-typed geometry
+    ///   with, so a DP document's literal font size keeps its proportion to the padding around it.
+    func apply(documentScale: CGFloat, layoutDensityScale: CGFloat) {
       self.documentScale = documentScale
-      configureFont(documentScale: documentScale)
+      self.layoutDensityScale = layoutDensityScale
+      configureFont()
     }
 
     /// The size the label's configured text takes within `maximumWidth`, laid out by TextKit 1
     /// with no line-fragment padding, the label's line cap and its line-break mode.
     ///
     /// Reads the label and changes nothing a caller can observe: it does not configure the font
-    /// or the attributed string (see `apply(documentScale:)`), and only fills its own cache.
+    /// or the attributed string (see `apply(documentScale:layoutDensityScale:)`), and only fills
+    /// its own cache.
     func preferredSize(maximumWidth: CGFloat) -> CGSize {
       guard let attributedText, maximumWidth > 0 else { return .zero }
       if let cached = measurementCache[maximumWidth] { return cached }
@@ -1666,28 +1683,36 @@
     }
 
     func layoutInComponent(
-      bounds: CGRect, documentScale: CGFloat, layoutDirection: NativeLayoutDirection
+      bounds: CGRect, documentScale: CGFloat, layoutDensityScale: CGFloat,
+      layoutDirection: NativeLayoutDirection
     ) {
       configureParagraph(layoutDirection: layoutDirection)
-      apply(documentScale: documentScale)
+      apply(documentScale: documentScale, layoutDensityScale: layoutDensityScale)
       let preferred = preferredSize(maximumWidth: bounds.width)
       frame = CGRect(
         origin: .zero,
         size: CGSize(width: bounds.width, height: min(preferred.height, bounds.height)))
     }
 
-    private func configureFont(documentScale: CGFloat) {
+    private func configureFont() {
       let interfaceDirection = effectiveUserInterfaceLayoutDirection
+      let fontSizeScale = NativeDensityPolicy.textSizeScale(
+        sizeIsDensityTyped: command.textSizeIsDensityTyped,
+        layoutDensityScale: layoutDensityScale,
+        documentScale: documentScale)
       guard
-        configuredTextScale != documentScale
+        configuredTextScales?.document != documentScale
+          || configuredTextScales?.fontSize != fontSizeScale
           || configuredInterfaceDirection != interfaceDirection
       else { return }
+      // Only the font size is dp-typed: line spacing keeps the document scale, as remote-core
+      // scales nothing else of the text by the density.
       font = NativeTextAttributes.font(
-        for: command, scale: documentScale, fontNames: fontNames, scalesForDynamicType: true)
+        for: command, scale: fontSizeScale, fontNames: fontNames, scalesForDynamicType: true)
       attributedText = NativeTextAttributes.string(
         for: command, font: font, scale: documentScale,
         layoutDirection: interfaceDirection)
-      configuredTextScale = documentScale
+      configuredTextScales = (document: documentScale, fontSize: fontSizeScale)
       configuredInterfaceDirection = interfaceDirection
       discardMeasurements()
     }
@@ -1722,7 +1747,7 @@
     }
 
     private func invalidateTextLayout() {
-      configuredTextScale = nil
+      configuredTextScales = nil
       configuredInterfaceDirection = nil
       discardMeasurements()
     }

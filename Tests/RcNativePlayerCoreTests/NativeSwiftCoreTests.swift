@@ -3501,6 +3501,106 @@ private final class FailureLog: @unchecked Sendable {
   }
 }
 
+/// remote-core 1.0.0-alpha22's DP font size: `CoreText.updateVariables` and
+/// `TextLayout.updateVariables` multiply a *literal* font size by the density in a
+/// `DENSITY_BEHAVIOR_DP` document, while a NaN-encoded (variable) size is the pixels it evaluates
+/// to. The core keeps `size` as written and says which sizes are dp-typed; the host scales those
+/// with its dp-typed geometry scale, as it does padding.
+@Suite struct NativeSwiftDpFontSizeTests {
+  private struct Text: Equatable {
+    let value: String
+    let size: Float
+    let isDensityTyped: Bool
+  }
+
+  /// One of each text path at a literal and a variable size, plus a `CoreText` that leaves its
+  /// size to the default and one that takes a literal size from its style.
+  private func texts(densityBehavior: Int) throws -> [Text] {
+    let writer = Writer()
+    writer.header(width: 200, height: 200, density: 2, densityBehavior: densityBehavior)
+    for (id, value) in [
+      1: "core literal", 2: "core variable", 3: "core default", 4: "core styled",
+      5: "layout literal", 6: "layout variable",
+    ] {
+      writer.text(id: id, value)
+    }
+    writer.u8(NativeSwiftWireOpcode.dataFloat).int(40).float(30)
+    // A text style (id 10) that sets a literal font size of 12.
+    writer.u8(NativeSwiftWireOpcode.textStyle).u16(2)
+    writer.u8(NativeSwiftTextProperty.componentID).int(10)
+    writer.u8(NativeSwiftTextProperty.fontSize).float(12)
+    writer.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    writer.u8(NativeSwiftWireOpcode.coreText).int(1).u16(1)
+    writer.u8(NativeSwiftTextProperty.fontSize).float(20)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+    writer.u8(NativeSwiftWireOpcode.coreText).int(2).u16(1)
+    writer.u8(NativeSwiftTextProperty.fontSize).int(Writer.nanReference(40))
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+    writer.u8(NativeSwiftWireOpcode.coreText).int(3).u16(0)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+    writer.u8(NativeSwiftWireOpcode.coreText).int(4).u16(1)
+    writer.u8(NativeSwiftTextProperty.textStyleID).int(10)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+    writer.textLayout(id: 5, textID: 5, color: 0xff00_0000, size: 20)
+    writer.textLayout(id: 6, textID: 6, color: 0xff00_0000, sizeWord: Writer.nanReference(40))
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+
+    func collect(_ node: NativeSwiftNodeSnapshot) -> [Text] {
+      (node.text.map {
+        [Text(value: $0.value, size: $0.size, isDensityTyped: $0.sizeIsDensityTyped)]
+      } ?? []) + node.children.flatMap(collect)
+    }
+    let snapshot = try NativeSwiftDocumentSession.open(data: writer.data).snapshot()
+    #expect(snapshot.densityBehavior == densityBehavior)
+    return collect(snapshot.root)
+  }
+
+  @Test func literalFontSizesAreDpTypedInADpDocument() throws {
+    // `size` stays what the document wrote; only the flag says it is in dp.
+    #expect(
+      try texts(densityBehavior: NativeSwiftDensityBehavior.dp) == [
+        Text(value: "core literal", size: 20, isDensityTyped: true),
+        Text(value: "core variable", size: 30, isDensityTyped: false),
+        Text(value: "core default", size: 36, isDensityTyped: true),
+        Text(value: "core styled", size: 12, isDensityTyped: true),
+        Text(value: "layout literal", size: 20, isDensityTyped: true),
+        Text(value: "layout variable", size: 30, isDensityTyped: false),
+      ])
+  }
+
+  @Test func legacyAndPixelDocumentsKeepEveryFontSizeAsWritten() throws {
+    for behavior in [NativeSwiftDensityBehavior.legacy, NativeSwiftDensityBehavior.pixels] {
+      #expect(
+        try texts(densityBehavior: behavior) == [
+          Text(value: "core literal", size: 20, isDensityTyped: false),
+          Text(value: "core variable", size: 30, isDensityTyped: false),
+          Text(value: "core default", size: 36, isDensityTyped: false),
+          Text(value: "core styled", size: 12, isDensityTyped: false),
+          Text(value: "layout literal", size: 20, isDensityTyped: false),
+          Text(value: "layout variable", size: 30, isDensityTyped: false),
+        ], Comment(rawValue: "density behavior \(behavior)"))
+    }
+  }
+
+  @Test func anyNaNEncodedWordIsAVariableNotADpSize() {
+    let dp = NativeSwiftDensityBehavior.dp
+    #expect(
+      NativeSwiftTextSnapshot.isDensityTypedFontSize(Float(14).bitPattern, densityBehavior: dp))
+    // A reference, and an operator word: both NaN, as `Float.isNaN` reads them upstream.
+    for word in [Writer.nanReference(42), Writer.floatOperator(3)] {
+      #expect(
+        !NativeSwiftTextSnapshot.isDensityTypedFontSize(
+          UInt32(bitPattern: Int32(word)), densityBehavior: dp))
+    }
+    #expect(
+      !NativeSwiftTextSnapshot.isDensityTypedFontSize(
+        Float(14).bitPattern, densityBehavior: NativeSwiftDensityBehavior.legacy))
+    #expect(
+      !NativeSwiftTextSnapshot.isDensityTypedFontSize(
+        Float(14).bitPattern, densityBehavior: NativeSwiftDensityBehavior.pixels))
+  }
+}
+
 private final class Writer {
   static func nanReference(_ id: Int) -> Int {
     Int(Int32(bitPattern: 0xff80_0000 | UInt32(id)))
@@ -3567,6 +3667,16 @@ private final class Writer {
     u8(0).int(1).int(0).int(0).int(width).int(height).int(0).int(0)
   }
 
+  /// A modern header declaring the generation density and the density behavior.
+  func header(width: Int, height: Int, density: Float, densityBehavior: Int) {
+    let floatTag = NativeSwiftHeaderValueType.float << 10
+    u8(NativeSwiftWireOpcode.header).int(nativeSwiftHeaderMagic | 1).int(0).int(0).int(4)
+    u16(NativeSwiftHeaderKey.documentWidth).u16(4).int(width)
+    u16(NativeSwiftHeaderKey.documentHeight).u16(4).int(height)
+    u16(floatTag | NativeSwiftHeaderKey.densityAtGeneration).u16(4).float(density)
+    u16(NativeSwiftHeaderKey.densityBehavior).u16(4).int(densityBehavior)
+  }
+
   func modernHeader(width: Int, height: Int, unrelatedKey: Int, unrelatedValue: Int) {
     u8(0).int(0x048c_0001).int(0).int(0).int(3)
     u16(5).u16(4).int(width)
@@ -3591,8 +3701,16 @@ private final class Writer {
   func textLayout(
     id: Int, textID: Int, color: UInt32, size: Float, familyID: Int = -1
   ) {
+    textLayout(
+      id: id, textID: textID, color: color, sizeWord: Writer.literal(size), familyID: familyID)
+  }
+
+  /// A `TextLayout` whose size is any word: a literal, or a NaN-boxed reference.
+  func textLayout(
+    id: Int, textID: Int, color: UInt32, sizeWord: Int, familyID: Int = -1
+  ) {
     u8(208).int(id).int(0).int(textID).int(Int(Int32(bitPattern: color)))
-      .float(size).int(0).float(400).int(familyID).int(1).int(1).int(1)
+      .int(sizeWord).int(0).float(400).int(familyID).int(1).int(1).int(1)
     u8(214)
   }
 }
