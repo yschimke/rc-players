@@ -23,6 +23,11 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatExpressionChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
@@ -178,12 +183,33 @@ private class RcComponentReferences(
   operations: List<ee.schimke.composeai.rcplayer.protocol.RcOperation>,
   private val componentIds: Set<Int>,
 ) {
+  /**
+   * Ids something other than the constant can rewrite at runtime: a value-change action, or the
+   * host through a named variable. A constant under one of them is only its first value, so a
+   * reference through it is resolved at runtime rather than from the constant.
+   */
+  private val mutable: Set<Int> =
+    operations
+      .mapNotNull {
+        when (it) {
+          is RcNamedVariable -> it.id
+          is RcValueIntegerChangeAction -> it.targetValueId
+          is RcValueFloatChangeAction -> it.targetValueId
+          is RcValueIntegerExpressionChangeAction -> it.targetValueId.toInt()
+          is RcValueFloatExpressionChangeAction -> it.targetValueId
+          else -> null
+        }
+      }
+      .toSet()
   private val integers =
-    operations.filterIsInstance<RcIntegerConstant>().associate { it.id to it.value }
+    operations
+      .filterIsInstance<RcIntegerConstant>()
+      .filter { it.id !in mutable }
+      .associate { it.id to it.value }
   private val floats =
     operations
       .filterIsInstance<RcFloatConstant>()
-      .filter { it.value.referencedId == null }
+      .filter { it.value.referencedId == null && it.id !in mutable }
       .associate { it.id to it.value.value.toInt() }
   /** Parameter id to (function id, index). */
   private val parameters =
@@ -211,6 +237,7 @@ private class RcComponentReferences(
 
   fun resolve(reference: Int, depth: Int = 0): Set<Int>? {
     if (reference <= 0 || depth > MAX_DEPTH) return emptySet()
+    if (reference in mutable) return null
     if (reference in componentIds) return setOf(reference)
     integers[reference]?.let {
       return setOfNotNull(it.takeIf(componentIds::contains))

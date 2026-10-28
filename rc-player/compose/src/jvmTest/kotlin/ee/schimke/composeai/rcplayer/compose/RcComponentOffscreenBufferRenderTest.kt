@@ -138,6 +138,26 @@ class RcComponentOffscreenBufferRenderTest {
     }
 
   /**
+   * A reference held in an integer the document can rewrite: it starts naming the two-tone target
+   * and a click points it at an all-blue one. The capture follows the reference, rather than
+   * recording only the component the constant first named and drawing nothing once it changes.
+   */
+  @Test
+  fun aCaptureFollowsAComponentReferenceTheDocumentRewrites() =
+    runSkikoComposeUiTest(size = Size(150f, 20f), density = Density(1f)) {
+      start(rewrittenReferenceDocument(), click = false)
+
+      val before = sample(32)
+      assertTrue(before.isBlue(95) && before.isRed(145), "captures the target: ${before.row()}")
+
+      onNode(hasClickAction()).performTouchInput { click() }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      val after = sample(32)
+      assertTrue(after.isBlue(95) && after.isBlue(145), "captures the other: ${after.row()}")
+    }
+
+  /**
    * A capture of a component that draws after the capturing one: its recording does not exist on
    * the capturing component's first draw, and the capture follows once it does.
    */
@@ -370,6 +390,51 @@ class RcComponentOffscreenBufferRenderTest {
   }
 
   /**
+   * A row: a 10 px clickable spacer, the two-tone target, a 40 px all-blue [OTHER], and a 60 px
+   * canvas whose function captures whichever component the integer [REFERENCE] names and which
+   * draws it mirrored over itself. It starts naming the target; the click sets it to [OTHER].
+   */
+  private fun rewrittenReferenceDocument(): RcDocument {
+    val operations = mutableListOf<RcOperation>()
+    operations += RcIntegerConstant(REFERENCE, TARGET)
+    operations += buffer(BUFFER)
+    operations += RcRootLayout(1)
+    operations += RcLayoutContent(2)
+    operations += RcRowLayout(3, -1, 1, 4, RcFloatWord.literal(0f))
+    operations += RcLayoutContent(4)
+    operations +=
+      canvas(
+        SPACER,
+        10f,
+        listOf(RcClickModifier, RcValueIntegerChangeAction(REFERENCE, OTHER), END),
+        tones = listOf(WHITE),
+      )
+    operations += canvas(TARGET, 40f, emptyList())
+    operations += canvas(OTHER, 40f, emptyList(), tones = listOf(BLUE))
+    operations +=
+      listOf(
+        RcCanvasLayout(CAPTURING, -1),
+        RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+        RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
+        RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
+        RcFloatFunctionDefine(BY_ID, emptyList()),
+        RcDrawToBitmap(BUFFER, RcDrawToBitmap.MODE_COMPONENT_ID, REFERENCE),
+        RcNoArg(RcOpcodes.DRAW_CONTENT),
+        RcDrawToBitmap(0, 0, 0),
+        END,
+        RcFloatFunctionCall(BY_ID, emptyList()),
+        RcDrawBitmap(BUFFER, literal(60f), literal(0f), literal(0f), literal(20f), 0),
+        END,
+        END,
+      )
+    repeat(4) { operations += END }
+    return RcDocument(
+      RcHeader(RcVersion(1, 0, 0), legacyWidth = 150, legacyHeight = 20, modern = false),
+      operations,
+    )
+  }
+
+  /**
    * A 40 px box whose draw modifier captures its own content — a two-tone canvas — into a buffer
    * declared without a component, and draws only the mirrored capture.
    */
@@ -467,6 +532,8 @@ class RcComponentOffscreenBufferRenderTest {
     const val SPACER = 14
     const val COMPONENT = 15
     const val TARGET = 20
+    const val OTHER = 22
+    const val REFERENCE = 830
     const val CAPTURING = 21
     const val BOX = 30
     const val BUFFER = 820
