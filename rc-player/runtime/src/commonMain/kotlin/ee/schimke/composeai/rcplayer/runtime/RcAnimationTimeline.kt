@@ -20,7 +20,10 @@ public data class RcVisibilityTransform(
   val paintsContent: Boolean = true,
 )
 
-/** Exact non-particle branches from AndroidX `AnimateMeasure.paint`. */
+/**
+ * Exact non-particle branches from AndroidX `AnimateMeasure.paint`. `CUSTOM` draws through the
+ * spec's function rather than a transform, so its transform is the identity.
+ */
 public fun RcAnimationSpec.visibilityTransform(
   entering: Boolean,
   progress: Float,
@@ -38,6 +41,7 @@ public fun RcAnimationSpec.visibilityTransform(
       RcLayoutAnimation.SlideBottom.wireValue -> RcVisibilityTransform(translationY = -(1f - p))
       RcLayoutAnimation.Rotate.wireValue ->
         RcVisibilityTransform(alpha = p, scale = p, rotationDegrees = p * 360f)
+      RcLayoutAnimation.Custom.wireValue -> RcVisibilityTransform()
       else -> error("Unreachable normalized AndroidX animation value $animation")
     }
   } else {
@@ -47,6 +51,7 @@ public fun RcAnimationSpec.visibilityTransform(
       RcLayoutAnimation.SlideRight.wireValue -> RcVisibilityTransform(translationX = p)
       RcLayoutAnimation.SlideTop.wireValue -> RcVisibilityTransform(translationY = -p)
       RcLayoutAnimation.SlideBottom.wireValue -> RcVisibilityTransform(translationY = p)
+      RcLayoutAnimation.Custom.wireValue -> RcVisibilityTransform()
       // AndroidX routes PARTICLE, ROTATE, FADE_IN, and normalized unknowns to ParticleAnimation.
       else -> RcVisibilityTransform(paintsContent = false)
     }
@@ -56,8 +61,10 @@ public fun RcAnimationSpec.visibilityTransform(
 /** Whether this spec avoids AndroidX's ParticleAnimation-only exit branches. */
 public val RcAnimationSpec.hasPortableVisibilityAnimation: Boolean
   get() =
-    exitAnimation.androidXValue in
-      RcLayoutAnimation.FadeOut.wireValue..RcLayoutAnimation.SlideBottom.wireValue
+    exitAnimation.androidXValue.let {
+      it in RcLayoutAnimation.FadeOut.wireValue..RcLayoutAnimation.SlideBottom.wireValue ||
+        it == RcLayoutAnimation.Custom.wireValue
+    }
 
 /**
  * Deterministic evaluator for `AnimateMeasure.update`.

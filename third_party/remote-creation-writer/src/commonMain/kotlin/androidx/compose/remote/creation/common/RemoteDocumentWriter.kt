@@ -17,6 +17,7 @@ public class RemoteDocumentWriter(
   private val documentDensityBehavior = densityBehavior
   private val documentProfiles = profiles
   private var customComponentsUsed = false
+  private var drawToBitmapUsed = false
   private val bodyBuffer = RemoteWireBuffer()
   private var buffer = bodyBuffer
   private val declarationBuffer = RemoteWireBuffer()
@@ -40,6 +41,12 @@ public class RemoteDocumentWriter(
   private val inlineBitmapIds = mutableMapOf<List<Byte>, Int>()
   private val componentValueIds = mutableMapOf<Long, Int>()
   private val patternDefinitionOffsets = mutableListOf<Int>()
+
+  /**
+   * One entry per open [createFloatFunction]: what restores the dedup caches to their state before
+   * it.
+   */
+  private val functionScopes = mutableListOf<() -> Unit>()
 
   init {
     writeHeader(width, height, profiles, densityBehavior)
@@ -541,10 +548,50 @@ public class RemoteDocumentWriter(
   override fun endConditional(): Unit = containerEnd()
 
   override fun drawOnBitmap(bitmapId: Int, mode: Int, color: Int) {
+    drawToBitmapUsed = true
     operation(DrawToBitmap)
     buffer.writeInt(bitmapId)
     buffer.writeInt(mode)
     buffer.writeInt(color)
+  }
+
+  /**
+   * As `RemoteComposeWriter.createFloatFunction`, with one difference in where the function lands.
+   *
+   * The definition, `FunctionDefine` through its `ContainerEnd`, is written whole into the
+   * declarations, ahead of the layout, wherever it is called from. Its body is not hoisted further:
+   * every operation in it, declarations included, stays inside it in order, as upstream writes it,
+   * because a player evaluates a function body's expressions and data only when it runs the
+   * function, with the parameters bound. For the same reason nothing the body declares is reused
+   * after it: the dedup caches go back to what they held before [createFloatFunction]. The first
+   * paint in the body, and the first after it, are written in full (a player resets the paint
+   * before it runs a visibility function).
+   */
+  override fun createFloatFunction(args: FloatArray): Int {
+    val id = nextDataId++
+    val parameterIds = IntArray(args.size) { nextDataId++ }
+    parameterIds.forEachIndexed { index, parameterId -> args[index] = Utils.asNan(parameterId) }
+    operation(FunctionDefine)
+    buffer.writeInt(id)
+    buffer.writeInt(parameterIds.size)
+    parameterIds.forEach(buffer::writeInt)
+    functionScopes += snapshotCaches()
+    paintResetPending = true
+    return id
+  }
+
+  override fun endFloatFunction() {
+    check(functionScopes.isNotEmpty()) { "endFloatFunction without createFloatFunction" }
+    containerEnd()
+    functionScopes.removeLast().invoke()
+    paintResetPending = true
+  }
+
+  override fun callFloatFunction(id: Int, vararg args: Float) {
+    operation(FunctionCall)
+    buffer.writeInt(id)
+    buffer.writeInt(args.size)
+    args.forEach(buffer::writeFloat)
   }
 
   override fun startLoop(indexId: Int, from: Float, step: Float, until: Float) {
@@ -596,8 +643,18 @@ public class RemoteDocumentWriter(
     val declarations = declarationBuffer.toByteArray()
     // Custom inputs/components require the experimental profile even when the caller uses the
     // general-purpose common capture API. Keep that requirement in the writer, not a host shim.
+    var profiles = documentProfiles
+    if (customComponentsUsed) profiles = profiles or ProfileAndroidxExperimental
+    // LOCAL PATCH (rc-players): remote-core reads `DrawToBitmap` only under the AndroidX or widgets
+    // profile (`Operations.createMapV7_Androidx`/`_Widgets`); under neither, AndroidX stops at the
+    // first one with "Unknown operation". Upstream's writer refuses the operation under such a
+    // profile; this one names AndroidX's in the header, as it names the experimental profile for
+    // custom components.
+    if (drawToBitmapUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
+      profiles = profiles or ProfileAndroidx
+    }
     val header =
-      if (customComponentsUsed) {
+      if (profiles != documentProfiles || customComponentsUsed) {
         val previous = buffer
         val output = RemoteWireBuffer()
         buffer = output
@@ -605,9 +662,9 @@ public class RemoteDocumentWriter(
           writeHeader(
             documentWidth,
             documentHeight,
-            documentProfiles or ProfileAndroidxExperimental,
+            profiles,
             documentDensityBehavior,
-            CustomMinorVersion,
+            if (customComponentsUsed) CustomMinorVersion else MinorVersion,
           )
           output.toByteArray()
         } finally {
@@ -956,6 +1013,28 @@ public class RemoteDocumentWriter(
       encoding = BitmapEncodingEmpty,
       height = height,
       data = byteArrayOf(),
+    )
+    return id
+  }
+
+  override fun createOffscreenBitmap(componentId: Int): Int {
+    val id = nextDataId++
+    val payload =
+      if (componentId == 0) byteArrayOf()
+      else
+        byteArrayOf(
+          (componentId ushr 24).toByte(),
+          (componentId ushr 16).toByte(),
+          (componentId ushr 8).toByte(),
+          componentId.toByte(),
+        )
+    writeBitmapData(
+      id = id,
+      type = BitmapTypeRaw8888,
+      width = 1,
+      encoding = BitmapEncodingComponentOffscreenBuffer,
+      height = 1,
+      data = payload,
     )
     return id
   }
@@ -1403,8 +1482,38 @@ public class RemoteDocumentWriter(
   }
 
   private fun operation(opcode: Int) {
-    buffer = if (opcode in DeclarationOpcodes) declarationBuffer else bodyBuffer
+    buffer =
+      if (functionScopes.isNotEmpty() || opcode in DeclarationOpcodes) declarationBuffer
+      else bodyBuffer
     buffer.writeByte(opcode)
+  }
+
+  /** Returns what forgets every dedup cache entry added after this call. */
+  private fun snapshotCaches(): () -> Unit {
+    val caches: List<MutableMap<*, *>> =
+      listOf(
+        textIds,
+        pathIds,
+        integerIds,
+        floatArrayIds,
+        idListIds,
+        floatExpressionIds,
+        integerExpressionIds,
+        textLengthIds,
+        textLookupIds,
+        textLookupIntIds,
+        textFromFloatIds,
+        bitmapUrlIds,
+        inlineBitmapIds,
+        componentValueIds,
+      )
+    val saved = caches.map { it.keys.toSet() }
+    return {
+      caches.zip(saved).forEach { (cache, keys) ->
+        val iterator = cache.keys.iterator()
+        while (iterator.hasNext()) if (iterator.next() !in keys) iterator.remove()
+      }
+    }
   }
 
   private fun intOperation(opcode: Int, value: Int) {
@@ -1552,6 +1661,8 @@ public class RemoteDocumentWriter(
     private const val PatternInflation = 247
     private const val ConditionalOperations = 178
     private const val DrawToBitmap = 190
+    private const val FunctionCall = 166
+    private const val FunctionDefine = 168
     private const val LoopStart = 215
     private const val ContainerEnd = 214
     private const val CoreText = 239
@@ -1629,6 +1740,8 @@ public class RemoteDocumentWriter(
         TextLookupInt,
         TextLength,
         DataBitmapFont,
+        // A function is defined ahead of the layout; see createFloatFunction.
+        FunctionDefine,
         AttributeImage,
         AttributeTime,
         AttributeColor,
@@ -1646,6 +1759,7 @@ public class RemoteDocumentWriter(
     private const val BitmapEncodingInline = 0
     private const val BitmapEncodingUrl = 1
     private const val BitmapEncodingEmpty = 3
+    private const val BitmapEncodingComponentOffscreenBuffer = 4
     private const val ColorHsvMode = 4
     private const val ColorArgbMode = 5
     private const val ColorIdArgbMode = 6
@@ -1661,6 +1775,8 @@ public class RemoteDocumentWriter(
     private const val MinorVersion = 1
     private const val CustomMinorVersion = 2
     private const val ProfileAndroidxExperimental = 0x201
+    private const val ProfileAndroidx = 0x200
+    private const val ProfileWidgets = 0x100
     private const val PatchVersion = 0
     private const val IntSize = 4
     private const val HeaderWidth = 5

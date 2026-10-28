@@ -95,9 +95,11 @@
     ///     `ID_DENSITY` would otherwise resolve its very first geometry against the wrong value and
     ///     only correct itself on the next frame.
     ///   - wallClock: the host's absolute time, for the first frame. See `NativeSwiftWallClock`.
+    ///   - visibilityAnimations: whether custom visibility animations play; see
+    ///     `NativeSwiftDocumentSession.setVisibilityAnimationsEnabled`.
     static func open(
       data: Data, maximumDocumentBytes: Int, hostDensity: Float = 1, hostFontScale: Float = 1,
-      wallClock: NativeSwiftWallClock? = nil
+      wallClock: NativeSwiftWallClock? = nil, visibilityAnimations: Bool = true
     ) async throws -> (NativePlayerEngine, Frame) {
       guard data.count <= maximumDocumentBytes, data.count <= Int(Int32.max) else {
         throw RemoteComposeNativeLimitError.documentTooLarge(
@@ -107,6 +109,7 @@
         try Task.checkCancellation()
         let session = try NativeSwiftDocumentSession.open(data: data)
         session.setHostDensity(hostDensity, fontScale: hostFontScale)
+        session.setVisibilityAnimationsEnabled(visibilityAnimations)
         let frame = Frame(
           session: session,
           snapshot: try session.snapshot(wallClock: wallClock), wallClock: wallClock)
@@ -128,11 +131,15 @@
       session.setHostDensity(density, fontScale: fontScale)
     }
 
-    func frame(at timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock?) async throws
-      -> Frame
-    {
+    /// - Parameter visibilityAnimations: whether custom visibility animations play from this frame
+    ///   on: a host stops them when it stops advancing frames for Reduce Motion.
+    func frame(
+      at timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock?,
+      visibilityAnimations: Bool = true
+    ) async throws -> Frame {
       do {
         self.wallClock = wallClock
+        session.setVisibilityAnimationsEnabled(visibilityAnimations)
         return Frame(
           session: session,
           snapshot: try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),

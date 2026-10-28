@@ -112,6 +112,32 @@ final class NativeSwiftFloatAnimationRuntime {
     }
   }
 
+  /// `easingType`'s curve at `fraction` of its duration, as `FloatAnimation` eases a value that
+  /// names a preset curve and no parameters: the cubic presets, bounce and elastic. A type that
+  /// needs parameters, or one the reference does not define, eases on the standard curve, which is
+  /// the curve a `FloatAnimation` starts with and keeps when `create` matches no type.
+  static func easedFraction(_ fraction: Float, easingType: Int) -> Float {
+    let type = NativeSwiftFloatEasingType(rawValue: UInt32(truncatingIfNeeded: max(easingType, 0)))
+    return (type.flatMap(presetCurve) ?? standardCurve).value(at: fraction)
+  }
+
+  private static let standardCurve = Curve.cubic(0.4, 0, 0.2, 1)
+
+  /// The curve a preset easing type names, or nil for one that takes parameters.
+  private static func presetCurve(_ type: NativeSwiftFloatEasingType) -> Curve? {
+    switch type {
+    case .cubicStandard: return standardCurve
+    case .cubicAccelerate: return .cubic(0.4, 0.05, 0.8, 0.7)
+    case .cubicDecelerate: return .cubic(0, 0, 0.2, 0.95)
+    case .cubicLinear: return .cubic(1, 1, 0, 0)
+    case .cubicAnticipate: return .cubic(0.36, 0, 0.66, -0.56)
+    case .cubicOvershoot: return .cubic(0.34, 1.56, 0.64, 1)
+    case .easeOutBounce: return .bounce
+    case .easeOutElastic: return .elastic
+    case .cubicCustom, .splineCustom: return nil
+    }
+  }
+
   private let duration: Float
   private let curve: Curve?
   private let wrap: Float?
@@ -200,12 +226,9 @@ final class NativeSwiftFloatAnimationRuntime {
     guard parameters.allSatisfy(\.isFinite) else { throw malformed("non-finite curve parameter") }
     let parsedCurve: Curve
     switch easingType {
-    case .cubicStandard: parsedCurve = .cubic(0.4, 0, 0.2, 1)
-    case .cubicAccelerate: parsedCurve = .cubic(0.4, 0.05, 0.8, 0.7)
-    case .cubicDecelerate: parsedCurve = .cubic(0, 0, 0.2, 0.95)
-    case .cubicLinear: parsedCurve = .cubic(1, 1, 0, 0)
-    case .cubicAnticipate: parsedCurve = .cubic(0.36, 0, 0.66, -0.56)
-    case .cubicOvershoot: parsedCurve = .cubic(0.34, 1.56, 0.64, 1)
+    case .cubicStandard, .cubicAccelerate, .cubicDecelerate, .cubicLinear, .cubicAnticipate,
+      .cubicOvershoot:
+      parsedCurve = Self.presetCurve(easingType) ?? Self.standardCurve
     case .cubicCustom:
       guard parameters.count == 4 else {
         throw malformed("custom cubic easing needs four parameters")
@@ -218,10 +241,10 @@ final class NativeSwiftFloatAnimationRuntime {
       parsedCurve = .spline(NativeSwiftMonotonicCurve(points: parameters))
     case .easeOutBounce:
       guard parameters.isEmpty else { throw malformed("bounce easing takes no parameters") }
-      parsedCurve = .bounce
+      parsedCurve = Self.presetCurve(easingType) ?? Self.standardCurve
     case .easeOutElastic:
       guard parameters.isEmpty else { throw malformed("elastic easing takes no parameters") }
-      parsedCurve = .elastic
+      parsedCurve = Self.presetCurve(easingType) ?? Self.standardCurve
     }
     if !easingType.acceptsParameters, !parameters.isEmpty {
       throw malformed("preset easing type \(easingType.rawValue) takes no parameters")

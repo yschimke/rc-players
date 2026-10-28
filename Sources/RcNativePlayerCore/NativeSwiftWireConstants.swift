@@ -377,6 +377,10 @@ public enum NativeSwiftDrawKind {
   /// `DRAW_TWEEN_PATH`: drawn exactly as `path` is. The interpolation and trim are already applied
   /// to the command's path elements; the kind only keeps the operation's name distinct.
   public static let tweenPath = 23
+  /// `DrawContent` where it draws a component: inside a custom visibility function, the animating
+  /// component, clipped to its bounds in a layer at the paint's alpha; inside a component offscreen
+  /// target, the target's component at the target's origin. Its `alpha` is the paint's.
+  public static let drawContent = 24
 }
 
 /// `DrawToBitmap`'s `mode` flags, from AndroidX `DrawToBitmap`. `MODE_NO_INITIALIZE` is the only
@@ -384,6 +388,11 @@ public enum NativeSwiftDrawKind {
 /// time drawing is redirected into it (`AndroidPaintContext.drawToBitmap`'s `eraseColor`).
 public enum NativeSwiftDrawToBitmapMode {
   public static let noInitialize = 1
+  /// `MODE_COMPONENT_ID` (remote-core 1.0.0-alpha22): the colour word is not a colour but the
+  /// component the target captures — a literal id, or an integer or float variable holding one —
+  /// and the target is erased to transparent. A `DrawContent` drawn into the target draws that
+  /// component at the target's origin.
+  public static let componentID = 2
 }
 
 /// How a paint operation's path or bitmap id word is read, from AndroidX `PaintOperation`
@@ -740,6 +749,68 @@ public enum NativeSwiftLayoutAnimation {
   public static let slideBottom = 5
   public static let rotate = 6
   public static let particle = 7
+  /// Drawn by the spec's enter or exit `FloatFunctionDefine` (remote-core 1.0.0-alpha22).
+  public static let custom = 8
+  /// The animation's byte of the wire word. Since alpha22 the byte above it is the side's
+  /// `AnimationSpec.SEQUENCE` (`AnimationSpec.packAnimation`).
+  public static let kindMask = 0xFF
+
+  /// The animation a side's wire word names: its low byte, and `fadeIn` for a byte outside
+  /// `fadeIn...custom`, as `AnimationSpec.intToAnimation` reads an unknown value.
+  public static func kind(ofWord word: Int) -> Int {
+    let kind = word & kindMask
+    return (fadeIn...custom).contains(kind) ? kind : fadeIn
+  }
+}
+
+/// `AnimationSpec.SEQUENCE` (remote-core 1.0.0-alpha22): how a side's visibility animation is
+/// ordered against the layout change it belongs to. Packed into the byte above the animation byte
+/// of the enter and exit words (`AnimationSpec.packAnimation`).
+public enum NativeSwiftAnimationSequence {
+  /// The visibility animation plays alongside the layout change (the default).
+  public static let concurrent = 0
+  /// The visibility animation plays first: an exiting component keeps its layout space until its
+  /// exit has played.
+  public static let before = 1
+  /// The visibility animation waits for the layout change: it starts once the motion duration has
+  /// passed.
+  public static let after = 2
+  /// Where the sequence sits in a side's wire word, and its width.
+  public static let shift = 8
+  public static let mask = 0xFF
+
+  /// The sequence a side's wire word packs, and `concurrent` for an unknown value, as
+  /// `AnimationSpec.intToSequence` reads one.
+  public static func sequence(ofWord word: Int) -> Int {
+    let sequence = (word >> shift) & mask
+    return (concurrent...after).contains(sequence) ? sequence : concurrent
+  }
+}
+
+/// AndroidX `FloatFunctionDefine`'s bounds and the id an `AnimationSpec` leaves a side without a
+/// function at.
+public enum NativeSwiftFunctionDefine {
+  /// `Limits.MAX_FUNCTION_ARGUMENTS`: `FloatFunctionDefine.read` refuses a longer argument list.
+  public static let maximumArguments = 32
+  /// `FloatFunctionDefine.MAX_EXECUTION_DEPTH`: how deeply one function, or functions in all, may
+  /// run inside one another before the reference refuses ("Recursion not allowed").
+  public static let maximumExecutionDepth = 16
+  /// An `AnimationSpec` side with no function (`enterFunctionId` / `exitFunctionId`).
+  public static let unsetID = -1
+}
+
+/// The arguments a custom visibility animation's `FloatFunctionDefine` is called with, by
+/// position, as `AnimateMeasure.executeCustomAnimation` loads them: progress, then the component's
+/// pixel-aligned bounds in its parent, then the component's id (loaded as an integer and a float).
+/// A function declaring fewer arguments receives that many.
+public enum NativeSwiftVisibilityFunctionArgument {
+  public static let progress = 0
+  public static let width = 1
+  public static let height = 2
+  public static let x = 3
+  public static let y = 4
+  public static let componentID = 5
+  public static let count = 6
 }
 
 /// The winding of a `PATH_DATA` path, the top byte of its id word (`RcPathData.winding` in
@@ -858,13 +929,75 @@ public enum NativeSwiftDrawTextAnchoredFlag {
   public static let baselineRelative = 8
 }
 
-/// `RcBitmapData`'s encodings, from AndroidX `BitmapData`. Only inline data is decodable offline.
+/// `RcBitmapData`'s encodings, from AndroidX `BitmapData`. Only inline data is decodable offline;
+/// a component offscreen buffer has no pixels to decode, a host allocates it while drawing.
 public enum NativeSwiftBitmapEncoding {
   public static let inline = 0
   public static let url = 1
   public static let file = 2
   public static let empty = 3
+  /// `ENCODING_COMPONENT_OFFSCREEN_BUFFER` (remote-core 1.0.0-alpha22): an offscreen buffer sized
+  /// to a component each time it is drawn into; see `NativeSwiftComponentOffscreenBuffer`.
   public static let componentOffscreenBuffer = 4
+}
+
+/// `RcBitmapData`'s pixel types, from AndroidX `BitmapData` (`TYPE_*`): the high half of the
+/// operation's width word, `pngARGB8888` when that word carries no type.
+public enum NativeSwiftBitmapType {
+  public static let pngARGB8888 = 0
+  /// Any PNG; not for inline data, which the reference decodes by a specific type.
+  public static let png = 1
+  public static let raw8 = 2
+  public static let raw8888 = 3
+  /// PNG pixels decoded as an alpha-only bitmap.
+  public static let pngAlpha8 = 4
+}
+
+/// A `BitmapData` with `NativeSwiftBitmapEncoding.componentOffscreenBuffer`, from AndroidX
+/// `BitmapData.ensureOffscreenBitmap`.
+///
+/// Its payload is empty, meaning the active component, or the target component's id as four
+/// big-endian bytes; that id, like `DrawToBitmap`'s, may name an integer or float variable holding
+/// the id. Each time drawing is redirected into it the buffer is sized to its component: the
+/// component's bounds in its parent, widened to whole pixels from the floor of its origin.
+public enum NativeSwiftComponentOffscreenBuffer {
+  /// The payload length that names a component; a shorter payload names the active one.
+  public static let componentIDByteCount = 4
+  /// The component id that means "the active component".
+  public static let activeComponent = 0
+  /// `Limits.MAX_IMAGE_DIMENSION`: the widest or tallest buffer the reference allocates.
+  public static let maximumDimension = 8_000
+  /// `Limits.MAX_BITMAP_MEMORY`: the most bytes, at four per pixel, one buffer may take.
+  public static let maximumBytes = 20 * 1024 * 1024
+  public static let bytesPerPixel = 4
+
+  /// The buffer's size for a component at `x`, `y` in its parent and `width` by `height`, as
+  /// `ensureOffscreenBitmap` computes it — at least one pixel each way — or nil when the reference
+  /// would refuse it ("Dimension of image is invalid"): a non-finite bound, or a buffer over
+  /// `maximumDimension` or `maximumBytes`.
+  public static func size(x: Float, y: Float, width: Float, height: Float) -> (
+    width: Int, height: Int
+  )? {
+    guard x.isFinite, y.isFinite, width.isFinite, height.isFinite else { return nil }
+    // Clamped to one pixel before converting, so a negative extent cannot reach `Int.init`.
+    let requestedWidth = max(1, (x - x.rounded(.down) + width).rounded(.up))
+    let requestedHeight = max(1, (y - y.rounded(.down) + height).rounded(.up))
+    guard requestedWidth <= Float(maximumDimension), requestedHeight <= Float(maximumDimension)
+    else { return nil }
+    let pixelWidth = Int(requestedWidth)
+    let pixelHeight = Int(requestedHeight)
+    guard pixelWidth * pixelHeight * bytesPerPixel <= maximumBytes else { return nil }
+    return (pixelWidth, pixelHeight)
+  }
+
+  /// The component a buffer's payload names, or `activeComponent` when it names none. Bytes past
+  /// the first four are ignored, as `BitmapData.getComponentId` ignores them.
+  public static func componentID(payload: Data) -> Int {
+    guard payload.count >= componentIDByteCount else { return activeComponent }
+    let bytes = Array(payload.prefix(componentIDByteCount))
+    let word = bytes.reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
+    return Int(Int32(bitPattern: word))
+  }
 }
 
 /// A text's alignment: the low half of `TextLayout`'s alignment word, and the `CoreText` /

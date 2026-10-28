@@ -339,16 +339,28 @@ private object ComponentValueCodec : RcOperationCodec<RcComponentValue> {
 private object AnimationSpecCodec : RcOperationCodec<RcAnimationSpec> {
   override val spec = RcOperationSpec(RcOpcodes.ANIMATION_SPEC, "AnimationSpec")
 
-  override fun decode(input: RcWireReader): RcAnimationSpec =
-    RcAnimationSpec(
-      animationId = input.readId("animationId"),
-      motionDurationMillis = input.readFloatWord("motionDurationMillis"),
-      motionEasingType = input.readInt("motionEasingType"),
-      visibilityDurationMillis = input.readFloatWord("visibilityDurationMillis"),
-      visibilityEasingType = input.readInt("visibilityEasingType"),
-      enterAnimation = RcLayoutAnimation(input.readInt("enterAnimation")),
-      exitAnimation = RcLayoutAnimation(input.readInt("exitAnimation")),
+  override fun decode(input: RcWireReader): RcAnimationSpec {
+    val animationId = input.readId("animationId")
+    val motionDurationMillis = input.readFloatWord("motionDurationMillis")
+    val motionEasingType = input.readInt("motionEasingType")
+    val visibilityDurationMillis = input.readFloatWord("visibilityDurationMillis")
+    val visibilityEasingType = input.readInt("visibilityEasingType")
+    val enterAnimation = RcLayoutAnimation(input.readInt("enterAnimation"))
+    val exitAnimation = RcLayoutAnimation(input.readInt("exitAnimation"))
+    // AndroidX `AnimationSpec.read` reads the function ids only for a CUSTOM spec.
+    val custom = enterAnimation.isCustom || exitAnimation.isCustom
+    return RcAnimationSpec(
+      animationId = animationId,
+      motionDurationMillis = motionDurationMillis,
+      motionEasingType = motionEasingType,
+      visibilityDurationMillis = visibilityDurationMillis,
+      visibilityEasingType = visibilityEasingType,
+      enterAnimation = enterAnimation,
+      exitAnimation = exitAnimation,
+      enterFunctionId = if (custom) input.readId("enterFunctionId") else -1,
+      exitFunctionId = if (custom) input.readId("exitFunctionId") else -1,
     )
+  }
 
   override fun encode(output: RcWireWriter, value: RcAnimationSpec) {
     output.writeInt(value.animationId)
@@ -358,7 +370,21 @@ private object AnimationSpecCodec : RcOperationCodec<RcAnimationSpec> {
     output.writeInt(value.visibilityEasingType)
     output.writeInt(value.enterAnimation.wireValue)
     output.writeInt(value.exitAnimation.wireValue)
+    // AndroidX `AnimationSpec.apply` also writes ids set without a CUSTOM side.
+    if (
+      value.enterAnimation.isCustom ||
+        value.exitAnimation.isCustom ||
+        value.enterFunctionId != -1 ||
+        value.exitFunctionId != -1
+    ) {
+      output.writeInt(value.enterFunctionId)
+      output.writeInt(value.exitFunctionId)
+    }
   }
+
+  /** The low byte alone: AndroidX tests `(raw & 0xFF) == CUSTOM`, whatever the sequence. */
+  private val RcLayoutAnimation.isCustom: Boolean
+    get() = wireValue and 0xFF == RcLayoutAnimation.Custom.wireValue
 }
 
 private object RootLayoutCodec : RcOperationCodec<RcRootLayout> {

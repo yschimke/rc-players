@@ -47,6 +47,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   // complete parsed tree each time. Measurements remain part of the cache key because they are the
   // deliberate second pass of the layout contract.
   private var staticSnapshotCache: StaticSnapshotCache?
+  /// The custom visibility animations playing, by component.
+  private var visibilityTracker = NativeSwiftVisibilityTracker()
 
   private init(document: ParsedDocument) {
     self.document = document
@@ -116,6 +118,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     lastFrameEffectsTime = other.lastFrameEffectsTime
     firstPaintSeconds = other.firstPaintSeconds
     staticSnapshotCache = other.staticSnapshotCache
+    visibilityTracker = other.visibilityTracker
   }
 
   /// A session with this one's state, sharing nothing mutable.
@@ -176,6 +179,18 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private func marqueeElapsedSeconds(at timeSeconds: TimeInterval) -> TimeInterval {
     if firstPaintSeconds == nil { firstPaintSeconds = timeSeconds }
     return max(timeSeconds - (firstPaintSeconds ?? timeSeconds), 0)
+  }
+
+  /// Whether a component's change of visibility plays its custom visibility animation — the
+  /// reference's `isAnimationEnabled`. On by default. A host turns it off when it stops advancing
+  /// frames for Reduce Motion, so a change lands at once instead of stalling part-way; turning it
+  /// off ends the animations playing.
+  public func setVisibilityAnimationsEnabled(_ enabled: Bool) {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    guard visibilityTracker.animationsEnabled != enabled else { return }
+    visibilityTracker.animationsEnabled = enabled
+    staticSnapshotCache = nil
   }
 
   public func setRequestedTheme(_ theme: Int) {
@@ -256,12 +271,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         document.frameEffects.filter { impulseAllows($0.impulseGate) }.map(\.action),
         values: &effectValues)
     }
+    // Resolved ahead of the snapshot's other fields: resolving advances the visibility transitions,
+    // and whether one is still playing decides `needsContinuousFrames`.
+    let root = try resolve(
+      document.root, values: values, colors: resolvedColors, timeSeconds: timeSeconds)
     let snapshot = NativeSwiftDocumentSnapshot(
       width: document.width,
       height: document.height,
       density: document.density,
       densityBehavior: document.densityBehavior,
-      root: try resolve(document.root, values: values, colors: resolvedColors),
+      root: root,
       images: document.imageSnapshots,
       clickAreas: document.clickAreas.map { area in
         NativeSwiftClickAreaSnapshot(
@@ -273,7 +292,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           metadata: texts[area.metadataID])
       },
       needsContinuousFrames: document.needsContinuousFrames || document.hasParticleLoop
-        || particleCompareFired
+        || particleCompareFired || visibilityTracker.hasActiveTransition
         || floatAnimationRuntimes.contains {
           floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
         },
@@ -780,6 +799,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       && document.particleOperations.isEmpty
       && document.runActions.isEmpty
       && document.frameEffects.isEmpty
+      && !visibilityTracker.hasActiveTransition
       && !floatAnimationRuntimes.contains {
         floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
       }
@@ -787,7 +807,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   private func resolve(
     _ node: ParsedNode, values: [Int: Float], colors resolvedColors: [Int: UInt32],
-    visibilityOverride: Int? = nil, stateBranchActive: Int? = nil
+    timeSeconds: TimeInterval, visibilityOverride: Int? = nil, stateBranchActive: Int? = nil
   ) throws -> NativeSwiftNodeSnapshot {
     let text: NativeSwiftTextSnapshot?
     if let source = node.text {
@@ -822,7 +842,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
             minimumFontSize: min(minimum > 0 ? minimum : 4, resolvedMaximum),
             maximumFontSize: resolvedMaximum)
         },
-        fontSettings: fontSettings(source, values: values))
+        fontSettings: fontSettings(source, values: values),
+        sizeIsDensityTyped: NativeSwiftTextSnapshot.isDensityTypedFontSize(
+          source.sizeWord, densityBehavior: document.densityBehavior))
     } else {
       text = nil
     }
@@ -862,6 +884,30 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       custom = nil
     }
 
+    // A state layout's branches take their visibility from the layout, not a transition.
+    var visibility =
+      visibilityOverride ?? node.visibilityID.map { resolvedVisibility(of: $0) }
+      ?? NativeSwiftVisibility.visible
+    var visibilityTransition: NativeSwiftVisibilityTransitionSnapshot?
+    if visibilityOverride == nil, node.visibilityID != nil,
+      let (timeline, state) = visibilityTracker.observe(
+        id: node.componentID, visibility: visibility, spec: node.animationSpec,
+        specID: node.animationSpecID, timeSeconds: timeSeconds)
+    {
+      visibility = state.layoutVisibility
+      let functionID =
+        timeline.isEntering ? timeline.spec.enterFunctionID : timeline.spec.exitFunctionID
+      visibilityTransition = NativeSwiftVisibilityTransitionSnapshot(
+        from: timeline.from, to: timeline.to, phase: state.phase, progress: state.progress,
+        functionID: functionID,
+        function: document.functions[functionID].map {
+          NativeSwiftVisibilityFunction(
+            function: $0, values: values, integers: integers, colors: resolvedColors,
+            texts: texts, matrices: document.matrixExpressions, progress: state.progress,
+            componentID: node.componentID)
+        })
+    }
+
     let maximumWidth = try resolvedFloat(node.maximumWidthWord, "maximum width", values: values)
     let maximumHeight = try resolvedFloat(node.maximumHeightWord, "maximum height", values: values)
     let cornerRadii = try node.cornerRadiusWords.map {
@@ -875,7 +921,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       isCanvasContent: node.isCanvasContent,
       componentID: node.componentID,
       children: try resolvedChildren(
-        of: node, values: values, colors: resolvedColors,
+        of: node, values: values, colors: resolvedColors, timeSeconds: timeSeconds,
         stateBranchActive: stateBranchActive),
       commands: try node.commands.compactMap { command -> NativeSwiftDrawCommandSnapshot? in
         guard impulseAllows(command.impulseGate) else { return nil }
@@ -941,8 +987,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       offsetX: node.offsetXWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       offsetY: node.offsetYWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       zIndex: node.zIndexWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
-      visibility: visibilityOverride ?? node.visibilityID.map { resolvedVisibility(of: $0) }
-        ?? NativeSwiftVisibility.visible,
+      visibility: visibility,
       backgroundARGB: node.backgroundColorID.flatMap { resolvedColors[$0] } ?? node.backgroundARGB,
       borderARGB: node.borderColorID.flatMap { resolvedColors[$0] } ?? node.borderARGB,
       borderWidth: try resolvedFloat(node.borderWidthWord, "border width", values: values),
@@ -991,7 +1036,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       },
       text: text,
       custom: custom,
-      layoutComputes: node.layoutComputes.map { resolvedLayoutCompute($0, values: values) })
+      layoutComputes: node.layoutComputes.map { resolvedLayoutCompute($0, values: values) },
+      visibilityTransition: visibilityTransition)
   }
 
   /// A component's `LayoutComputeOperation` with the frame's values and lists its body reads, so a
@@ -1063,7 +1109,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// stacked, which is the single largest remaining raster difference on the native lane.
   private func resolvedChildren(
     of node: ParsedNode, values: [Int: Float], colors resolvedColors: [Int: UInt32],
-    stateBranchActive: Int? = nil
+    timeSeconds: TimeInterval, stateBranchActive: Int? = nil
   ) throws -> [NativeSwiftNodeSnapshot] {
     // A state layout's own index decides which of *its* branches is shown, and the branches are
     // usually wrapped in the same bare content node every other container uses.
@@ -1072,25 +1118,28 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         ? node.children[0] : nil
       let branches = stateBranches(of: node)
       guard !branches.isEmpty else {
-        return try node.children.map { try resolve($0, values: values, colors: resolvedColors) }
+        return try node.children.map {
+          try resolve($0, values: values, colors: resolvedColors, timeSeconds: timeSeconds)
+        }
       }
       let active = min(max(integers[indexID] ?? 0, 0), branches.count - 1)
       if let wrapper {
         return [
           try resolve(
-            wrapper, values: values, colors: resolvedColors, stateBranchActive: active)
+            wrapper, values: values, colors: resolvedColors, timeSeconds: timeSeconds,
+            stateBranchActive: active)
         ]
       }
       return try node.children.enumerated().map { position, child in
         try resolve(
-          child, values: values, colors: resolvedColors,
+          child, values: values, colors: resolvedColors, timeSeconds: timeSeconds,
           visibilityOverride: position == active
             ? NativeSwiftVisibility.visible : NativeSwiftVisibility.gone)
       }
     }
     return try node.children.enumerated().map { position, child in
       try resolve(
-        child, values: values, colors: resolvedColors,
+        child, values: values, colors: resolvedColors, timeSeconds: timeSeconds,
         visibilityOverride: stateBranchActive.map {
           position == $0 ? NativeSwiftVisibility.visible : NativeSwiftVisibility.gone
         })

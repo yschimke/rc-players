@@ -34,6 +34,13 @@ public data class RcDrawToBitmap(val bitmapId: Int, val mode: Int, val color: In
   public companion object {
     /** Preserve the bitmap's existing pixels instead of clearing it to [color]. */
     public const val MODE_NO_INITIALIZE: Int = 1
+
+    /**
+     * [color] names the component to draw into the bitmap — or a variable holding its id — rather
+     * than a fill colour; the bitmap is cleared to transparent. AndroidX alpha22
+     * `DrawToBitmap.MODE_COMPONENT_ID`, written by `drawComponentToBitmap(componentId, bitmapId)`.
+     */
+    public const val MODE_COMPONENT_ID: Int = 2
   }
 }
 

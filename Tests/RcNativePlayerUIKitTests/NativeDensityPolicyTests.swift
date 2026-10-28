@@ -5,6 +5,15 @@ import Testing
 @testable import RcNativePlayerUIKit
 
 @Suite struct NativeDensityPolicyTests {
+  @Test func onlyADensityTypedFontSizeTakesTheLayoutDensityScale() {
+    #expect(
+      NativeDensityPolicy.textSizeScale(
+        sizeIsDensityTyped: true, layoutDensityScale: 2.5, documentScale: 1) == 2.5)
+    #expect(
+      NativeDensityPolicy.textSizeScale(
+        sizeIsDensityTyped: false, layoutDensityScale: 2.5, documentScale: 1) == 1)
+  }
+
   @Test func densityPolicy() throws {
     // A document generated at density 2 with dp layout behavior: the title-card case.
     let dpAtTwo = NativeDensityPolicy.diagnostics(

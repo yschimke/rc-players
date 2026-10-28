@@ -48,6 +48,12 @@ public final class ee/schimke/composeai/rccreation/bridge/RcHostBridgeKt {
 	public static final fun rcHostContentConfig (Ljava/lang/String;)Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rccreation/bridge/RcVisibilityAnimationsKt {
+	public static final fun defineVisibilityAnimation (Landroidx/compose/remote/creation/common/RemoteWriter;Lkotlin/jvm/functions/Function7;)I
+	public static final fun rcCustomEnterTransition (I)Landroidx/compose/remote/creation/compose/modifier/RemoteEnterTransition;
+	public static final fun rcCustomExitTransition (I)Landroidx/compose/remote/creation/compose/modifier/RemoteExitTransition;
+}
+
 public final class ee/schimke/composeai/rccreation/bridge/RemoteInputKt {
 	public static final fun RemoteInput (Lee/schimke/composeai/rcplayer/protocol/RcInputField;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
 	public static final fun canCreateRcInputs (Landroidx/compose/runtime/Composer;I)Z

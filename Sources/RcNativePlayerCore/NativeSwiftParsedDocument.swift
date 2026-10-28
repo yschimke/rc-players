@@ -72,6 +72,9 @@ struct ParsedDocument {
   let eventHandlers: [ParsedEventHandler]
   /// `RUN_ACTION` bodies in wire order; see `ParsedRunAction`.
   let runActions: [ParsedRunAction]
+  /// `FloatFunctionDefine`s by id, a later definition of an id replacing an earlier one as the
+  /// reference's object table does.
+  let functions: [Int: ParsedFunction]
   let needsContinuousFrames: Bool
   /// Whether any component carries a marquee. It does not by itself ask for frames — only a host's
   /// measurement knows whether the content overflows — but its offset reads the clock, so a frame
@@ -111,6 +114,12 @@ struct ParsedImageResource {
   let type: Int
   let encoding: Int
   let data: Data
+
+  /// Whether this is a component offscreen buffer rather than an image: it has no pixels to
+  /// decode, so it is not exported as an image resource.
+  var isComponentOffscreenBuffer: Bool {
+    encoding == NativeSwiftBitmapEncoding.componentOffscreenBuffer
+  }
 
   var snapshot: NativeSwiftImageResourceSnapshot {
     NativeSwiftImageResourceSnapshot(
@@ -229,6 +238,28 @@ struct ParsedModifierContainer {
   /// Set when the container is an `EVENT_ACTION` or `RUN_ACTION` body, which collects the action
   /// operations inside it for itself rather than for a component's gesture.
   var actionSink: ParsedActionSink?
+  /// Set when the container is a `FloatFunctionDefine` body, whose end completes the function.
+  var isFunctionBody = false
+}
+
+/// AndroidX `FloatFunctionDefine`: a body of operations that runs only when called, with its
+/// argument ids loaded first. This player calls one as a custom visibility animation
+/// (`AnimationSpec`'s enter and exit function ids); `FunctionCall` is not migrated.
+///
+/// The body's float expressions are its own: they read the arguments, which hold nothing until a
+/// call loads them, so they are evaluated per call rather than with the document's frame. Its
+/// drawing is kept as commands to resolve against those values. The body starts from a reset
+/// paint, as the reference resets it before running the function.
+struct ParsedFunction {
+  let id: Int
+  let argumentIDs: [Int]
+  let expressions: [ParsedFloatExpression]
+  /// For each of `expressions`, how many of `commands` precede it in the body. A body may set the
+  /// same id between draws, so each expression runs just before the first command after it.
+  let expressionPositions: [Int]
+  let commands: [ParsedDrawCommand]
+  /// The `FUNCTION_DEFINE` operation's byte offset, for evaluation failures.
+  let offset: Int
 }
 
 /// A document-level container that owns the action operations read inside it, by its index in
@@ -323,7 +354,8 @@ struct ParsedDrawCommand {
   /// resolves to NaN: `DrawTextAnchored`'s `panY`, which the reference reads that way to leave the
   /// baseline where it is.
   let nanSentinelIndices: Set<Int>
-  /// A `DrawToBitmap` redirect's target. It holds no expression words, so it is final at decode.
+  /// A `DrawToBitmap` redirect's target. Final at decode but for the component ids it names, which
+  /// may be variables and are resolved with the frame's (or a function call's) values.
   let offscreenTarget: NativeSwiftOffscreenTargetSnapshot?
   /// `MATRIX_FROM_PATH`'s `NativeSwiftMatrixFromPathFlag` bits; zero for every other kind.
   let matrixFlags: Int
@@ -391,7 +423,8 @@ struct ParsedDrawCommand {
           fraction: resolvedValues.first ?? 0, flags: matrixFlags)
         : resolvedValues,
       colorARGB: try resolvePaintColor(colors: colors),
-      alpha: alphaWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? paint.alpha,
+      alpha: alphaWord.map { NativeSwiftFloatExpression.resolve($0, values: values) }
+        ?? min(max(NativeSwiftFloatExpression.resolve(paint.alpha, values: values), 0), 1),
       strokeWidth: NativeSwiftFloatExpression.resolve(paint.strokeWidth, values: values),
       isStroke: paint.isStroke,
       strokeCap: paint.strokeCap,
@@ -437,7 +470,8 @@ struct ParsedDrawCommand {
         return String(decoding: units[lower..<upper], as: UTF16.self)
       }, textSize: NativeSwiftFloatExpression.resolve(paint.textSize, values: values),
       textFlags: textFlags,
-      unsetValueIndices: nanSentinelIndices.sorted(), offscreenTarget: offscreenTarget)
+      unsetValueIndices: nanSentinelIndices.sorted(),
+      offscreenTarget: offscreenTarget?.resolvingComponents(values: values, integers: integers))
   }
 
   private func resolvePaintColor(colors: [Int: UInt32]) throws -> UInt32 {
@@ -484,6 +518,9 @@ struct ParsedImageDraw {
   let scaleType: Int
   let scaleFactor: UInt32
   let contentDescriptionID: Int
+  /// Set for a `DrawBitmap` of a component offscreen buffer: the source is the whole buffer at the
+  /// size it was last drawn at, not the placeholder size it was declared with.
+  var sourceIsWholeBitmap = false
 
   func resolve(values: [Int: Float], texts: [Int: String]) -> NativeSwiftImageDrawSnapshot {
     let source = source.map { NativeSwiftFloatExpression.resolve($0, values: values) }
@@ -494,7 +531,8 @@ struct ParsedImageDraw {
       sourceBottom: source[3], destinationLeft: destination[0], destinationTop: destination[1],
       destinationRight: destination[2], destinationBottom: destination[3], scaleType: scaleType,
       scaleFactor: NativeSwiftFloatExpression.resolve(scaleFactor, values: values),
-      contentDescription: contentDescriptionID == 0 ? nil : texts[contentDescriptionID])
+      contentDescription: contentDescriptionID == 0 ? nil : texts[contentDescriptionID],
+      sourceIsWholeBitmap: sourceIsWholeBitmap)
   }
 }
 
@@ -564,6 +602,7 @@ extension ParsedNode {
         if matches(image.scaleFactor) { return true }
       }
       if matches(command.paint.strokeWidth) { return true }
+      if matches(command.paint.alpha) { return true }
       if let alphaWord = command.alphaWord, matches(alphaWord) { return true }
     }
     return children.contains { $0.references(anyOf: ids) }

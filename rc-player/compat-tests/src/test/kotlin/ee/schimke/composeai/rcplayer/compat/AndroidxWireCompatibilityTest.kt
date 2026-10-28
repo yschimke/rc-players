@@ -157,6 +157,7 @@ import androidx.compose.remote.core.types.IntegerConstant
 import androidx.compose.remote.core.types.LongConstant
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcAlignByModifier
+import ee.schimke.composeai.rcplayer.protocol.RcAnimationSequence
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
@@ -394,6 +395,100 @@ class AndroidxWireCompatibilityTest {
     assertEquals(RcLayoutAnimation.SlideTop, spec.enterAnimation)
     assertEquals(RcLayoutAnimation.Rotate, spec.exitAnimation)
     assertContentEquals(bytes, RcDocumentCodec.encode(document))
+  }
+
+  @Test
+  fun androidXCustomVisibilityAnimationSpecRoundTripsExactly() {
+    // As `defineVisibilityAnimation` writes it: (progress, width, height, x, y, component) and a
+    // body that draws the component's content, then a spec naming it for a CUSTOM exit.
+    val buffer = WireBuffer()
+    Header.apply(buffer, 120, 60, 1f, 0L)
+    AndroidxFloatFunctionDefine.apply(buffer, 0x400010, intArrayOf(130, 131, 132, 133, 134, 135))
+    DrawContent.apply(buffer)
+    ContainerEnd.apply(buffer)
+    AndroidxAnimationSpec.apply(
+      buffer,
+      -1,
+      300f,
+      Easing.CUBIC_STANDARD,
+      450f,
+      Easing.CUBIC_DECELERATE,
+      AndroidxAnimationSpec.packAnimation(
+        AndroidxAnimationSpec.ANIMATION.SLIDE_LEFT,
+        AndroidxAnimationSpec.SEQUENCE.AFTER,
+      ),
+      AndroidxAnimationSpec.packAnimation(
+        AndroidxAnimationSpec.ANIMATION.CUSTOM,
+        AndroidxAnimationSpec.SEQUENCE.BEFORE,
+      ),
+      -1,
+      0x400010,
+    )
+    val bytes = buffer.buffer.copyOf(buffer.size())
+
+    val document = RcDocumentCodec.decode(bytes)
+    val definition = assertIs<RcFloatFunctionDefine>(document.operations[0])
+    val spec = assertIs<RcAnimationSpec>(document.operations[3])
+    assertEquals(listOf(130, 131, 132, 133, 134, 135), definition.parameterIds)
+    assertEquals(RcLayoutAnimation.SlideLeft.wireValue, spec.enterAnimation.androidXValue)
+    assertEquals(RcAnimationSequence.After, spec.enterAnimation.sequence)
+    assertEquals(RcLayoutAnimation.Custom.wireValue, spec.exitAnimation.androidXValue)
+    assertEquals(RcAnimationSequence.Before, spec.exitAnimation.sequence)
+    assertEquals(-1, spec.enterFunctionId)
+    assertEquals(definition.id, spec.exitFunctionId)
+    assertContentEquals(bytes, RcDocumentCodec.encode(document))
+
+    // And the other way: the model writes the bytes AndroidX's own reader expects.
+    val read = WireBuffer(bytes.size)
+    val start = bytes.size - 4 * 9 // the spec's nine words, after its opcode byte
+    bytes.copyInto(read.buffer)
+    read.index = start
+    val operations = mutableListOf<androidx.compose.remote.core.Operation>()
+    AndroidxAnimationSpec.read(read, operations)
+    val androidX = assertIs<AndroidxAnimationSpec>(operations.single())
+    assertEquals(AndroidxAnimationSpec.ANIMATION.CUSTOM, androidX.exitAnimation)
+    assertEquals(AndroidxAnimationSpec.SEQUENCE.BEFORE, androidX.exitSequence)
+    assertEquals(AndroidxAnimationSpec.SEQUENCE.AFTER, androidX.enterSequence)
+    assertEquals(0x400010, androidX.exitFunctionId)
+    assertEquals(bytes.size, read.index)
+  }
+
+  @Test
+  fun androidXWritesTheModelsSequencedSpecWithoutFunctionIds() {
+    val buffer = WireBuffer()
+    Header.apply(buffer, 120, 60, 1f, 0L)
+    AndroidxAnimationSpec.apply(
+      buffer,
+      7,
+      300f,
+      Easing.CUBIC_STANDARD,
+      300f,
+      Easing.CUBIC_STANDARD,
+      AndroidxAnimationSpec.packAnimation(
+        AndroidxAnimationSpec.ANIMATION.ROTATE,
+        AndroidxAnimationSpec.SEQUENCE.BEFORE,
+      ),
+      AndroidxAnimationSpec.packAnimation(
+        AndroidxAnimationSpec.ANIMATION.FADE_OUT,
+        AndroidxAnimationSpec.SEQUENCE.AFTER,
+      ),
+      -1,
+      -1,
+    )
+    val bytes = buffer.buffer.copyOf(buffer.size())
+    val header = RcDocumentCodec.decode(bytes).header
+
+    val model =
+      RcAnimationSpec(
+        animationId = 7,
+        motionDurationMillis = RcFloatWord.literal(300f),
+        motionEasingType = Easing.CUBIC_STANDARD,
+        visibilityDurationMillis = RcFloatWord.literal(300f),
+        visibilityEasingType = Easing.CUBIC_STANDARD,
+        enterAnimation = RcLayoutAnimation.Rotate.sequenced(RcAnimationSequence.Before),
+        exitAnimation = RcLayoutAnimation.FadeOut.sequenced(RcAnimationSequence.After),
+      )
+    assertContentEquals(bytes, RcDocumentCodec.encode(RcDocument(header, listOf(model))))
   }
 
   @Test

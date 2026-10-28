@@ -240,7 +240,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
-import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHapticFeedback
@@ -770,7 +769,10 @@ private fun RcComposePlayerResolved(
   val inlineImages = remember(document) { decodeInlineImages(document) }
   val images = rememberRcImages(document, linkedDocument, inlineImages) { invalidationVersion += 1 }
   val touchExpressions = remember(linkedDocument) { rcTouchExpressions(linkedDocument.operations) }
-  val offscreenTargets = remember(document) { RcOffscreenTargetPool() }
+  val offscreenTargets =
+    remember(document) {
+      RcOffscreenTargetPool(componentBuffers = rcComponentOffscreenBuffers(document))
+    }
   DisposableEffect(offscreenTargets) { onDispose { offscreenTargets.dispose() } }
   val fonts = remember(document) { decodeInlineFonts(document) }
   val textMeasurer = rememberTextMeasurer()
@@ -854,6 +856,35 @@ private fun RcComposePlayerResolved(
     state.applyLayoutContentStateOperations(linkedDocument.operations, theme)
     val version = invalidationVersion
     val settles = state.hasAnyComponentValues
+    val captures =
+      remember(document, linkedDocument, layout) {
+        RcComponentCaptures.of(document, linkedDocument.operations, layout)
+      }
+    val visibilityFunctions =
+      remember(
+        linkedDocument,
+        state,
+        textMeasurer,
+        images,
+        theme,
+        typefaces,
+        drawObserver,
+        captures,
+        fonts,
+      ) {
+        RcVisibilityFunctions(
+          linkedDocument.operations,
+          state,
+          textMeasurer,
+          images,
+          theme,
+          typefaces,
+          drawObserver,
+          offscreenTargets,
+          captures,
+          fonts,
+        )
+      }
     val tree: @Composable (probe: RcGeometryProbe?) -> Unit = { probe ->
       LookaheadScope {
         CompositionLocalProvider(
@@ -869,6 +900,8 @@ private fun RcComposePlayerResolved(
           LocalRcInvalidate provides { invalidationVersion += 1 },
           LocalRcOffscreenTargets provides offscreenTargets,
           LocalRcTouchExpressions provides touchExpressions,
+          LocalRcVisibilityFunctions provides visibilityFunctions,
+          LocalRcComponentCaptures provides captures,
         ) {
           // The root sits at the window's origin at its own size. A root smaller than the window's
           // minimum — one still animating toward a resize, or one the document sizes below the
@@ -932,7 +965,7 @@ private fun RcComposePlayerResolved(
           drawOperations(
             linkedDocument.operations,
             state,
-            RcPaintState(typefaces, drawObserver),
+            RcPaintState(typefaces, drawObserver, fonts),
             mutableMapOf(),
             textMeasurer,
             images,
@@ -989,6 +1022,7 @@ private fun RenderLayoutNode(
   val customComponents = LocalRcCustomComponents.current
   val invalidate = LocalRcInvalidate.current
   val offscreenTargets = LocalRcOffscreenTargets.current
+  val captures = LocalRcComponentCaptures.current
   val density = androidx.compose.ui.platform.LocalDensity.current
   val visibility =
     if (forceGone) {
@@ -1016,7 +1050,12 @@ private fun RenderLayoutNode(
       )
   val branchEnterExit =
     if (node is RcLayoutNode.Content) null
-    else rcBranchEnterExitModifier(node.modifiers.animationSpec, sharedElementModifier != null)
+    else
+      rcBranchEnterExitModifier(
+        node.modifiers.animationSpec,
+        sharedElementModifier != null,
+        node.componentId,
+      )
   val outerModifier = if (branchEnterExit != null) modifier.then(branchEnterExit) else modifier
   val boundsModifier =
     if (sharedElementModifier != null) {
@@ -1064,6 +1103,9 @@ private fun RenderLayoutNode(
       } else null
     val effectiveModifier =
       (collapse?.let { Modifier.goneWhenCollapsed(it).then(visibleModifier) } ?: visibleModifier)
+        // Inside the visibility animation, outside everything the component draws itself: what a
+        // component offscreen buffer captures of it by id.
+        .rcComponentCapture(node.componentId, captures)
         .rcTouchExpressions(
           LocalRcTouchExpressions.current[node.componentId].orEmpty(),
           state,
@@ -1136,6 +1178,7 @@ private fun RenderLayoutNode(
             theme,
           )
         ) {
+          val documentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
           node.content
             ?.operations
             ?.takeIf { it.isNotEmpty() }
@@ -1147,14 +1190,22 @@ private fun RenderLayoutNode(
                   drawOperations(
                     operations,
                     state,
-                    RcPaintState(typefaces, drawObserver),
+                    RcPaintState(typefaces, drawObserver, fontFamilies),
                     mutableMapOf(),
                     textMeasurer,
                     images,
-                    RcFloatFunctionRuntime(),
+                    RcFloatFunctionRuntime(documentFunctions),
                     theme,
                     filterTheme = true,
                     offscreenTargets = offscreenTargets,
+                    // Core paints a canvas's operations as its content component.
+                    active =
+                      RcActiveComponent(
+                        node.content?.componentId?.takeIf { it > 0 } ?: node.componentId,
+                        size,
+                        drawSelf = null,
+                      ),
+                    captures = captures,
                   )
                 }
               }
@@ -1169,7 +1220,8 @@ private fun RenderLayoutNode(
             )
           }
         }
-      is RcLayoutNode.CanvasContent ->
+      is RcLayoutNode.CanvasContent -> {
+        val canvasDocumentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
         // `effectiveModifier` carries [trackComponentGeometry]: a document that binds a
         // `ComponentValue` to the canvas content's own id (the AndroidX `RemoteCanvas` writer
         // does) reads its width and height back, and drawing with `Modifier.fillMaxSize()` alone
@@ -1181,17 +1233,20 @@ private fun RenderLayoutNode(
             drawOperations(
               node.operations,
               state,
-              RcPaintState(typefaces, drawObserver),
+              RcPaintState(typefaces, drawObserver, fontFamilies),
               mutableMapOf(),
               textMeasurer,
               images,
-              RcFloatFunctionRuntime(),
+              RcFloatFunctionRuntime(canvasDocumentFunctions),
               theme,
               filterTheme = true,
               offscreenTargets = offscreenTargets,
+              active = RcActiveComponent(node.componentId, size, drawSelf = null),
+              captures = captures,
             )
           }
         }
+      }
       is RcLayoutNode.Custom -> {
         val customModifier =
           effectiveModifier.applyComponentModifiers(
@@ -1633,7 +1688,14 @@ private fun RenderLayoutNode(
               fontStyle =
                 if (operation.fontStyle and 2 != 0) FontStyle.Italic else FontStyle.Normal,
               fontFamily =
-                resolveFontFamily(operation.fontFamilyId, state, fontFamilies, typefaces),
+                resolveFontFamily(
+                  operation.fontFamilyId,
+                  state,
+                  fontFamilies,
+                  typefaces,
+                  weight = boldWeight,
+                  italic = operation.fontStyle and 2 != 0,
+                ),
               textAlign = operation.composeTextAlign(),
             ),
           overflow = operation.composeTextOverflow(),
@@ -1749,6 +1811,8 @@ private fun RenderLayoutNode(
                   fontFamilies,
                   typefaces,
                   withWeightAxis(withItalicAxis(variations, fontStyle and 2 != 0), boldWeight),
+                  boldWeight,
+                  fontStyle and 2 != 0,
                 ),
               textAlign =
                 if (properties.intProperty(17, 0) == 1) TextAlign.Justify
@@ -1937,6 +2001,7 @@ private fun RenderLayoutNode(
       RcVisibilityTransition(
         visibility = visibility,
         spec = node.modifiers.animationSpec,
+        componentId = node.componentId,
         enabled = layoutAnimations,
         // The parent orders its children by `zIndex`, and the child it orders is the visibility
         // wrapper, so that is where the component's own `zIndex` has to be.
@@ -1988,7 +2053,7 @@ internal class RcPlayerRoot {
 }
 
 private val LocalRcPlayerRoot = staticCompositionLocalOf<RcPlayerRoot?> { null }
-private val LocalRcFonts = compositionLocalOf<Map<Int, FontFamily>> { emptyMap() }
+private val LocalRcFonts = compositionLocalOf { RcDocumentFonts.Empty }
 private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
 private val LocalRcCustomComponents = compositionLocalOf { RcCustomComponentRegistry.Empty }
 private val LocalRcInvalidate = compositionLocalOf<() -> Unit> { {} }
@@ -2588,7 +2653,9 @@ private fun Modifier.applyComponentModifiers(
 ): Modifier {
   val density = androidx.compose.ui.platform.LocalDensity.current
   val offscreenTargets = LocalRcOffscreenTargets.current
+  val captures = LocalRcComponentCaptures.current
   val typefaces = LocalRcTypefaces.current
+  val documentFonts = LocalRcFonts.current
   val drawObserver = LocalRcDrawObserver.current
   val frameTime = LocalRcFrameTime.current
   val paintVersion = LocalRcPaintVersion.current
@@ -2635,6 +2702,8 @@ private fun Modifier.applyComponentModifiers(
     return modifier.applyGraphicsLayer(layer, state)
   }
 
+  val documentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
+
   fun applyCanvasOperations(modifier: Modifier): Modifier {
     val operations = canvasOperations ?: return modifier
     appliedCanvasOperations = true
@@ -2645,15 +2714,20 @@ private fun Modifier.applyComponentModifiers(
         drawOperations(
           operations,
           state,
-          RcPaintState(typefaces, drawObserver),
+          RcPaintState(typefaces, drawObserver, documentFonts),
           mutableMapOf(),
           textMeasurer,
           images,
-          RcFloatFunctionRuntime(),
+          RcFloatFunctionRuntime(documentFunctions),
           theme,
           filterTheme = true,
           offscreenTargets = offscreenTargets,
           drawContent = { drawContent() },
+          active =
+            geometryComponentIds.firstOrNull()?.let {
+              RcActiveComponent(it, size, drawSelf = { drawContent() })
+            },
+          captures = captures,
         )
       }
     }
@@ -4736,6 +4810,8 @@ private class RcPaintState(
   val typefaces: RcTypefaceLoader = RcTypefaceLoader.Empty,
   /** Told about each text run as it is drawn; null — the default — records nothing. */
   val observer: RcDrawObserver? = null,
+  /** The document's `FontData` fonts, which a `TYPEFACE` may name as `CoreText` does. */
+  val documentFonts: RcDocumentFonts = RcDocumentFonts.Empty,
 ) {
   var color: Int = 0xff000000.toInt()
   var strokeWidth: Float = 1f
@@ -4758,6 +4834,8 @@ private class RcPaintState(
    * same `PaintData`, and the family has to be instanced at those axes.
    */
   var fontName: String? = null
+  /** The `FontData` id a `TYPEFACE` named, or -1; see [rcPaintTypeface]. */
+  var fontDataId: Int = -1
   /** The axes the last `FONT_AXIS` command set; it replaces the whole set, as AndroidX does. */
   var fontVariations: RcFontVariations? = null
   /**
@@ -4765,7 +4843,16 @@ private class RcPaintState(
    * Resolved per use: the host caches each family per axis set, so this is a lookup.
    */
   val fontFamily: FontFamily
-    get() = rcResolveTypeface(fontName, -1, emptyMap(), typefaces, fontVariations)
+    get() =
+      rcResolveTypeface(
+        fontName,
+        fontDataId,
+        documentFonts,
+        typefaces,
+        fontVariations,
+        fontWeight.weight,
+        fontStyle == FontStyle.Italic,
+      )
 
   var fontWeight: FontWeight = FontWeight.Normal
   var fontStyle: FontStyle = FontStyle.Normal
@@ -4790,20 +4877,190 @@ private class RcPaintState(
     if (stroke) Stroke(width = strokeWidth, cap = strokeCap, join = strokeJoin) else Fill
 }
 
-private class RcFloatFunctionRuntime {
+/**
+ * The float functions a draw stream can call: those it defines itself, then any the document
+ * defines elsewhere ([document]). Core resolves a `FloatFunctionCall` against the whole document,
+ * and writers put definitions ahead of the layout, so a component's stream calls functions it does
+ * not contain.
+ */
+private class RcFloatFunctionRuntime(
+  private val document: Map<Int, RcLinkedNode.Container> = emptyMap()
+) {
   val definitions = mutableMapOf<Int, RcLinkedNode.Container>()
+
+  fun definition(id: Int): RcLinkedNode.Container? = definitions[id] ?: document[id]
+
   val executing = mutableSetOf<Int>()
   val shaders = mutableMapOf<Int, RcShaderData>()
 }
 
-/** Per-draw-pass canvas routing for AndroidX's mutable bitmap targets. */
+/**
+ * Runs a document's custom visibility animations: the `FloatFunctionDefine` an `AnimationSpec`
+ * names with `enterFunctionId` / `exitFunctionId` for a `CUSTOM` enter or exit (remote-core alpha22
+ * `AnimateMeasure.executeCustomAnimation`).
+ *
+ * The function is bound as core binds it — (progress, width, height, x, y, component id), the
+ * position in the component's parent — and draws in its parent's space from a reset paint. Its
+ * `DrawContent` draws the component, clipped to its bounds in a layer at the paint's alpha, as
+ * core's `DrawContent` composites an animating component. The component is also the *active* one
+ * for alpha22's component offscreen buffers: one drawn into is sized to it, and a `DrawContent`
+ * while the buffer is the target paints the component into it at the buffer's origin. Each call
+ * runs in an offscreen-buffer scope of its own, as core's `AnimateMeasure` does.
+ */
+internal class RcVisibilityFunctions(
+  private val operations: List<RcLinkedNode>,
+  private val state: RcPlayerState,
+  private val textMeasurer: TextMeasurer,
+  private val images: MutableMap<Int, ImageBitmap>,
+  private val theme: Int,
+  private val typefaces: RcTypefaceLoader,
+  private val drawObserver: RcDrawObserver?,
+  private val offscreenTargets: RcOffscreenTargetPool,
+  private val captures: RcComponentCaptures? = null,
+  /** The document's `FontData` fonts, which a function's paint may name as other streams do. */
+  private val documentFonts: RcDocumentFonts = RcDocumentFonts.Empty,
+) {
+  /** Every function the document defines, wherever it sits; found on first use. */
+  val definitions: Map<Int, RcLinkedNode.Container> by lazy {
+    buildMap {
+      fun collect(nodes: List<RcLinkedNode>) {
+        for (node in nodes) {
+          if (node !is RcLinkedNode.Container) continue
+          (node.operation as? RcFloatFunctionDefine)?.let { put(it.id, node) }
+          collect(node.children)
+        }
+      }
+      collect(operations)
+    }
+  }
+
+  /** How deep each function is running: a nested component can animate with the same one. */
+  private val depths = mutableMapOf<Int, Int>()
+
+  /**
+   * Draws [scope]'s component through function [functionId] at [progress], or returns false — and
+   * draws nothing — when the document defines no such function, so the caller paints the component
+   * as it is, as core does.
+   */
+  fun draw(
+    scope: ContentDrawScope,
+    functionId: Int,
+    progress: Float,
+    position: Offset,
+    componentId: Int,
+  ): Boolean {
+    val definition = definitions[functionId] ?: return false
+    val parameters = (definition.operation as RcFloatFunctionDefine).parameterIds
+    val depth = depths[functionId] ?: 0
+    // Core's `FloatFunctionDefine.MAX_EXECUTION_DEPTH`; past it core throws and we paint plainly.
+    if (depth >= MAX_FUNCTION_DEPTH) return false
+    val x = floor(position.x)
+    val y = floor(position.y)
+    val arguments =
+      floatArrayOf(
+        progress,
+        ceil(position.x - x + scope.size.width),
+        ceil(position.y - y + scope.size.height),
+        x,
+        y,
+        // Core loads the component id as both an integer and a float; `setFloat` keeps both.
+        componentId.toFloat(),
+      )
+    val bound = parameters.take(arguments.size)
+    // Re-entered from a nested component's content: the outer call's arguments come back after.
+    val outer =
+      if (depth > 0) bound.map { state.resolve(RcFloatWord(NAN_REFERENCE or (it and ID_MASK))) }
+      else null
+    bound.forEachIndexed { index, id -> state.setFloat(id, arguments[index]) }
+    depths[functionId] = depth + 1
+    val canvas = scope.drawContext.canvas
+    val paint = RcPaintState(typefaces, drawObserver, documentFonts)
+    canvas.save()
+    canvas.translate(-position.x, -position.y)
+    // Core's `AnimateMeasure` runs the function in an offscreen-buffer scope of its own, so a
+    // nested component animating with this function gets its own buffers.
+    offscreenTargets.pushScope()
+    try {
+      scope.drawOperations(
+        definition.children,
+        state,
+        paint,
+        mutableMapOf(),
+        textMeasurer,
+        images,
+        RcFloatFunctionRuntime().also { it.definitions.putAll(definitions) },
+        theme,
+        filterTheme = false,
+        drawContent = {
+          val target = scope.drawContext.canvas
+          target.save()
+          target.translate(position.x, position.y)
+          target.saveLayer(
+            Rect(0f, 0f, scope.size.width, scope.size.height),
+            Paint().apply { alpha = paint.effectiveAlpha() },
+          )
+          scope.drawContent()
+          target.restore()
+          target.restore()
+        },
+        offscreenTargets = offscreenTargets,
+        // The animating component is the active one: a buffer it is captured into is sized to it,
+        // and core's `DrawContent` paints it there as it is, at the buffer's origin.
+        active = RcActiveComponent(componentId, scope.size, drawSelf = { scope.drawContent() }),
+        captures = captures,
+        inFunction = true,
+      )
+    } finally {
+      offscreenTargets.popScope(images)
+      canvas.restore()
+      if (depth == 0) depths.remove(functionId) else depths[functionId] = depth
+      outer?.forEachIndexed { index, value -> state.setFloat(bound[index], value) }
+    }
+    return true
+  }
+
+  private companion object {
+    const val MAX_FUNCTION_DEPTH = 16
+    const val NAN_REFERENCE = 0x7fc00000
+    const val ID_MASK = 0x003fffff
+  }
+}
+
+/**
+ * Per-draw-pass canvas routing for AndroidX's mutable bitmap targets, after core's `DrawToBitmap`.
+ *
+ * A declared bitmap is redirected to as it always was. A component offscreen buffer (alpha22) is
+ * sized to its component first, cleared, clipped to its size and pushed as an *offscreen target*
+ * with the component it captures; so is any bitmap drawn to with `MODE_COMPONENT_ID`. While one is
+ * the innermost target, a function body's `DrawContent` draws that component into it
+ * ([drawContent]), and `DrawToBitmap(0)` pops it and resumes the target it interrupted rather than
+ * the main canvas — core's `PaintContext.pushOffscreenTarget` / `popOffscreenTarget`.
+ *
+ * [active] is the component whose stream this pass runs (core's `mLastComponent`), [functionDepth]
+ * counts the function bodies the pass is inside: core's `DrawContent` paints the offscreen target's
+ * component only when no component owns it, which in a stream is only the case in a function body.
+ */
 private class RcDrawTargetState(
   private val mainCanvas: androidx.compose.ui.graphics.Canvas,
   private val mainSize: Size,
   private val images: MutableMap<Int, ImageBitmap>,
   private val offscreenTargets: RcOffscreenTargetPool,
+  private val state: RcPlayerState,
+  private val active: RcActiveComponent?,
+  private val captures: RcComponentCaptures?,
+  var functionDepth: Int = 0,
 ) {
   private var depth = 0
+
+  /** An offscreen target: the component it captures, if any, and the canvas to resume. */
+  private class Offscreen(
+    val componentId: Int?,
+    val canvas: androidx.compose.ui.graphics.Canvas,
+    val size: Size,
+    val clipped: Boolean,
+  )
+
+  private val offscreen = ArrayList<Offscreen>()
 
   fun enter() {
     depth++
@@ -4812,36 +5069,160 @@ private class RcDrawTargetState(
   fun leave(scope: DrawScope) {
     depth--
     check(depth >= 0) { "Unbalanced bitmap draw-target scope" }
-    if (depth == 0) restoreMain(scope)
+    if (depth == 0) {
+      // A stream that never returned to the main canvas still leaves every buffer unclipped.
+      while (offscreen.isNotEmpty()) popOffscreen()
+      restoreMain(scope)
+    }
   }
 
   fun redirect(scope: DrawScope, operation: RcDrawToBitmap, bitmapId: Int) {
     if (bitmapId == 0) {
+      if (offscreen.isNotEmpty()) {
+        popOffscreen()
+        offscreen.lastOrNull()?.let {
+          // Back to the target this one interrupted, without clearing it.
+          scope.drawContext.canvas = it.canvas
+          scope.drawContext.size = it.size
+          return
+        }
+      }
       restoreMain(scope)
+      return
+    }
+    val byComponent = operation.mode and RcDrawToBitmap.MODE_COMPONENT_ID != 0
+    var mode = operation.mode
+    var color = operation.color
+    // Core draws the active component unless the colour word names one the document has.
+    var target = active?.componentId
+    if (byComponent) {
+      mode = mode and RcDrawToBitmap.MODE_COMPONENT_ID.inv()
+      val named = state.resolveComponentReference(operation.color)
+      if (named == active?.componentId || captures?.exists(named) == true) target = named
+      color = 0
+    }
+    val buffer = offscreenTargets.componentBuffers[bitmapId]
+    if (buffer != null) {
+      val bound = ensureComponentBuffer(bitmapId, buffer, target)
+      val size = Size(bound.image.width.toFloat(), bound.image.height.toFloat())
+      redirectTo(scope, bound.canvas, size, mode, color)
+      bound.canvas.save()
+      bound.canvas.clipRect(0f, 0f, size.width, size.height)
+      offscreen += Offscreen(target, bound.canvas, size, clipped = true)
       return
     }
     val source =
       requireNotNull(images[bitmapId]) { "DrawToBitmap references missing bitmap $bitmapId" }
     val canvas = offscreenTargets.canvasFor(bitmapId, source, images)
+    val size = Size(source.width.toFloat(), source.height.toFloat())
+    if (byComponent) offscreen += Offscreen(target, canvas, size, clipped = false)
+    redirectTo(scope, canvas, size, mode, color)
+  }
+
+  /**
+   * A component offscreen buffer the stream declares inline: core's `BitmapData.apply` sizes it
+   * there and then, to its own component or the current target's or the active one.
+   */
+  fun declare(operation: RcBitmapData) {
+    if (operation.encoding != RcBitmapData.ENCODING_COMPONENT_OFFSCREEN_BUFFER) return
+    val buffer = offscreenTargets.componentBuffers[operation.imageId] ?: operation
+    val sized = sizeFor(buffer, offscreen.lastOrNull()?.componentId ?: active?.componentId)
+    if (sized != null) bind(operation.imageId, sized)
+  }
+
+  /**
+   * `DrawContent`. Inside a function body, while an offscreen target captures a component, that is
+   * the component to draw, into the target; anywhere else it is the stream's own content.
+   */
+  fun drawContent(scope: DrawScope, drawContent: (() -> Unit)?) {
+    val captured = offscreen.lastOrNull()?.componentId
+    if (captured == null || functionDepth == 0) {
+      drawContent?.invoke()
+      return
+    }
+    if (captured == active?.componentId) {
+      active.drawSelf?.invoke()
+    } else {
+      captures?.draw(scope, captured)
+    }
+  }
+
+  private fun ensureComponentBuffer(
+    bitmapId: Int,
+    buffer: RcBitmapData,
+    target: Int?,
+  ): RcOffscreenTargetPool.Target {
+    val size = sizeFor(buffer, target)
+    if (size != null) return bind(bitmapId, size)
+    // Nothing to size it to: core keeps whatever the bitmap was last bound to, and has nothing to
+    // draw into when it never was.
+    return requireNotNull(offscreenTargets.boundComponentBuffer(bitmapId)) {
+      "DrawToBitmap component offscreen buffer $bitmapId has no component to size it to"
+    }
+  }
+
+  /**
+   * The size core's `ensureOffscreenBitmap` gives [buffer]: its payload's component when the
+   * document has it, else [fallback] — the component being drawn into it, or the active one.
+   */
+  private fun sizeFor(buffer: RcBitmapData, fallback: Int?): Size? {
+    val named =
+      buffer.offscreenComponentId.takeIf { it != 0 }?.let(state::resolveComponentReference)
+    val component =
+      named?.takeIf { it == active?.componentId || captures?.exists(it) == true } ?: fallback
+    return when {
+      component == null -> null
+      component == active?.componentId -> active.size
+      else -> captures?.size(component)?.let { Size(it.width.toFloat(), it.height.toFloat()) }
+    }
+  }
+
+  private fun bind(bitmapId: Int, size: Size): RcOffscreenTargetPool.Target {
+    // Core's `ensureOffscreenBitmap`: whole pixels covering the component, at least one each way.
+    val width = ceil(size.width).toInt().coerceAtLeast(1)
+    val height = ceil(size.height).toInt().coerceAtLeast(1)
+    require(width <= MAX_OFFSCREEN_DIMENSION && height <= MAX_OFFSCREEN_DIMENSION) {
+      "Dimension of image is invalid ${width}x$height"
+    }
+    return offscreenTargets.componentBuffer(bitmapId, width, height, images)
+  }
+
+  private fun redirectTo(
+    scope: DrawScope,
+    canvas: androidx.compose.ui.graphics.Canvas,
+    size: Size,
+    mode: Int,
+    color: Int,
+  ) {
     scope.drawContext.canvas = canvas
-    scope.drawContext.size = Size(source.width.toFloat(), source.height.toFloat())
-    if (operation.mode and RcDrawToBitmap.MODE_NO_INITIALIZE == 0) {
+    scope.drawContext.size = size
+    if (mode and RcDrawToBitmap.MODE_NO_INITIALIZE == 0) {
       canvas.drawRect(
         0f,
         0f,
-        source.width.toFloat(),
-        source.height.toFloat(),
+        size.width,
+        size.height,
         Paint().apply {
-          color = Color(operation.color)
+          this.color = Color(color)
           blendMode = BlendMode.Src
         },
       )
     }
   }
 
+  private fun popOffscreen() {
+    val popped = offscreen.removeAt(offscreen.lastIndex)
+    if (popped.clipped) popped.canvas.restore()
+  }
+
   private fun restoreMain(scope: DrawScope) {
     scope.drawContext.canvas = mainCanvas
     scope.drawContext.size = mainSize
+  }
+
+  private companion object {
+    /** Core's `Limits.MAX_IMAGE_DIMENSION`. */
+    const val MAX_OFFSCREEN_DIMENSION = 8000
   }
 }
 
@@ -4858,6 +5239,9 @@ private fun DrawScope.drawOperations(
   drawContent: (() -> Unit)? = null,
   offscreenTargets: RcOffscreenTargetPool? = null,
   targets: RcDrawTargetState? = null,
+  active: RcActiveComponent? = null,
+  captures: RcComponentCaptures? = null,
+  inFunction: Boolean = false,
 ) {
   val activeTargets =
     targets
@@ -4866,6 +5250,10 @@ private fun DrawScope.drawOperations(
         drawContext.size,
         images,
         requireNotNull(offscreenTargets) { "Top-level drawing requires an offscreen target pool" },
+        state,
+        active,
+        captures,
+        functionDepth = if (inFunction) 1 else 0,
       )
   activeTargets.enter()
   state.beginPaint()
@@ -5149,7 +5537,7 @@ private fun DrawScope.drawOperationsRouted(
       is RcUpdateDynamicFloatList -> state.applyDataOperation(operation)
       is RcFloatFunctionCall -> {
         val definition =
-          requireNotNull(functions.definitions[operation.functionId]) {
+          requireNotNull(functions.definition(operation.functionId)) {
             "Missing float function ${operation.functionId}"
           }
         val descriptor = definition.operation as RcFloatFunctionDefine
@@ -5160,6 +5548,7 @@ private fun DrawScope.drawOperationsRouted(
         require(functions.executing.add(operation.functionId)) {
           "Recursive float function ${operation.functionId} is not allowed"
         }
+        targets.functionDepth++
         try {
           operation.arguments.forEachIndexed { index, argument ->
             state.setFloat(descriptor.parameterIds[index], state.resolve(argument))
@@ -5178,6 +5567,7 @@ private fun DrawScope.drawOperationsRouted(
             targets = targets,
           )
         } finally {
+          targets.functionDepth--
           functions.executing.remove(operation.functionId)
         }
       }
@@ -5231,12 +5621,13 @@ private fun DrawScope.drawOperationsRouted(
         )
       is RcDrawTweenPath -> drawTweenPath(operation, paint, state)
       is RcDrawToBitmap -> targets.redirect(this, operation, state.drawId(operation.bitmapId))
+      is RcBitmapData -> targets.declare(operation)
       is RcShaderData -> functions.shaders[operation.shaderId] = operation
       is RcNoArg ->
         when (operation.opcode) {
           RcOpcodes.MATRIX_SAVE -> drawContext.canvas.save()
           RcOpcodes.MATRIX_RESTORE -> drawContext.canvas.restore()
-          RcOpcodes.DRAW_CONTENT -> drawContent?.invoke()
+          RcOpcodes.DRAW_CONTENT -> targets.drawContent(this, drawContent)
         }
       else -> Unit // Constants/data have already populated RcPlayerState.
     }
@@ -5250,33 +5641,27 @@ private fun decodeInlineImagesUncounted(document: RcDocument): MutableMap<Int, I
   document.operations
     .filterIsInstance<RcBitmapData>()
     .mapNotNull { bitmap ->
-      if (bitmap.encoding != RcBitmapData.ENCODING_INLINE) null
-      else runCatching { bitmap.imageId to decodeInlineImage(bitmap) }.getOrNull()
+      when (bitmap.encoding) {
+        RcBitmapData.ENCODING_INLINE ->
+          runCatching { bitmap.imageId to decodeInlineImage(bitmap) }.getOrNull()
+        // `createBitmap(id, width, height)`: a blank bitmap to draw into, as core allocates one.
+        RcBitmapData.ENCODING_EMPTY -> bitmap.imageId to ImageBitmap(bitmap.width, bitmap.height)
+        else -> null
+      }
     }
     .toMap()
     .toMutableMap()
 
-private fun decodeInlineFonts(document: RcDocument): Map<Int, FontFamily> =
-  rcTrace(RcTraceCategory.DOCUMENT, "rc:decodeFonts") { decodeInlineFontsUncounted(document) }
-
-private fun decodeInlineFontsUncounted(document: RcDocument): Map<Int, FontFamily> =
-  document.operations
-    .filterIsInstance<RcFontData>()
-    .mapNotNull { font ->
-      runCatching {
-        font.fontId to FontFamily(rcFontFromBytes("remote-compose-${font.fontId}", font.data))
-      }
-        .getOrNull()
-    }
-    .toMap()
+private fun decodeInlineFonts(document: RcDocument): RcDocumentFonts =
+  rcTrace(RcTraceCategory.DOCUMENT, "rc:decodeFonts") { RcDocumentFonts.of(document) }
 
 /**
  * The [FontFamily] a text op's `fontFamilyId` names, instanced at [settings] when the host holds
  * the face's bytes.
  *
- * [variations] are the document's font-variation axes. They can only be applied to a host face
- * ([RcFontFaces] keeps the bytes for exactly this reason) — a generic family or an inline
- * `FontData` resolves to a `FontFamily` whose faces are already built, so for those the axes are
+ * [variations] are the document's font-variation axes. They apply to a face whose bytes the player
+ * holds — a host face ([RcFontFaces]) or the document's own `FontData` ([RcDocumentFonts]); a
+ * generic family resolves to a `FontFamily` whose faces are already built, so for that the axes are
  * dropped rather than approximated. That is a substitution the render shows honestly; approximating
  * `wdth` by scaling would not be.
  *
@@ -5286,11 +5671,21 @@ private fun decodeInlineFontsUncounted(document: RcDocument): Map<Int, FontFamil
 private fun resolveFontFamily(
   fontFamilyId: Int,
   state: RcPlayerState,
-  embeddedFonts: Map<Int, FontFamily>,
+  embeddedFonts: RcDocumentFonts,
   typefaces: RcTypefaceLoader,
   variations: RcFontVariations? = null,
+  weight: Int = 400,
+  italic: Boolean = false,
 ): FontFamily =
-  rcResolveTypeface(state.text(fontFamilyId), fontFamilyId, embeddedFonts, typefaces, variations)
+  rcResolveTypeface(
+    state.text(fontFamilyId),
+    fontFamilyId,
+    embeddedFonts,
+    typefaces,
+    variations,
+    weight,
+    italic,
+  )
 
 /**
  * The font-variation axes a `CoreText` style declares: property 20 is a list of *text ids* naming
@@ -6719,19 +7114,9 @@ private fun applyPaint(
         val style = command ushr 16
         val fontType = operation.words[index++]
         state.fontType = fontType
-        state.fontName =
-          when {
-            fontType == 0 -> RC_DEFAULT_FAMILY
-            fontType == 1 -> "sans-serif"
-            fontType == 2 -> "serif"
-            fontType == 3 -> "monospace"
-            // Above the generic range, and without the font-data bit, AndroidX reads the word as
-            // the text id of a family name — what `RcPaint.setTypeface(String)` writes.
-            fontType > PAINT_MAX_GENERIC_FONT_TYPE && style and PAINT_TYPEFACE_FONT_DATA == 0 ->
-              values.text(fontType)
-                ?: error("AndroidX font family text $fontType is not in the document")
-            else -> error("AndroidX font id $fontType is not implemented by the CMP backend")
-          }
+        val typeface = rcPaintTypeface(fontType, style, values::text, state.documentFonts)
+        state.fontName = typeface.familyName
+        state.fontDataId = typeface.fontDataId
         state.fontWeight = FontWeight((style and 0x3ff).takeIf { it > 0 } ?: 400)
         state.fontStyle = if (style and 0x800 != 0) FontStyle.Italic else FontStyle.Normal
       }
@@ -6885,15 +7270,6 @@ internal fun fourCharacterTag(word: Int): String? =
  */
 internal fun isFontAxisTag(tag: String): Boolean =
   tag.length == 4 && tag.all { it in ' '..'~' } && tag[0] != ' '
-
-/**
- * AndroidX `PaintBundle` reads a `TYPEFACE` font type above this as a text id naming the family; at
- * or below it, as a generic family (0–3) or a `FontData` id.
- */
-private const val PAINT_MAX_GENERIC_FONT_TYPE = 10
-
-/** The `TYPEFACE` style bit marking the font type as a `FontData` id rather than a family name. */
-private const val PAINT_TYPEFACE_FONT_DATA = 1024
 
 private fun blendMode(value: Int): BlendMode =
   when (value) {

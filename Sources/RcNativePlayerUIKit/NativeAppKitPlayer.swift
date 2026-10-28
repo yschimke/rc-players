@@ -3403,6 +3403,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     conformanceFontName: String?
   ) {
     if label.stringValue != text.value { label.stringValue = text.value }
+    // A dp-typed size (`sizeIsDensityTyped`) needs no scaling here: AppKit points are this
+    // player's dp, so dp-typed values resolve at density 1, as its padding does.
     let size = max(CGFloat(text.size), 1)
     let weight = NSFont.Weight(rawValue: min(max(CGFloat(text.weight - 400) / 500, -1), 1))
     var font = NSFont.systemFont(ofSize: size, weight: weight)

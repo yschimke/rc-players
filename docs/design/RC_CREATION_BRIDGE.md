@@ -203,6 +203,49 @@ remote-m3-catalog's Visual Editor uses this (behind `-PrcPlayersDir`) to run its
 on the real recording, played, instead of Compose UI stand-ins: every authored node of the golden
 designs gets bounds from the player, nested as the design nests them.
 
+## Custom visibility animations
+
+remote-core alpha22 lets a component's `AnimationSpec` name a float function to draw its enter or
+exit with: the player binds the function's six parameters to progress, width, height, x, y and the
+component's id, and runs it in place of drawing the component. The function can draw the component
+directly (`DrawContent`) or render it into a component offscreen buffer (`BitmapData` with
+`ENCODING_COMPONENT_OFFSCREEN_BUFFER`, filled by `DrawToBitmap` with `MODE_COMPONENT_ID`) and draw
+that, through a shader for instance.
+
+AndroidX authors these only below Compose: `RemoteComposeWriter.createFloatFunction`,
+`createOffscreenBitmap` and `drawComponentToBitmap`, and the `RcScope.defineVisibilityAnimation`
+DSL. `remote-creation-compose` can name a function (`RemoteEnterTransition.Custom(functionId)`,
+library-group restricted) but has no way to define one. So the layers split the same way here:
+
+- **The fork's writer** carries AndroidX's writer methods under their names:
+  `RemoteWriter.createOffscreenBitmap(componentId = 0)`, `drawComponentToBitmap(componentId,
+  bitmapId)` / `drawComponentToBitmap(bitmapId)`, `createFloatFunction(args)` /
+  `endFloatFunction()`, and `callFloatFunction(id, args)`. Each writes AndroidX's bytes
+  (`AndroidxVisibilityAnimationBytesTest` compares them with alpha22's own writer).
+- **The fork's Compose layer** gains nothing: AndroidX has no Compose API for it to mirror.
+- **This module** carries the convenience: `RemoteWriter.defineVisibilityAnimation { component,
+  progress, width, height, x, y -> }`, as the DSL's, and `rcCustomEnterTransition(id)` /
+  `rcCustomExitTransition(id)` for `animateEnterExit`, `sharedElement` or `animationSpec`.
+
+A host defines its animations on the writer, then captures content into the same writer with
+`captureCommonRemoteDocumentInto`; the content names them by the ids the definitions returned. A
+`RemoteDocumentSession` renders each frame into a fresh writer: define the same animations first on
+each, and they get the same ids each time.
+
+Two things differ from a plain AndroidX writer, both because the fork hoists declarations ahead of
+the layout:
+
+- **The definition goes ahead of the layout whole, its body not hoisted further.** A player
+  evaluates a function body's expressions and data only when it runs the function, with its
+  parameters bound, so they stay inside it, in order, as AndroidX writes them. Nothing the body
+  declares is reused after it: the writer's dedup caches go back to what they held before.
+- **A document that draws to a bitmap declares AndroidX's profile.** remote-core reads
+  `DrawToBitmap` only under the AndroidX or widgets profile, and stops at it under any other
+  ("Unknown operation encountered 190"). Upstream's writer refuses the operation under such a
+  profile; the fork's writer adds `PROFILE_ANDROIDX` to the header itself, as it adds the
+  experimental profile for custom components. This also fixes `RemoteCanvas.drawToOffscreenBitmap`,
+  whose documents AndroidX could not read before.
+
 ## Bugs found on the way
 
 - **Custom component ids.** The port's `RemoteDocumentWriter.startCustom` wrote its content section

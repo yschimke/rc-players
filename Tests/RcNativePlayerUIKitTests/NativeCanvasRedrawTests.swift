@@ -84,7 +84,7 @@
     /// `NativeDrawCommand.==` is written out member by member; a new stored property must be
     /// compared there too. Update this count only after doing so.
     @Test func equalityCoversEveryStoredProperty() {
-      #expect(Mirror(reflecting: NativeDrawCommand(snapshot())).children.count == 24)
+      #expect(Mirror(reflecting: NativeDrawCommand(snapshot())).children.count == 25)
     }
   }
 #endif

@@ -194,6 +194,38 @@ Deliberately skipped:
 - `RemoteComposeCreationState` keeps `layoutDirection` as its stored property and derives
   `remoteLayoutDirection`; upstream stores the remote one. Same values, no constructor change.
 
+## alpha22 write side: component offscreen buffers and visibility functions
+
+Not a refresh: `b34eed8a88b` ("Add custom visibility animation support", in the alpha22 cut
+`0b7d5401bee`) authors these only below `remote-creation-compose`, in `remote-core`'s
+`RemoteComposeBuffer` and `remote-creation-core`'s `RemoteComposeWriter` and `RcScope` DSL. At
+`5dab33683`, `remote-creation-compose` has no API to define either, only the library-group
+`RemoteEnterTransition`/`RemoteExitTransition.Custom(functionId)` and `animationSpec` function ids
+already carried.
+
+Taken into `../remote-creation-writer`, under `RemoteComposeWriter`'s names:
+
+- `RemoteWriter.createOffscreenBitmap(componentId = 0)`: `BitmapData` `TYPE_RAW8888`, 1x1,
+  `ENCODING_COMPONENT_OFFSCREEN_BUFFER`, with the component id as a 4-byte big-endian payload when
+  non-zero (`RemoteComposeBuffer.createOffscreenBitmap`).
+- `drawComponentToBitmap(componentId, bitmapId)` and `drawComponentToBitmap(bitmapId)`: default
+  methods composing `drawOnBitmap` (`MODE_COMPONENT_ID` for the first), `drawComponentContent` and
+  `drawOnBitmap(0, 0, 0)`, as upstream composes them.
+- `createFloatFunction(args)`, `endFloatFunction()` and `callFloatFunction(id, args)`
+  (`FunctionDefine` 168, `FunctionCall` 166), allocating the function id then one id per
+  parameter, as upstream.
+
+The fork's Compose layer takes nothing, as AndroidX has nothing there to mirror.
+`RcScope.defineVisibilityAnimation`'s equivalent, and helpers naming a function as a transition,
+are rc-players' own, in `:rc-creation-bridge` (`RcVisibilityAnimations.kt`).
+
+The writer hoists declarations ahead of the layout, which upstream's does not, so a function is
+written whole into the declarations: its body, declarations included, stays inline and in order,
+because a player evaluates it only when it runs the function, and the dedup caches forget what the
+body declared once it ends. The first paint inside a function, and the first after it, are written
+in full. Byte equality with alpha22's `RemoteComposeWriter` and DSL, and alpha22's `CoreDocument`
+reading the result, are tested in `:rc-creation-bridge`'s jvmTest.
+
 ## Local patches
 
 Every patched line sits under a `// LOCAL PATCH (rc-players)` comment. Each patch is generic enough
@@ -208,6 +240,7 @@ to offer upstream, and the list is meant to shrink.
 | `modifier/ComponentIdModifier.kt` (new), `layout/RemoteComposeNode.kt`, `capture/CommonCreationState.kt`, `modifier/RemoteModifier.kt` | `RemoteModifier.componentId(id)`: a node takes a requested component id (at most `MaxExplicitComponentId`, -2,000,000, below both ranges a document allocates) instead of a positional one, once per render | Lets a host name components: an editor maps the player's geometry back to its own nodes (`RcComponentIds` in `:rc-creation-bridge`) |
 | `capture/DisplayInfo.kt` | `RemoteDensityBehavior.wireValue` | Lets a writer outside the module describe the same display |
 | `../remote-creation-writer/.../RemoteDocumentWriter.kt` | `startCustom` content section takes a fresh component id | **Port bug.** Upstream's `addContentStart` allocates one; the port reused the layout's own id, and rc-players' player rejects the duplicate. The same fix is in yschimke/remote-m3-catalog's vendor copy (yschimke/remote-m3-catalog#133); this patch retires when that lands and the fork is re-taken from it. |
+| `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`encodeToByteArray`) | A document that draws to a bitmap declares `PROFILE_ANDROIDX` unless it declares the AndroidX or widgets profile already | remote-core reads `DrawToBitmap` under no other profile and stops at it ("Unknown operation encountered 190"), so the fork's default profile-0 documents with an offscreen buffer (`drawToOffscreenBitmap` included) did not load in AndroidX. Upstream's writer refuses the operation instead; the fork names the profile, as it does the experimental one for custom components. |
 | `modifier/DrawWithContentModifier.kt`, `layout/RemoteDrawScope.kt`, `layout/RemoteContentDrawScope.kt` | A `drawWithContent` after padding draws inside it: translated past the padding before it, its scope's `width`/`height` reduced by it, its content drawn back at the component's origin | **Port bug.** AndroidX writes it this way, and the player does not inset a draw modifier itself, so the fork drew a padded component's decoration over its padding |
 | `layout/RemoteText.kt` (`dpDocumentFontSizeDp`) | In a `RemoteDensityBehavior.Dp` document a constant font size is written in dp, not the capture's pixels | **Upstream bug.** remote-core alpha22's `CoreText`/`TextLayout` multiply a literal font size by the host density in a DP document, as they do padding, so the pixels upstream writes drew text at density squared in the View player and the CMP player alike. A non-constant size stays the pixel expression, which the core reads unscaled. `DpDocumentFontSizeTest` covers it. |
 

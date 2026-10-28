@@ -2,7 +2,9 @@
 
 package ee.schimke.composeai.rcplayer.compat
 
+import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.core.WireBuffer
+import androidx.compose.remote.core.operations.BitmapData
 import androidx.compose.remote.core.operations.BitmapFontData as AndroidxBitmapFontData
 import androidx.compose.remote.core.operations.BitmapTextMeasure as AndroidxBitmapTextMeasure
 import androidx.compose.remote.core.operations.DrawBitmapFontText
@@ -28,6 +30,7 @@ import androidx.compose.remote.core.operations.loom.PatternDefine
 import androidx.compose.remote.core.operations.loom.PatternForEach
 import androidx.compose.remote.core.operations.loom.PatternInflation
 import androidx.compose.remote.core.operations.utilities.AnimatedFloatExpression
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapTextMeasure
 import ee.schimke.composeai.rcplayer.protocol.RcComponentStart
@@ -192,6 +195,42 @@ class AndroidxExperimentalOperationCompatibilityTest {
     val target = assertIs<RcDrawToBitmap>(operations[1])
     assertEquals(DrawToBitmap.MODE_NO_INITIALIZE, target.mode)
     assertEquals(0xff336699.toInt(), target.color)
+    assertContentEquals(bytes, RcDocumentCodec.encode(RcDocumentCodec.decode(bytes)))
+  }
+
+  /**
+   * alpha22's component offscreen buffers as AndroidX's own writer produces them:
+   * `createOffscreenBitmap` with and without a component id, and the `DrawToBitmap` that
+   * `drawComponentToBitmap(componentId, bitmapId)` starts with.
+   */
+  @Test
+  fun componentOffscreenBuffersUseAndroidxWriterBytes() {
+    val buffer = RemoteComposeBuffer()
+    buffer.addHeader(
+      shortArrayOf(Header.DOC_WIDTH, Header.DOC_HEIGHT, Header.DOC_PROFILES),
+      arrayOf<Any>(120, 80, ANDROIDX_EXPERIMENTAL_PROFILE),
+    )
+    buffer.createOffscreenBitmap(820)
+    buffer.createOffscreenBitmap(821, 15)
+    buffer.drawOnBitmap(821, DrawToBitmap.MODE_COMPONENT_ID, 15)
+    buffer.drawOnBitmap(0, 0, 0)
+
+    val bytes = bytes(buffer.buffer)
+    val operations = RcDocumentCodec.decode(bytes).operations
+
+    val active = assertIs<RcBitmapData>(operations[0])
+    assertEquals(820, active.imageId)
+    assertEquals(BitmapData.ENCODING_COMPONENT_OFFSCREEN_BUFFER.toInt(), active.encoding)
+    assertEquals(RcBitmapData.ENCODING_COMPONENT_OFFSCREEN_BUFFER, active.encoding)
+    assertEquals(BitmapData.TYPE_RAW8888.toInt(), active.type)
+    assertEquals(1 to 1, active.width to active.height)
+    assertEquals(0, active.data.size)
+    val named = assertIs<RcBitmapData>(operations[1])
+    assertContentEquals(byteArrayOf(0, 0, 0, 15), named.data)
+    val capture = assertIs<RcDrawToBitmap>(operations[2])
+    assertEquals(DrawToBitmap.MODE_COMPONENT_ID, RcDrawToBitmap.MODE_COMPONENT_ID)
+    assertEquals(RcDrawToBitmap(821, RcDrawToBitmap.MODE_COMPONENT_ID, 15), capture)
+    assertEquals(RcDrawToBitmap(0, 0, 0), operations[3])
     assertContentEquals(bytes, RcDocumentCodec.encode(RcDocumentCodec.decode(bytes)))
   }
 

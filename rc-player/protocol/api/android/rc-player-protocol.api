@@ -66,8 +66,31 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcAndroidSystemColors 
 	public final fun nameAt (I)Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/protocol/RcAnimationSequence {
+	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcAnimationSequence$Companion;
+	public static final synthetic fun box-impl (I)Lee/schimke/composeai/rcplayer/protocol/RcAnimationSequence;
+	public static fun constructor-impl (I)I
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public final fun getWireValue ()I
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcAnimationSequence$Companion {
+	public final fun fromAndroidX-9oizZWM (I)I
+	public final fun getAfter-lsXI3_I ()I
+	public final fun getBefore-lsXI3_I ()I
+	public final fun getConcurrent-lsXI3_I ()I
+}
+
 public final class ee/schimke/composeai/rcplayer/protocol/RcAnimationSpec : ee/schimke/composeai/rcplayer/protocol/RcOperation {
-	public synthetic fun <init> (IIIIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (IIIIIIIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (IIIIIIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
 	public final fun component2-tGZKRUM ()I
 	public final fun component3 ()I
@@ -75,12 +98,16 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcAnimationSpec : ee/s
 	public final fun component5 ()I
 	public final fun component6-39VkKJc ()I
 	public final fun component7-39VkKJc ()I
-	public final fun copy-DE1r5UA (IIIIIII)Lee/schimke/composeai/rcplayer/protocol/RcAnimationSpec;
-	public static synthetic fun copy-DE1r5UA$default (Lee/schimke/composeai/rcplayer/protocol/RcAnimationSpec;IIIIIIIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcAnimationSpec;
+	public final fun component8 ()I
+	public final fun component9 ()I
+	public final fun copy-SQxoT0I (IIIIIIIII)Lee/schimke/composeai/rcplayer/protocol/RcAnimationSpec;
+	public static synthetic fun copy-SQxoT0I$default (Lee/schimke/composeai/rcplayer/protocol/RcAnimationSpec;IIIIIIIIIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcAnimationSpec;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getAnimationId ()I
 	public final fun getEnterAnimation-39VkKJc ()I
+	public final fun getEnterFunctionId ()I
 	public final fun getExitAnimation-39VkKJc ()I
+	public final fun getExitFunctionId ()I
 	public final fun getMotionDurationMillis-tGZKRUM ()I
 	public final fun getMotionEasingType ()I
 	public fun getOpcode ()I
@@ -1159,6 +1186,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcDrawTextOnPath : ee/
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcDrawToBitmap : ee/schimke/composeai/rcplayer/protocol/RcOperation {
 	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcDrawToBitmap$Companion;
+	public static final field MODE_COMPONENT_ID I
 	public static final field MODE_NO_INITIALIZE I
 	public fun <init> (III)V
 	public final fun component1 ()I
@@ -2063,15 +2091,18 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcLayoutAnimation {
 	public static fun equals-impl (ILjava/lang/Object;)Z
 	public static final fun equals-impl0 (II)Z
 	public static final fun getAndroidXValue-impl (I)I
+	public static final fun getSequence-lsXI3_I (I)I
 	public final fun getWireValue ()I
 	public fun hashCode ()I
 	public static fun hashCode-impl (I)I
+	public static final fun sequenced-UJy3QIA (II)I
 	public fun toString ()Ljava/lang/String;
 	public static fun toString-impl (I)Ljava/lang/String;
 	public final synthetic fun unbox-impl ()I
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcLayoutAnimation$Companion {
+	public final fun getCustom-39VkKJc ()I
 	public final fun getFadeIn-39VkKJc ()I
 	public final fun getFadeOut-39VkKJc ()I
 	public final fun getParticle-39VkKJc ()I

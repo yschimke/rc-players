@@ -1,4 +1,5 @@
 import CoreGraphics
+
 #if canImport(RcNativePlayerCore)
   import RcNativePlayerCore
 #endif
@@ -26,20 +27,38 @@ enum NativeOffscreenRedirect {
 /// The core bounds what a document can ask for (64 targets, 16777216 pixels in all), charging each
 /// bitmap id once. The pool holds one target per id and refuses to grow past that same ceiling, so
 /// it allocates at most that however many components draw into the targets.
+///
+/// A component offscreen buffer (remote-core alpha22, `BitmapData.ensureOffscreenBitmap`) is sized
+/// by its host to a component each time drawing is redirected into it, within the core's
+/// `NativeSwiftComponentOffscreenBuffer` bounds. Buffers are bound in scopes: a custom visibility
+/// animation's call opens one, as the reference's `pushOffscreenScope` does, so a nested component
+/// animating with the same function and buffer gets a buffer of its own, and the call's buffers go
+/// when it ends. Outside any call they live in the base scope and keep their pixels between frames.
+/// They share the pool's pixel ceiling, and a buffer the ceiling refuses is dropped.
 final class NativeOffscreenTargets {
   static let maximumTargets = 64
   static let maximumPixels = 16_777_216
 
   private var contexts: [Int: CGContext] = [:]
+  /// Component buffers by id, innermost scope last. The first scope is the base one.
+  private var bufferScopes: [[Int: CGContext]] = [[:]]
   private var pixels = 0
 
   /// Where later commands draw for `target`, erased first unless its mode says not to: the canvas
   /// when `target` returns drawing to it, and `.dropped` when Core Graphics cannot allocate the
   /// target or the pool's ceiling refuses it.
+  ///
+  /// A component offscreen buffer takes `componentSize` instead of its declared size; without one
+  /// — no component to size it to, or one the reference would refuse — it is dropped.
   func begin(
-    _ target: NativeSwiftOffscreenTargetSnapshot, seed: CGImage?
+    _ target: NativeSwiftOffscreenTargetSnapshot, seed: CGImage?,
+    componentSize: (width: Int, height: Int)? = nil
   ) -> NativeOffscreenRedirect {
     if target.returnsToCanvas { return .canvas }
+    if target.isComponentBuffer {
+      guard let componentSize else { return .dropped }
+      return beginBuffer(target, width: componentSize.width, height: componentSize.height)
+    }
     guard target.width > 0, target.height > 0 else { return .dropped }
     let context: CGContext
     if let existing = contexts[target.bitmapID], existing.width == target.width,
@@ -63,9 +82,60 @@ final class NativeOffscreenTargets {
     return .offscreen(context)
   }
 
-  /// What target `id` holds now, or nil when nothing has drawn into it.
+  /// Resumes drawing into a target without erasing it: the enclosing component target a redirect
+  /// back to bitmap 0 returns to (`BitmapData.resumeOffscreenTargetCanvas`).
+  func resume(_ bitmapID: Int) -> NativeOffscreenRedirect {
+    guard let context = buffer(bitmapID) ?? contexts[bitmapID] else { return .dropped }
+    return .offscreen(context)
+  }
+
+  /// Opens a scope for the component buffers a custom visibility animation's call binds.
+  func pushScope() {
+    bufferScopes.append([:])
+  }
+
+  /// Closes the innermost scope, releasing its buffers; the bindings outside it are the ones a
+  /// `DrawBitmap` reads again. The base scope is never closed.
+  func popScope() {
+    guard bufferScopes.count > 1, let scope = bufferScopes.popLast() else { return }
+    for context in scope.values { pixels -= context.width * context.height }
+  }
+
+  /// What target `id` holds now, or nil when nothing has drawn into it. A component buffer's
+  /// innermost binding wins.
   func image(_ id: Int) -> CGImage? {
-    contexts[id]?.makeImage()
+    (buffer(id) ?? contexts[id])?.makeImage()
+  }
+
+  private func buffer(_ id: Int) -> CGContext? {
+    bufferScopes.reversed().lazy.compactMap { $0[id] }.first
+  }
+
+  private func beginBuffer(
+    _ target: NativeSwiftOffscreenTargetSnapshot, width: Int, height: Int
+  ) -> NativeOffscreenRedirect {
+    let scope = bufferScopes.count - 1
+    let context: CGContext
+    if let existing = bufferScopes[scope][target.bitmapID], existing.width == width,
+      existing.height == height
+    {
+      context = existing
+    } else {
+      // A buffer resized to a new component is replaced, in its own scope only: an enclosing
+      // scope's binding comes back when this one closes.
+      if let stale = bufferScopes[scope].removeValue(forKey: target.bitmapID) {
+        pixels -= stale.width * stale.height
+      }
+      let size = width * height
+      guard width > 0, height > 0, size <= Self.maximumPixels - pixels,
+        let created = Self.make(width: width, height: height, seed: nil)
+      else { return .dropped }
+      bufferScopes[scope][target.bitmapID] = created
+      pixels += size
+      context = created
+    }
+    if target.erasesTarget { Self.erase(context, to: target.colorARGB) }
+    return .offscreen(context)
   }
 
   private static func make(width: Int, height: Int, seed: CGImage?) -> CGContext? {

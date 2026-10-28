@@ -203,6 +203,8 @@ public fun RcDocument.composeSupportReport(
 ): RcComposeSupportReport {
   val issues = mutableListOf<RcComposeSupportIssue>()
   val bitmapIds = operations.filterIsInstance<RcBitmapData>().mapTo(mutableSetOf()) { it.imageId }
+  val componentBufferIds = rcComponentOffscreenBuffers(this).keys
+  val hasLayout = operations.any { it is ee.schimke.composeai.rcplayer.protocol.RcRootLayout }
   val shaderIds = operations.filterIsInstance<RcShaderData>().mapTo(mutableSetOf()) { it.shaderId }
   // Both the shader-install scan and the offscreen audit ask what the RENDERER will do, and the
   // renderer draws the LINKED stream, not the wire stream. `RcDocumentLinker` drops a
@@ -216,8 +218,8 @@ public fun RcDocument.composeSupportReport(
   // worse than what these checks would otherwise see.
   val linkResult = runCatching { RcDocumentLinker.link(this) }
   val reachable = reachableOperations(this, linkResult.getOrNull())
-  val paintedShaderIds = referencedShaderIds(reachable, shaderIds)
   val fontIds = operations.filterIsInstance<RcFontData>().mapTo(mutableSetOf()) { it.fontId }
+  val paintedShaderIds = referencedShaderIds(reachable, shaderIds, fontIds)
   val particleDefinitionGroups = operations.filterIsInstance<RcParticleDefine>().groupBy { it.id }
   val particleDefinitions = particleDefinitionGroups.mapValues { it.value.last() }
   val texts =
@@ -378,9 +380,10 @@ public fun RcDocument.composeSupportReport(
               else -> "font axis tag $word is not declared"
             }
           },
-          // A paint family is held to CoreText's rule: canvas text has no FontData path, so a
-          // named family must be a generic or one the host supplies.
-          familyIssue = { id -> fontFamilyIssue(id, texts, emptySet(), availableFontFamilies) },
+          // A paint family is held to CoreText's rule: a generic, one the host supplies, or a
+          // font the document embeds (`rcPaintTypeface`).
+          familyIssue = { id -> fontFamilyIssue(id, texts, fontIds, availableFontFamilies) },
+          embeddedFontIds = fontIds,
         )
         ?.let { detail -> issues += RcComposeSupportIssue(index, "PaintData", detail) }
     }
@@ -450,6 +453,17 @@ public fun RcDocument.composeSupportReport(
           "bitmap id ${operation.bitmapId} is not declared",
         )
     }
+    // A component offscreen buffer is sized to a component when it is drawn into. A document with
+    // no layout has none, so there is nothing to size it to and nothing to draw into: core's
+    // `DrawToBitmap` fails on the missing bitmap, and so does the player.
+    if (!hasLayout && operation is RcDrawToBitmap && operation.bitmapId in componentBufferIds) {
+      issues +=
+        RcComposeSupportIssue(
+          index,
+          "DrawToBitmap",
+          "component offscreen buffer ${operation.bitmapId} has no component to size it to",
+        )
+    }
     if (operation is RcDebugMessage && operation.textId !in textIds) {
       issues +=
         RcComposeSupportIssue(index, "DebugMessage", "text id ${operation.textId} is not declared")
@@ -502,6 +516,10 @@ public fun RcDocument.composeSupportReport(
     }
     if (operation is RcBitmapData) {
       when {
+        // Allocated by the player: a blank bitmap to draw into, and alpha22's component offscreen
+        // buffer, sized to its component as it is drawn into.
+        operation.encoding == RcBitmapData.ENCODING_EMPTY ||
+          operation.encoding == RcBitmapData.ENCODING_COMPONENT_OFFSCREEN_BUFFER -> Unit
         operation.encoding != RcBitmapData.ENCODING_INLINE &&
           !allowExternalImagePlaceholders &&
           operation.imageId !in availableImageIds ->
@@ -1174,9 +1192,15 @@ private fun reachableOperations(
  * fault is unknown — that paint is already reported as an issue of its own, and a document with one
  * is refused before any of this matters.
  */
-private fun referencedShaderIds(reachable: List<RcOperation>, shaderIds: Set<Int>): Set<Int> {
+private fun referencedShaderIds(
+  reachable: List<RcOperation>,
+  shaderIds: Set<Int>,
+  embeddedFontIds: Set<Int>,
+): Set<Int> {
   val referenced = mutableSetOf<Int>()
-  reachable.filterIsInstance<RcPaintData>().forEach { paintIssue(it, shaderIds, referenced) }
+  reachable.filterIsInstance<RcPaintData>().forEach {
+    paintIssue(it, shaderIds, referenced, embeddedFontIds = embeddedFontIds)
+  }
   return referenced
 }
 
@@ -1195,7 +1219,9 @@ private fun referencedShaderIds(reachable: List<RcOperation>, shaderIds: Set<Int
  * - sized by [offscreenTargetSize], because the pool charges `source.width * source.height` of the
  *   DECODED image rather than the declared fields;
  * - `bitmapId == 0` means the stage rather than a target, and an undeclared id is already reported
- *   next to the operation — neither reaches an allocation, so neither is counted here.
+ *   next to the operation — neither reaches an allocation, so neither is counted here;
+ * - a component offscreen buffer (alpha22) counts as a target, but its pixels are its component's,
+ *   which only the laid-out document knows; it is charged its declared 1 x 1 here.
  */
 private fun offscreenAllocationIssues(
   reachable: List<RcOperation>,
@@ -1469,9 +1495,11 @@ private fun textStyleIssue(
   // unequal lengths mean the document cannot say which value belongs to which axis, and rendering
   // it would apply a silently wrong instance rather than a missing one.
   //
-  // Axes on a family the host doesn't supply as bytes (a generic, or an inline `FontData`) are
-  // dropped at render rather than rejected here: the text still draws in the right family, one
-  // instance off. That is a substitution the audit records, not a document this lane cannot read.
+  // Axes on a family whose bytes the player does not hold (a generic) are dropped at render rather
+  // than rejected here: the text still draws in the right family, one instance off. A host face and
+  // an inline `FontData` are both instanced at them. That is a substitution the audit records, not
+  // a
+  // document this lane cannot read.
   if (!axes?.values.isNullOrEmpty() || !axisValues?.values.isNullOrEmpty()) {
     if (axes?.values?.size != axisValues?.values?.size)
       return "font axis arrays have different sizes"
@@ -1488,6 +1516,8 @@ private fun fontFamilyIssue(
   availableFontFamilies: Set<String>,
 ): String? {
   if (fontFamilyId == -1) return null
+  // The document's own font, named by its `FontData` id — with or without a family-name text.
+  if (fontFamilyId in embeddedFontIds) return null
   val family = texts[fontFamilyId] ?: return "font family name id $fontFamilyId is not declared"
   val normalized = family.lowercase().removePrefix("google:")
   val available = availableFontFamilies.mapTo(mutableSetOf()) { it.lowercase() }
@@ -1529,8 +1559,14 @@ private fun hasInvalidDrawContent(
               RcOpcodes.LAYOUT_FIT_BOX,
             )
       val available =
-        if (node.operation.opcode == RcOpcodes.CANVAS_OPERATIONS) component
-        else drawContentAvailable
+        when {
+          node.operation.opcode == RcOpcodes.CANVAS_OPERATIONS -> component
+          // A function body's `DrawContent` draws whatever runs it: the component a custom
+          // visibility function animates, the caller's content, or the component an offscreen
+          // buffer captures. Core gives it no component of its own, and neither does the player.
+          node.operation is ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine -> true
+          else -> drawContentAvailable
+        }
       hasInvalidDrawContent(node.children, component, available)
     }
   }
@@ -1550,6 +1586,8 @@ private fun paintIssue(
    * Why the family a `TYPEFACE` names by text id cannot be drawn, or null; null skips the check.
    */
   familyIssue: ((Int) -> String?)? = null,
+  /** The document's `FontData` ids, which a `TYPEFACE` may name (see `rcPaintTypeface`). */
+  embeddedFontIds: Set<Int> = emptySet(),
 ): String? {
   var index = 0
   while (index < paint.words.size) {
@@ -1622,11 +1660,12 @@ private fun paintIssue(
     }
     if (type == PAINT_TYPEFACE) {
       val fontType = paint.words[index]
-      val namedFamily =
-        fontType > PAINT_MAX_GENERIC_FONT_TYPE &&
-          (command ushr 16) and PAINT_TYPEFACE_FONT_DATA == 0
+      val fontData = (command ushr 16) and PAINT_TYPEFACE_FONT_DATA != 0
+      val namedFamily = fontType > PAINT_MAX_GENERIC_FONT_TYPE && !fontData
       when {
         fontType in 0..3 -> Unit
+        fontType in embeddedFontIds -> Unit
+        fontData -> return "FontData font $fontType is not declared"
         !namedFamily -> return "font id $fontType is not implemented"
         else ->
           familyIssue?.invoke(fontType)?.let {
@@ -1705,10 +1744,6 @@ private const val PAINT_CLEAR_COLOR_FILTER = 21
 private const val PAINT_SHADER_MATRIX = 22
 private const val PAINT_FONT_AXIS = 23
 private const val PAINT_TEXTURE = 24
-
-/** See the player's constant of the same name: font types above it name a family by text id. */
-private const val PAINT_MAX_GENERIC_FONT_TYPE = 10
-private const val PAINT_TYPEFACE_FONT_DATA = 1024
 
 private fun particleCompareWork(operation: RcParticleCompare, particleCount: Int): Long {
   fun literalIndex(word: RcFloatWord, fallback: Int): Int =

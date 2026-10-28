@@ -389,6 +389,13 @@ is independent of renderer selection:
   makes the density-2 `TitleCardRemote-640x480` fixture match the CMP player, which always applies
   the Android contract because it is the compatibility oracle.
 
+A DP document's literal `CoreText` / `TextLayout` font size is dp-typed too, as remote-core
+1.0.0-alpha22's `updateVariables` reads it: the core keeps the size as written and sets
+`NativeSwiftTextSnapshot.sizeIsDensityTyped`, and the label resolves that size with the dp-typed
+geometry scale (`NativeDensityPolicy.textSizeScale`) — so at density 1.0 under `.disabled`, and at
+the playback density under `.enabled`. A variable font size is the pixels it evaluates to and keeps
+the document scale, as does every font size in a LEGACY or PIXELS document.
+
 `DENSITY_BEHAVIOR_PIXELS` is not implemented in either mode; a document that declares it at a
 non-unit density is diagnosed whichever mode is selected.
 
@@ -547,6 +554,49 @@ component, to be handled by the semantic component registry. UIKit uses its Unic
 locale behavior for the standard operations. Canvas font axes, autosizing properties, exact CMP
 metrics, and exact text pixels remain outside the current static profile and are reported rather
 than silently claimed.
+
+### Custom visibility animations and component offscreen buffers
+
+remote-core 1.0.0-alpha22 lets an `AnimationSpec` side be `CUSTOM`: a `FloatFunctionDefine` the
+spec names draws the component as it enters or exits, and a `SEQUENCE` packed above each side's
+animation byte orders it against the layout change. The core decodes a function's body as its own
+— drawing, paint, matrix and clip state, offscreen redirects, `DrawContent`, float expressions and
+plain data declarations — and refuses anything inside it whose result would be fixed at decode or by
+the frame (a conditional, an integer expression, an animated float, a nested definition) as an
+unsupported operation.
+
+`NativeSwiftVisibilityTracker` follows each component's visibility across frames and plays a change
+whose side is `CUSTOM` as `AnimateMeasure` does: progress 0 to 1 over the visibility duration and
+curve, an `AFTER` side waiting out the motion duration first (an enter draws nothing meanwhile, an
+exit draws the component as it is), an exit `BEFORE` keeping its layout space until it has played.
+The first frame never animates, a change mid-flight starts again from the visibility it was heading
+to, a spec with id 0 never animates, and the built-in animations (fades, slides, rotate, particles)
+still land at once. This player has no layout motion, so space opens or closes at once and the
+motion duration is only what an `AFTER` side waits. An enter `BEFORE` takes its space at once, as
+the reference measures only an exit as held; the Compose player keeps the space closed until it has
+played. The node snapshot reports the transition — layout uses its `visibility` — with the function
+bound to the frame's values, for the host to call with the component's laid-out bounds.
+
+UIKit draws such a component through a canvas its parent lays over it, in the parent's space; the
+component itself is hidden from the screen and rendered into that canvas. The function is called
+with the pixel-aligned bounds the component was just laid out at, and its `DrawContent` draws the
+component clipped to those bounds in a layer at the paint's alpha. An exiting component keeps the
+bounds layout last gave it. A function the document does not define, or one that does not evaluate
+to finite values, draws the component as it is, which is the reference's own fallback. Reduce
+Motion stops the frames these need, so the player turns them off and a change lands at once. A root
+component has no parent canvas and changes at once.
+
+A `BitmapData` with encoding 4 is a component offscreen buffer rather than an image: each redirect
+into it sizes it to its component — the payload's, else the redirect's, else the component drawing
+— within `Limits.MAX_IMAGE_DIMENSION` and `MAX_BITMAP_MEMORY` and the pool's pixel ceiling, and a
+buffer without a component, or over a bound, is dropped. `DrawToBitmap`'s `MODE_COMPONENT_ID` names
+the component a target captures. Either kind of component target is pushed on a stack: a
+`DrawContent` inside it draws its component at the target's origin, and the redirect to bitmap 0
+resumes the enclosing target unerased. Each function call binds its buffers in a scope of its own,
+so a nested component animating with the same function and buffer gets its own. Unlike the
+reference's pool, a buffer is exactly its component's size, never a larger pooled bitmap. Canvases
+that draw components redraw every frame. The AppKit host runs neither: it drops component buffers,
+and shows a component as it is for an exit's held space.
 
 ### Errors
 
