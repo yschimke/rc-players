@@ -880,7 +880,15 @@ public data object RcImpulseProcess : RcOperation {
  * Bounds and visibility animation policy attached to a layout component.
  *
  * Animation values retain their wire integers so malformed or future AndroidX values still
- * round-trip without a mutable enum fallback changing the document.
+ * round-trip without a mutable enum fallback changing the document. Each packs the animation in its
+ * low byte and its [RcAnimationSequence] in the byte above, as AndroidX
+ * `AnimationSpec.packAnimation` does.
+ *
+ * [enterFunctionId] and [exitFunctionId] name the `FloatFunctionDefine` a
+ * [RcLayoutAnimation.Custom] enter or exit draws with, or -1. They are on the wire only when either
+ * animation is `CUSTOM` or either id is set, matching AndroidX `AnimationSpec.apply`; AndroidX
+ * reads them back only for a `CUSTOM` spec, so a spec that sets an id without one does not decode,
+ * there or here.
  */
 public data class RcAnimationSpec(
   val animationId: Int,
@@ -890,6 +898,8 @@ public data class RcAnimationSpec(
   val visibilityEasingType: Int,
   val enterAnimation: RcLayoutAnimation,
   val exitAnimation: RcLayoutAnimation,
+  val enterFunctionId: Int = -1,
+  val exitFunctionId: Int = -1,
 ) : RcOperation {
   override val opcode: Int = RcOpcodes.ANIMATION_SPEC
 
@@ -897,11 +907,25 @@ public data class RcAnimationSpec(
     get() = animationId != 0
 }
 
-/** AndroidX `AnimationSpec.ANIMATION` ordinal, retained exactly for symmetric serialization. */
+/**
+ * AndroidX `AnimationSpec.ANIMATION` ordinal in the low byte and `AnimationSpec.SEQUENCE` ordinal
+ * in the byte above, retained exactly for symmetric serialization.
+ */
 @JvmInline
 public value class RcLayoutAnimation(public val wireValue: Int) {
+  /** The animation as AndroidX `intToAnimation` reads it: unknown values are `FADE_IN`. */
   public val androidXValue: Int
-    get() = if (wireValue in 0..7) wireValue else 0
+    get() = (wireValue and 0xFF).let { if (it in FadeIn.wireValue..Custom.wireValue) it else 0 }
+
+  /**
+   * When the animation runs relative to the layout change, as AndroidX `intToSequence` reads it.
+   */
+  public val sequence: RcAnimationSequence
+    get() = RcAnimationSequence.fromAndroidX(wireValue shr 8)
+
+  /** This animation, run at [sequence] relative to the layout change. */
+  public fun sequenced(sequence: RcAnimationSequence): RcLayoutAnimation =
+    RcLayoutAnimation((wireValue and 0xFF) or ((sequence.wireValue and 0xFF) shl 8))
 
   public companion object {
     public val FadeIn: RcLayoutAnimation = RcLayoutAnimation(0)
@@ -912,6 +936,31 @@ public value class RcLayoutAnimation(public val wireValue: Int) {
     public val SlideBottom: RcLayoutAnimation = RcLayoutAnimation(5)
     public val Rotate: RcLayoutAnimation = RcLayoutAnimation(6)
     public val Particle: RcLayoutAnimation = RcLayoutAnimation(7)
+    /** Drawn by the spec's enter or exit `FloatFunctionDefine` (remote-core alpha22). */
+    public val Custom: RcLayoutAnimation = RcLayoutAnimation(8)
+  }
+}
+
+/**
+ * AndroidX `AnimationSpec.SEQUENCE`: when a visibility animation runs against the layout change.
+ */
+@JvmInline
+public value class RcAnimationSequence(public val wireValue: Int) {
+  public companion object {
+    /** Alongside the layout change. */
+    public val Concurrent: RcAnimationSequence = RcAnimationSequence(0)
+    /** Before it: an exit holds its space until it has played; an enter plays, then takes space. */
+    public val Before: RcAnimationSequence = RcAnimationSequence(1)
+    /** After it: the layout settles first, then the animation plays. */
+    public val After: RcAnimationSequence = RcAnimationSequence(2)
+
+    /** AndroidX `intToSequence`: the low byte, with unknown values `CONCURRENT`. */
+    public fun fromAndroidX(value: Int): RcAnimationSequence =
+      when (value and 0xFF) {
+        Before.wireValue -> Before
+        After.wireValue -> After
+        else -> Concurrent
+      }
   }
 }
 

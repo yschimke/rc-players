@@ -262,6 +262,58 @@ class RcDocumentCodecTest {
   }
 
   @Test
+  fun customAnimationSpecCarriesItsFunctionIdsAndSequences() {
+    val spec =
+      RcAnimationSpec(
+        animationId = -1,
+        motionDurationMillis = RcFloatWord.literal(300f),
+        motionEasingType = 1,
+        visibilityDurationMillis = RcFloatWord.literal(450f),
+        visibilityEasingType = 1,
+        enterAnimation = RcLayoutAnimation.FadeIn.sequenced(RcAnimationSequence.After),
+        exitAnimation = RcLayoutAnimation.Custom.sequenced(RcAnimationSequence.Before),
+        enterFunctionId = -1,
+        exitFunctionId = 77,
+      )
+    val document = RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), listOf(spec))
+
+    val bytes = RcDocumentCodec.encode(document)
+    val decoded = RcDocumentCodec.decode(bytes)
+
+    assertEquals(document, decoded)
+    assertContentEquals(bytes, RcDocumentCodec.encode(decoded))
+    // Seven words, then the two function ids AndroidX appends for a CUSTOM side.
+    val plain = spec.copy(exitAnimation = RcLayoutAnimation.FadeOut, exitFunctionId = -1)
+    val plainBytes = RcDocumentCodec.encode(RcDocument(document.header, listOf(plain)))
+    assertEquals(plainBytes.size + 8, bytes.size)
+    val decodedSpec = assertIs<RcAnimationSpec>(decoded.operations.single())
+    assertEquals(RcLayoutAnimation.Custom.wireValue, decodedSpec.exitAnimation.androidXValue)
+    assertEquals(RcAnimationSequence.Before, decodedSpec.exitAnimation.sequence)
+    assertEquals(RcAnimationSequence.After, decodedSpec.enterAnimation.sequence)
+    assertEquals(77, decodedSpec.exitFunctionId)
+  }
+
+  @Test
+  fun aSequencedAnimationWithoutCustomHasNoFunctionIds() {
+    val spec =
+      RcAnimationSpec(
+        animationId = 3,
+        motionDurationMillis = RcFloatWord.literal(300f),
+        motionEasingType = 1,
+        visibilityDurationMillis = RcFloatWord.literal(300f),
+        visibilityEasingType = 1,
+        enterAnimation = RcLayoutAnimation.SlideTop.sequenced(RcAnimationSequence.Before),
+        exitAnimation = RcLayoutAnimation(0x0205),
+      )
+    val document = RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), listOf(spec, spec))
+
+    val bytes = RcDocumentCodec.encode(document)
+
+    assertEquals(document, RcDocumentCodec.decode(bytes))
+    assertEquals(RcLayoutAnimation.SlideBottom.wireValue, spec.exitAnimation.androidXValue)
+  }
+
+  @Test
   fun rippleModifierRoundTripsAsTheAndroidXPayloadFreeOperation() {
     val document =
       RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), listOf(RcRippleModifier))
