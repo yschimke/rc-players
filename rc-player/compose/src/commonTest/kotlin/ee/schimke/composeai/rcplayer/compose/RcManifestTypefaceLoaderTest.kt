@@ -240,7 +240,6 @@ class RcManifestTypefaceLoaderTest {
   }
 
   private fun rcResolveTypefaceOrNull(name: String?, loader: RcTypefaceLoader): FontFamily? =
-    rcResolveTypeface(name, fontFamilyId = -1, embedded = emptyMap(), loader = loader).takeIf {
-      it != FontFamily.Default
-    }
+    rcResolveTypeface(name, fontFamilyId = -1, embedded = RcDocumentFonts.Empty, loader = loader)
+      .takeIf { it != FontFamily.Default }
 }

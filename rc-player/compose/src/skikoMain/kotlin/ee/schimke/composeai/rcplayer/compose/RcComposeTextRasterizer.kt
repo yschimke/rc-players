@@ -116,16 +116,11 @@ public class RcComposeTextRasterizer(
 
   /** The family the player would draw [text] in, or null where it would fall back. */
   private fun family(text: RcStyledText, variations: RcFontVariations?): FontFamily? {
-    val embedded =
-      text.fontData?.let { data ->
-        val settings = variations?.toComposeSettings()
-        mapOf(
-          EMBEDDED to
-            FontFamily(rcFontFromBytes("rc-text-image", data, variationSettings = settings))
-        )
-      }
+    // A fresh set per text: the identity names the payload's bytes, so two images embedding
+    // different fonts can never share one cached typeface.
+    val embedded = text.fontData?.let { RcDocumentFonts(mapOf(EMBEDDED to it)) }
     val name = text.fontFamily?.lowercase()
-    val generic = name == null || name in GENERIC_FAMILIES
+    val generic = name == null || name in RC_GENERIC_FAMILIES
     if (
       !generic &&
         embedded == null &&
@@ -133,11 +128,18 @@ public class RcComposeTextRasterizer(
     ) {
       return null
     }
-    return rcResolveTypeface(text.fontFamily, EMBEDDED, embedded.orEmpty(), typefaces, variations)
+    return rcResolveTypeface(
+      text.fontFamily,
+      EMBEDDED,
+      embedded ?: RcDocumentFonts.Empty,
+      typefaces,
+      variations,
+      text.fontWeight,
+      text.italic,
+    )
   }
 
   private companion object {
     const val EMBEDDED = 0
-    val GENERIC_FAMILIES = setOf(RC_DEFAULT_FAMILY, "sans-serif", "serif", "monospace")
   }
 }
