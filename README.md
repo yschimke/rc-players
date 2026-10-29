@@ -2,20 +2,21 @@
 
 Published by the scheduled `Conformance` workflow. This branch carries **only** reports — no source, no corpus — so a score can be linked to and compared over time without the run artifacts, which expire.
 
-**Latest run: [`2026-10-28`](runs/2026-10-28/README.md)**
+**Latest run: [`2026-10-29`](runs/2026-10-29/README.md)**
 
 |  | `cmp` |
 | --- | ---: |
 | Core golds passed | **294 / 353** (83.3%) |
-| Raster disagreements | 173 |
-| …not shared with a reference lane | **37** |
+| Raster disagreements | 169 |
+| …not shared with a reference lane | **29** |
 
-Of 173 frames where `cmp` disagrees with the reference image, 136 are frames a reference lane fails too. 37 are the subject lane's alone — and that is the number worth acting on.
+Of 169 frames where `cmp` disagrees with the reference image, 140 are frames a reference lane fails too. 29 are the subject lane's alone — and that is the number worth acting on.
 
 ## Trend
 
 | run | `androidx-jvm` golds | `cmp` golds | `native-appkit` golds | `typescript` golds | commit |
 | --- | ---: | ---: | ---: | ---: | --- |
+| [`2026-10-29`](runs/2026-10-29/README.md) | — | 294 / 353 | 311 / 353 | 352 / 353 | `45189c2` |
 | [`2026-10-28`](runs/2026-10-28/README.md) | — | 294 / 353 | 311 / 353 | 352 / 353 | `bda6540` |
 | [`2026-10-27`](runs/2026-10-27/README.md) | — | 294 / 353 | 311 / 353 | 352 / 353 | `0c0b4f3` |
 | [`2026-10-26`](runs/2026-10-26/README.md) | — | 294 / 353 | 311 / 353 | 352 / 353 | `2227be4` |
@@ -45,7 +46,6 @@ Of 173 frames where `cmp` disagrees with the reference image, 136 are frames a r
 | [`2026-10-02`](runs/2026-10-02/README.md) | — | 315 / 353 | 311 / 353 | 352 / 353 | `ed4930e` |
 | [`2026-10-01`](runs/2026-10-01/README.md) | — | 315 / 353 | 311 / 353 | 352 / 353 | `0d79b2f` |
 | [`2026-09-30`](runs/2026-09-30/README.md) | — | 315 / 353 | 311 / 353 | 352 / 353 | `a67c9b5` |
-| [`2026-09-29`](runs/2026-09-29/README.md) | — | 315 / 353 | 311 / 353 | 352 / 353 | `21fcd37` |
 
 `history.csv` holds every row, including runs older than the table above.
 
