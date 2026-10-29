@@ -205,10 +205,13 @@ Published twice, because its two consumers resolve differently and neither chann
 the other:
 
 * npm, as [`@yschimke/remote-compose-player-cmp`](https://www.npmjs.com/package/@yschimke/remote-compose-player-cmp) — how a web page consumes it;
-* the GitHub Release, as `rc-player-wasm.zip` — how a Gradle build stages it as a static sidecar,
-  through an ivy repository over the release downloads
-  (`https://github.com/yschimke/rc-players/releases/download`, pattern `v[revision]/[module].[ext]`,
-  module `ee.schimke.composeai:rc-player-wasm`, requested `@zip`).
+* the GitHub Release, as `rc-player-wasm-<version>.zip` — how a Gradle build stages it as a static
+  sidecar, through an ivy repository over the release downloads
+  (`https://github.com/yschimke/rc-players/releases/download`, pattern
+  `v[revision]/[module]-[revision].[ext]`, module `ee.schimke.composeai:rc-player-wasm`, requested
+  `@zip`). Releases also carry the same bytes as `rc-player-wasm.zip` (pattern
+  `v[revision]/[module].[ext]`), the only name before the versioned one, for consumers not yet
+  moved.
 
 It is not on Maven Central. Releases through 2.17.x also uploaded it there as `rc-player-wasm-dist`,
 about 11 MB of the org's monthly Central release-size limit per release for a bundle nothing compiles
