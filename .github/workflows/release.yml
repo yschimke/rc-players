@@ -1,9 +1,10 @@
 name: Release
 
 # Publishes the players for a given tag: the five Maven artifacts to Maven Central, the Wasm bundle
-# to npm and onto the GitHub Release (`rc-player-wasm.zip`, which is how a Gradle build gets it), and
-# the Apple XCFramework plus native UIKit package onto the GitHub Release, with `Package.swift`
-# rewritten to describe the shared binary framework, and the macOS and Linux desktop viewers.
+# to npm and onto the GitHub Release (`rc-player-wasm-<version>.zip`, which is how a Gradle build
+# gets it), and the Apple XCFramework plus native UIKit package onto the GitHub Release, with
+# `Package.swift` rewritten to describe the shared binary framework, and the macOS and Linux desktop
+# viewers.
 #
 # Entry points:
 #   - workflow_call: called from release-please.yml after release-please merges the release PR and
@@ -260,15 +261,19 @@ jobs:
           fi
           npm publish "${flags[@]}"
 
-  # The Wasm bundle as a Release asset, `rc-player-wasm.zip`. This is how a Gradle build gets the
-  # player: compose-preview-server resolves it through an ivy repository over this repository's
-  # release downloads, and design-parity's CI downloads it the same way. It used to go to Maven
-  # Central as well, as `rc-player-wasm-dist`, about 11 MB of the org's monthly Central release-size
-  # limit per release, for a bundle nothing compiles against.
+  # The Wasm bundle as a Release asset, `rc-player-wasm-<version>.zip`. This is how a Gradle build
+  # gets the player: compose-preview-server resolves it through an ivy repository over this
+  # repository's release downloads, and design-parity's CI downloads it the same way. It used to go
+  # to Maven Central as well, as `rc-player-wasm-dist`, about 11 MB of the org's monthly Central
+  # release-size limit per release, for a bundle nothing compiles against.
   #
   # A job of its own, not a step of the npm job: that job is `continue-on-error`, and a release
-  # missing this asset breaks every consumer pinned to that version. The asset name carries no
-  # version and must not change, so every release since the first stays resolvable by one pattern.
+  # missing this asset breaks every consumer pinned to that version.
+  #
+  # Two names for the same bytes. `rc-player-wasm-<version>.zip` matches the UI builder's assets
+  # (ivy pattern `v[revision]/[module]-[revision].[ext]`), so a downloaded file names its release.
+  # `rc-player-wasm.zip`, the unversioned name every release before this one carries, is still
+  # uploaded for consumers resolving `v[revision]/[module].[ext]`; drop it once they have moved.
   attach-wasm-bundle:
     name: Attach the Wasm bundle to the Release
     runs-on: ubuntu-latest
@@ -296,9 +301,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          (cd rc-player/wasm/build/wasmDist && zip -qr "$RUNNER_TEMP/rc-player-wasm.zip" .)
-          test -n "$(unzip -Z1 "$RUNNER_TEMP/rc-player-wasm.zip" index.html)"
-          gh release upload "$TAG_NAME" "$RUNNER_TEMP/rc-player-wasm.zip" --clobber
+          versioned="rc-player-wasm-${TAG_NAME#v}.zip"
+          (cd rc-player/wasm/build/wasmDist && zip -qr "$RUNNER_TEMP/$versioned" .)
+          test -n "$(unzip -Z1 "$RUNNER_TEMP/$versioned" index.html)"
+          cp "$RUNNER_TEMP/$versioned" "$RUNNER_TEMP/rc-player-wasm.zip"
+          gh release upload "$TAG_NAME" --clobber \
+            "$RUNNER_TEMP/$versioned" "$RUNNER_TEMP/rc-player-wasm.zip"
 
   # The Linux desktop viewer (`rc-player/desktop`): the CMP player in a window, the JVM counterpart
   # of the macOS app the Apple job attaches. Two assets, both bundling a JRE: a `.deb` and a
