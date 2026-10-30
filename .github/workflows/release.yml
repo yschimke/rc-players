@@ -86,7 +86,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17.0.21+9"
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: "true"
 
@@ -221,12 +221,12 @@ jobs:
         with:
           distribution: temurin
           java-version: "17.0.21+9"
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: "true"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 26.12.1
+          node-version: 26.13.0
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
       - name: Upgrade npm (OIDC trusted publishing needs >= 11.5.1)
@@ -289,7 +289,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17.0.21+9"
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: "true"
       # `wasmPlayerDist` enforces the bundle's size budget, so a bundle that ballooned fails here
@@ -330,7 +330,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17.0.21+9"
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: "true"
       # jpackage's DEB bundler shells out to `fakeroot` and `dpkg-deb`, and silently skips the
@@ -399,7 +399,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17.0.21+9"
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: "true"
       # Main's push of this same commit linked the release frameworks and stored them in the remote
