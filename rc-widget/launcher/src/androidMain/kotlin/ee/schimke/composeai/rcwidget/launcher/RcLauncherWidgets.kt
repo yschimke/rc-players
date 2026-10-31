@@ -8,6 +8,11 @@ import android.os.Build
 import android.widget.RemoteViews
 import androidx.annotation.RequiresApi
 import androidx.compose.remote.creation.profile.Profile
+import ee.schimke.composeai.rcplayer.edit.RcProfileViolation
+import ee.schimke.composeai.rcplayer.edit.RcTargetProfile
+import ee.schimke.composeai.rcplayer.edit.validateFor
+import ee.schimke.composeai.rcwidget.RcWidgetTarget
+import ee.schimke.composeai.rcwidget.RcWidgetTargets
 import ee.schimke.composeai.rcwidget.RcWidgetActionMetadata
 
 /**
@@ -36,18 +41,60 @@ public object RcLauncherWidgets {
     if (sdkInt >= SYSTEM_THEME_MIN_HOST_API) systemThemedWidgetsProfile else widgetsProfile
 
   /**
-   * [document] as a widget's `RemoteViews`, made playable on Android 16 first
-   * ([platformWidgetDocument]), each of its numeric host actions sending its entry in [actions].
+   * The player this device's launcher is, for a document captured with [profileFor] the same
+   * [sdkInt]: `RcTargetProfiles.WIDGETS_V7` where it resolves system colours, else Android 16's
+   * `RcTargetProfiles.WIDGETS_V6` — [widgetTargetFor]'s profile.
+   */
+  public fun targetFor(sdkInt: Int = Build.VERSION.SDK_INT): RcTargetProfile =
+    widgetTargetFor(sdkInt).profile
+
+  /**
+   * The [RcWidgetTarget] serving this device's launcher, for `RcWidgetDocuments`:
+   * [RcWidgetTargets.Launcher] where it resolves system colours, else
+   * [RcWidgetTargets.LauncherAndroid16].
+   */
+  public fun widgetTargetFor(sdkInt: Int = Build.VERSION.SDK_INT): RcWidgetTarget =
+    if (sdkInt >= SYSTEM_THEME_MIN_HOST_API) RcWidgetTargets.Launcher
+    else RcWidgetTargets.LauncherAndroid16
+
+  /**
+   * [document] as a widget's `RemoteViews` on this device's launcher ([targetFor]), each of its
+   * numeric host actions sending its entry in [actions].
    */
   @RequiresApi(MIN_HOST_API)
-  public fun remoteViews(document: ByteArray, actions: Map<Int, PendingIntent> = emptyMap()): RemoteViews {
+  public fun remoteViews(document: ByteArray, actions: Map<Int, PendingIntent> = emptyMap()): RemoteViews =
+    remoteViews(document, actions, targetFor())
+
+  /**
+   * [document] as a widget's `RemoteViews` for a launcher reading [target] ([platformWidgetDocument]),
+   * each of its numeric host actions sending its entry in [actions].
+   */
+  @RequiresApi(MIN_HOST_API)
+  public fun remoteViews(
+    document: ByteArray,
+    actions: Map<Int, PendingIntent>,
+    target: RcTargetProfile,
+  ): RemoteViews {
     val views =
       RemoteViews(
-        RemoteViews.DrawInstructions.Builder(listOf(platformWidgetDocument(document))).build()
+        RemoteViews.DrawInstructions.Builder(listOf(platformWidgetDocument(document, target)))
+          .build()
       )
     for ((actionId, intent) in actions) views.setOnClickPendingIntent(actionId, intent)
     return views
   }
+
+  /**
+   * What would keep [document] from playing on a launcher reading [target], as that launcher reads
+   * it once [platformWidgetDocument] has prepared it: its header's level and profile bits select the
+   * operation table, as the platform player's do. Empty means it plays. For tests and debug builds:
+   * the check decodes the whole document.
+   */
+  public fun violations(
+    document: ByteArray,
+    target: RcTargetProfile = targetFor(),
+  ): List<RcProfileViolation> =
+    target.decode(platformWidgetDocument(document, target)).validateFor(target)
 
   /**
    * A broadcast `PendingIntent` for one tap of widget [widgetId]: [action] on [receiver], carrying

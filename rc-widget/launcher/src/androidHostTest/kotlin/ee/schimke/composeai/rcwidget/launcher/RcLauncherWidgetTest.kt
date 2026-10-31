@@ -13,6 +13,7 @@ import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.modifier.clickable
 import androidx.compose.remote.creation.compose.modifier.fillMaxSize
 import androidx.compose.remote.creation.compose.state.rs
+import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
@@ -60,6 +61,13 @@ class RcLauncherWidgetTest {
     assertTrue(Operations.COLOR_THEME in systemThemedWidgetsProfile.supportedOperations)
     assertEquals(widgetsProfile, RcLauncherWidgets.profileFor(36))
     assertEquals(systemThemedWidgetsProfile, RcLauncherWidgets.profileFor(37))
+    // Each profile only lets the writer emit what its launcher's own table decodes.
+    for (sdk in listOf(36, 37)) {
+      val unsupported =
+        RcLauncherWidgets.profileFor(sdk).supportedOperations -
+          RcLauncherWidgets.targetFor(sdk).supportedOpcodes
+      assertEquals(emptySet(), unsupported, "sdk $sdk")
+    }
   }
 
   @Test
@@ -93,6 +101,37 @@ class RcLauncherWidgetTest {
         )
       }
     assertTrue(document.canBeDisplayed(1, 0, 0L))
+  }
+
+  @Test
+  fun eachLauncherGetsTheHeaderVersionItReadsAndTheTargetItsProfileIsFor() {
+    // The header's minor version: the int after the opcode and the major version.
+    fun minor(bytes: ByteArray) = java.nio.ByteBuffer.wrap(bytes, 5, 4).int
+    for ((sdk, wantMinor) in listOf(36 to 0, 37 to 1)) {
+      val target = RcLauncherWidgets.targetFor(sdk)
+      val bytes = RemoteComposeWriter.obtain(100, 100, RcLauncherWidgets.profileFor(sdk)).encodeToByteArray()
+      // An API 37 launcher reads 1.0 as level 6, whose table has no ColorTheme (196): keep 1.1.
+      assertEquals(wantMinor, minor(platformWidgetDocument(bytes, target)), "sdk $sdk")
+    }
+    assertEquals(RcTargetProfiles.WIDGETS_V6, RcLauncherWidgets.targetFor(36))
+    assertEquals(RcTargetProfiles.WIDGETS_V7, RcLauncherWidgets.targetFor(37))
+    assertEquals(0, minor(platformWidgetDocument(RemoteComposeWriter.obtain(100, 100, widgetsProfile).encodeToByteArray())))
+  }
+
+  @Test
+  fun aCapturedWidgetPlaysOnTheLauncherItWasCapturedFor() {
+    for (sdk in listOf(36, 37)) {
+      val captured = runBlocking {
+        captureLauncherWidget(context, RcWidgetCaptureSize(140, 84), RcLauncherWidgets.profileFor(sdk)) {
+          RemoteBox(RemoteModifier.fillMaxSize()) { RemoteText("Kitchen".rs) }
+        }
+      }
+      assertEquals(
+        emptyList(),
+        RcLauncherWidgets.violations(captured.bytes, RcLauncherWidgets.targetFor(sdk)),
+        "sdk $sdk",
+      )
+    }
   }
 
   @Test

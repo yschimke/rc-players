@@ -33,6 +33,8 @@ import androidx.compose.remote.creation.RemoteComposeWriter
 import androidx.compose.remote.creation.RemoteComposeWriterAndroid
 import androidx.compose.remote.creation.platform.AndroidxRcPlatformServices
 import androidx.compose.remote.creation.profile.Profile
+import ee.schimke.composeai.rcplayer.edit.RcTargetProfile
+import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
 
 /**
  * Profile used when capturing the `.rc` document that ships to the launcher as a pinned widget (or
@@ -79,13 +81,18 @@ private val widgetOperations =
 // FlowLayout (240) is also experimental in AndroidX but absent from Android 16's decoder.
 // A capture checks `Operations.LAYOUT_FLOW in profile.supportedOperations` to use a row fallback.
 
-private fun createWidgetsProfile(supportsColorTheme: Boolean): Profile =
-  Profile(
-    WIDGETS_API_LEVEL,
-    WIDGETS_OPERATIONS,
-    AndroidxRcPlatformServices(),
-    { if (supportsColorTheme) widgetOperations else widgetOperations - Operations.COLOR_THEME },
-  ) { creationDisplayInfo, profile, _ ->
+/**
+ * A capture profile for a launcher reading [target]: AndroidX's widget operations, less those above,
+ * that [target]'s own table decodes. The writer then never emits an operation the launcher would
+ * fail the document on — Android 16's level 6 table has no ColorTheme, and none of the level 7
+ * additions — and takes its fallback instead.
+ */
+private fun createWidgetsProfile(target: RcTargetProfile): Profile {
+  val operations = widgetOperations intersect target.supportedOpcodes
+  return Profile(WIDGETS_API_LEVEL, WIDGETS_OPERATIONS, AndroidxRcPlatformServices(), { operations }) {
+    creationDisplayInfo,
+    profile,
+    _ ->
     RemoteComposeWriterAndroid(
       profile,
       RemoteComposeWriter.hTag(Header.DOC_WIDTH, creationDisplayInfo.width),
@@ -95,15 +102,36 @@ private fun createWidgetsProfile(supportsColorTheme: Boolean): Profile =
       RemoteComposeWriter.hTag(Header.FEATURE_PAINT_MEASURE, 0),
     )
   }
+}
 
-/** Android 16 widget host profile; excludes ColorTheme (wire op 196). */
-public val widgetsProfile: Profile = createWidgetsProfile(supportsColorTheme = false)
+/**
+ * Android 16 widget host profile; excludes ColorTheme (wire op 196). Its documents ship through
+ * [platformWidgetDocument] for [RcTargetProfiles.WIDGETS_V6].
+ */
+public val widgetsProfile: Profile = createWidgetsProfile(RcTargetProfiles.WIDGETS_V6)
 
-/** API 37+ widget host profile, including host-resolved ColorTheme values. */
-public val systemThemedWidgetsProfile: Profile = createWidgetsProfile(supportsColorTheme = true)
+/**
+ * API 37+ widget host profile, including host-resolved ColorTheme values. Its documents ship through
+ * [platformWidgetDocument] for [RcTargetProfiles.WIDGETS_V7], which keeps the level 7 header the
+ * ColorTheme needs.
+ */
+public val systemThemedWidgetsProfile: Profile = createWidgetsProfile(RcTargetProfiles.WIDGETS_V7)
 
-/** Downlevel only the final platform-bound document, after the AndroidX baking/codec passes. */
-public fun platformWidgetDocument(bytes: ByteArray): ByteArray {
+/** [platformWidgetDocument] for an Android 16 launcher: [RcTargetProfiles.WIDGETS_V6]. */
+public fun platformWidgetDocument(bytes: ByteArray): ByteArray =
+  platformWidgetDocument(bytes, RcTargetProfiles.WIDGETS_V6)
+
+/**
+ * The final platform-bound document for a launcher reading [target], after the AndroidX
+ * baking/codec passes: resource definitions lifted ahead of the layout, and the header's wire
+ * version the one [target] reads.
+ *
+ * The platform player picks its operation table from that version: 1.0 is document level 6, whose
+ * table has no profiles and no ColorTheme; 1.1 is level 7 with the header's profile bits. So only a
+ * level 6 [target] (Android 16, which accepts nothing newer) gets 1.0; a [systemThemedWidgetsProfile]
+ * document downgraded too would fail on an API 37 launcher with "Unknown operation encountered 196".
+ */
+public fun platformWidgetDocument(bytes: ByteArray, target: RcTargetProfile): ByteArray {
   require(bytes.size >= 13 && bytes[0].toInt() == Operations.HEADER) {
     "Expected an uncompressed RemoteCompose widget header"
   }
@@ -146,11 +174,15 @@ public fun platformWidgetDocument(bytes: ByteArray): ByteArray {
     if (op is Component) componentValues[op.componentId]?.forEach { it.write(buffer) }
   }
   return buffer.buffer.copyOf(buffer.size).also { compatible ->
-    // alpha21 writes 1.1 even for API-7 documents; Android 16 supports wire 1.0.
-    // Preserve the tagged major version and all layout/data/profile fields.
-    compatible.fill(0, fromIndex = 5, toIndex = 9)
+    // The writer says 1.1 (level 7); a level 6 target reads 1.0. Zero the minor version, the int
+    // after the opcode and the tagged major, keeping the major and every layout/data/profile field.
+    if (target.apiLevel < 7) compatible.fill(0, fromIndex = MINOR_VERSION_START, toIndex = MINOR_VERSION_END)
   }
 }
+
+/** The header's minor version: the int after the opcode byte and the major version int. */
+private const val MINOR_VERSION_START = 5
+private const val MINOR_VERSION_END = 9
 
 private val widgetResourceOperations =
   setOf<Class<out Operation>>(

@@ -17,6 +17,19 @@ final enum class ee.schimke.composeai.rcplayer.edit/RcApproximation : kotlin/Enu
     final fun values(): kotlin/Array<ee.schimke.composeai.rcplayer.edit/RcApproximation> // ee.schimke.composeai.rcplayer.edit/RcApproximation.values|values#static(){}[0]
 }
 
+abstract fun interface ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations { // ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations|null[0]
+    abstract fun rewrite(ee.schimke.composeai.rcplayer.protocol/RcOperation): ee.schimke.composeai.rcplayer.edit/RcRewrite // ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations.rewrite|rewrite(ee.schimke.composeai.rcplayer.protocol.RcOperation){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations.Companion|null[0]
+        final val dropSilent // ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations.Companion.dropSilent|{}dropSilent[0]
+            final fun <get-dropSilent>(): ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations // ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations.Companion.dropSilent.<get-dropSilent>|<get-dropSilent>(){}[0]
+        final val keep // ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations.Companion.keep|{}keep[0]
+            final fun <get-keep>(): ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations // ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations.Companion.keep.<get-keep>|<get-keep>(){}[0]
+        final val removeAll // ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations.Companion.removeAll|{}removeAll[0]
+            final fun <get-removeAll>(): ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations // ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations.Companion.removeAll.<get-removeAll>|<get-removeAll>(){}[0]
+    }
+}
+
 sealed interface ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue|null[0]
     final class BooleanValue : ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue|null[0]
         constructor <init>(kotlin/Boolean) // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue.<init>|<init>(kotlin.Boolean){}[0]
@@ -94,6 +107,34 @@ sealed interface ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.sch
         final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text.toString|toString(){}[0]
+    }
+}
+
+sealed interface ee.schimke.composeai.rcplayer.edit/RcRewrite { // ee.schimke.composeai.rcplayer.edit/RcRewrite|null[0]
+    final class Replace : ee.schimke.composeai.rcplayer.edit/RcRewrite { // ee.schimke.composeai.rcplayer.edit/RcRewrite.Replace|null[0]
+        constructor <init>(kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcOperation>) // ee.schimke.composeai.rcplayer.edit/RcRewrite.Replace.<init>|<init>(kotlin.collections.List<ee.schimke.composeai.rcplayer.protocol.RcOperation>){}[0]
+        constructor <init>(kotlin/Array<out ee.schimke.composeai.rcplayer.protocol/RcOperation>...) // ee.schimke.composeai.rcplayer.edit/RcRewrite.Replace.<init>|<init>(kotlin.Array<out|ee.schimke.composeai.rcplayer.protocol.RcOperation>...){}[0]
+
+        final val operations // ee.schimke.composeai.rcplayer.edit/RcRewrite.Replace.operations|{}operations[0]
+            final fun <get-operations>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcOperation> // ee.schimke.composeai.rcplayer.edit/RcRewrite.Replace.operations.<get-operations>|<get-operations>(){}[0]
+
+        final fun component1(): kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcOperation> // ee.schimke.composeai.rcplayer.edit/RcRewrite.Replace.component1|component1(){}[0]
+        final fun copy(kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcOperation> = ...): ee.schimke.composeai.rcplayer.edit/RcRewrite.Replace // ee.schimke.composeai.rcplayer.edit/RcRewrite.Replace.copy|copy(kotlin.collections.List<ee.schimke.composeai.rcplayer.protocol.RcOperation>){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcRewrite.Replace.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcRewrite.Replace.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcRewrite.Replace.toString|toString(){}[0]
+    }
+
+    final object Keep : ee.schimke.composeai.rcplayer.edit/RcRewrite { // ee.schimke.composeai.rcplayer.edit/RcRewrite.Keep|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcRewrite.Keep.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcRewrite.Keep.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcRewrite.Keep.toString|toString(){}[0]
+    }
+
+    final object Remove : ee.schimke.composeai.rcplayer.edit/RcRewrite { // ee.schimke.composeai.rcplayer.edit/RcRewrite.Remove|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcRewrite.Remove.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcRewrite.Remove.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcRewrite.Remove.toString|toString(){}[0]
     }
 }
 
@@ -360,6 +401,7 @@ final val ee.schimke.composeai.rcplayer.edit/profiles // ee.schimke.composeai.rc
 
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/adaptTo(ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin.collections/Set<ee.schimke.composeai.rcplayer.edit/RcApproximation>): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/adaptTo|adaptTo@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.collections.Set<ee.schimke.composeai.rcplayer.edit.RcApproximation>){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/adaptTo(ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin.collections/Set<ee.schimke.composeai.rcplayer.edit/RcApproximation>, ee.schimke.composeai.rcplayer.edit/RcDisplay): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/adaptTo|adaptTo@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.collections.Set<ee.schimke.composeai.rcplayer.edit.RcApproximation>;ee.schimke.composeai.rcplayer.edit.RcDisplay){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/adaptTo(ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin.collections/Set<ee.schimke.composeai.rcplayer.edit/RcApproximation>, ee.schimke.composeai.rcplayer.edit/RcDisplay, ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/adaptTo|adaptTo@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.collections.Set<ee.schimke.composeai.rcplayer.edit.RcApproximation>;ee.schimke.composeai.rcplayer.edit.RcDisplay;ee.schimke.composeai.rcplayer.edit.RcUnsupportedOperations){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/adaptTo(ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin/Boolean = ...): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/adaptTo|adaptTo@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.Boolean){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts|collapseConstantStateLayouts@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/colorThemesAsFallbacks(kotlin/Int? = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/colorThemesAsFallbacks|colorThemesAsFallbacks@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.Int?){}[0]
@@ -374,6 +416,7 @@ final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.compose
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/optimize(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/optimize|optimize@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/removeDuplicateDefinitions(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/removeDuplicateDefinitions|removeDuplicateDefinitions@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/removeUnreadDefinitions(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/removeUnreadDefinitions|removeUnreadDefinitions@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/rewriteOperations(kotlin/Function2<kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcOperation, ee.schimke.composeai.rcplayer.edit/RcRewrite>): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/rewriteOperations|rewriteOperations@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.Function2<kotlin.Int,ee.schimke.composeai.rcplayer.protocol.RcOperation,ee.schimke.composeai.rcplayer.edit.RcRewrite>){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/sizeReport(): ee.schimke.composeai.rcplayer.edit/RcSizeReport // ee.schimke.composeai.rcplayer.edit/sizeReport|sizeReport@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/stripDebugOperations(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/stripDebugOperations|stripDebugOperations@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/validateFor(ee.schimke.composeai.rcplayer.edit/RcTargetProfile): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> // ee.schimke.composeai.rcplayer.edit/validateFor|validateFor@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile){}[0]
