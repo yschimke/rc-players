@@ -109,6 +109,10 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcDocumentLinker {
 	public final fun link (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcWireLimits;)Lee/schimke/composeai/rcplayer/runtime/RcLinkedDocument;
 }
 
+public final class ee/schimke/composeai/rcplayer/runtime/RcDocumentUpdateKt {
+	public static final fun snapshotUpdateDocument (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+
 public final class ee/schimke/composeai/rcplayer/runtime/RcFloatExpressionEvaluator {
 	public static final field Companion Lee/schimke/composeai/rcplayer/runtime/RcFloatExpressionEvaluator$Companion;
 	public static final field DEFAULT_RANDOM_SEED J

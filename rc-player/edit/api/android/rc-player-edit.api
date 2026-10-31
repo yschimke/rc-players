@@ -56,6 +56,38 @@ public final class ee/schimke/composeai/rcplayer/edit/RcDisplay$Companion {
 	public final fun getDEFAULT ()Lee/schimke/composeai/rcplayer/edit/RcDisplay;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateKt {
+	public static final fun dataUpdateTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult {
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult$FullDocumentRequired : ee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult {
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult$FullDocumentRequired;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult$Unchanged : ee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult {
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult$Unchanged;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult$Update : ee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult {
+	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)V
+	public final fun component1 ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun copy (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult$Update;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult$Update;Lee/schimke/composeai/rcplayer/protocol/RcDocument;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcDocumentDataUpdateResult$Update;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcEmbedBitmapsKt {
 	public static final fun embedBitmapUrls (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public static final fun embedBitmapUrls (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;

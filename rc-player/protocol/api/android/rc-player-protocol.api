@@ -1519,6 +1519,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcHeader : ee/schimke/
 	public static final field DENSITY_BEHAVIOR_DP I
 	public static final field DENSITY_BEHAVIOR_LEGACY I
 	public static final field DENSITY_BEHAVIOR_PIXELS I
+	public static final field DOC_DATA_UPDATE I
 	public static final field DOC_DENSITY_AT_GENERATION I
 	public static final field DOC_DENSITY_BEHAVIOR I
 	public static final field DOC_HEIGHT I
@@ -1547,6 +1548,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcHeader : ee/schimke/
 	public final fun getVersion ()Lee/schimke/composeai/rcplayer/protocol/RcVersion;
 	public final fun getWidth ()I
 	public fun hashCode ()I
+	public final fun isUpdateDocument ()Z
 	public fun toString ()Ljava/lang/String;
 }
 

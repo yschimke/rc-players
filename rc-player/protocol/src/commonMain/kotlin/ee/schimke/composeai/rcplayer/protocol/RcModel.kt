@@ -60,6 +60,12 @@ public data class RcHeader(
   public val densityBehavior: Int
     get() = intProperty(DOC_DENSITY_BEHAVIOR) ?: DENSITY_BEHAVIOR_LEGACY
 
+  /**
+   * Whether AndroidX should apply this document's data operations to an already-loaded document.
+   */
+  public val isUpdateDocument: Boolean
+    get() = (intProperty(DOC_DATA_UPDATE) ?: 0) != 0
+
   public val capabilities: Long
     get() = (property(DOC_CAPABILITIES) as? RcHeaderValue.LongValue)?.value ?: legacyCapabilities
 
@@ -74,6 +80,8 @@ public data class RcHeader(
     public const val DOC_WIDTH: Int = 5
     public const val DOC_HEIGHT: Int = 6
     public const val DOC_DENSITY_AT_GENERATION: Int = 7
+    /** AndroidX Header property 12: this document contains data-only updates. */
+    public const val DOC_DATA_UPDATE: Int = 12
     public const val DOC_DENSITY_BEHAVIOR: Int = 27
 
     public const val DENSITY_BEHAVIOR_LEGACY: Int = 0
