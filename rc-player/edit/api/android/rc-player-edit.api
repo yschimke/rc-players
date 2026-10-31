@@ -1,6 +1,13 @@
+public final class ee/schimke/composeai/rcplayer/edit/RcAnimationTimeAsWallClockKt {
+	public static final fun animationTimeAsWallClock (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/lang/Float;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static synthetic fun animationTimeAsWallClock$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/lang/Float;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static final fun readsAnimationTime (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Z
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcApproximation : java/lang/Enum {
 	public static final field TEXT Lee/schimke/composeai/rcplayer/edit/RcApproximation;
 	public static final field THEME_COLORS Lee/schimke/composeai/rcplayer/edit/RcApproximation;
+	public static final field WALL_CLOCK_ANIMATION Lee/schimke/composeai/rcplayer/edit/RcApproximation;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcApproximation;
 	public static fun values ()[Lee/schimke/composeai/rcplayer/edit/RcApproximation;

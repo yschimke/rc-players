@@ -46,6 +46,15 @@ public enum class RcApproximation {
 
   /** `ColorTheme` becomes its recorded fallbacks, losing the device's system palette. */
   THEME_COLORS,
+
+  /**
+   * For a launcher widget target, the animation clock becomes the wall clock (the second of the
+   * hour), which Android 16's player redraws for: see [animationTimeAsWallClock]. Repeating
+   * animations keep playing; a one-shot animation plays at whatever point of the hour the widget is
+   * shown. To keep one-shots, call [animationTimeAsWallClock] with the serving time before
+   * adapting.
+   */
+  WALL_CLOCK_ANIMATION,
 }
 
 /** A document rewritten for a [RcTargetProfile], and what still keeps it from playing there. */
@@ -78,6 +87,10 @@ public data class RcProfileAdaptation(
  *   [RcApproximation.THEME_COLORS], in theme sections where the target has them and as the dark
  *   fallback where it does not (Wear OS) — see [colorThemesAsFallbacks]. The system palette is
  *   lost; a `ColorTheme` that cannot be converted stays among the violations.
+ * - **The animation clock becomes the wall clock** for a launcher widget target, with
+ *   [RcApproximation.WALL_CLOCK_ANIMATION]: Android 16's player never redraws a document for
+ *   `ANIMATION_TIME` alone, so such a widget draws once and freezes — see
+ *   [animationTimeAsWallClock].
  * - **Remarks are dropped** where the target does not decode them; they draw nothing.
  * - **A variable image alpha, text size, padding, or background or border colour or size is
  *   replaced by its value** below API level 7, where those fields must be literals, when the
@@ -144,6 +157,7 @@ public fun RcDocument.adaptTo(
     inlineStructuralOperations(target)
       .coreTextAsTextLayout(target, RcApproximation.TEXT in approximations, dropped)
       .colorThemes(target, RcApproximation.THEME_COLORS in approximations)
+      .wallClockAnimation(target, RcApproximation.WALL_CLOCK_ANIMATION in approximations)
       .dropRemarks(target)
       .rewriteUnsupported(target, unsupported)
       .bakeDensity(target, display)
@@ -210,6 +224,15 @@ private fun RcDocument.colorThemes(target: RcTargetProfile, approximate: Boolean
     fixedTheme = if (RcOpcodes.THEME in target.supportedOpcodes) null else RcTheme.DARK
   )
 }
+
+private fun RcDocument.wallClockAnimation(
+  target: RcTargetProfile,
+  approximate: Boolean,
+): RcDocument = if (approximate && target.isLauncherWidget) animationTimeAsWallClock() else this
+
+/** Whether [this] is played by the Android platform's launcher widget player. */
+private val RcTargetProfile.isLauncherWidget: Boolean
+  get() = apiLevel <= 6 || profiles and RcProfiles.WIDGETS != 0
 
 private val STRUCTURAL_OPCODES: Set<Int> =
   setOf(
