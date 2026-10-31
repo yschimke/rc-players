@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.22.0](https://github.com/yschimke/rc-players/compare/v2.21.0...v2.22.0) (2026-10-31)
+
+
+### Features
+
+* custom visibility animations, component offscreen buffers and embedded font axes from remote-core alpha22 ([#762](https://github.com/yschimke/rc-players/issues/762)) ([87a4bdb](https://github.com/yschimke/rc-players/commit/87a4bdb5069ff431cdea8b3437c36ba7d66c86d1))
+* **edit,widget:** remove or replace what a target can't play; launcher widgets per target table ([#774](https://github.com/yschimke/rc-players/issues/774)) ([ffd3ebf](https://github.com/yschimke/rc-players/commit/ffd3ebf976d81159de4a04cb320b46f9a6f69d6c))
+
+
+### Bug Fixes
+
+* **apple:** compile NativeSwiftVisibilityTransitions in the Apple player app ([#768](https://github.com/yschimke/rc-players/issues/768)) ([a1dbca4](https://github.com/yschimke/rc-players/commit/a1dbca4fad084a1865657b70c7fa6daa5528aafe))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.27.0 ([#772](https://github.com/yschimke/rc-players/issues/772)) ([489e848](https://github.com/yschimke/rc-players/commit/489e848933f42e49e0d35a5827642d38b5467f0a))
+* **deps:** update ktor to v3.6.1 ([#770](https://github.com/yschimke/rc-players/issues/770)) ([acf05a3](https://github.com/yschimke/rc-players/commit/acf05a3d266b88423f1f7aee34ed20e1024b0456))
+
+
+### Performance Improvements
+
+* scan text style and zIndex lookups in place ([#765](https://github.com/yschimke/rc-players/issues/765)) ([bf6068d](https://github.com/yschimke/rc-players/commit/bf6068db2b47eccbee0f9c7cb549100b18d89787))
+
 ## [2.21.0](https://github.com/yschimke/rc-players/compare/v2.20.1...v2.21.0) (2026-10-28)
 
 
