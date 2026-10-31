@@ -230,6 +230,7 @@ final class ee.schimke.composeai.rcplayer.edit/RcProfileViolation { // ee.schimk
         enum entry FLOAT_OPERATOR // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.FLOAT_OPERATOR|null[0]
         enum entry HEADER_API_LEVEL // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.HEADER_API_LEVEL|null[0]
         enum entry HEADER_FORMAT // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.HEADER_FORMAT|null[0]
+        enum entry RECURSIVE_DRAW_CONTENT // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.RECURSIVE_DRAW_CONTENT|null[0]
         enum entry UNDECLARED_OPERATION // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.UNDECLARED_OPERATION|null[0]
         enum entry UNSUPPORTED_OPERATION // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.UNSUPPORTED_OPERATION|null[0]
 

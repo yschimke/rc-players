@@ -216,6 +216,7 @@ public final class ee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind : 
 	public static final field FLOAT_OPERATOR Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
 	public static final field HEADER_API_LEVEL Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
 	public static final field HEADER_FORMAT Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+	public static final field RECURSIVE_DRAW_CONTENT Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
 	public static final field UNDECLARED_OPERATION Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
 	public static final field UNSUPPORTED_OPERATION Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
