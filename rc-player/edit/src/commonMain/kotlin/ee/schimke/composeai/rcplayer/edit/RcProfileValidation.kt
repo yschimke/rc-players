@@ -6,6 +6,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
@@ -50,6 +51,14 @@ public data class RcProfileViolation(
      * reported by [adaptTo] when it is a variable, which no display density can convert.
      */
     DENSITY_SCALED,
+
+    /**
+     * A `DrawContent` inside a component's `CanvasOperations` — what `drawWithContent`, and
+     * `background` with a brush or painter, write. Android 16's player paints it by re-entering the
+     * component's own paint, which runs the same operations again until the stack overflows and the
+     * launcher's widget host dies. Draw in a canvas of its own under or over the content instead.
+     */
+    RECURSIVE_DRAW_CONTENT,
   }
 }
 
@@ -61,72 +70,103 @@ public data class RcProfileViolation(
  * against the set the document's own header selects; and the extra limits AndroidX's API level 6
  * writer enforces — no variable image alpha or text size, and no float operators beyond level 6 —
  * and what Android 16 itself reads only as literals: paddings, and background and border colours
- * and sizes.
+ * and sizes. At level 6, also a `DrawContent` inside `CanvasOperations`, which Android 16 paints
+ * recursively until it overflows the stack.
  *
  * `Skip` guards are not visible here: a decoded document has already resolved them for the player
  * that decoded it. Decode with [RcTargetProfile.decode] to validate what the target actually reads.
  */
-public fun RcDocument.validateFor(target: RcTargetProfile): List<RcProfileViolation> = buildList {
-  val declaredLevel = header.apiLevel
-  when {
-    declaredLevel == null ->
-      add(
-        headerViolation(
-          RcProfileViolation.Kind.HEADER_API_LEVEL,
-          "Header version ${header.version.major}.${header.version.minor} names no API level " +
-            "${target.name} reads",
-        )
-      )
-    declaredLevel > target.apiLevel ->
-      add(
-        headerViolation(
-          RcProfileViolation.Kind.HEADER_API_LEVEL,
-          "Header declares API level $declaredLevel; ${target.name} reads up to ${target.apiLevel}",
-        )
-      )
-  }
-  // Android 16's platform `Header.read` takes a major version carrying the property-header magic
-  // as a property map, so from level 6 either form plays.
-  if (target.apiLevel < 6 && header.modern) {
-    add(
-      headerViolation(
-        RcProfileViolation.Kind.HEADER_FORMAT,
-        "${target.name} reads only the fixed width/height header, not a property header",
-      )
-    )
-  }
+public fun RcDocument.validateFor(target: RcTargetProfile): List<RcProfileViolation> =
+  violationsFor(target).sortedBy { it.operationIndex ?: -1 }
 
-  // The set a player decodes this document with: the one its own header selects — unless the
-  // target brings a fixed set of its own, as the Wear player does, which no header changes.
-  val declared =
-    if (target.fixedOperations) target
-    else RcTargetProfile.of(declaredLevel ?: target.apiLevel, header.profiles)
-  operations.forEachIndexed { index, operation ->
-    val opcode = operation.opcode
+private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileViolation> =
+  buildList {
+    val declaredLevel = header.apiLevel
     when {
-      opcode !in target.supportedOpcodes ->
+      declaredLevel == null ->
         add(
-          RcProfileViolation(
-            RcProfileViolation.Kind.UNSUPPORTED_OPERATION,
-            index,
-            opcode,
-            "${operationName(opcode)} is not supported by ${target.name}",
+          headerViolation(
+            RcProfileViolation.Kind.HEADER_API_LEVEL,
+            "Header version ${header.version.major}.${header.version.minor} names no API level " +
+              "${target.name} reads",
           )
         )
-      opcode !in declared.supportedOpcodes ->
+      declaredLevel > target.apiLevel ->
         add(
-          RcProfileViolation(
-            RcProfileViolation.Kind.UNDECLARED_OPERATION,
-            index,
-            opcode,
-            "${operationName(opcode)} is not decoded under the header's own " +
-              "API level ${declared.apiLevel} and profiles 0x${declared.profiles.toString(16)}",
+          headerViolation(
+            RcProfileViolation.Kind.HEADER_API_LEVEL,
+            "Header declares API level $declaredLevel; ${target.name} reads up to ${target.apiLevel}",
           )
         )
     }
-    if (target.apiLevel <= 6) addAll(levelSixViolations(index, operation, target))
+    // Android 16's platform `Header.read` takes a major version carrying the property-header magic
+    // as a property map, so from level 6 either form plays.
+    if (target.apiLevel < 6 && header.modern) {
+      add(
+        headerViolation(
+          RcProfileViolation.Kind.HEADER_FORMAT,
+          "${target.name} reads only the fixed width/height header, not a property header",
+        )
+      )
+    }
+
+    // The set a player decodes this document with: the one its own header selects — unless the
+    // target brings a fixed set of its own, as the Wear player does, which no header changes.
+    val declared =
+      if (target.fixedOperations) target
+      else RcTargetProfile.of(declaredLevel ?: target.apiLevel, header.profiles)
+    operations.forEachIndexed { index, operation ->
+      val opcode = operation.opcode
+      when {
+        opcode !in target.supportedOpcodes ->
+          add(
+            RcProfileViolation(
+              RcProfileViolation.Kind.UNSUPPORTED_OPERATION,
+              index,
+              opcode,
+              "${operationName(opcode)} is not supported by ${target.name}",
+            )
+          )
+        opcode !in declared.supportedOpcodes ->
+          add(
+            RcProfileViolation(
+              RcProfileViolation.Kind.UNDECLARED_OPERATION,
+              index,
+              opcode,
+              "${operationName(opcode)} is not decoded under the header's own " +
+                "API level ${declared.apiLevel} and profiles 0x${declared.profiles.toString(16)}",
+            )
+          )
+      }
+      if (target.apiLevel <= 6) addAll(levelSixViolations(index, operation, target))
+    }
+    if (target.apiLevel <= 6) addAll(recursiveDrawContent(target))
   }
-}
+
+/**
+ * Every `DrawContent` nested in a `CanvasOperations` block: Android 16's `DrawContent.paint` calls
+ * `LayoutComponent.drawContent`, which paints the component — and so this block — again.
+ */
+private fun RcDocument.recursiveDrawContent(target: RcTargetProfile): List<RcProfileViolation> =
+  buildList {
+    val tree = operationTree(operations) ?: return@buildList
+    fun visit(node: RcOperationNode, inCanvasOperations: Boolean) {
+      if (inCanvasOperations && node.operation.opcode == RcOpcodes.DRAW_CONTENT) {
+        add(
+          RcProfileViolation(
+            RcProfileViolation.Kind.RECURSIVE_DRAW_CONTENT,
+            node.start,
+            node.operation.opcode,
+            "DrawContent inside CanvasOperations (drawWithContent, or a brush or painter " +
+              "background) repaints its component forever on ${target.name}",
+          )
+        )
+      }
+      val nested = inCanvasOperations || node.operation.opcode == RcOpcodes.CANVAS_OPERATIONS
+      node.children.forEach { visit(it, nested) }
+    }
+    tree.forEach { visit(it, false) }
+  }
 
 /** The limits AndroidX's `WidgetsProfileWriterV6` puts on operations level 6 does decode. */
 private fun levelSixViolations(
