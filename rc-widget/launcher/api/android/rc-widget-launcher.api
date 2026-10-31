@@ -77,8 +77,15 @@ public final class ee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets {
 	public final fun profileFor (I)Landroidx/compose/remote/creation/profile/Profile;
 	public static synthetic fun profileFor$default (Lee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets;IILjava/lang/Object;)Landroidx/compose/remote/creation/profile/Profile;
 	public final fun remoteViews ([BLjava/util/Map;)Landroid/widget/RemoteViews;
+	public final fun remoteViews ([BLjava/util/Map;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;)Landroid/widget/RemoteViews;
 	public static synthetic fun remoteViews$default (Lee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets;[BLjava/util/Map;ILjava/lang/Object;)Landroid/widget/RemoteViews;
 	public final fun tapOf (Landroid/content/Intent;)Lee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets$Tap;
+	public final fun targetFor (I)Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+	public static synthetic fun targetFor$default (Lee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets;IILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+	public final fun violations ([BLee/schimke/composeai/rcplayer/edit/RcTargetProfile;)Ljava/util/List;
+	public static synthetic fun violations$default (Lee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets;[BLee/schimke/composeai/rcplayer/edit/RcTargetProfile;ILjava/lang/Object;)Ljava/util/List;
+	public final fun widgetTargetFor (I)Lee/schimke/composeai/rcwidget/RcWidgetTarget;
+	public static synthetic fun widgetTargetFor$default (Lee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets;IILjava/lang/Object;)Lee/schimke/composeai/rcwidget/RcWidgetTarget;
 }
 
 public final class ee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets$Tap {
@@ -115,6 +122,7 @@ public final class ee/schimke/composeai/rcwidget/launcher/RcWidgetProfilesKt {
 	public static final fun getSystemThemedWidgetsProfile ()Landroidx/compose/remote/creation/profile/Profile;
 	public static final fun getWidgetsProfile ()Landroidx/compose/remote/creation/profile/Profile;
 	public static final fun platformWidgetDocument ([B)[B
+	public static final fun platformWidgetDocument ([BLee/schimke/composeai/rcplayer/edit/RcTargetProfile;)[B
 }
 
 public final class ee/schimke/composeai/rcwidget/launcher/RcWidgetSizing {

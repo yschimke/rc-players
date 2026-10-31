@@ -89,7 +89,8 @@ public data class RcProfileAdaptation(
  *   operation set missing something the document uses.
  *
  * Anything left — an operation the target does not have, an operator it cannot evaluate — is
- * returned in [RcProfileAdaptation.violations] rather than guessed at. Bake host state and constant
+ * returned in [RcProfileAdaptation.violations] rather than guessed at, unless the overload taking
+ * an [RcUnsupportedOperations] policy is told to remove or replace it. Bake host state and constant
  * state layouts first ([hardcodeNamedValues], [collapseConstantStateLayouts]); both can turn a
  * variable this pass must leave alone into a constant it can fold.
  */
@@ -124,6 +125,18 @@ public fun RcDocument.adaptTo(
   target: RcTargetProfile,
   approximations: Set<RcApproximation>,
   display: RcDisplay,
+): RcProfileAdaptation = adaptTo(target, approximations, display, RcUnsupportedOperations.keep)
+
+/**
+ * [adaptTo], with each operation [target] still lacks after its own rewrites removed or replaced as
+ * [unsupported] decides ([RcUnsupportedOperations.dropSilent], [RcUnsupportedOperations.removeAll],
+ * or a policy of the caller's own). What the policy keeps is reported among the violations.
+ */
+public fun RcDocument.adaptTo(
+  target: RcTargetProfile,
+  approximations: Set<RcApproximation>,
+  display: RcDisplay,
+  unsupported: RcUnsupportedOperations,
 ): RcProfileAdaptation {
   val dropped = mutableListOf<RcTextApproximation>()
   val densityViolations = mutableListOf<RcProfileViolation>()
@@ -132,6 +145,7 @@ public fun RcDocument.adaptTo(
       .coreTextAsTextLayout(target, RcApproximation.TEXT in approximations, dropped)
       .colorThemes(target, RcApproximation.THEME_COLORS in approximations)
       .dropRemarks(target)
+      .rewriteUnsupported(target, unsupported)
       .bakeDensity(target, display)
       .foldLiteralFields(target)
       .headerFor(target, display, densityViolations)

@@ -143,6 +143,10 @@ public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text : ee
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcOperationRewriteKt {
+	public static final fun rewriteOperations (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lkotlin/jvm/functions/Function2;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcOptimizeKt {
 	public static final fun foldConstantExpressions (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public static final fun optimize (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
@@ -172,6 +176,7 @@ public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptation {
 public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptationKt {
 	public static final fun adaptTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
 	public static final fun adaptTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;Lee/schimke/composeai/rcplayer/edit/RcDisplay;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public static final fun adaptTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;Lee/schimke/composeai/rcplayer/edit/RcDisplay;Lee/schimke/composeai/rcplayer/edit/RcUnsupportedOperations;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
 	public static final fun adaptTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Z)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
 	public static synthetic fun adaptTo$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;ZILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
 	public static final fun needsDisplay (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;)Z
@@ -222,6 +227,35 @@ public final class ee/schimke/composeai/rcplayer/edit/RcProfiles {
 	public static final field OEM I
 	public static final field WEAR_WIDGETS I
 	public static final field WIDGETS I
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/edit/RcRewrite {
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcRewrite$Keep : ee/schimke/composeai/rcplayer/edit/RcRewrite {
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/edit/RcRewrite$Keep;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcRewrite$Remove : ee/schimke/composeai/rcplayer/edit/RcRewrite {
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/edit/RcRewrite$Remove;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcRewrite$Replace : ee/schimke/composeai/rcplayer/edit/RcRewrite {
+	public fun <init> (Ljava/util/List;)V
+	public fun <init> ([Lee/schimke/composeai/rcplayer/protocol/RcOperation;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun copy (Ljava/util/List;)Lee/schimke/composeai/rcplayer/edit/RcRewrite$Replace;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcRewrite$Replace;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcRewrite$Replace;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getOperations ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcSharedElement {
@@ -333,5 +367,16 @@ public final class ee/schimke/composeai/rcplayer/edit/RcTextImages {
 public final class ee/schimke/composeai/rcplayer/edit/RcTextImagesKt {
 	public static final fun coreTextAsImages (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Lee/schimke/composeai/rcplayer/runtime/RcTextRasterizer;Lee/schimke/composeai/rcplayer/edit/RcDisplay;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rcplayer/edit/RcTextImages;
 	public static synthetic fun coreTextAsImages$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Lee/schimke/composeai/rcplayer/runtime/RcTextRasterizer;Lee/schimke/composeai/rcplayer/edit/RcDisplay;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcTextImages;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/edit/RcUnsupportedOperations {
+	public static final field Companion Lee/schimke/composeai/rcplayer/edit/RcUnsupportedOperations$Companion;
+	public abstract fun rewrite (Lee/schimke/composeai/rcplayer/protocol/RcOperation;)Lee/schimke/composeai/rcplayer/edit/RcRewrite;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcUnsupportedOperations$Companion {
+	public final fun getDropSilent ()Lee/schimke/composeai/rcplayer/edit/RcUnsupportedOperations;
+	public final fun getKeep ()Lee/schimke/composeai/rcplayer/edit/RcUnsupportedOperations;
+	public final fun getRemoveAll ()Lee/schimke/composeai/rcplayer/edit/RcUnsupportedOperations;
 }
 
