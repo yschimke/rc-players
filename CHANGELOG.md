@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.22.1](https://github.com/yschimke/rc-players/compare/v2.22.0...v2.22.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.39.1 ([#779](https://github.com/yschimke/rc-players/issues/779)) ([6b6c8ed](https://github.com/yschimke/rc-players/commit/6b6c8ed6476e9df522a937beea8a69badf4fb7b0))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.27.1 ([#781](https://github.com/yschimke/rc-players/issues/781)) ([3405388](https://github.com/yschimke/rc-players/commit/34053885d274ea3323a02eccd7588ff97c91abde))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.27.2 ([#782](https://github.com/yschimke/rc-players/issues/782)) ([c90a345](https://github.com/yschimke/rc-players/commit/c90a345da9a87ed23d3a160ec39eb73714082fc6))
+
 ## [2.22.0](https://github.com/yschimke/rc-players/compare/v2.21.0...v2.22.0) (2026-10-31)
 
 
