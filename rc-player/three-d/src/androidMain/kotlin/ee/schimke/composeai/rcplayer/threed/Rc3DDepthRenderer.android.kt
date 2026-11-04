@@ -617,7 +617,15 @@ internal class RcGlesDepth {
       out vec4 fragColor;
 
       void main() {
-        fragColor = uTextured > 0.5 ? vShade * texture(uTexture, vUv) : vShade;
+        if (uTextured > 0.5) {
+          vec4 texel = texture(uTexture, vUv);
+          // As the software rasterizer does: a fully transparent texel writes neither colour nor
+          // depth, so what is behind a hole in the texture shows through it.
+          if (texel.a == 0.0) discard;
+          fragColor = vShade * texel;
+        } else {
+          fragColor = vShade;
+        }
       }
       """
         .trimIndent()
