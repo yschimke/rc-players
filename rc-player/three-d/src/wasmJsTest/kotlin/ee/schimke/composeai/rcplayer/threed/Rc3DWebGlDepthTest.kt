@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import ee.schimke.composeai.rcplayer.threed.engine.RcPrimitive3D
 import ee.schimke.composeai.rcplayer.threed.engine.RcSoftware3D
+import kotlin.io.encoding.Base64
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -22,6 +23,8 @@ import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
+import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.Image
 import org.jetbrains.skia.ImageInfo
 
 /**
@@ -128,6 +131,7 @@ class Rc3DWebGlDepthTest {
       "Rc3DProbe depth $name: drew=$drew gpu covered=$coveredA software covered=$coveredB " +
         "differ=$differ mean=$mean"
     )
+    publishRender(name, software, gpu)
     for (size in intArrayOf(SIZE, BENCH_SIZE)) benchmark(name, size, texture, scene, renderer)
     renderer.dispose()
     assertTrue(available, "$name: the renderer disabled itself")
@@ -319,6 +323,25 @@ class Rc3DWebGlDepthTest {
     return readArgb(target)
   }
 
+  /**
+   * Software on the left, WebGL2 on the right, as a PNG on `window.rcRenders`, which
+   * `scripts/wasm-smoke/three-d-webgl.mjs` writes out when asked (`RC_3D_OUT`).
+   */
+  private fun publishRender(name: String, software: IntArray, gpu: IntArray) {
+    val bytes = ByteArray(SIZE * 2 * SIZE * 4)
+    for (y in 0 until SIZE) for (x in 0 until SIZE * 2) {
+      val p = if (x < SIZE) software[y * SIZE + x] else gpu[y * SIZE + x - SIZE]
+      val o = (y * SIZE * 2 + x) * 4
+      bytes[o] = p.toByte()
+      bytes[o + 1] = (p shr 8).toByte()
+      bytes[o + 2] = (p shr 16).toByte()
+      bytes[o + 3] = (p ushr 24).toByte()
+    }
+    val info = ImageInfo(SIZE * 2, SIZE, ColorType.BGRA_8888, ColorAlphaType.UNPREMUL)
+    val png = Image.makeRaster(info, bytes, SIZE * 2 * 4).encodeToData(EncodedImageFormat.PNG)
+    png?.bytes?.let { publish(name, Base64.encode(it)) }
+  }
+
   private fun readArgb(bitmap: Bitmap): IntArray {
     val info = ImageInfo(bitmap.width, bitmap.height, ColorType.BGRA_8888, ColorAlphaType.UNPREMUL)
     val bytes = bitmap.readPixels(info, bitmap.width * 4, 0, 0)!!
@@ -337,3 +360,7 @@ class Rc3DWebGlDepthTest {
     const val FRAMES = 20
   }
 }
+
+@OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+private fun publish(name: String, base64: String): Unit =
+  js("(globalThis.rcRenders = globalThis.rcRenders || {})[name] = base64")

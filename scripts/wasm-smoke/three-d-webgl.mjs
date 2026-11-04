@@ -18,6 +18,9 @@
  * (the test then skips its comparisons); by default that is a failure, so a lost flag cannot turn
  * the lane into a no-op.
  *
+ * Set `RC_3D_OUT` to a directory to write each scene's render there, software on the left and
+ * WebGL2 on the right (`renders/rc-3d-extension/webgl2-*.png` are these).
+ *
  * Usage: `node three-d-webgl.mjs [dist-directory]`, default
  * `rc-player/three-d/build/wasmWebGlTestDist`. Set `CHROMIUM_EXECUTABLE` to launch a browser
  * Playwright did not install itself.
@@ -25,7 +28,7 @@
 
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { mkdir, stat, writeFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -101,6 +104,13 @@ try {
     return info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
   });
   const results = await page.evaluate(() => window.rcTestResults);
+  if (process.env.RC_3D_OUT) {
+    const renders = await page.evaluate(() => globalThis.rcRenders ?? {});
+    await mkdir(process.env.RC_3D_OUT, { recursive: true });
+    for (const [name, base64] of Object.entries(renders)) {
+      await writeFile(join(process.env.RC_3D_OUT, `webgl2-${name}.png`), Buffer.from(base64, 'base64'));
+    }
+  }
   console.log(`WebGL2 renderer: ${renderer ?? 'none'}`);
   for (const line of probes) console.log(`  ${line}`);
   for (const result of results) {

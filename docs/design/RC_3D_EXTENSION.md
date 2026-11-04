@@ -166,6 +166,13 @@ the draw is cheaper still and the cost is mostly the read's round trip, so these
 bound. Against coverage of 10,000 to 21,000 pixels, the renders differ on 1-2% of them, along
 silhouettes, with a mean colour difference of 1.1 to 3.9 levels.
 
+Software on the left, WebGL2 on the right (`RC_3D_OUT=<dir>` makes the script write these):
+
+![Torus: software and WebGL2](../../renders/rc-3d-extension/webgl2-torus.png)
+![Intersecting cubes](../../renders/rc-3d-extension/webgl2-intersecting-cubes.png)
+![Glossy cube](../../renders/rc-3d-extension/webgl2-glossy-cube.png)
+![Textured sphere](../../renders/rc-3d-extension/webgl2-textured-sphere.png)
+
 ### Next GPU steps, by target
 
 | Target | Next step | Why |
