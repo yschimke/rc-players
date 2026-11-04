@@ -10,9 +10,12 @@ import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcplayer.compose.LocalRcPlayerExtensions
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcDraw6
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
+import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
@@ -106,6 +109,59 @@ class Rc3DRenderTest {
     val bytes = Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH).encode()
     val gpu = render(bytes, Rc3DOptions(renderer = Rc3DRenderer.Gpu))
     assertTrue(render(bytes).contentEquals(gpu), "a lone cube needs no depth buffer")
+  }
+
+  @Test
+  fun autoKeepsATexturedSoftwareMeshOnTheSoftwareRasterizer() {
+    // The software rasterizer maps a texture perspective-correct and the vertex path does not, so
+    // a textured software-mode draw stays there even when it is a lone convex mesh.
+    val image = java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB)
+    for (y in 0 until 16) for (x in 0 until 16) {
+      image.setRGB(x, y, if ((x / 4 + y / 4) % 2 == 0) -1 else 0xFF3355AA.toInt())
+    }
+    val png = java.io.ByteArrayOutputStream().also { javax.imageio.ImageIO.write(image, "png", it) }
+    val textured =
+      Rc3DDocumentBuilder(SIZE, SIZE)
+        .apply {
+          val bitmap = newId()
+          add(
+            RcBitmapData(
+              bitmap,
+              16,
+              16,
+              RcBitmapData.TYPE_PNG_8888,
+              RcBitmapData.ENCODING_INLINE,
+              png.toByteArray(),
+            )
+          )
+          clearDepth()
+          perspectiveCamera(
+            float(0.9f),
+            float(1f),
+            float(0.1f),
+            float(100f),
+            listOf(float(0f), float(0f), float(4f)),
+            listOf(float(0f), float(0f), float(0f)),
+          )
+          lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+          color(-1)
+          texture(bitmap)
+          identity()
+          rotate(float(0.8f), 0f, 1f, 0f)
+          draw(
+            primitive(
+              RcPrimitive3D.SPHERE,
+              listOf(float(1.2f), float(0f), float(0f), float(0f)),
+              float(16f),
+              flags = 16,
+            ),
+            Rc3D.MODE_SOFTWARE_SMOOTH,
+          )
+        }
+        .encode()
+    val software = render(textured, Rc3DOptions(renderer = Rc3DRenderer.Software))
+    assertTrue(software.count { it ushr 24 != 0 } > 0, "the sphere drew")
+    assertTrue(render(textured).contentEquals(software))
   }
 
   @Test
@@ -337,6 +393,73 @@ class Rc3DRenderTest {
       )
     val differ = scaled.indices.count { scaled[it] != native[it] }
     assertTrue(differ == 0, "$differ pixels differ")
+  }
+
+  @Test
+  fun aScaledDocumentDrawingIntoABitmapUsesTheBitmapsSize() {
+    // DRAW_TO_BITMAP targets a canvas of the bitmap's own pixels, with no root scale: the 3D
+    // there fills the bitmap, and the bitmap is then drawn scaled like any 2D.
+    val half = SIZE / 2
+    val behavior =
+      RcRootContentBehavior(
+        RcRootContentBehavior.NONE,
+        RcRootContentBehavior.ALIGNMENT_CENTER,
+        RcRootContentBehavior.SIZING_SCALE,
+        RcRootContentBehavior.SCALE_FIT,
+      )
+    val viaBitmap =
+      Rc3DDocumentBuilder(half, half)
+        .apply {
+          add(behavior)
+          val bitmap = newId()
+          add(
+            RcBitmapData(
+              bitmap,
+              half,
+              half,
+              RcBitmapData.TYPE_PNG_8888,
+              RcBitmapData.ENCODING_EMPTY,
+              ByteArray(0),
+            )
+          )
+          add(RcDrawToBitmap(bitmap, 0, 0))
+          clearDepth()
+          perspectiveCamera(
+            float(0.9f),
+            float(1f),
+            float(0.1f),
+            float(100f),
+            listOf(float(0f), float(0f), float(4f)),
+            listOf(float(0f), float(0f), float(0f)),
+          )
+          lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+          color(0xFFEE8844.toInt())
+          identity()
+          rotate(float(0.6f), 0f, 1f, 0f)
+          rotate(float(0.35f), 1f, 0f, 0f)
+          draw(
+            primitive(RcPrimitive3D.CUBE, List(6) { float(if (it < 3) 1f else 0f) }),
+            Rc3D.MODE_SOFTWARE_SMOOTH,
+          )
+          add(RcDrawToBitmap(0, 0, 0))
+          add(
+            RcDrawBitmap(
+              bitmap,
+              float(0f),
+              float(0f),
+              float(half.toFloat()),
+              float(half.toFloat()),
+              0,
+            )
+          )
+        }
+        .encode()
+    val direct = Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH, half, scaleFit = true).encode()
+    val expected = opaqueBounds(render(direct, size = SIZE, fill = true), SIZE)
+    val actual = opaqueBounds(render(viaBitmap, size = SIZE, fill = true), SIZE)
+    for (i in 0 until 4) {
+      assertTrue(abs(expected[i] - actual[i]) <= 3, "${actual.toList()} vs ${expected.toList()}")
+    }
   }
 
   /** Left, top, right and bottom of the pixels with any alpha. */
