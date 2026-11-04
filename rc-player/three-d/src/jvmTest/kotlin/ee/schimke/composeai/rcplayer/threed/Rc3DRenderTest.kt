@@ -112,6 +112,34 @@ class Rc3DRenderTest {
   }
 
   @Test
+  fun autoKeepsATranslucentSoftwareMeshOnTheSoftwareRasterizer() {
+    val translucent =
+      Rc3DDocumentBuilder(SIZE, SIZE)
+        .apply {
+          clearDepth()
+          perspectiveCamera(
+            float(0.9f),
+            float(1f),
+            float(0.1f),
+            float(100f),
+            listOf(float(0f), float(0f), float(4f)),
+            listOf(float(0f), float(0f), float(0f)),
+          )
+          lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+          color(0x80EE8844.toInt())
+          identity()
+          rotate(float(0.6f), 0f, 1f, 0f)
+          draw(
+            primitive(RcPrimitive3D.CUBE, List(6) { float(if (it < 3) 1f else 0f) }),
+            Rc3D.MODE_SOFTWARE_SMOOTH,
+          )
+        }
+        .encode()
+    val software = render(translucent, Rc3DOptions(renderer = Rc3DRenderer.Software))
+    assertTrue(render(translucent).contentEquals(software))
+  }
+
+  @Test
   fun autoKeepsATexturedSoftwareMeshOnTheSoftwareRasterizer() {
     // The software rasterizer maps a texture perspective-correct and the vertex path does not, so
     // a textured software-mode draw stays there even when it is a lone convex mesh.

@@ -36,6 +36,16 @@ internal object Rc3DConvexity {
     for (axis in 0 until 3) extent = max(extent, max[axis] - min[axis])
     val tolerance = 1e-4f * max(extent, 1e-6f)
     val minArea = 1e-6f * extent * extent
+    // A face listed twice passes every plane test but overlaps itself on screen.
+    val seen = HashSet<Triple<Int, Int, Int>>(faces * 2)
+    for (f in 0 until faces) {
+      val i0 = idx[f * 3]
+      val i1 = idx[f * 3 + 1]
+      val i2 = idx[f * 3 + 2]
+      val lo = minOf(i0, i1, i2)
+      val hi = maxOf(i0, i1, i2)
+      if (!seen.add(Triple(lo, i0 + i1 + i2 - lo - hi, hi))) return false
+    }
     var side = 0
     for (f in 0 until faces) {
       val a = idx[f * 3] * 3
