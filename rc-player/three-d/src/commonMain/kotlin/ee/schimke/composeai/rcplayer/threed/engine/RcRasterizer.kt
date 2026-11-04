@@ -451,7 +451,18 @@ internal object RcRasterizer {
     val dy = y1 - y0
     val adx = if (dx < 0) -dx else dx
     val ady = if (dy < 0) -dy else dy
-    var steps = (if (adx > ady) adx else ady).toInt()
+    val length = if (adx > ady) adx else ady
+    // The reference steps every pixel of the projected edge, on screen or not, so an edge that
+    // projects far off screen (near the eye, or a huge model) can take millions of steps. Such an
+    // edge is clipped to the viewport first, depth interpolated along it. Edges short enough to
+    // matter on screen keep the reference's exact sample positions.
+    if (!(length <= (w + h) * 2f + 4f)) {
+      clipToViewport(x0, y0, z0, x1, y1, z1, w, h)?.let { c ->
+        drawLineDepthTested(zbuff, img, color, w, h, c[0], c[1], c[2], c[3], c[4], c[5], bias)
+      }
+      return
+    }
+    var steps = length.toInt()
     if (steps < 1) steps = 1
     val inv = 1f / steps
     val sx = dx * inv
@@ -471,5 +482,51 @@ internal object RcRasterizer {
       py += sy
       pz += sz
     }
+  }
+
+  /**
+   * Liang-Barsky clip of the segment to the viewport, one pixel of margin, with z interpolated: the
+   * clipped endpoints `x0, y0, z0, x1, y1, z1`, or null when nothing of it is on screen.
+   */
+  private fun clipToViewport(
+    x0: Float,
+    y0: Float,
+    z0: Float,
+    x1: Float,
+    y1: Float,
+    z1: Float,
+    w: Int,
+    h: Int,
+  ): FloatArray? {
+    if (!(x0.isFinite() && y0.isFinite() && x1.isFinite() && y1.isFinite())) return null
+    val dx = (x1 - x0).toDouble()
+    val dy = (y1 - y0).toDouble()
+    var t0 = 0.0
+    var t1 = 1.0
+    val p = doubleArrayOf(-dx, dx, -dy, dy)
+    val q = doubleArrayOf(x0 + 1.0, w + 1.0 - x0, y0 + 1.0, h + 1.0 - y0)
+    for (k in 0 until 4) {
+      if (p[k] == 0.0) {
+        if (q[k] < 0) return null
+      } else {
+        val r = q[k] / p[k]
+        if (p[k] < 0) {
+          if (r > t1) return null
+          if (r > t0) t0 = r
+        } else {
+          if (r < t0) return null
+          if (r < t1) t1 = r
+        }
+      }
+    }
+    val dz = (z1 - z0).toDouble()
+    return floatArrayOf(
+      (x0 + t0 * dx).toFloat(),
+      (y0 + t0 * dy).toFloat(),
+      (z0 + t0 * dz).toFloat(),
+      (x0 + t1 * dx).toFloat(),
+      (y0 + t1 * dy).toFloat(),
+      (z0 + t1 * dz).toFloat(),
+    )
   }
 }
