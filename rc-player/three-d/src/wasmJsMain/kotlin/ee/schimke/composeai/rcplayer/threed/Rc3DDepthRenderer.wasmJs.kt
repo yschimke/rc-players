@@ -13,7 +13,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import ee.schimke.composeai.rcplayer.threed.Rc3DShaderMeshData.Companion.FLOATS_PER_VERTEX
 import ee.schimke.composeai.rcplayer.threed.Rc3DShaderMeshData.Companion.MAX_LIGHTS
-import ee.schimke.composeai.rcplayer.threed.Rc3DShaderMeshData.Companion.MAX_VERTICES
 import ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData
 import ee.schimke.composeai.rcplayer.threed.engine.RcSoftware3D
 import org.jetbrains.skia.Bitmap
@@ -335,7 +334,9 @@ internal class RcWebGlDepth {
     buffers[mesh]?.let {
       return it
     }
-    if (mesh.indices.size > MAX_VERTICES) return null
+    // No vertex cap, unlike the shader mesh's: a pass that started here has to take every mesh,
+    // since declining one would draw it on the software rasterizer, against a depth buffer that
+    // holds none of the pass's earlier meshes. WebGL buffers take what the engine can build.
     val data = Rc3DShaderMeshData(mesh)
     val buffer = gl.createBuffer() ?: return null
     gl.bindBuffer(GL_ARRAY_BUFFER, buffer)
