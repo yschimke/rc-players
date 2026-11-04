@@ -43,33 +43,6 @@ class Rc3DAndroidMeshDeviceTest {
     assumeTrue("Mesh needs API 34", Build.VERSION.SDK_INT >= 34)
   }
 
-  @Test
-  fun diagnoseStages() {
-    // Logs coverage with culling off and with a flat colour, so a failing scene shows which stage
-    // loses its triangles. Asserts nothing itself.
-    for ((label, noCull, flat) in
-      listOf(Triple("normal", false, false), Triple("no-cull", true, false), Triple("flat", false, true), Triple("both", true, true))) {
-      val engine = RcSoftware3D().apply { setSize(SIZE, SIZE) }
-      engine.baseColorArgb = 0xFFEE8844.toInt()
-      val (meshId, smooth) = cube(engine, smooth = true)
-      val drawer = RcShaderMeshDrawer()
-      drawer.api?.debugNoCull = noCull
-      drawer.api?.debugFlatColor = flat
-      var accepted = false
-      val pixels =
-        renderOnGpu { scope ->
-          accepted =
-            drawer.draw(scope, SIZE.toFloat(), SIZE.toFloat(), engine.mesh(meshId)!!, engine, smooth, engine.baseColorArgb, null, 0)
-        }
-      val a = IntArray(SIZE * SIZE).also { pixels.getPixels(it, 0, SIZE, 0, 0, SIZE, SIZE) }
-      android.util.Log.i(
-        "Rc3DProbe",
-        "stage $label: accepted=$accepted vertices=${drawer.api?.lastVertexCount} covered=${a.count { (it ushr 24) != 0 }} " +
-          "mvp=${engine.modelViewProjection.toList()}",
-      )
-    }
-  }
-
   @Test fun smoothCube() = compare("smooth-cube") { cube(it, smooth = true) }
 
   @Test fun flatSphereTwoLights() = compare("flat-sphere") { sphere(it, smooth = false, lights = 2) }
