@@ -76,21 +76,72 @@ bitmap and the GPU vertex buffers are reused across frames.
 ## XR
 
 This is built to fit [compose-ai-tools' Remote Compose in XR](https://github.com/yschimke/compose-ai-tools/blob/main/docs/design/REMOTE_COMPOSE_XR.md)
-work, which played a path-drawn cube and a wall card as panel textures:
+work, which played a path-drawn cube and a wall card as panel textures. On Android XR there are
+four ways to show a 3D document. Each falls back to the one before it, and a host can choose per
+mesh draw, not per document.
 
-- **Transparent output.** `PAINT_3D_STATE` clear-depth clears colour to transparent and the player
-  paints no background, so a 3D document composites over a room. `Rc3DRenderTest` asserts the
-  corners stay at alpha 0, as `SpatialRemoteComposeTest` does for the path-drawn cube.
-- **A host-driven camera** (tier 1 of that doc's "per-eye view" ask). Every camera parameter may be a
-  variable. `Rc3DDocumentBuilder.hostCamera` names them (`xr.camera.eye.x` …), and an XR host puts
-  the document's camera at an eye's pose with `Rc3DHostCamera(...).namedValues()`, without
-  re-sending the document.
-- **Hand-off to the XR runtime** (tier 3). `Rc3DOptions.sceneListener` receives every mesh draw with
-  its model-space geometry, model, view and projection matrices and colour. With
-  `drawInPlayer = false` the player draws only the 2D content, and the host turns each mesh into a
-  SceneCore entity once and updates its pose each frame.
-- **Previewing it in a room.** [`renders/rc-3d-extension/scene.json`](../../renders/rc-3d-extension/scene.json)
-  is a SpatialScene with two 3D renders as panel textures, in the shape `xr-composite` reads.
+| Level | What the user sees | How | Per-frame cost | Here |
+| --- | --- | --- | --- | --- |
+| 1. Flat panel | The document as a card, its 3D drawn flat | `RcComposePlayer` in a `SpatialPanel`, or a hardware canvas on a SceneCore `SurfaceEntity` | One render for both eyes, only when something changed | Works now |
+| 2. Stereo window | Depth inside the panel's rectangle | Two renders, one camera per eye, into a side-by-side stereo `SurfaceEntity`; eye cameras from the head pose relative to the panel, through `Rc3DHostCamera` | Two renders, following the head | Host camera is here; the stereo surface host is not |
+| 3. Hand-off | Meshes as objects in the room: stereo, occlusion against the room, system lighting | Each mesh exported once as glTF (`Rc3DGltf`) and loaded as a SceneCore glTF model; poses updated from `Rc3DPanelPlacement` each frame; the 2D document stays a panel, with the entities as its children | Pose updates only | Listener, export and placement are here; the SceneCore host is not |
+| 4. Own renderer | Anything | An OpenXR app rendering each eye itself, through Filament or GLES | All of it | Out of scope |
+
+**Level 3 is the target for rigid meshes, and level 1 the fallback for everything else.** As far as
+this design knows, SceneCore loads glTF models but has no public API for geometry that changes, so:
+
+- A primitive with constant parameters, moved by `MATRIX_3D_OP` or the clock, is handed off. Its
+  `Rc3DMeshDraw.meshVersion` stays put and only `model` changes.
+- A deforming mesh (an animated `MESH_EXPRESSION_3D`, a primitive whose radius is an expression) is
+  rebuilt every frame and its `meshVersion` rises each time. Re-exporting glTF per frame is too
+  heavy, so those draws stay with the player (level 1), or a stereo surface (level 2) when the
+  document is 3D-only.
+
+### The listener contract a hand-off host relies on
+
+`Rc3DOptions(drawInPlayer = false, sceneListener = ...)` keeps the player evaluating the document
+(variables, camera, primitive rebuilds, touch) while the host owns the 3D drawing:
+
+- `onDrawMesh` reports each draw as it happens; `onFrame` reports the whole of one component's
+  pass once it is drawn. The draws in a frame are exactly what that component shows now: the host
+  keeps those and drops any others it held for that component. A static document is drawn once, so
+  it costs nothing afterwards.
+- `Rc3DMeshDraw.key` (component and position in its pass) is stable from frame to frame while the
+  document's structure is: one entity per key.
+- `meshVersion` changes exactly when the geometry does: re-export on change, and treat a version
+  that rises every frame as deforming.
+- `texture` is the bitmap in effect. The host encodes it as PNG for `Rc3DGltf.toGlb`; encoding is
+  platform code the player does not carry.
+
+### Mapping the document's camera into the room
+
+In XR the eyes are the camera, so the document's camera places the scene instead.
+`Rc3DPanelPlacement.panelTransform` treats the panel as a window: the camera's focus plane lies on
+the panel, and eye-space units are scaled so the view's height there is the panel's height in
+metres. Head-on, the room version lines up with the flat render; moving around reveals the depth.
+`Rc3DXrHelpersTest` holds a point on the focus plane to exactly where the flat render draws it.
+
+The panel's physical size is the host's choice. The XR doc's proposed header hints (a preferred
+physical size and depth extent) are where a document would state it.
+
+### Input
+
+2D taps keep working through the panel. A tap on a handed-off entity arrives as a SceneCore
+interaction hit; the host projects the hit point through the draw's view and projection into the
+viewport and feeds it to the document as a touch, so touch expressions (drag to turn, tap to step)
+work unchanged.
+
+### What is here, and what is not
+
+- Here: transparent output (`Rc3DRenderTest` asserts the corners stay at alpha 0, as
+  `SpatialRemoteComposeTest` does for the path-drawn cube); the host camera; the listener contract
+  above; glTF export; panel placement. [`renders/rc-3d-extension/scene.json`](../../renders/rc-3d-extension/scene.json)
+  is a SpatialScene with two renders as panel textures, the shape `xr-composite` reads, for
+  level 1 previews.
+- Not here: a SceneCore host. It needs the Jetpack XR dependencies and belongs in an Android XR
+  sample app; SceneCore's testing fakes can cover entity creation and pose updates without a
+  headset. Level 2's stereo surface host, and level 3 previews in `xr-composite`, which would need
+  glTF model support there.
 
 ## Divergences from the reference
 
