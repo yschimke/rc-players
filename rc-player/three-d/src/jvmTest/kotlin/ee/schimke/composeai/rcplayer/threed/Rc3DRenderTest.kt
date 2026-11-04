@@ -9,7 +9,9 @@ import ee.schimke.composeai.rcplayer.compose.LocalRcPlayerExtensions
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcWireException
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.threed.engine.RcPrimitive3D
@@ -127,6 +129,15 @@ class Rc3DRenderTest {
   }
 
   @Test
+  fun aLaterSoftwareMeshDoesNotRepaintAnEarlierOneOver2D() {
+    // Mesh A at the centre, an opaque 2D square over it, then mesh B off to one side. B's
+    // composite must not carry A's pixels back over the square.
+    val pixels = render(Rc3DDocuments.meshLabelMesh().encode())
+    assertEquals(Rc3DDocuments.LABEL, pixels[SIZE / 2 * SIZE + SIZE / 2], "the label stays on top")
+    assertTrue(pixels[SIZE / 2 * SIZE + SIZE - 12] ushr 24 == 255, "mesh B was drawn")
+  }
+
+  @Test
   fun aVectorExpressionDrivesTheLight() {
     // The light direction is normalize(vec3(namedX, -1, -1)): moving the named value moves the
     // shading, which only happens if the vector program kept its opcodes and wrote its outputs.
@@ -214,6 +225,34 @@ internal object Rc3DDocuments {
       identity()
       cubeRotation()
       draw(cube(), mode)
+    }
+
+  const val LABEL: Int = 0xFFFF0000.toInt()
+
+  fun meshLabelMesh(): Rc3DDocumentBuilder =
+    Rc3DDocumentBuilder(SIZE, SIZE).apply {
+      clearDepth()
+      standardCamera()
+      lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+      color(0xFF4488EE.toInt())
+      identity()
+      cubeRotation()
+      draw(cube())
+      color(LABEL)
+      add(
+        RcDraw4(
+          RcOpcodes.DRAW_RECT,
+          float(SIZE / 2f - 8f),
+          float(SIZE / 2f - 8f),
+          float(SIZE / 2f + 8f),
+          float(SIZE / 2f + 8f),
+        )
+      )
+      color(0xFF44CC88.toInt())
+      identity()
+      translate(float(1.45f), float(0f), float(0f))
+      val ball = primitive(RcPrimitive3D.SPHERE, listOf(0.3f, 0f, 0f, 0f).map(::float))
+      draw(ball)
     }
 
   fun hostCameraCube(): Rc3DDocumentBuilder =

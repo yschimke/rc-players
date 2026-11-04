@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import ee.schimke.composeai.rcplayer.compose.RcExtensionDrawScope
 import ee.schimke.composeai.rcplayer.compose.RcExtensionSession
+import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcExtensionOperation
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.runtime.RcFloatExpressionEvaluator
@@ -35,15 +36,35 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
   private val vectorRpn = RcVectorRpn()
   private val vectorOut = FloatArray(RcVectorRpn.DIM)
   private val expressions = RcMeshExpressionGenerator(RcFloatExpressionEvaluator())
-  private var frame: RcArgbFrame? = null
+  /**
+   * One bitmap per software composite in a frame, reused from frame to frame. A frame's composites
+   * cannot share one: Android's renderer uploads a mutable bitmap when the frame is synced, so
+   * every draw recorded against it would show the last mesh's pixels.
+   */
+  private val frames = mutableListOf<RcArgbFrame>()
+  private var framesUsed = 0
+  private var frameKey: Long? = null
   private var textureBitmapId = 0
   private var textureImage: ImageBitmap? = null
   private val texturePixels = mutableMapOf<ImageBitmap, IntArray>()
+
+  /**
+   * Bitmaps the document draws into. Their `ImageBitmap` is reused while its pixels change, so a
+   * readback of one is kept only for the frame it was taken in. Null when a `DRAW_TO_BITMAP`
+   * chooses its target at run time, which makes every bitmap a possible target.
+   */
+  private val drawTargets: Set<Int>? =
+    state.document.operations.filterIsInstance<RcDrawToBitmap>().let { targets ->
+      if (targets.any { it.bitmapId and DRAW_ID_DEREFERENCE != 0 }) null
+      else targets.mapTo(HashSet()) { it.bitmapId and DRAW_ID_MASK }
+    }
+  private val frameTexturePixels = mutableMapOf<ImageBitmap, IntArray>()
   private val definedMeshes = mutableMapOf<RcDefineMesh3D, Rc3DMeshData>()
   private val builtMeshes = mutableMapOf<Rc3DOperation, Pair<List<Float>, Rc3DMeshData?>>()
 
   override fun draw(operation: RcExtensionOperation, scope: RcExtensionDrawScope) {
     val op = operation as? Rc3DOperation ?: return
+    beginFrameIfNew()
     ensureSize(scope)
     when (op) {
       is RcDefineMesh3D ->
@@ -73,6 +94,15 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     }
   }
 
+  /** A new frame starts when the clock the player drew it at moves. */
+  private fun beginFrameIfNew() {
+    val key = state.frameWallClockMillis * 31 + state.animationTimeSeconds.toRawBits().toLong()
+    if (key == frameKey) return
+    frameKey = key
+    framesUsed = 0
+    frameTexturePixels.clear()
+  }
+
   private fun ensureSize(scope: RcExtensionDrawScope) {
     val size = scope.drawScope.size
     val scale = options.pixelScale
@@ -93,18 +123,20 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
 
   private fun setTexture(bitmapId: Int, scope: RcExtensionDrawScope) {
     textureBitmapId = bitmapId
-    val image = if (bitmapId == 0) null else scope.bitmap(state.drawId(bitmapId))
+    val id = if (bitmapId == 0) 0 else state.drawId(bitmapId)
+    val image = if (id == 0) null else scope.bitmap(id)
     textureImage = image
     if (image == null || image.width <= 0 || image.height <= 0) {
       engine.setTexture(null, 0, 0)
       return
     }
     // Read back once per bitmap: SET_TEXTURE_3D runs per mesh per frame, and a readback each
-    // time would dominate a textured scene.
+    // time would dominate a textured scene. A bitmap the document draws into is read once per
+    // frame instead, since its contents change under the same image.
+    val mutable = drawTargets?.contains(id) ?: true
+    val cache = if (mutable) frameTexturePixels else texturePixels
     val pixels =
-      texturePixels.getOrPut(image) {
-        IntArray(image.width * image.height).also { image.readPixels(it) }
-      }
+      cache.getOrPut(image) { IntArray(image.width * image.height).also { image.readPixels(it) } }
     engine.setTexture(pixels, image.width, image.height)
   }
 
@@ -210,9 +242,16 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     engine.drawMesh(meshId, mode)
     val w = engine.width
     val h = engine.height
-    val current = frame?.takeIf { it.width == w && it.height == h } ?: RcArgbFrame(w, h)
-    frame = current
+    val index = framesUsed++ % MAX_FRAMES
+    val reusable = frames.getOrNull(index)?.takeIf { it.width == w && it.height == h }
+    val current = reusable ?: RcArgbFrame(w, h)
+    if (reusable == null) {
+      if (index < frames.size) frames[index] = current else frames += current
+    }
     current.update(engine.colorBuffer)
+    // Only this mesh's pixels: an earlier mesh is already composited, and repainting it would
+    // cover 2D drawn since. Depth stays, so this mesh is still hidden behind earlier ones.
+    engine.clearColor()
     // Composited after every mesh, as the reference blits: a mesh, then a label, then another
     // mesh must interleave in that order.
     val size = scope.drawScope.size
@@ -242,13 +281,18 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
   }
 
   override fun dispose() {
-    frame = null
+    frames.clear()
     texturePixels.clear()
+    frameTexturePixels.clear()
     builtMeshes.clear()
     definedMeshes.clear()
   }
 
   internal companion object {
+    /** More software composites than this in one frame start reusing the first bitmaps. */
+    private const val MAX_FRAMES = 32
+    private const val DRAW_ID_MASK = 0xffff
+    private const val DRAW_ID_DEREFERENCE = 0x40000000
     private const val ID_REGION_MASK = 0x700000
     private const val ID_REGION_ARRAY = 0x200000
 

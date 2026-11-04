@@ -140,6 +140,15 @@ internal class RcSoftware3D {
     colorDirty = false
   }
 
+  /**
+   * Clear colour to transparent and keep depth: after compositing a mesh, so the next composite
+   * carries only the next mesh's pixels and never repaints an earlier mesh over 2D drawn since.
+   */
+  fun clearColor() {
+    colorBuffer.fill(0)
+    colorDirty = false
+  }
+
   fun setLights(types: List<Int>, colors: List<Int>, params: FloatArray) {
     lights.clear()
     for (i in types.indices) {
