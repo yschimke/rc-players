@@ -380,12 +380,38 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
   private val convexity = LinkedHashMap<Rc3DMeshData, Boolean>()
 
   /**
+   * Read from the document once: whether the GPU depth renderer can take every draw that needs
+   * depth, so a pass that starts on it never has to fall back part way, onto a depth buffer that
+   * holds none of the pass's earlier meshes. No control flow that could repeat draws
+   * ([repeatsOrSkips]), no wireframe (the software rasterizer's hidden-line pass), no light set
+   * larger than its shader takes, and few enough draws for its per-frame composites.
+   */
+  private val gpuDepthTakesEveryDraw: Boolean = run {
+    var draws = 0
+    for (op in state.document.operations) {
+      when {
+        op.repeatsOrSkips() -> return@run false
+        op is RcDrawMesh3D -> {
+          if ((op.mode and Rc3D.MODE_WIREFRAME) != 0) return@run false
+          if (++draws > Rc3DDepthLimits.MAX_DRAWS_PER_FRAME) return@run false
+        }
+        op is RcSetLights3D -> if (op.types.size > Rc3DDepthLimits.MAX_LIGHTS) return@run false
+      }
+    }
+    true
+  }
+
+  /**
    * A draw that needs depth, on the GPU depth renderer where there is one: under
    * [Rc3DRenderer.Auto] only, and never wireframe, whose hidden-line pass is the software
    * rasterizer's. The first such draw in a depth pass picks the renderer for the whole pass.
    */
   private fun drawOnGpuDepth(meshId: Int, mode: Int, scope: RcExtensionDrawScope): Boolean {
-    if (options.renderer != Rc3DRenderer.Auto || (mode and Rc3D.MODE_WIREFRAME) != 0) {
+    if (
+      options.renderer != Rc3DRenderer.Auto ||
+        !gpuDepthTakesEveryDraw ||
+        (mode and Rc3D.MODE_WIREFRAME) != 0
+    ) {
       if (passOnGpuDepth == null) passOnGpuDepth = false
       return false
     }

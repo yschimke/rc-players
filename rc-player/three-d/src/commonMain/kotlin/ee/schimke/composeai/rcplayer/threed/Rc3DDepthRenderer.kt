@@ -41,3 +41,12 @@ internal expect class RcDepthRenderer() {
 
   fun dispose()
 }
+
+/** What the GPU depth renderer can take; [Rc3DSession] reads a document against these up front. */
+internal object Rc3DDepthLimits {
+  /** Composites one frame may hold. */
+  const val MAX_DRAWS_PER_FRAME: Int = 16
+
+  /** Lights its shader takes. */
+  const val MAX_LIGHTS: Int = Rc3DShaderMeshData.MAX_LIGHTS
+}

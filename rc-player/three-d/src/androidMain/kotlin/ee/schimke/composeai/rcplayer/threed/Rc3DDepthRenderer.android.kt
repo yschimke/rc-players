@@ -506,7 +506,7 @@ internal class RcGlesDepth {
   private companion object {
     const val TAG = "Rc3D"
     const val EGL_OPENGL_ES3_BIT = 0x40
-    const val MAX_COMPOSITES_PER_FRAME = 8
+    const val MAX_COMPOSITES_PER_FRAME = Rc3DDepthLimits.MAX_DRAWS_PER_FRAME
     const val MAX_BUFFERS = 16
     const val DEPTH_STEPS = 16_777_215f
 
