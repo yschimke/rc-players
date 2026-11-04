@@ -17,42 +17,62 @@ internal actual class RcArgbFrame actual constructor(actual val width: Int, actu
 
   // `setPixels` takes unpremultiplied ARGB, which is what the rasterizer writes. A mutable bitmap's
   // generation id changes with it, so HWUI re-uploads the texture on the next draw.
-  actual fun update(argb: IntArray) {
-    bitmap.setPixels(argb, 0, width, 0, 0, width, height)
+  actual fun update(argb: IntArray, left: Int, top: Int, right: Int, bottom: Int) {
+    if (left >= right || top >= bottom) return
+    bitmap.setPixels(argb, top * width + left, width, left, top, right - left, bottom - top)
   }
 }
 
-internal actual fun DrawScope.rcDrawTriangles(
-  positions: FloatArray,
-  colors: IntArray,
-  uvs: FloatArray?,
-  vertexCount: Int,
-  texture: ImageBitmap?,
-) {
-  val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-  var texs: FloatArray? = null
-  if (texture != null && uvs != null) {
-    val bitmap = texture.asAndroidBitmap()
-    paint.shader = BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
-    // A bitmap shader samples in pixels, and v runs bottom-up while rows run top-down.
-    texs =
-      FloatArray(vertexCount * 2) { i ->
-        if (i % 2 == 0) uvs[i] * bitmap.width else (1f - uvs[i]) * bitmap.height
+internal actual class RcTriangleDrawer actual constructor() {
+  private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+  private var shaderBitmap: Bitmap? = null
+  private var shader: BitmapShader? = null
+  private var texs = FloatArray(0)
+
+  actual fun draw(
+    scope: DrawScope,
+    positions: FloatArray,
+    colors: IntArray,
+    uvs: FloatArray?,
+    vertexCount: Int,
+    texture: ImageBitmap?,
+  ) {
+    var texCoords: FloatArray? = null
+    if (texture != null && uvs != null) {
+      val bitmap = texture.asAndroidBitmap()
+      // A BitmapShader samples the bitmap as it is when drawn, so one per bitmap is enough even
+      // for a bitmap the document draws into.
+      if (bitmap !== shaderBitmap) {
+        shaderBitmap = bitmap
+        shader = BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
       }
+      paint.shader = shader
+      if (texs.size < vertexCount * 2) texs = FloatArray(vertexCount * 2)
+      // A bitmap shader samples in pixels, and v runs bottom-up while rows run top-down.
+      val w = bitmap.width.toFloat()
+      val h = bitmap.height.toFloat()
+      for (i in 0 until vertexCount) {
+        texs[i * 2] = uvs[i * 2] * w
+        texs[i * 2 + 1] = (1f - uvs[i * 2 + 1]) * h
+      }
+      texCoords = texs
+    } else {
+      paint.shader = null
+    }
+    // With both colours and a shader, Android multiplies them: lighting modulates the texel.
+    scope.drawContext.canvas.nativeCanvas.drawVertices(
+      Canvas.VertexMode.TRIANGLES,
+      vertexCount * 2,
+      positions,
+      0,
+      texCoords,
+      0,
+      colors,
+      0,
+      null,
+      0,
+      0,
+      paint,
+    )
   }
-  // With both colours and a shader, Android multiplies them: lighting modulates the texel.
-  drawContext.canvas.nativeCanvas.drawVertices(
-    Canvas.VertexMode.TRIANGLES,
-    vertexCount * 2,
-    positions,
-    0,
-    texs,
-    0,
-    colors,
-    0,
-    null,
-    0,
-    0,
-    paint,
-  )
 }

@@ -9,7 +9,16 @@ import ee.schimke.composeai.rcplayer.compose.RcExtensionDrawScope
 import ee.schimke.composeai.rcplayer.compose.RcExtensionSession
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcExtensionOperation
+import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcIncludeReferencedOperations
+import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
+import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
+import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
+import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
 import ee.schimke.composeai.rcplayer.runtime.RcFloatExpressionEvaluator
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData
@@ -46,7 +55,8 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
    * cannot share one: Android's renderer uploads a mutable bitmap when the frame is synced, so
    * every draw recorded against it would show the last mesh's pixels.
    */
-  private val frames = mutableListOf<RcArgbFrame>()
+  private val frames = mutableListOf<RcCompositeFrame>()
+  private val triangles = RcTriangleDrawer()
   private var framesUsed = 0
   private var frameKey: Long? = null
   private var textureBitmapId = 0
@@ -85,7 +95,10 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
       is RcPaint3DState -> {
         val params = resolve(op.params)
         when (op.sub) {
-          Rc3D.P3_CLEAR_DEPTH -> engine.clearDepth()
+          Rc3D.P3_CLEAR_DEPTH -> {
+            engine.clearDepth()
+            meshesInDepthPass = 0
+          }
           Rc3D.P3_MATERIAL -> if (params.size >= 2) engine.setMaterial(params[0], params[1])
           Rc3D.P3_DEPTH_BIAS -> if (params.size >= 2) engine.setDepthBias(params[0], params[1])
         }
@@ -105,11 +118,17 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     if (key == frameKey) return
     frameKey = key
     framesUsed = 0
+    meshesInDepthPass = 0
     frameTexturePixels.clear()
   }
 
+  /**
+   * The software buffer covers the canvas at its own pixel density (times
+   * [Rc3DOptions.pixelScale]), not the drawing's units: under a document's root scale those are
+   * larger than a pixel, and a buffer in them would be stretched and blurred on screen.
+   */
   private fun ensureSize(scope: RcExtensionDrawScope) {
-    val size = scope.size
+    val size = scope.drawScope.size
     val scale = options.pixelScale
     engine.setSize(
       (size.width * scale).roundToInt().coerceAtLeast(1),
@@ -242,6 +261,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
   private fun drawMesh(op: RcDrawMesh3D, scope: RcExtensionDrawScope) {
     val meshId = op.meshId
     val mesh = engine.mesh(meshId) ?: return
+    meshesInDepthPass++
     engine.baseColorArgb = scope.paintColor
     val size = scope.size
     var inPlayer = options.drawInPlayer
@@ -269,43 +289,117 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
       if (!inPlayer) inPlayer = listener.keepInPlayer(draw)
     }
     if (!inPlayer) return
-    if (useGpu(op.mode)) drawGpu(meshId, op.mode, scope) else drawSoftware(meshId, op.mode, scope)
+    if (useGpu(op.mode, mesh)) drawGpu(meshId, op.mode, scope)
+    else drawSoftware(meshId, op.mode, scope)
   }
 
-  private fun useGpu(mode: Int): Boolean {
+  private fun useGpu(mode: Int, mesh: Rc3DMeshData): Boolean {
     if ((mode and Rc3D.MODE_WIREFRAME) != 0) return false // needs the depth buffer
     return when (options.renderer) {
       Rc3DRenderer.Software -> false
       Rc3DRenderer.Gpu -> true
-      Rc3DRenderer.Auto -> (mode shr 1) != Rc3D.MODE_BACKEND_SOFTWARE
+      Rc3DRenderer.Auto ->
+        (mode shr 1) != Rc3D.MODE_BACKEND_SOFTWARE || softwareModeIsSafeOnGpu(mesh)
     }
   }
 
+  /**
+   * Whether a draw that asks for the software rasterizer looks the same through the GPU path, which
+   * has no depth buffer: true for the only mesh in its depth pass when that mesh is convex. Back
+   * faces are culled, and a convex mesh's front faces never overlap, so their order cannot matter,
+   * and with no other mesh in the pass there is nothing for depth to resolve.
+   */
+  private fun softwareModeIsSafeOnGpu(mesh: Rc3DMeshData): Boolean {
+    if (!singleMeshPerDepthPass || sawSharedDepthPass) return false
+    if (meshesInDepthPass > 1) {
+      // The static read missed something that draws twice in one pass. A mesh earlier in it may
+      // already have gone to the GPU without depth, so stop promoting for the session.
+      sawSharedDepthPass = true
+      return false
+    }
+    // Translucent paint shows any overlap the depth test would have hidden; keep it exact.
+    if ((engine.baseColorArgb ushr 24) != 0xFF) return false
+    // The software rasterizer maps textures perspective-correct; the vertex path is affine.
+    if (textureImage != null && mesh.uv?.isNotEmpty() == true) return false
+    return isConvex(mesh)
+  }
+
+  private fun isConvex(mesh: Rc3DMeshData): Boolean =
+    convexity.getOrPut(mesh) {
+      while (convexity.size >= MAX_CONVEXITY) convexity.remove(convexity.keys.first())
+      Rc3DConvexity.isConvex(mesh)
+    }
+
+  /**
+   * Read from the document once: every depth pass (the operations between two `CLEAR_DEPTH`s) draws
+   * at most one mesh, and nothing repeats a draw. Loops, particles, references and macros can draw
+   * one mesh many times and a conditional can skip a clear, so a document with any of them
+   * ([repeatsOrSkips]) is never taken as single. [sawSharedDepthPass] backs this up at run time.
+   */
+  private val singleMeshPerDepthPass: Boolean = run {
+    var draws = 0
+    for (op in state.document.operations) {
+      when {
+        // Control flow can repeat a draw or skip a depth clear, and references and macros expand
+        // into copies of their bodies: none of that is visible to this scan.
+        op.repeatsOrSkips() -> return@run false
+        op is RcPaint3DState && op.sub == Rc3D.P3_CLEAR_DEPTH -> draws = 0
+        op is RcDrawMesh3D -> if (++draws > 1) return@run false
+      }
+    }
+    true
+  }
+
+  /**
+   * Meshes drawn since the last depth clear this frame: a guard on [singleMeshPerDepthPass] for
+   * documents whose structure the static read cannot see through.
+   */
+  private var meshesInDepthPass = 0
+
+  /** Set the first time a depth pass is seen to hold two meshes; see [softwareModeIsSafeOnGpu]. */
+  private var sawSharedDepthPass = false
+  /**
+   * Convexity by mesh, for the few meshes in play. A mesh rebuilt every frame brings a new key each
+   * time, so the oldest are dropped rather than kept for the life of the session.
+   */
+  private val convexity = LinkedHashMap<Rc3DMeshData, Boolean>()
+
   private fun drawSoftware(meshId: Int, mode: Int, scope: RcExtensionDrawScope) {
     engine.drawMesh(meshId, mode)
+    val left = engine.dirtyLeft
+    val top = engine.dirtyTop
+    val right = engine.dirtyRight
+    val bottom = engine.dirtyBottom
+    if (left >= right || top >= bottom) return // nothing on screen: nothing to composite
     val w = engine.width
     val h = engine.height
     // Never reused within a frame. Past MAX_FRAMES composites a frame's bitmaps are allocated
     // fresh rather than kept, so a mesh-heavy document costs memory only while it draws.
     val index = framesUsed++
-    val reusable = frames.getOrNull(index)?.takeIf { it.width == w && it.height == h }
-    val current = reusable ?: RcArgbFrame(w, h)
+    val reusable = frames.getOrNull(index)?.takeIf { it.frame.width == w && it.frame.height == h }
+    val current = reusable ?: RcCompositeFrame(RcArgbFrame(w, h))
     if (reusable == null && index < MAX_FRAMES) {
       if (index < frames.size) frames[index] = current else frames += current
     }
-    current.update(engine.colorBuffer)
+    // Only this mesh's rectangle is copied, and whatever this bitmap showed last frame is cleared
+    // with it: outside the rectangle the buffer is transparent.
+    current.update(engine.colorBuffer, left, top, right, bottom)
     // Only this mesh's pixels: an earlier mesh is already composited, and repainting it would
     // cover 2D drawn since. Depth stays, so this mesh is still hidden behind earlier ones.
     engine.clearColor()
     // Composited after every mesh, as the reference blits: a mesh, then a label, then another
-    // mesh must interleave in that order.
+    // mesh must interleave in that order. Buffer pixels map onto the drawing's units by the
+    // scale between them, so only the rectangle is drawn, at exactly its place.
     val size = scope.size
-    scope.drawScope.drawImage(
-      current.image,
-      srcOffset = IntOffset.Zero,
-      srcSize = IntSize(w, h),
-      dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
-    )
+    scope.drawScope.scale(size.width / w, size.height / h, Offset.Zero) {
+      drawImage(
+        current.frame.image,
+        srcOffset = IntOffset(left, top),
+        srcSize = IntSize(right - left, bottom - top),
+        dstOffset = IntOffset(left, top),
+        dstSize = IntSize(right - left, bottom - top),
+      )
+    }
   }
 
   private fun drawGpu(meshId: Int, mode: Int, scope: RcExtensionDrawScope) {
@@ -313,9 +407,11 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
       engine.buildScreenVertices(meshId, screenMesh, (mode and Rc3D.MODE_SMOOTH_MASK) != 0)
     if (count < 3) return
     val texture = textureImage?.takeIf { screenMesh.hasUv }
-    val inverse = 1f / options.pixelScale
-    scope.drawScope.scale(inverse, inverse, Offset.Zero) {
-      rcDrawTriangles(
+    // Screen vertices are in buffer pixels; the drawing is in its own units.
+    val size = scope.size
+    scope.drawScope.scale(size.width / engine.width, size.height / engine.height, Offset.Zero) {
+      triangles.draw(
+        this,
         screenMesh.positions,
         screenMesh.colors,
         if (texture != null) screenMesh.uvs else null,
@@ -331,11 +427,13 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     frameTexturePixels.clear()
     builtMeshes.clear()
     definedMeshes.clear()
+    convexity.clear()
   }
 
   internal companion object {
     /** How many composite bitmaps are kept from frame to frame. */
     private const val MAX_FRAMES = 32
+    private const val MAX_CONVEXITY = 16
     private const val DRAW_ID_MASK = 0xffff
     private const val DRAW_ID_DEREFERENCE = 0x40000000
     private const val ID_REGION_MASK = 0x700000
@@ -360,3 +458,46 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     }
   }
 }
+
+/** A composite bitmap and the rectangle it last showed, which the next update must clear. */
+internal class RcCompositeFrame(val frame: RcArgbFrame) {
+  private var left = 0
+  private var top = 0
+  private var right = 0
+  private var bottom = 0
+
+  /** Show [argb]'s pixels in the rectangle, and clear whatever showed outside it last time. */
+  fun update(argb: IntArray, left: Int, top: Int, right: Int, bottom: Int) {
+    if (this.left < this.right) {
+      frame.update(
+        argb,
+        minOf(this.left, left),
+        minOf(this.top, top),
+        maxOf(this.right, right),
+        maxOf(this.bottom, bottom),
+      )
+    } else {
+      frame.update(argb, left, top, right, bottom)
+    }
+    this.left = left
+    this.top = top
+    this.right = right
+    this.bottom = bottom
+  }
+}
+
+/**
+ * Whether [this] can repeat, skip or expand operations: any container the protocol defines
+ * ([RcOpcodes.CONTAINER_STARTS]: loops, conditionals, impulses, functions, canvases, touch handlers
+ * and the rest, read from one place so a new one is covered too), a wire-form macro body, and the
+ * operations that expand into copies of other bodies.
+ */
+private fun RcOperation.repeatsOrSkips(): Boolean =
+  opcode in RcOpcodes.CONTAINER_STARTS ||
+    (this is RcMacroDefine && body.isEmpty()) ||
+    this is RcParticleLoop ||
+    this is RcParticleCompare ||
+    this is RcIncludeReferencedOperations ||
+    this is RcMacroForEach ||
+    this is RcMacroCall ||
+    this is RcFloatFunctionCall

@@ -64,13 +64,21 @@ class Rc3DRenderTest {
 
   @Test
   fun softwareCubePaintsOnlyTheCube() {
-    val pixels = render(Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH).encode())
+    val pixels =
+      render(
+        Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH).encode(),
+        Rc3DOptions(renderer = Rc3DRenderer.Software),
+      )
     assertTransparentCornersAndOpaqueCentre(pixels)
   }
 
   @Test
   fun gpuCubeCoversTheSamePixelsAsTheSoftwareCube() {
-    val software = render(Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH).encode())
+    val software =
+      render(
+        Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH).encode(),
+        Rc3DOptions(renderer = Rc3DRenderer.Software),
+      )
     val gpu = render(Rc3DDocuments.litCube(Rc3D.MODE_CANVAS_SMOOTH).encode())
     assertTransparentCornersAndOpaqueCentre(gpu)
     // A convex shape culled to its front faces has no depth conflicts, so the two rasterizers
@@ -88,8 +96,141 @@ class Rc3DRenderTest {
   fun forcingSoftwareOverridesAnAcceleratedMode() {
     val doc = Rc3DDocuments.litCube(Rc3D.MODE_CANVAS_SMOOTH).encode()
     val forced = render(doc, Rc3DOptions(renderer = Rc3DRenderer.Software))
-    val software = render(Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH).encode())
+    val software =
+      render(
+        Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH).encode(),
+        Rc3DOptions(renderer = Rc3DRenderer.Software),
+      )
     assertTrue(forced.contentEquals(software))
+  }
+
+  @Test
+  fun autoDrawsALoneConvexSoftwareMeshOnTheGpu() {
+    val bytes = Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH).encode()
+    val gpu = render(bytes, Rc3DOptions(renderer = Rc3DRenderer.Gpu))
+    assertTrue(render(bytes).contentEquals(gpu), "a lone cube needs no depth buffer")
+  }
+
+  @Test
+  fun autoKeepsATranslucentSoftwareMeshOnTheSoftwareRasterizer() {
+    val translucent =
+      Rc3DDocumentBuilder(SIZE, SIZE)
+        .apply {
+          clearDepth()
+          perspectiveCamera(
+            float(0.9f),
+            float(1f),
+            float(0.1f),
+            float(100f),
+            listOf(float(0f), float(0f), float(4f)),
+            listOf(float(0f), float(0f), float(0f)),
+          )
+          lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+          color(0x80EE8844.toInt())
+          identity()
+          rotate(float(0.6f), 0f, 1f, 0f)
+          draw(
+            primitive(RcPrimitive3D.CUBE, List(6) { float(if (it < 3) 1f else 0f) }),
+            Rc3D.MODE_SOFTWARE_SMOOTH,
+          )
+        }
+        .encode()
+    val software = render(translucent, Rc3DOptions(renderer = Rc3DRenderer.Software))
+    assertTrue(render(translucent).contentEquals(software))
+  }
+
+  @Test
+  fun autoKeepsATexturedSoftwareMeshOnTheSoftwareRasterizer() {
+    // The software rasterizer maps a texture perspective-correct and the vertex path does not, so
+    // a textured software-mode draw stays there even when it is a lone convex mesh.
+    val image = java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB)
+    for (y in 0 until 16) for (x in 0 until 16) {
+      image.setRGB(x, y, if ((x / 4 + y / 4) % 2 == 0) -1 else 0xFF3355AA.toInt())
+    }
+    val png = java.io.ByteArrayOutputStream().also { javax.imageio.ImageIO.write(image, "png", it) }
+    val textured =
+      Rc3DDocumentBuilder(SIZE, SIZE)
+        .apply {
+          val bitmap = newId()
+          add(
+            RcBitmapData(
+              bitmap,
+              16,
+              16,
+              RcBitmapData.TYPE_PNG_8888,
+              RcBitmapData.ENCODING_INLINE,
+              png.toByteArray(),
+            )
+          )
+          clearDepth()
+          perspectiveCamera(
+            float(0.9f),
+            float(1f),
+            float(0.1f),
+            float(100f),
+            listOf(float(0f), float(0f), float(4f)),
+            listOf(float(0f), float(0f), float(0f)),
+          )
+          lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+          color(-1)
+          texture(bitmap)
+          identity()
+          rotate(float(0.8f), 0f, 1f, 0f)
+          draw(
+            primitive(
+              RcPrimitive3D.SPHERE,
+              listOf(float(1.2f), float(0f), float(0f), float(0f)),
+              float(16f),
+              flags = 16,
+            ),
+            Rc3D.MODE_SOFTWARE_SMOOTH,
+          )
+        }
+        .encode()
+    val software = render(textured, Rc3DOptions(renderer = Rc3DRenderer.Software))
+    assertTrue(software.count { it ushr 24 != 0 } > 0, "the sphere drew")
+    assertTrue(render(textured).contentEquals(software))
+  }
+
+  @Test
+  fun autoKeepsTheSoftwareRasterizerWhereDepthMatters() {
+    // A torus is not convex: its front faces overlap, and only the depth buffer orders them.
+    val torus =
+      Rc3DDocumentBuilder(SIZE, SIZE)
+        .apply {
+          clearDepth()
+          perspectiveCamera(
+            float(0.9f),
+            float(1f),
+            float(0.1f),
+            float(100f),
+            listOf(float(0f), float(0f), float(4f)),
+            listOf(float(0f), float(0f), float(0f)),
+          )
+          lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+          color(0xFF4488EE.toInt())
+          identity()
+          rotate(float(1.1f), 1f, 0f, 0f)
+          draw(
+            primitive(
+              RcPrimitive3D.TORUS,
+              listOf(float(0.9f), float(0.35f), float(0f), float(0f), float(0f)),
+              float(24f),
+            ),
+            Rc3D.MODE_SOFTWARE_SMOOTH,
+          )
+        }
+        .encode()
+    assertTrue(
+      render(torus).contentEquals(render(torus, Rc3DOptions(renderer = Rc3DRenderer.Software))),
+      "the torus",
+    )
+    // Two meshes in one depth pass: depth decides which shows where they overlap.
+    val two = Rc3DDocuments.meshLabelMesh().encode()
+    assertTrue(
+      render(two).contentEquals(render(two, Rc3DOptions(renderer = Rc3DRenderer.Software))),
+      "two meshes",
+    )
   }
 
   @Test
@@ -187,6 +328,26 @@ class Rc3DRenderTest {
   }
 
   @Test
+  fun aCompositeUploadClearsWhereTheLastMeshWas() {
+    // Each composite uploads only its mesh's rectangle, so a reused bitmap must also clear the
+    // rectangle it showed last time; outside both, the engine's buffer is transparent anyway.
+    val w = 8
+    val frame = RcCompositeFrame(RcArgbFrame(w, w))
+    val buffer = IntArray(w * w)
+    fun fill(l: Int, t: Int, r: Int, b: Int, argb: Int) {
+      for (y in t until b) for (x in l until r) buffer[y * w + x] = argb
+    }
+    fill(0, 0, 3, 3, 0xFFFF0000.toInt())
+    frame.update(buffer, 0, 0, 3, 3)
+    buffer.fill(0)
+    fill(5, 5, 8, 8, 0xFF00FF00.toInt())
+    frame.update(buffer, 5, 5, 8, 8)
+    val shown = IntArray(w * w).also { frame.frame.image.readPixels(it) }
+    assertEquals(0, shown[1 * w + 1], "the first rectangle is cleared")
+    assertEquals(0xFF00FF00.toInt(), shown[6 * w + 6], "the second shows")
+  }
+
+  @Test
   fun aLaterSoftwareMeshDoesNotRepaintAnEarlierOneOver2D() {
     // Mesh A at the centre, an opaque 2D square over it, then mesh B off to one side. B's
     // composite must not carry A's pixels back over the square.
@@ -238,6 +399,28 @@ class Rc3DRenderTest {
         )
       }
     }
+  }
+
+  @Test
+  fun aScaledSoftwareMeshIsRasterizedAtTheCanvasResolution() {
+    // Scaled up 2x, the software buffer is the canvas's pixels, not the document's units: the
+    // result matches the same scene authored at the larger size, not an upscaled blur of it.
+    val software = Rc3DOptions(renderer = Rc3DRenderer.Software)
+    val scaled =
+      render(
+        Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH, scaleFit = true).encode(),
+        software,
+        size = SIZE * 2,
+        fill = true,
+      )
+    val native =
+      render(
+        Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH, SIZE * 2).encode(),
+        software,
+        size = SIZE * 2,
+      )
+    val differ = scaled.indices.count { scaled[it] != native[it] }
+    assertTrue(differ == 0, "$differ pixels differ")
   }
 
   @Test

@@ -11,22 +11,33 @@ internal expect class RcArgbFrame(width: Int, height: Int) {
   val width: Int
   val height: Int
 
-  /** Replace the pixels with [argb], `width * height` unpremultiplied ARGB values. */
-  fun update(argb: IntArray)
+  /**
+   * Replace the pixels of the rectangle `[left, right)` by `[top, bottom)` with the same pixels of
+   * [argb], `width * height` unpremultiplied ARGB values. The rest of the bitmap keeps what it
+   * held.
+   */
+  fun update(argb: IntArray, left: Int, top: Int, right: Int, bottom: Int)
 
   val image: ImageBitmap
 }
 
 /**
- * Draw [vertexCount] vertices as a triangle list with per-vertex colours, through the platform's
- * `drawVertices`: `android.graphics.Canvas` on Android, Skia elsewhere. Both rasterize on the GPU
- * when the canvas is hardware-backed. With a [texture], [uvs] (0..1, v up) sample it and the vertex
- * colours modulate the texel, as lighting does in the reference.
+ * Draws triangle lists through the platform's `drawVertices`: `android.graphics.Canvas` on Android,
+ * Skia elsewhere. Both rasterize on the GPU when the canvas is hardware-backed. One per session, so
+ * the paint, the texture shader and the vertex arrays are made once and reused from frame to frame.
  */
-internal expect fun DrawScope.rcDrawTriangles(
-  positions: FloatArray,
-  colors: IntArray,
-  uvs: FloatArray?,
-  vertexCount: Int,
-  texture: ImageBitmap?,
-)
+internal expect class RcTriangleDrawer() {
+  /**
+   * Draw [vertexCount] vertices as a triangle list with per-vertex colours. With a [texture], [uvs]
+   * (0..1, v up) sample it and the vertex colours modulate the texel, as lighting does in the
+   * reference.
+   */
+  fun draw(
+    scope: DrawScope,
+    positions: FloatArray,
+    colors: IntArray,
+    uvs: FloatArray?,
+    vertexCount: Int,
+    texture: ImageBitmap?,
+  )
+}

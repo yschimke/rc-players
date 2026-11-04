@@ -2,6 +2,8 @@ package ee.schimke.composeai.rcplayer.threed.engine
 
 import ee.schimke.composeai.rcplayer.threed.Rc3D
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -48,6 +50,24 @@ internal class RcSoftware3D {
 
   /** Set by every write to [colorBuffer]; the host clears it once it has composited. */
   var colorDirty: Boolean = false
+
+  /**
+   * The pixels written since colour was last cleared, as `[dirtyLeft, dirtyRight)` by `[dirtyTop,
+   * dirtyBottom)`; empty when [dirtyLeft] >= [dirtyRight]. Everything outside it is transparent, so
+   * a host uploads and composites only this, and [clearColor] clears only this: a small mesh in a
+   * large viewport costs its own area, not the viewport's.
+   */
+  var dirtyLeft: Int = 0
+    private set
+
+  var dirtyTop: Int = 0
+    private set
+
+  var dirtyRight: Int = 0
+    private set
+
+  var dirtyBottom: Int = 0
+    private set
 
   var baseColorArgb: Int = -1
 
@@ -100,6 +120,7 @@ internal class RcSoftware3D {
       this.width = width
       this.height = height
       RcRasterizer.clearDepth(zbuf)
+      resetDirty()
     }
   }
 
@@ -138,6 +159,7 @@ internal class RcSoftware3D {
     RcRasterizer.clearDepth(zbuf)
     colorBuffer.fill(0)
     colorDirty = false
+    resetDirty()
   }
 
   /**
@@ -145,8 +167,51 @@ internal class RcSoftware3D {
    * carries only the next mesh's pixels and never repaints an earlier mesh over 2D drawn since.
    */
   fun clearColor() {
-    colorBuffer.fill(0)
+    if (dirtyLeft < dirtyRight) {
+      val buffer = colorBuffer
+      for (y in dirtyTop until dirtyBottom) {
+        val row = y * width
+        buffer.fill(0, row + dirtyLeft, row + dirtyRight)
+      }
+    }
     colorDirty = false
+    resetDirty()
+  }
+
+  private fun resetDirty() {
+    dirtyLeft = 0
+    dirtyTop = 0
+    dirtyRight = 0
+    dirtyBottom = 0
+  }
+
+  /**
+   * Grow the dirty rectangle over the triangle in [triScreen], with a pixel of margin for the
+   * rasterizer's rounding and for lines along its edges.
+   */
+  private fun markTriangleDirty() {
+    val x0 = triScreen[0]
+    val x1 = triScreen[3]
+    val x2 = triScreen[6]
+    val y0 = triScreen[1]
+    val y1 = triScreen[4]
+    val y2 = triScreen[7]
+    val l = (floor(minOf(x0, x1, x2)).toInt() - 1).coerceIn(0, width)
+    val r = (ceil(maxOf(x0, x1, x2)).toInt() + 2).coerceIn(0, width)
+    val t = (floor(minOf(y0, y1, y2)).toInt() - 1).coerceIn(0, height)
+    val b = (ceil(maxOf(y0, y1, y2)).toInt() + 2).coerceIn(0, height)
+    if (l >= r || t >= b) return
+    if (dirtyLeft >= dirtyRight) {
+      dirtyLeft = l
+      dirtyTop = t
+      dirtyRight = r
+      dirtyBottom = b
+    } else {
+      if (l < dirtyLeft) dirtyLeft = l
+      if (t < dirtyTop) dirtyTop = t
+      if (r > dirtyRight) dirtyRight = r
+      if (b > dirtyBottom) dirtyBottom = b
+    }
   }
 
   fun setLights(types: List<Int>, colors: List<Int>, params: FloatArray) {
@@ -554,6 +619,7 @@ internal class RcSoftware3D {
     // Pass 2: the selected edges, depth-tested against the prepass.
     for (t in 0 until n step 3) {
       if (!projectTriangle(m, false, false, t, lineColor, w, h)) continue
+      markTriangleDirty()
       val ax = triScreen[0]
       val ay = triScreen[1]
       val az = triScreen[2]
@@ -640,6 +706,7 @@ internal class RcSoftware3D {
     val n = m.indices.size
     for (t in 0 until n step 3) {
       if (!projectTriangle(m, smooth, textured, t, baseColor, w, h)) continue
+      markTriangleDirty()
       if (textured) {
         val q0 = m.indices[t] * 2
         val q1 = m.indices[t + 1] * 2
