@@ -5,19 +5,39 @@ name: 3D device tests
 # emulator, which compares the mesh path with the CPU-transformed vertex path on a real hardware
 # canvas, and publishes the renders it compared. See docs/design/RC_3D_EXTENSION.md.
 
+# Only what the device tests exercise: the Android renderers, the code they share with the CPU
+# paths they are compared against, and their own tests. A common-code change elsewhere in the
+# module does not boot an emulator; main's push run and the nightly still cover everything.
 on:
   pull_request:
     paths:
+      - 'rc-player/three-d/src/android*/**'
+      - 'rc-player/three-d/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/threed/Rc3DShaderMesh.kt'
+      - 'rc-player/three-d/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/threed/Rc3DDepthRenderer.kt'
+      - 'rc-player/three-d/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/threed/Rc3DPlatform.kt'
+      - 'rc-player/three-d/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/threed/engine/**'
+      - 'rc-player/three-d/build.gradle.kts'
+      - '.github/workflows/three-d-device-tests.yml'
+  push:
+    branches: [main]
+    paths:
       - 'rc-player/three-d/**'
       - '.github/workflows/three-d-device-tests.yml'
+  schedule:
+    - cron: "41 4 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# A pull request collapses per branch. A push to main gets a group of its own, per commit: a group
+# holds one running and one pending run, so a shared main group would cancel a waiting run when a
+# third push arrived (see ci.yml's concurrency note).
 concurrency:
-  group: three-d-device-tests-${{ github.ref }}
-  cancel-in-progress: true
+  group: >-
+    three-d-device-tests-${{ github.ref
+    }}${{ github.event_name == 'push' && format('-{0}', github.sha) || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   device-tests:
