@@ -4,7 +4,8 @@
   "type": "module",
   "description": "The headless-browser smoke run over :rc-player-wasm:wasmPlayerTestDist. Kept out of the Gradle build on purpose (docs/design/RC_CMP_WASM_PLAYER.md): the bundle is a plain directory of static files, so all this needs is a static server and a browser, and npm only ever runs in CI on a directory that is already assembled.",
   "scripts": {
-    "test": "node smoke.mjs"
+    "test": "node smoke.mjs",
+    "test:3d": "node three-d-webgl.mjs"
   },
   "dependencies": {
     "playwright": "1.64.1",

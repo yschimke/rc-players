@@ -7,11 +7,11 @@ import ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData
 import ee.schimke.composeai.rcplayer.threed.engine.RcSoftware3D
 
 /**
- * Rasterizes meshes on the GPU with a real depth buffer: OpenGL ES on Android 10 and later. It does
- * the software rasterizer's job (per-pixel depth that persists across the meshes of a depth pass,
- * each mesh composited where it sits in the document), so it takes the draws that need depth and
- * cannot go through the depthless vertex path. Where there is no such renderer, [draw] returns
- * false and the software rasterizer draws.
+ * Rasterizes meshes on the GPU with a real depth buffer: OpenGL ES on Android 10 and later, WebGL2
+ * in the browser. It does the software rasterizer's job (per-pixel depth that persists across the
+ * meshes of a depth pass, each mesh composited where it sits in the document), so it takes the
+ * draws that need depth and cannot go through the depthless vertex path. Where there is no such
+ * renderer, [draw] returns false and the software rasterizer draws.
  */
 internal expect class RcDepthRenderer() {
   /** Whether this platform and [scope]'s canvas can take a draw at all. */

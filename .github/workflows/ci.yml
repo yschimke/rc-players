@@ -208,10 +208,10 @@ jobs:
           fi
           echo "jvm=$jvm" | tee -a "$GITHUB_OUTPUT"
 
-      # `three-d` gates the XR sample's build and lint inside the JVM lane: an Android app build
-      # and its lint are minutes that only a change to the 3D extension, the sample, the player it
-      # plugs into or the build itself can affect. Pushes to main always run them, and so does an
-      # unreadable base.
+      # `three-d` gates the XR sample's build and lint inside the JVM lane, and the 3D WebGL2
+      # browser test: an Android app build and its lint are minutes that only a change to the 3D
+      # extension, the sample, the player it plugs into or the build itself can affect. Pushes to
+      # main always run them, and so does an unreadable base.
       - name: Check whether the 3D sample needs building
         id: three-d-filter
         env:
@@ -227,6 +227,7 @@ jobs:
               .github/workflows/ci.yml \
               rc-player/three-d \
               rc-player/xr-sample \
+              scripts/wasm-smoke/three-d-webgl.mjs \
               rc-player/compose \
               rc-player/runtime \
               rc-player/protocol \
@@ -519,6 +520,16 @@ jobs:
           npm ci
           npx playwright install chromium
           npm test
+
+      # The 3D extension's WebGL2 depth renderer against its software rasterizer, in Chromium: the
+      # production-compiled `:rc-player-3d` wasm tests, run by a page of their own. The runner has
+      # no GPU, so WebGL2 is Chrome's software GL; see the script's header. Playwright and its
+      # Chromium are already installed by the step above.
+      - name: Test the 3D WebGL2 depth renderer in a headless browser
+        if: needs.apple-changes.outputs.three-d != 'false'
+        run: |
+          ./gradlew :rc-player-3d:wasmWebGlTestDist
+          (cd scripts/wasm-smoke && npm run test:3d)
 
       - name: Upload test reports on failure
         if: failure()

@@ -14,6 +14,7 @@ on:
       - 'rc-player/three-d/src/android*/**'
       - 'rc-player/three-d/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/threed/Rc3DShaderMesh.kt'
       - 'rc-player/three-d/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/threed/Rc3DDepthRenderer.kt'
+      - 'rc-player/three-d/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/threed/Rc3DDepthShaders.kt'
       - 'rc-player/three-d/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/threed/Rc3DPlatform.kt'
       - 'rc-player/three-d/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/threed/engine/**'
       - 'rc-player/three-d/build.gradle.kts'
