@@ -57,6 +57,9 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
    */
   private val frames = mutableListOf<RcCompositeFrame>()
   private val triangles = RcTriangleDrawer()
+  private val shaderMeshes = RcShaderMeshDrawer()
+  /** Shader-mesh draws so far this frame: each takes its own slot. */
+  private var shaderSlot = 0
   private var framesUsed = 0
   private var frameKey: Long? = null
   private var textureBitmapId = 0
@@ -118,6 +121,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     if (key == frameKey) return
     frameKey = key
     framesUsed = 0
+    shaderSlot = 0
     meshesInDepthPass = 0
     frameTexturePixels.clear()
   }
@@ -403,12 +407,34 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
   }
 
   private fun drawGpu(meshId: Int, mode: Int, scope: RcExtensionDrawScope) {
-    val count =
-      engine.buildScreenVertices(meshId, screenMesh, (mode and Rc3D.MODE_SMOOTH_MASK) != 0)
+    val smooth = (mode and Rc3D.MODE_SMOOTH_MASK) != 0
+    val size = scope.size
+    // A convex mesh needs no ordering, so where the platform has a mesh API it is uploaded once
+    // and projected and lit in a shader; everything else is transformed here.
+    val mesh = engine.mesh(meshId)
+    if (
+      mesh != null &&
+        shaderMeshes.canDraw(scope.drawScope) &&
+        isConvex(mesh) &&
+        shaderMeshes.draw(
+          scope.drawScope,
+          size.width,
+          size.height,
+          mesh,
+          engine,
+          smooth,
+          engine.baseColorArgb,
+          textureImage,
+          shaderSlot,
+        )
+    ) {
+      shaderSlot++
+      return
+    }
+    val count = engine.buildScreenVertices(meshId, screenMesh, smooth)
     if (count < 3) return
     val texture = textureImage?.takeIf { screenMesh.hasUv }
     // Screen vertices are in buffer pixels; the drawing is in its own units.
-    val size = scope.size
     scope.drawScope.scale(size.width / engine.width, size.height / engine.height, Offset.Zero) {
       triangles.draw(
         this,
@@ -428,6 +454,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     builtMeshes.clear()
     definedMeshes.clear()
     convexity.clear()
+    shaderMeshes.dispose()
   }
 
   internal companion object {

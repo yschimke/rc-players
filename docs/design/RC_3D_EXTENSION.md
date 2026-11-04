@@ -52,6 +52,7 @@ and the mesh cache. A `DRAW_MESH_3D` is then drawn by one of two rasterizers, ch
 | --- | --- | --- |
 | Software | The reference's 28.4 fixed-point rasterizer into an ARGB buffer, composited after each mesh so 3D interleaves with 2D in document order | Per pixel |
 | GPU | Transform, lighting and culling on the CPU (the same code), then a back-to-front triangle list through the platform's `drawVertices`: `android.graphics.Canvas` on Android, Skia on desktop, iOS, macOS and Wasm | Painter's sort per triangle |
+| GPU, shader mesh (Android 14+) | A convex mesh is uploaded once per geometry version as an `android.graphics.Mesh`; a vertex shader projects, culls and lights it each frame from uniforms | None needed: a convex mesh's visible faces never overlap |
 
 `Auto` uses the GPU wherever it gives the same picture. Every accelerated mode goes through the
 GPU, and so does a software mode for a convex mesh that is alone in its depth pass: back faces are
@@ -77,11 +78,31 @@ from 24.3 to 12.2 ms, and a torus forced through software from 24.2 to 16.8 ms.
 ![](../../renders/rc-3d-extension/cube-gpu.png)
 ![](../../renders/rc-3d-extension/cube-wireframe.png)
 
+### The Android shader mesh
+
+On a hardware canvas on Android 14 and later, the GPU path draws a convex mesh through
+`android.graphics.Mesh` (`Rc3DShaderMesh.android.kt`). The geometry is laid out once per mesh
+version, three vertices per triangle so each carries its face's edges and centroid
+(`Rc3DShaderMeshData`). Each frame then sets only uniforms: the model-view and
+model-view-projection matrices, up to eight eye-space lights, and the material. The vertex shader
+repeats the engine's `projectTriangle` and `litColor`: smooth shading lights each vertex,
+flat shading lights the face at its centroid, Lambert is two-sided, and a back face collapses to a
+point.
+
+What stays on the CPU path: non-convex meshes, which need the painter's sort; meshes not wholly in
+front of the near plane, which the engine clips per triangle; scenes with more than eight lights;
+software canvases; Android 13 and earlier; and every Skia target.
+
+Robolectric's host graphics have no meshes, so `Rc3DAndroidMeshDeviceTest` checks it on an API 34
+emulator (`.github/workflows/three-d-device-tests.yml`). It draws each scene through both paths on a
+hardware canvas and requires the same coverage (within 4%) and colours (a mean difference of at
+most 4 levels).
+
 ### Next GPU steps, by target
 
 | Target | Next step | Why |
 | --- | --- | --- |
-| Android (API 34+) | `android.graphics.Mesh` with a `MeshSpecification`: upload each mesh once, the MVP matrix as a uniform, lighting in the fragment shader | Moves the per-vertex transform off the CPU; geometry uploads only when a primitive rebuilds |
+| Android (API 34+) | Done for convex meshes: `RcShaderMeshDrawer` | The per-vertex transform and lighting leave the CPU; geometry uploads only when a primitive rebuilds |
 | Android (any) | GLES into a `HardwareBuffer`, drawn with `Bitmap.wrapHardwareBuffer` | A real depth buffer with no copy, still in document order |
 | Desktop, iOS, macOS | Skia's mesh API, if Skiko exposes it; otherwise render on Skia's own `DirectContext` | Same as Android `Mesh`; the open question is sharing a texture with Skiko without a copy |
 | Web (Wasm) | WebGL2 in Skiko's context, or WebGPU | Skiko already draws through WebGL2, so zero-copy needs the same context |

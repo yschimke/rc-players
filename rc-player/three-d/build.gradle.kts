@@ -35,6 +35,9 @@ kotlin {
     compileSdk = libs.versions.rc.player.compileSdk.get().toInt()
     minSdk = libs.versions.rc.player.minSdk.get().toInt()
     withHostTest { isReturnDefaultValues = true }
+    // Instrumented tests for the `android.graphics.Mesh` renderer, which only a device (API 34+)
+    // can draw: Robolectric's host graphics have no meshes. Run by the 3D device-test workflow.
+    withDeviceTest { instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
   }
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
@@ -55,6 +58,11 @@ kotlin {
       @Suppress("DEPRECATION") api(compose.ui)
     }
     commonTest.dependencies { implementation(kotlin("test")) }
+    named("androidDeviceTest").dependencies {
+      implementation(libs.androidx.test.runner)
+      implementation(libs.androidx.test.ext.junit)
+      implementation(libs.junit)
+    }
     jvmTest.dependencies {
       @Suppress("DEPRECATION") implementation(compose.desktop.currentOs)
       implementation(libs.jetbrains.compose.ui.test)
@@ -63,6 +71,12 @@ kotlin {
 }
 
 tasks.named("check") { dependsOn("checkKotlinAbi") }
+
+// The module has no Compose resources, and the Compose plugin's copy task for the device-test
+// variant has no output directory configured, which fails the build: there is nothing to copy.
+tasks
+  .matching { it.name == "copyAndroidDeviceTestComposeResourcesToAndroidAssets" }
+  .configureEach { enabled = false }
 
 composeAiMavenPublishing {
   coordinates(
