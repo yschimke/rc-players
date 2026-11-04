@@ -111,6 +111,44 @@ internal class RcSoftware3D {
 
   fun mesh(id: Int): Rc3DMeshData? = meshes[id]
 
+  /**
+   * What a renderer that lights and projects on the GPU needs, in the engine's own conventions: the
+   * frame's model-view and model-view-projection matrices (column-major, read only), its lights in
+   * eye space and its material. Valid after [prepareShading], until the camera, model matrix,
+   * lights or material change.
+   */
+  fun prepareShading() = prepareFrame()
+
+  val modelViewProjection: FloatArray
+    get() = mvp
+
+  val modelView: FloatArray
+    get() = mv
+
+  /** Whether the projection is perspective; an orthographic one keeps w at 1. */
+  val isPerspective: Boolean
+    get() = proj[15] == 0f
+
+  val eyeLightCount: Int
+    get() = numEyeLights
+
+  /** Light [i] in eye space: its type, its position or unit direction to it, and its colour. */
+  fun eyeLight(i: Int, out: FloatArray) {
+    out[0] = eType[i].toFloat()
+    out[1] = elx[i]
+    out[2] = ely[i]
+    out[3] = elz[i]
+    out[4] = elr[i]
+    out[5] = elg[i]
+    out[6] = elb[i]
+  }
+
+  val specularStrength: Float
+    get() = specStrength
+
+  val specularShininess: Float
+    get() = shininess
+
   /** (Re)allocate the buffers if the size changed; a resize starts transparent and far. */
   fun setSize(width: Int, height: Int) {
     if (width <= 0 || height <= 0) return
@@ -850,7 +888,7 @@ internal class RcSoftware3D {
     return verts
   }
 
-  private companion object {
+  internal companion object {
     /** A vertex with clip w below this is behind or on the eye. */
     const val NEAR_W_EPSILON = 0.0001f
 
