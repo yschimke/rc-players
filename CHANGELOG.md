@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.23.0](https://github.com/yschimke/rc-players/compare/v2.22.0...v2.23.0) (2026-11-04)
+
+
+### Features
+
+* **3d:** Android XR sample that hands rigid meshes to SceneCore ([#784](https://github.com/yschimke/rc-players/issues/784)) ([23fc1c6](https://github.com/yschimke/rc-players/commit/23fc1c6ea949723c3707c7e15232ff6fdd5ee272))
+* draw convex 3D meshes through android.graphics.Mesh on Android 14+ ([#786](https://github.com/yschimke/rc-players/issues/786)) ([d8b0ea2](https://github.com/yschimke/rc-players/commit/d8b0ea2476ef4e6a11e44bcd73de73f7e8ec998e))
+* play the draft 3D operations through an opt-in player extension ([#783](https://github.com/yschimke/rc-players/issues/783)) ([4808f4e](https://github.com/yschimke/rc-players/commit/4808f4efba7a854ba0f26dd71af2aa560cba5f19))
+* rasterize depth-needing 3D draws with OpenGL ES on Android 10+ ([#788](https://github.com/yschimke/rc-players/issues/788)) ([5fe5f97](https://github.com/yschimke/rc-players/commit/5fe5f973f5993fcb742f1b0f11c8a8bd9f379e05))
+
+
+### Bug Fixes
+
+* **deps:** update dependency androidx.test.uiautomator:uiautomator to v2.4.1 ([#787](https://github.com/yschimke/rc-players/issues/787)) ([56687cc](https://github.com/yschimke/rc-players/commit/56687cc826ae571fd341bc79691ecd1069c57060))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.39.1 ([#779](https://github.com/yschimke/rc-players/issues/779)) ([6b6c8ed](https://github.com/yschimke/rc-players/commit/6b6c8ed6476e9df522a937beea8a69badf4fb7b0))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.27.1 ([#781](https://github.com/yschimke/rc-players/issues/781)) ([3405388](https://github.com/yschimke/rc-players/commit/34053885d274ea3323a02eccd7588ff97c91abde))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.27.2 ([#782](https://github.com/yschimke/rc-players/issues/782)) ([c90a345](https://github.com/yschimke/rc-players/commit/c90a345da9a87ed23d3a160ec39eb73714082fc6))
+
+
+### Performance Improvements
+
+* cheaper 3D frames on every target ([#785](https://github.com/yschimke/rc-players/issues/785)) ([097ba95](https://github.com/yschimke/rc-players/commit/097ba95c8646741bbd73d6279b9d5efef92a7473))
+
 ## [2.22.0](https://github.com/yschimke/rc-players/compare/v2.21.0...v2.22.0) (2026-10-31)
 
 
