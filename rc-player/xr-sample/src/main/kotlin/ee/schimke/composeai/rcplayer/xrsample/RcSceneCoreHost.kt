@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
  * - an unchanged mesh version only moves it, which is all a rigid mesh spun by the clock costs;
  * - a changed version rebuilds its geometry once.
  *
- * A mesh whose version changes again on the next frame is deforming. SceneCore 1.0 takes fixed
+ * A mesh whose version changes again within a few frames is deforming. SceneCore 1.0 takes fixed
  * geometry and does not let an app free an entity (`Entity.dispose` is restricted), so rebuilding
  * every frame would leak one per frame. Such a draw is handed back to the player ([keepInPlayer])
  * and drawn on the panel instead: the per-draw fallback in docs/design/RC_3D_EXTENSION.md.
@@ -208,13 +208,18 @@ internal class RcSceneCoreHost(
 }
 
 /**
- * Decides which draws are deforming: a mesh whose version changed on two frames running. Once
- * deforming, a draw stays with the player, so a mesh that animates in bursts is not handed back and
- * forth. Plain Kotlin, so its rule is unit-tested without a headset.
+ * Decides which draws are deforming: a mesh whose version changed twice within [WINDOW] frames of
+ * each other. A window rather than consecutive frames, since the player can repaint at the same
+ * animation time between clock ticks, repeating a version that is still changing every tick. A
+ * rigid mesh rebuilt now and then (a host value changed) is repainted every frame it spins, so its
+ * rebuilds are far apart in frames. Once deforming, a draw stays with the player, so a mesh that
+ * animates in bursts is not handed back and forth. Plain Kotlin, so its rule is unit-tested without
+ * a headset.
  */
 internal class RcDeformationTracker {
-  private val lastVersion = mutableMapOf<String, Long>()
-  private val changedLastFrame = mutableSetOf<String>()
+  private class Seen(var version: Long, var frames: Long = 0, var lastChange: Long = Long.MIN_VALUE)
+
+  private val seen = mutableMapOf<String, Seen>()
   private val deforming = mutableSetOf<String>()
 
   fun isDeforming(key: String): Boolean = key in deforming
@@ -222,14 +227,25 @@ internal class RcDeformationTracker {
   /** Record [key]'s version this frame; true when that makes it deforming just now. */
   fun observe(key: String, version: Long): Boolean {
     if (key in deforming) return false
-    val previous = lastVersion.put(key, version)
-    val changed = previous != null && previous != version
-    if (changed && key in changedLastFrame) {
+    val s = seen[key]
+    if (s == null) {
+      seen[key] = Seen(version)
+      return false
+    }
+    s.frames++
+    if (s.version == version) return false
+    s.version = version
+    if (s.lastChange != Long.MIN_VALUE && s.frames - s.lastChange <= WINDOW) {
       deforming += key
-      changedLastFrame -= key
+      seen -= key
       return true
     }
-    if (changed) changedLastFrame += key else changedLastFrame -= key
+    s.lastChange = s.frames
     return false
+  }
+
+  private companion object {
+    /** Frames between two changes that still count as one deformation. */
+    const val WINDOW = 4L
   }
 }

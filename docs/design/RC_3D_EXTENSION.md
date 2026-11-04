@@ -98,7 +98,8 @@ restricted to the library). So:
   disabled and detached, and goes with the session.
 - A deforming mesh (an animated `MESH_EXPRESSION_3D`, a primitive whose radius follows the clock)
   is rebuilt every frame. A new entity per frame would leak one per frame, so once its version has
-  changed on two frames running, the host returns true from `Rc3DSceneListener.keepInPlayer` and
+  changed twice within a few frames (a window, since the player can repaint at the same animation
+  time between clock ticks), the host returns true from `Rc3DSceneListener.keepInPlayer` and
   the player draws it on the panel instead (level 1), or a stereo surface would (level 2) for a
   3D-only document.
 

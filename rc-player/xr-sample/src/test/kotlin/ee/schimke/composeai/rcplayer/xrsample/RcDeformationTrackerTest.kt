@@ -41,4 +41,19 @@ class RcDeformationTrackerTest {
       if (version >= 3) assertTrue(tracker.isDeforming("-1/1"), "frame $version")
     }
   }
+
+  @Test
+  fun repaintsAtTheSameAnimationTimeStillCountAsDeforming() {
+    // Each version painted twice: the clock ticks every other repaint.
+    val tracker = RcDeformationTracker()
+    for (version in listOf(1L, 1L, 2L, 2L, 3L, 3L)) tracker.observe("-1/1", version)
+    assertTrue(tracker.isDeforming("-1/1"))
+  }
+
+  @Test
+  fun rebuildsFarApartAreNotDeforming() {
+    val tracker = RcDeformationTracker()
+    for (version in listOf(1L) + List(20) { 2L } + List(20) { 3L }) tracker.observe("-1/0", version)
+    assertFalse(tracker.isDeforming("-1/0"))
+  }
 }
