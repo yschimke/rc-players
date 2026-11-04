@@ -218,6 +218,14 @@ work unchanged.
   also replaces the vector opcodes with variable reads, so every vector program evaluates to zeros
   (finding 3 in `3D_PLAN.md`). This follows the experiments repo's players.
 - An unset variable reads as 0, as `RemoteContext.getFloat` returns.
+- Smooth normals go through the model-view's normal matrix (its inverse transpose), so they stay
+  perpendicular to the surface under a non-uniform `M3_SCALE`. The reference transforms them with
+  the model-view itself, which bends them and lights a stretched mesh wrongly. Every renderer here
+  (software, vertex, `Mesh`, GLES) uses the normal matrix.
+- A vector in `VECTOR_EXPRESSION` keeps its lanes past its dimension at zero through every
+  operation. The reference applies arithmetic to that padding too, so `length(vec3(1, 2, 3) + 1)`
+  is sqrt(30) there and sqrt(29) here; dot, length and normalize all read the padding. A scalar
+  still broadcasts across all four lanes.
 - Transcendentals use `kotlin.math`, which may differ from glibc in the last bit, so output is not
   promised bit-identical to the C++ oracle on every target. Parity against that oracle's 46 scenes is
   not wired up yet.

@@ -112,6 +112,7 @@ internal class RcMeshApi34 {
         }
     target.setFloatUniform("mvp", engine.modelViewProjection)
     target.setFloatUniform("mv", engine.modelView)
+    target.setFloatUniform("nm", engine.normalMatrix)
     target.setFloatUniform("viewport", width, height)
     target.setFloatUniform(
       "base",
@@ -256,6 +257,7 @@ internal class RcMeshApi34 {
       """
       uniform float4x4 mvp;
       uniform float4x4 mv;
+      uniform float4x4 nm;
       uniform float2 viewport;
       uniform float4 base;
       uniform float4 shading;
@@ -309,7 +311,7 @@ internal class RcMeshApi34 {
         float3 n;
         float3 p;
         if (shading.x > 0.5) {
-          n = (mv * float4(a.normal, 0.0)).xyz;
+          n = (nm * float4(a.normal, 0.0)).xyz;
           p = eye;
         } else {
           n = face;

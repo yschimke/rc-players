@@ -207,4 +207,58 @@ internal object RcMatrix4 {
     out3[1] = m[1] * x + m[5] * y + m[9] * z
     out3[2] = m[2] * x + m[6] * y + m[10] * z
   }
+
+  /**
+   * The normal matrix of [m]: the inverse transpose of its upper-left 3x3, as a column-major 4x4
+   * with no translation. Directions transformed by [m] itself stay perpendicular to a surface only
+   * under rotation and uniform scale; this keeps them so under any scale. Its columns are the cross
+   * products of [m]'s columns over the determinant, which keeps the sign under a mirroring matrix.
+   * A singular [m] (a zero scale) has no inverse, and leaves [out] as [m]'s own linear part.
+   */
+  fun normalMatrix(out: FloatArray, m: FloatArray) {
+    val ax = m[0]
+    val ay = m[1]
+    val az = m[2]
+    val bx = m[4]
+    val by = m[5]
+    val bz = m[6]
+    val cx = m[8]
+    val cy = m[9]
+    val cz = m[10]
+    // b x c, c x a, a x b
+    val n0x = by * cz - bz * cy
+    val n0y = bz * cx - bx * cz
+    val n0z = bx * cy - by * cx
+    val n1x = cy * az - cz * ay
+    val n1y = cz * ax - cx * az
+    val n1z = cx * ay - cy * ax
+    val n2x = ay * bz - az * by
+    val n2y = az * bx - ax * bz
+    val n2z = ax * by - ay * bx
+    val det = ax * n0x + ay * n0y + az * n0z
+    out.fill(0f)
+    out[15] = 1f
+    if (det == 0f || !det.isFinite()) {
+      out[0] = ax
+      out[1] = ay
+      out[2] = az
+      out[4] = bx
+      out[5] = by
+      out[6] = bz
+      out[8] = cx
+      out[9] = cy
+      out[10] = cz
+      return
+    }
+    val inv = 1f / det
+    out[0] = n0x * inv
+    out[1] = n0y * inv
+    out[2] = n0z * inv
+    out[4] = n1x * inv
+    out[5] = n1y * inv
+    out[6] = n1z * inv
+    out[8] = n2x * inv
+    out[9] = n2y * inv
+    out[10] = n2z * inv
+  }
 }
