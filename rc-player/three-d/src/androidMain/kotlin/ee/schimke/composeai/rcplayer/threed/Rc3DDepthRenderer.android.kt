@@ -565,7 +565,8 @@ internal class RcGlesDepth {
         vUv = vec2(aUv.x, 1.0 - aUv.y);
         vec3 eye = (uMv * vec4(aPosition, 1.0)).xyz;
         vec3 face = cross((uMv * vec4(aEdge1, 0.0)).xyz, (uMv * vec4(aEdge2, 0.0)).xyz);
-        vec3 centroid = (uMv * vec4(aCentroid, 1.0)).xyz;
+        // Not "centroid": a reserved word in GLSL ES 3.0.
+        vec3 faceCentre = (uMv * vec4(aCentroid, 1.0)).xyz;
         vec3 n;
         vec3 p;
         if (uShading.x > 0.5) {
@@ -573,7 +574,7 @@ internal class RcGlesDepth {
           p = eye;
         } else {
           n = face;
-          p = uShading.y > 0.0 ? eye : centroid;
+          p = uShading.y > 0.0 ? eye : faceCentre;
         }
         float nl = length(n);
         n = nl > 0.0 ? n / nl : vec3(0.0);
