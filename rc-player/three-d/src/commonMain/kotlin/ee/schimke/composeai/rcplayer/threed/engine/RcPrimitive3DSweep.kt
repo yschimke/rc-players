@@ -171,6 +171,9 @@ internal object RcPrimitive3DSweep {
     }
   }
 
+  /** Edge visits the extrude-path scanline may make: tens of milliseconds, not minutes. */
+  private const val MAX_SCANLINE_WORK = 20_000_000L
+
   private class Centerline(n: Int) {
     val px = FloatArray(n)
     val py = FloatArray(n)
@@ -520,6 +523,11 @@ internal object RcPrimitive3DSweep {
     for (i in 0 until nys) {
       if (uy == 0 || ys[i] > ys[uy - 1] + 1e-7f) ys[uy++] = ys[i]
     }
+    // The scan visits every edge in every band, and many contours spanning different heights
+    // multiply bands by crossings: bound the work before the scan and the output as it grows.
+    require(uy.toLong() * ne <= MAX_SCANLINE_WORK) {
+      "MeshPrimitive extrude path: $uy bands of $ne edges exceeds the scanline budget"
+    }
     val traps = ArrayList<FloatArray>()
     val crossX = FloatArray(ne)
     val crossE = IntArray(ne)
@@ -562,6 +570,10 @@ internal object RcPrimitive3DSweep {
         val xLbot = eXlo[le] + (yA - eYlo[le]) * eSlope[le]
         val xRtop = eXlo[re] + (yB - eYlo[re]) * eSlope[re]
         val xRbot = eXlo[re] + (yA - eYlo[re]) * eSlope[re]
+        // Each trapezoid becomes 8 vertices of 3 floats.
+        require((traps.size + 1L) * 24 <= RcPrimitive3DMath.MAX_GEOMETRY_ELEMENTS) {
+          "MeshPrimitive extrude path: cap geometry exceeds the geometry budget"
+        }
         traps.add(floatArrayOf(xLtop, yB, xRtop, yB, xRbot, yA, xLbot, yA))
       }
     }

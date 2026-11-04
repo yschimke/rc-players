@@ -449,4 +449,25 @@ class RcPrimitive3DTest {
       )
     }
   }
+
+  @Test
+  fun manyStaggeredExtrudePathContoursAreRefusedBeforeTheScanExplodes() {
+    // 10,000 disjoint rectangles [3i, 3i+1] x [i, 10000+i]: every band crosses thousands of them.
+    val n = 10_000
+    val p = FloatArray(6 + n * 9)
+    p[0] = 1f
+    p[5] = n.toFloat()
+    var k = 6
+    for (i in 0 until n) {
+      val x0 = 3f * i
+      val x1 = x0 + 1f
+      val y0 = i.toFloat()
+      val y1 = 10_000f + i
+      p[k++] = 4f
+      for (v in floatArrayOf(x0, y0, x1, y0, x1, y1, x0, y1)) p[k++] = v
+    }
+    assertFailsWith<IllegalArgumentException> {
+      RcPrimitive3D.build(RcPrimitive3D.EXTRUDE_PATH, 0f, 0, listOf(p))
+    }
+  }
 }
