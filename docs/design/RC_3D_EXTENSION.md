@@ -125,8 +125,50 @@ take: non-convex meshes, several meshes in one depth pass, textures, translucenc
 | --- | --- | --- |
 | Android (API 34+) | Done for convex meshes: `RcShaderMeshDrawer` | The per-vertex transform and lighting leave the CPU; geometry uploads only when a primitive rebuilds |
 | Android (API 29+) | Done: `RcGlesDepth`, GLES into an `ImageReader` surface, drawn with `Bitmap.wrapHardwareBuffer` | A real depth buffer with no CPU copy, still in document order |
-| Desktop, iOS, macOS | Skia's mesh API, if Skiko exposes it; otherwise render on Skia's own `DirectContext` | Same as Android `Mesh`; the open question is sharing a texture with Skiko without a copy |
+| Desktop, iOS, macOS | Blocked on Skiko: `SkMesh` bindings upstream (see below) | Same as Android `Mesh`; nothing in Skiko 0.150 can stand in for it |
 | Web (Wasm) | WebGL2 in Skiko's context, or WebGPU | Skiko already draws through WebGL2, so zero-copy needs the same context |
+
+### The Skia targets: what Skiko allows today
+
+Checked against Skiko 0.150.2, the version Compose Multiplatform 1.12.2 pulls (issue #791). The
+Skiko actuals of `RcShaderMeshDrawer` and `RcDepthRenderer` still decline every draw, and none of
+the three routes can land in this repository yet:
+
+1. **`SkMesh` bindings in Skiko: the route to take, but it has to start upstream.** Skia has
+   `SkMeshSpecification`, `SkMesh` and `SkCanvas::drawMesh`, which is what `android.graphics.Mesh`
+   wraps. Skiko binds none of them: `org.jetbrains.skia` has no `Mesh` or `MeshSpecification`
+   class, `Canvas` has no `drawMesh`, and the JNI/native exports are generated per binding, so the
+   player cannot reach Skia's mesh from Kotlin either. `android.graphics.Mesh` is a thin wrapper
+   over `SkMesh`, and the Android shaders already use `SkMesh`'s `Varyings main(const Attributes)`
+   and `float2 main(const Varyings, out float4)` entry points. So once Skiko ships the bindings,
+   the Skiko actual of `RcShaderMeshDrawer` can reuse the shaders, attribute layout
+   (`Rc3DShaderMeshData`) and uniforms unchanged; only the upload and draw calls are new.
+   The proposal to file is in [`SKIKO_MESH_PROPOSAL.md`](SKIKO_MESH_PROPOSAL.md).
+2. **`RuntimeEffect`: ruled out.** Skiko has only `RuntimeEffect.makeForShader`,
+   `makeForColorFilter` and `makeForBlender`, all fragment stages. A draw's geometry can only come
+   from `drawVertices`, whose positions are 2D device points, so projection, culling and the
+   painter's sort stay on the CPU, which is the vertex path that exists now. Its two
+   interpolated per-vertex channels (a colour and one `float2` of local coordinates) cannot carry
+   a normal and a position for per-pixel lighting, and moving lighting alone off the CPU saves
+   little, since it costs the same order as the transform. A fragment-only renderer that skips
+   `drawVertices` would have to find each pixel's face itself, for example by intersecting a view
+   ray with every face plane of a convex mesh, which costs pixels × faces per frame against the
+   vertex path's vertices + pixels. At 512 × 512 and 1000 triangles that is about 2.6 × 10⁸ face
+   tests a frame, so it loses to the existing path on anything but a handful of faces.
+3. **A GPU context of our own: not now.** Compose desktop exposes no public way to reach the
+   `DirectContext` it draws with, and the backend differs by OS (Metal on macOS, Direct3D on
+   Windows, OpenGL on Linux; Metal on iOS). Skiko's `DirectContext.makeGL/makeMetal/makeDirect3D`
+   can make a second context, but its output cannot be shared with Compose's without per-backend
+   interop the public API lacks, so every frame is a GPU → CPU → GPU copy. Against the convex vertex
+   path (CPU work proportional to vertices, GPU rasterization) that copy only adds cost. The only
+   draws it could win are the ones that need depth, which go to `RcSoftware3D` today, and it needs
+   a GPU to measure on: the hosted Linux runners and this repository's sandboxes render on CPU
+   Skia, where it would only add a readback to software rendering. Revisit it as an
+   `RcDepthRenderer` once it can be measured on a real desktop GPU, and only if it beats the
+   software rasterizer at document sizes there.
+
+The Wasm target is in the same `skiko` source set and has the same stubs. Its route is WebGL2 in
+Skiko's own context (the table above), which is a separate problem from these bindings.
 
 ## XR
 
