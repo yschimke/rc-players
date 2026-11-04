@@ -89,6 +89,9 @@ internal class RcSceneCoreHost(
   private var stereoSurface: SurfaceEntity? = null
   private var stereoViewport: RcXrViewport? = null
 
+  /** The surface could not be made: deforming draws then stay on the panel for good. */
+  private var stereoSurfaceFailed = false
+
   /** Entities currently in the room, for the UI and tests. */
   val entityCount: Int
     get() = mirrors.size
@@ -100,7 +103,7 @@ internal class RcSceneCoreHost(
     RcStereoState(
       contentAllowed = contentAllowed(),
       eyesTracked = eyes() != null,
-      rendererReady = stereoRenderer.available,
+      rendererReady = stereoRenderer.available && !stereoSurfaceFailed,
     )
 
   override fun keepInPlayer(draw: Rc3DMeshDraw): Boolean =
@@ -180,7 +183,10 @@ internal class RcSceneCoreHost(
           )
         }
           .getOrNull()
-        ?: return null
+        ?: run {
+          stereoSurfaceFailed = true
+          return null
+        }
     if (existing != null) {
       entity.setPose(pose)
       entity.shape = shape
