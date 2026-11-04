@@ -97,6 +97,26 @@ const CASES = [
     query: `src=ImageBackgroundRemoteButton-454x200.rc&${COMMON_QUERY}`,
   },
   {
+    // The draft 3D operations behind `?extensions=3d` (docs/design/RC_3D_EXTENSION.md): a torus
+    // and a cube that need the depth buffer, a label over them and a sphere over the label. Under
+    // the default renderer the depth-needing meshes go through the WebGL2 depth renderer, which
+    // `webgl2Contexts` proves ran; the render is then held to the software rasterizer's at the
+    // thresholds the Android device tests use.
+    name: 'three-d-depth',
+    description: 'a 3D document under `?extensions=3d`, WebGL2 depth against software',
+    query: `src=rc3d-depth-scene.rc&extensions=3d&${COMMON_QUERY}`,
+    expectWebGl2DepthRenderer: true,
+    compareTo: `src=rc3d-depth-scene.rc&extensions=3d&rc3dRenderer=software&${COMMON_QUERY}`,
+  },
+  {
+    // The extension is opt-in: without the parameter the same document fails to decode, as it does
+    // on AndroidX's players, so the parity lanes keep comparing like with like.
+    name: 'three-d-not-enabled',
+    description: 'the 3D document without `?extensions=3d` is refused',
+    query: `src=rc3d-depth-scene.rc&${COMMON_QUERY}`,
+    expect: 'error',
+  },
+  {
     // The negative case is load-bearing, not decoration. Without it a bundle that reported `ready`
     // unconditionally — or one whose failure path stopped setting the marker — would pass every
     // case above, and hosts wait on exactly these two markers.
@@ -347,9 +367,87 @@ async function waitForSettled(page, watched) {
   }
 }
 
+/**
+ * How far a 3D render may stray from the software rasterizer's: the Android device tests' own
+ * thresholds. Coverage is the pixels that are not the page background; colour is the mean
+ * per-channel difference over the pixels both renders cover.
+ */
+const MAX_3D_COVERAGE_DIFFERENCE = 0.04;
+const MAX_3D_MEAN_COLOUR_DIFFERENCE = 6;
+
+/** Count WebGL2 contexts made on an `OffscreenCanvas`: the 3D depth renderer's, not Skia's. */
+function countOffscreenWebGl2() {
+  window.rcWebGl2Offscreen = 0;
+  if (typeof OffscreenCanvas === 'undefined') return;
+  const getContext = OffscreenCanvas.prototype.getContext;
+  OffscreenCanvas.prototype.getContext = function (type, ...rest) {
+    const context = getContext.call(this, type, ...rest);
+    if (type === 'webgl2' && context) window.rcWebGl2Offscreen += 1;
+    return context;
+  };
+}
+
+/** Render [query] in a fresh page and return its screenshot, for [compareRenders]. */
+async function renderOnce(browser, origin, query) {
+  const context = await browser.newContext({ viewport: VIEWPORT });
+  try {
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(String(error)));
+    await page.goto(`${origin}/index.html?${query}`, { waitUntil: 'domcontentloaded' });
+    const settled = await waitForSettled(page, () => errors);
+    if (settled.state !== 'ready') {
+      throw new Error(`the comparison render failed: ${settled.error ?? 'unknown error'}`);
+    }
+    return PNG.sync.read(await page.screenshot());
+  } finally {
+    await context.close();
+  }
+}
+
+/** Hold [a] to [b]: the same pixels covered, in nearly the same colours. */
+function compareRenders(a, b) {
+  const background = (png) => {
+    const histogram = new Map();
+    for (let index = 0; index < png.data.length; index += 4) {
+      const key = png.data.readUInt32BE(index);
+      histogram.set(key, (histogram.get(key) ?? 0) + 1);
+    }
+    return [...histogram.entries()].reduce((x, y) => (y[1] > x[1] ? y : x))[0];
+  };
+  const backgroundA = background(a);
+  const backgroundB = background(b);
+  let coveredB = 0;
+  let differ = 0;
+  let total = 0;
+  let both = 0;
+  for (let index = 0; index < a.data.length; index += 4) {
+    const inA = a.data.readUInt32BE(index) !== backgroundA;
+    const inB = b.data.readUInt32BE(index) !== backgroundB;
+    if (inB) coveredB += 1;
+    if (inA !== inB) differ += 1;
+    if (inA && inB) {
+      for (let channel = 0; channel < 3; channel += 1) {
+        total += Math.abs(a.data[index + channel] - b.data[index + channel]);
+      }
+      both += 1;
+    }
+  }
+  const mean = total / Math.max(both * 3, 1);
+  if (coveredB === 0) throw new Error('the software render drew nothing');
+  if (differ > coveredB * MAX_3D_COVERAGE_DIFFERENCE) {
+    throw new Error(`coverage differs on ${differ} of ${coveredB} pixels`);
+  }
+  if (mean > MAX_3D_MEAN_COLOUR_DIFFERENCE) {
+    throw new Error(`mean colour difference ${mean.toFixed(2)} levels`);
+  }
+  return `coverage differs on ${differ} of ${coveredB} px, mean colour difference ${mean.toFixed(2)}`;
+}
+
 async function runCase(browser, origin, testCase) {
   const context = await browser.newContext({ viewport: VIEWPORT });
   const page = await context.newPage();
+  if (testCase.expectWebGl2DepthRenderer) await page.addInitScript(countOffscreenWebGl2);
   // Two lists, because they are not equally conclusive. An exception that escapes to the browser is
   // a failure on any page. A `console.error` usually is too — but Chromium writes one for every
   // failed network request, so the case that deliberately asks for a document that 404s produces
@@ -452,12 +550,27 @@ async function runCase(browser, origin, testCase) {
       swapNote = `, ${(changed * 100).toFixed(0)}% of the viewport repainted by the swap`;
     }
 
+    let compareNote = '';
+    if (testCase.expectWebGl2DepthRenderer) {
+      const contexts = await page.evaluate(() => window.rcWebGl2Offscreen);
+      if (!(contexts > 0)) {
+        throw new Error(
+          'the 3D depth renderer made no WebGL2 context: its draws went to the software ' +
+            'rasterizer',
+        );
+      }
+    }
+    if (testCase.compareTo) {
+      const reference = await renderOnce(browser, origin, testCase.compareTo);
+      compareNote = `; against software: ${compareRenders(pixels.png, reference)}`;
+    }
+
     const faults = [...pageErrors, ...consoleErrors];
     if (faults.length > 0) {
       throw new Error(`the page reported errors:\n  ${faults.join('\n  ')}`);
     }
     return {
-      note: `${pixels.ink} px drawn in ${pixels.colours} distinct colours${swapNote}`,
+      note: `${pixels.ink} px drawn in ${pixels.colours} distinct colours${swapNote}${compareNote}`,
     };
   } finally {
     await context.close();

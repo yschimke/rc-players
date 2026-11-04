@@ -100,6 +100,8 @@ Current version: **1**.
 | `allowExternalImagePlaceholders` | `1` renders a placeholder instead of refusing a document that names an external image. |
 | `lenient` | `1` plays a document carrying any operation the player *knows*, drawing nothing for the ones the browser backend has no branch for, instead of refusing it whole. Malformed data, an undeclared id and a missing typeface still fail — those throw from inside the draw pass. Note this also drops the `cmp-wasm-alpha16` profile's exclusions, so a document using `GraphicsLayerModifier` will play here with the surface loss that exclusion exists to avoid. |
 | `handoffDelayMs` | Cold-start tail before `ready`, clamped to 0–10 000, default 1 500. **Only lower it if you composite the result yourself** — the default guards a human seeing a blank frame, and the failure it guards against cannot be reproduced under CDP capture. |
+| `extensions` | Comma-separated player extensions to install. `3d` plays the draft 3D operations ([RC_3D_EXTENSION.md](RC_3D_EXTENSION.md)). Absent, none: a document using an extension's opcodes is an `error`, as on AndroidX's players. Unknown names are ignored, so a page can feature-detect. |
+| `rc3dRenderer` | With `extensions=3d`: `software` or `gpu` forces one 3D rasterizer for every draw; anything else is the player's own choice per draw (WebGL2 for draws that need depth, where the browser has it). For comparing renders, not for production pages. |
 | `density` | CSS pixels per dp, as a positive decimal up to 64 (`2.625`, `.5`, `1.5e1`). Absent, the document runs at the browser's density — one dp per CSS pixel. See below. |
 
 ### `density` in detail

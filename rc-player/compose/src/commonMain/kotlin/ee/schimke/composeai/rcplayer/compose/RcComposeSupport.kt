@@ -17,6 +17,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnCircle
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
+import ee.schimke.composeai.rcplayer.protocol.RcExtensionOperation
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
@@ -288,7 +289,9 @@ public fun RcDocument.composeSupportReport(
   }
   if (profile != null) {
     operations.forEachIndexed { index, operation ->
-      if (!profile.supports(operation.opcode)) {
+      // A profile lists the built-in table's opcodes. An extension's operation decoded only
+      // because the host installed that extension, which draws it, so no profile speaks for it.
+      if (operation !is RcExtensionOperation && !profile.supports(operation.opcode)) {
         issues +=
           RcComposeSupportIssue(
             index,

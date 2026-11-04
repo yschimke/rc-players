@@ -94,6 +94,9 @@ composeAiMavenPublishing {
 // -Prc.3d.out=<abs dir>` writes PNGs; without the property the generator skips.
 tasks.withType<Test>().configureEach {
   providers.gradleProperty("rc.3d.out").orNull?.let { systemProperty("rc.3d.out", it) }
+  providers.gradleProperty("rc.3d.updateFixtures").orNull?.let {
+    systemProperty("rc.3d.updateFixtures", it)
+  }
 }
 
 // The WebGL2 depth renderer's browser test, as a static bundle: the production-compiled `wasmJs`

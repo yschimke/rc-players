@@ -23,6 +23,8 @@ kotlin {
     commonTest.dependencies { implementation(kotlin("test")) }
     wasmJsMain.dependencies {
       implementation(project(":rc-player-compose"))
+      // Off unless a page asks for it with `?extensions=3d`; see RcHostParameters.kt.
+      implementation(project(":rc-player-3d"))
       @Suppress("DEPRECATION") implementation(compose.runtime)
       @Suppress("DEPRECATION") implementation(compose.foundation)
       @Suppress("DEPRECATION") implementation(compose.ui)
@@ -177,6 +179,14 @@ tasks.register<Sync>("wasmPlayerTestDist") {
       .layout
       .projectDirectory
       .file("src/jvmTest/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc")
+  )
+  // A document using the draft 3D operations, for the `?extensions=3d` cases; written by
+  // `Rc3DDocumentBuilder` and held current by `:rc-player-3d`'s `Rc3DFixtureTest`.
+  from(
+    project(":rc-player-3d")
+      .layout
+      .projectDirectory
+      .file("src/jvmTest/resources/rc-fixtures/rc3d-depth-scene.rc")
   )
   into(layout.buildDirectory.dir("wasmTestDist"))
 }

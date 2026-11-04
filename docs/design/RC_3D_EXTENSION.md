@@ -20,6 +20,9 @@ CompositionLocalProvider(
 }
 ```
 
+The browser player (`rc-player/wasm`) installs it when its page asks with `?extensions=3d`
+([RC_PLAYER_EMBED.md](RC_PLAYER_EMBED.md)); by default it decodes what AndroidX's players do.
+
 A host that decodes the document itself passes the same extensions to the codec:
 `RcDocumentCodec.decode(bytes, extensions.wire)`. `Rc3DDocumentBuilder` writes documents that use
 the operations; there is no creation-API support for them, since AndroidX's writer has none yet.
@@ -149,6 +152,12 @@ eight lights and `Rc3DRenderer.Software` stay on the software rasterizer.
   of at most 6 levels), and checks that depth lasts until it is cleared. It runs in Chromium:
   `./gradlew :rc-player-3d:wasmWebGlTestDist` stages the production-compiled `wasmJs` tests with a
   page of their own, and `scripts/wasm-smoke/three-d-webgl.mjs` opens it (CI's JVM lane runs both).
+  End to end, the Wasm player's smoke run (`scripts/wasm-smoke/smoke.mjs`, case `three-d-depth`)
+  plays `rc3d-depth-scene.rc` under `?extensions=3d` in the shipped bundle, checks that the depth
+  renderer made its WebGL2 context, and holds the render to `?rc3dRenderer=software`'s at the same
+  thresholds. In the player page, software on the left and WebGL2 on the right:
+
+  ![The smoke fixture in the Wasm player](../../renders/rc-3d-extension/wasm-host-depth-scene.png)
 
 Measured with that test in headless Chromium on a GPU-less Linux host, where WebGL2 is Chrome's
 software GL (SwiftShader), per frame, composite included, the meshes built once:

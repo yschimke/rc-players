@@ -1,5 +1,7 @@
 @file:OptIn(
   androidx.compose.ui.ExperimentalComposeUiApi::class,
+  ee.schimke.composeai.rcplayer.compose.ExperimentalRcPlayerApi::class,
+  ee.schimke.composeai.rcplayer.protocol.ExperimentalRcWireExtension::class,
   kotlin.js.ExperimentalWasmJsInterop::class,
   kotlin.io.encoding.ExperimentalEncodingApi::class,
 )
@@ -23,8 +25,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.window.ComposeViewport
+import ee.schimke.composeai.rcplayer.compose.LocalRcPlayerExtensions
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcManifestTypefaceLoader
+import ee.schimke.composeai.rcplayer.compose.RcPlayerExtension
+import ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader
 import ee.schimke.composeai.rcplayer.compose.composeSupportReport
@@ -34,6 +39,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcOperationProfiles
 import ee.schimke.composeai.rcplayer.runtime.RcHostActionValue
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
+import ee.schimke.composeai.rcplayer.threed.Rc3DExtension
+import ee.schimke.composeai.rcplayer.threed.Rc3DOptions
+import ee.schimke.composeai.rcplayer.threed.Rc3DRenderer
 import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
 import ee.schimke.composeai.rcplayer.trace.rcTrace
 import ee.schimke.composeai.rcplayer.trace.setRcPlatformTracingEnabled
@@ -92,6 +100,26 @@ private sealed interface DocumentSource {
   data class Url(val url: String) : DocumentSource
 
   class Bytes(val bytes: ByteArray) : DocumentSource
+}
+
+/**
+ * The player extensions `?extensions=` turned on, for the page's whole life: the codec decodes
+ * every document with their wire halves and the player draws with them. Empty unless asked for, so
+ * the default bundle decodes exactly what AndroidX's players do. See [parseExtensionsParameter].
+ */
+private val playerExtensions: RcPlayerExtensions by lazy {
+  val enabled = parseExtensionsParameter(queryParameter("extensions"))
+  val extensions = mutableListOf<RcPlayerExtension>()
+  if (RcHostExtension.ThreeD in enabled) {
+    val renderer =
+      when (parse3DRendererParameter(queryParameter("rc3dRenderer"))) {
+        Rc3DRendererParameter.Auto -> Rc3DRenderer.Auto
+        Rc3DRendererParameter.Software -> Rc3DRenderer.Software
+        Rc3DRendererParameter.Gpu -> Rc3DRenderer.Gpu
+      }
+    extensions += Rc3DExtension(Rc3DOptions(renderer = renderer))
+  }
+  RcPlayerExtensions(extensions)
 }
 
 private var loadRequest by mutableStateOf(LoadRequest(null, 0))
@@ -160,7 +188,9 @@ public fun main() {
   // Absent or malformed, the player runs at the browser's own density, as it always has.
   val requestedDensity = parseDensityParameter(queryParameter("density"))
   ComposeViewport(viewportContainerId = "rcPlayer") {
-    WithRequestedDensity(requestedDensity) { PlayerContent(theme) }
+    CompositionLocalProvider(LocalRcPlayerExtensions provides playerExtensions) {
+      WithRequestedDensity(requestedDensity) { PlayerContent(theme) }
+    }
   }
 }
 
@@ -221,7 +251,7 @@ private fun PlayerContent(theme: RcPlayerTheme) {
                   rcTrace(RcTraceCategory.DOCUMENT, "rc:fetchDocument") { fetchBytes(source.url) }
                 is DocumentSource.Bytes -> source.bytes
               }
-            val document = RcDocumentCodec.decode(bytes)
+            val document = RcDocumentCodec.decode(bytes, playerExtensions.wire)
             // Async work stays in construction: the manifest is fetched and decoded here, and the
             // player is handed a loader that only looks things up. `RcTypefaceLoader.typeface` is
             // called during composition and draw and cannot suspend.
