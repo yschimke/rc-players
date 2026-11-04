@@ -173,7 +173,7 @@ internal class RcMeshApi34 {
     return true
   }
 
-  private fun makeSpec(): MeshSpecification? =
+  internal fun makeSpec(): MeshSpecification? =
     runCatching {
         MeshSpecification.make(
           arrayOf(
@@ -247,7 +247,7 @@ internal class RcMeshApi34 {
     shader = null
   }
 
-  private companion object {
+  internal companion object {
     const val TAG = "Rc3D"
     const val MAX_UPLOADS = 16
     const val MAX_SLOTS = 64
