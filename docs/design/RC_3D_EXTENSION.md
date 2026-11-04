@@ -138,7 +138,7 @@ mesh draw, not per document.
 | Level | What the user sees | How | Per-frame cost | Here |
 | --- | --- | --- | --- | --- |
 | 1. Flat panel | The document as a card, its 3D drawn flat | `RcComposePlayer` in a `SpatialPanel`, or a hardware canvas on a SceneCore `SurfaceEntity` | One render for both eyes, only when something changed | Works now |
-| 2. Stereo window | Depth inside the panel's rectangle | Two renders, one camera per eye, into a side-by-side stereo `SurfaceEntity`; eye cameras from the head pose relative to the panel, through `Rc3DHostCamera` | Two renders, following the head | Host camera is here; the stereo surface host is not |
+| 2. Stereo window | Depth inside the panel's rectangle | Two renders, one camera per eye, into a side-by-side stereo `SurfaceEntity` over the player's viewport; each eye's camera an off-axis frustum through the viewport from that eye's pose relative to the panel | Two renders, following the head | Here, for deforming meshes, in [`rc-player/xr-sample`](../../rc-player/xr-sample) |
 | 3. Hand-off | Meshes as objects in the room: stereo, occlusion against the room, system lighting | Each mesh built once as a SceneCore `CustomMesh` in a `MeshEntity`, a child of the panel; poses updated from `Rc3DPanelPlacement` each frame. (`Rc3DGltf` writes the same geometry as `.glb` for runtimes that load glTF.) | Pose updates only | Here, in [`rc-player/xr-sample`](../../rc-player/xr-sample) |
 | 4. Own renderer | Anything | An OpenXR app rendering each eye itself, through Filament or GLES | All of it | Out of scope |
 
@@ -155,8 +155,37 @@ restricted to the library). So:
   is rebuilt every frame. A new entity per frame would leak one per frame, so once its version has
   changed twice within a few frames (a window, since the player can repaint at the same animation
   time between clock ticks), the host returns true from `Rc3DSceneListener.keepInPlayer` and
-  the player draws it on the panel instead (level 1), or a stereo surface would (level 2) for a
-  3D-only document.
+  it goes to the stereo surface (level 2) while the eyes are tracked, and otherwise the host
+  returns true from `keepInPlayer` and the player draws it on the panel (level 1).
+
+### The stereo surface (level 2)
+
+`RcSceneCoreHost` keeps one side-by-side stereo `SurfaceEntity`, a child of the panel, covering
+the player's viewport a millimetre in front of it. Each frame it renders the deforming draws twice
+into the surface's halves with GLES, one camera per eye:
+
+- **Eye cameras.** The eyes' poses come from ARCore for Jetpack XR (`RenderViewpoint.left` and
+  `right`, with device tracking on, which needs the `HEAD_TRACKING` permission), moved from
+  perception space into the panel's. The surface is a window onto the scene, so each eye's camera
+  is an off-axis perspective whose frustum passes through the viewport's corners, aligned with the
+  panel's axes ("generalised perspective projection"). Only the eye's position matters. A point on
+  the panel plane lands at the same place for both eyes, the flat render's place; what lies behind
+  parts uncrossed and what lies in front crossed.
+- **Placement.** Each mesh is placed in panel space by `Rc3DPanelPlacement`, as the room entities
+  are, so a deforming mesh and a rigid one share one frame.
+- **Routing.** A rigid draw is an entity; a deforming one goes stereo when the session allows 3D
+  content, both eyes are tracked and the renderer is working, and back to the panel when any of
+  these is missing. `RcDrawRouting` decides, per draw and per frame.
+- **Limits.** The surface is flat, so its meshes have depth for the eyes but do not sort against
+  the room entities or the room, and anything outside the viewport's rectangle is clipped. A draw
+  carries the document's paint but not its lights, so the surface lights with one fixed light, like
+  the entities' rough PBR material. SceneCore 1.0's public `SurfaceEntity.create` blends the
+  surface's alpha, which lets the panel show around the meshes; the overload that takes a blending
+  mode is restricted. The surface is re-rendered when the document redraws, which a deforming mesh
+  does every frame.
+
+`Rc3DHostCamera` is not needed for this: the draws already carry the document's camera, which
+places the scene, and the eye cameras are applied after placement.
 
 ### The listener contract a hand-off host relies on
 
@@ -204,12 +233,14 @@ work unchanged.
   level 1 previews.
 - The sample app, [`rc-player/xr-sample`](../../rc-player/xr-sample): it plays a document with a
   2D card, a rigid cube spun by the clock and a torus whose tube breathes with it. On a headset in
-  Full Space the cube becomes a `MeshEntity` in the room and the torus, deforming, stays on the
-  panel; anywhere else the player draws all of it on the panel. `RcSceneCoreHost` is the level-3
-  host; its mesh packing and deformation rule are unit-tested on the JVM. It has not been run on
-  a headset or emulator from this repository's CI.
+  Full Space the cube becomes a `MeshEntity` in the room and the torus, deforming, goes to the
+  stereo surface while the eyes are tracked, or stays on the panel; anywhere else the player draws
+  all of it on the panel. `RcSceneCoreHost` is the level-2 and level-3 host; its mesh packing,
+  deformation rule, eye cameras and routing are unit-tested on the JVM. It has not been run on a
+  headset or emulator from this repository's CI.
 - Not here: textures on handed-off meshes (SceneCore's `Texture` loads from a file, so the host
-  would encode the bitmap first); input on handed-off entities; level 2's stereo surface host;
+  would encode the bitmap first) or on the stereo surface; input on handed-off entities or the
+  stereo surface;
   level 3 previews in `xr-composite`, which would need mesh or glTF support there.
 
 ## Divergences from the reference

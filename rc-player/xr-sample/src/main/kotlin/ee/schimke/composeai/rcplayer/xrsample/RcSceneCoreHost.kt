@@ -2,6 +2,8 @@ package ee.schimke.composeai.rcplayer.xrsample
 
 import androidx.xr.runtime.Session
 import androidx.xr.runtime.math.BoundingBox
+import androidx.xr.runtime.math.FloatSize2d
+import androidx.xr.runtime.math.IntSize2d
 import androidx.xr.runtime.math.Matrix4
 import androidx.xr.runtime.math.Pose
 import androidx.xr.runtime.math.Quaternion
@@ -10,9 +12,11 @@ import androidx.xr.runtime.math.Vector4
 import androidx.xr.scenecore.AlphaMode
 import androidx.xr.scenecore.CustomMesh
 import androidx.xr.scenecore.Entity
+import androidx.xr.scenecore.ExperimentalSurfaceEntityPixelDimensionsApi
 import androidx.xr.scenecore.KhronosPbrMaterial
 import androidx.xr.scenecore.MeshEntity
 import androidx.xr.scenecore.MeshSubsetTopology
+import androidx.xr.scenecore.SurfaceEntity
 import androidx.xr.scenecore.VertexAttribute
 import androidx.xr.scenecore.VertexAttributeType
 import androidx.xr.scenecore.VertexLayout
@@ -37,8 +41,16 @@ import kotlinx.coroutines.launch
  *
  * A mesh whose version changes again within a few frames is deforming. SceneCore 1.0 takes fixed
  * geometry and does not let an app free an entity (`Entity.dispose` is restricted), so rebuilding
- * every frame would leak one per frame. Such a draw is handed back to the player ([keepInPlayer])
- * and drawn on the panel instead: the per-draw fallback in docs/design/RC_3D_EXTENSION.md.
+ * every frame would leak one per frame. Such a draw goes to the stereo surface instead (level 2 in
+ * docs/design/RC_3D_EXTENSION.md): a side-by-side stereo `SurfaceEntity` over the player's
+ * viewport, rendered once per eye by [RcStereoSurfaceRenderer] with cameras from the eyes' poses
+ * relative to the panel ([RcStereoCameras]). When the stereo surface cannot run (no 3D content, no
+ * eye poses, or its renderer failed), a deforming draw is handed back to the player
+ * ([keepInPlayer]) and drawn flat on the panel: level 1. [RcDrawRouting] makes that choice.
+ *
+ * The stereo surface is a flat layer just in front of the panel, so its meshes have depth for the
+ * eyes but are not sorted against the room entities or the room: a rigid entity in front of a
+ * deforming mesh still shows behind the surface's pixels where they overlap.
  *
  * Placement is [Rc3DPanelPlacement]: the document's camera puts the scene behind and in front of
  * the panel so that, seen head-on, it lines up with the flat render.
@@ -52,6 +64,13 @@ internal class RcSceneCoreHost(
    * layout can move the player; null until it has been measured.
    */
   private val viewport: () -> RcXrViewport?,
+  /**
+   * Both eyes' positions in the panel's space, in metres, or null while they are not tracked. Read
+   * per frame; null routes deforming draws back to the panel.
+   */
+  private val eyes: () -> RcEyePositions? = { null },
+  /** Whether the session allows 3D content now (Full Space); the stereo surface needs it too. */
+  private val contentAllowed: () -> Boolean = { true },
 ) : Rc3DSceneListener, AutoCloseable {
   private class Mirror(val entity: MeshEntity, val meshVersion: Long, var color: Int)
 
@@ -62,8 +81,13 @@ internal class RcSceneCoreHost(
   /** The latest draw per key whose material is still loading; applied when it arrives. */
   private val waiting = mutableMapOf<String, Rc3DMeshDraw>()
 
-  /** Deforming draws, which the player keeps: see the class comment. */
+  /** Deforming draws, which go stereo or back to the player: see the class comment. */
   private val tracker = RcDeformationTracker()
+
+  private val stereoLayer = RcStereoLayer()
+  private val stereoRenderer = RcStereoSurfaceRenderer()
+  private var stereoSurface: SurfaceEntity? = null
+  private var stereoViewport: RcXrViewport? = null
 
   /** Entities currently in the room, for the UI and tests. */
   val entityCount: Int
@@ -71,7 +95,16 @@ internal class RcSceneCoreHost(
 
   override fun onDrawMesh(draw: Rc3DMeshDraw) = Unit
 
-  override fun keepInPlayer(draw: Rc3DMeshDraw): Boolean = tracker.isDeforming(draw.key)
+  /** What the stereo surface has this frame. */
+  private fun stereoState(): RcStereoState =
+    RcStereoState(
+      contentAllowed = contentAllowed(),
+      eyesTracked = eyes() != null,
+      rendererReady = stereoRenderer.available,
+    )
+
+  override fun keepInPlayer(draw: Rc3DMeshDraw): Boolean =
+    RcDrawRouting.route(tracker.isDeforming(draw.key), stereoState()) == RcDrawRoute.Panel
 
   override fun onFrame(frame: Rc3DFrame) {
     val prefix = "${frame.componentId}/"
@@ -79,16 +112,86 @@ internal class RcSceneCoreHost(
     // What the component no longer draws leaves the room.
     mirrors.keys.filter { it.startsWith(prefix) && it !in drawn }.forEach(::hide)
     waiting.keys.removeAll { it.startsWith(prefix) && it !in drawn }
+    val stereo = stereoState()
+    val stereoDraws = mutableListOf<Rc3DMeshDraw>()
     for (draw in frame.draws) {
       tracker.observe(draw.key, draw.meshVersion)
-      // Every frame of a deforming draw stays with the player, not only the one it became so on.
-      if (tracker.isDeforming(draw.key)) {
-        hide(draw.key)
-        waiting.remove(draw.key)
-      } else {
-        apply(draw)
+      // Routed every frame, not only the one a draw became deforming on: the stereo surface can
+      // come and go with eye tracking.
+      when (RcDrawRouting.route(tracker.isDeforming(draw.key), stereo)) {
+        RcDrawRoute.Entity -> apply(draw)
+        RcDrawRoute.Stereo -> {
+          hide(draw.key)
+          waiting.remove(draw.key)
+          stereoDraws += draw
+        }
+        RcDrawRoute.Panel -> {
+          hide(draw.key)
+          waiting.remove(draw.key)
+        }
       }
     }
+    stereoLayer.update(frame, stereoDraws)
+    if (!stereo.ready) stereoLayer.clear()
+    renderStereo()
+  }
+
+  /** Render the stereo layer for both eyes, or hide the surface when there is nothing to show. */
+  private fun renderStereo() {
+    val area = viewport()
+    val eyes = eyes()
+    if (stereoLayer.isEmpty || area == null || eyes == null) {
+      stereoSurface?.setEnabled(false)
+      return
+    }
+    val window = RcStereoWindow.of(area)
+    val left = RcStereoCameras.eye(eyes.leftX, eyes.leftY, eyes.leftZ, window)
+    val right = RcStereoCameras.eye(eyes.rightX, eyes.rightY, eyes.rightZ, window)
+    val entity = stereoSurface(area, window) ?: return
+    if (left == null || right == null) {
+      // Behind the panel, or level with it: nothing to see through the window.
+      entity.setEnabled(false)
+      return
+    }
+    entity.setEnabled(true)
+    if (!stereoRenderer.render(entity.getSurface(), stereoLayer.current, area, left, right)) {
+      entity.setEnabled(false)
+    }
+  }
+
+  /** The stereo surface over [area], made on first use and re-fitted when the viewport changes. */
+  @OptIn(ExperimentalSurfaceEntityPixelDimensionsApi::class)
+  private fun stereoSurface(area: RcXrViewport, window: RcStereoWindow): SurfaceEntity? {
+    val existing = stereoSurface
+    if (existing != null && stereoViewport == area) return existing
+    val pose = Pose(Vector3(window.centerX, window.centerY, window.z), IDENTITY.rotation)
+    val shape = SurfaceEntity.Shape.Quad(FloatSize2d(window.width, window.height))
+    val entity =
+      existing
+        ?: runCatching {
+          SurfaceEntity.create(
+            session = session,
+            pose = pose,
+            shape = shape,
+            stereoMode = SurfaceEntity.StereoMode.SIDE_BY_SIDE,
+            // The public overloads blend the surface's alpha (TRANSPARENT), so the panel shows
+            // around the meshes; the overload that takes a blending mode is restricted.
+            parent = parent,
+          )
+        }
+          .getOrNull()
+        ?: return null
+    if (existing != null) {
+      entity.setPose(pose)
+      entity.shape = shape
+    }
+    // Each eye at the player's own pixel size, side by side.
+    if (area.widthPx > 0 && area.heightPx > 0) {
+      entity.setSurfacePixelDimensions(IntSize2d(area.widthPx * 2, area.heightPx))
+    }
+    stereoSurface = entity
+    stereoViewport = area
+    return entity
   }
 
   private fun apply(draw: Rc3DMeshDraw) {
@@ -197,6 +300,13 @@ internal class RcSceneCoreHost(
 
   override fun close() {
     mirrors.keys.toList().forEach(::hide)
+    stereoLayer.clear()
+    stereoRenderer.dispose()
+    stereoSurface?.let {
+      it.setEnabled(false)
+      it.parent = null
+    }
+    stereoSurface = null
     materials.values.forEach { it.close() }
     materials.clear()
     waiting.clear()

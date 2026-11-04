@@ -6,6 +6,9 @@
         android:name="android.software.xr.api.spatial"
         android:required="false" />
 
+    <!-- The eyes' poses, for the stereo surface that gives deforming meshes depth. -->
+    <uses-permission android:name="android.permission.HEAD_TRACKING" />
+
     <application
         android:label="RC 3D in XR"
         android:theme="@android:style/Theme.Material.NoActionBar">
