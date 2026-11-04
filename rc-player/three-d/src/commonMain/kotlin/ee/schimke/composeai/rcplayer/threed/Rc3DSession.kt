@@ -7,15 +7,15 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import ee.schimke.composeai.rcplayer.compose.RcExtensionDrawScope
 import ee.schimke.composeai.rcplayer.compose.RcExtensionSession
-import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcExtensionOperation
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcIncludeReferencedOperations
-import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
+import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
 import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
@@ -487,12 +487,14 @@ internal class RcCompositeFrame(val frame: RcArgbFrame) {
 }
 
 /**
- * Whether [this] repeats, skips or expands operations: loops, conditionals, particle loops,
- * referenced-operation includes, macros and function calls.
+ * Whether [this] can repeat, skip or expand operations: any container the protocol defines
+ * ([RcOpcodes.CONTAINER_STARTS]: loops, conditionals, impulses, functions, canvases, touch handlers
+ * and the rest, read from one place so a new one is covered too), a wire-form macro body, and the
+ * operations that expand into copies of other bodies.
  */
 private fun RcOperation.repeatsOrSkips(): Boolean =
-  this is RcLoopOperation ||
-    this is RcConditionalOperations ||
+  opcode in RcOpcodes.CONTAINER_STARTS ||
+    (this is RcMacroDefine && body.isEmpty()) ||
     this is RcParticleLoop ||
     this is RcParticleCompare ||
     this is RcIncludeReferencedOperations ||
