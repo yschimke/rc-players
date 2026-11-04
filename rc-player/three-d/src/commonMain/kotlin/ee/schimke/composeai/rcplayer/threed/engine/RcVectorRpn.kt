@@ -14,8 +14,10 @@ import kotlin.math.sqrt
 /**
  * Reverse-Polish evaluator for `VECTOR_EXPRESSION`, ported from the reference `VectorRpn.java`.
  *
- * Every stack slot holds four lanes. A scalar broadcasts across all four; a built vector zero-pads
- * its unused high lanes, which is what makes dot and length correct at any dimension.
+ * Every stack slot holds four lanes. A scalar broadcasts across all four; a vector keeps its lanes
+ * past its dimension at zero, through every operation, which is what makes dot, length and
+ * normalize correct at any dimension. (The reference applies arithmetic to the padding too, so
+ * `length(vec3(1, 2, 3) + 1)` comes out as sqrt(30) there; this keeps it at sqrt(29).)
  *
  * The program is taken as [RcFloatWord]s, not floats: an opcode is a NaN payload, and a NaN that
  * passes through a `Float` may be quieted on some targets (Kotlin/Wasm and JS among them), which
@@ -90,6 +92,7 @@ internal class RcVectorRpn {
     val b = sp * DIM
     for (i in 0 until DIM) stack[a + i] = op(stack[a + i], stack[b + i])
     dims[sp - 1] = max(dims[sp - 1], dims[sp])
+    clearPadding(sp - 1)
     return sp - 1
   }
 
@@ -97,7 +100,16 @@ internal class RcVectorRpn {
     require(sp >= 0) { "Vector stack underflow" }
     val b = sp * DIM
     for (i in 0 until DIM) stack[b + i] = op(stack[b + i])
+    clearPadding(sp)
     return sp
+  }
+
+  /** Zero a vector's lanes past its dimension. A scalar (dimension 1) stays broadcast. */
+  private fun clearPadding(slot: Int) {
+    val dim = dims[slot]
+    if (dim <= 1) return
+    val p = slot * DIM
+    for (i in dim until DIM) stack[p + i] = 0f
   }
 
   private fun opEval(sp: Int, id: Int): Int {

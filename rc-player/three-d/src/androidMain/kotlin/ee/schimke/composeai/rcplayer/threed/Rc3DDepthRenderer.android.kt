@@ -246,6 +246,13 @@ internal class RcGlesDepth {
     val p = meshProgram
     GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(p, "uMvp"), 1, false, engine.modelViewProjection, 0)
     GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(p, "uMv"), 1, false, engine.modelView, 0)
+    GLES30.glUniformMatrix4fv(
+      GLES30.glGetUniformLocation(p, "uNm"),
+      1,
+      false,
+      engine.normalMatrix,
+      0,
+    )
     val base = engine.baseColorArgb
     GLES30.glUniform4f(
       GLES30.glGetUniformLocation(p, "uBase"),
@@ -544,6 +551,7 @@ internal class RcGlesDepth {
       in vec2 aUv;
       uniform mat4 uMvp;
       uniform mat4 uMv;
+      uniform mat4 uNm;
       uniform vec4 uBase;
       uniform vec3 uShading;
       uniform int uLightCount;
@@ -571,7 +579,7 @@ internal class RcGlesDepth {
         vec3 n;
         vec3 p;
         if (uShading.x > 0.5) {
-          n = (uMv * vec4(aNormal, 0.0)).xyz;
+          n = (uNm * vec4(aNormal, 0.0)).xyz;
           p = eye;
         } else {
           n = face;

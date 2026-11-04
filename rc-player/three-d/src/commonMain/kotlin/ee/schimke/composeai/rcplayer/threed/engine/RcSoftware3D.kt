@@ -35,6 +35,12 @@ internal class RcSoftware3D {
   private val pv = FloatArray(16)
   private val mvp = FloatArray(16)
   private val mv = FloatArray(16)
+
+  /**
+   * The normal matrix of [mv]: smooth normals go through this, not [mv]; see
+   * [RcMatrix4.normalMatrix].
+   */
+  private val nm = FloatArray(16)
   private val meshes = mutableMapOf<Int, Rc3DMeshData>()
 
   var colorBuffer: IntArray = IntArray(0)
@@ -124,6 +130,10 @@ internal class RcSoftware3D {
 
   val modelView: FloatArray
     get() = mv
+
+  /** The model-view's normal matrix, for transforming smooth normals (read only). */
+  val normalMatrix: FloatArray
+    get() = nm
 
   /** Whether the projection is perspective; an orthographic one keeps w at 1. */
   val isPerspective: Boolean
@@ -595,11 +605,11 @@ internal class RcSoftware3D {
     val normals = m.normals
     val nn = normals.size
     if (smooth && nn > 0 && i0 + 2 < nn && i1 + 2 < nn && i2 + 2 < nn) {
-      RcMatrix4.transformDirection(mv, normals[i0], normals[i0 + 1], normals[i0 + 2], normal3)
+      RcMatrix4.transformDirection(nm, normals[i0], normals[i0 + 1], normals[i0 + 2], normal3)
       triColor[0] = litColor(baseColor, normal3[0], normal3[1], normal3[2], ev0x, ev0y, ev0z)
-      RcMatrix4.transformDirection(mv, normals[i1], normals[i1 + 1], normals[i1 + 2], normal3)
+      RcMatrix4.transformDirection(nm, normals[i1], normals[i1 + 1], normals[i1 + 2], normal3)
       triColor[1] = litColor(baseColor, normal3[0], normal3[1], normal3[2], ev1x, ev1y, ev1z)
-      RcMatrix4.transformDirection(mv, normals[i2], normals[i2 + 1], normals[i2 + 2], normal3)
+      RcMatrix4.transformDirection(nm, normals[i2], normals[i2 + 1], normals[i2 + 2], normal3)
       triColor[2] = litColor(baseColor, normal3[0], normal3[1], normal3[2], ev2x, ev2y, ev2z)
     } else {
       val ax = ev1x - ev0x
@@ -632,6 +642,7 @@ internal class RcSoftware3D {
   private fun prepareFrame() {
     RcMatrix4.multiply(pv, proj, view)
     RcMatrix4.multiply(mv, view, model)
+    RcMatrix4.normalMatrix(nm, mv)
     RcMatrix4.multiply(mvp, pv, model)
     prepareLightsEyeSpace()
   }
