@@ -116,7 +116,7 @@ class Rc3DAndroidMeshPlatformTest {
         MeshSpecification.Attribute(MeshSpecification.TYPE_FLOAT3, 12, "normal"),
         MeshSpecification.Attribute(MeshSpecification.TYPE_FLOAT3, 24, "edge1"),
         MeshSpecification.Attribute(MeshSpecification.TYPE_FLOAT3, 36, "edge2"),
-        MeshSpecification.Attribute(MeshSpecification.TYPE_FLOAT3, 48, "centroid"),
+        MeshSpecification.Attribute(MeshSpecification.TYPE_FLOAT3, 48, "faceCentre"),
         MeshSpecification.Attribute(MeshSpecification.TYPE_FLOAT2, 60, "uv"),
       )
     val oneVarying = arrayOf(MeshSpecification.Varying(MeshSpecification.TYPE_FLOAT4, "shade"))
