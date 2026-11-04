@@ -1,0 +1,470 @@
+public final class ee/schimke/composeai/rcplayer/threed/Rc3D {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/threed/Rc3D;
+	public static final field LIGHT_DIRECTIONAL I
+	public static final field LIGHT_POINT I
+	public static final field M3_IDENTITY I
+	public static final field M3_MULTIPLY I
+	public static final field M3_ROTATE_AXIS I
+	public static final field M3_SCALE I
+	public static final field M3_TRANSLATE I
+	public static final field MODE_BACKEND_CANVAS I
+	public static final field MODE_BACKEND_CANVAS_ZBUF I
+	public static final field MODE_BACKEND_DRAWMESH I
+	public static final field MODE_BACKEND_DRAWMESH_ZBUF I
+	public static final field MODE_BACKEND_GL I
+	public static final field MODE_BACKEND_SOFTWARE I
+	public static final field MODE_CANVAS_FLAT I
+	public static final field MODE_CANVAS_SMOOTH I
+	public static final field MODE_CANVAS_ZBUF_FLAT I
+	public static final field MODE_CANVAS_ZBUF_SMOOTH I
+	public static final field MODE_DRAWMESH_FLAT I
+	public static final field MODE_DRAWMESH_SMOOTH I
+	public static final field MODE_DRAWMESH_ZBUF_FLAT I
+	public static final field MODE_DRAWMESH_ZBUF_SMOOTH I
+	public static final field MODE_GL_FLAT I
+	public static final field MODE_GL_SMOOTH I
+	public static final field MODE_SMOOTH_MASK I
+	public static final field MODE_SOFTWARE_FLAT I
+	public static final field MODE_SOFTWARE_SMOOTH I
+	public static final field MODE_WIREFRAME I
+	public static final field P3_CLEAR_DEPTH I
+	public static final field P3_DEPTH_BIAS I
+	public static final field P3_MATERIAL I
+	public static final field PROJECTION_ORTHO I
+	public static final field PROJECTION_PERSPECTIVE I
+	public static final field SURFACE_CYLINDER I
+	public static final field SURFACE_FLAG_FLIP_WINDING I
+	public static final field SURFACE_GENERAL I
+	public static final field SURFACE_HEIGHT_FIELD I
+	public static final field SURFACE_SPHERE I
+	public static final field WIRE_EDGE0 I
+	public static final field WIRE_EDGE1 I
+	public static final field WIRE_EDGE2 I
+	public static final field WIRE_EDGE_MASK I
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder {
+	public static final field $stable I
+	public static final field ADD I
+	public static final field COS I
+	public static final field Companion Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder$Companion;
+	public static final field DIV I
+	public static final field MUL I
+	public static final field SIN I
+	public static final field SUB I
+	public fun <init> (II)V
+	public final fun add (Lee/schimke/composeai/rcplayer/protocol/RcOperation;)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun animationTime-tGZKRUM ()I
+	public final fun build ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun clearDepth ()Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun color (I)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun continuousSeconds-tGZKRUM ()I
+	public final fun draw (II)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public static synthetic fun draw$default (Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;IIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun encode ()[B
+	public final fun expression-TypcxcU (Ljava/util/List;)I
+	public final fun float-TypcxcU (F)I
+	public final fun getHeight ()I
+	public final fun getWidth ()I
+	public final fun hostCamera (Ljava/lang/String;Lee/schimke/composeai/rcplayer/threed/Rc3DHostCamera;FFF)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public static synthetic fun hostCamera$default (Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;Ljava/lang/String;Lee/schimke/composeai/rcplayer/threed/Rc3DHostCamera;FFFILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun identity ()Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun lights ([Lee/schimke/composeai/rcplayer/threed/Rc3DLight;)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun material (FF)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun mesh ([I[F[F[F)I
+	public static synthetic fun mesh$default (Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;[I[F[F[FILjava/lang/Object;)I
+	public final fun namedFloat-FlOaHxk (Ljava/lang/String;F)I
+	public final fun newId ()I
+	public final fun perspectiveCamera-nVBUPs4 (IIIILjava/util/List;Ljava/util/List;Ljava/util/List;)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public static synthetic fun perspectiveCamera-nVBUPs4$default (Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;IIIILjava/util/List;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun primitive-asiKSxE (ILjava/util/List;IILjava/util/List;)I
+	public static synthetic fun primitive-asiKSxE$default (Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;ILjava/util/List;IILjava/util/List;ILjava/lang/Object;)I
+	public final fun rotate-daCCiuc (IFFF)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun scale-pR5I1hQ (III)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun texture (I)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+	public final fun times-ECN5wp4 (II)I
+	public final fun translate-pR5I1hQ (III)Lee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DDocumentBuilder$Companion {
+	public final fun operator-TypcxcU (I)I
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DExtension : ee/schimke/composeai/rcplayer/compose/RcPlayerExtension {
+	public static final field $stable I
+	public static final field Companion Lee/schimke/composeai/rcplayer/threed/Rc3DExtension$Companion;
+	public static final field DRAFT Ljava/lang/String;
+	public static final field ID Ljava/lang/String;
+	public fun <init> ()V
+	public fun <init> (Lee/schimke/composeai/rcplayer/threed/Rc3DOptions;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/threed/Rc3DOptions;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun createSession (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;)Lee/schimke/composeai/rcplayer/compose/RcExtensionSession;
+	public final fun getOptions ()Lee/schimke/composeai/rcplayer/threed/Rc3DOptions;
+	public fun getWire ()Lee/schimke/composeai/rcplayer/protocol/RcWireExtension;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DExtension$Companion {
+	public final fun getWireExtensions ()Lee/schimke/composeai/rcplayer/protocol/RcWireExtensions;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DFrame {
+	public static final field $stable I
+	public fun <init> (ILjava/util/List;)V
+	public final fun getComponentId ()I
+	public final fun getDraws ()Ljava/util/List;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DGltf {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/threed/Rc3DGltf;
+	public final fun toGlb (Lee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;I[B)[B
+	public static synthetic fun toGlb$default (Lee/schimke/composeai/rcplayer/threed/Rc3DGltf;Lee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;I[BILjava/lang/Object;)[B
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DHostCamera {
+	public static final field $stable I
+	public static final field Companion Lee/schimke/composeai/rcplayer/threed/Rc3DHostCamera$Companion;
+	public static final field DEFAULT_PREFIX Ljava/lang/String;
+	public fun <init> ([F[F[FF)V
+	public synthetic fun <init> ([F[F[FFILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getEye ()[F
+	public final fun getFovYRadians ()F
+	public final fun getTarget ()[F
+	public final fun getUp ()[F
+	public final fun namedValues (Ljava/lang/String;)Ljava/util/Map;
+	public static synthetic fun namedValues$default (Lee/schimke/composeai/rcplayer/threed/Rc3DHostCamera;Ljava/lang/String;ILjava/lang/Object;)Ljava/util/Map;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DHostCamera$Companion {
+	public final fun names (Ljava/lang/String;)Ljava/util/List;
+	public static synthetic fun names$default (Lee/schimke/composeai/rcplayer/threed/Rc3DHostCamera$Companion;Ljava/lang/String;ILjava/lang/Object;)Ljava/util/List;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DLight {
+	public static final field $stable I
+	public static final field Companion Lee/schimke/composeai/rcplayer/threed/Rc3DLight$Companion;
+	public synthetic fun <init> (IIIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getColor ()I
+	public final fun getIntensity-tGZKRUM ()I
+	public final fun getType ()I
+	public final fun getX-tGZKRUM ()I
+	public final fun getY-tGZKRUM ()I
+	public final fun getZ-tGZKRUM ()I
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DLight$Companion {
+	public final fun directional (FFFFI)Lee/schimke/composeai/rcplayer/threed/Rc3DLight;
+	public static synthetic fun directional$default (Lee/schimke/composeai/rcplayer/threed/Rc3DLight$Companion;FFFFIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/Rc3DLight;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DMeshDraw {
+	public static final field $stable I
+	public fun <init> (ILee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;[F[F[FIIIFFIIJLandroidx/compose/ui/graphics/ImageBitmap;)V
+	public synthetic fun <init> (ILee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;[F[F[FIIIFFIIJLandroidx/compose/ui/graphics/ImageBitmap;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getColor ()I
+	public final fun getComponentId ()I
+	public final fun getDrawIndex ()I
+	public final fun getKey ()Ljava/lang/String;
+	public final fun getMesh ()Lee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;
+	public final fun getMeshId ()I
+	public final fun getMeshVersion ()J
+	public final fun getMode ()I
+	public final fun getModel ()[F
+	public final fun getProjection ()[F
+	public final fun getTexture ()Landroidx/compose/ui/graphics/ImageBitmap;
+	public final fun getTextureBitmapId ()I
+	public final fun getView ()[F
+	public final fun getViewportHeight ()F
+	public final fun getViewportWidth ()F
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DOpcodes {
+	public static final field $stable I
+	public static final field DEFINE_MESH_3D I
+	public static final field DRAW_MESH_3D I
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/threed/Rc3DOpcodes;
+	public static final field MATRIX_3D_OP I
+	public static final field MESH_EXPRESSION_3D I
+	public static final field MESH_PRIMITIVE_3D I
+	public static final field PAINT_3D_STATE I
+	public static final field SET_CAMERA_3D I
+	public static final field SET_LIGHTS_3D I
+	public static final field SET_TEXTURE_3D I
+	public static final field VECTOR_EXPRESSION I
+	public final fun getALL ()Ljava/util/Set;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/threed/Rc3DOperation : ee/schimke/composeai/rcplayer/protocol/RcExtensionOperation {
+	public fun getExtensionId ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DOperation$DefaultImpls {
+	public static fun getExtensionId (Lee/schimke/composeai/rcplayer/threed/Rc3DOperation;)Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DOptions {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (Lee/schimke/composeai/rcplayer/threed/Rc3DRenderer;FZLee/schimke/composeai/rcplayer/threed/Rc3DSceneListener;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/threed/Rc3DRenderer;FZLee/schimke/composeai/rcplayer/threed/Rc3DSceneListener;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getDrawInPlayer ()Z
+	public final fun getPixelScale ()F
+	public final fun getRenderer ()Lee/schimke/composeai/rcplayer/threed/Rc3DRenderer;
+	public final fun getSceneListener ()Lee/schimke/composeai/rcplayer/threed/Rc3DSceneListener;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DPanelPlacement {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/threed/Rc3DPanelPlacement;
+	public final fun defaultFocusDistance ([F)F
+	public final fun panelTransform (Lee/schimke/composeai/rcplayer/threed/Rc3DMeshDraw;FF)[F
+	public static synthetic fun panelTransform$default (Lee/schimke/composeai/rcplayer/threed/Rc3DPanelPlacement;Lee/schimke/composeai/rcplayer/threed/Rc3DMeshDraw;FFILjava/lang/Object;)[F
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DRenderer : java/lang/Enum {
+	public static final field Auto Lee/schimke/composeai/rcplayer/threed/Rc3DRenderer;
+	public static final field Gpu Lee/schimke/composeai/rcplayer/threed/Rc3DRenderer;
+	public static final field Software Lee/schimke/composeai/rcplayer/threed/Rc3DRenderer;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/threed/Rc3DRenderer;
+	public static fun values ()[Lee/schimke/composeai/rcplayer/threed/Rc3DRenderer;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/threed/Rc3DSceneListener {
+	public abstract fun onDrawMesh (Lee/schimke/composeai/rcplayer/threed/Rc3DMeshDraw;)V
+	public fun onFrame (Lee/schimke/composeai/rcplayer/threed/Rc3DFrame;)V
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DSceneListener$DefaultImpls {
+	public static fun onFrame (Lee/schimke/composeai/rcplayer/threed/Rc3DSceneListener;Lee/schimke/composeai/rcplayer/threed/Rc3DFrame;)V
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/RcDefineMesh3D : ee/schimke/composeai/rcplayer/threed/Rc3DOperation {
+	public static final field $stable I
+	public fun <init> (I[I[F[F[F)V
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExtensionId ()Ljava/lang/String;
+	public final fun getId ()I
+	public final fun getIndices ()[I
+	public final fun getNormals ()[F
+	public fun getOpcode ()I
+	public final fun getUv ()[F
+	public final fun getVerts ()[F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/RcDrawMesh3D : ee/schimke/composeai/rcplayer/threed/Rc3DOperation {
+	public static final field $stable I
+	public fun <init> (II)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun copy (II)Lee/schimke/composeai/rcplayer/threed/RcDrawMesh3D;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/threed/RcDrawMesh3D;IIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/RcDrawMesh3D;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExtensionId ()Ljava/lang/String;
+	public final fun getMeshId ()I
+	public final fun getMode ()I
+	public fun getOpcode ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/RcMatrix3DOp : ee/schimke/composeai/rcplayer/threed/Rc3DOperation {
+	public static final field $stable I
+	public fun <init> (ILjava/util/List;)V
+	public final fun component1 ()I
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (ILjava/util/List;)Lee/schimke/composeai/rcplayer/threed/RcMatrix3DOp;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/threed/RcMatrix3DOp;ILjava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/RcMatrix3DOp;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getArgs ()Ljava/util/List;
+	public fun getExtensionId ()Ljava/lang/String;
+	public fun getOpcode ()I
+	public final fun getSub ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/RcMeshExpression3D : ee/schimke/composeai/rcplayer/threed/Rc3DOperation {
+	public static final field $stable I
+	public fun <init> (IIILjava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun component4 ()Ljava/util/List;
+	public final fun component5 ()Ljava/util/List;
+	public final fun component6 ()Ljava/util/List;
+	public final fun component7 ()Ljava/util/List;
+	public final fun copy (IIILjava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;)Lee/schimke/composeai/rcplayer/threed/RcMeshExpression3D;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/threed/RcMeshExpression3D;IIILjava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/RcMeshExpression3D;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExtensionId ()Ljava/lang/String;
+	public final fun getFlags ()I
+	public final fun getId ()I
+	public final fun getNormal ()Ljava/util/List;
+	public fun getOpcode ()I
+	public final fun getParams ()Ljava/util/List;
+	public final fun getPosition ()Ljava/util/List;
+	public final fun getType ()I
+	public final fun getUv ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/RcMeshPrimitive3D : ee/schimke/composeai/rcplayer/threed/Rc3DOperation {
+	public static final field $stable I
+	public synthetic fun <init> (IIIILjava/util/List;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3-tGZKRUM ()I
+	public final fun component4 ()I
+	public final fun component5 ()Ljava/util/List;
+	public final fun copy-asiKSxE (IIIILjava/util/List;)Lee/schimke/composeai/rcplayer/threed/RcMeshPrimitive3D;
+	public static synthetic fun copy-asiKSxE$default (Lee/schimke/composeai/rcplayer/threed/RcMeshPrimitive3D;IIIILjava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/RcMeshPrimitive3D;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getData ()Ljava/util/List;
+	public fun getExtensionId ()Ljava/lang/String;
+	public final fun getFlags ()I
+	public final fun getId ()I
+	public fun getOpcode ()I
+	public final fun getSegments-tGZKRUM ()I
+	public final fun getType ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/RcPaint3DState : ee/schimke/composeai/rcplayer/threed/Rc3DOperation {
+	public static final field $stable I
+	public fun <init> (ILjava/util/List;)V
+	public final fun component1 ()I
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (ILjava/util/List;)Lee/schimke/composeai/rcplayer/threed/RcPaint3DState;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/threed/RcPaint3DState;ILjava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/RcPaint3DState;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExtensionId ()Ljava/lang/String;
+	public fun getOpcode ()I
+	public final fun getParams ()Ljava/util/List;
+	public final fun getSub ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/RcSetCamera3D : ee/schimke/composeai/rcplayer/threed/Rc3DOperation {
+	public static final field $stable I
+	public fun <init> (ILjava/util/List;Ljava/util/List;)V
+	public final fun component1 ()I
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/util/List;
+	public final fun copy (ILjava/util/List;Ljava/util/List;)Lee/schimke/composeai/rcplayer/threed/RcSetCamera3D;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/threed/RcSetCamera3D;ILjava/util/List;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/RcSetCamera3D;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExtensionId ()Ljava/lang/String;
+	public fun getOpcode ()I
+	public final fun getProjParams ()Ljava/util/List;
+	public final fun getProjection ()I
+	public final fun getViewParams ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/RcSetLights3D : ee/schimke/composeai/rcplayer/threed/Rc3DOperation {
+	public static final field $stable I
+	public fun <init> (Ljava/util/List;Ljava/util/List;Ljava/util/List;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/util/List;
+	public final fun copy (Ljava/util/List;Ljava/util/List;Ljava/util/List;)Lee/schimke/composeai/rcplayer/threed/RcSetLights3D;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/threed/RcSetLights3D;Ljava/util/List;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/RcSetLights3D;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getColors ()Ljava/util/List;
+	public fun getExtensionId ()Ljava/lang/String;
+	public fun getOpcode ()I
+	public final fun getParams ()Ljava/util/List;
+	public final fun getTypes ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/RcSetTexture3D : ee/schimke/composeai/rcplayer/threed/Rc3DOperation {
+	public static final field $stable I
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lee/schimke/composeai/rcplayer/threed/RcSetTexture3D;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/threed/RcSetTexture3D;IILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/RcSetTexture3D;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBitmapId ()I
+	public fun getExtensionId ()Ljava/lang/String;
+	public fun getOpcode ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/RcVectorExpression : ee/schimke/composeai/rcplayer/threed/Rc3DOperation {
+	public static final field $stable I
+	public fun <init> (IIILjava/util/List;)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun component4 ()Ljava/util/List;
+	public final fun copy (IIILjava/util/List;)Lee/schimke/composeai/rcplayer/threed/RcVectorExpression;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/threed/RcVectorExpression;IIILjava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/threed/RcVectorExpression;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDimension ()I
+	public fun getExtensionId ()Ljava/lang/String;
+	public final fun getFlags ()I
+	public final fun getId ()I
+	public fun getOpcode ()I
+	public final fun getProgram ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData {
+	public static final field $stable I
+	public fun <init> ([F[F[I[F)V
+	public synthetic fun <init> ([F[F[I[FILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getIndices ()[I
+	public final fun getNormals ()[F
+	public final fun getTriangleCount ()I
+	public final fun getUv ()[F
+	public final fun getVertexCount ()I
+	public final fun getVerts ()[F
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/engine/RcPrimitive3D {
+	public static final field $stable I
+	public static final field CAP_TUBE I
+	public static final field CONE I
+	public static final field CUBE I
+	public static final field CYLINDER I
+	public static final field EXTRUDE_ARC I
+	public static final field EXTRUDE_CIRCLE I
+	public static final field EXTRUDE_PATH I
+	public static final field EXTRUDE_ROUNDED_RECT I
+	public static final field EXTRUDE_SECTOR I
+	public static final field EXTRUDE_SEGMENT I
+	public static final field EXTRUDE_SQUIRCLE I
+	public static final field FLAG_SPLINE I
+	public static final field FLAG_TUBE_CAP I
+	public static final field FLAG_TUBE_LEGACY I
+	public static final field FLAG_TUBE_PATH_DENSITY I
+	public static final field FLAG_UV_MASK I
+	public static final field FLAG_UV_SHIFT I
+	public static final field HELIX I
+	public static final field ICOSPHERE I
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/threed/engine/RcPrimitive3D;
+	public static final field LATHE I
+	public static final field PLANE I
+	public static final field PROFILE_TUBE I
+	public static final field ROUNDED_CUBE I
+	public static final field SPHERE I
+	public static final field SPHERICAL_DOME I
+	public static final field SPHERICAL_SECTOR I
+	public static final field SWEEP I
+	public static final field TORUS I
+	public static final field TUBE I
+	public final fun build (IFILjava/util/List;)Lee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;
+}
+

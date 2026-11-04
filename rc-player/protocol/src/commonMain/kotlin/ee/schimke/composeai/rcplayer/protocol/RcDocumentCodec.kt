@@ -173,6 +173,56 @@ public object RcDocumentCodec {
   public val supportedOperations: List<RcOperationSpec> =
     codecs.values.map { it.spec }.sortedBy { it.opcode }
 
+  /**
+   * Whether [opcode] is decoded by the built-in table, and so cannot be claimed by an extension.
+   */
+  public fun isBuiltIn(opcode: Int): Boolean = opcode in codecs
+
+  /**
+   * Decodes [bytes] with [extensions] consulted for any opcode the built-in table does not know.
+   * With [RcWireExtensions.None] this is exactly [decode].
+   *
+   * Extensions apply to the top-level operation stream. Bodies the runtime decodes later (macro and
+   * referenced-operation blobs) see only the built-in table.
+   */
+  @ExperimentalRcWireExtension
+  public fun decode(
+    bytes: ByteArray,
+    extensions: RcWireExtensions,
+    limits: RcWireLimits = RcWireLimits(),
+  ): RcDocument =
+    decode(
+      bytes,
+      limits,
+      libraryApiLevel = 8,
+      profile = RcWireProfiles.ANDROIDX_EXPERIMENTAL,
+      extensions = extensions,
+    )
+
+  /** Encodes [document], writing extension operations with the codecs in [extensions]. */
+  @ExperimentalRcWireExtension
+  public fun encode(document: RcDocument, extensions: RcWireExtensions): ByteArray {
+    val output = RcWireWriter()
+    encodeOperation(output, document.header, extensions)
+    document.operations.forEach { encodeOperation(output, it, extensions) }
+    return output.toByteArray()
+  }
+
+  /** Writes one operation, looking up an extension operation's codec in [extensions]. */
+  @ExperimentalRcWireExtension
+  public fun encodeOperation(
+    output: RcWireWriter,
+    operation: RcOperation,
+    extensions: RcWireExtensions,
+  ) {
+    val codec =
+      codecs[operation.opcode]
+        ?: extensions.codec(operation.opcode)
+        ?: error("No codec for opcode ${operation.opcode}")
+    output.writeU8(operation.opcode)
+    encodeUnchecked(codec, output, operation)
+  }
+
   public fun decode(bytes: ByteArray, limits: RcWireLimits = RcWireLimits()): RcDocument =
     decode(bytes, limits, libraryApiLevel = 8, profile = RcWireProfiles.ANDROIDX_EXPERIMENTAL)
 
@@ -187,6 +237,14 @@ public object RcDocumentCodec {
     limits: RcWireLimits,
     libraryApiLevel: Int,
     profile: Int,
+  ): RcDocument = decode(bytes, limits, libraryApiLevel, profile, RcWireExtensions.None)
+
+  private fun decode(
+    bytes: ByteArray,
+    limits: RcWireLimits,
+    libraryApiLevel: Int,
+    profile: Int,
+    extensions: RcWireExtensions,
   ): RcDocument =
     rcTrace(RcTraceCategory.DOCUMENT, "rc:decode") {
       if (bytes.size > limits.maxDocumentBytes) {
@@ -199,6 +257,7 @@ public object RcDocumentCodec {
           idRemapper = null,
           libraryApiLevel = libraryApiLevel,
           profile = profile,
+          extensions = extensions,
         )
       val operations = mutableListOf<RcOperation>()
       val operationBudget = RcOperationBudget(limits.maxOperations)
@@ -208,6 +267,7 @@ public object RcDocumentCodec {
         operationBudget.consume(opcodeOffset, opcode, "Document")
         val codec =
           codecs[opcode]
+            ?: extensions.codec(opcode)
             ?: throw RcWireException(
               opcodeOffset,
               opcode,

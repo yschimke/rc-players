@@ -21,6 +21,7 @@ kotlin {
   // The module's own experimental API is used freely inside it; callers opt in.
   sourceSets.all {
     languageSettings.optIn("ee.schimke.composeai.rcplayer.compose.ExperimentalRcPlayerApi")
+    languageSettings.optIn("ee.schimke.composeai.rcplayer.protocol.ExperimentalRcWireExtension")
   }
 
   // ABI dump gate. `checkKotlinAbi` (wired into `check` below) diffs the module's real public ABI

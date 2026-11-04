@@ -166,6 +166,12 @@ include(":rc-player-compose")
 
 project(":rc-player-compose").projectDir = file("rc-player/compose")
 
+// The draft 3D operations (AndroidX ag/4108133, opcodes 110-120) as an opt-in player extension. Not
+// part of the default stack: a host adds `Rc3DExtension` to `LocalRcPlayerExtensions`.
+include(":rc-player-3d")
+
+project(":rc-player-3d").projectDir = file("rc-player/three-d")
+
 // Creation: rc-players' own API over the creation fork, in its own package
 // (`ee.schimke.composeai.rccreation`), and the module that joins creation to the player. Published,
 // experimental; see docs/design/RC_CREATION_BRIDGE.md.

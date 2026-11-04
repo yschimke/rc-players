@@ -50,6 +50,7 @@ val publishedProjects =
     ":rc-player-protocol" to "rc-player-protocol",
     ":rc-player-runtime" to "rc-player-runtime",
     ":rc-player-compose" to "rc-player-compose",
+    ":rc-player-3d" to "rc-player-3d",
     ":rc-player-edit" to "rc-player-edit",
     ":rc-player-embedded" to "rc-player-embedded",
     ":rc-creation-bridge" to "rc-creation-bridge",

@@ -100,6 +100,9 @@ kotlin {
   // than a habit, so a `public` that should have been `internal` can't slip into the published
   // surface. See docs/API_STABILITY.md and #4062.
   explicitApi()
+  sourceSets.all {
+    languageSettings.optIn("ee.schimke.composeai.rcplayer.protocol.ExperimentalRcWireExtension")
+  }
 
   // ABI dump gate. `checkKotlinAbi` (wired into `check` below) diffs the module's real public ABI
   // against the committed dumps in `api/`, so a change to the published surface shows up as a diff

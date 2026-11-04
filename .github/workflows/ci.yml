@@ -368,6 +368,8 @@ jobs:
             :rc-player-protocol:jvmTest \
             :rc-player-runtime:jvmTest \
             :rc-player-compose:jvmTest \
+            :rc-player-3d:jvmTest \
+            :rc-player-3d:compileAndroidMain \
             :rc-player-edit:jvmTest \
             :third-party-remote-creation-writer:jvmTest \
             :rc-player-embedded:jvmTest \
@@ -401,6 +403,8 @@ jobs:
             :rc-player-protocol:checkKotlinAbi \
             :rc-player-runtime:checkKotlinAbi \
             :rc-player-compose:checkKotlinAbi \
+            :rc-player-3d:checkKotlinAbi \
+            :rc-player-3d:compileKotlinWasmJs \
             :rc-player-edit:checkKotlinAbi \
             :third-party-remote-creation-writer:checkKotlinAbi \
             :third-party-remote-creation-compose:checkKotlinAbi \

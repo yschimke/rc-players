@@ -119,6 +119,7 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -236,6 +237,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnPath
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTweenPath
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
+import ee.schimke.composeai.rcplayer.protocol.RcExtensionOperation
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
@@ -367,7 +369,8 @@ public fun RcComposePlayer(
   systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
   customComponents: RcCustomComponentRegistry,
 ) {
-  val document = remember(bytes) { decodeCmpDocument(bytes) }
+  val extensions = LocalRcPlayerExtensions.current
+  val document = remember(bytes, extensions) { decodeCmpDocument(bytes, extensions) }
   RcComposePlayer(
     document,
     modifier,
@@ -393,7 +396,8 @@ public fun RcComposePlayer(
   systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
   customComponents: RcCustomComponentRegistry = RcCustomComponentRegistry.Empty,
 ) {
-  val document = remember(bytes) { decodeCmpDocument(bytes) }
+  val extensions = LocalRcPlayerExtensions.current
+  val document = remember(bytes, extensions) { decodeCmpDocument(bytes, extensions) }
   RcComposePlayer(
     document,
     imageLoader,
@@ -436,6 +440,11 @@ public fun RcComposePlayer(
 
 /** CMP implements the opt-in operation family, so `Skip` must observe the experimental bit. */
 internal fun decodeCmpDocument(bytes: ByteArray): RcDocument = RcDocumentCodec.decode(bytes)
+
+/** As [decodeCmpDocument], also decoding the operations of the installed [extensions]. */
+internal fun decodeCmpDocument(bytes: ByteArray, extensions: RcPlayerExtensions): RcDocument =
+  if (extensions.extensions.isEmpty()) decodeCmpDocument(bytes)
+  else RcDocumentCodec.decode(bytes, extensions.wire)
 
 @Composable
 public fun RcComposePlayer(
@@ -774,6 +783,12 @@ private fun RcComposePlayerResolved(
       RcOffscreenTargetPool(componentBuffers = rcComponentOffscreenBuffers(document))
     }
   DisposableEffect(offscreenTargets) { onDispose { offscreenTargets.dispose() } }
+  val playerExtensions = LocalRcPlayerExtensions.current
+  val extensionSessions =
+    remember(document, state, playerExtensions) {
+      RcExtensionSessions.create(playerExtensions, document, state)
+    }
+  DisposableEffect(extensionSessions) { onDispose { extensionSessions?.dispose() } }
   val fonts = remember(document) { decodeInlineFonts(document) }
   val textMeasurer = rememberTextMeasurer()
   val drawObserver = LocalRcDrawObserver.current
@@ -871,6 +886,7 @@ private fun RcComposePlayerResolved(
         drawObserver,
         captures,
         fonts,
+        extensionSessions,
       ) {
         RcVisibilityFunctions(
           linkedDocument.operations,
@@ -883,6 +899,7 @@ private fun RcComposePlayerResolved(
           offscreenTargets,
           captures,
           fonts,
+          extensionSessions,
         )
       }
     val tree: @Composable (probe: RcGeometryProbe?) -> Unit = { probe ->
@@ -902,6 +919,7 @@ private fun RcComposePlayerResolved(
           LocalRcTouchExpressions provides touchExpressions,
           LocalRcVisibilityFunctions provides visibilityFunctions,
           LocalRcComponentCaptures provides captures,
+          LocalRcExtensionSessions provides extensionSessions,
         ) {
           // The root sits at the window's origin at its own size. A root smaller than the window's
           // minimum — one still animating toward a resize, or one the document sizes below the
@@ -965,7 +983,7 @@ private fun RcComposePlayerResolved(
           drawOperations(
             linkedDocument.operations,
             state,
-            RcPaintState(typefaces, drawObserver, fonts),
+            RcPaintState(typefaces, drawObserver, fonts, extensionSessions),
             mutableMapOf(),
             textMeasurer,
             images,
@@ -1019,6 +1037,7 @@ private fun RenderLayoutNode(
   val fontFamilies = LocalRcFonts.current
   val typefaces = LocalRcTypefaces.current
   val drawObserver = LocalRcDrawObserver.current
+  val extensionSessions = LocalRcExtensionSessions.current
   val customComponents = LocalRcCustomComponents.current
   val invalidate = LocalRcInvalidate.current
   val offscreenTargets = LocalRcOffscreenTargets.current
@@ -1190,7 +1209,7 @@ private fun RenderLayoutNode(
                   drawOperations(
                     operations,
                     state,
-                    RcPaintState(typefaces, drawObserver, fontFamilies),
+                    RcPaintState(typefaces, drawObserver, fontFamilies, extensionSessions),
                     mutableMapOf(),
                     textMeasurer,
                     images,
@@ -1233,7 +1252,7 @@ private fun RenderLayoutNode(
             drawOperations(
               node.operations,
               state,
-              RcPaintState(typefaces, drawObserver, fontFamilies),
+              RcPaintState(typefaces, drawObserver, fontFamilies, extensionSessions),
               mutableMapOf(),
               textMeasurer,
               images,
@@ -2660,6 +2679,7 @@ private fun Modifier.applyComponentModifiers(
   val typefaces = LocalRcTypefaces.current
   val documentFonts = LocalRcFonts.current
   val drawObserver = LocalRcDrawObserver.current
+  val extensionSessions = LocalRcExtensionSessions.current
   val frameTime = LocalRcFrameTime.current
   val paintVersion = LocalRcPaintVersion.current
   // A `RippleModifier` is an `Indication` at its wire position, driven by the presses of the
@@ -2717,7 +2737,7 @@ private fun Modifier.applyComponentModifiers(
         drawOperations(
           operations,
           state,
-          RcPaintState(typefaces, drawObserver, documentFonts),
+          RcPaintState(typefaces, drawObserver, documentFonts, extensionSessions),
           mutableMapOf(),
           textMeasurer,
           images,
@@ -4815,6 +4835,8 @@ private class RcPaintState(
   val observer: RcDrawObserver? = null,
   /** The document's `FontData` fonts, which a `TYPEFACE` may name as `CoreText` does. */
   val documentFonts: RcDocumentFonts = RcDocumentFonts.Empty,
+  /** Draws operations decoded by installed player extensions; null when none apply. */
+  val extensions: RcExtensionSessions? = null,
 ) {
   var color: Int = 0xff000000.toInt()
   var strokeWidth: Float = 1f
@@ -4922,6 +4944,7 @@ internal class RcVisibilityFunctions(
   private val captures: RcComponentCaptures? = null,
   /** The document's `FontData` fonts, which a function's paint may name as other streams do. */
   private val documentFonts: RcDocumentFonts = RcDocumentFonts.Empty,
+  private val extensionSessions: RcExtensionSessions? = null,
 ) {
   /** Every function the document defines, wherever it sits; found on first use. */
   val definitions: Map<Int, RcLinkedNode.Container> by lazy {
@@ -4977,7 +5000,7 @@ internal class RcVisibilityFunctions(
     bound.forEachIndexed { index, id -> state.setFloat(id, arguments[index]) }
     depths[functionId] = depth + 1
     val canvas = scope.drawContext.canvas
-    val paint = RcPaintState(typefaces, drawObserver, documentFonts)
+    val paint = RcPaintState(typefaces, drawObserver, documentFonts, extensionSessions)
     canvas.save()
     canvas.translate(-position.x, -position.y)
     // Core's `AnimateMeasure` runs the function in an offscreen-buffer scope of its own, so a
@@ -5054,6 +5077,10 @@ private class RcDrawTargetState(
   var functionDepth: Int = 0,
 ) {
   private var depth = 0
+
+  /** The component this pass draws, or -1 for the document root; see [RcExtensionDrawScope]. */
+  val activeComponentId: Int
+    get() = active?.componentId ?: -1
 
   /** An offscreen target: the component it captures, if any, and the canvas to resume. */
   private class Offscreen(
@@ -5277,6 +5304,9 @@ private fun DrawScope.drawOperations(
   } finally {
     state.endPaint()
     activeTargets.leave(this)
+    // A top-level pass is one complete drawing of this stream: extensions that drew in it learn
+    // it is over, so a host mirroring the drawing elsewhere can drop what this pass did not draw.
+    if (targets == null) paint.extensions?.endPass(activeTargets.activeComponentId)
   }
 }
 
@@ -5632,9 +5662,30 @@ private fun DrawScope.drawOperationsRouted(
           RcOpcodes.MATRIX_RESTORE -> drawContext.canvas.restore()
           RcOpcodes.DRAW_CONTENT -> targets.drawContent(this, drawContent)
         }
+      is RcExtensionOperation ->
+        paint.extensions?.draw(
+          operation,
+          RcExtensionDrawScopeImpl(
+            this,
+            state,
+            paint.composeColor().toArgb(),
+            images,
+            targets.activeComponentId,
+          ),
+        )
       else -> Unit // Constants/data have already populated RcPlayerState.
     }
   }
+}
+
+private class RcExtensionDrawScopeImpl(
+  override val drawScope: DrawScope,
+  override val state: RcPlayerState,
+  override val paintColor: Int,
+  private val images: Map<Int, ImageBitmap>,
+  override val componentId: Int,
+) : RcExtensionDrawScope {
+  override fun bitmap(id: Int): ImageBitmap? = images[id]
 }
 
 private fun decodeInlineImages(document: RcDocument): MutableMap<Int, ImageBitmap> =
