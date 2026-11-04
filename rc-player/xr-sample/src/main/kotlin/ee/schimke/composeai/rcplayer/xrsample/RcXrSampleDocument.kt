@@ -4,6 +4,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDraw6
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextAnchored
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.threed.Rc3DDocumentBuilder
 import ee.schimke.composeai.rcplayer.threed.Rc3DLight
@@ -26,6 +27,16 @@ internal object RcXrSampleDocument {
   fun bytes(): ByteArray =
     Rc3DDocumentBuilder(SIZE, SIZE)
       .apply {
+        // Scaled to fit whatever size the player is: the card and the scene share the document's
+        // 400 units, so they stay together on a phone and on a resized XR panel.
+        add(
+          RcRootContentBehavior(
+            RcRootContentBehavior.NONE,
+            RcRootContentBehavior.ALIGNMENT_CENTER,
+            RcRootContentBehavior.SIZING_SCALE,
+            RcRootContentBehavior.SCALE_FIT,
+          )
+        )
         // The card: a translucent rounded rectangle and a title, drawn by the player on the panel.
         color(0xCC1E2430.toInt())
         add(

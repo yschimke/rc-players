@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import ee.schimke.composeai.rcplayer.protocol.ExperimentalRcWireExtension
@@ -56,6 +57,14 @@ public interface RcExtensionSession {
 public interface RcExtensionDrawScope {
   /** The canvas, in the coordinate space of the component being drawn. */
   public val drawScope: DrawScope
+
+  /**
+   * The area the drawing covers, in the drawing's own units: [drawScope]'s size undone by the
+   * document's root scale. A document with a scaling `ROOT_CONTENT_BEHAVIOR` is drawn under that
+   * scale, so an extension that fills its viewport must fill this, not the canvas's size.
+   */
+  public val size: Size
+    get() = drawScope.size
 
   public val state: RcPlayerState
 

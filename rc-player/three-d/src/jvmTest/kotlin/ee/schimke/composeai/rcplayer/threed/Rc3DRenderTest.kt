@@ -1,9 +1,11 @@
 package ee.schimke.composeai.rcplayer.threed
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcplayer.compose.LocalRcPlayerExtensions
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
@@ -15,9 +17,11 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcWireException
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.threed.engine.RcPrimitive3D
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -209,6 +213,48 @@ class Rc3DRenderTest {
     assertNotEquals(left.toList(), right.toList())
   }
 
+  @Test
+  fun aScaledDocumentScalesItsMeshesWithIts2D() {
+    // A document scaled to fit a player twice its size: the mesh must cover twice the area, not
+    // be projected across the canvas and then scaled again by the root transform.
+    for (mode in listOf(Rc3D.MODE_SOFTWARE_SMOOTH, Rc3D.MODE_CANVAS_SMOOTH)) {
+      val small = opaqueBounds(render(Rc3DDocuments.litCube(mode).encode()), SIZE)
+      val big =
+        opaqueBounds(
+          render(
+            Rc3DDocuments.litCube(mode, scaleFit = true).encode(),
+            size = SIZE * 2,
+            fill = true,
+          ),
+          SIZE * 2,
+        )
+      for (i in 0 until 4) {
+        assertTrue(
+          abs(big[i] - small[i] * 2) <= 3,
+          "mode $mode: ${big.toList()} vs ${small.toList()}",
+        )
+      }
+    }
+  }
+
+  /** Left, top, right and bottom of the pixels with any alpha. */
+  private fun opaqueBounds(pixels: IntArray, size: Int): IntArray {
+    var l = size
+    var t = size
+    var r = -1
+    var b = -1
+    for (i in pixels.indices) {
+      if (pixels[i] ushr 24 == 0) continue
+      val x = i % size
+      val y = i / size
+      l = minOf(l, x)
+      t = minOf(t, y)
+      r = maxOf(r, x)
+      b = maxOf(b, y)
+    }
+    return intArrayOf(l, t, r, b)
+  }
+
   private fun assertTransparentCornersAndOpaqueCentre(pixels: IntArray) {
     for (index in listOf(0, SIZE - 1, SIZE * (SIZE - 1), SIZE * SIZE - 1)) {
       assertEquals(0, pixels[index] ushr 24, "corner $index is transparent")
@@ -224,7 +270,8 @@ class Rc3DRenderTest {
       options: Rc3DOptions = Rc3DOptions(),
       namedValues: Map<String, RcNamedValue> = emptyMap(),
       size: Int = SIZE,
-    ): IntArray = renderFrames(bytes, listOf(0L), options, namedValues, size).single()
+      fill: Boolean = false,
+    ): IntArray = renderFrames(bytes, listOf(0L), options, namedValues, size, fill).single()
 
     @OptIn(ExperimentalComposeUiApi::class)
     fun renderFrames(
@@ -233,13 +280,19 @@ class Rc3DRenderTest {
       options: Rc3DOptions = Rc3DOptions(),
       namedValues: Map<String, RcNamedValue> = emptyMap(),
       size: Int = SIZE,
+      /** Fill the scene rather than take the document's own size. */
+      fill: Boolean = false,
     ): List<IntArray> {
       val extensions = RcPlayerExtensions(Rc3DExtension(options))
       val values = mutableStateMapOf<String, RcNamedValue>().apply { putAll(namedValues) }
       val scene =
         ImageComposeScene(width = size, height = size, density = Density(1f)) {
           CompositionLocalProvider(LocalRcPlayerExtensions provides extensions) {
-            RcComposePlayer(bytes, namedValues = values)
+            RcComposePlayer(
+              bytes,
+              if (fill) Modifier.fillMaxSize() else Modifier,
+              namedValues = values,
+            )
           }
         }
       try {
@@ -278,8 +331,18 @@ internal object Rc3DDocuments {
     primitive(RcPrimitive3D.CUBE, List(6) { float(if (it < 3) 1f else 0f) })
 
   /** The reference parity scene, `cube.txt`: one lit cube rotated so three faces show. */
-  fun litCube(mode: Int, size: Int = SIZE): Rc3DDocumentBuilder =
+  fun litCube(mode: Int, size: Int = SIZE, scaleFit: Boolean = false): Rc3DDocumentBuilder =
     Rc3DDocumentBuilder(size, size).apply {
+      if (scaleFit) {
+        add(
+          RcRootContentBehavior(
+            RcRootContentBehavior.NONE,
+            RcRootContentBehavior.ALIGNMENT_CENTER,
+            RcRootContentBehavior.SIZING_SCALE,
+            RcRootContentBehavior.SCALE_FIT,
+          )
+        )
+      }
       clearDepth()
       standardCamera()
       lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))

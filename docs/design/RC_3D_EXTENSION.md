@@ -35,7 +35,8 @@ Two layers, both opt-in behind `@ExperimentalRcWireExtension`:
 
 Values an extension reads through `RcPlayerState.resolve` are tracked like the player's own reads,
 so a camera that follows the clock or a named value redraws with it, and one that does not is drawn
-once. An extension writes variables with `RcPlayerState.setFloat` (`VECTOR_EXPRESSION` does), and
+once. `RcExtensionDrawScope.size` is the area the drawing covers in the document's own units, so a
+document with a scaling `ROOT_CONTENT_BEHAVIOR` scales its 3D with its 2D. An extension writes variables with `RcPlayerState.setFloat` (`VECTOR_EXPRESSION` does), and
 later operations in the same pass read them.
 
 Limit: extensions apply to the top-level operation stream. Bodies the runtime decodes later (macro
