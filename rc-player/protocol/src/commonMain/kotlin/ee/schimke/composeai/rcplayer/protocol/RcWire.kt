@@ -27,6 +27,7 @@ internal constructor(
   private val idRemapper: RcIdRemapper?,
   internal val libraryApiLevel: Int,
   internal val profile: Int,
+  internal val extensions: RcWireExtensions = RcWireExtensions.None,
 ) {
   /** Retains the original public constructor and its baseline AndroidX reader semantics. */
   public constructor(

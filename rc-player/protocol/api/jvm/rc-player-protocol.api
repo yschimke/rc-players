@@ -1,3 +1,6 @@
+public abstract interface annotation class ee/schimke/composeai/rcplayer/protocol/ExperimentalRcWireExtension : java/lang/annotation/Annotation {
+}
+
 public final class ee/schimke/composeai/rcplayer/protocol/RcAccessibilitySemantics : ee/schimke/composeai/rcplayer/protocol/RcOperation {
 	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcAccessibilitySemantics$Companion;
 	public static final field MODE_CLEAR_AND_SET I
@@ -826,16 +829,21 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcDocument {
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcDocumentCodec {
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/protocol/RcDocumentCodec;
+	public final fun decode ([BLee/schimke/composeai/rcplayer/protocol/RcWireExtensions;Lee/schimke/composeai/rcplayer/protocol/RcWireLimits;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public final fun decode ([BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public final fun decode ([BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;II)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static synthetic fun decode$default (Lee/schimke/composeai/rcplayer/protocol/RcDocumentCodec;[BLee/schimke/composeai/rcplayer/protocol/RcWireExtensions;Lee/schimke/composeai/rcplayer/protocol/RcWireLimits;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public static synthetic fun decode$default (Lee/schimke/composeai/rcplayer/protocol/RcDocumentCodec;[BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public final fun decodeOperations ([BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;Lee/schimke/composeai/rcplayer/protocol/RcIdRemapper;)Ljava/util/List;
 	public final fun decodeOperations ([BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;Lee/schimke/composeai/rcplayer/protocol/RcIdRemapper;Lee/schimke/composeai/rcplayer/protocol/RcOperationBudget;)Ljava/util/List;
 	public static synthetic fun decodeOperations$default (Lee/schimke/composeai/rcplayer/protocol/RcDocumentCodec;[BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;Lee/schimke/composeai/rcplayer/protocol/RcIdRemapper;ILjava/lang/Object;)Ljava/util/List;
 	public static synthetic fun decodeOperations$default (Lee/schimke/composeai/rcplayer/protocol/RcDocumentCodec;[BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;Lee/schimke/composeai/rcplayer/protocol/RcIdRemapper;Lee/schimke/composeai/rcplayer/protocol/RcOperationBudget;ILjava/lang/Object;)Ljava/util/List;
 	public final fun encode (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)[B
+	public final fun encode (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcWireExtensions;)[B
 	public final fun encodeOperation (Lee/schimke/composeai/rcplayer/protocol/RcWireWriter;Lee/schimke/composeai/rcplayer/protocol/RcOperation;)V
+	public final fun encodeOperation (Lee/schimke/composeai/rcplayer/protocol/RcWireWriter;Lee/schimke/composeai/rcplayer/protocol/RcOperation;Lee/schimke/composeai/rcplayer/protocol/RcWireExtensions;)V
 	public final fun getSupportedOperations ()Ljava/util/List;
+	public final fun isBuiltIn (I)Z
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcDocumentSupport {
@@ -1238,6 +1246,10 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcDynamicFloatList : e
 	public fun getOpcode ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/protocol/RcExtensionOperation : ee/schimke/composeai/rcplayer/protocol/RcOperation {
+	public abstract fun getExtensionId ()Ljava/lang/String;
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcFitBoxLayout : ee/schimke/composeai/rcplayer/protocol/RcOperation {
@@ -3879,6 +3891,25 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcWireException : java
 	public final fun getFieldName ()Ljava/lang/String;
 	public final fun getOperationName ()Ljava/lang/String;
 	public final fun getOperationOpcode ()Ljava/lang/Integer;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/protocol/RcWireExtension {
+	public abstract fun getCodecs ()Ljava/util/List;
+	public abstract fun getId ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcWireExtensions {
+	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcWireExtensions$Companion;
+	public fun <init> (Ljava/util/List;)V
+	public fun <init> ([Lee/schimke/composeai/rcplayer/protocol/RcWireExtension;)V
+	public final fun codec (I)Lee/schimke/composeai/rcplayer/protocol/RcOperationCodec;
+	public final fun getExtensions ()Ljava/util/List;
+	public final fun getOpcodes ()Ljava/util/Set;
+	public final fun plus (Lee/schimke/composeai/rcplayer/protocol/RcWireExtensions;)Lee/schimke/composeai/rcplayer/protocol/RcWireExtensions;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcWireExtensions$Companion {
+	public final fun getNone ()Lee/schimke/composeai/rcplayer/protocol/RcWireExtensions;
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcWireLimits {

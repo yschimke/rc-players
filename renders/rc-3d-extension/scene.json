@@ -1,0 +1,35 @@
+{
+    "version": 1,
+    "units": "dp",
+    "camera": {
+        "kind": "orbit",
+        "target": { "x": 0, "y": 0, "z": 0 },
+        "distance": 720,
+        "yawDeg": 12,
+        "pitchDeg": -8
+    },
+    "panels": [
+        {
+            "id": "cube-gpu",
+            "label": "DRAW_MESH_3D cube, GPU path, transparent background",
+            "poseInRoot": {
+                "translation": { "x": -150, "y": 0, "z": 0 },
+                "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 }
+            },
+            "sizeDp": { "width": 256, "height": 256 },
+            "texture": "cube-gpu.png"
+        },
+        {
+            "id": "torus",
+            "label": "MESH_PRIMITIVE_3D torus, software path",
+            "poseInRoot": {
+                "translation": { "x": 170, "y": -20, "z": 80 },
+                "rotation": { "x": 0, "y": 0, "z": 0, "w": 1 }
+            },
+            "sizeDp": { "width": 192, "height": 192 },
+            "texture": "torus.png"
+        }
+    ],
+    "orbiters": [],
+    "environment": { "kind": "gradient", "preset": "warm-room" }
+}

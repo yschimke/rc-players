@@ -85,6 +85,10 @@ and `VectorExpression`. The corpus's own `operations-registry.json` counts those
 
 **Ask:** move it to the `extended` profile, or drop it.
 
+The CMP player can now decode and draw these operations with the opt-in `:rc-player-3d`
+extension ([`RC_3D_EXTENSION.md`](RC_3D_EXTENSION.md)). The conformance lane does not install it,
+so the gold still fails there, which is the right result for the core profile.
+
 ## 4. `expr_integer_bitwise_ops` has no expressions in it
 
 The document is 73 bytes: the header and a name. It contains no `IntegerExpression`, yet the gold

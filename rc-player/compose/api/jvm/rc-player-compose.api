@@ -204,6 +204,22 @@ public final class ee/schimke/composeai/rcplayer/compose/RcDrawObserverKt {
 	public static final fun getLocalRcDrawObserver ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 }
 
+public abstract interface class ee/schimke/composeai/rcplayer/compose/RcExtensionDrawScope {
+	public abstract fun bitmap (I)Landroidx/compose/ui/graphics/ImageBitmap;
+	public abstract fun getDrawScope ()Landroidx/compose/ui/graphics/drawscope/DrawScope;
+	public abstract fun getPaintColor ()I
+	public abstract fun getState ()Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/compose/RcExtensionSession {
+	public fun dispose ()V
+	public abstract fun draw (Lee/schimke/composeai/rcplayer/protocol/RcExtensionOperation;Lee/schimke/composeai/rcplayer/compose/RcExtensionDrawScope;)V
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcExtensionSession$DefaultImpls {
+	public static fun dispose (Lee/schimke/composeai/rcplayer/compose/RcExtensionSession;)V
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcFontAxis {
 	public static final field $stable I
 	public fun <init> (Ljava/lang/String;F)V
@@ -841,6 +857,28 @@ public final class ee/schimke/composeai/rcplayer/compose/RcNativeTextStyle {
 	public final fun getUnderline ()Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/compose/RcPlayerExtension {
+	public abstract fun createSession (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;)Lee/schimke/composeai/rcplayer/compose/RcExtensionSession;
+	public abstract fun getWire ()Lee/schimke/composeai/rcplayer/protocol/RcWireExtension;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcPlayerExtensions {
+	public static final field $stable I
+	public static final field Companion Lee/schimke/composeai/rcplayer/compose/RcPlayerExtensions$Companion;
+	public fun <init> (Ljava/util/List;)V
+	public fun <init> ([Lee/schimke/composeai/rcplayer/compose/RcPlayerExtension;)V
+	public final fun getExtensions ()Ljava/util/List;
+	public final fun getWire ()Lee/schimke/composeai/rcplayer/protocol/RcWireExtensions;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcPlayerExtensions$Companion {
+	public final fun getNone ()Lee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcPlayerExtensionsKt {
+	public static final fun getLocalRcPlayerExtensions ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcPlayerInspectionKt {
