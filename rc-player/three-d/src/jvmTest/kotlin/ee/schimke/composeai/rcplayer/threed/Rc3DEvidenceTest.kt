@@ -16,7 +16,11 @@ class Rc3DEvidenceTest {
     val renders =
       mapOf(
         "cube-software" to
-          render(Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH, size).encode(), size = size),
+          render(
+            Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH, size).encode(),
+            Rc3DOptions(renderer = Rc3DRenderer.Software),
+            size = size,
+          ),
         "cube-gpu" to
           render(Rc3DDocuments.litCube(Rc3D.MODE_CANVAS_SMOOTH, size).encode(), size = size),
         "cube-wireframe" to

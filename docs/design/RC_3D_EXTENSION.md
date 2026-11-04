@@ -53,13 +53,25 @@ and the mesh cache. A `DRAW_MESH_3D` is then drawn by one of two rasterizers, ch
 | Software | The reference's 28.4 fixed-point rasterizer into an ARGB buffer, composited after each mesh so 3D interleaves with 2D in document order | Per pixel |
 | GPU | Transform, lighting and culling on the CPU (the same code), then a back-to-front triangle list through the platform's `drawVertices`: `android.graphics.Canvas` on Android, Skia on desktop, iOS, macOS and Wasm | Painter's sort per triangle |
 
-`Auto` follows the document: software modes and wireframe (which needs the depth buffer) go
-through software, every accelerated mode through the GPU. The two agree pixel for pixel on a convex
-shape except along its antialiased silhouette (`Rc3DRenderTest`).
+`Auto` uses the GPU wherever it gives the same picture. Every accelerated mode goes through the
+GPU, and so does a software mode for a convex mesh that is alone in its depth pass: back faces are
+culled, so a convex mesh's visible faces never overlap and there is nothing for depth to resolve.
+Wireframe, a non-convex mesh (a torus) and a pass with several meshes keep the software
+rasterizer's depth buffer. The two agree pixel for pixel on a convex shape except along its
+antialiased silhouette (`Rc3DRenderTest`). `Software` and `Gpu` force one or the other.
 
 What keeps a steady scene cheap: a parametric primitive or expression surface is rebuilt only when
 the values it was built from change; a texture is read back once per bitmap; the software frame
-bitmap and the GPU vertex buffers are reused across frames.
+bitmap, the GPU path's paint, texture shader and vertex arrays are reused across frames. The
+software rasterizer tracks the rectangle each mesh touched, and only that rectangle is cleared,
+converted, uploaded and composited, so a small mesh in a large viewport costs its own area.
+
+The software buffer is the canvas's own pixels (times `pixelScale`), not the document's units, so
+a document scaled up by its root content behavior is rasterized sharp rather than stretched.
+
+On the desktop test harness (CPU Skia, whose own floor is about 12 ms per render at 1024 px), these
+took a software-mode cube from 23.3 to 13.5 ms per render, a small cube forced through software
+from 24.3 to 12.2 ms, and a torus forced through software from 24.2 to 16.8 ms.
 
 ![Software and GPU cubes, hidden-line wireframe](../../renders/rc-3d-extension/cube-software.png)
 ![](../../renders/rc-3d-extension/cube-gpu.png)

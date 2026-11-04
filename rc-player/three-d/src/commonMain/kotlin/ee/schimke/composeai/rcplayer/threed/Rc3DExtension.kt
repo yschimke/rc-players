@@ -52,8 +52,11 @@ internal object Rc3DWire : RcWireExtension {
 /** Which rasterizer draws a mesh. */
 public enum class Rc3DRenderer {
   /**
-   * Follow each draw's mode: the software modes (and wireframe, which needs a depth buffer) go
-   * through the software rasterizer, every accelerated mode through the GPU vertex path.
+   * Follow each draw's mode, choosing the GPU wherever it gives the same picture: every accelerated
+   * mode goes through the GPU vertex path, and so does a software mode for a convex mesh that is
+   * alone in its depth pass (back faces culled, a convex mesh has nothing for depth to resolve).
+   * Wireframe, and any other software-mode draw, goes through the software rasterizer for its depth
+   * buffer.
    */
   Auto,
 
@@ -72,9 +75,9 @@ public enum class Rc3DRenderer {
  * How a player draws the 3D operations.
  *
  * @property renderer which rasterizer draws each mesh.
- * @property pixelScale the software rasterizer's resolution relative to the drawing's own units: 1
- *   matches the reference, a host drawing at device resolution passes its density. The GPU path is
- *   resolution-independent and ignores it.
+ * @property pixelScale the software rasterizer's resolution relative to the canvas's pixels: 1 is
+ *   one buffer pixel per device pixel, whatever scale the document's root content behavior draws it
+ *   at; below 1 trades sharpness for speed. The GPU path is resolution-independent and ignores it.
  * @property drawInPlayer false hands drawing to [sceneListener] alone, for a host that renders the
  *   scene itself (an XR runtime's own renderer, say) and composites the 2D document around it.
  * @property sceneListener told about every mesh the document draws, with the matrices and paint it
