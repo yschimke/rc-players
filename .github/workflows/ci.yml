@@ -70,6 +70,7 @@ jobs:
       required: ${{ steps.filter.outputs.required }}
       lane: ${{ steps.filter.outputs.lane }}
       jvm: ${{ steps.jvm-filter.outputs.jvm }}
+      three-d: ${{ steps.three-d-filter.outputs.three-d }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -206,6 +207,38 @@ jobs:
             fi
           fi
           echo "jvm=$jvm" | tee -a "$GITHUB_OUTPUT"
+
+      # `three-d` gates the XR sample's build and lint inside the JVM lane: an Android app build
+      # and its lint are minutes that only a change to the 3D extension, the sample, the player it
+      # plugs into or the build itself can affect. Pushes to main always run them, and so does an
+      # unreadable base.
+      - name: Check whether the 3D sample needs building
+        id: three-d-filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          three_d=true
+          if [ "$EVENT_NAME" = pull_request ] && \
+            git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null && \
+            git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+              .github/workflows/ci.yml \
+              rc-player/three-d \
+              rc-player/xr-sample \
+              rc-player/compose \
+              rc-player/runtime \
+              rc-player/protocol \
+              build.gradle.kts \
+              settings.gradle.kts \
+              gradle.properties \
+              gradle \
+              build-logic
+          then
+            three_d=false
+          fi
+          echo "three-d=$three_d" | tee -a "$GITHUB_OUTPUT"
 
   # The pure-Swift document core on Linux. It imports Foundation alone, so the one part of the native
   # player that every Apple host sits on can be tested on the cheap lane, in minutes, instead of
@@ -370,9 +403,6 @@ jobs:
             :rc-player-compose:jvmTest \
             :rc-player-3d:jvmTest \
             :rc-player-3d:compileAndroidMain \
-            :rc-player-xr-sample:testDebugUnitTest \
-            :rc-player-xr-sample:assembleDebug \
-            :rc-player-xr-sample:lintDebug \
             :rc-player-edit:jvmTest \
             :third-party-remote-creation-writer:jvmTest \
             :rc-player-embedded:jvmTest \
@@ -395,6 +425,16 @@ jobs:
             :rc-widget-launcher:testAndroidHostTest \
             :rc-widget-wear:testAndroidHostTest \
             :third-party-rc-embedded-player:testDebugUnitTest
+
+      # The XR sample: an Android app, so its build and lint are skipped on pull requests that
+      # cannot affect it (see `three-d` above).
+      - name: Build and lint the XR sample
+        if: needs.apple-changes.outputs.three-d != 'false'
+        run: |
+          ./gradlew \
+            :rc-player-xr-sample:testDebugUnitTest \
+            :rc-player-xr-sample:assembleDebug \
+            :rc-player-xr-sample:lintDebug
 
       # The wasm browser suites and the ABI gate, which until the macOS lane started skipping
       # non-Apple PRs ran only there. Both work on Linux: wasmJs tests drive the runner's headless
