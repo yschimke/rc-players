@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.nativeCanvas
 import ee.schimke.composeai.rcplayer.threed.Rc3DShaderMeshData.Companion.FLOATS_PER_VERTEX
 import ee.schimke.composeai.rcplayer.threed.Rc3DShaderMeshData.Companion.MAX_LIGHTS
-import ee.schimke.composeai.rcplayer.threed.Rc3DShaderMeshData.Companion.MAX_VERTICES
 import ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData
 import ee.schimke.composeai.rcplayer.threed.engine.RcSoftware3D
 import java.nio.ByteBuffer
@@ -319,7 +318,9 @@ internal class RcGlesDepth {
     buffers[mesh]?.let {
       return it
     }
-    if (mesh.indices.size > MAX_VERTICES) return null
+    // No vertex cap, unlike the shader mesh's: a pass that started here has to take every mesh,
+    // since declining one would draw it on the software rasterizer, against a depth buffer that
+    // holds none of the pass's earlier meshes. GL buffers take what the engine can build.
     val data = Rc3DShaderMeshData(mesh)
     val ids = IntArray(1)
     GLES30.glGenBuffers(1, ids, 0)
