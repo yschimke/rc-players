@@ -112,6 +112,59 @@ class Rc3DRenderTest {
   }
 
   @Test
+  fun autoKeepsATexturedSoftwareMeshOnTheSoftwareRasterizer() {
+    // The software rasterizer maps a texture perspective-correct and the vertex path does not, so
+    // a textured software-mode draw stays there even when it is a lone convex mesh.
+    val image = java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB)
+    for (y in 0 until 16) for (x in 0 until 16) {
+      image.setRGB(x, y, if ((x / 4 + y / 4) % 2 == 0) -1 else 0xFF3355AA.toInt())
+    }
+    val png = java.io.ByteArrayOutputStream().also { javax.imageio.ImageIO.write(image, "png", it) }
+    val textured =
+      Rc3DDocumentBuilder(SIZE, SIZE)
+        .apply {
+          val bitmap = newId()
+          add(
+            RcBitmapData(
+              bitmap,
+              16,
+              16,
+              RcBitmapData.TYPE_PNG_8888,
+              RcBitmapData.ENCODING_INLINE,
+              png.toByteArray(),
+            )
+          )
+          clearDepth()
+          perspectiveCamera(
+            float(0.9f),
+            float(1f),
+            float(0.1f),
+            float(100f),
+            listOf(float(0f), float(0f), float(4f)),
+            listOf(float(0f), float(0f), float(0f)),
+          )
+          lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+          color(-1)
+          texture(bitmap)
+          identity()
+          rotate(float(0.8f), 0f, 1f, 0f)
+          draw(
+            primitive(
+              RcPrimitive3D.SPHERE,
+              listOf(float(1.2f), float(0f), float(0f), float(0f)),
+              float(16f),
+              flags = 16,
+            ),
+            Rc3D.MODE_SOFTWARE_SMOOTH,
+          )
+        }
+        .encode()
+    val software = render(textured, Rc3DOptions(renderer = Rc3DRenderer.Software))
+    assertTrue(software.count { it ushr 24 != 0 } > 0, "the sphere drew")
+    assertTrue(render(textured).contentEquals(software))
+  }
+
+  @Test
   fun autoKeepsTheSoftwareRasterizerWhereDepthMatters() {
     // A torus is not convex: its front faces overlap, and only the depth buffer orders them.
     val torus =

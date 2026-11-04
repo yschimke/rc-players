@@ -303,8 +303,16 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
    */
   private fun softwareModeIsSafeOnGpu(mesh: Rc3DMeshData): Boolean {
     if (!singleMeshPerDepthPass || meshesInDepthPass > 1) return false
-    return convexity.getOrPut(mesh) { Rc3DConvexity.isConvex(mesh) }
+    // The software rasterizer maps textures perspective-correct; the vertex path is affine.
+    if (textureImage != null && mesh.uv?.isNotEmpty() == true) return false
+    return isConvex(mesh)
   }
+
+  private fun isConvex(mesh: Rc3DMeshData): Boolean =
+    convexity.getOrPut(mesh) {
+      while (convexity.size >= MAX_CONVEXITY) convexity.remove(convexity.keys.first())
+      Rc3DConvexity.isConvex(mesh)
+    }
 
   /**
    * Read from the document once: every depth pass (the operations between two `CLEAR_DEPTH`s) draws
@@ -328,7 +336,11 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
    * documents whose structure the static read cannot see through.
    */
   private var meshesInDepthPass = 0
-  private val convexity = mutableMapOf<Rc3DMeshData, Boolean>()
+  /**
+   * Convexity by mesh, for the few meshes in play. A mesh rebuilt every frame brings a new key each
+   * time, so the oldest are dropped rather than kept for the life of the session.
+   */
+  private val convexity = LinkedHashMap<Rc3DMeshData, Boolean>()
 
   private fun drawSoftware(meshId: Int, mode: Int, scope: RcExtensionDrawScope) {
     engine.drawMesh(meshId, mode)
@@ -399,6 +411,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
   internal companion object {
     /** How many composite bitmaps are kept from frame to frame. */
     private const val MAX_FRAMES = 32
+    private const val MAX_CONVEXITY = 16
     private const val DRAW_ID_MASK = 0xffff
     private const val DRAW_ID_DEREFERENCE = 0x40000000
     private const val ID_REGION_MASK = 0x700000
