@@ -109,7 +109,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
   }
 
   private fun ensureSize(scope: RcExtensionDrawScope) {
-    val size = scope.drawScope.size
+    val size = scope.size
     val scale = options.pixelScale
     engine.setSize(
       (size.width * scale).roundToInt().coerceAtLeast(1),
@@ -243,7 +243,8 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     val meshId = op.meshId
     val mesh = engine.mesh(meshId) ?: return
     engine.baseColorArgb = scope.paintColor
-    val size = scope.drawScope.size
+    val size = scope.size
+    var inPlayer = options.drawInPlayer
     options.sceneListener?.let { listener ->
       val pass = passDraws.getOrPut(scope.componentId) { mutableListOf() }
       val draw =
@@ -265,8 +266,9 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
         )
       pass += draw
       listener.onDrawMesh(draw)
+      if (!inPlayer) inPlayer = listener.keepInPlayer(draw)
     }
-    if (!options.drawInPlayer) return
+    if (!inPlayer) return
     if (useGpu(op.mode)) drawGpu(meshId, op.mode, scope) else drawSoftware(meshId, op.mode, scope)
   }
 
@@ -297,7 +299,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     engine.clearColor()
     // Composited after every mesh, as the reference blits: a mesh, then a label, then another
     // mesh must interleave in that order.
-    val size = scope.drawScope.size
+    val size = scope.size
     scope.drawScope.drawImage(
       current.image,
       srcOffset = IntOffset.Zero,

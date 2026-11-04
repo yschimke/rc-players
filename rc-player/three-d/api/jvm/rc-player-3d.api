@@ -232,11 +232,13 @@ public final class ee/schimke/composeai/rcplayer/threed/Rc3DRenderer : java/lang
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/threed/Rc3DSceneListener {
+	public fun keepInPlayer (Lee/schimke/composeai/rcplayer/threed/Rc3DMeshDraw;)Z
 	public abstract fun onDrawMesh (Lee/schimke/composeai/rcplayer/threed/Rc3DMeshDraw;)V
 	public fun onFrame (Lee/schimke/composeai/rcplayer/threed/Rc3DFrame;)V
 }
 
 public final class ee/schimke/composeai/rcplayer/threed/Rc3DSceneListener$DefaultImpls {
+	public static fun keepInPlayer (Lee/schimke/composeai/rcplayer/threed/Rc3DSceneListener;Lee/schimke/composeai/rcplayer/threed/Rc3DMeshDraw;)Z
 	public static fun onFrame (Lee/schimke/composeai/rcplayer/threed/Rc3DSceneListener;Lee/schimke/composeai/rcplayer/threed/Rc3DFrame;)V
 }
 

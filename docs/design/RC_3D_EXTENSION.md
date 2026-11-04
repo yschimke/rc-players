@@ -35,7 +35,8 @@ Two layers, both opt-in behind `@ExperimentalRcWireExtension`:
 
 Values an extension reads through `RcPlayerState.resolve` are tracked like the player's own reads,
 so a camera that follows the clock or a named value redraws with it, and one that does not is drawn
-once. An extension writes variables with `RcPlayerState.setFloat` (`VECTOR_EXPRESSION` does), and
+once. `RcExtensionDrawScope.size` is the area the drawing covers in the document's own units, so a
+document with a scaling `ROOT_CONTENT_BEHAVIOR` scales its 3D with its 2D. An extension writes variables with `RcPlayerState.setFloat` (`VECTOR_EXPRESSION` does), and
 later operations in the same pass read them.
 
 Limit: extensions apply to the top-level operation stream. Bodies the runtime decodes later (macro
@@ -84,18 +85,24 @@ mesh draw, not per document.
 | --- | --- | --- | --- | --- |
 | 1. Flat panel | The document as a card, its 3D drawn flat | `RcComposePlayer` in a `SpatialPanel`, or a hardware canvas on a SceneCore `SurfaceEntity` | One render for both eyes, only when something changed | Works now |
 | 2. Stereo window | Depth inside the panel's rectangle | Two renders, one camera per eye, into a side-by-side stereo `SurfaceEntity`; eye cameras from the head pose relative to the panel, through `Rc3DHostCamera` | Two renders, following the head | Host camera is here; the stereo surface host is not |
-| 3. Hand-off | Meshes as objects in the room: stereo, occlusion against the room, system lighting | Each mesh exported once as glTF (`Rc3DGltf`) and loaded as a SceneCore glTF model; poses updated from `Rc3DPanelPlacement` each frame; the 2D document stays a panel, with the entities as its children | Pose updates only | Listener, export and placement are here; the SceneCore host is not |
+| 3. Hand-off | Meshes as objects in the room: stereo, occlusion against the room, system lighting | Each mesh built once as a SceneCore `CustomMesh` in a `MeshEntity`, a child of the panel; poses updated from `Rc3DPanelPlacement` each frame. (`Rc3DGltf` writes the same geometry as `.glb` for runtimes that load glTF.) | Pose updates only | Here, in [`rc-player/xr-sample`](../../rc-player/xr-sample) |
 | 4. Own renderer | Anything | An OpenXR app rendering each eye itself, through Filament or GLES | All of it | Out of scope |
 
-**Level 3 is the target for rigid meshes, and level 1 the fallback for everything else.** As far as
-this design knows, SceneCore loads glTF models but has no public API for geometry that changes, so:
+**Level 3 is the target for rigid meshes, and level 1 the fallback for everything else, per draw.**
+SceneCore 1.0 builds a mesh from vertex and index buffers (`CustomMesh`, `MeshEntity`), but the
+geometry of a built mesh is fixed and an app cannot free an entity (`Entity.dispose` is
+restricted to the library). So:
 
 - A primitive with constant parameters, moved by `MATRIX_3D_OP` or the clock, is handed off. Its
-  `Rc3DMeshDraw.meshVersion` stays put and only `model` changes.
-- A deforming mesh (an animated `MESH_EXPRESSION_3D`, a primitive whose radius is an expression) is
-  rebuilt every frame and its `meshVersion` rises each time. Re-exporting glTF per frame is too
-  heavy, so those draws stay with the player (level 1), or a stereo surface (level 2) when the
-  document is 3D-only.
+  `Rc3DMeshDraw.meshVersion` stays put and only `model` changes: one entity, moved each frame.
+- A mesh rebuilt once (a host value changed its radius, say) gets a new entity; the old one is
+  disabled and detached, and goes with the session.
+- A deforming mesh (an animated `MESH_EXPRESSION_3D`, a primitive whose radius follows the clock)
+  is rebuilt every frame. A new entity per frame would leak one per frame, so once its version has
+  changed twice within a few frames (a window, since the player can repaint at the same animation
+  time between clock ticks), the host returns true from `Rc3DSceneListener.keepInPlayer` and
+  the player draws it on the panel instead (level 1), or a stereo surface would (level 2) for a
+  3D-only document.
 
 ### The listener contract a hand-off host relies on
 
@@ -108,10 +115,13 @@ this design knows, SceneCore loads glTF models but has no public API for geometr
   it costs nothing afterwards.
 - `Rc3DMeshDraw.key` (component and position in its pass) is stable from frame to frame while the
   document's structure is: one entity per key.
-- `meshVersion` changes exactly when the geometry does: re-export on change, and treat a version
+- `meshVersion` changes exactly when the geometry does: rebuild on change, and treat a version
   that rises every frame as deforming.
-- `texture` is the bitmap in effect. The host encodes it as PNG for `Rc3DGltf.toGlb`; encoding is
-  platform code the player does not carry.
+- `keepInPlayer(draw)` hands a draw back: the player draws it on the 2D surface even with
+  `drawInPlayer = false`. It is how a host declines geometry it cannot take.
+- `texture` is the bitmap in effect. A host that needs a file encodes it (as PNG for
+  `Rc3DGltf.toGlb`, or for SceneCore's `Texture`); encoding is platform code the player does not
+  carry.
 
 ### Mapping the document's camera into the room
 
@@ -138,10 +148,15 @@ work unchanged.
   above; glTF export; panel placement. [`renders/rc-3d-extension/scene.json`](../../renders/rc-3d-extension/scene.json)
   is a SpatialScene with two renders as panel textures, the shape `xr-composite` reads, for
   level 1 previews.
-- Not here: a SceneCore host. It needs the Jetpack XR dependencies and belongs in an Android XR
-  sample app; SceneCore's testing fakes can cover entity creation and pose updates without a
-  headset. Level 2's stereo surface host, and level 3 previews in `xr-composite`, which would need
-  glTF model support there.
+- The sample app, [`rc-player/xr-sample`](../../rc-player/xr-sample): it plays a document with a
+  2D card, a rigid cube spun by the clock and a torus whose tube breathes with it. On a headset in
+  Full Space the cube becomes a `MeshEntity` in the room and the torus, deforming, stays on the
+  panel; anywhere else the player draws all of it on the panel. `RcSceneCoreHost` is the level-3
+  host; its mesh packing and deformation rule are unit-tested on the JVM. It has not been run on
+  a headset or emulator from this repository's CI.
+- Not here: textures on handed-off meshes (SceneCore's `Texture` loads from a file, so the host
+  would encode the bitmap first); input on handed-off entities; level 2's stereo surface host;
+  level 3 previews in `xr-composite`, which would need mesh or glTF support there.
 
 ## Divergences from the reference
 

@@ -172,6 +172,11 @@ include(":rc-player-3d")
 
 project(":rc-player-3d").projectDir = file("rc-player/three-d")
 
+// An Android XR app that plays a 3D document and hands its meshes to SceneCore. Never published.
+include(":rc-player-xr-sample")
+
+project(":rc-player-xr-sample").projectDir = file("rc-player/xr-sample")
+
 // Creation: rc-players' own API over the creation fork, in its own package
 // (`ee.schimke.composeai.rccreation`), and the module that joins creation to the player. Published,
 // experimental; see docs/design/RC_CREATION_BRIDGE.md.

@@ -983,7 +983,14 @@ private fun RcComposePlayerResolved(
           drawOperations(
             linkedDocument.operations,
             state,
-            RcPaintState(typefaces, drawObserver, fonts, extensionSessions),
+            RcPaintState(
+              typefaces,
+              drawObserver,
+              fonts,
+              extensionSessions,
+              rootTransform.scaleX,
+              rootTransform.scaleY,
+            ),
             mutableMapOf(),
             textMeasurer,
             images,
@@ -4837,6 +4844,9 @@ private class RcPaintState(
   val documentFonts: RcDocumentFonts = RcDocumentFonts.Empty,
   /** Draws operations decoded by installed player extensions; null when none apply. */
   val extensions: RcExtensionSessions? = null,
+  /** The root transform's scale this stream is drawn under; extensions size their output by it. */
+  val rootScaleX: Float = 1f,
+  val rootScaleY: Float = 1f,
 ) {
   var color: Int = 0xff000000.toInt()
   var strokeWidth: Float = 1f
@@ -5091,6 +5101,12 @@ private class RcDrawTargetState(
   )
 
   private val offscreen = ArrayList<Offscreen>()
+
+  /**
+   * Whether [scope] draws on the main canvas, which carries the document's root transform. A
+   * `DRAW_TO_BITMAP` target is a canvas of its own, in its bitmap's pixels with no root scale.
+   */
+  fun onMainCanvas(scope: DrawScope): Boolean = scope.drawContext.canvas === mainCanvas
 
   fun enter() {
     depth++
@@ -5671,6 +5687,11 @@ private fun DrawScope.drawOperationsRouted(
             paint.composeColor().toArgb(),
             images,
             targets.activeComponentId,
+            if (targets.onMainCanvas(this)) {
+              Size(unscale(size.width, paint.rootScaleX), unscale(size.height, paint.rootScaleY))
+            } else {
+              size
+            },
           ),
         )
       else -> Unit // Constants/data have already populated RcPlayerState.
@@ -5678,12 +5699,17 @@ private fun DrawScope.drawOperationsRouted(
   }
 }
 
+/** [length] in the drawing's units under a root [scale]; an empty or degenerate scale leaves it. */
+private fun unscale(length: Float, scale: Float): Float =
+  if (scale > 0f && scale.isFinite()) length / scale else length
+
 private class RcExtensionDrawScopeImpl(
   override val drawScope: DrawScope,
   override val state: RcPlayerState,
   override val paintColor: Int,
   private val images: Map<Int, ImageBitmap>,
   override val componentId: Int,
+  override val size: Size,
 ) : RcExtensionDrawScope {
   override fun bitmap(id: Int): ImageBitmap? = images[id]
 }

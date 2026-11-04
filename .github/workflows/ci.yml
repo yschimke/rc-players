@@ -370,6 +370,9 @@ jobs:
             :rc-player-compose:jvmTest \
             :rc-player-3d:jvmTest \
             :rc-player-3d:compileAndroidMain \
+            :rc-player-xr-sample:testDebugUnitTest \
+            :rc-player-xr-sample:assembleDebug \
+            :rc-player-xr-sample:lintDebug \
             :rc-player-edit:jvmTest \
             :third-party-remote-creation-writer:jvmTest \
             :rc-player-embedded:jvmTest \

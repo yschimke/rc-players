@@ -73,6 +73,8 @@ abstract interface ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope { 
         abstract fun <get-paintColor>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.paintColor.<get-paintColor>|<get-paintColor>(){}[0]
     abstract val state // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.state|{}state[0]
         abstract fun <get-state>(): ee.schimke.composeai.rcplayer.runtime/RcPlayerState // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.state.<get-state>|<get-state>(){}[0]
+    open val size // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.size|{}size[0]
+        open fun <get-size>(): androidx.compose.ui.geometry/Size // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.size.<get-size>|<get-size>(){}[0]
 
     abstract fun bitmap(kotlin/Int): androidx.compose.ui.graphics/ImageBitmap? // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.bitmap|bitmap(kotlin.Int){}[0]
 }

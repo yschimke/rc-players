@@ -1,22 +1,30 @@
 package ee.schimke.composeai.rcplayer.threed
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcplayer.compose.LocalRcPlayerExtensions
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
+import ee.schimke.composeai.rcplayer.protocol.RcDraw6
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
+import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcWireException
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.threed.engine.RcPrimitive3D
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -137,12 +145,28 @@ class Rc3DRenderTest {
     assertEquals(1, frames.map { it.draws.single().meshVersion }.distinct().size)
     assertTrue(frames.map { it.draws.single().model.toList() }.distinct().size > 1)
 
-    // A torus whose tube radius follows the clock is rebuilt each frame: its version rises, the
-    // signal to leave a deforming mesh to the player.
+    // A torus whose tube radius follows the clock is rebuilt whenever the clock has moved: its
+    // version rises, the signal to leave a deforming mesh to the player. A repaint at the same
+    // clock time, which a loaded machine sometimes adds, rebuilds nothing and keeps the version.
     frames.clear()
     renderFrames(Rc3DDocuments.breathingTorus().encode(), times, options)
     val versions = frames.map { it.draws.single().meshVersion }
-    assertTrue(versions.zipWithNext().all { (a, b) -> b > a }, "versions $versions")
+    assertTrue(versions.zipWithNext().all { (a, b) -> b >= a }, "never falls: $versions")
+    assertTrue(versions.distinct().size >= times.size, "a new version per time: $versions")
+  }
+
+  @Test
+  fun aDrawTheListenerKeepsIsDrawnByThePlayerAnyway() {
+    // drawInPlayer = false hands every mesh to the listener; one it cannot take over comes back.
+    val keepAll =
+      object : Rc3DSceneListener {
+        override fun onDrawMesh(draw: Rc3DMeshDraw) = Unit
+
+        override fun keepInPlayer(draw: Rc3DMeshDraw): Boolean = true
+      }
+    val bytes = Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH).encode()
+    val kept = render(bytes, Rc3DOptions(drawInPlayer = false, sceneListener = keepAll))
+    assertTrue(kept.contentEquals(render(bytes)), "drawn exactly as the player draws it")
   }
 
   @Test
@@ -192,6 +216,115 @@ class Rc3DRenderTest {
     assertNotEquals(left.toList(), right.toList())
   }
 
+  @Test
+  fun aScaledDocumentScalesItsMeshesWithIts2D() {
+    // A document scaled to fit a player twice its size: the mesh must cover twice the area, not
+    // be projected across the canvas and then scaled again by the root transform.
+    for (mode in listOf(Rc3D.MODE_SOFTWARE_SMOOTH, Rc3D.MODE_CANVAS_SMOOTH)) {
+      val small = opaqueBounds(render(Rc3DDocuments.litCube(mode).encode()), SIZE)
+      val big =
+        opaqueBounds(
+          render(
+            Rc3DDocuments.litCube(mode, scaleFit = true).encode(),
+            size = SIZE * 2,
+            fill = true,
+          ),
+          SIZE * 2,
+        )
+      for (i in 0 until 4) {
+        assertTrue(
+          abs(big[i] - small[i] * 2) <= 3,
+          "mode $mode: ${big.toList()} vs ${small.toList()}",
+        )
+      }
+    }
+  }
+
+  @Test
+  fun aScaledDocumentDrawingIntoABitmapUsesTheBitmapsSize() {
+    // DRAW_TO_BITMAP targets a canvas of the bitmap's own pixels, with no root scale: the 3D
+    // there fills the bitmap, and the bitmap is then drawn scaled like any 2D.
+    val half = SIZE / 2
+    val behavior =
+      RcRootContentBehavior(
+        RcRootContentBehavior.NONE,
+        RcRootContentBehavior.ALIGNMENT_CENTER,
+        RcRootContentBehavior.SIZING_SCALE,
+        RcRootContentBehavior.SCALE_FIT,
+      )
+    val viaBitmap =
+      Rc3DDocumentBuilder(half, half)
+        .apply {
+          add(behavior)
+          val bitmap = newId()
+          add(
+            RcBitmapData(
+              bitmap,
+              half,
+              half,
+              RcBitmapData.TYPE_PNG_8888,
+              RcBitmapData.ENCODING_EMPTY,
+              ByteArray(0),
+            )
+          )
+          add(RcDrawToBitmap(bitmap, 0, 0))
+          clearDepth()
+          perspectiveCamera(
+            float(0.9f),
+            float(1f),
+            float(0.1f),
+            float(100f),
+            listOf(float(0f), float(0f), float(4f)),
+            listOf(float(0f), float(0f), float(0f)),
+          )
+          lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+          color(0xFFEE8844.toInt())
+          identity()
+          rotate(float(0.6f), 0f, 1f, 0f)
+          rotate(float(0.35f), 1f, 0f, 0f)
+          draw(
+            primitive(RcPrimitive3D.CUBE, List(6) { float(if (it < 3) 1f else 0f) }),
+            Rc3D.MODE_SOFTWARE_SMOOTH,
+          )
+          add(RcDrawToBitmap(0, 0, 0))
+          add(
+            RcDrawBitmap(
+              bitmap,
+              float(0f),
+              float(0f),
+              float(half.toFloat()),
+              float(half.toFloat()),
+              0,
+            )
+          )
+        }
+        .encode()
+    val direct = Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH, half, scaleFit = true).encode()
+    val expected = opaqueBounds(render(direct, size = SIZE, fill = true), SIZE)
+    val actual = opaqueBounds(render(viaBitmap, size = SIZE, fill = true), SIZE)
+    for (i in 0 until 4) {
+      assertTrue(abs(expected[i] - actual[i]) <= 3, "${actual.toList()} vs ${expected.toList()}")
+    }
+  }
+
+  /** Left, top, right and bottom of the pixels with any alpha. */
+  private fun opaqueBounds(pixels: IntArray, size: Int): IntArray {
+    var l = size
+    var t = size
+    var r = -1
+    var b = -1
+    for (i in pixels.indices) {
+      if (pixels[i] ushr 24 == 0) continue
+      val x = i % size
+      val y = i / size
+      l = minOf(l, x)
+      t = minOf(t, y)
+      r = maxOf(r, x)
+      b = maxOf(b, y)
+    }
+    return intArrayOf(l, t, r, b)
+  }
+
   private fun assertTransparentCornersAndOpaqueCentre(pixels: IntArray) {
     for (index in listOf(0, SIZE - 1, SIZE * (SIZE - 1), SIZE * SIZE - 1)) {
       assertEquals(0, pixels[index] ushr 24, "corner $index is transparent")
@@ -207,7 +340,8 @@ class Rc3DRenderTest {
       options: Rc3DOptions = Rc3DOptions(),
       namedValues: Map<String, RcNamedValue> = emptyMap(),
       size: Int = SIZE,
-    ): IntArray = renderFrames(bytes, listOf(0L), options, namedValues, size).single()
+      fill: Boolean = false,
+    ): IntArray = renderFrames(bytes, listOf(0L), options, namedValues, size, fill).single()
 
     @OptIn(ExperimentalComposeUiApi::class)
     fun renderFrames(
@@ -216,13 +350,19 @@ class Rc3DRenderTest {
       options: Rc3DOptions = Rc3DOptions(),
       namedValues: Map<String, RcNamedValue> = emptyMap(),
       size: Int = SIZE,
+      /** Fill the scene rather than take the document's own size. */
+      fill: Boolean = false,
     ): List<IntArray> {
       val extensions = RcPlayerExtensions(Rc3DExtension(options))
       val values = mutableStateMapOf<String, RcNamedValue>().apply { putAll(namedValues) }
       val scene =
         ImageComposeScene(width = size, height = size, density = Density(1f)) {
           CompositionLocalProvider(LocalRcPlayerExtensions provides extensions) {
-            RcComposePlayer(bytes, namedValues = values)
+            RcComposePlayer(
+              bytes,
+              if (fill) Modifier.fillMaxSize() else Modifier,
+              namedValues = values,
+            )
           }
         }
       try {
@@ -261,8 +401,18 @@ internal object Rc3DDocuments {
     primitive(RcPrimitive3D.CUBE, List(6) { float(if (it < 3) 1f else 0f) })
 
   /** The reference parity scene, `cube.txt`: one lit cube rotated so three faces show. */
-  fun litCube(mode: Int, size: Int = SIZE): Rc3DDocumentBuilder =
+  fun litCube(mode: Int, size: Int = SIZE, scaleFit: Boolean = false): Rc3DDocumentBuilder =
     Rc3DDocumentBuilder(size, size).apply {
+      if (scaleFit) {
+        add(
+          RcRootContentBehavior(
+            RcRootContentBehavior.NONE,
+            RcRootContentBehavior.ALIGNMENT_CENTER,
+            RcRootContentBehavior.SIZING_SCALE,
+            RcRootContentBehavior.SCALE_FIT,
+          )
+        )
+      }
       clearDepth()
       standardCamera()
       lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
@@ -358,6 +508,62 @@ internal object Rc3DDocuments {
           float(16f),
         )
       draw(torus)
+    }
+
+  /** The XR sample's document at test size: a card, a rigid cube and a breathing torus. */
+  fun xrSample(): Rc3DDocumentBuilder =
+    Rc3DDocumentBuilder(SIZE, SIZE).apply {
+      color(0xCC1E2430.toInt())
+      add(
+        RcDraw6(
+          RcOpcodes.DRAW_ROUND_RECT,
+          float(3f),
+          float(3f),
+          float(SIZE - 3f),
+          float(SIZE - 3f),
+          float(10f),
+          float(10f),
+        )
+      )
+      val time = continuousSeconds()
+      clearDepth()
+      perspectiveCamera(
+        float(0.9f),
+        float(1f),
+        float(0.1f),
+        float(100f),
+        listOf(float(0f), float(0.6f), float(4f)),
+        listOf(float(0f), float(0f), float(0f)),
+      )
+      lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+      color(0xFFEE8844.toInt())
+      identity()
+      translate(float(-0.9f), float(0f), float(0f))
+      rotate(times(time, float(0.8f)), 0f, 1f, 0f)
+      rotate(float(0.35f), 1f, 0f, 0f)
+      draw(primitive(RcPrimitive3D.CUBE, listOf(0.5f, 0.5f, 0.5f, 0f, 0f, 0f).map(::float)))
+      val tube =
+        expression(
+          listOf(
+            time,
+            Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.SIN),
+            float(0.06f),
+            Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.MUL),
+            float(0.22f),
+            Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.ADD),
+          )
+        )
+      color(0xFF4488EE.toInt())
+      identity()
+      translate(float(0.9f), float(0f), float(0f))
+      rotate(float(1.1f), 1f, 0f, 0f)
+      draw(
+        primitive(
+          RcPrimitive3D.TORUS,
+          listOf(float(0.55f), tube, float(0f), float(0f), float(0f)),
+          float(32f),
+        )
+      )
     }
 
   fun hostCameraCube(): Rc3DDocumentBuilder =

@@ -49,6 +49,9 @@ tapmoc = "0.5.0"
 # behaviour inside the daemon sandbox; those two tests are the acceptance check for any bump here,
 # not just a green build.
 robolectric = "4.17"
+# Jetpack XR SceneCore, for the Android XR sample (`rc-player/xr-sample`) that hands the 3D
+# extension's meshes to the XR runtime. Sample-only: nothing published depends on it.
+xr-scenecore = "1.0.0"
 # androidx.tracing — atrace-level sections for the Android daemon's render phases (see
 # `AndroidxTraceSections` in :daemon:android). Version-pinned (not BOM-managed) because the daemon
 # ships it in the standalone lib-daemon-android sidecar where no BOM applies.
@@ -213,6 +216,7 @@ composeai-data-fonts-google = { module = "ee.schimke.composeai:data-fonts-google
 composeai-data-layoutinspector-connector = { module = "ee.schimke.composeai:data-layoutinspector-connector" }
 
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+xr-scenecore = { module = "androidx.xr.scenecore:scenecore", version.ref = "xr-scenecore" }
 compose-bom-compat = { module = "androidx.compose:compose-bom", version.ref = "compose-bom-compat" }
 compose-ui = { module = "androidx.compose.ui:ui", version.ref = "androidx-compose" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }

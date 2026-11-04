@@ -209,7 +209,12 @@ public abstract interface class ee/schimke/composeai/rcplayer/compose/RcExtensio
 	public abstract fun getComponentId ()I
 	public abstract fun getDrawScope ()Landroidx/compose/ui/graphics/drawscope/DrawScope;
 	public abstract fun getPaintColor ()I
+	public fun getSize-NH-jbRc ()J
 	public abstract fun getState ()Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcExtensionDrawScope$DefaultImpls {
+	public static fun getSize-NH-jbRc (Lee/schimke/composeai/rcplayer/compose/RcExtensionDrawScope;)J
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcExtensionSession {
