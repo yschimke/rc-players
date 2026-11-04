@@ -47,8 +47,8 @@ internal object RcPrimitive3DSweep {
     val u = FloatArray(3)
     val vv = FloatArray(3)
     perpBasis(tx[0], ty[0], tz[0], u, vv)
-    val verts = FloatArray(n * (sides + 1) * 3)
-    val normals = FloatArray(n * (sides + 1) * 3)
+    val verts = RcPrimitive3DMath.geometryFloats(n * (sides + 1) * 3)
+    val normals = RcPrimitive3DMath.geometryFloats(n * (sides + 1) * 3)
     for (i in 0 until n) {
       if (i > 0) {
         val dot = u[0] * tx[i] + u[1] * ty[i] + u[2] * tz[i]
@@ -554,9 +554,9 @@ internal object RcPrimitive3DSweep {
       }
     }
     val t = traps.size
-    val verts = FloatArray(t * 8 * 3)
-    val normals = FloatArray(t * 8 * 3)
-    val indices = IntArray(t * 12)
+    val verts = RcPrimitive3DMath.geometryFloats(t * 8 * 3)
+    val normals = RcPrimitive3DMath.geometryFloats(t * 8 * 3)
+    val indices = RcPrimitive3DMath.geometryInts(t * 12)
     var io = 0
     val backBase = t * 4
     for (q in 0 until t) {
@@ -629,10 +629,10 @@ internal object RcPrimitive3DSweep {
     for (ring in contours) edgeCount += ring.size / 2
     val vpe = if (beveled) 12 else 4
     val tpe = if (beveled) 6 else 2
-    val verts = FloatArray(edgeCount * vpe * 3)
-    val normals = FloatArray(edgeCount * vpe * 3)
+    val verts = RcPrimitive3DMath.geometryFloats(edgeCount * vpe * 3)
+    val normals = RcPrimitive3DMath.geometryFloats(edgeCount * vpe * 3)
     // Sized for every edge like the reference; contours with < 3 points leave trailing zeros.
-    val indices = IntArray(edgeCount * tpe * 3)
+    val indices = RcPrimitive3DMath.geometryInts(edgeCount * tpe * 3)
     var io = 0
     var se = 0
     for (c in contours.indices) {
@@ -922,12 +922,12 @@ internal object RcPrimitive3DSweep {
     val cols = if (closed) m + 1 else m // duplicate the seam column when closed
     val wallV = n * cols
     val capV = (if (capStart) m + 1 else 0) + (if (capEnd) m + 1 else 0)
-    val verts = FloatArray((wallV + capV) * 3)
-    val normals = FloatArray((wallV + capV) * 3)
+    val verts = RcPrimitive3DMath.geometryFloats((wallV + capV) * 3)
+    val normals = RcPrimitive3DMath.geometryFloats((wallV + capV) * 3)
     val wallStrips = if (closed) m else m - 1
     val wallTris = (n - 1) * wallStrips * 2
     val capTris = (if (capStart) m else 0) + (if (capEnd) m else 0)
-    val indices = IntArray((wallTris + capTris) * 3)
+    val indices = RcPrimitive3DMath.geometryInts((wallTris + capTris) * 3)
 
     val u = FloatArray(3)
     val v = FloatArray(3)
@@ -1029,7 +1029,7 @@ internal object RcPrimitive3DSweep {
   ): Rc3DMeshData {
     val perTurn = maxOf(8, sides * 2)
     val stations = maxOf(2, lround(perTurn * abs(turns)) + 1)
-    val path = FloatArray(stations * 3)
+    val path = RcPrimitive3DMath.geometryFloats(stations * 3)
     val totalRise = pitch * turns
     for (i in 0 until stations) {
       val f = i / (stations - 1).toFloat()

@@ -242,10 +242,12 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     engine.drawMesh(meshId, mode)
     val w = engine.width
     val h = engine.height
-    val index = framesUsed++ % MAX_FRAMES
+    // Never reused within a frame. Past MAX_FRAMES composites a frame's bitmaps are allocated
+    // fresh rather than kept, so a mesh-heavy document costs memory only while it draws.
+    val index = framesUsed++
     val reusable = frames.getOrNull(index)?.takeIf { it.width == w && it.height == h }
     val current = reusable ?: RcArgbFrame(w, h)
-    if (reusable == null) {
+    if (reusable == null && index < MAX_FRAMES) {
       if (index < frames.size) frames[index] = current else frames += current
     }
     current.update(engine.colorBuffer)
@@ -289,7 +291,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
   }
 
   internal companion object {
-    /** More software composites than this in one frame start reusing the first bitmaps. */
+    /** How many composite bitmaps are kept from frame to frame. */
     private const val MAX_FRAMES = 32
     private const val DRAW_ID_MASK = 0xffff
     private const val DRAW_ID_DEREFERENCE = 0x40000000

@@ -1,5 +1,7 @@
 package ee.schimke.composeai.rcplayer.threed.engine
 
+import ee.schimke.composeai.rcplayer.threed.engine.RcPrimitive3DMath.geometryFloats
+import ee.schimke.composeai.rcplayer.threed.engine.RcPrimitive3DMath.geometryInts
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -50,8 +52,31 @@ internal object RcPrimitive3DMath {
   /** Round segments to an int, falling back to [dflt] when <= 0, clamped to [mn]. */
   fun segCount(segments: Float, dflt: Int, mn: Int): Int {
     val n = if (segments > 0f) lround(segments) else dflt
-    return maxOf(mn, n)
+    // Capped: a few bytes of document must not ask for gigabytes of geometry.
+    return minOf(MAX_SEGMENTS, maxOf(mn, n))
   }
+
+  /** A geometry buffer of [n] floats, refused past the generator's budget. */
+  fun geometryFloats(n: Int): FloatArray {
+    require(n in 0..MAX_GEOMETRY_ELEMENTS) {
+      "MeshPrimitive: $n floats exceeds the geometry budget"
+    }
+    return FloatArray(n)
+  }
+
+  /** A geometry buffer of [n] indices, refused past the generator's budget. */
+  fun geometryInts(n: Int): IntArray {
+    require(n in 0..MAX_GEOMETRY_ELEMENTS) {
+      "MeshPrimitive: $n indices exceeds the geometry budget"
+    }
+    return IntArray(n)
+  }
+
+  /** Largest segment count a document may ask for. */
+  const val MAX_SEGMENTS: Int = 512
+
+  /** Per-buffer budget: a million vertices' positions, 12 MB. */
+  const val MAX_GEOMETRY_ELEMENTS: Int = 3_000_000
 
   /** Catmull-Rom interpolation of the span p1..p2 (with neighbours p0,p3) at t. */
   fun catmull(p0: Float, p1: Float, p2: Float, p3: Float, t: Float): Float {
@@ -79,10 +104,10 @@ internal object RcPrimitive3DMath {
       ni += m.indices.size
       if (allUv) nu += m.uv!!.size
     }
-    val verts = FloatArray(nv)
-    val normals = FloatArray(nn)
-    val indices = IntArray(ni)
-    val uv = if (allUv) FloatArray(nu) else null
+    val verts = geometryFloats(nv)
+    val normals = geometryFloats(nn)
+    val indices = geometryInts(ni)
+    val uv = if (allUv) geometryFloats(nu) else null
     var vo = 0
     var no = 0
     var io = 0
@@ -156,8 +181,8 @@ internal object RcPrimitive3DMath {
       nrm[1] = -nrm[1]
       nrm[2] = -nrm[2]
     }
-    val verts = FloatArray((sides + 1) * 3)
-    val normals = FloatArray((sides + 1) * 3)
+    val verts = geometryFloats((sides + 1) * 3)
+    val normals = geometryFloats((sides + 1) * 3)
     for (j in 0 until sides) {
       val phi = 2.0 * PI * j / sides
       val c = cos(phi).toFloat()
@@ -177,7 +202,7 @@ internal object RcPrimitive3DMath {
     normals[center * 3] = nrm[0]
     normals[center * 3 + 1] = nrm[1]
     normals[center * 3 + 2] = nrm[2]
-    val indices = IntArray(sides * 3)
+    val indices = geometryInts(sides * 3)
     var k = 0
     for (j in 0 until sides) {
       val j1 = (j + 1) % sides
@@ -213,9 +238,9 @@ internal object RcPrimitive3DSolids {
   ): Rc3DMeshData {
     val rows = stacks + 1
     val cols = slices + 1
-    val verts = FloatArray(rows * cols * 3)
-    val normals = FloatArray(rows * cols * 3)
-    val uv = if (uvm != 0) FloatArray(rows * cols * 2) else null
+    val verts = geometryFloats(rows * cols * 3)
+    val normals = geometryFloats(rows * cols * 3)
+    val uv = if (uvm != 0) geometryFloats(rows * cols * 2) else null
     var p = 0
     var q = 0
     for (i in 0..stacks) {
@@ -242,7 +267,7 @@ internal object RcPrimitive3DSolids {
         }
       }
     }
-    val indices = IntArray(stacks * slices * 6)
+    val indices = geometryInts(stacks * slices * 6)
     var k = 0
     for (i in 0 until stacks) {
       for (j in 0 until slices) {
@@ -274,9 +299,9 @@ internal object RcPrimitive3DSolids {
   ): Rc3DMeshData {
     val cols = segV + 1
     val rows = segU + 1
-    val verts = FloatArray(rows * cols * 3)
-    val normals = FloatArray(rows * cols * 3)
-    val uv = if (uvm != 0) FloatArray(rows * cols * 2) else null
+    val verts = geometryFloats(rows * cols * 3)
+    val normals = geometryFloats(rows * cols * 3)
+    val uv = if (uvm != 0) geometryFloats(rows * cols * 2) else null
     var p = 0
     var q = 0
     for (i in 0..segU) {
@@ -301,7 +326,7 @@ internal object RcPrimitive3DSolids {
         }
       }
     }
-    val indices = IntArray(segU * segV * 6)
+    val indices = geometryInts(segU * segV * 6)
     var k = 0
     for (i in 0 until segU) {
       for (j in 0 until segV) {
@@ -379,10 +404,10 @@ internal object RcPrimitive3DSolids {
     val hx = dx * 0.5f
     val hy = dy * 0.5f
     val hz = dz * 0.5f
-    val verts = FloatArray(24 * 3)
-    val normals = FloatArray(24 * 3)
+    val verts = geometryFloats(24 * 3)
+    val normals = geometryFloats(24 * 3)
     val indices = IntArray(36)
-    val uv = if (uvm != 0) FloatArray(24 * 2) else null
+    val uv = if (uvm != 0) geometryFloats(24 * 2) else null
     var vp = 0
     var ip = 0
     var qp = 0
@@ -420,8 +445,8 @@ internal object RcPrimitive3DSolids {
     val slant = sqrt((height * height + radius * radius).toDouble()).toFloat()
     val nY = radius / slant
     val nS = height / slant
-    val verts = FloatArray((seg + 1) * 2 * 3)
-    val normals = FloatArray((seg + 1) * 2 * 3)
+    val verts = geometryFloats((seg + 1) * 2 * 3)
+    val normals = geometryFloats((seg + 1) * 2 * 3)
     for (j in 0..seg) {
       val phi = 2.0 * PI * j / seg
       val c = cos(phi).toFloat()
@@ -441,7 +466,7 @@ internal object RcPrimitive3DSolids {
       normals[a + 1] = nY
       normals[a + 2] = nS * s
     }
-    val indices = IntArray(seg * 3)
+    val indices = geometryInts(seg * 3)
     var k = 0
     for (j in 0 until seg) {
       indices[k++] = j
@@ -474,8 +499,8 @@ internal object RcPrimitive3DSolids {
     val u = FloatArray(3)
     val v = FloatArray(3)
     RcPrimitive3DMath.perpBasis(ax, ay, az, u, v)
-    val verts = FloatArray((seg + 1) * 2 * 3)
-    val normals = FloatArray((seg + 1) * 2 * 3)
+    val verts = geometryFloats((seg + 1) * 2 * 3)
+    val normals = geometryFloats((seg + 1) * 2 * 3)
     for (j in 0..seg) {
       val phi = 2.0 * PI * j / seg
       val c = cos(phi).toFloat()
@@ -498,7 +523,7 @@ internal object RcPrimitive3DSolids {
       normals[ti + 1] = dy
       normals[ti + 2] = dz
     }
-    val indices = IntArray(seg * 6)
+    val indices = geometryInts(seg * 6)
     var k = 0
     for (j in 0 until seg) {
       val bj = j
@@ -541,9 +566,9 @@ internal object RcPrimitive3DSolids {
     val oy = ey + r
     val oz = ez + r
     val perFace = (seg + 1) * (seg + 1)
-    val verts = FloatArray(6 * perFace * 3)
-    val normals = FloatArray(6 * perFace * 3)
-    val indices = IntArray(6 * seg * seg * 6)
+    val verts = geometryFloats(6 * perFace * 3)
+    val normals = geometryFloats(6 * perFace * 3)
+    val indices = geometryInts(6 * seg * seg * 6)
     var vp = 0
     var ip = 0
     var vbase = 0
@@ -644,8 +669,8 @@ internal object RcPrimitive3DSolids {
     val sa = sin(angle.toDouble()).toFloat()
     val ringY = radius * ca
     val ringR = radius * sa
-    val verts = FloatArray((seg + 1) * 2 * 3)
-    val normals = FloatArray((seg + 1) * 2 * 3)
+    val verts = geometryFloats((seg + 1) * 2 * 3)
+    val normals = geometryFloats((seg + 1) * 2 * 3)
     for (j in 0..seg) {
       val phi = 2.0 * PI * j / seg
       val c = cos(phi).toFloat()
@@ -668,7 +693,7 @@ internal object RcPrimitive3DSolids {
       normals[ai + 1] = ny
       normals[ai + 2] = nz
     }
-    val indices = IntArray(seg * 3)
+    val indices = geometryInts(seg * 3)
     var k = 0
     for (j in 0 until seg) {
       indices[k++] = j
@@ -818,8 +843,8 @@ internal object RcPrimitive3DSolids {
       tris = next
     }
     val nv = dirs.size
-    val verts = FloatArray(nv * 3)
-    val normals = FloatArray(nv * 3)
+    val verts = geometryFloats(nv * 3)
+    val normals = geometryFloats(nv * 3)
     for (i in 0 until nv) {
       val d = dirs[i]
       verts[i * 3] = cx + radius * d[0]
@@ -829,7 +854,7 @@ internal object RcPrimitive3DSolids {
       normals[i * 3 + 1] = d[1]
       normals[i * 3 + 2] = d[2]
     }
-    val indices = IntArray(tris.size * 3)
+    val indices = geometryInts(tris.size * 3)
     var k = 0
     for (tr in tris) {
       indices[k++] = tr[0]
@@ -843,8 +868,8 @@ internal object RcPrimitive3DSolids {
     val nProf = profile.size / 2
     require(nProf >= 2) { "MeshPrimitive lathe: need >= 2 profile points" }
     val cols = seg + 1 // duplicate the seam column for clean normals
-    val verts = FloatArray(nProf * cols * 3)
-    val normals = FloatArray(nProf * cols * 3)
+    val verts = geometryFloats(nProf * cols * 3)
+    val normals = geometryFloats(nProf * cols * 3)
     val pnr = FloatArray(nProf)
     val pny = FloatArray(nProf)
     for (e in 0 until nProf - 1) {
@@ -941,8 +966,8 @@ internal object RcPrimitive3DSolids {
     val hd = depth * 0.5f
     val le = loop.size
     val vcount = np * 2 + le * 4
-    val verts = FloatArray(vcount * 3)
-    val normals = FloatArray(vcount * 3)
+    val verts = geometryFloats(vcount * 3)
+    val normals = geometryFloats(vcount * 3)
     for (i in 0 until np) {
       val x = poly2D[i * 2]
       val y = poly2D[i * 2 + 1]
@@ -957,7 +982,7 @@ internal object RcPrimitive3DSolids {
       verts[b + 2] = cz - hd
       normals[b + 2] = -1f
     }
-    val indices = IntArray(capTris.size * 2 + le * 6)
+    val indices = geometryInts(capTris.size * 2 + le * 6)
     var io = 0
     var t = 0
     while (t < capTris.size) {
@@ -1008,7 +1033,7 @@ internal object RcPrimitive3DSolids {
   /** A centre fan over a closed outline of [count] points, the centre stored at index count. */
   private fun fanCap(count: Int): Pair<IntArray, IntArray> {
     val center = count
-    val cap = IntArray(count * 3)
+    val cap = geometryInts(count * 3)
     val loop = IntArray(count)
     var k = 0
     for (j in 0 until count) {
@@ -1056,7 +1081,7 @@ internal object RcPrimitive3DSolids {
       poly[(1 + k) * 2] = radius * cos(phi).toFloat()
       poly[(1 + k) * 2 + 1] = radius * sin(phi).toFloat()
     }
-    val cap = IntArray(n * 3)
+    val cap = geometryInts(n * 3)
     var mI = 0
     for (k in 0 until n) {
       cap[mI++] = 0
@@ -1120,7 +1145,7 @@ internal object RcPrimitive3DSolids {
       poly[ii * 2] = r0 * c
       poly[ii * 2 + 1] = r0 * s
     }
-    val cap = IntArray(n * 2 * 3)
+    val cap = geometryInts(n * 2 * 3)
     var mI = 0
     for (k in 0 until n) {
       val o0 = k

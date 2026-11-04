@@ -393,4 +393,21 @@ class RcPrimitive3DTest {
       RcPrimitive3D.build(RcPrimitive3D.CYLINDER, 0f, 0, listOf(f(1f)))
     }
   }
+
+  @Test
+  fun hugeSegmentCountsAreCappedOrRefusedBeforeAllocating() {
+    // A sphere asking for 10,000 segments is built at the cap, not at ~2.4 GB.
+    val sphere =
+      RcPrimitive3D.build(RcPrimitive3D.SPHERE, 10_000f, 0, listOf(floatArrayOf(1f, 0f, 0f, 0f)))
+    assertTrue(sphere.vertexCount <= 257 * 513)
+    // A torus whose minor ring count scales past the cap is refused by the budget instead.
+    assertFailsWith<IllegalArgumentException> {
+      RcPrimitive3D.build(
+        RcPrimitive3D.TORUS,
+        512f,
+        0,
+        listOf(floatArrayOf(0.001f, 100f, 0f, 0f, 0f)),
+      )
+    }
+  }
 }
