@@ -58,6 +58,14 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
   private val frames = mutableListOf<RcCompositeFrame>()
   private val triangles = RcTriangleDrawer()
   private val shaderMeshes = RcShaderMeshDrawer()
+  private val depthRenderer = RcDepthRenderer()
+
+  /**
+   * Which rasterizer this depth pass uses for the draws that need depth: null until its first such
+   * draw, then the GPU depth renderer or the software one for the rest of the pass. A pass never
+   * mixes them, since each keeps its own depth buffer.
+   */
+  private var passOnGpuDepth: Boolean? = null
   /** Shader-mesh draws so far this frame: each takes its own slot. */
   private var shaderSlot = 0
   private var framesUsed = 0
@@ -100,6 +108,8 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
         when (op.sub) {
           Rc3D.P3_CLEAR_DEPTH -> {
             engine.clearDepth()
+            depthRenderer.clearDepth()
+            passOnGpuDepth = null
             meshesInDepthPass = 0
           }
           Rc3D.P3_MATERIAL -> if (params.size >= 2) engine.setMaterial(params[0], params[1])
@@ -122,6 +132,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     frameKey = key
     framesUsed = 0
     shaderSlot = 0
+    depthRenderer.beginFrame()
     meshesInDepthPass = 0
     frameTexturePixels.clear()
   }
@@ -294,7 +305,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     }
     if (!inPlayer) return
     if (useGpu(op.mode, mesh)) drawGpu(meshId, op.mode, scope)
-    else drawSoftware(meshId, op.mode, scope)
+    else if (!drawOnGpuDepth(meshId, op.mode, scope)) drawSoftware(meshId, op.mode, scope)
   }
 
   private fun useGpu(mode: Int, mesh: Rc3DMeshData): Boolean {
@@ -367,6 +378,34 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
    * time, so the oldest are dropped rather than kept for the life of the session.
    */
   private val convexity = LinkedHashMap<Rc3DMeshData, Boolean>()
+
+  /**
+   * A draw that needs depth, on the GPU depth renderer where there is one: under
+   * [Rc3DRenderer.Auto] only, and never wireframe, whose hidden-line pass is the software
+   * rasterizer's. The first such draw in a depth pass picks the renderer for the whole pass.
+   */
+  private fun drawOnGpuDepth(meshId: Int, mode: Int, scope: RcExtensionDrawScope): Boolean {
+    if (options.renderer != Rc3DRenderer.Auto || (mode and Rc3D.MODE_WIREFRAME) != 0) {
+      if (passOnGpuDepth == null) passOnGpuDepth = false
+      return false
+    }
+    if (passOnGpuDepth == false) return false
+    val mesh = engine.mesh(meshId) ?: return false
+    val drew =
+      depthRenderer.canDraw(scope.drawScope) &&
+        depthRenderer.draw(
+          scope.drawScope,
+          scope.size,
+          engine.width,
+          engine.height,
+          mesh,
+          engine,
+          (mode and Rc3D.MODE_SMOOTH_MASK) != 0,
+          textureImage,
+        )
+    if (passOnGpuDepth == null) passOnGpuDepth = drew
+    return drew
+  }
 
   private fun drawSoftware(meshId: Int, mode: Int, scope: RcExtensionDrawScope) {
     engine.drawMesh(meshId, mode)
@@ -455,6 +494,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     definedMeshes.clear()
     convexity.clear()
     shaderMeshes.dispose()
+    depthRenderer.dispose()
   }
 
   internal companion object {

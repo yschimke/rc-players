@@ -149,6 +149,13 @@ internal class RcSoftware3D {
   val specularShininess: Float
     get() = shininess
 
+  /** The depth bias in window-z units: a constant, and a factor of the face's depth slope. */
+  val depthBiasConstant: Float
+    get() = depthBiasC
+
+  val depthBiasSlope: Float
+    get() = depthBiasS
+
   /** (Re)allocate the buffers if the size changed; a resize starts transparent and far. */
   fun setSize(width: Int, height: Int) {
     if (width <= 0 || height <= 0) return

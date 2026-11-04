@@ -98,12 +98,33 @@ emulator (`.github/workflows/three-d-device-tests.yml`). It draws each scene thr
 hardware canvas and requires the same coverage (within 4%) and colours (a mean difference of at
 most 4 levels).
 
+### The Android GLES depth renderer
+
+`Auto` sends a draw that needs depth to the GPU too, on Android 10 and later
+(`Rc3DDepthRenderer.android.kt`). That is any software-mode draw the depthless paths above cannot
+take: non-convex meshes, several meshes in one depth pass, textures, translucency.
+
+- **Rendering.** One EGL context per session renders each mesh into an offscreen framebuffer
+  whose 24-bit depth buffer lasts until the document's `CLEAR_DEPTH`, as the software z-buffer
+  does. Each mesh's colour is then copied to an `ImageReader` surface and drawn into the canvas
+  as a hardware bitmap, so it lands between the 2D drawn before and after it.
+- **Shading.** Projection and lighting follow the engine: the vertex shader repeats `litColor`
+  from the shader mesh's per-face layout. GL culls on the projected winding, and texture
+  coordinates are perspective-correct.
+- **Routing.** The first depth-needing draw in a pass picks the renderer for the whole pass, so a
+  pass never mixes two depth buffers.
+- **What stays on the software rasterizer:** wireframe, whose hidden-line pass is its own; a pass
+  that started there; more than eight lights; software canvases; Android 9 and earlier; every
+  Skia target; and `Rc3DRenderer.Software`.
+- **Testing.** `Rc3DAndroidDepthDeviceTest` compares it with the software rasterizer on the
+  emulator, for a torus, intersecting cubes, a glossy cube and a textured sphere.
+
 ### Next GPU steps, by target
 
 | Target | Next step | Why |
 | --- | --- | --- |
 | Android (API 34+) | Done for convex meshes: `RcShaderMeshDrawer` | The per-vertex transform and lighting leave the CPU; geometry uploads only when a primitive rebuilds |
-| Android (any) | GLES into a `HardwareBuffer`, drawn with `Bitmap.wrapHardwareBuffer` | A real depth buffer with no copy, still in document order |
+| Android (API 29+) | Done: `RcGlesDepth`, GLES into an `ImageReader` surface, drawn with `Bitmap.wrapHardwareBuffer` | A real depth buffer with no CPU copy, still in document order |
 | Desktop, iOS, macOS | Skia's mesh API, if Skiko exposes it; otherwise render on Skia's own `DirectContext` | Same as Android `Mesh`; the open question is sharing a texture with Skiko without a copy |
 | Web (Wasm) | WebGL2 in Skiko's context, or WebGPU | Skiko already draws through WebGL2, so zero-copy needs the same context |
 
