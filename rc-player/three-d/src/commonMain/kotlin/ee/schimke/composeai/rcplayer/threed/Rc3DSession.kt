@@ -10,8 +10,15 @@ import ee.schimke.composeai.rcplayer.compose.RcExtensionSession
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcExtensionOperation
+import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcIncludeReferencedOperations
 import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
+import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
+import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
+import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
 import ee.schimke.composeai.rcplayer.runtime.RcFloatExpressionEvaluator
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData
@@ -303,7 +310,13 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
    * and with no other mesh in the pass there is nothing for depth to resolve.
    */
   private fun softwareModeIsSafeOnGpu(mesh: Rc3DMeshData): Boolean {
-    if (!singleMeshPerDepthPass || meshesInDepthPass > 1) return false
+    if (!singleMeshPerDepthPass || sawSharedDepthPass) return false
+    if (meshesInDepthPass > 1) {
+      // The static read missed something that draws twice in one pass. A mesh earlier in it may
+      // already have gone to the GPU without depth, so stop promoting for the session.
+      sawSharedDepthPass = true
+      return false
+    }
     // The software rasterizer maps textures perspective-correct; the vertex path is affine.
     if (textureImage != null && mesh.uv?.isNotEmpty() == true) return false
     return isConvex(mesh)
@@ -317,15 +330,17 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
 
   /**
    * Read from the document once: every depth pass (the operations between two `CLEAR_DEPTH`s) draws
-   * at most one mesh, and nothing repeats a draw. A loop could draw one mesh many times and a
-   * conditional could skip a clear, so a document with either is never taken as single.
+   * at most one mesh, and nothing repeats a draw. Loops, particles, references and macros can draw
+   * one mesh many times and a conditional can skip a clear, so a document with any of them
+   * ([repeatsOrSkips]) is never taken as single. [sawSharedDepthPass] backs this up at run time.
    */
   private val singleMeshPerDepthPass: Boolean = run {
     var draws = 0
     for (op in state.document.operations) {
       when {
-        // Control flow can repeat a draw or skip a depth clear: neither is visible to this scan.
-        op is RcLoopOperation || op is RcConditionalOperations -> return@run false
+        // Control flow can repeat a draw or skip a depth clear, and references and macros expand
+        // into copies of their bodies: none of that is visible to this scan.
+        op.repeatsOrSkips() -> return@run false
         op is RcPaint3DState && op.sub == Rc3D.P3_CLEAR_DEPTH -> draws = 0
         op is RcDrawMesh3D -> if (++draws > 1) return@run false
       }
@@ -338,6 +353,9 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
    * documents whose structure the static read cannot see through.
    */
   private var meshesInDepthPass = 0
+
+  /** Set the first time a depth pass is seen to hold two meshes; see [softwareModeIsSafeOnGpu]. */
+  private var sawSharedDepthPass = false
   /**
    * Convexity by mesh, for the few meshes in play. A mesh rebuilt every frame brings a new key each
    * time, so the oldest are dropped rather than kept for the life of the session.
@@ -465,3 +483,17 @@ internal class RcCompositeFrame(val frame: RcArgbFrame) {
     this.bottom = bottom
   }
 }
+
+/**
+ * Whether [this] repeats, skips or expands operations: loops, conditionals, particle loops,
+ * referenced-operation includes, macros and function calls.
+ */
+private fun RcOperation.repeatsOrSkips(): Boolean =
+  this is RcLoopOperation ||
+    this is RcConditionalOperations ||
+    this is RcParticleLoop ||
+    this is RcParticleCompare ||
+    this is RcIncludeReferencedOperations ||
+    this is RcMacroForEach ||
+    this is RcMacroCall ||
+    this is RcFloatFunctionCall
