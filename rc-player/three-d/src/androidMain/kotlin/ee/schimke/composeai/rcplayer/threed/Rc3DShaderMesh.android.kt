@@ -247,7 +247,8 @@ internal class RcMeshApi34 {
      * Projection, culling and lighting per vertex, following `RcSoftware3D.projectTriangle` and
      * `litColor` / `litColorSpecular`: smooth shading lights each vertex at its own normal, flat
      * shading lights the face normal at the centroid (or at each vertex when glossy), Lambert is
-     * two-sided, specular orients the normal to the viewer. A back face collapses to a point.
+     * two-sided, specular orients the normal to the viewer. A face the engine would cull, by its
+     * projected winding, collapses to a point.
      */
     val VERTEX_SHADER =
       """
@@ -271,14 +272,26 @@ internal class RcMeshApi34 {
         return light.xyz;
       }
 
+      float2 screen(float4 clip) {
+        float2 ndc = clip.xy / clip.w;
+        return float2((ndc.x * 0.5 + 0.5) * viewport.x, (0.5 - ndc.y * 0.5) * viewport.y);
+      }
+
       Varyings main(const Attributes a) {
         Varyings v;
         float3 e1 = (mv * float4(a.edge1, 0.0)).xyz;
         float3 e2 = (mv * float4(a.edge2, 0.0)).xyz;
         float3 face = cross(e1, e2);
         float3 centroid = (mv * float4(a.centroid, 1.0)).xyz;
-        float facing = shading.w > 0.5 ? dot(face, -centroid) : face.z;
-        if (facing < 0.0) {
+        // Cull as the engine does, on the projected triangle's winding in window space, so a
+        // projection that mirrors (an orthographic camera with bottom above top, say) culls the
+        // same faces. The triangle's corners come back from its centroid and edges.
+        float3 c0 = a.centroid - (a.edge1 + a.edge2) / 3.0;
+        float2 s0 = screen(mvp * float4(c0, 1.0));
+        float2 s1 = screen(mvp * float4(c0 + a.edge1, 1.0));
+        float2 s2 = screen(mvp * float4(c0 + a.edge2, 1.0));
+        float area = (s1.x - s0.x) * (s2.y - s0.y) - (s2.x - s0.x) * (s1.y - s0.y);
+        if (area > 0.0) {
           v.position = float2(0.0, 0.0);
           v.shade = float4(0.0);
           v.uvw = float3(0.0, 0.0, 1.0);

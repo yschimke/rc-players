@@ -57,6 +57,9 @@ class Rc3DAndroidMeshDeviceTest {
   @Test fun orthographicCube() = compare("ortho-cube") { cube(it, smooth = true, ortho = true) }
 
   @Test
+  fun mirroredOrthographicCube() = compare("mirrored-ortho-cube") { cube(it, smooth = true, ortho = true, mirrored = true) }
+
+  @Test
   fun texturedSphere() = compare("textured-sphere", checker()) { sphere(it, smooth = true, uv = true) }
 
   /** Sets up [engine] for a scene and returns the mesh id to draw and whether it is smooth. */
@@ -132,17 +135,24 @@ class Rc3DAndroidMeshDeviceTest {
     }
   }
 
-  private fun camera(engine: RcSoftware3D, ortho: Boolean) {
+  private fun camera(engine: RcSoftware3D, ortho: Boolean, mirrored: Boolean = false) {
     val view = floatArrayOf(0f, 0.4f, 4f, 0f, 0f, 0f, 0f, 1f, 0f)
     if (ortho) {
-      engine.setCamera(Rc3D.PROJECTION_ORTHO, floatArrayOf(-1.5f, 1.5f, -1.5f, 1.5f, 0.1f, 100f), view)
+      // Mirrored: bottom above top, a y-down projection that flips every triangle's winding.
+      val (bottom, top) = if (mirrored) 1.5f to -1.5f else -1.5f to 1.5f
+      engine.setCamera(Rc3D.PROJECTION_ORTHO, floatArrayOf(-1.5f, 1.5f, bottom, top, 0.1f, 100f), view)
     } else {
       engine.setCamera(Rc3D.PROJECTION_PERSPECTIVE, floatArrayOf(0.9f, 1f, 0.1f, 100f), view)
     }
   }
 
-  private fun cube(engine: RcSoftware3D, smooth: Boolean, ortho: Boolean = false): Pair<Int, Boolean> {
-    camera(engine, ortho)
+  private fun cube(
+    engine: RcSoftware3D,
+    smooth: Boolean,
+    ortho: Boolean = false,
+    mirrored: Boolean = false,
+  ): Pair<Int, Boolean> {
+    camera(engine, ortho, mirrored)
     engine.setLights(listOf(Rc3D.LIGHT_DIRECTIONAL), listOf(-1), floatArrayOf(-0.3f, -0.5f, -0.8f, 1f))
     engine.matrixOp(Rc3D.M3_ROTATE_AXIS, floatArrayOf(0.6f, 0f, 1f, 0f))
     engine.matrixOp(Rc3D.M3_ROTATE_AXIS, floatArrayOf(0.35f, 1f, 0f, 0f))
