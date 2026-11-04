@@ -410,4 +410,17 @@ class RcPrimitive3DTest {
       )
     }
   }
+
+  @Test
+  fun anExtrudePathContourLongerThanItsPayloadIsRefusedBeforeAllocating() {
+    // Seven floats claiming a hundred-million-point contour.
+    assertFailsWith<IllegalArgumentException> {
+      RcPrimitive3D.build(
+        RcPrimitive3D.EXTRUDE_PATH,
+        0f,
+        0,
+        listOf(floatArrayOf(1f, 0f, 0f, 0f, 0f, 1f, 1e8f)),
+      )
+    }
+  }
 }

@@ -1055,12 +1055,20 @@ internal object RcPrimitive3DSweep {
     val cz = p[3]
     val bevel = p[4]
     val nc = lround(p[5])
+    // Counts are checked against the coordinates actually present before anything is allocated:
+    // a contour cannot be longer than the payload carrying it. The Java reference fails such a
+    // shape with an index error; here it fails before it can ask for gigabytes.
+    require(nc in 0..p.size) { "MeshPrimitive extrude path: contour count $nc" }
     val contours = ArrayList<FloatArray>()
     var idx = 6
     for (c in 0 until nc) {
+      require(idx < p.size) { "MeshPrimitive extrude path: contour $c is missing" }
       val cnt = lround(p[idx++])
       require(cnt >= 0) { "MeshPrimitive extrude path: negative contour length $cnt" }
-      val ring = FloatArray(cnt * 2)
+      require(cnt <= (p.size - idx) / 2) {
+        "MeshPrimitive extrude path: contour of $cnt points has ${(p.size - idx) / 2}"
+      }
+      val ring = RcPrimitive3DMath.geometryFloats(cnt * 2)
       var k = 0
       while (k < cnt * 2 && idx < p.size) {
         ring[k] = p[idx++]
