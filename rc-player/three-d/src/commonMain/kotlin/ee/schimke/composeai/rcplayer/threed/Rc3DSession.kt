@@ -244,6 +244,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     val mesh = engine.mesh(meshId) ?: return
     engine.baseColorArgb = scope.paintColor
     val size = scope.drawScope.size
+    var inPlayer = options.drawInPlayer
     options.sceneListener?.let { listener ->
       val pass = passDraws.getOrPut(scope.componentId) { mutableListOf() }
       val draw =
@@ -265,8 +266,9 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
         )
       pass += draw
       listener.onDrawMesh(draw)
+      if (!inPlayer) inPlayer = listener.keepInPlayer(draw)
     }
-    if (!options.drawInPlayer) return
+    if (!inPlayer) return
     if (useGpu(op.mode)) drawGpu(meshId, op.mode, scope) else drawSoftware(meshId, op.mode, scope)
   }
 

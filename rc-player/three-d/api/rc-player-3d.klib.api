@@ -20,6 +20,7 @@ final enum class ee.schimke.composeai.rcplayer.threed/Rc3DRenderer : kotlin/Enum
 
 abstract fun interface ee.schimke.composeai.rcplayer.threed/Rc3DSceneListener { // ee.schimke.composeai.rcplayer.threed/Rc3DSceneListener|null[0]
     abstract fun onDrawMesh(ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw) // ee.schimke.composeai.rcplayer.threed/Rc3DSceneListener.onDrawMesh|onDrawMesh(ee.schimke.composeai.rcplayer.threed.Rc3DMeshDraw){}[0]
+    open fun keepInPlayer(ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw): kotlin/Boolean // ee.schimke.composeai.rcplayer.threed/Rc3DSceneListener.keepInPlayer|keepInPlayer(ee.schimke.composeai.rcplayer.threed.Rc3DMeshDraw){}[0]
     open fun onFrame(ee.schimke.composeai.rcplayer.threed/Rc3DFrame) // ee.schimke.composeai.rcplayer.threed/Rc3DSceneListener.onFrame|onFrame(ee.schimke.composeai.rcplayer.threed.Rc3DFrame){}[0]
 }
 

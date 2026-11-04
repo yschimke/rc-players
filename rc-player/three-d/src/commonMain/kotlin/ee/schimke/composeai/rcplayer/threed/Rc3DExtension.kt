@@ -109,6 +109,15 @@ public fun interface Rc3DSceneListener {
    * scene costs nothing after its first frame.
    */
   public fun onFrame(frame: Rc3DFrame) {}
+
+  /**
+   * With `drawInPlayer = false`, whether the player should draw [draw] anyway: geometry the host
+   * cannot take over, so it stays on the 2D surface instead of disappearing. An XR runtime that
+   * takes fixed geometry but cannot free or update it returns true for a deforming mesh, whose
+   * [Rc3DMeshDraw.meshVersion] changes from frame to frame. Ignored when the player draws
+   * everything.
+   */
+  public fun keepInPlayer(draw: Rc3DMeshDraw): Boolean = false
 }
 
 /** The draws of one pass over one component; see [Rc3DSceneListener.onFrame]. */

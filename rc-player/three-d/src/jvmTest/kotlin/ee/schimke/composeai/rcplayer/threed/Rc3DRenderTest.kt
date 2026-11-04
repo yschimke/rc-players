@@ -10,6 +10,7 @@ import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
+import ee.schimke.composeai.rcplayer.protocol.RcDraw6
 import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
@@ -137,12 +138,28 @@ class Rc3DRenderTest {
     assertEquals(1, frames.map { it.draws.single().meshVersion }.distinct().size)
     assertTrue(frames.map { it.draws.single().model.toList() }.distinct().size > 1)
 
-    // A torus whose tube radius follows the clock is rebuilt each frame: its version rises, the
-    // signal to leave a deforming mesh to the player.
+    // A torus whose tube radius follows the clock is rebuilt whenever the clock has moved: its
+    // version rises, the signal to leave a deforming mesh to the player. A repaint at the same
+    // clock time, which a loaded machine sometimes adds, rebuilds nothing and keeps the version.
     frames.clear()
     renderFrames(Rc3DDocuments.breathingTorus().encode(), times, options)
     val versions = frames.map { it.draws.single().meshVersion }
-    assertTrue(versions.zipWithNext().all { (a, b) -> b > a }, "versions $versions")
+    assertTrue(versions.zipWithNext().all { (a, b) -> b >= a }, "never falls: $versions")
+    assertTrue(versions.distinct().size >= times.size, "a new version per time: $versions")
+  }
+
+  @Test
+  fun aDrawTheListenerKeepsIsDrawnByThePlayerAnyway() {
+    // drawInPlayer = false hands every mesh to the listener; one it cannot take over comes back.
+    val keepAll =
+      object : Rc3DSceneListener {
+        override fun onDrawMesh(draw: Rc3DMeshDraw) = Unit
+
+        override fun keepInPlayer(draw: Rc3DMeshDraw): Boolean = true
+      }
+    val bytes = Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH).encode()
+    val kept = render(bytes, Rc3DOptions(drawInPlayer = false, sceneListener = keepAll))
+    assertTrue(kept.contentEquals(render(bytes)), "drawn exactly as the player draws it")
   }
 
   @Test
@@ -358,6 +375,62 @@ internal object Rc3DDocuments {
           float(16f),
         )
       draw(torus)
+    }
+
+  /** The XR sample's document at test size: a card, a rigid cube and a breathing torus. */
+  fun xrSample(): Rc3DDocumentBuilder =
+    Rc3DDocumentBuilder(SIZE, SIZE).apply {
+      color(0xCC1E2430.toInt())
+      add(
+        RcDraw6(
+          RcOpcodes.DRAW_ROUND_RECT,
+          float(3f),
+          float(3f),
+          float(SIZE - 3f),
+          float(SIZE - 3f),
+          float(10f),
+          float(10f),
+        )
+      )
+      val time = continuousSeconds()
+      clearDepth()
+      perspectiveCamera(
+        float(0.9f),
+        float(1f),
+        float(0.1f),
+        float(100f),
+        listOf(float(0f), float(0.6f), float(4f)),
+        listOf(float(0f), float(0f), float(0f)),
+      )
+      lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+      color(0xFFEE8844.toInt())
+      identity()
+      translate(float(-0.9f), float(0f), float(0f))
+      rotate(times(time, float(0.8f)), 0f, 1f, 0f)
+      rotate(float(0.35f), 1f, 0f, 0f)
+      draw(primitive(RcPrimitive3D.CUBE, listOf(0.5f, 0.5f, 0.5f, 0f, 0f, 0f).map(::float)))
+      val tube =
+        expression(
+          listOf(
+            time,
+            Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.SIN),
+            float(0.06f),
+            Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.MUL),
+            float(0.22f),
+            Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.ADD),
+          )
+        )
+      color(0xFF4488EE.toInt())
+      identity()
+      translate(float(0.9f), float(0f), float(0f))
+      rotate(float(1.1f), 1f, 0f, 0f)
+      draw(
+        primitive(
+          RcPrimitive3D.TORUS,
+          listOf(float(0.55f), tube, float(0f), float(0f), float(0f)),
+          float(32f),
+        )
+      )
     }
 
   fun hostCameraCube(): Rc3DDocumentBuilder =

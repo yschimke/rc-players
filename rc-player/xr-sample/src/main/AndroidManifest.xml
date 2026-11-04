@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Runs on any Android device; on an XR headset it also hands meshes to SceneCore. -->
+    <uses-feature
+        android:name="android.software.xr.api.spatial"
+        android:required="false" />
+
+    <application
+        android:label="RC 3D in XR"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <activity
+            android:name=".XrSampleActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
