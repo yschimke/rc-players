@@ -52,6 +52,8 @@ robolectric = "4.17"
 # Jetpack XR SceneCore, for the Android XR sample (`rc-player/xr-sample`) that hands the 3D
 # extension's meshes to the XR runtime. Sample-only: nothing published depends on it.
 xr-scenecore = "1.0.0"
+# ARCore for Jetpack XR, for the eyes' poses the XR sample's stereo surface follows.
+xr-arcore = "1.0.0"
 # androidx.tracing — atrace-level sections for the Android daemon's render phases (see
 # `AndroidxTraceSections` in :daemon:android). Version-pinned (not BOM-managed) because the daemon
 # ships it in the standalone lib-daemon-android sidecar where no BOM applies.
@@ -217,6 +219,7 @@ composeai-data-layoutinspector-connector = { module = "ee.schimke.composeai:data
 
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 xr-scenecore = { module = "androidx.xr.scenecore:scenecore", version.ref = "xr-scenecore" }
+xr-arcore = { module = "androidx.xr.arcore:arcore", version.ref = "xr-arcore" }
 compose-bom-compat = { module = "androidx.compose:compose-bom", version.ref = "compose-bom-compat" }
 compose-ui = { module = "androidx.compose.ui:ui", version.ref = "androidx-compose" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }

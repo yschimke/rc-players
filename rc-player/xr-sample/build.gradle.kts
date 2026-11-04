@@ -30,6 +30,7 @@ dependencies {
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.compose.foundation.cmp)
   implementation(libs.xr.scenecore)
+  implementation(libs.xr.arcore)
 
   testImplementation(libs.junit)
   testImplementation(kotlin("test-junit"))

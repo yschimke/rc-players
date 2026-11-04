@@ -179,8 +179,51 @@ Software on the left, WebGL2 on the right (`RC_3D_OUT=<dir>` makes the script wr
 | --- | --- | --- |
 | Android (API 34+) | Done for convex meshes: `RcShaderMeshDrawer` | The per-vertex transform and lighting leave the CPU; geometry uploads only when a primitive rebuilds |
 | Android (API 29+) | Done: `RcGlesDepth`, GLES into an `ImageReader` surface, drawn with `Bitmap.wrapHardwareBuffer` | A real depth buffer with no CPU copy, still in document order |
-| Desktop, iOS, macOS | Skia's mesh API, if Skiko exposes it; otherwise render on Skia's own `DirectContext` | Same as Android `Mesh`; the open question is sharing a texture with Skiko without a copy |
+| Desktop, iOS, macOS | Blocked on Skiko: `SkMesh` bindings upstream (see below) | Same as Android `Mesh`; nothing in Skiko 0.150 can stand in for it |
 | Web (Wasm) | Done for depth: `RcWebGlDepth`, WebGL2 in a context of its own, read back into a Skia bitmap. Next: zero-copy in Skiko's context, or WebGPU | Zero-copy needs Skiko's own context, which it does not expose; the copy already beats the software rasterizer |
+
+### The Skia targets: what Skiko allows today
+
+Checked against Skiko 0.150.2, the version Compose Multiplatform 1.12.2 pulls (issue #791). The
+Skiko actuals of `RcShaderMeshDrawer`, and of `RcDepthRenderer` on desktop and Apple, still
+decline every draw (Wasm's depth renderer is the WebGL2 one above), and none of the three routes
+can land in this repository yet:
+
+1. **`SkMesh` bindings in Skiko: the route to take, but it has to start upstream.** Skia has
+   `SkMeshSpecification`, `SkMesh` and `SkCanvas::drawMesh`, which is what `android.graphics.Mesh`
+   wraps. Skiko binds none of them: `org.jetbrains.skia` has no `Mesh` or `MeshSpecification`
+   class, `Canvas` has no `drawMesh`, and the JNI/native exports are generated per binding, so the
+   player cannot reach Skia's mesh from Kotlin either. `android.graphics.Mesh` is a thin wrapper
+   over `SkMesh`, and the Android shaders already use `SkMesh`'s `Varyings main(const Attributes)`
+   and `float2 main(const Varyings, out float4)` entry points. So once Skiko ships the bindings,
+   the Skiko actual of `RcShaderMeshDrawer` can reuse the shaders, attribute layout
+   (`Rc3DShaderMeshData`) and uniforms unchanged; only the upload and draw calls are new.
+   The proposal to file is in [`SKIKO_MESH_PROPOSAL.md`](SKIKO_MESH_PROPOSAL.md).
+2. **`RuntimeEffect`: ruled out.** Skiko has only `RuntimeEffect.makeForShader`,
+   `makeForColorFilter` and `makeForBlender`, all fragment stages. A draw's geometry can only come
+   from `drawVertices`, whose positions are 2D device points, so projection, culling and the
+   painter's sort stay on the CPU, which is the vertex path that exists now. Its two
+   interpolated per-vertex channels (a colour and one `float2` of local coordinates) cannot carry
+   a normal and a position for per-pixel lighting, and moving lighting alone off the CPU saves
+   little, since it costs the same order as the transform. A fragment-only renderer that skips
+   `drawVertices` would have to find each pixel's face itself, for example by intersecting a view
+   ray with every face plane of a convex mesh, which costs pixels × faces per frame against the
+   vertex path's vertices + pixels. At 512 × 512 and 1000 triangles that is about 2.6 × 10⁸ face
+   tests a frame, so it loses to the existing path on anything but a handful of faces.
+3. **A GPU context of our own: not now.** Compose desktop exposes no public way to reach the
+   `DirectContext` it draws with, and the backend differs by OS (Metal on macOS, Direct3D on
+   Windows, OpenGL on Linux; Metal on iOS). Skiko's `DirectContext.makeGL/makeMetal/makeDirect3D`
+   can make a second context, but its output cannot be shared with Compose's without per-backend
+   interop the public API lacks, so every frame is a GPU → CPU → GPU copy. Against the convex vertex
+   path (CPU work proportional to vertices, GPU rasterization) that copy only adds cost. The only
+   draws it could win are the ones that need depth, which go to `RcSoftware3D` today, and it needs
+   a GPU to measure on: the hosted Linux runners and this repository's sandboxes render on CPU
+   Skia, where it would only add a readback to software rendering. Revisit it as an
+   `RcDepthRenderer` once it can be measured on a real desktop GPU, and only if it beats the
+   software rasterizer at document sizes there.
+
+The Wasm target is in the same `skiko` source set and has the same stubs. Its route is WebGL2 in
+Skiko's own context (the table above), which is a separate problem from these bindings.
 
 ## XR
 
@@ -192,7 +235,7 @@ mesh draw, not per document.
 | Level | What the user sees | How | Per-frame cost | Here |
 | --- | --- | --- | --- | --- |
 | 1. Flat panel | The document as a card, its 3D drawn flat | `RcComposePlayer` in a `SpatialPanel`, or a hardware canvas on a SceneCore `SurfaceEntity` | One render for both eyes, only when something changed | Works now |
-| 2. Stereo window | Depth inside the panel's rectangle | Two renders, one camera per eye, into a side-by-side stereo `SurfaceEntity`; eye cameras from the head pose relative to the panel, through `Rc3DHostCamera` | Two renders, following the head | Host camera is here; the stereo surface host is not |
+| 2. Stereo window | Depth inside the panel's rectangle | Two renders, one camera per eye, into a side-by-side stereo `SurfaceEntity` over the player's viewport; each eye's camera an off-axis frustum through the viewport from that eye's pose relative to the panel | Two renders, following the head | Here, for deforming meshes, in [`rc-player/xr-sample`](../../rc-player/xr-sample) |
 | 3. Hand-off | Meshes as objects in the room: stereo, occlusion against the room, system lighting | Each mesh built once as a SceneCore `CustomMesh` in a `MeshEntity`, a child of the panel; poses updated from `Rc3DPanelPlacement` each frame. (`Rc3DGltf` writes the same geometry as `.glb` for runtimes that load glTF.) | Pose updates only | Here, in [`rc-player/xr-sample`](../../rc-player/xr-sample) |
 | 4. Own renderer | Anything | An OpenXR app rendering each eye itself, through Filament or GLES | All of it | Out of scope |
 
@@ -209,8 +252,37 @@ restricted to the library). So:
   is rebuilt every frame. A new entity per frame would leak one per frame, so once its version has
   changed twice within a few frames (a window, since the player can repaint at the same animation
   time between clock ticks), the host returns true from `Rc3DSceneListener.keepInPlayer` and
-  the player draws it on the panel instead (level 1), or a stereo surface would (level 2) for a
-  3D-only document.
+  it goes to the stereo surface (level 2) while the eyes are tracked, and otherwise the host
+  returns true from `keepInPlayer` and the player draws it on the panel (level 1).
+
+### The stereo surface (level 2)
+
+`RcSceneCoreHost` keeps one side-by-side stereo `SurfaceEntity`, a child of the panel, covering
+the player's viewport a millimetre in front of it. Each frame it renders the deforming draws twice
+into the surface's halves with GLES, one camera per eye:
+
+- **Eye cameras.** The eyes' poses come from ARCore for Jetpack XR (`RenderViewpoint.left` and
+  `right`, with device tracking on, which needs the `HEAD_TRACKING` permission), moved from
+  perception space into the panel's. The surface is a window onto the scene, so each eye's camera
+  is an off-axis perspective whose frustum passes through the viewport's corners, aligned with the
+  panel's axes ("generalised perspective projection"). Only the eye's position matters. A point on
+  the panel plane lands at the same place for both eyes, the flat render's place; what lies behind
+  parts uncrossed and what lies in front crossed.
+- **Placement.** Each mesh is placed in panel space by `Rc3DPanelPlacement`, as the room entities
+  are, so a deforming mesh and a rigid one share one frame.
+- **Routing.** A rigid draw is an entity; a deforming one goes stereo when the session allows 3D
+  content, both eyes are tracked and the renderer is working, and back to the panel when any of
+  these is missing. `RcDrawRouting` decides, per draw and per frame.
+- **Limits.** The surface is flat, so its meshes have depth for the eyes but do not sort against
+  the room entities or the room, and anything outside the viewport's rectangle is clipped. A draw
+  carries the document's paint but not its lights, so the surface lights with one fixed light, like
+  the entities' rough PBR material. SceneCore 1.0's public `SurfaceEntity.create` blends the
+  surface's alpha, which lets the panel show around the meshes; the overload that takes a blending
+  mode is restricted. The surface is re-rendered when the document redraws, which a deforming mesh
+  does every frame.
+
+`Rc3DHostCamera` is not needed for this: the draws already carry the document's camera, which
+places the scene, and the eye cameras are applied after placement.
 
 ### The listener contract a hand-off host relies on
 
@@ -258,12 +330,14 @@ work unchanged.
   level 1 previews.
 - The sample app, [`rc-player/xr-sample`](../../rc-player/xr-sample): it plays a document with a
   2D card, a rigid cube spun by the clock and a torus whose tube breathes with it. On a headset in
-  Full Space the cube becomes a `MeshEntity` in the room and the torus, deforming, stays on the
-  panel; anywhere else the player draws all of it on the panel. `RcSceneCoreHost` is the level-3
-  host; its mesh packing and deformation rule are unit-tested on the JVM. It has not been run on
-  a headset or emulator from this repository's CI.
+  Full Space the cube becomes a `MeshEntity` in the room and the torus, deforming, goes to the
+  stereo surface while the eyes are tracked, or stays on the panel; anywhere else the player draws
+  all of it on the panel. `RcSceneCoreHost` is the level-2 and level-3 host; its mesh packing,
+  deformation rule, eye cameras and routing are unit-tested on the JVM. It has not been run on a
+  headset or emulator from this repository's CI.
 - Not here: textures on handed-off meshes (SceneCore's `Texture` loads from a file, so the host
-  would encode the bitmap first); input on handed-off entities; level 2's stereo surface host;
+  would encode the bitmap first) or on the stereo surface; input on handed-off entities or the
+  stereo surface;
   level 3 previews in `xr-composite`, which would need mesh or glTF support there.
 
 ## Divergences from the reference
