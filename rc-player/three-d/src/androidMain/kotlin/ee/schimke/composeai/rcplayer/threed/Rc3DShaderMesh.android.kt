@@ -173,7 +173,7 @@ internal class RcMeshApi34 {
     return true
   }
 
-  private fun makeSpec(): MeshSpecification? =
+  internal fun makeSpec(): MeshSpecification? =
     runCatching {
         MeshSpecification.make(
           arrayOf(
@@ -181,7 +181,8 @@ internal class RcMeshApi34 {
             Attribute(MeshSpecification.TYPE_FLOAT3, 12, "normal"),
             Attribute(MeshSpecification.TYPE_FLOAT3, 24, "edge1"),
             Attribute(MeshSpecification.TYPE_FLOAT3, 36, "edge2"),
-            Attribute(MeshSpecification.TYPE_FLOAT3, 48, "centroid"),
+            // Not "centroid": that is a reserved word in GLSL ES 3.0, and SkSL is built from it.
+            Attribute(MeshSpecification.TYPE_FLOAT3, 48, "faceCentre"),
             Attribute(MeshSpecification.TYPE_FLOAT2, 60, "uv"),
           ),
           FLOATS_PER_VERTEX * 4,
@@ -247,7 +248,7 @@ internal class RcMeshApi34 {
     shader = null
   }
 
-  private companion object {
+  internal companion object {
     const val TAG = "Rc3D"
     const val MAX_UPLOADS = 16
     const val MAX_SLOTS = 64
@@ -256,7 +257,7 @@ internal class RcMeshApi34 {
     /**
      * Projection, culling and lighting per vertex, following `RcSoftware3D.projectTriangle` and
      * `litColor` / `litColorSpecular`: smooth shading lights each vertex at its own normal, flat
-     * shading lights the face normal at the centroid (or at each vertex when glossy), Lambert is
+     * shading lights the face normal at its centroid (or at each vertex when glossy), Lambert is
      * two-sided, specular orients the normal to the viewer. A face the engine would cull, by its
      * projected winding, collapses to a point.
      */
@@ -293,11 +294,11 @@ internal class RcMeshApi34 {
         float3 e1 = (mv * float4(a.edge1, 0.0)).xyz;
         float3 e2 = (mv * float4(a.edge2, 0.0)).xyz;
         float3 face = cross(e1, e2);
-        float3 centroid = (mv * float4(a.centroid, 1.0)).xyz;
+        float3 faceCentre = (mv * float4(a.faceCentre, 1.0)).xyz;
         // Cull as the engine does, on the projected triangle's winding in window space, so a
         // projection that mirrors (an orthographic camera with bottom above top, say) culls the
         // same faces. The triangle's corners come back from its centroid and edges.
-        float3 c0 = a.centroid - (a.edge1 + a.edge2) / 3.0;
+        float3 c0 = a.faceCentre - (a.edge1 + a.edge2) / 3.0;
         float2 s0 = screen(mvp * float4(c0, 1.0));
         float2 s1 = screen(mvp * float4(c0 + a.edge1, 1.0));
         float2 s2 = screen(mvp * float4(c0 + a.edge2, 1.0));
@@ -322,7 +323,7 @@ internal class RcMeshApi34 {
           p = eye;
         } else {
           n = face;
-          p = shading.y > 0.0 ? eye : centroid;
+          p = shading.y > 0.0 ? eye : faceCentre;
         }
         float nl = length(n);
         n = nl > 0.0 ? n / nl : float3(0.0);
