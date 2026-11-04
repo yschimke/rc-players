@@ -30,8 +30,13 @@ on:
 permissions:
   contents: read
 
+# A pull request collapses per branch. A push to main gets a group of its own, per commit: a group
+# holds one running and one pending run, so a shared main group would cancel a waiting run when a
+# third push arrived (see ci.yml's concurrency note).
 concurrency:
-  group: three-d-device-tests-${{ github.ref }}
+  group: >-
+    three-d-device-tests-${{ github.ref
+    }}${{ github.event_name == 'push' && format('-{0}', github.sha) || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
