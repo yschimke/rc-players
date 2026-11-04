@@ -7,6 +7,8 @@ import ee.schimke.composeai.rcplayer.threed.engine.RcSoftware3D
 
 /** Skiko exposes no mesh API: every draw takes the CPU-transformed vertex path. */
 internal actual class RcShaderMeshDrawer actual constructor() {
+  actual fun canDraw(scope: DrawScope): Boolean = false
+
   actual fun draw(
     scope: DrawScope,
     width: Float,

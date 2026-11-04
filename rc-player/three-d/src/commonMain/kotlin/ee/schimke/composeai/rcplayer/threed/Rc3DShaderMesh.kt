@@ -15,6 +15,12 @@ import ee.schimke.composeai.rcplayer.threed.engine.RcSoftware3D
  */
 internal expect class RcShaderMeshDrawer() {
   /**
+   * Whether this platform and [scope]'s canvas can take a draw at all: checked before the caller
+   * spends anything, such as a convexity test, on a draw that would only be declined.
+   */
+  fun canDraw(scope: DrawScope): Boolean
+
+  /**
    * Draw [mesh] as [engine]'s camera, model matrix, lights and material set it, onto a viewport of
    * [width] by [height] in [scope]'s units. [slot] tells apart the draws of one frame, which must
    * not share uniforms.

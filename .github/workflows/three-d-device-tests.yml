@@ -61,6 +61,8 @@ jobs:
           script: |
             ./gradlew --stacktrace :rc-player-3d:connectedAndroidDeviceTest || echo "TESTS_FAILED" > device-tests-failed
             mkdir -p rc3d-mesh && for d in $(adb shell 'ls -d /sdcard/Android/data/*/files/rc3d-mesh 2>/dev/null' | tr -d '\r'); do adb pull "$d/." rc3d-mesh/; done
+            find rc-player/three-d/build/outputs/androidTest-results -name '*.xml' -exec grep -h -A6 '<failure' {} + || true
+            adb logcat -d | grep -iE 'Rc3D|Mesh|SkSL|AndroidRuntime|TestRunner' | tail -n 200 || true
             test ! -f device-tests-failed
       # The renders as a base64 tarball in the log, for readers that can reach job logs but not
       # artifacts.

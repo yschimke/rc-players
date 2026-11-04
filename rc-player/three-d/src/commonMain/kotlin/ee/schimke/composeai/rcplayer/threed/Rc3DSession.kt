@@ -392,6 +392,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     val mesh = engine.mesh(meshId)
     if (
       mesh != null &&
+        shaderMeshes.canDraw(scope.drawScope) &&
         isConvex(mesh) &&
         shaderMeshes.draw(
           scope.drawScope,

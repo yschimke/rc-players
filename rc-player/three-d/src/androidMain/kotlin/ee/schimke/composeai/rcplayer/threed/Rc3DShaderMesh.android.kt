@@ -12,6 +12,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -29,6 +30,10 @@ internal actual class RcShaderMeshDrawer actual constructor() {
   private val api: RcMeshApi34? =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) RcMeshApi34() else null
 
+  // Only on a GPU canvas: that is where it pays, and the path the device tests cover.
+  actual fun canDraw(scope: DrawScope): Boolean =
+    api?.available == true && scope.drawContext.canvas.nativeCanvas.isHardwareAccelerated
+
   actual fun draw(
     scope: DrawScope,
     width: Float,
@@ -41,8 +46,7 @@ internal actual class RcShaderMeshDrawer actual constructor() {
     slot: Int,
   ): Boolean {
     val api = api ?: return false
-    // Only on a GPU canvas: that is where it pays, and the path the device tests cover.
-    if (!scope.drawContext.canvas.nativeCanvas.isHardwareAccelerated) return false
+    if (!canDraw(scope)) return false
     return api.draw(scope, width, height, mesh, engine, smooth, baseColor, texture, slot)
   }
 
@@ -61,6 +65,10 @@ internal actual class RcShaderMeshDrawer actual constructor() {
 internal class RcMeshApi34 {
   private var spec: MeshSpecification? = null
   private var disabled = false
+
+  /** False once the specification failed to build: every later draw would be declined. */
+  val available: Boolean
+    get() = !disabled
 
   /** Uploaded geometry, by mesh: a deforming mesh brings a new one, so only a few are kept. */
   private val uploads = LinkedHashMap<Rc3DMeshData, Upload>()
@@ -97,6 +105,7 @@ internal class RcMeshApi34 {
     val target =
       runCatching { meshFor(slot, upload, spec) }
         .getOrElse {
+          Log.w(TAG, "android.graphics.Mesh could not be created; 3D draws use the vertex path", it)
           disabled = true
           return false
         }
@@ -177,7 +186,12 @@ internal class RcMeshApi34 {
           MeshSpecification.ALPHA_TYPE_PREMULTIPLIED,
         )
       }
-      .onFailure { disabled = true }
+      .onFailure {
+        // Once, with the reason: the shaders failed to compile on this device, and every later
+        // draw takes the vertex path.
+        Log.w(TAG, "android.graphics.Mesh is unavailable; 3D draws use the vertex path", it)
+        disabled = true
+      }
       .getOrNull()
       .also { spec = it }
 
@@ -224,6 +238,7 @@ internal class RcMeshApi34 {
   }
 
   private companion object {
+    const val TAG = "Rc3D"
     const val MAX_UPLOADS = 16
     const val MAX_SLOTS = 64
     const val BOUNDS = 1e6f
