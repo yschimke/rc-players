@@ -35,7 +35,12 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
   private val screenMesh = RcScreenMesh()
   private val vectorRpn = RcVectorRpn()
   private val vectorOut = FloatArray(RcVectorRpn.DIM)
-  private val expressions = RcMeshExpressionGenerator(RcFloatExpressionEvaluator())
+  /** The document's float arrays as expressions see them, read once per surface build. */
+  private val arrays = mutableMapOf<Int, FloatArray?>()
+  private val expressions =
+    RcMeshExpressionGenerator(
+      RcFloatExpressionEvaluator { id -> arrays.getOrPut(id) { state.floatValues(id) } }
+    )
   /**
    * One bitmap per software composite in a frame, reused from frame to frame. A frame's composites
    * cannot share one: Android's renderer uploads a mutable bitmap when the frame is synced, so
@@ -180,13 +185,23 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
 
   private fun buildExpression(op: RcMeshExpression3D) {
     val params = resolve(op.params)
-    // The expressions' own variable reads become part of the key, so a surface that follows the
-    // clock rebuilds every frame and a static one never does.
+    arrays.clear()
+    // The expressions' own variable reads, and the contents of the arrays they index, become part
+    // of the key, so a surface that follows the clock or an updated list rebuilds and a static one
+    // never does.
     val key = buildList {
       params.forEach(::add)
       for (group in listOf(op.position, op.normal, op.uv)) {
         for (expression in group) {
-          for (word in expression) if (isResolvableToken(word)) add(resolve(word))
+          for (word in expression) {
+            when {
+              isArrayToken(word) -> {
+                val id = word.bits and NAN_PAYLOAD_MASK
+                arrays.getOrPut(id) { state.floatValues(id) }?.forEach(::add) ?: add(Float.NaN)
+              }
+              isResolvableToken(word) -> add(resolve(word))
+            }
+          }
         }
       }
     }
@@ -302,6 +317,14 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
      * A NaN-boxed word that names a variable, as opposed to an operator, a vector opcode or an
      * array reference.
      */
+    private const val NAN_PAYLOAD_MASK = 0x7fffff
+
+    /** A NaN-boxed reference to one of the document's float arrays. */
+    fun isArrayToken(word: RcFloatWord): Boolean =
+      word.isNaNEncoded &&
+        !RcVectorRpn.isOperator(word) &&
+        (word.bits and ID_REGION_MASK) == ID_REGION_ARRAY
+
     fun isResolvableToken(word: RcFloatWord): Boolean {
       if (!word.isNaNEncoded) return false
       if (RcVectorRpn.isOperator(word)) return false

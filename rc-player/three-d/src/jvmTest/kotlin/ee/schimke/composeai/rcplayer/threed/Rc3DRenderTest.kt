@@ -10,7 +10,9 @@ import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
+import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcWireException
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
@@ -138,6 +140,17 @@ class Rc3DRenderTest {
   }
 
   @Test
+  fun aSurfaceReadsTheDocumentsArraysAndRebuildsWhenOneChanges() {
+    // The height field's height is `heights[0]`: a plane that moves with the host's array.
+    val bytes = Rc3DDocuments.arrayHeightField().encode()
+    fun heights(h: Float) = mapOf("USER:heights" to RcNamedValue.FloatArrayValue(listOf(h)))
+    val low = render(bytes, namedValues = heights(-0.6f))
+    val high = render(bytes, namedValues = heights(0.6f))
+    assertTrue(high.any { it ushr 24 != 0 }, "the surface was drawn")
+    assertNotEquals(low.toList(), high.toList())
+  }
+
+  @Test
   fun aVectorExpressionDrivesTheLight() {
     // The light direction is normalize(vec3(namedX, -1, -1)): moving the named value moves the
     // shading, which only happens if the vector program kept its opcodes and wrote its outputs.
@@ -253,6 +266,39 @@ internal object Rc3DDocuments {
       translate(float(1.45f), float(0f), float(0f))
       val ball = primitive(RcPrimitive3D.SPHERE, listOf(0.3f, 0f, 0f, 0f).map(::float))
       draw(ball)
+    }
+
+  fun arrayHeightField(): Rc3DDocumentBuilder =
+    Rc3DDocumentBuilder(SIZE, SIZE).apply {
+      val arrayId = 0x200000 or newId()
+      add(RcFloatList(arrayId, listOf(float(0f))))
+      add(RcNamedVariable(arrayId, RcNamedVariable.FLOAT_ARRAY_TYPE, "USER:heights"))
+      val arrayWord = RcFloatWord(0xff800000.toInt() or arrayId)
+      clearDepth()
+      perspectiveCamera(
+        float(0.9f),
+        float(1f),
+        float(0.1f),
+        float(100f),
+        listOf(float(0f), float(2.5f), float(3f)),
+        listOf(float(0f), float(0f), float(0f)),
+      )
+      lights(Rc3DLight.directional(-0.3f, -0.8f, -0.4f))
+      color(0xFF66AADD.toInt())
+      identity()
+      val id = newId()
+      add(
+        RcMeshExpression3D(
+          id,
+          Rc3D.SURFACE_HEIGHT_FIELD,
+          0,
+          listOf(-1f, 1f, 8f, -1f, 1f, 8f, -1f, 1f).map(::float),
+          listOf(listOf(arrayWord, float(0f), Rc3DDocumentBuilder.operator(32))),
+          emptyList(),
+          emptyList(),
+        )
+      )
+      draw(id)
     }
 
   fun hostCameraCube(): Rc3DDocumentBuilder =
