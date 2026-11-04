@@ -76,6 +76,12 @@ class Rc3DAndroidMeshDeviceTest {
     val b = IntArray(SIZE * SIZE).also { viaVertices.getPixels(it, 0, SIZE, 0, 0, SIZE, SIZE) }
     val coveredA = a.count { (it ushr 24) > 127 }
     val coveredB = b.count { (it ushr 24) > 127 }
+    android.util.Log.i(
+      "Rc3DProbe",
+      "$name: mesh covered=$coveredA vertices covered=$coveredB " +
+        "mesh centre=${Integer.toHexString(a[SIZE / 2 * SIZE + SIZE / 2])} " +
+        "vertices centre=${Integer.toHexString(b[SIZE / 2 * SIZE + SIZE / 2])}",
+    )
     assertTrue("$name: the mesh path drew nothing", coveredA > 0)
     val coverageDiffers = a.indices.count { ((a[it] ushr 24) > 127) != ((b[it] ushr 24) > 127) }
     assertTrue(
