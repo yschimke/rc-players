@@ -83,3 +83,39 @@ private fun languageTagCandidates(tag: String): List<String> {
 }
 
 internal const val FALLBACK_LANGUAGE_TAG: String = "en"
+
+/** The player extensions `?extensions=` can turn on, by the name a page gives them. */
+internal enum class RcHostExtension(val parameterName: String) {
+  /** The draft 3D operations, `:rc-player-3d` (docs/design/RC_3D_EXTENSION.md). */
+  ThreeD("3d")
+}
+
+/**
+ * `?extensions=`: a comma-separated list of [RcHostExtension] names, case-insensitive. Absent or
+ * empty, none: a document using an extension's opcodes fails to decode, as it does on AndroidX's
+ * players, so the parity lanes keep comparing like with like. A name this bundle does not know is
+ * ignored rather than reported, so a page written for a newer bundle still loads on this one.
+ */
+internal fun parseExtensionsParameter(raw: String?): Set<RcHostExtension> {
+  val names = raw.orEmpty().split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+  return RcHostExtension.entries.filterTo(mutableSetOf()) { it.parameterName in names }
+}
+
+/** Which 3D rasterizer `?rc3dRenderer=` asks for; see `Rc3DRenderer`. */
+internal enum class Rc3DRendererParameter {
+  Auto,
+  Software,
+  Gpu,
+}
+
+/**
+ * `?rc3dRenderer=`: `software` or `gpu` forces one 3D rasterizer for every draw, which is what lets
+ * a test compare the two in the shipped bundle. Anything else, or none, is `auto`, the player's own
+ * choice per draw.
+ */
+internal fun parse3DRendererParameter(raw: String?): Rc3DRendererParameter =
+  when (raw?.trim()?.lowercase()) {
+    "software" -> Rc3DRendererParameter.Software
+    "gpu" -> Rc3DRendererParameter.Gpu
+    else -> Rc3DRendererParameter.Auto
+  }

@@ -693,6 +693,57 @@ internal object Rc3DDocuments {
       draw(torus)
     }
 
+  /**
+   * The browser smoke fixture (`rc3d-depth-scene.rc`): a torus that a cube passes through, which
+   * needs the depth buffer, then a label drawn over both, then a sphere in front of the label, so
+   * the depth renderer's composites have to interleave with 2D in document order.
+   */
+  fun webDepthScene(): Rc3DDocumentBuilder =
+    Rc3DDocumentBuilder(SIZE, SIZE).apply {
+      // Scaled to fit, so the 2D label scales with the 3D and lands over the meshes.
+      add(
+        RcRootContentBehavior(
+          RcRootContentBehavior.NONE,
+          RcRootContentBehavior.ALIGNMENT_CENTER,
+          RcRootContentBehavior.SIZING_SCALE,
+          RcRootContentBehavior.SCALE_FIT,
+        )
+      )
+      clearDepth()
+      standardCamera()
+      lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+      color(0xFF4488EE.toInt())
+      identity()
+      rotate(float(1.1f), 1f, 0f, 0f)
+      val torus =
+        primitive(
+          RcPrimitive3D.TORUS,
+          listOf(float(1.0f), float(0.35f), float(0f), float(0f), float(0f)),
+          float(32f),
+        )
+      draw(torus)
+      color(0xFFEE8844.toInt())
+      identity()
+      translate(float(0.9f), float(0f), float(0f))
+      rotate(float(0.6f), 0f, 1f, 0f)
+      val cube = primitive(RcPrimitive3D.CUBE, List(6) { float(if (it < 3) 0.7f else 0f) })
+      draw(cube)
+      color(LABEL)
+      add(
+        RcDraw4(
+          RcOpcodes.DRAW_RECT,
+          float(SIZE / 2f - 30f),
+          float(SIZE / 2f - 6f),
+          float(SIZE / 2f + 30f),
+          float(SIZE / 2f + 6f),
+        )
+      )
+      color(0xFF44CC88.toInt())
+      identity()
+      translate(float(-0.2f), float(0f), float(1.2f))
+      draw(primitive(RcPrimitive3D.SPHERE, listOf(0.25f, 0f, 0f, 0f).map(::float)))
+    }
+
   /** The XR sample's document at test size: a card, a rigid cube and a breathing torus. */
   fun xrSample(): Rc3DDocumentBuilder =
     Rc3DDocumentBuilder(SIZE, SIZE).apply {
