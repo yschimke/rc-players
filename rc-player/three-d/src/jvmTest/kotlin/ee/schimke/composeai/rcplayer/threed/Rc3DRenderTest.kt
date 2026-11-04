@@ -10,9 +10,12 @@ import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcplayer.compose.LocalRcPlayerExtensions
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcDraw6
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
+import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
@@ -337,6 +340,73 @@ class Rc3DRenderTest {
       )
     val differ = scaled.indices.count { scaled[it] != native[it] }
     assertTrue(differ == 0, "$differ pixels differ")
+  }
+
+  @Test
+  fun aScaledDocumentDrawingIntoABitmapUsesTheBitmapsSize() {
+    // DRAW_TO_BITMAP targets a canvas of the bitmap's own pixels, with no root scale: the 3D
+    // there fills the bitmap, and the bitmap is then drawn scaled like any 2D.
+    val half = SIZE / 2
+    val behavior =
+      RcRootContentBehavior(
+        RcRootContentBehavior.NONE,
+        RcRootContentBehavior.ALIGNMENT_CENTER,
+        RcRootContentBehavior.SIZING_SCALE,
+        RcRootContentBehavior.SCALE_FIT,
+      )
+    val viaBitmap =
+      Rc3DDocumentBuilder(half, half)
+        .apply {
+          add(behavior)
+          val bitmap = newId()
+          add(
+            RcBitmapData(
+              bitmap,
+              half,
+              half,
+              RcBitmapData.TYPE_PNG_8888,
+              RcBitmapData.ENCODING_EMPTY,
+              ByteArray(0),
+            )
+          )
+          add(RcDrawToBitmap(bitmap, 0, 0))
+          clearDepth()
+          perspectiveCamera(
+            float(0.9f),
+            float(1f),
+            float(0.1f),
+            float(100f),
+            listOf(float(0f), float(0f), float(4f)),
+            listOf(float(0f), float(0f), float(0f)),
+          )
+          lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+          color(0xFFEE8844.toInt())
+          identity()
+          rotate(float(0.6f), 0f, 1f, 0f)
+          rotate(float(0.35f), 1f, 0f, 0f)
+          draw(
+            primitive(RcPrimitive3D.CUBE, List(6) { float(if (it < 3) 1f else 0f) }),
+            Rc3D.MODE_SOFTWARE_SMOOTH,
+          )
+          add(RcDrawToBitmap(0, 0, 0))
+          add(
+            RcDrawBitmap(
+              bitmap,
+              float(0f),
+              float(0f),
+              float(half.toFloat()),
+              float(half.toFloat()),
+              0,
+            )
+          )
+        }
+        .encode()
+    val direct = Rc3DDocuments.litCube(Rc3D.MODE_SOFTWARE_SMOOTH, half, scaleFit = true).encode()
+    val expected = opaqueBounds(render(direct, size = SIZE, fill = true), SIZE)
+    val actual = opaqueBounds(render(viaBitmap, size = SIZE, fill = true), SIZE)
+    for (i in 0 until 4) {
+      assertTrue(abs(expected[i] - actual[i]) <= 3, "${actual.toList()} vs ${expected.toList()}")
+    }
   }
 
   /** Left, top, right and bottom of the pixels with any alpha. */

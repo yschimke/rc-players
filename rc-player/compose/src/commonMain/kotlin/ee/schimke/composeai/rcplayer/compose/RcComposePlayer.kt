@@ -5102,6 +5102,12 @@ private class RcDrawTargetState(
 
   private val offscreen = ArrayList<Offscreen>()
 
+  /**
+   * Whether [scope] draws on the main canvas, which carries the document's root transform. A
+   * `DRAW_TO_BITMAP` target is a canvas of its own, in its bitmap's pixels with no root scale.
+   */
+  fun onMainCanvas(scope: DrawScope): Boolean = scope.drawContext.canvas === mainCanvas
+
   fun enter() {
     depth++
   }
@@ -5681,7 +5687,11 @@ private fun DrawScope.drawOperationsRouted(
             paint.composeColor().toArgb(),
             images,
             targets.activeComponentId,
-            Size(unscale(size.width, paint.rootScaleX), unscale(size.height, paint.rootScaleY)),
+            if (targets.onMainCanvas(this)) {
+              Size(unscale(size.width, paint.rootScaleX), unscale(size.height, paint.rootScaleY))
+            } else {
+              size
+            },
           ),
         )
       else -> Unit // Constants/data have already populated RcPlayerState.
