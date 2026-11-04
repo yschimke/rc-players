@@ -1,7 +1,6 @@
 package ee.schimke.composeai.rcplayer.threed
 
 import ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.sqrt
 
@@ -21,8 +20,19 @@ internal object Rc3DConvexity {
     val faces = idx.size / 3
     if (vertexCount == 0 || faces == 0) return false
     if (faces.toLong() * vertexCount > MAX_WORK) return false
+    // The mesh's own size, not its distance from the origin: tolerances scale with the geometry
+    // and do not grow when the same shape is authored far away.
+    val min = FloatArray(3) { Float.POSITIVE_INFINITY }
+    val max = FloatArray(3) { Float.NEGATIVE_INFINITY }
+    for (i in v.indices) {
+      val x = v[i]
+      if (!x.isFinite()) return false
+      val axis = i % 3
+      if (x < min[axis]) min[axis] = x
+      if (x > max[axis]) max[axis] = x
+    }
     var extent = 0f
-    for (x in v) if (x.isFinite()) extent = max(extent, abs(x)) else return false
+    for (axis in 0 until 3) extent = max(extent, max[axis] - min[axis])
     val tolerance = 1e-4f * max(extent, 1e-6f)
     val minArea = 1e-6f * extent * extent
     for (f in 0 until faces) {

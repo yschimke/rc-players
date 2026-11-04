@@ -19,4 +19,12 @@ class Rc3DConvexityTest {
   fun aTorusIsNot() {
     assertFalse(Rc3DConvexity.isConvex(build(RcPrimitive3D.TORUS, listOf(0.6f, 0.2f, 0f, 0f, 0f))))
   }
+
+  @Test
+  fun aTorusFarFromTheOriginIsStillNotConvex() {
+    // Tolerances follow the mesh's size, not its position: moved 1000 units away, a torus's
+    // faces must not all fall under the degenerate threshold.
+    val far = build(RcPrimitive3D.TORUS, listOf(0.6f, 0.2f, 1000f, 0f, 0f))
+    assertFalse(Rc3DConvexity.isConvex(far))
+  }
 }

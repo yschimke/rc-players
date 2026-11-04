@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import ee.schimke.composeai.rcplayer.compose.RcExtensionDrawScope
 import ee.schimke.composeai.rcplayer.compose.RcExtensionSession
+import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcExtensionOperation
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
@@ -316,14 +317,15 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
 
   /**
    * Read from the document once: every depth pass (the operations between two `CLEAR_DEPTH`s) draws
-   * at most one mesh, and nothing repeats a draw. A loop could draw one mesh many times, so a
-   * document with one is never taken as single.
+   * at most one mesh, and nothing repeats a draw. A loop could draw one mesh many times and a
+   * conditional could skip a clear, so a document with either is never taken as single.
    */
   private val singleMeshPerDepthPass: Boolean = run {
     var draws = 0
     for (op in state.document.operations) {
       when {
-        op is RcLoopOperation -> return@run false
+        // Control flow can repeat a draw or skip a depth clear: neither is visible to this scan.
+        op is RcLoopOperation || op is RcConditionalOperations -> return@run false
         op is RcPaint3DState && op.sub == Rc3D.P3_CLEAR_DEPTH -> draws = 0
         op is RcDrawMesh3D -> if (++draws > 1) return@run false
       }
