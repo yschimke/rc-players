@@ -5,9 +5,10 @@ import kotlin.math.max
 import kotlin.math.sqrt
 
 /**
- * Whether a mesh is convex: every vertex lies on one side of every face's plane. With back faces
- * culled, a convex mesh's visible faces never overlap on screen, so it draws correctly in any order
- * and needs no depth buffer.
+ * Whether a mesh is a convex shell: every vertex lies on one side of every face's plane, and on the
+ * same side for every face, so the faces are consistently wound. With back faces culled, such a
+ * mesh's visible faces never overlap on screen, so it draws correctly in any order and needs no
+ * depth buffer.
  */
 internal object Rc3DConvexity {
   /** Face-vertex tests past which a mesh is not checked and is taken as not convex. */
@@ -35,6 +36,7 @@ internal object Rc3DConvexity {
     for (axis in 0 until 3) extent = max(extent, max[axis] - min[axis])
     val tolerance = 1e-4f * max(extent, 1e-6f)
     val minArea = 1e-6f * extent * extent
+    var side = 0
     for (f in 0 until faces) {
       val a = idx[f * 3] * 3
       val b = idx[f * 3 + 1] * 3
@@ -64,6 +66,13 @@ internal object Rc3DConvexity {
         val d = nx * (v[p] - v[a]) + ny * (v[p + 1] - v[a + 1]) + nz * (v[p + 2] - v[a + 2])
         if (d > tolerance) above = true else if (d < -tolerance) below = true
         if (above && below) return false
+      }
+      // Every face must also be oriented the same way: the rest of the mesh behind each face (an
+      // outward-wound shell) or in front of each (inward-wound). Two parallel triangles facing
+      // the same way pass each face's own test but overlap on screen.
+      val faceSide = if (above) 1 else if (below) -1 else 0
+      if (faceSide != 0) {
+        if (side == 0) side = faceSide else if (side != faceSide) return false
       }
     }
     return true
