@@ -161,6 +161,16 @@ internal object RcPrimitive3DSweep {
   }
 
   /** Output streams of the centreline sampler. */
+  /**
+   * Refuse a tube of [rings] rings of [sides] sides past the geometry budget, counted in Long so a
+   * hostile count cannot overflow past the check. Called before any per-ring buffer exists.
+   */
+  private fun requireRings(rings: Long, sides: Int) {
+    require(rings >= 0 && rings * (sides + 1) * 3 <= RcPrimitive3DMath.MAX_GEOMETRY_ELEMENTS) {
+      "MeshPrimitive tube: $rings rings of $sides sides exceeds the geometry budget"
+    }
+  }
+
   private class Centerline(n: Int) {
     val px = FloatArray(n)
     val py = FloatArray(n)
@@ -253,6 +263,7 @@ internal object RcPrimitive3DSweep {
       total += ns
     }
     val n = total
+    requireRings(n.toLong(), sides)
     val out = Centerline(n)
     val pos = FloatArray(3)
     val slope = DoubleArray(3)
@@ -311,6 +322,7 @@ internal object RcPrimitive3DSweep {
       val per =
         if (pathPerSpan > 0f) clampInt(lround(pathPerSpan), 1, MAX_TUBE_PER_SPAN)
         else segCount(segments, 8, 1)
+      requireRings((cn - 1).toLong() * per + 1, sides)
       val n = (cn - 1) * per + 1
       px = FloatArray(n)
       py = FloatArray(n)
@@ -820,6 +832,10 @@ internal object RcPrimitive3DSweep {
     val posOff = if (manualDensity) 2 else 1
     val pathPerSpan = if (manualDensity) params[1] else 0f
     require(nPoints >= 2) { "MeshPrimitive profile tube: need >= 2 points" }
+    // Checked in Long before any arithmetic in Int: 3 * nPoints overflows for a large count.
+    require(posOff + 3L * nPoints < params.size) {
+      "MeshPrimitive profile tube: $nPoints points do not fit in ${params.size} params"
+    }
     val rOff = posOff + 3 * nPoints
     val nR = params.size - rOff
     require(nR >= 1) { "MeshPrimitive profile tube: need >= 1 radius" }
@@ -1028,6 +1044,12 @@ internal object RcPrimitive3DSweep {
     sides: Int,
   ): Rc3DMeshData {
     val perTurn = maxOf(8, sides * 2)
+    val requested = perTurn.toDouble() * abs(turns).toDouble()
+    require(
+      requested.isFinite() && requested * (sides + 1) * 3 <= RcPrimitive3DMath.MAX_GEOMETRY_ELEMENTS
+    ) {
+      "MeshPrimitive helix: $requested stations exceeds the geometry budget"
+    }
     val stations = maxOf(2, lround(perTurn * abs(turns)) + 1)
     val path = RcPrimitive3DMath.geometryFloats(stations * 3)
     val totalRise = pitch * turns

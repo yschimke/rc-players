@@ -423,4 +423,30 @@ class RcPrimitive3DTest {
       )
     }
   }
+
+  @Test
+  fun aProfileTubeWhosePointCountOverflowsIsRefused() {
+    // 3 * 1e9 overflows Int; the count is checked in Long against the payload.
+    assertFailsWith<IllegalArgumentException> {
+      RcPrimitive3D.build(RcPrimitive3D.PROFILE_TUBE, 0f, 0, listOf(floatArrayOf(1e9f)))
+    }
+  }
+
+  @Test
+  fun aDenseTubePastTheBudgetIsRefusedBeforeSampling() {
+    // 50,000 points at 256 rings per span: within the channel limit, far past the budget.
+    val points = 50_000
+    val params = FloatArray(2 + points * 3)
+    params[0] = 0.1f
+    params[1] = 256f
+    for (i in 0 until points) params[2 + i * 3] = i.toFloat()
+    assertFailsWith<IllegalArgumentException> {
+      RcPrimitive3D.build(
+        RcPrimitive3D.TUBE,
+        0f,
+        RcPrimitive3D.FLAG_TUBE_PATH_DENSITY,
+        listOf(params),
+      )
+    }
+  }
 }
