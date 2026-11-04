@@ -41,4 +41,15 @@ class Rc3DConvexityTest {
       )
     assertFalse(Rc3DConvexity.isConvex(twoLayers))
   }
+
+  @Test
+  fun aRepeatedTriangleIsNot() {
+    val twice =
+      ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData(
+        verts = floatArrayOf(0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f),
+        normals = FloatArray(0),
+        indices = intArrayOf(0, 1, 2, 1, 2, 0),
+      )
+    assertFalse(Rc3DConvexity.isConvex(twice))
+  }
 }

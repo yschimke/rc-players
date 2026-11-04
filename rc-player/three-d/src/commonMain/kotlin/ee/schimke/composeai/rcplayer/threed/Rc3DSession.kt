@@ -317,6 +317,8 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
       sawSharedDepthPass = true
       return false
     }
+    // Translucent paint shows any overlap the depth test would have hidden; keep it exact.
+    if ((engine.baseColorArgb ushr 24) != 0xFF) return false
     // The software rasterizer maps textures perspective-correct; the vertex path is affine.
     if (textureImage != null && mesh.uv?.isNotEmpty() == true) return false
     return isConvex(mesh)
