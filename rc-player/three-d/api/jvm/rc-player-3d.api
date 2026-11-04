@@ -108,6 +108,20 @@ public final class ee/schimke/composeai/rcplayer/threed/Rc3DExtension$Companion 
 	public final fun getWireExtensions ()Lee/schimke/composeai/rcplayer/protocol/RcWireExtensions;
 }
 
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DFrame {
+	public static final field $stable I
+	public fun <init> (ILjava/util/List;)V
+	public final fun getComponentId ()I
+	public final fun getDraws ()Ljava/util/List;
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DGltf {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/threed/Rc3DGltf;
+	public final fun toGlb (Lee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;I[B)[B
+	public static synthetic fun toGlb$default (Lee/schimke/composeai/rcplayer/threed/Rc3DGltf;Lee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;I[BILjava/lang/Object;)[B
+}
+
 public final class ee/schimke/composeai/rcplayer/threed/Rc3DHostCamera {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rcplayer/threed/Rc3DHostCamera$Companion;
@@ -146,13 +160,19 @@ public final class ee/schimke/composeai/rcplayer/threed/Rc3DLight$Companion {
 
 public final class ee/schimke/composeai/rcplayer/threed/Rc3DMeshDraw {
 	public static final field $stable I
-	public fun <init> (ILee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;[F[F[FIIIFF)V
+	public fun <init> (ILee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;[F[F[FIIIFFIIJLandroidx/compose/ui/graphics/ImageBitmap;)V
+	public synthetic fun <init> (ILee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;[F[F[FIIIFFIIJLandroidx/compose/ui/graphics/ImageBitmap;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun getColor ()I
+	public final fun getComponentId ()I
+	public final fun getDrawIndex ()I
+	public final fun getKey ()Ljava/lang/String;
 	public final fun getMesh ()Lee/schimke/composeai/rcplayer/threed/engine/Rc3DMeshData;
 	public final fun getMeshId ()I
+	public final fun getMeshVersion ()J
 	public final fun getMode ()I
 	public final fun getModel ()[F
 	public final fun getProjection ()[F
+	public final fun getTexture ()Landroidx/compose/ui/graphics/ImageBitmap;
 	public final fun getTextureBitmapId ()I
 	public final fun getView ()[F
 	public final fun getViewportHeight ()F
@@ -194,6 +214,14 @@ public final class ee/schimke/composeai/rcplayer/threed/Rc3DOptions {
 	public final fun getSceneListener ()Lee/schimke/composeai/rcplayer/threed/Rc3DSceneListener;
 }
 
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DPanelPlacement {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/threed/Rc3DPanelPlacement;
+	public final fun defaultFocusDistance ([F)F
+	public final fun panelTransform (Lee/schimke/composeai/rcplayer/threed/Rc3DMeshDraw;FF)[F
+	public static synthetic fun panelTransform$default (Lee/schimke/composeai/rcplayer/threed/Rc3DPanelPlacement;Lee/schimke/composeai/rcplayer/threed/Rc3DMeshDraw;FFILjava/lang/Object;)[F
+}
+
 public final class ee/schimke/composeai/rcplayer/threed/Rc3DRenderer : java/lang/Enum {
 	public static final field Auto Lee/schimke/composeai/rcplayer/threed/Rc3DRenderer;
 	public static final field Gpu Lee/schimke/composeai/rcplayer/threed/Rc3DRenderer;
@@ -205,6 +233,11 @@ public final class ee/schimke/composeai/rcplayer/threed/Rc3DRenderer : java/lang
 
 public abstract interface class ee/schimke/composeai/rcplayer/threed/Rc3DSceneListener {
 	public abstract fun onDrawMesh (Lee/schimke/composeai/rcplayer/threed/Rc3DMeshDraw;)V
+	public fun onFrame (Lee/schimke/composeai/rcplayer/threed/Rc3DFrame;)V
+}
+
+public final class ee/schimke/composeai/rcplayer/threed/Rc3DSceneListener$DefaultImpls {
+	public static fun onFrame (Lee/schimke/composeai/rcplayer/threed/Rc3DSceneListener;Lee/schimke/composeai/rcplayer/threed/Rc3DFrame;)V
 }
 
 public final class ee/schimke/composeai/rcplayer/threed/RcDefineMesh3D : ee/schimke/composeai/rcplayer/threed/Rc3DOperation {

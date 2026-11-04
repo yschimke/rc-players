@@ -5078,6 +5078,10 @@ private class RcDrawTargetState(
 ) {
   private var depth = 0
 
+  /** The component this pass draws, or -1 for the document root; see [RcExtensionDrawScope]. */
+  val activeComponentId: Int
+    get() = active?.componentId ?: -1
+
   /** An offscreen target: the component it captures, if any, and the canvas to resume. */
   private class Offscreen(
     val componentId: Int?,
@@ -5300,6 +5304,9 @@ private fun DrawScope.drawOperations(
   } finally {
     state.endPaint()
     activeTargets.leave(this)
+    // A top-level pass is one complete drawing of this stream: extensions that drew in it learn
+    // it is over, so a host mirroring the drawing elsewhere can drop what this pass did not draw.
+    if (targets == null) paint.extensions?.endPass(activeTargets.activeComponentId)
   }
 }
 
@@ -5658,7 +5665,13 @@ private fun DrawScope.drawOperationsRouted(
       is RcExtensionOperation ->
         paint.extensions?.draw(
           operation,
-          RcExtensionDrawScopeImpl(this, state, paint.composeColor().toArgb(), images),
+          RcExtensionDrawScopeImpl(
+            this,
+            state,
+            paint.composeColor().toArgb(),
+            images,
+            targets.activeComponentId,
+          ),
         )
       else -> Unit // Constants/data have already populated RcPlayerState.
     }
@@ -5670,6 +5683,7 @@ private class RcExtensionDrawScopeImpl(
   override val state: RcPlayerState,
   override val paintColor: Int,
   private val images: Map<Int, ImageBitmap>,
+  override val componentId: Int,
 ) : RcExtensionDrawScope {
   override fun bitmap(id: Int): ImageBitmap? = images[id]
 }

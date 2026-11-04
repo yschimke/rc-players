@@ -73,7 +73,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     ensureSize(scope)
     when (op) {
       is RcDefineMesh3D ->
-        engine.defineMesh(
+        define(
           op.id,
           definedMeshes.getOrPut(op) {
             Rc3DMeshData(op.verts, op.normals, op.indices, op.uv.takeIf { it.isNotEmpty() })
@@ -180,7 +180,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
       channels.forEach { channel -> channel.forEach(::add) }
     }
     val mesh = cached(op, key) { RcPrimitive3D.build(op.type, segments, op.flags, channels) }
-    if (mesh != null) engine.defineMesh(op.id, mesh)
+    if (mesh != null) define(op.id, mesh)
   }
 
   private fun buildExpression(op: RcMeshExpression3D) {
@@ -206,7 +206,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
       }
     }
     val mesh = cached(op, key) { expressions.generate(op, params, ::resolve) }
-    if (mesh != null) engine.defineMesh(op.id, mesh)
+    if (mesh != null) define(op.id, mesh)
   }
 
   private inline fun cached(
@@ -221,25 +221,51 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
     return mesh
   }
 
+  /**
+   * Mesh versions, bumped when an id is given different geometry; see [Rc3DMeshDraw.meshVersion].
+   */
+  private val meshVersions = mutableMapOf<Int, Pair<Rc3DMeshData, Long>>()
+  private var nextMeshVersion = 1L
+  private val passDraws = mutableMapOf<Int, MutableList<Rc3DMeshDraw>>()
+
+  private fun define(id: Int, mesh: Rc3DMeshData) {
+    engine.defineMesh(id, mesh)
+    val current = meshVersions[id]
+    if (current == null || current.first !== mesh) meshVersions[id] = mesh to nextMeshVersion++
+  }
+
+  override fun endPass(componentId: Int) {
+    val draws = passDraws.remove(componentId) ?: return
+    options.sceneListener?.onFrame(Rc3DFrame(componentId, draws))
+  }
+
   private fun drawMesh(op: RcDrawMesh3D, scope: RcExtensionDrawScope) {
     val meshId = op.meshId
     val mesh = engine.mesh(meshId) ?: return
     engine.baseColorArgb = scope.paintColor
     val size = scope.drawScope.size
-    options.sceneListener?.onDrawMesh(
-      Rc3DMeshDraw(
-        meshId,
-        mesh,
-        engine.modelMatrix,
-        engine.viewMatrix,
-        engine.projectionMatrix,
-        scope.paintColor,
-        textureBitmapId,
-        op.mode,
-        size.width,
-        size.height,
-      )
-    )
+    options.sceneListener?.let { listener ->
+      val pass = passDraws.getOrPut(scope.componentId) { mutableListOf() }
+      val draw =
+        Rc3DMeshDraw(
+          meshId,
+          mesh,
+          engine.modelMatrix,
+          engine.viewMatrix,
+          engine.projectionMatrix,
+          scope.paintColor,
+          textureBitmapId,
+          op.mode,
+          size.width,
+          size.height,
+          componentId = scope.componentId,
+          drawIndex = pass.size,
+          meshVersion = meshVersions[meshId]?.second ?: 0L,
+          texture = textureImage,
+        )
+      pass += draw
+      listener.onDrawMesh(draw)
+    }
     if (!options.drawInPlayer) return
     if (useGpu(op.mode)) drawGpu(meshId, op.mode, scope) else drawSoftware(meshId, op.mode, scope)
   }

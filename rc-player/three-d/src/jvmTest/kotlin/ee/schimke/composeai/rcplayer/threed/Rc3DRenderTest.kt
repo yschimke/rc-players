@@ -114,6 +114,38 @@ class Rc3DRenderTest {
   }
 
   @Test
+  fun aSceneListenerGetsWholeFramesWithStableKeysAndMeshVersions() {
+    val frames = mutableListOf<Rc3DFrame>()
+    val listener =
+      object : Rc3DSceneListener {
+        override fun onDrawMesh(draw: Rc3DMeshDraw) = Unit
+
+        override fun onFrame(frame: Rc3DFrame) {
+          frames += frame
+        }
+      }
+    val times = listOf(0L, 250_000_000L, 500_000_000L)
+    val options = Rc3DOptions(drawInPlayer = false, sceneListener = listener)
+
+    // A rigid cube spun by the clock: a frame per redraw, the same key and the same mesh version
+    // every time, and only the model matrix moving. An XR host updates one entity's pose.
+    renderFrames(Rc3DDocuments.spinningCube().encode(), times, options)
+    assertTrue(frames.size >= times.size, "a frame per redraw: ${frames.size}")
+    assertTrue(
+      frames.all { it.componentId == -1 && it.draws.map(Rc3DMeshDraw::key) == listOf("-1/0") }
+    )
+    assertEquals(1, frames.map { it.draws.single().meshVersion }.distinct().size)
+    assertTrue(frames.map { it.draws.single().model.toList() }.distinct().size > 1)
+
+    // A torus whose tube radius follows the clock is rebuilt each frame: its version rises, the
+    // signal to leave a deforming mesh to the player.
+    frames.clear()
+    renderFrames(Rc3DDocuments.breathingTorus().encode(), times, options)
+    val versions = frames.map { it.draws.single().meshVersion }
+    assertTrue(versions.zipWithNext().all { (a, b) -> b > a }, "versions $versions")
+  }
+
+  @Test
   fun parametricAndExpressionMeshesRender() {
     for (document in listOf(Rc3DDocuments.torus(), Rc3DDocuments.heightField())) {
       val pixels = render(document.encode())
@@ -299,6 +331,33 @@ internal object Rc3DDocuments {
         )
       )
       draw(id)
+    }
+
+  fun breathingTorus(): Rc3DDocumentBuilder =
+    Rc3DDocumentBuilder(SIZE, SIZE).apply {
+      val radius =
+        expression(
+          listOf(
+            continuousSeconds(),
+            Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.SIN),
+            float(0.1f),
+            Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.MUL),
+            float(0.35f),
+            Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.ADD),
+          )
+        )
+      clearDepth()
+      standardCamera()
+      lights(Rc3DLight.directional(-0.3f, -0.5f, -0.8f))
+      color(0xFFCC4466.toInt())
+      identity()
+      val torus =
+        primitive(
+          RcPrimitive3D.TORUS,
+          listOf(float(1.1f), radius, float(0f), float(0f), float(0f)),
+          float(16f),
+        )
+      draw(torus)
     }
 
   fun hostCameraCube(): Rc3DDocumentBuilder =

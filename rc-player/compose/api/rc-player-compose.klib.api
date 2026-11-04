@@ -65,6 +65,8 @@ abstract fun interface ee.schimke.composeai.rcplayer.compose/RcImageLoader { // 
 }
 
 abstract interface ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope { // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope|null[0]
+    abstract val componentId // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.componentId|{}componentId[0]
+        abstract fun <get-componentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.componentId.<get-componentId>|<get-componentId>(){}[0]
     abstract val drawScope // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.drawScope|{}drawScope[0]
         abstract fun <get-drawScope>(): androidx.compose.ui.graphics.drawscope/DrawScope // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.drawScope.<get-drawScope>|<get-drawScope>(){}[0]
     abstract val paintColor // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.paintColor|{}paintColor[0]
@@ -78,6 +80,7 @@ abstract interface ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope { 
 abstract interface ee.schimke.composeai.rcplayer.compose/RcExtensionSession { // ee.schimke.composeai.rcplayer.compose/RcExtensionSession|null[0]
     abstract fun draw(ee.schimke.composeai.rcplayer.protocol/RcExtensionOperation, ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope) // ee.schimke.composeai.rcplayer.compose/RcExtensionSession.draw|draw(ee.schimke.composeai.rcplayer.protocol.RcExtensionOperation;ee.schimke.composeai.rcplayer.compose.RcExtensionDrawScope){}[0]
     open fun dispose() // ee.schimke.composeai.rcplayer.compose/RcExtensionSession.dispose|dispose(){}[0]
+    open fun endPass(kotlin/Int) // ee.schimke.composeai.rcplayer.compose/RcExtensionSession.endPass|endPass(kotlin.Int){}[0]
 }
 
 abstract interface ee.schimke.composeai.rcplayer.compose/RcPlayerExtension { // ee.schimke.composeai.rcplayer.compose/RcPlayerExtension|null[0]

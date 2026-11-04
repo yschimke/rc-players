@@ -39,6 +39,14 @@ public interface RcExtensionSession {
    */
   public fun draw(operation: RcExtensionOperation, scope: RcExtensionDrawScope)
 
+  /**
+   * Called when a complete drawing of one stream has finished, if this session drew in it.
+   * [componentId] is the component the stream belongs to, as [RcExtensionDrawScope.componentId]
+   * reports it. Everything the session drew for that component since the previous call for it is
+   * the whole of what the document currently shows there.
+   */
+  public fun endPass(componentId: Int) {}
+
   /** Called when the document leaves composition. */
   public fun dispose() {}
 }
@@ -53,6 +61,13 @@ public interface RcExtensionDrawScope {
 
   /** The current paint colour as unpremultiplied ARGB, with the paint's alpha applied. */
   public val paintColor: Int
+
+  /**
+   * The layout component whose drawing this is (a canvas, or a component's draw modifier), or -1
+   * for a document drawn as one root stream. A document can draw extension operations in several
+   * components in one frame; this tells their passes apart.
+   */
+  public val componentId: Int
 
   /** A bitmap the document declared (or drew into), or null if it is not loaded. */
   public fun bitmap(id: Int): ImageBitmap?
@@ -97,8 +112,20 @@ public val LocalRcPlayerExtensions: ProvidableCompositionLocal<RcPlayerExtension
 @OptIn(ExperimentalRcWireExtension::class)
 internal class RcExtensionSessions
 private constructor(private val sessions: Map<String, RcExtensionSession>) {
+  /** Sessions that drew since the last [endPass]; a pass that drew nothing reports nothing. */
+  private val drewThisPass = LinkedHashSet<RcExtensionSession>()
+
   fun draw(operation: RcExtensionOperation, scope: RcExtensionDrawScope) {
-    sessions[operation.extensionId]?.draw(operation, scope)
+    val session = sessions[operation.extensionId] ?: return
+    drewThisPass += session
+    session.draw(operation, scope)
+  }
+
+  fun endPass(componentId: Int) {
+    if (drewThisPass.isEmpty()) return
+    val drew = drewThisPass.toList()
+    drewThisPass.clear()
+    drew.forEach { it.endPass(componentId) }
   }
 
   fun dispose() {

@@ -20,6 +20,7 @@ final enum class ee.schimke.composeai.rcplayer.threed/Rc3DRenderer : kotlin/Enum
 
 abstract fun interface ee.schimke.composeai.rcplayer.threed/Rc3DSceneListener { // ee.schimke.composeai.rcplayer.threed/Rc3DSceneListener|null[0]
     abstract fun onDrawMesh(ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw) // ee.schimke.composeai.rcplayer.threed/Rc3DSceneListener.onDrawMesh|onDrawMesh(ee.schimke.composeai.rcplayer.threed.Rc3DMeshDraw){}[0]
+    open fun onFrame(ee.schimke.composeai.rcplayer.threed/Rc3DFrame) // ee.schimke.composeai.rcplayer.threed/Rc3DSceneListener.onFrame|onFrame(ee.schimke.composeai.rcplayer.threed.Rc3DFrame){}[0]
 }
 
 sealed interface ee.schimke.composeai.rcplayer.threed/Rc3DOperation : ee.schimke.composeai.rcplayer.protocol/RcExtensionOperation { // ee.schimke.composeai.rcplayer.threed/Rc3DOperation|null[0]
@@ -116,6 +117,15 @@ final class ee.schimke.composeai.rcplayer.threed/Rc3DExtension : ee.schimke.comp
     }
 }
 
+final class ee.schimke.composeai.rcplayer.threed/Rc3DFrame { // ee.schimke.composeai.rcplayer.threed/Rc3DFrame|null[0]
+    constructor <init>(kotlin/Int, kotlin.collections/List<ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw>) // ee.schimke.composeai.rcplayer.threed/Rc3DFrame.<init>|<init>(kotlin.Int;kotlin.collections.List<ee.schimke.composeai.rcplayer.threed.Rc3DMeshDraw>){}[0]
+
+    final val componentId // ee.schimke.composeai.rcplayer.threed/Rc3DFrame.componentId|{}componentId[0]
+        final fun <get-componentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/Rc3DFrame.componentId.<get-componentId>|<get-componentId>(){}[0]
+    final val draws // ee.schimke.composeai.rcplayer.threed/Rc3DFrame.draws|{}draws[0]
+        final fun <get-draws>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw> // ee.schimke.composeai.rcplayer.threed/Rc3DFrame.draws.<get-draws>|<get-draws>(){}[0]
+}
+
 final class ee.schimke.composeai.rcplayer.threed/Rc3DHostCamera { // ee.schimke.composeai.rcplayer.threed/Rc3DHostCamera|null[0]
     constructor <init>(kotlin/FloatArray, kotlin/FloatArray = ..., kotlin/FloatArray = ..., kotlin/Float = ...) // ee.schimke.composeai.rcplayer.threed/Rc3DHostCamera.<init>|<init>(kotlin.FloatArray;kotlin.FloatArray;kotlin.FloatArray;kotlin.Float){}[0]
 
@@ -160,20 +170,30 @@ final class ee.schimke.composeai.rcplayer.threed/Rc3DLight { // ee.schimke.compo
 }
 
 final class ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw { // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw|null[0]
-    constructor <init>(kotlin/Int, ee.schimke.composeai.rcplayer.threed.engine/Rc3DMeshData, kotlin/FloatArray, kotlin/FloatArray, kotlin/FloatArray, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Float, kotlin/Float) // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.<init>|<init>(kotlin.Int;ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData;kotlin.FloatArray;kotlin.FloatArray;kotlin.FloatArray;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Float){}[0]
+    constructor <init>(kotlin/Int, ee.schimke.composeai.rcplayer.threed.engine/Rc3DMeshData, kotlin/FloatArray, kotlin/FloatArray, kotlin/FloatArray, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Int = ..., kotlin/Int = ..., kotlin/Long = ..., androidx.compose.ui.graphics/ImageBitmap? = ...) // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.<init>|<init>(kotlin.Int;ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData;kotlin.FloatArray;kotlin.FloatArray;kotlin.FloatArray;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Int;kotlin.Int;kotlin.Long;androidx.compose.ui.graphics.ImageBitmap?){}[0]
 
     final val color // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.color|{}color[0]
         final fun <get-color>(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.color.<get-color>|<get-color>(){}[0]
+    final val componentId // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.componentId|{}componentId[0]
+        final fun <get-componentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.componentId.<get-componentId>|<get-componentId>(){}[0]
+    final val drawIndex // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.drawIndex|{}drawIndex[0]
+        final fun <get-drawIndex>(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.drawIndex.<get-drawIndex>|<get-drawIndex>(){}[0]
+    final val key // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.key|{}key[0]
+        final fun <get-key>(): kotlin/String // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.key.<get-key>|<get-key>(){}[0]
     final val mesh // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.mesh|{}mesh[0]
         final fun <get-mesh>(): ee.schimke.composeai.rcplayer.threed.engine/Rc3DMeshData // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.mesh.<get-mesh>|<get-mesh>(){}[0]
     final val meshId // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.meshId|{}meshId[0]
         final fun <get-meshId>(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.meshId.<get-meshId>|<get-meshId>(){}[0]
+    final val meshVersion // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.meshVersion|{}meshVersion[0]
+        final fun <get-meshVersion>(): kotlin/Long // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.meshVersion.<get-meshVersion>|<get-meshVersion>(){}[0]
     final val mode // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.mode|{}mode[0]
         final fun <get-mode>(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.mode.<get-mode>|<get-mode>(){}[0]
     final val model // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.model|{}model[0]
         final fun <get-model>(): kotlin/FloatArray // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.model.<get-model>|<get-model>(){}[0]
     final val projection // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.projection|{}projection[0]
         final fun <get-projection>(): kotlin/FloatArray // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.projection.<get-projection>|<get-projection>(){}[0]
+    final val texture // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.texture|{}texture[0]
+        final fun <get-texture>(): androidx.compose.ui.graphics/ImageBitmap? // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.texture.<get-texture>|<get-texture>(){}[0]
     final val textureBitmapId // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.textureBitmapId|{}textureBitmapId[0]
         final fun <get-textureBitmapId>(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.textureBitmapId.<get-textureBitmapId>|<get-textureBitmapId>(){}[0]
     final val view // ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw.view|{}view[0]
@@ -561,6 +581,10 @@ final object ee.schimke.composeai.rcplayer.threed/Rc3D { // ee.schimke.composeai
         final fun <get-WIRE_EDGE_MASK>(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/Rc3D.WIRE_EDGE_MASK.<get-WIRE_EDGE_MASK>|<get-WIRE_EDGE_MASK>(){}[0]
 }
 
+final object ee.schimke.composeai.rcplayer.threed/Rc3DGltf { // ee.schimke.composeai.rcplayer.threed/Rc3DGltf|null[0]
+    final fun toGlb(ee.schimke.composeai.rcplayer.threed.engine/Rc3DMeshData, kotlin/Int = ..., kotlin/ByteArray? = ...): kotlin/ByteArray // ee.schimke.composeai.rcplayer.threed/Rc3DGltf.toGlb|toGlb(ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData;kotlin.Int;kotlin.ByteArray?){}[0]
+}
+
 final object ee.schimke.composeai.rcplayer.threed/Rc3DOpcodes { // ee.schimke.composeai.rcplayer.threed/Rc3DOpcodes|null[0]
     final const val DEFINE_MESH_3D // ee.schimke.composeai.rcplayer.threed/Rc3DOpcodes.DEFINE_MESH_3D|{}DEFINE_MESH_3D[0]
         final fun <get-DEFINE_MESH_3D>(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/Rc3DOpcodes.DEFINE_MESH_3D.<get-DEFINE_MESH_3D>|<get-DEFINE_MESH_3D>(){}[0]
@@ -587,16 +611,24 @@ final object ee.schimke.composeai.rcplayer.threed/Rc3DOpcodes { // ee.schimke.co
         final fun <get-ALL>(): kotlin.collections/Set<kotlin/Int> // ee.schimke.composeai.rcplayer.threed/Rc3DOpcodes.ALL.<get-ALL>|<get-ALL>(){}[0]
 }
 
+final object ee.schimke.composeai.rcplayer.threed/Rc3DPanelPlacement { // ee.schimke.composeai.rcplayer.threed/Rc3DPanelPlacement|null[0]
+    final fun defaultFocusDistance(kotlin/FloatArray): kotlin/Float // ee.schimke.composeai.rcplayer.threed/Rc3DPanelPlacement.defaultFocusDistance|defaultFocusDistance(kotlin.FloatArray){}[0]
+    final fun panelTransform(ee.schimke.composeai.rcplayer.threed/Rc3DMeshDraw, kotlin/Float, kotlin/Float = ...): kotlin/FloatArray // ee.schimke.composeai.rcplayer.threed/Rc3DPanelPlacement.panelTransform|panelTransform(ee.schimke.composeai.rcplayer.threed.Rc3DMeshDraw;kotlin.Float;kotlin.Float){}[0]
+}
+
 final val ee.schimke.composeai.rcplayer.threed.engine/ee_schimke_composeai_rcplayer_threed_engine_Rc3DMeshData$stableprop // ee.schimke.composeai.rcplayer.threed.engine/ee_schimke_composeai_rcplayer_threed_engine_Rc3DMeshData$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_engine_Rc3DMeshData$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed.engine/ee_schimke_composeai_rcplayer_threed_engine_RcPrimitive3D$stableprop // ee.schimke.composeai.rcplayer.threed.engine/ee_schimke_composeai_rcplayer_threed_engine_RcPrimitive3D$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_engine_RcPrimitive3D$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3D$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3D$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_Rc3D$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DDocumentBuilder$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DDocumentBuilder$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_Rc3DDocumentBuilder$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DExtension$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DExtension$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_Rc3DExtension$stableprop[0]
+final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DFrame$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DFrame$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_Rc3DFrame$stableprop[0]
+final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DGltf$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DGltf$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_Rc3DGltf$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DHostCamera$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DHostCamera$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_Rc3DHostCamera$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DLight$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DLight$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_Rc3DLight$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DMeshDraw$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DMeshDraw$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_Rc3DMeshDraw$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DOpcodes$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DOpcodes$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_Rc3DOpcodes$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DOptions$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DOptions$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_Rc3DOptions$stableprop[0]
+final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DPanelPlacement$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DPanelPlacement$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_Rc3DPanelPlacement$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcDefineMesh3D$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcDefineMesh3D$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_RcDefineMesh3D$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcDrawMesh3D$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcDrawMesh3D$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_RcDrawMesh3D$stableprop[0]
 final val ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcMatrix3DOp$stableprop // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcMatrix3DOp$stableprop|#static{}ee_schimke_composeai_rcplayer_threed_RcMatrix3DOp$stableprop[0]
@@ -613,11 +645,14 @@ final fun ee.schimke.composeai.rcplayer.threed.engine/ee_schimke_composeai_rcpla
 final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3D$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3D$stableprop_getter|ee_schimke_composeai_rcplayer_threed_Rc3D$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DDocumentBuilder$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DDocumentBuilder$stableprop_getter|ee_schimke_composeai_rcplayer_threed_Rc3DDocumentBuilder$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DExtension$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DExtension$stableprop_getter|ee_schimke_composeai_rcplayer_threed_Rc3DExtension$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DFrame$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DFrame$stableprop_getter|ee_schimke_composeai_rcplayer_threed_Rc3DFrame$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DGltf$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DGltf$stableprop_getter|ee_schimke_composeai_rcplayer_threed_Rc3DGltf$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DHostCamera$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DHostCamera$stableprop_getter|ee_schimke_composeai_rcplayer_threed_Rc3DHostCamera$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DLight$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DLight$stableprop_getter|ee_schimke_composeai_rcplayer_threed_Rc3DLight$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DMeshDraw$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DMeshDraw$stableprop_getter|ee_schimke_composeai_rcplayer_threed_Rc3DMeshDraw$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DOpcodes$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DOpcodes$stableprop_getter|ee_schimke_composeai_rcplayer_threed_Rc3DOpcodes$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DOptions$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DOptions$stableprop_getter|ee_schimke_composeai_rcplayer_threed_Rc3DOptions$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DPanelPlacement$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_Rc3DPanelPlacement$stableprop_getter|ee_schimke_composeai_rcplayer_threed_Rc3DPanelPlacement$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcDefineMesh3D$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcDefineMesh3D$stableprop_getter|ee_schimke_composeai_rcplayer_threed_RcDefineMesh3D$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcDrawMesh3D$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcDrawMesh3D$stableprop_getter|ee_schimke_composeai_rcplayer_threed_RcDrawMesh3D$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcMatrix3DOp$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.threed/ee_schimke_composeai_rcplayer_threed_RcMatrix3DOp$stableprop_getter|ee_schimke_composeai_rcplayer_threed_RcMatrix3DOp$stableprop_getter(){}[0]

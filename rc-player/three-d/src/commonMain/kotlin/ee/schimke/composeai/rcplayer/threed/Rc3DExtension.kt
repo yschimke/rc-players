@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.threed
 
+import androidx.compose.ui.graphics.ImageBitmap
 import ee.schimke.composeai.rcplayer.compose.RcExtensionSession
 import ee.schimke.composeai.rcplayer.compose.RcPlayerExtension
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -98,8 +99,20 @@ public class Rc3DOptions(
  * turns meshes into scene entities once and then only updates their poses, for instance.
  */
 public fun interface Rc3DSceneListener {
+  /** Each mesh draw, as it happens. */
   public fun onDrawMesh(draw: Rc3DMeshDraw)
+
+  /**
+   * One complete drawing of a component's 3D content: every draw it made, in order. A host that
+   * mirrors the scene keeps exactly these draws for [Rc3DFrame.componentId] and drops any others it
+   * held for that component. Nothing is reported while the document is not redrawn, so a static
+   * scene costs nothing after its first frame.
+   */
+  public fun onFrame(frame: Rc3DFrame) {}
 }
+
+/** The draws of one pass over one component; see [Rc3DSceneListener.onFrame]. */
+public class Rc3DFrame(public val componentId: Int, public val draws: List<Rc3DMeshDraw>)
 
 /**
  * One `DRAW_MESH_3D`, resolved. Matrices are column-major 4x4. [viewportWidth] and [viewportHeight]
@@ -118,4 +131,20 @@ public class Rc3DMeshDraw(
   public val mode: Int,
   public val viewportWidth: Float,
   public val viewportHeight: Float,
-)
+  /** The component this draw belongs to, or -1 for a root stream; see [Rc3DFrame]. */
+  public val componentId: Int = -1,
+  /** This draw's position in its component's pass: with [componentId], a stable identity. */
+  public val drawIndex: Int = 0,
+  /**
+   * Increases whenever mesh [meshId] is redefined with different geometry. A host caches GPU
+   * buffers or scene entities by it; one that rises every frame marks a deforming mesh, which an XR
+   * runtime that takes only fixed geometry should leave to the player.
+   */
+  public val meshVersion: Long = 0,
+  /** The texture bitmap in effect, when it is loaded. */
+  public val texture: ImageBitmap? = null,
+) {
+  /** A key for this draw that is stable from frame to frame while the document's structure is. */
+  public val key: String
+    get() = "$componentId/$drawIndex"
+}
