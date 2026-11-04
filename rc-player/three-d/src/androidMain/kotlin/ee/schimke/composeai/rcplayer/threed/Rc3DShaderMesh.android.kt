@@ -27,7 +27,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 internal actual class RcShaderMeshDrawer actual constructor() {
-  internal val api: RcMeshApi34? =
+  private val api: RcMeshApi34? =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) RcMeshApi34() else null
 
   // Only on a GPU canvas: that is where it pays, and the path the device tests cover.
@@ -84,13 +84,6 @@ internal class RcMeshApi34 {
 
   private class Upload(val data: Rc3DShaderMeshData, val buffer: ByteBuffer)
 
-  /** Device-test switches: draw back faces too, or every face flat red, to isolate a stage. */
-  var debugNoCull = false
-  var debugFlatColor = false
-
-  /** The vertex count of the last upload, for the device tests. */
-  var lastVertexCount = -1
-    private set
 
   fun draw(
     scope: DrawScope,
@@ -108,7 +101,6 @@ internal class RcMeshApi34 {
     engine.prepareShading()
     if (engine.eyeLightCount > MAX_LIGHTS) return false
     val upload = upload(mesh) ?: return false
-    lastVertexCount = upload.data.vertexCount
     if (upload.data.vertexCount == 0) return true
     if (!upload.data.inFrontOfNearPlane(engine.modelViewProjection)) return false
     val target =
@@ -121,7 +113,6 @@ internal class RcMeshApi34 {
     target.setFloatUniform("mvp", engine.modelViewProjection)
     target.setFloatUniform("mv", engine.modelView)
     target.setFloatUniform("viewport", width, height)
-    target.setFloatUniform("debug", if (debugNoCull) 1f else 0f, if (debugFlatColor) 1f else 0f)
     target.setFloatUniform(
       "base",
       ((baseColor shr 16) and 0xFF) / 255f,
@@ -173,7 +164,7 @@ internal class RcMeshApi34 {
     return true
   }
 
-  internal fun makeSpec(): MeshSpecification? =
+  private fun makeSpec(): MeshSpecification? =
     runCatching {
         MeshSpecification.make(
           arrayOf(
@@ -248,7 +239,7 @@ internal class RcMeshApi34 {
     shader = null
   }
 
-  internal companion object {
+  private companion object {
     const val TAG = "Rc3D"
     const val MAX_UPLOADS = 16
     const val MAX_SLOTS = 64
@@ -266,7 +257,6 @@ internal class RcMeshApi34 {
       uniform float4x4 mvp;
       uniform float4x4 mv;
       uniform float2 viewport;
-      uniform float2 debug;
       uniform float4 base;
       uniform float4 shading;
       uniform float lightCount;
@@ -303,7 +293,7 @@ internal class RcMeshApi34 {
         float2 s1 = screen(mvp * float4(c0 + a.edge1, 1.0));
         float2 s2 = screen(mvp * float4(c0 + a.edge2, 1.0));
         float area = (s1.x - s0.x) * (s2.y - s0.y) - (s2.x - s0.x) * (s1.y - s0.y);
-        if (area > 0.0 && debug.x < 0.5) {
+        if (area > 0.0) {
           v.position = float2(0.0, 0.0);
           v.shade = float4(0.0);
           v.uvw = float3(0.0, 0.0, 1.0);
@@ -353,7 +343,7 @@ internal class RcMeshApi34 {
           }
         }
         float3 rgb = min(base.rgb * diffuse + spec, float3(1.0));
-        v.shade = debug.y > 0.5 ? float4(1.0, 0.0, 0.0, 1.0) : float4(rgb * base.a, base.a);
+        v.shade = float4(rgb * base.a, base.a);
         return v;
       }
       """
