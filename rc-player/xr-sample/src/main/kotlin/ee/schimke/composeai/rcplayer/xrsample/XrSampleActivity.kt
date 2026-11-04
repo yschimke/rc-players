@@ -15,7 +15,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
@@ -43,17 +46,37 @@ class XrSampleActivity : ComponentActivity() {
   private val canShow3D = mutableStateOf(false)
   private val host = mutableStateOf<RcSceneCoreHost?>(null)
 
+  /** The player's bounds in the window's pixels, which on XR are the main panel's pixels. */
+  @Volatile private var playerBounds: Rect? = null
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     val bytes = RcXrSampleDocument.bytes()
-    setContent { XrSampleScreen(bytes, host.value.takeIf { canShow3D.value }) }
+    setContent {
+      XrSampleScreen(bytes, host.value.takeIf { canShow3D.value }) { playerBounds = it }
+    }
     lifecycleScope.launch {
       // Fails, rather than throws, on a device without XR: the player then draws everything.
       val result =
         Session.create(this@XrSampleActivity, EmptyCoroutineContext, this@XrSampleActivity)
       val session = (result as? SessionCreateSuccess)?.session ?: return@launch
       val panel = session.scene.mainPanelEntity
-      host.value = RcSceneCoreHost(session, panel, lifecycleScope) { panel.size.height }
+      host.value =
+        RcSceneCoreHost(session, panel, lifecycleScope) {
+          val bounds = playerBounds ?: return@RcSceneCoreHost null
+          val px = panel.sizeInPixels
+          val meters = panel.size
+          RcXrViewport.of(
+            bounds.left,
+            bounds.top,
+            bounds.right,
+            bounds.bottom,
+            px.width,
+            px.height,
+            meters.width,
+            meters.height,
+          )
+        }
       canShow3D.value = SpatialCapability.SPATIAL_3D_CONTENT in session.scene.spatialCapabilities
       session.scene.addSpatialCapabilitiesChangedListener { capabilities ->
         canShow3D.value = SpatialCapability.SPATIAL_3D_CONTENT in capabilities
@@ -71,7 +94,11 @@ class XrSampleActivity : ComponentActivity() {
 }
 
 @Composable
-private fun XrSampleScreen(bytes: ByteArray, host: RcSceneCoreHost?) {
+private fun XrSampleScreen(
+  bytes: ByteArray,
+  host: RcSceneCoreHost?,
+  onPlayerBounds: (Rect) -> Unit,
+) {
   val extensions =
     remember(host) {
       val options =
@@ -81,7 +108,12 @@ private fun XrSampleScreen(bytes: ByteArray, host: RcSceneCoreHost?) {
     }
   Column(Modifier.fillMaxSize().background(Color(0xFF101418)).padding(16.dp)) {
     CompositionLocalProvider(LocalRcPlayerExtensions provides extensions) {
-      RcComposePlayer(bytes, Modifier.fillMaxWidth().aspectRatio(1f))
+      RcComposePlayer(
+        bytes,
+        Modifier.fillMaxWidth().aspectRatio(1f).onGloballyPositioned {
+          onPlayerBounds(it.boundsInWindow())
+        },
+      )
     }
     BasicText(
       if (host != null) {

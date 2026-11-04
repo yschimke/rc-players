@@ -31,4 +31,14 @@ class RcDeformationTrackerTest {
     assertTrue(tracker.isDeforming("-1/1"))
     assertFalse(tracker.isDeforming("-1/0"))
   }
+
+  @Test
+  fun everyLaterFrameOfADeformingMeshIsStillDeforming() {
+    // The host consults isDeforming on every frame, not only observe's one-time report.
+    val tracker = RcDeformationTracker()
+    for (version in 1L..10L) {
+      tracker.observe("-1/1", version)
+      if (version >= 3) assertTrue(tracker.isDeforming("-1/1"), "frame $version")
+    }
+  }
 }

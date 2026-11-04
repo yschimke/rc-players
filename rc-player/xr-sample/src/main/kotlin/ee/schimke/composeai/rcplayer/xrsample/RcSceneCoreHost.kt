@@ -47,8 +47,11 @@ internal class RcSceneCoreHost(
   private val session: Session,
   private val parent: Entity,
   private val scope: CoroutineScope,
-  /** The panel's height in metres, read per frame since the user can resize it. */
-  private val panelHeightMeters: () -> Float,
+  /**
+   * Where the player draws on the panel, read per frame since the user can resize the panel and the
+   * layout can move the player; null until it has been measured.
+   */
+  private val viewport: () -> RcXrViewport?,
 ) : Rc3DSceneListener, AutoCloseable {
   private class Mirror(val entity: MeshEntity, val meshVersion: Long, var color: Int)
 
@@ -77,7 +80,9 @@ internal class RcSceneCoreHost(
     mirrors.keys.filter { it.startsWith(prefix) && it !in drawn }.forEach(::hide)
     waiting.keys.removeAll { it.startsWith(prefix) && it !in drawn }
     for (draw in frame.draws) {
-      if (tracker.observe(draw.key, draw.meshVersion)) {
+      tracker.observe(draw.key, draw.meshVersion)
+      // Every frame of a deforming draw stays with the player, not only the one it became so on.
+      if (tracker.isDeforming(draw.key)) {
         hide(draw.key)
         waiting.remove(draw.key)
       } else {
@@ -140,8 +145,21 @@ internal class RcSceneCoreHost(
   }
 
   private fun place(entity: MeshEntity, draw: Rc3DMeshDraw) {
-    val transform = Matrix4(Rc3DPanelPlacement.panelTransform(draw, panelHeightMeters()))
-    entity.setPose(Pose(transform.translation, transform.unscaled().rotation))
+    val area = viewport()
+    if (area == null) {
+      // Not measured yet: hidden rather than placed against the wrong area.
+      entity.setEnabled(false)
+      return
+    }
+    entity.setEnabled(true)
+    val transform = Matrix4(Rc3DPanelPlacement.panelTransform(draw, area.heightMeters))
+    val t = transform.translation
+    entity.setPose(
+      Pose(
+        Vector3(t.x + area.offsetXMeters, t.y + area.offsetYMeters, t.z),
+        transform.unscaled().rotation,
+      )
+    )
     // Uniform: the placement's own scale is uniform, and the public API takes one factor. A model
     // matrix with a non-uniform scale is approximated by its mean.
     val scale = transform.scale
