@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.xrsample
 
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -17,6 +18,9 @@ class RcXrViewportTest {
     near(0f, v.offsetXMeters)
     // Its centre is 500 px down a 1400 px panel: 200 px, 0.2 m, above the panel's centre.
     near(0.2f, v.offsetYMeters)
+    near(0.9f, v.widthMeters)
+    assertEquals(900, v.widthPx)
+    assertEquals(900, v.heightPx)
   }
 
   @Test
