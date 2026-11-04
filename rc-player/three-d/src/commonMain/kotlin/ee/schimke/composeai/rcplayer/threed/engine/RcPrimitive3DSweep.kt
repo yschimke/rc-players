@@ -547,18 +547,15 @@ internal object RcPrimitive3DSweep {
         }
       }
       if (nx < 2) continue
-      // Insertion sort, matching the reference: a stable order decides which edges pair.
-      for (a in 1 until nx) {
-        val kx = crossX[a]
-        val ke = crossE[a]
-        var b = a - 1
-        while (b >= 0 && crossX[b] > kx) {
-          crossX[b + 1] = crossX[b]
-          crossE[b + 1] = crossE[b]
-          b--
-        }
-        crossX[b + 1] = kx
-        crossE[b + 1] = ke
+      // A stable sort by x, the order the reference's insertion sort produces (which edges pair
+      // depends on it), in O(n log n): one band can hold every edge of the outline, and an
+      // insertion sort over 100,000 crossings stalls the draw.
+      if (nx > 1) {
+        val order = (0 until nx).sortedWith { i, j -> crossX[i].compareTo(crossX[j]) }
+        val xs = FloatArray(nx) { crossX[order[it]] }
+        val es = IntArray(nx) { crossE[order[it]] }
+        xs.copyInto(crossX)
+        es.copyInto(crossE)
       }
       var winding = 0
       for (i in 0 until nx - 1) {
@@ -1109,6 +1106,13 @@ internal object RcPrimitive3DSweep {
         k++
       }
       contours.add(ring)
+    }
+    // Each contour's hole test walks every other contour's points, so the walls cost contours x
+    // points: bounded like the cap scan, before any of it runs.
+    var totalPoints = 0L
+    for (ring in contours) totalPoints += ring.size / 2
+    require(contours.size * totalPoints <= MAX_SCANLINE_WORK) {
+      "MeshPrimitive extrude path: ${contours.size} contours of $totalPoints points exceeds the budget"
     }
     val hd = depth * 0.5f
     if (bevel <= 0f) {

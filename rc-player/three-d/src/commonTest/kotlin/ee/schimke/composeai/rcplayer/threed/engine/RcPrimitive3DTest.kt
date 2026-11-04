@@ -470,4 +470,46 @@ class RcPrimitive3DTest {
       RcPrimitive3D.build(RcPrimitive3D.EXTRUDE_PATH, 0f, 0, listOf(p))
     }
   }
+
+  @Test
+  fun manyCrossingsInOneBandAreRefusedQuickly() {
+    // 20,000 equal-height rectangles listed right to left: 40,000 crossings in a single band.
+    val n = 20_000
+    val p = FloatArray(6 + n * 9)
+    p[0] = 1f
+    p[5] = n.toFloat()
+    var k = 6
+    for (i in n - 1 downTo 0) {
+      val x0 = 3f * i
+      val x1 = x0 + 1f
+      p[k++] = 4f
+      for (v in floatArrayOf(x0, 0f, x1, 0f, x1, 1f, x0, 1f)) p[k++] = v
+    }
+    // Refused up front: 20,000 contours of 80,000 points is past the work budget for the hole
+    // tests, and is refused before the scan's sort or the walls run at all.
+    val start = kotlin.time.TimeSource.Monotonic.markNow()
+    assertFailsWith<IllegalArgumentException> {
+      RcPrimitive3D.build(RcPrimitive3D.EXTRUDE_PATH, 0f, 0, listOf(p))
+    }
+    assertTrue(start.elapsedNow().inWholeMilliseconds < 1_000, "refused before the quadratic work")
+  }
+
+  @Test
+  fun aWideSingleBandWithinTheBudgetSortsQuickly() {
+    // 2,000 rectangles right to left, 4,000 crossings in one band: within budget, and the
+    // stable sort keeps it fast where an insertion sort would shift millions of times.
+    val n = 2_000
+    val p = FloatArray(6 + n * 9)
+    p[0] = 1f
+    p[5] = n.toFloat()
+    var k = 6
+    for (i in n - 1 downTo 0) {
+      val x0 = 3f * i
+      p[k++] = 4f
+      for (v in floatArrayOf(x0, 0f, x0 + 1f, 0f, x0 + 1f, 1f, x0, 1f)) p[k++] = v
+    }
+    val mesh = RcPrimitive3D.build(RcPrimitive3D.EXTRUDE_PATH, 0f, 0, listOf(p))
+    // Each rectangle: 2 cap quads (4 triangles) and 4 wall quads (8 triangles).
+    assertEquals(n * 12, mesh.triangleCount)
+  }
 }
