@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>rc-player-3d WebGL2 tests</title>
+  <script type="importmap">{ "imports": { "@js-joda/core": "./js-joda.esm.js" } }</script>
+</head>
+<body>
+<pre id="log"></pre>
+<script type="module">
+  // A small Mocha-shaped harness: kotlin.test hands its suites to `describe` and its cases to
+  // `it` when both exist. Each result lands in `window.rcTestResults`, and the run's end sets
+  // `window.rcTestsDone`, which scripts/wasm-smoke/three-d-webgl.mjs waits for.
+  const results = [];
+  const suites = [];
+  const pending = [];
+  const log = (line) => { document.getElementById('log').textContent += line + '\n'; };
+  window.describe = (name, body) => { suites.push(name); try { body(); } finally { suites.pop(); } };
+  window.xdescribe = () => {};
+  window.it = (name, body) => {
+    const full = [...suites, name].join(' > ');
+    pending.push(async () => {
+      try {
+        await body();
+        results.push({ name: full, ok: true });
+        log('PASS ' + full);
+      } catch (e) {
+        results.push({ name: full, ok: false, error: String(e && (e.stack || e.message) || e) });
+        log('FAIL ' + full + ': ' + e);
+      }
+    });
+  };
+  window.xit = (name) => { results.push({ name, ok: true, skipped: true }); };
+  // kotlin.test reads this namespace for an adapter transformer; there is none.
+  window.kotlinTest = {};
+  window.rcTestResults = results;
+  try {
+    const { awaitSkiko } = await import('./skiko.mjs');
+    await awaitSkiko;
+    const tests = await import('./rc-players-rc-player-3d-test.mjs');
+    tests.startUnitTests();
+    for (const run of pending) await run();
+  } catch (e) {
+    results.push({ name: 'load', ok: false, error: String(e && (e.stack || e.message) || e) });
+  }
+  window.rcTestsDone = true;
+</script>
+</body>
+</html>

@@ -101,7 +101,7 @@ most 4 levels).
 ### The Android GLES depth renderer
 
 `Auto` sends a draw that needs depth to the GPU too, on Android 10 and later
-(`Rc3DDepthRenderer.android.kt`). That is any software-mode draw the depthless paths above cannot
+(`Rc3DDepthRenderer.android.kt`) and in the browser (below). That is any software-mode draw the depthless paths above cannot
 take: non-convex meshes, several meshes in one depth pass, textures, translucency.
 
 - **Rendering.** One EGL context per session renders each mesh into an offscreen framebuffer
@@ -114,10 +114,57 @@ take: non-convex meshes, several meshes in one depth pass, textures, translucenc
 - **Routing.** The first depth-needing draw in a pass picks the renderer for the whole pass, so a
   pass never mixes two depth buffers.
 - **What stays on the software rasterizer:** wireframe, whose hidden-line pass is its own; a pass
-  that started there; more than eight lights; software canvases; Android 9 and earlier; every
-  Skia target; and `Rc3DRenderer.Software`.
+  that started there; more than eight lights; software canvases; Android 9 and earlier; the Skia
+  targets other than Wasm; and `Rc3DRenderer.Software`.
 - **Testing.** `Rc3DAndroidDepthDeviceTest` compares it with the software rasterizer on the
   emulator, for a torus, intersecting cubes, a glossy cube and a textured sphere.
+
+### The WebGL2 depth renderer (Wasm)
+
+The same renderer in the browser (`Rc3DDepthRenderer.wasmJs.kt`), routed by the same rules: the
+session's up-front read (`gpuDepthTakesEveryDraw`) and the first depth-needing draw of a pass
+decide, exactly as on Android, because nothing about the route is different. It takes the draws
+that need depth; a lone convex mesh still goes through `drawVertices`, and wireframe, more than
+eight lights and `Rc3DRenderer.Software` stay on the software rasterizer.
+
+- **Why a copy.** Skiko draws through a WebGL2 context it does not expose, and a canvas holds one
+  context. A second canvas layered over or under Skia's would avoid a copy, but only for a
+  document whose 3D is one layer; a mesh, then a label, then a mesh would no longer interleave,
+  and the player would need a rule for when layering is allowed. The copy keeps document order
+  for every document, so it needs no new rule.
+- **Rendering.** A WebGL2 context of the session's own on an `OffscreenCanvas` (a detached
+  `<canvas>` where there is none) renders each mesh into a framebuffer whose 24-bit depth buffer
+  lasts until `CLEAR_DEPTH`, with the GLSL ES 3.0 programs Android's renderer runs
+  (`Rc3DDepthShaders`). The projection is mirrored vertically so GL's rows come out in Skia's
+  order, which turns the front face clockwise.
+- **The copy.** `readPixels` writes straight into a Skia bitmap's pixels in Skiko's Wasm memory, so
+  nothing passes through Kotlin arrays; textures are uploaded from that memory the same way. Only
+  the rectangle the mesh's bounding box projects to is read and drawn, so a small mesh in a large
+  viewport costs its own area, as on the software path. Drawing the bitmap snapshots it, so one
+  bitmap serves every mesh of a frame.
+- **Failure.** No WebGL2, a lost context or a shader that does not compile disables the renderer
+  for the session, and those draws use the software rasterizer.
+- **Testing.** `Rc3DWebGlDepthTest` draws the Android device test's four scenes through both
+  renderers and holds them to the same thresholds (coverage within 4%, a mean colour difference
+  of at most 6 levels), and checks that depth lasts until it is cleared. It runs in Chromium:
+  `./gradlew :rc-player-3d:wasmWebGlTestDist` stages the production-compiled `wasmJs` tests with a
+  page of their own, and `scripts/wasm-smoke/three-d-webgl.mjs` opens it (CI's JVM lane runs both).
+
+Measured with that test in headless Chromium on a GPU-less Linux host, where WebGL2 is Chrome's
+software GL (SwiftShader), per frame, composite included, the meshes built once:
+
+| Scene | Software, 256 px | WebGL2, 256 px | Software, 768 px | WebGL2, 768 px |
+| --- | --- | --- | --- | --- |
+| Torus | 8.4 ms | 4.4 ms | 68.8 ms | 26.0 ms |
+| Intersecting cubes | 13.4 ms | 2.5 ms | 104.3 ms | 16.8 ms |
+| Glossy cube | 6.4 ms | 1.6 ms | 60.0 ms | 10.4 ms |
+| Textured sphere | 10.7 ms | 4.6 ms | 81.5 ms | 38.4 ms |
+
+The copy wins even there, where the "GPU" is itself a CPU rasterizer: SwiftShader is native,
+vectorized and multi-threaded, and the software rasterizer is single-threaded Wasm. On a real GPU
+the draw is cheaper still and the cost is mostly the read's round trip, so these are an upper
+bound. Against coverage of 10,000 to 21,000 pixels, the renders differ on 1-2% of them, along
+silhouettes, with a mean colour difference of 1.1 to 3.9 levels.
 
 ### Next GPU steps, by target
 
@@ -126,7 +173,7 @@ take: non-convex meshes, several meshes in one depth pass, textures, translucenc
 | Android (API 34+) | Done for convex meshes: `RcShaderMeshDrawer` | The per-vertex transform and lighting leave the CPU; geometry uploads only when a primitive rebuilds |
 | Android (API 29+) | Done: `RcGlesDepth`, GLES into an `ImageReader` surface, drawn with `Bitmap.wrapHardwareBuffer` | A real depth buffer with no CPU copy, still in document order |
 | Desktop, iOS, macOS | Skia's mesh API, if Skiko exposes it; otherwise render on Skia's own `DirectContext` | Same as Android `Mesh`; the open question is sharing a texture with Skiko without a copy |
-| Web (Wasm) | WebGL2 in Skiko's context, or WebGPU | Skiko already draws through WebGL2, so zero-copy needs the same context |
+| Web (Wasm) | Done for depth: `RcWebGlDepth`, WebGL2 in a context of its own, read back into a Skia bitmap. Next: zero-copy in Skiko's context, or WebGPU | Zero-copy needs Skiko's own context, which it does not expose; the copy already beats the software rasterizer |
 
 ## XR
 

@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData
 import ee.schimke.composeai.rcplayer.threed.engine.RcSoftware3D
 
-/** No GPU depth renderer on the Skia targets yet: the software rasterizer draws. */
+/** No GPU depth renderer on desktop and Apple yet: the software rasterizer draws. */
 internal actual class RcDepthRenderer actual constructor() {
   actual fun canDraw(scope: DrawScope): Boolean = false
 

@@ -4,6 +4,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import ee.schimke.composeai.rcplayer.threed.engine.Rc3DMeshData
 import ee.schimke.composeai.rcplayer.threed.engine.RcSoftware3D
+import kotlin.math.ceil
+import kotlin.math.floor
 
 /**
  * Draws a mesh with the projection and lighting in a vertex shader, from geometry uploaded once:
@@ -122,6 +124,47 @@ internal class Rc3DShaderMeshData(val mesh: Rc3DMeshData) {
       val w = mvp[3] * x + mvp[7] * y + mvp[11] * z + mvp[15]
       if (w < NEAR_W) return false
     }
+    return true
+  }
+
+  /**
+   * The pixels the mesh can touch under [mvp] in a [width] by [height] viewport, as `left, top,
+   * right, bottom` (top-down rows, right and bottom exclusive) in [out]: the bounding box's
+   * corners, projected, plus a pixel of slack. Returns false, leaving [out] alone, when the box is
+   * not wholly in front of the near plane, where a projected corner says nothing; the caller then
+   * takes the whole viewport. An empty rectangle means the mesh is off screen.
+   */
+  fun screenRect(mvp: FloatArray, width: Int, height: Int, out: IntArray): Boolean {
+    if (vertexCount == 0) {
+      out[0] = 0
+      out[1] = 0
+      out[2] = 0
+      out[3] = 0
+      return true
+    }
+    var minX = Float.POSITIVE_INFINITY
+    var minY = Float.POSITIVE_INFINITY
+    var maxX = Float.NEGATIVE_INFINITY
+    var maxY = Float.NEGATIVE_INFINITY
+    for (corner in 0 until 8) {
+      val x = if (corner and 1 == 0) boundsMin[0] else boundsMax[0]
+      val y = if (corner and 2 == 0) boundsMin[1] else boundsMax[1]
+      val z = if (corner and 4 == 0) boundsMin[2] else boundsMax[2]
+      val w = mvp[3] * x + mvp[7] * y + mvp[11] * z + mvp[15]
+      if (w < NEAR_W) return false
+      val nx = (mvp[0] * x + mvp[4] * y + mvp[8] * z + mvp[12]) / w
+      val ny = (mvp[1] * x + mvp[5] * y + mvp[9] * z + mvp[13]) / w
+      val px = (nx + 1f) * 0.5f * width
+      val py = (1f - ny) * 0.5f * height
+      if (px < minX) minX = px
+      if (px > maxX) maxX = px
+      if (py < minY) minY = py
+      if (py > maxY) maxY = py
+    }
+    out[0] = (floor(minX).toInt() - 1).coerceIn(0, width)
+    out[1] = (floor(minY).toInt() - 1).coerceIn(0, height)
+    out[2] = (ceil(maxX).toInt() + 1).coerceIn(out[0], width)
+    out[3] = (ceil(maxY).toInt() + 1).coerceIn(out[1], height)
     return true
   }
 

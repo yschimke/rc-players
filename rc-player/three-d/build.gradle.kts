@@ -44,9 +44,12 @@ kotlin {
   applyDefaultHierarchyTemplate {
     common {
       group("skiko") {
-        withJvm()
         withWasmJs()
-        withApple()
+        // The Skia targets with no GPU depth renderer yet; Wasm has its own, over WebGL2.
+        group("skikoNative") {
+          withJvm()
+          withApple()
+        }
       }
     }
   }
@@ -91,4 +94,28 @@ composeAiMavenPublishing {
 // -Prc.3d.out=<abs dir>` writes PNGs; without the property the generator skips.
 tasks.withType<Test>().configureEach {
   providers.gradleProperty("rc.3d.out").orNull?.let { systemProperty("rc.3d.out", it) }
+}
+
+// The WebGL2 depth renderer's browser test, as a static bundle: the production-compiled `wasmJs`
+// test executable, Skiko's runtime and a page that runs the tests and publishes the results.
+// `scripts/wasm-smoke/three-d-webgl.mjs` opens it in Chromium (see Rc3DWebGlDepthTest). It is not
+// `wasmJsBrowserTest`: Karma's GPU-less Chrome is launched without the software-GL flag WebGL2
+// needs (the WebGL2 cases skip there), and the cases' timings mean little in an unoptimized build.
+val optimizedTests =
+  tasks.named<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenExec>(
+    "compileTestProductionExecutableKotlinWasmJsOptimize"
+  )
+
+tasks.register<Sync>("wasmWebGlTestDist") {
+  description =
+    "Assemble the 3D WebGL2 browser test bundle for scripts/wasm-smoke/three-d-webgl.mjs."
+  group = "verification"
+  dependsOn("wasmJsTestTestProductionExecutableCompileSync", "processSkikoRuntimeForKWasm")
+  from(optimizedTests.flatMap { it.outputDirectory }) { exclude("*.map") }
+  from(layout.buildDirectory.dir("compose/skiko-runtime-processed-wasmjs")) {
+    include("skiko.mjs", "skiko.wasm")
+  }
+  from(layout.projectDirectory.dir("src/wasmJsTest/page"))
+  from(rootProject.layout.projectDirectory.file("rc-player/wasm/dist-assets/js-joda.esm.js"))
+  into(layout.buildDirectory.dir("wasmWebGlTestDist"))
 }
