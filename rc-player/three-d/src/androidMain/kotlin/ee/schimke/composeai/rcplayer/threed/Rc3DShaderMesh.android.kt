@@ -260,13 +260,15 @@ internal class RcMeshApi34 {
       uniform float4 lightPos[$MAX_LIGHTS];
       uniform float4 lightColor[$MAX_LIGHTS];
 
-      float3 toLight(int i, float3 p) {
-        if (lightPos[i].w > 0.5) {
-          float3 d = lightPos[i].xyz - p;
+      // Takes the light, not its index: SkSL only indexes a uniform array with a constant or a
+      // loop index, and a function parameter is neither.
+      float3 toLight(float4 light, float3 p) {
+        if (light.w > 0.5) {
+          float3 d = light.xyz - p;
           float l = length(d);
           return l > 0.0 ? d / l : d;
         }
-        return lightPos[i].xyz;
+        return light.xyz;
       }
 
       Varyings main(const Attributes a) {
@@ -308,7 +310,7 @@ internal class RcMeshApi34 {
           if (dot(n, view) < 0.0) n = -n;
           for (int i = 0; i < $MAX_LIGHTS; i++) {
             if (float(i) >= lightCount) break;
-            float3 l = toLight(i, p);
+            float3 l = toLight(lightPos[i], p);
             float ndl = dot(n, l);
             if (ndl <= 0.0) continue;
             diffuse += lightColor[i].rgb * ndl;
@@ -322,7 +324,7 @@ internal class RcMeshApi34 {
         } else {
           for (int i = 0; i < $MAX_LIGHTS; i++) {
             if (float(i) >= lightCount) break;
-            diffuse += lightColor[i].rgb * abs(dot(n, toLight(i, p)));
+            diffuse += lightColor[i].rgb * abs(dot(n, toLight(lightPos[i], p)));
           }
         }
         float3 rgb = min(base.rgb * diffuse + spec, float3(1.0));
