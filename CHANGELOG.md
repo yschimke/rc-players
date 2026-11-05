@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.24.0](https://github.com/yschimke/rc-players/compare/v2.23.0...v2.24.0) (2026-11-05)
+
+
+### Features
+
+* **3d:** draw depth-needing meshes through WebGL2 on Wasm ([#797](https://github.com/yschimke/rc-players/issues/797)) ([ec6a14d](https://github.com/yschimke/rc-players/commit/ec6a14db95ff652d2f7f7c28d5ceebef7a159b8c))
+* **edit:** decompile a document to Remote Compose Kotlin or a UI Builder design ([#801](https://github.com/yschimke/rc-players/issues/801)) ([543a3a2](https://github.com/yschimke/rc-players/commit/543a3a2da1016d8255cfdd39254a632e9d6aca39))
+* **edit:** Wear widgets carry core text ([#807](https://github.com/yschimke/rc-players/issues/807)) ([32febb7](https://github.com/yschimke/rc-players/commit/32febb74b6c0533acac23ffd2b6e35ff3ae4385e))
+* **edit:** write text font family and spacing into UI Builder designs ([#804](https://github.com/yschimke/rc-players/issues/804)) ([61e6699](https://github.com/yschimke/rc-players/commit/61e6699b856fcde07165b55a547951636ca9362f))
+* **edit:** write theme text colours, ARGB colours and more modifiers into UI Builder designs ([#803](https://github.com/yschimke/rc-players/issues/803)) ([ccfbbce](https://github.com/yschimke/rc-players/commit/ccfbbce17aa1e13fed1a629d78433b1c4013ed41))
+* **wasm:** play the draft 3D operations under ?extensions=3d ([#799](https://github.com/yschimke/rc-players/issues/799)) ([be01731](https://github.com/yschimke/rc-players/commit/be0173111218d7c9f93537f32b6c0a54a14e445f))
+* **xr-sample:** render deforming meshes into a stereo surface (level 2) ([#796](https://github.com/yschimke/rc-players/issues/796)) ([a0681e0](https://github.com/yschimke/rc-players/commit/a0681e0cf386c890e676de9aa0fa02ad7afca13d))
+
+
+### Bug Fixes
+
+* **3d:** keep smooth normals perpendicular and vector padding at zero ([#790](https://github.com/yschimke/rc-players/issues/790)) ([21d4c3e](https://github.com/yschimke/rc-players/commit/21d4c3e505bfbf540d31cb8b15e24433d682c64a))
+* **compose:** play gradients of up to 255 colours, as AndroidX does ([#805](https://github.com/yschimke/rc-players/issues/805)) ([18fb761](https://github.com/yschimke/rc-players/commit/18fb7610ac3393c4db1acb099e430166d7bd9472))
+* **compose:** read a text's wire font style as AndroidX does, 1 = italic ([#806](https://github.com/yschimke/rc-players/issues/806)) ([d280621](https://github.com/yschimke/rc-players/commit/d28062142fab26c0aee9210c902088d7d42ae5b7))
+* **deps:** update dependency com.android.tools.build:gradle to v9.5.1 ([#809](https://github.com/yschimke/rc-players/issues/809)) ([9c24bd0](https://github.com/yschimke/rc-players/commit/9c24bd04b0c132ff2ae59b4c3388135b3e90bd10))
+* **deps:** update dependency playwright to v1.65.0 ([#810](https://github.com/yschimke/rc-players/issues/810)) ([c5f0bec](https://github.com/yschimke/rc-players/commit/c5f0bec33e006af669ded86896b3e8062455804c))
+
 ## [2.23.0](https://github.com/yschimke/rc-players/compare/v2.22.0...v2.23.0) (2026-11-04)
 
 
