@@ -383,4 +383,21 @@ class RcKotlinSourceTest {
     // The writer omits 36, AndroidX's default; at density 2 that is 18sp, not RemoteText's 12sp.
     assertContains(source.code, "fontSize = 18.rsp")
   }
+
+  @Test
+  fun onlyTheFontStyleTheCreationApiWritesIsGenerated() {
+    fun source(style: Int) =
+      document(
+          RcTextData(42, "Hi"),
+          *rootLayoutArray(RcCoreText(42, listOf(RcTextStyleProperty.IntValue(6, style))), END),
+        )
+        .toRemoteComposeKotlin()
+    assertContains(source(1).code, "fontStyle = RemoteFontStyle.Italic")
+    assertTrue(source(1).isComplete, source(1).unsupported.toString())
+    // 2 and 3 are Typeface italic and bold italic; RemoteFontStyle.Italic would write 1.
+    for (style in listOf(2, 3)) {
+      assertFalse(source(style).code.contains("fontStyle = "), "style $style")
+      assertEquals(1, source(style).unsupported.size, source(style).unsupported.toString())
+    }
+  }
 }

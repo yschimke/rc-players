@@ -484,12 +484,7 @@ private class RcKotlinWriter(
     // RemoteText's own 12sp.
     val size = word(TEXT_FONT_SIZE) ?: RcFloatWord.literal(WIRE_DEFAULT_FONT_SIZE)
     arguments += "fontSize = ${fontSize(size)}"
-    int(TEXT_FONT_STYLE)?.let { style ->
-      if (style != 0) {
-        import("androidx.compose.remote.creation.compose.text.RemoteFontStyle")
-        arguments += "fontStyle = RemoteFontStyle.Italic"
-      }
-    }
+    int(TEXT_FONT_STYLE)?.let { style -> fontStyle(style)?.let { arguments += "fontStyle = $it" } }
     word(TEXT_FONT_WEIGHT)?.let { arguments += "fontWeight = ${fontWeight(it)}" }
     int(TEXT_FONT_FAMILY)
       ?.takeUnless { it == -1 }
@@ -616,10 +611,7 @@ private class RcKotlinWriter(
       if (text.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0) "color = ${colorById(text.color)}"
       else "color = ${literalColor(text.color)}"
     arguments += "fontSize = ${fontSize(text.fontSize)}"
-    if (text.fontStyle != 0) {
-      import("androidx.compose.remote.creation.compose.text.RemoteFontStyle")
-      arguments += "fontStyle = RemoteFontStyle.Italic"
-    }
+    fontStyle(text.fontStyle)?.let { arguments += "fontStyle = $it" }
     arguments += "fontWeight = ${fontWeight(text.fontWeight)}"
     if (text.fontFamilyId != -1) arguments += "fontFamily = ${fontFamily(text.fontFamilyId)}"
     textAlign(text.textAlign)?.let { arguments += "textAlign = $it" }
@@ -649,6 +641,24 @@ private class RcKotlinWriter(
       "${float(sp)}.sp.asRemoteTextUnit()"
     }
   }
+
+  /**
+   * A font style as the `RemoteFontStyle` that writes the same wire value: `Italic` writes 1. No
+   * creation call writes another value, such as the Typeface-style 2 (italic) or 3 (bold italic),
+   * so those are reported rather than written as 1, which players read differently.
+   */
+  private fun fontStyle(style: Int): String? =
+    when (style) {
+      0 -> null
+      1 -> {
+        import("androidx.compose.remote.creation.compose.text.RemoteFontStyle")
+        "RemoteFontStyle.Italic"
+      }
+      else -> {
+        gap("font style $style has no RemoteFontStyle; the text is written with the default style")
+        null
+      }
+    }
 
   private fun fontWeight(word: RcFloatWord): String {
     import("androidx.compose.remote.creation.compose.text.RemoteFontWeight")

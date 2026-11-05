@@ -329,7 +329,7 @@ private class RcUiBuilderWriter(
       intOf(TEXT_COLOR) != null ->
         props["color"] = prop("string", str(hexOpaque(intOf(TEXT_COLOR)!!)))
     }
-    if ((intOf(TEXT_FONT_STYLE) ?: 0) != 0) props["fontStyle"] = prop("string", str("italic"))
+    fontStyle(intOf(TEXT_FONT_STYLE) ?: 0)?.let { props["fontStyle"] = prop("string", str(it)) }
     wordOf(TEXT_FONT_WEIGHT)
       ?.takeUnless { it.isNaNEncoded }
       ?.let { props["fontWeight"] = prop("string", str(it.value.toInt().toString())) }
@@ -364,7 +364,7 @@ private class RcUiBuilderWriter(
       if (text.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0) colorString(text.color)
       else hexOpaque(text.color)
     color?.let { props["color"] = prop("string", str(it)) }
-    if (text.fontStyle != 0) props["fontStyle"] = prop("string", str("italic"))
+    fontStyle(text.fontStyle)?.let { props["fontStyle"] = prop("string", str(it)) }
     if (!text.fontWeight.isNaNEncoded) {
       props["fontWeight"] = prop("string", str(text.fontWeight.value.toInt().toString()))
     }
@@ -373,6 +373,17 @@ private class RcUiBuilderWriter(
     if (text.maxLines != Int.MAX_VALUE) props["maxLines"] = prop("int", int(text.maxLines))
     return node("text", "remote-m3/remote-text", props, null, modifiers(node))
   }
+
+  /** A wire font style as the design's: 1 is what the creation API writes for italic. */
+  private fun fontStyle(style: Int): String? =
+    when (style) {
+      0 -> null
+      1 -> "italic"
+      else -> {
+        gap("font style $style has no design value; the text is written with the default style")
+        null
+      }
+    }
 
   private fun fontSize(word: RcFloatWord): Float? {
     if (word.isNaNEncoded) {
