@@ -808,8 +808,14 @@ private class RcUiBuilderWriter(
     fun dp(value: Float) =
       if (header.densityBehavior == RcHeader.DENSITY_BEHAVIOR_PIXELS) value / density else value
     val bounds = obj("type" to str(name))
-    if (minimum.value != 0f) bounds["minDp"] = num(dp(minimum.value))
-    if (maximum.value != Float.MAX_VALUE) bounds["maxDp"] = num(dp(maximum.value))
+    // -1 is the wire's "unspecified" (the player skips it), as are 0 for a minimum and
+    // Float.MAX_VALUE for a maximum; the design leaves an unspecified bound out.
+    if (minimum.value != 0f && minimum.value != UNSPECIFIED_BOUND) {
+      bounds["minDp"] = num(dp(minimum.value))
+    }
+    if (maximum.value != Float.MAX_VALUE && maximum.value != UNSPECIFIED_BOUND) {
+      bounds["maxDp"] = num(dp(maximum.value))
+    }
     return bounds
   }
 
@@ -1147,6 +1153,9 @@ private class RcUiBuilderWriter(
     const val PAINT_STROKE_WIDTH = 5
     const val PAINT_STROKE_MITER = 6
     const val DEFAULT_MITER_LIMIT = 4f
+
+    /** A size bound the wire leaves unspecified. */
+    const val UNSPECIFIED_BOUND = -1f
     const val PAINT_STROKE_CAP = 7
     const val PAINT_STYLE = 8
     const val PAINT_FILTER_QUALITY = 10

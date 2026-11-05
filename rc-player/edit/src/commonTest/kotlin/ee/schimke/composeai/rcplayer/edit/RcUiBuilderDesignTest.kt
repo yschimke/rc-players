@@ -428,6 +428,26 @@ class RcUiBuilderDesignTest {
     )
   }
 
+  @Test
+  fun anUnspecifiedSizeBoundIsLeftOut() {
+    val design =
+      document(
+          *root(
+            RcBoxLayout(-10, -1, 1, 4),
+            RcWidthInModifier(word(-1f), word(80f)),
+            RcHeightInModifier(word(24f), word(-1f)),
+            RcLayoutContent(-11),
+            END,
+            END,
+          )
+        )
+        .toUiBuilderDesign()
+    assertContains(
+      compact(design.json),
+      "{\"type\":\"widthIn\",\"maxDp\":80},{\"type\":\"heightIn\",\"minDp\":24}",
+    )
+  }
+
   /** [document] with a dp header, so lengths read back as written. */
   private fun withDp(document: ee.schimke.composeai.rcplayer.protocol.RcDocument) =
     document.copy(
