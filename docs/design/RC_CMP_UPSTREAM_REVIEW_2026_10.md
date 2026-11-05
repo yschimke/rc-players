@@ -116,3 +116,20 @@ ported. CoreDocument accessors, reflection, `GraphContext` plumbing and tracing 
 Follow-ups: the native Swift player runs neither built-in visibility animations nor a draw
 stream's `FunctionCall`; and the creation fork defines visibility functions on the writer only
 (through `:rc-creation-bridge`), since upstream has no compose-level API for them.
+
+## Embedded player, 2026-10-27 → 11-04 (androidx-main a328222bef4)
+
+A third pass, made with the refresh of the vendored copy to `a328222bef4` and the move to
+`compose-remote` 1.0.0-alpha23. Most of the range moves capabilities the embedded player already had
+behind `RcPlayerFeature`s, so an app can leave them to R8; the CMP player keeps those paths in the
+normal player, as the Gerrit review above concluded. One change was a gap and is ported.
+
+| Upstream change | CMP disposition |
+| --- | --- |
+| [TextAttribute bounds](https://github.com/androidx/androidx/commit/697c967d0d909e1016939804af49bb8e01f45431) | Ported: `TextMeasure` and `TextAttribute` report the run's ink rounded out, as `Paint.getTextBounds` does, with the font's rounded ascent and descent under `TEXT_MEASURE_FONT_HEIGHT`, the advance from 0 under `TEXT_MEASURE_SPACES` and the advance less the ink's left under `TEXT_MEASURE_MONOSPACE_WIDTH` (`androidXTextBounds`). The CMP player used each character's line box. Compose has no portable glyph-bounds query, so the ink is scanned from one offscreen draw of the measured layout, cached per layout input (`RcTextInk.kt`). The paint the measurement reads was already the stream's current paint. Evidence: [`renders/cmp-text-measure-ink/`](../../renders/cmp-text-measure-ink/README.md). |
+| [Optional features](https://github.com/androidx/androidx/commit/8664ae1895b), [3D matrices](https://github.com/androidx/androidx/commit/ee9b168f6b7), [document sounds](https://github.com/androidx/androidx/commit/91cde6cbac9), [particles](https://github.com/androidx/androidx/commit/4029f120cd1) | Already: matrix expressions, `RcSoundHost` and particle systems run in the normal player. The feature-set split is an R8 concern of the AndroidX artifact, not a behaviour. |
+| [2D vertex meshes](https://github.com/androidx/androidx/commit/c8b6e53ecaa) | Not ported, as before: the feature draws through the View player's `AndroidPaintContext`; CMP has no portable mesh model. |
+| [Device sensors](https://github.com/androidx/androidx/commit/f5e45dbdba8) | Not ported, as before: needs an opt-in, lifecycle-bound sensor source per platform. |
+| [Unknown-operation policy](https://github.com/androidx/androidx/commit/cbdf432ce5d) | Already: the support report (`RcComposeSupport`) names every operation the player cannot run, before it plays the document. |
+| [Lazy content layers](https://github.com/androidx/androidx/commit/969ad9e28e0), [position tracking only for custom visibility](https://github.com/androidx/androidx/commit/896938df3dd), [O(1) paint seeding](https://github.com/androidx/androidx/commit/e293d337e0f) | Not applicable: allocation and bridging costs of the embedded player's own structure. |
+| [Remote-prefixed creation types](https://github.com/androidx/androidx/commit/7177ff18cdd) | Not applicable: a creation rename (the vendored copy shims it against alpha23). |
