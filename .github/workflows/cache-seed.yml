@@ -69,6 +69,7 @@ jobs:
             :rc-player-edit:jvmTest \
             :third-party-remote-creation-writer:jvmTest \
             :rc-player-embedded:jvmTest \
+            :rc-creation-bridge:jvmTest \
             :third-party-remote-creation-compose:compileAndroidMain \
             :rc-creation-bridge:compileAndroidMain \
             :rc-player-embedded:compileAndroidMain \

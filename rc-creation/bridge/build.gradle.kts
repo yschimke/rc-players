@@ -39,6 +39,11 @@ kotlin {
       // AndroidX alpha22: its writer for byte-equality tests of what the fork writes, and its
       // reader (remote-core) for read-back tests.
       implementation(libs.compose.remote.creation.core)
+      // The `toRemoteComposeKotlin` round trip: its generated sources are creation-API code, so
+      // they compile here, against the fork, beside the samples they were generated from.
+      implementation(project(":rc-player-edit"))
+      // Skia, to encode and decode the round trip's embedded image.
+      @Suppress("DEPRECATION") implementation(compose.desktop.currentOs)
     }
     commonMain.dependencies {
       api(project(":third-party-remote-creation-compose"))
@@ -52,6 +57,14 @@ kotlin {
 // The ABI gate, as the player modules have it: a change to the published surface shows up as a
 // diff to `api/` in review. Regenerate with `./gradlew updateKotlinAbi`.
 tasks.named("check") { dependsOn("checkKotlinAbi") }
+
+// `-Prc.toKotlin.update=true` rewrites the round trip's committed generated sources.
+tasks.named<Test>("jvmTest") {
+  systemProperty(
+    "rc.toKotlin.update",
+    providers.gradleProperty("rc.toKotlin.update").getOrElse("false"),
+  )
+}
 
 composeAiMavenPublishing {
   coordinates(
