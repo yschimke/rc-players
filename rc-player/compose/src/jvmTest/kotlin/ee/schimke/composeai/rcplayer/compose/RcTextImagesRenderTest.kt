@@ -9,6 +9,7 @@ import ee.schimke.composeai.rcplayer.edit.adaptTo
 import ee.schimke.composeai.rcplayer.edit.coreTextAsImages
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import java.io.File
 import kotlin.math.abs
 import kotlin.test.Test
@@ -116,7 +117,8 @@ class RcTextImagesRenderTest {
     const val TOLERANCE = 16
     const val CORPUS = "../../scripts/rc-catalog-corpus/corpus"
     const val FONTS = "../../rc-player/wasm/dist-assets/fonts"
-    val TARGET = RcTargetProfiles.WEAR_WIDGETS
+    /** Wear widgets without core text: a target the styled text must be drawn as images for. */
+    val TARGET = RcTargetProfiles.WEAR_WIDGETS.without(RcOpcodes.CORE_TEXT, RcOpcodes.TEXT_STYLE)
     val SAMPLES =
       listOf(
         "appcard__ideal__default__compact",

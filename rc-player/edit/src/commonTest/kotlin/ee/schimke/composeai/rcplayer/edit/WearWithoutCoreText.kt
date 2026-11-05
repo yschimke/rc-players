@@ -7,11 +7,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
  * core-text conversions are tested against, now that [RcTargetProfiles.WEAR_WIDGETS] carries it.
  */
 internal val WearWithoutCoreText: RcTargetProfile =
-  RcTargetProfile(
+  RcTargetProfiles.WEAR_WIDGETS.without(
+    RcOpcodes.CORE_TEXT,
+    RcOpcodes.TEXT_STYLE,
     name = "Wear widgets, without core text",
-    apiLevel = RcTargetProfiles.WEAR_WIDGETS.apiLevel,
-    profiles = RcTargetProfiles.WEAR_WIDGETS.profiles,
-    supportedOpcodes =
-      RcTargetProfiles.WEAR_WIDGETS.supportedOpcodes - RcOpcodes.CORE_TEXT - RcOpcodes.TEXT_STYLE,
-    fixedOperations = true,
   )

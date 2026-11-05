@@ -340,6 +340,7 @@ final class ee.schimke.composeai.rcplayer.edit/RcTargetProfile { // ee.schimke.c
 
     final fun decode(kotlin/ByteArray, ee.schimke.composeai.rcplayer.protocol/RcWireLimits = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.decode|decode(kotlin.ByteArray;ee.schimke.composeai.rcplayer.protocol.RcWireLimits){}[0]
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.toString|toString(){}[0]
+    final fun without(kotlin/IntArray..., kotlin/String = ...): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.without|without(kotlin.IntArray...;kotlin.String){}[0]
 
     final object Companion { // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.Companion|null[0]
         final fun of(kotlin/Int, kotlin/Int): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.Companion.of|of(kotlin.Int;kotlin.Int){}[0]
