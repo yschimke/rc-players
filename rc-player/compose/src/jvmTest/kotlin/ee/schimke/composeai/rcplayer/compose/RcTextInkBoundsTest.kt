@@ -44,4 +44,14 @@ class RcTextInkBoundsTest {
   fun blankTextHasNoInk() {
     assertEquals(Rect.Zero, rcTextInk(measurer.measure("   ", TextStyle(fontSize = 40.sp))))
   }
+
+  @Test
+  fun hugeTextIsMeasuredWithinTheRasterCap() {
+    // 3000 px: uncapped, the padded raster would be ~9000 x 10000 px.
+    val layout = measurer.measure("x", TextStyle(fontSize = 3000.sp))
+    val ink = rcTextInk(layout)
+    val baseline = layout.firstBaseline
+    assertTrue(ink.height > 1000f && ink.top > layout.getLineTop(0) + 300f, "x ink: $ink")
+    assertTrue(abs(ink.bottom - baseline) <= 20f, "ends at the baseline: $ink, $baseline")
+  }
 }

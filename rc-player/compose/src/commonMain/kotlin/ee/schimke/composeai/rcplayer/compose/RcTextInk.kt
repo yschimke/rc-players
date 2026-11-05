@@ -7,12 +7,15 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.concurrent.Volatile
 import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.sqrt
 
 /**
  * The ink of a measured text run, in whole pixels of [layout]'s own coordinates, as
@@ -44,9 +47,15 @@ private const val INK_CACHE_SIZE = 64
 private fun scanInk(layout: TextLayoutResult): Rect {
   if (layout.layoutInput.text.isBlank()) return Rect.Zero
   val pad = ceil(layout.size.height.toFloat()).toInt().coerceAtLeast(1)
-  val width = layout.size.width + 2 * pad
-  val height = layout.size.height + 2 * pad
-  if (width <= 0 || height <= 0) return Rect.Zero
+  val paddedWidth = layout.size.width + 2 * pad
+  val paddedHeight = layout.size.height + 2 * pad
+  if (paddedWidth <= 0 || paddedHeight <= 0) return Rect.Zero
+  // A document chooses its font size, so the raster is capped: a run larger than the cap is drawn
+  // scaled down and its bounds scaled back, rounded outward, at a coarser grain.
+  val area = paddedWidth.toDouble() * paddedHeight
+  val scale = if (area > MAX_INK_PIXELS) sqrt(MAX_INK_PIXELS / area).toFloat() else 1f
+  val width = ceil(paddedWidth * scale).toInt().coerceAtLeast(1)
+  val height = ceil(paddedHeight * scale).toInt().coerceAtLeast(1)
   val bitmap = ImageBitmap(width, height)
   CanvasDrawScope().draw(
     Density(1f),
@@ -54,7 +63,9 @@ private fun scanInk(layout: TextLayoutResult): Rect {
     Canvas(bitmap),
     Size(width.toFloat(), height.toFloat()),
   ) {
-    drawText(layout, color = Color.Black, topLeft = Offset(pad.toFloat(), pad.toFloat()))
+    scale(scale, pivot = Offset.Zero) {
+      drawText(layout, color = Color.Black, topLeft = Offset(pad.toFloat(), pad.toFloat()))
+    }
   }
   val pixels = IntArray(width * height)
   bitmap.readPixels(pixels)
@@ -75,9 +86,12 @@ private fun scanInk(layout: TextLayoutResult): Rect {
   }
   if (right < 0) return Rect.Zero
   return Rect(
-    (left - pad).toFloat(),
-    (top - pad).toFloat(),
-    (right + 1 - pad).toFloat(),
-    (bottom + 1 - pad).toFloat(),
+    floor(left / scale) - pad,
+    floor(top / scale) - pad,
+    ceil((right + 1) / scale) - pad,
+    ceil((bottom + 1) / scale) - pad,
   )
 }
+
+/** The most pixels one ink measurement rasterises: 4 MB of ARGB. */
+private const val MAX_INK_PIXELS = 1024.0 * 1024.0
