@@ -220,7 +220,7 @@ public final class ee/schimke/composeai/rcwidget/creation/RcWidgetHostActionsKt 
 	public static final fun isRcWidgetActionCapture (Landroidx/compose/runtime/Composer;I)Z
 	public static final fun rcWidgetActionMetadata (Landroidx/compose/remote/creation/compose/state/RemoteString;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteString;)Landroidx/compose/remote/creation/compose/state/RemoteString;
 	public static synthetic fun rcWidgetActionMetadata$default (Landroidx/compose/remote/creation/compose/state/RemoteString;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteString;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/state/RemoteString;
-	public static final fun rcWidgetHostAction (Ljava/lang/String;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/action/Action;
+	public static final fun rcWidgetHostAction (Ljava/lang/String;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/action/RemoteAction;
 }
 
 public final class ee/schimke/composeai/rcwidget/creation/WrapModeProfileKt {

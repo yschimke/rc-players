@@ -17,11 +17,11 @@
 package androidx.compose.remote.creation.compose.modifier
 
 import androidx.compose.remote.creation.common.RemoteModifierOperation
-import androidx.compose.remote.creation.compose.action.Action
+import androidx.compose.remote.creation.compose.action.RemoteAction
 import androidx.compose.remote.creation.compose.action.resolveAction
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 
-internal class TouchCancelActionModifier(public val action: Action) : RemoteModifier.Element {
+internal class TouchCancelActionModifier(public val action: RemoteAction) : RemoteModifier.Element {
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.Touch(2, resolveAction(action))
 }
@@ -29,7 +29,7 @@ internal class TouchCancelActionModifier(public val action: Action) : RemoteModi
 /**
  * Performs [action] when a touch gesture is cancelled on the element.
  *
- * @param action The [Action] to perform when the touch is cancelled.
+ * @param action The [RemoteAction] to perform when the touch is cancelled.
  */
-public fun RemoteModifier.onTouchCancel(action: Action): RemoteModifier =
+public fun RemoteModifier.onTouchCancel(action: RemoteAction): RemoteModifier =
     then(TouchCancelActionModifier(action))

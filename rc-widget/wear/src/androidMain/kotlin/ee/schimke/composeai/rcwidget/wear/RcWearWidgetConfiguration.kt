@@ -4,17 +4,17 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.glance.wear.GlanceWearWidget
 import androidx.glance.wear.GlanceWearWidgetManager
+import androidx.glance.wear.WearWidgetConfigExtras
 
 /**
  * Per-widget configuration on the watch, and the widgets placed there — for an app whose widgets
  * each show something chosen for them, generated on the watch.
  *
  * Glance Wear's provider-configuration contract: the host starts the provider's configuration
- * activity under [GlanceWearWidget.CATEGORY_PROVIDER_CONFIG] with
- * [GlanceWearWidget.EXTRA_CONFIG_WIDGET_ID] (the widget's instance id) and
- * [GlanceWearWidget.EXTRA_CONFIG_PROVIDER_COMPONENT] (its service). The activity sets
+ * activity under [WearWidgetConfigExtras.CATEGORY_PROVIDER_CONFIG] with
+ * [WearWidgetConfigExtras.EXTRA_CONFIG_WIDGET_ID] (the widget's instance id) and
+ * [WearWidgetConfigExtras.EXTRA_CONFIG_PROVIDER_COMPONENT] (its service). The activity sets
  * `RESULT_CANCELED` first, saves the choice and redraws the widget, then finishes `RESULT_OK`.
  * Declare it exported, with an intent filter on that category (and `DEFAULT`); how a host finds it
  * isn't documented by Glance Wear, so also open the same picker from the app.
@@ -28,16 +28,16 @@ public object RcWearWidgetConfiguration {
   @Suppress("DEPRECATION")
   public fun requestOf(intent: Intent?): Request? {
     intent ?: return null
-    val id = intent.getIntExtra(GlanceWearWidget.EXTRA_CONFIG_WIDGET_ID, NO_ID)
+    val id = intent.getIntExtra(WearWidgetConfigExtras.EXTRA_CONFIG_WIDGET_ID, NO_ID)
     if (id == NO_ID) return null
     val provider =
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         intent.getParcelableExtra(
-          GlanceWearWidget.EXTRA_CONFIG_PROVIDER_COMPONENT,
+          WearWidgetConfigExtras.EXTRA_CONFIG_PROVIDER_COMPONENT,
           ComponentName::class.java,
         )
       } else {
-        intent.getParcelableExtra(GlanceWearWidget.EXTRA_CONFIG_PROVIDER_COMPONENT)
+        intent.getParcelableExtra(WearWidgetConfigExtras.EXTRA_CONFIG_PROVIDER_COMPONENT)
       }
     return Request(id, provider)
   }

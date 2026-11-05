@@ -30,9 +30,12 @@ var RC = (() => {
     WebInputComponents: () => WebInputComponents,
     base64ToArrayBuffer: () => base64ToArrayBuffer,
     configureWebFonts: () => configureWebFonts,
+    createHostApi: () => createHostApi,
     createPlayer: () => createPlayer,
+    createSnapshot: () => createSnapshot,
     cssFontStackFor: () => cssFontStackFor,
     cssQuoted: () => cssQuoted,
+    decompressDocument: () => decompressDocument,
     embeddedFontDescriptors: () => embeddedFontDescriptors,
     ensureWebFont: () => ensureWebFont,
     fitInto: () => fitInto,
@@ -40,9 +43,11 @@ var RC = (() => {
     googleFontsUrl: () => googleFontsUrl,
     inputDocument: () => inputDocument,
     inputValueIsValid: () => inputValueIsValid,
+    isCompressed: () => isCompressed,
     namedFontStack: () => namedFontStack,
     parseEmbedConfig: () => parseEmbedConfig,
     parseFamily: () => parseFamily,
+    pinClock: () => pinClock,
     registerEmbeddedFont: () => registerEmbeddedFont,
     releaseEmbeddedFont: () => releaseEmbeddedFont,
     resetWebFonts: () => resetWebFonts,
@@ -839,6 +844,12 @@ var RC = (() => {
       /** Per-vertex 1/clipW, for perspective-correct attribute interpolation. */
       this.mTriInvW = new Float32Array(3);
       /**
+       * Supersampling: the buffers are this many times the window per axis (the caller
+       * composites them scaled down). Wireframe lines are drawn this many pixels thick so they
+       * keep their weight after the downscale.
+       */
+      this.mSuper = 1;
+      /**
        * Project, near-reject, backface-cull and Lambert shade one triangle. On acceptance fills
        * mTriScreen with the three screen-space vertices (Y already flipped for a top-down buffer)
        * and mTriColor with the per-vertex shaded ARGB, and returns true. Returns false — leaving
@@ -874,6 +885,9 @@ var RC = (() => {
         this.mHeight = height;
         clearDepth(this.mZbuf);
       }
+    }
+    setSupersample(k) {
+      this.mSuper = Math.max(1, Math.trunc(k));
     }
     getWidth() {
       return this.mWidth;
@@ -1335,53 +1349,57 @@ var RC = (() => {
         const ax = ts[0], ay = ts[1], az = ts[2];
         const bx = ts[3], by = ts[4], bz = ts[5];
         const cx = ts[6], cy = ts[7], cz = ts[8];
-        if (e0) {
-          drawLineDepthTested(
-            this.mZbuf,
-            pixels,
-            lineColor,
-            w,
-            h,
-            ax,
-            ay,
-            az,
-            bx,
-            by,
-            bz,
-            WIRE_DEPTH_BIAS
-          );
-        }
-        if (e1) {
-          drawLineDepthTested(
-            this.mZbuf,
-            pixels,
-            lineColor,
-            w,
-            h,
-            bx,
-            by,
-            bz,
-            cx,
-            cy,
-            cz,
-            WIRE_DEPTH_BIAS
-          );
-        }
-        if (e2) {
-          drawLineDepthTested(
-            this.mZbuf,
-            pixels,
-            lineColor,
-            w,
-            h,
-            cx,
-            cy,
-            cz,
-            ax,
-            ay,
-            az,
-            WIRE_DEPTH_BIAS
-          );
+        for (let oy = 0; oy < this.mSuper; oy++) {
+          for (let ox = 0; ox < this.mSuper; ox++) {
+            if (e0) {
+              drawLineDepthTested(
+                this.mZbuf,
+                pixels,
+                lineColor,
+                w,
+                h,
+                ax + ox,
+                ay + oy,
+                az,
+                bx + ox,
+                by + oy,
+                bz,
+                WIRE_DEPTH_BIAS
+              );
+            }
+            if (e1) {
+              drawLineDepthTested(
+                this.mZbuf,
+                pixels,
+                lineColor,
+                w,
+                h,
+                bx + ox,
+                by + oy,
+                bz,
+                cx + ox,
+                cy + oy,
+                cz,
+                WIRE_DEPTH_BIAS
+              );
+            }
+            if (e2) {
+              drawLineDepthTested(
+                this.mZbuf,
+                pixels,
+                lineColor,
+                w,
+                h,
+                cx + ox,
+                cy + oy,
+                cz,
+                ax + ox,
+                ay + oy,
+                az,
+                WIRE_DEPTH_BIAS
+              );
+            }
+          }
         }
       }
     }
@@ -1862,6 +1880,94 @@ void main() {
         this.mArray[i] = buffer.readInt();
       }
       this.mPos = len;
+      const remap = buffer.getRemapContext?.();
+      if (remap) this.resolveIds(remap);
+    }
+    /**
+     * PaintBundle.resolveIds / resolveGradientIds: inside a pattern, remap the ids (and NaN-boxed
+     * float ids) the bundle carries to this inflation's. Two departures from the reference, where
+     * its walk disagrees with how the bundle is written (and with its own applyPaintChange):
+     * TEXTURE is three words (bitmap id, tile modes, filter), and a sweep gradient has no tile
+     * mode word.
+     */
+    resolveIds(remap) {
+      const a = this.mArray, len = this.mPos;
+      const fl = (i2) => {
+        if (i2 < len) a[i2] = remap.resolveNanIdBits(a[i2]);
+      };
+      const id = (i2) => {
+        if (i2 < len) a[i2] = remap.resolveId(a[i2]);
+      };
+      let i = 0;
+      while (i < len) {
+        const cmd = a[i++];
+        const tag = cmd & 65535;
+        const upper = cmd >> 16 & 65535;
+        switch (tag) {
+          case _PaintBundle.STROKE_MITER:
+          case _PaintBundle.STROKE_WIDTH:
+          case _PaintBundle.ALPHA:
+          case _PaintBundle.TEXT_SIZE:
+          case _PaintBundle.SHADER_MATRIX:
+            fl(i++);
+            break;
+          case _PaintBundle.COLOR_FILTER_ID:
+          case _PaintBundle.COLOR_ID:
+          case _PaintBundle.SHADER:
+          case _PaintBundle.TYPEFACE:
+          case _PaintBundle.FALLBACK_TYPEFACE:
+            id(i++);
+            break;
+          case _PaintBundle.TEXTURE:
+            id(i);
+            i += 3;
+            break;
+          case _PaintBundle.COLOR:
+          case _PaintBundle.COLOR_FILTER:
+            i++;
+            break;
+          case _PaintBundle.FONT_AXIS:
+            for (let j = 0; j < upper && i < len; j++) {
+              id(i++);
+              fl(i++);
+            }
+            break;
+          case _PaintBundle.GRADIENT: {
+            if (i >= len) break;
+            const control = a[i++];
+            const numColors = control & 255;
+            const regBits = control >> 16 & 65535;
+            for (let j = 0; j < numColors && i < len; j++, i++) {
+              if ((regBits & 1 << j) !== 0) id(i);
+            }
+            if (i >= len) break;
+            const numStops = a[i++];
+            for (let j = 0; j < numStops && i < len; j++) fl(i++);
+            fl(i++);
+            fl(i++);
+            if (upper === _PaintBundle.LINEAR_GRADIENT) {
+              fl(i++);
+              fl(i++);
+              i++;
+            } else if (upper === _PaintBundle.RADIAL_GRADIENT) {
+              fl(i++);
+              i++;
+            } else if (upper === 3) {
+              fl(i++);
+              fl(i++);
+              fl(i++);
+              fl(i++);
+              i++;
+            }
+            break;
+          }
+          case _PaintBundle.PATH_EFFECT:
+            for (let j = 0; j < upper && i < len; j++) fl(i++);
+            break;
+          default:
+            break;
+        }
+      }
     }
     /** Returns the resolved array (mOutArray if available, otherwise mArray). */
     getArray() {
@@ -2195,8 +2301,18 @@ void main() {
   function asNan(v) {
     return intBitsToFloat2(v | 0 | -8388608);
   }
+  function asNanBits(v) {
+    return v | 0 | -8388608;
+  }
   function idFromNan(value) {
     return floatToRawIntBits2(value) & 4194303;
+  }
+  function isRemappableExpressionWord(bits, matrix = false) {
+    if (!isNaNBits(bits)) return false;
+    const id = bits & 4194303;
+    if (id >> 20 === 2) return false;
+    const [lo, hi] = matrix ? [3276800, 3276800 + 54] : [3211264, 3211264 + 79];
+    return !(id > lo && id <= hi);
   }
   function isNaNBits(bits) {
     return (bits & 2139095040) === 2139095040 && (bits & 8388607) !== 0;
@@ -2212,14 +2328,6 @@ void main() {
   }
   function isMacroLocal(id) {
     return id >= 16384 && id <= 20479;
-  }
-  function isVariable(v) {
-    if (Number.isNaN(v)) {
-      const id = idFromNan(v);
-      if (id === 0) return false;
-      return id > 40 || id < 10;
-    }
-    return false;
   }
   function isVariableBits(bits) {
     if (isNaNBits(bits)) {
@@ -2685,7 +2793,7 @@ void main() {
      * @param cacheKey   - optional cache key for the compiled program
      *                     (use shader text ID for stable caching)
      */
-    render(glsl, width, height, floats, ints, textures, cacheKey, docWidth, docHeight) {
+    render(glsl, width, height, floats2, ints, textures, cacheKey, docWidth, docHeight) {
       const gl = this.initGL();
       if (!gl) return false;
       if (this.canvas.width !== width || this.canvas.height !== height) {
@@ -2706,8 +2814,8 @@ void main() {
       if (resLoc) gl.uniform2f(resLoc, width, height);
       const docLoc = this.getUniformLoc(gl, cached, "u_doc_size");
       if (docLoc) gl.uniform2f(docLoc, docWidth ?? width, docHeight ?? height);
-      if (floats) {
-        for (const [name, values] of floats) {
+      if (floats2) {
+        for (const [name, values] of floats2) {
           const loc = this.getUniformLoc(gl, cached, name);
           if (!loc) continue;
           switch (values.length) {
@@ -3139,6 +3247,10 @@ void main() {
       this.mAllVarListeners = [];
       this.mLastRepaint = NaN;
       this.mRepaintSeconds = NaN;
+      // ID_WINDOW_HEIGHT
+      // Collections a host has replaced (a float array set by name): the document's own
+      // DataListFloat no longer overwrites them when it applies.
+      this.mCollectionOverride = /* @__PURE__ */ new Set();
     }
     getFromId(id) {
       return this.mIntDataMap.get(id);
@@ -3322,9 +3434,20 @@ void main() {
     setWindowHeight(height) {
       this.updateFloat(6, height);
     }
-    // ID_WINDOW_HEIGHT
     addCollection(id, collection) {
+      if (this.mCollectionOverride.has(id & 1048575)) return;
       this.mCollectionMap.put(id & 1048575, collection);
+    }
+    /** A host's float array for a collection id: kept over the document's own, listeners told. */
+    overrideFloatArray(id, values) {
+      const v = Float32Array.from(values);
+      this.mCollectionOverride.add(id & 1048575);
+      this.mCollectionMap.put(id & 1048575, { values: v, getLength: () => v.length, getFloatValue: (i) => v[i], getFloats: () => v });
+      this.updateListeners(id);
+    }
+    clearFloatArrayOverride(id) {
+      this.mCollectionOverride.delete(id & 1048575);
+      this.updateListeners(id);
     }
     getFloatValue(id, index) {
       const array = this.mCollectionMap.get(id & 1048575);
@@ -3398,6 +3521,10 @@ void main() {
     }
     markVariableDirty(id) {
       this.updateListeners(id);
+    }
+    /** Whether a host has pinned this data id (overrideData), so the document's loads skip it. */
+    isDataOverridden(id) {
+      return id < _RemoteComposeState.MAX_DATA && this.mDataOverride[id];
     }
     clearDataOverride(id) {
       if (id < _RemoteComposeState.MAX_DATA) this.mDataOverride[id] = false;
@@ -4254,6 +4381,146 @@ void main() {
   function namedFontStack(family) {
     return `"${cssQuoted(family)}", ${cssFontStackFor(0)}`;
   }
+  var TRIM_STEPS = 32;
+  function evalBezier(pts, t) {
+    const xs = [], ys = [];
+    for (let k = 0; k < pts.length; k += 2) {
+      xs.push(pts[k]);
+      ys.push(pts[k + 1]);
+    }
+    for (let n = xs.length - 1; n > 0; n--) {
+      for (let k = 0; k < n; k++) {
+        xs[k] += (xs[k + 1] - xs[k]) * t;
+        ys[k] += (ys[k + 1] - ys[k]) * t;
+      }
+    }
+    return [xs[0], ys[0]];
+  }
+  function subBezier(pts, t0, t1) {
+    const split = (p2, t, left) => {
+      const n = p2.length / 2;
+      const xs = [], ys = [];
+      for (let k = 0; k < n; k++) {
+        xs.push(p2[2 * k]);
+        ys.push(p2[2 * k + 1]);
+      }
+      const lx = [xs[0]], ly = [ys[0]], rx = [xs[n - 1]], ry = [ys[n - 1]];
+      for (let m = n - 1; m > 0; m--) {
+        for (let k = 0; k < m; k++) {
+          xs[k] += (xs[k + 1] - xs[k]) * t;
+          ys[k] += (ys[k + 1] - ys[k]) * t;
+        }
+        lx.push(xs[0]);
+        ly.push(ys[0]);
+        rx.push(xs[m - 1]);
+        ry.push(ys[m - 1]);
+      }
+      const out = [];
+      if (left) for (let k = 0; k < n; k++) out.push(lx[k], ly[k]);
+      else for (let k = n - 1; k >= 0; k--) out.push(rx[k], ry[k]);
+      return out;
+    };
+    let p = t1 < 1 ? split(pts, t1, true) : pts;
+    if (t0 > 0) p = split(p, t1 > 0 ? t0 / t1 : 0, false);
+    return p;
+  }
+  function measurePiece(pts) {
+    if (pts.length === 4) {
+      return { pts, len: Math.hypot(pts[2] - pts[0], pts[3] - pts[1]), cum: null };
+    }
+    const cum = new Float64Array(TRIM_STEPS + 1);
+    let [px, py] = [pts[0], pts[1]];
+    for (let k = 1; k <= TRIM_STEPS; k++) {
+      const [x, y] = evalBezier(pts, k / TRIM_STEPS);
+      cum[k] = cum[k - 1] + Math.hypot(x - px, y - py);
+      px = x;
+      py = y;
+    }
+    return { pts, len: cum[TRIM_STEPS], cum };
+  }
+  function pieceT(m, d) {
+    if (m.len <= 0) return 0;
+    if (!m.cum) return Math.min(1, Math.max(0, d / m.len));
+    const cum = m.cum;
+    let k = 1;
+    while (k < TRIM_STEPS && cum[k] < d) k++;
+    const span = cum[k] - cum[k - 1];
+    const frac = span > 0 ? (d - cum[k - 1]) / span : 0;
+    return Math.min(1, Math.max(0, (k - 1 + frac) / TRIM_STEPS));
+  }
+  function firstContour(segs) {
+    let pieces = [];
+    let total = 0;
+    let mx = 0, my = 0, cx = 0, cy = 0;
+    const flush = () => total > 0;
+    const add = (pts) => {
+      const m = measurePiece(pts);
+      pieces.push(m);
+      total += m.len;
+    };
+    for (const s of segs) {
+      switch (s[0]) {
+        case "M":
+          if (flush()) return pieces;
+          pieces = [];
+          total = 0;
+          mx = cx = s[1];
+          my = cy = s[2];
+          break;
+        case "L":
+          add([cx, cy, s[3], s[4]]);
+          cx = s[3];
+          cy = s[4];
+          break;
+        case "Q":
+          add([cx, cy, s[3], s[4], s[5], s[6]]);
+          cx = s[5];
+          cy = s[6];
+          break;
+        case "C":
+          add([cx, cy, s[3], s[4], s[5], s[6], s[7], s[8]]);
+          cx = s[7];
+          cy = s[8];
+          break;
+        case "Z":
+          add([cx, cy, mx, my]);
+          cx = mx;
+          cy = my;
+          if (flush()) return pieces;
+          pieces = [];
+          total = 0;
+          break;
+      }
+    }
+    return flush() ? pieces : [];
+  }
+  function trimPathSegs(segs, start, stop) {
+    const out = new Path2D();
+    const pieces = firstContour(segs);
+    let total = 0;
+    for (const m of pieces) total += m.len;
+    if (total <= 0) return out;
+    const d0 = start * total, d1 = stop * total;
+    let acc = 0, started = false;
+    for (const m of pieces) {
+      const a = acc, b = acc + m.len;
+      acc = b;
+      if (m.len <= 0 || b < d0 || a > d1) continue;
+      const t0 = pieceT(m, Math.max(0, d0 - a));
+      const t1 = pieceT(m, Math.min(m.len, d1 - a));
+      if (t1 < t0) continue;
+      const p = subBezier(m.pts, t0, t1);
+      if (!started) {
+        out.moveTo(p[0], p[1]);
+        started = true;
+      }
+      if (p.length === 4) out.lineTo(p[2], p[3]);
+      else if (p.length === 6) out.quadraticCurveTo(p[2], p[3], p[4], p[5]);
+      else out.bezierCurveTo(p[2], p[3], p[4], p[5], p[6], p[7]);
+      if (b >= d1) break;
+    }
+    return out;
+  }
   var DEFAULT_TEXT_SIZE = 14;
   var ASCENT_RATIO = 0.92;
   var DESCENT_RATIO = 0.24;
@@ -4278,6 +4545,11 @@ void main() {
       this.filterBitmap = true;
       this.letterSpacing = 0;
       this.gradientStyle = null;
+      // The geometry the gradient was built from, kept so it can be rebuilt in a
+      // transformed space. A CanvasGradient resolves against the user space in force when
+      // it is USED, and text on a path is filled one glyph at a time inside a translate +
+      // rotate — so the gradient has to be re-expressed per glyph. See fillStyleUnderGlyph.
+      this.gradientSpec = null;
       this.fontFamily = cssFontStackFor(0);
       this.fontWeight = 400;
       this.fontItalic = false;
@@ -4358,8 +4630,15 @@ void main() {
        */
       this.onFontLoaded = null;
       this.mTextMeasureCache = /* @__PURE__ */ new Map();
+      // The alpha of the enclosing saveLayer()s (an enter/exit fade): every draw sets
+      // globalAlpha from its paint, so the layer's alpha is multiplied in there. It follows the
+      // canvas save stack.
+      this.mLayerAlpha = 1;
+      this.mLayerAlphaStack = [];
       this.mainCanvas = null;
       this.bitmapCanvasCache = /* @__PURE__ */ new Map();
+      /** Declared size of a pixel-less bitmap, so its buffer is allocated at that size. */
+      this.emptyBitmapSizes = /* @__PURE__ */ new Map();
       // ---- 3D (Paint3DContext) -----------------------------------------------
       //
       // Only the software backend is implemented here. Every other backend in the mode word
@@ -4375,6 +4654,9 @@ void main() {
       /** Texture generation last uploaded to GL, so an unchanged texture is not re-uploaded. */
       this.d3glTexGen = -1;
       this.d3Blit = null;
+      /** The supersampling factor the 3D buffers were last sized with. */
+      this.d3Super = 1;
+      this.supersample3D = _CanvasPaintContext.supersample3D;
       if (!canvas) {
         throw new Error("CanvasPaintContext: canvas rendering context is null or undefined");
       }
@@ -4467,6 +4749,10 @@ void main() {
     // --- Bitmap cache ---
     loadBitmap(imageId, encoding, type, width, height, bitmap) {
       if (this.bitmapPromises.has(imageId)) return;
+      if (encoding === 3 || encoding === 4 || bitmap.length === 0) {
+        if (encoding === 3) this.emptyBitmapSizes.set(imageId, { width, height });
+        return;
+      }
       const isGif = bitmap.length > 6 && bitmap[0] === 71 && bitmap[1] === 73 && bitmap[2] === 70 && bitmap[3] === 56;
       if (isGif && !this.bitmapVideos.has(imageId) && typeof globalThis.ImageDecoder !== "undefined") {
         this.loadAnimatedBitmap(imageId, bitmap);
@@ -4577,6 +4863,8 @@ void main() {
     // the next one is asked for once the clock passes the end of this one — and a repaint
     // asked for so it follows.
     bitmapToDraw(imageId) {
+      const offscreen = this.bitmapCanvasCache.get(imageId);
+      if (offscreen) return offscreen.canvas;
       const video = this.bitmapVideos.get(imageId);
       if (video) {
         this.needsRepaint();
@@ -4632,8 +4920,12 @@ void main() {
     pathCoord(bits) {
       return isNaNBits(bits) ? this.mContext.getFloat(idFromBits(bits)) : intBitsToFloat(bits);
     }
-    buildPath2D(data, start = 0, end = 1) {
-      const path = new Path2D();
+    // Decode path data into absolute segments: [op, x0, y0, ...control/end points].
+    // op: 'M' (x, y), 'L' (from, to), 'Q' (from, cp, to), 'C' (from, cp1, cp2, to), 'Z'.
+    // Conics are kept as quadratics (weight ignored), as the untrimmed path always drew them.
+    decodePath(data) {
+      const segs = [];
+      const f = (k) => this.pathCoord(data[k]);
       let i = 0;
       while (i < data.length) {
         const bits = data[i];
@@ -4643,38 +4935,60 @@ void main() {
         }
         switch (cmd) {
           case _CanvasPaintContext.PATH_MOVE:
-            i++;
-            path.moveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]));
-            i += 2;
+            segs.push(["M", f(i + 1), f(i + 2)]);
+            i += 3;
             break;
           case _CanvasPaintContext.PATH_LINE:
-            i += 3;
-            path.lineTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]));
-            i += 2;
-            break;
-          case _CanvasPaintContext.PATH_QUADRATIC:
-            i += 3;
-            path.quadraticCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]));
-            i += 4;
-            break;
-          case _CanvasPaintContext.PATH_CONIC:
-            i += 3;
-            path.quadraticCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]));
+            segs.push(["L", f(i + 1), f(i + 2), f(i + 3), f(i + 4)]);
             i += 5;
             break;
+          case _CanvasPaintContext.PATH_QUADRATIC:
+            segs.push(["Q", f(i + 1), f(i + 2), f(i + 3), f(i + 4), f(i + 5), f(i + 6)]);
+            i += 7;
+            break;
+          case _CanvasPaintContext.PATH_CONIC:
+            segs.push(["Q", f(i + 1), f(i + 2), f(i + 3), f(i + 4), f(i + 5), f(i + 6)]);
+            i += 8;
+            break;
           case _CanvasPaintContext.PATH_CUBIC:
-            i += 3;
-            path.bezierCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]), this.pathCoord(data[i + 4]), this.pathCoord(data[i + 5]));
-            i += 6;
+            segs.push(["C", f(i + 1), f(i + 2), f(i + 3), f(i + 4), f(i + 5), f(i + 6), f(i + 7), f(i + 8)]);
+            i += 9;
             break;
           case _CanvasPaintContext.PATH_CLOSE:
-            path.closePath();
+            segs.push(["Z"]);
             i++;
             break;
           case _CanvasPaintContext.PATH_DONE:
-            return path;
+            return segs;
           default:
             i++;
+            break;
+        }
+      }
+      return segs;
+    }
+    buildPath2D(data, start = 0, end = 1) {
+      const segs = this.decodePath(data);
+      if (start > 0 || end < 1) {
+        return start < end ? trimPathSegs(segs, Math.max(start, 0), Math.min(end, 1)) : new Path2D();
+      }
+      const path = new Path2D();
+      for (const s of segs) {
+        switch (s[0]) {
+          case "M":
+            path.moveTo(s[1], s[2]);
+            break;
+          case "L":
+            path.lineTo(s[3], s[4]);
+            break;
+          case "Q":
+            path.quadraticCurveTo(s[3], s[4], s[5], s[6]);
+            break;
+          case "C":
+            path.bezierCurveTo(s[3], s[4], s[5], s[6], s[7], s[8]);
+            break;
+          case "Z":
+            path.closePath();
             break;
         }
       }
@@ -4834,18 +5148,74 @@ void main() {
         return null;
       }
     }
-    applyFillStyle() {
-      this.ctx.fillStyle = this.getEffectiveColor();
-      this.ctx.globalAlpha = this.alpha;
+    /**
+     * A fill style that still lands correctly when the canvas has been translated to
+     * (x, y) and rotated by `angle`.
+     *
+     * Text on a path is drawn one glyph at a time inside exactly that transform, and a
+     * CanvasGradient resolves against the user space in force when it is USED — so a
+     * gradient authored in document coordinates is sampled, for every glyph, from a space
+     * that has been moved and spun. The glyphs come out filled from whatever part of the
+     * gradient happens to land under them, which for a mostly-transparent gradient means
+     * they do not appear at all. The C++ player has no such problem because Skia applies
+     * the shader's own local matrix.
+     *
+     * The cure is to re-express the gradient in glyph-local space: compose the inverse of
+     * translate(x, y) * rotate(angle) and map the gradient's geometry through it. A
+     * pattern (what the sweep polyfill produces where createConicGradient is missing)
+     * carries its own matrix and only needs that inverse handed to it.
+     */
+    fillStyleUnderGlyph(x, y, angle) {
+      const style = this.gradientStyle;
+      if (!style) return null;
+      const cos = Math.cos(angle), sin = Math.sin(angle);
+      const a = cos, b = -sin, c = sin, d = cos;
+      const e = -(x * cos + y * sin), f = x * sin - y * cos;
+      if (typeof style.setTransform === "function") {
+        const m = this.ctx.getTransform();
+        m.a = a;
+        m.b = b;
+        m.c = c;
+        m.d = d;
+        m.e = e;
+        m.f = f;
+        style.setTransform(m);
+        return style;
+      }
+      const spec = this.gradientSpec;
+      if (!spec) return style;
+      const local = (px, py) => [a * px + c * py + e, b * px + d * py + f];
+      let g = null;
+      if (spec.kind === "sweep") {
+        if (typeof this.ctx.createConicGradient !== "function") return style;
+        const [qx, qy] = local(spec.cx, spec.cy);
+        g = this.ctx.createConicGradient(-angle, qx, qy);
+      } else if (spec.kind === "radial") {
+        const [qx, qy] = local(spec.cx, spec.cy);
+        g = this.ctx.createRadialGradient(qx, qy, 0, qx, qy, spec.radius);
+      } else {
+        const [ax, ay] = local(spec.x1, spec.y1);
+        const [bx, by] = local(spec.x2, spec.y2);
+        g = this.ctx.createLinearGradient(ax, ay, bx, by);
+      }
+      if (!g) return style;
+      for (let s = 0; s < spec.stops.length && s < spec.colors.length; s++) {
+        g.addColorStop(Math.max(0, Math.min(1, spec.stops[s])), argbToRgba(spec.colors[s]));
+      }
+      return g;
+    }
+    applyFillStyle(override) {
+      this.ctx.fillStyle = override ?? this.getEffectiveColor();
+      this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
       this.ctx.globalCompositeOperation = this.blendMode;
     }
-    applyStrokeStyle() {
-      this.ctx.strokeStyle = this.getEffectiveColor();
+    applyStrokeStyle(override) {
+      this.ctx.strokeStyle = override ?? this.getEffectiveColor();
       this.ctx.lineWidth = this.strokeWidth;
       this.ctx.lineCap = this.lineCap;
       this.ctx.lineJoin = this.lineJoin;
       this.ctx.miterLimit = this.miterLimit;
-      this.ctx.globalAlpha = this.alpha;
+      this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
       this.ctx.globalCompositeOperation = this.blendMode;
     }
     fillOrStroke(doFill, doStroke) {
@@ -4967,6 +5337,8 @@ void main() {
             const shaderId = arr[i++];
             if (shaderId === 0) {
               this.activeShaderData = null;
+              this.gradientStyle = null;
+              this.gradientSpec = null;
             } else {
               const sd = this.getContext()?.getShader(shaderId);
               this.activeShaderData = sd ?? null;
@@ -4997,6 +5369,18 @@ void main() {
             if (upper === PaintBundle.SWEEP_GRADIENT) {
               const cx = intBitsToFloat(arr[i++]);
               const cy = intBitsToFloat(arr[i++]);
+              this.gradientSpec = {
+                kind: "sweep",
+                colors,
+                stops,
+                cx,
+                cy,
+                radius: 0,
+                x1: 0,
+                y1: 0,
+                x2: 0,
+                y2: 0
+              };
               if (typeof this.ctx.createConicGradient === "function") {
                 gradient = this.ctx.createConicGradient(0, cx, cy);
               } else {
@@ -5010,6 +5394,18 @@ void main() {
               const cy = intBitsToFloat(arr[i++]);
               const radius = intBitsToFloat(arr[i++]);
               i++;
+              this.gradientSpec = {
+                kind: "radial",
+                colors,
+                stops,
+                cx,
+                cy,
+                radius,
+                x1: 0,
+                y1: 0,
+                x2: 0,
+                y2: 0
+              };
               gradient = this.ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
             } else {
               const startX = intBitsToFloat(arr[i++]);
@@ -5017,6 +5413,18 @@ void main() {
               const endX = intBitsToFloat(arr[i++]);
               const endY = intBitsToFloat(arr[i++]);
               i++;
+              this.gradientSpec = {
+                kind: "linear",
+                colors,
+                stops,
+                cx: 0,
+                cy: 0,
+                radius: 0,
+                x1: startX,
+                y1: startY,
+                x2: endX,
+                y2: endY
+              };
               gradient = this.ctx.createLinearGradient(startX, startY, endX, endY);
             }
             if (gradient) {
@@ -5064,7 +5472,10 @@ void main() {
             this.blendMode = this.mapBlendMode(upper);
             break;
           case PaintBundle.COLOR_ID: {
-            this.color = argbToRgba(arr[i++]);
+            const argb = arr[i++] | 0;
+            this.colorArgb = argb;
+            this.alpha = (argb >>> 24 & 255) / 255;
+            this.color = `rgb(${argb >>> 16 & 255},${argb >>> 8 & 255},${argb & 255})`;
             break;
           }
           case PaintBundle.COLOR_FILTER_ID: {
@@ -5299,6 +5710,8 @@ void main() {
         antiAlias: this.antiAlias,
         letterSpacing: this.letterSpacing,
         gradientStyle: this.gradientStyle,
+        // LOCAL (rc-players): the spec text-on-path rebuilds a gradient from, restored with it.
+        gradientSpec: this.gradientSpec,
         activeShaderData: this.activeShaderData,
         fontFamily: this.fontFamily,
         fontWeight: this.fontWeight,
@@ -5316,7 +5729,7 @@ void main() {
       if (state) {
         Object.assign(this, state);
         this.setFont();
-        this.ctx.globalAlpha = this.alpha;
+        this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
       }
     }
     /**
@@ -5358,10 +5771,10 @@ void main() {
       if (w > maxW) w = maxW;
       if (h > maxH) h = maxH;
       sd.updateVariables(ctx);
-      const floats = /* @__PURE__ */ new Map();
+      const floats2 = /* @__PURE__ */ new Map();
       for (const name of sd.getUniformFloatNames()) {
         const vals = sd.getUniformFloats(name);
-        floats.set(name, vals);
+        floats2.set(name, vals);
       }
       const ints = /* @__PURE__ */ new Map();
       for (const name of sd.getUniformIntegerNames()) {
@@ -5389,7 +5802,7 @@ void main() {
         glsl,
         w,
         h,
-        floats,
+        floats2,
         ints,
         textures,
         cacheKey,
@@ -5400,7 +5813,7 @@ void main() {
         console.error(`[shader] WebGL render FAILED textId=${textId}`);
         return false;
       }
-      this.ctx.globalAlpha = this.alpha;
+      this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
       this.ctx.globalCompositeOperation = this.blendMode;
       const dstW = right - left;
       const dstH = Math.abs(bottom - top);
@@ -5467,7 +5880,7 @@ void main() {
       const w = right - left;
       const h = bottom - top;
       this.ctx.beginPath();
-      this.ctx.roundRect(left, top, w, h, [Math.min(rx, ry)]);
+      this.ctx.roundRect(left, top, w, h, [Math.max(0, Math.min(rx, ry))]);
       this.fillOrStroke(
         () => {
           this.ctx.fill();
@@ -5657,18 +6070,29 @@ void main() {
         const charCenter = progress + charWidth / 2;
         if (charCenter >= 0 && charCenter <= totalLen) {
           this.ctx.save();
-          this.positionOnPath(segments2, charCenter, vOffset);
+          const at = this.positionOnPath(segments2, charCenter, vOffset);
+          const g = at ? this.fillStyleUnderGlyph(at.x, at.y, at.angle) : null;
           this.fillOrStroke(
             () => {
-              this.applyFillStyle();
+              this.applyFillStyle(g);
               this.ctx.fillText(ch, -charWidth / 2, 0);
             },
             () => {
-              this.applyStrokeStyle();
+              this.applyStrokeStyle(g);
               this.ctx.strokeText(ch, -charWidth / 2, 0);
             }
           );
           this.ctx.restore();
+          if (g && g === this.gradientStyle && typeof g.setTransform === "function") {
+            const m = this.ctx.getTransform();
+            m.a = 1;
+            m.b = 0;
+            m.c = 0;
+            m.d = 1;
+            m.e = 0;
+            m.f = 0;
+            g.setTransform(m);
+          }
         }
         progress += charWidth;
       }
@@ -5687,6 +6111,13 @@ void main() {
       return res;
     }
     getTextBounds(textId, start, end, flags, bounds) {
+      if (_CanvasPaintContext.mockTextMetrics) {
+        bounds[0] = 0;
+        bounds[1] = 0;
+        bounds[2] = 100;
+        bounds[3] = 10;
+        return;
+      }
       const text = this.textCache.get(textId);
       if (!text) {
         bounds.fill(0);
@@ -5703,8 +6134,8 @@ void main() {
         for (const v of vals) if (typeof v === "number" && isFinite(v) && v > 0) return v;
         return 0;
       };
-      let ascent = wantFontBox ? pick(metrics.fontBoundingBoxAscent, metrics.actualBoundingBoxAscent) : pick(metrics.actualBoundingBoxAscent, metrics.fontBoundingBoxAscent);
-      let descent = wantFontBox ? pick(metrics.fontBoundingBoxDescent, metrics.actualBoundingBoxDescent) : pick(metrics.actualBoundingBoxDescent, metrics.fontBoundingBoxDescent);
+      let ascent = wantFontBox ? pick(metrics.fontBoundingBoxAscent) : pick(metrics.actualBoundingBoxAscent, metrics.fontBoundingBoxAscent);
+      let descent = wantFontBox ? pick(metrics.fontBoundingBoxDescent) : pick(metrics.actualBoundingBoxDescent, metrics.fontBoundingBoxDescent);
       if (ascent <= 0 && descent <= 0) {
         ascent = ASCENT_RATIO * size;
         descent = DESCENT_RATIO * size;
@@ -5728,6 +6159,18 @@ void main() {
     layoutComplexText(textId, start, end, alignment, overflow, maxLines, maxWidth, maxHeight, _letterSpacing, _lineHeightAdd, lineHeightMultiplier, _lineBreakStrategy, _hyphenationFrequency, _justificationMode, _useUnderline, _strikethrough, _flags) {
       const str = this.textCache.get(textId);
       if (!str) return null;
+      if (_CanvasPaintContext.mockTextMetrics) {
+        return {
+          lines: [str],
+          alignment,
+          lineHeight: 40,
+          width: str.length * 30,
+          height: 40,
+          maxWidth,
+          maxHeight,
+          visibleLines: 1
+        };
+      }
       const s = start >= 0 ? start : 0;
       const e = end === -1 || end > str.length ? str.length : end;
       const text = str.substring(s, e);
@@ -5816,6 +6259,14 @@ void main() {
         if (w > totalWidth) totalWidth = w;
       }
       const totalHeight = lines.length * lineHeight;
+      let visibleLines = lines.length;
+      if (totalHeight > maxHeight && _CanvasPaintContext.isEllipsis(overflow) && lines.length >= maxLines) {
+        visibleLines = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if ((i + 1) * lineHeight < maxHeight) visibleLines++;
+          else break;
+        }
+      }
       return {
         lines,
         alignment,
@@ -5823,10 +6274,13 @@ void main() {
         width: Math.min(totalWidth, maxWidth),
         height: Math.min(totalHeight, maxHeight),
         naturalHeight: totalHeight,
-        visibleLines: lines.length,
+        visibleLines,
         maxWidth,
         maxHeight
       };
+    }
+    static isEllipsis(overflow) {
+      return overflow === 3 || overflow === 4 || overflow === 5;
     }
     drawComplexText(computedTextLayout, targetWidth) {
       if (!computedTextLayout) return;
@@ -5858,7 +6312,7 @@ void main() {
     drawBitmap(imageId, srcLeft, srcTop, srcRight, srcBottom, dstLeft, dstTop, dstRight, dstBottom, _cdId) {
       const img = this.bitmapToDraw(imageId);
       if (!img) return;
-      this.ctx.globalAlpha = this.alpha;
+      this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
       this.ctx.globalCompositeOperation = this.blendMode;
       this.ctx.imageSmoothingEnabled = this.filterBitmap;
       const sw = srcRight - srcLeft;
@@ -5874,7 +6328,7 @@ void main() {
     drawBitmapSimple(id, left, top, right, bottom) {
       const img = this.bitmapToDraw(id);
       if (!img) return;
-      this.ctx.globalAlpha = this.alpha;
+      this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
       this.ctx.globalCompositeOperation = this.blendMode;
       this.ctx.imageSmoothingEnabled = this.filterBitmap;
       this.ctx.drawImage(img, left, top, right - left, bottom - top);
@@ -5949,18 +6403,21 @@ void main() {
     }
     matrixSave() {
       this.inputClipStack.push(this.inputClip);
+      this.mLayerAlphaStack.push(this.mLayerAlpha);
       this.ctx.save();
     }
     matrixRestore() {
       const clip = this.inputClipStack.pop();
       if (clip) this.inputClip = clip;
+      if (this.mLayerAlphaStack.length) this.mLayerAlpha = this.mLayerAlphaStack.pop();
       this.ctx.restore();
     }
     saveLayer(x, y, w, h) {
       this.matrixSave();
       this.clipRect(x, y, x + w, y + h);
       if (this.alpha < 1) {
-        this.ctx.globalAlpha *= this.alpha;
+        this.mLayerAlpha *= this.alpha;
+        this.ctx.globalAlpha = this.mLayerAlpha;
       }
     }
     matrixTranslate(tx, ty) {
@@ -6113,10 +6570,11 @@ void main() {
           const ny = Math.cos(angle) * vOffset;
           this.ctx.translate(px + nx, py + ny);
           this.ctx.rotate(angle);
-          return;
+          return { x: px + nx, y: py + ny, angle };
         }
         accum += s.len;
       }
+      return null;
     }
     // --- Clipping ---
     clipRect(left, top, right, bottom) {
@@ -6213,7 +6671,7 @@ void main() {
           const r = Math.min(layer.width, layer.height) / 2;
           this.ctx.arc(layer.width / 2, layer.height / 2, r, 0, Math.PI * 2);
         } else if (shape === 1 && shapeRadius > 0) {
-          this.ctx.roundRect(0, 0, layer.width, layer.height, [shapeRadius]);
+          this.ctx.roundRect(0, 0, layer.width, layer.height, [Math.max(0, shapeRadius)]);
         } else {
           this.ctx.rect(0, 0, layer.width, layer.height);
         }
@@ -6237,9 +6695,10 @@ void main() {
       if (this.ctx === this.mainCanvas) this.mainInputClip = this.inputClip;
       let offCtx = this.bitmapCanvasCache.get(bitmapId);
       if (!offCtx) {
+        const declared = this.emptyBitmapSizes.get(bitmapId);
         const img = this.bitmapCache.get(bitmapId);
-        const w = img ? img.width || 256 : 256;
-        const h = img ? img.height || 256 : 256;
+        const w = declared?.width || (img ? img.width : 0) || 256;
+        const h = declared?.height || (img ? img.height : 0) || 256;
         offCtx = this.createLayerCanvas(w, h);
         this.bitmapCanvasCache.set(bitmapId, offCtx);
       }
@@ -6259,12 +6718,20 @@ void main() {
       this.resetPaintState();
       this.clearNeedsRepaint();
     }
+    superFactor() {
+      const v = this.supersample3D;
+      if (v === "auto") return this.ctx.canvas.width * this.ctx.canvas.height <= 105e4 ? 2 : 1;
+      return Math.max(1, Math.trunc(Number(v)) || 1);
+    }
     ensure3D() {
-      const w = this.ctx.canvas.width;
-      const h = this.ctx.canvas.height;
+      const k = this.superFactor();
+      const w = this.ctx.canvas.width * k;
+      const h = this.ctx.canvas.height * k;
       if (this.d3 === null) {
         this.d3 = new SoftwarePaint3DContext();
       }
+      this.d3.setSupersample(k);
+      this.d3Super = k;
       this.d3.setSize(w, h);
       if (this.d3Blit === null || this.d3Blit.canvas.width !== w || this.d3Blit.canvas.height !== h) {
         this.d3Blit = this.createLayerCanvas(w, h);
@@ -6363,7 +6830,8 @@ void main() {
       if (!gl.isAvailable()) return false;
       const n = ctx3d.buildCanvasVertices(meshId, this.d3glMesh, smooth);
       if (n < 3) return true;
-      const w = ctx3d.getWidth(), h = ctx3d.getHeight();
+      const k = this.d3Super;
+      const w = ctx3d.getWidth() / k, h = ctx3d.getHeight() / k;
       gl.beginFrame(w, h);
       const tex = ctx3d.getTextureData();
       gl.setTexture(tex.pixels, tex.width, tex.height);
@@ -6400,7 +6868,17 @@ void main() {
         d[i * 4 + 3] = p >>> 24 & 255;
       }
       blit.putImageData(img, 0, 0);
-      this.ctx.drawImage(blit.canvas, 0, 0);
+      const k = this.d3Super;
+      if (k === 1) {
+        this.ctx.drawImage(blit.canvas, 0, 0);
+      } else {
+        const smooth = this.ctx.imageSmoothingEnabled, q = this.ctx.imageSmoothingQuality;
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.imageSmoothingQuality = "high";
+        this.ctx.drawImage(blit.canvas, 0, 0, w / k, h / k);
+        this.ctx.imageSmoothingEnabled = smooth;
+        this.ctx.imageSmoothingQuality = q;
+      }
     }
   };
   // Path command IDs (NaN-encoded in the float array)
@@ -6414,6 +6892,13 @@ void main() {
   _CanvasPaintContext.PATH_DONE = 16;
   // NanMap path command base (Java convention used in binary PathData)
   _CanvasPaintContext.NANMAP_PATH_BASE = 3145728;
+  /**
+   * Measure text the way the Java reference's headless MockRemoteContext does (getTextBounds:
+   * always 100x10; layoutComplexText: 30 per character x 40), for conformance runs against
+   * that reference (players/conformance). Set it before loading; it changes layout, so it is
+   * never on in a real player.
+   */
+  _CanvasPaintContext.mockTextMetrics = !!globalThis.process?.env?.RC_MOCK_TEXT;
   // --- Graphics layer (offscreen compositing) ---
   // GraphicsLayer attribute IDs (from GraphicsLayerModifierOperation.java)
   _CanvasPaintContext.GL_SCALE_X = 0;
@@ -6426,6 +6911,15 @@ void main() {
   _CanvasPaintContext.GL_ALPHA = 11;
   _CanvasPaintContext.GL_SHAPE = 20;
   _CanvasPaintContext.GL_SHAPE_RADIUS = 21;
+  /**
+   * Software 3D antialiasing: the 3D buffers are rendered this many times larger per axis
+   * and composited scaled down with smoothing (supersampling; the rasterizer itself has no
+   * coverage AA, so edges were fully aliased). 2x costs about 2.5-3.5x the 3D frame time
+   * (SHW-15 at 1280x800: 40 -> 136 ms), so it is off by default (1). 2 turns it on;
+   * "auto" uses 2 only up to about a megapixel of canvas (a phone or a window at density 1).
+   * RC.CanvasPaintContext.supersample3D, or per context.
+   */
+  _CanvasPaintContext.supersample3D = 1;
   var CanvasPaintContext = _CanvasPaintContext;
 
   // third_party/remote-compose-player/src/web/InputContract.ts
@@ -7136,12 +7630,13 @@ void main() {
     }
     // --- Header ---
     header(majorVersion, minorVersion, patchVersion, width, height, capabilities, properties) {
-      this.mRemoteComposeState.setWindowWidth(width);
-      this.mRemoteComposeState.setWindowHeight(height);
       if (this.mDocument) {
         this.mDocument.setVersion(majorVersion, minorVersion, patchVersion);
-        this.mDocument.setWidth(width);
-        this.mDocument.setHeight(height);
+        if (!this.mDocument.mHeaderSized) {
+          this.mDocument.setWidth(width);
+          this.mDocument.setHeight(height);
+          this.mDocument.mHeaderSized = true;
+        }
         this.mDocument.setRequiredCapabilities(capabilities);
         this.mDocument.setProperties(properties);
       }
@@ -7322,8 +7817,11 @@ void main() {
     }
     setVersion(doc) {
       doc.setVersion(this.mMajorVersion, this.mMinorVersion, this.mPatchVersion);
-      doc.setWidth(this.mWidth);
-      doc.setHeight(this.mHeight);
+      if (!doc.mHeaderSized) {
+        doc.setWidth(this.mWidth);
+        doc.setHeight(this.mHeight);
+        doc.mHeaderSized = true;
+      }
       doc.setAuthorDimensions(this.mWidth, this.mHeight);
       doc.setRequiredCapabilities(this.mCapabilities);
       doc.setProperties(this.mProperties);
@@ -7452,6 +7950,7 @@ void main() {
   _Header.DEBUG = 16;
   _Header.FEATURE_MEASURE_VERSION = 17;
   _Header.FEATURE_TOUCH_VERSION = 18;
+  _Header.FEATURE_PRIORITY_FIX = 23;
   // Data types
   _Header.DATA_TYPE_INT = 0;
   _Header.DATA_TYPE_FLOAT = 1;
@@ -8214,7 +8713,7 @@ void main() {
      */
     static evalRPN(context, values, vars = [0, 0, 0]) {
       const stack = [];
-      const OFFSET4 = _FloatExpression.OFFSET;
+      const OFFSET5 = _FloatExpression.OFFSET;
       const collectionsAccess = context.getCollectionsAccess();
       const useBits = values instanceof Int32Array;
       let r0 = 0, r1 = 0, r2 = 0, r3 = 0;
@@ -8226,8 +8725,8 @@ void main() {
           const id = idFromBits(bits);
           if ((id & _FloatExpression.ID_REGION_MASK) === _FloatExpression.ID_REGION_ARRAY) {
             stack.push(ARR_SENTINEL + id);
-          } else if (id > OFFSET4 && id <= OFFSET4 + 79) {
-            const op = id - OFFSET4;
+          } else if (id > OFFSET5 && id <= OFFSET5 + 79) {
+            const op = id - OFFSET5;
             switch (op) {
               case 1: {
                 const b = stack.pop(), a = stack.pop();
@@ -8356,10 +8855,10 @@ void main() {
               }
               case 33: {
                 const aId = arrIdFromStack(stack.pop());
-                const floats = collectionsAccess.getFloats(aId);
-                if (floats && floats.length > 0) {
-                  let mx = floats[0];
-                  for (let j = 1; j < floats.length; j++) mx = Math.max(mx, floats[j]);
+                const floats2 = collectionsAccess.getFloats(aId);
+                if (floats2 && floats2.length > 0) {
+                  let mx = floats2[0];
+                  for (let j = 1; j < floats2.length; j++) mx = Math.max(mx, floats2[j]);
                   stack.push(mx);
                 } else {
                   stack.push(0);
@@ -8368,10 +8867,10 @@ void main() {
               }
               case 34: {
                 const aId = arrIdFromStack(stack.pop());
-                const floats = collectionsAccess.getFloats(aId);
-                if (floats && floats.length > 0) {
-                  let mn = floats[0];
-                  for (let j = 1; j < floats.length; j++) mn = Math.min(mn, floats[j]);
+                const floats2 = collectionsAccess.getFloats(aId);
+                if (floats2 && floats2.length > 0) {
+                  let mn = floats2[0];
+                  for (let j = 1; j < floats2.length; j++) mn = Math.min(mn, floats2[j]);
                   stack.push(mn);
                 } else {
                   stack.push(0);
@@ -8380,21 +8879,21 @@ void main() {
               }
               case 35: {
                 const aId = arrIdFromStack(stack.pop());
-                const floats = collectionsAccess.getFloats(aId);
+                const floats2 = collectionsAccess.getFloats(aId);
                 let sum = 0;
-                if (floats) {
-                  for (let j = 0; j < floats.length; j++) sum += floats[j];
+                if (floats2) {
+                  for (let j = 0; j < floats2.length; j++) sum += floats2[j];
                 }
                 stack.push(sum);
                 break;
               }
               case 36: {
                 const aId = arrIdFromStack(stack.pop());
-                const floats = collectionsAccess.getFloats(aId);
+                const floats2 = collectionsAccess.getFloats(aId);
                 let sum = 0;
-                if (floats && floats.length > 0) {
-                  for (let j = 0; j < floats.length; j++) sum += floats[j];
-                  stack.push(sum / floats.length);
+                if (floats2 && floats2.length > 0) {
+                  for (let j = 0; j < floats2.length; j++) sum += floats2[j];
+                  stack.push(sum / floats2.length);
                 } else {
                   stack.push(0);
                 }
@@ -8408,8 +8907,8 @@ void main() {
               case 38: {
                 const pos = stack.pop();
                 const aId = arrIdFromStack(stack.pop());
-                const floats = collectionsAccess.getFloats(aId);
-                stack.push(floats ? _FloatExpression.splineInterp(floats, pos) : 0);
+                const floats2 = collectionsAccess.getFloats(aId);
+                stack.push(floats2 ? _FloatExpression.splineInterp(floats2, pos) : 0);
                 break;
               }
               case 39:
@@ -8710,19 +9209,19 @@ void main() {
       return `${indent}FloatExpression(${this.mId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.declareId();
       const len = buffer.readInt();
       const valueLen = len & 65535;
       const animLen = len >> 16 & 65535;
       const bits = new Int32Array(valueLen);
       for (let i = 0; i < valueLen; i++) {
-        bits[i] = buffer.readInt();
+        bits[i] = buffer.readNanIdBits();
       }
       let animation = null;
       if (animLen > 0) {
         animation = new Float32Array(animLen);
         for (let i = 0; i < animLen; i++) {
-          animation[i] = buffer.readFloat();
+          animation[i] = intBitsToFloat2(buffer.readNanIdBits());
         }
       }
       operations.push(new _FloatExpression(id, bits, animation));
@@ -8816,139 +9315,139 @@ void main() {
       return sp >= 0 ? s[sp] : 0;
     }
     opEval(sp, id, s, ca, vars) {
-      const OFFSET4 = _AnimatedFloatExpression.OFFSET;
+      const OFFSET5 = _AnimatedFloatExpression.OFFSET;
       switch (id) {
-        case OFFSET4 + 1:
+        case OFFSET5 + 1:
           s[sp - 1] += s[sp];
           return sp - 1;
         // ADD
-        case OFFSET4 + 2:
+        case OFFSET5 + 2:
           s[sp - 1] -= s[sp];
           return sp - 1;
         // SUB
-        case OFFSET4 + 3:
+        case OFFSET5 + 3:
           s[sp - 1] *= s[sp];
           return sp - 1;
         // MUL
-        case OFFSET4 + 4:
+        case OFFSET5 + 4:
           s[sp - 1] /= s[sp];
           return sp - 1;
         // DIV
-        case OFFSET4 + 5:
+        case OFFSET5 + 5:
           s[sp - 1] %= s[sp];
           return sp - 1;
         // MOD
-        case OFFSET4 + 6:
+        case OFFSET5 + 6:
           s[sp - 1] = Math.min(s[sp - 1], s[sp]);
           return sp - 1;
         // MIN
-        case OFFSET4 + 7:
+        case OFFSET5 + 7:
           s[sp - 1] = Math.max(s[sp - 1], s[sp]);
           return sp - 1;
         // MAX
-        case OFFSET4 + 8:
+        case OFFSET5 + 8:
           s[sp - 1] = Math.pow(s[sp - 1], s[sp]);
           return sp - 1;
         // POW
-        case OFFSET4 + 9:
+        case OFFSET5 + 9:
           s[sp] = Math.sqrt(s[sp]);
           return sp;
         // SQRT
-        case OFFSET4 + 10:
+        case OFFSET5 + 10:
           s[sp] = Math.abs(s[sp]);
           return sp;
         // ABS
-        case OFFSET4 + 11:
+        case OFFSET5 + 11:
           s[sp] = Math.sign(s[sp]);
           return sp;
         // SIGN
-        case OFFSET4 + 12:
+        case OFFSET5 + 12:
           s[sp - 1] = Math.abs(s[sp - 1]) * Math.sign(s[sp]);
           return sp - 1;
         // COPY_SIGN
-        case OFFSET4 + 13:
+        case OFFSET5 + 13:
           s[sp] = Math.exp(s[sp]);
           return sp;
         // EXP
-        case OFFSET4 + 14:
+        case OFFSET5 + 14:
           s[sp] = Math.floor(s[sp]);
           return sp;
         // FLOOR
-        case OFFSET4 + 15:
+        case OFFSET5 + 15:
           s[sp] = Math.log10(s[sp]);
           return sp;
         // LOG
-        case OFFSET4 + 16:
+        case OFFSET5 + 16:
           s[sp] = Math.log(s[sp]);
           return sp;
         // LN
-        case OFFSET4 + 17:
+        case OFFSET5 + 17:
           s[sp] = Math.round(s[sp]);
           return sp;
         // ROUND
-        case OFFSET4 + 18:
+        case OFFSET5 + 18:
           s[sp] = Math.sin(s[sp]);
           return sp;
         // SIN
-        case OFFSET4 + 19:
+        case OFFSET5 + 19:
           s[sp] = Math.cos(s[sp]);
           return sp;
         // COS
-        case OFFSET4 + 20:
+        case OFFSET5 + 20:
           s[sp] = Math.tan(s[sp]);
           return sp;
         // TAN
-        case OFFSET4 + 21:
+        case OFFSET5 + 21:
           s[sp] = Math.asin(s[sp]);
           return sp;
         // ASIN
-        case OFFSET4 + 22:
+        case OFFSET5 + 22:
           s[sp] = Math.acos(s[sp]);
           return sp;
         // ACOS
-        case OFFSET4 + 23:
+        case OFFSET5 + 23:
           s[sp] = Math.atan(s[sp]);
           return sp;
         // ATAN
-        case OFFSET4 + 24:
+        case OFFSET5 + 24:
           s[sp - 1] = Math.atan2(s[sp - 1], s[sp]);
           return sp - 1;
         // ATAN2
-        case OFFSET4 + 25:
+        case OFFSET5 + 25:
           s[sp - 2] = s[sp] + s[sp - 1] * s[sp - 2];
           return sp - 2;
         // MAD
-        case OFFSET4 + 26: {
+        case OFFSET5 + 26: {
           const c = s[sp];
           s[sp - 2] = c > 0 ? s[sp - 1] : s[sp - 2];
           return sp - 2;
         }
-        case OFFSET4 + 27:
+        case OFFSET5 + 27:
           s[sp - 2] = Math.min(Math.max(s[sp - 2], s[sp]), s[sp - 1]);
           return sp - 2;
         // CLAMP
-        case OFFSET4 + 28:
+        case OFFSET5 + 28:
           s[sp] = Math.pow(s[sp], 1 / 3);
           return sp;
         // CBRT
-        case OFFSET4 + 29:
+        case OFFSET5 + 29:
           s[sp] = s[sp] * 57.29578;
           return sp;
         // DEG
-        case OFFSET4 + 30:
+        case OFFSET5 + 30:
           s[sp] = s[sp] * 0.017453292;
           return sp;
         // RAD
-        case OFFSET4 + 31:
+        case OFFSET5 + 31:
           s[sp] = Math.ceil(s[sp]);
           return sp;
         // CEIL
-        case OFFSET4 + 32: {
+        case OFFSET5 + 32: {
           const arrId = arrIdFromStack2(s[sp - 1]);
           if (ca) s[sp - 1] = ca.getFloatValue(arrId, Math.trunc(s[sp]));
           return sp - 1;
         }
-        case OFFSET4 + 33: {
+        case OFFSET5 + 33: {
           const arrId = arrIdFromStack2(s[sp]);
           if (ca) {
             const arr = ca.getFloats(arrId);
@@ -8958,7 +9457,7 @@ void main() {
           }
           return sp;
         }
-        case OFFSET4 + 34: {
+        case OFFSET5 + 34: {
           const arrId = arrIdFromStack2(s[sp]);
           if (ca) {
             const arr = ca.getFloats(arrId);
@@ -8970,7 +9469,7 @@ void main() {
           }
           return sp;
         }
-        case OFFSET4 + 35: {
+        case OFFSET5 + 35: {
           const arrId = arrIdFromStack2(s[sp]);
           if (ca) {
             const arr = ca.getFloats(arrId);
@@ -8980,7 +9479,7 @@ void main() {
           }
           return sp;
         }
-        case OFFSET4 + 36: {
+        case OFFSET5 + 36: {
           const arrId = arrIdFromStack2(s[sp]);
           if (ca) {
             const arr = ca.getFloats(arrId);
@@ -8990,12 +9489,12 @@ void main() {
           }
           return sp;
         }
-        case OFFSET4 + 37: {
+        case OFFSET5 + 37: {
           const arrId = arrIdFromStack2(s[sp]);
           if (ca) s[sp] = ca.getListLength(arrId);
           return sp;
         }
-        case OFFSET4 + 38: {
+        case OFFSET5 + 38: {
           const arrId = arrIdFromStack2(s[sp - 1]);
           if (ca) {
             const fl = ca.getFloats(arrId);
@@ -9003,48 +9502,48 @@ void main() {
           }
           return sp - 1;
         }
-        case OFFSET4 + 39:
+        case OFFSET5 + 39:
           s[++sp] = _AnimatedFloatExpression.nextRandom();
           return sp;
-        case OFFSET4 + 40:
+        case OFFSET5 + 40:
           _AnimatedFloatExpression.seedRandom(s[sp]);
           return sp - 1;
-        case OFFSET4 + 41: {
+        case OFFSET5 + 41: {
           let x = Math.trunc(s[sp]);
           x = x << 13 ^ x;
           s[sp] = 1 - (x * (x * x * 15731 + 789221) + 1376312589 & 2147483647) / 1073741800;
           return sp;
         }
-        case OFFSET4 + 42:
+        case OFFSET5 + 42:
           s[sp] = Math.random() * (s[sp] - s[sp - 1]) + s[sp - 1];
           return sp;
-        case OFFSET4 + 43:
+        case OFFSET5 + 43:
           s[sp - 1] = s[sp - 1] * s[sp - 1] + s[sp] * s[sp];
           return sp - 1;
-        case OFFSET4 + 44:
+        case OFFSET5 + 44:
           s[sp - 1] = s[sp - 1] > s[sp] ? 1 : 0;
           return sp - 1;
-        case OFFSET4 + 45:
+        case OFFSET5 + 45:
           s[sp] = s[sp] * s[sp];
           return sp;
-        case OFFSET4 + 46:
+        case OFFSET5 + 46:
           s[sp + 1] = s[sp];
           return sp + 1;
-        case OFFSET4 + 47:
+        case OFFSET5 + 47:
           s[sp - 1] = Math.hypot(s[sp - 1], s[sp]);
           return sp - 1;
-        case OFFSET4 + 48: {
+        case OFFSET5 + 48: {
           const tmp = s[sp - 1];
           s[sp - 1] = s[sp];
           s[sp] = tmp;
           return sp;
         }
-        case OFFSET4 + 49: {
+        case OFFSET5 + 49: {
           const t = s[sp];
           s[sp - 2] = s[sp - 2] + (s[sp - 1] - s[sp - 2]) * t;
           return sp - 2;
         }
-        case OFFSET4 + 50: {
+        case OFFSET5 + 50: {
           const val = s[sp - 2], max2 = s[sp - 1], min1 = s[sp];
           if (val < min1) s[sp - 2] = 0;
           else if (val > max2) s[sp - 2] = 1;
@@ -9054,74 +9553,74 @@ void main() {
           }
           return sp - 2;
         }
-        case OFFSET4 + 51:
+        case OFFSET5 + 51:
           s[sp] = Math.log(s[sp]) / Math.log(2);
           return sp;
-        case OFFSET4 + 52:
+        case OFFSET5 + 52:
           s[sp] = 1 / s[sp];
           return sp;
-        case OFFSET4 + 53:
+        case OFFSET5 + 53:
           s[sp] = s[sp] - Math.trunc(s[sp]);
           return sp;
-        case OFFSET4 + 54: {
+        case OFFSET5 + 54: {
           const max2 = s[sp] * 2;
           const tmp = s[sp - 1] % max2;
           s[sp - 1] = tmp < s[sp] ? tmp : max2 - tmp;
           return sp - 1;
         }
-        case OFFSET4 + 55:
+        case OFFSET5 + 55:
           return sp;
         // NOP
-        case OFFSET4 + 56:
+        case OFFSET5 + 56:
           this.mR0 = s[sp];
           return sp - 1;
         // STORE_R0
-        case OFFSET4 + 57:
+        case OFFSET5 + 57:
           this.mR1 = s[sp];
           return sp - 1;
         // STORE_R1
-        case OFFSET4 + 58:
+        case OFFSET5 + 58:
           this.mR2 = s[sp];
           return sp - 1;
         // STORE_R2
-        case OFFSET4 + 59:
+        case OFFSET5 + 59:
           this.mR3 = s[sp];
           return sp - 1;
         // STORE_R3
-        case OFFSET4 + 60:
+        case OFFSET5 + 60:
           s[++sp] = this.mR0;
           return sp;
         // LOAD_R0
-        case OFFSET4 + 61:
+        case OFFSET5 + 61:
           s[++sp] = this.mR1;
           return sp;
         // LOAD_R1
-        case OFFSET4 + 62:
+        case OFFSET5 + 62:
           s[++sp] = this.mR2;
           return sp;
         // LOAD_R2
-        case OFFSET4 + 63:
+        case OFFSET5 + 63:
           s[++sp] = this.mR3;
           return sp;
         // LOAD_R3
-        case OFFSET4 + 70:
+        case OFFSET5 + 70:
           s[++sp] = vars.length > 0 ? vars[0] : 0;
           return sp;
-        case OFFSET4 + 71:
+        case OFFSET5 + 71:
           s[++sp] = vars.length > 1 ? vars[1] : 0;
           return sp;
-        case OFFSET4 + 72:
+        case OFFSET5 + 72:
           s[++sp] = vars.length > 2 ? vars[2] : 0;
           return sp;
-        case OFFSET4 + 73:
+        case OFFSET5 + 73:
           s[sp] = -s[sp];
           return sp;
-        case OFFSET4 + 74: {
+        case OFFSET5 + 74: {
           const x1 = s[sp - 4], y1 = s[sp - 3], x2 = s[sp - 2], y2 = s[sp - 1], pos = s[sp];
           s[sp - 4] = FloatExpression.cubicEasing(x1, y1, x2, y2, pos);
           return sp - 4;
         }
-        case OFFSET4 + 75: {
+        case OFFSET5 + 75: {
           const arrId = arrIdFromStack2(s[sp - 1]);
           const frac = s[sp] - Math.floor(s[sp]);
           const r = frac < 0 ? frac + 1 : frac;
@@ -9131,7 +9630,7 @@ void main() {
           }
           return sp - 1;
         }
-        case OFFSET4 + 76: {
+        case OFFSET5 + 76: {
           const arrId = arrIdFromStack2(s[sp - 1]);
           const last = Math.trunc(s[sp]);
           let sum = 0;
@@ -9141,7 +9640,7 @@ void main() {
           s[sp - 1] = sum;
           return sp - 1;
         }
-        case OFFSET4 + 77: {
+        case OFFSET5 + 77: {
           const idX = arrIdFromStack2(s[sp - 1]);
           const idY = arrIdFromStack2(s[sp]);
           if (ca) {
@@ -9153,7 +9652,7 @@ void main() {
           }
           return sp - 1;
         }
-        case OFFSET4 + 78: {
+        case OFFSET5 + 78: {
           const arrId = arrIdFromStack2(s[sp]);
           if (ca) {
             const arr = ca.getFloats(arrId);
@@ -9163,7 +9662,7 @@ void main() {
           }
           return sp;
         }
-        case OFFSET4 + 79: {
+        case OFFSET5 + 79: {
           const arrId = arrIdFromStack2(s[sp - 1]);
           if (ca) {
             const arr = ca.getFloats(arrId);
@@ -9734,7 +10233,7 @@ void main() {
       context.loadFloat(this.mId, this.wrap(this.mCurrentValue));
     }
     touchDown(context, x, y) {
-      if (this.mComponent !== null && !(x >= this.mScrLeft && x <= this.mScrRight && y >= this.mScrTop && y <= this.mScrBottom)) {
+      if (!(x >= this.mScrLeft && x <= this.mScrRight && y >= this.mScrTop && y <= this.mScrBottom)) {
         return;
       }
       this.mEasingToStop = false;
@@ -9826,24 +10325,24 @@ void main() {
       return `${indent}TouchExpression(${this.mId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const startValue = buffer.readInt();
-      const min = buffer.readInt();
-      const max = buffer.readInt();
-      const velocityId = buffer.readInt();
+      const id = buffer.readId();
+      const startValue = buffer.readNanIdBits();
+      const min = buffer.readNanIdBits();
+      const max = buffer.readNanIdBits();
+      const velocityId = buffer.readNanIdBits();
       const touchEffects = buffer.readInt();
       const len = buffer.readInt();
       const valueLen = len & 65535;
       const exp = new Int32Array(valueLen);
-      for (let i = 0; i < valueLen; i++) exp[i] = buffer.readInt();
+      for (let i = 0; i < valueLen; i++) exp[i] = buffer.readNanIdBits();
       const stopLogic = buffer.readInt();
       const stopLen = stopLogic & 65535;
       const stopMode = stopLogic >> 16;
       const stopsData = new Int32Array(stopLen);
-      for (let i = 0; i < stopLen; i++) stopsData[i] = buffer.readInt();
+      for (let i = 0; i < stopLen; i++) stopsData[i] = buffer.readNanIdBits();
       const easingLen = buffer.readInt();
       const easingData = easingLen > 0 ? new Float32Array(easingLen) : null;
-      for (let i = 0; i < easingLen; i++) easingData[i] = buffer.readFloat();
+      for (let i = 0; i < easingLen; i++) easingData[i] = intBitsToFloat2(buffer.readNanIdBits());
       operations.push(new _TouchExpression(
         id,
         exp,
@@ -9964,7 +10463,7 @@ void main() {
 
   // third_party/remote-compose-player/src/core/operations/layout/animation/AnimationSpec.ts
   function intToAnimation(v) {
-    switch (v) {
+    switch (v & 255) {
       case 0:
         return 0 /* FADE_IN */;
       case 1:
@@ -10036,13 +10535,19 @@ void main() {
       return `${indent}AnimationSpec(id=${this.mAnimationId}, motion=${this.mMotionDuration}ms, vis=${this.mVisibilityDuration}ms)`;
     }
     static read(buffer, operations) {
-      const animationId = buffer.readInt();
+      const animationId = buffer.readId();
       const motionDuration = buffer.readFloat();
       const motionEasingType = buffer.readInt();
       const visibilityDuration = buffer.readFloat();
       const visibilityEasingType = buffer.readInt();
-      const enterAnimation = intToAnimation(buffer.readInt());
-      const exitAnimation = intToAnimation(buffer.readInt());
+      const rawEnter = buffer.readInt();
+      const rawExit = buffer.readInt();
+      const enterAnimation = intToAnimation(rawEnter);
+      const exitAnimation = intToAnimation(rawExit);
+      if ((rawEnter & 255) === 8 || (rawExit & 255) === 8) {
+        buffer.readId();
+        buffer.readId();
+      }
       const op = new _AnimationSpec(
         animationId,
         motionDuration,
@@ -10433,9 +10938,20 @@ void main() {
       this.mNeedsMeasure = true;
       this.mNeedsRepaint = true;
       this.mFirstLayout = true;
+      // The visibility this component was last laid out with: what an animation starts from.
+      // (A visibility modifier sets mVisibility as soon as its variable changes; the reference
+      // schedules it, leaving mVisibility at the laid-out value until the next layout.)
+      this.mLayoutVisibility = Visibility.VISIBLE;
       this.mAnimationSpec = AnimationSpec.DEFAULT;
       this.mAnimateMeasure = null;
       this.mNeedsBoundsAnimation = false;
+      // ComponentValue ops that read this component's size or position (componentWidth() in a
+      // modifier or an expression): refreshed at every layout, as the reference's
+      // Component.updateComponentValues does (U49: they stayed at their load-time value, 0).
+      // (LayoutComponent redeclares this field null and fills it from its content ops: a
+      // ComponentValue applying before that saw null and the reader threw — two width
+      // expressions in one document were enough.)
+      this.mComponentValues = [];
       this.mComponentId = componentId;
       this.mAnimationId = animationId;
       this.mX = x;
@@ -10554,6 +11070,10 @@ void main() {
         if (op instanceof _Component) {
           op.setParent(this);
         }
+        const t = op;
+        if (typeof t.setComponent === "function" && typeof t.touchDown === "function") {
+          t.setComponent(this);
+        }
       }
     }
     // --- Intrinsic size (matches Java Component.minIntrinsicHeight/Width) ---
@@ -10583,10 +11103,10 @@ void main() {
     }
     layout(context, measure) {
       const m = measure.get(this);
-      const allowAnimation = !this.mFirstLayout && context.isAnimationEnabled() && this.mAnimationSpec.isAnimationEnabled() && m.getAllowsAnimation();
+      const allowAnimation = !this.mFirstLayout && context.isAnimationEnabled() && this.mAnimationSpec.isAnimationEnabled() && m.getAllowsAnimation() && !(Visibility.isGone(this.mLayoutVisibility) && Visibility.isGone(m.getVisibility()));
       if (allowAnimation) {
         if (this.mAnimateMeasure === null) {
-          const origin = new ComponentMeasure(this.mComponentId, this.mX, this.mY, this.mWidth, this.mHeight, this.mVisibility);
+          const origin = new ComponentMeasure(this.mComponentId, this.mX, this.mY, this.mWidth, this.mHeight, this.mLayoutVisibility);
           const target = new ComponentMeasure(this.mComponentId, m.getX(), m.getY(), m.getW(), m.getH(), m.getVisibility());
           if (!target.same(origin)) {
             const now = context.mClock?.millis() ?? Date.now();
@@ -10607,7 +11127,7 @@ void main() {
           const now = context.mClock?.millis() ?? Date.now();
           this.mAnimateMeasure.updateTarget(context, m, now);
         }
-      } else {
+      } else if (!context.isAnimationEnabled() || !this.mAnimationSpec.isAnimationEnabled()) {
         this.mAnimateMeasure = null;
       }
       if (this.mAnimateMeasure === null) {
@@ -10616,13 +11136,16 @@ void main() {
         this.mY = m.getY();
         this.mWidth = m.getW();
         this.mHeight = m.getH();
+        this.updateComponentValues(context, this.mWidth, this.mHeight);
         if (this.mParent) {
           this.clearNeedsBoundsAnimation();
         }
       } else {
         this.mAnimateMeasure.apply(context);
+        this.updateComponentValues(context, this.mWidth, this.mHeight);
         this.markNeedsBoundsAnimation();
       }
+      this.mLayoutVisibility = m.getVisibility();
       this.mFirstLayout = false;
     }
     animatingBounds(context) {
@@ -10712,6 +11235,7 @@ void main() {
     }
     // --- Touch/Input ---
     onClick(context, doc, x, y) {
+      if (!this.isVisible()) return false;
       for (let i = this.mChildren.length - 1; i >= 0; i--) {
         const child = this.mChildren[i];
         if (child instanceof _Component) {
@@ -10815,8 +11339,9 @@ void main() {
       let y = this.mY;
       let parent = this.mParent;
       while (parent) {
-        x += parent.mX;
-        y += parent.mY;
+        const p = parent;
+        x += parent.mX + (p.mPaddingLeft ?? 0) + parent.getScrollX();
+        y += parent.mY + (p.mPaddingTop ?? 0) + parent.getScrollY();
         parent = parent.getParent();
       }
       return [x, y];
@@ -10836,7 +11361,37 @@ void main() {
       }
       return null;
     }
-    addComponentValue(_v) {
+    addComponentValue(v) {
+      if (!v) return;
+      if (!this.mComponentValues) this.mComponentValues = [];
+      if (!this.mComponentValues.includes(v)) this.mComponentValues.push(v);
+    }
+    updateComponentValues(context, width, height) {
+      for (const v of this.mComponentValues ?? []) {
+        const type = typeof v.getType === "function" ? v.getType() : v.mType;
+        const id = typeof v.getValueId === "function" ? v.getValueId() : v.mValueId;
+        if (typeof id !== "number") continue;
+        switch (type) {
+          case 0:
+            context.loadFloat(id, width);
+            break;
+          // WIDTH
+          case 1:
+            context.loadFloat(id, height);
+            break;
+          // HEIGHT
+          case 2:
+            context.loadFloat(id, this.mX);
+            break;
+          // POS_X
+          case 3:
+            context.loadFloat(id, this.mY);
+            break;
+          // POS_Y
+          default:
+            break;
+        }
+      }
     }
     registerVariables(_context) {
     }
@@ -11047,7 +11602,7 @@ void main() {
       return `${indent}RootLayoutComponent(${this.getComponentId()})`;
     }
     static read(buffer, operations) {
-      const componentId = buffer.readInt();
+      const componentId = buffer.declareId();
       const component = new _RootLayoutComponent(componentId);
       operations.push(component);
     }
@@ -11109,17 +11664,36 @@ void main() {
     /** True when a fill fraction was supplied. A bare fill encodes NaN, which
      *  getValue() reports as 0 — so the raw bits are the only way to tell
      *  "fill half" from "fill completely". */
+    // A variable ("@fraction") is a NaN-boxed id, not the bare-fill NaN: it is a fraction too (U62).
     hasFraction() {
-      return !isNaNBits(this.mValueBits);
+      return !isNaNBits(this.mValueBits) || isVariableBits(this.mValueBits);
     }
+    // Java DimensionModifierOperation.registerListening / updateVariables: EXACT scales by
+    // density only under DENSITY_BEHAVIOR_DP, EXACT_DP always; both re-resolve from the
+    // authored value (a literal or a variable) each time.
     registerListening(context) {
-      if ((this.mType === _WidthModifier.EXACT || this.mType === _WidthModifier.EXACT_DP) && isNaNBits(this.mValueBits)) {
+      if (this.mType !== _WidthModifier.EXACT && this.mType !== _WidthModifier.EXACT_DP && isVariableBits(this.mValueBits)) {
         context.listensTo(idFromBits(this.mValueBits), this);
+      }
+      if (this.mType === _WidthModifier.EXACT || this.mType === _WidthModifier.EXACT_DP) {
+        if (isNaNBits(this.mValueBits)) context.listensTo(idFromBits(this.mValueBits), this);
+        if (this.mType === _WidthModifier.EXACT_DP || context.getDensityBehavior?.() === RemoteContext.DENSITY_BEHAVIOR_DP) {
+          context.listensTo(27, this);
+        }
       }
     }
     updateVariables(context) {
-      if ((this.mType === _WidthModifier.EXACT || this.mType === _WidthModifier.EXACT_DP) && isNaNBits(this.mValueBits)) {
+      if (this.mType !== _WidthModifier.EXACT && this.mType !== _WidthModifier.EXACT_DP && isVariableBits(this.mValueBits)) {
         this.mOutValue = context.getFloat(idFromBits(this.mValueBits));
+      }
+      if (this.mType === _WidthModifier.EXACT || this.mType === _WidthModifier.EXACT_DP) {
+        const pre = this.mOutValue;
+        this.mOutValue = isNaNBits(this.mValueBits) ? context.getFloat(idFromBits(this.mValueBits)) : intBitsToFloat2(this.mValueBits);
+        if (this.mType === _WidthModifier.EXACT && context.getDensityBehavior?.() === RemoteContext.DENSITY_BEHAVIOR_DP) {
+          const density = context.getDensity();
+          if (density > 0 && !Number.isNaN(density)) this.mOutValue *= density;
+        }
+        if (pre !== this.mOutValue) context.getDocument?.()?.invalidateMeasure();
       }
     }
     write(_buffer) {
@@ -11130,7 +11704,7 @@ void main() {
       return `${indent}WidthModifier(${this.mType}, ${this.mOutValue})`;
     }
     static read(buffer, operations) {
-      operations.push(new _WidthModifier(buffer.readInt(), buffer.readInt()));
+      operations.push(new _WidthModifier(buffer.readInt(), buffer.readNanIdBits()));
     }
   };
   _WidthModifier.OP_CODE = 16;
@@ -11160,17 +11734,30 @@ void main() {
     /** True when a fill fraction was supplied. A bare fill encodes NaN, which
      *  getValue() reports as 0 — so the raw bits are the only way to tell
      *  "fill half" from "fill completely". */
+    // A variable ("@fraction") is a NaN-boxed id, not the bare-fill NaN: it is a fraction too (U62).
     hasFraction() {
-      return !isNaNBits(this.mValueBits);
+      return !isNaNBits(this.mValueBits) || isVariableBits(this.mValueBits);
     }
+    // Java DimensionModifierOperation.registerListening / updateVariables: EXACT scales by
+    // density only under DENSITY_BEHAVIOR_DP, EXACT_DP always; both re-resolve from the
+    // authored value (a literal or a variable) each time.
     registerListening(context) {
-      if ((this.mType === _HeightModifier.EXACT || this.mType === _HeightModifier.EXACT_DP) && isNaNBits(this.mValueBits)) {
-        context.listensTo(idFromBits(this.mValueBits), this);
+      if (this.mType === _HeightModifier.EXACT || this.mType === _HeightModifier.EXACT_DP) {
+        if (isNaNBits(this.mValueBits)) context.listensTo(idFromBits(this.mValueBits), this);
+        if (this.mType === _HeightModifier.EXACT_DP || context.getDensityBehavior?.() === RemoteContext.DENSITY_BEHAVIOR_DP) {
+          context.listensTo(27, this);
+        }
       }
     }
     updateVariables(context) {
-      if ((this.mType === _HeightModifier.EXACT || this.mType === _HeightModifier.EXACT_DP) && isNaNBits(this.mValueBits)) {
-        this.mOutValue = context.getFloat(idFromBits(this.mValueBits));
+      if (this.mType === _HeightModifier.EXACT || this.mType === _HeightModifier.EXACT_DP) {
+        const pre = this.mOutValue;
+        this.mOutValue = isNaNBits(this.mValueBits) ? context.getFloat(idFromBits(this.mValueBits)) : intBitsToFloat2(this.mValueBits);
+        if (this.mType === _HeightModifier.EXACT && context.getDensityBehavior?.() === RemoteContext.DENSITY_BEHAVIOR_DP) {
+          const density = context.getDensity();
+          if (density > 0 && !Number.isNaN(density)) this.mOutValue *= density;
+        }
+        if (pre !== this.mOutValue) context.getDocument?.()?.invalidateMeasure();
       }
     }
     write(_buffer) {
@@ -11181,7 +11768,7 @@ void main() {
       return `${indent}HeightModifier(${this.mType}, ${this.mOutValue})`;
     }
     static read(buffer, operations) {
-      operations.push(new _HeightModifier(buffer.readInt(), buffer.readInt()));
+      operations.push(new _HeightModifier(buffer.readInt(), buffer.readNanIdBits()));
     }
   };
   _HeightModifier.OP_CODE = 67;
@@ -11232,7 +11819,7 @@ void main() {
       return `${indent}WidthInModifier(${this.mOutMin}, ${this.mOutMax})`;
     }
     static read(buffer, operations) {
-      operations.push(new _WidthInModifier(buffer.readInt(), buffer.readInt()));
+      operations.push(new _WidthInModifier(buffer.readNanIdBits(), buffer.readNanIdBits()));
     }
   };
   _WidthInModifier.OP_CODE = 231;
@@ -11274,7 +11861,7 @@ void main() {
       return `${indent}HeightInModifier(${this.mOutMin}, ${this.mOutMax})`;
     }
     static read(buffer, operations) {
-      operations.push(new _HeightInModifier(buffer.readInt(), buffer.readInt()));
+      operations.push(new _HeightInModifier(buffer.readNanIdBits(), buffer.readNanIdBits()));
     }
   };
   _HeightInModifier.OP_CODE = 232;
@@ -11299,7 +11886,7 @@ void main() {
       return `${indent}CollapsiblePriorityModifier`;
     }
     static read(buffer, operations) {
-      operations.push(new _CollapsiblePriorityModifier(buffer.readInt(), buffer.readFloat()));
+      operations.push(new _CollapsiblePriorityModifier(buffer.readInt(), intBitsToFloat2(buffer.readNanIdBits())));
     }
   };
   _CollapsiblePriorityModifier.OP_CODE = 235;
@@ -11383,13 +11970,14 @@ void main() {
     }
     static read(buffer, operations) {
       const flags = buffer.readInt();
-      const colorId = buffer.readId();
+      let colorId = buffer.readInt();
+      if ((flags & 2) !== 0) colorId = buffer.getRemapContext?.()?.resolveId(colorId) ?? colorId;
       buffer.readInt();
       buffer.readInt();
-      const r = buffer.readInt();
-      const g = buffer.readInt();
-      const b = buffer.readInt();
-      const a = buffer.readInt();
+      const r = buffer.readNanIdBits();
+      const g = buffer.readNanIdBits();
+      const b = buffer.readNanIdBits();
+      const a = buffer.readNanIdBits();
       const shapeType = buffer.readInt();
       operations.push(new _BackgroundModifier(flags, colorId, r, g, b, a, shapeType));
     }
@@ -11458,15 +12046,17 @@ void main() {
     }
     static read(buffer, operations) {
       const flags = buffer.readInt();
-      const colorId = buffer.readId();
+      let colorId = buffer.readInt();
+      if ((flags & 2) !== 0) colorId = buffer.getRemapContext?.()?.resolveId(colorId) ?? colorId;
       buffer.readInt();
       buffer.readInt();
-      const borderWidth = buffer.readNanId();
-      const roundedCorner = buffer.readNanId();
-      const r = buffer.readNanId();
-      const g = buffer.readNanId();
-      const b = buffer.readNanId();
-      const a = buffer.readNanId();
+      const lit = (bits) => isNaNBits(bits) ? 0 : intBitsToFloat2(bits);
+      const borderWidth = lit(buffer.readNanIdBits());
+      const roundedCorner = lit(buffer.readNanIdBits());
+      const r = lit(buffer.readNanIdBits());
+      const g = lit(buffer.readNanIdBits());
+      const b = lit(buffer.readNanIdBits());
+      const a = lit(buffer.readNanIdBits());
       const shapeType = buffer.readInt();
       operations.push(new _BorderModifier(flags, colorId, borderWidth, roundedCorner, r, g, b, a, shapeType));
     }
@@ -11516,10 +12106,10 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _PaddingModifier(
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt()
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits()
       ));
     }
   };
@@ -11604,11 +12194,54 @@ void main() {
   };
   _ClipRectModifier.OP_CODE = 108;
   var ClipRectModifier = _ClipRectModifier;
+  var _Ripple = class _Ripple {
+    constructor() {
+      this.start = 0;
+      this.x = 0;
+      this.y = 0;
+    }
+    animate(context, x, y) {
+      this.start = context.getClock?.()?.millis?.() ?? Date.now();
+      if (this.start === 0) this.start = 1;
+      this.x = x;
+      this.y = y;
+      context.needsRepaint();
+    }
+    paint(pc, context, w, h) {
+      if (this.start === 0 || w <= 0 || h <= 0) return;
+      pc.needsRepaint();
+      const now = context.getClock?.()?.millis?.() ?? Date.now();
+      let progress = (now - this.start) / 1e3;
+      if (progress > 1) this.start = 0;
+      progress = Math.min(1, Math.max(0, progress));
+      const tween = _Ripple.EASE.get(progress);
+      const tweenRadius = _Ripple.EASE.get(Math.min(1, progress / 0.5));
+      const color = interpolateColor(
+        180 << 24 | 250 << 16 | 250 << 8 | 250 | 0,
+        0 << 24 | 200 << 16 | 200 << 8 | 200 | 0,
+        tween
+      );
+      pc.matrixSave();
+      pc.savePaint();
+      const pb = new PaintBundle();
+      pb.mArray = [PaintBundle.STYLE, PaintBundle.COLOR, color];
+      pb.mPos = 3;
+      pc.replacePaint(pb);
+      pc.clipRect(0, 0, w, h);
+      pc.drawCircle(this.x, this.y, Math.max(w, h) * tweenRadius);
+      pc.restorePaint();
+      pc.matrixRestore();
+    }
+  };
+  _Ripple.EASE = new CubicEasing(Easing.CUBIC_STANDARD);
+  var Ripple = _Ripple;
   var _ClickModifier = class _ClickModifier extends Operation {
     constructor() {
       super();
       this.mList = [];
       this.mComponent = null;
+      /** Java ClickModifierOperation: a click ripples when animations are enabled. */
+      this.ripple = new Ripple();
     }
     getList() {
       return this.mList;
@@ -11616,7 +12249,8 @@ void main() {
     setComponent(c) {
       this.mComponent = c;
     }
-    onClick(context, _doc, _x, _y) {
+    onClick(context, _doc, x, y) {
+      if (context.isAnimationEnabled?.() ?? true) this.ripple.animate(context, x, y);
       for (const op of this.mList) {
         context.incrementOpCount(op);
         op.apply(context);
@@ -11643,6 +12277,8 @@ void main() {
       this.mClickType = 0;
       this.mList = [];
       this.mComponent = null;
+      /** Java MultiClickModifier: a single click ripples too, when animations are enabled. */
+      this.ripple = new Ripple();
       this.mClickType = clickType;
     }
     getList() {
@@ -11654,8 +12290,9 @@ void main() {
     setComponent(c) {
       this.mComponent = c;
     }
-    onClick(context, _doc, _x, _y) {
+    onClick(context, _doc, x, y) {
       if (this.mClickType !== _MultiClickModifier.CLICK_TYPE_SINGLE) return false;
+      if (context.isAnimationEnabled?.() ?? true) this.ripple.animate(context, x, y);
       for (const op of this.mList) {
         context.incrementOpCount(op);
         op.apply(context);
@@ -11723,8 +12360,8 @@ void main() {
     }
     static read(buffer, operations) {
       const type = buffer.readByte();
-      const min = buffer.readFloat();
-      const max = buffer.readFloat();
+      const min = intBitsToFloat2(buffer.readNanIdBits());
+      const max = intBitsToFloat2(buffer.readNanIdBits());
       operations.push(new _DimensionConstraintsModifier(type, min, max));
     }
   };
@@ -11869,7 +12506,7 @@ void main() {
       return `${indent}VisibilityModifier(${this.mVisibilityId})`;
     }
     static read(buffer, operations) {
-      operations.push(new _VisibilityModifier(buffer.readInt()));
+      operations.push(new _VisibilityModifier(buffer.readId()));
     }
   };
   _VisibilityModifier.OP_CODE = 211;
@@ -11902,7 +12539,7 @@ void main() {
       return `${indent}OffsetModifier(${this.mOutX}, ${this.mOutY})`;
     }
     static read(buffer, operations) {
-      operations.push(new _OffsetModifier(buffer.readInt(), buffer.readInt()));
+      operations.push(new _OffsetModifier(buffer.readNanIdBits(), buffer.readNanIdBits()));
     }
   };
   _OffsetModifier.OP_CODE = 221;
@@ -11927,86 +12564,213 @@ void main() {
       return `${indent}ZIndexModifier(${this.mCurrentValue})`;
     }
     static read(buffer, operations) {
-      operations.push(new _ZIndexModifier(buffer.readInt()));
+      operations.push(new _ZIndexModifier(buffer.readNanIdBits()));
     }
   };
   _ZIndexModifier.OP_CODE = 223;
   var ZIndexModifier = _ZIndexModifier;
+  var GraphicsLayerAnimatableValue = class {
+    constructor(bits) {
+      this.mIsVariable = false;
+      this.mId = 0;
+      this.mValue = 0;
+      this.mAnimateValueChanges = true;
+      this.mAnimate = false;
+      this.mAnimateTargetTime = 0;
+      this.mAnimateDuration = 300;
+      this.mTarget = 0;
+      this.mStart = 0;
+      this.mLastUpdate = 0;
+      this.mEasing = null;
+      if (isVariableBits(bits)) {
+        this.mId = idFromBits(bits);
+        this.mIsVariable = true;
+      } else {
+        this.mValue = intBitsToFloat2(bits);
+      }
+    }
+    getValue() {
+      return this.mValue;
+    }
+    evaluate(context) {
+      if (!this.mIsVariable) return this.mValue;
+      const value = context.getContext().getFloat(this.mId);
+      const timeMillis = context.getClock().millis();
+      if (value !== this.mValue) {
+        const interval = timeMillis - this.mLastUpdate;
+        this.mAnimateValueChanges = interval > this.mAnimateDuration && this.mLastUpdate !== 0;
+        this.mLastUpdate = timeMillis;
+      }
+      if (!this.mAnimateValueChanges) {
+        this.mValue = value;
+      } else {
+        if (value !== this.mValue && !this.mAnimate) {
+          this.mStart = this.mValue;
+          this.mTarget = value;
+          this.mAnimate = true;
+          this.mAnimateTargetTime = timeMillis;
+          this.mEasing = new CubicEasing(Easing.CUBIC_STANDARD);
+        }
+        if (this.mAnimate) {
+          const elapsed = timeMillis - this.mAnimateTargetTime;
+          const t = Math.min(1, Math.max(0, elapsed / this.mAnimateDuration / 0.3));
+          const p = t >= 1 ? 1 : this.mEasing.get(t);
+          this.mValue = (1 - p) * this.mStart + p * this.mTarget;
+          if (p >= 1) this.mAnimate = false;
+        } else {
+          this.mValue = this.mTarget;
+        }
+      }
+      return this.mValue;
+    }
+  };
   var _GraphicsLayerModifier = class _GraphicsLayerModifier extends Operation {
-    constructor(attributes) {
-      super();
+    constructor() {
+      super(...arguments);
+      /** Every attribute the document set, by Java index. */
       this.mAttributes = /* @__PURE__ */ new Map();
-      this.mAttributes = attributes;
+      this.mAnimatable = /* @__PURE__ */ new Map();
+      this.mHasBlurEffect = false;
+    }
+    setFloat(index, bits) {
+      const [name] = _GraphicsLayerModifier.DEFS[index];
+      const anim = new GraphicsLayerAnimatableValue(bits);
+      this.mAnimatable.set(index, anim);
+      this.mAttributes.set(index, { id: index, name, isFloat: true, bits, value: anim.getValue() });
+    }
+    setInt(index, value) {
+      const [name] = _GraphicsLayerModifier.DEFS[index];
+      this.mAttributes.set(index, { id: index, name, isFloat: false, bits: null, value });
+    }
+    // Not `valueOf`: that name overrides Object.prototype.valueOf, so any numeric coercion of the
+    // modifier (e.g. the inspector scanning op fields with `>>> 0`) would call it with no index.
+    attributeValue(index) {
+      const a = this.mAttributes.get(index);
+      return a ? a.value : _GraphicsLayerModifier.DEFS[index][2];
     }
     getAlpha() {
-      const attr = this.mAttributes.get(_GraphicsLayerModifier.ALPHA);
-      return attr ? attr.value : 1;
+      return this.attributeValue(_GraphicsLayerModifier.ALPHA);
     }
     getScaleX() {
-      const attr = this.mAttributes.get(_GraphicsLayerModifier.SCALE_X);
-      return attr ? attr.value : 1;
+      return this.attributeValue(_GraphicsLayerModifier.SCALE_X);
     }
     getScaleY() {
-      const attr = this.mAttributes.get(_GraphicsLayerModifier.SCALE_Y);
-      return attr ? attr.value : 1;
+      return this.attributeValue(_GraphicsLayerModifier.SCALE_Y);
     }
     getRotationZ() {
-      const attr = this.mAttributes.get(_GraphicsLayerModifier.ROTATION_Z);
-      return attr ? attr.value : 0;
+      return this.attributeValue(_GraphicsLayerModifier.ROTATION_Z);
     }
     getTranslationX() {
-      const attr = this.mAttributes.get(_GraphicsLayerModifier.TRANSLATION_X);
-      return attr ? attr.value : 0;
+      return this.attributeValue(_GraphicsLayerModifier.TRANSLATION_X);
     }
     getTranslationY() {
-      const attr = this.mAttributes.get(_GraphicsLayerModifier.TRANSLATION_Y);
-      return attr ? attr.value : 0;
+      return this.attributeValue(_GraphicsLayerModifier.TRANSLATION_Y);
+    }
+    /**
+     * Java fillInAttributes: the attributes whose current value differs from the default
+     * (needsToWrite), as the map PaintContext.setGraphicsLayer takes.
+     */
+    fillInAttributes(out) {
+      for (const [index, a] of this.mAttributes) {
+        const def = _GraphicsLayerModifier.DEFS[index][2];
+        if (a.value !== def) out.set(index, a.value);
+      }
+    }
+    /** Java paint(): evaluate each animatable value (variables resolve here). */
+    evaluate(context) {
+      for (const [index, anim] of this.mAnimatable) {
+        const a = this.mAttributes.get(index);
+        a.value = anim.evaluate(context);
+      }
     }
     write(_buffer) {
     }
-    apply(context) {
-      if (context.mMode !== "PAINT" /* PAINT */) return;
-      const pc = context.getPaintContext();
-      if (!pc) return;
-      for (const [_key, attr] of this.mAttributes) {
-        if (attr.isFloat && Number.isNaN(attr.value)) {
-        }
-      }
+    apply(_context) {
     }
     deepToString(indent) {
-      return `${indent}GraphicsLayerModifier(${this.mAttributes.size} attrs)`;
+      return `${indent}GraphicsLayerModifier(${this.getScaleX()}, ${this.getScaleY()})`;
     }
     static read(buffer, operations) {
       const length = buffer.readInt();
-      const attributes = /* @__PURE__ */ new Map();
+      const op = new _GraphicsLayerModifier();
+      if (length < 0 || length > _GraphicsLayerModifier.DEFS.length) {
+        throw new Error(`attempt to allocate an invalid number of attributes: ${length}`);
+      }
+      const remap = buffer.getRemapContext?.();
       for (let i = 0; i < length; i++) {
         const tag = buffer.readInt();
-        const attrId = tag & 1023;
-        const dataType = tag >> 10 & 3;
-        if (dataType === 1) {
-          attributes.set(attrId, { value: buffer.readFloat(), isFloat: true });
-        } else {
-          attributes.set(attrId, { value: buffer.readInt(), isFloat: false });
+        const dataType = tag >> 10;
+        const index = tag & 63;
+        if (index < 0 || index >= _GraphicsLayerModifier.DEFS.length) {
+          throw new Error(`attempt to read an invalid attribute index: ${index}`);
+        }
+        if (index === _GraphicsLayerModifier.BLUR_RADIUS_X || index === _GraphicsLayerModifier.BLUR_RADIUS_Y) {
+          op.mHasBlurEffect = true;
+          op.setInt(_GraphicsLayerModifier.HAS_BLUR, 1);
+        }
+        if (dataType === _GraphicsLayerModifier.DATA_TYPE_FLOAT) {
+          op.setFloat(index, buffer.readNanIdBits());
+        } else if (dataType === _GraphicsLayerModifier.DATA_TYPE_INT) {
+          let value = buffer.readInt();
+          if ((index === _GraphicsLayerModifier.SPOT_SHADOW_COLOR || index === _GraphicsLayerModifier.AMBIENT_SHADOW_COLOR) && remap) {
+            value = remap.resolveId(value);
+          }
+          op.setInt(index, value);
         }
       }
-      operations.push(new _GraphicsLayerModifier(attributes));
+      operations.push(op);
     }
   };
   _GraphicsLayerModifier.OP_CODE = 224;
-  // Attribute tag IDs (lower 10 bits of the tag word)
   _GraphicsLayerModifier.SCALE_X = 0;
   _GraphicsLayerModifier.SCALE_Y = 1;
   _GraphicsLayerModifier.ROTATION_X = 2;
   _GraphicsLayerModifier.ROTATION_Y = 3;
   _GraphicsLayerModifier.ROTATION_Z = 4;
-  _GraphicsLayerModifier.TRANSLATION_X = 5;
-  _GraphicsLayerModifier.TRANSLATION_Y = 6;
-  _GraphicsLayerModifier.TRANSLATION_Z = 7;
-  _GraphicsLayerModifier.ALPHA = 8;
-  _GraphicsLayerModifier.SHADOW_ELEVATION = 9;
-  _GraphicsLayerModifier.CAMERA_DISTANCE = 10;
-  _GraphicsLayerModifier.BLUR_RADIUS_X = 15;
-  _GraphicsLayerModifier.BLUR_RADIUS_Y = 16;
+  _GraphicsLayerModifier.TRANSFORM_ORIGIN_X = 5;
+  _GraphicsLayerModifier.TRANSFORM_ORIGIN_Y = 6;
+  _GraphicsLayerModifier.TRANSLATION_X = 7;
+  _GraphicsLayerModifier.TRANSLATION_Y = 8;
+  _GraphicsLayerModifier.TRANSLATION_Z = 9;
+  _GraphicsLayerModifier.SHADOW_ELEVATION = 10;
+  _GraphicsLayerModifier.ALPHA = 11;
+  _GraphicsLayerModifier.CAMERA_DISTANCE = 12;
+  _GraphicsLayerModifier.COMPOSITING_STRATEGY = 13;
+  _GraphicsLayerModifier.SPOT_SHADOW_COLOR = 14;
+  _GraphicsLayerModifier.AMBIENT_SHADOW_COLOR = 15;
+  _GraphicsLayerModifier.HAS_BLUR = 16;
+  _GraphicsLayerModifier.BLUR_RADIUS_X = 17;
+  _GraphicsLayerModifier.BLUR_RADIUS_Y = 18;
+  _GraphicsLayerModifier.BLUR_TILE_MODE = 19;
+  _GraphicsLayerModifier.SHAPE = 20;
+  _GraphicsLayerModifier.SHAPE_RADIUS = 21;
+  _GraphicsLayerModifier.DATA_TYPE_INT = 0;
+  _GraphicsLayerModifier.DATA_TYPE_FLOAT = 1;
+  // [name, isFloat, default] in Java's mValues order.
+  _GraphicsLayerModifier.DEFS = [
+    ["SCALE_X", true, 1],
+    ["SCALE_Y", true, 1],
+    ["ROTATION_X", true, 0],
+    ["ROTATION_Y", true, 0],
+    ["ROTATION_Z", true, 0],
+    ["TRANSFORM_ORIGIN_X", true, 0],
+    ["TRANSFORM_ORIGIN_Y", true, 0],
+    ["TRANSLATION_X", true, 0],
+    ["TRANSLATION_Y", true, 0],
+    ["TRANSLATION_Z", true, 0],
+    ["SHADOW_ELEVATION", true, 0],
+    ["ALPHA", true, 1],
+    ["CAMERA_DISTANCE", true, 8],
+    ["COMPOSITING_STRATEGY", false, 0],
+    ["SPOT_SHADOW_COLOR", false, 0],
+    ["AMBIENT_SHADOW_COLOR", false, 0],
+    ["HAS_BLUR", false, 0],
+    ["BLUR_RADIUS_X", true, 0],
+    ["BLUR_RADIUS_Y", true, 0],
+    ["BLUR_TILE_MODE", false, 0],
+    ["SHAPE", false, -1],
+    ["SHAPE_RADIUS", true, 0]
+  ];
   var GraphicsLayerModifier = _GraphicsLayerModifier;
   var _ScrollModifier = class _ScrollModifier extends Operation {
     constructor(direction, positionId, max, notchMax) {
@@ -12173,9 +12937,9 @@ void main() {
     }
     static read(buffer, operations) {
       const direction = buffer.readInt();
-      const position = buffer.readInt();
-      const max = buffer.readInt();
-      const notchMax = buffer.readInt();
+      const position = buffer.readNanIdBits();
+      const max = buffer.readNanIdBits();
+      const notchMax = buffer.readNanIdBits();
       operations.push(new _ScrollModifier(direction, position, max, notchMax));
     }
   };
@@ -12254,6 +13018,8 @@ void main() {
   var _RippleModifier = class _RippleModifier extends Operation {
     constructor() {
       super();
+      /** RippleModifierOperation.onTouchDown starts it (unconditionally), paint draws it. */
+      this.ripple = new Ripple();
     }
     write(_buffer) {
     }
@@ -12299,7 +13065,7 @@ void main() {
       return `${indent}AlignByModifier`;
     }
     static read(buffer, operations) {
-      operations.push(new _AlignByModifier(buffer.readFloat(), buffer.readInt()));
+      operations.push(new _AlignByModifier(intBitsToFloat2(buffer.readNanIdBits()), buffer.readInt()));
     }
   };
   _AlignByModifier.OP_CODE = 237;
@@ -12412,7 +13178,7 @@ void main() {
       return `${indent}BitmapData(${this.mImageId}, ${this.mWidth}x${this.mHeight})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.readId();
       let rawWidth = buffer.readInt();
       let rawHeight = buffer.readInt();
       let type = 0;
@@ -12500,14 +13266,16 @@ void main() {
     static read(buffer, operations) {
       const rawId = buffer.readInt();
       const winding = rawId >> 24;
-      const id = rawId & 16777215;
+      const remap = buffer.getRemapContext?.();
+      const id = remap ? remap.resolveId(rawId & 16777215) : rawId & 16777215;
       const count = buffer.readInt();
       if (count < 0 || count > 2e4) {
         throw new Error(`PathData: invalid path length ${count}`);
       }
       const data = new Int32Array(count);
       for (let i = 0; i < count; i++) {
-        data[i] = buffer.readInt();
+        const bits = buffer.readInt();
+        data[i] = remap && isNaNBits(bits) && idFromBits(bits) > 16 ? remap.resolveNanIdBits(bits) : bits;
       }
       operations.push(new _PathData(id, winding, data));
     }
@@ -12532,8 +13300,8 @@ void main() {
       return `${indent}FloatConstant(${this.mId}, ${this.mValue})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const value = buffer.readInt();
+      const id = buffer.declareId();
+      const value = buffer.readNanIdBits();
       operations.push(new _FloatConstant(id, value));
     }
   };
@@ -12556,7 +13324,7 @@ void main() {
       return `${indent}ColorConstant(${this.mId})`;
     }
     static read(buffer, operations) {
-      operations.push(new _ColorConstant(buffer.readInt(), buffer.readInt()));
+      operations.push(new _ColorConstant(buffer.declareId(), buffer.readInt()));
     }
   };
   _ColorConstant.OP_CODE = 138;
@@ -12630,13 +13398,13 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _ClickArea(
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt()
+        buffer.declareId(),
+        buffer.readId(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readId()
       ));
     }
   };
@@ -12658,7 +13426,7 @@ void main() {
       return `${indent}NamedVariable("${this.mVarName}", ${this.mVarId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.declareId();
       const type = buffer.readInt();
       const name = buffer.readUTF8();
       operations.push(new _NamedVariable(name, id, type));
@@ -12687,7 +13455,7 @@ void main() {
       return `${indent}RootContentDescription(${this.mContentDescription})`;
     }
     static read(buffer, operations) {
-      operations.push(new _RootContentDescription(buffer.readInt()));
+      operations.push(new _RootContentDescription(buffer.readId()));
     }
   };
   _RootContentDescription.OP_CODE = 103;
@@ -12778,6 +13546,7 @@ void main() {
         return;
       }
       if (now <= this.mOutStartAt + this.mOutDuration) {
+        context.needsRepaint();
         if (this.mInitialPass) {
           for (const op of this.mList) {
             if (op.isDirty() && typeof op.updateVariables === "function") {
@@ -12799,8 +13568,8 @@ void main() {
       return `${indent}ImpulseOperation(${this.mList.length} setup ops)`;
     }
     static read(buffer, operations) {
-      const duration = buffer.readFloat();
-      const startAt = buffer.readFloat();
+      const duration = intBitsToFloat2(buffer.readNanIdBits());
+      const startAt = intBitsToFloat2(buffer.readNanIdBits());
       operations.push(new _ImpulseOperation(duration, startAt));
     }
   };
@@ -12847,8 +13616,8 @@ void main() {
       return `${indent}DebugMessage`;
     }
     static read(buffer, operations) {
-      buffer.readInt();
-      buffer.readFloat();
+      buffer.readId();
+      intBitsToFloat2(buffer.readNanIdBits());
       buffer.readInt();
       operations.push(new _DebugMessage());
     }
@@ -12867,8 +13636,8 @@ void main() {
       return `${indent}HostActionMetadataOperation`;
     }
     static read(buffer, operations) {
-      buffer.readInt();
-      buffer.readInt();
+      buffer.readId();
+      buffer.readId();
       operations.push(new _HostActionMetadataOperation());
     }
   };
@@ -12924,30 +13693,47 @@ void main() {
       return `${indent}ValueFloatExpressionChangeAction(${this.mTargetValueId} <- ${this.mValueExpressionId})`;
     }
     static read(buffer, operations) {
-      const valueId = buffer.readInt();
-      const expressionId = buffer.readInt();
+      const valueId = buffer.readId();
+      const expressionId = buffer.readId();
       operations.push(new _ValueFloatExpressionChangeAction(valueId, expressionId));
     }
   };
   _ValueFloatExpressionChangeAction.OP_CODE = 227;
   var ValueFloatExpressionChangeAction = _ValueFloatExpressionChangeAction;
-  var _PathTween = class _PathTween extends Operation {
-    constructor() {
+  var _PathTween = class _PathTween extends PaintOperation {
+    constructor(outId, pathId1, pathId2, tweenBits) {
       super();
+      this.mOutId = outId;
+      this.mPathId1 = pathId1;
+      this.mPathId2 = pathId2;
+      this.mTween = tweenBits;
+      this.mTweenOut = intBitsToFloat2(tweenBits);
     }
-    write(_buffer) {
+    write(buffer) {
+      buffer.start(_PathTween.OP_CODE);
+      buffer.writeInt(this.mOutId);
+      buffer.writeInt(this.mPathId1);
+      buffer.writeInt(this.mPathId2);
+      buffer.writeInt(this.mTween);
     }
-    apply(_context) {
+    updateVariables(context) {
+      this.mTweenOut = isNaNBits(this.mTween) ? context.getFloat(idFromBits(this.mTween)) : intBitsToFloat2(this.mTween);
+    }
+    registerListening(context) {
+      if (isNaNBits(this.mTween)) context.listensTo(idFromBits(this.mTween), this);
+    }
+    paint(context) {
+      context.tweenPath(this.mOutId, this.mPathId1, this.mPathId2, this.mTweenOut);
     }
     deepToString(indent) {
-      return `${indent}PathTween`;
+      return `${indent}PathTween[${this.mOutId}] = [${this.mPathId1}] + [${this.mPathId2}], ${this.mTweenOut}`;
     }
     static read(buffer, operations) {
-      buffer.readInt();
-      buffer.readInt();
-      buffer.readInt();
-      buffer.readFloat();
-      operations.push(new _PathTween());
+      const outId = buffer.readId();
+      const pathId1 = buffer.readId();
+      const pathId2 = buffer.readId();
+      const tween = buffer.readNanIdBits();
+      operations.push(new _PathTween(outId, pathId1, pathId2, tween));
     }
   };
   _PathTween.OP_CODE = 158;
@@ -12964,26 +13750,36 @@ void main() {
       return `${indent}HapticFeedback`;
     }
     static read(buffer, operations) {
-      buffer.readInt();
+      buffer.readId();
       operations.push(new _HapticFeedback());
     }
   };
   _HapticFeedback.OP_CODE = 177;
   var HapticFeedback = _HapticFeedback;
-  var _WakeIn = class _WakeIn extends Operation {
-    constructor() {
+  var _WakeIn = class _WakeIn extends PaintOperation {
+    constructor(wakeBits) {
       super();
+      this.mWakeBits = wakeBits;
+      this.mWakeOut = intBitsToFloat2(wakeBits);
     }
-    write(_buffer) {
+    write(buffer) {
+      buffer.start(_WakeIn.OP_CODE);
+      buffer.writeInt(this.mWakeBits);
     }
-    apply(_context) {
+    updateVariables(context) {
+      this.mWakeOut = isNaNBits(this.mWakeBits) ? context.getFloat(idFromBits(this.mWakeBits)) : intBitsToFloat2(this.mWakeBits);
+    }
+    registerListening(context) {
+      if (isNaNBits(this.mWakeBits)) context.listensTo(idFromBits(this.mWakeBits), this);
+    }
+    paint(context) {
+      context.wakeIn(this.mWakeOut);
     }
     deepToString(indent) {
-      return `${indent}WakeIn`;
+      return `${indent}WakeIn(${this.mWakeOut})`;
     }
     static read(buffer, operations) {
-      buffer.readFloat();
-      operations.push(new _WakeIn());
+      operations.push(new _WakeIn(buffer.readNanIdBits()));
     }
   };
   _WakeIn.OP_CODE = 191;
@@ -13074,12 +13870,12 @@ void main() {
       return `${indent}TimeAttribute[${this.mId}] = ${this.mTimeId} ${this.mType}`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const timeId = buffer.readInt();
+      const id = buffer.readId();
+      const timeId = buffer.readId();
       const type = buffer.readShort();
       const len = buffer.readShort();
       const args = [];
-      for (let i = 0; i < len; i++) args.push(buffer.readInt());
+      for (let i = 0; i < len; i++) args.push(buffer.readId());
       operations.push(new _TimeAttribute(id, timeId, type, args));
     }
   };
@@ -13449,6 +14245,242 @@ void main() {
     return new Ctor(loomManager, parent.getDocument(), ctx, blocks, parent.isSafeMode(), depth);
   }
 
+  // third_party/remote-compose-player/src/core/Compression.ts
+  var COMPRESS = 31;
+  var COMPRESSION_NONE = 0;
+  var COMPRESSION_DEFLATE = 1;
+  var MAX_DECOMPRESSED_SIZE = 32 * 1024 * 1024;
+  var MAGIC = 76283904;
+  var PROPERTY_COUNT_OFFSET = 1 + 3 * 4;
+  var PROPERTIES_OFFSET = PROPERTY_COUNT_OFFSET + 4;
+  var int32 = (b, i) => b[i] << 24 | b[i + 1] << 16 | b[i + 2] << 8 | b[i + 3] | 0;
+  var uint162 = (b, i) => b[i] << 8 | b[i + 1];
+  function headerInfo(b) {
+    if (b.length < PROPERTIES_OFFSET || b[0] !== 0) return null;
+    if ((int32(b, 1) & 4294901760) !== MAGIC) return null;
+    const count = int32(b, PROPERTY_COUNT_OFFSET);
+    let at = PROPERTIES_OFFSET, compression = null;
+    for (let i = 0; i < count; i++) {
+      if (at + 4 > b.length) throw new Error("Malformed header properties");
+      const tag = uint162(b, at), len = uint162(b, at + 2);
+      const end = at + 4 + len;
+      if (end > b.length) throw new Error("Malformed header properties");
+      if ((tag & 63) === COMPRESS && tag >> 10 === 0 && len === 4) compression = int32(b, at + 4);
+      at = end;
+    }
+    return { end: at, compression, count };
+  }
+  function isCompressed(bytes) {
+    try {
+      const h = headerInfo(bytes);
+      return !!h && h.compression !== null && h.compression !== COMPRESSION_NONE;
+    } catch {
+      return false;
+    }
+  }
+  function decompressDocument(bytes) {
+    const h = headerInfo(bytes);
+    if (!h || h.compression === null || h.compression === COMPRESSION_NONE) return bytes;
+    if (h.compression !== COMPRESSION_DEFLATE) throw new Error(`Unsupported document compression ${h.compression}`);
+    const head = [];
+    for (let i = 0; i < PROPERTY_COUNT_OFFSET; i++) head.push(bytes[i]);
+    const props = [];
+    let kept = 0;
+    for (let i = 0, at = PROPERTIES_OFFSET; i < h.count; i++) {
+      const tag = uint162(bytes, at), end = at + 4 + uint162(bytes, at + 2);
+      if ((tag & 63) !== COMPRESS) {
+        for (let j = at; j < end; j++) props.push(bytes[j]);
+        kept++;
+      }
+      at = end;
+    }
+    const body = inflateZlib(bytes.subarray(h.end), MAX_DECOMPRESSED_SIZE);
+    const out = new Uint8Array(head.length + 4 + props.length + body.length);
+    out.set(head, 0);
+    out.set([kept >>> 24 & 255, kept >>> 16 & 255, kept >>> 8 & 255, kept & 255], head.length);
+    out.set(props, head.length + 4);
+    out.set(body, head.length + 4 + props.length);
+    return out;
+  }
+  function inflateZlib(data, maxOut = MAX_DECOMPRESSED_SIZE) {
+    if (data.length < 6) throw new Error("Truncated compressed document");
+    const cmf = data[0], flg = data[1];
+    if ((cmf & 15) !== 8 || cmf >> 4 > 7 || (cmf << 8 | flg) % 31 !== 0) throw new Error("Corrupted compressed document");
+    if (flg & 32) throw new Error("Corrupted compressed document");
+    const inf = new Inflater(data, 2, maxOut);
+    inf.run();
+    const end = inf.byteEnd();
+    if (end + 4 > data.length) throw new Error("Truncated compressed document");
+    const out = inf.result();
+    if (int32(data, end) >>> 0 !== adler32(out)) throw new Error("Corrupted compressed document");
+    if (end + 4 !== data.length) throw new Error("Unexpected data after the compressed document");
+    return out;
+  }
+  function adler32(b) {
+    let a = 1, s = 0;
+    for (let i = 0; i < b.length; ) {
+      const n = Math.min(b.length, i + 3800);
+      for (; i < n; i++) {
+        a += b[i];
+        s += a;
+      }
+      a %= 65521;
+      s %= 65521;
+    }
+    return (s << 16 | a) >>> 0;
+  }
+  var LEN_BASE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+  var LEN_EXTRA = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+  var DIST_BASE = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577];
+  var DIST_EXTRA = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
+  var CL_ORDER = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+  var Huffman = class {
+    constructor(lengths, n) {
+      this.counts = new Uint16Array(16);
+      this.symbols = new Uint16Array(n);
+      for (let i = 0; i < n; i++) this.counts[lengths[i]]++;
+      this.counts[0] = 0;
+      let left = 1;
+      for (let len = 1; len < 16; len++) {
+        left = (left << 1) - this.counts[len];
+        if (left < 0) throw new Error("Corrupted compressed document");
+      }
+      const offs = new Uint16Array(16);
+      for (let len = 1; len < 15; len++) offs[len + 1] = offs[len] + this.counts[len];
+      for (let i = 0; i < n; i++) if (lengths[i]) this.symbols[offs[lengths[i]]++] = i;
+    }
+  };
+  var FIXED = null;
+  function fixedCodes() {
+    if (!FIXED) {
+      const l = new Uint8Array(288);
+      l.fill(8, 0, 144);
+      l.fill(9, 144, 256);
+      l.fill(7, 256, 280);
+      l.fill(8, 280, 288);
+      FIXED = [new Huffman(l, 288), new Huffman(new Uint8Array(30).fill(5), 30)];
+    }
+    return FIXED;
+  }
+  var Inflater = class {
+    constructor(src, start, max) {
+      this.src = src;
+      this.max = max;
+      this.bitBuf = 0;
+      this.bitCnt = 0;
+      this.n = 0;
+      this.pos = start;
+      this.out = new Uint8Array(Math.min(max, Math.max(1024, src.length * 4)));
+    }
+    bits(need) {
+      while (this.bitCnt < need) {
+        if (this.pos >= this.src.length) throw new Error("Truncated compressed document");
+        this.bitBuf |= this.src[this.pos++] << this.bitCnt;
+        this.bitCnt += 8;
+      }
+      const v = this.bitBuf & (1 << need) - 1;
+      this.bitBuf >>>= need;
+      this.bitCnt -= need;
+      return v;
+    }
+    decode(h) {
+      let code = 0, first = 0, index = 0;
+      for (let len = 1; len < 16; len++) {
+        code |= this.bits(1);
+        const count = h.counts[len];
+        if (code - count < first) return h.symbols[index + (code - first)];
+        index += count;
+        first = first + count << 1;
+        code <<= 1;
+      }
+      throw new Error("Corrupted compressed document");
+    }
+    put(b) {
+      if (this.n >= this.out.length) {
+        if (this.n >= this.max) throw new Error(`Decompressed document exceeds ${this.max} bytes`);
+        const bigger = new Uint8Array(Math.min(this.max, this.out.length * 2));
+        bigger.set(this.out);
+        this.out = bigger;
+      }
+      this.out[this.n++] = b;
+    }
+    run() {
+      let last = 0;
+      while (!last) {
+        last = this.bits(1);
+        const type = this.bits(2);
+        if (type === 0) this.stored();
+        else if (type === 1) {
+          const [l, d] = fixedCodes();
+          this.codes(l, d);
+        } else if (type === 2) this.dynamic();
+        else throw new Error("Corrupted compressed document");
+      }
+    }
+    stored() {
+      this.bitBuf = 0;
+      this.bitCnt = 0;
+      if (this.pos + 4 > this.src.length) throw new Error("Truncated compressed document");
+      const len = this.src[this.pos] | this.src[this.pos + 1] << 8;
+      const nlen = this.src[this.pos + 2] | this.src[this.pos + 3] << 8;
+      this.pos += 4;
+      if (len !== (~nlen & 65535)) throw new Error("Corrupted compressed document");
+      if (this.pos + len > this.src.length) throw new Error("Truncated compressed document");
+      for (let i = 0; i < len; i++) this.put(this.src[this.pos++]);
+    }
+    dynamic() {
+      const nlen = this.bits(5) + 257, ndist = this.bits(5) + 1, ncode = this.bits(4) + 4;
+      if (nlen > 286 || ndist > 30) throw new Error("Corrupted compressed document");
+      const lengths = new Uint8Array(320);
+      for (let i = 0; i < ncode; i++) lengths[CL_ORDER[i]] = this.bits(3);
+      const cl = new Huffman(lengths, 19);
+      lengths.fill(0);
+      for (let i = 0; i < nlen + ndist; ) {
+        const sym = this.decode(cl);
+        if (sym < 16) {
+          lengths[i++] = sym;
+          continue;
+        }
+        let len = 0, rep;
+        if (sym === 16) {
+          if (i === 0) throw new Error("Corrupted compressed document");
+          len = lengths[i - 1];
+          rep = 3 + this.bits(2);
+        } else if (sym === 17) rep = 3 + this.bits(3);
+        else rep = 11 + this.bits(7);
+        if (i + rep > nlen + ndist) throw new Error("Corrupted compressed document");
+        while (rep--) lengths[i++] = len;
+      }
+      if (!lengths[256]) throw new Error("Corrupted compressed document");
+      this.codes(new Huffman(lengths, nlen), new Huffman(lengths.subarray(nlen), ndist));
+    }
+    codes(lit, dist) {
+      for (; ; ) {
+        let sym = this.decode(lit);
+        if (sym < 256) {
+          this.put(sym);
+          continue;
+        }
+        if (sym === 256) return;
+        sym -= 257;
+        if (sym >= 29) throw new Error("Corrupted compressed document");
+        const len = LEN_BASE[sym] + this.bits(LEN_EXTRA[sym]);
+        const ds = this.decode(dist);
+        if (ds >= 30) throw new Error("Corrupted compressed document");
+        const d = DIST_BASE[ds] + this.bits(DIST_EXTRA[ds]);
+        if (d > this.n) throw new Error("Corrupted compressed document");
+        for (let i = 0; i < len; i++) this.put(this.out[this.n - d]);
+      }
+    }
+    /** Where the DEFLATE data ended: the next whole byte. */
+    byteEnd() {
+      return this.pos - (this.bitCnt >> 3);
+    }
+    result() {
+      return this.out.slice(0, this.n);
+    }
+  };
+
   // third_party/remote-compose-player/src/core/WireBuffer.ts
   var _WireBuffer = class _WireBuffer {
     constructor(size = _WireBuffer.BUFFER_SIZE) {
@@ -13456,6 +14488,8 @@ void main() {
       this.mStartingIndex = 0;
       this.mSize = 0;
       this.mValidOperations = new Array(256).fill(true);
+      /** When set, declareId/readId append what they read: see RemoteComposeBuffer's provider ids. */
+      this.mIdTrace = null;
       this.mMaxSize = size;
       const ab = new ArrayBuffer(size);
       this.mBuffer = new Uint8Array(ab);
@@ -13551,29 +14585,30 @@ void main() {
     // Identity defaults: a plain WireBuffer treats these as ordinary reads.
     // LoomWireBuffer overrides them to apply RemapContext during macro expansion.
     declareId() {
-      return this.readInt();
+      const v = this.readInt();
+      if (this.mIdTrace) this.mIdTrace.push(v);
+      return v;
     }
     readId() {
-      return this.readInt();
-    }
-    readNanId() {
-      return this.readFloat();
-    }
-    readLongNanId() {
-      return this.readLong();
+      const v = this.readInt();
+      if (this.mIdTrace) this.mIdTrace.push(v);
+      return v;
     }
     /**
-     * A NaN-boxed field read as raw float32 *integer bits* rather than a float.
+     * A word that may be a NaN-boxed variable id, returned as RAW INT32 BITS.
      *
-     * Same wire field as [readNanId], for callers that store the bits (the
-     * `isNaNBits`/`intBitsToFloat` representation `CoreText` uses) instead of a
-     * float. Reading the bits directly never routes the value through a JS
-     * number, so an engine that canonicalises NaN cannot drop the id payload —
-     * the same reason `isNaNBits` inspects wire bits rather than testing the
-     * float. `LoomWireBuffer` overrides this to remap the payload in place.
+     * Decode with `isNaNBits`/`idFromBits` and turn a literal into a number with
+     * `intBitsToFloat`. Do NOT call `readFloat()` for one of these and decode with
+     * `idFromNan`: see the warning on `readFloat` below.
+     *
+     * Was `readNanId(): return this.readFloat()` until 2026-10-05, which is why 3D, mesh2d,
+     * vector expressions and border modifiers all rendered blank in Safari.
      */
     readNanIdBits() {
       return this.readInt();
+    }
+    readLongNanId() {
+      return this.readLong();
     }
     readInt() {
       const v = this.mDataView.getInt32(this.mIndex, false);
@@ -13586,6 +14621,27 @@ void main() {
       this.mIndex += 8;
       return hi * 4294967296 + lo;
     }
+    /**
+     * Read a genuine float. **Unsafe for anything that may be a NaN-boxed id.**
+     *
+     * This used to carry the comment "DataView.getFloat32 preserves NaN bit patterns
+     * (critical for ID encoding)". That is not true, and the whole 3D surface was built on
+     * it. ECMAScript permits an implementation to canonicalize any NaN it produces, and
+     * JavaScriptCore does:
+     *
+     *     bits in     V8 (Chrome)   JSC (Safari)
+     *     0xff800005  0xffc00005    0x7fc00000     signaling, as asNan() writes it
+     *     0xffc00005  0xffc00005    0x7fc00000     quiet
+     *     0x7fc00005  0x7fc00005    0x7fc00000     quiet, positive
+     *
+     * V8 only sets the quiet bit, and the id mask is 0x3FFFFF, so the payload survives by
+     * luck. Safari replaces the value outright and the id reads back as 0 — `isVariable()`
+     * then returns false, the id is treated as a literal NaN, and whatever it fed (a vertex,
+     * a rotation angle, a border width) becomes NaN.
+     *
+     * Use `readNanIdBits()` and the `*Bits` helpers in operations/Utils for any field that
+     * can carry a variable. Only call this for a value the format guarantees is a literal.
+     */
     readFloat() {
       const v = this.mDataView.getFloat32(this.mIndex, false);
       this.mIndex += 4;
@@ -13756,10 +14812,10 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _DrawRect(
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt()
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits()
       ));
     }
   };
@@ -13803,7 +14859,7 @@ void main() {
       return `${indent}DrawCircle(${this.mV1}, ${this.mV2}, ${this.mV3})`;
     }
     static read(buffer, operations) {
-      operations.push(new _DrawCircle(buffer.readInt(), buffer.readInt(), buffer.readInt()));
+      operations.push(new _DrawCircle(buffer.readNanIdBits(), buffer.readNanIdBits(), buffer.readNanIdBits()));
     }
   };
   _DrawCircle.OP_CODE = 46;
@@ -13819,10 +14875,10 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _DrawOval(
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt()
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits()
       ));
     }
   };
@@ -13879,12 +14935,12 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _DrawRoundRect(
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt()
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits()
       ));
     }
   };
@@ -13901,12 +14957,12 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _DrawArc(
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt()
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits()
       ));
     }
   };
@@ -13923,12 +14979,12 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _DrawSector(
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt()
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits()
       ));
     }
   };
@@ -13939,8 +14995,8 @@ void main() {
   var MESH_OP_OFFSET = 3211264;
   var MESH_ID_REGION_MASK = 7340032;
   var MESH_ID_REGION_ARRAY = 2097152;
-  function isResolvable(v) {
-    return Number.isNaN(v);
+  function isResolvableBits(bits) {
+    return isNaNBits(bits);
   }
   var _AddMesh2D = class _AddMesh2D extends Operation {
     constructor(mMeshId, mType, mLayout, mUCount, mVCount, mFlags, mAux, mExpressions, mSrcIndices, mSrcVerts, mSrcUv, mSrcColors, mWidths, mWidthPositions) {
@@ -13991,7 +15047,7 @@ void main() {
       }
       for (const arr of [this.mSrcVerts, this.mWidths, this.mWidthPositions]) {
         for (let i = 0; i < arr.length; i++) {
-          if (Number.isNaN(arr[i])) context.listensTo(idFromNan(arr[i]), this);
+          if (isNaNBits(arr[i])) context.listensTo(idFromBits(arr[i]), this);
         }
       }
     }
@@ -14026,8 +15082,8 @@ void main() {
     get isSplineStrip() {
       return this.mType === TYPE_PATH_SPLINE_STRIP || this.mType === TYPE_SPLINE_ROUND_STRIP;
     }
-    val(context, f) {
-      return isResolvable(f) ? context.getFloat(idFromNan(f)) : f;
+    val(context, bits) {
+      return isResolvableBits(bits) ? context.getFloat(idFromBits(bits)) : intBitsToFloat2(bits);
     }
     expand(context) {
       if (this.mType === TYPE_EXPRESSION || this.isSplineStrip) {
@@ -14187,7 +15243,7 @@ void main() {
       this.mIndices = generateIndices(this.mLayout, uc, vc);
     }
     static read(buffer, operations) {
-      const meshId = buffer.readInt();
+      const meshId = buffer.readId();
       const type = buffer.readInt();
       const layout = buffer.readInt();
       const uCount = buffer.readInt();
@@ -14196,25 +15252,25 @@ void main() {
       const aux = buffer.readInt();
       const expressions = [];
       let srcIndices = new Int32Array(0);
-      let srcVerts = new Float32Array(0);
+      let srcVerts = new Int32Array(0);
       let srcUv = new Float32Array(0);
       let srcColors = new Int32Array(0);
-      let widths = new Float32Array(0);
-      let widthPositions = new Float32Array(0);
+      let widths = new Int32Array(0);
+      let widthPositions = new Int32Array(0);
       if (type === TYPE_EXPRESSION) {
         for (let g = 0; g < EXPRESSION_GROUPS; g++) {
           const len = buffer.readInt();
           const arr = new Int32Array(Math.max(0, len));
-          for (let i = 0; i < len; i++) arr[i] = buffer.readInt();
+          for (let i = 0; i < len; i++) arr[i] = buffer.readNanIdBits();
           expressions.push(arr);
         }
       } else if (type === TYPE_PATH_SPLINE_STRIP || type === TYPE_SPLINE_ROUND_STRIP) {
         const wn = buffer.readInt();
-        widths = new Float32Array(Math.max(0, wn));
-        for (let i = 0; i < wn; i++) widths[i] = buffer.readFloat();
+        widths = new Int32Array(Math.max(0, wn));
+        for (let i = 0; i < wn; i++) widths[i] = buffer.readNanIdBits();
         const pn = buffer.readInt();
-        widthPositions = new Float32Array(Math.max(0, pn));
-        for (let i = 0; i < pn; i++) widthPositions[i] = buffer.readFloat();
+        widthPositions = new Int32Array(Math.max(0, pn));
+        for (let i = 0; i < pn; i++) widthPositions[i] = buffer.readNanIdBits();
         for (let g = 0; g < EXPRESSION_GROUPS; g++) expressions.push(new Int32Array(0));
       } else {
         const indexCount2 = buffer.readInt();
@@ -14223,18 +15279,18 @@ void main() {
         const vertCount = buffer.readInt();
         const uvCount = buffer.readInt();
         const colorCount = buffer.readInt();
-        srcVerts = new Float32Array(Math.max(0, vertCount));
+        srcVerts = new Int32Array(Math.max(0, vertCount));
         srcUv = new Float32Array(Math.max(0, uvCount));
         srcColors = new Int32Array(Math.max(0, colorCount));
         if (type === TYPE_F16_VALUES) {
           for (let i = 0; i < vertCount; i++) {
-            srcVerts[i] = halfToFloat(buffer.readShort() & 65535);
+            srcVerts[i] = floatToRawIntBits2(halfToFloat(buffer.readShort() & 65535));
           }
           for (let i = 0; i < uvCount; i++) {
             srcUv[i] = halfToFloat(buffer.readShort() & 65535);
           }
         } else {
-          for (let i = 0; i < vertCount; i++) srcVerts[i] = buffer.readFloat();
+          for (let i = 0; i < vertCount; i++) srcVerts[i] = buffer.readNanIdBits();
           for (let i = 0; i < uvCount; i++) srcUv[i] = buffer.readFloat();
         }
         for (let i = 0; i < colorCount; i++) srcColors[i] = buffer.readInt();
@@ -14277,7 +15333,7 @@ void main() {
       return indent + "DrawMesh2D " + this.mMeshId;
     }
     static read(buffer, operations) {
-      operations.push(new _DrawMesh2D(buffer.readInt(), buffer.readInt(), buffer.readInt()));
+      operations.push(new _DrawMesh2D(buffer.readId(), buffer.readInt(), buffer.readInt()));
     }
   };
   _DrawMesh2D.OP_CODE = 105;
@@ -14298,14 +15354,14 @@ void main() {
     write(_buffer) {
     }
     registerListening(context) {
-      if (isResolvable(this.mU)) context.listensTo(idFromNan(this.mU), this);
-      if (isResolvable(this.mV)) context.listensTo(idFromNan(this.mV), this);
+      if (isResolvableBits(this.mU)) context.listensTo(idFromBits(this.mU), this);
+      if (isResolvableBits(this.mV)) context.listensTo(idFromBits(this.mV), this);
     }
     markDirty() {
     }
     updateVariables(context) {
-      this.mOutU = isResolvable(this.mU) ? context.getFloat(idFromNan(this.mU)) : this.mU;
-      this.mOutV = isResolvable(this.mV) ? context.getFloat(idFromNan(this.mV)) : this.mV;
+      this.mOutU = isResolvableBits(this.mU) ? context.getFloat(idFromBits(this.mU)) : intBitsToFloat2(this.mU);
+      this.mOutV = isResolvableBits(this.mV) ? context.getFloat(idFromBits(this.mV)) : intBitsToFloat2(this.mV);
     }
     paint(context) {
       context.matrixFromMesh(this.mMeshId, this.mOutU, this.mOutV, this.mFlags);
@@ -14315,9 +15371,9 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _MatrixFromMesh2D(
-        buffer.readInt(),
-        buffer.readFloat(),
-        buffer.readFloat(),
+        buffer.readId(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
         buffer.readInt()
       ));
     }
@@ -14342,7 +15398,7 @@ void main() {
       return `${indent}DrawPath(${this.mPathId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.readId();
       operations.push(new _DrawPath(id, 0, 1));
     }
   };
@@ -14382,11 +15438,11 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _DrawTweenPath(
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt()
+        buffer.readId(),
+        buffer.readId(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits()
       ));
     }
   };
@@ -14466,12 +15522,12 @@ void main() {
       return `${indent}DrawBitmap(${this.mImageId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const left = buffer.readInt();
-      const top = buffer.readInt();
-      const right = buffer.readInt();
-      const bottom = buffer.readInt();
-      const cdId = buffer.readInt();
+      const id = buffer.readId();
+      const left = buffer.readNanIdBits();
+      const top = buffer.readNanIdBits();
+      const right = buffer.readNanIdBits();
+      const bottom = buffer.readNanIdBits();
+      const cdId = buffer.readId();
       operations.push(new _DrawBitmap(id, left, top, right, bottom, cdId));
     }
   };
@@ -14514,6 +15570,7 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _DrawBitmapInt(
+        buffer.readId(),
         buffer.readInt(),
         buffer.readInt(),
         buffer.readInt(),
@@ -14522,8 +15579,7 @@ void main() {
         buffer.readInt(),
         buffer.readInt(),
         buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt()
+        buffer.readId()
       ));
     }
   };
@@ -14735,18 +15791,18 @@ void main() {
       return `${indent}DrawBitmapScaled(${this.mImageId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const srcL = buffer.readInt();
-      const srcT = buffer.readInt();
-      const srcR = buffer.readInt();
-      const srcB = buffer.readInt();
-      const dstL = buffer.readInt();
-      const dstT = buffer.readInt();
-      const dstR = buffer.readInt();
-      const dstB = buffer.readInt();
+      const id = buffer.readId();
+      const srcL = buffer.readNanIdBits();
+      const srcT = buffer.readNanIdBits();
+      const srcR = buffer.readNanIdBits();
+      const srcB = buffer.readNanIdBits();
+      const dstL = buffer.readNanIdBits();
+      const dstT = buffer.readNanIdBits();
+      const dstR = buffer.readNanIdBits();
+      const dstB = buffer.readNanIdBits();
       const scaleType = buffer.readInt();
-      const scaleFactor = buffer.readInt();
-      const cdId = buffer.readInt();
+      const scaleFactor = buffer.readNanIdBits();
+      const cdId = buffer.readId();
       operations.push(new _DrawBitmapScaled(id, srcL, srcT, srcR, srcB, dstL, dstT, dstR, dstB, scaleType, scaleFactor, cdId));
     }
   };
@@ -14796,13 +15852,13 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _DrawText(
+        buffer.readId(),
         buffer.readInt(),
         buffer.readInt(),
         buffer.readInt(),
         buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
         buffer.readBoolean()
       ));
     }
@@ -14839,10 +15895,10 @@ void main() {
       return `${indent}DrawTextOnPath`;
     }
     static read(buffer, operations) {
-      const textId = buffer.readInt();
-      const pathId = buffer.readInt();
-      const vOffsetBits = buffer.readInt();
-      const hOffsetBits = buffer.readInt();
+      const textId = buffer.readId();
+      const pathId = buffer.readId();
+      const vOffsetBits = buffer.readNanIdBits();
+      const hOffsetBits = buffer.readNanIdBits();
       operations.push(new _DrawTextOnPath(textId, pathId, hOffsetBits, vOffsetBits));
     }
   };
@@ -14866,7 +15922,7 @@ void main() {
       return `${indent}DrawToBitmap(${this.mBitmapId})`;
     }
     static read(buffer, operations) {
-      operations.push(new _DrawToBitmap(buffer.readInt(), buffer.readInt(), buffer.readInt()));
+      operations.push(new _DrawToBitmap(buffer.readId(), buffer.readInt(), buffer.readInt()));
     }
   };
   _DrawToBitmap.OP_CODE = 190;
@@ -14882,10 +15938,10 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _DrawLine(
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt()
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits()
       ));
     }
   };
@@ -14971,11 +16027,11 @@ void main() {
     }
     static read(buffer, operations) {
       operations.push(new _DrawTextAnchored(
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
+        buffer.readId(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
+        buffer.readNanIdBits(),
         buffer.readInt()
       ));
     }
@@ -15000,10 +16056,7 @@ void main() {
     apply(context) {
       if (context.mMode === "DATA" /* DATA */) return;
       const pc = context.getPaintContext();
-      if (pc) {
-        pc.matrixSave();
-        pc.savePaint();
-      }
+      if (pc) pc.matrixSave();
     }
     deepToString(indent) {
       return `${indent}MatrixSave`;
@@ -15020,10 +16073,7 @@ void main() {
     apply(context) {
       if (context.mMode === "DATA" /* DATA */) return;
       const pc = context.getPaintContext();
-      if (pc) {
-        pc.restorePaint();
-        pc.matrixRestore();
-      }
+      if (pc) pc.matrixRestore();
     }
     deepToString(indent) {
       return `${indent}MatrixRestore`;
@@ -15057,7 +16107,7 @@ void main() {
       return `${indent}MatrixTranslate(${this.mTranslateX}, ${this.mTranslateY})`;
     }
     static read(buffer, operations) {
-      operations.push(new _MatrixTranslate(buffer.readInt(), buffer.readInt()));
+      operations.push(new _MatrixTranslate(buffer.readNanIdBits(), buffer.readNanIdBits()));
     }
   };
   _MatrixTranslate.OP_CODE = 127;
@@ -15091,7 +16141,7 @@ void main() {
       return `${indent}MatrixScale(${this.mScaleX}, ${this.mScaleY})`;
     }
     static read(buffer, operations) {
-      operations.push(new _MatrixScale(buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readInt()));
+      operations.push(new _MatrixScale(buffer.readNanIdBits(), buffer.readNanIdBits(), buffer.readNanIdBits(), buffer.readNanIdBits()));
     }
   };
   _MatrixScale.OP_CODE = 126;
@@ -15122,7 +16172,7 @@ void main() {
       return `${indent}MatrixRotate(${this.mAngle})`;
     }
     static read(buffer, operations) {
-      operations.push(new _MatrixRotate(buffer.readInt(), buffer.readInt(), buffer.readInt()));
+      operations.push(new _MatrixRotate(buffer.readNanIdBits(), buffer.readNanIdBits(), buffer.readNanIdBits()));
     }
   };
   _MatrixRotate.OP_CODE = 129;
@@ -15150,7 +16200,7 @@ void main() {
       return `${indent}MatrixSkew`;
     }
     static read(buffer, operations) {
-      operations.push(new _MatrixSkew(buffer.readInt(), buffer.readInt()));
+      operations.push(new _MatrixSkew(buffer.readNanIdBits(), buffer.readNanIdBits()));
     }
   };
   _MatrixSkew.OP_CODE = 128;
@@ -15182,7 +16232,7 @@ void main() {
       return `${indent}MatrixFromPath`;
     }
     static read(buffer, operations) {
-      operations.push(new _MatrixFromPath(buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readInt()));
+      operations.push(new _MatrixFromPath(buffer.readId(), buffer.readNanIdBits(), buffer.readNanIdBits(), buffer.readInt()));
     }
   };
   _MatrixFromPath.OP_CODE = 181;
@@ -15216,7 +16266,7 @@ void main() {
       return `${indent}ClipRect`;
     }
     static read(buffer, operations) {
-      operations.push(new _ClipRect(buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readInt()));
+      operations.push(new _ClipRect(buffer.readNanIdBits(), buffer.readNanIdBits(), buffer.readNanIdBits(), buffer.readNanIdBits()));
     }
   };
   _ClipRect.OP_CODE = 39;
@@ -15238,7 +16288,8 @@ void main() {
     }
     static read(buffer, operations) {
       const pack = buffer.readInt();
-      const id = pack & 1048575;
+      const remap = buffer.getRemapContext?.();
+      const id = remap ? remap.resolveId(pack & 1048575) : pack & 1048575;
       const regionOp = pack >> 24;
       operations.push(new _ClipPath(id, regionOp));
     }
@@ -15700,7 +16751,7 @@ void main() {
       cz
     ]);
     const normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]);
-    const indices = new Int32Array([0, 1, 2, 0, 2, 3]);
+    const indices = new Int32Array([0, 1, 2, 2, 3, 0]);
     const uv = uvm !== 0 ? new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]) : null;
     return { verts, normals, indices, uv };
   }
@@ -15753,9 +16804,9 @@ void main() {
       indices[ip++] = base;
       indices[ip++] = base + 1;
       indices[ip++] = base + 2;
-      indices[ip++] = base;
       indices[ip++] = base + 2;
       indices[ip++] = base + 3;
+      indices[ip++] = base;
     }
     return { verts, normals, indices, uv };
   }
@@ -17523,40 +18574,50 @@ void main() {
   var MAX_LIGHTS2 = 32;
   var MAX_CHANNELS = 8;
   var MAX_PRIMITIVE_FLOATS = 2e5;
-  function writeArray(buffer, a) {
+  function writeBits(buffer, a) {
     buffer.writeInt(a.length);
-    for (const v of a) {
-      buffer.writeFloat(v);
+    for (const b of a) {
+      buffer.writeInt(b);
     }
   }
-  function writeOptional(buffer, a) {
+  function writeOptionalFloats(buffer, a) {
     if (a === null) {
       buffer.writeInt(0);
     } else {
-      writeArray(buffer, a);
+      buffer.writeInt(a.length);
+      for (const v of a) {
+        buffer.writeFloat(v);
+      }
     }
   }
-  function readFloats(buffer, max, what) {
+  function readBits(buffer, max, what) {
     const len = buffer.readInt();
     if (len < 0 || len > max) {
       throw new Error(`${what}: bad length ${len}`);
     }
-    const out = new Float32Array(len);
+    const out = new Int32Array(len);
     for (let i = 0; i < len; i++) {
-      out[i] = buffer.readFloat();
+      out[i] = buffer.readInt();
+    }
+    return out;
+  }
+  function literalsOf(bits) {
+    const out = new Float32Array(bits.length);
+    for (let i = 0; i < bits.length; i++) {
+      out[i] = isVariableBits(bits[i]) ? 0 : intBitsToFloat2(bits[i]);
     }
     return out;
   }
   function resolve(context, src, dst) {
     for (let i = 0; i < src.length; i++) {
-      const v = src[i];
-      dst[i] = isVariable(v) ? context.getFloat(idFromNan(v)) : v;
+      const b = src[i];
+      dst[i] = isVariableBits(b) ? context.getFloat(idFromBits(b)) : intBitsToFloat2(b);
     }
   }
   function listen(context, src, self) {
-    for (const v of src) {
-      if (isVariable(v)) {
-        context.listensTo(idFromNan(v), self);
+    for (const b of src) {
+      if (isVariableBits(b)) {
+        context.listensTo(idFromBits(b), self);
       }
     }
   }
@@ -17585,8 +18646,8 @@ void main() {
       for (const v of this.mVerts) {
         buffer.writeFloat(v);
       }
-      writeOptional(buffer, this.mNormals);
-      writeOptional(buffer, this.mUv);
+      writeOptionalFloats(buffer, this.mNormals);
+      writeOptionalFloats(buffer, this.mUv);
     }
     deepToString(indent) {
       return `${indent}DefineMesh3D(id=${this.mId}, tris=${this.mIndices.length / 3}, verts=${this.mVerts.length / 3}, normals=${this.mNormals !== null})`;
@@ -17643,8 +18704,8 @@ void main() {
       this.mProjection = mProjection;
       this.mProjParams = mProjParams;
       this.mViewParams = mViewParams;
-      this.mOutProj = mProjParams.slice();
-      this.mOutView = mViewParams.slice();
+      this.mOutProj = literalsOf(mProjParams);
+      this.mOutView = literalsOf(mViewParams);
     }
     updateVariables(context) {
       resolve(context, this.mProjParams, this.mOutProj);
@@ -17662,8 +18723,8 @@ void main() {
     write(buffer) {
       buffer.start(_SetCamera3D.OP_CODE);
       buffer.writeInt(this.mProjection);
-      writeArray(buffer, this.mProjParams);
-      writeArray(buffer, this.mViewParams);
+      writeBits(buffer, this.mProjParams);
+      writeBits(buffer, this.mViewParams);
     }
     deepToString(indent) {
       return `${indent}SetCamera3D(proj=${this.mProjection})`;
@@ -17675,8 +18736,8 @@ void main() {
      */
     static read(buffer, operations) {
       const projection = buffer.readInt();
-      const proj = readFloats(buffer, 16, "SetCamera3D projParams");
-      const view = readFloats(buffer, 16, "SetCamera3D viewParams");
+      const proj = readBits(buffer, 16, "SetCamera3D projParams");
+      const view = readBits(buffer, 16, "SetCamera3D viewParams");
       operations.push(new _SetCamera3D(projection, proj, view));
     }
   };
@@ -17687,7 +18748,7 @@ void main() {
       super();
       this.mSub = mSub;
       this.mArgs = mArgs;
-      this.mOut = mArgs.slice();
+      this.mOut = literalsOf(mArgs);
     }
     updateVariables(context) {
       resolve(context, this.mArgs, this.mOut);
@@ -17703,7 +18764,7 @@ void main() {
     write(buffer) {
       buffer.start(_Matrix3DOp.OP_CODE);
       buffer.writeInt(this.mSub);
-      writeArray(buffer, this.mArgs);
+      writeBits(buffer, this.mArgs);
     }
     deepToString(indent) {
       return `${indent}Matrix3DOp(sub=${this.mSub}, args=${this.mOut.length})`;
@@ -17714,7 +18775,7 @@ void main() {
      */
     static read(buffer, operations) {
       const sub = buffer.readInt();
-      const args = readFloats(buffer, 16, "Matrix3DOp args");
+      const args = readBits(buffer, 16, "Matrix3DOp args");
       operations.push(new _Matrix3DOp(sub, args));
     }
   };
@@ -17751,7 +18812,7 @@ void main() {
       super();
       this.mSub = mSub;
       this.mParams = mParams;
-      this.mOut = mParams.slice();
+      this.mOut = literalsOf(mParams);
     }
     updateVariables(context) {
       resolve(context, this.mParams, this.mOut);
@@ -17784,7 +18845,7 @@ void main() {
     write(buffer) {
       buffer.start(_Paint3DState.OP_CODE);
       buffer.writeInt(this.mSub);
-      writeArray(buffer, this.mParams);
+      writeBits(buffer, this.mParams);
     }
     deepToString(indent) {
       return `${indent}Paint3DState(sub=${this.mSub})`;
@@ -17792,7 +18853,7 @@ void main() {
     /** `sub, len+params[]` — CLEAR_DEPTH takes none, MATERIAL and DEPTH_BIAS two each. */
     static read(buffer, operations) {
       const sub = buffer.readInt();
-      const params = readFloats(buffer, 8, "Paint3DState params");
+      const params = readBits(buffer, 8, "Paint3DState params");
       operations.push(new _Paint3DState(sub, params));
     }
   };
@@ -17804,7 +18865,7 @@ void main() {
       this.mTypes = mTypes;
       this.mColors = mColors;
       this.mParams = mParams;
-      this.mOut = mParams.slice();
+      this.mOut = literalsOf(mParams);
     }
     updateVariables(context) {
       resolve(context, this.mParams, this.mOut);
@@ -17824,7 +18885,7 @@ void main() {
         buffer.writeInt(this.mTypes[i]);
         buffer.writeInt(this.mColors[i]);
       }
-      writeArray(buffer, this.mParams);
+      writeBits(buffer, this.mParams);
     }
     deepToString(indent) {
       return `${indent}SetLights3D(n=${this.mTypes.length})`;
@@ -17845,7 +18906,7 @@ void main() {
         types[i] = buffer.readInt();
         colors[i] = buffer.readInt();
       }
-      const params = readFloats(buffer, MAX_LIGHTS2 * 4, "SetLights3D params");
+      const params = readBits(buffer, MAX_LIGHTS2 * 4, "SetLights3D params");
       operations.push(new _SetLights3D(types, colors, params));
     }
   };
@@ -17887,11 +18948,11 @@ void main() {
       this.mMesh = null;
       /** Set once if the build throws, so a broken shape is reported once and not every frame. */
       this.mFailed = false;
-      this.mOutSegments = mSegments;
-      this.mOutData = mData.map((c) => c.slice());
+      this.mOutSegments = isVariableBits(mSegments) ? 0 : intBitsToFloat2(mSegments);
+      this.mOutData = mData.map((c) => literalsOf(c));
     }
     updateVariables(context) {
-      this.mOutSegments = isVariable(this.mSegments) ? context.getFloat(idFromNan(this.mSegments)) : this.mSegments;
+      this.mOutSegments = isVariableBits(this.mSegments) ? context.getFloat(idFromBits(this.mSegments)) : intBitsToFloat2(this.mSegments);
       for (let c = 0; c < this.mData.length; c++) {
         resolve(context, this.mData[c], this.mOutData[c]);
       }
@@ -17899,8 +18960,8 @@ void main() {
       this.mFailed = false;
     }
     registerListening(context) {
-      if (isVariable(this.mSegments)) {
-        context.listensTo(idFromNan(this.mSegments), this);
+      if (isVariableBits(this.mSegments)) {
+        context.listensTo(idFromBits(this.mSegments), this);
       }
       for (const channel of this.mData) {
         listen(context, channel, this);
@@ -17931,21 +18992,21 @@ void main() {
       buffer.start(_MeshPrimitive.OP_CODE);
       buffer.writeInt(this.mId);
       buffer.writeInt(this.mType);
-      buffer.writeFloat(this.mSegments);
+      buffer.writeInt(this.mSegments);
       buffer.writeInt(this.mFlags);
       buffer.writeInt(this.mData.length);
       for (const ch of this.mData) {
-        writeArray(buffer, ch);
+        writeBits(buffer, ch);
       }
     }
     deepToString(indent) {
-      return `${indent}MeshPrimitive(id=${this.mId}, type=${this.mType}, segments=${this.mSegments}, channels=${this.mData.length})`;
+      return `${indent}MeshPrimitive(id=${this.mId}, type=${this.mType}, segments=${this.mOutSegments}, channels=${this.mData.length})`;
     }
     /** `id, type, segments, flags, channelCount, (len + floats) x channelCount`. */
     static read(buffer, operations) {
       const id = buffer.readInt();
       const type = buffer.readInt();
-      const segments2 = buffer.readFloat();
+      const segments2 = buffer.readInt();
       const flags = buffer.readInt();
       const channels = buffer.readInt();
       if (channels < 0 || channels > MAX_CHANNELS) {
@@ -17953,7 +19014,7 @@ void main() {
       }
       const data = [];
       for (let c = 0; c < channels; c++) {
-        data.push(readFloats(buffer, MAX_PRIMITIVE_FLOATS, "MeshPrimitive channel"));
+        data.push(readBits(buffer, MAX_PRIMITIVE_FLOATS, "MeshPrimitive channel"));
       }
       operations.push(new _MeshPrimitive(id, type, segments2, flags, data));
     }
@@ -17977,12 +19038,11 @@ void main() {
     }
     return (idFromBits(b) & ID_REGION_MASK) === ID_REGION_ARRAY;
   }
-  function isResolvable2(v) {
-    if (!Number.isNaN(v)) {
+  function isResolvableBits2(bits) {
+    if (!isNaNBits(bits)) {
       return false;
     }
-    const bits = floatToRawIntBits2(v);
-    return !AnimatedFloatExpression.isMathOperator(v) && !isDataVariableBits(bits);
+    return !AnimatedFloatExpression.isMathOperatorBits(bits) && !isDataVariableBits(bits);
   }
   function lerp(a, b, t) {
     return Math.fround(a + Math.fround(Math.fround(b - a) * t));
@@ -18009,6 +19069,11 @@ void main() {
       this.mLastA = 0;
       this.mLastB = 0;
       this.mOutParams = mParams.slice();
+      this.mOutParamsF = new Float32Array(
+        this.mOutParams.buffer,
+        this.mOutParams.byteOffset,
+        this.mOutParams.length
+      );
       this.mOutPos = mPos.map((e) => e.slice());
       this.mOutNormal = mNormal.map((e) => e.slice());
       this.mOutUv = mUv.map((e) => e.slice());
@@ -18016,7 +19081,8 @@ void main() {
     // ----- variable support -------------------------------------------------
     updateVariables(context) {
       for (let i = 0; i < this.mParams.length; i++) {
-        this.mOutParams[i] = isResolvable2(this.mParams[i]) ? context.getFloat(idFromNan(this.mParams[i])) : this.mParams[i];
+        const b = this.mParams[i];
+        this.mOutParams[i] = isResolvableBits2(b) ? floatToRawIntBits2(context.getFloat(idFromBits(b))) : b;
       }
       _MeshExpression.resolveGroup(context, this.mPos, this.mOutPos);
       _MeshExpression.resolveGroup(context, this.mNormal, this.mOutNormal);
@@ -18027,14 +19093,15 @@ void main() {
         const inArr = src[e];
         const out = dst[e];
         for (let i = 0; i < inArr.length; i++) {
-          out[i] = isResolvable2(inArr[i]) ? context.getFloat(idFromNan(inArr[i])) : inArr[i];
+          const b = inArr[i];
+          out[i] = isResolvableBits2(b) ? floatToRawIntBits2(context.getFloat(idFromBits(b))) : b;
         }
       }
     }
     registerListening(context) {
-      for (const v of this.mParams) {
-        if (isResolvable2(v)) {
-          context.listensTo(idFromNan(v), this);
+      for (const b of this.mParams) {
+        if (isResolvableBits2(b)) {
+          context.listensTo(idFromBits(b), this);
         }
       }
       this.listenGroup(context, this.mPos);
@@ -18043,9 +19110,9 @@ void main() {
     }
     listenGroup(context, group) {
       for (const e of group) {
-        for (const v of e) {
-          if (isResolvable2(v)) {
-            context.listensTo(idFromNan(v), this);
+        for (const b of e) {
+          if (isResolvableBits2(b)) {
+            context.listensTo(idFromBits(b), this);
           }
         }
       }
@@ -18098,18 +19165,18 @@ void main() {
     gridCount(axis) {
       switch (this.mType) {
         case SURFACE_HEIGHT_FIELD:
-          return Math.trunc(this.mOutParams[axis === 0 ? 2 : 5]);
+          return Math.trunc(this.mOutParamsF[axis === 0 ? 2 : 5]);
         case SURFACE_SPHERE:
-          return Math.trunc(this.mOutParams[axis === 0 ? 1 : 2]);
+          return Math.trunc(this.mOutParamsF[axis === 0 ? 1 : 2]);
         case SURFACE_CYLINDER:
-          return Math.trunc(this.mOutParams[axis === 0 ? 2 : 3]);
+          return Math.trunc(this.mOutParamsF[axis === 0 ? 2 : 3]);
         default:
-          return Math.trunc(this.mOutParams[axis === 0 ? 2 : 5]);
+          return Math.trunc(this.mOutParamsF[axis === 0 ? 2 : 5]);
       }
     }
     /** The (a,b) expression parameters for grid fractions (fu,fv), per surface type. */
     paramsFor(fu, fv) {
-      const p = this.mOutParams;
+      const p = this.mOutParamsF;
       switch (this.mType) {
         case SURFACE_HEIGHT_FIELD:
           this.mLastA = lerp(p[0], p[1], fu);
@@ -18137,8 +19204,8 @@ void main() {
       switch (this.mType) {
         case SURFACE_HEIGHT_FIELD: {
           let h = this.eval(this.mOutPos[0], a, b, ca);
-          const yMin = this.mOutParams[6];
-          const yMax = this.mOutParams[7];
+          const yMin = this.mOutParamsF[6];
+          const yMax = this.mOutParamsF[7];
           if (h < yMin) {
             h = yMin;
           }
@@ -18151,7 +19218,7 @@ void main() {
           break;
         }
         case SURFACE_SPHERE: {
-          const r = Math.fround(this.mOutParams[0] + this.eval(this.mOutPos[0], a, b, ca));
+          const r = Math.fround(this.mOutParamsF[0] + this.eval(this.mOutPos[0], a, b, ca));
           const sinV = Math.fround(Math.sin(b));
           this.mVerts[off] = Math.fround(Math.fround(r * sinV) * Math.fround(Math.cos(a)));
           this.mVerts[off + 1] = Math.fround(r * Math.fround(Math.cos(b)));
@@ -18159,7 +19226,7 @@ void main() {
           break;
         }
         case SURFACE_CYLINDER: {
-          const r = Math.fround(this.mOutParams[0] + this.eval(this.mOutPos[0], a, b, ca));
+          const r = Math.fround(this.mOutParamsF[0] + this.eval(this.mOutPos[0], a, b, ca));
           this.mVerts[off] = Math.fround(r * Math.fround(Math.cos(a)));
           this.mVerts[off + 1] = b;
           this.mVerts[off + 2] = Math.fround(r * Math.fround(Math.sin(a)));
@@ -18263,7 +19330,7 @@ void main() {
       buffer.writeInt(this.mId);
       buffer.writeInt(this.mType);
       buffer.writeInt(this.mFlags);
-      writeArray2(buffer, this.mParams);
+      writeArray(buffer, this.mParams);
       writeGroup(buffer, this.mPos);
       writeGroup(buffer, this.mNormal);
       writeGroup(buffer, this.mUv);
@@ -18290,16 +19357,16 @@ void main() {
   };
   _MeshExpression.OP_CODE = 117;
   var MeshExpression = _MeshExpression;
-  function writeArray2(buffer, a) {
+  function writeArray(buffer, a) {
     buffer.writeInt(a.length);
-    for (const v of a) {
-      buffer.writeFloat(v);
+    for (const b of a) {
+      buffer.writeInt(b);
     }
   }
   function writeGroup(buffer, group) {
     buffer.writeInt(group.length);
     for (const e of group) {
-      writeArray2(buffer, e);
+      writeArray(buffer, e);
     }
   }
   function readArray(buffer) {
@@ -18307,9 +19374,9 @@ void main() {
     if (len < 0 || len > MAX_ARRAY) {
       throw new Error(`MeshExpression: bad array length ${len}`);
     }
-    const a = new Float32Array(len);
+    const a = new Int32Array(len);
     for (let i = 0; i < len; i++) {
-      a[i] = buffer.readNanId();
+      a[i] = buffer.readNanIdBits();
     }
     return a;
   }
@@ -18366,20 +19433,22 @@ void main() {
   var MAX_PROGRAM = 512;
   var SOFT_DOMAIN_EPS = 1e-6;
   var _dv3 = new DataView(new ArrayBuffer(4));
-  function fromNaN(v) {
-    _dv3.setFloat32(0, v);
-    return _dv3.getInt32(0) & 4194303;
-  }
-  function isVectorOp(v) {
-    if (!Number.isNaN(v)) {
+  function isVectorOpBits(bits) {
+    if (!isNaNBits(bits)) {
       return false;
     }
-    const pos = fromNaN(v);
+    const pos = idFromBits(bits);
     return pos >= OP_VBUILD2 && pos <= OP_VNORM;
   }
   var VectorRpn = class {
     constructor() {
-      this.mProgram = new Float32Array(MAX_PROGRAM);
+      /**
+       * The program as RAW BITS. It mixes literals with NaN-boxed operator and variable ids,
+       * and a Float32Array cannot hold the latter two safely: copying through one canonicalizes
+       * every NaN on JavaScriptCore, which turned each operator into an unrecognised token and
+       * every vector expression into garbage in Safari.
+       */
+      this.mProgram = new Int32Array(MAX_PROGRAM);
       this.mStack = new Float32Array(MAX_STACK * MAX_DIM);
       /** Logical dimensionality of each stack value. */
       this.mDim = new Int32Array(MAX_STACK);
@@ -18393,18 +19462,29 @@ void main() {
      * Evaluate program[0..len) and write the result's components into out (length >= MAX_DIM).
      * Returns the logical dimensionality of the result (1 = scalar, 2/3/4 = vector).
      */
+    /**
+     * `program` is raw int32 bits. A Float32Array is still accepted for callers that have not
+     * been converted, but it cannot carry operator ids on every engine — see mProgram.
+     */
     apply(program, len, out) {
       if (len > MAX_PROGRAM) {
         throw new Error(`VectorRpn: program length ${len} exceeds ${MAX_PROGRAM}`);
       }
-      this.mProgram.set(program.subarray(0, len), 0);
+      if (program instanceof Int32Array) {
+        this.mProgram.set(program.subarray(0, len), 0);
+      } else {
+        for (let i = 0; i < len; i++) {
+          this.mProgram[i] = floatToRawIntBits2(program[i]);
+        }
+      }
       const s = this.mStack;
       let sp = -1;
       for (let i = 0; i < len; i++) {
-        const v = this.mProgram[i];
-        if (Number.isNaN(v)) {
-          sp = this.opEval(sp, fromNaN(v));
+        const bits = this.mProgram[i];
+        if (isNaNBits(bits)) {
+          sp = this.opEval(sp, idFromBits(bits));
         } else {
+          const v = intBitsToFloat2(bits);
           sp++;
           if (sp >= MAX_STACK) {
             throw new Error("VectorRpn: stack overflow (malformed program)");
@@ -18650,13 +19730,12 @@ void main() {
   // third_party/remote-compose-player/src/core/operations/VectorExpression.ts
   var ID_REGION_MASK2 = 3 << 20;
   var ID_REGION_ARRAY2 = 2 << 20;
-  function isResolvable3(v) {
-    if (!Number.isNaN(v)) {
+  function isResolvableBits3(bits) {
+    if (!isNaNBits(bits)) {
       return false;
     }
-    const bits = floatToRawIntBits2(v);
-    const isArray = isNaNBits(bits) && (idFromBits(bits) & ID_REGION_MASK2) === ID_REGION_ARRAY2;
-    return !AnimatedFloatExpression.isMathOperator(v) && !isVectorOp(v) && !isArray;
+    const isArray = (idFromBits(bits) & ID_REGION_MASK2) === ID_REGION_ARRAY2;
+    return !AnimatedFloatExpression.isMathOperatorBits(bits) && !isVectorOpBits(bits) && !isArray;
   }
   var _VectorExpression = class _VectorExpression extends Operation {
     constructor(mId, mDimension, mFlags, mSrcValue) {
@@ -18675,15 +19754,15 @@ void main() {
     }
     updateVariables(context) {
       for (let i = 0; i < this.mSrcValue.length; i++) {
-        const v = this.mSrcValue[i];
-        this.mPreCalc[i] = isResolvable3(v) ? context.getFloat(idFromNan(v)) : v;
+        const b = this.mSrcValue[i];
+        this.mPreCalc[i] = isResolvableBits3(b) ? floatToRawIntBits2(context.getFloat(idFromBits(b))) : b;
       }
     }
     registerListening(context) {
       context.putObject(this.mId, this);
-      for (const v of this.mSrcValue) {
-        if (isResolvable3(v)) {
-          context.listensTo(idFromNan(v), this);
+      for (const b of this.mSrcValue) {
+        if (isResolvableBits3(b)) {
+          context.listensTo(idFromBits(b), this);
         }
       }
     }
@@ -18737,9 +19816,9 @@ void main() {
       const dimension = buffer.readByte();
       const flags = buffer.readByte();
       const len = buffer.readShort();
-      const values = new Float32Array(len);
+      const values = new Int32Array(len);
       for (let i = 0; i < len; i++) {
-        values[i] = buffer.readNanId();
+        values[i] = buffer.readNanIdBits();
       }
       operations.push(new _VectorExpression(id, dimension, flags, values));
     }
@@ -18889,13 +19968,28 @@ void main() {
       return `${indent}ColorExpression(${this.mId}, mode=${this.mMode})`;
     }
     static read(buffer, operations) {
-      operations.push(new _ColorExpression(
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt(),
-        buffer.readInt()
-      ));
+      const id = buffer.declareId();
+      let p1 = buffer.readInt(), p2 = buffer.readInt(), p3 = buffer.readInt(), p4 = buffer.readInt();
+      const remap = buffer.getRemapContext?.();
+      if (remap) {
+        const mode = p1 & 255;
+        const f = (bits) => remap.resolveNanIdBits(bits);
+        if (mode === 6) {
+          p1 = remap.resolveId(p1 >> 16) << 16 | p1 & 65535;
+          p2 = f(p2);
+          p3 = f(p3);
+          p4 = f(p4);
+        } else if (mode === 5 || mode === 4) {
+          p2 = f(p2);
+          p3 = f(p3);
+          p4 = f(p4);
+        } else if (mode <= 3) {
+          if (mode & 1) p2 = remap.resolveId(p2);
+          if (mode & 2) p3 = remap.resolveId(p3);
+          p4 = f(p4);
+        }
+      }
+      operations.push(new _ColorExpression(id, p1, p2, p3, p4));
     }
   };
   _ColorExpression.OP_CODE = 134;
@@ -18964,6 +20058,9 @@ void main() {
       this.updateVariables(context);
       return this.evaluate(this.mPreMask, this.mPreCalcValues || this.mValues);
     }
+    getId() {
+      return this.mId;
+    }
     /**
      * Evaluates the RPN program. [exp] is the *resolved* array (`mPreCalcValues`), where every id
      * slot already holds its variable's value.
@@ -18982,11 +20079,11 @@ void main() {
     evaluate(mask, exp) {
       const stack = new Int32Array(128);
       let sp = -1;
-      const OFFSET4 = _IntegerExpression.OFFSET;
+      const OFFSET5 = _IntegerExpression.OFFSET;
       for (let i = 0; i < exp.length; i++) {
         const v = exp[i];
-        if ((1 << i & mask) !== 0 && this.mValues[i] >= OFFSET4) {
-          const op = this.mValues[i] - OFFSET4;
+        if ((1 << i & mask) !== 0 && this.mValues[i] >= OFFSET5) {
+          const op = this.mValues[i] - OFFSET5;
           switch (op) {
             case 1:
               stack[sp - 1] = stack[sp - 1] + stack[sp] | 0;
@@ -19117,12 +20214,15 @@ void main() {
       return `${indent}IntegerExpression(${this.mId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.declareId();
       const mask = buffer.readInt();
       const len = buffer.readInt();
       const values = new Int32Array(len);
+      const remap = buffer.getRemapContext?.();
       for (let i = 0; i < len; i++) {
-        values[i] = buffer.readInt();
+        const v = buffer.readInt();
+        const isId = (1 << i & mask) !== 0 && v < _IntegerExpression.OFFSET;
+        values[i] = isId && remap ? remap.resolveId(v) : v;
       }
       operations.push(new _IntegerExpression(id, mask, values));
     }
@@ -19292,8 +20392,8 @@ void main() {
       return `${indent}ShaderData(${this.mShaderId})`;
     }
     static read(buffer, operations) {
-      const shaderId = buffer.readInt();
-      const shaderTextId = buffer.readInt();
+      const shaderId = buffer.declareId();
+      const shaderTextId = buffer.readId();
       const sizes = buffer.readInt();
       const floatMapSize = sizes & 255;
       const intMapSize = sizes >> 8 & 255;
@@ -19306,7 +20406,7 @@ void main() {
           const len = buffer.readInt();
           const val = new Int32Array(len);
           for (let j = 0; j < len; j++) {
-            val[j] = buffer.readInt();
+            val[j] = buffer.readNanIdBits();
           }
           floatMap.set(name, val);
         }
@@ -19329,7 +20429,7 @@ void main() {
         bitmapMap = /* @__PURE__ */ new Map();
         for (let i = 0; i < bitmapMapSize; i++) {
           const name = buffer.readUTF8();
-          const val = buffer.readInt();
+          const val = buffer.readId();
           bitmapMap.set(name, val);
         }
       }
@@ -19343,7 +20443,6 @@ void main() {
 
   // third_party/remote-compose-player/src/core/operations/utilities/StringUtils.ts
   var GROUPING_NONE = 0;
-  var GROUPING_BY3 = 1;
   var GROUPING_BY4 = 2;
   var GROUPING_BY32 = 3;
   var SEPARATOR_PERIOD_COMMA = 1;
@@ -19351,120 +20450,86 @@ void main() {
   var SEPARATOR_UNDER_PERIOD = 3;
   var NEGATIVE_PARENTHESES = 1;
   var ROUNDING = 2;
-  function tochars(value, beforeDecimalPoint, afterDecimalPoint, rounding) {
-    let isNegative = false;
-    if (value < 0) {
-      isNegative = true;
-      value = -value;
+  var F_TENTH = Math.fround(0.1);
+  function javaFloatToString(v) {
+    if (Number.isNaN(v)) return "NaN";
+    if (!Number.isFinite(v)) return v > 0 ? "Infinity" : "-Infinity";
+    if (v === 0) return Object.is(v, -0) ? "-0.0" : "0.0";
+    const sign = v < 0 ? "-" : "";
+    const a = Math.abs(v);
+    let sci = "";
+    for (let p = 0; p < 9; p++) {
+      sci = a.toExponential(p);
+      if (Math.fround(Number(sci)) === a) break;
     }
-    let powerOf10 = 1;
-    for (let i = 0; i < afterDecimalPoint; i++) {
-      powerOf10 *= 10;
+    const ePos = sci.indexOf("e");
+    const d = sci.substring(0, ePos).replace(".", "");
+    const e = Number(sci.substring(ePos + 1));
+    if (a >= Math.fround(1e-3) && a < 1e7) {
+      if (e >= 0) {
+        if (d.length <= e + 1) return `${sign}${d}${"0".repeat(e + 1 - d.length)}.0`;
+        return `${sign}${d.substring(0, e + 1)}.${d.substring(e + 1)}`;
+      }
+      return `${sign}0.${"0".repeat(-e - 1)}${d}`;
     }
+    return `${sign}${d[0]}.${d.length > 1 ? d.substring(1) : "0"}E${e}`;
+  }
+  function javaRound2(x) {
+    if (Number.isNaN(x)) return 0;
+    return Math.fround(Math.max(-2147483648, Math.min(2147483647, Math.floor(x + 0.5))));
+  }
+  function javaIntString(x) {
+    if (Number.isNaN(x)) return "0";
+    return String(Math.max(-2147483648, Math.min(2147483647, Math.trunc(x))));
+  }
+  function javaLong(x) {
+    if (Number.isNaN(x)) return 0n;
+    if (x >= 9223372036854776e3) return 9223372036854775807n;
+    if (x <= -9223372036854776e3) return -9223372036854775808n;
+    return BigInt(Math.trunc(x));
+  }
+  function integerDigits(value, beforeDecimalPoint, afterDecimalPoint, rounding) {
     if (rounding) {
       let roundingFactor = 0.5;
       for (let i = 0; i < afterDecimalPoint; i++) {
-        roundingFactor /= 10;
+        roundingFactor = Math.fround(roundingFactor / 10);
       }
-      value += roundingFactor;
+      value = Math.fround(value + roundingFactor);
     }
-    const integerPart = Math.trunc(value);
-    const fractionalPart = value - integerPart;
-    let intLength = 1;
-    if (integerPart > 0) {
-      let tempInt2 = integerPart;
-      intLength = 0;
-      while (tempInt2 > 0) {
-        tempInt2 = Math.trunc(tempInt2 / 10);
-        intLength++;
-      }
-    }
-    const actualBefore = Math.min(beforeDecimalPoint, intLength);
-    const integerChars = new Array(actualBefore);
-    let tempInt = integerPart;
-    for (let i = actualBefore - 1; i >= 0; i--) {
-      integerChars[i] = String.fromCharCode(48 + tempInt % 10);
-      tempInt = Math.trunc(tempInt / 10);
-    }
-    let tempFrac = Math.trunc(fractionalPart * powerOf10);
-    let fracLength = 0;
-    if (afterDecimalPoint > 0) {
-      let temp = tempFrac;
-      if (temp === 0) {
-        fracLength = 1;
-      } else {
-        while (temp > 0 && temp % 10 === 0) {
-          temp = Math.trunc(temp / 10);
-        }
-        if (temp > 0) {
-          let t = temp;
-          while (t > 0) {
-            t = Math.trunc(t / 10);
-            fracLength++;
-          }
-        } else {
-          fracLength = 0;
-        }
-      }
-    }
-    const actualAfter = Math.min(afterDecimalPoint, fracLength);
-    const fractionalChars = new Array(actualAfter);
-    tempFrac = Math.trunc(fractionalPart * powerOf10);
-    for (let i = actualAfter - 1; i >= 0; i--) {
-      fractionalChars[i] = String.fromCharCode(48 + tempFrac % 10);
-      tempFrac = Math.trunc(tempFrac / 10);
-    }
-    let result = "";
-    if (isNegative) result += "-";
-    result += integerChars.join("");
-    result += ".";
-    result += fractionalChars.join("");
-    return result;
+    const digits = javaLong(value).toString();
+    const intLength = digits === "0" ? 1 : digits.length;
+    return digits.substring(digits.length - Math.min(beforeDecimalPoint, intLength));
   }
-  function floatToStringLegacy(value, beforeDecimalPoint, afterDecimalPoint, pre, post) {
-    let isNeg = value < 0;
-    if (isNeg) value = -value;
-    const integerPart = Math.trunc(value);
-    let fractionalPart = value % 1;
-    let integerPartString = String(integerPart);
-    const iLen = integerPartString.length;
-    if (iLen < beforeDecimalPoint) {
-      if (pre !== 0) {
-        const pad = String.fromCharCode(pre).repeat(beforeDecimalPoint - iLen);
-        integerPartString = pad + integerPartString;
-      }
-    } else if (iLen > beforeDecimalPoint) {
-      integerPartString = integerPartString.substring(iLen - beforeDecimalPoint);
-    }
-    if (afterDecimalPoint === 0) {
-      return (isNeg ? "-" : "") + integerPartString;
-    }
-    for (let i = 0; i < afterDecimalPoint; i++) {
-      fractionalPart *= 10;
-    }
-    fractionalPart = Math.round(fractionalPart);
-    for (let i = 0; i < afterDecimalPoint; i++) {
-      fractionalPart *= 0.1;
-    }
-    let fact = fractionalPart.toString();
-    const dotIdx = fact.indexOf(".");
-    if (dotIdx >= 0) {
-      fact = fact.substring(dotIdx + 1, Math.min(fact.length, dotIdx + 1 + afterDecimalPoint));
-    } else {
-      fact = "0";
-    }
+  function fractionDigits(fractionalPart, scaleDigits, afterDecimalPoint, post, keep) {
+    for (let i = 0; i < scaleDigits; i++) fractionalPart = Math.fround(fractionalPart * 10);
+    fractionalPart = javaRound2(fractionalPart);
+    for (let i = 0; i < scaleDigits; i++) fractionalPart = Math.fround(fractionalPart * F_TENTH);
+    const str = javaFloatToString(fractionalPart);
+    let fact = str.substring(2, Math.min(str.length, afterDecimalPoint + 2));
     let trim = fact.length;
-    for (let i = fact.length - 1; i >= 0; i--) {
+    for (let i = fact.length - 1; i >= keep; i--) {
       if (fact[i] !== "0") break;
       trim--;
     }
-    if (trim !== fact.length) {
-      fact = fact.substring(0, trim);
-    }
+    fact = fact.substring(0, trim);
     if (post !== 0 && fact.length < afterDecimalPoint) {
-      fact = fact + String.fromCharCode(post).repeat(afterDecimalPoint - fact.length);
+      fact += String.fromCharCode(post).repeat(afterDecimalPoint - fact.length);
     }
-    return (isNeg ? "-" : "") + integerPartString + "." + fact;
+    return fact;
+  }
+  function padInteger(s, beforeDecimalPoint, pre) {
+    if (s.length < beforeDecimalPoint) {
+      return pre !== 0 ? String.fromCharCode(pre).repeat(beforeDecimalPoint - s.length) + s : s;
+    }
+    return s.substring(s.length - beforeDecimalPoint);
+  }
+  function floatToStringLegacy(value, beforeDecimalPoint, afterDecimalPoint, pre, post) {
+    const isNeg = value < 0;
+    if (isNeg) value = -value;
+    const integerPart = padInteger(javaIntString(value), beforeDecimalPoint, pre);
+    if (afterDecimalPoint === 0) return (isNeg ? "-" : "") + integerPart;
+    const fact = fractionDigits(value % 1, afterDecimalPoint, afterDecimalPoint, post, 0);
+    return (isNeg ? "-" : "") + integerPart + "." + fact;
   }
   function floatToStringFull(value, beforeDecimalPoint, afterDecimalPoint, pre, post, separator, grouping, options) {
     let groupSep = ",";
@@ -19487,72 +20552,27 @@ void main() {
     const rounding = (options & ROUNDING) !== 0;
     const isNeg = value < 0;
     if (isNeg) value = -value;
-    const chars = tochars(value, beforeDecimalPoint, afterDecimalPoint, rounding);
-    let fractionalPart = value % 1;
-    const dotPos = chars.indexOf(".");
-    let integerPartString = chars.substring(chars.startsWith("-") ? 1 : 0, dotPos);
+    let integerPartString = integerDigits(value, beforeDecimalPoint, afterDecimalPoint, rounding);
     if (grouping !== GROUPING_NONE) {
       const len = integerPartString.length;
-      switch (grouping) {
-        case GROUPING_BY3:
-          for (let i = len - 3; i > 0; i -= 3) {
-            integerPartString = integerPartString.substring(0, i) + groupSep + integerPartString.substring(i);
-          }
-          break;
-        case GROUPING_BY4:
-          for (let i = len - 4; i > 0; i -= 4) {
-            integerPartString = integerPartString.substring(0, i) + groupSep + integerPartString.substring(i);
-          }
-          break;
-        case GROUPING_BY32:
-          for (let i = len - 3; i > 0; i -= 2) {
-            integerPartString = integerPartString.substring(0, i) + groupSep + integerPartString.substring(i);
-          }
-          break;
+      const first = grouping === GROUPING_BY4 ? 4 : 3;
+      const step = grouping === GROUPING_BY4 ? 4 : grouping === GROUPING_BY32 ? 2 : 3;
+      for (let i = len - first; i > 0; i -= step) {
+        integerPartString = integerPartString.substring(0, i) + groupSep + integerPartString.substring(i);
       }
     }
     const iLen = integerPartString.length;
-    if (iLen < beforeDecimalPoint) {
-      if (pre !== 0) {
-        const pad = String.fromCharCode(pre).repeat(beforeDecimalPoint - iLen);
-        integerPartString = pad + integerPartString;
-      }
-    } else if (iLen > beforeDecimalPoint) {
-      integerPartString = integerPartString.substring(iLen - beforeDecimalPoint);
-    }
-    if (afterDecimalPoint === 0) {
-      if (!isNeg) return integerPartString;
-      if (useParenthesesForNeg) return "(" + integerPartString + ")";
-      return "-" + integerPartString;
-    }
-    for (let i = 0; i < afterDecimalPoint; i++) {
-      fractionalPart *= 10;
-    }
-    fractionalPart = Math.round(fractionalPart);
-    for (let i = 0; i < afterDecimalPoint; i++) {
-      fractionalPart *= 0.1;
-    }
-    let fact = fractionalPart.toString();
-    const factDotIdx = fact.indexOf(".");
-    if (factDotIdx >= 0) {
-      fact = fact.substring(factDotIdx + 1, Math.min(fact.length, factDotIdx + 1 + afterDecimalPoint));
-    } else {
-      fact = "0";
-    }
-    let trim = fact.length;
-    for (let i = fact.length - 1; i > 0; i--) {
-      if (fact[i] !== "0") break;
-      trim--;
-    }
-    if (trim !== fact.length) {
-      fact = fact.substring(0, trim);
-    }
-    if (post !== 0 && fact.length < afterDecimalPoint) {
-      fact = fact + String.fromCharCode(post).repeat(afterDecimalPoint - fact.length);
-    }
-    if (!isNeg) return integerPartString + decSep + fact;
-    if (useParenthesesForNeg) return "(" + integerPartString + decSep + fact + ")";
-    return "-" + integerPartString + decSep + fact;
+    integerPartString = padInteger(integerPartString, beforeDecimalPoint, pre);
+    let trimAfter = afterDecimalPoint;
+    if (iLen + afterDecimalPoint > 9) trimAfter = Math.max(1, 9 - iLen);
+    if (post === 0) afterDecimalPoint = trimAfter;
+    const wrap = (body) => {
+      if (!isNeg) return body;
+      return useParenthesesForNeg ? `(${body})` : `-${body}`;
+    };
+    if (afterDecimalPoint === 0) return wrap(integerPartString);
+    const fact = fractionDigits(value % 1, trimAfter, afterDecimalPoint, post, 1);
+    return wrap(integerPartString + decSep + fact);
   }
 
   // third_party/remote-compose-player/src/core/operations/TextFromFloat.ts
@@ -19560,7 +20580,7 @@ void main() {
   var PAD_AFTER_ZERO = 3;
   var PAD_PRE_NONE = 4;
   var PAD_PRE_ZERO = 12;
-  var GROUPING_BY33 = 1 << 4;
+  var GROUPING_BY3 = 1 << 4;
   var GROUPING_BY42 = 2 << 4;
   var GROUPING_BY322 = 3 << 4;
   var SEPARATOR_PERIOD_COMMA2 = 1 << 6;
@@ -19604,7 +20624,7 @@ void main() {
       }
       this.mGroup = 0;
       switch (flags & 3 << 4) {
-        case GROUPING_BY33:
+        case GROUPING_BY3:
           this.mGroup = 1;
           break;
         case GROUPING_BY42:
@@ -19643,9 +20663,11 @@ void main() {
     }
     apply(context) {
       this.updateVariables(context);
-      const v = this.mOutValue;
+      const v = Math.fround(this.mOutValue);
       let s;
-      if (this.mLegacy) {
+      if ((this.mFlags & 4096) !== 0) {
+        s = javaFloatToString(v);
+      } else if (this.mLegacy) {
         s = floatToStringLegacy(v, this.mDigitsBefore, this.mDigitsAfter, this.mPre, this.mAfter);
       } else {
         s = floatToStringFull(
@@ -19665,8 +20687,8 @@ void main() {
       return `${indent}TextFromFloat[${this.mTextId}] = ${isNaNBits(this.mValueBits) ? "ref(" + idFromBits(this.mValueBits) + ")" : intBitsToFloat2(this.mValueBits)} ${this.mDigitsBefore}.${this.mDigitsAfter} ${this.mFlags}`;
     }
     static read(buffer, operations) {
-      const textId = buffer.readInt();
-      const valueBits = buffer.readInt();
+      const textId = buffer.declareId();
+      const valueBits = buffer.readNanIdBits();
       const tmp = buffer.readInt();
       const digitsAfter = tmp & 65535;
       const digitsBefore = tmp >> 16 & 65535;
@@ -19703,7 +20725,7 @@ void main() {
       return `${indent}TextMerge(${this.mTextId})`;
     }
     static read(buffer, operations) {
-      operations.push(new _TextMerge(buffer.readInt(), buffer.readInt(), buffer.readInt()));
+      operations.push(new _TextMerge(buffer.declareId(), buffer.readId(), buffer.readId()));
     }
   };
   _TextMerge.OP_CODE = 136;
@@ -19740,7 +20762,12 @@ void main() {
         }
         return;
       }
-      const lc = component;
+      let lc = component;
+      if (lc.constructor?.OP_CODE === 201) {
+        const parent = lc.getParent?.();
+        if (parent) lc = parent;
+      }
+      if (typeof lc.addComponentValue === "function") lc.addComponentValue(this);
       switch (this.mType) {
         case _ComponentValue.WIDTH:
           context.loadFloat(this.mValueId, lc.getWidth ? lc.getWidth() : doc.getWidth());
@@ -19780,8 +20807,8 @@ void main() {
     }
     static read(buffer, operations) {
       const type = buffer.readInt();
-      const componentId = buffer.readInt();
-      const valueId = buffer.readInt();
+      const componentId = buffer.readId();
+      const valueId = buffer.readId();
       operations.push(new _ComponentValue(type, componentId, valueId));
     }
   };
@@ -19822,7 +20849,7 @@ void main() {
       return `${indent}DataMapIds(${this.mId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.declareId();
       const len = buffer.readInt();
       const names = new Array(len);
       const types = new Int8Array(len);
@@ -19830,7 +20857,7 @@ void main() {
       for (let i = 0; i < len; i++) {
         names[i] = buffer.readUTF8();
         types[i] = buffer.readByte();
-        ids[i] = buffer.readInt();
+        ids[i] = buffer.readId();
       }
       operations.push(new _DataMapIds(id, new DataMap(names, types, ids)));
     }
@@ -19863,11 +20890,11 @@ void main() {
       return `${indent}DataListIds(${this.mId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.declareId();
       const count = buffer.readInt();
       const ids = new Int32Array(count);
       for (let i = 0; i < count; i++) {
-        ids[i] = buffer.readInt();
+        ids[i] = buffer.readId();
       }
       operations.push(new _DataListIds(id, ids));
     }
@@ -19917,11 +20944,11 @@ void main() {
       return `${indent}DataListFloat(${this.mId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.declareId();
       const count = buffer.readInt();
       const bits = new Int32Array(count);
       for (let i = 0; i < count; i++) {
-        bits[i] = buffer.readInt();
+        bits[i] = buffer.readNanIdBits();
       }
       operations.push(new _DataListFloat(id, bits));
     }
@@ -19938,28 +20965,13 @@ void main() {
       buffer.start(_LayoutComponentContent.OP_CODE);
       buffer.writeInt(this.getComponentId());
     }
-    // A content wrapper isn't measured on its own — the enclosing LayoutComponent
-    // flattens its children up and measures itself. But `ComponentValue`s (e.g. a
-    // button/card fill sized from its content region) reference this wrapper by id,
-    // so an unmeasured 0×0 wrapper makes those bindings resolve to zero. Report the
-    // parent's measured size when this wrapper has none of its own.
-    getWidth() {
-      const w = super.getWidth();
-      if (w === 0 && this.getParent()) return this.getParent().getWidth();
-      return w;
-    }
-    getHeight() {
-      const h = super.getHeight();
-      if (h === 0 && this.getParent()) return this.getParent().getHeight();
-      return h;
-    }
     apply(_context) {
     }
     deepToString(indent) {
       return `${indent}LayoutComponentContent(${this.getComponentId()})`;
     }
     static read(buffer, operations) {
-      const componentId = buffer.readInt();
+      const componentId = buffer.declareId();
       operations.push(new _LayoutComponentContent(componentId));
     }
   };
@@ -19981,7 +20993,7 @@ void main() {
       return `${indent}CanvasContent(${this.getComponentId()})`;
     }
     static read(buffer, operations) {
-      const componentId = buffer.readInt();
+      const componentId = buffer.declareId();
       operations.push(new _CanvasContent(componentId));
     }
   };
@@ -20043,8 +21055,8 @@ void main() {
       return `${indent}DataDynamicListFloat(id=${this.mId}, len=${this.mValues.length})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const lenBits = buffer.readInt();
+      const id = buffer.declareId();
+      const lenBits = buffer.readNanIdBits();
       const len = isNaNBits(lenBits) ? NaN : intBitsToFloat2(lenBits);
       if (len > _DataDynamicListFloat.MAX_FLOAT_ARRAY) {
         throw new Error(`${len} entries exceeds max = ${_DataDynamicListFloat.MAX_FLOAT_ARRAY}`);
@@ -20157,7 +21169,7 @@ void main() {
     }
     static read(buffer, operations) {
       const type = buffer.readInt();
-      const boundsId = buffer.readInt();
+      const boundsId = buffer.readId();
       const animateChanges = buffer.readBoolean();
       operations.push(new _LayoutComputeOperation(type, boundsId, animateChanges));
     }
@@ -20228,16 +21240,9 @@ ${inner}`;
       // `.width(200).padding(30)` is 200 wide with 140 of content, while
       // `.padding(30).width(200)` is 260 wide — exactly Compose's modifier-order rule.
       this.mPadBeforeWidth = 0;
+      this.mHasWidthOp = false;
+      this.mHasHeightOp = false;
       this.mPadBeforeHeight = 0;
-      // The modifiers those two totals are summed from. Kept as references rather than as
-      // the sums alone because `inflate()` runs before `PaddingModifier.updateVariables`
-      // has resolved variables or applied DP density scaling — the same staleness
-      // `refreshPadding()` exists to undo for the *total* padding, which has to reach the
-      // ordered totals too now that they feed the measured size. Which side of the size
-      // modifier each one falls on is fixed by the modifier list, so only the values need
-      // re-reading, not the partition.
-      this.mPadBeforeWidthMods = [];
-      this.mPadBeforeHeightMods = [];
       this.mPaddingRight = 0;
       this.mPaddingTop = 0;
       this.mPaddingBottom = 0;
@@ -20255,6 +21260,7 @@ ${inner}`;
       this.mComputedLayoutModifiers = null;
       // ComponentValue bindings (Java ComponentData pattern)
       // Collected during inflate; updated during measure to expose dimensions as float variables
+      // (The base Component's list, typed: public there because a ComponentValue registers itself.)
       this.mComponentValues = null;
       // Scroll measurement state
       this.mScrollModifier = null;
@@ -20304,25 +21310,21 @@ ${inner}`;
       this.mPaddingBottom = 0;
       this.mPadBeforeWidth = 0;
       this.mPadBeforeHeight = 0;
-      this.mPadBeforeWidthMods = [];
-      this.mPadBeforeHeightMods = [];
       let sawWidth = false;
       let sawHeight = false;
       this.mComputedLayoutModifiers = null;
       for (const op of this.getList()) {
+        if (op instanceof AnimationSpec) {
+          this.mAnimationSpec = op;
+          this.mAnimationId = op.getAnimationId();
+        }
         if (op instanceof PaddingModifier) {
           this.mPaddingLeft += op.mLeftValue;
           this.mPaddingTop += op.mTopValue;
           this.mPaddingRight += op.mRightValue;
           this.mPaddingBottom += op.mBottomValue;
-          if (!sawWidth) {
-            this.mPadBeforeWidth += op.mLeftValue + op.mRightValue;
-            this.mPadBeforeWidthMods.push(op);
-          }
-          if (!sawHeight) {
-            this.mPadBeforeHeight += op.mTopValue + op.mBottomValue;
-            this.mPadBeforeHeightMods.push(op);
-          }
+          if (!sawWidth) this.mPadBeforeWidth += op.mLeftValue + op.mRightValue;
+          if (!sawHeight) this.mPadBeforeHeight += op.mTopValue + op.mBottomValue;
           this.mComponentModifiers.push(op);
         } else if (op instanceof WidthModifier) {
           this.mWidthMod = _LayoutComponent.preferExactSize(this.mWidthMod, op);
@@ -20363,7 +21365,7 @@ ${inner}`;
           this.mComponentModifiers.push(op);
         } else if (op instanceof OffsetModifier) {
           this.mComponentModifiers.push(op);
-        } else if (op instanceof ClickModifier) {
+        } else if (op instanceof ClickModifier || op instanceof MultiClickModifier) {
           op.setComponent(this);
           this.mComponentModifiers.push(op);
         } else if (op instanceof TouchDownModifier || op instanceof TouchUpModifier || op instanceof TouchCancelModifier) {
@@ -20375,6 +21377,10 @@ ${inner}`;
         } else if (op instanceof MarqueeModifier) {
           op.setComponent(this);
           this.mComponentModifiers.push(op);
+        } else if (op instanceof RippleModifier) {
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof AccessibilitySemantics) {
+          this.mComponentModifiers.push(op);
         } else if (op instanceof LayoutComputeOperation) {
           if (this.mComputedLayoutModifiers === null) {
             this.mComputedLayoutModifiers = [];
@@ -20384,14 +21390,12 @@ ${inner}`;
         } else if (op instanceof DrawContentModifier) {
           this.mDrawContentOperations = [];
         } else if (op instanceof LayoutComponentContent || op instanceof CanvasContent) {
-          op.setParent(this);
+          if (op instanceof LayoutComponentContent) op.setParent(this);
           for (const contentOp of op.getList()) {
             if (contentOp instanceof Component) {
               contentOp.setParent(this);
               this.mChildrenComponents.push(contentOp);
-              if (contentOp instanceof _LayoutComponent) {
-                contentOp.inflate();
-              }
+              contentOp.inflate();
               if (contentOp instanceof CanvasContent) {
                 this.mHasCanvasLayoutContent = true;
               }
@@ -20414,9 +21418,7 @@ ${inner}`;
         } else if (op instanceof Component) {
           op.setParent(this);
           this.mChildrenComponents.push(op);
-          if (op instanceof _LayoutComponent) {
-            op.inflate();
-          }
+          op.inflate();
         } else {
           if (this.mDrawContentOperations !== null) {
             this.mDrawContentOperations.push(op);
@@ -20426,14 +21428,23 @@ ${inner}`;
           this.hoistNestedComponentValues(op);
         }
       }
+      this.mHasWidthOp = sawWidth;
+      this.mHasHeightOp = sawHeight;
       if (!this.mWidthMod) {
         this.mWidthMod = new WidthModifier(WidthModifier.WRAP, 0);
       }
       if (!this.mHeightMod) {
         this.mHeightMod = new HeightModifier(HeightModifier.WRAP, 0);
       }
+      if (this.mAnimationSpec !== AnimationSpec.DEFAULT) {
+        for (const c of this.mChildrenComponents) {
+          if (c.mAnimationSpec === AnimationSpec.DEFAULT) c.mAnimationSpec = this.mAnimationSpec;
+        }
+      }
       this.mX = 0;
       this.mY = 0;
+      this.mWidth = this.modifierDefinedWidth(true);
+      this.mHeight = this.modifierDefinedHeight(true);
     }
     // --- Layout helpers ---
     isWidthFill() {
@@ -20484,21 +21495,55 @@ ${inner}`;
       return false;
     }
     // --- Intrinsic size (matches Java LayoutComponent) ---
+    // Java LayoutManager.minIntrinsicHeight/Width: the modifier-defined size (isMin) or
+    // the largest child, whichever is bigger.
     minIntrinsicHeight() {
-      const height = this.computeModifierDefinedHeight();
-      let childrenHeight = 0;
+      let height = this.modifierDefinedHeight(true);
       for (const c of this.mChildrenComponents) {
-        childrenHeight = Math.max(childrenHeight, c.minIntrinsicHeight());
+        height = Math.max(height, c.minIntrinsicHeight());
       }
-      return Math.max(height, childrenHeight);
+      return height;
     }
     minIntrinsicWidth() {
-      const width = this.computeModifierDefinedWidth();
-      let childrenWidth = 0;
+      let width = this.modifierDefinedWidth(true);
       for (const c of this.mChildrenComponents) {
-        childrenWidth = Math.max(childrenWidth, c.minIntrinsicWidth());
+        width = Math.max(width, c.minIntrinsicWidth());
       }
-      return Math.max(width, childrenWidth);
+      return width;
+    }
+    /**
+     * Java LayoutComponent.computeModifierDefinedWidth(context, isMin): the padding met
+     * before the width modifier, plus its exact value (a fill is 0 when isMin, else
+     * unbounded), raised to its widthIn minimum.
+     */
+    modifierDefinedWidth(isMin = false) {
+      let w = 0;
+      const t = this.mWidthMod?.getType();
+      if (this.mWidthMod && this.mHasWidthOp) {
+        if (t === WidthModifier.EXACT || t === WidthModifier.EXACT_DP) {
+          w = this.mWidthMod.getValue();
+        } else if (t === WidthModifier.FILL || t === WidthModifier.FILL_PARENT_MAX_WIDTH) {
+          w = isMin ? 0 : Number.MAX_VALUE;
+        }
+        const wIn = this.mWidthInMod;
+        if (wIn && wIn.getMin() >= 0) w = Math.max(w, wIn.getMin());
+      }
+      return this.mPadBeforeWidth + w;
+    }
+    /** Java LayoutComponent.computeModifierDefinedHeight(context, isMin). */
+    modifierDefinedHeight(isMin = false) {
+      let h = 0;
+      const t = this.mHeightMod?.getType();
+      if (this.mHeightMod && this.mHasHeightOp) {
+        if (t === HeightModifier.EXACT || t === HeightModifier.EXACT_DP) {
+          h = this.mHeightMod.getValue();
+        } else if (t === HeightModifier.FILL || t === HeightModifier.FILL_PARENT_MAX_HEIGHT) {
+          h = isMin ? 0 : Number.MAX_VALUE;
+        }
+        const hIn = this.mHeightInMod;
+        if (hIn && hIn.getMin() >= 0) h = Math.max(h, hIn.getMin());
+      }
+      return this.mPadBeforeHeight + h;
     }
     computeModifierDefinedWidth() {
       if (this.isWidthExact()) return this.getWidthModValue() + this.mPaddingLeft + this.mPaddingRight;
@@ -20580,40 +21625,10 @@ ${inner}`;
       }
       this.mNeedsMeasure = false;
     }
-    /** Re-sum the cached padding totals from the padding modifiers' resolved
-     *  values. `inflate()` snapshots these at load time from the raw (dp) values,
-     *  before `PaddingModifier.updateVariables` has resolved variables or applied
-     *  DP density scaling — so the snapshot is stale for dynamic or density-scaled
-     *  padding. Called at the start of each measure (after updateVariables has run
-     *  in the data pass) so measure and paint both see the final pixel padding. */
-    refreshPadding() {
-      let l = 0, t = 0, r = 0, b = 0;
-      for (const mod of this.mComponentModifiers) {
-        if (mod instanceof PaddingModifier) {
-          l += mod.mLeftValue;
-          t += mod.mTopValue;
-          r += mod.mRightValue;
-          b += mod.mBottomValue;
-        }
-      }
-      this.mPaddingLeft = l;
-      this.mPaddingTop = t;
-      this.mPaddingRight = r;
-      this.mPaddingBottom = b;
-      let pw = 0;
-      for (const mod of this.mPadBeforeWidthMods) pw += mod.mLeftValue + mod.mRightValue;
-      this.mPadBeforeWidth = pw;
-      let ph = 0;
-      for (const mod of this.mPadBeforeHeightMods) ph += mod.mTopValue + mod.mBottomValue;
-      this.mPadBeforeHeight = ph;
-    }
     animatingBounds(context) {
       super.animatingBounds(context);
       this.updateComponentValues(context, this.mWidth, this.mHeight);
       this.layoutModifiers(this.mWidth, this.mHeight);
-      for (const child of this.mChildrenComponents) {
-        child.animatingBounds(context);
-      }
     }
     /** Walk modifiers reducing dimensions by padding and passing to decorators.
      *  Matches Java ComponentModifiers.layout(). */
@@ -20659,24 +21674,40 @@ ${inner}`;
         }
         paintContext.matrixRestore();
       } else if (this.mGraphicsLayerMod) {
+        const layer = this.mGraphicsLayerMod;
+        layer.evaluate(paintContext);
         paintContext.matrixSave();
-        this.mGraphicsLayerMod.apply(paintContext.getContext());
+        paintContext.matrixTranslate(this.mX, this.mY);
+        paintContext.startGraphicsLayer(Math.trunc(this.getWidth()), Math.trunc(this.getHeight()));
+        const attributes = /* @__PURE__ */ new Map();
+        layer.fillInAttributes(attributes);
+        paintContext.setGraphicsLayer(attributes);
+        paintContext.matrixTranslate(-this.mX, -this.mY);
         this.paintingComponent(paintContext);
-        if (typeof this.mGraphicsLayerMod.applyPostPaint === "function") {
-          this.mGraphicsLayerMod.applyPostPaint(paintContext);
-        }
+        paintContext.endGraphicsLayer();
         paintContext.matrixRestore();
       } else {
         super.paint(paintContext);
       }
     }
-    paintingComponent(paintContext) {
-      if (Visibility.isGone(this.mVisibility) && this.mAnimateMeasure === null) return;
+    /**
+     * Java ComponentModifiers.paint: paint the modifiers (background, border, clip, ...) at
+     * the component's origin, each padding translating the ones after it; the translations
+     * are backed out at the end. Every component kind runs it from its paintingComponent
+     * (LayoutComponent, CoreText, TextLayout, ImageLayout, Custom in Java).
+     */
+    paintModifiers(paintContext) {
       const context = paintContext.getContext();
-      paintContext.matrixSave();
-      paintContext.matrixTranslate(this.mX, this.mY);
       let tx = 0;
       let ty = 0;
+      for (const mod of [this.mWidthMod, this.mHeightMod]) {
+        if (mod && mod.isDirty()) {
+          mod.markNotDirty();
+          mod.updateVariables(context);
+        }
+      }
+      let dw = this.mWidth;
+      let dh = this.mHeight;
       for (const mod of this.mComponentModifiers) {
         context.incrementOpCount(mod);
         if (mod.isDirty() && typeof mod.updateVariables === "function") {
@@ -20687,11 +21718,26 @@ ${inner}`;
           paintContext.matrixTranslate(mod.mLeftValue, mod.mTopValue);
           tx += mod.mLeftValue;
           ty += mod.mTopValue;
+          dw -= mod.mLeftValue + mod.mRightValue;
+          dh -= mod.mTopValue + mod.mBottomValue;
+        } else if (mod instanceof ClickModifier || mod instanceof MultiClickModifier) {
+          paintContext.matrixTranslate(-tx, -ty);
+          mod.ripple.paint(paintContext, context, this.mWidth, this.mHeight);
+          paintContext.matrixTranslate(tx, ty);
+        } else if (mod instanceof RippleModifier) {
+          mod.ripple.paint(paintContext, context, dw, dh);
         } else {
           mod.apply(context);
         }
       }
       paintContext.matrixTranslate(-tx, -ty);
+    }
+    paintingComponent(paintContext) {
+      if (Visibility.isGone(this.mVisibility) && this.mAnimateMeasure === null) return;
+      const context = paintContext.getContext();
+      paintContext.matrixSave();
+      paintContext.matrixTranslate(this.mX, this.mY);
+      this.paintModifiers(paintContext);
       paintContext.matrixTranslate(this.mPaddingLeft, this.mPaddingTop);
       for (const op of this.mContentOps) {
         const isDecoration = op instanceof CanvasOperations;
@@ -20712,6 +21758,16 @@ ${inner}`;
       const shouldPaintChild = (child) => {
         return (child.mAnimateMeasure !== null || !Visibility.isGone(child.mVisibility)) && this.isChildVisibleInViewport(child);
       };
+      const paintChild = (child) => {
+        if (child.isDirty() && typeof child.updateVariables === "function") {
+          child.updateVariables(context);
+          child.markNotDirty();
+        }
+        if (shouldPaintChild(child)) {
+          context.incrementOpCount(child);
+          child.paint(paintContext);
+        }
+      };
       if (children.length > 1) {
         let needsSort = false;
         for (const c of children) {
@@ -20723,25 +21779,16 @@ ${inner}`;
         if (needsSort) {
           const sorted = [...children].sort((a, b) => a.mZIndex - b.mZIndex);
           for (const child of sorted) {
-            if (shouldPaintChild(child)) {
-              context.incrementOpCount(child);
-              child.paint(paintContext);
-            }
+            paintChild(child);
           }
         } else {
           for (const child of children) {
-            if (shouldPaintChild(child)) {
-              context.incrementOpCount(child);
-              child.paint(paintContext);
-            }
+            paintChild(child);
           }
         }
       } else {
         for (const child of children) {
-          if (shouldPaintChild(child)) {
-            context.incrementOpCount(child);
-            child.paint(paintContext);
-          }
+          paintChild(child);
         }
       }
       paintContext.matrixRestore();
@@ -20781,6 +21828,37 @@ ${inner}`;
       if (this.mComponentValues !== null && this.mComponentValues.length > 0) {
         this.updateComponentValues(context, this.mWidth, this.mHeight);
       }
+      this.updatePadding();
+    }
+    /**
+     * Java LayoutComponent.updatePadding: re-sum the padding from the modifiers' resolved
+     * values. inflate() sums them once, before the data pass has run the modifiers'
+     * updateVariables, so a padding that resolves later (a variable, or a literal scaled by
+     * DENSITY_BEHAVIOR_DP) was left at its authored value.
+     */
+    updatePadding() {
+      this.mPaddingLeft = 0;
+      this.mPaddingTop = 0;
+      this.mPaddingRight = 0;
+      this.mPaddingBottom = 0;
+      this.mPadBeforeWidth = 0;
+      this.mPadBeforeHeight = 0;
+      let sawWidth = false;
+      let sawHeight = false;
+      for (const op of this.getList()) {
+        if (op instanceof PaddingModifier) {
+          this.mPaddingLeft += op.mLeftValue;
+          this.mPaddingTop += op.mTopValue;
+          this.mPaddingRight += op.mRightValue;
+          this.mPaddingBottom += op.mBottomValue;
+          if (!sawWidth) this.mPadBeforeWidth += op.mLeftValue + op.mRightValue;
+          if (!sawHeight) this.mPadBeforeHeight += op.mTopValue + op.mBottomValue;
+        } else if (op instanceof WidthModifier) {
+          sawWidth = true;
+        } else if (op instanceof HeightModifier) {
+          sawHeight = true;
+        }
+      }
     }
     // Inherits apply() from Component → PaintOperation chain.
     // No override needed — matches Java LayoutComponent which does not override apply().
@@ -20792,23 +21870,25 @@ ${inner}`;
       return this.mScrollModifier ? this.mScrollModifier.getScrollY() : 0;
     }
     onClick(context, doc, x, y) {
+      if (!this.isVisible()) return false;
+      if (!(x >= this.mX && x <= this.mX + this.mWidth && y >= this.mY && y <= this.mY + this.mHeight)) return false;
+      const cx = x - this.mX - this.mPaddingLeft - this.getScrollX();
+      const cy = y - this.mY - this.mPaddingTop - this.getScrollY();
       for (let i = this.mChildrenComponents.length - 1; i >= 0; i--) {
         const child = this.mChildrenComponents[i];
         if (child instanceof Component) {
-          if (child.onClick(
-            context,
-            doc,
-            x - this.mX - this.mPaddingLeft,
-            y - this.mY - this.mPaddingTop
-          )) return true;
+          if (child.onClick(context, doc, cx, cy)) return true;
         }
       }
-      if (x >= this.mX && x <= this.mX + this.mWidth && y >= this.mY && y <= this.mY + this.mHeight) {
-        for (const mod of this.mComponentModifiers) {
-          if (mod instanceof ClickModifier) {
-            return mod.onClick(context, doc, x, y);
+      {
+        let handled = false;
+        for (let i = this.mComponentModifiers.length - 1; i >= 0; i--) {
+          const mod = this.mComponentModifiers[i];
+          if (mod instanceof ClickModifier || mod instanceof MultiClickModifier) {
+            if (mod.onClick(context, doc, x - this.mX, y - this.mY)) handled = true;
           }
         }
+        return handled;
       }
       return false;
     }
@@ -20889,14 +21969,22 @@ ${inner}`;
         }
       }
       for (const mod of this.mComponentModifiers) {
-        if (phase === "down" && mod instanceof TouchDownModifier) {
+        if (phase === "down" && mod instanceof RippleModifier) {
+          mod.ripple.animate(context, lx, ly);
+          handled = true;
+        } else if (phase === "down" && mod instanceof TouchDownModifier) {
           mod.onTouchDown(context);
+          handled = true;
+        } else if (phase === "down" && (mod instanceof TouchUpModifier || mod instanceof TouchCancelModifier)) {
+          doc.modifierTouchTarget?.(this);
           handled = true;
         } else if (phase === "up" && mod instanceof TouchUpModifier) {
           mod.onTouchUp(context);
+          doc.touchModifierRan?.(this);
           handled = true;
         } else if (phase === "cancel" && mod instanceof TouchCancelModifier) {
           mod.onTouchCancel(context);
+          doc.touchModifierRan?.(this);
           handled = true;
         }
       }
@@ -20918,6 +22006,13 @@ ${inner}`;
         }
       }
       return componentHandled || handled;
+    }
+    /** This component's own touch-up / touch-cancel modifier actions (a swipe's release). */
+    runOwnTouchModifiers(context, phase) {
+      for (const mod of this.mComponentModifiers) {
+        if (phase === "up" && mod instanceof TouchUpModifier) mod.onTouchUp(context);
+        else if (phase === "cancel" && mod instanceof TouchCancelModifier) mod.onTouchCancel(context);
+      }
     }
     /** One touch phase on a single expression. Only `down` is bounds-checked, as upstream. */
     deliverToExpression(op, context, lx, ly, dx, dy, phase) {
@@ -20981,8 +22076,8 @@ ${inner}`;
         x += parent.mX;
         y += parent.mY;
         if (parent instanceof _LayoutComponent) {
-          x += parent.mPaddingLeft;
-          y += parent.mPaddingTop;
+          x += parent.mPaddingLeft + parent.getScrollX();
+          y += parent.mPaddingTop + parent.getScrollY();
         }
         parent = parent.getParent();
       }
@@ -21037,15 +22132,40 @@ ${inner}`;
       this.mLastMaxW = maxWidth;
       this.mLastMinH = minHeight;
       this.mLastMaxH = maxHeight;
+      this.updatePadding();
       const selfMeasure = measure.get(this);
-      this.refreshPadding();
       const padding_w = this.mPaddingLeft + this.mPaddingRight;
       const padding_h = this.mPaddingTop + this.mPaddingBottom;
       const wMod = this.getWidthModifier();
       const hMod = this.getHeightModifier();
+      for (const mod of [wMod, hMod]) {
+        if (mod && mod.isDirty()) {
+          mod.markNotDirty();
+          mod.updateVariables(context.getContext());
+        }
+      }
       const dp = this.getDpScale(context);
+      {
+        const wIn = this.getWidthInModifier();
+        if (wIn) {
+          if (wIn.getMin() >= 0) minWidth = Math.max(minWidth, wIn.getMin());
+          if (wIn.getMax() >= 0) maxWidth = Math.min(maxWidth, wIn.getMax());
+        }
+        const hIn = this.getHeightInModifier();
+        if (hIn) {
+          if (hIn.getMin() >= 0) minHeight = Math.max(minHeight, hIn.getMin());
+          if (hIn.getMax() >= 0) maxHeight = Math.min(maxHeight, hIn.getMax());
+        }
+      }
+      const isExactW = wMod?.getType() === WidthModifier.EXACT || wMod?.getType() === WidthModifier.EXACT_DP;
+      const isExactH = hMod?.getType() === HeightModifier.EXACT || hMod?.getType() === HeightModifier.EXACT_DP;
+      const [weightFillAnyW, weightFillAnyH] = this.weightFill();
+      const weightFillW = weightFillAnyW && !isExactW;
+      const weightFillH = weightFillAnyH && !isExactH;
       let w;
-      if (wMod && (wMod.getType() === WidthModifier.EXACT || wMod.getType() === WidthModifier.EXACT_DP)) {
+      if (weightFillW && wMod?.getType() !== WidthModifier.FILL) {
+        w = maxWidth;
+      } else if (wMod && (wMod.getType() === WidthModifier.EXACT || wMod.getType() === WidthModifier.EXACT_DP)) {
         const exactW = wMod.getType() === WidthModifier.EXACT_DP ? wMod.getValue() * dp : wMod.getValue();
         w = Math.min(exactW + this.mPadBeforeWidth, maxWidth);
       } else if (wMod && wMod.getType() === WidthModifier.FILL) {
@@ -21056,7 +22176,9 @@ ${inner}`;
         w = maxWidth;
       }
       let h;
-      if (hMod && (hMod.getType() === HeightModifier.EXACT || hMod.getType() === HeightModifier.EXACT_DP)) {
+      if (weightFillH && hMod?.getType() !== HeightModifier.FILL) {
+        h = maxHeight;
+      } else if (hMod && (hMod.getType() === HeightModifier.EXACT || hMod.getType() === HeightModifier.EXACT_DP)) {
         const exactH = hMod.getType() === HeightModifier.EXACT_DP ? hMod.getValue() * dp : hMod.getValue();
         h = Math.min(exactH + this.mPadBeforeHeight, maxHeight);
       } else if (hMod && hMod.getType() === HeightModifier.FILL) {
@@ -21068,14 +22190,14 @@ ${inner}`;
       }
       selfMeasure.setW(w);
       selfMeasure.setH(h);
-      const widthWeightUnpinned = wMod?.getType() === WidthModifier.WEIGHT && minWidth <= this.mPadBeforeWidth;
-      const heightWeightUnpinned = hMod?.getType() === HeightModifier.WEIGHT && minHeight <= this.mPadBeforeHeight;
-      const horizontalWrap = wMod?.getType() === WidthModifier.WRAP || widthWeightUnpinned;
-      const verticalWrap = hMod?.getType() === HeightModifier.WRAP || heightWeightUnpinned;
+      const horizontalWrap = !weightFillW && wMod?.getType() === WidthModifier.WRAP;
+      const verticalWrap = !weightFillH && hMod?.getType() === HeightModifier.WRAP;
       if (horizontalWrap || verticalWrap) {
         this.mCachedWrapSize.clear();
-        const childMaxW = contentExtent(horizontalWrap ? maxWidth : w, padding_w);
-        const childMaxH = contentExtent(verticalWrap ? maxHeight : h, padding_h);
+        const weightW = wMod?.getType() === WidthModifier.WEIGHT;
+        const weightH = hMod?.getType() === HeightModifier.WEIGHT;
+        const childMaxW = contentExtent(horizontalWrap || weightW ? maxWidth : w, padding_w);
+        const childMaxH = contentExtent(verticalWrap || weightH ? maxHeight : h, padding_h);
         this.computeWrapSize(
           context,
           minWidth,
@@ -21091,8 +22213,8 @@ ${inner}`;
           w = this.mCachedWrapSize.getWidth() + padding_w;
           const wIn = this.getWidthInModifier();
           if (wIn) {
-            if (wIn.getMin() >= 0) w = Math.max(w, wIn.getMin() * dp);
-            if (wIn.getMax() >= 0) w = Math.min(w, wIn.getMax() * dp);
+            if (wIn.getMin() >= 0) w = Math.max(w, wIn.getMin());
+            if (wIn.getMax() >= 0) w = Math.min(w, wIn.getMax());
           }
           w = Math.min(w, maxWidth);
         }
@@ -21100,8 +22222,8 @@ ${inner}`;
           h = this.mCachedWrapSize.getHeight() + padding_h;
           const hIn = this.getHeightInModifier();
           if (hIn) {
-            if (hIn.getMin() >= 0) h = Math.max(h, hIn.getMin() * dp);
-            if (hIn.getMax() >= 0) h = Math.min(h, hIn.getMax() * dp);
+            if (hIn.getMin() >= 0) h = Math.max(h, hIn.getMin());
+            if (hIn.getMax() >= 0) h = Math.min(h, hIn.getMax());
           }
           h = Math.min(h, maxHeight);
         }
@@ -21147,7 +22269,16 @@ ${inner}`;
         this.computeSize(context, 0, childMaxW, 0, childMaxH, measure);
       }
       this.updateComponentValues(context.getContext(), w, h);
-      if (!scrollMod) {
+      const ctx = context.getContext();
+      for (const op of this.mContentOps) {
+        if (op instanceof PaintOperation) continue;
+        if (op.isDirty() && typeof op.updateVariables === "function") {
+          op.markNotDirty();
+          op.updateVariables(ctx);
+          op.apply(ctx);
+        }
+      }
+      if (!scrollMod && !(horizontalWrap || verticalWrap)) {
         this.computeSize(
           context,
           0,
@@ -21159,6 +22290,16 @@ ${inner}`;
       }
       w = Math.max(w, minWidth);
       h = Math.max(h, minHeight);
+      w = Math.min(w, maxWidth);
+      h = Math.min(h, maxHeight);
+      const wReq = this.getWidthInModifier();
+      if (wReq instanceof DimensionConstraintsModifier && wReq.getType() === DimensionConstraintsModifier.REQUIRED_HORIZONTAL) {
+        w = Math.max(wReq.getMin(), Math.min(w, wReq.getMax()));
+      }
+      const hReq = this.getHeightInModifier();
+      if (hReq instanceof DimensionConstraintsModifier && hReq.getType() === DimensionConstraintsModifier.REQUIRED_VERTICAL) {
+        h = Math.max(hReq.getMin(), Math.min(h, hReq.getMax()));
+      }
       selfMeasure.setW(w);
       selfMeasure.setH(h);
       this.internalLayoutMeasure(context, measure);
@@ -21179,6 +22320,10 @@ ${inner}`;
           context.loadFloat(idFromBits(notchNan), this.mScrollContentDimension);
         }
       }
+    }
+    /** Whether the children's weights make this fill [horizontally, vertically]. */
+    weightFill() {
+      return [false, false];
     }
     // Override in subclasses to compute wrap-content size
     computeWrapSize(_context, _minWidth, _maxWidth, _minHeight, _maxHeight, _horizontalWrap, _verticalWrap, _measure, _size) {
@@ -21350,7 +22495,7 @@ ${inner}`;
       return this.minIntrinsicHeightForComponents(this.mChildrenComponents);
     }
     minIntrinsicWidthForComponents(components) {
-      const width = this.computeModifierDefinedWidth();
+      const width = this.modifierDefinedWidth(true);
       let componentWidths = 0;
       for (const c of components) {
         componentWidths += c.minIntrinsicWidth();
@@ -21358,7 +22503,7 @@ ${inner}`;
       return Math.max(width, componentWidths);
     }
     minIntrinsicHeightForComponents(components) {
-      const height = this.computeModifierDefinedHeight();
+      const height = this.modifierDefinedHeight(true);
       let componentHeights = 0;
       for (const c of components) {
         componentHeights = Math.max(componentHeights, c.minIntrinsicHeight());
@@ -21366,6 +22511,9 @@ ${inner}`;
       return Math.max(height, componentHeights);
     }
     // --- Wrap size ---
+    weightFill() {
+      return [this.mChildrenComponents.some((c) => c instanceof LayoutComponent && c.hasWidthWeight()), false];
+    }
     computeWrapSize(context, minWidth, maxWidth, minHeight, maxHeight, horizontalWrap, verticalWrap, measure, size) {
       this.computeWrapSizeForComponents(
         context,
@@ -21599,8 +22747,8 @@ ${inner}`;
       return `${indent}RowLayout(${this.getComponentId()}, spacing=${this.mSpacedBy})`;
     }
     static read(buffer, operations) {
-      const componentId = buffer.readInt();
-      const animationId = buffer.readInt();
+      const componentId = buffer.declareId();
+      const animationId = buffer.declareId();
       const horizontalPositioning = buffer.readInt();
       const verticalPositioning = buffer.readInt();
       const spacedBy = buffer.readFloat();
@@ -21632,6 +22780,18 @@ ${inner}`;
       this.mHorizontalPositioning = horizontalPositioning;
       this.mVerticalPositioning = verticalPositioning;
       this.mSpacedBy = spacedBy;
+    }
+    // Java ColumnLayout.minIntrinsicHeight: children stack, so their heights add up.
+    minIntrinsicHeight() {
+      const height = this.modifierDefinedHeight(true);
+      let componentHeights = 0;
+      for (const c of this.mChildrenComponents) {
+        componentHeights += c.minIntrinsicHeight();
+      }
+      return Math.max(height, componentHeights);
+    }
+    weightFill() {
+      return [false, this.mChildrenComponents.some((c) => c instanceof LayoutComponent && c.hasHeightWeight())];
     }
     computeWrapSize(context, _minWidth, maxWidth, _minHeight, maxHeight, _horizontalWrap, _verticalWrap, measure, size) {
       size.clear();
@@ -21918,8 +23078,8 @@ ${inner}`;
       return `${indent}CanvasLayout(${this.getComponentId()})`;
     }
     static read(buffer, operations) {
-      const componentId = buffer.readInt();
-      const animationId = buffer.readInt();
+      const componentId = buffer.declareId();
+      const animationId = buffer.declareId();
       operations.push(new _CanvasLayout(componentId, animationId));
     }
   };
@@ -22043,12 +23203,15 @@ ${inner}`;
     }
     static read(buffer, operations) {
       const count = buffer.readShort();
+      const remap = buffer.getRemapContext?.();
+      const rid = (v) => remap ? remap.resolveId(v) : v;
+      const did = (v) => remap ? remap.declareId(v) : v;
       const style = new _TextStyle();
       for (let i = 0; i < count; i++) {
         const tag = buffer.readByte();
         switch (tag) {
           case P_ID:
-            style.id = buffer.readInt();
+            style.id = did(buffer.readInt());
             break;
           case P_ANIMATION_ID:
             buffer.readInt();
@@ -22057,7 +23220,7 @@ ${inner}`;
             style.color = buffer.readInt();
             break;
           case P_COLOR_ID:
-            style.colorId = buffer.readInt();
+            style.colorId = rid(buffer.readInt());
             break;
           case P_FONT_SIZE:
             style.fontSize = buffer.readFloat();
@@ -22069,7 +23232,7 @@ ${inner}`;
             style.fontWeight = buffer.readFloat();
             break;
           case P_FONT_FAMILY:
-            style.fontFamilyId = buffer.readInt();
+            style.fontFamilyId = rid(buffer.readInt());
             break;
           case P_TEXT_ALIGN:
             style.textAlign = buffer.readInt();
@@ -22125,7 +23288,7 @@ ${inner}`;
             buffer.readInt();
             break;
           case P_PARENT_ID:
-            style.parentId = buffer.readInt();
+            style.parentId = rid(buffer.readInt());
             break;
           case P_MIN_FONT_SIZE:
             style.minFontSize = buffer.readFloat();
@@ -22219,8 +23382,8 @@ ${inner}`;
     }
     static read(buffer, operations) {
       const type = buffer.readByte();
-      const a = buffer.readInt();
-      const b = buffer.readInt();
+      const a = buffer.readNanIdBits();
+      const b = buffer.readNanIdBits();
       operations.push(new _ConditionalOperations(type, a, b));
     }
   };
@@ -22275,9 +23438,9 @@ ${inner}`;
       return `${indent}PathCreate(${this.mId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const startX = buffer.readInt();
-      const startY = buffer.readInt();
+      const id = buffer.declareId();
+      const startX = buffer.readNanIdBits();
+      const startY = buffer.readNanIdBits();
       operations.push(new _PathCreate(id, startX, startY));
     }
   };
@@ -22344,10 +23507,14 @@ ${inner}`;
       return `${indent}PathAppend(${this.mId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.readId();
       const len = buffer.readInt();
       const bits = new Int32Array(len);
-      for (let i = 0; i < len; i++) bits[i] = buffer.readInt();
+      const remap = buffer.getRemapContext?.();
+      for (let i = 0; i < len; i++) {
+        const b = buffer.readInt();
+        bits[i] = remap && isNaNBits(b) && idFromBits(b) > 17 ? remap.resolveNanIdBits(b) : b;
+      }
       operations.push(new _PathAppend(id, bits));
     }
   };
@@ -22610,11 +23777,11 @@ ${inner}`;
       listen2(this.mMinBits);
       listen2(this.mMaxBits);
       listen2(this.mCountBits);
-      const OFFSET4 = _PathExpression.OFFSET;
+      const OFFSET5 = _PathExpression.OFFSET;
       const isOp = (b) => {
         if (!isNaNBits(b)) return false;
         const id = idFromBits(b);
-        return id > OFFSET4 && id <= OFFSET4 + 79 || id === _PathExpression.VAR1_ID || (id & _PathExpression.ID_REGION_MASK) === _PathExpression.ID_REGION_ARRAY;
+        return id > OFFSET5 && id <= OFFSET5 + 79 || id === _PathExpression.VAR1_ID || (id & _PathExpression.ID_REGION_MASK) === _PathExpression.ID_REGION_ARRAY;
       };
       for (const b of this.mExprX) {
         if (isNaNBits(b) && !isOp(b)) listen2(b);
@@ -22638,8 +23805,8 @@ ${inner}`;
       const yData = new Float32Array(count);
       const ca = context.getCollectionsAccess();
       if (polar) {
-        const cx = exprY.length > 0 ? exprY[0] : 0;
-        const cy = exprY.length > 1 ? exprY[1] : 0;
+        const cx = exprY.length > 0 ? intBitsToFloat2(exprY[0]) : 0;
+        const cy = exprY.length > 1 ? intBitsToFloat2(exprY[1]) : 0;
         for (let i = 0; i < count; i++) {
           const angle = min + i * step;
           const r = this.evalRPN(exprX, angle, ca);
@@ -22682,6 +23849,7 @@ ${inner}`;
     }
     evalRPN(expr, x, ca) {
       const s = [];
+      const reg = [0, 0, 0, 0];
       let sp = -1;
       const OFF = _PathExpression.OFFSET;
       const arrId = (v) => v - ARR_SENTINEL3 | 0;
@@ -22891,6 +24059,101 @@ ${inner}`;
                 s[sp] = s[sp] + (s[sp + 1] - s[sp]) * t;
                 break;
               }
+              // (The ops below were missing: a path using one left the stack as it
+              // was and drew spikes. Same semantics as AnimatedFloatExpression.)
+              case 41: {
+                let v = Math.trunc(s[sp]);
+                v = v << 13 ^ v;
+                s[sp] = 1 - (v * (v * v * 15731 + 789221) + 1376312589 & 2147483647) / 1073741800;
+                break;
+              }
+              case 43:
+                sp--;
+                s[sp] = s[sp] * s[sp] + s[sp + 1] * s[sp + 1];
+                break;
+              case 50: {
+                const val = s[sp - 2], hi = s[sp - 1], lo = s[sp];
+                sp -= 2;
+                if (val < lo) s[sp] = 0;
+                else if (val > hi) s[sp] = 1;
+                else {
+                  const v = (val - lo) / (hi - lo);
+                  s[sp] = v * v * (3 - 2 * v);
+                }
+                break;
+              }
+              case 51:
+                s[sp] = Math.log(s[sp]) / Math.log(2);
+                break;
+              case 54: {
+                const m2 = s[sp] * 2;
+                const t = s[sp - 1] % m2;
+                sp--;
+                s[sp] = t < s[sp + 1] ? t : m2 - t;
+                break;
+              }
+              case 55:
+                break;
+              case 56:
+              case 57:
+              case 58:
+              case 59:
+                reg[op - 56] = s[sp];
+                sp--;
+                break;
+              case 60:
+              case 61:
+              case 62:
+              case 63:
+                s[++sp] = reg[op - 60];
+                break;
+              case 74: {
+                sp -= 4;
+                s[sp] = FloatExpression.cubicEasing(s[sp], s[sp + 1], s[sp + 2], s[sp + 3], s[sp + 4]);
+                break;
+              }
+              case 75: {
+                const aId = arrId(s[sp - 1]);
+                const f = s[sp] - Math.floor(s[sp]);
+                const fl = ca?.getFloats(aId);
+                sp--;
+                s[sp] = fl ? FloatExpression.splineInterp(fl, f < 0 ? f + 1 : f) : 0;
+                break;
+              }
+              case 76: {
+                const aId = arrId(s[sp - 1]);
+                const last = Math.trunc(s[sp]);
+                let sm = 0;
+                if (ca) for (let j = 0; j <= last; j++) sm += ca.getFloatValue(aId, j);
+                sp--;
+                s[sp] = sm;
+                break;
+              }
+              case 77: {
+                const ax = ca?.getFloats(arrId(s[sp - 1])), ay = ca?.getFloats(arrId(s[sp]));
+                let sm = 0;
+                if (ax && ay) for (let j = 0; j < ax.length; j++) sm += ax[j] * ay[j];
+                sp--;
+                s[sp] = sm;
+                break;
+              }
+              case 78: {
+                const fl = ca?.getFloats(arrId(s[sp]));
+                let sm = 0;
+                if (fl) for (let j = 0; j < fl.length; j++) sm += fl[j] * fl[j];
+                s[sp] = sm;
+                break;
+              }
+              case 79: {
+                const fl = ca?.getFloats(arrId(s[sp - 1]));
+                const pos = s[sp];
+                sp--;
+                if (fl && fl.length) {
+                  const p = pos * (fl.length - 1), k = Math.trunc(p);
+                  s[sp] = k < 0 ? fl[0] : k >= fl.length - 1 ? fl[fl.length - 1] : fl[k] + (p - k) * (fl[k + 1] - fl[k]);
+                } else s[sp] = 0;
+                break;
+              }
               case 52:
                 s[sp] = 1 / s[sp];
                 break;
@@ -22916,17 +24179,17 @@ ${inner}`;
       return `${indent}PathExpression`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.readId();
       const flags = buffer.readInt();
-      const min = buffer.readInt();
-      const max = buffer.readInt();
-      const count = buffer.readInt();
+      const min = buffer.readNanIdBits();
+      const max = buffer.readNanIdBits();
+      const count = buffer.readNanIdBits();
       const lenX = buffer.readInt();
       const exprX = new Int32Array(lenX);
-      for (let i = 0; i < lenX; i++) exprX[i] = buffer.readInt();
+      for (let i = 0; i < lenX; i++) exprX[i] = buffer.readNanIdBits();
       const lenY = buffer.readInt();
       const exprY = new Int32Array(lenY);
-      for (let i = 0; i < lenY; i++) exprY[i] = buffer.readInt();
+      for (let i = 0; i < lenY; i++) exprY[i] = buffer.readNanIdBits();
       operations.push(new _PathExpression(id, flags, min, max, count, exprX, exprY));
     }
   };
@@ -23232,12 +24495,12 @@ ${inner}`;
   function asNan2(v) {
     return intBitsToFloat2(v | -8388608);
   }
-  function fromNaN2(v) {
+  function fromNaN(v) {
     return floatToRawIntBits2(v) & 4194303;
   }
   var ID_REGION_ARRAY3 = 2097152;
   function isDataVariable(v) {
-    const id = fromNaN2(v);
+    const id = fromNaN(v);
     return (id & 7340032) === ID_REGION_ARRAY3;
   }
   function isDataVariableBits2(b) {
@@ -23256,7 +24519,7 @@ ${inner}`;
     static isOperator(v) {
       if (Number.isNaN(v)) {
         if (isDataVariable(v)) return false;
-        const pos = fromNaN2(v);
+        const pos = fromNaN(v);
         return pos > OFFSET2 && pos <= _MatrixOperations.LAST_OP;
       }
       return false;
@@ -23281,7 +24544,7 @@ ${inner}`;
       for (let i = 0; i < exp.length; i++) {
         const v = exp[i];
         if (Number.isNaN(v)) {
-          this.opEval(i, fromNaN2(v));
+          this.opEval(i, fromNaN(v));
         }
       }
       return this.mMatrices[0];
@@ -23459,12 +24722,16 @@ ${inner}`;
       return `${indent}MatrixExpression(${this.mMatrixId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const remap = buffer.getRemapContext?.();
+      const id = buffer.readId();
       const type = buffer.readInt();
       const len = buffer.readInt();
       if (len > 32 || len < 0) throw new Error(`Invalid matrix expression length ${len}`);
       const bits = new Int32Array(len);
-      for (let i = 0; i < len; i++) bits[i] = buffer.readInt();
+      for (let i = 0; i < len; i++) {
+        const b = buffer.readInt();
+        bits[i] = remap && isRemappableExpressionWord(b, true) ? remap.resolveNanIdBits(b) : b;
+      }
       operations.push(new _MatrixExpression(id, type, bits));
     }
   };
@@ -23491,12 +24758,12 @@ ${inner}`;
       return `${indent}MatrixConstant(${this.mMatrixId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.readId();
       const type = buffer.readInt();
       const len = buffer.readInt();
       if (len > 16 || len < 0) throw new Error(`Invalid matrix length ${len}`);
       const values = new Float32Array(len);
-      for (let i = 0; i < len; i++) values[i] = buffer.readFloat();
+      for (let i = 0; i < len; i++) values[i] = intBitsToFloat2(buffer.readNanIdBits());
       operations.push(new _MatrixConstant(id, type, values));
     }
   };
@@ -23549,15 +24816,15 @@ ${inner}`;
     }
     static read(buffer, operations) {
       const type = buffer.readShort();
-      const matrixId = buffer.readInt();
+      const matrixId = buffer.readId();
       const lenOut = buffer.readInt();
       if (lenOut > 4 || lenOut < 1) throw new Error(`Invalid output length ${lenOut}`);
       const out = new Int32Array(lenOut);
-      for (let i = 0; i < lenOut; i++) out[i] = buffer.readInt();
+      for (let i = 0; i < lenOut; i++) out[i] = buffer.readId();
       const lenIn = buffer.readInt();
       if (lenIn > 4 || lenIn < 1) throw new Error(`Invalid input length ${lenIn}`);
       const inputBits = new Int32Array(lenIn);
-      for (let i = 0; i < lenIn; i++) inputBits[i] = buffer.readInt();
+      for (let i = 0; i < lenIn; i++) inputBits[i] = buffer.readNanIdBits();
       operations.push(new _MatrixVectorMath(type, out, matrixId, inputBits));
     }
   };
@@ -23565,24 +24832,39 @@ ${inner}`;
   var MatrixVectorMath = _MatrixVectorMath;
 
   // third_party/remote-compose-player/src/core/operations/TextTransform.ts
+  var isWs = (c) => /\s/.test(c);
   var _TextTransform = class _TextTransform extends Operation {
     constructor(textId, srcId, startBits, lenBits, operation) {
       super();
       this.mTextId = textId;
-      this.mSrcId = srcId;
+      this.mSrcId1 = srcId;
       this.mStartBits = startBits;
       this.mLenBits = lenBits;
       this.mOperation = operation;
+      this.mOutStart = isNaNBits(startBits) ? 0 : intBitsToFloat2(startBits);
+      this.mOutLen = isNaNBits(lenBits) ? -1 : intBitsToFloat2(lenBits);
     }
-    write(_buffer) {
+    write(buffer) {
+      buffer.start(_TextTransform.OP_CODE);
+      buffer.writeInt(this.mTextId);
+      buffer.writeInt(this.mSrcId1);
+      buffer.writeInt(this.mStartBits);
+      buffer.writeInt(this.mLenBits);
+      buffer.writeInt(this.mOperation);
+    }
+    registerListening(context) {
+      context.listensTo(this.mSrcId1, this);
+      if (isNaNBits(this.mStartBits)) context.listensTo(idFromBits(this.mStartBits), this);
+      if (isNaNBits(this.mLenBits)) context.listensTo(idFromBits(this.mLenBits), this);
+    }
+    updateVariables(context) {
+      if (isNaNBits(this.mStartBits)) this.mOutStart = context.getFloat(idFromBits(this.mStartBits));
+      if (isNaNBits(this.mLenBits)) this.mOutLen = context.getFloat(idFromBits(this.mLenBits));
     }
     apply(context) {
-      let text = context.getText(this.mSrcId) || "";
-      const start = isNaNBits(this.mStartBits) ? 0 : Math.trunc(intBitsToFloat2(this.mStartBits));
-      const len = isNaNBits(this.mLenBits) ? text.length : Math.trunc(intBitsToFloat2(this.mLenBits));
-      if (start > 0 || len < text.length) {
-        text = text.substring(start, start + len);
-      }
+      const str = context.getText(this.mSrcId1) || "";
+      const s = Math.max(0, Math.min(Math.trunc(this.mOutStart), str.length));
+      let text = this.mOutLen === -1 ? str.substring(s) : str.substring(s, Math.min(str.length, s + Math.trunc(this.mOutLen)));
       switch (this.mOperation) {
         case _TextTransform.TEXT_TO_LOWERCASE:
           text = text.toLowerCase();
@@ -23594,22 +24876,44 @@ ${inner}`;
           text = text.trim();
           break;
         case _TextTransform.TEXT_CAPITALIZE:
-          text = text.replace(/\b\w/g, (c) => c.toUpperCase());
+          text = _TextTransform.capitalizeWords(text);
           break;
         case _TextTransform.TEXT_UPPERCASE_FIRST_CHAR:
-          if (text.length > 0) text = text[0].toUpperCase() + text.substring(1);
+          text = _TextTransform.capitalizeFirstWord(text);
           break;
       }
       context.loadText(this.mTextId, text);
     }
+    /** Title-case the first letter of every whitespace-separated word (capitalizeWords). */
+    static capitalizeWords(input) {
+      let out = "";
+      let nextIsUpper = true;
+      for (const c of input) {
+        if (isWs(c)) {
+          nextIsUpper = true;
+          out += c;
+        } else if (nextIsUpper) {
+          out += c.toUpperCase();
+          nextIsUpper = false;
+        } else out += c;
+      }
+      return out;
+    }
+    /** Title-case the first non-whitespace character (capitalizeFirstWord). */
+    static capitalizeFirstWord(input) {
+      for (let i = 0; i < input.length; i++) {
+        if (!isWs(input[i])) return input.substring(0, i) + input[i].toUpperCase() + input.substring(i + 1);
+      }
+      return input;
+    }
     deepToString(indent) {
-      return `${indent}TextTransform(${this.mTextId})`;
+      return `${indent}TextTransform[${this.mTextId}] = [${this.mSrcId1}] ${this.mOutStart} - ${this.mOutLen} ${this.mOperation}`;
     }
     static read(buffer, operations) {
-      const textId = buffer.readInt();
-      const srcId = buffer.readInt();
-      const start = buffer.readInt();
-      const len = buffer.readInt();
+      const textId = buffer.declareId();
+      const srcId = buffer.readId();
+      const start = buffer.readNanIdBits();
+      const len = buffer.readNanIdBits();
       const operation = buffer.readInt();
       operations.push(new _TextTransform(textId, srcId, start, len, operation));
     }
@@ -23621,6 +24925,137 @@ ${inner}`;
   _TextTransform.TEXT_CAPITALIZE = 4;
   _TextTransform.TEXT_UPPERCASE_FIRST_CHAR = 5;
   var TextTransform = _TextTransform;
+
+  // third_party/remote-compose-player/src/core/operations/FloatFunction.ts
+  var OFFSET3 = 3211264;
+  var ID_REGION_MASK3 = 7340032;
+  var ID_REGION_ARRAY4 = 2097152;
+  var MAX_FLOAT_ARRAY_SIZE = 80;
+  var MAX_FUNCTION_ARGUMENTS = 32;
+  function isVariableBits2(b) {
+    if (!isNaNBits(b)) return false;
+    const id = idFromBits(b);
+    if (id > OFFSET3 && id <= OFFSET3 + 79) return false;
+    return (id & ID_REGION_MASK3) !== ID_REGION_ARRAY4;
+  }
+  function hasUpdateVariables(op) {
+    return typeof op.updateVariables === "function";
+  }
+  var _FloatFunctionDefine = class _FloatFunctionDefine extends Operation {
+    constructor(id, floatVarId) {
+      super();
+      this.mList = [];
+      this.mExecutionDepth = 0;
+      this.mId = id;
+      this.mFloatVarId = floatVarId;
+    }
+    getList() {
+      return this.mList;
+    }
+    getArgs() {
+      return this.mFloatVarId;
+    }
+    updateVariables(_context) {
+    }
+    registerListening(context) {
+      context.putObject(this.mId, this);
+    }
+    apply(_context) {
+    }
+    /** Run the body (FloatFunctionDefine.execute). */
+    execute(context) {
+      if (this.mExecutionDepth >= _FloatFunctionDefine.MAX_EXECUTION_DEPTH) {
+        throw new Error("Recursion not allowed");
+      }
+      this.mExecutionDepth++;
+      try {
+        for (const op of this.mList) {
+          if (hasUpdateVariables(op)) op.updateVariables(context);
+          context.incrementOpCount(op);
+          op.apply(context);
+        }
+      } finally {
+        this.mExecutionDepth--;
+      }
+    }
+    write(buffer) {
+      buffer.start(_FloatFunctionDefine.OP_CODE);
+      buffer.writeInt(this.mId);
+      buffer.writeInt(this.mFloatVarId.length);
+      for (const v of this.mFloatVarId) buffer.writeInt(v);
+    }
+    deepToString(indent) {
+      let s = `${indent}FloatFunctionDefine[${this.mId}] (${this.mFloatVarId.map((v) => `[${v}]`).join(" ")})`;
+      for (const op of this.mList) s += "\n" + op.deepToString(indent + "  ");
+      return s;
+    }
+    static read(buffer, operations) {
+      const id = buffer.readId();
+      const varLen = buffer.readInt();
+      if (varLen > MAX_FUNCTION_ARGUMENTS) throw new Error("Too many arguments");
+      const varId = [];
+      for (let i = 0; i < varLen; i++) varId.push(buffer.readId());
+      operations.push(new _FloatFunctionDefine(id, varId));
+    }
+  };
+  _FloatFunctionDefine.OP_CODE = 168;
+  _FloatFunctionDefine.MAX_EXECUTION_DEPTH = 16;
+  var FloatFunctionDefine = _FloatFunctionDefine;
+  var _FloatFunctionCall = class _FloatFunctionCall extends PaintOperation {
+    constructor(id, args) {
+      super();
+      this.mFunction = null;
+      this.mId = id;
+      this.mArgs = args;
+      this.mOutArgs = new Float32Array(args.length);
+      for (let i = 0; i < args.length; i++) this.mOutArgs[i] = intBitsToFloat2(args[i]);
+    }
+    updateVariables(context) {
+      for (let i = 0; i < this.mArgs.length; i++) {
+        const b = this.mArgs[i];
+        this.mOutArgs[i] = isVariableBits2(b) ? context.getFloat(idFromBits(b)) : intBitsToFloat2(b);
+      }
+    }
+    registerListening(context) {
+      const f = context.getObject(this.mId);
+      this.mFunction = f instanceof FloatFunctionDefine ? f : null;
+      for (const b of this.mArgs) {
+        if (isVariableBits2(b)) context.listensTo(idFromBits(b), this);
+      }
+    }
+    paint(context) {
+      const remote = context.getContext();
+      if (!this.mFunction) {
+        const f = remote.getObject(this.mId);
+        if (!(f instanceof FloatFunctionDefine)) return;
+        this.mFunction = f;
+      }
+      const params = this.mFunction.getArgs();
+      this.updateVariables(remote);
+      const n = Math.min(params.length, this.mOutArgs.length);
+      for (let j = 0; j < n; j++) remote.loadFloat(params[j], this.mOutArgs[j]);
+      this.mFunction.execute(remote);
+    }
+    write(buffer) {
+      buffer.start(_FloatFunctionCall.OP_CODE);
+      buffer.writeInt(this.mId);
+      buffer.writeInt(this.mArgs.length);
+      for (const b of this.mArgs) buffer.writeInt(b);
+    }
+    deepToString(indent) {
+      return `${indent}callFunction[${this.mId}] ${Array.from(this.mOutArgs).join(", ")}`;
+    }
+    static read(buffer, operations) {
+      const id = buffer.readId();
+      const argLen = buffer.readInt();
+      if (argLen > MAX_FLOAT_ARRAY_SIZE) throw new Error(`array too big ${argLen}`);
+      const args = new Int32Array(argLen);
+      for (let i = 0; i < argLen; i++) args[i] = buffer.readNanIdBits();
+      operations.push(new _FloatFunctionCall(id, args));
+    }
+  };
+  _FloatFunctionCall.OP_CODE = 166;
+  var FloatFunctionCall = _FloatFunctionCall;
 
   // third_party/remote-compose-player/src/core/operations/TextLookup.ts
   var _TextLookup = class _TextLookup extends Operation {
@@ -23657,9 +25092,9 @@ ${inner}`;
       return `${indent}TextLookup(textId=${this.mTextId}, dataSet=${this.mDataSetId}, index=${this.mOutIndex})`;
     }
     static read(buffer, operations) {
-      const textId = buffer.readInt();
-      const dataSetId = buffer.readInt();
-      const index = buffer.readInt();
+      const textId = buffer.declareId();
+      const dataSetId = buffer.readId();
+      const index = buffer.readNanIdBits();
       operations.push(new _TextLookup(textId, dataSetId, index));
     }
   };
@@ -23737,8 +25172,8 @@ ${inner}`;
       return `${indent}ColorTheme(${this.mId}, light=0x${(this.mLightModeFallback >>> 0).toString(16)}, dark=0x${(this.mDarkModeFallback >>> 0).toString(16)})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const colorGroupId = buffer.readInt();
+      const id = buffer.readId();
+      const colorGroupId = buffer.readId();
       const lightModeIndex = buffer.readShort();
       const darkModeIndex = buffer.readShort();
       const lightModeFallback = buffer.readInt();
@@ -23823,8 +25258,8 @@ ${inner}`;
       return `${indent}ColorAttribute(${this.mOutputId})`;
     }
     static read(buffer, operations) {
-      const outputId = buffer.readInt();
-      const colorId = buffer.readInt();
+      const outputId = buffer.readId();
+      const colorId = buffer.readId();
       const type = buffer.readShort();
       operations.push(new _ColorAttribute(outputId, colorId, type));
     }
@@ -23931,9 +25366,9 @@ ${inner}`;
       return `${indent}DataMapLookup(${this.mId}, map=${this.mMapId}, key=${this.mStringId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const mapId = buffer.readInt();
-      const stringId = buffer.readInt();
+      const id = buffer.readId();
+      const mapId = buffer.readId();
+      const stringId = buffer.readId();
       operations.push(new _DataMapLookup(id, mapId, stringId));
     }
   };
@@ -23985,8 +25420,8 @@ ${inner}`;
       if (result !== void 0) context.getContext().loadFloat(this.mId, result);
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const textId = buffer.readInt();
+      const id = buffer.declareId();
+      const textId = buffer.readId();
       const type = buffer.readInt();
       operations.push(new _TextMeasure(id, textId, type));
     }
@@ -24047,8 +25482,8 @@ ${inner}`;
       context.getContext().loadFloat(this.mId, result);
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const textId = buffer.readInt();
+      const id = buffer.readId();
+      const textId = buffer.readId();
       const type = buffer.readShort();
       buffer.readShort();
       operations.push(new _TextAttribute(id, textId, type));
@@ -24079,8 +25514,8 @@ ${inner}`;
     updateVariables(_context) {
     }
     static read(buffer, operations) {
-      const lengthId = buffer.readInt();
-      const textId = buffer.readInt();
+      const lengthId = buffer.declareId();
+      const textId = buffer.readId();
       operations.push(new _TextLength(lengthId, textId));
     }
   };
@@ -24137,10 +25572,10 @@ ${inner}`;
       }
     }
     static read(buffer, operations) {
-      const textId = buffer.readInt();
-      const srcId = buffer.readInt();
-      const start = buffer.readInt();
-      const len = buffer.readInt();
+      const textId = buffer.declareId();
+      const srcId = buffer.readId();
+      const start = buffer.readNanIdBits();
+      const len = buffer.readNanIdBits();
       operations.push(new _TextSubtext(textId, srcId, start, len));
     }
   };
@@ -24148,23 +25583,23 @@ ${inner}`;
   var TextSubtext = _TextSubtext;
 
   // third_party/remote-compose-player/src/core/operations/ParticleOperations.ts
-  var OFFSET3 = 3211264;
-  var ID_REGION_MASK3 = 7340032;
-  var ID_REGION_ARRAY4 = 2097152;
+  var OFFSET4 = 3211264;
+  var ID_REGION_MASK4 = 7340032;
+  var ID_REGION_ARRAY5 = 2097152;
   function isMathOperatorBits(b) {
     if (!isNaNBits(b)) return false;
     const id = idFromBits(b);
-    return id > OFFSET3 && id <= OFFSET3 + 79;
+    return id > OFFSET4 && id <= OFFSET4 + 79;
   }
   function isDataVariableBits3(b) {
     if (!isNaNBits(b)) return false;
     const id = idFromBits(b);
-    return (id & ID_REGION_MASK3) === ID_REGION_ARRAY4;
+    return (id & ID_REGION_MASK4) === ID_REGION_ARRAY5;
   }
   var asNan3 = (v) => (v | 4286578688) >>> 0;
-  var CMD1_BITS = asNan3(OFFSET3 + 64) | 0;
-  var CMD2_BITS = asNan3(OFFSET3 + 65) | 0;
-  var NOP_BITS = asNan3(OFFSET3 + 55) | 0;
+  var CMD1_BITS = asNan3(OFFSET4 + 64) | 0;
+  var CMD2_BITS = asNan3(OFFSET4 + 65) | 0;
+  var NOP_BITS = asNan3(OFFSET4 + 55) | 0;
   function resolvePairEquation(src, context, varIds, particle1, particle2) {
     const out = new Int32Array(src.length);
     for (let i = 0; i < src.length; i++) {
@@ -24264,16 +25699,18 @@ ${inner}`;
       return `${indent}ParticlesCreateOp(id=${this.mId}, count=${this.mParticleCount}, vars=${this.mVarId.length})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const remap = buffer.getRemapContext?.();
+      const word = (b) => remap && isRemappableExpressionWord(b) ? remap.resolveNanIdBits(b) : b;
+      const id = buffer.readId();
       const particleCount = buffer.readInt();
       const varLen = buffer.readInt();
       const varIds = [];
       const equations = [];
       for (let i = 0; i < varLen; i++) {
-        varIds.push(buffer.readInt());
+        varIds.push(buffer.readId());
         const equLen = buffer.readInt();
         const eq = new Int32Array(equLen);
-        for (let j = 0; j < equLen; j++) eq[j] = buffer.readInt();
+        for (let j = 0; j < equLen; j++) eq[j] = word(buffer.readInt());
         equations.push(eq);
       }
       operations.push(new _ParticlesCreateOp(id, particleCount, varIds, equations));
@@ -24360,16 +25797,18 @@ ${inner}`;
       return `${indent}ParticlesLoopOp(id=${this.mId}, children=${this.mList.length})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const remap = buffer.getRemapContext?.();
+      const word = (b) => remap && isRemappableExpressionWord(b) ? remap.resolveNanIdBits(b) : b;
+      const id = buffer.readId();
       const restartLen = buffer.readInt();
       const restart = new Int32Array(restartLen);
-      for (let i = 0; i < restartLen; i++) restart[i] = buffer.readInt();
+      for (let i = 0; i < restartLen; i++) restart[i] = word(buffer.readInt());
       const varLen = buffer.readInt();
       const equations = [];
       for (let i = 0; i < varLen; i++) {
         const equLen = buffer.readInt();
         const eq = new Int32Array(equLen);
-        for (let j = 0; j < equLen; j++) eq[j] = buffer.readInt();
+        for (let j = 0; j < equLen; j++) eq[j] = word(buffer.readInt());
         equations.push(eq);
       }
       operations.push(new _ParticlesLoopOp(id, restart, equations));
@@ -24512,10 +25951,10 @@ ${inner}`;
       return arr;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
+      const id = buffer.readId();
       const flags = buffer.readShort();
-      const min = buffer.readFloat();
-      const max = buffer.readFloat();
+      const min = intBitsToFloat2(buffer.readNanIdBits());
+      const max = intBitsToFloat2(buffer.readNanIdBits());
       const condition = _ParticlesCompareOp.readEquationBits(buffer);
       const result1Len = buffer.readInt();
       const equations1 = [];
@@ -24558,7 +25997,7 @@ ${inner}`;
           if (wIn) {
             const min = wIn.getMin();
             if (min !== -1) {
-              componentWidth = min * this.getDpScale(context);
+              componentWidth = min;
             }
           }
         } else {
@@ -24760,10 +26199,10 @@ ${inner}`;
       return `${indent}LoopOperation(${intBitsToFloat2(this.mFromBits)}..${intBitsToFloat2(this.mUntilBits)} step ${intBitsToFloat2(this.mStepBits)})`;
     }
     static read(buffer, operations) {
-      const indexId = buffer.readInt();
-      const from = buffer.readInt();
-      const step = buffer.readInt();
-      const until = buffer.readInt();
+      const indexId = buffer.readId();
+      const from = buffer.readNanIdBits();
+      const step = buffer.readNanIdBits();
+      const until = buffer.readNanIdBits();
       operations.push(new _LoopOperation(indexId, from, step, until));
     }
   };
@@ -24911,7 +26350,7 @@ ${inner}`;
       this.mFontSize = fontSize;
       this.mMinFontSize = minFontSize;
       this.mMaxFontSize = maxFontSize;
-      this.mFontSizeValue = isNaNBits(fontSize) ? 16 : intBitsToFloat2(fontSize);
+      this.mFontSizeValue = isNaNBits(fontSize) ? 36 : intBitsToFloat2(fontSize);
       this.mMeasureFontSize = this.mFontSizeValue;
       this.mFontStyle = fontStyle;
       this.mFontWeight = fontWeight;
@@ -24976,6 +26415,13 @@ ${inner}`;
         }
       }
       this.invalidateMeasure();
+    }
+    // Java CoreText: the intrinsic size is the last measured text size.
+    minIntrinsicHeight() {
+      return this.mTextH;
+    }
+    minIntrinsicWidth() {
+      return this.mTextW;
     }
     computeWrapSize(context, _minWidth, maxWidth, _minHeight, maxHeight, _horizontalWrap, _verticalWrap, measure, size) {
       if (this.mLastMeasurePass === measure && this.mLastMaxW === maxWidth && this.mLastMaxH === maxHeight && !this.mNeedsMeasure && this.mNewString === null) {
@@ -25111,30 +26557,46 @@ ${inner}`;
         if (inAutosize) {
           flags |= 1;
         }
-        this.mComputedTextLayout = context.layoutComplexText(
-          this.mTextId,
-          0,
-          this.mCachedString.length,
-          this.mTextAlign,
-          this.mOverflow,
-          this.mAutosize && (this.mOverflow === 1 || this.mOverflow === 2) ? 2147483647 : this.mMaxLines,
-          maxWidth,
-          maxHeight,
-          this.mLetterSpacing,
-          this.mLineHeightAdd,
-          this.mLineHeightMultiplier,
-          this.mLineBreakStrategy,
-          this.mHyphenationFrequency,
-          this.mJustificationMode,
-          this.mUnderline,
-          this.mStrikethrough,
-          flags
-        );
-        if (this.mComputedTextLayout) {
-          bounds[0] = 0;
-          bounds[1] = 0;
-          bounds[2] = this.mComputedTextLayout.width;
-          bounds[3] = this.mComputedTextLayout.naturalHeight ?? this.mComputedTextLayout.height;
+        let maxLines = this.mAutosize && (this.mOverflow === 1 || this.mOverflow === 2) ? 2147483647 : this.mMaxLines;
+        let done2 = false;
+        while (!done2) {
+          this.mComputedTextLayout = context.layoutComplexText(
+            this.mTextId,
+            0,
+            this.mCachedString.length,
+            this.mTextAlign,
+            this.mOverflow,
+            maxLines,
+            maxWidth,
+            maxHeight,
+            this.mLetterSpacing,
+            this.mLineHeightAdd,
+            this.mLineHeightMultiplier,
+            this.mLineBreakStrategy,
+            this.mHyphenationFrequency,
+            this.mJustificationMode,
+            this.mUnderline,
+            this.mStrikethrough,
+            flags
+          );
+          const layout = this.mComputedTextLayout;
+          const naturalHeight = layout ? layout.naturalHeight ?? layout.height : 0;
+          if (layout) {
+            bounds[0] = 0;
+            bounds[1] = 0;
+            bounds[2] = layout.width;
+            bounds[3] = naturalHeight;
+          }
+          if (layout && !inAutosize && naturalHeight > maxHeight && this.mOverflow === OVERFLOW_ELLIPSIS && typeof layout.visibleLines === "number") {
+            if (layout.visibleLines !== maxLines) {
+              maxLines = layout.visibleLines;
+            } else {
+              maxLines--;
+            }
+            if (maxLines < 1) done2 = true;
+          } else {
+            done2 = true;
+          }
         }
       } else if (maxWidth > 0) {
         this.mComputedTextLayout = null;
@@ -25149,6 +26611,7 @@ ${inner}`;
       const remoteContext = paintContext.getContext();
       paintContext.save();
       paintContext.translate(this.mX, this.mY);
+      this.paintModifiers(paintContext);
       const tx = this.mPaddingLeft;
       const ty = this.mPaddingTop;
       paintContext.translate(tx, ty);
@@ -25229,31 +26692,34 @@ ${inner}`;
       let fontStyle = 0, fontFamilyId = -1, textAlign = 1, overflow = 1;
       let maxLines = 2147483647, lineBreakStrategy = 0, hyphenationFrequency = 0;
       let justificationMode = 0, flags = 0;
-      let fontSize = floatToRawIntBits2(16), minFontSize = -1, maxFontSize = -1;
+      let fontSize = floatToRawIntBits2(36), minFontSize = -1, maxFontSize = -1;
       let fontWeight = floatToRawIntBits2(400), letterSpacing = 0, lineHeightAdd = 0, lineHeightMultiplier = 1;
       let underline = false, strikethrough = false, autosize = false;
       let fontAxis = null;
       let fontAxisValues = null;
+      const remap = buffer.getRemapContext?.();
+      const rid = (v) => remap ? remap.resolveId(v) : v;
+      const did = (v) => remap ? remap.declareId(v) : v;
       readCommandParams(buffer, paramsLength, {
         intValue(id, value) {
           switch (id) {
             case P_COMPONENT_ID:
-              componentId = value;
+              componentId = did(value);
               break;
             case P_ANIMATION_ID2:
-              animationId = value;
+              animationId = did(value);
               break;
             case P_COLOR2:
               color = value;
               break;
             case P_COLOR_ID2:
-              colorId = value;
+              colorId = rid(value);
               break;
             case P_FONT_STYLE2:
               fontStyle = value;
               break;
             case P_FONT_FAMILY2:
-              fontFamilyId = value;
+              fontFamilyId = rid(value);
               break;
             case P_TEXT_ALIGN2:
               textAlign = value;
@@ -25436,19 +26902,21 @@ ${inner}`;
       this.mHorizontalPositioning = horizontalPositioning;
       this.mVerticalPositioning = verticalPositioning;
     }
-    computeWrapSize(context, _minWidth, maxWidth, _minHeight, maxHeight, _horizontalWrap, _verticalWrap, measure, size) {
+    // Java FitBoxLayout picks between two algorithms on FEATURE_PRIORITY_FIX (23), which
+    // defaults to on (CoreDocument.DEFAULT_FEATURE_PRIORITY_FIX = 1).
+    usePriorityFix(context) {
+      const doc = context.getContext().getDocument?.();
+      return doc ? doc.useFeature(Header.FEATURE_PRIORITY_FIX, 1) : true;
+    }
+    computeWrapSize(context, minWidth, maxWidth, minHeight, maxHeight, _horizontalWrap, _verticalWrap, measure, size) {
+      if (this.usePriorityFix(context)) {
+        this.measurePriorityFix(context, maxWidth, maxHeight, measure, size);
+        return;
+      }
       let found = false;
       const self = measure.get(this);
-      const dp = this.getDpScale(context);
       for (const c of this.mChildrenComponents) {
-        let cw = 0;
-        let ch = 0;
-        if (c instanceof LayoutComponent) {
-          const wIn = c.getWidthInModifier();
-          if (wIn) cw = wIn.getMin() * dp;
-          const hIn = c.getHeightInModifier();
-          if (hIn) ch = hIn.getMin() * dp;
-        }
+        const [cw, ch] = _FitBoxLayout.minConstraints(c);
         c.measure(context, 0, maxWidth, 0, maxHeight, measure);
         const m = measure.get(c);
         if (!found && cw <= maxWidth && ch <= maxHeight) {
@@ -25460,24 +26928,16 @@ ${inner}`;
           m.addVisibilityOverride(Visibility.OVERRIDE_GONE);
         }
       }
-      if (!found) {
-        self.setVisibility(Visibility.GONE);
-      } else {
-        self.setVisibility(Visibility.VISIBLE);
-      }
+      self.setVisibility(found ? Visibility.VISIBLE : Visibility.GONE);
     }
     computeSize(context, minWidth, maxWidth, minHeight, maxHeight, measure) {
+      if (this.usePriorityFix(context)) {
+        this.measurePriorityFix(context, maxWidth, maxHeight, measure, null);
+        return;
+      }
       let found = false;
-      const dp = this.getDpScale(context);
       for (const c of this.mChildrenComponents) {
-        let cw = 0;
-        let ch = 0;
-        if (c instanceof LayoutComponent) {
-          const wIn = c.getWidthInModifier();
-          if (wIn) cw = wIn.getMin() * dp;
-          const hIn = c.getHeightInModifier();
-          if (hIn) ch = hIn.getMin() * dp;
-        }
+        const [cw, ch] = _FitBoxLayout.minConstraints(c);
         c.measure(context, minWidth, maxWidth, minHeight, maxHeight, measure);
         const m = measure.get(c);
         m.clearVisibilityOverride();
@@ -25488,6 +26948,53 @@ ${inner}`;
           m.addVisibilityOverride(Visibility.OVERRIDE_GONE);
         }
       }
+    }
+    /** widthIn / heightIn minimums, the only fit test of the original algorithm. */
+    static minConstraints(c) {
+      let cw = 0, ch = 0;
+      if (c instanceof LayoutComponent) {
+        const wIn = c.getWidthInModifier();
+        if (wIn) cw = wIn.getMin();
+        const hIn = c.getHeightInModifier();
+        if (hIn) ch = hIn.getMin();
+      }
+      return [cw, ch];
+    }
+    /**
+     * Java computeWrapSizePriorityFix / computeSizePriorityFix: the first child whose min
+     * intrinsic size fits, and which, measured from that minimum, still fits, is shown;
+     * the rest are gone. No child fitting makes the fitBox itself gone.
+     */
+    measurePriorityFix(context, maxWidth, maxHeight, measure, size) {
+      let found = false;
+      const self = measure.get(this);
+      self.clearVisibilityOverride();
+      for (const c of this.mChildrenComponents) {
+        const m = measure.get(c);
+        m.clearVisibilityOverride();
+        if (!found) {
+          const childMinWidth = c.minIntrinsicWidth();
+          const childMinHeight = c.minIntrinsicHeight();
+          if (childMinWidth <= maxWidth && childMinHeight <= maxHeight) {
+            c.measure(context, childMinWidth, maxWidth, childMinHeight, maxHeight, measure);
+            if (m.getW() <= maxWidth && m.getH() <= maxHeight) {
+              found = true;
+              m.addVisibilityOverride(Visibility.OVERRIDE_VISIBLE);
+              if (size) {
+                size.setWidth(m.getW());
+                size.setHeight(m.getH());
+              }
+            } else {
+              m.addVisibilityOverride(Visibility.OVERRIDE_GONE);
+            }
+          } else {
+            m.addVisibilityOverride(Visibility.OVERRIDE_GONE);
+          }
+        } else {
+          m.addVisibilityOverride(Visibility.OVERRIDE_GONE);
+        }
+      }
+      self.addVisibilityOverride(found ? Visibility.OVERRIDE_VISIBLE : Visibility.OVERRIDE_GONE);
     }
     internalLayoutMeasure(_context, measure) {
       const selfMeasure = measure.get(this);
@@ -25534,8 +27041,8 @@ ${inner}`;
       return `${indent}FitBoxLayout(${this.getComponentId()})`;
     }
     static read(buffer, operations) {
-      const componentId = buffer.readInt();
-      const animationId = buffer.readInt();
+      const componentId = buffer.declareId();
+      const animationId = buffer.declareId();
       const horizontalPositioning = buffer.readInt();
       const verticalPositioning = buffer.readInt();
       operations.push(new _FitBoxLayout(
@@ -25555,7 +27062,38 @@ ${inner}`;
   var FitBoxLayout = _FitBoxLayout;
 
   // third_party/remote-compose-player/src/core/operations/layout/managers/CollapsiblePriority.ts
+  var FLOAT_MAX = 34028234663852886e22;
+  function javaInt(v) {
+    if (Number.isNaN(v)) return 0;
+    if (v >= 2147483647) return 2147483647;
+    if (v <= -2147483648) return -2147483648;
+    return Math.trunc(v);
+  }
+  function javaSmallSort(a, cmp) {
+    const n = a.length;
+    if (n < 2) return;
+    let runHi = 1;
+    if (cmp(a[runHi++], a[0]) < 0) {
+      while (runHi < n && cmp(a[runHi], a[runHi - 1]) < 0) runHi++;
+      const head = a.slice(0, runHi).reverse();
+      for (let i = 0; i < runHi; i++) a[i] = head[i];
+    } else {
+      while (runHi < n && cmp(a[runHi], a[runHi - 1]) >= 0) runHi++;
+    }
+    for (let start = runHi; start < n; start++) {
+      const pivot = a[start];
+      let left = 0, right = start;
+      while (left < right) {
+        const mid = left + right >> 1;
+        if (cmp(pivot, a[mid]) < 0) right = mid;
+        else left = mid + 1;
+      }
+      for (let k = start; k > left; k--) a[k] = a[k - 1];
+      a[left] = pivot;
+    }
+  }
   var _CollapsiblePriority = class _CollapsiblePriority {
+    /** The child's priority on that axis; a child without one counts as Float.MAX_VALUE. */
     static getPriority(c, orientation) {
       if (c instanceof LayoutComponent) {
         const priority = c.selfOrModifier(CollapsiblePriorityModifier);
@@ -25563,103 +27101,172 @@ ${inner}`;
           return priority.getPriority();
         }
       }
-      return 0;
+      return FLOAT_MAX;
     }
+    /** The component that stays last: the highest priority number, the first on ties. */
+    static findLastStanding(components, orientation) {
+      if (components.length === 0) return null;
+      let best = components[0];
+      let maxPriority = _CollapsiblePriority.getPriority(best, orientation);
+      for (let i = 1; i < components.length; i++) {
+        const p = _CollapsiblePriority.getPriority(components[i], orientation);
+        if (p > maxPriority) {
+          maxPriority = p;
+          best = components[i];
+        }
+      }
+      return best;
+    }
+    /** Highest priority first, with the reference's comparator `(int) (p2 - p1)`. */
     static sortWithPriorities(components, orientation) {
       const sorted = [...components];
-      sorted.sort((a, b) => {
-        const p1 = _CollapsiblePriority.getPriority(a, orientation);
-        const p2 = _CollapsiblePriority.getPriority(b, orientation);
-        return p2 - p1;
-      });
+      javaSmallSort(sorted, (a, b) => javaInt(Math.fround(
+        _CollapsiblePriority.getPriority(b, orientation) - _CollapsiblePriority.getPriority(a, orientation)
+      )));
       return sorted;
     }
   };
   _CollapsiblePriority.HORIZONTAL = 0;
   _CollapsiblePriority.VERTICAL = 1;
   var CollapsiblePriority = _CollapsiblePriority;
+  function computeVisibleChildren(host, axis, context, maxMain, maxCross, measure, fresh, sameKind) {
+    const self = measure.get(host);
+    self.addVisibilityOverride(Visibility.OVERRIDE_VISIBLE);
+    let currentMax = maxMain;
+    let hasPriorities = false;
+    let preDropCount = 0, preDropMain = 0, preDropCross = 0;
+    const children = host.mChildrenComponents;
+    for (const c of children) {
+      if (fresh && measure.contains(c.getComponentId())) measure.get(c).clearVisibilityOverride();
+      const weighted = c instanceof LayoutComponent && (axis === 0 ? c.hasWidthWeight() : c.hasHeightWeight());
+      const lim = sameKind(c) || weighted ? currentMax : FLOAT_MAX;
+      if (axis === 0) c.measure(context, 0, lim, 0, maxCross, measure);
+      else c.measure(context, 0, maxCross, 0, lim, measure);
+      const m = measure.get(c);
+      if (!m.isGone()) {
+        preDropCount++;
+        const main = axis === 0 ? m.getW() : m.getH();
+        preDropMain += main;
+        preDropCross = Math.max(preDropCross, axis === 0 ? m.getH() : m.getW());
+        currentMax -= main;
+      }
+      if (c instanceof LayoutComponent && c.selfOrModifier(CollapsiblePriorityModifier)) {
+        hasPriorities = true;
+      }
+    }
+    const ordered = hasPriorities ? CollapsiblePriority.sortWithPriorities(children, axis) : children;
+    let keptMain = 0, keptCross = 0, kept = 0;
+    let overflow = false;
+    for (const child of ordered) {
+      const cm = measure.get(child);
+      if (overflow || cm.isGone()) {
+        cm.addVisibilityOverride(Visibility.OVERRIDE_GONE);
+        continue;
+      }
+      const s = axis === 0 ? cm.getW() : cm.getH();
+      if (keptMain + s > maxMain) {
+        cm.addVisibilityOverride(Visibility.OVERRIDE_GONE);
+        overflow = true;
+      } else {
+        keptMain += s;
+        keptCross = Math.max(keptCross, axis === 0 ? cm.getH() : cm.getW());
+        kept++;
+      }
+    }
+    return { preDropCount, preDropMain, preDropCross, kept, keptMain, keptCross };
+  }
 
   // third_party/remote-compose-player/src/core/operations/layout/managers/CollapsibleRowLayout.ts
   var _CollapsibleRowLayout = class _CollapsibleRowLayout extends RowLayout {
     constructor(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy) {
       super(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy);
+      // Set by a wrapping measure of the cross axis: the incoming minimum, so that
+      // internalLayoutMeasure can settle the cross size on the children kept.
+      this.mSettleCrossMin = null;
+      // FEATURE_PRIORITY_FIX (23, on by default), read at measure: the intrinsic size is that
+      // of the child that stays last rather than of the first child.
+      this.mPriorityFix = true;
     }
-    computeWrapSize(context, _minWidth, maxWidth, _minHeight, maxHeight, _horizontalWrap, _verticalWrap, measure, size) {
-      this.computeVisibleChildren(context, maxWidth, maxHeight, true, measure, size);
+    axis() {
+      return CollapsiblePriority.HORIZONTAL;
+    }
+    minIntrinsicWidth() {
+      let v = this.modifierDefinedWidth(true);
+      const exact = this.getWidthModifier();
+      if (exact && (exact.getType() === 0 || exact.getType() === 6)) return v;
+      const c = this.mPriorityFix ? CollapsiblePriority.findLastStanding(this.mChildrenComponents, this.axis()) : this.mChildrenComponents[0];
+      if (c) v += c.minIntrinsicWidth();
+      return v;
+    }
+    minIntrinsicHeight() {
+      let v = this.modifierDefinedHeight(true);
+      const exact = this.getHeightModifier();
+      if (exact && (exact.getType() === 0 || exact.getType() === 6)) return v;
+      const c = this.mPriorityFix ? CollapsiblePriority.findLastStanding(this.mChildrenComponents, this.axis()) : this.mChildrenComponents[0];
+      if (c) v += c.minIntrinsicHeight();
+      return v;
+    }
+    measure(context, minWidth, maxWidth, minHeight, maxHeight, measure) {
+      this.mSettleCrossMin = null;
+      const doc = context.getContext().getDocument?.();
+      this.mPriorityFix = doc ? doc.useFeature(Header.FEATURE_PRIORITY_FIX, 1) : true;
+      super.measure(context, minWidth, maxWidth, minHeight, maxHeight, measure);
+    }
+    computeWrapSize(context, minWidth, maxWidth, minHeight, maxHeight, horizontalWrap, verticalWrap, measure, size) {
+      const r = computeVisibleChildren(
+        this,
+        this.axis(),
+        context,
+        maxWidth,
+        maxHeight,
+        measure,
+        true,
+        (c) => c instanceof _CollapsibleRowLayout
+      );
+      size.setHeight(r.preDropCross);
+      size.setWidth(horizontalWrap ? Math.min(maxWidth, r.keptMain) : r.preDropMain + this.spacedByPx(context, this.mSpacedBy) * (r.preDropCount - 1));
+      if (verticalWrap) this.mSettleCrossMin = minHeight;
+      if (r.preDropCount + r.kept === 0 || (horizontalWrap ? Math.min(maxWidth, r.keptMain) : r.preDropMain) <= 0) {
+        measure.get(this).addVisibilityOverride(Visibility.OVERRIDE_GONE);
+      }
     }
     computeSize(context, _minWidth, maxWidth, _minHeight, maxHeight, measure) {
-      this.computeVisibleChildren(context, maxWidth, maxHeight, false, measure, null);
+      const r = computeVisibleChildren(
+        this,
+        this.axis(),
+        context,
+        maxWidth,
+        maxHeight,
+        measure,
+        true,
+        (c) => c instanceof _CollapsibleRowLayout
+      );
+      if (r.preDropCount + r.kept === 0) measure.get(this).addVisibilityOverride(Visibility.OVERRIDE_GONE);
     }
     internalLayoutMeasure(context, measure) {
       const m = measure.get(this);
-      this.computeVisibleChildren(context, m.getW(), m.getH(), false, measure, null);
+      const r = computeVisibleChildren(
+        this,
+        this.axis(),
+        context,
+        m.getW(),
+        m.getH(),
+        measure,
+        false,
+        (c) => c instanceof _CollapsibleRowLayout
+      );
+      if (r.preDropCount + r.kept === 0) m.addVisibilityOverride(Visibility.OVERRIDE_GONE);
+      if (this.mSettleCrossMin !== null) {
+        let cross2 = r.keptCross + this.mPaddingTop + this.mPaddingBottom;
+        const cIn = this.getHeightInModifier();
+        if (cIn) {
+          if (cIn.getMin() >= 0) cross2 = Math.max(cross2, cIn.getMin());
+          if (cIn.getMax() >= 0) cross2 = Math.min(cross2, cIn.getMax());
+        }
+        cross2 = Math.max(cross2, this.mSettleCrossMin);
+        m.setH(Math.min(m.getH(), cross2));
+      }
       super.internalLayoutMeasure(context, measure);
-    }
-    computeVisibleChildren(context, maxWidth, maxHeight, horizontalWrap, measure, size) {
-      let visibleChildren = 0;
-      const self = measure.get(this);
-      self.addVisibilityOverride(Visibility.OVERRIDE_VISIBLE);
-      let currentMaxWidth = maxWidth;
-      let hasPriorities = false;
-      for (const c of this.mChildrenComponents) {
-        if (!measure.contains(c.getComponentId())) {
-          if (c instanceof _CollapsibleRowLayout) {
-            c.measure(context, 0, currentMaxWidth, 0, maxHeight, measure);
-          } else {
-            c.measure(context, 0, Number.MAX_VALUE, 0, maxHeight, measure);
-          }
-        }
-        const m = measure.get(c);
-        m.clearVisibilityOverride();
-        if (!m.isGone()) {
-          if (size !== null) {
-            size.setHeight(Math.max(size.getHeight(), m.getH()));
-            size.setWidth(size.getWidth() + m.getW());
-          }
-          visibleChildren++;
-          currentMaxWidth -= m.getW();
-        }
-        if (c instanceof LayoutComponent) {
-          const priority = c.selfOrModifier(CollapsiblePriorityModifier);
-          if (priority) hasPriorities = true;
-        }
-      }
-      if (this.mChildrenComponents.length > 0 && size !== null) {
-        size.setWidth(size.getWidth() + this.spacedByPx(context, this.mSpacedBy) * (visibleChildren - 1));
-      }
-      let childrenWidth = 0;
-      let childrenHeight = 0;
-      let overflow = false;
-      let children = this.mChildrenComponents;
-      if (hasPriorities) {
-        children = CollapsiblePriority.sortWithPriorities(
-          this.mChildrenComponents,
-          CollapsiblePriority.HORIZONTAL
-        );
-      }
-      for (const child of children) {
-        const childMeasure = measure.get(child);
-        if (overflow || childMeasure.isGone()) {
-          childMeasure.addVisibilityOverride(Visibility.OVERRIDE_GONE);
-          continue;
-        }
-        const childWidth = childMeasure.getW();
-        if (childrenWidth + childWidth > maxWidth) {
-          childMeasure.addVisibilityOverride(Visibility.OVERRIDE_GONE);
-          overflow = true;
-        } else {
-          childMeasure.addVisibilityOverride(Visibility.OVERRIDE_VISIBLE);
-          childrenWidth += childWidth;
-          childrenHeight = Math.max(childrenHeight, childMeasure.getH());
-          visibleChildren++;
-        }
-      }
-      if (horizontalWrap && size !== null) {
-        size.setWidth(Math.min(maxWidth, childrenWidth));
-      }
-      if (visibleChildren === 0 || size !== null && size.getWidth() <= 0) {
-        self.addVisibilityOverride(Visibility.OVERRIDE_GONE);
-      }
     }
     write(buffer) {
       buffer.start(_CollapsibleRowLayout.OP_CODE);
@@ -25673,8 +27280,8 @@ ${inner}`;
       return `${indent}CollapsibleRowLayout(${this.getComponentId()})`;
     }
     static read(buffer, operations) {
-      const componentId = buffer.readInt();
-      const animationId = buffer.readInt();
+      const componentId = buffer.declareId();
+      const animationId = buffer.declareId();
       const horizontalPositioning = buffer.readInt();
       const verticalPositioning = buffer.readInt();
       const spacedBy = buffer.readFloat();
@@ -25694,83 +27301,93 @@ ${inner}`;
   var _CollapsibleColumnLayout = class _CollapsibleColumnLayout extends ColumnLayout {
     constructor(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy) {
       super(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy);
+      // Set by a wrapping measure of the cross axis: the incoming minimum, so that
+      // internalLayoutMeasure can settle the cross size on the children kept.
+      this.mSettleCrossMin = null;
+      // FEATURE_PRIORITY_FIX (23, on by default), read at measure: the intrinsic size is that
+      // of the child that stays last rather than of the first child.
+      this.mPriorityFix = true;
     }
-    computeWrapSize(context, _minWidth, maxWidth, _minHeight, maxHeight, _horizontalWrap, _verticalWrap, measure, size) {
-      this.computeVisibleChildren(context, maxWidth, maxHeight, true, measure, size);
+    axis() {
+      return CollapsiblePriority.VERTICAL;
+    }
+    minIntrinsicHeight() {
+      let v = this.modifierDefinedHeight(true);
+      const exact = this.getHeightModifier();
+      if (exact && (exact.getType() === 0 || exact.getType() === 6)) return v;
+      const c = this.mPriorityFix ? CollapsiblePriority.findLastStanding(this.mChildrenComponents, this.axis()) : this.mChildrenComponents[0];
+      if (c) v += c.minIntrinsicHeight();
+      return v;
+    }
+    minIntrinsicWidth() {
+      let v = this.modifierDefinedWidth(true);
+      const exact = this.getWidthModifier();
+      if (exact && (exact.getType() === 0 || exact.getType() === 6)) return v;
+      const c = this.mPriorityFix ? CollapsiblePriority.findLastStanding(this.mChildrenComponents, this.axis()) : this.mChildrenComponents[0];
+      if (c) v += c.minIntrinsicWidth();
+      return v;
+    }
+    measure(context, minWidth, maxWidth, minHeight, maxHeight, measure) {
+      this.mSettleCrossMin = null;
+      const doc = context.getContext().getDocument?.();
+      this.mPriorityFix = doc ? doc.useFeature(Header.FEATURE_PRIORITY_FIX, 1) : true;
+      super.measure(context, minWidth, maxWidth, minHeight, maxHeight, measure);
+    }
+    computeWrapSize(context, minWidth, maxWidth, minHeight, maxHeight, horizontalWrap, verticalWrap, measure, size) {
+      const r = computeVisibleChildren(
+        this,
+        this.axis(),
+        context,
+        maxHeight,
+        maxWidth,
+        measure,
+        true,
+        (c) => c instanceof _CollapsibleColumnLayout
+      );
+      size.setWidth(r.preDropCross);
+      size.setHeight(verticalWrap ? Math.min(maxHeight, r.keptMain) : r.preDropMain + this.spacedByPx(context, this.mSpacedBy) * (r.preDropCount - 1));
+      if (horizontalWrap) this.mSettleCrossMin = minWidth;
+      if (r.preDropCount + r.kept === 0 || (verticalWrap ? Math.min(maxHeight, r.keptMain) : r.preDropMain) <= 0) {
+        measure.get(this).addVisibilityOverride(Visibility.OVERRIDE_GONE);
+      }
     }
     computeSize(context, _minWidth, maxWidth, _minHeight, maxHeight, measure) {
-      this.computeVisibleChildren(context, maxWidth, maxHeight, false, measure, null);
+      const r = computeVisibleChildren(
+        this,
+        this.axis(),
+        context,
+        maxHeight,
+        maxWidth,
+        measure,
+        true,
+        (c) => c instanceof _CollapsibleColumnLayout
+      );
+      if (r.preDropCount + r.kept === 0) measure.get(this).addVisibilityOverride(Visibility.OVERRIDE_GONE);
     }
     internalLayoutMeasure(context, measure) {
       const m = measure.get(this);
-      this.computeVisibleChildren(context, m.getW(), m.getH(), false, measure, null);
+      const r = computeVisibleChildren(
+        this,
+        this.axis(),
+        context,
+        m.getH(),
+        m.getW(),
+        measure,
+        false,
+        (c) => c instanceof _CollapsibleColumnLayout
+      );
+      if (r.preDropCount + r.kept === 0) m.addVisibilityOverride(Visibility.OVERRIDE_GONE);
+      if (this.mSettleCrossMin !== null) {
+        let cross2 = r.keptCross + this.mPaddingLeft + this.mPaddingRight;
+        const cIn = this.getWidthInModifier();
+        if (cIn) {
+          if (cIn.getMin() >= 0) cross2 = Math.max(cross2, cIn.getMin());
+          if (cIn.getMax() >= 0) cross2 = Math.min(cross2, cIn.getMax());
+        }
+        cross2 = Math.max(cross2, this.mSettleCrossMin);
+        m.setW(Math.min(m.getW(), cross2));
+      }
       super.internalLayoutMeasure(context, measure);
-    }
-    computeVisibleChildren(context, maxWidth, maxHeight, verticalWrap, measure, size) {
-      let visibleChildren = 0;
-      const self = measure.get(this);
-      self.addVisibilityOverride(Visibility.OVERRIDE_VISIBLE);
-      let currentMaxHeight = maxHeight;
-      let hasPriorities = false;
-      for (const c of this.mChildrenComponents) {
-        if (!measure.contains(c.getComponentId())) {
-          if (c instanceof _CollapsibleColumnLayout) {
-            c.measure(context, 0, maxWidth, 0, currentMaxHeight, measure);
-          } else {
-            c.measure(context, 0, maxWidth, 0, Number.MAX_VALUE, measure);
-          }
-        }
-        const m = measure.get(c);
-        m.clearVisibilityOverride();
-        if (!m.isGone()) {
-          if (size !== null) {
-            size.setWidth(Math.max(size.getWidth(), m.getW()));
-            size.setHeight(size.getHeight() + m.getH());
-          }
-          visibleChildren++;
-          currentMaxHeight -= m.getH();
-        }
-        if (c instanceof LayoutComponent) {
-          const priority = c.selfOrModifier(CollapsiblePriorityModifier);
-          if (priority) hasPriorities = true;
-        }
-      }
-      if (this.mChildrenComponents.length > 0 && size !== null) {
-        size.setHeight(size.getHeight() + this.spacedByPx(context, this.mSpacedBy) * (visibleChildren - 1));
-      }
-      let childrenWidth = 0;
-      let childrenHeight = 0;
-      let overflow = false;
-      let children = this.mChildrenComponents;
-      if (hasPriorities) {
-        children = CollapsiblePriority.sortWithPriorities(
-          this.mChildrenComponents,
-          CollapsiblePriority.VERTICAL
-        );
-      }
-      for (const child of children) {
-        const childMeasure = measure.get(child);
-        if (overflow || childMeasure.isGone()) {
-          childMeasure.addVisibilityOverride(Visibility.OVERRIDE_GONE);
-          continue;
-        }
-        const childHeight = childMeasure.getH();
-        if (childrenHeight + childHeight > maxHeight) {
-          childMeasure.addVisibilityOverride(Visibility.OVERRIDE_GONE);
-          overflow = true;
-        } else {
-          childMeasure.addVisibilityOverride(Visibility.OVERRIDE_VISIBLE);
-          childrenHeight += childHeight;
-          childrenWidth = Math.max(childrenWidth, childMeasure.getW());
-          visibleChildren++;
-        }
-      }
-      if (verticalWrap && size !== null) {
-        size.setHeight(Math.min(maxHeight, childrenHeight));
-      }
-      if (visibleChildren === 0 || size !== null && size.getHeight() <= 0) {
-        self.addVisibilityOverride(Visibility.OVERRIDE_GONE);
-      }
     }
     write(buffer) {
       buffer.start(_CollapsibleColumnLayout.OP_CODE);
@@ -25784,8 +27401,8 @@ ${inner}`;
       return `${indent}CollapsibleColumnLayout(${this.getComponentId()})`;
     }
     static read(buffer, operations) {
-      const componentId = buffer.readInt();
-      const animationId = buffer.readInt();
+      const componentId = buffer.declareId();
+      const animationId = buffer.declareId();
       const horizontalPositioning = buffer.readInt();
       const verticalPositioning = buffer.readInt();
       const spacedBy = buffer.readFloat();
@@ -25834,9 +27451,9 @@ ${inner}`;
       return `${indent}IdLookup(textId=${this.mTextId}, dataSetId=${this.mDataSetId}, index=${this.mOutIndex})`;
     }
     static read(buffer, operations) {
-      const textId = buffer.readInt();
-      const dataSetId = buffer.readInt();
-      const index = buffer.readInt();
+      const textId = buffer.readId();
+      const dataSetId = buffer.readId();
+      const index = buffer.readNanIdBits();
       operations.push(new _IdLookup(textId, dataSetId, index));
     }
   };
@@ -25886,9 +27503,9 @@ ${inner}`;
       return `${indent}UpdateDynamicFloatList(arrayId=${this.mArrayId}, index=${this.mIndexOut}, value=${this.mValueOut})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const index = buffer.readInt();
-      const value = buffer.readInt();
+      const id = buffer.readId();
+      const index = buffer.readNanIdBits();
+      const value = buffer.readNanIdBits();
       operations.push(new _UpdateDynamicFloatList(id, index, value));
     }
   };
@@ -25934,6 +27551,7 @@ ${inner}`;
     paintingComponent(paintContext) {
       paintContext.save();
       paintContext.translate(this.mX, this.mY);
+      this.paintModifiers(paintContext);
       const context = paintContext.getContext();
       const tx = this.mPaddingLeft;
       const ty = this.mPaddingTop;
@@ -25993,11 +27611,11 @@ ${inner}`;
       return `${indent}ImageLayout(${this.getComponentId()}, bitmap=${this.mBitmapId}, scale=${this.mScaleType})`;
     }
     static read(buffer, operations) {
-      const componentId = buffer.readInt();
-      const animationId = buffer.readInt();
-      const bitmapId = buffer.readInt();
+      const componentId = buffer.declareId();
+      const animationId = buffer.declareId();
+      const bitmapId = buffer.readId();
       const scaleType = buffer.readInt();
-      const alpha = buffer.readInt();
+      const alpha = buffer.readNanIdBits();
       operations.push(new _ImageLayout(componentId, animationId, bitmapId, scaleType, alpha));
     }
   };
@@ -26008,128 +27626,284 @@ ${inner}`;
   var _StateLayout = class _StateLayout extends LayoutManager {
     constructor(componentId, animationId, indexId) {
       super(componentId, animationId);
+      this.measuredLayoutIndex = 0;
       this.currentLayoutIndex = 0;
+      this.previousLayoutIndex = 0;
+      this.inTransition = false;
+      this.mIndexInitialized = false;
+      // For each animation id, its component in each state (StateLayout.statePaintedComponents).
+      this.statePaintedComponents = /* @__PURE__ */ new Map();
       this.mIndexId = indexId;
     }
     inflate() {
       super.inflate();
       this.hideLayoutsOtherThan(this.currentLayoutIndex);
     }
-    computeWrapSize(context, minWidth, maxWidth, minHeight, maxHeight, horizontalWrap, verticalWrap, measure, size) {
-      const layout = this.getLayout(this.currentLayoutIndex);
-      if (layout) {
-        layout.computeWrapSize(
-          context,
-          minWidth,
-          maxWidth,
-          minHeight,
-          maxHeight,
-          horizontalWrap,
-          verticalWrap,
-          measure,
-          size
-        );
+    collectAnimatedComponents(component, out) {
+      if (component.getAnimationId() !== -1) out.push(component);
+      if (component instanceof LayoutComponent) {
+        for (const child of component.mChildrenComponents) this.collectAnimatedComponents(child, out);
       }
     }
-    computeSize(context, minWidth, maxWidth, minHeight, maxHeight, measure) {
-      const layout = this.getLayout(this.currentLayoutIndex);
-      if (layout) {
-        layout.computeSize(context, minWidth, maxWidth, minHeight, maxHeight, measure);
-      }
+    getAnimatedComponentsIn(root) {
+      const list = [];
+      if (root) this.collectAnimatedComponents(root, list);
+      return list;
     }
-    internalLayoutMeasure(context, measure) {
-      const layout = this.getLayout(this.currentLayoutIndex);
-      if (layout) {
-        layout.internalLayoutMeasure(context, measure);
-      }
-    }
-    measure(context, minWidth, maxWidth, minHeight, maxHeight, measure) {
-      if (this.mIndexId !== 0) {
-        const newValue = context.getContext().mRemoteComposeState.getInteger(this.mIndexId);
-        if (newValue !== this.currentLayoutIndex) {
-          this.currentLayoutIndex = newValue;
-          this.hideLayoutsOtherThan(this.currentLayoutIndex);
+    /**
+     * Identify the animated components across states. (The reference then collapses the
+     * components of identical states into one, but only when Component.suitableForTransition
+     * holds, which the ComponentModifiers every layout component carries never are: it is
+     * never done.)
+     */
+    findAnimatedComponents() {
+      const n = this.mChildrenComponents.length;
+      for (let i = 0; i < n; i++) {
+        const state = this.mChildrenComponents[i];
+        if (!(state instanceof LayoutComponent)) continue;
+        state.setX(0);
+        state.setY(0);
+        for (const child of this.getAnimatedComponentsIn(state)) {
+          let list = this.statePaintedComponents.get(child.getAnimationId());
+          if (!list) {
+            list = new Array(n).fill(null);
+            this.statePaintedComponents.set(child.getAnimationId(), list);
+          }
+          list[i] = child;
         }
       }
+    }
+    /** The shared component for an animation id in a state, if any. */
+    getSharedComponent(animationId, stateIndex) {
+      const list = this.statePaintedComponents.get(animationId);
+      return list && stateIndex >= 0 && stateIndex < list.length ? list[stateIndex] : null;
+    }
+    computeWrapSize(context, minWidth, maxWidth, minHeight, maxHeight, horizontalWrap, verticalWrap, measure, size) {
+      this.getLayout(this.currentLayoutIndex)?.computeWrapSize(
+        context,
+        minWidth,
+        maxWidth,
+        minHeight,
+        maxHeight,
+        horizontalWrap,
+        verticalWrap,
+        measure,
+        size
+      );
+    }
+    computeSize(context, minWidth, maxWidth, minHeight, maxHeight, measure) {
+      this.getLayout(this.currentLayoutIndex)?.computeSize(
+        context,
+        minWidth,
+        maxWidth,
+        minHeight,
+        maxHeight,
+        measure
+      );
+    }
+    internalLayoutMeasure(context, measure) {
+      this.getLayout(this.currentLayoutIndex)?.internalLayoutMeasure(context, measure);
+    }
+    /**
+     * StateLayout.onClick: only the current state receives the tap. TS click coordinates are
+     * parent-relative (LayoutComponent.onClick hands its children x - mX - paddingLeft), so
+     * the bounds test is against our own box and the state gets our content coordinates.
+     * This used to call `contains(context, x, y)` — TS `contains` is `(x, y)` in window
+     * space, so the context landed in x, the test always failed and no state was tappable.
+     */
+    onClick(context, document2, x, y) {
+      if (x < this.mX || x > this.mX + this.mWidth || y < this.mY || y > this.mY + this.mHeight) return false;
       const layout = this.getLayout(this.currentLayoutIndex);
-      if (layout) {
-        layout.measure(context, minWidth, maxWidth, minHeight, maxHeight, measure);
-        const layoutM = measure.get(layout);
-        const selfM = measure.get(this);
-        selfM.copyFrom(layoutM);
-      } else {
-        super.measure(context, minWidth, maxWidth, minHeight, maxHeight, measure);
+      if (!layout || typeof layout.onClick !== "function") return false;
+      return layout.onClick(context, document2, x - this.mX - this.mPaddingLeft, y - this.mY - this.mPaddingTop);
+    }
+    /**
+     * StateLayout.measure: only the current state is measured, with the constraints the
+     * StateLayout was given (its own modifiers play no part in its size), and the StateLayout
+     * takes that state's measure.
+     */
+    measure(context, minWidth, maxWidth, minHeight, maxHeight, measure) {
+      if (!this.mIndexInitialized) {
+        this.mIndexInitialized = true;
+        if (this.mIndexId !== 0) {
+          const v = context.getContext().mRemoteComposeState.getInteger(this.mIndexId);
+          this.currentLayoutIndex = this.previousLayoutIndex = this.measuredLayoutIndex = v;
+          this.hideLayoutsOtherThan(v);
+        }
       }
+      if (this.statePaintedComponents.size === 0) this.findAnimatedComponents();
+      const layout = this.getLayout(this.currentLayoutIndex);
+      if (!layout) {
+        super.measure(context, minWidth, maxWidth, minHeight, maxHeight, measure);
+        return;
+      }
+      layout.setVisibility(Visibility.VISIBLE);
+      measure.get(layout).setVisibility(Visibility.VISIBLE);
+      layout.measure(context, minWidth, maxWidth, minHeight, maxHeight, measure);
+      if (this.inTransition && this.currentLayoutIndex !== this.previousLayoutIndex) {
+        const previousLayout = this.getLayout(this.previousLayoutIndex);
+        const previousAnimated = this.getAnimatedComponentsIn(previousLayout);
+        for (const c of this.getAnimatedComponentsIn(layout)) {
+          const id = c.getAnimationId();
+          if (!previousAnimated.some((pc) => pc.getAnimationId() === id)) continue;
+          const prev = this.statePaintedComponents.get(id)?.[this.previousLayoutIndex] ?? null;
+          if (prev && c !== prev) {
+            c.mFirstLayout = false;
+            c.setX(prev.getX());
+            c.setY(prev.getY());
+            c.setWidth(prev.getWidth());
+            c.setHeight(prev.getHeight());
+          }
+        }
+      }
+      for (const c of this.getAnimatedComponentsIn(layout)) {
+        const cm = measure.get(c);
+        cm.setVisibility(Visibility.VISIBLE);
+        c.setVisibility(Visibility.VISIBLE);
+        const m = measure.get(c.getAnimationId());
+        m.copyFrom(cm);
+        m.setVisibility(Visibility.VISIBLE);
+        for (const ac of this.statePaintedComponents.get(c.getAnimationId()) ?? []) {
+          if (!ac) continue;
+          const m2 = measure.get(ac.getComponentId());
+          if (c !== ac) m2.copyFrom(cm);
+          m2.setVisibility(Visibility.VISIBLE);
+          ac.setVisibility(Visibility.VISIBLE);
+          if (c !== ac) ac.measure(context, cm.getW(), cm.getW(), cm.getH(), cm.getH(), measure);
+        }
+      }
+      if (this.previousLayoutIndex !== this.currentLayoutIndex) {
+        const previousLayout = this.getLayout(this.previousLayoutIndex);
+        const currentIds = /* @__PURE__ */ new Set();
+        const walk = (c) => {
+          currentIds.add(c.getComponentId());
+          if (c instanceof LayoutComponent) c.mChildrenComponents.forEach(walk);
+        };
+        walk(layout);
+        for (const c of previousLayout?.mChildrenComponents ?? []) {
+          if (currentIds.has(c.getComponentId())) continue;
+          let inNewLayout = false;
+          if (c.getAnimationId() !== -1) {
+            const rc = this.statePaintedComponents.get(c.getAnimationId());
+            inNewLayout = !!rc && this.currentLayoutIndex < rc.length && rc[this.currentLayoutIndex] !== null;
+          }
+          if (!inNewLayout) {
+            const m = measure.get(c.getComponentId());
+            m.setX(c.getX());
+            m.setY(c.getY());
+            m.setW(c.getWidth());
+            m.setH(c.getHeight());
+            m.setVisibility(Visibility.GONE);
+          }
+        }
+      }
+      measure.get(this).copyFrom(measure.get(layout));
+      this.measuredLayoutIndex = this.currentLayoutIndex;
     }
     layout(context, measure) {
+      Component.prototype.layout.call(this, context, measure);
+      this.updateComponentValues(context, this.mWidth, this.mHeight);
       const self = measure.get(this);
-      this.mVisibility = self.getVisibility();
-      if (self.isGone()) return;
-      this.mX = self.getX();
-      this.mY = self.getY();
-      this.mWidth = self.getW();
-      this.mHeight = self.getH();
       this.layoutModifiers(self.getW(), self.getH());
-      this.mNeedsMeasure = false;
       const layout = this.getLayout(this.currentLayoutIndex);
       if (layout) {
-        const layoutMeasure = measure.get(layout);
+        const layoutMeasure = measure.get(layout.getComponentId());
         layoutMeasure.copyFrom(self);
+        layoutMeasure.setX(0);
+        layoutMeasure.setY(0);
         layout.layout(context, measure);
       }
+      if (this.inTransition && this.previousLayoutIndex !== this.currentLayoutIndex) {
+        const previous = this.getLayout(this.previousLayoutIndex);
+        for (const c of previous?.mChildrenComponents ?? []) {
+          let id = c.getComponentId();
+          if (c.getAnimationId() !== -1) {
+            id = c.getAnimationId();
+            for (const ac of this.statePaintedComponents.get(id) ?? []) {
+              if (ac) ac.layout(context, measure);
+            }
+          }
+          if (measure.contains(id)) c.layout(context, measure);
+        }
+      }
+      this.mNeedsMeasure = false;
+      this.mFirstLayout = false;
     }
     paint(paintContext) {
       if (this.mIndexId !== 0) {
         const newValue = paintContext.getContext().mRemoteComposeState.getInteger(this.mIndexId);
         if (newValue !== this.currentLayoutIndex) {
+          this.previousLayoutIndex = this.currentLayoutIndex;
           this.currentLayoutIndex = newValue;
-          this.hideLayoutsOtherThan(this.currentLayoutIndex);
+          this.inTransition = true;
           this.invalidateMeasure();
+          paintContext.needsRepaint();
         }
       }
       let index = 0;
       for (const pane of this.mChildrenComponents) {
         if (pane instanceof LayoutComponent) {
-          if (index === this.currentLayoutIndex) {
-            if (!pane.isVisible()) {
-              pane.mVisibility = Visibility.VISIBLE;
-            }
-          } else {
+          if (index !== this.currentLayoutIndex && index !== this.previousLayoutIndex) {
             pane.mVisibility = Visibility.GONE;
+          }
+          if (index === this.currentLayoutIndex && !pane.isVisible()) {
+            pane.mVisibility = Visibility.VISIBLE;
           }
           index++;
         }
       }
-      const layout = this.getLayout(this.currentLayoutIndex);
-      if (layout) {
-        paintContext.save();
-        paintContext.translate(layout.getX(), layout.getY());
-        const context = paintContext.getContext();
-        for (const op of layout.getList()) {
-          context.incrementOpCount(op);
-          if (op.isDirty() && typeof op.updateVariables === "function") {
-            op.markNotDirty();
-            op.updateVariables(context);
-          }
-          if (op instanceof Component) {
-            if (!Visibility.isGone(op.mVisibility)) {
-              op.paint(paintContext);
-            }
-          } else {
-            op.apply(context);
+      const currentLayout = this.getLayout(this.measuredLayoutIndex);
+      if (!currentLayout) return;
+      const needsToPaintTransition = this.inTransition && this.previousLayoutIndex !== this.measuredLayoutIndex;
+      paintContext.save();
+      paintContext.translate(this.mX, this.mY);
+      if (needsToPaintTransition) {
+        const previousLayout = this.getLayout(this.previousLayoutIndex);
+        if (previousLayout) {
+          const paintId = (c) => c.getAnimationId() !== -1 ? c.getAnimationId() : c.getComponentId();
+          const current = new Set(currentLayout.mChildrenComponents.map(paintId));
+          const leaving = previousLayout.mChildrenComponents.filter((c) => !current.has(paintId(c)));
+          if (leaving.length > 0) {
+            paintContext.save();
+            paintContext.translate(previousLayout.getX(), previousLayout.getY());
+            for (const c of leaving) c.paint(paintContext);
+            paintContext.restore();
           }
         }
-        paintContext.restore();
+      }
+      currentLayout.paint(paintContext);
+      paintContext.restore();
+      if (needsToPaintTransition) this.checkEndOfTransition(paintContext);
+    }
+    isLayoutAnimating(layout) {
+      if (!layout) return false;
+      if (layout.mAnimateMeasure !== null && !layout.mAnimateMeasure.isDone()) return true;
+      for (const c of layout.mChildrenComponents) {
+        if (c.mAnimateMeasure !== null && !c.mAnimateMeasure.isDone()) return true;
+        if (c instanceof LayoutManager && this.isLayoutAnimating(c)) return true;
+      }
+      return false;
+    }
+    /** At the end of the transition the previous state goes. */
+    checkEndOfTransition(paintContext) {
+      const currentLayout = this.getLayout(this.measuredLayoutIndex);
+      const previousLayout = this.getLayout(this.previousLayoutIndex);
+      if (this.inTransition && !this.isLayoutAnimating(currentLayout) && !this.isLayoutAnimating(previousLayout)) {
+        this.inTransition = false;
+        if (previousLayout && previousLayout !== currentLayout && !previousLayout.isGone()) {
+          previousLayout.mVisibility = Visibility.GONE;
+        }
+      } else if (this.inTransition) {
+        this.mNeedsRepaint = true;
+        paintContext?.needsRepaint();
       }
     }
-    /** Returns the idx-th LayoutComponent child */
+    /** Returns the idx-th LayoutComponent child (the first child when out of range). */
     getLayout(idx) {
       let index = 0;
       for (const pane of this.mChildrenComponents) {
         if (pane instanceof LayoutComponent) {
-          if (index === idx) {
-            return pane;
-          }
+          if (index === idx) return pane;
           index++;
         }
       }
@@ -26163,11 +27937,11 @@ ${inner}`;
       return `${indent}StateLayout(${this.getComponentId()}, index=${this.mIndexId})`;
     }
     static read(buffer, operations) {
-      const componentId = buffer.readInt();
-      const animationId = buffer.readInt();
+      const componentId = buffer.declareId();
+      const animationId = buffer.declareId();
       buffer.readInt();
       buffer.readInt();
-      const indexId = buffer.readInt();
+      const indexId = buffer.readId();
       operations.push(new _StateLayout(componentId, animationId, indexId));
     }
   };
@@ -26189,7 +27963,7 @@ ${inner}`;
       return `${indent}HostActionOperation(${this.mActionId})`;
     }
     static read(buffer, operations) {
-      operations.push(new _HostActionOperation(buffer.readInt()));
+      operations.push(new _HostActionOperation(buffer.readId()));
     }
   };
   _HostActionOperation.OP_CODE = 209;
@@ -26226,9 +28000,9 @@ ${inner}`;
       return `${indent}HostNamedActionOperation(text=${this.mTextId}, type=${this.mType}, value=${this.mValueId})`;
     }
     static read(buffer, operations) {
-      const textId = buffer.readInt();
+      const textId = buffer.readId();
       const type = buffer.readInt();
-      const valueId = buffer.readInt();
+      const valueId = buffer.readId();
       operations.push(new _HostNamedActionOperation(textId, type, valueId));
     }
   };
@@ -26253,7 +28027,7 @@ ${inner}`;
       return `${indent}ValueIntegerChangeAction(${this.mTargetValueId}, ${this.mValue})`;
     }
     static read(buffer, operations) {
-      const valueId = buffer.readInt();
+      const valueId = buffer.readId();
       const value = buffer.readInt();
       operations.push(new _ValueIntegerChangeAction(valueId, value));
     }
@@ -26275,8 +28049,8 @@ ${inner}`;
       return `${indent}ValueStringChangeAction(${this.mTargetValueId}, ${this.mValueId})`;
     }
     static read(buffer, operations) {
-      const valueId = buffer.readInt();
-      const stringId = buffer.readInt();
+      const valueId = buffer.readId();
+      const stringId = buffer.readId();
       operations.push(new _ValueStringChangeAction(valueId, stringId));
     }
   };
@@ -26290,28 +28064,32 @@ ${inner}`;
     }
     write(_buffer) {
     }
+    /**
+     * ValueIntegerExpressionChangeActionOperation.runAction: evaluate the integer
+     * expression and write it into the target. Both ids arrive long-encoded (id + 2^32, see
+     * Utils.longIdFromNan); the reference casts the target with `(int)`, keeping the low 32
+     * bits, and looks the expression up by its long id, then by the decoded id.
+     */
     apply(context) {
       if (context.mMode === "DATA" /* DATA */) return;
-      context.getDocument()?.evaluateIntegerExpression(
-        this.mValueExpressionId,
-        this.mTargetValueId,
-        context
-      );
-    }
-    runAction(context, document2, _component, _x, _y) {
-      document2?.evaluateIntegerExpression(this.mValueExpressionId, this.mTargetValueId, context);
+      const document2 = context.getDocument();
+      if (!document2?.evaluateIntExpression) return;
+      document2.evaluateIntExpression(this.mValueExpressionId, toInt32(this.mTargetValueId), context);
     }
     deepToString(indent) {
       return `${indent}ValueIntegerExpressionChangeAction(${this.mTargetValueId}, ${this.mValueExpressionId})`;
     }
     static read(buffer, operations) {
-      const valueId = buffer.readLong();
-      const expressionId = buffer.readLong();
+      const valueId = buffer.readLongNanId();
+      const expressionId = buffer.readLongNanId();
       operations.push(new _ValueIntegerExpressionChangeAction(valueId, expressionId));
     }
   };
   _ValueIntegerExpressionChangeAction.OP_CODE = 218;
   var ValueIntegerExpressionChangeAction = _ValueIntegerExpressionChangeAction;
+  function toInt32(v) {
+    return Number(BigInt.asIntN(32, BigInt(Math.trunc(v))));
+  }
   var _ValueFloatChangeAction = class _ValueFloatChangeAction extends Operation {
     constructor(valueId, value) {
       super();
@@ -26327,8 +28105,8 @@ ${inner}`;
       return `${indent}ValueFloatChangeAction(${this.mTargetValueId}, ${this.mValue})`;
     }
     static read(buffer, operations) {
-      const valueId = buffer.readInt();
-      const value = buffer.readFloat();
+      const valueId = buffer.readId();
+      const value = intBitsToFloat2(buffer.readNanIdBits());
       operations.push(new _ValueFloatChangeAction(valueId, value));
     }
   };
@@ -26409,6 +28187,157 @@ ${inner}`;
       out.set(pcm, 44);
       return out;
     }
+    /**
+     * SoundExpression TYPE_SYNTH (11), an EXTENSION of the reference's tone: one note with an
+     * ADSR envelope, an exponential pitch glide, vibrato, a pulse width, a one-pole low-pass
+     * filter, frequency modulation (bells, chimes) and an echo. `p` holds params[1..], already
+     * resolved; a missing or non-finite value takes its default (SYNTH_DEFAULTS). Waveforms as
+     * the tone's, plus 4 = noise (a new random value each cycle of the frequency: white noise
+     * at 22050 Hz and above, pitched below), from a fixed LCG so every player writes the same
+     * samples. The volumes are a gain per channel (stereo when they differ) and the rate a
+     * speed (pitch and times together).
+     */
+    static synthesizeSynthWav(p, leftGain, rightGain, rate) {
+      const v = _ToneSynthesizer.synthParams(p);
+      const r = _ToneSynthesizer.validRate(rate);
+      const voice = _ToneSynthesizer.voiceSamples(v, v[0], v[1], r);
+      return _ToneSynthesizer.toWav(_ToneSynthesizer.echo(voice, v, r), leftGain, rightGain);
+    }
+    /**
+     * SoundExpression TYPE_SEQUENCE (12), an EXTENSION: notes played by one synth voice,
+     * mixed into one sound. `voice` is the synth's resolved params[1..]; `notes` holds
+     * (start s, frequency Hz, duration s, gain) groups. A frequency of 0 or less is a rest.
+     * Notes may overlap (a chord); the echo is the voice's, applied to the mix.
+     */
+    static synthesizeSequenceWav(voice, notes, leftGain, rightGain, rate) {
+      const v = _ToneSynthesizer.synthParams(voice);
+      const r = _ToneSynthesizer.validRate(rate);
+      const sr = _ToneSynthesizer.SAMPLE_RATE;
+      const parts = [];
+      let total = 1;
+      for (let k = 0; k + 3 < notes.length; k += 4) {
+        const start = Math.max(0, num(notes[k], 0)) / r, f = num(notes[k + 1], 0);
+        const dur = Math.max(0, num(notes[k + 2], 0)), gain = num(notes[k + 3], 1);
+        if (!(f > 0) || dur <= 0 || gain === 0) continue;
+        const at = Math.round(start * sr);
+        if (at >= _ToneSynthesizer.MAX_SAMPLES) continue;
+        const samples = _ToneSynthesizer.voiceSamples(v, f, dur, r);
+        parts.push([at, samples, gain]);
+        total = Math.max(total, at + samples.length);
+      }
+      const mix = new Float32Array(Math.min(total, _ToneSynthesizer.MAX_SAMPLES));
+      for (const [at, samples, gain] of parts) {
+        const n = Math.min(samples.length, mix.length - at);
+        for (let i = 0; i < n; i++) mix[at + i] += samples[i] * gain;
+      }
+      return _ToneSynthesizer.toWav(_ToneSynthesizer.echo(mix, v, r), leftGain, rightGain);
+    }
+    static synthParams(p) {
+      return _ToneSynthesizer.SYNTH_DEFAULTS.map((d, i) => num(i < p.length ? p[i] : NaN, d));
+    }
+    static validRate(rate) {
+      return rate > 0 && Number.isFinite(rate) ? rate : 1;
+    }
+    /** One note of the voice `v` at frequency `freq`, held `hold` seconds: mono, -1..1. */
+    static voiceSamples(v, freq, hold, rate) {
+      const sr = _ToneSynthesizer.SAMPLE_RATE;
+      const f0 = Math.max(0, freq) * rate, wave = Math.floor(v[2]);
+      const attack = Math.max(0, v[3]) / rate, decay = Math.max(0, v[4]) / rate;
+      const sustain = Math.min(1, Math.max(0, v[5])), release = Math.max(0, v[6]) / rate;
+      const held = Math.max(Math.max(0, hold) / rate, sustain === 0 ? attack + decay : 0);
+      const glide = v[7] > 0 && v[0] > 0 ? v[7] / v[0] : 1;
+      const vibRate = Math.max(0, v[8]) * rate, vibDepth = v[9];
+      const pw = Math.min(0.99, Math.max(0.01, v[10])), cutoff = Math.max(0, v[11]);
+      const fmRatio = Math.max(0, v[12]), fmIndex = v[13];
+      const total = Math.max(1, Math.min(_ToneSynthesizer.MAX_SAMPLES, Math.round((held + release) * sr)));
+      const out = new Float32Array(total);
+      const lp = cutoff > 0 ? 1 - Math.exp(-2 * Math.PI * cutoff / sr) : 1;
+      let phase = 0, mod = 0, seed = 22222, noise = 0, y = 0, releaseFrom = -1;
+      const level = (t) => {
+        if (t < attack) return t / attack;
+        if (t < attack + decay) return 1 - (1 - sustain) * (t - attack) / decay;
+        return sustain;
+      };
+      for (let i = 0; i < total; i++) {
+        const t = i / sr;
+        let env;
+        if (t < held) env = level(t);
+        else {
+          if (releaseFrom < 0) releaseFrom = level(held);
+          env = release > 0 ? releaseFrom * Math.max(0, 1 - (t - held) / release) : 0;
+        }
+        let f = glide !== 1 && held > 0 ? f0 * Math.pow(glide, Math.min(t, held) / held) : f0;
+        if (vibRate > 0 && vibDepth !== 0) f *= Math.pow(2, vibDepth / 12 * Math.sin(2 * Math.PI * vibRate * t));
+        const before = phase;
+        phase += f / sr;
+        let q = phase - Math.floor(phase);
+        if (fmRatio > 0 && fmIndex !== 0) {
+          mod += f * fmRatio / sr;
+          q += fmIndex * env * Math.sin(2 * Math.PI * (mod - Math.floor(mod))) / (2 * Math.PI);
+          q -= Math.floor(q);
+        }
+        let x;
+        switch (wave) {
+          case 1:
+            x = q < pw ? 1 : -1;
+            break;
+          // square / pulse
+          case 2:
+            x = 2 * q - 1;
+            break;
+          // sawtooth
+          case 3:
+            x = 1 - 4 * Math.abs(q - 0.5);
+            break;
+          // triangle
+          case 4:
+            if (i === 0 || f >= sr || Math.floor(phase) !== Math.floor(before)) {
+              seed = Math.imul(seed, 1103515245) + 12345 >>> 0;
+              noise = (seed >>> 8) / 8388608 - 1;
+            }
+            x = noise;
+            break;
+          default:
+            x = Math.sin(2 * Math.PI * q);
+            break;
+        }
+        y += lp * (x * env - y);
+        out[i] = y;
+      }
+      return out;
+    }
+    /** The voice's echo applied to `dry`: repeats every delay, each `feedback` quieter. */
+    static echo(dry, v, rate) {
+      const delay = Math.max(0, v[14]) / rate, feedback = Math.min(0.95, Math.max(0, v[15]));
+      const sr = _ToneSynthesizer.SAMPLE_RATE, d = Math.round(delay * sr);
+      if (d < 1 || feedback <= 0) return dry;
+      const repeats = Math.ceil(Math.log(0.01) / Math.log(feedback));
+      const out = new Float32Array(Math.min(_ToneSynthesizer.MAX_SAMPLES, dry.length + d * repeats));
+      for (let i = 0; i < out.length; i++) out[i] = (i < dry.length ? dry[i] : 0) + (i >= d ? out[i - d] * feedback : 0);
+      return out;
+    }
+    /** -1..1 samples as a 16-bit WAV, one gain per channel: stereo when they differ. */
+    static toWav(samples, leftGain, rightGain) {
+      const gl = Number.isFinite(leftGain) ? leftGain : 1, gr = Number.isFinite(rightGain) ? rightGain : 1;
+      const channels = gl === gr ? 1 : 2;
+      let peak = 0;
+      for (let i = 0; i < samples.length; i++) peak = Math.max(peak, Math.abs(samples[i]));
+      if (peak > 1) for (let i = 0; i < samples.length; i++) samples[i] /= peak;
+      const pcm = new Uint8Array(samples.length * 2 * channels);
+      const put = (i, x) => {
+        const s = Math.max(-32768, Math.min(32767, Math.round(x * 32767)));
+        pcm[i] = s & 255;
+        pcm[i + 1] = s >> 8 & 255;
+      };
+      for (let i = 0; i < samples.length; i++) {
+        if (channels === 1) put(2 * i, samples[i] * gl);
+        else {
+          put(4 * i, samples[i] * gl);
+          put(4 * i + 2, samples[i] * gr);
+        }
+      }
+      return _ToneSynthesizer.buildWav(pcm, _ToneSynthesizer.SAMPLE_RATE, 16, channels);
+    }
     /** Synthesize a complete WAV file for the given tone. */
     static synthesizeWav(frequency, durationSec, waveform) {
       return _ToneSynthesizer.buildWav(
@@ -26422,7 +28351,47 @@ ${inner}`;
     }
   };
   _ToneSynthesizer.SAMPLE_RATE = 22050;
+  /** TYPE_SYNTH defaults, by position after the type tag. */
+  _ToneSynthesizer.SYNTH_DEFAULTS = [
+    440,
+    // 1 frequency (Hz)
+    0.2,
+    // 2 duration (s): held, before the release
+    0,
+    // 3 waveform: 0 sine, 1 square, 2 sawtooth, 3 triangle, 4 noise
+    5e-3,
+    // 4 attack (s)
+    0,
+    // 5 decay (s)
+    1,
+    // 6 sustain level (0..1)
+    0.05,
+    // 7 release (s)
+    0,
+    // 8 frequencyEnd (Hz): glide to it over the duration; 0 = none
+    0,
+    // 9 vibrato rate (Hz)
+    0,
+    // 10 vibrato depth (semitones)
+    0.5,
+    // 11 pulse width (square, 0..1)
+    0,
+    // 12 low-pass cutoff (Hz): 0 = off
+    0,
+    // 13 FM ratio: modulator frequency / frequency; 0 = no FM
+    0,
+    // 14 FM index (radians of phase deviation), scaled by the envelope
+    0,
+    // 15 echo delay (s): 0 = no echo
+    0.4
+    // 16 echo feedback (0..0.95)
+  ];
+  /** The longest sound written: 30 seconds. */
+  _ToneSynthesizer.MAX_SAMPLES = _ToneSynthesizer.SAMPLE_RATE * 30;
   var ToneSynthesizer = _ToneSynthesizer;
+  function num(x, d) {
+    return Number.isFinite(x) ? x : d;
+  }
 
   // third_party/remote-compose-player/src/core/operations/SoundOperations.ts
   var _SoundData = class _SoundData extends Operation {
@@ -26440,51 +28409,108 @@ ${inner}`;
       return `${indent}SoundData(${this.mSoundId}, ${this.mData.length} bytes)`;
     }
     static read(buffer, operations) {
-      const soundId = buffer.readInt();
+      const soundId = buffer.readId();
       const data = buffer.readBuffer();
       operations.push(new _SoundData(soundId, data));
     }
   };
   _SoundData.OP_CODE = 169;
   var SoundData = _SoundData;
+  function isSoundVariable(bits) {
+    if (!isNaNBits(bits)) return false;
+    const id = idFromBits(bits);
+    return id !== 0 && (id > 40 || id < 10);
+  }
   var _SoundExpression = class _SoundExpression extends Operation {
     constructor(id, leftVolume, rightVolume, rate, params) {
       super();
+      /** The resolved inputs last synthesized, so an unchanged sound is not rebuilt. */
+      this.mLastKey = "";
+      this.mGain = [1, 1, 1];
+      // left, right, rate: resolved
+      /** Sequences played with this synth as their voice: rebuilt when it changes. */
+      this.mUsers = /* @__PURE__ */ new Set();
       this.mId = id;
       this.mLeftVolume = leftVolume;
       this.mRightVolume = rightVolume;
       this.mRate = rate;
       this.mParams = params;
+      this.mOut = new Float32Array(params.length);
+      for (let i = 0; i < params.length; i++) this.mOut[i] = intBitsToFloat2(params[i]);
     }
     write(_buffer) {
     }
+    registerListening(context) {
+      for (let i = 1; i < this.mParams.length; i++) {
+        if (isSoundVariable(this.mParams[i])) context.listensTo(idFromBits(this.mParams[i]), this);
+      }
+      for (const b of [this.mLeftVolume, this.mRightVolume, this.mRate]) {
+        if (isSoundVariable(b)) context.listensTo(idFromBits(b), this);
+      }
+    }
+    updateVariables(context) {
+      for (let i = 1; i < this.mParams.length; i++) {
+        const b = this.mParams[i];
+        this.mOut[i] = isSoundVariable(b) ? context.getFloat(idFromBits(b)) : intBitsToFloat2(b);
+      }
+      [this.mLeftVolume, this.mRightVolume, this.mRate].forEach((b, i) => {
+        this.mGain[i] = isSoundVariable(b) ? context.getFloat(idFromBits(b)) : intBitsToFloat2(b);
+      });
+    }
     apply(context) {
       if (this.mParams.length === 0) return;
-      const typeId = idFromNan(this.mParams[0]);
+      this.updateVariables(context);
+      const typeId = idFromBits(this.mParams[0]);
       if (typeId === _SoundExpression.TYPE_TONE && this.mParams.length >= 4) {
-        const wav = ToneSynthesizer.synthesizeWav(
-          this.mParams[1],
-          this.mParams[2],
-          this.mParams[3]
-        );
+        const key = `${this.mOut[1]}|${this.mOut[2]}|${this.mOut[3]}`;
+        if (key === this.mLastKey) return;
+        this.mLastKey = key;
+        const wav = ToneSynthesizer.synthesizeWav(this.mOut[1], this.mOut[2], this.mOut[3]);
         context.loadSound(this.mId, wav);
+      } else if (typeId === _SoundExpression.TYPE_SYNTH) {
+        context.putObject(this.mId, this);
+        const key = `${Array.from(this.mOut.subarray(1)).join("|")}|${this.mGain.join("|")}`;
+        if (key === this.mLastKey) return;
+        this.mLastKey = key;
+        context.loadSound(this.mId, ToneSynthesizer.synthesizeSynthWav(
+          this.mOut.subarray(1),
+          this.mGain[0],
+          this.mGain[1],
+          this.mGain[2]
+        ));
+        for (const user of this.mUsers) user.markDirty();
+      } else if (typeId === _SoundExpression.TYPE_SEQUENCE && this.mParams.length >= 2) {
+        const voice = context.getObject(Math.round(this.mOut[1]));
+        if (!(voice instanceof _SoundExpression) || idFromBits(voice.mParams[0]) !== _SoundExpression.TYPE_SYNTH) return;
+        voice.mUsers.add(this);
+        const voiceParams = voice.mOut.subarray(1);
+        const key = `${Array.from(voiceParams).join("|")}#${Array.from(this.mOut.subarray(2)).join("|")}|${this.mGain.join("|")}`;
+        if (key === this.mLastKey) return;
+        this.mLastKey = key;
+        context.loadSound(this.mId, ToneSynthesizer.synthesizeSequenceWav(
+          voiceParams,
+          this.mOut.subarray(2),
+          this.mGain[0],
+          this.mGain[1],
+          this.mGain[2]
+        ));
       }
     }
     deepToString(indent) {
       return `${indent}SoundExpression(${this.mId})`;
     }
     static read(buffer, operations) {
-      const id = buffer.readInt();
-      const leftVolume = buffer.readFloat();
-      const rightVolume = buffer.readFloat();
-      const rate = buffer.readFloat();
+      const id = buffer.readId();
+      const leftVolume = buffer.readInt();
+      const rightVolume = buffer.readInt();
+      const rate = buffer.readInt();
       const len = buffer.readInt();
       if (len > _SoundExpression.MAX_PARAMS) {
         throw new Error(`SoundExpression: too many params ${len} > ${_SoundExpression.MAX_PARAMS}`);
       }
-      const params = new Float32Array(len);
+      const params = new Int32Array(len);
       for (let i = 0; i < len; i++) {
-        params[i] = buffer.readFloat();
+        params[i] = buffer.readInt();
       }
       operations.push(new _SoundExpression(id, leftVolume, rightVolume, rate, params));
     }
@@ -26492,6 +28518,14 @@ ${inner}`;
   _SoundExpression.OP_CODE = 206;
   _SoundExpression.MAX_PARAMS = 64;
   _SoundExpression.TYPE_TONE = 10;
+  /** EXTENSION, not in the reference: an enveloped note (ToneSynthesizer.synthesizeSynthWav). */
+  _SoundExpression.TYPE_SYNTH = 11;
+  /**
+   * EXTENSION: notes played by a synth voice, mixed into one sound. params = [TYPE_SEQUENCE,
+   * voice id (a plain float: the id of a TYPE_SYNTH SoundExpression written earlier), then
+   * (start s, frequency Hz, duration s, gain) per note].
+   */
+  _SoundExpression.TYPE_SEQUENCE = 12;
   var SoundExpression = _SoundExpression;
   var _PlaySound = class _PlaySound extends Operation {
     constructor(soundExpressionId) {
@@ -26501,13 +28535,14 @@ ${inner}`;
     write(_buffer) {
     }
     apply(context) {
+      if (context.getMode() === "DATA" /* DATA */) return;
       context.playSound(this.mSoundExpressionId);
     }
     deepToString(indent) {
       return `${indent}PlaySound(${this.mSoundExpressionId})`;
     }
     static read(buffer, operations) {
-      operations.push(new _PlaySound(buffer.readInt()));
+      operations.push(new _PlaySound(buffer.readId()));
     }
   };
   _PlaySound.OP_CODE = 141;
@@ -26551,23 +28586,7 @@ ${inner}`;
       if (Visibility.isGone(this.mVisibility) && this.mAnimateMeasure === null) return;
       paintContext.matrixSave();
       paintContext.matrixTranslate(this.mX, this.mY);
-      let tx = 0;
-      let ty = 0;
-      for (const mod of this.mComponentModifiers) {
-        context.incrementOpCount(mod);
-        if (mod.isDirty() && typeof mod.updateVariables === "function") {
-          mod.markNotDirty();
-          mod.updateVariables(context);
-        }
-        if (mod instanceof PaddingModifier) {
-          paintContext.matrixTranslate(mod.mLeftValue, mod.mTopValue);
-          tx += mod.mLeftValue;
-          ty += mod.mTopValue;
-        } else {
-          mod.apply(context);
-        }
-      }
-      paintContext.matrixTranslate(-tx, -ty);
+      this.paintModifiers(paintContext);
       paintContext.matrixTranslate(this.mPaddingLeft, this.mPaddingTop);
       const config2 = this.mConfigId >= 0 ? context.getText(this.mConfigId) ?? "" : "";
       const w = this.mWidth - this.mPaddingLeft - this.mPaddingRight;
@@ -26601,9 +28620,9 @@ ${inner}`;
       return `${indent}Custom(${this.getComponentId()}, config=${this.mConfigId}, ${this.mProperties.length} props)`;
     }
     static read(buffer, operations) {
-      const componentId = buffer.declareId();
-      const animationId = buffer.declareId();
-      const configId = buffer.readInt();
+      const componentId = buffer.readInt();
+      const animationId = buffer.readInt();
+      const configId = buffer.readId();
       const propCount = buffer.readInt();
       const properties = [];
       for (let i = 0; i < propCount; i++) {
@@ -26667,7 +28686,7 @@ ${inner}`;
     }
     static read(buffer, operations) {
       buffer.readInt();
-      buffer.readInt();
+      buffer.readId();
       buffer.readFloat();
       buffer.readFloat();
       operations.push(new _ComponentStartStub());
@@ -26767,13 +28786,13 @@ ${inner}`;
       this.opName = "BitmapFontData";
     }
     static read(buffer, operations) {
-      buffer.readInt();
+      buffer.readId();
       const versionAndCount = buffer.readInt();
       const version = versionAndCount >>> 16;
       const numGlyphs = versionAndCount & 65535;
       for (let i = 0; i < numGlyphs; i++) {
         buffer.readUTF8();
-        buffer.readInt();
+        buffer.readId();
         buffer.readShort();
         buffer.readShort();
         buffer.readShort();
@@ -26800,7 +28819,7 @@ ${inner}`;
       this.opName = "FontData";
     }
     static read(buffer, operations) {
-      buffer.readInt();
+      buffer.readId();
       buffer.readInt();
       buffer.readBuffer();
       operations.push(new _FontDataStub());
@@ -26808,50 +28827,18 @@ ${inner}`;
   };
   _FontDataStub.OP_CODE = 189;
   var FontDataStub = _FontDataStub;
-  var _FloatFunctionCallStub = class _FloatFunctionCallStub extends UnsupportedOperation {
-    constructor() {
-      super(...arguments);
-      this.opName = "FloatFunctionCall";
-    }
-    static read(buffer, operations) {
-      buffer.readInt();
-      const argLen = buffer.readInt();
-      for (let i = 0; i < argLen; i++) {
-        buffer.readFloat();
-      }
-      operations.push(new _FloatFunctionCallStub());
-    }
-  };
-  _FloatFunctionCallStub.OP_CODE = 166;
-  var FloatFunctionCallStub = _FloatFunctionCallStub;
-  var _FloatFunctionDefineStub = class _FloatFunctionDefineStub extends UnsupportedOperation {
-    constructor() {
-      super(...arguments);
-      this.opName = "FloatFunctionDefine";
-    }
-    static read(buffer, operations) {
-      buffer.readInt();
-      const varLen = buffer.readInt();
-      for (let i = 0; i < varLen; i++) {
-        buffer.readInt();
-      }
-      operations.push(new _FloatFunctionDefineStub());
-    }
-  };
-  _FloatFunctionDefineStub.OP_CODE = 168;
-  var FloatFunctionDefineStub = _FloatFunctionDefineStub;
   var _DrawTextOnCircleStub = class _DrawTextOnCircleStub extends UnsupportedOperation {
     constructor() {
       super(...arguments);
       this.opName = "DrawTextOnCircle";
     }
     static read(buffer, operations) {
-      buffer.readInt();
-      buffer.readInt();
-      buffer.readInt();
-      buffer.readInt();
-      buffer.readInt();
-      buffer.readInt();
+      buffer.readId();
+      buffer.readNanIdBits();
+      buffer.readNanIdBits();
+      buffer.readNanIdBits();
+      buffer.readNanIdBits();
+      buffer.readNanIdBits();
       buffer.readByte();
       buffer.readByte();
       operations.push(new _DrawTextOnCircleStub());
@@ -26865,9 +28852,9 @@ ${inner}`;
       this.opName = "TextLookupInt";
     }
     static read(buffer, operations) {
-      buffer.readInt();
-      buffer.readInt();
-      buffer.readInt();
+      buffer.declareId();
+      buffer.readId();
+      buffer.readId();
       operations.push(new _TextLookupIntStub());
     }
   };
@@ -26879,12 +28866,12 @@ ${inner}`;
       this.opName = "ImageAttribute";
     }
     static read(buffer, operations) {
-      buffer.readInt();
-      buffer.readInt();
+      buffer.readId();
+      buffer.readId();
       buffer.readShort();
       const len = buffer.readShort();
       for (let i = 0; i < len; i++) {
-        buffer.readInt();
+        buffer.readId();
       }
       operations.push(new _ImageAttributeStub());
     }
@@ -26897,9 +28884,9 @@ ${inner}`;
       this.opName = "PathCombine";
     }
     static read(buffer, operations) {
-      buffer.readInt();
-      buffer.readInt();
-      buffer.readInt();
+      buffer.readId();
+      buffer.readId();
+      buffer.readId();
       buffer.readByte();
       operations.push(new _PathCombineStub());
     }
@@ -27100,8 +29087,8 @@ ${inner}`;
       m.set(BitmapTextMeasureStub.OP_CODE, BitmapTextMeasureStub.read);
       m.set(DrawBitmapTextAnchoredStub.OP_CODE, DrawBitmapTextAnchoredStub.read);
       m.set(BitmapFontDataStub.OP_CODE, BitmapFontDataStub.read);
-      m.set(FloatFunctionCallStub.OP_CODE, FloatFunctionCallStub.read);
-      m.set(FloatFunctionDefineStub.OP_CODE, FloatFunctionDefineStub.read);
+      m.set(FloatFunctionCall.OP_CODE, FloatFunctionCall.read);
+      m.set(FloatFunctionDefine.OP_CODE, FloatFunctionDefine.read);
       m.set(DrawTextOnCircleStub.OP_CODE, DrawTextOnCircleStub.read);
       m.set(PathCombineStub.OP_CODE, PathCombineStub.read);
       m.set(RemStub.OP_CODE, RemStub.read);
@@ -27140,21 +29127,11 @@ ${inner}`;
     readId() {
       return this.mContext.resolveId(this.mWrapped.readInt());
     }
-    readNanId() {
-      return this.mContext.resolveNanId(this.mWrapped.readFloat());
+    readNanIdBits() {
+      return this.mContext.resolveNanIdBits(this.mWrapped.readInt());
     }
     readLongNanId() {
       return this.mContext.resolveLongNanId(this.mWrapped.readLong());
-    }
-    // Bits-domain twin of readNanId: same remap, but the payload is rewritten in
-    // the raw float32 int bits, so the value never passes through a JS float.
-    // Mirrors RemapContext.resolveNanId, using the bits-typed helpers.
-    readNanIdBits() {
-      const bits = this.mWrapped.readInt();
-      if (!isNaNBits(bits)) return bits;
-      const id = idFromBits(bits);
-      const mapped = this.mContext.resolveId(id);
-      return mapped === id ? bits : mapped | 0 | -8388608;
     }
     // ---- Delegation ----
     getBuffer() {
@@ -27271,11 +29248,54 @@ ${inner}`;
   };
 
   // third_party/remote-compose-player/src/core/RemoteComposeBuffer.ts
+  var VARIABLE_PROVIDERS = /* @__PURE__ */ new Set([
+    45,
+    64,
+    80,
+    81,
+    101,
+    102,
+    123,
+    134,
+    135,
+    136,
+    138,
+    142,
+    144,
+    145,
+    146,
+    147,
+    150,
+    153,
+    156,
+    157,
+    158,
+    159,
+    161,
+    175,
+    180,
+    186,
+    187,
+    193,
+    196,
+    197,
+    242
+  ]);
   var RemoteComposeBuffer = class _RemoteComposeBuffer {
     constructor(buffer) {
       this.mBuffer = buffer;
     }
+    /**
+     * The document's bytes; a compressed one (Header.COMPRESS) is decompressed first, once, as
+     * androidx's RemoteComposeBuffer.inflateFromBuffer does, so everything after sees the
+     * uncompressed original.
+     */
     static fromArrayBuffer(data) {
+      const bytes = new Uint8Array(data);
+      if (isCompressed(bytes)) {
+        const plain = decompressDocument(bytes);
+        return new _RemoteComposeBuffer(WireBuffer.fromArrayBuffer(plain.buffer.slice(plain.byteOffset, plain.byteOffset + plain.byteLength)));
+      }
       return new _RemoteComposeBuffer(WireBuffer.fromArrayBuffer(data));
     }
     getBuffer() {
@@ -27301,12 +29321,18 @@ ${inner}`;
           return;
         }
         const before = operations.length;
+        const trace = [];
+        this.mBuffer.mIdTrace = trace;
         reader(buf, operations);
+        this.mBuffer.mIdTrace = null;
         const endOffset = this.mBuffer.getIndex();
         for (let i = before; i < operations.length; i++) {
           const span = operations[i];
           span._byteStart = startOffset;
           span._byteEnd = endOffset;
+          if (VARIABLE_PROVIDERS.has(opId) && trace.length) {
+            span._providerId = opId === 150 ? trace[trace.length - 1] : trace[0];
+          }
         }
       }
     }
@@ -27523,13 +29549,18 @@ ${inner}`;
       return remapped !== void 0 ? remapped : id;
     }
     /** Resolve a NaN-encoded float id. Non-NaN values pass through. */
-    resolveNanId(v) {
-      if (!Number.isNaN(v)) {
-        return v;
+    /**
+     * Remap a NaN-boxed id, in and out as RAW BITS. Was float-in/float-out, which lost the
+     * id on any engine that canonicalizes NaN (Safari) and silently disabled macro remapping
+     * for every float argument.
+     */
+    resolveNanIdBits(bits) {
+      if (!isNaNBits(bits)) {
+        return bits;
       }
-      const id = idFromNan(v);
+      const id = idFromBits(bits);
       const mapped = this.resolveId(id);
-      return mapped === id ? v : asNan(mapped);
+      return mapped === id ? bits : asNanBits(mapped);
     }
     /** Resolve a NaN-encoded long id (see Utils.longIdFromNan). */
     resolveLongNanId(v) {
@@ -27580,8 +29611,8 @@ ${inner}`;
     resolveId(id) {
       return id;
     }
-    resolveNanId(v) {
-      return v;
+    resolveNanIdBits(bits) {
+      return bits;
     }
     resolveLongNanId(v) {
       return v;
@@ -27668,6 +29699,9 @@ ${inner}`;
       this.mRemoteComposeState = new RemoteComposeState();
       this.mVersion = null;
       this.mWidth = 256;
+      // The header sizes the document once; after that the host's surface (context.mWidth /
+      // mHeight at every paint) is the size, and windowWidth()/windowHeight() follow it.
+      this.mHeaderSized = false;
       this.mHeight = 256;
       this.mAuthorWidth = null;
       this.mAuthorHeight = null;
@@ -27696,13 +29730,16 @@ ${inner}`;
       this.mTextData = /* @__PURE__ */ new Map();
       this.mReferencedOperations = /* @__PURE__ */ new Map();
       this.mArrays = /* @__PURE__ */ new Map();
+      /** Integer expressions by id. Mirrors `CoreDocument.mIntegerExpressions`. */
+      this.mIntegerExpressions = /* @__PURE__ */ new Map();
       /**
        * Float expressions by id, so an action can evaluate one on demand.
        * Mirrors `CoreDocument.mFloatExpressions` / `evaluateFloatExpression`.
        */
       this.mFloatExpressions = /* @__PURE__ */ new Map();
-      /** Integer expressions by id, for `ValueIntegerExpressionChangeAction`. */
-      this.mIntegerExpressions = /* @__PURE__ */ new Map();
+      /** Components with touch-up / cancel modifiers that took a touch down (U70 in C++). */
+      this.mModifierTouchTargets = /* @__PURE__ */ new Set();
+      this.mModifierRan = /* @__PURE__ */ new Set();
       this.mClock = clock;
       this.mTimeVariables = new TimeVariables(clock);
     }
@@ -27877,17 +29914,15 @@ ${inner}`;
       this.mBuffer = buffer;
       this.mOperations = [];
       buffer.inflateFromBuffer(this.mOperations);
-      let maxId = 42;
+      let maxId = 43;
       this.mTextData.clear();
       this.mReferencedOperations.clear();
       this.mProfileMask = 0;
       for (const op of this.mOperations) {
-        const vid = op.getId;
-        if (typeof vid === "function") {
-          const id = vid.call(op);
-          if (typeof id === "number" && id < 1073741824 && id > maxId) {
-            maxId = id;
-          }
+        const component = op.getComponentId;
+        const id = typeof component === "function" ? component.call(op) : op._providerId;
+        if (typeof id === "number" && id < 2097152 && id > maxId) {
+          maxId = id;
         }
         if (op instanceof Header) {
           this.mHeader = op;
@@ -27934,6 +29969,10 @@ ${inner}`;
       const nested = nestContainers(expanded);
       this.mOperations.length = 0;
       for (const op of nested) this.mOperations.push(op);
+      this.mFloatExpressions.clear();
+      this.indexFloatExpressions(this.mOperations);
+      this.mIntegerExpressions.clear();
+      this.indexIntegerExpressions(this.mOperations);
       this.mRootLayoutComponent = null;
       for (const op of this.mOperations) {
         if (op instanceof RootLayoutComponent) {
@@ -27992,17 +30031,33 @@ ${inner}`;
         operations.push(op);
       }
       this.mFloatExpressions.clear();
-      this.mIntegerExpressions.clear();
       this.indexFloatExpressions(operations);
+      this.mIntegerExpressions.clear();
+      this.indexIntegerExpressions(operations);
+    }
+    indexIntegerExpressions(operations) {
+      for (const op of operations) {
+        if (op.constructor?.OP_CODE === 144 && typeof op.getId === "function") {
+          this.mIntegerExpressions.set(op.getId(), op);
+        }
+        if (typeof op.getList === "function") {
+          this.indexIntegerExpressions(op.getList());
+        }
+      }
+    }
+    /**
+     * CoreDocument.evaluateIntExpression: the expression id may arrive long-encoded, so look it
+     * up as given, then decoded (id - 2^32), then by its low 32 bits.
+     */
+    evaluateIntExpression(expressionId, targetId, context) {
+      const expression = this.mIntegerExpressions.get(expressionId) ?? this.mIntegerExpressions.get(expressionId - 4294967296) ?? this.mIntegerExpressions.get(Number(BigInt.asUintN(32, BigInt(Math.trunc(expressionId)))));
+      if (expression) context.overrideInteger(targetId, expression.evaluateNow(context));
     }
     /** Collect every FloatExpression in the tree, including inside containers. */
     indexFloatExpressions(operations) {
       for (const op of operations) {
         if (op.constructor?.OP_CODE === 81 && typeof op.mId === "number") {
           this.mFloatExpressions.set(op.mId, op);
-        }
-        if (op.constructor?.OP_CODE === 144 && typeof op.mId === "number") {
-          this.mIntegerExpressions.set(op.mId, op);
         }
         if (typeof op.getList === "function") {
           this.indexFloatExpressions(op.getList());
@@ -28014,13 +30069,9 @@ ${inner}`;
       const expression = this.mFloatExpressions.get(expressionId);
       if (expression && typeof expression.evaluate === "function") {
         context.overrideFloat(targetId, expression.evaluate(context));
-      }
-    }
-    /** Evaluate integer `expressionId` and write the result into `targetId`. */
-    evaluateIntegerExpression(expressionId, targetId, context) {
-      const expression = this.mIntegerExpressions.get(expressionId);
-      if (expression && typeof expression.evaluateNow === "function") {
-        context.overrideInteger(targetId, expression.evaluateNow(context));
+      } else {
+        const v = context.getFloat(expressionId);
+        if (typeof v === "number" && !Number.isNaN(v)) context.overrideFloat(targetId, v);
       }
     }
     isContainer(op) {
@@ -28095,12 +30146,18 @@ ${inner}`;
         }
         op.markNotDirty();
         context.incrementOpCount(op);
+        if (_CoreDocument.isEventModifier(op)) {
+          continue;
+        }
         if (this.isContainer(op)) {
           this.applyOperations(context, op.getList());
         } else {
           op.apply(context);
         }
       }
+    }
+    static isEventModifier(op) {
+      return op instanceof ClickModifier || op instanceof MultiClickModifier || op instanceof TouchDownModifier || op instanceof TouchUpModifier || op instanceof TouchCancelModifier;
     }
     registerVariables(context, ops) {
       for (const op of ops) {
@@ -28173,6 +30230,11 @@ ${inner}`;
       this.seedPlatformTextSize(context);
       const pc = context.getPaintContext();
       if (pc) pc.save();
+      {
+        const st = context.mRemoteComposeState ?? this.mRemoteComposeState;
+        st?.setWindowWidth?.(context.mWidth);
+        st?.setWindowHeight?.(context.mHeight);
+      }
       if (this.mContentSizing === RootContentBehavior.SIZING_SCALE) {
         const scaleOutput = [1, 1];
         this.computeScale(context.mWidth, context.mHeight, scaleOutput);
@@ -28275,11 +30337,30 @@ ${inner}`;
     appliedTouchOperation(component) {
       this.mAppliedTouchOperations.add(component);
     }
+    modifierTouchTarget(component) {
+      this.mModifierTouchTargets.add(component);
+    }
+    touchModifierRan(component) {
+      this.mModifierRan.add(component);
+    }
+    runModifierTouchTargets(context, phase) {
+      let handled = false;
+      for (const c of this.mModifierTouchTargets) {
+        if (this.mModifierRan.has(c)) continue;
+        c.runOwnTouchModifiers?.(context, phase);
+        handled = true;
+      }
+      this.mModifierTouchTargets.clear();
+      this.mModifierRan.clear();
+      return handled;
+    }
     hasTouchListener() {
       if (this.mTouchListeners.size > 0) return true;
       return this.mRootLayoutComponent?.getHasTouchListeners() ?? false;
     }
     touchDown(context, x, y) {
+      this.mModifierTouchTargets.clear();
+      this.mModifierRan.clear();
       context.loadFloat(RemoteContext.ID_TOUCH_POS_X, x);
       context.loadFloat(RemoteContext.ID_TOUCH_POS_Y, y);
       for (const listener of this.mTouchListeners) {
@@ -28321,6 +30402,7 @@ ${inner}`;
             handled = true;
           }
         }
+        if (this.runModifierTouchTargets(context, "up")) handled = true;
         this.mAppliedTouchOperations.clear();
       }
       this.mNeedsRepaintFlag = 1;
@@ -28334,6 +30416,7 @@ ${inner}`;
             handled = true;
           }
         }
+        if (this.runModifierTouchTargets(context, "cancel")) handled = true;
         this.mAppliedTouchOperations.clear();
         this.mNeedsRepaintFlag = 1;
         return handled;
@@ -28762,6 +30845,11 @@ ${inner}`;
       this.audioContext = null;
       this.soundBytes = /* @__PURE__ */ new Map();
       this.soundBuffers = /* @__PURE__ */ new Map();
+      this.soundDecoding = /* @__PURE__ */ new Set();
+      // One voice per sound, as Android's SoundSupport: playing a sound that is still playing
+      // restarts it rather than layering a copy (a playSound in a canvas runs every frame its
+      // condition holds).
+      this.soundSources = /* @__PURE__ */ new Map();
       this.canvasPaintContext = paintContext;
       this.mPaintContext = paintContext;
     }
@@ -28785,6 +30873,10 @@ ${inner}`;
         }
       }
     }
+    /** The document's named variables: name -> {id, type} (NamedVariable's STRING_TYPE .. FLOAT_ARRAY_TYPE). */
+    getNamedVariables() {
+      return this.namedVariables;
+    }
     getVariableNameMap() {
       const map = /* @__PURE__ */ new Map();
       this.namedVariables.forEach(({ id }, name) => map.set(id, name));
@@ -28806,7 +30898,10 @@ ${inner}`;
     setNamedStringOverride(stringName, value) {
       this.namedStringOverrides.set(stringName, value);
       const v = this.namedVariables.get(stringName);
-      if (v) this.mRemoteComposeState.overrideData(v.id, value);
+      if (v) {
+        this.mRemoteComposeState.overrideData(v.id, value);
+        this.canvasPaintContext.loadText(v.id, value);
+      }
     }
     clearNamedStringOverride(stringName) {
       this.namedStringOverrides.delete(stringName);
@@ -28854,6 +30949,15 @@ ${inner}`;
       const v = this.namedVariables.get(dataName);
       if (v) this.mRemoteComposeState.clearDataOverride(v.id);
     }
+    /** A float array the document exports by name (DataListFloat), replaced by the host. */
+    setNamedFloatArrayOverride(name, values) {
+      const v = this.namedVariables.get(name);
+      if (v) this.mRemoteComposeState.overrideFloatArray(v.id, values);
+    }
+    clearNamedFloatArrayOverride(name) {
+      const v = this.namedVariables.get(name);
+      if (v) this.mRemoteComposeState.clearFloatArrayOverride(v.id);
+    }
     // --- Collections & DataMaps ---
     addCollection(id, collection) {
       this.mRemoteComposeState.addCollection(id, collection);
@@ -28893,6 +30997,7 @@ ${inner}`;
     }
     // --- Text ---
     loadText(id, text) {
+      if (this.mRemoteComposeState.isDataOverridden(id)) return;
       this.mRemoteComposeState.cacheDataWithId(id, text);
       this.canvasPaintContext.loadText(id, text);
     }
@@ -28952,6 +31057,8 @@ ${inner}`;
     }
     loadSound(id, data) {
       try {
+        const prior = this.soundBytes.get(id);
+        if (prior && prior.length === data.length && prior.every((v, i) => v === data[i])) return;
         this.soundBytes.set(id, data.slice());
         this.soundBuffers.delete(id);
       } catch (e) {
@@ -28966,26 +31073,46 @@ ${inner}`;
         });
         const cached = this.soundBuffers.get(id);
         if (cached) {
-          this.startBuffer(ctx, cached);
+          this.startBuffer(ctx, cached, id);
           return;
         }
         const bytes = this.soundBytes.get(id);
-        if (!bytes) return;
+        if (!bytes || this.soundDecoding.has(id)) return;
+        this.soundDecoding.add(id);
         const arrayBuf = bytes.slice().buffer;
         const decoded = ctx.decodeAudioData(arrayBuf);
         if (decoded && typeof decoded.then === "function") {
           decoded.then((buffer) => {
+            this.soundDecoding.delete(id);
+            if (this.soundBytes.get(id) !== bytes) return;
             this.soundBuffers.set(id, buffer);
-            this.startBuffer(ctx, buffer);
-          }).catch((e) => console.warn(`RemoteCompose: decode sound(${id}) failed`, e));
+            this.startBuffer(ctx, buffer, id);
+          }).catch((e) => {
+            this.soundDecoding.delete(id);
+            console.warn(`RemoteCompose: decode sound(${id}) failed`, e);
+          });
+        } else {
+          this.soundDecoding.delete(id);
         }
       } catch (e) {
+        this.soundDecoding.delete(id);
         console.warn(`RemoteCompose: playSound(${id}) failed`, e);
       }
     }
-    startBuffer(ctx, buffer) {
+    startBuffer(ctx, buffer, id) {
       try {
+        const previous = this.soundSources.get(id);
+        if (previous) {
+          try {
+            previous.stop();
+          } catch {
+          }
+        }
         const source = ctx.createBufferSource();
+        this.soundSources.set(id, source);
+        source.onended = () => {
+          if (this.soundSources.get(id) === source) this.soundSources.delete(id);
+        };
         source.buffer = buffer;
         const gain = ctx.createGain();
         gain.gain.value = 1;
@@ -29024,7 +31151,18 @@ ${inner}`;
       hasStep: false,
       step: 0,
       stepId: -1,
-      timeId: -1
+      timeId: -1,
+      prevStepId: -1,
+      prevTimeId: -1,
+      hasWindow: false,
+      from: 0,
+      to: -1,
+      speed: 1,
+      start: 0,
+      still: -1,
+      loop: true,
+      until: -1,
+      zooms: []
     };
     const colon = config2.indexOf(":");
     if (colon > 0 && /^[a-z]+$/.test(config2.slice(0, colon))) {
@@ -29043,6 +31181,7 @@ ${inner}`;
         const eq = tok.indexOf("=");
         if (eq < 0) {
           if (tok === "persist") out.persist = true;
+          else if (tok === "once") out.loop = false;
           else if (tok === "mirror") out.mirror = true;
           else if (tok) out.fit = tok;
           continue;
@@ -29057,7 +31196,25 @@ ${inner}`;
           out.persist = true;
         } else if (k === "stepid") out.stepId = parseInt(v, 10);
         else if (k === "timeid") out.timeId = parseInt(v, 10);
-        else if (k === "gate") out.gate = parseFloat(v) || 0;
+        else if (k === "prevstepid") out.prevStepId = parseInt(v, 10);
+        else if (k === "prevtimeid") out.prevTimeId = parseInt(v, 10);
+        else if (k === "from") {
+          out.hasWindow = true;
+          out.from = parseFloat(v) || 0;
+          out.persist = true;
+        } else if (k === "to") {
+          out.hasWindow = true;
+          out.to = parseFloat(v);
+          out.persist = true;
+        } else if (k === "speed") out.speed = parseFloat(v) || 1;
+        else if (k === "start") out.start = Math.max(0, parseFloat(v) || 0);
+        else if (k === "until") out.until = parseFloat(v);
+        else if (k === "loop") out.loop = !["0", "false", "off", "no", "once"].includes(v);
+        else if (k === "zooms") out.zooms = parseZooms(v);
+        else if (k === "still") {
+          const t = parseFloat(v);
+          out.still = isNaN(t) ? -1 : Math.max(0, t);
+        } else if (k === "gate") out.gate = parseFloat(v) || 0;
         else if (k === "crop") {
           const t = v.split(",").map(parseFloat);
           if (t.length === 4 && t.every((x) => !isNaN(x))) out.crop = [t[0], t[1], t[2], t[3]];
@@ -29074,12 +31231,50 @@ ${inner}`;
     const dw = cropW * s, dh = cropH * s;
     return { s, ox: (w - dw) * 0.5, oy: (h - dh) * 0.5 };
   }
+  var ZOOM_DUR = 0.55;
+  function parseZooms(v) {
+    const keys = [];
+    for (const k of v.split(";")) {
+      const at = k.indexOf("@");
+      if (at < 0) continue;
+      const [x, y, z] = k.slice(at + 1).split(",").map(parseFloat);
+      keys.push({
+        t: parseFloat(k.slice(0, at)) || 0,
+        x: isNaN(x) ? 0.5 : x,
+        y: isNaN(y) ? 0.5 : y,
+        z: Math.max(1, isNaN(z) ? 1 : z)
+      });
+    }
+    return keys.sort((a, b) => a.t - b.t);
+  }
+  function zoomCrop(keys, t, base) {
+    if (!keys.length) return base;
+    const ease = (u) => 1 - Math.pow(1 - Math.min(1, Math.max(0, u)), 4);
+    const mix = (a, b, e) => ({
+      x: a.x + (b.x - a.x) * e,
+      y: a.y + (b.y - a.y) * e,
+      lz: a.lz + (b.lz - a.lz) * e
+    });
+    let from = { x: 0.5, y: 0.5, lz: 0 }, to = from, t0 = -1e9;
+    for (const k of keys) {
+      if (k.t > t) break;
+      from = mix(from, to, ease((k.t - t0) / ZOOM_DUR));
+      to = { x: k.x, y: k.y, lz: Math.log(k.z) };
+      t0 = k.t;
+    }
+    const v = mix(from, to, ease((t - t0) / ZOOM_DUR));
+    const half = 0.5 / Math.exp(v.lz);
+    const cx = Math.min(1 - half, Math.max(half, v.x)), cy = Math.min(1 - half, Math.max(half, v.y));
+    const bw = base[2] - base[0], bh = base[3] - base[1];
+    return [base[0] + (cx - half) * bw, base[1] + (cy - half) * bh, base[0] + (cx + half) * bw, base[1] + (cy + half) * bh];
+  }
   var WebCustomHost = class {
     constructor(resolver) {
       this.inputs = null;
       this.docs = /* @__PURE__ */ new Map();
       this.videos = /* @__PURE__ */ new Map();
       this.camera = null;
+      this.take = null;
       this.defaultFit = "fit";
       // Something asked to be painted before it was ready; the page is told so it paints again.
       this.pending = 0;
@@ -29097,6 +31292,52 @@ ${inner}`;
     }
     setDefaultFit(fit) {
       this.defaultFit = fit;
+    }
+    // The camera take for the slide being shown, or null for none. A camera box then draws
+    // the recording instead of asking the viewer for their own camera. `framed` says the
+    // file has already been cut to the part of the frame the box shows and scaled to the
+    // size it shows it at — which is how the web export ships one — so the crop in the
+    // slide's config has been applied and must not be applied twice.
+    setCameraTake(src, framed = false) {
+      if (this.take && this.take.src === src) {
+        this.take.framed = framed;
+        return;
+      }
+      if (this.take) {
+        this.take.element.pause();
+        this.take.element.remove();
+        this.take = null;
+      }
+      if (!src || typeof document === "undefined") return;
+      const element = document.createElement("video");
+      element.src = src;
+      element.muted = true;
+      element.playsInline = true;
+      element.preload = "auto";
+      element.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none";
+      document.body.appendChild(element);
+      const take = { element, src, ready: false, framed };
+      element.addEventListener("loadeddata", () => {
+        take.ready = true;
+      });
+      this.take = take;
+    }
+    // Where the narration has got to, and whether it is running: the take follows it rather
+    // than its own clock, so the speaker's face and their voice stay together. Seeking every
+    // frame would stall the decoder, so it plays and is nudged back only when it drifts.
+    setCameraTakeTime(seconds, playing) {
+      const take = this.take;
+      if (!take || !take.ready) return;
+      const element = take.element;
+      if (playing && element.paused) element.play().catch(() => {
+      });
+      if (!playing && !element.paused) element.pause();
+      if (Math.abs(element.currentTime - seconds) > 0.25) {
+        try {
+          element.currentTime = seconds;
+        } catch {
+        }
+      }
     }
     // A new host document: embeds that do not persist go with the old one. The persistent
     // ones — a film running across slides — carry on, clock and all.
@@ -29158,7 +31399,10 @@ ${inner}`;
           ctx: null,
           paint: null,
           hostBase: 0,
-          hostLast: 0
+          hostLast: 0,
+          curStep: -1,
+          prevStep: -1,
+          prevTime: 0
         };
         this.docs.set(key, nested);
         this.load(nested, cfg.path, canvas);
@@ -29171,14 +31415,23 @@ ${inner}`;
       let docW = doc.getWidth(), docH = doc.getHeight();
       if (docW <= 0) docW = w;
       if (docH <= 0) docH = h;
-      const cropX = cfg.crop[0] * docW, cropY = cfg.crop[1] * docH;
-      let cropW = (cfg.crop[2] - cfg.crop[0]) * docW, cropH = (cfg.crop[3] - cfg.crop[1]) * docH;
+      const zc = zoomCrop(cfg.zooms, timeSec, cfg.crop);
+      if (cfg.zooms.length) pc.needsRepaint();
+      const cropX = zc[0] * docW, cropY = zc[1] * docH;
+      let cropW = (zc[2] - zc[0]) * docW, cropH = (zc[3] - zc[1]) * docH;
       if (cropW <= 0 || cropH <= 0) {
         cropW = docW;
         cropH = docH;
       }
       const { s, ox, oy } = fitInto(w, h, cropW, cropH, cfg.fit);
       let docTime = timeSec;
+      if (cfg.hasStep && cfg.step !== nested.curStep) {
+        if (nested.curStep >= 0) {
+          nested.prevStep = nested.curStep;
+          nested.prevTime = nested.hostLast;
+        }
+        nested.curStep = cfg.step;
+      }
       if (nested.persist) {
         if (timeSec + 1e-6 < nested.hostLast) nested.hostBase += nested.hostLast;
         nested.hostLast = timeSec;
@@ -29188,10 +31441,17 @@ ${inner}`;
       ctx.mWidth = docW;
       ctx.mHeight = docH;
       ctx.currentTime = Date.now();
+      if (cfg.hasWindow) {
+        let t = timeSec * cfg.speed;
+        if (cfg.to > cfg.from) t = Math.min(t, cfg.to - cfg.from);
+        docTime = cfg.from + Math.max(t, 0);
+      }
       ctx.overrideFloat(RemoteContext.ID_ANIMATION_TIME, docTime);
       ctx.setAnimationTime(docTime);
       if (cfg.hasStep && cfg.stepId >= 0) ctx.overrideFloat(cfg.stepId, cfg.step);
       if (cfg.timeId >= 0) ctx.overrideFloat(cfg.timeId, timeSec);
+      if (cfg.prevStepId >= 0) ctx.overrideFloat(cfg.prevStepId, nested.prevStep);
+      if (cfg.prevTimeId >= 0) ctx.overrideFloat(cfg.prevTimeId, nested.prevTime);
       host.matrixSave();
       host.clipRect(0, 0, w, h);
       canvas.translate(ox, oy);
@@ -29246,29 +31506,57 @@ ${inner}`;
       const host = pc;
       if (typeof host.getCanvas !== "function" || typeof document === "undefined") return false;
       const canvas = host.getCanvas();
-      let video = this.videos.get(cfg.path);
+      const still = cfg.still >= 0;
+      const stretch = cfg.until > cfg.start;
+      const key = still ? cfg.path + "@" + cfg.still : cfg.path + "#" + cfg.start + (stretch ? "-" + cfg.until : "");
+      let video = this.videos.get(key);
       if (!video) {
         const element = document.createElement("video");
         element.src = cfg.path;
         element.muted = true;
-        element.loop = true;
+        element.loop = !still && !stretch && cfg.loop && cfg.start <= 0;
         element.playsInline = true;
         element.preload = "auto";
-        video = { element, ready: false };
-        element.addEventListener("loadeddata", () => {
-          video.ready = true;
-        });
-        element.play().catch(() => {
-        });
-        this.videos.set(cfg.path, video);
+        const v = { element, ready: false };
+        video = v;
+        const at = still ? cfg.still : cfg.start;
+        if (at > 0) {
+          element.addEventListener("loadedmetadata", () => {
+            element.currentTime = at;
+          }, { once: true });
+          element.addEventListener("seeked", () => {
+            v.ready = true;
+          }, { once: true });
+        } else {
+          element.addEventListener("loadeddata", () => {
+            v.ready = true;
+          });
+        }
+        if (!still) {
+          if (cfg.loop && !stretch && cfg.start > 0) element.addEventListener("ended", () => {
+            element.currentTime = cfg.start;
+            element.play().catch(() => {
+            });
+          });
+          element.play().catch(() => {
+          });
+        }
+        this.videos.set(key, video);
       }
-      pc.needsRepaint();
       const vw = video.element.videoWidth, vh = video.element.videoHeight;
+      if (!still || !video.ready) pc.needsRepaint();
       if (!video.ready || vw <= 0 || vh <= 0) return true;
-      if (video.element.paused) video.element.play().catch(() => {
+      const held = stretch && video.element.currentTime >= cfg.until;
+      if (held && !video.element.paused) {
+        video.element.pause();
+        video.element.currentTime = cfg.until;
+      }
+      if (!still && !held && video.element.paused && !video.element.ended) video.element.play().catch(() => {
       });
-      const cropX = cfg.crop[0] * vw, cropY = cfg.crop[1] * vh;
-      let cropW = (cfg.crop[2] - cfg.crop[0]) * vw, cropH = (cfg.crop[3] - cfg.crop[1]) * vh;
+      const zc = zoomCrop(cfg.zooms, still ? cfg.still : video.element.currentTime, cfg.crop);
+      if (cfg.zooms.length && !still) pc.needsRepaint();
+      const cropX = zc[0] * vw, cropY = zc[1] * vh;
+      let cropW = (zc[2] - zc[0]) * vw, cropH = (zc[3] - zc[1]) * vh;
       if (cropW <= 0 || cropH <= 0) {
         cropW = vw;
         cropH = vh;
@@ -29291,6 +31579,12 @@ ${inner}`;
       const host = pc;
       if (typeof host.getCanvas !== "function" || typeof document === "undefined") return false;
       const canvas = host.getCanvas();
+      if (this.take) {
+        const framed = this.take.framed ? { ...cfg, crop: [0, 0, 1, 1] } : cfg;
+        this.drawVideoInto(canvas, this.take.element, framed, w, h, this.take.ready);
+        pc.needsRepaint();
+        return true;
+      }
       if (!this.camera) {
         const element = document.createElement("video");
         element.muted = true;
@@ -29319,17 +31613,23 @@ ${inner}`;
         }
       }
       const feed = this.camera;
+      this.drawVideoInto(canvas, feed.element, cfg, w, h, feed.ready);
+      if (!feed.failed) pc.needsRepaint();
+      return true;
+    }
+    // One video element into a camera box: cropped, fitted, mirrored when asked, and a dark
+    // plate until there are frames — the same thing the desktop player draws.
+    drawVideoInto(canvas, element, cfg, w, h, ready) {
       canvas.save();
       canvas.beginPath();
       canvas.rect(0, 0, w, h);
       canvas.clip();
-      const vw = feed.element.videoWidth, vh = feed.element.videoHeight;
-      if (!feed.ready || vw <= 0 || vh <= 0) {
+      const vw = element.videoWidth, vh = element.videoHeight;
+      if (!ready || vw <= 0 || vh <= 0) {
         canvas.fillStyle = "#101318";
         canvas.fillRect(0, 0, w, h);
         canvas.restore();
-        if (!feed.failed) pc.needsRepaint();
-        return true;
+        return;
       }
       const cropX = cfg.crop[0] * vw, cropY = cfg.crop[1] * vh;
       let cropW = (cfg.crop[2] - cfg.crop[0]) * vw, cropH = (cfg.crop[3] - cfg.crop[1]) * vh;
@@ -29342,10 +31642,8 @@ ${inner}`;
         canvas.translate(w, 0);
         canvas.scale(-1, 1);
       }
-      canvas.drawImage(feed.element, cropX, cropY, cropW, cropH, ox, oy, cropW * s, cropH * s);
+      canvas.drawImage(element, cropX, cropY, cropW, cropH, ox, oy, cropW * s, cropH * s);
       canvas.restore();
-      pc.needsRepaint();
-      return true;
     }
     // ── Web pages ─────────────────────────────────────────────────────
     drawWebFrame(cfg, pc, w, h) {
@@ -29510,6 +31808,210 @@ ${inner}`;
     }
   };
   RcPlayerElement.observedAttributes = ["src", "data", "width", "height", "theme", "background"];
+
+  // third_party/remote-compose-player/src/core/ClockPin.ts
+  var PIN_EPOCH = new Date(2026, 0, 1, 0, 0, 0, 0).getTime();
+  function pinClock(player, seconds, elapsed = seconds) {
+    const doc = player && player.document;
+    const tv = doc && doc.mTimeVariables;
+    const millis = PIN_EPOCH + Math.round(seconds * 1e3);
+    let pinned = false;
+    const clocks = [
+      tv && tv.getClock && tv.getClock(),
+      doc && doc.getClock && doc.getClock(),
+      player && player.remoteContext && player.remoteContext.getClock && player.remoteContext.getClock()
+    ];
+    for (const c of clocks) {
+      if (!c) continue;
+      c.millis = () => millis;
+      c.snapshot = () => createSnapshot(millis);
+      pinned = true;
+    }
+    if (tv) tv.getElapsedSeconds = () => elapsed;
+    return pinned;
+  }
+
+  // third_party/remote-compose-player/src/web/HostApi.ts
+  var TYPES = ["string", "float", "color", "image", "int", "long", "float_array"];
+  var hex = (argb) => "#" + (argb >>> 0).toString(16).toUpperCase().padStart(8, "0");
+  function parseColor(v) {
+    if (typeof v === "number" && Number.isFinite(v)) return v | 0;
+    const m = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i.exec(String(v).trim());
+    if (!m) return null;
+    let n = parseInt(m[1], 16);
+    if (m[1].length === 6) n = 4278190080 + n;
+    return n | 0;
+  }
+  function floats(v) {
+    const xs = Array.isArray(v) ? v.map(Number) : String(v).split(/[\s,;[\]]+/).filter((t) => t !== "").map(Number);
+    return xs.length && xs.every(Number.isFinite) ? xs : null;
+  }
+  var TICK_MS = 50;
+  function createHostApi(player) {
+    const actions = [];
+    const changes = [];
+    const sticky = /* @__PURE__ */ new Map();
+    const last = /* @__PURE__ */ new Map();
+    let doc = null;
+    let disposed = false;
+    const ctx = () => player.getRemoteContext();
+    const named = () => ctx()?.getNamedVariables() ?? /* @__PURE__ */ new Map();
+    function read(name) {
+      const c = ctx();
+      const v = named().get(name);
+      if (!c || !v) return void 0;
+      switch (TYPES[v.type]) {
+        case "float":
+          return c.getFloat(v.id);
+        case "int":
+          return c.getInteger(v.id);
+        // LOCAL (rc-players): a named long is a LongConstant object, not an integer slot.
+        case "long":
+          return c.mRemoteComposeState.getObject(v.id)?.getValue?.() ?? 0;
+        case "color":
+          return hex(c.getColor(v.id));
+        case "string":
+          return c.getText(v.id) ?? "";
+        case "float_array": {
+          const s = c.mRemoteComposeState;
+          const a = s.getDynamicFloats(v.id) ?? s.getArray(v.id)?.getFloats?.();
+          return a ? Array.from(a) : [];
+        }
+        default:
+          return void 0;
+      }
+    }
+    function write(name, value) {
+      const c = ctx();
+      const v = named().get(name);
+      if (!c || !v) return false;
+      switch (TYPES[v.type]) {
+        case "float": {
+          const f = Number(value);
+          if (!Number.isFinite(f)) return false;
+          c.setNamedFloatOverride(name, f);
+          return true;
+        }
+        case "int": {
+          const n = Number(value);
+          if (!Number.isFinite(n)) return false;
+          c.setNamedIntegerOverride(name, Math.trunc(n));
+          return true;
+        }
+        // LOCAL (rc-players): a LongConstant is re-applied from the document every frame and has
+        // no override slot, so a long write cannot take effect; refuse it rather than claim it did.
+        case "long":
+          return false;
+        case "color": {
+          const col = parseColor(value);
+          if (col === null) return false;
+          c.setNamedColorOverride(name, col);
+          return true;
+        }
+        case "string":
+          c.setNamedStringOverride(name, String(value));
+          return true;
+        case "float_array": {
+          const xs = floats(value);
+          if (!xs) return false;
+          c.setNamedFloatArrayOverride(name, xs);
+          return true;
+        }
+        default:
+          return false;
+      }
+    }
+    function attach(d) {
+      doc = d;
+      d.addActionCallback({
+        onAction: (name, value) => {
+          if (disposed || doc !== d) return;
+          for (const l of actions.slice()) {
+            if (l.name === "*" || l.name === name) {
+              try {
+                l.handler(value, name);
+              } catch (e) {
+                console.error(e);
+              }
+            }
+          }
+        }
+      });
+      stickyApplied = false;
+      applySticky();
+    }
+    let stickyApplied = false;
+    function applySticky() {
+      if (stickyApplied || !doc || !named().size) return;
+      stickyApplied = true;
+      for (const [name, value] of sticky) write(name, value);
+      player.repaint?.();
+    }
+    function tick() {
+      if (disposed) return;
+      const d = player.getDocument();
+      if (d && d !== doc) attach(d);
+      applySticky();
+      if (!changes.length || !doc) return;
+      const watched = changes.some((l) => l.name === "*") ? [...named().keys()] : [...new Set(changes.map((l) => l.name))];
+      for (const name of watched) {
+        const value = read(name);
+        const key = JSON.stringify(value);
+        if (last.get(name) === key) continue;
+        const first = !last.has(name);
+        last.set(name, key);
+        if (first) continue;
+        for (const l of changes.slice()) {
+          if (l.name === "*" || l.name === name) {
+            try {
+              l.handler(value, name);
+            } catch (e) {
+              console.error(e);
+            }
+          }
+        }
+      }
+    }
+    const timer = setInterval(tick, TICK_MS);
+    tick();
+    const remover = (list, l) => () => {
+      const i = list.indexOf(l);
+      if (i >= 0) list.splice(i, 1);
+    };
+    return {
+      variables() {
+        const out = {};
+        for (const [name, v] of named()) out[name] = TYPES[v.type] ?? "string";
+        return out;
+      },
+      get: read,
+      set(name, value) {
+        const ok = write(name, value);
+        if (ok) {
+          sticky.set(name, value);
+          player.repaint?.();
+        }
+        return ok;
+      },
+      onAction(name, handler) {
+        const l = { name, handler };
+        actions.push(l);
+        return remover(actions, l);
+      },
+      onChange(name, handler) {
+        const l = { name, handler };
+        changes.push(l);
+        if (name !== "*" && !last.has(name)) last.set(name, JSON.stringify(read(name)));
+        return remover(changes, l);
+      },
+      dispose() {
+        disposed = true;
+        clearInterval(timer);
+        actions.length = 0;
+        changes.length = 0;
+      }
+    };
+  }
 
   // third_party/remote-compose-player/src/web/InputDocument.ts
   function inputDocument(fields, width = 360) {
@@ -29979,6 +32481,15 @@ ${inner}`;
     }
     inputCapabilities() {
       return { components: this.customHost.inputs ? [Input.TEXT, Input.CHOICE, Input.TOGGLE, Input.NUMBER, Input.RANGE] : [], editing: this.inputEditing };
+    }
+    // The camera take for the slide being shown (a recording of the speaker), and where its
+    // narration has got to. With a take set, a camera box draws it instead of asking the
+    // viewer for their own camera.
+    setCameraTake(src, framed = false) {
+      this.customHost.setCameraTake(src, framed);
+    }
+    setCameraTakeTime(seconds, playing) {
+      this.customHost.setCameraTakeTime(seconds, playing);
     }
     getCustomHost() {
       return this.customHost;

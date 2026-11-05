@@ -6547,32 +6547,87 @@ private fun DrawScope.measureTextOperation(
     rcTrace(RcTraceCategory.FRAME, "rc:measureText") {
       textMeasurer.measure(text, textStyle(paint))
     }
-  var left = 0f
-  var right = layout.size.width.toFloat()
-  var top = -layout.firstBaseline
-  var bottom = layout.size.height - layout.firstBaseline
-  if (text.isNotEmpty()) {
-    val boxes = text.indices.map(layout::getBoundingBox)
-    left = boxes.minOf { it.left }
-    right = boxes.maxOf { it.right }
-    top = boxes.minOf { it.top } - layout.firstBaseline
-    bottom = boxes.maxOf { it.bottom } - layout.firstBaseline
-  }
-  val flags = type ushr 8
-  if (flags and 0x04 != 0) {
-    left = 0f
-    right = layout.size.width.toFloat()
-  } else if (flags and 0x01 != 0) {
-    right = layout.size.width.toFloat() - left
-  }
-  if (flags and 0x02 != 0) {
-    top = -layout.firstBaseline
-    bottom = layout.size.height - layout.firstBaseline
-  }
+  val baseline = layout.firstBaseline
+  // Ink: the pixels the glyphs cover, as `Paint.getTextBounds` measures them. Empty for blank text.
+  val ink = baselineRelativeInk(rcTextInk(layout), baseline)
+  val lineTop = if (layout.lineCount > 0) layout.getLineTop(0) else 0f
+  val lineBottom =
+    if (layout.lineCount > 0) layout.getLineBottom(0) else layout.size.height.toFloat()
+  val (left, top, right, bottom) =
+    androidXTextBounds(
+      flags = type ushr 8,
+      inkLeft = ink.left,
+      inkTop = ink.top,
+      inkRight = ink.right,
+      inkBottom = ink.bottom,
+      advance = layout.multiParagraph.intrinsics.maxIntrinsicWidth,
+      ascent = lineTop - baseline,
+      descent = lineBottom - baseline,
+    )
   selectTextMeasurement(type, left, top, right, bottom, text.length, supportsLength)?.let { value ->
     state.setFloat(outId, value)
   }
 }
+
+/**
+ * [ink] in a layout's coordinates, moved to be relative to its [baseline]. No ink (blank text)
+ * stays the empty rectangle at the origin, as `Paint.getTextBounds` reports it, rather than one
+ * offset to the baseline.
+ */
+internal fun baselineRelativeInk(ink: Rect, baseline: Float): Rect =
+  if (ink == Rect.Zero) Rect.Zero else ink.translate(0f, -baseline)
+
+/**
+ * The bounds AndroidX's View player reports for a text run, from
+ * `AndroidPaintContext.getTextBounds` (and, since androidx `697c967d0d9`, the embedded player's
+ * `GraphPaintContext.getTextBounds`): `left, top, right, bottom` relative to the run's origin on
+ * its baseline.
+ *
+ * Without flags the box is the run's ink, rounded out to whole pixels as `Paint.getTextBounds`
+ * rounds its `Rect`. [TEXT_MEASURE_SPACES] measures horizontally from 0 to the advance width, so
+ * leading and trailing spaces count; [TEXT_MEASURE_MONOSPACE_WIDTH] keeps the ink's left edge but
+ * ends at the advance width less it; [TEXT_MEASURE_FONT_HEIGHT] takes the font's ascent and
+ * descent, rounded, rather than the ink's top and bottom.
+ */
+internal fun androidXTextBounds(
+  flags: Int,
+  inkLeft: Float,
+  inkTop: Float,
+  inkRight: Float,
+  inkBottom: Float,
+  advance: Float,
+  ascent: Float,
+  descent: Float,
+): List<Float> {
+  val left: Float
+  val right: Float
+  if (flags and TEXT_MEASURE_SPACES != 0) {
+    left = 0f
+    right = advance
+  } else {
+    left = floor(inkLeft)
+    right = if (flags and TEXT_MEASURE_MONOSPACE_WIDTH != 0) advance - left else ceil(inkRight)
+  }
+  val top: Float
+  val bottom: Float
+  if (flags and TEXT_MEASURE_FONT_HEIGHT != 0) {
+    top = ascent.roundToInt().toFloat()
+    bottom = descent.roundToInt().toFloat()
+  } else {
+    top = floor(inkTop)
+    bottom = ceil(inkBottom)
+  }
+  return listOf(left, top, right, bottom)
+}
+
+/** `PaintContext.TEXT_MEASURE_MONOSPACE_WIDTH`. */
+internal const val TEXT_MEASURE_MONOSPACE_WIDTH: Int = 0x01
+
+/** `PaintContext.TEXT_MEASURE_FONT_HEIGHT`. */
+internal const val TEXT_MEASURE_FONT_HEIGHT: Int = 0x02
+
+/** `PaintContext.TEXT_MEASURE_SPACES`. */
+internal const val TEXT_MEASURE_SPACES: Int = 0x04
 
 /**
  * Selects the value written by AndroidX's text measurement operations.

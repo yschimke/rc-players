@@ -52,6 +52,11 @@ export class WebRemoteContext extends RemoteContext {
         }
     }
 
+    /** The document's named variables: name -> {id, type} (NamedVariable's STRING_TYPE .. FLOAT_ARRAY_TYPE). */
+    getNamedVariables(): Map<string, { id: number; type: number }> {
+        return this.namedVariables;
+    }
+
     getVariableNameMap(): Map<number, string> {
         const map = new Map<number, string>();
         this.namedVariables.forEach(({ id }, name) => map.set(id, name));
@@ -77,7 +82,12 @@ export class WebRemoteContext extends RemoteContext {
     setNamedStringOverride(stringName: string, value: string): void {
         this.namedStringOverrides.set(stringName, value);
         const v = this.namedVariables.get(stringName);
-        if (v) this.mRemoteComposeState.overrideData(v.id, value);
+        if (v) {
+            this.mRemoteComposeState.overrideData(v.id, value);
+            // Text is drawn from the paint context's cache, not the state's data map: without
+            // this the override was stored and never shown.
+            this.canvasPaintContext.loadText(v.id, value);
+        }
     }
 
     clearNamedStringOverride(stringName: string): void {
@@ -140,6 +150,17 @@ export class WebRemoteContext extends RemoteContext {
         if (v) this.mRemoteComposeState.clearDataOverride(v.id);
     }
 
+    /** A float array the document exports by name (DataListFloat), replaced by the host. */
+    setNamedFloatArrayOverride(name: string, values: ArrayLike<number>): void {
+        const v = this.namedVariables.get(name);
+        if (v) this.mRemoteComposeState.overrideFloatArray(v.id, values);
+    }
+
+    clearNamedFloatArrayOverride(name: string): void {
+        const v = this.namedVariables.get(name);
+        if (v) this.mRemoteComposeState.clearFloatArrayOverride(v.id);
+    }
+
     // --- Collections & DataMaps ---
 
     addCollection(id: number, collection: any): void {
@@ -186,6 +207,9 @@ export class WebRemoteContext extends RemoteContext {
     // --- Text ---
 
     loadText(id: number, text: string): void {
+        // A host-set string wins over the document's own DATA_TEXT, which the data pass
+        // reloads every frame — as RemoteComposeState.updateData does for other data.
+        if (this.mRemoteComposeState.isDataOverridden(id)) return;
         this.mRemoteComposeState.cacheDataWithId(id, text);
         this.canvasPaintContext.loadText(id, text);
     }
@@ -233,6 +257,7 @@ export class WebRemoteContext extends RemoteContext {
     private audioContext: AudioContext | null = null;
     private soundBytes = new Map<number, Uint8Array>();
     private soundBuffers = new Map<number, AudioBuffer>();
+    private soundDecoding = new Set<number>();
 
     private getAudioContext(): AudioContext | null {
         try {
@@ -255,6 +280,11 @@ export class WebRemoteContext extends RemoteContext {
         try {
             // Store the raw bytes; decode lazily on play. Keep a copy so the
             // backing buffer is stable for an eventual decodeAudioData call.
+            // LOCAL (rc-players): the document re-applies its sound data every frame. Unchanged
+            // bytes keep the decoded buffer and any decode in flight, or a looping document would
+            // drop each decode before it lands and never play.
+            const prior = this.soundBytes.get(id);
+            if (prior && prior.length === data.length && prior.every((v, i) => v === data[i])) return;
             this.soundBytes.set(id, data.slice());
             this.soundBuffers.delete(id);
         } catch (e) {
@@ -272,12 +302,13 @@ export class WebRemoteContext extends RemoteContext {
 
             const cached = this.soundBuffers.get(id);
             if (cached) {
-                this.startBuffer(ctx, cached);
+                this.startBuffer(ctx, cached, id);
                 return;
             }
 
             const bytes = this.soundBytes.get(id);
-            if (!bytes) return;
+            if (!bytes || this.soundDecoding.has(id)) return;
+            this.soundDecoding.add(id);
 
             // decodeAudioData needs an ArrayBuffer copy of the bytes.
             const arrayBuf = bytes.slice().buffer;
@@ -285,19 +316,33 @@ export class WebRemoteContext extends RemoteContext {
             if (decoded && typeof (decoded as Promise<AudioBuffer>).then === 'function') {
                 (decoded as Promise<AudioBuffer>)
                     .then((buffer) => {
+                        this.soundDecoding.delete(id);
+                        if (this.soundBytes.get(id) !== bytes) return;   // replaced meanwhile
                         this.soundBuffers.set(id, buffer);
-                        this.startBuffer(ctx, buffer);
+                        this.startBuffer(ctx, buffer, id);
                     })
-                    .catch((e) => console.warn(`RemoteCompose: decode sound(${id}) failed`, e));
+                    .catch((e) => { this.soundDecoding.delete(id); console.warn(`RemoteCompose: decode sound(${id}) failed`, e); });
+            } else {
+                this.soundDecoding.delete(id);
             }
         } catch (e) {
+            this.soundDecoding.delete(id);
             console.warn(`RemoteCompose: playSound(${id}) failed`, e);
         }
     }
 
-    private startBuffer(ctx: AudioContext, buffer: AudioBuffer): void {
+    // One voice per sound, as Android's SoundSupport: playing a sound that is still playing
+    // restarts it rather than layering a copy (a playSound in a canvas runs every frame its
+    // condition holds).
+    private soundSources = new Map<number, AudioBufferSourceNode>();
+
+    private startBuffer(ctx: AudioContext, buffer: AudioBuffer, id: number): void {
         try {
+            const previous = this.soundSources.get(id);
+            if (previous) { try { previous.stop(); } catch { /* already ended */ } }
             const source = ctx.createBufferSource();
+            this.soundSources.set(id, source);
+            source.onended = () => { if (this.soundSources.get(id) === source) this.soundSources.delete(id); };
             source.buffer = buffer;
             const gain = ctx.createGain();
             gain.gain.value = 1;

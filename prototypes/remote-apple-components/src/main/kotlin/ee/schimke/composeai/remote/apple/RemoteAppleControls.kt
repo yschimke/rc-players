@@ -1,6 +1,6 @@
 package ee.schimke.composeai.remote.apple
 
-import androidx.compose.remote.creation.compose.action.Action
+import androidx.compose.remote.creation.compose.action.RemoteAction
 import androidx.compose.remote.creation.compose.action.valueChange
 import androidx.compose.remote.creation.compose.layout.RemoteAlignment
 import androidx.compose.remote.creation.compose.layout.RemoteBox
@@ -121,7 +121,7 @@ public fun RemoteAppleStepper(
 }
 
 @Composable
-private fun StepperButton(symbol: RemoteString, action: Action, enabled: RemoteBoolean) {
+private fun StepperButton(symbol: RemoteString, action: RemoteAction, enabled: RemoteBoolean) {
   val colors = RemoteAppleTheme.colors
   val typography = RemoteAppleTheme.typography
   RemoteBox(
@@ -194,7 +194,7 @@ public fun RemoteAppleBadgeRow(
 @Composable
 public fun RemoteAppleDisclosureRow(
   title: RemoteString,
-  action: Action,
+  action: RemoteAction,
   modifier: RemoteModifier = RemoteModifier,
   detail: RemoteString? = null,
 ) {

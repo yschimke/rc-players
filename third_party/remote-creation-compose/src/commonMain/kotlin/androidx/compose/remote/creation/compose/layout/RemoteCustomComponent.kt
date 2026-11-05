@@ -29,7 +29,6 @@ import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
 import androidx.compose.remote.creation.compose.state.RemoteInt
 import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.toArgb
 
 internal class RemoteCustomComponentNode : RemoteComposeNode() {
     var name: String = ""
@@ -186,7 +185,7 @@ internal class RemoteColorPropertyEntry(
             RemoteCustomPropertyData.int(
                 id,
                 RemoteCustomPropertyData.ColorProperty,
-                state.constantValue.toArgb(),
+                state.constantValue,
             )
         } else {
             RemoteCustomPropertyData.int(

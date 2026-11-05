@@ -1,6 +1,6 @@
 package ee.schimke.composeai.remote.apple
 
-import androidx.compose.remote.creation.compose.action.Action
+import androidx.compose.remote.creation.compose.action.RemoteAction
 import androidx.compose.remote.creation.compose.action.valueChange
 import androidx.compose.remote.creation.compose.layout.RemoteAlignment
 import androidx.compose.remote.creation.compose.layout.RemoteArrangement
@@ -45,7 +45,7 @@ public enum class RemoteAppleButtonStyle {
 
 @Composable
 public fun RemoteAppleButton(
-  action: Action,
+  action: RemoteAction,
   title: RemoteString,
   modifier: RemoteModifier = RemoteModifier,
   style: RemoteAppleButtonStyle = RemoteAppleButtonStyle.Bordered,

@@ -1,6 +1,6 @@
 package ee.schimke.composeai.rccreation.bridge
 
-import androidx.compose.remote.creation.compose.action.Action
+import androidx.compose.remote.creation.compose.action.RemoteAction
 import androidx.compose.remote.creation.compose.action.hostAction
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.remote.creation.compose.layout.RemoteCustomComponent
@@ -10,6 +10,7 @@ import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteState
 import androidx.compose.remote.creation.compose.state.RemoteString
+import androidx.compose.remote.creation.compose.state.createNamedRemoteColor
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
@@ -56,7 +57,7 @@ public interface RcHostBridge {
   @Composable public fun boolean(name: String, value: () -> Boolean): RemoteBoolean
 
   /** A host action. The document carries [name]; in live mode, [handler] runs when it fires. */
-  @Composable public fun action(name: String, handler: () -> Unit): Action
+  @Composable public fun action(name: String, handler: () -> Unit): RemoteAction
 
   /**
    * Host UI placed in the remote layout. Live mode draws [content] (ordinary Compose) in a custom
@@ -117,7 +118,8 @@ public object RcDocumentBridge : RcHostBridge {
   override fun boolean(name: String, value: () -> Boolean): RemoteBoolean =
     RemoteBoolean.createNamedRemoteBoolean(name, value())
 
-  @Composable override fun action(name: String, handler: () -> Unit): Action = hostAction(name.rs)
+  @Composable
+  override fun action(name: String, handler: () -> Unit): RemoteAction = hostAction(name.rs)
 
   @Composable
   @RemoteComposable

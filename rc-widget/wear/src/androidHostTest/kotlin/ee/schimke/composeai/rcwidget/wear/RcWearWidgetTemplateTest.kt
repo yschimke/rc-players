@@ -147,7 +147,7 @@ class RcWearWidgetTemplateTest {
 
   @Test
   fun aConfigurationRequestNamesItsWidget() {
-    val intent = Intent().putExtra(androidx.glance.wear.GlanceWearWidget.EXTRA_CONFIG_WIDGET_ID, 5)
+    val intent = Intent().putExtra(androidx.glance.wear.WearWidgetConfigExtras.EXTRA_CONFIG_WIDGET_ID, 5)
     assertEquals(5, RcWearWidgetConfiguration.requestOf(intent)?.instanceId)
     assertEquals(null, RcWearWidgetConfiguration.requestOf(Intent()))
   }

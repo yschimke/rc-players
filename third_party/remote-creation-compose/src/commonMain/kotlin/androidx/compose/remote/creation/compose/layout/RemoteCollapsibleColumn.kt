@@ -16,7 +16,7 @@
 
 package androidx.compose.remote.creation.compose.layout
 
-import androidx.compose.foundation.layout.LayoutScopeMarker
+import androidx.annotation.FloatRange
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.WriterOp
 import androidx.compose.remote.creation.compose.modifier.CollapsiblePriorityModifier
@@ -29,7 +29,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 
 /** Scope for the children of [RemoteCollapsibleColumn]. */
-@LayoutScopeMarker
+@RemoteLayoutScopeMarker
 @Immutable
 public class RemoteCollapsibleColumnScope {
     /**
@@ -45,8 +45,9 @@ public class RemoteCollapsibleColumnScope {
      *
      * @param weight The weight of the child.
      */
-    public fun RemoteModifier.weight(weight: Float): RemoteModifier =
-        then(HeightModifier(RemoteDimensionType.WEIGHT, RemoteFloat(weight)))
+    public fun RemoteModifier.weight(
+        @FloatRange(from = 0.0, fromInclusive = false) weight: Float
+    ): RemoteModifier = then(HeightModifier(RemoteDimensionType.WEIGHT, RemoteFloat(weight)))
 
     /**
      * Sets the collapsible priority of the child.
@@ -62,7 +63,7 @@ public class RemoteCollapsibleColumnScope {
         then(CollapsiblePriorityModifier(1, RemoteFloat(priority)))
 }
 
-internal class RemoteCollapsibleColumnNode : RemoteComposeNode() {
+internal class RemoteCollapsibleColumnNode : RemoteLayoutNode() {
     var verticalArrangement: RemoteArrangement.Vertical = RemoteArrangement.Top
     var horizontalAlignment: RemoteAlignment.Horizontal = RemoteAlignment.Start
 
@@ -111,7 +112,7 @@ public fun RemoteCollapsibleColumn(
     content: @Composable RemoteCollapsibleColumnScope.() -> Unit,
 ) {
     val scope = remember { RemoteCollapsibleColumnScope() }
-    RemoteComposeNode(
+    RemoteLayoutNode(
         factory = ::RemoteCollapsibleColumnNode,
         update = {
             set(modifier) { nodeModifier -> this.modifier = nodeModifier }

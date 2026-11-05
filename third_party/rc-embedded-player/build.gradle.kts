@@ -188,6 +188,9 @@ dependencies {
     api(libs.compose.remote.player.core)
     // `ExperimentalRemotePlayerApi` opt-in marker only.
     implementation(libs.compose.remote.player.compose)
+    // `SoundSupport`, the View player's audio engine, which `SoundFeature` plays document sounds
+    // through. Upstream's `remote-player-compose` depends on it the same way.
+    implementation(libs.compose.remote.player.view)
     // `LambdaAction` / `PendingIntentAction` (the click-action types `RcPlayer` dispatches) and
     // `CapturedDocument` (the `rememberRemoteDocument` capture result). The player *consumes* these
     // creation-side types even though it never authors a document itself.

@@ -22,7 +22,6 @@ import androidx.compose.remote.creation.compose.state.RemotePaint
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.graphics.shapes.RoundedPolygon
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public interface RecordingCanvas : RemoteStateScope {
@@ -68,15 +67,6 @@ public interface RecordingCanvas : RemoteStateScope {
     public fun flush()
 
     public fun setRemoteComposeCreationState(creationState: RemoteComposeCreationState)
-
-    public fun drawRoundedPolygon(roundedPolygon: RoundedPolygon, paint: RemotePaint?)
-
-    public fun drawRoundedPolygonMorph(
-        from: RoundedPolygon,
-        to: RoundedPolygon,
-        progress: RemoteFloat,
-        paint: RemotePaint?,
-    )
 
     public fun custom(
         config: String,

@@ -21,20 +21,22 @@ import androidx.compose.remote.creation.common.RemoteActionData
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 
 /** A RemoteCompose frontend model of Actions that can be converted to RemoteCompose operations. */
-public interface Action {
-    public companion object {
-        /** A placeholder empty action. */
-        @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val Empty: Action = combinedAction()
-    }
-}
-
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public abstract class RemoteAction : Action {
-    internal open fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> =
+public interface RemoteAction {
+    // The fork writes through the common `RemoteWriter`, so an action encodes to
+    // `RemoteActionData` rather than upstream's `toRemoteAction(): CreationAction`.
+    @Suppress("HiddenAbstractMethodInInterface")
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> =
         error(
             "Common action encoding is not implemented for ${this@RemoteAction::class.simpleName}"
         )
+
+    public companion object {
+        /** A placeholder empty action. */
+        @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+        public val Empty: RemoteAction = combinedAction()
+    }
 }
 
-internal fun RemoteStateScope.resolveAction(action: Action): List<RemoteActionData> =
-    if (action is RemoteAction) with(action) { toRemoteActionData() } else emptyList()
+internal fun RemoteStateScope.resolveAction(action: RemoteAction): List<RemoteActionData> =
+    with(action) { toRemoteActionData() }

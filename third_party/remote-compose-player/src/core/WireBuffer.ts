@@ -107,22 +107,22 @@ export class WireBuffer {
     // ---- ID-typed reads ----
     // Identity defaults: a plain WireBuffer treats these as ordinary reads.
     // LoomWireBuffer overrides them to apply RemapContext during macro expansion.
-    declareId(): number { return this.readInt(); }
-    readId(): number { return this.readInt(); }
-    readNanId(): number { return this.readFloat(); }
-    readLongNanId(): number { return this.readLong(); }
-
+    declareId(): number { const v = this.readInt(); if (this.mIdTrace) this.mIdTrace.push(v); return v; }
+    readId(): number { const v = this.readInt(); if (this.mIdTrace) this.mIdTrace.push(v); return v; }
+    /** When set, declareId/readId append what they read: see RemoteComposeBuffer's provider ids. */
+    mIdTrace: number[] | null = null;
     /**
-     * A NaN-boxed field read as raw float32 *integer bits* rather than a float.
+     * A word that may be a NaN-boxed variable id, returned as RAW INT32 BITS.
      *
-     * Same wire field as [readNanId], for callers that store the bits (the
-     * `isNaNBits`/`intBitsToFloat` representation `CoreText` uses) instead of a
-     * float. Reading the bits directly never routes the value through a JS
-     * number, so an engine that canonicalises NaN cannot drop the id payload —
-     * the same reason `isNaNBits` inspects wire bits rather than testing the
-     * float. `LoomWireBuffer` overrides this to remap the payload in place.
+     * Decode with `isNaNBits`/`idFromBits` and turn a literal into a number with
+     * `intBitsToFloat`. Do NOT call `readFloat()` for one of these and decode with
+     * `idFromNan`: see the warning on `readFloat` below.
+     *
+     * Was `readNanId(): return this.readFloat()` until 2026-10-05, which is why 3D, mesh2d,
+     * vector expressions and border modifiers all rendered blank in Safari.
      */
     readNanIdBits(): number { return this.readInt(); }
+    readLongNanId(): number { return this.readLong(); }
 
     readInt(): number {
         const v = this.mDataView.getInt32(this.mIndex, false);
@@ -138,8 +138,28 @@ export class WireBuffer {
         return hi * 0x100000000 + lo;
     }
 
+    /**
+     * Read a genuine float. **Unsafe for anything that may be a NaN-boxed id.**
+     *
+     * This used to carry the comment "DataView.getFloat32 preserves NaN bit patterns
+     * (critical for ID encoding)". That is not true, and the whole 3D surface was built on
+     * it. ECMAScript permits an implementation to canonicalize any NaN it produces, and
+     * JavaScriptCore does:
+     *
+     *     bits in     V8 (Chrome)   JSC (Safari)
+     *     0xff800005  0xffc00005    0x7fc00000     signaling, as asNan() writes it
+     *     0xffc00005  0xffc00005    0x7fc00000     quiet
+     *     0x7fc00005  0x7fc00005    0x7fc00000     quiet, positive
+     *
+     * V8 only sets the quiet bit, and the id mask is 0x3FFFFF, so the payload survives by
+     * luck. Safari replaces the value outright and the id reads back as 0 — `isVariable()`
+     * then returns false, the id is treated as a literal NaN, and whatever it fed (a vertex,
+     * a rotation angle, a border width) becomes NaN.
+     *
+     * Use `readNanIdBits()` and the `*Bits` helpers in operations/Utils for any field that
+     * can carry a variable. Only call this for a value the format guarantees is a literal.
+     */
     readFloat(): number {
-        // DataView.getFloat32 preserves NaN bit patterns (critical for ID encoding)
         const v = this.mDataView.getFloat32(this.mIndex, false);
         this.mIndex += 4;
         return v;

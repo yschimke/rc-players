@@ -15,6 +15,7 @@
  */
 
 @file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection")
+@file:OptIn(ExperimentalRemotePlayerApi::class)
 
 package ee.schimke.composeai.rcembedded.player.draw
 
@@ -65,36 +66,35 @@ import androidx.compose.remote.core.operations.MatrixSkew
 import androidx.compose.remote.core.operations.MatrixTranslate
 import androidx.compose.remote.core.operations.NamedVariable
 import androidx.compose.remote.core.operations.PaintData
-import androidx.compose.remote.core.operations.ParticlesCompare
-import androidx.compose.remote.core.operations.ParticlesCreate
-import androidx.compose.remote.core.operations.ParticlesLoop
 import androidx.compose.remote.core.operations.PathAppend
 import androidx.compose.remote.core.operations.PathCombine
 import androidx.compose.remote.core.operations.PathCreate
 import androidx.compose.remote.core.operations.PathData
 import androidx.compose.remote.core.operations.PathExpression
 import androidx.compose.remote.core.operations.PathTween
-import androidx.compose.remote.core.operations.PlaySound
 import androidx.compose.remote.core.operations.ShaderData
 import androidx.compose.remote.core.operations.TextAttribute
 import androidx.compose.remote.core.operations.TextMeasure
 import androidx.compose.remote.core.operations.TimeAttribute
 import androidx.compose.remote.core.operations.TouchExpression
 import androidx.compose.remote.core.operations.UpdateDynamicFloatList
+import androidx.compose.remote.core.operations.WakeIn
+import androidx.compose.remote.core.operations.layout.Component
 import androidx.compose.remote.core.operations.layout.ContainerEnd
 import androidx.compose.remote.core.operations.layout.ImpulseOperation
 import androidx.compose.remote.core.operations.layout.ImpulseProcess
 import androidx.compose.remote.core.operations.layout.LoopOperation
 import androidx.compose.remote.core.operations.layout.managers.CanvasLayout
+import androidx.compose.remote.core.operations.layout.modifiers.ComponentModifiers
 import androidx.compose.remote.core.operations.matrix.MatrixConstant
-import androidx.compose.remote.core.operations.matrix.MatrixExpression
-import androidx.compose.remote.core.operations.matrix.MatrixVectorMath
+import androidx.compose.remote.player.compose.ExperimentalRemotePlayerApi
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.util.fastForEach
 import androidx.tracing.trace
+import ee.schimke.composeai.rcembedded.player.RcFeatureDrawScope
+import ee.schimke.composeai.rcembedded.player.RcPlayerFeatureSet
 import ee.schimke.composeai.rcembedded.player.doc.GraphContext
 import ee.schimke.composeai.rcembedded.player.doc.SnapshotRemoteComposeState
 import ee.schimke.composeai.rcembedded.player.doc.applyTrackingPathChange
@@ -136,7 +136,7 @@ internal fun DrawScope.executeOperations(
     onDrawContent: () -> Unit = {},
     graph: GraphContext? = null,
     offscreenState: OffscreenDrawState = OffscreenDrawState(),
-    contentLayer: GraphicsLayer? = null,
+    contentLayer: LazyGraphicsLayer? = null,
     contentOrigin: Offset = Offset.Zero,
 ): Unit =
     trace("RcPlayer:executeOperations") {
@@ -152,6 +152,7 @@ internal fun DrawScope.executeOperations(
                 offscreenState = offscreenState,
                 contentLayer = contentLayer,
                 contentOrigin = contentOrigin,
+                features = graph?.features ?: RcPlayerFeatureSet.Empty,
             )
         }
     }
@@ -164,9 +165,10 @@ private fun DrawScope.executeOperationsInPass(
     onDrawContent: () -> Unit = {},
     graph: GraphContext? = null,
     offscreenState: OffscreenDrawState,
-    contentLayer: GraphicsLayer? = null,
+    contentLayer: LazyGraphicsLayer? = null,
     contentOrigin: Offset = Offset.Zero,
     loopScope: Long = 0L,
+    features: RcPlayerFeatureSet = RcPlayerFeatureSet.Empty,
 ) {
     // Reads route through the GraphContext when present: it resolves time ids from the Compose
     // frame clock and computed ids via per-pass DAG memoization over reactive leaf states, and a
@@ -186,6 +188,12 @@ private fun DrawScope.executeOperationsInPass(
             .also {
                 it.paintState = paintState
                 it.textMeasurer = textMeasurer
+            }
+    var featureScope: RcFeatureDrawScope? = null
+    fun featureScope(): RcFeatureDrawScope =
+        featureScope
+            ?: RcFeatureDrawScope(this, remoteContext, paintState, graph, ::evalPaintContext).also {
+                featureScope = it
             }
     var canvasLevel = 0
     val initialOffscreenDepth = offscreenState.depth
@@ -243,13 +251,13 @@ private fun DrawScope.executeOperationsInPass(
             }
             is TextMeasure -> {
                 graph?.textMeasurer = textMeasurer
-                graph?.setTextMeasurePaint(op.mId, paintState.copy())
+                graph?.setTextMeasurePaintSpec(op.mId, paintState.textMeasureSpec)
                 op.paint(evalPaintContext())
             }
             is TextAttribute -> {
                 // Text bounds depend on the paint at this point of the stream.
                 graph?.textMeasurer = textMeasurer
-                graph?.setTextMeasurePaint(op.mId, paintState.copy())
+                graph?.setTextMeasurePaintSpec(op.mId, paintState.textMeasureSpec)
                 op.paint(evalPaintContext())
             }
             is TimeAttribute,
@@ -266,18 +274,6 @@ private fun DrawScope.executeOperationsInPass(
                         ?.trustedContent == true
                 )
                 op.apply(remoteContext)
-            }
-            // Re-seeds on every paint, as in the View player; wrap it in an impulse to seed once.
-            is ParticlesCreate -> drawParticlesCreate(op, evalPaintContext(), graph)
-            is ParticlesLoop -> {
-                // Particle system: bridged to the core (View player) implementation. Needs the
-                // graph for seed state + frame-clock observation; without it skip.
-                if (graph != null) drawParticles(op, remoteContext, paintState, graph)
-            }
-            is ParticlesCompare -> {
-                // Particle interaction pass: bridged to the core implementation like
-                // ParticlesLoop.
-                if (graph != null) drawParticlesCompare(op, remoteContext, paintState, graph)
             }
             is ImpulseOperation -> {
                 // Impulse: the body only runs inside the [startAt, startAt + duration] window
@@ -335,6 +331,7 @@ private fun DrawScope.executeOperationsInPass(
                             contentLayer,
                             contentOrigin,
                             loopScope = loopScope,
+                            features = features,
                         )
                     } else if (process != null) {
                         executeOperationsInPass(
@@ -348,6 +345,7 @@ private fun DrawScope.executeOperationsInPass(
                             contentLayer,
                             contentOrigin,
                             loopScope = loopScope,
+                            features = features,
                         )
                     }
                 } else {
@@ -385,6 +383,7 @@ private fun DrawScope.executeOperationsInPass(
                         contentLayer,
                         contentOrigin,
                         loopScope = loopScope,
+                        features = features,
                     )
             }
             is LoopOperation -> {
@@ -425,6 +424,7 @@ private fun DrawScope.executeOperationsInPass(
                             contentOrigin,
                             // Iteration path for per-iteration impulse fire state.
                             loopScope = loopScope * LOOP_SCOPE_RADIX + guard + 1,
+                            features = features,
                         )
                         i += step
                         guard++
@@ -458,6 +458,7 @@ private fun DrawScope.executeOperationsInPass(
                         contentLayer,
                         contentOrigin,
                         loopScope = loopScope,
+                        features = features,
                     )
                 }
             }
@@ -511,22 +512,6 @@ private fun DrawScope.executeOperationsInPass(
                     op.apply(remoteContext)
                 }
             }
-            is MatrixExpression -> {
-                if (remoteContext.getObject(op.id) !== op) {
-                    remoteContext.putObject(op.id, op)
-                }
-                // Evaluate into op.mValues via `read`: GraphContext drops putObject and the
-                // nanoTime loadFloat notification so draw does not dirty SnapshotStateMaps.
-                op.apply(read)
-            }
-            is MatrixVectorMath -> {
-                val matrix = read.getObject(op.mMatrixId)
-                if (matrix is MatrixExpression) {
-                    matrix.updateVariables(read)
-                    matrix.apply(read)
-                }
-                op.apply(remoteContext)
-            }
             is ComponentValue -> {
                 val w = this.size.width
                 val h = this.size.height
@@ -539,10 +524,19 @@ private fun DrawScope.executeOperationsInPass(
             // RcPlayerHapticEffect). It fires each time the stream runs it, so documents gate it
             // with an impulse or conditional.
             is HapticFeedback -> op.apply(remoteContext)
-            // Played through the document's sound engine, if the host installed one. Like haptics,
-            // it plays each time the stream runs it, so documents gate it with an impulse.
-            // SoundExpression / SoundData are registered once at setup, not per draw.
-            is PlaySound -> op.apply(remoteContext)
+            // Layout is realised as Compose nodes and modifiers, not drawn by this pass.
+            is Component,
+            is ComponentModifiers -> Unit
+            // Repaint scheduling is read when the document is set up.
+            is WakeIn -> Unit
+            else ->
+                // Anything else may belong to an optional feature (see RcPlayerFeature). Any
+                // other paint op is a gap relative to the View player. Data and setup ops
+                // (headers, constants, text, bitmaps, themes) are applied when the document is
+                // set up or resolved through GraphContext.
+                if (!features.paint(op, featureScope()) && op is PaintOperation) {
+                    UnknownOperations.onUnknown(op)
+                }
         }
     }
     // If a DRAW_TO_BITMAP redirect was left active (document didn't reset with bitmapId 0), restore

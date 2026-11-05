@@ -21,13 +21,13 @@ package androidx.compose.remote.creation.compose.modifier
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.RemoteModifierOperation
-import androidx.compose.remote.creation.compose.action.Action
 import androidx.compose.remote.creation.compose.action.CombinedAction
+import androidx.compose.remote.creation.compose.action.RemoteAction
 import androidx.compose.remote.creation.compose.action.resolveAction
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 
 internal class ClickableModifier(
-    public val actions: List<Action>,
+    public val actions: List<RemoteAction>,
     public val clickType: Int = 0,
 ) : RemoteModifier.Element {
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
@@ -51,13 +51,13 @@ internal class ClickableModifier(
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteModifier.clickable(
-    action: Action,
+    action: RemoteAction,
     enabled: Boolean = true,
     role: RemoteRole,
 ): RemoteModifier = clickableImpl(action = action, enabled = enabled, role = role)
 
 internal fun RemoteModifier.clickableImpl(
-    action: Action,
+    action: RemoteAction,
     enabled: Boolean = true,
     role: RemoteRole? = RemoteRole.Button,
 ): RemoteModifier =

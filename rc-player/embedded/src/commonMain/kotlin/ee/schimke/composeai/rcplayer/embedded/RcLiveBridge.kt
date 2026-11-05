@@ -1,6 +1,6 @@
 package ee.schimke.composeai.rcplayer.embedded
 
-import androidx.compose.remote.creation.compose.action.Action
+import androidx.compose.remote.creation.compose.action.RemoteAction
 import androidx.compose.remote.creation.compose.action.hostAction
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
@@ -8,6 +8,7 @@ import androidx.compose.remote.creation.compose.state.RemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteString
+import androidx.compose.remote.creation.compose.state.createNamedRemoteColor
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -208,7 +209,7 @@ public class RcLiveBridge : RcHostBridge {
   }
 
   @Composable
-  override fun action(name: String, handler: () -> Unit): Action {
+  override fun action(name: String, handler: () -> Unit): RemoteAction {
     val latest = rememberUpdatedState(handler)
     Declare(handlers, name, remember { Handler { latest.value() } })
     return hostAction(name.rs)

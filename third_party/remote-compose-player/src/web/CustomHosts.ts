@@ -8,9 +8,12 @@
 //                         for a film that runs across many slides — persist, step, stepid,
 //                         timeid (see the comments on drawRc below).
 //   video:<path>#…       a video, played muted and looped, fitted into the box.
-//   camera:<device>#…    the viewer's camera (getUserMedia), filled into the box; `mirror=1`
-//                        flips it. The device is advisory here: the browser picks the
-//                        user-facing camera and asks the viewer once.
+//   camera:<device>#…    the speaker, in the box. On a page built from a recorded talk that
+//                        is the take recorded with the narration (setCameraTake), drawn in
+//                        step with the audio — the viewer is watching a talk, not being
+//                        asked for their own face. Without a take it falls back to the
+//                        viewer's camera (getUserMedia), which is what a live page wants.
+//                        `mirror=1` flips it; the device is advisory in a browser.
 //   web:<url>#…          a web page; there is no drawing a browser into a canvas, so it
 //                         becomes the same labelled frame the desktop player's exports show.
 //
@@ -42,6 +45,20 @@ interface EmbedConfig {
     step: number;
     stepId: number;
     timeId: number;
+    // the slide before this one: its step and how long it ran, for a film to carry on from it
+    prevStepId: number;
+    prevTimeId: number;
+    // video: where playback starts (and loops back to), or the one frame to show, frozen
+    start: number;
+    still: number;
+    loop: boolean;                                   // false: play through once, hold the last frame
+    until: number;                                   // > start: play [start, until] once, hold there
+    zooms: ZoomKey[];                                // zoom keyframes, see zoomCrop
+    // time windows: play [from, to] of the document's own timeline at `speed`, hold at `to`
+    hasWindow: boolean;
+    from: number;
+    to: number;
+    speed: number;
 }
 
 // "rc:media/film.rc#persist=1&step=0&stepid=42&timeid=43" and friends. A bare "#value" is
@@ -49,7 +66,8 @@ interface EmbedConfig {
 export function parseEmbedConfig(config: string, defaultFit = 'fit'): EmbedConfig {
     const out: EmbedConfig = {
         kind: '', path: config, fit: defaultFit, crop: [0, 0, 1, 1], mirror: false, gate: 0,
-        persist: false, hasStep: false, step: 0, stepId: -1, timeId: -1,
+        persist: false, hasStep: false, step: 0, stepId: -1, timeId: -1, prevStepId: -1, prevTimeId: -1,
+        hasWindow: false, from: 0, to: -1, speed: 1, start: 0, still: -1, loop: true, until: -1, zooms: [],
     };
     const colon = config.indexOf(':');
     if (colon > 0 && /^[a-z]+$/.test(config.slice(0, colon))) {
@@ -69,6 +87,7 @@ export function parseEmbedConfig(config: string, defaultFit = 'fit'): EmbedConfi
             const eq = tok.indexOf('=');
             if (eq < 0) {
                 if (tok === 'persist') out.persist = true;
+                else if (tok === 'once') out.loop = false;
                 else if (tok === 'mirror') out.mirror = true;
                 else if (tok) out.fit = tok;
                 continue;
@@ -80,6 +99,16 @@ export function parseEmbedConfig(config: string, defaultFit = 'fit'): EmbedConfi
             else if (k === 'step') { out.hasStep = true; out.step = parseFloat(v) || 0; out.persist = true; }
             else if (k === 'stepid') out.stepId = parseInt(v, 10);
             else if (k === 'timeid') out.timeId = parseInt(v, 10);
+            else if (k === 'prevstepid') out.prevStepId = parseInt(v, 10);
+            else if (k === 'prevtimeid') out.prevTimeId = parseInt(v, 10);
+            else if (k === 'from') { out.hasWindow = true; out.from = parseFloat(v) || 0; out.persist = true; }
+            else if (k === 'to') { out.hasWindow = true; out.to = parseFloat(v); out.persist = true; }
+            else if (k === 'speed') out.speed = parseFloat(v) || 1;
+            else if (k === 'start') out.start = Math.max(0, parseFloat(v) || 0);
+            else if (k === 'until') out.until = parseFloat(v);
+            else if (k === 'loop') out.loop = !['0', 'false', 'off', 'no', 'once'].includes(v);
+            else if (k === 'zooms') out.zooms = parseZooms(v);
+            else if (k === 'still') { const t = parseFloat(v); out.still = isNaN(t) ? -1 : Math.max(0, t); }
             else if (k === 'gate') out.gate = parseFloat(v) || 0;
             else if (k === 'crop') {
                 const t = v.split(',').map(parseFloat);
@@ -109,6 +138,49 @@ interface NestedDoc {
     paint: CanvasPaintContext | null;
     hostBase: number;        // persist: host seconds accumulated over earlier slides
     hostLast: number;        // persist: the host time last seen, to notice a new slide
+    curStep: number;         // the step it was last shown at
+    prevStep: number;        // ...and, once that changed, the step before and how long it ran
+    prevTime: number;
+}
+
+// Zoom keyframes on a video or a nested document: "T@x,y,z;…" — T seconds (of the clip for a
+// video, since the slide opened for a document), x,y the centre as fractions
+// of the (cropped) frame, z the zoom. Before the first key the whole frame shows; at each key the
+// view eases from where it is to the new centre and zoom over ZOOM_DUR seconds (quart ease-out,
+// zoom in log space); z = 1 zooms back out; the view never leaves the frame. The same as
+// rcplayer/VideoZoom.h, so the desktop and the web frame a clip alike.
+export interface ZoomKey { t: number; x: number; y: number; z: number; }
+const ZOOM_DUR = 0.55;
+
+export function parseZooms(v: string): ZoomKey[] {
+    const keys: ZoomKey[] = [];
+    for (const k of v.split(';')) {
+        const at = k.indexOf('@');
+        if (at < 0) continue;
+        const [x, y, z] = k.slice(at + 1).split(',').map(parseFloat);
+        keys.push({ t: parseFloat(k.slice(0, at)) || 0, x: isNaN(x) ? 0.5 : x, y: isNaN(y) ? 0.5 : y,
+                    z: Math.max(1, isNaN(z) ? 1 : z) });
+    }
+    return keys.sort((a, b) => a.t - b.t);
+}
+
+export function zoomCrop(keys: ZoomKey[], t: number, base: number[]): number[] {
+    if (!keys.length) return base;
+    const ease = (u: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, u)), 4);
+    type V = { x: number; y: number; lz: number };
+    const mix = (a: V, b: V, e: number): V => ({ x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e,
+                                                  lz: a.lz + (b.lz - a.lz) * e });
+    let from: V = { x: 0.5, y: 0.5, lz: 0 }, to = from, t0 = -1e9;
+    for (const k of keys) {
+        if (k.t > t) break;
+        from = mix(from, to, ease((k.t - t0) / ZOOM_DUR));
+        to = { x: k.x, y: k.y, lz: Math.log(k.z) }; t0 = k.t;
+    }
+    const v = mix(from, to, ease((t - t0) / ZOOM_DUR));
+    const half = 0.5 / Math.exp(v.lz);
+    const cx = Math.min(1 - half, Math.max(half, v.x)), cy = Math.min(1 - half, Math.max(half, v.y));
+    const bw = base[2] - base[0], bh = base[3] - base[1];
+    return [base[0] + (cx - half) * bw, base[1] + (cy - half) * bh, base[0] + (cx + half) * bw, base[1] + (cy + half) * bh];
 }
 
 interface VideoEmbed {
@@ -124,11 +196,20 @@ interface CameraFeed {
     stream: MediaStream | null;
 }
 
+// The take recorded with this slide's narration, played under it.
+interface CameraTake {
+    element: HTMLVideoElement;
+    src: string;
+    ready: boolean;
+    framed: boolean;     // already cut to what the box shows: do not cut it again
+}
+
 export class WebCustomHost implements CustomComponentHost {
     inputs: WebInputComponents | null = null;
     private docs = new Map<string, NestedDoc>();
     private videos = new Map<string, VideoEmbed>();
     private camera: CameraFeed | null = null;
+    private take: CameraTake | null = null;
     private resolver: EmbedResolver;
     private defaultFit = 'fit';
     // Something asked to be painted before it was ready; the page is told so it paints again.
@@ -147,6 +228,46 @@ export class WebCustomHost implements CustomComponentHost {
 
     setResolver(resolver: EmbedResolver): void { this.resolver = resolver; }
     setDefaultFit(fit: string): void { this.defaultFit = fit; }
+
+    // The camera take for the slide being shown, or null for none. A camera box then draws
+    // the recording instead of asking the viewer for their own camera. `framed` says the
+    // file has already been cut to the part of the frame the box shows and scaled to the
+    // size it shows it at — which is how the web export ships one — so the crop in the
+    // slide's config has been applied and must not be applied twice.
+    setCameraTake(src: string | null, framed = false): void {
+        if (this.take && this.take.src === src) { this.take.framed = framed; return; }
+        if (this.take) {
+            this.take.element.pause();
+            this.take.element.remove();
+            this.take = null;
+        }
+        if (!src || typeof document === 'undefined') return;
+        const element = document.createElement('video');
+        element.src = src;
+        element.muted = true;            // the narration is the sound; this is the picture
+        element.playsInline = true;
+        element.preload = 'auto';
+        // A detached video element never loads: it lives in the page, out of sight.
+        element.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+        document.body.appendChild(element);
+        const take: CameraTake = { element, src, ready: false, framed };
+        element.addEventListener('loadeddata', () => { take.ready = true; });
+        this.take = take;
+    }
+
+    // Where the narration has got to, and whether it is running: the take follows it rather
+    // than its own clock, so the speaker's face and their voice stay together. Seeking every
+    // frame would stall the decoder, so it plays and is nudged back only when it drifts.
+    setCameraTakeTime(seconds: number, playing: boolean): void {
+        const take = this.take;
+        if (!take || !take.ready) return;
+        const element = take.element;
+        if (playing && element.paused) element.play().catch(() => {});
+        if (!playing && !element.paused) element.pause();
+        if (Math.abs(element.currentTime - seconds) > 0.25) {
+            try { element.currentTime = seconds; } catch { /* not seekable yet */ }
+        }
+    }
 
     // A new host document: embeds that do not persist go with the old one. The persistent
     // ones — a film running across slides — carry on, clock and all.
@@ -211,7 +332,7 @@ export class WebCustomHost implements CustomComponentHost {
         let nested = this.docs.get(key);
         if (!nested) {
             nested = { persist: cfg.persist, ok: false, failed: false, doc: null, ctx: null,
-                       paint: null, hostBase: 0, hostLast: 0 };
+                       paint: null, hostBase: 0, hostLast: 0, curStep: -1, prevStep: -1, prevTime: 0 };
             this.docs.set(key, nested);
             this.load(nested, cfg.path, canvas);
         }
@@ -226,8 +347,11 @@ export class WebCustomHost implements CustomComponentHost {
         let docW = doc.getWidth(), docH = doc.getHeight();
         if (docW <= 0) docW = w;
         if (docH <= 0) docH = h;
-        const cropX = cfg.crop[0] * docW, cropY = cfg.crop[1] * docH;
-        let cropW = (cfg.crop[2] - cfg.crop[0]) * docW, cropH = (cfg.crop[3] - cfg.crop[1]) * docH;
+        // Zoom keyframes narrow the crop, on the slide's own clock (seconds since it opened).
+        const zc = zoomCrop(cfg.zooms, timeSec, cfg.crop);
+        if (cfg.zooms.length) pc.needsRepaint();
+        const cropX = zc[0] * docW, cropY = zc[1] * docH;
+        let cropW = (zc[2] - zc[0]) * docW, cropH = (zc[3] - zc[1]) * docH;
         if (cropW <= 0 || cropH <= 0) { cropW = docW; cropH = docH; }
         const { s, ox, oy } = fitInto(w, h, cropW, cropH, cfg.fit);
 
@@ -236,6 +360,10 @@ export class WebCustomHost implements CustomComponentHost {
         // it through `timeid`, and the slide's number through `stepid`. The same stitching
         // as RcDocumentHost.cpp, so a film cut for the desktop plays the same here.
         let docTime = timeSec;
+        if (cfg.hasStep && cfg.step !== nested.curStep) {              // a new step: remember the last
+            if (nested.curStep >= 0) { nested.prevStep = nested.curStep; nested.prevTime = nested.hostLast; }
+            nested.curStep = cfg.step;
+        }
         if (nested.persist) {
             if (timeSec + 1e-6 < nested.hostLast) nested.hostBase += nested.hostLast;
             nested.hostLast = timeSec;
@@ -245,10 +373,18 @@ export class WebCustomHost implements CustomComponentHost {
         ctx.mWidth = docW;
         ctx.mHeight = docH;
         ctx.currentTime = Date.now();
+        if (cfg.hasWindow) {
+            // the slide's own time, mapped into the window, held at its end
+            let t = timeSec * cfg.speed;
+            if (cfg.to > cfg.from) t = Math.min(t, cfg.to - cfg.from);
+            docTime = cfg.from + Math.max(t, 0);
+        }
         ctx.overrideFloat(RemoteContext.ID_ANIMATION_TIME, docTime);
         ctx.setAnimationTime(docTime);
         if (cfg.hasStep && cfg.stepId >= 0) ctx.overrideFloat(cfg.stepId, cfg.step);
         if (cfg.timeId >= 0) ctx.overrideFloat(cfg.timeId, timeSec);
+        if (cfg.prevStepId >= 0) ctx.overrideFloat(cfg.prevStepId, nested.prevStep);
+        if (cfg.prevTimeId >= 0) ctx.overrideFloat(cfg.prevTimeId, nested.prevTime);
 
         // The engine has already translated the canvas so (0,0)..(w,h) is the component
         // box; clip to it, place the fitted document inside, and paint it in its own
@@ -309,25 +445,48 @@ export class WebCustomHost implements CustomComponentHost {
         const host = pc as CanvasPaintContext;
         if (typeof host.getCanvas !== 'function' || typeof document === 'undefined') return false;
         const canvas = host.getCanvas();
-        let video = this.videos.get(cfg.path);
+        // A still (`still=T`) is its own element, paused on that frame; a playing clip starts at
+        // `start=S` and loops back there rather than to its first frame.
+        const still = cfg.still >= 0;
+        const stretch = cfg.until > cfg.start;
+        const key = still ? cfg.path + '@' + cfg.still : cfg.path + '#' + cfg.start + (stretch ? '-' + cfg.until : '');
+        let video = this.videos.get(key);
         if (!video) {
             const element = document.createElement('video');
             element.src = cfg.path;
             element.muted = true;
-            element.loop = true;
+            element.loop = !still && !stretch && cfg.loop && cfg.start <= 0;
             element.playsInline = true;
             element.preload = 'auto';
-            video = { element, ready: false };
-            element.addEventListener('loadeddata', () => { video!.ready = true; });
-            element.play().catch(() => { /* until the page has been clicked */ });
-            this.videos.set(cfg.path, video);
+            const v: VideoEmbed = { element, ready: false };
+            video = v;
+            const at = still ? cfg.still : cfg.start;
+            if (at > 0) {
+                element.addEventListener('loadedmetadata', () => { element.currentTime = at; }, { once: true });
+                element.addEventListener('seeked', () => { v.ready = true; }, { once: true });
+            } else {
+                element.addEventListener('loadeddata', () => { v.ready = true; });
+            }
+            if (!still) {
+                if (cfg.loop && !stretch && cfg.start > 0) element.addEventListener('ended', () => {
+                    element.currentTime = cfg.start; element.play().catch(() => {});
+                });
+                element.play().catch(() => { /* until the page has been clicked */ });
+            }
+            this.videos.set(key, video);
         }
-        pc.needsRepaint();      // a playing video is a new frame every frame
         const vw = video.element.videoWidth, vh = video.element.videoHeight;
+        if (!still || !video.ready) pc.needsRepaint();      // a playing video is a new frame every frame
         if (!video.ready || vw <= 0 || vh <= 0) return true;
-        if (video.element.paused) video.element.play().catch(() => {});
-        const cropX = cfg.crop[0] * vw, cropY = cfg.crop[1] * vh;
-        let cropW = (cfg.crop[2] - cfg.crop[0]) * vw, cropH = (cfg.crop[3] - cfg.crop[1]) * vh;
+        // A stretch ends at `until`: stop there and hold the frame (checked every paint, which a
+        // playing video asks for every frame).
+        const held = stretch && video.element.currentTime >= cfg.until;
+        if (held && !video.element.paused) { video.element.pause(); video.element.currentTime = cfg.until; }
+        if (!still && !held && video.element.paused && !video.element.ended) video.element.play().catch(() => {});
+        const zc = zoomCrop(cfg.zooms, still ? cfg.still : video.element.currentTime, cfg.crop);
+        if (cfg.zooms.length && !still) pc.needsRepaint();
+        const cropX = zc[0] * vw, cropY = zc[1] * vh;
+        let cropW = (zc[2] - zc[0]) * vw, cropH = (zc[3] - zc[1]) * vh;
         if (cropW <= 0 || cropH <= 0) { cropW = vw; cropH = vh; }
         const { s, ox, oy } = fitInto(w, h, cropW, cropH, cfg.fit);
         canvas.save();
@@ -349,6 +508,14 @@ export class WebCustomHost implements CustomComponentHost {
         const host = pc as CanvasPaintContext;
         if (typeof host.getCanvas !== 'function' || typeof document === 'undefined') return false;
         const canvas = host.getCanvas();
+        // The take recorded with the narration, when this slide has one: what the speaker's
+        // camera saw while they were saying this.
+        if (this.take) {
+            const framed = this.take.framed ? { ...cfg, crop: [0, 0, 1, 1] as [number, number, number, number] } : cfg;
+            this.drawVideoInto(canvas, this.take.element, framed, w, h, this.take.ready);
+            pc.needsRepaint();
+            return true;
+        }
         if (!this.camera) {
             const element = document.createElement('video');
             element.muted = true;
@@ -374,17 +541,25 @@ export class WebCustomHost implements CustomComponentHost {
             }
         }
         const feed = this.camera;
+        this.drawVideoInto(canvas, feed.element, cfg, w, h, feed.ready);
+        if (!feed.failed) pc.needsRepaint();      // a live feed is a new frame every frame
+        return true;
+    }
+
+    // One video element into a camera box: cropped, fitted, mirrored when asked, and a dark
+    // plate until there are frames — the same thing the desktop player draws.
+    private drawVideoInto(canvas: CanvasRenderingContext2D, element: HTMLVideoElement,
+                          cfg: EmbedConfig, w: number, h: number, ready: boolean): void {
         canvas.save();
         canvas.beginPath();
         canvas.rect(0, 0, w, h);
         canvas.clip();
-        const vw = feed.element.videoWidth, vh = feed.element.videoHeight;
-        if (!feed.ready || vw <= 0 || vh <= 0) {
+        const vw = element.videoWidth, vh = element.videoHeight;
+        if (!ready || vw <= 0 || vh <= 0) {
             canvas.fillStyle = '#101318';
             canvas.fillRect(0, 0, w, h);
             canvas.restore();
-            if (!feed.failed) pc.needsRepaint();
-            return true;
+            return;
         }
         const cropX = cfg.crop[0] * vw, cropY = cfg.crop[1] * vh;
         let cropW = (cfg.crop[2] - cfg.crop[0]) * vw, cropH = (cfg.crop[3] - cfg.crop[1]) * vh;
@@ -394,10 +569,8 @@ export class WebCustomHost implements CustomComponentHost {
             canvas.translate(w, 0);
             canvas.scale(-1, 1);
         }
-        canvas.drawImage(feed.element, cropX, cropY, cropW, cropH, ox, oy, cropW * s, cropH * s);
+        canvas.drawImage(element, cropX, cropY, cropW, cropH, ox, oy, cropW * s, cropH * s);
         canvas.restore();
-        pc.needsRepaint();      // a live feed is a new frame every frame
-        return true;
     }
 
     // ── Web pages ─────────────────────────────────────────────────────

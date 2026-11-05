@@ -23,7 +23,8 @@ layer cannot reach from outside, and each one is a marked local patch.
   patch set 17, commit `01398020c7ec20f51e51bfc2b65b9b425e338be9`, refreshed to androidx.dev
   snapshot `16547072` (androidx-main `40ff48144`), then to androidx-main `51b1c49d7`
   (2026-10-15, a superset of snapshot `16617687` = `522d8695c`), then to androidx-main
-  `5dab33683` (2026-10-27).
+  `5dab33683` (2026-10-27), then to androidx-main `a0e84553095` (2026-10-29), the commit
+  `remote-creation-compose:1.0.0-alpha23` was cut from.
 - License: Apache-2.0
 - Paths:
 
@@ -193,6 +194,66 @@ Deliberately skipped:
 - `currentProfileSupportsPathClip` (`8002ce4e0`): as with `c93e26675`, the port has no `Profile`.
 - `RemoteComposeCreationState` keeps `layoutDirection` as its stored property and derives
   `remoteLayoutDirection`; upstream stores the remote one. Same values, no constructor change.
+
+## Refresh 5dab33683 → androidx-main a0e84553095 (1.0.0-alpha23)
+
+The target is pinned by its sources: `remote-creation-compose:1.0.0-alpha23`'s `-sources.jar`
+matches the `a0e84553095` tree file for file. Fourteen commits touch the carried sources; none
+touches `remote-core`, `remote-creation-core` or `remote-creation`, so `../remote-creation-writer`
+is unchanged. The fork's public API now matches alpha23's, which is what lets shared code compile
+against this fork off Android and against AndroidX alpha23 on it.
+
+Taken:
+
+- `c75f1f4e0`: `Action` is renamed `RemoteAction`, and the restricted abstract `RemoteAction` class
+  is folded into the one public interface, as upstream. The interface's restricted member is the
+  fork's `RemoteStateScope.toRemoteActionData()`, writing the common `RemoteActionData`, in place of
+  upstream's `toRemoteAction(): CreationAction`. Every action implements the interface.
+- `23a939aff`: `RemoteColor` is backed by a packed ARGB `Int` (`BaseRemoteState<Int>`), with
+  upstream's packing, `compositeOver` and `RemoteColor(red, green, blue, alpha)` factories; `Int.rc`
+  replaces `Color.rc` in `RemoteColor.kt`. The Compose `Color` API moves to `RemoteColorCompose.kt`
+  (`RemoteColor(Color)`, `Color.rc`, `asRemoteColor`, `asConstantColor(OrNull)`,
+  `createNamedRemoteColor(…, Color)`, both `rememberNamedRemoteColor`s). A constant color is keyed
+  by the new `RemoteColorConstantCacheKey`, which `transform` resolves.
+- `c5c5b03fb`: `RemoteFontWeight` is a class backed by a `RemoteFloat`.
+- `b657e6e62`, and the `*ModifierAndroid` half of `fa48ff16b`: `RemoteIntrinsicSize` and
+  `width`/`height(RemoteIntrinsicSize)` replace the overloads taking Compose's `IntrinsicSize`,
+  which the port carried in `commonMain`. Its value is the port's `RemoteDimensionType` ordinal,
+  which is the wire's `DimensionModifierOperation.Type` ordinal.
+- `312828a8d`: `RemoteLayoutScopeMarker` replaces foundation's `LayoutScopeMarker` on the layout
+  scopes. `8b20d38fe`: `layoutDirection` moves from `RemoteComposeNode` to the new
+  `RemoteLayoutNode`, which the layouts extend; the port's local patches on `RemoteComposeNode` stay
+  where they were.
+- Parameter order and names: `c2bdb7e96` (`RemoteFloat`'s operators take `other`, in the port's
+  `state/FloatState.kt`; the `RemoteCreationDisplayInfo` ranges, in `capture/DisplayInfo.kt`;
+  `RemoteCanvas(onDraw)`, `RemoteImage(bitmap)`, `remoteSpring(dampingRatio, stiffness, …)`,
+  `offset` defaults, `@IntRange`/`@FloatRange` annotations), `fe9e0bfce` (`RemoteBasicImage`,
+  `RemoteBasicText`) and `cdab571bf` (`RemoteShape.createOutline(size, layoutDirection, density)`).
+- Visibility: `StandardRemotePaint` (`51e5e5379`) and the remaining modifier classes (`c83d297b1`:
+  `ClipModifier`, `CollapsiblePriorityModifier`, `GraphicsLayerModifier`, `MarqueeModifier`,
+  `RippleModifier`) are internal.
+- `fa48ff16b` (rest): `RoundedPolygon` drawing goes (`drawRoundedPolygon`/`drawRoundedPolygonMorph`
+  on `RemoteCanvas`, `RecordingCanvas` and `RemoteDrawScope`, with `RemoteDrawScopeAndroid.kt` and
+  `MorphTweenUtility.kt`), and so does the `androidx.graphics:graphics-shapes` dependency.
+
+Not applicable:
+
+- Android-only files the fork does not carry: `AndroidRemoteColor` (so `createThemedRemoteColor`,
+  including its Compose `Color` overload in `RemoteColorCompose.kt`, and `RemoteStateThemeColorKey`),
+  `CompatAndroidRemotePaint`, `RemoteTextMeasure`, `CaptureRemoteDocumentAndroid`,
+  `RemoteCreationDisplayInfoAndroid`, `LambdaAction`, `PendingIntentAction` and
+  `RemoteCanvasAndroid`.
+
+Deliberately skipped:
+
+- The `RecordingCanvas` deletion in `fa48ff16b`: the port's `RecordingCanvas` is the seam its
+  `CommonRecordingCanvas` implements and `RemoteCanvas` wraps, as with the inlining step `33de12812`
+  before.
+- `81fbc523b`, `4a99fb010` (internal one-handed gesture modifier and configuration): internal, with
+  no public entry point to mirror, and built on JVM-only `WeakHashMap`/`synchronized`.
+- Visibility widened for `remote-creation-expression`: upstream makes `RemoteColor`'s cache-key
+  constructors, `RemoteStateInstanceKey` and `RemoteColorConstantCacheKey` public for the library
+  group. Here they stay internal, as the port's cache keys are (`a07eab443`, skipped before).
 
 ## alpha22 write side: component offscreen buffers and visibility functions
 

@@ -47,7 +47,6 @@ kotlin {
             @Suppress("DEPRECATION") api(compose.runtime)
             @Suppress("DEPRECATION") api(compose.ui)
             @Suppress("DEPRECATION") implementation(compose.foundation)
-            implementation("androidx.graphics:graphics-shapes:1.1.0")
             implementation(libs.kotlinx.coroutines.core)
         }
         commonTest.dependencies { implementation(kotlin("test")) }

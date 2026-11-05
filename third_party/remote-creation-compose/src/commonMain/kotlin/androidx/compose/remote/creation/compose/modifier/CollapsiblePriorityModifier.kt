@@ -22,10 +22,9 @@ import androidx.compose.remote.creation.common.RemoteModifierOperation
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public class CollapsiblePriorityModifier(
-    public val orientation: Int,
-    public val priority: RemoteFloat,
+internal class CollapsiblePriorityModifier(
+    val orientation: Int,
+    val priority: RemoteFloat,
 ) : RemoteModifier.Element {
 
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =

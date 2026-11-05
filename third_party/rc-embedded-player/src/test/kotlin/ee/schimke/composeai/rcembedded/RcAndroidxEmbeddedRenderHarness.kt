@@ -27,7 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.remote.player.compose.ExperimentalRemotePlayerApi
 import androidx.compose.remote.player.compose.RemoteComposePlayerFlags
 import androidx.compose.remote.player.compose.embedded.ExperimentalRemoteDocumentPlayer
-import androidx.compose.remote.player.compose.embedded.RemoteImageSupport
+import androidx.compose.remote.player.compose.embedded.resources.RemoteImageSupport
 import androidx.compose.remote.player.core.RemoteDocument
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember

@@ -28,7 +28,6 @@ import androidx.compose.remote.creation.compose.shapes.toDimension
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteDp
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
-import androidx.compose.ui.graphics.toArgb
 
 internal class BorderModifier(
     public val width: RemoteDp,
@@ -59,7 +58,7 @@ internal class BorderModifier(
         return RemoteModifierOperation.Border(
             resolvedWidth,
             roundedCorner,
-            constantColor?.toArgb() ?: color.id,
+            constantColor ?: color.id,
             constantColor == null,
             shapeType,
         )

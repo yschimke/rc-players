@@ -31,6 +31,7 @@ export class Header extends Operation {
     static readonly DEBUG: number = 16;
     static readonly FEATURE_MEASURE_VERSION: number = 17;
     static readonly FEATURE_TOUCH_VERSION: number = 18;
+    static readonly FEATURE_PRIORITY_FIX: number = 23;
 
     // Data types
     private static readonly DATA_TYPE_INT = 0;
@@ -83,8 +84,11 @@ export class Header extends Operation {
 
     setVersion(doc: CoreDocument): void {
         doc.setVersion(this.mMajorVersion, this.mMinorVersion, this.mPatchVersion);
-        doc.setWidth(this.mWidth);
-        doc.setHeight(this.mHeight);
+        if (!doc.mHeaderSized) {
+            doc.setWidth(this.mWidth);
+            doc.setHeight(this.mHeight);
+            doc.mHeaderSized = true;
+        }
         doc.setAuthorDimensions(this.mWidth, this.mHeight);
         doc.setRequiredCapabilities(this.mCapabilities);
         doc.setProperties(this.mProperties);

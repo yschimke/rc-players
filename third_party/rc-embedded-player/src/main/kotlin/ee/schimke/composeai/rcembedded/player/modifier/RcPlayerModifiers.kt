@@ -52,7 +52,6 @@ import androidx.compose.remote.core.semantics.CoreSemantics
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.util.fastForEach
 import ee.schimke.composeai.rcembedded.player.CustomComposablePlugin
@@ -60,6 +59,7 @@ import ee.schimke.composeai.rcembedded.player.LocalGraphContext
 import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
 import ee.schimke.composeai.rcembedded.player.components.visible
 import ee.schimke.composeai.rcembedded.player.draw.executeOperations
+import ee.schimke.composeai.rcembedded.player.draw.rememberLazyGraphicsLayer
 import ee.schimke.composeai.rcembedded.player.inspectable.rcModifierInspector
 
 @Composable
@@ -81,8 +81,9 @@ internal fun ComponentModifiers.toModifier(
     ignoreVisibility: Boolean,
     ignoreClicks: Boolean,
 ): Modifier {
-    // Only components with draw operations can DRAW_CONTENT through a layer.
-    val contentLayer = if (drawOpsList != null) rememberGraphicsLayer() else null
+    // Only components with draw operations can DRAW_CONTENT through a layer, and the layer is only
+    // allocated once a DRAW_CONTENT is drawn with a group alpha, color filter or blend mode.
+    val contentLayer = if (drawOpsList != null) rememberLazyGraphicsLayer() else null
     var modifier: Modifier = Modifier
     // Track whether a DrawContentOperation has already been attached to the modifier chain, so
     // that subsequent clip operations are hoisted before drawWithContent without bypassing

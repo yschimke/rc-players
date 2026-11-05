@@ -32,6 +32,7 @@ import androidx.compose.remote.core.operations.ShaderData
 import androidx.compose.remote.core.operations.matrix.MatrixExpression
 import androidx.compose.remote.core.operations.paint.PaintBundle
 import androidx.compose.remote.core.operations.paint.PaintPathEffects
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -168,6 +169,169 @@ private fun resolvePaintFloat(bits: Int, read: RemoteContext): Float {
 }
 
 /**
+ * Immutable, constant-size snapshot of the subset of [PaintBundle] state read by
+ * [ComposeLocalPaint.toNativeTextPaint] during `TextMeasure` and `TextAttribute` evaluation.
+ *
+ * Raw `Int` bit patterns are retained for `TEXT_SIZE` and `FONT_AXIS` values so NaN-encoded
+ * variable references resolve reactively against [GraphContext] in O(1) without accumulating or
+ * replaying [PaintBundle] lists.
+ */
+@Immutable
+internal class TextMeasurePaintSpec(
+    val isTextSizeSet: Boolean = false,
+    val rawTextSizeBits: Int = Float.NaN.toRawBits(),
+    val isTypefaceSet: Boolean = false,
+    val fontFamily: Int = 0,
+    val fontWeight: Int = 400,
+    val fontStyle: FontStyle = FontStyle.Normal,
+    val fontAxis: IntArray? = null,
+    val rawFontAxisValueBits: IntArray? = null,
+) {
+    fun toComposeLocalPaint(remoteContext: RemoteContext): ComposeLocalPaint =
+        ComposeLocalPaint().also { paint ->
+            if (isTextSizeSet) {
+                paint.textSize = resolvePaintFloat(rawTextSizeBits, remoteContext)
+                paint.isTextSizeSet = true
+            }
+            if (isTypefaceSet) {
+                paint.fontFamily = fontFamily
+                paint.fontWeight = fontWeight
+                paint.fontStyle = fontStyle
+                paint.isTypefaceSet = true
+            }
+            val tags = fontAxis
+            val rawValues = rawFontAxisValueBits
+            if (tags != null && rawValues != null) {
+                paint.fontAxis = tags
+                paint.fontAxisValues =
+                    FloatArray(tags.size) { j -> resolvePaintFloat(rawValues[j], remoteContext) }
+            }
+            paint.textMeasureSpec = this
+        }
+
+    fun withBundle(bundle: PaintBundle): TextMeasurePaintSpec {
+        val array = bundle.getArray()
+        val end = bundle.getPos().coerceIn(0, array.size)
+        var nextIsTextSizeSet = isTextSizeSet
+        var nextRawTextSizeBits = rawTextSizeBits
+        var nextIsTypefaceSet = isTypefaceSet
+        var nextFontFamily = fontFamily
+        var nextFontWeight = fontWeight
+        var nextFontStyle = fontStyle
+        var nextFontAxis = fontAxis
+        var nextRawFontAxisValueBits = rawFontAxisValueBits
+        var changed = false
+
+        var i = 0
+        while (i < end) {
+            val cmd = array[i++]
+            when (cmd and 0xFFFF) {
+                PaintBundle.TEXT_SIZE -> {
+                    if (i >= end) break
+                    nextRawTextSizeBits = array[i++]
+                    nextIsTextSizeSet = true
+                    changed = true
+                }
+                PaintBundle.TYPEFACE -> {
+                    if (i >= end) break
+                    val style = cmd ushr 16
+                    nextFontFamily = array[i++]
+                    nextFontWeight = style and 0x3ff
+                    nextFontStyle = if ((style shr 10) > 0) FontStyle.Italic else FontStyle.Normal
+                    nextIsTypefaceSet = true
+                    changed = true
+                }
+                PaintBundle.FONT_AXIS -> {
+                    val count = cmd ushr 16
+                    if (count > MAX_FONT_AXES || count * 2 > end - i) break
+                    if (count > 0) {
+                        val tags = IntArray(count)
+                        val rawValues = IntArray(count)
+                        for (j in 0 until count) {
+                            tags[j] = array[i++]
+                            rawValues[j] = array[i++]
+                        }
+                        nextFontAxis = tags
+                        nextRawFontAxisValueBits = rawValues
+                    } else {
+                        nextFontAxis = null
+                        nextRawFontAxisValueBits = null
+                    }
+                    changed = true
+                }
+                PaintBundle.COLOR,
+                PaintBundle.COLOR_ID,
+                PaintBundle.STROKE_WIDTH,
+                PaintBundle.STROKE_MITER,
+                PaintBundle.ALPHA,
+                PaintBundle.SHADER,
+                PaintBundle.SHADER_MATRIX,
+                PaintBundle.COLOR_FILTER,
+                PaintBundle.COLOR_FILTER_ID,
+                PaintBundle.FALLBACK_TYPEFACE -> {
+                    if (i >= end) break
+                    i++
+                }
+                PaintBundle.TEXTURE -> {
+                    if (end - i < 3) break
+                    i += 3
+                }
+                PaintBundle.STYLE,
+                PaintBundle.STROKE_CAP,
+                PaintBundle.STROKE_JOIN,
+                PaintBundle.BLEND_MODE,
+                PaintBundle.CLEAR_COLOR_FILTER,
+                PaintBundle.ANTI_ALIAS,
+                PaintBundle.FILTER_BITMAP,
+                PaintBundle.IMAGE_FILTER_QUALITY -> Unit
+                PaintBundle.PATH_EFFECT -> {
+                    val count = cmd ushr 16
+                    if (count > end - i) break
+                    i += count
+                }
+                PaintBundle.GRADIENT -> {
+                    if (i >= end) break
+                    val colorsLen = array[i++] and 0xFF
+                    if (colorsLen >= end - i) break
+                    i += colorsLen
+                    val stopsLen = array[i++]
+                    if (stopsLen < 0 || stopsLen > end - i) break
+                    i += stopsLen
+                    val trailingWords =
+                        when (cmd ushr 16) {
+                            PaintBundle.LINEAR_GRADIENT -> 5
+                            PaintBundle.RADIAL_GRADIENT -> 4
+                            PaintBundle.SWEEP_GRADIENT -> 2
+                            PaintBundle.RADIAL_GRADIENT2 -> 7
+                            else -> break
+                        }
+                    if (trailingWords > end - i) break
+                    i += trailingWords
+                }
+                else -> break
+            }
+        }
+
+        if (!changed) return this
+        return TextMeasurePaintSpec(
+            isTextSizeSet = nextIsTextSizeSet,
+            rawTextSizeBits = nextRawTextSizeBits,
+            isTypefaceSet = nextIsTypefaceSet,
+            fontFamily = nextFontFamily,
+            fontWeight = nextFontWeight,
+            fontStyle = nextFontStyle,
+            fontAxis = nextFontAxis,
+            rawFontAxisValueBits = nextRawFontAxisValueBits,
+        )
+    }
+
+    companion object {
+        private const val MAX_FONT_AXES = 8
+        val Empty = TextMeasurePaintSpec()
+    }
+}
+
+/**
  * Applies [bundle] to [paintState]. Variable references are resolved through [remoteContext]; pass
  * the player's [GraphContext] so computed values are current and reads are observed. Writes that
  * must persist (e.g. lazy bitmap decode) go through its [writeContext].
@@ -178,7 +342,7 @@ public fun updatePaintFromBundle(
     paintState: ComposeLocalPaint,
     remoteContext: RemoteContext,
 ) {
-    paintState.sourceBundles.add(bundle)
+    paintState.textMeasureSpec = paintState.textMeasureSpec.withBundle(bundle)
     val array = bundle.getArray()
     var i = 0
     while (i < bundle.getPos()) {
@@ -213,7 +377,9 @@ public fun updatePaintFromBundle(
                 paintState.isStrokeWidthSet = true
             }
             PaintBundle.STYLE -> {
-                paintState.isStroke = (cmd shr 16) == PaintBundle.STYLE_STROKE
+                val style = cmd shr 16
+                paintState.styleMode = style
+                paintState.isStroke = style == PaintBundle.STYLE_STROKE
                 paintState.isStyleSet = true
             }
             PaintBundle.STROKE_CAP -> {
@@ -243,21 +409,29 @@ public fun updatePaintFromBundle(
             PaintBundle.BLEND_MODE -> {
                 val mode = (cmd shr 16)
                 paintState.blendMode = mapBlendMode(mode)
+                paintState.blendModeId = mode
                 paintState.isBlendModeSet = true
             }
             PaintBundle.COLOR_FILTER -> {
                 val mode = (cmd shr 16)
                 val color = array[i++]
                 paintState.colorFilter = ColorFilter.tint(Color(color), mapBlendMode(mode))
+                paintState.colorFilterColor = color
+                paintState.colorFilterMode = mode
+                paintState.hasColorFilter = true
             }
             PaintBundle.COLOR_FILTER_ID -> {
                 val mode = (cmd shr 16)
                 val colorId = array[i++]
                 val color = remoteContext.getColor(colorId)
                 paintState.colorFilter = ColorFilter.tint(Color(color), mapBlendMode(mode))
+                paintState.colorFilterColor = color
+                paintState.colorFilterMode = mode
+                paintState.hasColorFilter = true
             }
             PaintBundle.CLEAR_COLOR_FILTER -> {
                 paintState.colorFilter = null
+                paintState.hasColorFilter = false
             }
             PaintBundle.SHADER -> {
                 // AGSL RuntimeShader on the paint, wrapped as a Compose Brush (mirrors the View
@@ -267,15 +441,18 @@ public fun updatePaintFromBundle(
                 val shader = buildRuntimeShader(shaderId, remoteContext)
                 paintState.nativeShader = shader
                 paintState.brush = shader?.let { nativeShaderBrush(it) }
+                paintState.coreShaderSpec =
+                    if (shader != null) CoreShaderSpec.Runtime(shaderId) else null
+                paintState.hasShaderMatrix = false
+                paintState.shaderMatrixBits = 0
             }
             PaintBundle.TEXTURE -> {
                 // Bitmap texture shader. Layout (PaintBundle): bitmapId, tileModes (tileX=&0xF,
-                // tileY=>>16), filter (unused here). Wrapped as a Compose Brush; mirrors
-                // AndroidPaintContext.setTextureShader.
+                // tileY=>>16), filter (filterMode=&0xF, maxAnisotropy=>>16). Wrapped as a Compose
+                // Brush; mirrors AndroidPaintContext.setTextureShader.
                 val bitmapId = array[i++]
                 val tileModes = array[i++]
-                i++ // filter/maxAnisotropy word (filtering managed by Compose; consumed to stay
-                // synced)
+                val filterWord = array[i++]
                 val bitmap = resolveBitmap(remoteContext, bitmapId)
                 val shader = bitmap?.let {
                     ImageShader(
@@ -286,6 +463,20 @@ public fun updatePaintFromBundle(
                 }
                 paintState.nativeShader = shader
                 paintState.brush = shader?.let { nativeShaderBrush(it) }
+                paintState.coreShaderSpec =
+                    if (shader != null) {
+                        CoreShaderSpec.Texture(
+                            bitmapId = bitmapId,
+                            tileX = (tileModes and 0xF).toShort(),
+                            tileY = ((tileModes shr 16) and 0xF).toShort(),
+                            filterMode = (filterWord and 0xF).toShort(),
+                            maxAnisotropy = (filterWord shr 16).toShort(),
+                        )
+                    } else {
+                        null
+                    }
+                paintState.hasShaderMatrix = false
+                paintState.shaderMatrixBits = 0
             }
             PaintBundle.ALPHA -> {
                 // 1 float word (see PaintBundle.resolveIds). Folded into the draw color via
@@ -293,11 +484,13 @@ public fun updatePaintFromBundle(
                 paintState.alpha = resolvePaintFloat(array[i++], remoteContext).coerceIn(0f, 1f)
             }
             PaintBundle.ANTI_ALIAS -> {
-                // Value is packed in the high bits of `cmd`; no extra words.
+                paintState.isAntiAlias = (cmd shr 16) != 0
+                paintState.isAntiAliasSet = true
             }
             PaintBundle.FILTER_BITMAP -> {
                 paintState.filterQuality =
                     if ((cmd shr 16) != 0) FilterQuality.Low else FilterQuality.None
+                paintState.isFilterQualitySet = true
             }
             PaintBundle.IMAGE_FILTER_QUALITY -> {
                 paintState.filterQuality =
@@ -308,10 +501,15 @@ public fun updatePaintFromBundle(
                         3 -> FilterQuality.High
                         else -> FilterQuality.Low
                     }
+                paintState.isFilterQualitySet = true
             }
             PaintBundle.SHADER_MATRIX -> {
                 // Local matrix on the current shader (1 word: NaN-encoded MatrixAccess id).
-                applyShaderMatrix(paintState, array[i++], remoteContext)
+                val matrixWord = array[i++]
+                applyShaderMatrix(paintState, matrixWord, remoteContext)
+                val matrixId = MaybeVariableFloat(Float.fromBits(matrixWord)).id
+                paintState.hasShaderMatrix = paintState.nativeShader != null && matrixId != 0
+                paintState.shaderMatrixBits = if (paintState.hasShaderMatrix) matrixWord else 0
             }
             PaintBundle.STROKE_MITER -> {
                 paintState.strokeMiter = resolvePaintFloat(array[i++], remoteContext)
@@ -330,9 +528,12 @@ public fun updatePaintFromBundle(
                         PaintPathEffects.parse(pathEffectData, 0)
                     }
                         .getOrNull()
-                    paintState.pathEffect = buildComposePathEffect(parsed, remoteContext)
+                    val effect = buildComposePathEffect(parsed, remoteContext)
+                    paintState.pathEffect = effect
+                    paintState.rawPathEffect = if (effect != null) pathEffectData else null
                 } else {
                     paintState.pathEffect = null
+                    paintState.rawPathEffect = null
                 }
             }
             PaintBundle.GRADIENT -> {
@@ -373,6 +574,10 @@ public fun updatePaintFromBundle(
                         null
                     }
 
+                val stopsForCore: FloatArray? = if (stopsAscending) stops else null
+                paintState.hasShaderMatrix = false
+                paintState.shaderMatrixBits = 0
+
                 when (gradientType) {
                     0 -> { // LINEAR_GRADIENT
                         val startX = resolvePaintFloat(array[i++], remoteContext)
@@ -401,9 +606,20 @@ public fun updatePaintFromBundle(
                                 )
                             paintState.nativeShader = shader
                             paintState.brush = nativeShaderBrush(shader)
+                            paintState.coreShaderSpec =
+                                CoreShaderSpec.LinearGradient(
+                                    colors = colors,
+                                    stops = stopsForCore,
+                                    startX = startX,
+                                    startY = startY,
+                                    endX = endX,
+                                    endY = endY,
+                                    tileMode = tileMode,
+                                )
                         } else if (colorsList.isNotEmpty()) {
                             paintState.nativeShader = null
                             paintState.brush = SolidColor(colorsList[0])
+                            paintState.coreShaderSpec = null
                         }
                     }
                     1 -> { // RADIAL_GRADIENT
@@ -430,9 +646,19 @@ public fun updatePaintFromBundle(
                                 )
                             paintState.nativeShader = shader
                             paintState.brush = nativeShaderBrush(shader)
+                            paintState.coreShaderSpec =
+                                CoreShaderSpec.RadialGradient(
+                                    colors = colors,
+                                    stops = stopsForCore,
+                                    centerX = centerX,
+                                    centerY = centerY,
+                                    radius = radius,
+                                    tileMode = tileMode,
+                                )
                         } else if (colorsList.isNotEmpty()) {
                             paintState.nativeShader = null
                             paintState.brush = SolidColor(colorsList[0])
+                            paintState.coreShaderSpec = null
                         }
                     }
                     2 -> { // SWEEP_GRADIENT
@@ -448,9 +674,17 @@ public fun updatePaintFromBundle(
                                 )
                             paintState.nativeShader = shader
                             paintState.brush = nativeShaderBrush(shader)
+                            paintState.coreShaderSpec =
+                                CoreShaderSpec.SweepGradient(
+                                    colors = colors,
+                                    stops = stopsForCore,
+                                    centerX = centerX,
+                                    centerY = centerY,
+                                )
                         } else if (colorsList.isNotEmpty()) {
                             paintState.nativeShader = null
                             paintState.brush = SolidColor(colorsList[0])
+                            paintState.coreShaderSpec = null
                         }
                     }
                 }

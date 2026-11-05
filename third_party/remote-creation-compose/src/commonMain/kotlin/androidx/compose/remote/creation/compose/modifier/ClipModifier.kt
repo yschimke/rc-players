@@ -16,7 +16,6 @@
 
 package androidx.compose.remote.creation.compose.modifier
 
-import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.RemoteModifierOperation
 import androidx.compose.remote.creation.compose.capture.RemoteDensityBehavior
 import androidx.compose.remote.creation.compose.layout.RemoteFloatContext
@@ -30,8 +29,7 @@ import androidx.compose.remote.creation.compose.shapes.toDimension
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.min
 
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public class ClipModifier(public val shape: RemoteShape = RemoteRectangleShape) :
+internal class ClipModifier(val shape: RemoteShape = RemoteRectangleShape) :
     RemoteModifier.Element {
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
         if (shape == RemoteRectangleShape) return RemoteModifierOperation.ClipRect

@@ -1,6 +1,7 @@
 // LayoutComponent: base class for components that participate in layout.
 // Port of Java LayoutComponent.java — handles modifiers, padding, children, paint.
 
+import { AnimationSpec } from './animation/AnimationSpec';
 import { Component, Visibility } from './Component';
 import type { Operation } from '../../Operation';
 import { PaintOperation } from '../../PaintOperation';
@@ -13,9 +14,9 @@ import { WidthModifier, HeightModifier, PaddingModifier,
          DimensionConstraintsModifier,
          GraphicsLayerModifier, BackgroundModifier, BorderModifier,
          RoundedClipRectModifier, ClipRectModifier, OffsetModifier,
-         DrawContentModifier, VisibilityModifier, ClickModifier,
+         DrawContentModifier, VisibilityModifier, ClickModifier, MultiClickModifier,
          TouchDownModifier, TouchUpModifier, TouchCancelModifier,
-         ScrollModifier, MarqueeModifier } from './modifiers/ModifierOperations';
+         ScrollModifier, MarqueeModifier, RippleModifier, AccessibilitySemantics } from './modifiers/ModifierOperations';
 import { LayoutComputeOperation } from './modifiers/LayoutComputeOperation';
 import { LayoutComponentContent } from './LayoutComponentContent';
 import { CanvasContent } from './CanvasContent';
@@ -45,16 +46,9 @@ export class LayoutComponent extends Component {
     // `.width(200).padding(30)` is 200 wide with 140 of content, while
     // `.padding(30).width(200)` is 260 wide — exactly Compose's modifier-order rule.
     mPadBeforeWidth = 0;
+    private mHasWidthOp = false;
+    private mHasHeightOp = false;
     mPadBeforeHeight = 0;
-    // The modifiers those two totals are summed from. Kept as references rather than as
-    // the sums alone because `inflate()` runs before `PaddingModifier.updateVariables`
-    // has resolved variables or applied DP density scaling — the same staleness
-    // `refreshPadding()` exists to undo for the *total* padding, which has to reach the
-    // ordered totals too now that they feed the measured size. Which side of the size
-    // modifier each one falls on is fixed by the modifier list, so only the values need
-    // re-reading, not the partition.
-    private mPadBeforeWidthMods: PaddingModifier[] = [];
-    private mPadBeforeHeightMods: PaddingModifier[] = [];
     mPaddingRight = 0;
     mPaddingTop = 0;
     mPaddingBottom = 0;
@@ -69,7 +63,7 @@ export class LayoutComponent extends Component {
     protected mComponentModifiers: Operation[] = [];
 
     // Content operations (paint ops from LayoutComponentContent/CanvasContent)
-    private mContentOps: Operation[] = [];
+    protected mContentOps: Operation[] = [];
 
     // Has CanvasLayout-style content
     mHasCanvasLayoutContent = false;
@@ -79,7 +73,8 @@ export class LayoutComponent extends Component {
 
     // ComponentValue bindings (Java ComponentData pattern)
     // Collected during inflate; updated during measure to expose dimensions as float variables
-    private mComponentValues: ComponentValue[] | null = null;
+    // (The base Component's list, typed: public there because a ComponentValue registers itself.)
+    override mComponentValues: ComponentValue[] | null = null;
 
     // Scroll measurement state
     private mScrollModifier: ScrollModifier | null = null;
@@ -126,27 +121,25 @@ export class LayoutComponent extends Component {
         this.mPaddingBottom = 0;
         this.mPadBeforeWidth = 0;
         this.mPadBeforeHeight = 0;
-        this.mPadBeforeWidthMods = [];
-        this.mPadBeforeHeightMods = [];
         let sawWidth = false;
         let sawHeight = false;
         this.mComputedLayoutModifiers = null;
 
         for (const op of this.getList()) {
+            if (op instanceof AnimationSpec) {
+                // LayoutComponent.inflate: the component's animation spec, and its animation
+                // id (what StateLayout matches components across states by).
+                this.mAnimationSpec = op;
+                this.mAnimationId = op.getAnimationId();
+            }
             if (op instanceof PaddingModifier) {
                 // Accumulate padding (use resolved values for dynamic padding)
                 this.mPaddingLeft += op.mLeftValue;
                 this.mPaddingTop += op.mTopValue;
                 this.mPaddingRight += op.mRightValue;
                 this.mPaddingBottom += op.mBottomValue;
-                if (!sawWidth) {
-                    this.mPadBeforeWidth += op.mLeftValue + op.mRightValue;
-                    this.mPadBeforeWidthMods.push(op);
-                }
-                if (!sawHeight) {
-                    this.mPadBeforeHeight += op.mTopValue + op.mBottomValue;
-                    this.mPadBeforeHeightMods.push(op);
-                }
+                if (!sawWidth) this.mPadBeforeWidth += op.mLeftValue + op.mRightValue;
+                if (!sawHeight) this.mPadBeforeHeight += op.mTopValue + op.mBottomValue;
                 // Also keep in modifier list for paint-time translation
                 // (matches Java ComponentModifiers pattern)
                 this.mComponentModifiers.push(op);
@@ -198,7 +191,10 @@ export class LayoutComponent extends Component {
                 this.mComponentModifiers.push(op);
             } else if (op instanceof OffsetModifier) {
                 this.mComponentModifiers.push(op);
-            } else if (op instanceof ClickModifier) {
+            } else if (op instanceof ClickModifier || op instanceof MultiClickModifier) {
+                // Both are ClickHandlers in Java's ComponentModifiers. A MultiClickModifier
+                // used to fall through to the content ops: it was never hit-tested, and a
+                // component with onClick plus multiClick looked like one target.
                 op.setComponent(this);
                 this.mComponentModifiers.push(op);
             } else if (op instanceof TouchDownModifier || op instanceof TouchUpModifier || op instanceof TouchCancelModifier) {
@@ -211,6 +207,13 @@ export class LayoutComponent extends Component {
                 this.mComponentModifiers.push(op);
             } else if (op instanceof MarqueeModifier) {
                 op.setComponent(this);
+                this.mComponentModifiers.push(op);
+            } else if (op instanceof RippleModifier) {
+                // A TouchHandler and a decorator in Java's ComponentModifiers.
+                this.mComponentModifiers.push(op);
+            } else if (op instanceof AccessibilitySemantics) {
+                // A modifier in Java's ComponentModifiers too; it paints nothing, but
+                // accessibility (and the inspector) read it from the component.
                 this.mComponentModifiers.push(op);
             } else if (op instanceof LayoutComputeOperation) {
                 if (this.mComputedLayoutModifiers === null) {
@@ -226,16 +229,14 @@ export class LayoutComponent extends Component {
                 // Content container — extract its children.
                 // IMPORTANT: this check must come BEFORE `instanceof Component`
                 // because LCC and CC extend Component.
-                // Parent the wrapper to this component so its (unmeasured) size can
-                // delegate to ours — ComponentValues reference the wrapper by id.
-                (op as Component).setParent(this);
+                // A LayoutComponentContent id is what componentWidth() in a child's modifier
+                // names: ComponentValue resolves it to this component's box (as C++ and Java).
+                if (op instanceof LayoutComponentContent) op.setParent(this);
                 for (const contentOp of (op as any).getList()) {
                     if (contentOp instanceof Component) {
                         contentOp.setParent(this);
                         this.mChildrenComponents.push(contentOp);
-                        if (contentOp instanceof LayoutComponent) {
-                            contentOp.inflate();
-                        }
+                        contentOp.inflate();
                         // Detect CanvasContent nested inside LayoutComponentContent
                         if (contentOp instanceof CanvasContent) {
                             this.mHasCanvasLayoutContent = true;
@@ -261,9 +262,7 @@ export class LayoutComponent extends Component {
             } else if (op instanceof Component) {
                 op.setParent(this);
                 this.mChildrenComponents.push(op);
-                if (op instanceof LayoutComponent) {
-                    op.inflate();
-                }
+                op.inflate();
             } else {
                 // Other operations go into component modifiers or content
                 if (this.mDrawContentOperations !== null) {
@@ -275,6 +274,11 @@ export class LayoutComponent extends Component {
             }
         }
 
+        // Java computeModifierDefinedWidth only sees a width modifier that is in the list,
+        // not the WRAP default made below.
+        this.mHasWidthOp = sawWidth;
+        this.mHasHeightOp = sawHeight;
+
         // Default width/height to WRAP if not specified
         if (!this.mWidthMod) {
             this.mWidthMod = new WidthModifier(WidthModifier.WRAP, 0);
@@ -283,9 +287,21 @@ export class LayoutComponent extends Component {
             this.mHeightMod = new HeightModifier(HeightModifier.WRAP, 0);
         }
 
+        // A spec on a layout is its children's too, unless they have their own.
+        if (this.mAnimationSpec !== AnimationSpec.DEFAULT) {
+            for (const c of this.mChildrenComponents) {
+                if (c.mAnimationSpec === AnimationSpec.DEFAULT) c.mAnimationSpec = this.mAnimationSpec;
+            }
+        }
+
         // Initialize position and padding
         this.mX = 0;
         this.mY = 0;
+        // Java LayoutComponent.inflate ends with setWidth/setHeight of the min
+        // modifier-defined size. A MeasurePass entry starts from these, so a child that is
+        // never measured (a fitBox child that doesn't fit) keeps them.
+        this.mWidth = this.modifierDefinedWidth(true);
+        this.mHeight = this.modifierDefinedHeight(true);
     }
 
     // --- Layout helpers ---
@@ -347,22 +363,58 @@ export class LayoutComponent extends Component {
 
     // --- Intrinsic size (matches Java LayoutComponent) ---
 
+    // Java LayoutManager.minIntrinsicHeight/Width: the modifier-defined size (isMin) or
+    // the largest child, whichever is bigger.
     override minIntrinsicHeight(): number {
-        const height = this.computeModifierDefinedHeight();
-        let childrenHeight = 0;
+        let height = this.modifierDefinedHeight(true);
         for (const c of this.mChildrenComponents) {
-            childrenHeight = Math.max(childrenHeight, c.minIntrinsicHeight());
+            height = Math.max(height, c.minIntrinsicHeight());
         }
-        return Math.max(height, childrenHeight);
+        return height;
     }
 
     override minIntrinsicWidth(): number {
-        const width = this.computeModifierDefinedWidth();
-        let childrenWidth = 0;
+        let width = this.modifierDefinedWidth(true);
         for (const c of this.mChildrenComponents) {
-            childrenWidth = Math.max(childrenWidth, c.minIntrinsicWidth());
+            width = Math.max(width, c.minIntrinsicWidth());
         }
-        return Math.max(width, childrenWidth);
+        return width;
+    }
+
+    /**
+     * Java LayoutComponent.computeModifierDefinedWidth(context, isMin): the padding met
+     * before the width modifier, plus its exact value (a fill is 0 when isMin, else
+     * unbounded), raised to its widthIn minimum.
+     */
+    modifierDefinedWidth(isMin = false): number {
+        let w = 0;
+        const t = this.mWidthMod?.getType();
+        if (this.mWidthMod && this.mHasWidthOp) {
+            if (t === WidthModifier.EXACT || t === WidthModifier.EXACT_DP) {
+                w = this.mWidthMod.getValue();
+            } else if (t === WidthModifier.FILL || t === WidthModifier.FILL_PARENT_MAX_WIDTH) {
+                w = isMin ? 0 : Number.MAX_VALUE;
+            }
+            const wIn = this.mWidthInMod;
+            if (wIn && wIn.getMin() >= 0) w = Math.max(w, wIn.getMin());
+        }
+        return this.mPadBeforeWidth + w;
+    }
+
+    /** Java LayoutComponent.computeModifierDefinedHeight(context, isMin). */
+    modifierDefinedHeight(isMin = false): number {
+        let h = 0;
+        const t = this.mHeightMod?.getType();
+        if (this.mHeightMod && this.mHasHeightOp) {
+            if (t === HeightModifier.EXACT || t === HeightModifier.EXACT_DP) {
+                h = this.mHeightMod.getValue();
+            } else if (t === HeightModifier.FILL || t === HeightModifier.FILL_PARENT_MAX_HEIGHT) {
+                h = isMin ? 0 : Number.MAX_VALUE;
+            }
+            const hIn = this.mHeightInMod;
+            if (hIn && hIn.getMin() >= 0) h = Math.max(h, hIn.getMin());
+        }
+        return this.mPadBeforeHeight + h;
     }
 
     computeModifierDefinedWidth(): number {
@@ -461,47 +513,14 @@ export class LayoutComponent extends Component {
         this.mNeedsMeasure = false;
     }
 
-    /** Re-sum the cached padding totals from the padding modifiers' resolved
-     *  values. `inflate()` snapshots these at load time from the raw (dp) values,
-     *  before `PaddingModifier.updateVariables` has resolved variables or applied
-     *  DP density scaling — so the snapshot is stale for dynamic or density-scaled
-     *  padding. Called at the start of each measure (after updateVariables has run
-     *  in the data pass) so measure and paint both see the final pixel padding. */
-    protected refreshPadding(): void {
-        let l = 0, t = 0, r = 0, b = 0;
-        for (const mod of this.mComponentModifiers) {
-            if (mod instanceof PaddingModifier) {
-                l += mod.mLeftValue;
-                t += mod.mTopValue;
-                r += mod.mRightValue;
-                b += mod.mBottomValue;
-            }
-        }
-        this.mPaddingLeft = l;
-        this.mPaddingTop = t;
-        this.mPaddingRight = r;
-        this.mPaddingBottom = b;
-
-        // Same re-sum for the padding declared before the size modifier. This one feeds the
-        // component's own measured size, not just its content inset, so leaving it on the
-        // `inflate()` snapshot measures `.padding(30).width(200)` at 260 instead of 320 at
-        // density 2 — and drops variable padding from the size entirely, since an unresolved
-        // modifier reads 0 at load time.
-        let pw = 0;
-        for (const mod of this.mPadBeforeWidthMods) pw += mod.mLeftValue + mod.mRightValue;
-        this.mPadBeforeWidth = pw;
-        let ph = 0;
-        for (const mod of this.mPadBeforeHeightMods) ph += mod.mTopValue + mod.mBottomValue;
-        this.mPadBeforeHeight = ph;
-    }
-
     override animatingBounds(context: RemoteContext): void {
+        // super walks the operation list, which holds the children (inside the content
+        // component), as Java's Component.animatingBounds does. Walking mChildrenComponents
+        // again here visited each child twice per level: 2^depth calls, a 14-deep tree took
+        // 1.25M calls and ~320 ms per frame while bounds animated (a resize).
         super.animatingBounds(context);
         this.updateComponentValues(context, this.mWidth, this.mHeight);
         this.layoutModifiers(this.mWidth, this.mHeight);
-        for (const child of this.mChildrenComponents) {
-            child.animatingBounds(context);
-        }
     }
 
     /** Walk modifiers reducing dimensions by padding and passing to decorators.
@@ -561,29 +580,54 @@ export class LayoutComponent extends Component {
             }
             paintContext.matrixRestore();
         } else if (this.mGraphicsLayerMod) {
-            // GraphicsLayer wraps the entire painting (modifiers + content + children)
+            // Java LayoutComponent / CoreText paintingComponent: at the component's origin,
+            // startGraphicsLayer(w, h), hand it the non-default attributes
+            // (fillInAttributes -> setGraphicsLayer), paint modifiers, content and children
+            // into it, then endGraphicsLayer composites it with alpha, scale, rotation and
+            // translation. Java evaluates the attribute values in the modifier's paint(),
+            // after fillInAttributes, so a variable shows a frame late; evaluating first
+            // gives the same values without that lag.
+            const layer = this.mGraphicsLayerMod;
+            layer.evaluate(paintContext);
             paintContext.matrixSave();
-            this.mGraphicsLayerMod.apply(paintContext.getContext());
+            paintContext.matrixTranslate(this.mX, this.mY);
+            paintContext.startGraphicsLayer(Math.trunc(this.getWidth()), Math.trunc(this.getHeight()));
+            const attributes = new Map<number, any>();
+            layer.fillInAttributes(attributes);
+            paintContext.setGraphicsLayer(attributes);
+            // paintingComponent translates by (mX, mY) itself; the layer is already there.
+            paintContext.matrixTranslate(-this.mX, -this.mY);
             this.paintingComponent(paintContext);
-            if (typeof (this.mGraphicsLayerMod as any).applyPostPaint === 'function') {
-                (this.mGraphicsLayerMod as any).applyPostPaint(paintContext);
-            }
+            paintContext.endGraphicsLayer();
             paintContext.matrixRestore();
         } else {
             super.paint(paintContext);
         }
     }
 
-    paintingComponent(paintContext: PaintContext): void {
-        if (Visibility.isGone(this.mVisibility) && this.mAnimateMeasure === null) return;
+    /**
+     * Java ComponentModifiers.paint: paint the modifiers (background, border, clip, ...) at
+     * the component's origin, each padding translating the ones after it; the translations
+     * are backed out at the end. Every component kind runs it from its paintingComponent
+     * (LayoutComponent, CoreText, TextLayout, ImageLayout, Custom in Java).
+     */
+    protected paintModifiers(paintContext: PaintContext): void {
         const context = paintContext.getContext();
-
-        paintContext.matrixSave();
-        paintContext.matrixTranslate(this.mX, this.mY);
-
-        // Paint modifiers with padding translation (matches Java ComponentModifiers.paint())
         let tx = 0;
         let ty = 0;
+        // Java keeps width/height in ComponentModifiers, whose paint() runs a dirty
+        // modifier's updateVariables; a changed EXACT value then invalidates the measure.
+        // Here they are held apart (mWidthMod/mHeightMod), so update them the same way, or a
+        // width bound to a variable (ANM-10's "@bt * 22" spacer) never re-measures.
+        for (const mod of [this.mWidthMod, this.mHeightMod]) {
+            if (mod && mod.isDirty()) {
+                mod.markNotDirty();
+                mod.updateVariables(context);
+            }
+        }
+        // The size a decorator lays out to: the component's, less the paddings before it.
+        let dw = this.mWidth;
+        let dh = this.mHeight;
         for (const mod of this.mComponentModifiers) {
             context.incrementOpCount(mod);
             if (mod.isDirty() && typeof (mod as any).updateVariables === 'function') {
@@ -594,12 +638,31 @@ export class LayoutComponent extends Component {
                 paintContext.matrixTranslate(mod.mLeftValue, mod.mTopValue);
                 tx += mod.mLeftValue;
                 ty += mod.mTopValue;
+                dw -= mod.mLeftValue + mod.mRightValue;
+                dh -= mod.mTopValue + mod.mBottomValue;
+            } else if (mod instanceof ClickModifier || mod instanceof MultiClickModifier) {
+                // ComponentModifiers.paint: a click handler's ripple, in the component's own
+                // coordinates and size (the paddings so far backed out).
+                paintContext.matrixTranslate(-tx, -ty);
+                mod.ripple.paint(paintContext, context, this.mWidth, this.mHeight);
+                paintContext.matrixTranslate(tx, ty);
+            } else if (mod instanceof RippleModifier) {
+                mod.ripple.paint(paintContext, context, dw, dh);
             } else {
                 mod.apply(context);
             }
         }
-        // Back out modifier translations
         paintContext.matrixTranslate(-tx, -ty);
+    }
+
+    paintingComponent(paintContext: PaintContext): void {
+        if (Visibility.isGone(this.mVisibility) && this.mAnimateMeasure === null) return;
+        const context = paintContext.getContext();
+
+        paintContext.matrixSave();
+        paintContext.matrixTranslate(this.mX, this.mY);
+
+        this.paintModifiers(paintContext);
 
         // Translate by total padding for content
         paintContext.matrixTranslate(this.mPaddingLeft, this.mPaddingTop);
@@ -634,6 +697,20 @@ export class LayoutComponent extends Component {
             return (child.mAnimateMeasure !== null || !Visibility.isGone(child.mVisibility)) && this.isChildVisibleInViewport(child);
         };
 
+        // Java LayoutComponent.paintingComponent: a dirty child (a variable it listens to
+        // changed, e.g. a themed colour set by the paint pass's THEME section) updates its
+        // variables right before it paints. Without this a CoreText kept the colour it read
+        // in the data pass (the last THEME section's: light) whatever the paint theme (T26).
+        const paintChild = (child: Component) => {
+            if (child.isDirty() && typeof (child as any).updateVariables === 'function') {
+                (child as any).updateVariables(context);
+                child.markNotDirty();
+            }
+            if (shouldPaintChild(child)) {
+                context.incrementOpCount(child);
+                child.paint(paintContext);
+            }
+        };
         if (children.length > 1) {
             // Check if z-index sorting is needed
             let needsSort = false;
@@ -643,25 +720,16 @@ export class LayoutComponent extends Component {
             if (needsSort) {
                 const sorted = [...children].sort((a, b) => a.mZIndex - b.mZIndex);
                 for (const child of sorted) {
-                    if (shouldPaintChild(child)) {
-                        context.incrementOpCount(child);
-                        child.paint(paintContext);
-                    }
+                    paintChild(child);
                 }
             } else {
                 for (const child of children) {
-                    if (shouldPaintChild(child)) {
-                        context.incrementOpCount(child);
-                        child.paint(paintContext);
-                    }
+                    paintChild(child);
                 }
             }
         } else {
             for (const child of children) {
-                if (shouldPaintChild(child)) {
-                    context.incrementOpCount(child);
-                    child.paint(paintContext);
-                }
+                paintChild(child);
             }
         }
 
@@ -708,6 +776,38 @@ export class LayoutComponent extends Component {
         if (this.mComponentValues !== null && this.mComponentValues.length > 0) {
             this.updateComponentValues(context, this.mWidth, this.mHeight);
         }
+        this.updatePadding();
+    }
+
+    /**
+     * Java LayoutComponent.updatePadding: re-sum the padding from the modifiers' resolved
+     * values. inflate() sums them once, before the data pass has run the modifiers'
+     * updateVariables, so a padding that resolves later (a variable, or a literal scaled by
+     * DENSITY_BEHAVIOR_DP) was left at its authored value.
+     */
+    updatePadding(): void {
+        this.mPaddingLeft = 0;
+        this.mPaddingTop = 0;
+        this.mPaddingRight = 0;
+        this.mPaddingBottom = 0;
+        this.mPadBeforeWidth = 0;
+        this.mPadBeforeHeight = 0;
+        let sawWidth = false;
+        let sawHeight = false;
+        for (const op of this.getList()) {
+            if (op instanceof PaddingModifier) {
+                this.mPaddingLeft += op.mLeftValue;
+                this.mPaddingTop += op.mTopValue;
+                this.mPaddingRight += op.mRightValue;
+                this.mPaddingBottom += op.mBottomValue;
+                if (!sawWidth) this.mPadBeforeWidth += op.mLeftValue + op.mRightValue;
+                if (!sawHeight) this.mPadBeforeHeight += op.mTopValue + op.mBottomValue;
+            } else if (op instanceof WidthModifier) {
+                sawWidth = true;
+            } else if (op instanceof HeightModifier) {
+                sawHeight = true;
+            }
+        }
     }
 
     // Inherits apply() from Component → PaintOperation chain.
@@ -723,23 +823,37 @@ export class LayoutComponent extends Component {
     }
 
     onClick(context: RemoteContext, doc: any, x: number, y: number): boolean {
-        // Check children first
+        // A hidden component takes no tap (two buttons stacked and switched by visibility:
+        // the gone one used to catch the tap, U45).
+        if (!this.isVisible()) return false;
+        // Java Component.onClick: a tap outside this component reaches none of its
+        // children (a scrolled-away child is not hit through the header above it), and
+        // children are hit in content coordinates, i.e. shifted back by the scroll offset
+        // the content is painted with. Without both, taps after scrolling went to the
+        // items that sat under the finger before the scroll.
+        if (!(x >= this.mX && x <= this.mX + this.mWidth &&
+              y >= this.mY && y <= this.mY + this.mHeight)) return false;
+        const cx = x - this.mX - this.mPaddingLeft - this.getScrollX();
+        const cy = y - this.mY - this.mPaddingTop - this.getScrollY();
         for (let i = this.mChildrenComponents.length - 1; i >= 0; i--) {
             const child = this.mChildrenComponents[i];
             if (child instanceof Component) {
-                if (child.onClick(context, doc, x - this.mX - this.mPaddingLeft,
-                                   y - this.mY - this.mPaddingTop)) return true;
+                if (child.onClick(context, doc, cx, cy)) return true;
             }
         }
-        // Check if click is within our bounds
-        if (x >= this.mX && x <= this.mX + this.mWidth &&
-            y >= this.mY && y <= this.mY + this.mHeight) {
-            // Check for ClickModifier in our component modifiers
-            for (const mod of this.mComponentModifiers) {
-                if (mod instanceof ClickModifier) {
-                    return mod.onClick(context, doc, x, y);
+        {
+            // ComponentModifiers.onClick: every ClickHandler gets the tap (a MultiClickModifier
+            // acts only when it is the single-tap kind), last first, and any one handling
+            // it handles the click.
+            let handled = false;
+            for (let i = this.mComponentModifiers.length - 1; i >= 0; i--) {
+                const mod = this.mComponentModifiers[i];
+                if (mod instanceof ClickModifier || mod instanceof MultiClickModifier) {
+                    // The component's own coordinates (where the click's ripple starts).
+                    if (mod.onClick(context, doc, x - this.mX, y - this.mY)) handled = true;
                 }
             }
+            return handled;
         }
         return false;
     }
@@ -839,14 +953,25 @@ export class LayoutComponent extends Component {
 
         // Component modifiers that consume touch.
         for (const mod of this.mComponentModifiers) {
-            if (phase === 'down' && mod instanceof TouchDownModifier) {
+            if (phase === 'down' && mod instanceof RippleModifier) {
+                // RippleModifierOperation.onTouchDown: the ripple starts under the finger.
+                mod.ripple.animate(context, lx, ly);
+                handled = true;
+            } else if (phase === 'down' && mod instanceof TouchDownModifier) {
                 mod.onTouchDown(context);
+                handled = true;
+            } else if (phase === 'down' && (mod instanceof TouchUpModifier || mod instanceof TouchCancelModifier)) {
+                // The finger may leave this component before it lifts (a swipe): remember it,
+                // so its touch-up / cancel actions run wherever the touch ends (as C++, U70).
+                doc.modifierTouchTarget?.(this);
                 handled = true;
             } else if (phase === 'up' && mod instanceof TouchUpModifier) {
                 mod.onTouchUp(context);
+                doc.touchModifierRan?.(this);
                 handled = true;
             } else if (phase === 'cancel' && mod instanceof TouchCancelModifier) {
                 mod.onTouchCancel(context);
+                doc.touchModifierRan?.(this);
                 handled = true;
             }
         }
@@ -872,6 +997,14 @@ export class LayoutComponent extends Component {
         }
 
         return componentHandled || handled;
+    }
+
+    /** This component's own touch-up / touch-cancel modifier actions (a swipe's release). */
+    runOwnTouchModifiers(context: RemoteContext, phase: 'up' | 'cancel'): void {
+        for (const mod of this.mComponentModifiers) {
+            if (phase === 'up' && mod instanceof TouchUpModifier) mod.onTouchUp(context);
+            else if (phase === 'cancel' && mod instanceof TouchCancelModifier) mod.onTouchCancel(context);
+        }
     }
 
     /** One touch phase on a single expression. Only `down` is bounds-checked, as upstream. */
@@ -936,8 +1069,10 @@ export class LayoutComponent extends Component {
             x += parent.mX;
             y += parent.mY;
             if (parent instanceof LayoutComponent) {
-                x += parent.mPaddingLeft;
-                y += parent.mPaddingTop;
+                // Java getLocationInWindow(forSelf=false) adds each ancestor's scroll: the
+                // content of a scrolled parent is painted shifted by it.
+                x += parent.mPaddingLeft + parent.getScrollX();
+                y += parent.mPaddingTop + parent.getScrollY();
             }
             parent = parent.getParent();
         }

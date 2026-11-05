@@ -133,10 +133,10 @@ wear = "1.4.0"
 #    together when they were, and matching them by hand has gone wrong before (a runtime
 #    `NoClassDefFoundError` inside `RemoteButtonImpl` after alpha09 dropped a class
 #    `remote-material3` still called; a pin of a `wear-compose-remote` that did not exist yet).
-#    Check the POMs before landing a bump: `remote-material3:1.0.0-alpha14`,
-#    `androidx.compose.remote.foundation:foundation:1.0.0-alpha05` and
-#    `androidx.glance.wear:*:1.0.0-alpha21` all declare `remote-creation*` `1.0.0-alpha22`, and
-#    `remote-material3:1.0.0-alpha14` declares `foundation` `1.0.0-alpha05`, which is what makes the
+#    Check the POMs before landing a bump: `remote-material3:1.0.0-alpha15`,
+#    `androidx.compose.remote.foundation:foundation:1.0.0-alpha06` and
+#    `androidx.glance.wear:*:1.0.0-alpha22` all declare `remote-creation*` `1.0.0-alpha23`, and
+#    `remote-material3:1.0.0-alpha15` declares `foundation` `1.0.0-alpha06`, which is what makes the
 #    current set consistent.
 #  * To try an API that has landed on androidx-main but is not released yet, run
 #    with `-Pcomposeai.remoteCompose=snapshot`: `settings.gradle.kts` then adds
@@ -149,9 +149,9 @@ wear = "1.4.0"
 #    `RemoteCreationDisplayInfo` + `RemoteDensity` + `LayoutDirection`; `RemotePreview` became
 #    `RemoteContentPreview`. Expect the same class of fix when these pins move — verify a render,
 #    not just a compile.
-compose-remote = "1.0.0-alpha22"
+compose-remote = "1.0.0-alpha23"
 # `androidx.compose.remote.foundation:foundation`, for the widget lane. Moves with `compose-remote`.
-compose-remote-foundation = "1.0.0-alpha05"
+compose-remote-foundation = "1.0.0-alpha06"
 # Matches what the `compose-bom-compat` Compose artifacts already resolve collection to; pinned
 # explicitly because `:third-party-rc-embedded-player` names `ObjectIntMap`/`IntObjectMap` directly.
 androidx-collection = "1.7.0"
@@ -163,9 +163,9 @@ androidx-core = "1.19.1"
 # the set above stays recorded in one place, and because the out-of-tree `remote-m3` catalog in
 # yschimke/wear-m3-catalog resolves the same coordinate. Its POM declares the `remote-creation*`
 # and `foundation` versions it was compiled against, so bump it with `compose-remote` above.
-wear-compose-remote = "1.0.0-alpha14"
+wear-compose-remote = "1.0.0-alpha15"
 # Glance Wear, for `rc-widget/wear`. Moves with `compose-remote`.
-glance-wear = "1.0.0-alpha21"
+glance-wear = "1.0.0-alpha22"
 kotlinx-coroutines = "1.11.0"
 kotlinx-datetime = "0.8.0"
 kotlinx-serialization = "1.12.0"
