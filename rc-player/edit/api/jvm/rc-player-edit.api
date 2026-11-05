@@ -150,6 +150,52 @@ public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text : ee
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder : java/lang/Enum {
+	public static final field Android Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;
+	public static final field Skia Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;
+	public static fun values ()[Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcKotlinOptions {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/Float;
+	public final fun component4 ()Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;)Lee/schimke/composeai/rcplayer/edit/RcKotlinOptions;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcKotlinOptions;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcKotlinOptions;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDensity ()Ljava/lang/Float;
+	public final fun getFunctionName ()Ljava/lang/String;
+	public final fun getImageDecoder ()Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;
+	public final fun getPackageName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcKotlinSource {
+	public fun <init> (Ljava/lang/String;Ljava/util/List;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (Ljava/lang/String;Ljava/util/List;)Lee/schimke/composeai/rcplayer/edit/RcKotlinSource;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcKotlinSource;Ljava/lang/String;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcKotlinSource;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()Ljava/lang/String;
+	public final fun getUnsupported ()Ljava/util/List;
+	public fun hashCode ()I
+	public final fun isComplete ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcKotlinSourceKt {
+	public static final fun toRemoteComposeKotlin (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcKotlinOptions;)Lee/schimke/composeai/rcplayer/edit/RcKotlinSource;
+	public static synthetic fun toRemoteComposeKotlin$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcKotlinOptions;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcKotlinSource;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcOperationRewriteKt {
 	public static final fun rewriteOperations (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lkotlin/jvm/functions/Function2;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 }
@@ -375,6 +421,38 @@ public final class ee/schimke/composeai/rcplayer/edit/RcTextImages {
 public final class ee/schimke/composeai/rcplayer/edit/RcTextImagesKt {
 	public static final fun coreTextAsImages (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Lee/schimke/composeai/rcplayer/runtime/RcTextRasterizer;Lee/schimke/composeai/rcplayer/edit/RcDisplay;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rcplayer/edit/RcTextImages;
 	public static synthetic fun coreTextAsImages$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Lee/schimke/composeai/rcplayer/runtime/RcTextRasterizer;Lee/schimke/composeai/rcplayer/edit/RcDisplay;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcTextImages;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcUiBuilderDesign {
+	public fun <init> (Ljava/lang/String;Ljava/util/Map;Ljava/util/List;)V
+	public final fun getAssets ()Ljava/util/Map;
+	public final fun getJson ()Ljava/lang/String;
+	public final fun getUnsupported ()Ljava/util/List;
+	public final fun isComplete ()Z
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcUiBuilderDesignKt {
+	public static final fun toUiBuilderDesign (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcUiBuilderOptions;)Lee/schimke/composeai/rcplayer/edit/RcUiBuilderDesign;
+	public static synthetic fun toUiBuilderDesign$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcUiBuilderOptions;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcUiBuilderDesign;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcUiBuilderOptions {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/Float;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcUiBuilderOptions;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcUiBuilderOptions;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Ljava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcUiBuilderOptions;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDensity ()Ljava/lang/Float;
+	public final fun getDesignId ()Ljava/lang/String;
+	public final fun getTheme ()Ljava/lang/String;
+	public final fun getTitle ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/edit/RcUnsupportedOperations {

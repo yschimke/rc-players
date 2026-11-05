@@ -13,18 +13,21 @@ import java.awt.Frame
 import java.io.File
 import kotlin.system.exitProcess
 
-private const val USAGE =
+private val USAGE =
   """usage: remote-compose-player [--offline] [file.rc]
        remote-compose-player --render-png [--offline] <in.rc> <out.png> [width height]
        remote-compose-player --inspect <file.rc>        open it in the web inspector
        remote-compose-player --inspector-url <file.rc>  print the inspector link
-       remote-compose-player --version"""
+       remote-compose-player --version
+""" +
+    DECOMPILE_USAGE
 
 /**
  * The Linux desktop viewer: the CMP player in a window, opening local `.rc` files.
  *
  * `--render-png` draws one frame headless and exits, which is how the release job smoke-tests the
- * packaged app on a runner without a display.
+ * packaged app on a runner without a display. `--to-kotlin` and `--to-uid` turn a document back
+ * into source: see [decompileCommand].
  */
 public fun main(args: Array<String>) {
   // `--offline` keeps the viewer off the network: `google:` families draw in the default face and
@@ -38,6 +41,8 @@ public fun main(args: Array<String>) {
     "--render-png" -> exitProcess(renderPngCommand(rest.drop(1), network = !offline))
     "--inspect" -> exitProcess(inspectCommand(rest.drop(1), open = true))
     "--inspector-url" -> exitProcess(inspectCommand(rest.drop(1), open = false))
+    "--to-kotlin" -> exitProcess(decompileCommand(rest.drop(1), uid = false))
+    "--to-uid" -> exitProcess(decompileCommand(rest.drop(1), uid = true))
     else -> {
       if (rest.size > 1) {
         System.err.println(USAGE)

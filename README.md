@@ -19,7 +19,7 @@ questions. The supported renderer remains CMP; UIKit is an explicitly experiment
 | **Apple XCFramework** (`Package.swift`) | iOS + Apple-silicon macOS, from Swift | The CMP player's native Apple targets, packaged for SwiftPM | Yes | Same code again, reachable from a Swift app that does not build Kotlin. Distribution, not implementation. |
 | **Native UIKit POC** (`Sources/RcNativePlayerUIKit`) | iOS | Pure Swift + UIKit/Core Graphics/Core Text | **Experimental** | A second renderer beside CMP. It explores an idiomatic native component tree and reports unsupported operations explicitly; it is not a replacement or compatibility claim. |
 | **macOS player app** (`samples/macos-player`) | Apple-silicon macOS | SwiftUI host + CMP or experimental AppKit-native rendering | **Release utility** | Opens local `.rc` files and persists a renderer preference, so both Apple desktop paths can be exercised from one downloadable app. |
-| **Linux desktop viewer** (`rc-player/desktop`) | x86-64 Linux | The CMP player on the JVM, in a Compose Desktop window | **Release utility** | Opens local `.rc` files (dialog, drag-and-drop or command line), fetches `google:` fonts, opens a document in the [web inspector](https://camaelon.github.io/remotecompose-experiments/inspector/), and renders headless to PNG with `--render-png`. Each release attaches a `.deb` and a self-contained `tar.gz`, both bundling a JRE. |
+| **Linux desktop viewer** (`rc-player/desktop`) | x86-64 Linux | The CMP player on the JVM, in a Compose Desktop window | **Release utility** | Opens local `.rc` files (dialog, drag-and-drop or command line), fetches `google:` fonts, opens a document in the [web inspector](https://camaelon.github.io/remotecompose-experiments/inspector/), renders headless to PNG with `--render-png`, and turns a document back into Remote Compose Kotlin (`--to-kotlin`) or a UI Builder design (`--to-uid`). Each release attaches a `.deb` and a self-contained `tar.gz`, both bundling a JRE. |
 | **Vendored AndroidX player** (`third_party/rc-embedded-player`) | Android (Robolectric) | Kotlin + Compose, vendored from androidx-main | **No** — testing only | The comparison lane. AndroidX's own embedded player, pinned to one commit and locally patched, so a parity number is attributable to a *known* player rather than to whichever alpha resolved that day. |
 | **Vendored TypeScript player** (`third_party/remote-compose-player`) | Browser · Node · VS Code webview | TypeScript → Canvas2D, WebGL for shader ops | **No** — vendored, upstream elsewhere | A client-side lane that needs no Kotlin at all, so a viewer can render a captured `.rc` without a server-side daemon. Upstream is [yschimke/remotecompose-experiments](https://github.com/yschimke/remotecompose-experiments); changes are filed there. |
 
@@ -180,6 +180,40 @@ phone. `needsDisplay(target)` says whether the adaptation depends on the display
 launcher catalog widget does for `WIDGETS_V6`, none for `WIDGETS_V7` — so a server asks the client
 for its density only when it does, and serves one document to every display otherwise. Every
 launcher catalog widget then plays on Android 16, and is 21% smaller after `optimize()`.
+
+#### Back to source: `toRemoteComposeKotlin` and `toUiBuilderDesign`
+
+A document can also be turned back into something a person edits. `toRemoteComposeKotlin()` writes
+the `@Composable @RemoteComposable` function that captures to it: the layout tree as `RemoteBox`,
+`RemoteRow`, `RemoteColumn`, `RemoteText` and `RemoteImage` calls, with each component's modifier
+chain, colours, strings, named (host-bound) values, click actions and semantics. A dp document maps
+back exactly; a pixel one divides back by the capture density where that is exact and keeps the
+pixels (`16f.rf`) where it is not. `toUiBuilderDesign()` writes the same document as a
+[Compose UI Builder](https://ui.coo.ee/start) design in the `remote-m3` catalog, for a designer to
+keep working on rather than a developer: layouts, `remote-m3/remote-text`, `asset/image` (the
+images come back in `assets`) and a canvas's constant primitives as `draw/rect`, `draw/circle`,
+`draw/line`, `draw/oval` and `draw/arc` in the paint they were drawn with. The two are siblings
+over one reading of the document, not one built from the other: the design vocabulary has no
+property for much of what the Kotlin keeps.
+
+Neither guesses. What the target cannot say — canvas drawing in Kotlin, expressions, touch
+handlers, and for a design also named values, text styling and actions — is listed in
+`unsupported`, and in the Kotlin as a `TODO(rc-to-kotlin)` comment where it occurred, with a
+placeholder where the call needs a value so the file still compiles.
+
+```kotlin
+val source = document.toRemoteComposeKotlin(RcKotlinOptions(packageName = "app.widgets", functionName = "Card"))
+File("Card.kt").writeText(source.code)
+source.unsupported.forEach(::println)
+```
+
+The Linux viewer does the same from the command line: `remote-compose-player --to-kotlin in.rc
+Card.kt`, or `--to-uid in.rc card.uid` with the images beside it in `card.assets/`.
+`rc-creation-bridge`'s round trip holds the Kotlin to its promise: hand-written remote content is
+captured, decompiled, and the committed generated source — compiled in the same test source set —
+captures to the same document operation for operation, in dp and legacy density. Over the catalog
+corpus, Material components draw through canvases with computed geometry, so most documents come
+back as a correct component tree with their drawing marked rather than written.
 
 There are no Apple x86_64 slices anywhere in the stack — Compose Multiplatform 1.11 stopped
 publishing them — so Intel iOS simulators and Intel Macs cannot build against it.

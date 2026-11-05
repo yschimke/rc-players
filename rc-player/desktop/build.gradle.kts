@@ -30,6 +30,8 @@ dependencies {
   implementation(project(":rc-player-compose"))
   implementation(project(":rc-player-protocol"))
   implementation(project(":rc-player-runtime"))
+  // `--to-kotlin` and `--to-uid`.
+  implementation(project(":rc-player-edit"))
 
   @Suppress("DEPRECATION") implementation(compose.desktop.currentOs)
   @Suppress("DEPRECATION") implementation(compose.runtime)
