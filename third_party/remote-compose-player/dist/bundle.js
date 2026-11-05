@@ -31864,8 +31864,10 @@ ${inner}`;
         case "float":
           return c.getFloat(v.id);
         case "int":
-        case "long":
           return c.getInteger(v.id);
+        // LOCAL (rc-players): a named long is a LongConstant object, not an integer slot.
+        case "long":
+          return c.mRemoteComposeState.getObject(v.id)?.getValue?.() ?? 0;
         case "color":
           return hex(c.getColor(v.id));
         case "string":
@@ -31890,13 +31892,16 @@ ${inner}`;
           c.setNamedFloatOverride(name, f);
           return true;
         }
-        case "int":
-        case "long": {
+        case "int": {
           const n = Number(value);
           if (!Number.isFinite(n)) return false;
           c.setNamedIntegerOverride(name, Math.trunc(n));
           return true;
         }
+        // LOCAL (rc-players): a LongConstant is re-applied from the document every frame and has
+        // no override slot, so a long write cannot take effect; refuse it rather than claim it did.
+        case "long":
+          return false;
         case "color": {
           const col = parseColor(value);
           if (col === null) return false;

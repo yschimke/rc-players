@@ -104,6 +104,11 @@ Local deltas over that snapshot (filed upstream unless noted):
   inverse transform on the paint's own pattern. `ctx.restore()` does not undo that, so the next draw
   with the same paint sampled the texture with the last glyph's transform. The pattern's identity
   transform is now restored after each glyph. Not yet filed upstream.
+- **Named longs in `createHostApi`** (`src/web/HostApi.ts`). A named `LONG_TYPE` variable is a
+  `LongConstant` object, but upstream read and wrote it through the integer map. Reads returned 0,
+  and writes reported success but changed nothing. Reads now go through the object. Writes are
+  refused, because the constant is re-applied from the document every frame and has no override.
+  Not yet filed upstream.
 
 - **Document-fetch HTTP errors** (`src/web/main.ts`). Reject failed HTTP responses before reading
   their bodies or replacing the current document. The error reports the HTTP status without
