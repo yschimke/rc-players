@@ -448,6 +448,44 @@ class RcUiBuilderDesignTest {
     )
   }
 
+  @Test
+  fun aPre11LegacyBorderWidthIsAlreadyDp() {
+    fun design(minor: Int) =
+      document(
+          *root(
+            RcBoxLayout(-10, -1, 1, 4),
+            RcBorderModifier(
+              0,
+              0,
+              1,
+              0,
+              word(4f),
+              word(0f),
+              word(1f),
+              word(0f),
+              word(0f),
+              word(1f),
+              0,
+            ),
+            RcLayoutContent(-11),
+            END,
+            END,
+          )
+        )
+        .let {
+          it.copy(
+            header =
+              it.header.copy(
+                version = ee.schimke.composeai.rcplayer.protocol.RcVersion(1, minor, 0)
+              )
+          )
+        }
+        .toUiBuilderDesign(RcUiBuilderOptions(density = 2f))
+    // Version 1.0 legacy: dp, as written. 1.1 legacy: pixels, halved at density 2.
+    assertContains(compact(design(0).json), "\"type\":\"border\",\"widthDp\":4")
+    assertContains(compact(design(1).json), "\"type\":\"border\",\"widthDp\":2")
+  }
+
   /** [document] with a dp header, so lengths read back as written. */
   private fun withDp(document: ee.schimke.composeai.rcplayer.protocol.RcDocument) =
     document.copy(

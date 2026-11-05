@@ -856,7 +856,12 @@ private class RcUiBuilderWriter(
     }
     return obj(
       "type" to str("border"),
-      "widthDp" to num(length(border.borderWidth.value)),
+      "widthDp" to
+        num(
+          border.borderWidth.value.let {
+            if (RcDocumentIndex.bordersInDp(header)) it else it / density
+          }
+        ),
       "color" to color,
     )
   }
