@@ -327,9 +327,8 @@ private class RcUiBuilderWriter(
     val props = Json.Obj()
     props["text"] = prop("string", str(textOf(text.textId)))
     // An absent size is the wire default the writer omits, not the catalog's.
-    fontSize(wordOf(TEXT_FONT_SIZE) ?: RcFloatWord.literal(WIRE_DEFAULT_FONT_SIZE))?.let {
-      props["fontSize"] = prop("float", num(it))
-    }
+    val sizeSp = fontSize(wordOf(TEXT_FONT_SIZE) ?: RcFloatWord.literal(WIRE_DEFAULT_FONT_SIZE))
+    sizeSp?.let { props["fontSize"] = prop("float", num(it)) }
     val colorId = intOf(TEXT_COLOR_ID)?.takeUnless { it == -1 }
     when {
       colorId != null -> colorText(colorId)?.let { props["color"] = prop("string", str(it)) }
@@ -337,9 +336,24 @@ private class RcUiBuilderWriter(
         props["color"] = prop("string", str(colorHex(intOf(TEXT_COLOR)!!)))
     }
     fontStyle(intOf(TEXT_FONT_STYLE) ?: 0)?.let { props["fontStyle"] = prop("string", str(it)) }
-    wordOf(TEXT_FONT_WEIGHT)?.let { weight ->
-      fontWeight(weight)?.let { props["fontWeight"] = prop("string", str(it)) }
+    intOf(TEXT_FONT_FAMILY)
+      ?.takeUnless { it == -1 }
+      ?.let { familyId ->
+        fontFamily(familyId)?.let { props["fontFamily"] = prop("string", str(it)) }
+      }
+    // The creation API writes letter spacing and line height as ratios of the font size; the
+    // design says them in sp, so they are multiplied back.
+    fun spacing(id: Int, neutral: Float, property: String) {
+      val word = wordOf(id) ?: return
+      if (!word.isNaNEncoded && word.value == neutral) return
+      if (word.isNaNEncoded || sizeSp == null) {
+        gap("text ${text.textId}'s $property is read from a variable; it is not generated")
+        return
+      }
+      props[property] = prop("float", num(word.value * sizeSp))
     }
+    spacing(TEXT_LETTER_SPACING, 0f, "letterSpacing")
+    spacing(TEXT_LINE_HEIGHT_MULTIPLIER, 1f, "lineHeight")
     intOf(TEXT_ALIGN)?.let { align ->
       TEXT_ALIGNS[align and 0xffff]?.let { props["textAlign"] = prop("enum", str(it)) }
     }
@@ -349,9 +363,8 @@ private class RcUiBuilderWriter(
     intOf(TEXT_MAX_LINES)
       ?.takeUnless { it == Int.MAX_VALUE }
       ?.let { props["maxLines"] = prop("int", int(it)) }
-    fontVariations(properties)?.let { props["fontVariationSettings"] = prop("string", str(it)) }
-    if (intOf(TEXT_FONT_FAMILY)?.takeUnless { it == -1 } != null) {
-      gap("text ${text.textId}'s font family has no property")
+    variationSettings(fontVariations(properties), wordOf(TEXT_FONT_WEIGHT))?.let {
+      props["fontVariationSettings"] = prop("string", str(it))
     }
     val unsaid =
       text.properties.filter { it.id !in TEXT_PROPERTIES_SAID && !it.isDefault() }.map { it.id }
@@ -365,7 +378,6 @@ private class RcUiBuilderWriter(
 
   private fun textLayout(node: RcOperationNode, text: RcTextLayout): String {
     val props = Json.Obj()
-    if (text.fontFamilyId != -1) gap("text ${text.textId}'s font family has no property")
     props["text"] = prop("string", str(textOf(text.textId)))
     fontSize(text.fontSize)?.let { props["fontSize"] = prop("float", num(it)) }
     val color =
@@ -373,7 +385,12 @@ private class RcUiBuilderWriter(
       else colorHex(text.color)
     color?.let { props["color"] = prop("string", str(it)) }
     fontStyle(text.fontStyle)?.let { props["fontStyle"] = prop("string", str(it)) }
-    fontWeight(text.fontWeight)?.let { props["fontWeight"] = prop("string", str(it)) }
+    if (text.fontFamilyId != -1) {
+      fontFamily(text.fontFamilyId)?.let { props["fontFamily"] = prop("string", str(it)) }
+    }
+    variationSettings(null, text.fontWeight)?.let {
+      props["fontVariationSettings"] = prop("string", str(it))
+    }
     TEXT_ALIGNS[text.textAlign]?.let { props["textAlign"] = prop("enum", str(it)) }
     OVERFLOWS[text.overflow]?.let { props["overflow"] = prop("string", str(it)) }
     if (text.maxLines != Int.MAX_VALUE) props["maxLines"] = prop("int", int(text.maxLines))
@@ -392,18 +409,48 @@ private class RcUiBuilderWriter(
     }
 
   /**
+   * A text's family as remote-m3 names one: the wire's family string, which the writer turns back
+   * into a generic `RemoteFontFamily` member or `RemoteFontFamily.Named`.
+   */
+  private fun fontFamily(textId: Int): String? {
+    index.named[textId]
+      ?.takeIf { it.type == RcNamedVariable.STRING_TYPE }
+      ?.let { gap("named font family \"${it.name}\" is written as its default value") }
+    return index.texts[textId]
+      ?: run {
+        gap("font family reads ${index.describeId(textId)}; it is not generated")
+        null
+      }
+  }
+
+  /**
+   * The design's `fontVariationSettings`: the document's own axes, with a non-default weight as the
+   * `wght` axis. remote-m3 declares no `fontWeight`, and its `wght` overrides one, so that is the
+   * spelling a design can carry; an explicit `wght` axis already wins on the device.
+   */
+  private fun variationSettings(axes: String?, weight: RcFloatWord?): String? {
+    val wght =
+      weight
+        ?.let(::fontWeight)
+        ?.takeUnless { it == DEFAULT_FONT_WEIGHT }
+        ?.takeUnless { axes != null && Regex("[\"']?wght[\"']?\\s").containsMatchIn(axes) }
+        ?.let { "\"wght\" ${format(it.toFloat())}" }
+    return listOfNotNull(axes, wght).joinToString(", ").ifEmpty { null }
+  }
+
+  /**
    * A font weight, or for one read from a variable its default where the document holds one. A
    * design property is a literal, so the binding itself is reported.
    */
-  private fun fontWeight(word: RcFloatWord): String? {
-    if (!word.isNaNEncoded) return word.value.toInt().toString()
+  private fun fontWeight(word: RcFloatWord): Int? {
+    if (!word.isNaNEncoded) return word.value.toInt()
     val id = word.referencedId!!
     val default = index.floats[id]?.takeUnless { it.isNaNEncoded }?.value
     gap(
       "a font weight reads ${index.describeId(id)}; " +
         if (default != null) "its default is written" else "it is not generated"
     )
-    return default?.toInt()?.toString()
+    return default?.toInt()
   }
 
   private fun fontSize(word: RcFloatWord): Float? {
@@ -1119,7 +1166,12 @@ private class RcUiBuilderWriter(
     const val TEXT_ALIGN = 9
     const val TEXT_OVERFLOW = 10
     const val TEXT_MAX_LINES = 11
+    const val TEXT_LETTER_SPACING = 12
+    const val TEXT_LINE_HEIGHT_MULTIPLIER = 14
     const val WIRE_DEFAULT_FONT_SIZE = 36f
+
+    /** `FontWeight.Normal`, which a design leaves unsaid. */
+    const val DEFAULT_FONT_WEIGHT = 400
 
     /** The namespaces theme colours are published under, such as `WearM3` and `Material3`. */
     val MATERIAL_NAMESPACE: Regex = Regex("(?i)(wear)?(m3|material3?|materialtheme)")
@@ -1150,7 +1202,23 @@ private class RcUiBuilderWriter(
     const val TEXT_FONT_AXIS = 20
     const val TEXT_FONT_AXIS_VALUES = 21
     val TEXT_PROPERTIES_SAID: Set<Int> =
-      setOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, TEXT_FONT_AXIS, TEXT_FONT_AXIS_VALUES)
+      setOf(
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        TEXT_LETTER_SPACING,
+        TEXT_LINE_HEIGHT_MULTIPLIER,
+        TEXT_FONT_AXIS,
+        TEXT_FONT_AXIS_VALUES,
+      )
 
     // AndroidX `PaintBundle` commands; a command's value may be packed in its high 16 bits.
     const val PAINT_TEXT_SIZE = 1
