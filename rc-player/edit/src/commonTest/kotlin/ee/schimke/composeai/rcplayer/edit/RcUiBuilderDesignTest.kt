@@ -33,6 +33,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** What `toUiBuilderDesign` writes for hand-built documents. */
@@ -239,7 +240,7 @@ class RcUiBuilderDesignTest {
   }
 
   @Test
-  fun aVariableFontWeightWritesItsDefaultAndIsReported() {
+  fun aVariableFontWeightWritesItsDefaultAsTheWeightAxisAndIsReported() {
     val design =
       document(
           RcTextData(42, "Bold"),
@@ -254,8 +255,48 @@ class RcUiBuilderDesignTest {
           ),
         )
         .toUiBuilderDesign()
-    assertContains(compact(design.json), "\"fontWeight\":{\"type\":\"string\",\"value\":\"700\"}")
+    // remote-m3 declares no `fontWeight`; its `wght` axis overrides one.
+    assertContains(
+      compact(design.json),
+      "\"fontVariationSettings\":{\"type\":\"string\",\"value\":\"\\\"wght\\\"700\"}",
+    )
+    assertFalse("fontWeight" in design.json, design.json)
     assertEquals(1, design.unsupported.size, design.unsupported.toString())
+  }
+
+  @Test
+  fun aTextsFamilyAndSpacingAreWrittenInSp() {
+    val design =
+      document(
+          RcTextData(42, "12:30"),
+          RcTextData(43, "google:Michroma"),
+          *root(
+            RcCoreText(
+              42,
+              listOf(
+                RcTextStyleProperty.FloatValue(5, word(20f)),
+                RcTextStyleProperty.IntValue(8, 43),
+                // Ratios of the font size, as the creation API writes them.
+                RcTextStyleProperty.FloatValue(12, word(0.05f)),
+                RcTextStyleProperty.FloatValue(14, word(1.5f)),
+                RcTextStyleProperty.FloatValue(7, word(400f)),
+              ),
+            ),
+            END,
+          ),
+        )
+        .toUiBuilderDesign()
+    val json = compact(design.json)
+    assertContains(json, "\"fontFamily\":{\"type\":\"string\",\"value\":\"google:Michroma\"}")
+    val size = Regex("\"fontSize\":\\{\"type\":\"float\",\"value\":([0-9.]+)").find(json)!!
+    val sizeSp = size.groupValues[1].toFloat()
+    assertContains(json, "\"letterSpacing\":{\"type\":\"float\",\"value\":")
+    assertContains(json, "\"lineHeight\":{\"type\":\"float\",\"value\":")
+    val lineHeight = Regex("\"lineHeight\":\\{\"type\":\"float\",\"value\":([0-9.]+)").find(json)!!
+    assertEquals(sizeSp * 1.5f, lineHeight.groupValues[1].toFloat(), 0.001f)
+    // A normal weight is left unsaid.
+    assertFalse("wght" in json, json)
+    assertTrue(design.isComplete, design.unsupported.toString())
   }
 
   @Test
@@ -293,7 +334,7 @@ class RcUiBuilderDesignTest {
   }
 
   @Test
-  fun aMiterLimitAndATextLayoutFontFamilyAreReported() {
+  fun aMiterLimitIsReportedAndATextLayoutFontFamilyIsWritten() {
     val design =
       document(
           RcTextData(42, "Mono"),
@@ -323,11 +364,12 @@ class RcUiBuilderDesignTest {
           ),
         )
         .toUiBuilderDesign()
+    assertContains(
+      compact(design.json),
+      "\"fontFamily\":{\"type\":\"string\",\"value\":\"monospace\"}",
+    )
     assertEquals(
-      listOf(
-        "text 42's font family has no property",
-        "a stroke miter limit has no design property; 4 is drawn",
-      ),
+      listOf("a stroke miter limit has no design property; 4 is drawn"),
       design.unsupported,
     )
   }
