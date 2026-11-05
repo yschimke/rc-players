@@ -233,4 +233,31 @@ class RcKotlinSourceTest {
     assertEquals(1, Regex("private const val Image56Png").findAll(source.code).count())
     assertEquals(2, Regex("RemoteImage\\(image56,").findAll(source.code).count())
   }
+
+  @Test
+  fun dimensionsKeepTheirTypeWhenTheyReadAVariableOrAreIntrinsic() {
+    val size = RcFloatWord(0x7fc00000 or 50)
+    val source =
+      withBehavior(
+          RcHeader.DENSITY_BEHAVIOR_LEGACY,
+          document(
+            RcFloatConstant(50, word(24f)),
+            RcNamedVariable(50, RcNamedVariable.FLOAT_TYPE, "USER:side"),
+            *rootLayoutArray(
+              *modifiedBox(
+                RcWidthModifier(RcDimensionType.EXACT_DP, size),
+                RcHeightModifier(RcDimensionType.INTRINSIC_MIN, word(0f)),
+              )
+            ),
+          ),
+        )
+        .toRemoteComposeKotlin()
+    assertTrue(source.isComplete, source.unsupported.toString())
+    assertContains(source.code, "width(side.asRemoteDp())")
+    assertContains(source.code, "height(RemoteIntrinsicSize.Min)")
+    assertContains(
+      source.code,
+      "import androidx.compose.remote.creation.compose.layout.RemoteIntrinsicSize",
+    )
+  }
 }

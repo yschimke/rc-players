@@ -938,8 +938,11 @@ private class RcKotlinWriter(
     return when (type) {
       RcDimensionType.EXACT_DP -> {
         import("androidx.compose.remote.creation.compose.modifier.$lower")
-        if (value.isNaNEncoded) "$lower(${floatValue(value)})"
-        else {
+        // A RemoteFloat would write EXACT, in pixels; keep the dp type.
+        if (value.isNaNEncoded) {
+          import("androidx.compose.remote.creation.compose.state.asRemoteDp")
+          "$lower(${floatValue(value)}.asRemoteDp())"
+        } else {
           import("androidx.compose.remote.creation.compose.state.rdp")
           "$lower(${dp(value.value)})"
         }
@@ -970,9 +973,9 @@ private class RcKotlinWriter(
       RcDimensionType.INTRINSIC_MAX -> {
         import(
           "androidx.compose.remote.creation.compose.modifier.$lower",
-          "androidx.compose.foundation.layout.IntrinsicSize",
+          "androidx.compose.remote.creation.compose.layout.RemoteIntrinsicSize",
         )
-        "$lower(IntrinsicSize.${if (type == RcDimensionType.INTRINSIC_MIN) "Min" else "Max"})"
+        "$lower(RemoteIntrinsicSize.${if (type == RcDimensionType.INTRINSIC_MIN) "Min" else "Max"})"
       }
       RcDimensionType.FILL_PARENT_MAX_WIDTH,
       RcDimensionType.FILL_PARENT_MAX_HEIGHT -> {
@@ -1219,7 +1222,6 @@ private class RcKotlinWriter(
   }
 
   private fun intById(id: Int): String {
-    import("androidx.compose.remote.creation.compose.state.ri")
     named[id]
       ?.takeIf { it.type == RcNamedVariable.INT_TYPE }
       ?.let { variable ->
@@ -1230,6 +1232,7 @@ private class RcKotlinWriter(
           "rememberNamedRemoteInt(${quote(name)}, ${ints[id] ?: 0}$domain)",
         )
       }
+    import("androidx.compose.remote.creation.compose.state.ri")
     ints[id]?.let {
       return "$it.ri"
     }
@@ -1246,8 +1249,7 @@ private class RcKotlinWriter(
 
   /** A float word as a `RemoteFloat` expression: a literal, or the value an id holds. */
   private fun floatValue(word: RcFloatWord): String {
-    import("androidx.compose.remote.creation.compose.state.rf")
-    if (!word.isNaNEncoded) return "${float(word.value)}.rf"
+    if (!word.isNaNEncoded) return literalFloat(word.value)
     val id = word.referencedId!!
     named[id]
       ?.takeIf { it.type == RcNamedVariable.FLOAT_TYPE }
@@ -1266,10 +1268,15 @@ private class RcKotlinWriter(
     floats[id]
       ?.takeUnless { it.isNaNEncoded }
       ?.let {
-        return "${float(it.value)}.rf"
+        return literalFloat(it.value)
       }
     gap("a value reads ${describeId(id)}; 0 is used instead")
-    return "0f.rf"
+    return literalFloat(0f)
+  }
+
+  private fun literalFloat(value: Float): String {
+    import("androidx.compose.remote.creation.compose.state.rf")
+    return "${float(value)}.rf"
   }
 
   /** A colour id as a `RemoteColor` expression. */

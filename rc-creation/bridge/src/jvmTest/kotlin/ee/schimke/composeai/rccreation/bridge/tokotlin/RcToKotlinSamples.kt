@@ -11,6 +11,7 @@ import androidx.compose.remote.creation.compose.layout.RemoteContentScale
 import androidx.compose.remote.creation.compose.layout.RemoteFitBox
 import androidx.compose.remote.creation.compose.layout.RemoteFlowRow
 import androidx.compose.remote.creation.compose.layout.RemoteImage
+import androidx.compose.remote.creation.compose.layout.RemoteIntrinsicSize
 import androidx.compose.remote.creation.compose.layout.RemoteRow
 import androidx.compose.remote.creation.compose.layout.RemoteText
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
@@ -33,7 +34,9 @@ import androidx.compose.remote.creation.compose.modifier.width
 import androidx.compose.remote.creation.compose.modifier.wrapContentHeight
 import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
 import androidx.compose.remote.creation.compose.state.RemoteColor
+import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteString
+import androidx.compose.remote.creation.compose.state.asRemoteDp
 import androidx.compose.remote.creation.compose.state.asRemoteTextUnit
 import androidx.compose.remote.creation.compose.state.rb
 import androidx.compose.remote.creation.compose.state.rdp
@@ -179,6 +182,10 @@ fun InteractionSample() {
         role = Role.Image
       }
     )
+    val side = remember { RemoteFloat.createNamedRemoteFloat("panel.side", 24f) }
+    RemoteRow(RemoteModifier.width(RemoteIntrinsicSize.Max)) {
+      RemoteBox(RemoteModifier.width(side.asRemoteDp()).height(8.rdp))
+    }
     RemoteFitBox(RemoteModifier.size(64.rdp)) {
       RemoteBox(RemoteModifier.size(128.rdp).background(RemoteColor(Color.DarkGray)))
     }
