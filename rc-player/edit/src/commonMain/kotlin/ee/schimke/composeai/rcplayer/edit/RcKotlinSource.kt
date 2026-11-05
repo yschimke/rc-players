@@ -1026,6 +1026,14 @@ private class RcKotlinWriter(
     fun bound(word: RcFloatWord): String =
       when {
         word.isNaNEncoded -> {
+          // A pixels document's bound is written as dp times the density, so a variable that
+          // holds pixels would be scaled twice.
+          if (densityBehavior == RcHeader.DENSITY_BEHAVIOR_PIXELS) {
+            gap(
+              "a $name bound reads ${describeId(word.referencedId!!)} in pixels; it is written " +
+                "as dp, which the creation API scales by the density again"
+            )
+          }
           import("androidx.compose.remote.creation.compose.state.asRemoteDp")
           "${floatValue(word)}.asRemoteDp()"
         }

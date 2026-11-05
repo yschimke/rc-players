@@ -16,6 +16,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
+import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
@@ -278,5 +279,25 @@ class RcKotlinSourceTest {
     assertEquals(3, literals.count())
     assertTrue(literals.all { it.length <= 65_535 })
     assertContains(source.code, ").joinToString(\"\")")
+  }
+
+  @Test
+  fun aVariableSizeBoundInAPixelsDocumentIsReported() {
+    val bound = RcFloatWord(0x7fc00000 or 50)
+    fun source(behavior: Int) =
+      withBehavior(
+          behavior,
+          document(
+            RcFloatConstant(50, word(40f)),
+            RcNamedVariable(50, RcNamedVariable.FLOAT_TYPE, "USER:limit"),
+            *rootLayoutArray(*modifiedBox(RcHeightInModifier(bound, word(Float.MAX_VALUE)))),
+          ),
+        )
+        .toRemoteComposeKotlin()
+    // Legacy and dp documents write a heightIn bound in dp, so a variable is exact there.
+    assertTrue(source(RcHeader.DENSITY_BEHAVIOR_DP).isComplete)
+    val pixels = source(RcHeader.DENSITY_BEHAVIOR_PIXELS)
+    assertContains(pixels.code, "heightIn(min = limit.asRemoteDp())")
+    assertEquals(1, pixels.unsupported.size, pixels.unsupported.toString())
   }
 }
