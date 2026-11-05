@@ -280,6 +280,11 @@ export class WebRemoteContext extends RemoteContext {
         try {
             // Store the raw bytes; decode lazily on play. Keep a copy so the
             // backing buffer is stable for an eventual decodeAudioData call.
+            // LOCAL (rc-players): the document re-applies its sound data every frame. Unchanged
+            // bytes keep the decoded buffer and any decode in flight, or a looping document would
+            // drop each decode before it lands and never play.
+            const prior = this.soundBytes.get(id);
+            if (prior && prior.length === data.length && prior.every((v, i) => v === data[i])) return;
             this.soundBytes.set(id, data.slice());
             this.soundBuffers.delete(id);
         } catch (e) {

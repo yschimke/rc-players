@@ -1891,6 +1891,14 @@ export class CanvasPaintContext extends PaintContext {
                     () => { this.applyStrokeStyle(g); this.ctx.strokeText(ch, -charWidth / 2, 0); }
                 );
                 this.ctx.restore();
+                // LOCAL (rc-players): the glyph's inverse transform was set on the paint's own
+                // pattern, which outlives this glyph (ctx.restore() does not reset it); put back
+                // the identity every pattern is created with.
+                if (g && g === this.gradientStyle && typeof (g as CanvasPattern).setTransform === 'function') {
+                    const m = this.ctx.getTransform();
+                    m.a = 1; m.b = 0; m.c = 0; m.d = 1; m.e = 0; m.f = 0;
+                    (g as CanvasPattern).setTransform(m);
+                }
             }
             progress += charWidth;
         }

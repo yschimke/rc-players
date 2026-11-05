@@ -96,6 +96,14 @@ Local deltas over that snapshot (filed upstream unless noted):
   `gradientStyle` but not the `gradientSpec` that text-on-path rebuilds the gradient from. After
   `restorePaint`, text on a path was therefore filled with the inner scope's gradient. The spec is
   now saved and restored with the style. Not yet filed upstream.
+- **Sound data re-applied every frame** (`src/web/WebRemoteContext.ts`). The document applies its
+  `SoundData` on every paint. `loadSound` copied the bytes each time and dropped the decoded buffer,
+  so a decode still in flight was discarded as "replaced" and a looping document never played the
+  sound. Unchanged bytes are now kept as they are. Not yet filed upstream.
+- **Pattern transform after text on a path** (`src/web/CanvasPaintContext.ts`). Each glyph set its
+  inverse transform on the paint's own pattern. `ctx.restore()` does not undo that, so the next draw
+  with the same paint sampled the texture with the last glyph's transform. The pattern's identity
+  transform is now restored after each glyph. Not yet filed upstream.
 
 - **Document-fetch HTTP errors** (`src/web/main.ts`). Reject failed HTTP responses before reading
   their bodies or replacing the current document. The error reports the HTTP status without

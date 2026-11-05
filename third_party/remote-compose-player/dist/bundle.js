@@ -6083,6 +6083,16 @@ void main() {
             }
           );
           this.ctx.restore();
+          if (g && g === this.gradientStyle && typeof g.setTransform === "function") {
+            const m = this.ctx.getTransform();
+            m.a = 1;
+            m.b = 0;
+            m.c = 0;
+            m.d = 1;
+            m.e = 0;
+            m.f = 0;
+            g.setTransform(m);
+          }
         }
         progress += charWidth;
       }
@@ -31047,6 +31057,8 @@ ${inner}`;
     }
     loadSound(id, data) {
       try {
+        const prior = this.soundBytes.get(id);
+        if (prior && prior.length === data.length && prior.every((v, i) => v === data[i])) return;
         this.soundBytes.set(id, data.slice());
         this.soundBuffers.delete(id);
       } catch (e) {
