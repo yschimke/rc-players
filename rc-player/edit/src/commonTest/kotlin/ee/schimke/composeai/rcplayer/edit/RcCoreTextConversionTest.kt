@@ -63,7 +63,7 @@ class RcCoreTextConversionTest {
             IntValue(11, 2),
           )
         )
-        .adaptTo(RcTargetProfiles.WEAR_WIDGETS)
+        .adaptTo(WearWithoutCoreText)
 
     assertTrue(adaptation.isPlayable, adaptation.violations.toString())
     assertEquals(emptyList(), adaptation.approximations)
@@ -87,8 +87,7 @@ class RcCoreTextConversionTest {
 
   @Test
   fun aThemeColourBecomesTheDynamicColourFlag() {
-    val layout =
-      androidx(*text(IntValue(4, 65))).adaptTo(RcTargetProfiles.WEAR_WIDGETS).document.layout()
+    val layout = androidx(*text(IntValue(4, 65))).adaptTo(WearWithoutCoreText).document.layout()
     assertEquals(65, layout.color)
     assertEquals(RcTextLayout.FLAG_DYNAMIC_COLOR, layout.flags)
     assertEquals(1, layout.textAlign)
@@ -98,8 +97,7 @@ class RcCoreTextConversionTest {
   fun aStyleChainIsAppliedAndItsStylesDroppedWhereTheTargetHasNone() {
     val base = RcTextStyle(listOf(IntValue(1, 5), FloatValue(5, f(40f))))
     val bold = RcTextStyle(listOf(IntValue(1, 6), IntValue(24, 5), FloatValue(7, f(700f))))
-    val adapted =
-      androidx(base, bold, *text(IntValue(24, 6))).adaptTo(RcTargetProfiles.WEAR_WIDGETS)
+    val adapted = androidx(base, bold, *text(IntValue(24, 6))).adaptTo(WearWithoutCoreText)
 
     assertTrue(adapted.isPlayable, adapted.violations.toString())
     assertTrue(adapted.document.operations.none { it is RcTextStyle })
@@ -119,10 +117,10 @@ class RcCoreTextConversionTest {
       )
     assertEquals(
       listOf(RcProfileViolation.Kind.UNSUPPORTED_OPERATION),
-      document.adaptTo(RcTargetProfiles.WEAR_WIDGETS).violations.map { it.kind },
+      document.adaptTo(WearWithoutCoreText).violations.map { it.kind },
     )
 
-    val approximated = document.adaptTo(RcTargetProfiles.WEAR_WIDGETS, approximateText = true)
+    val approximated = document.adaptTo(WearWithoutCoreText, approximateText = true)
 
     assertTrue(approximated.isPlayable, approximated.violations.toString())
     assertEquals(
@@ -140,8 +138,7 @@ class RcCoreTextConversionTest {
   @Test
   fun decorationAlwaysBlocksAConversion() {
     val adapted =
-      androidx(*text(BooleanValue(18, true)))
-        .adaptTo(RcTargetProfiles.WEAR_WIDGETS, approximateText = true)
+      androidx(*text(BooleanValue(18, true))).adaptTo(WearWithoutCoreText, approximateText = true)
     assertTrue(adapted.document.operations.any { it is RcCoreText })
     assertEquals(false, adapted.isPlayable)
   }
@@ -151,8 +148,7 @@ class RcCoreTextConversionTest {
     // AndroidX lets the style's 40 win over an explicit default; the CMP player keeps the 36.
     val style = RcTextStyle(listOf(IntValue(1, 5), FloatValue(5, f(40f))))
     val adapted =
-      androidx(style, *text(IntValue(24, 5), FloatValue(5, f(36f))))
-        .adaptTo(RcTargetProfiles.WEAR_WIDGETS)
+      androidx(style, *text(IntValue(24, 5), FloatValue(5, f(36f)))).adaptTo(WearWithoutCoreText)
     assertTrue(adapted.document.operations.any { it is RcCoreText })
   }
 
@@ -161,8 +157,7 @@ class RcCoreTextConversionTest {
     // The player applies the child before it has loaded the parent, so it never inherits it.
     val child = RcTextStyle(listOf(IntValue(1, 6), IntValue(24, 5)))
     val parent = RcTextStyle(listOf(IntValue(1, 5), FloatValue(5, f(40f))))
-    val adapted =
-      androidx(child, *text(IntValue(24, 6)), parent).adaptTo(RcTargetProfiles.WEAR_WIDGETS)
+    val adapted = androidx(child, *text(IntValue(24, 6)), parent).adaptTo(WearWithoutCoreText)
     assertTrue(adapted.document.operations.any { it is RcCoreText })
   }
 }

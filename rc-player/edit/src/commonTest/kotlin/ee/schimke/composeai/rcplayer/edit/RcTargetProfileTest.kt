@@ -72,7 +72,8 @@ class RcTargetProfileTest {
 
     val wear = RcTargetProfiles.WEAR_WIDGETS.supportedOpcodes
     assertTrue(RcOpcodes.DATA_FONT in wear)
-    assertFalse(RcOpcodes.CORE_TEXT in wear)
+    // Wear widgets carry core text, though AndroidX's list leaves it out (b/485509245).
+    assertTrue(RcOpcodes.CORE_TEXT in wear && RcOpcodes.TEXT_STYLE in wear)
 
     // Two profiles intersect: what both players read.
     val both = RcTargetProfile.of(7, RcProfiles.ANDROIDX or RcProfiles.WIDGETS).supportedOpcodes
