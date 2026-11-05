@@ -787,9 +787,9 @@ private class RcUiBuilderWriter(
       is RcGraphicsLayerModifier -> graphicsLayer(operation)
       is RcBorderModifier -> border(operation)
       is RcAccessibilitySemantics -> {
-        if (operation.contentDescriptionId != 0 || operation.textId != 0) {
-          gap("semantics have no modifier; a content description is not generated")
-        }
+        // Every field is applied by the player — description, text, state description, role,
+        // enabled and the merge mode — and a design has no semantics modifier for any of them.
+        gap("semantics have no design modifier; they are not generated")
         null
       }
       else -> {

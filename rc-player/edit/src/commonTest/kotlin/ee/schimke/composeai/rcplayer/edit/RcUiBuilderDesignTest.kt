@@ -400,6 +400,34 @@ class RcUiBuilderDesignTest {
     )
   }
 
+  @Test
+  fun semanticsWithOnlyAStateDescriptionAreStillReported() {
+    val design =
+      document(
+          RcTextData(44, "On"),
+          *root(
+            RcBoxLayout(-10, -1, 1, 4),
+            ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics(
+              0,
+              ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics.ROLE_UNKNOWN,
+              0,
+              44,
+              0,
+              true,
+              false,
+            ),
+            RcLayoutContent(-11),
+            END,
+            END,
+          ),
+        )
+        .toUiBuilderDesign()
+    assertEquals(
+      listOf("semantics have no design modifier; they are not generated"),
+      design.unsupported,
+    )
+  }
+
   /** [document] with a dp header, so lengths read back as written. */
   private fun withDp(document: ee.schimke.composeai.rcplayer.protocol.RcDocument) =
     document.copy(
