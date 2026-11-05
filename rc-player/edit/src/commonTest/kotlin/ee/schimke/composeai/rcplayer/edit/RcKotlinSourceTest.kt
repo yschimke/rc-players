@@ -329,4 +329,46 @@ class RcKotlinSourceTest {
     assertContains(legacy.code, "border(2.rdp, RemoteColor(Color(0xFF000000)))")
     assertEquals(1, legacy.unsupported.size, legacy.unsupported.toString())
   }
+
+  @Test
+  fun aComputedNamedValueIsReportedRatherThanWrittenAsAConstant() {
+    val width = RcFloatWord(0x7fc00000 or 50)
+    val source =
+      withBehavior(
+          RcHeader.DENSITY_BEHAVIOR_DP,
+          document(
+            RcFloatExpression(50, listOf(word(10f), word(2f)), null),
+            RcNamedVariable(50, RcNamedVariable.FLOAT_TYPE, "USER:computed"),
+            *rootLayoutArray(*modifiedBox(RcWidthModifier(RcDimensionType.EXACT_DP, width))),
+          ),
+        )
+        .toRemoteComposeKotlin()
+    assertContains(source.code, "width(computed.asRemoteDp())")
+    assertEquals(1, source.unsupported.size, source.unsupported.toString())
+    assertContains(source.unsupported.single(), "computed by id 50 (FloatExpression)")
+  }
+
+  @Test
+  fun spacingWithADistributedArrangementIsReported() {
+    fun row(positioning: Int) =
+      withBehavior(
+          RcHeader.DENSITY_BEHAVIOR_DP,
+          document(
+            *rootLayoutArray(
+              ee.schimke.composeai.rcplayer.protocol.RcRowLayout(-10, -1, positioning, 4, word(4f)),
+              RcLayoutContent(-11),
+              END,
+              END,
+            )
+          ),
+        )
+        .toRemoteComposeKotlin()
+    assertTrue(row(2).isComplete, row(2).unsupported.toString())
+    assertContains(
+      row(2).code,
+      "RemoteArrangement.spacedBy(4.rdp, RemoteAlignment.CenterHorizontally)",
+    )
+    // SpaceBetween adds its gap to the spacing at playback; spacedBy cannot say both.
+    assertEquals(1, row(6).unsupported.size, row(6).unsupported.toString())
+  }
 }

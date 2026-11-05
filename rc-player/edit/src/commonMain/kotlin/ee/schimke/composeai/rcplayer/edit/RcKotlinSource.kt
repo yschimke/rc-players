@@ -724,6 +724,7 @@ private class RcKotlinWriter(
         val url = bitmaps[id]?.takeIf { it.encoding == RcBitmapData.ENCODING_URL }
         if (url != null) {
           import("androidx.compose.remote.creation.compose.state.rememberNamedRemoteImageBitmap")
+          reportComputed(id, variable.name)
           val (name, domain) = domainOf(variable.name)
           return hoist(
             "image$id",
@@ -1232,6 +1233,7 @@ private class RcKotlinWriter(
           "androidx.compose.runtime.remember",
           "androidx.compose.remote.creation.compose.state.RemoteString",
         )
+        reportComputed(id, variable.name)
         val (name, domain) = domainOf(variable.name)
         return hoist(
           identifier(name),
@@ -1252,6 +1254,7 @@ private class RcKotlinWriter(
       ?.takeIf { it.type == RcNamedVariable.INT_TYPE }
       ?.let { variable ->
         import("androidx.compose.remote.creation.compose.state.rememberNamedRemoteInt")
+        reportComputed(id, variable.name)
         val (name, domain) = domainOf(variable.name)
         return hoist(
           identifier(name),
@@ -1284,6 +1287,7 @@ private class RcKotlinWriter(
           "androidx.compose.runtime.remember",
           "androidx.compose.remote.creation.compose.state.RemoteFloat",
         )
+        reportComputed(id, variable.name)
         val (name, domain) = domainOf(variable.name)
         val default = floats[id]?.takeUnless { it.isNaNEncoded }?.value ?: 0f
         return hoist(
@@ -1314,6 +1318,7 @@ private class RcKotlinWriter(
           "androidx.compose.remote.creation.compose.state.rememberNamedRemoteColor",
           "androidx.compose.ui.graphics.Color",
         )
+        reportComputed(id, variable.name)
         val (name, domain) = domainOf(variable.name)
         return hoist(
           identifier(name),
@@ -1480,7 +1485,14 @@ private class RcKotlinWriter(
         horizontal && positioning == END -> ", RemoteAlignment.End"
         !horizontal && positioning == CENTER -> ", RemoteAlignment.CenterVertically"
         !horizontal && positioning == BOTTOM -> ", RemoteAlignment.Bottom"
-        else -> ""
+        else -> {
+          // spacedBy takes an alignment, not a distribution: SpaceBetween, SpaceEvenly and
+          // SpaceAround add their gap to the spacing at playback, which no call can say.
+          gap(
+            "spacing combined with a distributed arrangement ($positioning) keeps only the spacing"
+          )
+          ""
+        }
       }
     if (alignment.isNotEmpty())
       import("androidx.compose.remote.creation.compose.layout.RemoteAlignment")
@@ -1547,6 +1559,17 @@ private class RcKotlinWriter(
   }
 
   // --- naming -------------------------------------------------------------------------------
+
+  /**
+   * Reports a named value that the document computes, rather than holds as a constant. A
+   * `createNamed…Expression` writes an expression and names its output; the source writes the name
+   * with its default instead, so the computation is lost until the host sets the value.
+   */
+  private fun reportComputed(id: Int, name: String) {
+    if (producers[id] != null) {
+      gap("named value \"$name\" is computed by ${describeId(id)}; only its name is generated")
+    }
+  }
 
   /** A named value's name and the `domain` argument that writes its prefix back. */
   private fun domainOf(full: String): Pair<String, String> {
