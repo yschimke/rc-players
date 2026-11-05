@@ -8,7 +8,7 @@
     "test:3d": "node three-d-webgl.mjs"
   },
   "dependencies": {
-    "playwright": "1.64.1",
+    "playwright": "1.65.0",
     "pngjs": "7.0.0"
   }
 }
