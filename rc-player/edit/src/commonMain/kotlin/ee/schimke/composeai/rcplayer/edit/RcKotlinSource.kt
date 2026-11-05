@@ -1057,6 +1057,13 @@ private class RcKotlinWriter(
   }
 
   private fun border(border: RcBorderModifier): String {
+    if (border.wireVersion == 0) {
+      // The creation API writes version 1, which players inset by half the stroke; version 0
+      // centres it on the bounds. No public call writes version 0.
+      gap(
+        "a version 0 border is re-created as version 1, which insets its stroke by half its width"
+      )
+    }
     import(
       "androidx.compose.remote.creation.compose.modifier.border",
       "androidx.compose.remote.creation.compose.state.rdp",

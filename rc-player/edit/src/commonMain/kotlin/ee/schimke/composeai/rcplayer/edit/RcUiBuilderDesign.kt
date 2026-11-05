@@ -429,6 +429,7 @@ private class RcUiBuilderWriter(
   private class Paint(
     var color: String? = "#000000",
     var stroke: Boolean = false,
+    var fill: Boolean = true,
     var strokeWidth: Float = 0f,
     var cap: String? = null,
   )
@@ -522,7 +523,7 @@ private class RcUiBuilderWriter(
           RcOpcodes.DRAW_ARC,
           RcOpcodes.DRAW_SECTOR -> {
             if (operation.fifth.isNaNEncoded || operation.sixth.isNaNEncoded) return skip()
-            val id =
+            val ids =
               shape(
                 "arc",
                 "draw/arc",
@@ -533,11 +534,11 @@ private class RcUiBuilderWriter(
                     "sweepAngle" to operation.sixth.value,
                   ),
               )
-            nodes.getValue(id).let { arc ->
-              (arc.fields["properties"] as Json.Obj)["useCenter"] =
+            ids.forEach { id ->
+              (nodes.getValue(id).fields["properties"] as Json.Obj)["useCenter"] =
                 prop("bool", Json.Bool(operation.opcode == RcOpcodes.DRAW_SECTOR))
             }
-            ops += id
+            ops += ids
           }
           else -> skip()
         }
@@ -549,21 +550,31 @@ private class RcUiBuilderWriter(
   private fun rect(left: Float, top: Float, right: Float, bottom: Float) =
     listOf("xDp" to left, "yDp" to top, "widthDp" to right - left, "heightDp" to bottom - top)
 
+  /**
+   * The `draw` nodes one primitive becomes in [paint]: one, or for a fill-and-stroke paint a fill
+   * and then a stroke, since a node has one style and the players draw both passes in that order.
+   */
   private fun shape(
     base: String,
     componentId: String,
     paint: Paint,
     geometry: List<Pair<String, Float>>,
     line: Boolean = false,
-  ): String {
-    val props = Json.Obj()
-    geometry.forEach { (name, value) -> props[name] = prop("float", num(value)) }
-    paint.color?.let { props["color"] = prop("string", str(it)) }
-    if (!line) props["style"] = prop("enum", str(if (paint.stroke) "stroke" else "fill"))
-    if (paint.stroke || line)
-      props["strokeWidthDp"] = prop("float", num(paint.strokeWidth / density))
-    paint.cap?.let { props["strokeCap"] = prop("enum", str(it)) }
-    return node(base, componentId, props, null, null)
+  ): List<String> {
+    fun pass(stroke: Boolean): String {
+      val props = Json.Obj()
+      geometry.forEach { (name, value) -> props[name] = prop("float", num(value)) }
+      paint.color?.let { props["color"] = prop("string", str(it)) }
+      if (!line) props["style"] = prop("enum", str(if (stroke) "stroke" else "fill"))
+      if (stroke || line) props["strokeWidthDp"] = prop("float", num(paint.strokeWidth / density))
+      paint.cap?.let { props["strokeCap"] = prop("enum", str(it)) }
+      return node(base, componentId, props, null, null)
+    }
+    return when {
+      line -> listOf(pass(stroke = true))
+      paint.fill && paint.stroke -> listOf(pass(stroke = false), pass(stroke = true))
+      else -> listOf(pass(stroke = paint.stroke))
+    }
   }
 
   /**
@@ -584,7 +595,10 @@ private class RcUiBuilderWriter(
             val word = RcFloatWord(words[i++])
             if (word.isNaNEncoded) complete = false else paint.strokeWidth = word.value
           }
-          PAINT_STYLE -> paint.stroke = packed == STYLE_STROKE || packed == STYLE_FILL_AND_STROKE
+          PAINT_STYLE -> {
+            paint.stroke = packed == STYLE_STROKE || packed == STYLE_FILL_AND_STROKE
+            paint.fill = packed != STYLE_STROKE
+          }
           PAINT_STROKE_CAP -> paint.cap = STROKE_CAPS[packed]
           PAINT_TEXT_SIZE,
           PAINT_STROKE_MITER -> i++

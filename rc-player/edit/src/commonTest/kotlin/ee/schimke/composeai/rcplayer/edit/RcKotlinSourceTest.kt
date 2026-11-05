@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
@@ -299,5 +300,33 @@ class RcKotlinSourceTest {
     val pixels = source(RcHeader.DENSITY_BEHAVIOR_PIXELS)
     assertContains(pixels.code, "heightIn(min = limit.asRemoteDp())")
     assertEquals(1, pixels.unsupported.size, pixels.unsupported.toString())
+  }
+
+  @Test
+  fun aVersionZeroBorderIsReportedBecauseTheCreationApiWritesVersionOne() {
+    fun border(version: Int) =
+      RcBorderModifier(
+        0,
+        0,
+        version,
+        0,
+        word(2f),
+        word(0f),
+        word(0f),
+        word(0f),
+        word(0f),
+        word(1f),
+        0,
+      )
+    fun source(version: Int) =
+      withBehavior(
+          RcHeader.DENSITY_BEHAVIOR_DP,
+          document(*rootLayoutArray(*modifiedBox(border(version)))),
+        )
+        .toRemoteComposeKotlin()
+    assertTrue(source(1).isComplete, source(1).unsupported.toString())
+    val legacy = source(0)
+    assertContains(legacy.code, "border(2.rdp, RemoteColor(Color(0xFF000000)))")
+    assertEquals(1, legacy.unsupported.size, legacy.unsupported.toString())
   }
 }

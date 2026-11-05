@@ -155,4 +155,33 @@ class RcUiBuilderDesignTest {
     assertContains(compact(design.json), "\"contentScale\":{\"type\":\"enum\",\"value\":\"crop\"}")
     assertTrue(design.assets.getValue("image-56.png").contentEquals(png))
   }
+
+  @Test
+  fun aFillAndStrokePaintDrawsBothPasses() {
+    val design =
+      document(
+          *root(
+            RcCanvasLayout(-10, -1),
+            RcLayoutContent(-11),
+            // Style 2: fill and stroke.
+            RcPaintData(listOf(4, 0xFF0000FF.toInt(), 5, word(2f).bits, 8 or (2 shl 16))),
+            RcDraw3(RcOpcodes.DRAW_CIRCLE, word(10f), word(10f), word(6f)),
+            END,
+            END,
+          )
+        )
+        .toUiBuilderDesign()
+
+    assertTrue(design.isComplete, design.unsupported.toString())
+    val json = compact(design.json)
+    assertContains(json, "\"slots\":{\"ops\":[\"circle\",\"circle-2\"]}")
+    assertEquals(
+      1,
+      Regex("\"style\":\\{\"type\":\"enum\",\"value\":\"fill\"\\}").findAll(json).count(),
+    )
+    assertEquals(
+      1,
+      Regex("\"style\":\\{\"type\":\"enum\",\"value\":\"stroke\"\\}").findAll(json).count(),
+    )
+  }
 }
