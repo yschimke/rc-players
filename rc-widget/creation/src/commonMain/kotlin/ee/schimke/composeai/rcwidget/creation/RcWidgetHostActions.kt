@@ -2,7 +2,7 @@
 
 package ee.schimke.composeai.rcwidget.creation
 
-import androidx.compose.remote.creation.compose.action.Action
+import androidx.compose.remote.creation.compose.action.RemoteAction
 import androidx.compose.remote.creation.compose.action.hostAction
 import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.remote.creation.compose.state.rs
@@ -40,7 +40,7 @@ public fun rcWidgetHostAction(
   name: String,
   payload: String,
   metadata: RemoteString? = null,
-): Action {
+): RemoteAction {
   val ids = LocalRcWidgetActionIds.current ?: return hostAction(name.rs, payload.rs)
   return hostAction(ids.register(payload), metadata ?: payload.rs)
 }

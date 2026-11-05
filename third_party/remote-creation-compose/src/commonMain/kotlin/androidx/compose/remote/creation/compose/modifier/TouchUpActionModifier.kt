@@ -17,11 +17,11 @@
 package androidx.compose.remote.creation.compose.modifier
 
 import androidx.compose.remote.creation.common.RemoteModifierOperation
-import androidx.compose.remote.creation.compose.action.Action
+import androidx.compose.remote.creation.compose.action.RemoteAction
 import androidx.compose.remote.creation.compose.action.resolveAction
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 
-internal class TouchUpActionModifier(public val action: Action) : RemoteModifier.Element {
+internal class TouchUpActionModifier(public val action: RemoteAction) : RemoteModifier.Element {
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.Touch(1, resolveAction(action))
 }
@@ -29,7 +29,7 @@ internal class TouchUpActionModifier(public val action: Action) : RemoteModifier
 /**
  * Performs [action] when a touch up event occurs on the element.
  *
- * @param action The [Action] to perform on touch up.
+ * @param action The [RemoteAction] to perform on touch up.
  */
-public fun RemoteModifier.onTouchUp(action: Action): RemoteModifier =
+public fun RemoteModifier.onTouchUp(action: RemoteAction): RemoteModifier =
     then(TouchUpActionModifier(action))

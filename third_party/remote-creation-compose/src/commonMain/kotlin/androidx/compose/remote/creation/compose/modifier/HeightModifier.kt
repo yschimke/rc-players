@@ -17,8 +17,8 @@
 package androidx.compose.remote.creation.compose.modifier
 
 import androidx.annotation.RestrictTo
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.remote.creation.common.RemoteModifierOperation
+import androidx.compose.remote.creation.compose.layout.RemoteIntrinsicSize
 import androidx.compose.remote.creation.compose.state.RemoteDp
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
@@ -26,6 +26,11 @@ import androidx.compose.remote.creation.compose.state.rf
 
 internal class HeightModifier(val type: RemoteDimensionType, val value: RemoteFloat) :
     RemoteModifier.Element {
+    internal constructor(
+        typeInt: Int,
+        value: RemoteFloat,
+    ) : this(RemoteDimensionType.entries[typeInt], value)
+
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.Height(type.ordinal, value.floatId)
 
@@ -76,11 +81,11 @@ public fun RemoteModifier.fillParentMaxHeight(fraction: RemoteFloat = 1f.rf): Re
 public fun RemoteModifier.height(height: Int): RemoteModifier =
     then(HeightModifier(RemoteDimensionType.EXACT, height.rf))
 
+/**
+ * Sets the height of the content to be its intrinsic size.
+ *
+ * @param intrinsicSize The intrinsic size to apply.
+ */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public fun RemoteModifier.height(height: IntrinsicSize): RemoteModifier {
-    return if (height == IntrinsicSize.Min) {
-        then(HeightModifier(RemoteDimensionType.INTRINSIC_MIN, RemoteFloat(0f)))
-    } else {
-        then(HeightModifier(RemoteDimensionType.INTRINSIC_MAX, RemoteFloat(0f)))
-    }
-}
+public fun RemoteModifier.height(intrinsicSize: RemoteIntrinsicSize): RemoteModifier =
+    then(HeightModifier(intrinsicSize.value, 0f.rf))

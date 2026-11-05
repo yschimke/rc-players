@@ -15,16 +15,15 @@
  */
 
 // VERSION SKEW (rc-players): this file has no upstream counterpart. It stands in for a
-// `remote-core` API that androidx-main has and the pinned release (1.0.0-alpha22) does not.
-// Delete it once the pinned release ships the API. See PROVENANCE.md.
+// `remote-creation-compose` API that androidx-main has and the pinned release (1.0.0-alpha23) does
+// not: `CapturedDocument` became `RemoteCapturedDocument` in 7177ff18cdd, after the alpha23 cut.
+// `RcPlayer.kt` and `RcPlayerState.kt` drop their import of the new name and resolve it here.
+// Delete this file, and restore those imports, once the pinned release ships the rename. See
+// PROVENANCE.md.
 
-package ee.schimke.composeai.rcembedded.player.draw
+package ee.schimke.composeai.rcembedded.player
 
-import androidx.compose.remote.core.operations.ImageAttribute
+import androidx.compose.remote.creation.compose.capture.CapturedDocument
 
-private val imageAttributeImageIdField =
-    ImageAttribute::class.java.getDeclaredField("mImageId").apply { isAccessible = true }
-
-/** `ImageAttribute.getImageId()` from androidx-main: the (possibly NaN-boxed) image id. */
-internal val ImageAttribute.imageId: Int
-    get() = imageAttributeImageIdField.getInt(this)
+/** `RemoteCapturedDocument` from androidx-main: alpha23's [CapturedDocument], renamed. */
+public typealias RemoteCapturedDocument = CapturedDocument

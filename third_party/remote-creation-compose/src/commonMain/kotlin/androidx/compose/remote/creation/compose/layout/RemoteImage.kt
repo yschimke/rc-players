@@ -64,7 +64,7 @@ internal class RemoteImageNode : RemoteComposeNode() {
 @Composable
 @RemoteComposable
 public fun RemoteImage(
-    remoteBitmap: RemoteImageBitmap,
+    bitmap: RemoteImageBitmap,
     contentDescription: RemoteString?,
     modifier: RemoteModifier = RemoteModifier,
     contentScale: RemoteContentScale,
@@ -74,7 +74,7 @@ public fun RemoteImage(
         factory = ::RemoteImageNode,
         update = {
             set(modifier) { nodeModifier -> this.modifier = nodeModifier }
-            set(remoteBitmap) { this.remoteBitmap = it }
+            set(bitmap) { this.remoteBitmap = it }
             set(contentScale) { this.contentScale = it }
             set(alpha) { this.alpha = it }
             set(contentDescription) { this.contentDescription = it }

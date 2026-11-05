@@ -16,7 +16,7 @@
 
 package androidx.compose.remote.creation.compose.layout
 
-import androidx.compose.foundation.layout.LayoutScopeMarker
+import androidx.annotation.FloatRange
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.WriterOp
 import androidx.compose.remote.creation.compose.modifier.CollapsiblePriorityModifier
@@ -29,7 +29,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 
 /** Scope for the children of [RemoteCollapsibleRow]. */
-@LayoutScopeMarker
+@RemoteLayoutScopeMarker
 @Immutable
 public class RemoteCollapsibleRowScope {
     /**
@@ -45,8 +45,9 @@ public class RemoteCollapsibleRowScope {
      *
      * @param weight The weight of the child.
      */
-    public fun RemoteModifier.weight(weight: Float): RemoteModifier =
-        then(WidthModifier(RemoteDimensionType.WEIGHT, RemoteFloat(weight)))
+    public fun RemoteModifier.weight(
+        @FloatRange(from = 0.0, fromInclusive = false) weight: Float
+    ): RemoteModifier = then(WidthModifier(RemoteDimensionType.WEIGHT, RemoteFloat(weight)))
 
     /**
      * Sets the collapsible priority of the child.
@@ -62,7 +63,7 @@ public class RemoteCollapsibleRowScope {
         then(CollapsiblePriorityModifier(0, RemoteFloat(priority)))
 }
 
-internal class RemoteCollapsibleRowNode : RemoteComposeNode() {
+internal class RemoteCollapsibleRowNode : RemoteLayoutNode() {
     var horizontalArrangement: RemoteArrangement.Horizontal = RemoteArrangement.Start
     var verticalAlignment: RemoteAlignment.Vertical = RemoteAlignment.Top
 
@@ -115,7 +116,7 @@ public fun RemoteCollapsibleRow(
     content: @Composable RemoteCollapsibleRowScope.() -> Unit,
 ) {
     val scope = remember { RemoteCollapsibleRowScope() }
-    RemoteComposeNode(
+    RemoteLayoutNode(
         factory = ::RemoteCollapsibleRowNode,
         update = {
             set(modifier) { nodeModifier -> this.modifier = nodeModifier }

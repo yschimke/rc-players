@@ -25,7 +25,6 @@ import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.core.operations.DataListFloat
 import androidx.compose.remote.core.operations.NamedVariable
-import androidx.compose.remote.creation.compose.capture.CapturedDocument
 import androidx.compose.remote.player.core.platform.AndroidRemoteContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableFloatState
@@ -133,6 +132,10 @@ public class RcPlayerState(
             .also { gc ->
                 gc.store = remoteContext
                 gc.touchVersion = remoteContext.touchVersion
+                gc.density = remoteContext.density
+                preprocessed.textMeasurePaintSpecs.forEach { id, spec ->
+                    gc.setTextMeasurePaintSpec(id, spec)
+                }
             }
 
     /** The initial clock timestamp (in milliseconds) when this player state was initialized. */
@@ -492,13 +495,13 @@ public class RcPlayerState(
 /**
  * Creates an [RcPlayerState] for the given [capturedDocument].
  *
- * @param capturedDocument The [CapturedDocument] to bind.
+ * @param capturedDocument The [RemoteCapturedDocument] to bind.
  * @param defaultPrefix The default variable name prefix (default is `"USER"`). Pass `null` for no
  *   prefix.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RcPlayerState(
-    capturedDocument: CapturedDocument,
+    capturedDocument: RemoteCapturedDocument,
     defaultPrefix: String? = "USER",
 ): RcPlayerState {
     RemoteImageSupport.enableEncodedImageReferences()
@@ -523,7 +526,7 @@ public fun rememberRcPlayerState(
 @Composable
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun rememberRcPlayerState(
-    capturedDocument: CapturedDocument,
+    capturedDocument: RemoteCapturedDocument,
     defaultPrefix: String? = "USER",
 ): RcPlayerState =
     remember(capturedDocument, defaultPrefix) { RcPlayerState(capturedDocument, defaultPrefix) }

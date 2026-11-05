@@ -19,7 +19,7 @@ removed on 2026-09-25; the CMP player (`rc-player/compose`) is this repository's
 - Paths:
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/embedded`
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/utils`
-- Commit: `5dab33683cfbf392f649287d4e21ca03864337bf` (`androidx-main`, 2026-10-27)
+- Commit: `a328222bef45dc531efb8fba3760b15b0bba67f4` (`androidx-main`, 2026-11-04)
 - License: Apache-2.0
 
 ## How the copy is made
@@ -48,38 +48,34 @@ than that rewrapping.
 
 ## Version skew
 
-Upstream builds this player against the in-tree `remote-core` / `remote-player-core`. This module
-builds it against the published alphas the version catalog pins (`compose-remote = 1.0.0-alpha22`).
-The player reaches `@RestrictTo(LIBRARY_GROUP)` members of the core, so it is sensitive to the gap
-between `androidx-main` and the pinned alpha: pair a refresh with a render of the embedded lane
-(`scripts/rc-lane-ab/render-ab.sh`), not just a compile. There is no reflection left in the copied
-sources: upstream moved every private `CoreDocument` / operation read onto core accessors
-(`1cfe2843caf`, `157d42d43cf`, `d3d6aa83f17`), and alpha22 ships them. (The local
-`RcPlayerLocalPatches.kt` reflects nothing either.)
+Upstream builds this player against the in-tree `remote-core` / `remote-player-core` /
+`remote-creation-compose`. This module builds it against the published alphas the version catalog
+pins (`compose-remote = 1.0.0-alpha23`). The player reaches `@RestrictTo(LIBRARY_GROUP)` members of
+the core, so it is sensitive to the gap between `androidx-main` and the pinned alpha: pair a refresh
+with a render of the embedded lane (`scripts/rc-lane-ab/render-ab.sh`), not just a compile. There is
+no reflection left in the copied sources.
 
-**Which commit, and why.** alpha22 was cut from `androidx-main` at `0b7d5401bee` (2026-10-16): its
+**Which commit, and why.** alpha23 was cut from `androidx-main` at `a0e84553095` (2026-10-29): its
 `remote-core`, `remote-player-compose` and `remote-creation-compose` `-sources.jar`s match that
-tree file for file (302/302, 71/71 and 172/172; the next first-parent change to `compose/remote`,
-`d26ce36655c`, already differs). The pin is `androidx-main` HEAD rather than that commit because
-HEAD compiles against alpha22 with the two small shims below, and the eleven days of player work
-since the cut (subpackages, typeface resolver, host actions, haptics, visibility animations, touch,
-font variations, spring animations, the setup walk that no longer evaluates draw streams, …) are
-what retired five of the local patches. Move the pin back to the newest commit that compiles if
-a later refresh needs more shimming than this.
+tree file for file (302/302, 103/103 and 213/214, the odd one out being the generated `R.java`).
+The pin is `androidx-main` HEAD rather than that commit because HEAD compiles against alpha23 with
+one small shim, and the player work after the cut (TextAttribute/TextMeasure ink bounds,
+`697c967d0d9`; O(1) core-paint seeding, `e293d337e0f`) is what a comparison lane should measure.
+Move the pin back to the newest commit that compiles if a later refresh needs more shimming.
 
-The shims, each to be removed once the pinned release catches up:
+The shim, to be removed once the pinned release catches up:
 
-- `doc/RcPlayerPreprocess.kt` re-adds the `document.floatExpressions[op.mId] = op` registration
-  for expressions found inside a component's draw stream. Upstream dropped it (`8aac4fef43c`) when
-  `CoreDocument.collectExpressionsRecursive` started walking `LayoutComponent` canvas operations
-  (`461d551382f`, after the cut). Without it, against alpha22, an animated expression first defined
-  in `drawWithContent` is missing from `floatExpressions`.
-- `doc/CoreVersionSkew.kt` and `draw/CoreVersionSkew.kt` give `ImageAttribute` the `imageId`
-  property `d18fe8f34fb` added to the core after the cut, by reading the package-private `mImageId`
-  field alpha22 has. One file per package so the upstream call sites stay untouched.
+- `CreationVersionSkew.kt` declares `RemoteCapturedDocument` as a typealias of alpha23's
+  `CapturedDocument`. `remote-creation-compose` renamed the class in `7177ff18cdd`, after the cut,
+  and `RcPlayer.kt` / `RcPlayerState.kt` import the new name; here they drop that one import line
+  and resolve the alias from their own package instead.
 
-alpha22 ships `remote-creation-compose`'s `AndroidSystemColorMap`, so the local copy of it the
-previous pin carried is gone and `AndroidColorThemeResolver.kt` uses upstream's import.
+The previous pin's two shims retired with alpha23, which ships the core changes they stood in for:
+`doc/RcPlayerPreprocess.kt`'s `floatExpressions` registration (`461d551382f`) and the
+`ImageAttribute.imageId` reflection in `doc/` and `draw/CoreVersionSkew.kt` (`d18fe8f34fb`).
+
+`SoundFeature` plays document sounds through the View player's `SoundSupport`, so this module now
+depends on `remote-player-view`, as upstream's `remote-player-compose` does.
 
 ## Local patches
 
@@ -95,9 +91,28 @@ upstream and where it is retired from. The list is meant to shrink.
 Files that exist only here:
 
 - `RcPlayerLocalPatches.kt`: helpers for the patches above.
-- `doc/CoreVersionSkew.kt`, `draw/CoreVersionSkew.kt`: the version-skew shims described above.
+- `CreationVersionSkew.kt`: the version-skew shim described above.
 - `../GoogleFontFamilies.kt`: the Google Fonts cache resolver behind the `google:` patch. It is null
   unless `composeai.fonts.cacheDir` is set, which is a render-side property no app sets.
+
+### The 2026-11-05 refresh
+
+Upstream from `5dab33683c` to `a328222bef` retires no local patch; it adds:
+
+- Optional features (`8664ae1895b`): `RcPlayerFeature` / `RcPlayerFeatureSet`, and an `RcPlayer`
+  overload taking an explicit set so R8 can drop the rest. The default overloads include every
+  feature: 3D matrices (`ee9b168f6b7`), 2D meshes (`c8b6e53ecaa`), document sounds
+  (`91cde6cbac9`), device sensors (`f5e45dbdba8`) and particle systems (`4029f120cd1`).
+- An unknown-operation policy (`cbdf432ce5d`): a paint operation nothing executes logs once per
+  class by default.
+- Content layers allocated only when drawn (`969ad9e28e0`), positions tracked only for `CUSTOM`
+  visibility animations (`896938df3dd`), and O(1) core-paint seeding (`e293d337e0f`).
+- `TextAttribute` / `TextMeasure` bounds (`697c967d0d9`): measured from a paint spec captured from
+  the preceding `PaintData`, with `Paint.getTextBounds` ink bounds as the View player measures them.
+- The `RemoteCapturedDocument` rename (`7177ff18cdd`), shimmed above.
+
+`RcAndroidxEmbeddedRenderHarness` follows AndroidX's published embedded player, whose
+`RemoteImageSupport` moved to `embedded.resources` in alpha23.
 
 ### Retired by the 2026-10-27 refresh
 

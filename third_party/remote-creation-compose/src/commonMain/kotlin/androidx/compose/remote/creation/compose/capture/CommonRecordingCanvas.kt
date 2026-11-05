@@ -18,7 +18,6 @@ package androidx.compose.remote.creation.compose.capture
 
 import androidx.compose.remote.creation.compose.layout.RemoteCustomPropertiesScope
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.shapes.MorphTweenUtility
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemotePaint
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
@@ -26,7 +25,6 @@ import androidx.compose.remote.creation.compose.state.StandardRemotePaint
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.graphics.shapes.RoundedPolygon
 
 /** JVM recorder for the platform-neutral RemoteCanvas write path. */
 internal class CommonRecordingCanvas(override val enableOptimizations: Boolean = false) :
@@ -161,34 +159,6 @@ internal class CommonRecordingCanvas(override val enableOptimizations: Boolean =
 
     override fun setRemoteComposeCreationState(creationState: RemoteComposeCreationState) {
         this.creationState = creationState
-    }
-
-    override fun drawRoundedPolygon(roundedPolygon: RoundedPolygon, paint: RemotePaint?) {
-        recordRenderingOp(
-            paint,
-            WriterOp.DrawPath(MorphTweenUtility.cubicsToPathData(roundedPolygon.cubics)),
-        )
-    }
-
-    override fun drawRoundedPolygonMorph(
-        from: RoundedPolygon,
-        to: RoundedPolygon,
-        progress: RemoteFloat,
-        paint: RemotePaint?,
-    ) {
-        val morph = androidx.graphics.shapes.Morph(from, to)
-        val op =
-            recordRenderingOp(
-                paint,
-                WriterOp.DrawTweenPath(
-                    MorphTweenUtility.cubicsToPathData(morph.asCubics(0f)),
-                    MorphTweenUtility.cubicsToPathData(morph.asCubics(1f)),
-                    progress,
-                    0f.rf,
-                    1f.rf,
-                ),
-            )
-        buffer.addRoots(op, progress)
     }
 
     override fun custom(

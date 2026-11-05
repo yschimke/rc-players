@@ -15,6 +15,7 @@
  */
 
 @file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection", "BanConcurrentHashMap")
+@file:OptIn(ExperimentalRemotePlayerApi::class)
 
 package ee.schimke.composeai.rcembedded.player.doc
 
@@ -33,13 +34,16 @@ import androidx.compose.remote.core.operations.ImageAttribute
 import androidx.compose.remote.core.operations.ShaderData
 import androidx.compose.remote.core.operations.layout.Component
 import androidx.compose.remote.core.operations.utilities.ArrayAccess
+import androidx.compose.remote.player.compose.ExperimentalRemotePlayerApi
 import androidx.compose.remote.player.core.platform.AndroidRemoteContext
 import androidx.compose.runtime.State
 import androidx.compose.ui.text.TextMeasurer
 import ee.schimke.composeai.rcembedded.player.RcImageLoader
+import ee.schimke.composeai.rcembedded.player.RcPlayerFeatureSet
 import ee.schimke.composeai.rcembedded.player.RcTypefaceResolver
 import ee.schimke.composeai.rcembedded.player.draw.ComposeLocalPaint
 import ee.schimke.composeai.rcembedded.player.draw.GraphPaintContext
+import ee.schimke.composeai.rcembedded.player.draw.TextMeasurePaintSpec
 import ee.schimke.composeai.rcembedded.player.draw.derefId
 import ee.schimke.composeai.rcembedded.player.resources.RcTypefaceCache
 import ee.schimke.composeai.rcembedded.player.resources.resolveImageAttributeDimensions
@@ -113,7 +117,7 @@ internal class GraphContext(
     }
 
     private val graphPaintContext = GraphPaintContext(this)
-    private val textMeasurePaints = MutableIntObjectMap<ComposeLocalPaint>()
+    private val textMeasurePaintSpecs = MutableIntObjectMap<TextMeasurePaintSpec>()
 
     internal var textMeasurer: TextMeasurer?
         get() = graphPaintContext.textMeasurer
@@ -121,8 +125,8 @@ internal class GraphContext(
             graphPaintContext.textMeasurer = value
         }
 
-    internal fun setTextMeasurePaint(id: Int, paintState: ComposeLocalPaint) {
-        textMeasurePaints[id] = paintState
+    internal fun setTextMeasurePaintSpec(id: Int, spec: TextMeasurePaintSpec) {
+        textMeasurePaintSpecs[id] = spec
     }
 
     /**
@@ -163,6 +167,9 @@ internal class GraphContext(
     }
 
     internal var imageLoader: RcImageLoader? = null
+
+    /** The optional features of the player, see [RcPlayerFeatureSet]. */
+    internal var features: RcPlayerFeatureSet = RcPlayerFeatureSet.Empty
 
     private class EvalPassState {
         var depth: Int = 0
@@ -211,7 +218,8 @@ internal class GraphContext(
                 if (op is ImageAttribute) {
                     resolveImageAttributeDimensions(this, writeContext, derefId(op.imageId, this))
                 }
-                graphPaintContext.paintState = textMeasurePaints[id] ?: ComposeLocalPaint()
+                graphPaintContext.paintState =
+                    textMeasurePaintSpecs[id]?.toComposeLocalPaint(this) ?: ComposeLocalPaint()
                 op.paint(graphPaintContext)
             } else if (op is FloatExpression) {
                 loadFloat(id, op.evaluate(this))

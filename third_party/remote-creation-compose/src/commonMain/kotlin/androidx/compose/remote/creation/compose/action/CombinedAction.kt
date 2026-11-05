@@ -24,9 +24,9 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
  *
  * @param actions The actions to combine.
  */
-public fun combinedAction(vararg actions: Action): Action = CombinedAction(*actions)
+public fun combinedAction(vararg actions: RemoteAction): RemoteAction = CombinedAction(*actions)
 
-internal class CombinedAction(public vararg val actions: Action) : RemoteAction() {
+internal class CombinedAction(public vararg val actions: RemoteAction) : RemoteAction {
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> = actions.flatMap {
         resolveAction(it)
     }

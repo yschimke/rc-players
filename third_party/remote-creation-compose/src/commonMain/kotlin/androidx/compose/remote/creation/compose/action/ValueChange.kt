@@ -31,7 +31,7 @@ import androidx.compose.remote.creation.compose.state.isLiteral
 internal class ValueChangeAction<T>(
     public val remoteValue: MutableRemoteState<T>,
     public val updatedValue: RemoteState<T>,
-) : RemoteAction() {
+) : RemoteAction {
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> {
         val actualMutable = remoteValue.asEncodedMutable
         val actualValue = updatedValue.asEncoded
@@ -66,19 +66,20 @@ internal class ValueChangeAction<T>(
 internal class ValueFloatChangeAction(
     public val value: MutableRemoteFloat,
     public val updatedValue: Float,
-) : RemoteAction() {
+) : RemoteAction {
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> =
         listOf(RemoteActionData.FloatChange(value.id, updatedValue))
 }
 
 /**
- * Creates an [Action] that updates the value of a [MutableRemoteState] to a new [RemoteState].
+ * Creates an [RemoteAction] that updates the value of a [MutableRemoteState] to a new
+ * [RemoteState].
  *
  * @param remoteState The mutable remote state to be updated.
  * @param updatedValue The new remote state value to apply.
- * @return An [Action] representing the value change.
+ * @return An [RemoteAction] representing the value change.
  */
 public fun <T> valueChange(
     remoteState: MutableRemoteState<T>,
     updatedValue: RemoteState<T>,
-): Action = ValueChangeAction(remoteState, updatedValue)
+): RemoteAction = ValueChangeAction(remoteState, updatedValue)

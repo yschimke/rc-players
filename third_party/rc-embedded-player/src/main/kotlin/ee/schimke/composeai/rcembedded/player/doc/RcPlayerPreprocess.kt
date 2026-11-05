@@ -21,6 +21,7 @@ package ee.schimke.composeai.rcembedded.player.doc
 import android.util.Log
 import androidx.collection.IntObjectMap
 import androidx.collection.IntSet
+import androidx.collection.MutableScatterSet
 import androidx.collection.emptyIntSet
 import androidx.collection.mutableIntObjectMapOf
 import androidx.collection.mutableIntSetOf
@@ -48,6 +49,7 @@ import androidx.compose.remote.core.operations.IdLookup
 import androidx.compose.remote.core.operations.ImageAttribute
 import androidx.compose.remote.core.operations.IntegerExpression
 import androidx.compose.remote.core.operations.NamedVariable
+import androidx.compose.remote.core.operations.PaintData
 import androidx.compose.remote.core.operations.ParticlesCompare
 import androidx.compose.remote.core.operations.ParticlesLoop
 import androidx.compose.remote.core.operations.PathCombine
@@ -66,6 +68,7 @@ import androidx.compose.remote.core.operations.TimeAttribute
 import androidx.compose.remote.core.operations.TouchExpression
 import androidx.compose.remote.core.operations.WakeIn
 import androidx.compose.remote.core.operations.layout.CanvasContent
+import androidx.compose.remote.core.operations.layout.CanvasOperations
 import androidx.compose.remote.core.operations.layout.Component
 import androidx.compose.remote.core.operations.layout.Container
 import androidx.compose.remote.core.operations.layout.ImpulseOperation
@@ -86,6 +89,7 @@ import androidx.compose.remote.player.core.platform.AndroidRemoteContext
 import androidx.compose.ui.util.fastForEach
 import androidx.tracing.trace
 import ee.schimke.composeai.rcembedded.player.components.rootTouchExpressions
+import ee.schimke.composeai.rcembedded.player.draw.TextMeasurePaintSpec
 import ee.schimke.composeai.rcembedded.player.state.MaybeVariableFloat
 import ee.schimke.composeai.rcembedded.player.state.anyScalarReference
 import ee.schimke.composeai.rcembedded.player.state.forEachScalarReference
@@ -98,6 +102,7 @@ internal class DocumentPreprocessResult(
     val componentTouchExpressionsMap: Map<Int, List<TouchExpression>>,
     val touchExpressionIds: IntSet,
     val computedOpIndex: IntObjectMap<Operation>,
+    val textMeasurePaintSpecs: IntObjectMap<TextMeasurePaintSpec>,
     val componentValueMap: Map<Int, List<ComponentValue>>,
     val hasParticles: Boolean,
     val hasWakeIn: Boolean,
@@ -188,6 +193,8 @@ private fun preprocessDocumentImpl(document: CoreDocument): DocumentPreprocessRe
     val rootTouchExpressions = ArrayList<TouchExpression>()
     val componentTouchExpressionsMap = HashMap<Int, MutableList<TouchExpression>>()
     val computedOpIndex = mutableIntObjectMapOf<Operation>()
+    val textMeasurePaintSpecs = mutableIntObjectMapOf<TextMeasurePaintSpec>()
+    var currentTextPaintSpec = TextMeasurePaintSpec.Empty
     val touchExpressionIds = mutableIntSetOf()
     val rawComponentValues = ArrayList<ComponentValue>()
     val componentsById = mutableIntObjectMapOf<Component>()
@@ -229,6 +236,11 @@ private fun preprocessDocumentImpl(document: CoreDocument): DocumentPreprocessRe
         val prevInScroll = inScrollModifier
         val prevInLoop = inLoop
         val prevInBranch = inBranch
+        val scopesPaint = op is Component || op is CanvasOperations || op is ComponentModifiers
+        val prevTextPaintSpec = currentTextPaintSpec
+        if (op is CanvasOperations || op is CanvasContent) {
+            currentTextPaintSpec = TextMeasurePaintSpec.Empty
+        }
         if (op is LayoutComponent) {
             currentLayoutComponent = op
         }
@@ -421,14 +433,17 @@ private fun preprocessDocumentImpl(document: CoreDocument): DocumentPreprocessRe
                 }
             }
 
-            // VERSION SKEW (rc-players): upstream dropped this in 8aac4fef43c once the in-tree core
-            // collected expressions from a component's canvas operations itself (461d551382f).
-            // The pinned remote-core 1.0.0-alpha22 predates that, so expressions first defined in
-            // drawWithContent are still missing from floatExpressions. Remove with the next pin.
-            if (op is FloatExpression) {
-                document.floatExpressions[op.mId] = op
+            if (op is PaintData) {
+                currentTextPaintSpec = currentTextPaintSpec.withBundle(op.mPaintData)
             }
 
+            if (op is TextMeasure && op.mId > 0 && !textMeasurePaintSpecs.containsKey(op.mId)) {
+                textMeasurePaintSpecs[op.mId] = currentTextPaintSpec
+            }
+
+            if (op is TextAttribute && op.mId > 0 && !textMeasurePaintSpecs.containsKey(op.mId)) {
+                textMeasurePaintSpecs[op.mId] = currentTextPaintSpec
+            }
             if (op is ComponentValue) {
                 rawComponentValues.add(op)
             }
@@ -441,17 +456,12 @@ private fun preprocessDocumentImpl(document: CoreDocument): DocumentPreprocessRe
 
             if (op is LayoutComponent) {
                 val content = op.getLayoutContent()
-                if (content != null) {
-                    if (content.componentId !in componentsById) {
-                        componentsById[content.componentId] = content
-                    }
-                    content.list.fastForEach { childOp ->
-                        if (childOp is NamedVariable) {
-                            visitOp(childOp)
-                        }
-                    }
+                if (content != null && content.componentId !in componentsById) {
+                    componentsById[content.componentId] = content
                 }
+                val preModifiersPaintSpec = currentTextPaintSpec
                 op.componentModifiers?.list?.fastForEach { visitOp(it) }
+                currentTextPaintSpec = preModifiersPaintSpec
                 val canvasOps = op.getCanvasOperations()
                 if (canvasOps != null) {
                     canvasOps.list.fastForEach { childOp ->
@@ -464,14 +474,35 @@ private fun preprocessDocumentImpl(document: CoreDocument): DocumentPreprocessRe
             }
 
             if (op is Container) {
+                val canvasOps = (op as? LayoutComponent)?.getCanvasOperations()
+                val contentList = (op as? LayoutComponent)?.getLayoutContent()?.list
+                val contentOps =
+                    if (contentList != null) {
+                        val contentSet = MutableScatterSet<Operation>(contentList.size)
+                        val preContentPaintSpec = currentTextPaintSpec
+                        for (i in 0 until contentList.size) {
+                            val contentOp = contentList[i]
+                            contentSet.add(contentOp)
+                            if (contentOp === canvasOps) continue
+                            visitOp(contentOp)
+                        }
+                        currentTextPaintSpec = preContentPaintSpec
+                        contentSet
+                    } else {
+                        null
+                    }
                 val list = op.getList()
                 for (i in 0 until list.size) {
                     val child = list[i]
                     if (op is LayoutComponent && child is ComponentModifiers) continue
+                    if (contentOps != null && contentOps.contains(child)) continue
                     visitOp(child)
                 }
             }
         } finally {
+            if (scopesPaint) {
+                currentTextPaintSpec = prevTextPaintSpec
+            }
             currentLayoutComponent = prevLayoutComponent
             inScrollModifier = prevInScroll
             inLoop = prevInLoop
@@ -521,6 +552,7 @@ private fun preprocessDocumentImpl(document: CoreDocument): DocumentPreprocessRe
         componentTouchExpressionsMap = componentTouchExpressionsMap,
         touchExpressionIds = touchExpressionIds,
         computedOpIndex = computedOpIndex,
+        textMeasurePaintSpecs = textMeasurePaintSpecs,
         componentValueMap = componentValueMap,
         hasParticles = hasParticles,
         hasWakeIn = hasWakeIn,

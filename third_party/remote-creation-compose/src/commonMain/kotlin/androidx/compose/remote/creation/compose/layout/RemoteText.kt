@@ -19,6 +19,7 @@
 
 package androidx.compose.remote.creation.compose.layout
 
+import androidx.annotation.IntRange
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.RemoteTextData
 import androidx.compose.remote.creation.compose.capture.LocalFontWeightAdjustment
@@ -74,10 +75,10 @@ import androidx.compose.ui.unit.TextUnitType
  * @param textAlign The alignment of the text within its container.
  * @param overflow How visual overflow should be handled.
  * @param maxLines An optional maximum number of lines for the text.
- * @param style The [RemoteTextStyle] to be applied to the text.
  * @param fontFeatureSettings The advanced typography settings provided by font in CSS format (e.g.
  *   "smcp" or "tnum").
  * @param fontVariationSettings The font variation settings to be applied to the text.
+ * @param style The [RemoteTextStyle] to be applied to the text.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Composable
@@ -92,10 +93,10 @@ public fun RemoteText(
     fontFamily: RemoteFontFamily? = null,
     textAlign: RemoteTextAlign? = null,
     overflow: RemoteTextOverflow,
-    maxLines: Int = Int.MAX_VALUE,
-    style: RemoteTextStyle = RemoteTextStyle.Default,
+    @IntRange(from = 1) maxLines: Int = Int.MAX_VALUE,
     fontFeatureSettings: String? = null,
     fontVariationSettings: FontVariation.Settings? = null,
+    style: RemoteTextStyle = RemoteTextStyle.Default,
 ) {
     val resolvedFontSize = fontSize ?: style.fontSize ?: 12.rsp
     // TODO handles dynamic letter spacing and line height in CoreText
@@ -107,7 +108,7 @@ public fun RemoteText(
         if (style.lineHeight == null || !style.lineHeight.hasConstantValue) 1f.rf
         else // default lineHeight is descent — ascent
          style.lineHeight.value / resolvedFontSize.value
-    val unadjustedFontWeight = (fontWeight ?: style.remoteFontWeight)?.weight ?: 400
+    val unadjustedFontWeight = (fontWeight ?: style.remoteFontWeight)?.weight ?: 400f.rf
 
     RemoteText(
         text = text,
@@ -115,7 +116,7 @@ public fun RemoteText(
         fontSize = resolvedFontSize,
         modifier = modifier,
         fontStyle = fontStyle ?: style.remoteFontStyle ?: RemoteFontStyle.Normal,
-        fontWeight = unadjustedFontWeight.rf,
+        fontWeight = unadjustedFontWeight,
         textAlign = textAlign ?: style.remoteTextAlign ?: RemoteTextAlign.Start,
         fontFamily = (fontFamily ?: style.fontFamily)?.name,
         overflow = overflow,
@@ -221,7 +222,7 @@ internal class RemoteTextNode : RemoteComposeNode() {
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
         val textIdValue = text.getIdForCreationState(creationState)
 
-        val colorInt = color.constantValueOrNull?.toArgb() ?: Color.Black.toArgb()
+        val colorInt = color.constantValueOrNull ?: Color.Black.toArgb()
         val colorId =
             if (!color.hasConstantValue) {
                 color.getIdForCreationState(creationState)

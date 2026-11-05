@@ -39,23 +39,22 @@ import androidx.compose.ui.graphics.layer.CompositingStrategy.Companion.Auto
 import androidx.compose.ui.graphics.layer.CompositingStrategy.Companion.ModulateAlpha
 import androidx.compose.ui.graphics.layer.CompositingStrategy.Companion.Offscreen
 
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public class GraphicsLayerModifier(
-    public val scaleX: RemoteFloat,
-    public val scaleY: RemoteFloat,
-    public val rotationX: RemoteFloat,
-    public val rotationY: RemoteFloat,
-    public val rotationZ: RemoteFloat,
-    public val shadowElevation: RemoteFloat,
-    public val transformOriginX: RemoteFloat,
-    public val transformOriginY: RemoteFloat,
-    public val translationX: RemoteFloat,
-    public val translationY: RemoteFloat,
-    public val shape: RemoteShape = RemoteRectangleShape,
-    public val compositingStrategy: RemoteCompositingStrategy = RemoteCompositingStrategy.Auto,
-    public val alpha: RemoteFloat,
-    public val cameraDistance: RemoteFloat,
-    public val renderEffect: RenderEffect?,
+internal class GraphicsLayerModifier(
+    val scaleX: RemoteFloat,
+    val scaleY: RemoteFloat,
+    val rotationX: RemoteFloat,
+    val rotationY: RemoteFloat,
+    val rotationZ: RemoteFloat,
+    val shadowElevation: RemoteFloat,
+    val transformOriginX: RemoteFloat,
+    val transformOriginY: RemoteFloat,
+    val translationX: RemoteFloat,
+    val translationY: RemoteFloat,
+    val shape: RemoteShape = RemoteRectangleShape,
+    val compositingStrategy: RemoteCompositingStrategy = RemoteCompositingStrategy.Auto,
+    val alpha: RemoteFloat,
+    val cameraDistance: RemoteFloat,
+    val renderEffect: RenderEffect?,
 ) : RemoteModifier.Element {
 
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
