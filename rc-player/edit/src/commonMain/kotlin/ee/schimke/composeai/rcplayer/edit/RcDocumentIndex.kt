@@ -53,7 +53,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcTimeAttribute
  * document back into source: `toRemoteComposeKotlin` and `toUiBuilderDesign` read one document
  * through the same index, so they agree on what a value is and on which operations only define one.
  *
- * The first definition of an id wins, as the player loads it.
+ * A constant defined more than once holds its last definition, as the player loads constants
+ * (`RcPlayerState` assigns each in document order). A computed value is described by the first
+ * operation that writes it; it is only named, never evaluated, here.
  */
 internal class RcDocumentIndex(document: RcDocument) {
   val texts: Map<Int, String>
@@ -82,17 +84,17 @@ internal class RcDocumentIndex(document: RcDocument) {
     }
     document.operations.forEach { operation ->
       when (operation) {
-        is RcTextData -> texts.first(operation.id, operation.text)
-        is RcColorConstant -> colors.first(operation.id, operation.argb)
-        is RcFloatConstant -> floats.first(operation.id, operation.value)
-        is RcIntegerConstant -> ints.first(operation.id, operation.value)
-        is RcNamedVariable -> named.first(operation.id, operation)
-        is RcBitmapData -> bitmaps.first(operation.imageId, operation)
+        is RcTextData -> texts[operation.id] = operation.text
+        is RcColorConstant -> colors[operation.id] = operation.argb
+        is RcFloatConstant -> floats[operation.id] = operation.value
+        is RcIntegerConstant -> ints[operation.id] = operation.value
+        is RcNamedVariable -> named[operation.id] = operation
+        is RcBitmapData -> bitmaps[operation.imageId] = operation
         is RcFloatExpression -> producers.first(operation.id, operation)
         is RcIntegerExpression ->
           // `1.ri` is written as an expression of one literal and no operators.
           if (operation.values.size == 1 && !operation.isMarked(0)) {
-            ints.first(operation.outId, operation.values[0])
+            ints[operation.outId] = operation.values[0]
             constantIntExpressions += operation
           } else {
             producers.first(operation.outId, operation)

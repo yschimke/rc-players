@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
@@ -9,14 +10,17 @@ import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
+import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
+import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
@@ -180,5 +184,53 @@ class RcKotlinSourceTest {
       listOf("the document's containers do not balance; nothing was generated"),
       source.unsupported,
     )
+  }
+
+  @Test
+  fun aRedefinedConstantReadsItsLastDefinitionAsThePlayerDoes() {
+    val source =
+      document(
+          RcTextData(42, "first"),
+          RcTextData(42, "second"),
+          *rootLayoutArray(RcCoreText(42, emptyList()), END),
+        )
+        .toRemoteComposeKotlin()
+    assertContains(source.code, "RemoteText(\"second\".rs")
+  }
+
+  @Test
+  fun anOffsetIsAlwaysWrittenInDp() {
+    val offset = RcOffsetModifier(word(16f), RcFloatWord(0x7fc00000 or 50))
+    val source =
+      withBehavior(
+          RcHeader.DENSITY_BEHAVIOR_LEGACY,
+          document(
+            RcFloatConstant(50, word(4f)),
+            RcNamedVariable(50, RcNamedVariable.FLOAT_TYPE, "USER:nudge"),
+            *rootLayoutArray(*modifiedBox(offset)),
+          ),
+        )
+        .toRemoteComposeKotlin(RcKotlinOptions(density = 41f))
+    // `offset` has no RemoteFloat overload: a pixel fallback and a variable both become dp.
+    assertContains(source.code, "offset(0.3902439f.rdp, nudge.asRemoteDp())")
+    assertEquals(1, source.unsupported.size, source.unsupported.toString())
+  }
+
+  @Test
+  fun aBitmapTwoImagesShowIsDeclaredOnce() {
+    val png = byteArrayOf(-119, 80, 78, 71)
+    val source =
+      document(
+          RcBitmapData(56, 1, 1, RcBitmapData.TYPE_PNG_8888, RcBitmapData.ENCODING_INLINE, png),
+          *rootLayoutArray(
+            RcImageLayout(-10, -1, 56, 5, word(1f)),
+            END,
+            RcImageLayout(-12, -1, 56, 5, word(1f)),
+            END,
+          ),
+        )
+        .toRemoteComposeKotlin()
+    assertEquals(1, Regex("private const val Image56Png").findAll(source.code).count())
+    assertEquals(2, Regex("RemoteImage\\(image56,").findAll(source.code).count())
   }
 }

@@ -125,6 +125,7 @@ private class RcKotlinWriter(
   private val hoisted = linkedMapOf<String, String>()
   private val hoistedNames = mutableMapOf<String, String>()
   private val fileLevel = mutableListOf<String>()
+  private val embeddedBitmaps = mutableSetOf<Int>()
   private val body = StringBuilder()
   private var indent = 1
 
@@ -748,10 +749,12 @@ private class RcKotlinWriter(
           "kotlin.io.encoding.Base64",
         )
         val constant = "Image${id}Png"
-        fileLevel +=
-          "/** Image $id of the document, ${data.width} x ${data.height}, as PNG. */\n" +
-            "private const val $constant =\n" +
-            Base64.encode(data.data).chunked(96).joinToString(" +\n") { "  \"$it\"" }
+        // Two images can show one bitmap; its bytes are declared once.
+        if (embeddedBitmaps.add(id))
+          fileLevel +=
+            "/** Image $id of the document, ${data.width} x ${data.height}, as PNG. */\n" +
+              "private const val $constant =\n" +
+              Base64.encode(data.data).chunked(96).joinToString(" +\n") { "  \"$it\"" }
         val decode =
           when (options.imageDecoder) {
             RcKotlinImageDecoder.Skia -> {
@@ -892,7 +895,8 @@ private class RcKotlinWriter(
       }
       is RcOffsetModifier -> {
         import("androidx.compose.remote.creation.compose.modifier.offset")
-        "offset(${length(operation.x)}, ${length(operation.y)})"
+        // `offset` takes only dp, so a pixel or variable length is converted rather than kept.
+        "offset(${lengthDp(operation.x)}, ${lengthDp(operation.y)})"
       }
       is RcZIndexModifier -> {
         import("androidx.compose.remote.creation.compose.modifier.zIndex")
@@ -1347,6 +1351,12 @@ private class RcKotlinWriter(
   /** [length], for a call that only takes a `RemoteDp`. */
   private fun lengthDp(word: RcFloatWord): String {
     if (word.isNaNEncoded) {
+      if (densityBehavior != RcHeader.DENSITY_BEHAVIOR_DP) {
+        gap(
+          "a length reads ${describeId(word.referencedId!!)} in pixels; it is written as dp, " +
+            "which the creation API scales by the density again"
+        )
+      }
       import("androidx.compose.remote.creation.compose.state.asRemoteDp")
       return "${floatValue(word)}.asRemoteDp()"
     }
