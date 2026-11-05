@@ -349,6 +349,8 @@ public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfile {
 	public final fun getProfiles ()I
 	public final fun getSupportedOpcodes ()Ljava/util/Set;
 	public fun toString ()Ljava/lang/String;
+	public final fun without ([ILjava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+	public static synthetic fun without$default (Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;[ILjava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfile$Companion {

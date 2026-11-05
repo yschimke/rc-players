@@ -57,7 +57,7 @@ class RcTextImagesTest {
 
   @Test
   fun aSpacedTextBecomesAnImageInABoxThatKeepsItsIdAndModifiers() {
-    val result = spaced.coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, rasterizer, RcDisplay(2f))
+    val result = spaced.coreTextAsImages(WearWithoutCoreText, rasterizer, RcDisplay(2f))
     val operations = assertRoundTrips(result.document).operations
 
     assertTrue(operations.none { it is RcCoreText })
@@ -83,10 +83,7 @@ class RcTextImagesTest {
   @Test
   fun onWearTheImageIsSizedInDpSoItScalesWithTheDevice() {
     val operations =
-      spaced
-        .coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, rasterizer, RcDisplay(2f))
-        .document
-        .operations
+      spaced.coreTextAsImages(WearWithoutCoreText, rasterizer, RcDisplay(2f)).document.operations
     val width = operations.filterIsInstance<RcWidthModifier>().single().value
     val expression =
       operations.filterIsInstance<RcFloatExpression>().single { it.id == width.referencedId }
@@ -94,9 +91,9 @@ class RcTextImagesTest {
     assertEquals(RcSystemVariables.DENSITY, expression.expression[1].referencedId)
     assertTrue(
       spaced
-        .coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, rasterizer)
+        .coreTextAsImages(WearWithoutCoreText, rasterizer)
         .document
-        .validateFor(RcTargetProfiles.WEAR_WIDGETS)
+        .validateFor(WearWithoutCoreText)
         .none { it.opcode == RcOpcodes.CORE_TEXT }
     )
   }
@@ -114,7 +111,7 @@ class RcTextImagesTest {
   @Test
   fun aTextTheOlderLayoutCanSayStaysText() {
     val plain = screen(text = text())
-    val result = plain.coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, rasterizer)
+    val result = plain.coreTextAsImages(WearWithoutCoreText, rasterizer)
     assertEquals(plain, result.document)
     assertTrue(asked.isEmpty())
   }
@@ -128,8 +125,7 @@ class RcTextImagesTest {
         text = text(FloatValue(12, f(0.1f)), IntValue(4, 60)),
       )
     val operations =
-      assertRoundTrips(themed.coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, rasterizer).document)
-        .operations
+      assertRoundTrips(themed.coreTextAsImages(WearWithoutCoreText, rasterizer).document).operations
     assertEquals(0xffffffff.toInt(), asked.single().color, "drawn as a white mask")
     assertTrue(RcNamedVariable(60, RcNamedVariable.COLOR_TYPE, "USER:accent") in operations)
     assertTrue(operations.any { it is RcCanvasLayout })
@@ -149,22 +145,22 @@ class RcTextImagesTest {
         RcNamedVariable(42, RcNamedVariable.STRING_TYPE, "USER:greeting"),
         *rootLayout(*text(FloatValue(12, f(0.1f))).toTypedArray()).toTypedArray(),
       )
-    val result = named.coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, rasterizer)
+    val result = named.coreTextAsImages(WearWithoutCoreText, rasterizer)
     assertEquals(named, result.document)
     assertEquals(listOf(-7), result.skipped)
   }
 
   @Test
   fun aTextTheRasterizerDeclinesIsLeftAndReported() {
-    val result = spaced.coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, { null })
+    val result = spaced.coreTextAsImages(WearWithoutCoreText, { null })
     assertEquals(spaced, result.document)
     assertEquals(listOf(-7), result.skipped)
   }
 
   @Test
   fun aTextWrapsAtTheWidthGivenForItOrElseTheDocuments() {
-    spaced.coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, rasterizer, RcDisplay(2f)) { 100f }
-    spaced.coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, rasterizer, RcDisplay(2f))
+    spaced.coreTextAsImages(WearWithoutCoreText, rasterizer, RcDisplay(2f)) { 100f }
+    spaced.coreTextAsImages(WearWithoutCoreText, rasterizer, RcDisplay(2f))
     assertEquals(listOf(200f, 256f * 2f), asked.map { it.maxWidth })
   }
 

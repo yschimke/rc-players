@@ -73,6 +73,17 @@ internal constructor(
 
   override fun toString(): String = "RcTargetProfile($name, apiLevel=$apiLevel, profiles=$profiles)"
 
+  /**
+   * This player without [opcodes]: the same level, bits and decoding, for a host that can't yet
+   * read some of what its profile lists (a launcher that can't take core text, say), so adapting a
+   * document to it rewrites or reports those operations as for any target lacking them.
+   */
+  public fun without(
+    vararg opcodes: Int,
+    name: String = "${this.name} without ${opcodes.toList()}",
+  ): RcTargetProfile =
+    RcTargetProfile(name, apiLevel, profiles, supportedOpcodes - opcodes.toSet(), fixedOperations)
+
   public companion object {
     /**
      * The profile a player built from AndroidX's own tables would apply to a document declaring
