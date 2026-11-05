@@ -44,7 +44,16 @@ export class ComponentValue extends Operation {
             }
             return;
         }
-        const lc = component as any;
+        // A LayoutComponentContent has no box of its own: its id names the enclosing
+        // component's (the reference reads the parent's measured size for
+        // componentWidth() in a child's width/height modifier).
+        let lc = component as any;
+        if (lc.constructor?.OP_CODE === 201 /* LayoutComponentContent */) {
+            const parent = lc.getParent?.();
+            if (parent) lc = parent;
+        }
+        // From now on the component refreshes this value at every layout (U49).
+        if (typeof lc.addComponentValue === 'function') lc.addComponentValue(this);
         switch (this.mType) {
             case ComponentValue.WIDTH:
                 context.loadFloat(this.mValueId, lc.getWidth ? lc.getWidth() : doc.getWidth());
@@ -84,8 +93,8 @@ export class ComponentValue extends Operation {
 
     static read(buffer: WireBuffer, operations: Operation[]): void {
         const type = buffer.readInt();
-        const componentId = buffer.readInt();
-        const valueId = buffer.readInt();
+        const componentId = buffer.readId();
+        const valueId = buffer.readId();
         operations.push(new ComponentValue(type, componentId, valueId));
     }
 }

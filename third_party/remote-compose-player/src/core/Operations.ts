@@ -80,6 +80,7 @@ import { MatrixExpression } from './operations/MatrixExpression';
 import { MatrixConstant } from './operations/MatrixConstant';
 import { MatrixVectorMath } from './operations/MatrixVectorMath';
 import { TextTransform } from './operations/TextTransform';
+import { FloatFunctionCall, FloatFunctionDefine } from './operations/FloatFunction';
 import { TextLookup } from './operations/TextLookup';
 import { TextLookupInt } from './operations/TextLookupInt';
 import { ColorTheme } from './operations/ColorTheme';
@@ -135,8 +136,6 @@ import {
     BitmapTextMeasureStub,
     DrawBitmapTextAnchoredStub,
     BitmapFontDataStub,
-    FloatFunctionCallStub,
-    FloatFunctionDefineStub,
     DrawTextOnCircleStub,
     PathCombineStub,
     RemStub,
@@ -373,8 +372,8 @@ export class Operations {
         m.set(BitmapTextMeasureStub.OP_CODE, BitmapTextMeasureStub.read);
         m.set(DrawBitmapTextAnchoredStub.OP_CODE, DrawBitmapTextAnchoredStub.read);
         m.set(BitmapFontDataStub.OP_CODE, BitmapFontDataStub.read);
-        m.set(FloatFunctionCallStub.OP_CODE, FloatFunctionCallStub.read);
-        m.set(FloatFunctionDefineStub.OP_CODE, FloatFunctionDefineStub.read);
+        m.set(FloatFunctionCall.OP_CODE, FloatFunctionCall.read);
+        m.set(FloatFunctionDefine.OP_CODE, FloatFunctionDefine.read);
         m.set(DrawTextOnCircleStub.OP_CODE, DrawTextOnCircleStub.read);
         m.set(PathCombineStub.OP_CODE, PathCombineStub.read);
         m.set(RemStub.OP_CODE, RemStub.read);

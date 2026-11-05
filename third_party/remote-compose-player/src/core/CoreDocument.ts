@@ -14,7 +14,8 @@ import { RootLayoutComponent } from './operations/layout/RootLayoutComponent';
 import type { Component } from './operations/layout/Component';
 import type { Container } from './operations/layout/Container';
 import { TimeVariables } from './TimeVariables';
-import { BackgroundModifier } from './operations/layout/modifiers/ModifierOperations';
+import { BackgroundModifier, ClickModifier, MultiClickModifier, TouchDownModifier, TouchUpModifier,
+         TouchCancelModifier } from './operations/layout/modifiers/ModifierOperations';
 import { LoopOperation } from './operations/layout/LoopOperation';
 import { Theme, TextData, BitmapData, FloatConstant, RootContentBehavior } from './operations/DataOperations';
 import { LoomManager } from './operations/loom/LoomManager';
@@ -82,6 +83,9 @@ export class CoreDocument implements ExpansionDocument {
     mRemoteComposeState = new RemoteComposeState();
     mVersion: Version | null = null;
     mWidth = 256;
+    // The header sizes the document once; after that the host's surface (context.mWidth /
+    // mHeight at every paint) is the size, and windowWidth()/windowHeight() follow it.
+    mHeaderSized = false;
     mHeight = 256;
     mAuthorWidth: number | null = null;
     mAuthorHeight: number | null = null;
@@ -294,18 +298,18 @@ export class CoreDocument implements ExpansionDocument {
 
         // Compute the starting id counter above the max existing variable id,
         // mirroring Java initFromBuffer's maxId computation (START_VARIABLE_ID-ish).
-        let maxId = 42; // above the system-global tier
+        // CoreDocument.initFromBuffer: START_VARIABLE_ID + 1, raised to the largest
+        // VariableProvider id below ID_REGION_ARRAY (0x200000), then + 10.
+        let maxId = 43;
         this.mTextData.clear();
         this.mReferencedOperations.clear();
         this.mProfileMask = 0;
         for (const op of this.mOperations) {
-            const vid = (op as unknown as { getId?: () => number }).getId;
-            if (typeof vid === 'function') {
-                const id = vid.call(op);
-                // ID_REGION_ARRAY (Java) ~ 0x40000000; ignore array-region ids
-                if (typeof id === 'number' && id < 0x40000000 && id > maxId) {
-                    maxId = id;
-                }
+            const component = (op as unknown as { getComponentId?: () => number }).getComponentId;
+            const id = typeof component === 'function' ? component.call(op)
+                : (op as unknown as { _providerId?: number })._providerId;
+            if (typeof id === 'number' && id < 0x200000 && id > maxId) {
+                maxId = id;
             }
             if (op instanceof Header) {
                 this.mHeader = op;
@@ -354,6 +358,13 @@ export class CoreDocument implements ExpansionDocument {
         const nested = nestContainers(expanded);
         this.mOperations.length = 0;
         for (const op of nested) this.mOperations.push(op);
+
+        // Index the expressions again: expansion created new ones (each inflation declares its
+        // own copy of a template's expressions), and actions evaluate them by id on demand.
+        this.mFloatExpressions.clear();
+        this.indexFloatExpressions(this.mOperations);
+        this.mIntegerExpressions.clear();
+        this.indexIntegerExpressions(this.mOperations);
 
         // Re-resolve the root after expansion.
         this.mRootLayoutComponent = null;
@@ -433,8 +444,34 @@ export class CoreDocument implements ExpansionDocument {
             operations.push(op);
         }
         this.mFloatExpressions.clear();
-        this.mIntegerExpressions.clear();
         this.indexFloatExpressions(operations);
+        this.mIntegerExpressions.clear();
+        this.indexIntegerExpressions(operations);
+    }
+
+    /** Integer expressions by id. Mirrors `CoreDocument.mIntegerExpressions`. */
+    mIntegerExpressions: Map<number, any> = new Map();
+
+    indexIntegerExpressions(operations: Operation[]): void {
+        for (const op of operations) {
+            if ((op as any).constructor?.OP_CODE === 144 && typeof (op as any).getId === 'function') {
+                this.mIntegerExpressions.set((op as any).getId(), op);
+            }
+            if (typeof (op as any).getList === 'function') {
+                this.indexIntegerExpressions((op as any).getList());
+            }
+        }
+    }
+
+    /**
+     * CoreDocument.evaluateIntExpression: the expression id may arrive long-encoded, so look it
+     * up as given, then decoded (id - 2^32), then by its low 32 bits.
+     */
+    evaluateIntExpression(expressionId: number, targetId: number, context: RemoteContext): void {
+        const expression = this.mIntegerExpressions.get(expressionId)
+            ?? this.mIntegerExpressions.get(expressionId - 0x100000000)
+            ?? this.mIntegerExpressions.get(Number(BigInt.asUintN(32, BigInt(Math.trunc(expressionId)))));
+        if (expression) context.overrideInteger(targetId, expression.evaluateNow(context));
     }
 
     /**
@@ -442,17 +479,12 @@ export class CoreDocument implements ExpansionDocument {
      * Mirrors `CoreDocument.mFloatExpressions` / `evaluateFloatExpression`.
      */
     mFloatExpressions: Map<number, any> = new Map();
-    /** Integer expressions by id, for `ValueIntegerExpressionChangeAction`. */
-    mIntegerExpressions: Map<number, any> = new Map();
 
     /** Collect every FloatExpression in the tree, including inside containers. */
     indexFloatExpressions(operations: Operation[]): void {
         for (const op of operations) {
             if ((op as any).constructor?.OP_CODE === 81 && typeof (op as any).mId === 'number') {
                 this.mFloatExpressions.set((op as any).mId, op);
-            }
-            if ((op as any).constructor?.OP_CODE === 144 && typeof (op as any).mId === 'number') {
-                this.mIntegerExpressions.set((op as any).mId, op);
             }
             if (typeof (op as any).getList === 'function') {
                 this.indexFloatExpressions((op as any).getList());
@@ -465,14 +497,11 @@ export class CoreDocument implements ExpansionDocument {
         const expression = this.mFloatExpressions.get(expressionId);
         if (expression && typeof expression.evaluate === 'function') {
             context.overrideFloat(targetId, expression.evaluate(context));
-        }
-    }
-
-    /** Evaluate integer `expressionId` and write the result into `targetId`. */
-    evaluateIntegerExpression(expressionId: number, targetId: number, context: RemoteContext): void {
-        const expression = this.mIntegerExpressions.get(expressionId);
-        if (expression && typeof expression.evaluateNow === 'function') {
-            context.overrideInteger(targetId, expression.evaluateNow(context));
+        } else {
+            // The value is a plain variable's id (a bare "continuousSec()" or "@x" in the
+            // action): its current value, as the reference reads it (U46).
+            const v = context.getFloat(expressionId);
+            if (typeof v === 'number' && !Number.isNaN(v)) context.overrideFloat(targetId, v);
         }
     }
 
@@ -561,12 +590,25 @@ export class CoreDocument implements ExpansionDocument {
             }
             op.markNotDirty();
             context.incrementOpCount(op);
+            if (CoreDocument.isEventModifier(op)) {
+                // Its children are actions, which run on input only. The reference recurses
+                // here too, but its actions' apply() is empty (they run in runAction());
+                // ours do their work in apply(), so descending would fire every click action
+                // at load, leaving a "last tapped" variable at the last button's value.
+                continue;
+            }
             if (this.isContainer(op)) {
                 this.applyOperations(context, (op as any).getList());
             } else {
                 op.apply(context);
             }
         }
+    }
+
+    private static isEventModifier(op: Operation): boolean {
+        return op instanceof ClickModifier || op instanceof MultiClickModifier
+            || op instanceof TouchDownModifier || op instanceof TouchUpModifier
+            || op instanceof TouchCancelModifier;
     }
 
     private registerVariables(context: RemoteContext, ops: Operation[]): void {
@@ -678,6 +720,14 @@ export class CoreDocument implements ExpansionDocument {
         if (pc) pc.save();
 
         // Content scaling: if SIZING_SCALE, apply translate + scale before painting
+        // windowWidth()/windowHeight() are the host's surface, as the reference host sets them,
+        // whatever the content scaling (the document's own size stays mWidth). The state is
+        // the context's: the document's own field is not always wired.
+        {
+            const st = (context as any).mRemoteComposeState ?? this.mRemoteComposeState;
+            st?.setWindowWidth?.(context.mWidth);
+            st?.setWindowHeight?.(context.mHeight);
+        }
         if (this.mContentSizing === RootContentBehavior.SIZING_SCALE) {
             const scaleOutput = [1, 1];
             this.computeScale(context.mWidth, context.mHeight, scaleOutput);
@@ -795,12 +845,36 @@ export class CoreDocument implements ExpansionDocument {
         this.mAppliedTouchOperations.add(component);
     }
 
+    /** Components with touch-up / cancel modifiers that took a touch down (U70 in C++). */
+    private mModifierTouchTargets = new Set<any>();
+    private mModifierRan = new Set<any>();
+    modifierTouchTarget(component: any): void {
+        this.mModifierTouchTargets.add(component);
+    }
+    touchModifierRan(component: any): void {
+        this.mModifierRan.add(component);
+    }
+    private runModifierTouchTargets(context: RemoteContext, phase: 'up' | 'cancel'): boolean {
+        let handled = false;
+        for (const c of this.mModifierTouchTargets) {
+            // One already reached through the normal walk ran its modifiers there.
+            if (this.mModifierRan.has(c)) continue;
+            c.runOwnTouchModifiers?.(context, phase);
+            handled = true;
+        }
+        this.mModifierTouchTargets.clear();
+        this.mModifierRan.clear();
+        return handled;
+    }
+
     hasTouchListener(): boolean {
         if (this.mTouchListeners.size > 0) return true;
         return this.mRootLayoutComponent?.getHasTouchListeners() ?? false;
     }
 
     touchDown(context: RemoteContext, x: number, y: number): boolean {
+        this.mModifierTouchTargets.clear();
+        this.mModifierRan.clear();
         context.loadFloat(RemoteContext.ID_TOUCH_POS_X, x);
         context.loadFloat(RemoteContext.ID_TOUCH_POS_Y, y);
         for (const listener of this.mTouchListeners) {
@@ -844,6 +918,7 @@ export class CoreDocument implements ExpansionDocument {
                     handled = true;
                 }
             }
+            if (this.runModifierTouchTargets(context, 'up')) handled = true;
             this.mAppliedTouchOperations.clear();
         }
         this.mNeedsRepaintFlag = 1;
@@ -858,6 +933,7 @@ export class CoreDocument implements ExpansionDocument {
                     handled = true;
                 }
             }
+            if (this.runModifierTouchTargets(context, 'cancel')) handled = true;
             this.mAppliedTouchOperations.clear();
             this.mNeedsRepaintFlag = 1;
             return handled;

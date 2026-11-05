@@ -10,7 +10,6 @@ import {
     MODE_BACKEND_CANVAS, MODE_BACKEND_CANVAS_ZBUF, MODE_SMOOTH_MASK, MODE_WIREFRAME,
 } from '../core/d3/Paint3DContext';
 import type { RemoteContext } from '../core/RemoteContext';
-import { SoftwarePaint3DContext } from '../core/d3/SoftwarePaint3DContext';
 import { PaintBundle, intBitsToFloat } from '../core/operations/paint/PaintBundle';
 import { isNaNBits, idFromBits, floatToRawIntBits } from '../core/operations/Utils';
 import { transpileAgslToGlsl } from '../core/shader/AgslTranspiler';
@@ -18,7 +17,6 @@ import { WebGLShaderRenderer } from './shader/WebGLShaderRenderer';
 import { RemoteComposeState } from '../core/RemoteComposeState';
 import { ensureWebFont, parseFamily, cssQuoted, registerEmbeddedFont, releaseEmbeddedFont } from './WebFonts';
 import type { ShaderData } from '../core/operations/ShaderData';
-import type { RemoteContext } from '../core/RemoteContext';
 import { BLEND_MODULATE as MESH_BLEND_MODULATE, sampleFrame as meshSampleFrame,
          buildMatrix as meshBuildMatrix } from '../core/operations/Mesh2DGenerator';
 
@@ -131,6 +129,138 @@ export function namedFontStack(family: string): string {
 }
 
 /** Fallback text size when the paint carries none. */
+// A decoded path segment in absolute coordinates (see CanvasPaintContext.decodePath).
+type PathSeg = ['M', number, number] | ['L', number, number, number, number]
+    | ['Q', number, number, number, number, number, number]
+    | ['C', number, number, number, number, number, number, number, number] | ['Z'];
+
+// One drawing piece of a measured contour: control points from its start point on
+// (2 for a line, 3 for a quad, 4 for a cubic), with a cumulative arc-length table.
+interface MeasuredPiece { pts: number[]; len: number; cum: Float64Array | null; }
+
+const TRIM_STEPS = 32;
+
+function evalBezier(pts: number[], t: number): [number, number] {
+    // de Casteljau over 2..4 points, returns the point at t
+    const xs: number[] = [], ys: number[] = [];
+    for (let k = 0; k < pts.length; k += 2) { xs.push(pts[k]); ys.push(pts[k + 1]); }
+    for (let n = xs.length - 1; n > 0; n--) {
+        for (let k = 0; k < n; k++) {
+            xs[k] += (xs[k + 1] - xs[k]) * t;
+            ys[k] += (ys[k + 1] - ys[k]) * t;
+        }
+    }
+    return [xs[0], ys[0]];
+}
+
+// The part of a Bezier between t0 and t1 (0 <= t0 <= t1 <= 1), same degree.
+function subBezier(pts: number[], t0: number, t1: number): number[] {
+    const split = (p: number[], t: number, left: boolean): number[] => {
+        const n = p.length / 2;
+        const xs: number[] = [], ys: number[] = [];
+        for (let k = 0; k < n; k++) { xs.push(p[2 * k]); ys.push(p[2 * k + 1]); }
+        const lx = [xs[0]], ly = [ys[0]], rx = [xs[n - 1]], ry = [ys[n - 1]];
+        for (let m = n - 1; m > 0; m--) {
+            for (let k = 0; k < m; k++) {
+                xs[k] += (xs[k + 1] - xs[k]) * t;
+                ys[k] += (ys[k + 1] - ys[k]) * t;
+            }
+            lx.push(xs[0]); ly.push(ys[0]); rx.push(xs[m - 1]); ry.push(ys[m - 1]);
+        }
+        const out: number[] = [];
+        if (left) for (let k = 0; k < n; k++) out.push(lx[k], ly[k]);
+        else for (let k = n - 1; k >= 0; k--) out.push(rx[k], ry[k]);
+        return out;
+    };
+    let p = t1 < 1 ? split(pts, t1, true) : pts;
+    if (t0 > 0) p = split(p, t1 > 0 ? t0 / t1 : 0, false);
+    return p;
+}
+
+function measurePiece(pts: number[]): MeasuredPiece {
+    if (pts.length === 4) {
+        return { pts, len: Math.hypot(pts[2] - pts[0], pts[3] - pts[1]), cum: null };
+    }
+    const cum = new Float64Array(TRIM_STEPS + 1);
+    let [px, py] = [pts[0], pts[1]];
+    for (let k = 1; k <= TRIM_STEPS; k++) {
+        const [x, y] = evalBezier(pts, k / TRIM_STEPS);
+        cum[k] = cum[k - 1] + Math.hypot(x - px, y - py);
+        px = x; py = y;
+    }
+    return { pts, len: cum[TRIM_STEPS], cum };
+}
+
+// Distance along a piece (0..len) to its curve parameter t.
+function pieceT(m: MeasuredPiece, d: number): number {
+    if (m.len <= 0) return 0;
+    if (!m.cum) return Math.min(1, Math.max(0, d / m.len));
+    const cum = m.cum;
+    let k = 1;
+    while (k < TRIM_STEPS && cum[k] < d) k++;
+    const span = cum[k] - cum[k - 1];
+    const frac = span > 0 ? (d - cum[k - 1]) / span : 0;
+    return Math.min(1, Math.max(0, (k - 1 + frac) / TRIM_STEPS));
+}
+
+// The pieces of the first contour that has a length, as android.graphics.PathMeasure
+// (Skia's SkContourMeasureIter, forceClosed = false) sees them: a contour begins at a
+// moveTo (or at the last moveTo point / the origin when drawing starts without one), a
+// close adds the line back to that point and ends the contour.
+function firstContour(segs: PathSeg[]): MeasuredPiece[] {
+    let pieces: MeasuredPiece[] = [];
+    let total = 0;
+    let mx = 0, my = 0, cx = 0, cy = 0;
+    const flush = (): boolean => total > 0;
+    const add = (pts: number[]) => { const m = measurePiece(pts); pieces.push(m); total += m.len; };
+    for (const s of segs) {
+        switch (s[0]) {
+            case 'M':
+                if (flush()) return pieces;
+                pieces = []; total = 0;
+                mx = cx = s[1]; my = cy = s[2];
+                break;
+            case 'L': add([cx, cy, s[3], s[4]]); cx = s[3]; cy = s[4]; break;
+            case 'Q': add([cx, cy, s[3], s[4], s[5], s[6]]); cx = s[5]; cy = s[6]; break;
+            case 'C': add([cx, cy, s[3], s[4], s[5], s[6], s[7], s[8]]); cx = s[7]; cy = s[8]; break;
+            case 'Z':
+                add([cx, cy, mx, my]);
+                cx = mx; cy = my;
+                if (flush()) return pieces;
+                pieces = []; total = 0;
+                break;
+        }
+    }
+    return flush() ? pieces : [];
+}
+
+// PathMeasure.getSegment(start * len, stop * len, dst, startWithMoveTo = true) over the
+// first contour; 0 <= start < stop <= 1.
+function trimPathSegs(segs: PathSeg[], start: number, stop: number): Path2D {
+    const out = new Path2D();
+    const pieces = firstContour(segs);
+    let total = 0;
+    for (const m of pieces) total += m.len;
+    if (total <= 0) return out;
+    const d0 = start * total, d1 = stop * total;
+    let acc = 0, started = false;
+    for (const m of pieces) {
+        const a = acc, b = acc + m.len;
+        acc = b;
+        if (m.len <= 0 || b < d0 || a > d1) continue;
+        const t0 = pieceT(m, Math.max(0, d0 - a));
+        const t1 = pieceT(m, Math.min(m.len, d1 - a));
+        if (t1 < t0) continue;
+        const p = subBezier(m.pts, t0, t1);
+        if (!started) { out.moveTo(p[0], p[1]); started = true; }
+        if (p.length === 4) out.lineTo(p[2], p[3]);
+        else if (p.length === 6) out.quadraticCurveTo(p[2], p[3], p[4], p[5]);
+        else out.bezierCurveTo(p[2], p[3], p[4], p[5], p[6], p[7]);
+        if (b >= d1) break;
+    }
+    return out;
+}
+
 const DEFAULT_TEXT_SIZE = 14;
 /** Ascent / descent as fractions of the text size — roughly Roboto's, i.e. a phone's. */
 const ASCENT_RATIO = 0.92;
@@ -169,6 +299,16 @@ export class CanvasPaintContext extends PaintContext {
     private filterBitmap = true;
     private letterSpacing = 0;
     private gradientStyle: CanvasGradient | CanvasPattern | null = null;
+    // The geometry the gradient was built from, kept so it can be rebuilt in a
+    // transformed space. A CanvasGradient resolves against the user space in force when
+    // it is USED, and text on a path is filled one glyph at a time inside a translate +
+    // rotate — so the gradient has to be re-expressed per glyph. See fillStyleUnderGlyph.
+    private gradientSpec: {
+        kind: 'sweep' | 'radial' | 'linear';
+        colors: number[]; stops: number[];
+        cx: number; cy: number; radius: number;
+        x1: number; y1: number; x2: number; y2: number;
+    } | null = null;
     private fontFamily = cssFontStackFor(0);
     private fontWeight = 400;
     private fontItalic = false;
@@ -384,6 +524,19 @@ export class CanvasPaintContext extends PaintContext {
         // bytes each time. Decoding once is enough — and for an animated one, essential: a
         // fresh decoder every frame is one that never gets to its first picture.
         if (this.bitmapPromises.has(imageId)) return;
+        // ENCODING_EMPTY (3) and ENCODING_COMPONENT_OFFSCREEN_BUFFER (4) carry dimensions
+        // and no pixels — they exist to be drawn into, not decoded. Handing their empty
+        // payload to an <img> fails asynchronously and logs "failed to load bitmap N" on
+        // every document that uses an offscreen buffer, which reads like a real error.
+        // Record the size so drawToBitmap can allocate the surface at the declared
+        // resolution instead of falling back to its 256x256 default.
+        if (encoding === 3 || encoding === 4 || bitmap.length === 0) {
+            // Only ENCODING_EMPTY carries a real size. The component offscreen buffer
+            // writes 1x1 as a placeholder and takes its size from the component at paint
+            // time, so recording that would allocate a one-pixel buffer.
+            if (encoding === 3) this.emptyBitmapSizes.set(imageId, { width, height });
+            return;
+        }
         // A GIF: an <img> would draw its first frame forever, so its frames are decoded
         // separately where the browser can (WebCodecs' ImageDecoder), and the <img> below
         // stays as the still to show until they are, or on a browser that cannot.
@@ -494,6 +647,14 @@ export class CanvasPaintContext extends PaintContext {
     // the next one is asked for once the clock passes the end of this one — and a repaint
     // asked for so it follows.
     private bitmapToDraw(imageId: number): CanvasImageSource | undefined {
+        // An offscreen buffer is backed by a canvas, not by a decoded image, so it lives in
+        // a different cache. Without this a document that renders into a buffer with
+        // `drawToBitmap` and then blits it with `drawBitmap` draws nothing at all: the id
+        // resolves, the lookup misses, and the draw silently returns. The shader path
+        // already consults this cache first (see the texture uniforms in tryRenderShader),
+        // so before this the same buffer was reachable from a shader but not from a blit.
+        const offscreen = this.bitmapCanvasCache.get(imageId);
+        if (offscreen) return offscreen.canvas as CanvasImageSource;
         const video = this.bitmapVideos.get(imageId);
         if (video) {
             this.needsRepaint();
@@ -557,8 +718,12 @@ export class CanvasPaintContext extends PaintContext {
         return isNaNBits(bits) ? this.mContext.getFloat(idFromBits(bits)) : intBitsToFloat(bits);
     }
 
-    private buildPath2D(data: Int32Array, start = 0, end = 1): Path2D {
-        const path = new Path2D();
+    // Decode path data into absolute segments: [op, x0, y0, ...control/end points].
+    // op: 'M' (x, y), 'L' (from, to), 'Q' (from, cp, to), 'C' (from, cp1, cp2, to), 'Z'.
+    // Conics are kept as quadratics (weight ignored), as the untrimmed path always drew them.
+    private decodePath(data: Int32Array): PathSeg[] {
+        const segs: PathSeg[] = [];
+        const f = (k: number) => this.pathCoord(data[k]);
         let i = 0;
         while (i < data.length) {
             const bits = data[i];
@@ -573,45 +738,59 @@ export class CanvasPaintContext extends PaintContext {
             switch (cmd) {
                 case CanvasPaintContext.PATH_MOVE:
                     // Format: [MOVE, x, y] = 3 positions
-                    i++;
-                    path.moveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]));
-                    i += 2;
+                    segs.push(['M', f(i + 1), f(i + 2)]);
+                    i += 3;
                     break;
                 case CanvasPaintContext.PATH_LINE:
                     // Format: [LINE, startX, startY, endX, endY] = 5 positions
-                    // startX,startY are redundant (previous endpoint), skip them
-                    i += 3;
-                    path.lineTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]));
-                    i += 2;
+                    segs.push(['L', f(i + 1), f(i + 2), f(i + 3), f(i + 4)]);
+                    i += 5;
                     break;
                 case CanvasPaintContext.PATH_QUADRATIC:
                     // Format: [QUAD, startX, startY, cpX, cpY, endX, endY] = 7 positions
-                    i += 3;
-                    path.quadraticCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]));
-                    i += 4;
+                    segs.push(['Q', f(i + 1), f(i + 2), f(i + 3), f(i + 4), f(i + 5), f(i + 6)]);
+                    i += 7;
                     break;
                 case CanvasPaintContext.PATH_CONIC:
                     // Format: [CONIC, startX, startY, cpX, cpY, endX, endY, weight] = 8 positions
                     // Approximate conic as quadratic (ignore weight)
-                    i += 3;
-                    path.quadraticCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]));
-                    i += 5;
+                    segs.push(['Q', f(i + 1), f(i + 2), f(i + 3), f(i + 4), f(i + 5), f(i + 6)]);
+                    i += 8;
                     break;
                 case CanvasPaintContext.PATH_CUBIC:
                     // Format: [CUBIC, startX, startY, cp1X, cp1Y, cp2X, cp2Y, endX, endY] = 9 positions
-                    i += 3;
-                    path.bezierCurveTo(this.pathCoord(data[i]), this.pathCoord(data[i + 1]), this.pathCoord(data[i + 2]), this.pathCoord(data[i + 3]), this.pathCoord(data[i + 4]), this.pathCoord(data[i + 5]));
-                    i += 6;
+                    segs.push(['C', f(i + 1), f(i + 2), f(i + 3), f(i + 4), f(i + 5), f(i + 6), f(i + 7), f(i + 8)]);
+                    i += 9;
                     break;
                 case CanvasPaintContext.PATH_CLOSE:
-                    path.closePath();
+                    segs.push(['Z']);
                     i++;
                     break;
                 case CanvasPaintContext.PATH_DONE:
-                    return path;
+                    return segs;
                 default:
                     i++; // skip unknown command
                     break;
+            }
+        }
+        return segs;
+    }
+
+    private buildPath2D(data: Int32Array, start = 0, end = 1): Path2D {
+        const segs = this.decodePath(data);
+        // Trim like Android's FloatsToPath.genPath: PathMeasure over the first contour,
+        // getSegment(start * len, stop * len); nothing at all when start >= stop.
+        if (start > 0 || end < 1) {
+            return start < end ? trimPathSegs(segs, Math.max(start, 0), Math.min(end, 1)) : new Path2D();
+        }
+        const path = new Path2D();
+        for (const s of segs) {
+            switch (s[0]) {
+                case 'M': path.moveTo(s[1], s[2]); break;
+                case 'L': path.lineTo(s[3], s[4]); break;
+                case 'Q': path.quadraticCurveTo(s[3], s[4], s[5], s[6]); break;
+                case 'C': path.bezierCurveTo(s[3], s[4], s[5], s[6], s[7], s[8]); break;
+                case 'Z': path.closePath(); break;
             }
         }
         return path;
@@ -737,19 +916,77 @@ export class CanvasPaintContext extends PaintContext {
         }
     }
 
-    private applyFillStyle(): void {
-        this.ctx.fillStyle = this.getEffectiveColor();
-        this.ctx.globalAlpha = this.alpha;
+    /**
+     * A fill style that still lands correctly when the canvas has been translated to
+     * (x, y) and rotated by `angle`.
+     *
+     * Text on a path is drawn one glyph at a time inside exactly that transform, and a
+     * CanvasGradient resolves against the user space in force when it is USED — so a
+     * gradient authored in document coordinates is sampled, for every glyph, from a space
+     * that has been moved and spun. The glyphs come out filled from whatever part of the
+     * gradient happens to land under them, which for a mostly-transparent gradient means
+     * they do not appear at all. The C++ player has no such problem because Skia applies
+     * the shader's own local matrix.
+     *
+     * The cure is to re-express the gradient in glyph-local space: compose the inverse of
+     * translate(x, y) * rotate(angle) and map the gradient's geometry through it. A
+     * pattern (what the sweep polyfill produces where createConicGradient is missing)
+     * carries its own matrix and only needs that inverse handed to it.
+     */
+    private fillStyleUnderGlyph(x: number, y: number, angle: number):
+            CanvasGradient | CanvasPattern | null {
+        const style = this.gradientStyle;
+        if (!style) return null;
+        const cos = Math.cos(angle), sin = Math.sin(angle);
+        // Inverse of translate(x, y) * rotate(angle).
+        const a = cos, b = -sin, c = sin, d = cos;
+        const e = -(x * cos + y * sin), f = x * sin - y * cos;
+
+        if (typeof (style as CanvasPattern).setTransform === 'function') {
+            const m = this.ctx.getTransform();
+            m.a = a; m.b = b; m.c = c; m.d = d; m.e = e; m.f = f;
+            (style as CanvasPattern).setTransform(m);
+            return style;
+        }
+
+        const spec = this.gradientSpec;
+        if (!spec) return style;            // nothing to rebuild from; no worse than before
+        const local = (px: number, py: number): [number, number] =>
+            [a * px + c * py + e, b * px + d * py + f];
+        let g: CanvasGradient | null = null;
+        if (spec.kind === 'sweep') {
+            if (typeof (this.ctx as any).createConicGradient !== 'function') return style;
+            const [qx, qy] = local(spec.cx, spec.cy);
+            // The sweep's own start angle has to turn back by the same rotation.
+            g = (this.ctx as any).createConicGradient(-angle, qx, qy);
+        } else if (spec.kind === 'radial') {
+            const [qx, qy] = local(spec.cx, spec.cy);
+            g = this.ctx.createRadialGradient(qx, qy, 0, qx, qy, spec.radius);
+        } else {
+            const [ax, ay] = local(spec.x1, spec.y1);
+            const [bx, by] = local(spec.x2, spec.y2);
+            g = this.ctx.createLinearGradient(ax, ay, bx, by);
+        }
+        if (!g) return style;
+        for (let s = 0; s < spec.stops.length && s < spec.colors.length; s++) {
+            g.addColorStop(Math.max(0, Math.min(1, spec.stops[s])), argbToRgba(spec.colors[s]));
+        }
+        return g;
+    }
+
+    private applyFillStyle(override?: CanvasGradient | CanvasPattern | null): void {
+        this.ctx.fillStyle = override ?? this.getEffectiveColor();
+        this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
         this.ctx.globalCompositeOperation = this.blendMode;
     }
 
-    private applyStrokeStyle(): void {
-        this.ctx.strokeStyle = this.getEffectiveColor();
+    private applyStrokeStyle(override?: CanvasGradient | CanvasPattern | null): void {
+        this.ctx.strokeStyle = override ?? this.getEffectiveColor();
         this.ctx.lineWidth = this.strokeWidth;
         this.ctx.lineCap = this.lineCap;
         this.ctx.lineJoin = this.lineJoin;
         this.ctx.miterLimit = this.miterLimit;
-        this.ctx.globalAlpha = this.alpha;
+        this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
         this.ctx.globalCompositeOperation = this.blendMode;
     }
 
@@ -910,9 +1147,23 @@ export class CanvasPaintContext extends PaintContext {
                     this.style = upper;
                     break;
                 case PaintBundle.SHADER: {
+                    // id 0 means SkPaint::setShader(nullptr), and in Skia a gradient IS a
+                    // shader - one slot, so clearing it has to clear a gradient too. This
+                    // player keeps gradients and runtime shaders in separate fields, so
+                    // clearing only `activeShaderData` left a gradient filling every later
+                    // draw with no way to turn it off: {"shader": 0} is the documented way to
+                    // clear, it works in the C++ port, and it silently did nothing here. An
+                    // author hit this and gave up on gradients rather than find it.
+                    //
+                    // Only the clear is mirrored. Making a *set* move both fields would be the
+                    // same one-slot argument, but no document reported a problem with it and
+                    // it measurably moved rc-json-particle-sphere further from the C++ render,
+                    // so it is left alone until something actually needs it.
                     const shaderId = arr[i++];
                     if (shaderId === 0) {
                         this.activeShaderData = null;
+                        this.gradientStyle = null;
+                        this.gradientSpec = null;
                     } else {
                         const sd = this.getContext()?.getShader(shaderId);
                         this.activeShaderData = sd ?? null;
@@ -946,6 +1197,8 @@ export class CanvasPaintContext extends PaintContext {
                         const cx = intBitsToFloat(arr[i++]);
                         const cy = intBitsToFloat(arr[i++]);
                         // Sweep gradient has NO tileMode
+                        this.gradientSpec = { kind: 'sweep', colors, stops, cx, cy,
+                                              radius: 0, x1: 0, y1: 0, x2: 0, y2: 0 };
                         if (typeof (this.ctx as any).createConicGradient === 'function') {
                             gradient = (this.ctx as any).createConicGradient(0, cx, cy);
                         } else {
@@ -960,6 +1213,8 @@ export class CanvasPaintContext extends PaintContext {
                         const cy = intBitsToFloat(arr[i++]);
                         const radius = intBitsToFloat(arr[i++]);
                         i++; // tileMode
+                        this.gradientSpec = { kind: 'radial', colors, stops, cx, cy,
+                                              radius, x1: 0, y1: 0, x2: 0, y2: 0 };
                         gradient = this.ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
                     } else {
                         // LINEAR_GRADIENT (upper=0)
@@ -968,6 +1223,9 @@ export class CanvasPaintContext extends PaintContext {
                         const endX = intBitsToFloat(arr[i++]);
                         const endY = intBitsToFloat(arr[i++]);
                         i++; // tileMode
+                        this.gradientSpec = { kind: 'linear', colors, stops, cx: 0, cy: 0,
+                                              radius: 0, x1: startX, y1: startY,
+                                              x2: endX, y2: endY };
                         gradient = this.ctx.createLinearGradient(startX, startY, endX, endY);
                     }
                     if (gradient) {
@@ -1020,8 +1278,15 @@ export class CanvasPaintContext extends PaintContext {
                     break;
                 case PaintBundle.COLOR_ID: {
                     // Value is already resolved to ARGB by PaintBundle.updateVariables().
-                    // As with COLOR, this leaves any shader alone.
-                    this.color = argbToRgba(arr[i++]);
+                    // As with COLOR, this leaves any shader alone. Java applies COLOR_ID and
+                    // COLOR alike (Paint.setColor), so it replaces the alpha too: keeping a
+                    // previous ALPHA here drew the next canvas with the last canvas's alpha
+                    // (0 after an off Switch) where Java and C++ draw it opaque (T27).
+                    const argb = arr[i++] | 0;
+                    this.colorArgb = argb;
+                    this.alpha = ((argb >>> 24) & 0xFF) / 255;
+                    this.color = `rgb(${(argb >>> 16) & 0xFF},${(argb >>> 8) & 0xFF},`
+                               + `${argb & 0xFF})`;
                     break;
                 }
                 case PaintBundle.COLOR_FILTER_ID: {
@@ -1222,7 +1487,7 @@ export class CanvasPaintContext extends PaintContext {
         if (state) {
             Object.assign(this, state);
             this.setFont();
-            this.ctx.globalAlpha = this.alpha;
+            this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
         }
     }
 
@@ -1325,7 +1590,7 @@ export class CanvasPaintContext extends PaintContext {
 
         // Composite into Canvas2D at the original document rect (the canvas
         // transform handles scaling from document coords to screen pixels).
-        this.ctx.globalAlpha = this.alpha;
+        this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
         this.ctx.globalCompositeOperation = this.blendMode;
         const dstW = right - left;
         const dstH = Math.abs(bottom - top);
@@ -1387,7 +1652,9 @@ export class CanvasPaintContext extends PaintContext {
         const w = right - left;
         const h = bottom - top;
         this.ctx.beginPath();
-        this.ctx.roundRect(left, top, w, h, [Math.min(rx, ry)]);
+        // A negative radius (an expression that went below 0) is a square corner, as in Skia;
+        // the canvas API throws RangeError for it, which stopped the whole paint.
+        this.ctx.roundRect(left, top, w, h, [Math.max(0, Math.min(rx, ry))]);
         this.fillOrStroke(
             () => { this.ctx.fill(); },
             () => { this.ctx.stroke(); }
@@ -1612,10 +1879,13 @@ export class CanvasPaintContext extends PaintContext {
 
             if (charCenter >= 0 && charCenter <= totalLen) {
                 this.ctx.save();
-                this.positionOnPath(segments, charCenter, vOffset);
+                const at = this.positionOnPath(segments, charCenter, vOffset);
+                // Re-express any gradient in this glyph's own space, or it is sampled from
+                // a rotated, displaced one and the glyph fills with the wrong colour.
+                const g = at ? this.fillStyleUnderGlyph(at.x, at.y, at.angle) : null;
                 this.fillOrStroke(
-                    () => { this.applyFillStyle(); this.ctx.fillText(ch, -charWidth / 2, 0); },
-                    () => { this.applyStrokeStyle(); this.ctx.strokeText(ch, -charWidth / 2, 0); }
+                    () => { this.applyFillStyle(g); this.ctx.fillText(ch, -charWidth / 2, 0); },
+                    () => { this.applyStrokeStyle(g); this.ctx.strokeText(ch, -charWidth / 2, 0); }
                 );
                 this.ctx.restore();
             }
@@ -1639,7 +1909,19 @@ export class CanvasPaintContext extends PaintContext {
         return res;
     }
 
+    /**
+     * Measure text the way the Java reference's headless MockRemoteContext does (getTextBounds:
+     * always 100x10; layoutComplexText: 30 per character x 40), for conformance runs against
+     * that reference (players/conformance). Set it before loading; it changes layout, so it is
+     * never on in a real player.
+     */
+    static mockTextMetrics = !!(globalThis as any).process?.env?.RC_MOCK_TEXT;
+
     getTextBounds(textId: number, start: number, end: number, flags: number, bounds: Float32Array): void {
+        if (CanvasPaintContext.mockTextMetrics) {
+            bounds[0] = 0; bounds[1] = 0; bounds[2] = 100; bounds[3] = 10;
+            return;
+        }
         const text = this.textCache.get(textId);
         if (!text) { bounds.fill(0); return; }
         const s = start >= 0 ? start : 0;
@@ -1666,11 +1948,14 @@ export class CanvasPaintContext extends PaintContext {
             for (const v of vals) if (typeof v === 'number' && isFinite(v) && v > 0) return v;
             return 0;
         };
+        // A font height never falls back to the ink box: "Home" has no descender and a short
+        // ink box, so a line laid out from it overlaps the next (node-canvas has no font box).
+        // Without a font box it is the estimate below, which is proportional like a font's.
         let ascent = wantFontBox
-            ? pick(metrics.fontBoundingBoxAscent, metrics.actualBoundingBoxAscent)
+            ? pick(metrics.fontBoundingBoxAscent)
             : pick(metrics.actualBoundingBoxAscent, metrics.fontBoundingBoxAscent);
         let descent = wantFontBox
-            ? pick(metrics.fontBoundingBoxDescent, metrics.actualBoundingBoxDescent)
+            ? pick(metrics.fontBoundingBoxDescent)
             : pick(metrics.actualBoundingBoxDescent, metrics.fontBoundingBoxDescent);
         if (ascent <= 0 && descent <= 0) {
             // Calibrated against a device: text size 18 measured a ~20.8px line there,
@@ -1714,6 +1999,11 @@ export class CanvasPaintContext extends PaintContext {
                       _strikethrough: boolean, _flags: number): any {
         const str = this.textCache.get(textId);
         if (!str) return null;
+        if (CanvasPaintContext.mockTextMetrics) {
+            // MockRemoteContext.layoutComplexText: getText(textId).length * 30, by 40.
+            return { lines: [str], alignment, lineHeight: 40, width: str.length * 30, height: 40,
+                     maxWidth, maxHeight, visibleLines: 1 };
+        }
         const s = start >= 0 ? start : 0;
         const e = (end === -1 || end > str.length) ? str.length : end;
         const text = str.substring(s, e);
@@ -1822,14 +2112,31 @@ export class CanvasPaintContext extends PaintContext {
         }
         const totalHeight = lines.length * lineHeight;
 
+        // AndroidPaintContext: when an ellipsized layout is taller than maxHeight, count the
+        // lines whose bottom is inside it; CoreText then lays out again with that many lines.
+        let visibleLines = lines.length;
+        if (totalHeight > maxHeight && CanvasPaintContext.isEllipsis(overflow)
+            && lines.length >= maxLines) {
+            visibleLines = 0;
+            for (let i = 0; i < lines.length; i++) {
+                if ((i + 1) * lineHeight < maxHeight) visibleLines++;
+                else break;
+            }
+        }
+
         return {
             lines, alignment, lineHeight,
             width: Math.min(totalWidth, maxWidth),
             height: Math.min(totalHeight, maxHeight),
-            naturalHeight: totalHeight, visibleLines: lines.length,
+            naturalHeight: totalHeight, visibleLines,
             maxWidth,
             maxHeight
         };
+    }
+
+    private static isEllipsis(overflow: number): boolean {
+        // CoreText.OVERFLOW_ELLIPSIS (3), OVERFLOW_START_ELLIPSIS (4), OVERFLOW_MIDDLE_ELLIPSIS (5)
+        return overflow === 3 || overflow === 4 || overflow === 5;
     }
 
     drawComplexText(computedTextLayout: any, targetWidth?: number): void {
@@ -1860,7 +2167,7 @@ export class CanvasPaintContext extends PaintContext {
                dstLeft: number, dstTop: number, dstRight: number, dstBottom: number, _cdId: number): void {
         const img = this.bitmapToDraw(imageId);
         if (!img) return;
-        this.ctx.globalAlpha = this.alpha;
+        this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
         this.ctx.globalCompositeOperation = this.blendMode;
         this.ctx.imageSmoothingEnabled = this.filterBitmap;
         const sw = srcRight - srcLeft;
@@ -1877,7 +2184,7 @@ export class CanvasPaintContext extends PaintContext {
     drawBitmapSimple(id: number, left: number, top: number, right: number, bottom: number): void {
         const img = this.bitmapToDraw(id);
         if (!img) return;
-        this.ctx.globalAlpha = this.alpha;
+        this.ctx.globalAlpha = this.alpha * this.mLayerAlpha;
         this.ctx.globalCompositeOperation = this.blendMode;
         this.ctx.imageSmoothingEnabled = this.filterBitmap;
         this.ctx.drawImage(img, left, top, right - left, bottom - top);
@@ -1960,10 +2267,20 @@ export class CanvasPaintContext extends PaintContext {
     }
     translate(translateX: number, translateY: number): void { this.ctx.translate(translateX, translateY); }
 
-    matrixSave(): void { this.inputClipStack.push(this.inputClip); this.ctx.save(); }
+    // The alpha of the enclosing saveLayer()s (an enter/exit fade): every draw sets
+    // globalAlpha from its paint, so the layer's alpha is multiplied in there. It follows the
+    // canvas save stack.
+    private mLayerAlpha = 1;
+    private mLayerAlphaStack: number[] = [];
+    matrixSave(): void {
+        this.inputClipStack.push(this.inputClip);
+        this.mLayerAlphaStack.push(this.mLayerAlpha);
+        this.ctx.save();
+    }
     matrixRestore(): void {
         const clip = this.inputClipStack.pop();
         if (clip) this.inputClip = clip;
+        if (this.mLayerAlphaStack.length) this.mLayerAlpha = this.mLayerAlphaStack.pop()!;
         this.ctx.restore();
     }
 
@@ -1971,7 +2288,8 @@ export class CanvasPaintContext extends PaintContext {
         this.matrixSave();
         this.clipRect(x, y, x + w, y + h);
         if (this.alpha < 1) {
-            this.ctx.globalAlpha *= this.alpha;
+            this.mLayerAlpha *= this.alpha;
+            this.ctx.globalAlpha = this.mLayerAlpha;
         }
     }
 
@@ -2119,7 +2437,7 @@ export class CanvasPaintContext extends PaintContext {
     private positionOnPath(
         segments: { x1: number; y1: number; x2: number; y2: number; len: number }[],
         distance: number, vOffset: number
-    ): void {
+    ): { x: number; y: number; angle: number } | null {
         let accum = 0;
         for (const s of segments) {
             if (accum + s.len >= distance || s === segments[segments.length - 1]) {
@@ -2132,10 +2450,11 @@ export class CanvasPaintContext extends PaintContext {
                 const ny =  Math.cos(angle) * vOffset;
                 this.ctx.translate(px + nx, py + ny);
                 this.ctx.rotate(angle);
-                return;
+                return { x: px + nx, y: py + ny, angle };
             }
             accum += s.len;
         }
+        return null;
     }
 
     // --- Clipping ---
@@ -2267,7 +2586,7 @@ export class CanvasPaintContext extends PaintContext {
                 this.ctx.arc(layer.width / 2, layer.height / 2, r, 0, Math.PI * 2);
             } else if (shape === 1 && shapeRadius > 0) {
                 // Round rect
-                this.ctx.roundRect(0, 0, layer.width, layer.height, [shapeRadius]);
+                this.ctx.roundRect(0, 0, layer.width, layer.height, [Math.max(0, shapeRadius)]);
             } else {
                 // Rect
                 this.ctx.rect(0, 0, layer.width, layer.height);
@@ -2288,6 +2607,8 @@ export class CanvasPaintContext extends PaintContext {
 
     private mainCanvas: CanvasRenderingContext2D | null = null;
     private bitmapCanvasCache = new Map<number, CanvasRenderingContext2D>();
+    /** Declared size of a pixel-less bitmap, so its buffer is allocated at that size. */
+    private emptyBitmapSizes = new Map<number, { width: number; height: number }>();
 
     drawToBitmap(bitmapId: number, mode: number, color: number): void {
         if (this.mainCanvas === null) {
@@ -2303,10 +2624,16 @@ export class CanvasPaintContext extends PaintContext {
         // Get or create an offscreen canvas for this bitmap
         let offCtx = this.bitmapCanvasCache.get(bitmapId);
         if (!offCtx) {
-            // Look up the bitmap dimensions
+            // Prefer the size the document declared. A bitmap created with
+            // createBitmap(w, h) has no decoded image to measure, so before this the
+            // buffer silently became 256x256 whatever the document asked for — a
+            // simulation writing a 512x256 state grid got two thirds of it discarded,
+            // with no error anywhere. The 256 default now applies only to a buffer whose
+            // size nothing declared.
+            const declared = this.emptyBitmapSizes.get(bitmapId);
             const img = this.bitmapCache.get(bitmapId);
-            const w = img ? (img as any).width || 256 : 256;
-            const h = img ? (img as any).height || 256 : 256;
+            const w = declared?.width || (img ? (img as any).width : 0) || 256;
+            const h = declared?.height || (img ? (img as any).height : 0) || 256;
             offCtx = this.createLayerCanvas(w, h);
             this.bitmapCanvasCache.set(bitmapId, offCtx);
         }
@@ -2345,13 +2672,35 @@ export class CanvasPaintContext extends PaintContext {
     /** Texture generation last uploaded to GL, so an unchanged texture is not re-uploaded. */
     private d3glTexGen = -1;
     private d3Blit: CanvasRenderingContext2D | null = null;
+    /** The supersampling factor the 3D buffers were last sized with. */
+    private d3Super = 1;
+
+    /**
+     * Software 3D antialiasing: the 3D buffers are rendered this many times larger per axis
+     * and composited scaled down with smoothing (supersampling; the rasterizer itself has no
+     * coverage AA, so edges were fully aliased). 2x costs about 2.5-3.5x the 3D frame time
+     * (SHW-15 at 1280x800: 40 -> 136 ms), so it is off by default (1). 2 turns it on;
+     * "auto" uses 2 only up to about a megapixel of canvas (a phone or a window at density 1).
+     * RC.CanvasPaintContext.supersample3D, or per context.
+     */
+    static supersample3D: number | 'auto' = 1;
+    supersample3D: number | 'auto' = CanvasPaintContext.supersample3D;
+
+    private superFactor(): number {
+        const v = this.supersample3D;
+        if (v === 'auto') return this.ctx.canvas.width * this.ctx.canvas.height <= 1_050_000 ? 2 : 1;
+        return Math.max(1, Math.trunc(Number(v)) || 1);
+    }
 
     private ensure3D(): SoftwarePaint3DContext {
-        const w = this.ctx.canvas.width;
-        const h = this.ctx.canvas.height;
+        const k = this.superFactor();
+        const w = this.ctx.canvas.width * k;
+        const h = this.ctx.canvas.height * k;
         if (this.d3 === null) {
             this.d3 = new SoftwarePaint3DContext();
         }
+        this.d3.setSupersample(k);
+        this.d3Super = k;
         this.d3.setSize(w, h);
         if (this.d3Blit === null
             || this.d3Blit.canvas.width !== w || this.d3Blit.canvas.height !== h) {
@@ -2476,7 +2825,9 @@ export class CanvasPaintContext extends PaintContext {
         const n = ctx3d.buildCanvasVertices(meshId, this.d3glMesh, smooth);
         if (n < 3) return true;   // nothing survived culling; not a failure
 
-        const w = ctx3d.getWidth(), h = ctx3d.getHeight();
+        // (GL has its own MSAA: it renders at the window size, not the supersampled one.)
+        const k = this.d3Super;
+        const w = ctx3d.getWidth() / k, h = ctx3d.getHeight() / k;
         gl.beginFrame(w, h);
         const tex = ctx3d.getTextureData();
         gl.setTexture(tex.pixels, tex.width, tex.height);
@@ -2516,8 +2867,19 @@ export class CanvasPaintContext extends PaintContext {
             d[i * 4 + 3] = (p >>> 24) & 0xFF;
         }
         blit.putImageData(img, 0, 0);
-        // Drawn under the live transform, matching the reference's Canvas.drawBitmap(b, 0, 0).
-        this.ctx.drawImage(blit.canvas as unknown as CanvasImageSource, 0, 0);
+        // Drawn under the live transform, matching the reference's Canvas.drawBitmap(b, 0, 0);
+        // a supersampled buffer is scaled down to the window with smoothing.
+        const k = this.d3Super;
+        if (k === 1) {
+            this.ctx.drawImage(blit.canvas as unknown as CanvasImageSource, 0, 0);
+        } else {
+            const smooth = this.ctx.imageSmoothingEnabled, q = this.ctx.imageSmoothingQuality;
+            this.ctx.imageSmoothingEnabled = true;
+            this.ctx.imageSmoothingQuality = 'high';
+            this.ctx.drawImage(blit.canvas as unknown as CanvasImageSource, 0, 0, w / k, h / k);
+            this.ctx.imageSmoothingEnabled = smooth;
+            this.ctx.imageSmoothingQuality = q;
+        }
     }
 
 }

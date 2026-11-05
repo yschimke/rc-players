@@ -51,12 +51,11 @@ function isDataVariableBits(b: number): boolean {
  * Operators and data (array) variables are also NaN-boxed but must survive untouched — an
  * operator resolved as if it were a variable would turn the expression into gibberish.
  */
-function isResolvable(v: number): boolean {
-    if (!Number.isNaN(v)) {
+function isResolvableBits(bits: number): boolean {
+    if (!isNaNBits(bits)) {
         return false;
     }
-    const bits = floatToRawIntBits(v);
-    return !AnimatedFloatExpression.isMathOperator(v) && !isDataVariableBits(bits);
+    return !AnimatedFloatExpression.isMathOperatorBits(bits) && !isDataVariableBits(bits);
 }
 
 function lerp(a: number, b: number, t: number): number {
@@ -66,11 +65,16 @@ function lerp(a: number, b: number, t: number): number {
 export class MeshExpression extends PaintOperation implements VariableSupport {
     static readonly OP_CODE = 117;
 
-    // Variable-resolved copies: globals replaced by literals, VAR1/VAR2 and operators kept.
-    private mOutParams: Float32Array;
-    private mOutPos: Float32Array[];
-    private mOutNormal: Float32Array[];
-    private mOutUv: Float32Array[];
+    // Variable-resolved copies, as RAW BITS: globals replaced by the bits of their literal
+    // value, VAR1/VAR2 and operators kept as they arrived. Bits throughout, because the
+    // array mixes literals, variable ids and operator ids, and the latter two are NaNs whose
+    // payload does not survive becoming a JS number (see WireBuffer.readFloat).
+    private mOutParams: Int32Array;
+    // The same params read as floats (a view over mOutParams' bits), for numeric use.
+    private mOutParamsF: Float32Array;
+    private mOutPos: Int32Array[];
+    private mOutNormal: Int32Array[];
+    private mOutUv: Int32Array[];
 
     private mEval = new AnimatedFloatExpression();
 
@@ -90,13 +94,15 @@ export class MeshExpression extends PaintOperation implements VariableSupport {
         readonly mId: number,
         readonly mType: number,
         readonly mFlags: number,
-        readonly mParams: Float32Array,
-        readonly mPos: Float32Array[],
-        readonly mNormal: Float32Array[],
-        readonly mUv: Float32Array[],
+        readonly mParams: Int32Array,
+        readonly mPos: Int32Array[],
+        readonly mNormal: Int32Array[],
+        readonly mUv: Int32Array[],
     ) {
         super();
         this.mOutParams = mParams.slice();
+        this.mOutParamsF = new Float32Array(this.mOutParams.buffer,
+            this.mOutParams.byteOffset, this.mOutParams.length);
         this.mOutPos = mPos.map((e) => e.slice());
         this.mOutNormal = mNormal.map((e) => e.slice());
         this.mOutUv = mUv.map((e) => e.slice());
@@ -106,8 +112,9 @@ export class MeshExpression extends PaintOperation implements VariableSupport {
 
     updateVariables(context: RemoteContext): void {
         for (let i = 0; i < this.mParams.length; i++) {
-            this.mOutParams[i] = isResolvable(this.mParams[i])
-                ? context.getFloat(idFromNan(this.mParams[i])) : this.mParams[i];
+            const b = this.mParams[i];
+            this.mOutParams[i] = isResolvableBits(b)
+                ? floatToRawIntBits(context.getFloat(idFromBits(b))) : b;
         }
         MeshExpression.resolveGroup(context, this.mPos, this.mOutPos);
         MeshExpression.resolveGroup(context, this.mNormal, this.mOutNormal);
@@ -115,21 +122,22 @@ export class MeshExpression extends PaintOperation implements VariableSupport {
     }
 
     private static resolveGroup(context: RemoteContext,
-                                src: Float32Array[], dst: Float32Array[]): void {
+                                src: Int32Array[], dst: Int32Array[]): void {
         for (let e = 0; e < src.length; e++) {
             const inArr = src[e];
             const out = dst[e];
             for (let i = 0; i < inArr.length; i++) {
-                out[i] = isResolvable(inArr[i])
-                    ? context.getFloat(idFromNan(inArr[i])) : inArr[i];
+                const b = inArr[i];
+                out[i] = isResolvableBits(b)
+                    ? floatToRawIntBits(context.getFloat(idFromBits(b))) : b;
             }
         }
     }
 
     registerListening(context: RemoteContext): void {
-        for (const v of this.mParams) {
-            if (isResolvable(v)) {
-                context.listensTo(idFromNan(v), this);
+        for (const b of this.mParams) {
+            if (isResolvableBits(b)) {
+                context.listensTo(idFromBits(b), this);
             }
         }
         this.listenGroup(context, this.mPos);
@@ -137,11 +145,11 @@ export class MeshExpression extends PaintOperation implements VariableSupport {
         this.listenGroup(context, this.mUv);
     }
 
-    private listenGroup(context: RemoteContext, group: Float32Array[]): void {
+    private listenGroup(context: RemoteContext, group: Int32Array[]): void {
         for (const e of group) {
-            for (const v of e) {
-                if (isResolvable(v)) {
-                    context.listensTo(idFromNan(v), this);
+            for (const b of e) {
+                if (isResolvableBits(b)) {
+                    context.listensTo(idFromBits(b), this);
                 }
             }
         }
@@ -207,19 +215,19 @@ export class MeshExpression extends PaintOperation implements VariableSupport {
     private gridCount(axis: number): number {
         switch (this.mType) {
             case SURFACE_HEIGHT_FIELD:
-                return Math.trunc(this.mOutParams[axis === 0 ? 2 : 5]);
+                return Math.trunc(this.mOutParamsF[axis === 0 ? 2 : 5]);
             case SURFACE_SPHERE:
-                return Math.trunc(this.mOutParams[axis === 0 ? 1 : 2]);
+                return Math.trunc(this.mOutParamsF[axis === 0 ? 1 : 2]);
             case SURFACE_CYLINDER:
-                return Math.trunc(this.mOutParams[axis === 0 ? 2 : 3]);
+                return Math.trunc(this.mOutParamsF[axis === 0 ? 2 : 3]);
             default:
-                return Math.trunc(this.mOutParams[axis === 0 ? 2 : 5]);
+                return Math.trunc(this.mOutParamsF[axis === 0 ? 2 : 5]);
         }
     }
 
     /** The (a,b) expression parameters for grid fractions (fu,fv), per surface type. */
     private paramsFor(fu: number, fv: number): void {
-        const p = this.mOutParams;
+        const p = this.mOutParamsF;
         switch (this.mType) {
             case SURFACE_HEIGHT_FIELD:
                 this.mLastA = lerp(p[0], p[1], fu);      // x
@@ -248,8 +256,8 @@ export class MeshExpression extends PaintOperation implements VariableSupport {
         switch (this.mType) {
             case SURFACE_HEIGHT_FIELD: {
                 let h = this.eval(this.mOutPos[0], a, b, ca);
-                const yMin = this.mOutParams[6];
-                const yMax = this.mOutParams[7];
+                const yMin = this.mOutParamsF[6];
+                const yMax = this.mOutParamsF[7];
                 if (h < yMin) { h = yMin; }
                 if (h > yMax) { h = yMax; }
                 this.mVerts[off] = a;
@@ -258,7 +266,7 @@ export class MeshExpression extends PaintOperation implements VariableSupport {
                 break;
             }
             case SURFACE_SPHERE: {
-                const r = Math.fround(this.mOutParams[0] + this.eval(this.mOutPos[0], a, b, ca));
+                const r = Math.fround(this.mOutParamsF[0] + this.eval(this.mOutPos[0], a, b, ca));
                 const sinV = Math.fround(Math.sin(b));
                 this.mVerts[off] = Math.fround(Math.fround(r * sinV) * Math.fround(Math.cos(a)));
                 this.mVerts[off + 1] = Math.fround(r * Math.fround(Math.cos(b)));
@@ -267,7 +275,7 @@ export class MeshExpression extends PaintOperation implements VariableSupport {
                 break;
             }
             case SURFACE_CYLINDER: {
-                const r = Math.fround(this.mOutParams[0] + this.eval(this.mOutPos[0], a, b, ca));
+                const r = Math.fround(this.mOutParamsF[0] + this.eval(this.mOutPos[0], a, b, ca));
                 this.mVerts[off] = Math.fround(r * Math.fround(Math.cos(a)));
                 this.mVerts[off + 1] = b;
                 this.mVerts[off + 2] = Math.fround(r * Math.fround(Math.sin(a)));
@@ -320,7 +328,7 @@ export class MeshExpression extends PaintOperation implements VariableSupport {
         }
     }
 
-    private eval(expr: Float32Array, a: number, b: number, ca: unknown): number {
+    private eval(expr: Int32Array, a: number, b: number, ca: unknown): number {
         if (ca) {
             return this.mEval.eval(ca, expr, expr.length, a, b);
         }
@@ -398,38 +406,39 @@ export class MeshExpression extends PaintOperation implements VariableSupport {
     }
 }
 
-function writeArray(buffer: WireBuffer, a: Float32Array): void {
+function writeArray(buffer: WireBuffer, a: Int32Array): void {
     buffer.writeInt(a.length);
-    for (const v of a) {
-        buffer.writeFloat(v);
+    for (const b of a) {
+        // writeInt, not writeFloat — a NaN id does not survive being written as a float.
+        buffer.writeInt(b);
     }
 }
 
-function writeGroup(buffer: WireBuffer, group: Float32Array[]): void {
+function writeGroup(buffer: WireBuffer, group: Int32Array[]): void {
     buffer.writeInt(group.length);
     for (const e of group) {
         writeArray(buffer, e);
     }
 }
 
-function readArray(buffer: WireBuffer): Float32Array {
+function readArray(buffer: WireBuffer): Int32Array {
     const len = buffer.readInt();
     if (len < 0 || len > MAX_ARRAY) {
         throw new Error(`MeshExpression: bad array length ${len}`);
     }
-    const a = new Float32Array(len);
+    const a = new Int32Array(len);
     for (let i = 0; i < len; i++) {
-        a[i] = buffer.readNanId();
+        a[i] = buffer.readNanIdBits();
     }
     return a;
 }
 
-function readGroup(buffer: WireBuffer): Float32Array[] {
+function readGroup(buffer: WireBuffer): Int32Array[] {
     const n = buffer.readInt();
     if (n < 0 || n > MAX_GROUP) {
         throw new Error(`MeshExpression: bad group count ${n}`);
     }
-    const g: Float32Array[] = [];
+    const g: Int32Array[] = [];
     for (let i = 0; i < n; i++) {
         g.push(readArray(buffer));
     }

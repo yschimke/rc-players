@@ -221,8 +221,26 @@ export class RemoteComposeState {
     setWindowWidth(width: number): void { this.updateFloat(5, width); } // ID_WINDOW_WIDTH
     setWindowHeight(height: number): void { this.updateFloat(6, height); } // ID_WINDOW_HEIGHT
 
+    // Collections a host has replaced (a float array set by name): the document's own
+    // DataListFloat no longer overwrites them when it applies.
+    private mCollectionOverride = new Set<number>();
+
     addCollection(id: number, collection: any): void {
+        if (this.mCollectionOverride.has(id & 0xFFFFF)) return;
         this.mCollectionMap.put(id & 0xFFFFF, collection);
+    }
+
+    /** A host's float array for a collection id: kept over the document's own, listeners told. */
+    overrideFloatArray(id: number, values: ArrayLike<number>): void {
+        const v = Float32Array.from(values);
+        this.mCollectionOverride.add(id & 0xFFFFF);
+        this.mCollectionMap.put(id & 0xFFFFF, { values: v, getLength: () => v.length, getFloatValue: (i: number) => v[i], getFloats: () => v });
+        this.updateListeners(id);
+    }
+
+    clearFloatArrayOverride(id: number): void {
+        this.mCollectionOverride.delete(id & 0xFFFFF);
+        this.updateListeners(id);
     }
 
     getFloatValue(id: number, index: number): number {
@@ -297,6 +315,11 @@ export class RemoteComposeState {
     }
 
     markVariableDirty(id: number): void { this.updateListeners(id); }
+
+    /** Whether a host has pinned this data id (overrideData), so the document's loads skip it. */
+    isDataOverridden(id: number): boolean {
+        return id < RemoteComposeState.MAX_DATA && this.mDataOverride[id];
+    }
 
     clearDataOverride(id: number): void {
         if (id < RemoteComposeState.MAX_DATA) this.mDataOverride[id] = false;

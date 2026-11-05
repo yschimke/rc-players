@@ -12,7 +12,7 @@ It is a **generated artifact** checked in on purpose: nothing that consumes it
 builds on a Node/npm toolchain, so the bundle is produced once from the vendored
 source and committed rather than rebuilt. See `third_party/remote-compose-player/PROVENANCE.md`
 for the upstream origin and licence (Apache-2.0,
-`camaelon/remotecompose-experiments`, commit `d8b07da2`).
+`camaelon/remotecompose-experiments`, commit `f760e94c`).
 
 ## Regenerating
 

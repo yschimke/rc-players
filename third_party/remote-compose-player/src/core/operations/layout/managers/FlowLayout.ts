@@ -40,12 +40,12 @@ export class FlowLayout extends RowLayout {
             if (measure.get(c).isGone()) {
                 componentWidth = 0;
             } else if (this.hasWeight(c)) {
-                // Check minimum width constraint (dp — scale to px by generation density).
+                // Check minimum width constraint
                 const wIn = (c as LayoutComponent).getWidthInModifier();
                 if (wIn) {
                     const min = wIn.getMin();
                     if (min !== -1) {
-                        componentWidth = min * this.getDpScale(context);
+                        componentWidth = min;
                     }
                 }
             } else {

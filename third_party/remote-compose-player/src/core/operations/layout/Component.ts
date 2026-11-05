@@ -63,6 +63,10 @@ export class Component extends PaintOperation implements Container {
     mNeedsMeasure = true;
     mNeedsRepaint = true;
     mFirstLayout = true;
+    // The visibility this component was last laid out with: what an animation starts from.
+    // (A visibility modifier sets mVisibility as soon as its variable changes; the reference
+    // schedules it, leaving mVisibility at the laid-out value until the next layout.)
+    mLayoutVisibility = Visibility.VISIBLE;
 
     mAnimationSpec: AnimationSpec = AnimationSpec.DEFAULT;
     mAnimateMeasure: AnimateMeasure | null = null;
@@ -152,6 +156,13 @@ export class Component extends PaintOperation implements Container {
             if (op instanceof Component) {
                 op.setParent(this);
             }
+            // Java Component.inflate: a touch listener in our own list belongs to us. Left
+            // unowned, a canvas's TouchExpression registered as a document-wide listener and
+            // took every touch: each Slider on a page moved wherever the finger went.
+            const t = op as any;
+            if (typeof t.setComponent === 'function' && typeof t.touchDown === 'function') {
+                t.setComponent(this);
+            }
         }
     }
 
@@ -191,11 +202,12 @@ export class Component extends PaintOperation implements Container {
         const allowAnimation = !this.mFirstLayout &&
             context.isAnimationEnabled() &&
             this.mAnimationSpec.isAnimationEnabled() &&
-            m.getAllowsAnimation();
+            m.getAllowsAnimation() &&
+            !(Visibility.isGone(this.mLayoutVisibility) && Visibility.isGone(m.getVisibility()));
 
         if (allowAnimation) {
             if (this.mAnimateMeasure === null) {
-                const origin = new ComponentMeasure(this.mComponentId, this.mX, this.mY, this.mWidth, this.mHeight, this.mVisibility);
+                const origin = new ComponentMeasure(this.mComponentId, this.mX, this.mY, this.mWidth, this.mHeight, this.mLayoutVisibility);
                 const target = new ComponentMeasure(this.mComponentId, m.getX(), m.getY(), m.getW(), m.getH(), m.getVisibility());
                 if (!target.same(origin)) {
                     const now = context.mClock?.millis() ?? Date.now();
@@ -216,9 +228,10 @@ export class Component extends PaintOperation implements Container {
                 const now = context.mClock?.millis() ?? Date.now();
                 this.mAnimateMeasure.updateTarget(context, m, now);
             }
-        } else {
+        } else if (!context.isAnimationEnabled() || !this.mAnimationSpec.isAnimationEnabled()) {
             this.mAnimateMeasure = null;
         }
+        // (A component going from GONE to GONE keeps an exit animation in flight.)
 
         if (this.mAnimateMeasure === null) {
             this.mVisibility = m.getVisibility();
@@ -226,13 +239,18 @@ export class Component extends PaintOperation implements Container {
             this.mY = m.getY();
             this.mWidth = m.getW();
             this.mHeight = m.getH();
+            this.updateComponentValues(context, this.mWidth, this.mHeight);
             if (this.mParent) {
                 this.clearNeedsBoundsAnimation();
             }
         } else {
             this.mAnimateMeasure.apply(context);
+            this.updateComponentValues(context, this.mWidth, this.mHeight);
             this.markNeedsBoundsAnimation();
         }
+        // Keep the override bits: a child a collapsible layout dropped (OVERRIDE_GONE) must start
+        // the next pass gone, or every layout animates it out again and repaints forever.
+        this.mLayoutVisibility = m.getVisibility();
         this.mFirstLayout = false;
     }
 
@@ -333,6 +351,7 @@ export class Component extends PaintOperation implements Container {
     // --- Touch/Input ---
 
     onClick(context: RemoteContext, doc: any, x: number, y: number): boolean {
+        if (!this.isVisible()) return false;   // a hidden component takes no tap (U45)
         // Iterate children in reverse z-order
         for (let i = this.mChildren.length - 1; i >= 0; i--) {
             const child = this.mChildren[i];
@@ -446,8 +465,13 @@ export class Component extends PaintOperation implements Container {
         let y = this.mY;
         let parent = this.mParent;
         while (parent) {
-            x += parent.mX;
-            y += parent.mY;
+            // A layout parent places its children inside its padding and shifts them by its
+            // scroll (LayoutComponent.getLocationInWindow does the same). Without it a
+            // canvas's content in a padded column read POS_ROOT_X as 0, and the Slider
+            // component, which subtracts it from touchX(), landed off by the padding.
+            const p = parent as any;
+            x += parent.mX + (p.mPaddingLeft ?? 0) + parent.getScrollX();
+            y += parent.mY + (p.mPaddingTop ?? 0) + parent.getScrollY();
             parent = parent.getParent();
         }
         return [x, y];
@@ -470,7 +494,32 @@ export class Component extends PaintOperation implements Container {
         return null;
     }
 
-    addComponentValue(_v: any): void { /* override */ }
+    // ComponentValue ops that read this component's size or position (componentWidth() in a
+    // modifier or an expression): refreshed at every layout, as the reference's
+    // Component.updateComponentValues does (U49: they stayed at their load-time value, 0).
+    // (LayoutComponent redeclares this field null and fills it from its content ops: a
+    // ComponentValue applying before that saw null and the reader threw — two width
+    // expressions in one document were enough.)
+    mComponentValues: any[] | null = [];
+    addComponentValue(v: any): void {
+        if (!v) return;
+        if (!this.mComponentValues) this.mComponentValues = [];
+        if (!this.mComponentValues.includes(v)) this.mComponentValues.push(v);
+    }
+    updateComponentValues(context: RemoteContext, width: number, height: number): void {
+        for (const v of this.mComponentValues ?? []) {
+            const type = typeof v.getType === 'function' ? v.getType() : v.mType;
+            const id = typeof v.getValueId === 'function' ? v.getValueId() : v.mValueId;
+            if (typeof id !== 'number') continue;
+            switch (type) {
+                case 0: context.loadFloat(id, width); break;           // WIDTH
+                case 1: context.loadFloat(id, height); break;          // HEIGHT
+                case 2: context.loadFloat(id, this.mX); break;         // POS_X
+                case 3: context.loadFloat(id, this.mY); break;         // POS_Y
+                default: break;                                        // root positions, content: at apply
+            }
+        }
+    }
     registerVariables(_context: RemoteContext): void { /* override */ }
     updateVariables(_context: RemoteContext): void { /* override */ }
 

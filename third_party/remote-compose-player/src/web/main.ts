@@ -560,6 +560,13 @@ export class RcdPlayer {
     inputCapabilities(): { components: string[]; editing: boolean } {
         return { components: this.customHost.inputs ? [Input.TEXT, Input.CHOICE, Input.TOGGLE, Input.NUMBER, Input.RANGE] : [], editing: this.inputEditing };
     }
+    // The camera take for the slide being shown (a recording of the speaker), and where its
+    // narration has got to. With a take set, a camera box draws it instead of asking the
+    // viewer for their own camera.
+    setCameraTake(src: string | null, framed = false): void { this.customHost.setCameraTake(src, framed); }
+    setCameraTakeTime(seconds: number, playing: boolean): void {
+        this.customHost.setCameraTakeTime(seconds, playing);
+    }
     getCustomHost(): WebCustomHost { return this.customHost; }
 
     getDocument(): CoreDocument | null { return this.document; }
@@ -616,6 +623,11 @@ export class RcdPlayer {
 import { createPlayer, RcPlayerElement, base64ToArrayBuffer } from './RcPlayerElement';
 export { createPlayer, RcPlayerElement, base64ToArrayBuffer };
 export { WebCustomHost, parseEmbedConfig, fitInto } from './CustomHosts';
+export { pinClock } from '../core/ClockPin';
+export { createHostApi } from './HostApi';
+export { decompressDocument, isCompressed } from '../core/Compression';
+export type { HostApi, HostType, HostValue } from './HostApi';
+export { createSnapshot } from '../core/RemoteClock';
 export type { EmbedResolver } from './CustomHosts';
 export type { RcPlayerOptions, RcPlayerHandle } from './RcPlayerElement';
 // Named-family web fonts. `configureWebFonts` is the switch an embedder needs: a webview whose CSP

@@ -14,19 +14,69 @@ without a server-side Robolectric daemon.
 - Repository: <https://github.com/yschimke/remotecompose-experiments> (fork of
   `camaelon/remotecompose-experiments`, which is where changes are filed)
 - Path: `players/typescript/`
-- Commit: `c2b2860b4ba43a754e5cafeb803a0e45cbbb3c12` ("json2rc: decode custom layout component")
+- Commit: `f760e94cf07ab84818f5cdc67bee01e203743457` ("json2rc: canvas commands draw
+  resources.bitmaps by name", camaelon `main`, 2026-11-03)
 - License: Apache-2.0 (see `LICENSE`)
 
-Previously vendored at `53e19e93b3fa6dd4ec31dbdb4e32717ce8c9735d` ("docs: record the layout/text conformance work and its traps").
-The refresh to `c2b2860b` incorporates:
-- 3D WebGL2 pipeline and software rasterizer (`src/core/d3/`, `src/core/operations/d3/`, `src/web/WebGL3DRenderer.ts`, opcodes 180-188)
-- Custom component host infrastructure: embedded documents, video players, and camera feeds (`src/core/CustomComponentHost.ts`, `src/web/CustomHosts.ts`)
-- Layout animation support (`src/core/operations/layout/animation/`, `AnimationSpec` opcode 209)
-- 2D Mesh operations and generators (`src/core/operations/Mesh2D.ts`, `Mesh2DGenerator.ts`)
-- Vector expressions and RPN evaluation (`src/core/operations/VectorExpression.ts`, `VectorRpn.ts`, `PathGenerator.ts`)
-- Operation measurement and execution counting hooks (`src/core/OperationMeasurement.ts`)
-- Stubs for unsupported/future opcodes (`src/core/operations/UnsupportedOperations.ts`)
-- Note: `src/json2rc/` is intentionally excluded from vendoring as it is authoring/tooling rather than player runtime. Real implementations of `TextLookupInt` (153), `DataDynamicListFloat` (189), and `UpdateDynamicFloatList` (190) are retained over upstream's stubs.
+Previously vendored at `c2b2860b4ba43a754e5cafeb803a0e45cbbb3c12` ("json2rc: decode custom layout
+component"), and before that at `53e19e93b3fa6dd4ec31dbdb4e32717ce8c9735d`.
+
+The refresh to `f760e94c` was a three-way merge (base `c2b2860b`, ours, upstream `f760e94c`, each
+restricted to the vendored file set), not a re-copy. It incorporates the ~40 upstream commits under
+`players/typescript/` since `c2b2860b`:
+- Conformance with the Java reference across layout and text: `BaseModernMeasurePolicy`-style
+  `widthIn`/`heightIn` tightening and `DimensionConstraints` REQUIRED clamps, row/column weight fill,
+  ellipsis re-layout with fewer lines (`CoreText`), START/MIDDLE ellipsis, `updatePadding`, size
+  modifiers re-resolved (and EXACT scaled under `DENSITY_BEHAVIOR_DP`) on every measure, component
+  values resolved on the first layout, `StateLayout`, templates, collapsible layouts that stop
+  repainting every frame, TS number formatting matching Java, layout animation fixes.
+- Compressed documents: `Header.COMPRESS = DEFLATE` (`src/core/Compression.ts`, its own synchronous
+  inflater).
+- `createHostApi`, a document's host contract by name (`src/web/HostApi.ts`).
+- Sound: `SoundExpression` resolving variables, one voice per sound, synth and sequence types,
+  `playSound` on a tap.
+- `FloatFunctionDefine` / `FloatFunctionCall` implemented (`src/core/operations/FloatFunction.ts`),
+  replacing their stubs; a pinnable clock (`src/core/ClockPin.ts`).
+- 3D: optional supersampling for the software rasterizer, surfaces, font-box text heights; path
+  expression ops and path trims (`decodePath`); text on path, crossover animations, video cues,
+  image zoom, fullscreen; touch-up after drag and touches inside scrolled/padded containers; the
+  layer alpha of `saveLayer` fades; `ValueIntegerExpressionChangeAction` with long-encoded ids.
+
+Not vendored, as before: `src/json2rc/` and the new `src/json2rc-web.ts` (authoring tooling),
+`packaging/`, `vscode-extension/`, `build-json2rc/`, `live/`, `doc/`, `web-player/`, `testdata/`,
+upstream's `tests/` (they import a `build-node/` or `build-json2rc/` output this copy does not
+build; `tests/compression_test.mjs` was run once against the merged source and passes), the
+top-level `*.mjs`/`*.py` scripts, `DEBUGGING.md` and `GAPS.md`.
+
+Upstream still ships stubs for `TextLookupInt` (153), `ImageAttribute`, `FontData` and
+`CanvasOperations` (173), so our real implementations are kept. `DataDynamicListFloat` and
+`UpdateDynamicFloatList` are upstream's own real implementations (they were already at `c2b2860b`).
+
+### Local deltas retired by this refresh
+
+Upstream now implements the same fix, so its version was taken and ours dropped:
+- **`readNanIdBits` on `WireBuffer` / `LoomWireBuffer`, and `TextLayout` reading `fontSize` /
+  `fontWeight` through it.** Upstream added the same bits-domain reader (remapped through
+  `RemapContext.resolveNanIdBits` under pattern expansion) and reads both `TextLayout` fields with it.
+- **`LayoutComponentContent` reporting its parent's size.** Upstream parents the content wrapper and
+  resolves a `ComponentValue` naming it to the enclosing component's box (`ComponentValue.apply`).
+- **`refreshPadding()`** (re-summing padding before measure): upstream's `updatePadding()` does the
+  same at the start of `LayoutManager.measure`.
+- **`ValueIntegerExpressionChangeAction` / `evaluateIntegerExpression`**: upstream's
+  `CoreDocument.evaluateIntExpression` with long-encoded id handling and per-expansion re-indexing.
+- **`<rc-player>` disconnect calls `destroy()`**, not `stop()`: upstream made the same change.
+
+And one local delta retired because it turned out to double-apply a fix upstream already had:
+- **dp scaling of `widthIn` / `heightIn` bounds in `LayoutManager`, `FitBoxLayout` and
+  `FlowLayout`.** `WidthInModifier` / `HeightInModifier.updateVariables` already apply the density
+  (as the reference's `DimensionInModifierOperation` does; the data pass runs it before layout), so
+  multiplying by the dp scale again drew every `heightIn(52.dp)` Wear button, card and toggle row at
+  twice its height at density 2 (208 px instead of 104). The refreshed player draws them at the
+  CMP player's geometry (`renders/native-swift-dimension-in-bounds/button-filled-cmp.png`).
+  EXACT_DP sizes are still scaled in `LayoutManager.measure` (see the next section).
+
+Partially overlapping: upstream now clamps negative rounded-clip radii with `max(0, r)`; our
+sanitiser (below) also squares non-finite radii, so ours is kept.
 
 ## Local modifications
 
@@ -35,7 +85,7 @@ Vendored from the upstream path above (`src/`, `package.json`,
 `packaging/`, `vscode-extension/`, and standalone-site tooling are intentionally
 not vendored; only the library source needed to build the browser bundle.
 
-Local deltas over that snapshot (each also filed upstream):
+Local deltas over that snapshot (filed upstream unless noted):
 
 - **Document-fetch HTTP errors** (`src/web/main.ts`). Reject failed HTTP responses before reading
   their bodies or replacing the current document. The error reports the HTTP status without
@@ -68,16 +118,41 @@ Local deltas over that snapshot (each also filed upstream):
   looked-up string. Added in [#3427](https://github.com/yschimke/compose-ai-tools/pull/3427); it was
   not written down here at the time.
 
-- **`TextLayout` (opcode 208) reads its NaN-boxed fields through the remapping hook**
-  (`src/core/operations/layout/managers/TextLayout.ts`). The op itself is upstream's now; this is the
-  one line of ours that outlived the swap. `fontSize` and `fontWeight` are NaN-boxed — a literal
-  float, or an id smuggled in the NaN payload — so both readers agree they must be taken in the bits
-  domain rather than through `readFloat()`, which collapses the payload because JS canonicalises NaN.
-  Upstream takes them with a bare `readInt()`; we take them with `readNanIdBits()`. Both consume the
-  same four bytes, so the stream stays aligned either way, but only the latter is a remapping hook:
-  under macro/pattern expansion `LoomWireBuffer.readNanIdBits` rewrites the id in the payload, and a
-  plain `readInt()` skips that silently, leaving every expanded instance of a template pointing at the
-  template's own id instead of its own.
+- **An explicit size wins over a weight fill** (`src/core/operations/layout/managers/LayoutManager.ts`,
+  new with the `f760e94c` refresh). Upstream now mirrors the Java core's
+  `RowLayout.isInHorizontalFill()` / `ColumnLayout.isInVerticalFill()`: a row holding a weighted
+  child measures at the full incoming width *whatever its own size modifier says*. Over an explicit
+  `width(180.dp)` that is the AOSP view player's behaviour, not Compose's — the CMP player and the
+  AndroidX embedded player apply the exact size as the constraint first, and the weights share it.
+  Taken as-is it laid every Wear split toggle row and button group out full-bleed
+  (`renders/rc-cmp-lane-ab/README.md`, "The AOSP view player lays the split row out full-bleed").
+  The weight fill is therefore suppressed on an axis whose size modifier is EXACT or EXACT_DP; a
+  wrapping or unsized row still fills, which matches Compose.
+
+- **EXACT_DP sizes are scaled once, by the layout pass**
+  (`src/core/operations/layout/modifiers/ModifierOperations.ts`, `.../managers/LayoutManager.ts`).
+  `LayoutManager.measure` multiplies an EXACT_DP width/height by the document's dp scale, for a
+  literal and a variable alike. Upstream now also scales EXACT_DP inside
+  `WidthModifier`/`HeightModifier.updateVariables`; taking both would draw it at density², so the
+  modifiers keep upstream's re-resolution and its EXACT-under-`DENSITY_BEHAVIOR_DP` scaling but leave
+  EXACT_DP raw. Covered by `src/density.test.ts`.
+
+- **`IntegerExpression` tells operators from ids by the declared value**
+  (`src/core/operations/IntegerExpression.ts`). A set mask bit means "not a literal", which is an id
+  when the written value is below `OFFSET` and an operator otherwise; the operator test reads
+  `mValues`, not the resolved array, so a variable whose value falls in the operator range is not
+  executed as an opcode. Upstream still reads the mask alone.
+
+- **Path operands may be variables** (`src/web/CanvasPaintContext.ts`, `pathCoord`). A path
+  coordinate that is a NaN-boxed id is dereferenced to its current value instead of being read as a
+  literal NaN; now applied inside upstream's new `decodePath`, so trimmed paths get it too.
+
+- **Text layout** (`src/web/CanvasPaintContext.ts` `layoutComplexText`, `CoreText`). Ours is kept
+  over upstream's parallel rewrite: one-line clip/visible text is not wrapped, ellipsis is
+  grapheme-safe, `height` is clamped to `maxHeight` with the natural height reported separately
+  (`naturalHeight`), and autosized clip/visible text is laid out uncapped. Upstream's
+  ellipsis-with-fewer-lines loop in `CoreText` is taken and reads `naturalHeight`, and its
+  `visibleLines` count is added to our layout so that loop has what it needs.
 
 - **A weighted child honours the size its parent distributed to it**
   (`src/core/operations/layout/managers/LayoutManager.ts`). Upstream's `WEIGHT` branch takes the

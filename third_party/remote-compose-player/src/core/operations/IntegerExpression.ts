@@ -78,6 +78,8 @@ export class IntegerExpression extends Operation implements VariableSupport {
         return this.evaluate(this.mPreMask, this.mPreCalcValues || this.mValues);
     }
 
+    getId(): number { return this.mId; }
+
     /**
      * Evaluates the RPN program. [exp] is the *resolved* array (`mPreCalcValues`), where every id
      * slot already holds its variable's value.
@@ -151,12 +153,17 @@ export class IntegerExpression extends Operation implements VariableSupport {
     deepToString(indent: string): string { return `${indent}IntegerExpression(${this.mId})`; }
 
     static read(buffer: WireBuffer, operations: Operation[]): void {
-        const id = buffer.readInt();
+        const id = buffer.declareId();
         const mask = buffer.readInt();
         const len = buffer.readInt();
         const values = new Int32Array(len);
+        // As the reference: an entry the mask marks as an id is resolved through the macro
+        // remapping (a no-op outside a pattern), everything else is a literal or an operator.
+        const remap = (buffer as any).getRemapContext?.();
         for (let i = 0; i < len; i++) {
-            values[i] = buffer.readInt();
+            const v = buffer.readInt();
+            const isId = ((1 << i) & mask) !== 0 && v < IntegerExpression.OFFSET;
+            values[i] = isId && remap ? remap.resolveId(v) : v;
         }
         operations.push(new IntegerExpression(id, mask, values));
     }
