@@ -7307,6 +7307,22 @@ private fun buildRuntimeShader(
   }
 }
 
+/**
+ * The most colours a gradient holds: its descriptor's low byte, as AndroidX writes and plays it
+ * (`PaintBundle`). Only the first [GRADIENT_COLOR_ID_SLOTS] may be colour ids.
+ */
+internal const val MAX_GRADIENT_COLORS: Int = 255
+
+/** How many of a gradient's colours its descriptor's high half can mark as colour ids. */
+internal const val GRADIENT_COLOR_ID_SLOTS: Int = 16
+
+/**
+ * Whether a gradient's [colorIndex]th colour is a colour id under [idMask]. Past the mask's 16
+ * slots it never is: a shift of 32 or more would wrap onto an earlier colour's bit.
+ */
+internal fun isGradientColorId(idMask: Int, colorIndex: Int): Boolean =
+  colorIndex < GRADIENT_COLOR_ID_SLOTS && idMask and (1 shl colorIndex) != 0
+
 private fun applyGradient(
   words: List<Int>,
   startIndex: Int,
@@ -7321,7 +7337,7 @@ private fun applyGradient(
   val colors =
     List(colorCount) { colorIndex ->
       val word = words[index++]
-      Color(if (colorIdMask and (1 shl colorIndex) != 0) values.color(word) else word)
+      Color(if (isGradientColorId(colorIdMask, colorIndex)) values.color(word) else word)
     }
   val stopCount = words[index++]
   val stops = List(stopCount) { values.resolve(RcFloatWord(words[index++])) }

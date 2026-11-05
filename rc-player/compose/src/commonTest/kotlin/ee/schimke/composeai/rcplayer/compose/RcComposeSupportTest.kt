@@ -706,6 +706,39 @@ class RcComposeSupportTest {
     assertTrue(document.composeSupportReport().fullyRenderable)
   }
 
+  /**
+   * AndroidX writes and plays up to 255 colours (the descriptor's low byte); only the first 16 can
+   * be colour ids. A smooth multi-stop fade samples more than 16.
+   */
+  @Test
+  fun acceptsGradientsUpToTheWireLimitOfColors() {
+    fun gradient(colors: Int) =
+      RcDocument(
+        header,
+        listOf(
+          RcPaintData(
+            listOf(11, colors) +
+              List(colors) { 0xff000000.toInt() or it } +
+              listOf(0) +
+              List(4) { RcFloatWord.literal(it * 10f).bits } +
+              listOf(0)
+          )
+        ),
+      )
+
+    assertTrue(gradient(64).composeSupportReport().fullyRenderable)
+    assertTrue(gradient(MAX_GRADIENT_COLORS).composeSupportReport().fullyRenderable)
+  }
+
+  @Test
+  fun aGradientColourPastTheIdMaskIsNeverAnId() {
+    // Bit 0 marks the first colour as an id; colour 32 must not read it back through a wrapped
+    // shift.
+    assertTrue(isGradientColorId(1, 0))
+    assertFalse(isGradientColorId(1, 32))
+    assertFalse(isGradientColorId(0xffff, GRADIENT_COLOR_ID_SLOTS))
+  }
+
   @Test
   fun rejectsMalformedGradientStops() {
     val issue =

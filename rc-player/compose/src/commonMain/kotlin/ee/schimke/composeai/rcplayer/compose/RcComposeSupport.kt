@@ -1604,7 +1604,8 @@ private fun paintIssue(
         if (command ushr 16 !in 0..2) return "gradient type ${command ushr 16} is not implemented"
         if (index >= paint.words.size) return "paint command $type is truncated"
         val colorCount = paint.words[index] and 0xff
-        if (colorCount !in 1..16) return "gradient color count $colorCount is invalid"
+        if (colorCount !in 1..MAX_GRADIENT_COLORS)
+          return "gradient color count $colorCount is invalid"
         val stopCountIndex = index + 1 + colorCount
         if (stopCountIndex >= paint.words.size) return "paint command $type is truncated"
         val stopCount = paint.words[stopCountIndex]
