@@ -445,6 +445,9 @@ private class RcUiBuilderWriter(
       else -> gap("image ${layout.bitmapId} is not an embedded PNG; its asset is not written")
     }
     props["assetKey"] = prop("string", str(key))
+    index.named[layout.bitmapId]
+      ?.takeIf { it.type == RcNamedVariable.IMAGE_TYPE }
+      ?.let { gap("named image \"${it.name}\" is written as its default asset") }
     CONTENT_SCALES[layout.scaleType]?.let { props["contentScale"] = prop("enum", str(it)) }
       ?: gap("image scale type ${layout.scaleType} has no contentScale value")
     if (layout.alpha.isNaNEncoded || layout.alpha.value != 1f) gap("image alpha has no property")
@@ -632,7 +635,13 @@ private class RcUiBuilderWriter(
             val word = RcFloatWord(words[i++])
             if (word.isNaNEncoded || word.value != 1f) complete = false
           }
-          PAINT_STROKE_JOIN,
+          PAINT_STROKE_JOIN ->
+            // A draw node has no join; the miter default is what it draws.
+            if (packed != 0) {
+              gap(
+                "stroke join ${STROKE_JOINS[packed] ?: packed} has no design property; miter is drawn"
+              )
+            }
           PAINT_ANTI_ALIAS,
           PAINT_FILTER_QUALITY,
           PAINT_FILTER_BITMAP,
@@ -1074,6 +1083,7 @@ private class RcUiBuilderWriter(
     const val PAINT_FALLBACK_TYPEFACE = 26
     const val STYLE_STROKE = 1
     const val STYLE_FILL_AND_STROKE = 2
+    val STROKE_JOINS: Map<Int, String> = mapOf(0 to "miter", 1 to "round", 2 to "bevel")
     val STROKE_CAPS: Map<Int, String> = mapOf(0 to "butt", 1 to "round", 2 to "square")
   }
 }

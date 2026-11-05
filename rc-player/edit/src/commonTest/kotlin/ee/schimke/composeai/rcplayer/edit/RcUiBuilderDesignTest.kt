@@ -249,4 +249,38 @@ class RcUiBuilderDesignTest {
     assertContains(compact(design.json), "\"fontWeight\":{\"type\":\"string\",\"value\":\"700\"}")
     assertEquals(1, design.unsupported.size, design.unsupported.toString())
   }
+
+  @Test
+  fun aRoundStrokeJoinIsReportedAndANamedImageLosesOnlyItsBinding() {
+    val png = byteArrayOf(-119, 80, 78, 71)
+    val design =
+      document(
+          RcBitmapData(56, 1, 1, RcBitmapData.TYPE_PNG_8888, RcBitmapData.ENCODING_INLINE, png),
+          RcNamedVariable(56, RcNamedVariable.IMAGE_TYPE, "USER:hero"),
+          *root(
+            RcImageLayout(-12, -1, 56, 5, word(1f)),
+            END,
+            RcCanvasLayout(-10, -1),
+            RcLayoutContent(-11),
+            // Stroke style, round join (15 | 1 << 16).
+            RcPaintData(listOf(8 or (1 shl 16), 15 or (1 shl 16))),
+            RcDraw4(RcOpcodes.DRAW_RECT, word(0f), word(0f), word(20f), word(10f)),
+            END,
+            END,
+          ),
+        )
+        .toUiBuilderDesign()
+    assertContains(
+      compact(design.json),
+      "\"assetKey\":{\"type\":\"string\",\"value\":\"image-56\"}",
+    )
+    assertContains(compact(design.json), "\"slots\":{\"ops\":[\"rect\"]}")
+    assertEquals(
+      listOf(
+        "named image \"USER:hero\" is written as its default asset",
+        "stroke join round has no design property; miter is drawn",
+      ),
+      design.unsupported,
+    )
+  }
 }
