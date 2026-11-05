@@ -42,6 +42,12 @@ fun TextSampleDp() {
       maxLines = 1,
     )
     RemoteText(
+      "Eighteen".rs,
+      fontSize = 18.rsp,
+      textAlign = RemoteTextAlign.Start,
+      overflow = RemoteTextOverflow.Clip,
+    )
+    RemoteText(
       "Body text that wraps".rs,
       fontSize = 14.rsp,
       textAlign = RemoteTextAlign.Center,

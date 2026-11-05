@@ -480,8 +480,10 @@ private class RcKotlinWriter(
       colorId != null -> arguments += "color = ${colorById(colorId)}"
       int(TEXT_COLOR) != null -> arguments += "color = ${literalColor(int(TEXT_COLOR)!!)}"
     }
-    val size = word(TEXT_FONT_SIZE)
-    size?.let { arguments += "fontSize = ${fontSize(it)}" }
+    // The writer omits a font size equal to the wire default, so an absent one is 36, not
+    // RemoteText's own 12sp.
+    val size = word(TEXT_FONT_SIZE) ?: RcFloatWord.literal(WIRE_DEFAULT_FONT_SIZE)
+    arguments += "fontSize = ${fontSize(size)}"
     int(TEXT_FONT_STYLE)?.let { style ->
       if (style != 0) {
         import("androidx.compose.remote.creation.compose.text.RemoteFontStyle")
@@ -538,12 +540,11 @@ private class RcKotlinWriter(
   private fun textStyle(
     text: RcCoreText,
     properties: Map<Int, RcTextStyleProperty>,
-    size: RcFloatWord?,
+    size: RcFloatWord,
   ): String? {
     val fields = mutableListOf<String>()
     val sizeSp =
       when {
-        size == null -> DEFAULT_TEXT_SIZE_SP
         size.isNaNEncoded -> null
         densityBehavior == RcHeader.DENSITY_BEHAVIOR_DP -> size.value
         else -> size.value / density
@@ -744,11 +745,7 @@ private class RcKotlinWriter(
       }
       data.encoding == RcBitmapData.ENCODING_INLINE &&
         (data.type == RcBitmapData.TYPE_PNG_8888 || data.type == RcBitmapData.TYPE_PNG) -> {
-        import(
-          "androidx.compose.runtime.remember",
-          "androidx.compose.remote.creation.compose.state.rb",
-          "kotlin.io.encoding.Base64",
-        )
+        import("kotlin.io.encoding.Base64")
         val constant = "Image${id}Png"
         // Two images can show one bitmap; its bytes are declared once.
         if (embeddedBitmaps.add(id))
@@ -776,7 +773,20 @@ private class RcKotlinWriter(
                 ".asImageBitmap()"
             }
           }
-        hoist("image$id", "remember { $decode.rb }")
+        val variable = named[id]?.takeIf { it.type == RcNamedVariable.IMAGE_TYPE }
+        if (variable != null) {
+          // A named image keeps its name, so the host can still replace it.
+          import("androidx.compose.remote.creation.compose.state.rememberNamedRemoteImageBitmap")
+          reportComputed(id, variable.name)
+          val (name, domain) = domainOf(variable.name)
+          hoist("image$id", "rememberNamedRemoteImageBitmap(${quote(name)}$domain) { $decode }")
+        } else {
+          import(
+            "androidx.compose.runtime.remember",
+            "androidx.compose.remote.creation.compose.state.rb",
+          )
+          hoist("image$id", "remember { $decode.rb }")
+        }
       }
       else -> {
         gap("image $id is stored as ${bitmapKind(data)}, which is not generated")
@@ -1676,8 +1686,8 @@ private class RcKotlinWriter(
     const val TEXT_FONT_AXIS_VALUES = 21
     const val TEXT_STYLE_PARENT = 24
 
-    /** `RemoteText`'s font size when it is given none. */
-    const val DEFAULT_TEXT_SIZE_SP = 12f
+    /** A `CoreText` font size the document omits: AndroidX's `TextStyle` default. */
+    const val WIRE_DEFAULT_FONT_SIZE = 36f
 
     val TEXT_PROPERTY_NAMES: Map<Int, String> =
       mapOf(

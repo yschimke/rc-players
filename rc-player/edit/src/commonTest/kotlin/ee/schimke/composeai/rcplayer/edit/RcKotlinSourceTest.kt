@@ -371,4 +371,16 @@ class RcKotlinSourceTest {
     // SpaceBetween adds its gap to the spacing at playback; spacedBy cannot say both.
     assertEquals(1, row(6).unsupported.size, row(6).unsupported.toString())
   }
+
+  @Test
+  fun anOmittedFontSizeIsTheWireDefault() {
+    val source =
+      withBehavior(
+          RcHeader.DENSITY_BEHAVIOR_LEGACY,
+          document(RcTextData(42, "Hi"), *rootLayoutArray(RcCoreText(42, emptyList()), END)),
+        )
+        .toRemoteComposeKotlin(RcKotlinOptions(density = 2f))
+    // The writer omits 36, AndroidX's default; at density 2 that is 18sp, not RemoteText's 12sp.
+    assertContains(source.code, "fontSize = 18.rsp")
+  }
 }

@@ -184,4 +184,25 @@ class RcUiBuilderDesignTest {
       Regex("\"style\":\\{\"type\":\"enum\",\"value\":\"stroke\"\\}").findAll(json).count(),
     )
   }
+
+  @Test
+  fun aTranslucentTextColourIsReportedAsWrittenOpaque() {
+    val design =
+      document(
+          RcTextData(42, "Faded"),
+          *root(
+            RcCoreText(
+              42,
+              listOf(
+                RcTextStyleProperty.IntValue(3, 0x80000000.toInt()),
+                RcTextStyleProperty.FloatValue(5, word(14f)),
+              ),
+            ),
+            END,
+          ),
+        )
+        .toUiBuilderDesign()
+    assertContains(compact(design.json), "\"color\":{\"type\":\"string\",\"value\":\"#000000\"}")
+    assertEquals(listOf("a translucent colour is written opaque"), design.unsupported)
+  }
 }

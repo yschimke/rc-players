@@ -41,6 +41,7 @@ import androidx.compose.remote.creation.compose.state.asRemoteTextUnit
 import androidx.compose.remote.creation.compose.state.rb
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rememberNamedRemoteColor
+import androidx.compose.remote.creation.compose.state.rememberNamedRemoteImageBitmap
 import androidx.compose.remote.creation.compose.state.rememberNamedRemoteInt
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.ri
@@ -118,6 +119,8 @@ fun TextSample() {
       overflow = RemoteTextOverflow.Ellipsis,
       maxLines = 1,
     )
+    // 18sp at density 2 is 36px, the wire default a legacy capture omits.
+    RemoteText("Eighteen".rs, fontSize = 18.rsp, overflow = RemoteTextOverflow.Clip)
     RemoteText(
       "Body text that wraps".rs,
       fontSize = 14.rsp,
@@ -209,6 +212,14 @@ fun ImageSample() {
       modifier = RemoteModifier.size(48.rdp),
       contentScale = RemoteContentScale.Crop,
       alpha = 0.5f.rf,
+    )
+    // A named image keeps its name, so a host can still replace it.
+    RemoteImage(
+      rememberNamedRemoteImageBitmap("hero") { sampleBitmap },
+      contentDescription = null,
+      modifier = RemoteModifier.size(24.rdp),
+      contentScale = RemoteContentScale.Fit,
+      alpha = 1f.rf,
     )
   }
 }

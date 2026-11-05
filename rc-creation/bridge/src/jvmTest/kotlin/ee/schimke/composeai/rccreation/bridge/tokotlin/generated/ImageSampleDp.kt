@@ -11,11 +11,10 @@ import androidx.compose.remote.creation.compose.layout.RemoteImage
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.modifier.fillMaxSize
 import androidx.compose.remote.creation.compose.modifier.size
-import androidx.compose.remote.creation.compose.state.rb
 import androidx.compose.remote.creation.compose.state.rdp
+import androidx.compose.remote.creation.compose.state.rememberNamedRemoteImageBitmap
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import kotlin.io.encoding.Base64
 import org.jetbrains.skia.Image
@@ -30,9 +29,10 @@ private val Image42Png: String =
 @Composable
 @RemoteComposable
 fun ImageSampleDp() {
-  val image42 = remember {
-    Image.makeFromEncoded(Base64.decode(Image42Png)).toComposeImageBitmap().rb
-  }
+  val image42 =
+    rememberNamedRemoteImageBitmap("hero") {
+      Image.makeFromEncoded(Base64.decode(Image42Png)).toComposeImageBitmap()
+    }
   RemoteBox(modifier = RemoteModifier.fillMaxSize(), contentAlignment = RemoteAlignment.Center) {
     RemoteImage(
       image42,
@@ -40,6 +40,13 @@ fun ImageSampleDp() {
       modifier = RemoteModifier.size(48.rdp),
       contentScale = RemoteContentScale.Crop,
       alpha = 0.5f.rf,
+    )
+    RemoteImage(
+      image42,
+      contentDescription = null,
+      modifier = RemoteModifier.size(24.rdp),
+      contentScale = RemoteContentScale.Fit,
+      alpha = 1f.rf,
     )
   }
 }

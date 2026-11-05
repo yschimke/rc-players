@@ -319,13 +319,15 @@ private class RcUiBuilderWriter(
 
     val props = Json.Obj()
     props["text"] = prop("string", str(textOf(text.textId)))
-    wordOf(TEXT_FONT_SIZE)?.let { size ->
-      fontSize(size)?.let { props["fontSize"] = prop("float", num(it)) }
+    // An absent size is the wire default the writer omits, not the catalog's.
+    fontSize(wordOf(TEXT_FONT_SIZE) ?: RcFloatWord.literal(WIRE_DEFAULT_FONT_SIZE))?.let {
+      props["fontSize"] = prop("float", num(it))
     }
     val colorId = intOf(TEXT_COLOR_ID)?.takeUnless { it == -1 }
     when {
       colorId != null -> colorString(colorId)?.let { props["color"] = prop("string", str(it)) }
-      intOf(TEXT_COLOR) != null -> props["color"] = prop("string", str(hex(intOf(TEXT_COLOR)!!)))
+      intOf(TEXT_COLOR) != null ->
+        props["color"] = prop("string", str(hexOpaque(intOf(TEXT_COLOR)!!)))
     }
     if ((intOf(TEXT_FONT_STYLE) ?: 0) != 0) props["fontStyle"] = prop("string", str("italic"))
     wordOf(TEXT_FONT_WEIGHT)
@@ -360,7 +362,7 @@ private class RcUiBuilderWriter(
     fontSize(text.fontSize)?.let { props["fontSize"] = prop("float", num(it)) }
     val color =
       if (text.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0) colorString(text.color)
-      else hex(text.color)
+      else hexOpaque(text.color)
     color?.let { props["color"] = prop("string", str(it)) }
     if (text.fontStyle != 0) props["fontStyle"] = prop("string", str("italic"))
     if (!text.fontWeight.isNaNEncoded) {
@@ -971,6 +973,7 @@ private class RcUiBuilderWriter(
     const val TEXT_ALIGN = 9
     const val TEXT_OVERFLOW = 10
     const val TEXT_MAX_LINES = 11
+    const val WIRE_DEFAULT_FONT_SIZE = 36f
     const val TEXT_FONT_AXIS = 20
     const val TEXT_FONT_AXIS_VALUES = 21
     val TEXT_PROPERTIES_SAID: Set<Int> =
