@@ -2176,13 +2176,15 @@ public object RcNativeSnapshotBridge {
         require(index < operation.words.size) { "Paint command 11 is truncated" }
         val meta = operation.words[index++]
         val colorCount = meta and 0xff
-        require(colorCount in 1..16) { "Gradient color count $colorCount is invalid" }
+        require(colorCount in 1..MAX_GRADIENT_COLORS) {
+          "Gradient color count $colorCount is invalid"
+        }
         require(index + colorCount < operation.words.size) { "Paint command 11 is truncated" }
         val register = (meta ushr 16) and 0xffff
         val colors =
           List(colorCount) { colorIndex ->
             val word = operation.words[index++]
-            if (register and (1 shl colorIndex) != 0) state.color(word) else word
+            if (isGradientColorId(register, colorIndex)) state.color(word) else word
           }
         val stopCount = operation.words[index++]
         require(stopCount == 0 || stopCount == colorCount) {
