@@ -334,6 +334,26 @@ class RcUiBuilderDesignTest {
   }
 
   @Test
+  fun aNamedFontFamilyWritesItsDefaultAndIsReported() {
+    val design =
+      document(
+          RcTextData(42, "Hi"),
+          RcTextData(43, "serif"),
+          RcNamedVariable(43, RcNamedVariable.STRING_TYPE, "USER:family"),
+          *root(RcCoreText(42, listOf(RcTextStyleProperty.IntValue(8, 43))), END),
+        )
+        .toUiBuilderDesign()
+    assertContains(
+      compact(design.json),
+      "\"fontFamily\":{\"type\":\"string\",\"value\":\"serif\"}",
+    )
+    assertEquals(
+      listOf("named font family \"USER:family\" is written as its default value"),
+      design.unsupported,
+    )
+  }
+
+  @Test
   fun aMiterLimitIsReportedAndATextLayoutFontFamilyIsWritten() {
     val design =
       document(

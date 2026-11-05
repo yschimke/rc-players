@@ -412,12 +412,16 @@ private class RcUiBuilderWriter(
    * A text's family as remote-m3 names one: the wire's family string, which the writer turns back
    * into a generic `RemoteFontFamily` member or `RemoteFontFamily.Named`.
    */
-  private fun fontFamily(textId: Int): String? =
-    index.texts[textId]
+  private fun fontFamily(textId: Int): String? {
+    index.named[textId]
+      ?.takeIf { it.type == RcNamedVariable.STRING_TYPE }
+      ?.let { gap("named font family \"${it.name}\" is written as its default value") }
+    return index.texts[textId]
       ?: run {
         gap("font family reads ${index.describeId(textId)}; it is not generated")
         null
       }
+  }
 
   /**
    * The design's `fontVariationSettings`: the document's own axes, with a non-default weight as the
