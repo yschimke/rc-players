@@ -6549,7 +6549,7 @@ private fun DrawScope.measureTextOperation(
     }
   val baseline = layout.firstBaseline
   // Ink: the pixels the glyphs cover, as `Paint.getTextBounds` measures them. Empty for blank text.
-  val ink = rcTextInk(layout)
+  val ink = baselineRelativeInk(rcTextInk(layout), baseline)
   val lineTop = if (layout.lineCount > 0) layout.getLineTop(0) else 0f
   val lineBottom =
     if (layout.lineCount > 0) layout.getLineBottom(0) else layout.size.height.toFloat()
@@ -6557,9 +6557,9 @@ private fun DrawScope.measureTextOperation(
     androidXTextBounds(
       flags = type ushr 8,
       inkLeft = ink.left,
-      inkTop = ink.top - baseline,
+      inkTop = ink.top,
       inkRight = ink.right,
-      inkBottom = ink.bottom - baseline,
+      inkBottom = ink.bottom,
       advance = layout.multiParagraph.intrinsics.maxIntrinsicWidth,
       ascent = lineTop - baseline,
       descent = lineBottom - baseline,
@@ -6568,6 +6568,14 @@ private fun DrawScope.measureTextOperation(
     state.setFloat(outId, value)
   }
 }
+
+/**
+ * [ink] in a layout's coordinates, moved to be relative to its [baseline]. No ink (blank text)
+ * stays the empty rectangle at the origin, as `Paint.getTextBounds` reports it, rather than one
+ * offset to the baseline.
+ */
+internal fun baselineRelativeInk(ink: Rect, baseline: Float): Rect =
+  if (ink == Rect.Zero) Rect.Zero else ink.translate(0f, -baseline)
 
 /**
  * The bounds AndroidX's View player reports for a text run, from

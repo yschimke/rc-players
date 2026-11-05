@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.compose
 
+import androidx.compose.ui.geometry.Rect
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -63,5 +64,15 @@ class RcTextMeasurementTest {
       listOf(0f, -15f, 22.5f, 4f),
       bounds(TEXT_MEASURE_SPACES or TEXT_MEASURE_MONOSPACE_WIDTH or TEXT_MEASURE_FONT_HEIGHT),
     )
+  }
+
+  @Test
+  fun inkIsMovedToTheBaseline() {
+    assertEquals(Rect(1f, -30f, 20f, 2f), baselineRelativeInk(Rect(1f, 10f, 20f, 42f), 40f))
+  }
+
+  @Test
+  fun noInkStaysAnEmptyRectangleAtTheOrigin() {
+    assertEquals(Rect.Zero, baselineRelativeInk(Rect.Zero, 37.4f))
   }
 }
