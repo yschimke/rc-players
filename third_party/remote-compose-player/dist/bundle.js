@@ -5710,6 +5710,8 @@ void main() {
         antiAlias: this.antiAlias,
         letterSpacing: this.letterSpacing,
         gradientStyle: this.gradientStyle,
+        // LOCAL (rc-players): the spec text-on-path rebuilds a gradient from, restored with it.
+        gradientSpec: this.gradientSpec,
         activeShaderData: this.activeShaderData,
         fontFamily: this.fontFamily,
         fontWeight: this.fontWeight,
@@ -31918,13 +31920,21 @@ ${inner}`;
           }
         }
       });
+      stickyApplied = false;
+      applySticky();
+    }
+    let stickyApplied = false;
+    function applySticky() {
+      if (stickyApplied || !doc || !named().size) return;
+      stickyApplied = true;
       for (const [name, value] of sticky) write(name, value);
       player.repaint?.();
     }
     function tick() {
       if (disposed) return;
       const d = player.getDocument();
-      if (d && d !== doc && named().size) attach(d);
+      if (d && d !== doc) attach(d);
+      applySticky();
       if (!changes.length || !doc) return;
       const watched = changes.some((l) => l.name === "*") ? [...named().keys()] : [...new Set(changes.map((l) => l.name))];
       for (const name of watched) {

@@ -113,6 +113,16 @@ export function createHostApi(player: RcdPlayer): HostApi {
                 }
             },
         });
+        stickyApplied = false;
+        applySticky();
+    }
+
+    // LOCAL (rc-players): sticky writes wait for the document's named variables, which can register
+    // after the document (and its action callback) is attached.
+    let stickyApplied = false;
+    function applySticky() {
+        if (stickyApplied || !doc || !named().size) return;
+        stickyApplied = true;
         for (const [name, value] of sticky) write(name, value);
         player.repaint?.();
     }
@@ -120,7 +130,10 @@ export function createHostApi(player: RcdPlayer): HostApi {
     function tick() {
         if (disposed) return;
         const d = player.getDocument();
-        if (d && d !== doc && named().size) attach(d);
+        // LOCAL (rc-players): a document may name host actions without naming any variable, and
+        // still needs its action callback, so attach on every document change.
+        if (d && d !== doc) attach(d);
+        applySticky();
         if (!changes.length || !doc) return;
         const watched = changes.some((l) => l.name === '*') ? [...named().keys()] : [...new Set(changes.map((l) => l.name))];
         for (const name of watched) {

@@ -87,6 +87,16 @@ not vendored; only the library source needed to build the browser bundle.
 
 Local deltas over that snapshot (filed upstream unless noted):
 
+- **Host actions without named variables** (`src/web/HostApi.ts`). Upstream's `createHostApi`
+  attached the document's action callback only once the document had named variables, so a document
+  that names host actions but no variable never reached `host.onAction()` handlers. The callback now
+  attaches on every document change. Sticky variable writes still wait until the named variables
+  have registered. Not yet filed upstream.
+- **Gradient spec across paint saves** (`src/web/CanvasPaintContext.ts`). `savePaint` snapshotted
+  `gradientStyle` but not the `gradientSpec` that text-on-path rebuilds the gradient from. After
+  `restorePaint`, text on a path was therefore filled with the inner scope's gradient. The spec is
+  now saved and restored with the style. Not yet filed upstream.
+
 - **Document-fetch HTTP errors** (`src/web/main.ts`). Reject failed HTTP responses before reading
   their bodies or replacing the current document. The error reports the HTTP status without
   copying potentially sensitive request URLs. Covered by `src/load-url.test.ts`. This local fix

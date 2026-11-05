@@ -352,6 +352,7 @@ export class CanvasPaintContext extends PaintContext {
         alpha: number; lineCap: CanvasLineCap; lineJoin: CanvasLineJoin;
         miterLimit: number; blendMode: GlobalCompositeOperation; antiAlias: boolean;
         letterSpacing: number; gradientStyle: CanvasGradient | CanvasPattern | null;
+        gradientSpec: CanvasPaintContext['gradientSpec'];
         fontFamily: string; fontWeight: number; fontItalic: boolean;
         fontAxes: FontAxis[]; googleFamily: string | null;
         filterBitmap: boolean;
@@ -1473,6 +1474,8 @@ export class CanvasPaintContext extends PaintContext {
             lineJoin: this.lineJoin, miterLimit: this.miterLimit,
             blendMode: this.blendMode, antiAlias: this.antiAlias,
             letterSpacing: this.letterSpacing, gradientStyle: this.gradientStyle,
+            // LOCAL (rc-players): the spec text-on-path rebuilds a gradient from, restored with it.
+            gradientSpec: this.gradientSpec,
             activeShaderData: this.activeShaderData,
             fontFamily: this.fontFamily, fontWeight: this.fontWeight,
             fontItalic: this.fontItalic, fontAxes: this.fontAxes,
