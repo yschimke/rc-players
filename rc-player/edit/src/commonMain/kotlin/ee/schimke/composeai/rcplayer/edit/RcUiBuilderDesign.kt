@@ -358,6 +358,7 @@ private class RcUiBuilderWriter(
 
   private fun textLayout(node: RcOperationNode, text: RcTextLayout): String {
     val props = Json.Obj()
+    if (text.fontFamilyId != -1) gap("text ${text.textId}'s font family has no property")
     props["text"] = prop("string", str(textOf(text.textId)))
     fontSize(text.fontSize)?.let { props["fontSize"] = prop("float", num(it)) }
     val color =
@@ -629,8 +630,14 @@ private class RcUiBuilderWriter(
             paint.fill = packed != STYLE_STROKE
           }
           PAINT_STROKE_CAP -> paint.cap = STROKE_CAPS[packed]
-          PAINT_TEXT_SIZE,
-          PAINT_STROKE_MITER -> i++
+          PAINT_TEXT_SIZE -> i++
+          PAINT_STROKE_MITER -> {
+            // A draw node has no miter limit; Android's default, 4, is what it draws.
+            val word = RcFloatWord(words[i++])
+            if (word.isNaNEncoded || word.value != DEFAULT_MITER_LIMIT) {
+              gap("a stroke miter limit has no design property; 4 is drawn")
+            }
+          }
           PAINT_ALPHA -> {
             val word = RcFloatWord(words[i++])
             if (word.isNaNEncoded || word.value != 1f) complete = false
@@ -1070,6 +1077,7 @@ private class RcUiBuilderWriter(
     const val PAINT_COLOR = 4
     const val PAINT_STROKE_WIDTH = 5
     const val PAINT_STROKE_MITER = 6
+    const val DEFAULT_MITER_LIMIT = 4f
     const val PAINT_STROKE_CAP = 7
     const val PAINT_STYLE = 8
     const val PAINT_FILTER_QUALITY = 10

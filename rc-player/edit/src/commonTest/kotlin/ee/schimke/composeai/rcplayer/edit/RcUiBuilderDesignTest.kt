@@ -283,4 +283,44 @@ class RcUiBuilderDesignTest {
       design.unsupported,
     )
   }
+
+  @Test
+  fun aMiterLimitAndATextLayoutFontFamilyAreReported() {
+    val design =
+      document(
+          RcTextData(42, "Mono"),
+          RcTextData(43, "monospace"),
+          *root(
+            ee.schimke.composeai.rcplayer.protocol.RcTextLayout(
+              -12,
+              -1,
+              42,
+              0xFF000000.toInt(),
+              word(14f),
+              0,
+              word(400f),
+              43,
+              1,
+              1,
+              Int.MAX_VALUE,
+            ),
+            END,
+            RcCanvasLayout(-10, -1),
+            RcLayoutContent(-11),
+            // Stroke style, miter limit 1.
+            RcPaintData(listOf(8 or (1 shl 16), 6, word(1f).bits)),
+            RcDraw4(RcOpcodes.DRAW_RECT, word(0f), word(0f), word(20f), word(10f)),
+            END,
+            END,
+          ),
+        )
+        .toUiBuilderDesign()
+    assertEquals(
+      listOf(
+        "text 42's font family has no property",
+        "a stroke miter limit has no design property; 4 is drawn",
+      ),
+      design.unsupported,
+    )
+  }
 }
