@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.createFontFamilyResolver
@@ -10,6 +11,7 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -53,5 +55,13 @@ class RcTextInkBoundsTest {
     val baseline = layout.firstBaseline
     assertTrue(ink.height > 1000f && ink.top > layout.getLineTop(0) + 300f, "x ink: $ink")
     assertTrue(abs(ink.bottom - baseline) <= 20f, "ends at the baseline: $ink, $baseline")
+  }
+
+  @Test
+  fun aColourChangeReusesTheMeasuredInk() {
+    val red = measurer.measure("colour", TextStyle(fontSize = 37.sp, color = Color.Red))
+    val blue = measurer.measure("colour", TextStyle(fontSize = 37.sp, color = Color.Blue))
+    // Same object: the second lookup is a cache hit rather than another raster.
+    assertSame(rcTextInk(red), rcTextInk(blue))
   }
 }

@@ -24,11 +24,26 @@ import kotlin.math.sqrt
  *
  * Compose has no portable glyph-bounds query (on Skiko `getPathForRange` is the selection box), so
  * the run is drawn once, opaque, into an offscreen bitmap padded for glyphs that overhang the
- * layout, and the covered pixels are scanned. Results are cached per layout input, so a measurement
- * in an animated draw stream rasterises once.
+ * layout, and the covered pixels are scanned. Results are cached per layout input, colour aside, so
+ * a measurement in an animated draw stream rasterises once.
  */
 internal fun rcTextInk(layout: TextLayoutResult): Rect {
-  val key = layout.layoutInput
+  val input = layout.layoutInput
+  // Keyed on what shapes the glyphs: the run is drawn in one opaque colour whatever its paint, so
+  // a document animating a measured run's colour or alpha measures it once.
+  val key =
+    listOf(
+      input.text,
+      input.style.copy(color = Color.Black),
+      input.constraints,
+      input.density.density,
+      input.density.fontScale,
+      input.layoutDirection,
+      input.fontFamilyResolver,
+      input.softWrap,
+      input.maxLines,
+      input.overflow,
+    )
   val cached = inkCache
   cached[key]?.let {
     return it
