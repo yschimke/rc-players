@@ -10,6 +10,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDraw3
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
+import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
@@ -204,5 +205,48 @@ class RcUiBuilderDesignTest {
         .toUiBuilderDesign()
     assertContains(compact(design.json), "\"color\":{\"type\":\"string\",\"value\":\"#000000\"}")
     assertEquals(listOf("a translucent colour is written opaque"), design.unsupported)
+  }
+
+  @Test
+  fun aHostColourNamedLikeARoleKeepsItsDefault() {
+    fun background(name: String) =
+      document(
+          RcColorConstant(43, 0xFF6200EE.toInt()),
+          RcNamedVariable(43, RcNamedVariable.COLOR_TYPE, name),
+          *root(
+            RcBoxLayout(-10, -1, 1, 4),
+            RcBackgroundModifier(2, 43, 0, 0, word(0f), word(0f), word(0f), word(0f), 0),
+            RcLayoutContent(-11),
+            END,
+            END,
+          ),
+        )
+        .toUiBuilderDesign()
+    val brand = background("USER:brand.primary")
+    assertContains(compact(brand.json), "\"color\":{\"type\":\"color\",\"value\":\"#6200EE\"}")
+    assertEquals(1, brand.unsupported.size, brand.unsupported.toString())
+    val theme = background("USER:WearM3.primary")
+    assertContains(compact(theme.json), "\"color\":{\"type\":\"colorToken\",\"value\":\"primary\"}")
+    assertTrue(theme.isComplete, theme.unsupported.toString())
+  }
+
+  @Test
+  fun aVariableFontWeightWritesItsDefaultAndIsReported() {
+    val design =
+      document(
+          RcTextData(42, "Bold"),
+          RcFloatConstant(50, word(700f)),
+          RcNamedVariable(50, RcNamedVariable.FLOAT_TYPE, "USER:weight"),
+          *root(
+            RcCoreText(
+              42,
+              listOf(RcTextStyleProperty.FloatValue(7, RcFloatWord(0x7fc00000 or 50))),
+            ),
+            END,
+          ),
+        )
+        .toUiBuilderDesign()
+    assertContains(compact(design.json), "\"fontWeight\":{\"type\":\"string\",\"value\":\"700\"}")
+    assertEquals(1, design.unsupported.size, design.unsupported.toString())
   }
 }

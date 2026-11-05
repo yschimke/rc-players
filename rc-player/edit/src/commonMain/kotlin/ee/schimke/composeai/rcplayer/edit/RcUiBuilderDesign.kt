@@ -330,9 +330,9 @@ private class RcUiBuilderWriter(
         props["color"] = prop("string", str(hexOpaque(intOf(TEXT_COLOR)!!)))
     }
     fontStyle(intOf(TEXT_FONT_STYLE) ?: 0)?.let { props["fontStyle"] = prop("string", str(it)) }
-    wordOf(TEXT_FONT_WEIGHT)
-      ?.takeUnless { it.isNaNEncoded }
-      ?.let { props["fontWeight"] = prop("string", str(it.value.toInt().toString())) }
+    wordOf(TEXT_FONT_WEIGHT)?.let { weight ->
+      fontWeight(weight)?.let { props["fontWeight"] = prop("string", str(it)) }
+    }
     intOf(TEXT_ALIGN)?.let { align ->
       TEXT_ALIGNS[align and 0xffff]?.let { props["textAlign"] = prop("enum", str(it)) }
     }
@@ -365,9 +365,7 @@ private class RcUiBuilderWriter(
       else hexOpaque(text.color)
     color?.let { props["color"] = prop("string", str(it)) }
     fontStyle(text.fontStyle)?.let { props["fontStyle"] = prop("string", str(it)) }
-    if (!text.fontWeight.isNaNEncoded) {
-      props["fontWeight"] = prop("string", str(text.fontWeight.value.toInt().toString()))
-    }
+    fontWeight(text.fontWeight)?.let { props["fontWeight"] = prop("string", str(it)) }
     TEXT_ALIGNS[text.textAlign]?.let { props["textAlign"] = prop("enum", str(it)) }
     OVERFLOWS[text.overflow]?.let { props["overflow"] = prop("string", str(it)) }
     if (text.maxLines != Int.MAX_VALUE) props["maxLines"] = prop("int", int(text.maxLines))
@@ -384,6 +382,21 @@ private class RcUiBuilderWriter(
         null
       }
     }
+
+  /**
+   * A font weight, or for one read from a variable its default where the document holds one. A
+   * design property is a literal, so the binding itself is reported.
+   */
+  private fun fontWeight(word: RcFloatWord): String? {
+    if (!word.isNaNEncoded) return word.value.toInt().toString()
+    val id = word.referencedId!!
+    val default = index.floats[id]?.takeUnless { it.isNaNEncoded }?.value
+    gap(
+      "a font weight reads ${index.describeId(id)}; " +
+        if (default != null) "its default is written" else "it is not generated"
+    )
+    return default?.toInt()?.toString()
+  }
 
   private fun fontSize(word: RcFloatWord): Float? {
     if (word.isNaNEncoded) {
@@ -840,8 +853,13 @@ private class RcUiBuilderWriter(
   private fun themeRole(id: Int): String? {
     val name =
       index.named[id]?.takeIf { it.type == RcNamedVariable.COLOR_TYPE }?.name ?: return null
-    val role = name.substringAfter(':').substringAfter('.', "")
-    return role.takeIf { it.isNotEmpty() && it.all { char -> char.isLetterOrDigit() } }
+    // Only a Material theme's own roles are tokens: `USER:brand.primary` is a host colour that
+    // happens to share a role's name, and keeps its default (reported) instead.
+    val qualified = name.substringAfter(':')
+    val namespace = qualified.substringBefore('.', "")
+    val role = qualified.substringAfter('.', "")
+    if (!MATERIAL_NAMESPACE.matches(namespace)) return null
+    return role.takeIf { it in MATERIAL_COLOR_ROLES }
   }
 
   private fun hexOpaque(argb: Int): String {
@@ -985,6 +1003,54 @@ private class RcUiBuilderWriter(
     const val TEXT_OVERFLOW = 10
     const val TEXT_MAX_LINES = 11
     const val WIRE_DEFAULT_FONT_SIZE = 36f
+
+    /** The namespaces theme colours are published under, such as `WearM3` and `Material3`. */
+    val MATERIAL_NAMESPACE: Regex = Regex("(?i)(wear)?(m3|material3?|materialtheme)")
+
+    /** Material 3 colour scheme roles, the values a `colorToken` takes. */
+    val MATERIAL_COLOR_ROLES: Set<String> =
+      setOf(
+        "primary",
+        "onPrimary",
+        "primaryContainer",
+        "onPrimaryContainer",
+        "primaryDim",
+        "inversePrimary",
+        "secondary",
+        "onSecondary",
+        "secondaryContainer",
+        "onSecondaryContainer",
+        "secondaryDim",
+        "tertiary",
+        "onTertiary",
+        "tertiaryContainer",
+        "onTertiaryContainer",
+        "tertiaryDim",
+        "error",
+        "onError",
+        "errorContainer",
+        "onErrorContainer",
+        "errorDim",
+        "background",
+        "onBackground",
+        "surface",
+        "onSurface",
+        "surfaceVariant",
+        "onSurfaceVariant",
+        "surfaceTint",
+        "inverseSurface",
+        "inverseOnSurface",
+        "surfaceBright",
+        "surfaceDim",
+        "surfaceContainer",
+        "surfaceContainerLow",
+        "surfaceContainerLowest",
+        "surfaceContainerHigh",
+        "surfaceContainerHighest",
+        "outline",
+        "outlineVariant",
+        "scrim",
+      )
     const val TEXT_FONT_AXIS = 20
     const val TEXT_FONT_AXIS_VALUES = 21
     val TEXT_PROPERTIES_SAID: Set<Int> =
