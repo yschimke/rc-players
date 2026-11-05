@@ -3,6 +3,7 @@ package ee.schimke.composeai.rcplayer.edit
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
@@ -19,11 +20,15 @@ import ee.schimke.composeai.rcplayer.protocol.RcDraw6
 import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFlowLayout
+import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
@@ -34,7 +39,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
+import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
 
 /**
  * How [toUiBuilderDesign] writes its design.
@@ -325,9 +332,9 @@ private class RcUiBuilderWriter(
     }
     val colorId = intOf(TEXT_COLOR_ID)?.takeUnless { it == -1 }
     when {
-      colorId != null -> colorString(colorId)?.let { props["color"] = prop("string", str(it)) }
+      colorId != null -> colorText(colorId)?.let { props["color"] = prop("string", str(it)) }
       intOf(TEXT_COLOR) != null ->
-        props["color"] = prop("string", str(hexOpaque(intOf(TEXT_COLOR)!!)))
+        props["color"] = prop("string", str(colorHex(intOf(TEXT_COLOR)!!)))
     }
     fontStyle(intOf(TEXT_FONT_STYLE) ?: 0)?.let { props["fontStyle"] = prop("string", str(it)) }
     wordOf(TEXT_FONT_WEIGHT)?.let { weight ->
@@ -362,8 +369,8 @@ private class RcUiBuilderWriter(
     props["text"] = prop("string", str(textOf(text.textId)))
     fontSize(text.fontSize)?.let { props["fontSize"] = prop("float", num(it)) }
     val color =
-      if (text.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0) colorString(text.color)
-      else hexOpaque(text.color)
+      if (text.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0) colorText(text.color)
+      else colorHex(text.color)
     color?.let { props["color"] = prop("string", str(it)) }
     fontStyle(text.fontStyle)?.let { props["fontStyle"] = prop("string", str(it)) }
     fontWeight(text.fontWeight)?.let { props["fontWeight"] = prop("string", str(it)) }
@@ -619,8 +626,8 @@ private class RcUiBuilderWriter(
         val command = words[i++]
         val packed = command ushr 16
         when (command and 0xffff) {
-          PAINT_COLOR -> paint.color = hexOpaque(words[i++])
-          PAINT_COLOR_ID -> paint.color = colorString(words[i++])
+          PAINT_COLOR -> paint.color = colorHex(words[i++])
+          PAINT_COLOR_ID -> paint.color = colorText(words[i++])
           PAINT_STROKE_WIDTH -> {
             val word = RcFloatWord(words[i++])
             if (word.isNaNEncoded) complete = false else paint.strokeWidth = word.value
@@ -757,10 +764,32 @@ private class RcUiBuilderWriter(
         }
       }
       is RcClipRectModifier -> obj("type" to str("clip"), "shape" to str("0"))
-      is RcAccessibilitySemantics -> {
-        if (operation.contentDescriptionId != 0 || operation.textId != 0) {
-          gap("semantics have no modifier; a content description is not generated")
+      is RcWidthInModifier -> sizeIn("widthIn", operation.minimum, operation.maximum)
+      is RcHeightInModifier -> sizeIn("heightIn", operation.minimum, operation.maximum)
+      is RcOffsetModifier ->
+        if (operation.x.isNaNEncoded || operation.y.isNaNEncoded) {
+          gap("an offset read from a variable is not generated")
+          null
+        } else {
+          obj(
+            "type" to str("offset"),
+            "xDp" to num(length(operation.x.value)),
+            "yDp" to num(length(operation.y.value)),
+          )
         }
+      is RcZIndexModifier ->
+        if (operation.value.isNaNEncoded) {
+          gap("a zIndex read from a variable is not generated")
+          null
+        } else {
+          obj("type" to str("zIndex"), "zIndex" to num(operation.value.value))
+        }
+      is RcGraphicsLayerModifier -> graphicsLayer(operation)
+      is RcBorderModifier -> border(operation)
+      is RcAccessibilitySemantics -> {
+        // Every field is applied by the player — description, text, state description, role,
+        // enabled and the merge mode — and a design has no semantics modifier for any of them.
+        gap("semantics have no design modifier; they are not generated")
         null
       }
       else -> {
@@ -769,6 +798,75 @@ private class RcUiBuilderWriter(
         null
       }
     }
+
+  /** `widthIn` / `heightIn`, in dp: a pixels document writes these bounds in pixels. */
+  private fun sizeIn(name: String, minimum: RcFloatWord, maximum: RcFloatWord): Json? {
+    if (minimum.isNaNEncoded || maximum.isNaNEncoded) {
+      gap("a $name bound read from a variable is not generated")
+      return null
+    }
+    fun dp(value: Float) =
+      if (header.densityBehavior == RcHeader.DENSITY_BEHAVIOR_PIXELS) value / density else value
+    val bounds = obj("type" to str(name))
+    // -1 is the wire's "unspecified" (the player skips it), as are 0 for a minimum and
+    // Float.MAX_VALUE for a maximum; the design leaves an unspecified bound out.
+    if (minimum.value != 0f && minimum.value != UNSPECIFIED_BOUND) {
+      bounds["minDp"] = num(dp(minimum.value))
+    }
+    if (maximum.value != Float.MAX_VALUE && maximum.value != UNSPECIFIED_BOUND) {
+      bounds["maxDp"] = num(dp(maximum.value))
+    }
+    return bounds
+  }
+
+  /** A graphics layer the `alpha` modifier says; anything more has no design modifier. */
+  private fun graphicsLayer(layer: RcGraphicsLayerModifier): Json? {
+    val alpha = layer.attributes.singleOrNull() as? RcGraphicsLayerAttribute.FloatValue
+    if (alpha == null || alpha.index != RcGraphicsLayerModifier.ALPHA || alpha.value.isNaNEncoded) {
+      gap("a graphics layer other than a constant alpha has no design modifier")
+      return null
+    }
+    return obj("type" to str("alpha"), "alpha" to num(alpha.value.value))
+  }
+
+  private fun border(border: RcBorderModifier): Json? {
+    if (border.borderWidth.isNaNEncoded) {
+      gap("a border width read from a variable is not generated")
+      return null
+    }
+    val color =
+      if (border.usesColorId) colorValue(border.colorId)
+      else
+        listOf(border.red, border.green, border.blue, border.alpha)
+          .takeIf { channels -> channels.none { it.isNaNEncoded } }
+          ?.let { (r, g, b, a) -> prop("color", str(hexOf(a.value, r.value, g.value, b.value))) }
+    if (color == null) {
+      gap("a border colour read from a variable is not generated")
+      return null
+    }
+    if (
+      border.shapeType != RcBackgroundModifier.SHAPE_RECTANGLE || !border.roundedCorner.isZero()
+    ) {
+      gap("a rounded or circular border is written rectangular; the border modifier has no shape")
+    }
+    if (border.wireVersion == 0) {
+      gap(
+        "a version 0 border is re-created as version 1, which insets its stroke by half its width"
+      )
+    }
+    return obj(
+      "type" to str("border"),
+      "widthDp" to
+        num(
+          border.borderWidth.value.let {
+            if (RcDocumentIndex.bordersInDp(header)) it else it / density
+          }
+        ),
+      "color" to color,
+    )
+  }
+
+  private fun RcFloatWord.isZero(): Boolean = !isNaNEncoded && value == 0f
 
   private fun dimension(name: String, axis: String, type: Int, value: RcFloatWord): Json? {
     if (value.isNaNEncoded) {
@@ -853,12 +951,18 @@ private class RcUiBuilderWriter(
     return colorString(id)?.let { prop("color", str(it)) }
   }
 
-  /** A colour id as the hex string `draw` and text nodes take. */
+  /**
+   * A colour id as the string `draw` and text nodes take: a theme role's name where it is one
+   * (`remote-text.color` documents "one of `colorTokens.roles`"), else its hex.
+   */
+  private fun colorText(id: Int): String? = themeRole(id) ?: colorString(id)
+
+  /** A colour id as its hex, reporting a named binding the design cannot keep. */
   private fun colorString(id: Int): String? {
     index.named[id]
       ?.takeIf { it.type == RcNamedVariable.COLOR_TYPE }
       ?.let { gap("named colour \"${it.name}\" is written as its default value") }
-    return index.colors[id]?.let { hexOpaque(it) }
+    return index.colors[id]?.let { colorHex(it) }
       ?: run {
         gap("a colour reads ${index.describeId(id)}; it is not generated")
         null
@@ -875,20 +979,17 @@ private class RcUiBuilderWriter(
     val namespace = qualified.substringBefore('.', "")
     val role = qualified.substringAfter('.', "")
     if (!MATERIAL_NAMESPACE.matches(namespace)) return null
-    return role.takeIf { it in MATERIAL_COLOR_ROLES }
+    return role.takeIf { it in REMOTE_M3_COLOR_ROLES }
   }
 
-  private fun hexOpaque(argb: Int): String {
-    if (argb ushr 24 != 0xFF) gap("a translucent colour is written opaque")
-    return hex(argb)
-  }
-
-  private fun hex(argb: Int): String =
-    "#" + (argb and 0xFFFFFF).toString(16).uppercase().padStart(6, '0')
+  /** `#RRGGBB` for an opaque colour, `#AARRGGBB` otherwise; the builder accepts both. */
+  private fun colorHex(argb: Int): String =
+    if (argb ushr 24 == 0xFF) "#" + (argb and 0xFFFFFF).toString(16).uppercase().padStart(6, '0')
+    else "#" + argb.toUInt().toString(16).uppercase().padStart(8, '0')
 
   private fun hexOf(alpha: Float, red: Float, green: Float, blue: Float): String {
     fun channel(value: Float) = kotlin.math.round(value * 255f).toInt().coerceIn(0, 255)
-    return hexOpaque(
+    return colorHex(
       (channel(alpha) shl 24) or (channel(red) shl 16) or (channel(green) shl 8) or channel(blue)
     )
   }
@@ -1023,49 +1124,28 @@ private class RcUiBuilderWriter(
     /** The namespaces theme colours are published under, such as `WearM3` and `Material3`. */
     val MATERIAL_NAMESPACE: Regex = Regex("(?i)(wear)?(m3|material3?|materialtheme)")
 
-    /** Material 3 colour scheme roles, the values a `colorToken` takes. */
-    val MATERIAL_COLOR_ROLES: Set<String> =
+    /**
+     * The theme roles a `remote-m3` design may name: its policy's `colorTokens.roles`
+     * (remote-m3-catalog `ui-builder.policy.json`), which the builder also checks a value against
+     * at commit (`PropertyValueKinds.CANVAS_COLOR_TOKENS`). `RemoteColorScheme` has more —
+     * `primaryDim`, `onPrimaryContainer`, `onBackground` — but a design naming one is refused, so
+     * those stay hex.
+     */
+    val REMOTE_M3_COLOR_ROLES: Set<String> =
       setOf(
-        "primary",
-        "onPrimary",
-        "primaryContainer",
-        "onPrimaryContainer",
-        "primaryDim",
-        "inversePrimary",
-        "secondary",
-        "onSecondary",
-        "secondaryContainer",
-        "onSecondaryContainer",
-        "secondaryDim",
-        "tertiary",
-        "onTertiary",
-        "tertiaryContainer",
-        "onTertiaryContainer",
-        "tertiaryDim",
-        "error",
-        "onError",
-        "errorContainer",
-        "onErrorContainer",
-        "errorDim",
         "background",
-        "onBackground",
         "surface",
-        "onSurface",
-        "surfaceVariant",
-        "onSurfaceVariant",
-        "surfaceTint",
-        "inverseSurface",
-        "inverseOnSurface",
-        "surfaceBright",
-        "surfaceDim",
         "surfaceContainer",
         "surfaceContainerLow",
-        "surfaceContainerLowest",
         "surfaceContainerHigh",
         "surfaceContainerHighest",
-        "outline",
+        "primary",
+        "onPrimary",
+        "tertiary",
+        "onTertiary",
+        "onSurface",
+        "onSurfaceVariant",
         "outlineVariant",
-        "scrim",
       )
     const val TEXT_FONT_AXIS = 20
     const val TEXT_FONT_AXIS_VALUES = 21
@@ -1078,6 +1158,9 @@ private class RcUiBuilderWriter(
     const val PAINT_STROKE_WIDTH = 5
     const val PAINT_STROKE_MITER = 6
     const val DEFAULT_MITER_LIMIT = 4f
+
+    /** A size bound the wire leaves unspecified. */
+    const val UNSPECIFIED_BOUND = -1f
     const val PAINT_STROKE_CAP = 7
     const val PAINT_STYLE = 8
     const val PAINT_FILTER_QUALITY = 10

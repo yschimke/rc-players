@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
@@ -12,17 +13,23 @@ import ee.schimke.composeai.rcplayer.protocol.RcDraw3
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
+import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
+import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -187,7 +194,7 @@ class RcUiBuilderDesignTest {
   }
 
   @Test
-  fun aTranslucentTextColourIsReportedAsWrittenOpaque() {
+  fun aTranslucentTextColourKeepsItsAlpha() {
     val design =
       document(
           RcTextData(42, "Faded"),
@@ -203,8 +210,9 @@ class RcUiBuilderDesignTest {
           ),
         )
         .toUiBuilderDesign()
-    assertContains(compact(design.json), "\"color\":{\"type\":\"string\",\"value\":\"#000000\"}")
-    assertEquals(listOf("a translucent colour is written opaque"), design.unsupported)
+    // The builder accepts `#AARRGGBB` wherever it takes a colour.
+    assertContains(compact(design.json), "\"color\":{\"type\":\"string\",\"value\":\"#80000000\"}")
+    assertTrue(design.isComplete, design.unsupported.toString())
   }
 
   @Test
@@ -323,4 +331,175 @@ class RcUiBuilderDesignTest {
       design.unsupported,
     )
   }
+
+  @Test
+  fun aThemeTextColourIsWrittenAsItsRoleAndAnUndeclaredRoleAsHex() {
+    fun text(role: String) =
+      document(
+          RcTextData(42, "Hi"),
+          RcColorConstant(43, 0xFF112233.toInt()),
+          RcNamedVariable(43, RcNamedVariable.COLOR_TYPE, "USER:WearM3.$role"),
+          *root(RcCoreText(42, listOf(RcTextStyleProperty.IntValue(4, 43))), END),
+        )
+        .toUiBuilderDesign()
+    val onSurface = text("onSurface")
+    assertContains(
+      compact(onSurface.json),
+      "\"color\":{\"type\":\"string\",\"value\":\"onSurface\"}",
+    )
+    assertTrue(onSurface.isComplete, onSurface.unsupported.toString())
+    // remote-m3 declares no primaryDim token, and the builder refuses one it does not declare.
+    val dim = text("primaryDim")
+    assertContains(compact(dim.json), "\"value\":\"#112233\"")
+    assertEquals(1, dim.unsupported.size, dim.unsupported.toString())
+  }
+
+  @Test
+  fun sizeBoundsOffsetZIndexAlphaAndBorderBecomeDesignModifiers() {
+    val design =
+      withDp(
+          document(
+            *root(
+              RcBoxLayout(-10, -1, 1, 4),
+              RcWidthInModifier(word(40f), word(Float.MAX_VALUE)),
+              RcHeightInModifier(word(0f), word(120f)),
+              RcOffsetModifier(word(4f), word(-2f)),
+              RcZIndexModifier(word(2f)),
+              RcGraphicsLayerModifier(
+                listOf(
+                  RcGraphicsLayerAttribute.FloatValue(RcGraphicsLayerModifier.ALPHA, word(0.5f))
+                )
+              ),
+              RcBorderModifier(
+                0,
+                0,
+                1,
+                0,
+                word(1f),
+                word(0f),
+                word(1f),
+                word(0f),
+                word(0f),
+                word(1f),
+                0,
+              ),
+              RcLayoutContent(-11),
+              END,
+              END,
+            )
+          )
+        )
+        .toUiBuilderDesign()
+    assertTrue(design.isComplete, design.unsupported.toString())
+    assertContains(
+      compact(design.json),
+      "\"modifiers\":[{\"type\":\"widthIn\",\"minDp\":40},{\"type\":\"heightIn\",\"maxDp\":120}," +
+        "{\"type\":\"offset\",\"xDp\":4,\"yDp\":-2},{\"type\":\"zIndex\",\"zIndex\":2}," +
+        "{\"type\":\"alpha\",\"alpha\":0.5},{\"type\":\"border\",\"widthDp\":1," +
+        "\"color\":{\"type\":\"color\",\"value\":\"#FF0000\"}}]",
+    )
+  }
+
+  @Test
+  fun semanticsWithOnlyAStateDescriptionAreStillReported() {
+    val design =
+      document(
+          RcTextData(44, "On"),
+          *root(
+            RcBoxLayout(-10, -1, 1, 4),
+            ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics(
+              0,
+              ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics.ROLE_UNKNOWN,
+              0,
+              44,
+              0,
+              true,
+              false,
+            ),
+            RcLayoutContent(-11),
+            END,
+            END,
+          ),
+        )
+        .toUiBuilderDesign()
+    assertEquals(
+      listOf("semantics have no design modifier; they are not generated"),
+      design.unsupported,
+    )
+  }
+
+  @Test
+  fun anUnspecifiedSizeBoundIsLeftOut() {
+    val design =
+      document(
+          *root(
+            RcBoxLayout(-10, -1, 1, 4),
+            RcWidthInModifier(word(-1f), word(80f)),
+            RcHeightInModifier(word(24f), word(-1f)),
+            RcLayoutContent(-11),
+            END,
+            END,
+          )
+        )
+        .toUiBuilderDesign()
+    assertContains(
+      compact(design.json),
+      "{\"type\":\"widthIn\",\"maxDp\":80},{\"type\":\"heightIn\",\"minDp\":24}",
+    )
+  }
+
+  @Test
+  fun aPre11LegacyBorderWidthIsAlreadyDp() {
+    fun design(minor: Int) =
+      document(
+          *root(
+            RcBoxLayout(-10, -1, 1, 4),
+            RcBorderModifier(
+              0,
+              0,
+              1,
+              0,
+              word(4f),
+              word(0f),
+              word(1f),
+              word(0f),
+              word(0f),
+              word(1f),
+              0,
+            ),
+            RcLayoutContent(-11),
+            END,
+            END,
+          )
+        )
+        .let {
+          it.copy(
+            header =
+              it.header.copy(
+                version = ee.schimke.composeai.rcplayer.protocol.RcVersion(1, minor, 0)
+              )
+          )
+        }
+        .toUiBuilderDesign(RcUiBuilderOptions(density = 2f))
+    // Version 1.0 legacy: dp, as written. 1.1 legacy: pixels, halved at density 2.
+    assertContains(compact(design(0).json), "\"type\":\"border\",\"widthDp\":4")
+    assertContains(compact(design(1).json), "\"type\":\"border\",\"widthDp\":2")
+  }
+
+  /** [document] with a dp header, so lengths read back as written. */
+  private fun withDp(document: ee.schimke.composeai.rcplayer.protocol.RcDocument) =
+    document.copy(
+      header =
+        ee.schimke.composeai.rcplayer.protocol.RcHeader(
+          ee.schimke.composeai.rcplayer.protocol.RcVersion(1, 1, 0),
+          listOf(
+            ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty(
+              ee.schimke.composeai.rcplayer.protocol.RcHeader.DOC_DENSITY_BEHAVIOR,
+              ee.schimke.composeai.rcplayer.protocol.RcHeaderValue.IntValue(
+                ee.schimke.composeai.rcplayer.protocol.RcHeader.DENSITY_BEHAVIOR_DP
+              ),
+            )
+          ),
+        )
+    )
 }

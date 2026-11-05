@@ -1092,7 +1092,14 @@ private class RcKotlinWriter(
     val color =
       if (border.usesColorId) colorById(border.colorId)
       else rgbaColor(border.red, border.green, border.blue, border.alpha)
-    val width = lengthDp(border.borderWidth)
+    // A pre-1.1 legacy document already holds its border width in dp.
+    val width =
+      if (!border.borderWidth.isNaNEncoded && RcDocumentIndex.bordersInDp(header)) {
+        import("androidx.compose.remote.creation.compose.state.rdp")
+        dp(border.borderWidth.value)
+      } else {
+        lengthDp(border.borderWidth)
+      }
     val shape =
       when {
         border.shapeType == RcBackgroundModifier.SHAPE_CIRCLE -> {

@@ -178,6 +178,18 @@ internal class RcDocumentIndex(document: RcDocument) {
           ?.let { header.density }
         ?: 1f
 
+    /**
+     * Whether [header]'s border widths are written in dp. A legacy-density document before version
+     * 1.1 kept them in dp; from 1.1, and in a pixels document, they are pixels like other legacy
+     * lengths. The player reads them the same way (`RcComposePlayer`'s `borderWidthPixels`).
+     */
+    fun bordersInDp(header: RcHeader): Boolean {
+      if (header.densityBehavior == RcHeader.DENSITY_BEHAVIOR_DP) return true
+      val version = header.version
+      val atLeast11 = version.major > 1 || (version.major == 1 && version.minor >= 1)
+      return header.densityBehavior == RcHeader.DENSITY_BEHAVIOR_LEGACY && !atLeast11
+    }
+
     /** An operation's name, as the operation inventory spells it. */
     fun describe(operation: RcOperation): String =
       RcOperationInventory.byOpcode[operation.opcode]?.stableName
