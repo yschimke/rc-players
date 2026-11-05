@@ -212,3 +212,20 @@ fun ImageSample() {
     )
   }
 }
+
+/**
+ * Lengths read from a host value, in a dp document: each must stay a dp, which the creation API
+ * writes only through its `RemoteDp` overloads.
+ */
+@Composable
+@RemoteComposable
+fun VariableLengthsSample() {
+  val gap = remember { RemoteFloat.createNamedRemoteFloat("layout.gap", 6f) }
+  RemoteColumn(
+    RemoteModifier.fillMaxSize().padding(gap.asRemoteDp(), 4.rdp, 4.rdp, 4.rdp),
+    verticalArrangement = RemoteArrangement.spacedBy(gap.asRemoteDp()),
+  ) {
+    RemoteBox(RemoteModifier.size(16.rdp).border(gap.asRemoteDp(), RemoteColor(Color.Black)))
+    RemoteBox(RemoteModifier.size(16.rdp).padding(gap.asRemoteDp()))
+  }
+}

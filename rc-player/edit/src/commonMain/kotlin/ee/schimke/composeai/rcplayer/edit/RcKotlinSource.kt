@@ -753,8 +753,13 @@ private class RcKotlinWriter(
         if (embeddedBitmaps.add(id))
           fileLevel +=
             "/** Image $id of the document, ${data.width} x ${data.height}, as PNG. */\n" +
-              "private const val $constant =\n" +
-              Base64.encode(data.data).chunked(96).joinToString(" +\n") { "  \"$it\"" }
+              // Not a `const val`: the compiler folds a constant's concatenation into one string,
+              // and the JVM caps a constant string at 65,535 bytes. Each literal stays under it
+              // and the parts are joined at run time.
+              "private val $constant: String =\n" +
+              "  listOf(\n" +
+              Base64.encode(data.data).chunked(BASE64_CHUNK).joinToString(",\n") { "    \"$it\"" } +
+              ",\n  ).joinToString(\"\")"
         val decode =
           when (options.imageDecoder) {
             RcKotlinImageDecoder.Skia -> {
@@ -992,13 +997,21 @@ private class RcKotlinWriter(
   private fun padding(padding: RcPaddingModifier): String {
     import("androidx.compose.remote.creation.compose.modifier.padding")
     val sides = listOf(padding.left, padding.top, padding.right, padding.bottom)
-    val values = sides.map { length(it) }
-    // A length that fell back to pixels is a RemoteFloat; padding takes four of one kind.
-    val mixed = values.any { it.endsWith(".rdp") } && values.any { !it.endsWith(".rdp") }
-    val written = if (mixed) sides.map { floatValue(it) } else values
+    val written =
+      if (densityBehavior == RcHeader.DENSITY_BEHAVIOR_DP) {
+        // In a dp document the RemoteFloat overload divides by the density, so every side,
+        // a variable one included, is written as a RemoteDp.
+        sides.map { lengthDp(it) }
+      } else {
+        val values = sides.map { length(it) }
+        // A length that fell back to pixels is a RemoteFloat, which this overload writes as it
+        // is; padding takes four of one kind.
+        val mixed = values.any { it.endsWith(".rdp") } && values.any { !it.endsWith(".rdp") }
+        if (mixed) sides.map { floatValue(it) } else values
+      }
     return when {
       written.distinct().size == 1 -> "padding(${written[0]})"
-      written[0] == written[2] && written[1] == written[3] && written[0].endsWith(".rdp") ->
+      written[0] == written[2] && written[1] == written[3] ->
         "padding(horizontal = ${written[0]}, vertical = ${written[1]})"
       else -> "padding(${written.joinToString(", ")})"
     }
@@ -1043,9 +1056,7 @@ private class RcKotlinWriter(
     val color =
       if (border.usesColorId) colorById(border.colorId)
       else rgbaColor(border.red, border.green, border.blue, border.alpha)
-    val width =
-      if (border.borderWidth.isNaNEncoded) "${floatValue(border.borderWidth)}.asRemoteDp()"
-      else lengthDp(border.borderWidth)
+    val width = lengthDp(border.borderWidth)
     val shape =
       when {
         border.shapeType == RcBackgroundModifier.SHAPE_CIRCLE -> {
@@ -1461,12 +1472,12 @@ private class RcKotlinWriter(
     return alignment
   }
 
+  /**
+   * A `spacedBy` length. In a dp document the RemoteFloat overload divides by the density, so a dp
+   * document's spacing is always a RemoteDp; otherwise it writes pixels as they are.
+   */
   private fun spacing(word: RcFloatWord): String =
-    if (word.isNaNEncoded) floatValue(word)
-    else if (densityBehavior == RcHeader.DENSITY_BEHAVIOR_DP) {
-      import("androidx.compose.remote.creation.compose.state.rdp")
-      dp(word.value)
-    } else length(word)
+    if (densityBehavior == RcHeader.DENSITY_BEHAVIOR_DP) lengthDp(word) else length(word)
 
   private fun horizontalAlignment(positioning: Int, default: Int): String? {
     if (positioning == default) return null
@@ -1616,6 +1627,9 @@ private class RcKotlinWriter(
     const val TEXT_ALIGN = 9
     const val TEXT_OVERFLOW = 10
     const val TEXT_MAX_LINES = 11
+
+    /** How much of an image's Base64 goes into one string literal: under the JVM's 65,535. */
+    const val BASE64_CHUNK = 60_000
     const val TEXT_LETTER_SPACING = 12
     const val TEXT_LINE_HEIGHT_MULTIPLIER = 14
     const val TEXT_UNDERLINE = 18

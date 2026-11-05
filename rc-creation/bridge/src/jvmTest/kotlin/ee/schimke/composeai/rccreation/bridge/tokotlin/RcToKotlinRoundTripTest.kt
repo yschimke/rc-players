@@ -18,6 +18,7 @@ import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.LayoutSampleLeg
 import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.NamedValuesSampleDp
 import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.TextSampleDp
 import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.TextSampleLegacy
+import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.VariableLengthsSampleDp
 import ee.schimke.composeai.rcplayer.edit.RcKotlinOptions
 import ee.schimke.composeai.rcplayer.edit.toRemoteComposeKotlin
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
@@ -86,6 +87,12 @@ class RcToKotlinRoundTripTest {
         { InteractionSampleLegacy() },
       ),
       Case("ImageSampleDp", Dp, { ImageSample() }, { ImageSampleDp() }),
+      Case(
+        "VariableLengthsSampleDp",
+        Dp,
+        { VariableLengthsSample() },
+        { VariableLengthsSampleDp() },
+      ),
     )
 
   private val corpusCases =

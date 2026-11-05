@@ -45,9 +45,11 @@ import kotlin.io.encoding.Base64
 import org.jetbrains.skia.Image
 
 /** Image 70 of the document, 8 x 8, as PNG. */
-private const val Image70Png =
-  "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAAWSURBVBiV" +
-    "Y3zz5s1/BjyACZ/k8FEAAOEJA9MK/fh5AAAAAElFTkSuQmCC"
+private val Image70Png: String =
+  listOf(
+      "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAAWSURBVBiVY3zz5s1/BjyACZ/k8FEAAOEJA9MK/fh5AAAAAElFTkSuQmCC"
+    )
+    .joinToString("")
 
 @Composable
 @RemoteComposable

@@ -31,6 +31,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -230,7 +231,7 @@ class RcKotlinSourceTest {
           ),
         )
         .toRemoteComposeKotlin()
-    assertEquals(1, Regex("private const val Image56Png").findAll(source.code).count())
+    assertEquals(1, Regex("private val Image56Png").findAll(source.code).count())
     assertEquals(2, Regex("RemoteImage\\(image56,").findAll(source.code).count())
   }
 
@@ -259,5 +260,23 @@ class RcKotlinSourceTest {
       source.code,
       "import androidx.compose.remote.creation.compose.layout.RemoteIntrinsicSize",
     )
+  }
+
+  @Test
+  fun aLargeImageIsSplitIntoLiteralsTheJvmCanHold() {
+    // 120,000 bytes is 160,000 Base64 characters: past the JVM's 65,535-byte constant string.
+    val png = ByteArray(120_000) { it.toByte() }
+    val source =
+      document(
+          RcBitmapData(56, 1, 1, RcBitmapData.TYPE_PNG_8888, RcBitmapData.ENCODING_INLINE, png),
+          *rootLayoutArray(RcImageLayout(-10, -1, 56, 5, word(1f)), END),
+        )
+        .toRemoteComposeKotlin()
+    assertFalse(source.code.contains("const val Image56Png"))
+    val literals =
+      Regex("\"([A-Za-z0-9+/=]{1000,})\"").findAll(source.code).map { it.groupValues[1] }
+    assertEquals(3, literals.count())
+    assertTrue(literals.all { it.length <= 65_535 })
+    assertContains(source.code, ").joinToString(\"\")")
   }
 }
