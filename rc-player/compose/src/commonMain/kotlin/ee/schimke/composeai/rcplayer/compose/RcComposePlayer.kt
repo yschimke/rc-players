@@ -1674,7 +1674,7 @@ private fun RenderLayoutNode(
         val density = androidx.compose.ui.platform.LocalDensity.current
         val operation = node.operation
         val fontWeight = state.resolve(operation.fontWeight).roundToInt().coerceIn(1, 1000)
-        val boldWeight = if (operation.fontStyle and 1 != 0) 700 else fontWeight
+        val italic = isWireItalic(operation.fontStyle)
         val lines = remember { RcTextLines() }
         BasicText(
           text = state.text(operation.textId).orEmpty(),
@@ -1710,17 +1710,16 @@ private fun RenderLayoutNode(
               // 50.4px at fontScale 2.0, and scaling that again gives 100.8.
               fontSize =
                 with(density) { state.textFontSizePixels(operation.fontSize, density).toSp() },
-              fontWeight = FontWeight(boldWeight),
-              fontStyle =
-                if (operation.fontStyle and 2 != 0) FontStyle.Italic else FontStyle.Normal,
+              fontWeight = FontWeight(fontWeight),
+              fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
               fontFamily =
                 resolveFontFamily(
                   operation.fontFamilyId,
                   state,
                   fontFamilies,
                   typefaces,
-                  weight = boldWeight,
-                  italic = operation.fontStyle and 2 != 0,
+                  weight = fontWeight,
+                  italic = italic,
                 ),
               textAlign = operation.composeTextAlign(),
             ),
@@ -1734,10 +1733,9 @@ private fun RenderLayoutNode(
         val fontSize = state.textFontSizePixels(properties.floatProperty(5, 36f), density)
         val lineHeightAdd = state.resolve(properties.floatProperty(13, 0f))
         val lineHeightMultiplier = state.resolve(properties.floatProperty(14, 1f))
-        val fontStyle = properties.intProperty(6, 0)
+        val italic = isWireItalic(properties.intProperty(6, 0))
         val fontWeight =
           state.resolve(properties.floatProperty(7, 400f)).roundToInt().coerceIn(1, 1000)
-        val boldWeight = if (fontStyle and 1 != 0) 700 else fontWeight
         val colorId = properties.intProperty(4, -1)
         val autosize = properties.booleanProperty(22, false)
         val minFontSize = properties.floatProperty(25, -1f).let(state::resolve)
@@ -1827,8 +1825,8 @@ private fun RenderLayoutNode(
               // appcard 2.33% -> 1.76%, titlecard 2.45% -> 2.10%, with nothing else moving.
               lineHeightStyle =
                 LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
-              fontWeight = FontWeight(boldWeight),
-              fontStyle = if (fontStyle and 2 != 0) FontStyle.Italic else FontStyle.Normal,
+              fontWeight = FontWeight(fontWeight),
+              fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
               fontFeatureSettings = fontFeatures,
               fontFamily =
                 resolveFontFamily(
@@ -1836,9 +1834,9 @@ private fun RenderLayoutNode(
                   state,
                   fontFamilies,
                   typefaces,
-                  withWeightAxis(withItalicAxis(variations, fontStyle and 2 != 0), boldWeight),
-                  boldWeight,
-                  fontStyle and 2 != 0,
+                  withWeightAxis(withItalicAxis(variations, italic), fontWeight),
+                  fontWeight,
+                  italic,
                 ),
               textAlign =
                 if (properties.intProperty(17, 0) == 1) TextAlign.Justify
@@ -7484,3 +7482,14 @@ private suspend fun withInfiniteFrameNanos(onFrame: (Long) -> Unit) {
 
 /** How long a refused infinite-animation frame waits before it is asked for again. */
 private const val REFUSED_FRAME_RETRY_MILLIS = 100L
+
+/**
+ * The wire's text font style (`TextLayout.fontStyle`, `CoreText` style property 6) for italic.
+ * AndroidX `remote-core` draws `CoreText` and `TextLayout` with `setTextStyle(type, weight,
+ * fontStyle == 1)` and `RemoteFontStyle.Italic` writes 1, so the value is an enum rather than an
+ * Android `Typeface` style mask: 1 is italic, any other value is upright, and the weight comes only
+ * from the font weight.
+ */
+internal const val WIRE_FONT_STYLE_ITALIC: Int = 1
+
+internal fun isWireItalic(fontStyle: Int): Boolean = fontStyle == WIRE_FONT_STYLE_ITALIC
