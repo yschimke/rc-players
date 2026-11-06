@@ -158,7 +158,7 @@ private constructor(private val sessions: Map<String, RcExtensionSession>) {
           .mapNotNull { id ->
             extensions.extension(id)?.let { id to it.createSession(document, state) }
           }
-          .toMap()
+          .toMap(),
       )
     }
   }

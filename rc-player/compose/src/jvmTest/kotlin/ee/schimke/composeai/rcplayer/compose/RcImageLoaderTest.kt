@@ -138,7 +138,7 @@ class RcImageLoaderTest {
             RcMacroDefine(9, emptyList(), body),
             RcMacroCall(9, emptyList()),
             RcNoArg(RcOpcodes.CONTAINER_END),
-          )
+          ),
         )
       setContent { RcComposePlayer(document, loader, Modifier.testTag("player")) }
       waitForIdle()
@@ -164,7 +164,7 @@ class RcImageLoaderTest {
             externalBitmap(),
             RcNoArg(RcOpcodes.CONTAINER_END),
             RcDrawBitmapInt(42, 0, 0, 8, 8, 0, 0, 8, 8, 0),
-          )
+          ),
         )
       setContent { RcComposePlayer(document, loader, Modifier.testTag("player")) }
       waitForIdle()

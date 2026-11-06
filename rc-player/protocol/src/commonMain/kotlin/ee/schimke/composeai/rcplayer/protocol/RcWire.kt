@@ -16,7 +16,7 @@ public class RcWireException(
       operationOpcode?.let { append(", opcode=$it") }
       operationName?.let { append(" ($it)") }
       fieldName?.let { append(", field=$it") }
-    }
+    },
   )
 
 /** Bounds-checked, big-endian reader matching AndroidX `WireBuffer`. */

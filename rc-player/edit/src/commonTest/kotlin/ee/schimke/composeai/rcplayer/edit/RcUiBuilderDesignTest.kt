@@ -132,7 +132,7 @@ class RcUiBuilderDesignTest {
             RcDraw4(RcOpcodes.DRAW_LINE, word(0f), word(0f), RcFloatWord(0x7fc0002a), word(0f)),
             END,
             END,
-          )
+          ),
         )
         .toUiBuilderDesign(RcUiBuilderOptions(density = 2f))
 
@@ -177,7 +177,7 @@ class RcUiBuilderDesignTest {
             RcDraw3(RcOpcodes.DRAW_CIRCLE, word(10f), word(10f), word(6f)),
             END,
             END,
-          )
+          ),
         )
         .toUiBuilderDesign()
 
@@ -429,8 +429,8 @@ class RcUiBuilderDesignTest {
               RcZIndexModifier(word(2f)),
               RcGraphicsLayerModifier(
                 listOf(
-                  RcGraphicsLayerAttribute.FloatValue(RcGraphicsLayerModifier.ALPHA, word(0.5f))
-                )
+                  RcGraphicsLayerAttribute.FloatValue(RcGraphicsLayerModifier.ALPHA, word(0.5f)),
+                ),
               ),
               RcBorderModifier(
                 0,
@@ -448,8 +448,8 @@ class RcUiBuilderDesignTest {
               RcLayoutContent(-11),
               END,
               END,
-            )
-          )
+            ),
+          ),
         )
         .toUiBuilderDesign()
     assertTrue(design.isComplete, design.unsupported.toString())
@@ -501,7 +501,7 @@ class RcUiBuilderDesignTest {
             RcLayoutContent(-11),
             END,
             END,
-          )
+          ),
         )
         .toUiBuilderDesign()
     assertContains(
@@ -532,14 +532,14 @@ class RcUiBuilderDesignTest {
             RcLayoutContent(-11),
             END,
             END,
-          )
+          ),
         )
         .let {
           it.copy(
             header =
               it.header.copy(
-                version = ee.schimke.composeai.rcplayer.protocol.RcVersion(1, minor, 0)
-              )
+                version = ee.schimke.composeai.rcplayer.protocol.RcVersion(1, minor, 0),
+              ),
           )
         }
         .toUiBuilderDesign(RcUiBuilderOptions(density = 2f))
@@ -558,10 +558,10 @@ class RcUiBuilderDesignTest {
             ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty(
               ee.schimke.composeai.rcplayer.protocol.RcHeader.DOC_DENSITY_BEHAVIOR,
               ee.schimke.composeai.rcplayer.protocol.RcHeaderValue.IntValue(
-                ee.schimke.composeai.rcplayer.protocol.RcHeader.DENSITY_BEHAVIOR_DP
+                ee.schimke.composeai.rcplayer.protocol.RcHeader.DENSITY_BEHAVIOR_DP,
               ),
-            )
+            ),
           ),
-        )
+        ),
     )
 }

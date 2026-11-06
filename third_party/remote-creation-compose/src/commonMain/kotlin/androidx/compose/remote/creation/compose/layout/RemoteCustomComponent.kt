@@ -88,7 +88,7 @@ public sealed class CustomPropertyEntry {
         get() = null
 
     public abstract fun toCustomProperty(
-        creationState: RemoteComposeCreationState
+        creationState: RemoteComposeCreationState,
     ): RemoteCustomPropertyData
 }
 

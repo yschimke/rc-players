@@ -21,7 +21,7 @@ public object RcProfileReport {
     appendLine(
       "Produced by `./gradlew :rc-player-profile:rcPlayerProfile`. Every row comes from an " +
         "`androidx.tracing` span opened by the player itself — the same spans a Perfetto capture " +
-        "shows — collected through `RcTrace.recorder`."
+        "shows — collected through `RcTrace.recorder`.",
     )
     appendLine()
     environment.forEach { (key, value) -> appendLine("- **$key** — $value") }
@@ -34,7 +34,7 @@ public object RcProfileReport {
       appendLine()
       appendLine(
         "${result.operations} operations, ${result.documentBytes} B on the wire, " +
-          "${result.scenario.loads} loads × ${result.scenario.framesPerLoad} frames."
+          "${result.scenario.loads} loads × ${result.scenario.framesPerLoad} frames.",
       )
       appendLine()
 
@@ -63,7 +63,7 @@ public object RcProfileReport {
       appendLine(
         "| `${section.name}` | ${section.count} | ${micros(section.totalNanos)} | " +
           "${micros(section.meanNanos)} | ${micros(section.medianNanos)} | " +
-          "${micros(section.p95Nanos)} | ${micros(section.maxNanos)} |"
+          "${micros(section.p95Nanos)} | ${micros(section.maxNanos)} |",
       )
     }
   }

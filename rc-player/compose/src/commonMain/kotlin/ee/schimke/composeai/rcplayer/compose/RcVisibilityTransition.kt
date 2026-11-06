@@ -171,7 +171,7 @@ private class RcVisibilityLayout {
         } else {
           val placeable =
             measurable.measure(
-              if (mode == STEADY) constraints else lookaheadConstraints ?: constraints
+              if (mode == STEADY) constraints else lookaheadConstraints ?: constraints,
             )
           layout(
             constraints.constrainWidth(placeable.width),

@@ -7,7 +7,7 @@ package ee.schimke.composeai.rcplayer.compose
 @RequiresOptIn(
   message =
     "This player API is experimental and may change between minor releases. " +
-      "Opt in with @OptIn(ExperimentalRcPlayerApi::class)."
+      "Opt in with @OptIn(ExperimentalRcPlayerApi::class).",
 )
 @Retention(AnnotationRetention.BINARY)
 @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY)

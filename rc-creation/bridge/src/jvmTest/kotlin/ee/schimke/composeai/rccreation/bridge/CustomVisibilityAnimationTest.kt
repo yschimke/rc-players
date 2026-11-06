@@ -68,7 +68,7 @@ class CustomVisibilityAnimationTest {
       RemoteBox(
         RemoteModifier.size(40.rdp)
           .visibility(rememberMutableRemoteInt(1))
-          .animateEnterExit(exit = rcCustomExitTransition(dissolve))
+          .animateEnterExit(exit = rcCustomExitTransition(dissolve)),
       ) {}
     }
     dissolve to writer.encodeToByteArray()

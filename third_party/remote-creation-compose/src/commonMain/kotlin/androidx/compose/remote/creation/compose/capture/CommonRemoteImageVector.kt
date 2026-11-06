@@ -294,7 +294,7 @@ internal constructor(
                     trimPathStart,
                     trimPathEnd,
                     trimPathOffset,
-                )
+                ),
             )
             return this
         }
@@ -336,7 +336,7 @@ internal constructor(
             if (isConsumed) {
                 throw IllegalStateException(
                     "RemoteImageVector.Builder is single use, create a new instance " +
-                        "to create a new ImageVector"
+                        "to create a new ImageVector",
                 )
             }
         }

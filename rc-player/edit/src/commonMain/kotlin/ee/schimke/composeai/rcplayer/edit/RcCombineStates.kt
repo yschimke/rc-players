@@ -308,7 +308,7 @@ private fun RcOperation.withoutDefinedId(): RcDefinitionKey {
   val id = definedIds()?.singleOrNull()
   val placed = if (id == null) this else remap(listOf(this), mapOf(id to PLACEHOLDER_ID)).single()
   return RcDefinitionKey(
-    RcWireWriter().also { RcDocumentCodec.encodeOperation(it, placed) }.toByteArray()
+    RcWireWriter().also { RcDocumentCodec.encodeOperation(it, placed) }.toByteArray(),
   )
 }
 
@@ -524,7 +524,7 @@ private fun RcOperation.withAnimationId(id: Int): RcOperation? =
       copy(
         properties =
           properties.filterNot { it.id == CORE_TEXT_ANIMATION_ID } +
-            RcTextStyleProperty.IntValue(CORE_TEXT_ANIMATION_ID, id)
+            RcTextStyleProperty.IntValue(CORE_TEXT_ANIMATION_ID, id),
       )
     else -> null
   }

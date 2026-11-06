@@ -1435,7 +1435,7 @@ private object GraphicsLayerModifierCodec : RcOperationCodec<RcGraphicsLayerModi
             )
           else -> input.fail("attributes[$index].key", "Unknown graphics-layer value type $type")
         }
-      }
+      },
     )
   }
 

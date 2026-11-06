@@ -61,7 +61,7 @@ public fun RemoteBasicIcon(
 ) {
     val painter = painterRemoteVector(imageVector, tint)
     RemoteBox(
-        modifier.semantics { this.contentDescription = contentDescription }.defaultSizeFor(painter)
+        modifier.semantics { this.contentDescription = contentDescription }.defaultSizeFor(painter),
     ) {
         RemoteCanvas(modifier = RemoteModifier.fillMaxSize()) {
             with(painter) { onDraw() }
@@ -82,6 +82,6 @@ private fun RemoteModifier.defaultSizeFor(painter: RemotePainter): RemoteModifie
             )
         } else {
             RemoteModifier.size(24.rdp)
-        }
+        },
     )
 }

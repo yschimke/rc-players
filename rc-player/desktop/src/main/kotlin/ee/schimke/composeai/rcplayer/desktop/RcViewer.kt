@@ -170,7 +170,7 @@ internal fun RcViewer(state: RcViewerState, onOpenRequest: () -> Unit) {
   Column(
     Modifier.fillMaxSize()
       .background(ViewerColors.window)
-      .dragAndDropTarget(shouldStartDragAndDrop = { true }, target = dropTarget)
+      .dragAndDropTarget(shouldStartDragAndDrop = { true }, target = dropTarget),
   ) {
     Toolbar(state, onOpenRequest)
     Box(
@@ -222,7 +222,7 @@ private fun Document(load: RcViewerLoad.Loaded, state: RcViewerState) {
       Box(Modifier.horizontalScroll(rememberScrollState()).verticalScroll(rememberScrollState())) {
         Box(
           with(ambient) { Modifier.size(load.widthPx.toDp(), load.heightPx.toDp()) }
-            .border(1.dp, ViewerColors.divider)
+            .border(1.dp, ViewerColors.divider),
         ) {
           CompositionLocalProvider(LocalDensity provides documentDensity) {
             player(Modifier.fillMaxSize())

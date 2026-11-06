@@ -170,7 +170,7 @@ class RcEmbeddedPlayerTest {
         else
           RemoteBox(
             RemoteModifier.fillMaxSize()
-              .background(RemoteColor.createNamedRemoteColor("swatch", Color.Blue))
+              .background(RemoteColor.createNamedRemoteColor("swatch", Color.Blue)),
           )
       }
     }
@@ -244,7 +244,7 @@ class RcEmbeddedPlayerTest {
         RemoteBox(
           RemoteModifier.fillMaxSize()
             .background(Color.Gray.rc)
-            .clickable(bridge.action("tapped") { clicks++ })
+            .clickable(bridge.action("tapped") { clicks++ }),
         )
       }
     }
@@ -375,7 +375,7 @@ class RcEmbeddedPlayerTest {
         RemoteBox(
           RemoteModifier.fillMaxSize()
             .background(Color.Gray.rc)
-            .clickable(bridge.action("tapped") { clicks++ })
+            .clickable(bridge.action("tapped") { clicks++ }),
         )
       }
     }
@@ -417,7 +417,7 @@ class RcEmbeddedPlayerTest {
           RemoteBox(
             RemoteModifier.fillMaxSize()
               .background(Color.Gray.rc)
-              .clickable(bridge.action("tapped") { clicks++ })
+              .clickable(bridge.action("tapped") { clicks++ }),
           )
         }
       }
@@ -509,7 +509,7 @@ class RcEmbeddedPlayerTest {
         LocalRcComponentCoordinates provides
           RcComponentCoordinatesListener { id, coordinates ->
             ids.keyFor(id)?.let { bounds[it] = coordinates.boundsInRoot() }
-          }
+          },
       ) {
         RcEmbeddedPlayer(display, Modifier.size(100.dp), onDocument = { documents += it }) {
           RemoteColumn(ids.component(RemoteModifier.fillMaxSize(), "column")) {
@@ -556,7 +556,7 @@ class RcEmbeddedPlayerTest {
                   layout.lineCount to content.localToRoot(Offset(0f, layout.firstBaseline)).y
               }
             }
-          }
+          },
       ) {
         RcEmbeddedPlayer(display, Modifier.size(100.dp), onDocument = { documents += it }) {
           RemoteColumn(RemoteModifier.fillMaxSize()) {
@@ -604,7 +604,7 @@ class RcEmbeddedPlayerTest {
             override fun onClickActionRemoved(componentId: Int, click: () -> Unit) {
               ids.keyFor(componentId)?.let { clickActions[it]?.remove(click) }
             }
-          }
+          },
       ) {
         val show = shown
         RcEmbeddedPlayer(
@@ -620,7 +620,7 @@ class RcEmbeddedPlayerTest {
                 ids.component(
                   RemoteModifier.size(20.rdp).clickable(bridge.action("tapped") { clicks++ }),
                   "button",
-                )
+                ),
               )
             }
             RemoteBox(ids.component(RemoteModifier.size(20.rdp), "plain"))
@@ -664,7 +664,7 @@ class RcEmbeddedPlayerTest {
             override fun onClickActionRemoved(componentId: Int, click: () -> Unit) {
               ids.keyFor(componentId)?.let { clickActions[it]?.remove(click) }
             }
-          }
+          },
       ) {
         RcEmbeddedPlayer(display, Modifier.size(100.dp), onDocument = { documents += it }) {
           val bridge = LocalRcHostBridge.current
@@ -674,13 +674,13 @@ class RcEmbeddedPlayerTest {
               ids.component(
                 RemoteModifier.size(200.rdp).clickable(bridge.action("wide") {}),
                 "wide",
-              )
+              ),
             )
             RemoteBox(
               ids.component(
                 RemoteModifier.size(20.rdp).clickable(bridge.action("narrow") {}),
                 "narrow",
-              )
+              ),
             )
           }
         }
@@ -717,7 +717,7 @@ class RcEmbeddedPlayerTest {
             override fun onClickActionRemoved(componentId: Int, click: () -> Unit) {
               ids.keyFor(componentId)?.let { clickActions[it]?.remove(click) }
             }
-          }
+          },
       ) {
         RcEmbeddedPlayer(display, Modifier.size(width, 100.dp), onDocument = { documents += it }) {
           val bridge = LocalRcHostBridge.current
@@ -726,7 +726,7 @@ class RcEmbeddedPlayerTest {
               ids.component(
                 RemoteModifier.size(40.rdp).clickable(bridge.action("kept") {}),
                 "kept",
-              )
+              ),
             )
             // The lower priority goes first.
             RemoteBox(
@@ -735,7 +735,7 @@ class RcEmbeddedPlayerTest {
                   .collapsiblePriority(1f)
                   .clickable(bridge.action("dropped") {}),
                 "dropped",
-              )
+              ),
             )
           }
         }
@@ -776,7 +776,7 @@ class RcEmbeddedPlayerTest {
             ) {
               ids.keyFor(componentId)?.let { layouts[it] = (layouts[it] ?: 0) + 1 }
             }
-          }
+          },
       ) {
         RcEmbeddedPlayer(display, Modifier.size(width, 100.dp), onDocument = { documents += it }) {
           val bridge = LocalRcHostBridge.current
@@ -828,7 +828,7 @@ class RcEmbeddedPlayerTest {
             ) {
               ids.keyFor(componentId)?.let { lines[it] = layout.lineCount }
             }
-          }
+          },
       ) {
         RcEmbeddedPlayer(display, Modifier.size(100.dp), onDocument = { documents += it }) {
           val bridge = LocalRcHostBridge.current

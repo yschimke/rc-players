@@ -152,7 +152,7 @@ private fun postInputEvent(
   js(
     """{
   if (window.__rcPlayerPost) window.__rcPlayerPost({ type: 'rc-player-input', kind: kind, key: key, value: value, action: action, values: JSON.parse(values) });
-}"""
+}""",
   )
 
 public fun main() {
@@ -332,7 +332,7 @@ private fun fetchAsBase64(url: String): Promise<JsString> =
         chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
       }
       return btoa(chunks.join(''));
-    })"""
+    })""",
   )
 
 private suspend fun fetchBytes(url: String): ByteArray =
@@ -511,7 +511,7 @@ private fun installDocumentSwap(): Unit =
           }
         }
       });
-    }"""
+    }""",
   )
 
 private fun nextDocumentSwap(): Promise<JsAny> =
@@ -525,7 +525,7 @@ private fun nextDocumentSwap(): Promise<JsAny> =
       } else {
         swap.resolve = resolve;
       }
-    })"""
+    })""",
   )
 
 private fun swapUrl(request: JsAny): JsString? =
@@ -584,14 +584,14 @@ private fun navigatorLanguages(): JsString? =
         }
         return Array.prototype.map.call(languages, String).join('\u0000');
       } catch (error) { return null; }
-    })()"""
+    })()""",
   )
 
 private fun isValidLanguageTag(tag: String): Boolean =
   js(
     """(function () {
       try { new Intl.Locale(tag); return true; } catch (error) { return false; }
-    })()"""
+    })()""",
   )
 
 private fun overrideNavigatorLanguages(joined: String): Unit =
@@ -606,7 +606,7 @@ private fun overrideNavigatorLanguages(joined: String): Unit =
       } catch (error) {
         console.warn('[rc-player-wasm] could not repair navigator.languages: ' + error);
       }
-    })()"""
+    })()""",
   )
 
 private fun queryParameter(name: String): String? =
@@ -652,7 +652,7 @@ private fun flattenNamedValuesFromLocation(): JsString? =
             encodeURIComponent(String(value.value == null ? '' : value.value))].join('\u0000');
         }).join('\u0001');
       } catch (error) { return null; }
-    })()"""
+    })()""",
   )
 
 private fun decodeUriComponent(value: String): String = decodeUriComponentJs(value).toString()
@@ -672,7 +672,7 @@ private const val RC_PLAYER_EMBED_CONTRACT_VERSION: Int = 1
 private fun publishContractVersion(version: Int): Unit =
   js(
     "(window.rcPlayerContractVersion = version, " +
-      "document.documentElement.dataset.rcPlayerContract = String(version))"
+      "document.documentElement.dataset.rcPlayerContract = String(version))",
   )
 
 /**
@@ -683,7 +683,7 @@ private fun postReady(hostId: String?): Unit =
   js(
     "(document.documentElement.dataset.rcPlayerState = 'ready', " +
       "window.__rcPlayerPost('cp-rc-wasm-ready'), " +
-      "window.__rcPlayerPost({ type: 'rc-player-state', id: hostId, state: 'ready' }))"
+      "window.__rcPlayerPost({ type: 'rc-player-state', id: hostId, state: 'ready' }))",
   )
 
 private fun reportFailure(message: String, hostId: String?): Unit =
@@ -693,7 +693,7 @@ private fun reportFailure(message: String, hostId: String?): Unit =
       "console.error('[rc-player-wasm] ' + message), " +
       "window.__rcPlayerPost('cp-rc-wasm-error:' + message), " +
       "window.__rcPlayerPost({ type: 'rc-player-state', id: hostId, state: 'error', " +
-      "error: message }))"
+      "error: message }))",
   )
 
 private fun postPlayerEvent(event: RcPlayerEvent) {
@@ -720,7 +720,7 @@ private fun postDebugMessage(message: String, value: Float, flags: Int): Unit =
       "document.documentElement.dataset.rcPlayerDebugFlags = String(flags), " +
       "console.debug('[rc-player-wasm] ' + message + ' ' + String(value)), " +
       "window.__rcPlayerPost({ type: 'cp-rc-debug-message', message: message, " +
-      "value: value, flags: flags }))"
+      "value: value, flags: flags }))",
   )
 
 private fun postHostAction(actionId: Int): Unit =
@@ -729,7 +729,7 @@ private fun postHostAction(actionId: Int): Unit =
       "document.documentElement.dataset.rcPlayerActionTrace = " +
       "(document.documentElement.dataset.rcPlayerActionTrace ? " +
       "document.documentElement.dataset.rcPlayerActionTrace + ',' : '') + String(actionId), " +
-      "window.__rcPlayerPost({ type: 'cp-rc-host-action', actionId: actionId }))"
+      "window.__rcPlayerPost({ type: 'cp-rc-host-action', actionId: actionId }))",
   )
 
 private fun postHostMetadataAction(actionId: Int, metadata: String): Unit =
@@ -740,7 +740,7 @@ private fun postHostMetadataAction(actionId: Int, metadata: String): Unit =
       "document.documentElement.dataset.rcPlayerActionTrace + ',' : '') + String(actionId), " +
       "document.documentElement.dataset.rcPlayerMetadata = metadata, " +
       "window.__rcPlayerPost({ type: 'cp-rc-host-action', actionId: actionId, " +
-      "metadata: metadata }))"
+      "metadata: metadata }))",
   )
 
 private fun postHostNamedActionNone(name: String): Unit =
@@ -748,7 +748,7 @@ private fun postHostNamedActionNone(name: String): Unit =
     "(document.documentElement.dataset.rcPlayerNamedAction = name, " +
       "document.documentElement.dataset.rcPlayerNamedActionValue = 'none', " +
       "window.__rcPlayerPost({ type: 'cp-rc-host-named-action', name: name, " +
-      "valueType: 'none', value: null }))"
+      "valueType: 'none', value: null }))",
   )
 
 private fun postHostNamedActionFloat(name: String, value: Float): Unit =
@@ -756,7 +756,7 @@ private fun postHostNamedActionFloat(name: String, value: Float): Unit =
     "(document.documentElement.dataset.rcPlayerNamedAction = name, " +
       "document.documentElement.dataset.rcPlayerNamedActionValue = 'float:' + String(value), " +
       "window.__rcPlayerPost({ type: 'cp-rc-host-named-action', name: name, " +
-      "valueType: 'float', value: value }))"
+      "valueType: 'float', value: value }))",
   )
 
 private fun postHostNamedActionInt(name: String, value: Int): Unit =
@@ -764,7 +764,7 @@ private fun postHostNamedActionInt(name: String, value: Int): Unit =
     "(document.documentElement.dataset.rcPlayerNamedAction = name, " +
       "document.documentElement.dataset.rcPlayerNamedActionValue = 'int:' + String(value), " +
       "window.__rcPlayerPost({ type: 'cp-rc-host-named-action', name: name, " +
-      "valueType: 'int', value: value }))"
+      "valueType: 'int', value: value }))",
   )
 
 private fun postHostNamedActionText(name: String, value: String): Unit =
@@ -772,7 +772,7 @@ private fun postHostNamedActionText(name: String, value: String): Unit =
     "(document.documentElement.dataset.rcPlayerNamedAction = name, " +
       "document.documentElement.dataset.rcPlayerNamedActionValue = 'string:' + value, " +
       "window.__rcPlayerPost({ type: 'cp-rc-host-named-action', name: name, " +
-      "valueType: 'string', value: value }))"
+      "valueType: 'string', value: value }))",
   )
 
 private fun postHostNamedActionFloatList(name: String, encoded: String): Unit =
@@ -781,12 +781,12 @@ private fun postHostNamedActionFloatList(name: String, encoded: String): Unit =
       "document.documentElement.dataset.rcPlayerNamedActionValue = 'float-array:' + encoded, " +
       "window.__rcPlayerPost({ type: 'cp-rc-host-named-action', name: name, " +
       "valueType: 'float-array', " +
-      "value: encoded === '' ? [] : encoded.split(',').map(Number) }))"
+      "value: encoded === '' ? [] : encoded.split(',').map(Number) }))",
   )
 
 private fun publishInputCapabilities(editable: Boolean): Unit =
   js(
     """{
   window.rcPlayerInputCapabilities = Object.freeze({ components: ['rc:input/text:v1', 'rc:input/choice:v1', 'rc:input/toggle:v1', 'rc:input/number:v1', 'rc:input/range:v1'], editing: editable });
-}"""
+}""",
   )

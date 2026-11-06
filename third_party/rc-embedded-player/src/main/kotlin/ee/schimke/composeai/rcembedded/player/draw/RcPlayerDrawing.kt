@@ -271,7 +271,7 @@ private fun DrawScope.executeOperationsInPass(
             is ShaderData -> {
                 op.enable(
                     (remoteContext.mRemoteComposeState as? SnapshotRemoteComposeState)
-                        ?.trustedContent == true
+                        ?.trustedContent == true,
                 )
                 op.apply(remoteContext)
             }

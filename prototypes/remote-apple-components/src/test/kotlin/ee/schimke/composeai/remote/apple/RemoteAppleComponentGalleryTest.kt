@@ -82,7 +82,7 @@ class RemoteAppleComponentGalleryTest {
     val bytes =
       captureSingleRemoteDocument(context = context) {
           RemoteAppleTheme(
-            typography = RemoteAppleTypography(RemoteFontFamily.Named("apple:Helvetica Neue"))
+            typography = RemoteAppleTypography(RemoteFontFamily.Named("apple:Helvetica Neue")),
           ) {
             RemoteAppleLabel("Local family".rs)
           }

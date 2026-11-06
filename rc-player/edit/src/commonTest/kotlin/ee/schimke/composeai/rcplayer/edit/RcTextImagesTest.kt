@@ -94,7 +94,7 @@ class RcTextImagesTest {
         .coreTextAsImages(WearWithoutCoreText, rasterizer)
         .document
         .validateFor(WearWithoutCoreText)
-        .none { it.opcode == RcOpcodes.CORE_TEXT }
+        .none { it.opcode == RcOpcodes.CORE_TEXT },
     )
   }
 

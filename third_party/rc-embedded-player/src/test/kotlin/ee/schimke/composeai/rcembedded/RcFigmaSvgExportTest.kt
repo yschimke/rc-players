@@ -261,7 +261,7 @@ class RcFigmaSvgExportTest {
                     Modifier.size(
                         with(LocalDensity.current) { doc.width.toDp() },
                         with(LocalDensity.current) { doc.height.toDp() },
-                    )
+                    ),
                 ) {
                     content(doc.bytes)
                 }
@@ -346,7 +346,7 @@ class RcFigmaSvgExportTest {
             appendLine("semantics text nodes: ${lane.semanticsTexts}")
             appendLine(
                 "svg elements=${lane.elements} text=${lane.texts} image=${lane.images} " +
-                    "path=${lane.paths} rect=${lane.rects} g=${lane.groups} bytes=${lane.svg.length}"
+                    "path=${lane.paths} rect=${lane.rects} g=${lane.groups} bytes=${lane.svg.length}",
             )
             val (w, h) = lane.canvas()
             appendLine("svg canvas: ${w}x$h  (document is ${doc.width}x${doc.height})")

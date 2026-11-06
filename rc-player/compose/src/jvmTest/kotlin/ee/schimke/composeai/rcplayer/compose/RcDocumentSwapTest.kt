@@ -94,7 +94,7 @@ class RcDocumentSwapTest {
   private fun fixture(name: String): RcDocument =
     RcDocumentCodec.decode(
       checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$name")) { "missing fixture $name" }
-        .use { it.readBytes() }
+        .use { it.readBytes() },
     )
 
   private fun solid(color: Color): ImageBitmap =

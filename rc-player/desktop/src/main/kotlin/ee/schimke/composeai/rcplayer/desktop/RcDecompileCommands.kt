@@ -68,11 +68,11 @@ private fun writeDesign(
         designId = input.nameWithoutExtension.lowercase().replace(Regex("[^a-z0-9]+"), "-"),
         title = name,
         density = density,
-      )
+      ),
     )
   if (output == null && design.assets.isNotEmpty()) {
     System.err.println(
-      "The design has images; give an output file so they can be written beside it"
+      "The design has images; give an output file so they can be written beside it",
     )
     return 2
   }

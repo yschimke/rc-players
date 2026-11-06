@@ -87,9 +87,14 @@ public data class RcStyledText(
   override fun hashCode(): Int = listOf(text, density, fontSize, color, fontAxes).hashCode()
 }
 
-/** A text drawn as a PNG [width] by [height] pixels: its laid-out box, not just its ink. */
+/**
+ * A text drawn as a PNG [width] by [height] pixels: its laid-out box, not just its ink. [baseline]
+ * is its first line's baseline from the top in pixels, or NaN where the rasterizer doesn't say;
+ * text drawn along a path needs it to sit on the path as the player sets it.
+ */
 public class RcRasterizedText(
   public val png: ByteArray,
   public val width: Int,
   public val height: Int,
+  public val baseline: Float = Float.NaN,
 )

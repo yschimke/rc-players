@@ -210,7 +210,7 @@ public fun RemoteModifier.sharedElement(
             exitAnimation = exit.animation,
             enterFunctionId = enter.functionId,
             exitFunctionId = exit.functionId,
-        )
+        ),
     )
 }
 
@@ -257,7 +257,7 @@ public fun RemoteModifier.animateEnterExit(
             exitAnimation = exit.animation,
             enterFunctionId = enter.functionId,
             exitFunctionId = exit.functionId,
-        )
+        ),
     )
 }
 
@@ -290,7 +290,7 @@ public fun RemoteModifier.animationSpec(
             exitAnimation = exit.animation,
             enterFunctionId = enter.functionId,
             exitFunctionId = exit.functionId,
-        )
+        ),
     )
 }
 
@@ -343,6 +343,6 @@ public fun RemoteModifier.animationSpec(
             exitFunctionId = exitFunctionId,
             enterSequence = enterSequence,
             exitSequence = exitSequence,
-        )
+        ),
     )
 }

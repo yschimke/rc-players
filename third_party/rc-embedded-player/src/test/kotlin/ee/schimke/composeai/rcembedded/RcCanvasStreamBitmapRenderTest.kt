@@ -114,7 +114,7 @@ class RcCanvasStreamBitmapRenderTest {
                     Modifier.size(
                         with(documentDensity) { WIDTH.toDp() },
                         with(documentDensity) { HEIGHT.toDp() },
-                    )
+                    ),
                 ) {
                     RemoteImageSupport.enableEncodedImageReferences()
                     ExperimentalRemoteDocumentPlayer(

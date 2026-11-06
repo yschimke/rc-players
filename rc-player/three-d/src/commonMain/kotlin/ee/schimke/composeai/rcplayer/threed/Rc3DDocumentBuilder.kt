@@ -82,7 +82,11 @@ public class Rc3DDocumentBuilder(public val width: Int, public val height: Int) 
   ): Rc3DDocumentBuilder {
     require(eye.size == 3 && center.size == 3 && up.size == 3)
     return add(
-      RcSetCamera3D(Rc3D.PROJECTION_PERSPECTIVE, listOf(fovY, aspect, near, far), eye + center + up)
+      RcSetCamera3D(
+        Rc3D.PROJECTION_PERSPECTIVE,
+        listOf(fovY, aspect, near, far),
+        eye + center + up,
+      ),
     )
   }
 
@@ -118,7 +122,7 @@ public class Rc3DDocumentBuilder(public val width: Int, public val height: Int) 
         lights.map { it.type },
         lights.map { it.color },
         lights.flatMap { listOf(it.x, it.y, it.z, it.intensity) },
-      )
+      ),
     )
 
   public fun identity(): Rc3DDocumentBuilder = add(RcMatrix3DOp(Rc3D.M3_IDENTITY, emptyList()))

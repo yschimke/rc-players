@@ -46,7 +46,7 @@ public class RemoteCollapsibleRowScope {
      * @param weight The weight of the child.
      */
     public fun RemoteModifier.weight(
-        @FloatRange(from = 0.0, fromInclusive = false) weight: Float
+        @FloatRange(from = 0.0, fromInclusive = false) weight: Float,
     ): RemoteModifier = then(WidthModifier(RemoteDimensionType.WEIGHT, RemoteFloat(weight)))
 
     /**
@@ -78,7 +78,7 @@ internal class RemoteCollapsibleRowNode : RemoteLayoutNode() {
                 remoteModifier,
                 horizontalArrangement.toRemote(layoutDirection),
                 verticalAlignment.toRemote(),
-            )
+            ),
         )
         renderChildren(
             creationState,

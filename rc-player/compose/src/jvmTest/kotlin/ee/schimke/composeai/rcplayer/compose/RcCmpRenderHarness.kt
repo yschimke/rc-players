@@ -98,7 +98,7 @@ class RcCmpRenderHarness {
       .takeIf { it.isNotEmpty() }
       ?.let { issues ->
         unsupported.writeText(
-          issues.joinToString("\n") { "${it.operation}[${it.operationIndex}]: ${it.detail}" }
+          issues.joinToString("\n") { "${it.operation}[${it.operationIndex}]: ${it.detail}" },
         )
       }
     val scene =

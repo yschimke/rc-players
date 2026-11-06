@@ -46,7 +46,7 @@ import androidx.compose.ui.graphics.Matrix
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class RemoteCanvas(
     /** The underlying [RecordingCanvas] being wrapped. */
-    public val internalCanvas: RecordingCanvas
+    public val internalCanvas: RecordingCanvas,
 ) : RemoteStateScope by internalCanvas {
     public val drawScope: RemoteDrawScope = RemoteDrawScope(this)
     public val remote: RemoteAccess = RemoteAccess(drawScope)
@@ -572,7 +572,7 @@ public class RemoteCanvas(
             internalCanvas.recordRenderingOp(
                 DocumentOp.DrawConditionally(condition, childSpan) {
                     internalCanvas.forceSendingPaint = true
-                }
+                },
             )
         internalCanvas.buffer.addRoots(op, condition)
     }
@@ -586,7 +586,7 @@ public class RemoteCanvas(
             internalCanvas.recordRenderingOp(
                 DocumentOp.DrawToBitmap(bitmap, lastDrawToBitmapId, null, childSpan) {
                     internalCanvas.forceSendingPaint = true
-                }
+                },
             )
         internalCanvas.buffer.addRoots(op, bitmap)
     }
@@ -607,7 +607,7 @@ public class RemoteCanvas(
             internalCanvas.recordRenderingOp(
                 DocumentOp.DrawToBitmap(bitmap, lastDrawToBitmapId, clearColor, childSpan) {
                     internalCanvas.forceSendingPaint = true
-                }
+                },
             )
         internalCanvas.buffer.addRoots(op, bitmap)
     }
@@ -634,7 +634,7 @@ public class RemoteCanvas(
                     step,
                     until,
                     childSpan,
-                )
+                ),
             )
         internalCanvas.buffer.addRoots(op, from, until, step)
     }

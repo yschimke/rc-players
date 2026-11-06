@@ -79,7 +79,7 @@ class RcAnimatedInteractionTest {
                         RemoteColumn(modifier = RemoteModifier.size(160.rdp)) {
                             RemoteBox(
                                 modifier =
-                                    RemoteModifier.size(160.rdp, 40.rdp).clickable(advanceProgress)
+                                    RemoteModifier.size(160.rdp, 40.rdp).clickable(advanceProgress),
                             )
                             RemoteBox(
                                 modifier =
@@ -87,7 +87,7 @@ class RcAnimatedInteractionTest {
                                             contentDescription = "animated-progress".rs
                                         }
                                         .width(animatedProgress * 200f)
-                                        .height(20.rdp)
+                                        .height(20.rdp),
                             )
                         }
                     },
@@ -146,7 +146,7 @@ class RcAnimatedInteractionTest {
 
                         RemoteColumn(modifier = RemoteModifier.size(160.rdp)) {
                             RemoteBox(
-                                modifier = RemoteModifier.size(160.rdp, 40.rdp).clickable(shrink)
+                                modifier = RemoteModifier.size(160.rdp, 40.rdp).clickable(shrink),
                             )
                             RemoteBox(
                                 modifier =
@@ -154,7 +154,7 @@ class RcAnimatedInteractionTest {
                                             contentDescription = "spring-progress".rs
                                         }
                                         .width(animatedProgress * 200f)
-                                        .height(20.rdp)
+                                        .height(20.rdp),
                             )
                         }
                     },

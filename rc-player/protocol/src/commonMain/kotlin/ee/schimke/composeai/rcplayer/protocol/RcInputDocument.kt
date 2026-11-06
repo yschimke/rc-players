@@ -23,7 +23,7 @@ public fun rcInputDocument(fields: List<RcInputField>, width: Int = 360): RcDocu
   require(
     fields.all {
       it.key.isNotBlank() && it.options.all { option -> option.isNotEmpty() && '\n' !in option }
-    }
+    },
   )
   fields.forEach { it.requireValid() }
   require(width > 0)

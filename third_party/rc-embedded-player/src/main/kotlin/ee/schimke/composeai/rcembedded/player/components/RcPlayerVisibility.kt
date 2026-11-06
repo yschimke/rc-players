@@ -219,7 +219,7 @@ internal fun RcPlayerAnimatedVisibility(
         content(
             modifier.then(sizeTrackerModifier).graphicsLayer {
                 alpha = if (Component.Visibility.isVisible(visible)) 1f else 0f
-            }
+            },
         )
         return
     }

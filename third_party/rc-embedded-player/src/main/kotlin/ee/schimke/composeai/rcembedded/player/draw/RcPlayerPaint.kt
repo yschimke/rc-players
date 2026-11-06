@@ -265,7 +265,7 @@ public class ComposeLocalPaint {
         val solidBrush = brush as? SolidColor
         if (solidBrush != null) {
             p.setColor(
-                solidBrush.value.let { it.copy(alpha = it.alpha * effectiveAlpha()) }.toArgb()
+                solidBrush.value.let { it.copy(alpha = it.alpha * effectiveAlpha()) }.toArgb(),
             )
         } else {
             p.setColor(effectiveColor().toArgb())

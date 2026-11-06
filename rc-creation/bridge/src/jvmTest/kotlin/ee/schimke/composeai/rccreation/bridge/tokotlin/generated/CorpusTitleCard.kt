@@ -47,7 +47,7 @@ import org.jetbrains.skia.Image
 /** Image 70 of the document, 8 x 8, as PNG. */
 private val Image70Png: String =
   listOf(
-      "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAAWSURBVBiVY3zz5s1/BjyACZ/k8FEAAOEJA9MK/fh5AAAAAElFTkSuQmCC"
+      "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAAWSURBVBiVY3zz5s1/BjyACZ/k8FEAAOEJA9MK/fh5AAAAAElFTkSuQmCC",
     )
     .joinToString("")
 
@@ -70,7 +70,7 @@ fun CorpusTitleCard() {
           .wrapContentHeight()
           .clip(RemoteRoundedCornerShape(52.rdp))
           .clickable(combinedAction())
-          .padding(24.rdp)
+          .padding(24.rdp),
     ) {
       // TODO(rc-to-kotlin): drawWithContent drawing is not generated: PaintValues, DrawPath,
       // DrawContent

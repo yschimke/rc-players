@@ -240,7 +240,7 @@ internal constructor(
      */
     @RememberInComposition
     internal constructor(
-        id: Int
+        id: Int,
     ) : this(constantValueOrNull = null, cacheKey = RemoteStateIdKey(id), idProvider = { id })
 
     /**
@@ -251,7 +251,7 @@ internal constructor(
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     @RememberInComposition
     public constructor(
-        initialValue: Long
+        initialValue: Long,
     ) : this(
         constantValueOrNull = initialValue,
         cacheKey = RemoteStateInstanceKey(),

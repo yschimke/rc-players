@@ -497,10 +497,12 @@ internal fun DrawScope.drawBitmapFontTextOnPathOp(
                             rotateZ(angle)
                         }
 
-                    withTransform({
-                        transform(composeMatrix)
-                        translate(-halfGlyphWidth, yAdj + glyph.mMarginTop)
-                    }) {
+                    withTransform(
+                        {
+                            transform(composeMatrix)
+                            translate(-halfGlyphWidth, yAdj + glyph.mMarginTop)
+                        },
+                    ) {
                         drawGlyph(
                             glyphBitmap = glyphBitmap,
                             dstOffset = IntOffset.Zero,

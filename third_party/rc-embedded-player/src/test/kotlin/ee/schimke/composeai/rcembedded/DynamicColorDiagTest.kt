@@ -109,16 +109,16 @@ class DynamicColorDiagTest {
 
                 report.appendLine("=== ${entry.id}")
                 report.appendLine(
-                    "  computed-op index size = ${index.size}; ids = ${buildList { index.forEachKey { add(it) } }.sorted()}"
+                    "  computed-op index size = ${index.size}; ids = ${buildList { index.forEachKey { add(it) } }.sorted()}",
                 )
                 located.forEach { (name, operations) ->
                     report.appendLine(
                         "  $name -> " +
-                            operations.joinToString { (id, path) -> "id=${id ?: "none"}@$path" }
+                            operations.joinToString { (id, path) -> "id=${id ?: "none"}@$path" },
                     )
                 }
                 report.appendLine(
-                    "  indexed op types = ${sortedSetOf<String>().also { types -> index.forEachValue { types.add(it.javaClass.simpleName) } }}"
+                    "  indexed op types = ${sortedSetOf<String>().also { types -> index.forEachValue { types.add(it.javaClass.simpleName) } }}",
                 )
             }
         // Written to a file rather than stdout: Gradle does not surface test stdout here, and the

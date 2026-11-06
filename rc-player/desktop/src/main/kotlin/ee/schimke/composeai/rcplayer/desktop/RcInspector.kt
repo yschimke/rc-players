@@ -79,7 +79,7 @@ internal object RcInspector {
       url(file.name, bytes)
         ?: return Result.Failed(
           "${file.name} is too large to pass to the inspector in a link " +
-            "(${bytes.size} bytes); open $URL and drop the file onto it instead."
+            "(${bytes.size} bytes); open $URL and drop the file onto it instead.",
         )
     if (url.length <= MAX_DIRECT_URL_CHARS) {
       return browse(url)?.let(Result::Failed) ?: Result.Opened(null)

@@ -92,7 +92,7 @@ class GraphContextComponentValueTest {
 
     /** `min([WIDTH_ID], [HEIGHT_ID]) / 2` — the same RPN a switch's clip radius is recorded as. */
     private fun graphOverCircleRadius(
-        componentValues: Map<Int, androidx.compose.runtime.State<Float>>
+        componentValues: Map<Int, androidx.compose.runtime.State<Float>>,
     ): GraphContext {
         val radius =
             FloatExpression(

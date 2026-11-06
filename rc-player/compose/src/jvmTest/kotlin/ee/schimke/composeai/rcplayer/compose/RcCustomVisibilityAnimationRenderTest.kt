@@ -101,7 +101,7 @@ class RcCustomVisibilityAnimationRenderTest {
           exit = RcLayoutAnimation.Custom,
           exitFunctionId = FONT_EXIT,
           prelude = fontExit(FONT_EXIT),
-        )
+        ),
       )
 
       val halfway = sample(150)
@@ -118,7 +118,7 @@ class RcCustomVisibilityAnimationRenderTest {
           initiallyVisible = false,
           enter = RcLayoutAnimation.Custom,
           enterFunctionId = WIPE_IN,
-        )
+        ),
       )
 
       val halfway = sample(150)
@@ -151,7 +151,7 @@ class RcCustomVisibilityAnimationRenderTest {
         exitDocument(
           exit = RcLayoutAnimation.FadeOut.sequenced(RcAnimationSequence.Before),
           sibling = true,
-        )
+        ),
       )
 
       val halfway = sample(150)
@@ -171,7 +171,7 @@ class RcCustomVisibilityAnimationRenderTest {
         exitDocument(
           exit = RcLayoutAnimation.FadeOut.sequenced(RcAnimationSequence.After),
           sibling = true,
-        )
+        ),
       )
 
       val moving = sample(150)
@@ -201,7 +201,7 @@ class RcCustomVisibilityAnimationRenderTest {
           enter = RcLayoutAnimation.Custom.sequenced(RcAnimationSequence.After),
           enterFunctionId = WIPE_IN,
           sibling = true,
-        )
+        ),
       )
 
       // Not even the function's own drawing: at progress 0 it would still draw its bar.
@@ -225,7 +225,7 @@ class RcCustomVisibilityAnimationRenderTest {
           initiallyVisible = false,
           enter = RcLayoutAnimation.FadeIn.sequenced(RcAnimationSequence.Before),
           sibling = true,
-        )
+        ),
       )
 
       val entering = sample(150)
@@ -402,7 +402,7 @@ class RcCustomVisibilityAnimationRenderTest {
           RcFloatWord.literal(18f).bits,
           16 or ((400 or PAINT_TYPEFACE_FONT_DATA) shl 16),
           FONT_ID,
-        )
+        ),
       ),
       RcDrawText(FONT_TEXT, 0, 1, 0, 1, ref(id + 4), ref(baseline), false),
       END,

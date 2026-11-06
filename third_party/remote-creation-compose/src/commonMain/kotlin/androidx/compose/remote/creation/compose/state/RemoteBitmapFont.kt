@@ -192,7 +192,7 @@ constructor(
                     getIdForCreationState(creationState),
                     BitmapTextMeasure.MEASURE_WIDTH,
                     glyphSpacing.getFloatIdForCreationState(creationState),
-                )
+                ),
             )
         }
     }
@@ -218,7 +218,7 @@ constructor(
                     getIdForCreationState(creationState),
                     BitmapTextMeasure.MEASURE_HEIGHT,
                     0f,
-                )
+                ),
             )
         }
     }

@@ -57,7 +57,7 @@ internal constructor(
                     creationState.writer.bitmapAttribute(
                         getIdForCreationState(creationState),
                         IMAGE_WIDTH,
-                    )
+                    ),
                 )
             }
         }
@@ -73,7 +73,7 @@ internal constructor(
                     creationState.writer.bitmapAttribute(
                         getIdForCreationState(creationState),
                         IMAGE_HEIGHT,
-                    )
+                    ),
                 )
             }
         }
@@ -242,7 +242,7 @@ internal constructor(
                 public override val constantValueOrNull: ImageBitmap? = null
 
                 public override fun writeToDocument(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ): Int = creationState.writer.createBitmap(width, height)
             }
     }
@@ -270,7 +270,7 @@ internal constructor(
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     @RememberInComposition
     public constructor(
-        initialValue: ImageBitmap
+        initialValue: ImageBitmap,
     ) : this(
         constantValueOrNull = initialValue,
         cacheKey = RemoteStateInstanceKey(),

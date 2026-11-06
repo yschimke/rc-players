@@ -106,7 +106,7 @@ class RcViewPlayerRenderHarness(private val entry: RcEmbeddedRenderHarness.Entry
                 Modifier.size(
                     with(density) { entry.width.toDp() },
                     with(density) { entry.height.toDp() },
-                )
+                ),
             ) {
                 // As in `RcEmbeddedRenderHarness`: `RemoteDocument(bytes)` parses in its
                 // constructor, so

@@ -46,13 +46,13 @@ fun LayoutSampleLegacy() {
       RemoteBox(modifier = RemoteModifier.size(24.rdp).background(RemoteColor(Color(0xFFFF0000))))
       RemoteBox(
         modifier =
-          RemoteModifier.weight(1f).height(24.rdp).background(RemoteColor(Color(0xFF00FF00)))
+          RemoteModifier.weight(1f).height(24.rdp).background(RemoteColor(Color(0xFF00FF00))),
       )
       RemoteBox(
         modifier =
           RemoteModifier.size(24.rdp)
             .clip(RemoteRoundedCornerShape(6.rdp))
-            .background(RemoteColor(Color(0xFF0000FF)))
+            .background(RemoteColor(Color(0xFF0000FF))),
       )
     }
     RemoteBox(

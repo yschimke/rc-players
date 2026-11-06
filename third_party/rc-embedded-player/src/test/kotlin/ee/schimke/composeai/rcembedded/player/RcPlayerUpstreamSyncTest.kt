@@ -48,7 +48,7 @@ class RcPlayerUpstreamSyncTest {
             )
         timeIds.forEach { id ->
             assertTrue(
-                isExpressionTimeDependent(FloatExpression(id, floatArrayOf(Utils.asNan(id)), null))
+                isExpressionTimeDependent(FloatExpression(id, floatArrayOf(Utils.asNan(id)), null)),
             )
         }
         assertFalse(
@@ -57,8 +57,8 @@ class RcPlayerUpstreamSyncTest {
                     99,
                     floatArrayOf(1f, 2f, AnimatedFloatExpression.ADD),
                     null,
-                )
-            )
+                ),
+            ),
         )
     }
 }

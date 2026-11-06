@@ -63,7 +63,7 @@ public object Comparators {
             check.key == "ops:absent" -> comparePresence(check, observation.value, present = false)
             check.probe == "relation" -> compareRelations(check, observation.value, tolerance)
             else -> compareValue(check, "", check.expect, observation.value, tolerance)
-          }
+          },
         )
     }
 
@@ -160,8 +160,8 @@ public object Comparators {
             JsonPrimitive("${reference.width}x${reference.height}"),
             JsonPrimitive("${observation.width}x${observation.height}"),
             null,
-          )
-        )
+          ),
+        ),
       )
     }
 
@@ -198,7 +198,7 @@ public object Comparators {
             JsonPrimitive(walk.hardDiffs),
             budget,
             check.target,
-          )
+          ),
         )
       }
     return Comparison(diffs, comparison)
@@ -294,7 +294,7 @@ public object Comparators {
                 JsonPrimitive(expected.size),
                 JsonPrimitive(observed.size),
                 null,
-              )
+              ),
             )
           else ->
             expected.flatMapIndexed { index, value ->

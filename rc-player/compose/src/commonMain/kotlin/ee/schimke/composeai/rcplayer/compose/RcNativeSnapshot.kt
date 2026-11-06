@@ -1050,7 +1050,7 @@ public object RcNativeSnapshotBridge {
                       is RcWidthModifier -> dimension.value
                       is RcHeightModifier -> dimension.value
                       else -> RcFloatWord.literal(0f)
-                    }
+                    },
                   ) / document.header.density
                 RcDimensionType.EXACT_DP ->
                   state.resolve(
@@ -1058,7 +1058,7 @@ public object RcNativeSnapshotBridge {
                       is RcWidthModifier -> dimension.value
                       is RcHeightModifier -> dimension.value
                       else -> RcFloatWord.literal(0f)
-                    }
+                    },
                   )
                 RcDimensionType.FILL ->
                   available *
@@ -1067,7 +1067,7 @@ public object RcNativeSnapshotBridge {
                         is RcWidthModifier -> dimension.value
                         is RcHeightModifier -> dimension.value
                         else -> RcFloatWord.literal(Float.NaN)
-                      }
+                      },
                     )
                 RcDimensionType.FILL_PARENT_MAX_WIDTH,
                 RcDimensionType.FILL_PARENT_MAX_HEIGHT ->
@@ -1077,7 +1077,7 @@ public object RcNativeSnapshotBridge {
                         is RcWidthModifier -> dimension.value
                         is RcHeightModifier -> dimension.value
                         else -> RcFloatWord.literal(Float.NaN)
-                      }
+                      },
                     )
                 else -> naturalSize()
               }
@@ -2078,12 +2078,12 @@ public object RcNativeSnapshotBridge {
         draw.sourceRight > draw.sourceLeft &&
         draw.sourceBottom > draw.sourceTop &&
         draw.sourceRight <= bitmap.width.toFloat() &&
-        draw.sourceBottom <= bitmap.height.toFloat()
+        draw.sourceBottom <= bitmap.height.toFloat(),
     ) {
       "Bitmap ${draw.imageId} source rectangle is outside ${bitmap.width}x${bitmap.height}"
     }
     require(
-      draw.destinationRight > draw.destinationLeft && draw.destinationBottom > draw.destinationTop
+      draw.destinationRight > draw.destinationLeft && draw.destinationBottom > draw.destinationTop,
     ) {
       "Bitmap ${draw.imageId} destination rectangle must have positive area"
     }

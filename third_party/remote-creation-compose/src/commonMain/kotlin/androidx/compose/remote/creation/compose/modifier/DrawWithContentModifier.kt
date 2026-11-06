@@ -29,7 +29,7 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
  * @param onDraw The drawing block that provides access to [RemoteContentDrawScope].
  */
 public fun RemoteModifier.drawWithContent(
-    onDraw: RemoteContentDrawScope.() -> Unit
+    onDraw: RemoteContentDrawScope.() -> Unit,
 ): RemoteModifier = then(DrawWithContentModifier(onDraw))
 
 internal class DrawWithContentModifier(val onDraw: RemoteContentDrawScope.() -> Unit) :
@@ -99,7 +99,7 @@ internal fun RemoteModifier.drawWithContent(
                     remoteCanvas.translate(padding.left, padding.top)
                 },
                 padding,
-            )
+            ),
         )
         remoteCanvas.restore()
     }

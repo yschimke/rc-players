@@ -133,7 +133,7 @@ class RcTypefaceLoaderTest {
     val fonts = RcDocumentFonts(mapOf(42 to byteArrayOf(1, 2, 3)))
     repeat(RcDocumentFonts.MAX_INSTANCES * 3) { i ->
       assertNotNull(
-        fonts.family(42, variations = RcFontVariations(listOf(RcFontAxis("wght", i + 1f))))
+        fonts.family(42, variations = RcFontVariations(listOf(RcFontAxis("wght", i + 1f)))),
       )
     }
     assertEquals(RcDocumentFonts.MAX_INSTANCES, fonts.cachedInstanceCount)

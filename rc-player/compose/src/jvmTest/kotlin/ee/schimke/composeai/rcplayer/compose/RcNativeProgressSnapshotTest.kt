@@ -26,7 +26,7 @@ class RcNativeProgressSnapshotTest {
   private fun snapshot(fixture: String): RcNativeDocumentSnapshot =
     RcNativeSnapshotBridge.decode(
       File("../../third_party/rc-embedded-player/src/test/resources/rc-fixtures/$fixture")
-        .readBytes()
+        .readBytes(),
     )
 
   private fun RcNativeDocumentSnapshot.arcs(): List<RcNativeDrawCommand> =

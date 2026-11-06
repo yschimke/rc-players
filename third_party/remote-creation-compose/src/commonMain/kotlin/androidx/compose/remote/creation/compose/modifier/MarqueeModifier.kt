@@ -77,5 +77,5 @@ public fun RemoteModifier.basicMarquee(
             initialDelayMillis,
             spacing,
             velocity,
-        )
+        ),
     )

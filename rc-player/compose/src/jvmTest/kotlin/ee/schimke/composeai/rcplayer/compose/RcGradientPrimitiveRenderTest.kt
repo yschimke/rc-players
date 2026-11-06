@@ -37,7 +37,7 @@ class RcGradientPrimitiveRenderTest {
               40f.toRawBits(),
               0f.toRawBits(),
               0,
-            )
+            ),
           ),
           RcDraw3(
             RcOpcodes.DRAW_CIRCLE,
@@ -89,7 +89,7 @@ class RcGradientPrimitiveRenderTest {
               40f.toRawBits(),
               0f.toRawBits(),
               0,
-            )
+            ),
           ),
           RcDraw3(
             RcOpcodes.DRAW_CIRCLE,

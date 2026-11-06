@@ -160,7 +160,7 @@ class Rc3DRenderTest {
               RcBitmapData.TYPE_PNG_8888,
               RcBitmapData.ENCODING_INLINE,
               png.toByteArray(),
-            )
+            ),
           )
           clearDepth()
           perspectiveCamera(
@@ -281,7 +281,7 @@ class Rc3DRenderTest {
     renderFrames(Rc3DDocuments.spinningCube().encode(), times, options)
     assertTrue(frames.size >= times.size, "a frame per redraw: ${frames.size}")
     assertTrue(
-      frames.all { it.componentId == -1 && it.draws.map(Rc3DMeshDraw::key) == listOf("-1/0") }
+      frames.all { it.componentId == -1 && it.draws.map(Rc3DMeshDraw::key) == listOf("-1/0") },
     )
     assertEquals(1, frames.map { it.draws.single().meshVersion }.distinct().size)
     assertTrue(frames.map { it.draws.single().model.toList() }.distinct().size > 1)
@@ -448,7 +448,7 @@ class Rc3DRenderTest {
               RcBitmapData.TYPE_PNG_8888,
               RcBitmapData.ENCODING_EMPTY,
               ByteArray(0),
-            )
+            ),
           )
           add(RcDrawToBitmap(bitmap, 0, 0))
           clearDepth()
@@ -478,7 +478,7 @@ class Rc3DRenderTest {
               float(half.toFloat()),
               float(half.toFloat()),
               0,
-            )
+            ),
           )
         }
         .encode()
@@ -593,7 +593,7 @@ internal object Rc3DDocuments {
             RcRootContentBehavior.ALIGNMENT_CENTER,
             RcRootContentBehavior.SIZING_SCALE,
             RcRootContentBehavior.SCALE_FIT,
-          )
+          ),
         )
       }
       clearDepth()
@@ -624,7 +624,7 @@ internal object Rc3DDocuments {
           float(SIZE / 2f - 8f),
           float(SIZE / 2f + 8f),
           float(SIZE / 2f + 8f),
-        )
+        ),
       )
       color(0xFF44CC88.toInt())
       identity()
@@ -661,7 +661,7 @@ internal object Rc3DDocuments {
           listOf(listOf(arrayWord, float(0f), Rc3DDocumentBuilder.operator(32))),
           emptyList(),
           emptyList(),
-        )
+        ),
       )
       draw(id)
     }
@@ -677,7 +677,7 @@ internal object Rc3DDocuments {
             Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.MUL),
             float(0.35f),
             Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.ADD),
-          )
+          ),
         )
       clearDepth()
       standardCamera()
@@ -707,7 +707,7 @@ internal object Rc3DDocuments {
           RcRootContentBehavior.ALIGNMENT_CENTER,
           RcRootContentBehavior.SIZING_SCALE,
           RcRootContentBehavior.SCALE_FIT,
-        )
+        ),
       )
       clearDepth()
       standardCamera()
@@ -736,7 +736,7 @@ internal object Rc3DDocuments {
           float(SIZE / 2f - 6f),
           float(SIZE / 2f + 30f),
           float(SIZE / 2f + 6f),
-        )
+        ),
       )
       color(0xFF44CC88.toInt())
       identity()
@@ -757,7 +757,7 @@ internal object Rc3DDocuments {
           float(SIZE - 3f),
           float(10f),
           float(10f),
-        )
+        ),
       )
       val time = continuousSeconds()
       clearDepth()
@@ -785,7 +785,7 @@ internal object Rc3DDocuments {
             Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.MUL),
             float(0.22f),
             Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.ADD),
-          )
+          ),
         )
       color(0xFF4488EE.toInt())
       identity()
@@ -796,7 +796,7 @@ internal object Rc3DDocuments {
           RcPrimitive3D.TORUS,
           listOf(float(0.55f), tube, float(0f), float(0f), float(0f)),
           float(32f),
-        )
+        ),
       )
     }
 
@@ -879,7 +879,7 @@ internal object Rc3DDocuments {
           listOf(height),
           emptyList(),
           emptyList(),
-        )
+        ),
       )
       draw(id)
     }
@@ -902,7 +902,7 @@ internal object Rc3DDocuments {
             vectorOp(engineOp("VBUILD3")),
             vectorOp(engineOp("VNORM")),
           ),
-        )
+        ),
       )
       fun ref(id: Int) = RcFloatWord(0x7fc00000 or id)
       clearDepth()
@@ -915,7 +915,7 @@ internal object Rc3DDocuments {
           ref(direction + 1),
           ref(direction + 2),
           float(1f),
-        )
+        ),
       )
       color(0xFFDDDDDD.toInt())
       identity()
@@ -939,7 +939,7 @@ internal object Rc3DDocuments {
           2,
           0,
           listOf(float(1f), float(2f), vectorOp(engineOp("VBUILD2"))),
-        )
+        ),
       )
       add(
         RcMeshExpression3D(
@@ -950,7 +950,7 @@ internal object Rc3DDocuments {
           listOf(listOf(float(0f))),
           emptyList(),
           emptyList(),
-        )
+        ),
       )
       material(0.5f, 16f)
     }

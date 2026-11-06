@@ -276,5 +276,5 @@ public fun animateRemoteDpAsState(
                 targetValue = targetValue.value,
                 animationSpec = animationSpec,
                 initialValue = initialValue,
-            )
+            ),
     )

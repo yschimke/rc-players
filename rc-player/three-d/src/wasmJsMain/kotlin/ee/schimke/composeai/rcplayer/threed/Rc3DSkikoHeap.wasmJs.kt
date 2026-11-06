@@ -20,5 +20,5 @@ private fun heapBytes(module: JsAny, address: Int, length: Int): JsAny? =
       if (address + length > memory.buffer.byteLength) return null;
       return new Uint8Array(memory.buffer, address, length);
     })()
-    """
+    """,
   )

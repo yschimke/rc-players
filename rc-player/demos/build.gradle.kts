@@ -51,7 +51,7 @@ tasks.register<JavaExec>("writeEditableTextFixture") {
     providers
       .gradleProperty("rc.demo.output")
       .orElse(
-        layout.buildDirectory.file("fixtures/editable-text.rc").map { it.asFile.absolutePath }
+        layout.buildDirectory.file("fixtures/editable-text.rc").map { it.asFile.absolutePath },
       )
   // The deferred-density fixture rides along with the same task: it is generated the same way, from
   // the same document set, and a consumer that regenerates one should not be able to leave the
@@ -61,7 +61,9 @@ tasks.register<JavaExec>("writeEditableTextFixture") {
       .gradleProperty("rc.demo.host-density.output")
       .orElse(layout.buildDirectory.file("fixtures/host-density.rc").map { it.asFile.absolutePath })
   argumentProviders.add(
-    org.gradle.process.CommandLineArgumentProvider { listOf(output.get(), hostDensityOutput.get()) }
+    org.gradle.process.CommandLineArgumentProvider {
+      listOf(output.get(), hostDensityOutput.get())
+    },
   )
 }
 
@@ -94,6 +96,6 @@ tasks.register<JavaExec>("writeSwiftCustomComponentFixtures") {
         pulseOutput.get(),
         chartOutput.get(),
       )
-    }
+    },
   )
 }

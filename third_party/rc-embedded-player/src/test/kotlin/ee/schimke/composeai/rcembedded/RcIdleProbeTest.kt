@@ -71,7 +71,7 @@ class RcIdleProbeTest {
                 Modifier.size(
                     with(LocalDensity.current) { 640.toDp() },
                     with(LocalDensity.current) { 480.toDp() },
-                )
+                ),
             ) {
                 ExperimentalRemoteDocumentPlayer(
                     document = RemoteDocument(bytes),

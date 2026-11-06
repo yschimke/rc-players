@@ -85,7 +85,7 @@ public object Pixelmatch {
           // a negative count and report deltas that are neither raw nor perceptual.
           val delta =
             abs(
-              (actual[raw + channel].toInt() and 0xFF) - (expected[raw + channel].toInt() and 0xFF)
+              (actual[raw + channel].toInt() and 0xFF) - (expected[raw + channel].toInt() and 0xFF),
             )
           if (delta > pixelMax) pixelMax = delta
           squared += (delta * delta).toDouble()

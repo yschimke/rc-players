@@ -96,10 +96,12 @@ internal fun RcPlayerRawDocument() {
             // CoreDocument.paint does.
             document.computeScale(size.width, size.height, scale)
             val translate = document.contentTranslation(size.width, size.height, scale)
-            withTransform({
-                translate(translate.x, translate.y)
-                scale(scale[0], scale[1], pivot = Offset.Zero)
-            }) {
+            withTransform(
+                {
+                    translate(translate.x, translate.y)
+                    scale(scale[0], scale[1], pivot = Offset.Zero)
+                },
+            ) {
                 executeOperations(
                     document.operations,
                     remoteContext,
@@ -212,7 +214,7 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
                         Modifier.wrapContentSize(Alignment.TopStart)
                     } else {
                         Modifier
-                    }
+                    },
                 )
                 // The caller's modifier carries parent data (e.g. Row/Column weight and
                 // alignment), so it must be on the outermost layout node, which is
@@ -228,7 +230,7 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
                         component.drawContentOperations?.list,
                         ignoreVisibility = true,
                         ignoreClicks = customClickHandlers != null,
-                    )
+                    ),
                 )
                 .rcComponentContentInspector(component)
                 .then(
@@ -242,7 +244,7 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
                         )
                     } else {
                         Modifier
-                    }
+                    },
                 )
 
         // Publish the component's measured dimensions and positions (read by ComponentValue
@@ -300,11 +302,11 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
                         ) {
                             val contentW =
                                 (w - component.paddingLeft - component.paddingRight).coerceAtLeast(
-                                    0f
+                                    0f,
                                 )
                             val contentH =
                                 (h - component.paddingTop - component.paddingBottom).coerceAtLeast(
-                                    0f
+                                    0f,
                                 )
                             publishComponentValues(
                                 ops = sizeFeedbackOps,
@@ -357,7 +359,7 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
     } else {
         // Non-LayoutComponent component reached dispatch — skip gracefully instead of crashing.
         println(
-            "Warning: unsupported component ${component?.let { it::class.java.simpleName }}; rendering nothing"
+            "Warning: unsupported component ${component?.let { it::class.java.simpleName }}; rendering nothing",
         )
     }
 }
@@ -390,7 +392,7 @@ private fun RcPlayerLayoutComponent(
             // operation_coverage.md. The modifier (incl. any drawContent) was still applied
             // above.
             println(
-                "Warning: unsupported layout component ${component::class.java.simpleName}; rendering nothing"
+                "Warning: unsupported layout component ${component::class.java.simpleName}; rendering nothing",
             )
         }
     }

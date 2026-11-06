@@ -35,7 +35,7 @@ internal object RcXrSampleDocument {
             RcRootContentBehavior.ALIGNMENT_CENTER,
             RcRootContentBehavior.SIZING_SCALE,
             RcRootContentBehavior.SCALE_FIT,
-          )
+          ),
         )
         // The card: a translucent rounded rectangle and a title, drawn by the player on the panel.
         color(0xCC1E2430.toInt())
@@ -48,7 +48,7 @@ internal object RcXrSampleDocument {
             float(SIZE - 8f),
             float(28f),
             float(28f),
-          )
+          ),
         )
         val title = newId()
         add(RcTextData(title, "Remote Compose in XR"))
@@ -61,7 +61,7 @@ internal object RcXrSampleDocument {
             RcFloatWord.literal(0f),
             RcFloatWord.literal(0f),
             0,
-          )
+          ),
         )
 
         // The 3D scene.
@@ -95,7 +95,7 @@ internal object RcXrSampleDocument {
               Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.MUL),
               float(0.22f),
               Rc3DDocumentBuilder.operator(Rc3DDocumentBuilder.ADD),
-            )
+            ),
           )
         color(0xFF4488EE.toInt())
         identity()
@@ -106,7 +106,7 @@ internal object RcXrSampleDocument {
             RcPrimitive3D.TORUS,
             listOf(float(0.55f), tube, float(0f), float(0f), float(0f)),
             float(32f),
-          )
+          ),
         )
       }
       .encode()

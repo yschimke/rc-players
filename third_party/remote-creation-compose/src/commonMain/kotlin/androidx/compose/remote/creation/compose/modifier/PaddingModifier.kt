@@ -58,7 +58,7 @@ internal class PaddingModifier(
             (!start.hasConstantValue || start.constantValue >= 0f) and
                 (!top.hasConstantValue || top.constantValue >= 0f) and
                 (!end.hasConstantValue || end.constantValue >= 0f) and
-                (!bottom.hasConstantValue || bottom.constantValue >= 0f)
+                (!bottom.hasConstantValue || bottom.constantValue >= 0f),
         ) {
             "Padding must be non-negative"
         }

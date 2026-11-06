@@ -20,7 +20,7 @@ class RcDownloadableFontsTest {
           RcTextData(42, "google:Orbitron"),
           RcTextData(43, "Not a font: google:Unused"),
           RcTextStyle(
-            listOf(RcTextStyleProperty.IntValue(1, 100), RcTextStyleProperty.IntValue(8, 42))
+            listOf(RcTextStyleProperty.IntValue(1, 100), RcTextStyleProperty.IntValue(8, 42)),
           ),
         ),
       )
@@ -35,7 +35,7 @@ class RcDownloadableFontsTest {
   fun buildsACaseInsensitiveByteBackedLoader() {
     val loader =
       rcDownloadedTypefaceLoader(
-        listOf(RcDownloadedFont("Orbitron", "test-orbitron", byteArrayOf(1, 2, 3)))
+        listOf(RcDownloadedFont("Orbitron", "test-orbitron", byteArrayOf(1, 2, 3))),
       )
 
     assertEquals(setOf("orbitron"), loader.families)

@@ -54,8 +54,8 @@ internal class RemoteImageNode : RemoteComposeNode() {
                     bitmapId,
                     contentScale.value,
                     alpha.getFloatIdForCreationState(creationState),
-                )
-            )
+                ),
+            ),
         )
     }
 }

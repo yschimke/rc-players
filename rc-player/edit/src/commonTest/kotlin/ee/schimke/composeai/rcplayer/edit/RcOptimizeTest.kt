@@ -101,7 +101,7 @@ class RcOptimizeTest {
             RcColorConstant(50, red),
             RcColorConstant(51, blue),
             RcColorExpression(52, RcColorExpression.ID_ID_INTERPOLATE, 50, 51, 0.5f.toRawBits()),
-          )
+          ),
         )
         .apply { applyContentStateOperations(RcDocumentLinker.link(document).operations) }
     assertEquals(RcColorConstant(52, original.color(52)), folded[52])
@@ -147,7 +147,7 @@ class RcOptimizeTest {
               RcColorAttribute(53, 50, RcColorAttribute.COLOR_ALPHA),
               END,
             )
-            .toTypedArray()
+            .toTypedArray(),
         )
         .foldConstantExpressions()
     assertTrue(RcFloatConstant(53, f(1f)) in result.operations)

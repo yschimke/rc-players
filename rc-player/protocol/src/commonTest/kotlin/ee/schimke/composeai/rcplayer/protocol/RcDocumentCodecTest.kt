@@ -103,7 +103,7 @@ class RcDocumentCodecTest {
               RcHeaderProperty(
                 RcHeader.DOC_DENSITY_BEHAVIOR,
                 RcHeaderValue.IntValue(RcHeader.DENSITY_BEHAVIOR_PIXELS),
-              )
+              ),
             ),
         )
         .densityBehavior,
@@ -203,7 +203,7 @@ class RcDocumentCodecTest {
             RcDocument(
               RcHeader(RcVersion(1, 0, 0), modern = false),
               listOf(loop, RcNoArg(RcOpcodes.CONTAINER_END)),
-            )
+            ),
           )
         val failure = assertFailsWith<RcWireException> { RcDocumentCodec.decode(bytes) }
         assertEquals("step", failure.fieldName)
@@ -405,7 +405,7 @@ class RcDocumentCodecTest {
             mode = RcAccessibilitySemantics.MODE_MERGE,
             enabled = false,
             clickable = true,
-          )
+          ),
         ),
       )
 
@@ -760,7 +760,7 @@ class RcDocumentCodecTest {
 
     assertFailsWith<IllegalArgumentException> {
       RcDocumentCodec.encode(
-        RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), listOf(expression))
+        RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), listOf(expression)),
       )
     }
   }

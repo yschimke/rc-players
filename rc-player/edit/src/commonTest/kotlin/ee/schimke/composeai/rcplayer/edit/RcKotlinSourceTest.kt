@@ -56,7 +56,7 @@ class RcKotlinSourceTest {
             RcHeaderProperty(RcHeader.DOC_HEIGHT, RcHeaderValue.IntValue(100)),
             RcHeaderProperty(RcHeader.DOC_DENSITY_BEHAVIOR, RcHeaderValue.IntValue(behavior)),
           ),
-        )
+        ),
     )
 
   private fun rootLayoutArray(vararg content: RcOperation): Array<RcOperation> =
@@ -78,8 +78,8 @@ class RcKotlinSourceTest {
                 RcHeightModifier(RcDimensionType.EXACT_DP, word(24f)),
                 RcPaddingModifier(word(8f), word(8f), word(8f), word(8f)),
                 RcBackgroundModifier(0, 0, 0, 0, word(1f), word(0f), word(0f), word(1f), 0),
-              )
-            )
+              ),
+            ),
           ),
         )
         .toRemoteComposeKotlin(RcKotlinOptions(packageName = "sample", functionName = "Swatch"))
@@ -102,8 +102,8 @@ class RcKotlinSourceTest {
         RcHeader.DENSITY_BEHAVIOR_LEGACY,
         document(
           *rootLayoutArray(
-            *modifiedBox(RcPaddingModifier(word(16f), word(16f), word(16f), word(16f)))
-          )
+            *modifiedBox(RcPaddingModifier(word(16f), word(16f), word(16f), word(16f))),
+          ),
         ),
       )
     assertContains(
@@ -250,7 +250,7 @@ class RcKotlinSourceTest {
               *modifiedBox(
                 RcWidthModifier(RcDimensionType.EXACT_DP, size),
                 RcHeightModifier(RcDimensionType.INTRINSIC_MIN, word(0f)),
-              )
+              ),
             ),
           ),
         )
@@ -359,7 +359,7 @@ class RcKotlinSourceTest {
               RcLayoutContent(-11),
               END,
               END,
-            )
+            ),
           ),
         )
         .toRemoteComposeKotlin()

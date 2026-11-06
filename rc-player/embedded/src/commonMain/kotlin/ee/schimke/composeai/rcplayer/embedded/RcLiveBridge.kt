@@ -153,7 +153,7 @@ public class RcLiveBridge : RcHostBridge {
           .mapValues { (_, holder) ->
             val content: RcCustomContent = { _, modifier -> holder.content.value(modifier) }
             content
-          }
+          },
       )
     registry = declared to built
     return built

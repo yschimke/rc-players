@@ -69,7 +69,7 @@ public fun rcDownloadedTypefaceLoader(fonts: List<RcDownloadedFont>): RcTypeface
   RcBundledTypefaceLoader(
     fonts.associate { font ->
       font.family.lowercase() to RcFontFaces(RcFontFace(identity = font.identity, data = font.data))
-    }
+    },
   )
 
 /** Allows explicit downloadable families to use Compose's default face in an offline host. */

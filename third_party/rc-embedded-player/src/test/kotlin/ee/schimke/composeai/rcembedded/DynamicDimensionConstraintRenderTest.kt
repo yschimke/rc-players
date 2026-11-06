@@ -83,7 +83,7 @@ class DynamicDimensionConstraintRenderTest {
                     Modifier.size(
                         with(documentDensity) { WIDTH.toDp() },
                         with(documentDensity) { HEIGHT.toDp() },
-                    )
+                    ),
                 ) {
                     ExperimentalRemoteDocumentPlayer(
                         document = RemoteDocument(bytes),

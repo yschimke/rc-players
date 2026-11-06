@@ -908,7 +908,7 @@ public class RemotePathScope constructor() {
                 isPositiveArc,
                 x1,
                 y1,
-            )
+            ),
         )
     }
 
@@ -949,7 +949,7 @@ public class RemotePathScope constructor() {
         dy1: RemoteFloat,
     ) {
         _nodes.add(
-            RemotePathNode.RelativeArcTo(a, b, theta, isMoreThanHalf, isPositiveArc, dx1, dy1)
+            RemotePathNode.RelativeArcTo(a, b, theta, isMoreThanHalf, isPositiveArc, dx1, dy1),
         )
     }
 
@@ -1021,7 +1021,7 @@ public class RemotePathScope constructor() {
                 startAngle,
                 sweepAngle,
                 forceMoveTo = forceMoveTo,
-            )
+            ),
         )
     }
 

@@ -76,7 +76,7 @@ class RcGraphicsLayerOriginRenderTest {
         RcGraphicsLayerAttribute.FloatValue(
           RcGraphicsLayerModifier.SCALE_X,
           RcFloatWord.literal(-1f),
-        )
+        ),
       )
       if (origin != null) {
         for (id in
@@ -108,7 +108,7 @@ class RcGraphicsLayerOriginRenderTest {
             RcFloatWord.literal(0f),
             RcFloatWord.literal(BAR.toFloat()),
             RcFloatWord.literal(HEIGHT.toFloat()),
-          )
+          ),
         )
         repeat(5) { add(end) }
       }

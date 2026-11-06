@@ -126,7 +126,7 @@ class RcGraphicsResourceRenderTest {
                   RcFloatWord.literal(1f),
                   RcFloatWord.literal(0f),
                   RcFloatWord.literal(1f),
-                )
+                ),
             ),
         ),
         RcPaintData(listOf(9, 11)),

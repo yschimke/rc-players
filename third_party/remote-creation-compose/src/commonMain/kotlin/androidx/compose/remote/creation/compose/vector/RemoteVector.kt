@@ -270,18 +270,20 @@ internal class RemoteGroupComponent : RemoteVNode() {
                 38 in this@draw.remoteCanvas.internalCanvas.creationState.supportedOperations
 
         if (hasTransform || hasClip) {
-            withTransform({
-                if (hasTransform) {
-                    translate(translationX + pivotX, translationY + pivotY)
-                    rotate(rotation)
-                    scale(scaleX, scaleY)
-                    translate(-pivotX, -pivotY)
-                }
-                if (hasClip) {
-                    clipPathData.toRemotePath(clipPath, this@draw.remoteCanvas.creationState)
-                    clipPath(clipPath)
-                }
-            }) {
+            withTransform(
+                {
+                    if (hasTransform) {
+                        translate(translationX + pivotX, translationY + pivotY)
+                        rotate(rotation)
+                        scale(scaleX, scaleY)
+                        translate(-pivotX, -pivotY)
+                    }
+                    if (hasClip) {
+                        clipPathData.toRemotePath(clipPath, this@draw.remoteCanvas.creationState)
+                        clipPath(clipPath)
+                    }
+                },
+            ) {
                 children.fastForEach { node ->
                     with(node) { this@draw.draw(colorFilter, viewportSize) }
                 }

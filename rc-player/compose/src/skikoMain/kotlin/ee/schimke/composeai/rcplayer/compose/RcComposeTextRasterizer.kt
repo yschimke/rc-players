@@ -39,7 +39,7 @@ import org.jetbrains.skia.Image
  * not embed, rather than drawing it in a fallback face.
  */
 public class RcComposeTextRasterizer(
-  private val typefaces: RcTypefaceLoader = RcTypefaceLoader.Default
+  private val typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
 ) : RcTextRasterizer {
   private val fontFamilyResolver = createFontFamilyResolver()
 
@@ -81,7 +81,7 @@ public class RcComposeTextRasterizer(
             listOfNotNull(
               TextDecoration.Underline.takeIf { text.underline },
               TextDecoration.LineThrough.takeIf { text.strikethrough },
-            )
+            ),
           ),
       )
     val overflow = runCatching { androidXTextOverflow(text.overflow) }.getOrNull() ?: return null
@@ -111,7 +111,7 @@ public class RcComposeTextRasterizer(
     val png =
       Image.makeFromBitmap(bitmap.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)?.bytes
         ?: return null
-    return RcRasterizedText(png, width, height)
+    return RcRasterizedText(png, width, height, layout.firstBaseline)
   }
 
   /** The family the player would draw [text] in, or null where it would fall back. */

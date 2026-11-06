@@ -17,7 +17,7 @@ class RcInputComponentsTest {
       val drafts = RcInputDrafts()
       val document =
         mutableStateOf(
-          rcInputDocument(listOf(RcInputField("message", "Message", submit = "configured")))
+          rcInputDocument(listOf(RcInputField("message", "Message", submit = "configured"))),
         )
       val events = mutableListOf<Pair<String, String>>()
       val submissions = mutableListOf<Map<String, String>>()
@@ -45,8 +45,8 @@ class RcInputComponentsTest {
                 "stale live state",
                 submit = "configured",
                 chrome = RcInputChrome.NONE,
-              )
-            )
+              ),
+            ),
           )
       }
       onNodeWithText("Message").assertDoesNotExist()
@@ -67,8 +67,8 @@ class RcInputComponentsTest {
               RcInputField("obsolete", "Old field", "old"),
               RcInputField("room", "Room", "Kitchen"),
               RcInputField("message", "Message", submit = "send"),
-            )
-          )
+            ),
+          ),
         )
       val submissions = mutableListOf<Map<String, String>>()
       setContent {
@@ -89,7 +89,7 @@ class RcInputComponentsTest {
             listOf(
               RcInputField("room", "Room", "Living room"),
               RcInputField("message", "Message", submit = "send"),
-            )
+            ),
           )
       }
       onNode(hasContentDescription("Message")).performImeAction()
@@ -106,7 +106,7 @@ class RcInputComponentsTest {
       setContent {
         RcComposePlayer(
           rcInputDocument(
-            listOf(RcInputField("message", "Message", "Hello", submit = "configured"))
+            listOf(RcInputField("message", "Message", "Hello", submit = "configured")),
           ),
           customComponents = registry,
         )
@@ -124,8 +124,8 @@ class RcInputComponentsTest {
         RcComposePlayer(
           rcInputDocument(
             listOf(
-              RcInputField("room", "Contact / Room", "Kitchen", listOf("Kitchen", "Living room"))
-            )
+              RcInputField("room", "Contact / Room", "Kitchen", listOf("Kitchen", "Living room")),
+            ),
           ),
           customComponents = rcInputComponents(drafts, editable = true),
         )
@@ -154,7 +154,7 @@ class RcInputComponentsTest {
               RcInputs.toggle("urgent", "Urgent"),
               RcInputs.number("temperature", "Temperature", 21.5, 0.0, 30.0, 0.5, "apply"),
               RcInputs.range("brightness", "Brightness", 10.0, 10.0, 20.0, 2.0),
-            )
+            ),
           ),
           customComponents = registry,
         )
@@ -165,7 +165,7 @@ class RcInputComponentsTest {
       runOnIdle { assertTrue(submissions.isEmpty()) }
       onNode(hasContentDescription("Temperature")).performTextReplacement("22.5")
       onNode(hasContentDescription("Brightness")).performSemanticsAction(
-        androidx.compose.ui.semantics.SemanticsActions.SetProgress
+        androidx.compose.ui.semantics.SemanticsActions.SetProgress,
       ) {
         it(3f)
       }
@@ -188,7 +188,7 @@ class RcInputComponentsTest {
               RcInputs.toggle("urgent", "Urgent"),
               RcInputs.number("temperature", "Temperature"),
               RcInputs.range("brightness", "Brightness", 50.0),
-            )
+            ),
           ),
           customComponents = rcInputComponents(RcInputDrafts()),
         )
@@ -214,7 +214,7 @@ class RcInputComponentsTest {
             listOf(
               RcInputs.toggle("disabled", "Disabled").copy(enabled = false),
               RcInputs.text("message", "Message", submit = "apply").copy(submitLabel = "Apply"),
-            )
+            ),
           ),
           customComponents = registry,
         )
@@ -231,7 +231,7 @@ class RcInputComponentsTest {
     assertFalse(document.composeSupportReport().fullyRenderable)
     val registry = rcInputComponents(RcInputDrafts(), editable = false)
     assertTrue(
-      document.composeSupportReport(availableCustomComponents = registry.names).fullyRenderable
+      document.composeSupportReport(availableCustomComponents = registry.names).fullyRenderable,
     )
   }
 }

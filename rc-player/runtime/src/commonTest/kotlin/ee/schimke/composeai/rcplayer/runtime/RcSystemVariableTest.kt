@@ -218,11 +218,11 @@ class RcSystemVariableTest {
     assertTrue(seconds.referencesMovingSystemVariable())
     assertFalse(seconds.referencesContinuousSystemVariable())
     assertFalse(
-      documentReading(RcSystemVariables.EPOCH_SECOND).referencesContinuousSystemVariable()
+      documentReading(RcSystemVariables.EPOCH_SECOND).referencesContinuousSystemVariable(),
     )
     // A sweep over continuous seconds needs every frame.
     assertTrue(
-      documentReading(RcSystemVariables.CONTINUOUS_SEC).referencesContinuousSystemVariable()
+      documentReading(RcSystemVariables.CONTINUOUS_SEC).referencesContinuousSystemVariable(),
     )
   }
 
@@ -385,7 +385,7 @@ class RcSystemVariableTest {
         expressionY = listOf(RcFloatWord.literal(0f)),
       )
     assertTrue(
-      RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(path)).referencesMovingSystemVariable()
+      RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(path)).referencesMovingSystemVariable(),
     )
   }
 
@@ -438,14 +438,14 @@ class RcSystemVariableTest {
     // way a condition does.
     assertTrue(
       document(
-          RcParticleCompare(1, 0, clock, all, listOf(still), listOf(listOf(still)), emptyList())
+          RcParticleCompare(1, 0, clock, all, listOf(still), listOf(listOf(still)), emptyList()),
         )
         .referencesMovingSystemVariable(),
       "a minimumIndex over the clock",
     )
     assertTrue(
       document(
-          RcParticleCompare(1, 0, still, clock, listOf(still), listOf(listOf(still)), emptyList())
+          RcParticleCompare(1, 0, still, clock, listOf(still), listOf(listOf(still)), emptyList()),
         )
         .referencesMovingSystemVariable(),
       "a maximumIndex over the clock",
@@ -596,7 +596,7 @@ class RcSystemVariableTest {
           RcParticleLoop(1, listOf(still), listOf(listOf(still))),
           RcParticleCompare(1, 0, all, all, listOf(still), listOf(listOf(still)), emptyList()),
         )
-        .referencesMovingSystemVariable()
+        .referencesMovingSystemVariable(),
     )
   }
 

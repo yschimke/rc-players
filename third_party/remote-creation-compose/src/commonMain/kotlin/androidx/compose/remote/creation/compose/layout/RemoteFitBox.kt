@@ -32,7 +32,7 @@ internal class RemoteFitBoxNode : RemoteLayoutNode() {
                 resolveModifier(scope, creationState),
                 horizontalAlignment.toRemote(layoutDirection),
                 verticalArrangement.toRemote(),
-            )
+            ),
         )
         renderChildren(creationState, remoteCanvas)
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndFitBox)

@@ -57,7 +57,7 @@ internal class RemoteColumnNode : RemoteLayoutNode() {
                 remoteModifier,
                 horizontalAlignment.toRemote(layoutDirection),
                 verticalArrangement.toRemote(),
-            )
+            ),
         )
         renderChildren(creationState, remoteCanvas)
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndColumn)

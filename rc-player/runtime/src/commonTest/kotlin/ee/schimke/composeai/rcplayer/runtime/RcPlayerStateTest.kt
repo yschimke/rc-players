@@ -77,7 +77,7 @@ class RcPlayerStateTest {
         RcDocument(
           RcHeader(RcVersion(1, 0, 0)),
           listOf(RcFloatConstant(51, RcFloatWord.literal(1.75f))),
-        )
+        ),
       )
     val expression = RcIntegerExpression(52, 1, listOf(51))
     for ((value, expected) in
@@ -109,15 +109,15 @@ class RcPlayerStateTest {
             RcFloatConstant(51, RcFloatWord.literal(1.75f)),
             RcNamedVariable(51, RcNamedVariable.FLOAT_TYPE, "page"),
           ),
-        )
+        ),
       )
     assertEquals(1, state.integer(51))
     state.setNamedValue("page", RcNamedValue.FloatValue(-2.75f))
     assertEquals(-2, state.integer(51))
     state.executeClick(
       RcClickActionBlock(
-        listOf(RcLinkedNode.Operation(RcValueFloatChangeAction(51, RcFloatWord.literal(3.5f))))
-      )
+        listOf(RcLinkedNode.Operation(RcValueFloatChangeAction(51, RcFloatWord.literal(3.5f)))),
+      ),
     )
     assertEquals(3, state.integer(51))
     state.clearNamedValue("page")
@@ -131,7 +131,7 @@ class RcPlayerStateTest {
           RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 3),
         ),
         null,
-      )
+      ),
     )
     assertEquals(3, state.integer(53))
   }
@@ -315,7 +315,7 @@ class RcPlayerStateTest {
             RcFloatConstant(11, RcFloatWord.literal(2f)),
             RcFloatConstant(12, RcFloatWord.literal(7f)),
           ),
-        )
+        ),
       )
     val operation =
       RcLoopOperation(
@@ -339,7 +339,7 @@ class RcPlayerStateTest {
           RcFloatWord.literal(0f),
           RcFloatWord.literal(0.00001f),
           RcFloatWord.literal(1f),
-        )
+        ),
       ) {}
     }
     val zeroIterations = mutableListOf<Float>()
@@ -376,7 +376,7 @@ class RcPlayerStateTest {
               null,
             ),
           ),
-        )
+        ),
       )
     val xs = mutableListOf<Float>()
 
@@ -386,7 +386,7 @@ class RcPlayerStateTest {
         RcFloatWord.literal(0f),
         RcFloatWord.literal(1f),
         RcFloatWord.literal(3f),
-      )
+      ),
     ) {
       xs += state.resolve(RcFloatWord(0x7fc00000 or 45))
     }
@@ -407,7 +407,7 @@ class RcPlayerStateTest {
       )
 
     state.emitDebugMessage(
-      RcDebugMessage(10, RcFloatWord(0x7fc00000 or 11), RcDebugMessage.SHOW_USAGE)
+      RcDebugMessage(10, RcFloatWord(0x7fc00000 or 11), RcDebugMessage.SHOW_USAGE),
     )
 
     assertEquals(RcPlayerEvent.DebugMessage("layout bounds", 37.5f, 1), events.single())
@@ -469,7 +469,7 @@ class RcPlayerStateTest {
     assertEquals(77f, state.resolve(RcFloatWord(0x7fc00000 or 150)))
     assertFailsWith<IllegalArgumentException> {
       state.applyTimeAttribute(
-        RcTimeAttribute(151, 10, RcTimeAttributeType.FromArgumentSeconds, emptyList())
+        RcTimeAttribute(151, 10, RcTimeAttributeType.FromArgumentSeconds, emptyList()),
       )
     }
   }
@@ -572,7 +572,7 @@ class RcPlayerStateTest {
           RcLinkedNode.Operation(RcHostAction(73)),
         ),
         RcClickActionType.DOUBLE,
-      )
+      ),
     )
 
     assertEquals(4, state.integer(20))
@@ -598,7 +598,7 @@ class RcPlayerStateTest {
           RcLinkedNode.Operation(RcHostAction(73)),
         ),
         RcClickActionType.SINGLE,
-      )
+      ),
     )
 
     assertEquals(listOf<RcPlayerEffect>(RcPlayerEffect.HapticFeedback(RcHapticType(42))), effects)
@@ -634,12 +634,12 @@ class RcPlayerStateTest {
       RcTouchActionBlock(
         RcTouchActionType.UP,
         listOf(RcLinkedNode.Operation(RcHostNamedAction(1, RcHostNamedActionValue.TextValue(5)))),
-      )
+      ),
     )
 
     assertEquals(
       listOf<RcPlayerEvent>(
-        RcPlayerEvent.HostNamedAction("ha", RcHostActionValue.TextValue("ticks=50"))
+        RcPlayerEvent.HostNamedAction("ha", RcHostActionValue.TextValue("ticks=50")),
       ),
       events,
     )
@@ -687,12 +687,12 @@ class RcPlayerStateTest {
         RcTouchActionBlock(
           RcTouchActionType.UP,
           listOf(RcLinkedNode.Operation(RcHostNamedAction(1, RcHostNamedActionValue.TextValue(5)))),
-        )
+        ),
       )
 
       assertEquals(
         listOf<RcPlayerEvent>(
-          RcPlayerEvent.HostNamedAction("ha", RcHostActionValue.TextValue("initial"))
+          RcPlayerEvent.HostNamedAction("ha", RcHostActionValue.TextValue("initial")),
         ),
         events,
         "$scope",
@@ -725,7 +725,7 @@ class RcPlayerStateTest {
         RcTouchActionBlock(
           RcTouchActionType.UP,
           listOf(RcLinkedNode.Operation(RcHostNamedAction(1, RcHostNamedActionValue.TextValue(5)))),
-        )
+        ),
       )
     }
 
@@ -755,7 +755,7 @@ class RcPlayerStateTest {
           RcLinkedNode.Operation(RcValueIntegerChangeAction(20, 4)),
           RcLinkedNode.Operation(RcHostAction(73)),
         ),
-      )
+      ),
     )
 
     assertEquals(4, state.integer(20))
@@ -778,13 +778,13 @@ class RcPlayerStateTest {
       listOf(
         RcLinkedNode.Operation(RcValueIntegerChangeAction(20, 4)),
         RcLinkedNode.Operation(RcHostNamedAction(10, RcHostNamedActionValue.IntegerValue(20))),
-      )
+      ),
     )
 
     assertEquals(4, state.integer(20))
     assertEquals(
       listOf<RcPlayerEvent>(
-        RcPlayerEvent.HostNamedAction("paint-action", RcHostActionValue.IntegerValue(4))
+        RcPlayerEvent.HostNamedAction("paint-action", RcHostActionValue.IntegerValue(4)),
       ),
       events,
     )
@@ -817,8 +817,8 @@ class RcPlayerStateTest {
           RcLinkedNode.Operation(RcHostNamedAction(10, RcHostNamedActionValue.IntegerValue(21))),
           RcLinkedNode.Operation(RcHostNamedAction(10, RcHostNamedActionValue.TextValue(11))),
           RcLinkedNode.Operation(RcHostNamedAction(10, RcHostNamedActionValue.FloatListValue(22))),
-        )
-      )
+        ),
+      ),
     )
 
     assertEquals(
@@ -874,8 +874,8 @@ class RcPlayerStateTest {
           RcLinkedNode.Operation(RcHostNamedAction(12, RcHostNamedActionValue.IntegerValue(23))),
           RcLinkedNode.Operation(RcHostMetadataAction(78, 13)),
           RcLinkedNode.Operation(RcHostAction(77)),
-        )
-      )
+        ),
+      ),
     )
 
     assertEquals(4, state.integer(20))
@@ -919,7 +919,7 @@ class RcPlayerStateTest {
         RcDocument(
           RcHeader(RcVersion(1, 0, 0)),
           listOf(declaredFloat, declaredInteger, stepUp),
-        )
+        ),
       )
     state.applyFloatExpression(declaredFloat)
     state.applyIntegerExpression(declaredInteger)
@@ -931,7 +931,7 @@ class RcPlayerStateTest {
         listOf(
           RcLinkedNode.Operation(RcValueFloatExpressionChangeAction(50, 52)),
           RcLinkedNode.Operation(RcValueIntegerChangeAction(51, 9)),
-        )
+        ),
       )
     state.executeClick(click)
     // The next frame replays the declarations, exactly as the document's operation list does.
@@ -958,16 +958,20 @@ class RcPlayerStateTest {
             RcFloatConstant(8, RcFloatWord.literal(1f)),
             RcFloatConstant(9, RcFloatWord.literal(12f)),
           ),
-        )
+        ),
       )
     val list = RcDynamicFloatList(0x200070, RcFloatWord(0x7fc00000 or 7))
 
     state.applyDataOperation(list)
     state.applyDataOperation(
-      RcUpdateDynamicFloatList(0x200070, RcFloatWord(0x7fc00000 or 8), RcFloatWord(0x7fc00000 or 9))
+      RcUpdateDynamicFloatList(
+        0x200070,
+        RcFloatWord(0x7fc00000 or 8),
+        RcFloatWord(0x7fc00000 or 9),
+      ),
     )
     state.applyDataOperation(
-      RcUpdateDynamicFloatList(0x200070, RcFloatWord.literal(99f), RcFloatWord.literal(100f))
+      RcUpdateDynamicFloatList(0x200070, RcFloatWord.literal(99f), RcFloatWord.literal(100f)),
     )
 
     state.applyFloatExpression(
@@ -979,7 +983,7 @@ class RcPlayerStateTest {
           RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 32),
         ),
         null,
-      )
+      ),
     )
 
     assertContentEquals(floatArrayOf(0f, 12f, 0f), state.floatValues(0x200070))
@@ -996,7 +1000,7 @@ class RcPlayerStateTest {
     val mask = (1 shl 0) or (1 shl 2)
 
     state.applyIntegerExpression(
-      RcIntegerExpression(8, mask, listOf(7, 5, RcIntegerExpression.ADD))
+      RcIntegerExpression(8, mask, listOf(7, 5, RcIntegerExpression.ADD)),
     )
 
     assertEquals(16, state.integer(8))
@@ -1013,11 +1017,11 @@ class RcPlayerStateTest {
             RcColorConstant(8, 0xffffffff.toInt()),
             RcFloatConstant(20, RcFloatWord.literal(.25f)),
           ),
-        )
+        ),
       )
 
     state.applyColorExpression(
-      RcColorExpression(30, RcColorExpression.ID_ID_INTERPOLATE, 7, 8, .5f.toRawBits())
+      RcColorExpression(30, RcColorExpression.ID_ID_INTERPOLATE, 7, 8, .5f.toRawBits()),
     )
     state.applyColorExpression(
       RcColorExpression(
@@ -1026,7 +1030,7 @@ class RcPlayerStateTest {
         .5f.toRawBits(),
         1f.toRawBits(),
         1f.toRawBits(),
-      )
+      ),
     )
     state.applyColorExpression(
       RcColorExpression(
@@ -1035,7 +1039,7 @@ class RcPlayerStateTest {
         .25f.toRawBits(),
         .5f.toRawBits(),
         .75f.toRawBits(),
-      )
+      ),
     )
     state.applyColorExpression(
       RcColorExpression(
@@ -1044,7 +1048,7 @@ class RcPlayerStateTest {
         1f.toRawBits(),
         0f.toRawBits(),
         0f.toRawBits(),
-      )
+      ),
     )
 
     assertEquals(0xffbababa.toInt(), state.color(30))
@@ -1070,7 +1074,7 @@ class RcPlayerStateTest {
   fun colorAttributesMatchAndroidXNormalizedComponents() {
     val state =
       RcPlayerState(
-        RcDocument(RcHeader(RcVersion(0, 1, 0)), listOf(RcColorConstant(7, 0x804080c0.toInt())))
+        RcDocument(RcHeader(RcVersion(0, 1, 0)), listOf(RcColorConstant(7, 0x804080c0.toInt()))),
       )
     val expected =
       listOf(7f / 12f, 2f / 3f, 192f / 255f, 64f / 255f, 128f / 255f, 192f / 255f, 128f / 255f)
@@ -1186,7 +1190,7 @@ class RcPlayerStateTest {
         outputs = listOf(30, 31),
         matrixId = 20,
         inputs = listOf(RcFloatWord.literal(4f), RcFloatWord.literal(5f)),
-      )
+      ),
     )
 
     assertEquals(6f, state.resolve(RcFloatWord(0x7fc00000 or 30)))
@@ -1200,7 +1204,7 @@ class RcPlayerStateTest {
         RcDocument(
           RcHeader(RcVersion(0, 1, 0)),
           listOf(RcFloatConstant(12, RcFloatWord.literal(6f))),
-        )
+        ),
       )
     val expression =
       RcMatrixExpression(
@@ -1221,7 +1225,7 @@ class RcPlayerStateTest {
         outputs = listOf(30, 31),
         matrixId = 20,
         inputs = listOf(RcFloatWord.literal(1f), RcFloatWord.literal(2f)),
-      )
+      ),
     )
 
     assertEquals(7f, state.resolve(RcFloatWord(0x7fc00000 or 30)))
@@ -1235,14 +1239,14 @@ class RcPlayerStateTest {
         RcDocument(
           RcHeader(RcVersion(0, 1, 0)),
           listOf(RcTextData(1, "Remote"), RcTextData(2, " Compose")),
-        )
+        ),
       )
 
     state.applyTextOperation(RcTextMerge(3, 1, 2))
     state.applyTextOperation(RcTextSubtext(4, 3, RcFloatWord.literal(7f), RcFloatWord.literal(-1f)))
     state.applyTextOperation(RcTextLength(5, 4))
     state.applyTextOperation(
-      RcTextTransform(6, 3, RcFloatWord.literal(0f), RcFloatWord.literal(-1f), 2)
+      RcTextTransform(6, 3, RcFloatWord.literal(0f), RcFloatWord.literal(-1f), 2),
     )
 
     assertEquals("Compose", state.text(4))
@@ -1263,7 +1267,7 @@ class RcPlayerStateTest {
             RcTextData(67, "Morning run"),
             RcIdList(2097194, listOf(66, 67)),
           ),
-        )
+        ),
       )
     val operations =
       listOf<RcLinkedNode>(
@@ -1299,7 +1303,7 @@ class RcPlayerStateTest {
               RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 3),
             ),
             null,
-          )
+          ),
         ),
         RcLinkedNode.Operation(RcTextFromFloat(12, RcFloatWord(0x7fc00000 or 11), 1, 0, 0)),
       )
@@ -1318,13 +1322,13 @@ class RcPlayerStateTest {
         RcDocument(
           RcHeader(RcVersion(0, 1, 0)),
           listOf(RcColorConstant(7, 0xff000000.toInt()), RcColorConstant(8, 0xffffffff.toInt())),
-        )
+        ),
       )
     val operations =
       listOf<RcLinkedNode>(
         RcLinkedNode.Operation(
-          RcColorExpression(30, RcColorExpression.ID_ID_INTERPOLATE, 7, 8, .5f.toRawBits())
-        )
+          RcColorExpression(30, RcColorExpression.ID_ID_INTERPOLATE, 7, 8, .5f.toRawBits()),
+        ),
       )
 
     assertEquals(0, state.color(30))
@@ -1346,8 +1350,8 @@ class RcPlayerStateTest {
               RcLayoutContent(2),
               listOf(
                 RcLinkedNode.Operation(
-                  RcColorTheme(30, 0, 0, 0, 0xffeeeeee.toInt(), 0xff111111.toInt())
-                )
+                  RcColorTheme(30, 0, 0, 0, 0xffeeeeee.toInt(), 0xff111111.toInt()),
+                ),
               ),
             ),
             RcLinkedNode.Container(
@@ -1355,7 +1359,7 @@ class RcPlayerStateTest {
               listOf(
                 RcLinkedNode.Operation(RcTheme(RcTheme.DARK)),
                 RcLinkedNode.Operation(
-                  RcColorTheme(31, 0, 0, 0, 0xffabcdef.toInt(), 0xff123456.toInt())
+                  RcColorTheme(31, 0, 0, 0, 0xffabcdef.toInt(), 0xff123456.toInt()),
                 ),
               ),
             ),
@@ -1363,12 +1367,12 @@ class RcPlayerStateTest {
               RcLayoutContent(4),
               listOf(
                 RcLinkedNode.Operation(
-                  RcColorTheme(32, 0, 0, 0, 0xfffedcba.toInt(), 0xff654321.toInt())
-                )
+                  RcColorTheme(32, 0, 0, 0, 0xfffedcba.toInt(), 0xff654321.toInt()),
+                ),
               ),
             ),
           ),
-        )
+        ),
       )
 
     state.applyLayoutContentStateOperations(tree, RcTheme.LIGHT)
@@ -1391,7 +1395,7 @@ class RcPlayerStateTest {
         RcDocument(
           RcHeader(RcVersion(0, 1, 0)),
           listOf(RcColorConstant(7, 0x80ffffff.toInt())),
-        )
+        ),
       )
     val tree =
       listOf(
@@ -1404,17 +1408,17 @@ class RcPlayerStateTest {
                 RcLinkedNode.Container(
                   RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
                   listOf(
-                    RcLinkedNode.Operation(RcColorAttribute(30, 7, RcColorAttribute.COLOR_ALPHA))
+                    RcLinkedNode.Operation(RcColorAttribute(30, 7, RcColorAttribute.COLOR_ALPHA)),
                   ),
                 ),
                 // The sibling that reads it — the shape the label's colour chain has.
                 RcLinkedNode.Operation(
-                  RcFloatExpression(31, listOf(RcFloatWord(0x7fc00000 or 30)), null)
+                  RcFloatExpression(31, listOf(RcFloatWord(0x7fc00000 or 30)), null),
                 ),
               ),
-            )
+            ),
           ),
-        )
+        ),
       )
 
     state.applyLayoutContentStateOperations(tree)
@@ -1430,12 +1434,12 @@ class RcPlayerStateTest {
         RcDocument(
           RcHeader(RcVersion(0, 1, 0)),
           listOf(RcColorConstant(7, 0xff000000.toInt()), RcColorConstant(8, 0xffffffff.toInt())),
-        )
+        ),
       )
     val operations =
       listOf<RcLinkedNode>(
         RcLinkedNode.Operation(
-          RcColorExpression(30, RcColorExpression.ID_ID_INTERPOLATE, 7, 8, .5f.toRawBits())
+          RcColorExpression(30, RcColorExpression.ID_ID_INTERPOLATE, 7, 8, .5f.toRawBits()),
         ),
         RcLinkedNode.Operation(RcColorAttribute(31, 30, RcColorAttribute.COLOR_BRIGHTNESS)),
       )
@@ -1460,7 +1464,7 @@ class RcPlayerStateTest {
             RcIdList(10, listOf(1, 2)),
             RcIdMap(11, listOf(RcDataMapEntry("temperature", RcIdMap.TYPE_FLOAT, 5))),
           ),
-        )
+        ),
       )
 
     state.applyTextOperation(RcTextLookup(20, 10, RcFloatWord.literal(1f)))

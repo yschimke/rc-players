@@ -608,13 +608,13 @@ internal data class RcDrawOperationInspectable(
                         ValueElement(
                             "v1",
                             RcPlayerInspector.resolveFloatOrRaw(op.value1, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "v2",
                             RcPlayerInspector.resolveFloatOrRaw(op.value2, remoteContext),
-                        )
+                        ),
                     )
                 }
                 is DrawBase3 -> {
@@ -622,19 +622,19 @@ internal data class RcDrawOperationInspectable(
                         ValueElement(
                             "v1",
                             RcPlayerInspector.resolveFloatOrRaw(op.value1, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "v2",
                             RcPlayerInspector.resolveFloatOrRaw(op.value2, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "v3",
                             RcPlayerInspector.resolveFloatOrRaw(op.value3, remoteContext),
-                        )
+                        ),
                     )
                 }
                 is DrawBase4 -> {
@@ -642,25 +642,25 @@ internal data class RcDrawOperationInspectable(
                         ValueElement(
                             "x1",
                             RcPlayerInspector.resolveFloatOrRaw(op.x1Value, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "y1",
                             RcPlayerInspector.resolveFloatOrRaw(op.y1Value, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "x2",
                             RcPlayerInspector.resolveFloatOrRaw(op.x2Value, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "y2",
                             RcPlayerInspector.resolveFloatOrRaw(op.y2Value, remoteContext),
-                        )
+                        ),
                     )
                 }
                 is DrawBase6 -> {
@@ -668,37 +668,37 @@ internal data class RcDrawOperationInspectable(
                         ValueElement(
                             "v1",
                             RcPlayerInspector.resolveFloatOrRaw(op.value1, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "v2",
                             RcPlayerInspector.resolveFloatOrRaw(op.value2, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "v3",
                             RcPlayerInspector.resolveFloatOrRaw(op.value3, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "v4",
                             RcPlayerInspector.resolveFloatOrRaw(op.value4, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "v5",
                             RcPlayerInspector.resolveFloatOrRaw(op.value5, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "v6",
                             RcPlayerInspector.resolveFloatOrRaw(op.value6, remoteContext),
-                        )
+                        ),
                     )
                 }
                 is DrawPath -> {
@@ -717,25 +717,25 @@ internal data class RcDrawOperationInspectable(
                         ValueElement(
                             "left",
                             RcPlayerInspector.resolveFloatOrRaw(op.left, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "top",
                             RcPlayerInspector.resolveFloatOrRaw(op.top, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "right",
                             RcPlayerInspector.resolveFloatOrRaw(op.right, remoteContext),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
                             "bottom",
                             RcPlayerInspector.resolveFloatOrRaw(op.bottom, remoteContext),
-                        )
+                        ),
                     )
                 }
                 is DrawBitmapScaled -> {
@@ -762,7 +762,7 @@ internal data class RcDrawOperationInspectable(
                                 op.hOffset,
                                 remoteContext,
                             ),
-                        )
+                        ),
                     )
                     yield(
                         ValueElement(
@@ -771,7 +771,7 @@ internal data class RcDrawOperationInspectable(
                                 op.vOffset,
                                 remoteContext,
                             ),
-                        )
+                        ),
                     )
                 }
                 is ClipPath -> {

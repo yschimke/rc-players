@@ -97,7 +97,7 @@ class RcPrimitive3DTest {
             0.18f,
             0.50f,
             0.08f,
-          )
+          ),
         ),
       ),
       Case("torus", RcPrimitive3D.TORUS, 20f, 0, listOf(f(1.0f, 0.35f, 0f, 0f, 0f))),
@@ -166,7 +166,7 @@ class RcPrimitive3DTest {
             1.0f,
             -1.0f,
             1.0f,
-          )
+          ),
         ),
       ),
       Case(
@@ -200,7 +200,7 @@ class RcPrimitive3DTest {
             0.45f,
             0.45f,
             -0.45f,
-          )
+          ),
         ),
       ),
       Case(
@@ -234,7 +234,7 @@ class RcPrimitive3DTest {
             0.45f,
             0.45f,
             -0.45f,
-          )
+          ),
         ),
       ),
       Case(

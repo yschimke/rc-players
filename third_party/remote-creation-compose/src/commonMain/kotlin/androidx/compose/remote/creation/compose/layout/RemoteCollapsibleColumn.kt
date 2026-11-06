@@ -46,7 +46,7 @@ public class RemoteCollapsibleColumnScope {
      * @param weight The weight of the child.
      */
     public fun RemoteModifier.weight(
-        @FloatRange(from = 0.0, fromInclusive = false) weight: Float
+        @FloatRange(from = 0.0, fromInclusive = false) weight: Float,
     ): RemoteModifier = then(HeightModifier(RemoteDimensionType.WEIGHT, RemoteFloat(weight)))
 
     /**
@@ -78,7 +78,7 @@ internal class RemoteCollapsibleColumnNode : RemoteLayoutNode() {
                 remoteModifier,
                 horizontalAlignment.toRemote(layoutDirection),
                 verticalArrangement.toRemote(),
-            )
+            ),
         )
         renderChildren(creationState, remoteCanvas)
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndCollapsibleColumn)

@@ -52,9 +52,9 @@ class RunnerAccountingTest {
             "timeline": $timeline,
             "checks": $checks
           }
-          """
+          """,
         )
-        .jsonObject
+        .jsonObject,
     )
 
   /** Drives whatever it is given and observes whatever it is told to. */
@@ -73,7 +73,7 @@ class RunnerAccountingTest {
           }
 
           override fun observe(check: Check) = observation(check)
-        }
+        },
       )
   }
 
@@ -81,7 +81,7 @@ class RunnerAccountingTest {
   fun aCheckBoundToAnUnrunStepFailsRatherThanVanishing() {
     val result =
       ConformanceRunner(
-          FakeEngine(drivable = setOf("paint")) { Observation.Value(JsonPrimitive(1)) }
+          FakeEngine(drivable = setOf("paint")) { Observation.Value(JsonPrimitive(1)) },
         )
         .run(
           gold(
@@ -90,7 +90,7 @@ class RunnerAccountingTest {
             checks =
               """[{"at":"initial","probe":"float","target":"a","expect":1},
                   {"at":"later","probe":"float","target":"b","expect":2}]""",
-          )
+          ),
         )
 
     assertEquals(1, result.checksFailed, "the check on the undriveable step was lost")
@@ -106,7 +106,7 @@ class RunnerAccountingTest {
           gold(
             timeline = """[{"id":"initial","kind":"paint"}]""",
             checks = """[{"at":"initial","probe":"tree","expect":[]}]""",
-          )
+          ),
         )
 
     assertEquals("FAIL", result.status)
@@ -126,7 +126,7 @@ class RunnerAccountingTest {
 
     val matching =
       ConformanceRunner(
-          FakeEngine(drivable = setOf("paint")) { Observation.Value(JsonPrimitive(42.0)) }
+          FakeEngine(drivable = setOf("paint")) { Observation.Value(JsonPrimitive(42.0)) },
         )
         .run(gold(timeline, checks))
     assertEquals("PASS", matching.status)
@@ -141,7 +141,7 @@ class RunnerAccountingTest {
     val checks = """[{"at":"initial","probe":"text","target":22,"expect":"00123.5"}]"""
     fun run(actual: String) =
       ConformanceRunner(
-          FakeEngine(drivable = setOf("paint")) { Observation.Value(JsonPrimitive(actual)) }
+          FakeEngine(drivable = setOf("paint")) { Observation.Value(JsonPrimitive(actual)) },
         )
         .run(gold(timeline, checks))
         .status
@@ -169,7 +169,7 @@ class RunnerAccountingTest {
           gold(
             timeline,
             """[{"at":"initial","probe":"float","target":"a","expect":42,"tolerance":0.01}]""",
-          )
+          ),
         )
         .status,
     )
@@ -189,14 +189,14 @@ class RunnerAccountingTest {
               "timeline": [{"id":"initial","kind":"paint"}],
               "checks": [{"at":"initial","probe":"float","target":"a","expect":1}]
             }
-            """
+            """,
           )
-          .jsonObject
+          .jsonObject,
       )
 
     val result =
       ConformanceRunner(
-          FakeEngine(drivable = setOf("paint")) { Observation.Value(JsonPrimitive(9)) }
+          FakeEngine(drivable = setOf("paint")) { Observation.Value(JsonPrimitive(9)) },
         )
         .run(suspicious)
 
@@ -250,7 +250,7 @@ class RunnerAccountingTest {
     }
     val result =
       ConformanceRunner(
-          FakeEngine(drivable = setOf("paint")) { Observation.Raster(8, 8, frame(nearRed)) }
+          FakeEngine(drivable = setOf("paint")) { Observation.Raster(8, 8, frame(nearRed)) },
         )
         .run(rasterGold(solidDataUri(red)))
 
@@ -273,7 +273,7 @@ class RunnerAccountingTest {
       ConformanceRunner(
           FakeEngine(drivable = setOf("paint")) {
             Observation.Raster(8, 8, frame { 0xFF2196F3.toInt() }) // blue where the gold is red
-          }
+          },
         )
         .run(rasterGold(solidDataUri(0xFFE53935.toInt())))
 
@@ -294,7 +294,7 @@ class RunnerAccountingTest {
       ConformanceRunner(
           FakeEngine(drivable = setOf("paint")) {
             Observation.Raster(8, 8, frame { 0xFF2196F3.toInt() })
-          }
+          },
         )
         .run(rasterGold(solidDataUri(red)))
 
@@ -309,14 +309,14 @@ class RunnerAccountingTest {
     assertEquals(196, (entry["maxDelta"] as JsonPrimitive).content.toInt())
     assertTrue((entry["diffHeatmapBase64"] as JsonPrimitive).content.startsWith("data:image/png"))
     assertTrue(
-      (entry["renderedCanvasBase64"] as JsonPrimitive).content.startsWith("data:image/png")
+      (entry["renderedCanvasBase64"] as JsonPrimitive).content.startsWith("data:image/png"),
     )
     // And per step, which is what the resize/animation views read.
     val stepComparison = (entry["rasterComparisons"] as JsonArray).single().jsonObject
     assertEquals("initial", (stepComparison["at"] as JsonPrimitive).content)
     assertEquals(64, (stepComparison["aaPixels"] as JsonPrimitive).content.toInt())
     assertTrue(
-      (stepComparison["diffHeatmapBase64"] as JsonPrimitive).content.startsWith("data:image/png")
+      (stepComparison["diffHeatmapBase64"] as JsonPrimitive).content.startsWith("data:image/png"),
     )
   }
 }

@@ -56,7 +56,7 @@ class RcComponentOffscreenSupportTest {
               enterAnimation = RcLayoutAnimation.FadeIn,
               exitAnimation = RcLayoutAnimation.Custom,
               exitFunctionId = 500,
-            )
+            ),
           ),
       )
 
@@ -130,7 +130,7 @@ class RcComponentOffscreenSupportTest {
           1,
           "DrawToBitmap",
           "component offscreen buffer 820 has no component to size it to",
-        )
+        ),
       ),
       issues,
     )

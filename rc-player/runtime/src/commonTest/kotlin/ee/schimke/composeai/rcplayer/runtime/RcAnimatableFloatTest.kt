@@ -80,7 +80,7 @@ class RcAnimatableFloatTest {
         RcDocument(
           RcHeader(RcVersion(1, 0, 0)),
           listOf(RcFloatExpression(51, listOf(movingSecond), null)),
-        )
+        ),
       )
 
     assertTrue(state.isContinuouslyDriven(51), "an expression over the clock moves every frame")
@@ -118,8 +118,8 @@ class RcAnimatableFloatTest {
           RcGraphicsLayerAttribute.FloatValue(
             RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X,
             RcFloatWord.literal(0.5f),
-          )
-        )
+          ),
+        ),
       )
 
     val values = RcGraphicsLayerAnimator().evaluate(modifier, state)
@@ -136,11 +136,11 @@ class RcAnimatableFloatTest {
         RcDocument(
           RcHeader(RcVersion(1, 0, 0)),
           listOf(RcFloatConstant(51, RcFloatWord.literal(0f))),
-        )
+        ),
       )
     val modifier =
       RcGraphicsLayerModifier(
-        listOf(RcGraphicsLayerAttribute.FloatValue(RcGraphicsLayerModifier.ALPHA, reference))
+        listOf(RcGraphicsLayerAttribute.FloatValue(RcGraphicsLayerModifier.ALPHA, reference)),
       )
     val animator = RcGraphicsLayerAnimator()
 

@@ -129,7 +129,7 @@ class Rc3DWebGlDepthTest {
     val mean = total.toDouble() / (both * 3).coerceAtLeast(1)
     println(
       "Rc3DProbe depth $name: drew=$drew gpu covered=$coveredA software covered=$coveredB " +
-        "differ=$differ mean=$mean"
+        "differ=$differ mean=$mean",
     )
     publishRender(name, software, gpu)
     for (size in intArrayOf(SIZE, BENCH_SIZE)) benchmark(name, size, texture, scene, renderer)
@@ -206,7 +206,7 @@ class Rc3DWebGlDepthTest {
     }
     println(
       "Rc3DProbe bench $name ${size}px: software=${round(softwareMs)} ms " +
-        "webgl2=${round(gpuMs)} ms per frame"
+        "webgl2=${round(gpuMs)} ms per frame",
     )
   }
 

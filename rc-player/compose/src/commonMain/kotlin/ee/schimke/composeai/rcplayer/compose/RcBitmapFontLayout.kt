@@ -332,13 +332,15 @@ private fun DrawScope.drawBitmapGlyphs(
   placements.forEach { placement ->
     val image = images[placement.bitmapId] ?: return@forEach
     if (placement.width <= 0f || placement.height <= 0f) return@forEach
-    withTransform({
-      if (placement.angleDegrees != 0f) {
-        rotate(placement.angleDegrees, placement.rotationCenter)
-      }
-      translate(placement.left, placement.top)
-      scale(placement.width / image.width, placement.height / image.height, Offset.Zero)
-    }) {
+    withTransform(
+      {
+        if (placement.angleDegrees != 0f) {
+          rotate(placement.angleDegrees, placement.rotationCenter)
+        }
+        translate(placement.left, placement.top)
+        scale(placement.width / image.width, placement.height / image.height, Offset.Zero)
+      },
+    ) {
       // The rect overload, the one that takes a sampling quality, with the whole paint: AndroidX
       // draws each glyph through `drawBitmap`, so a colour filter tints it as it tints a bitmap.
       drawImage(

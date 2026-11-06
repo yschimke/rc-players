@@ -33,7 +33,7 @@ import androidx.compose.runtime.Stable
 @Stable
 public class RemoteDp
 internal constructor(
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val value: RemoteFloat
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val value: RemoteFloat,
 ) : BaseRemoteState<Float>(RemoteStateInstanceKey()) {
     internal override val cacheKey: RemoteStateCacheKey
         get() = RemoteOperationCacheKey.create(OperationKey.ToPx, value)
@@ -276,7 +276,7 @@ internal constructor(
                     name = name,
                     defaultValue = defaultValue,
                     domain = domain,
-                )
+                ),
             )
         }
 
@@ -356,7 +356,7 @@ public fun RemoteFloat.toRemoteDp(): RemoteDp {
         ) { creationState ->
             val density = creationState.remoteDensity
             (this / density.density).arrayForCreationState(creationState)
-        }
+        },
     )
 }
 

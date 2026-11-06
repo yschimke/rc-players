@@ -131,7 +131,7 @@ public object RcDocumentLinker {
         operation.opcode in RcOpcodes.CONTAINER_STARTS -> {
           if (stack.size >= MAX_NESTING_DEPTH) {
             throw RcLinkException(
-              "Container nesting exceeds $MAX_NESTING_DEPTH at operation $index"
+              "Container nesting exceeds $MAX_NESTING_DEPTH at operation $index",
             )
           }
           val frame = Frame(operation, destination, mutableListOf())
@@ -150,7 +150,7 @@ public object RcDocumentLinker {
     }
     if (stack.isNotEmpty()) {
       throw RcLinkException(
-        "Unclosed ${stack.last().operation::class.simpleName} container at end of document"
+        "Unclosed ${stack.last().operation::class.simpleName} container at end of document",
       )
     }
     return root
@@ -215,7 +215,7 @@ public object RcDocumentLinker {
             state.macros[call.id] ?: throw RcLinkException("Missing MacroDefine id ${call.id}")
           if (definition.parameterIds.size != call.argumentIds.size) {
             throw RcLinkException(
-              "Macro ${call.id} expects ${definition.parameterIds.size} arguments, got ${call.argumentIds.size}"
+              "Macro ${call.id} expects ${definition.parameterIds.size} arguments, got ${call.argumentIds.size}",
             )
           }
           val callBlocks = mutableMapOf<Int, List<RcLinkedNode>>()
@@ -318,7 +318,7 @@ public object RcDocumentLinker {
         limits = limits,
         idRemapper = remapper,
         operationBudget = operationBudget,
-      )
+      ),
     )
   }
 

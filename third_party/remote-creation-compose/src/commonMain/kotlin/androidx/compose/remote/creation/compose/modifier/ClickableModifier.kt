@@ -71,7 +71,7 @@ internal fun RemoteModifier.clickableImpl(
                 if (actions.isNotEmpty()) ClickableModifier(actions) else RemoteModifier
             } else {
                 RemoteModifier
-            }
+            },
         )
         .then(
             if (role != null)
@@ -79,5 +79,5 @@ internal fun RemoteModifier.clickableImpl(
                     this.remoteRole = role
                     this.enabled = enabled
                 }
-            else RemoteModifier
+            else RemoteModifier,
         )

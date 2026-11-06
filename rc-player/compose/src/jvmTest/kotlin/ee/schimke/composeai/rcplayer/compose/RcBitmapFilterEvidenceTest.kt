@@ -62,7 +62,7 @@ class RcBitmapFilterEvidenceTest {
             RcBitmapData.TYPE_RAW8888,
             RcBitmapData.ENCODING_INLINE,
             checker,
-          )
+          ),
         ) + draw(0f, FILTER_BITMAP) + draw(208f, FILTER_BITMAP or (1 shl 16)),
       )
     val scene =

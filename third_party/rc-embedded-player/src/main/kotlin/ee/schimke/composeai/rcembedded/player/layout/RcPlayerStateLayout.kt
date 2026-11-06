@@ -115,7 +115,7 @@ internal fun RcPlayerStateLayout(layout: StateLayout, modifier: Modifier) {
                         EnterTransition.None
                     } else {
                         fadeIn(
-                            animationSpec = tween(durationMillis = fadeDuration, easing = easing)
+                            animationSpec = tween(durationMillis = fadeDuration, easing = easing),
                         )
                     }
                 val exit =
@@ -123,7 +123,7 @@ internal fun RcPlayerStateLayout(layout: StateLayout, modifier: Modifier) {
                         ExitTransition.None
                     } else {
                         fadeOut(
-                            animationSpec = tween(durationMillis = fadeDuration, easing = easing)
+                            animationSpec = tween(durationMillis = fadeDuration, easing = easing),
                         )
                     }
                 (enter togetherWith exit).using(
@@ -133,7 +133,7 @@ internal fun RcPlayerStateLayout(layout: StateLayout, modifier: Modifier) {
                         } else {
                             tween(durationMillis = motionDuration, easing = easing)
                         }
-                    }
+                    },
                 )
             },
         ) { currentIndex ->

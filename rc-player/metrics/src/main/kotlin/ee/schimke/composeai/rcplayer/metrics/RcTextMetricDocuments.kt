@@ -166,7 +166,7 @@ public object RcTextMetricDocuments {
 
       add(RcNoArg(RcOpcodes.MATRIX_SAVE))
       add(
-        RcTransform2(RcOpcodes.MATRIX_TRANSLATE, literal(CARD_ORIGIN_X), literal(CARD_BASELINE_Y))
+        RcTransform2(RcOpcodes.MATRIX_TRANSLATE, literal(CARD_ORIGIN_X), literal(CARD_BASELINE_Y)),
       )
 
       // Glyphs first, guides over them: a rule hidden behind a stem cannot be compared.
@@ -188,7 +188,7 @@ public object RcTextMetricDocuments {
           when (guide.orientation) {
             RcGuideOrientation.HORIZONTAL -> line(literal(left), value, literal(right), value)
             RcGuideOrientation.VERTICAL -> line(value, literal(top), value, literal(bottom))
-          }
+          },
         )
       }
       add(RcNoArg(RcOpcodes.MATRIX_RESTORE))
@@ -221,7 +221,7 @@ public object RcTextMetricDocuments {
           digitsBefore = 3,
           digitsAfter = 1,
           flags = NO_LEADING_PAD,
-        )
+        ),
       )
       add(drawText(valueTextId(guide), columnX + LEGEND_VALUE_OFFSET, y))
     }
@@ -280,7 +280,7 @@ public object RcTextMetricDocuments {
           TEXT_TITLE,
           "per requested weight · ${SWEEP_SPECIMEN_SIZE.toInt()}px · " +
             "magenta = advance, green = ink width",
-        )
+        ),
       )
       SWEEP_WEIGHTS.forEachIndexed { index, weight ->
         add(RcTextData(TEXT_SWEEP_LABEL + index, "wght $weight"))
@@ -315,7 +315,7 @@ public object RcTextMetricDocuments {
             digitsBefore = 3,
             digitsAfter = 1,
             flags = NO_LEADING_PAD,
-          )
+          ),
         )
         add(drawText(TEXT_SWEEP_VALUE + index, (SWEEP_WIDTH - 150).toFloat(), baseline))
         addAll(labelPaint(RcTextGuide.INK_RIGHT.colorArgb, LABEL_SIZE))
@@ -326,7 +326,7 @@ public object RcTextMetricDocuments {
             digitsBefore = 3,
             digitsAfter = 1,
             flags = NO_LEADING_PAD,
-          )
+          ),
         )
         add(drawText(TEXT_SWEEP_INK_VALUE + index, (SWEEP_WIDTH - 76).toFloat(), baseline))
       }
@@ -356,7 +356,7 @@ public object RcTextMetricDocuments {
         RcTextData(
           TEXT_TITLE,
           "wght $weight · ${SWEEP_SPECIMEN_SIZE.toInt()}px · advance, ink width",
-        )
+        ),
       )
       addAll(background(SWEEP_WIDTH, height))
       addAll(labelPaint(TITLE_COLOR, LABEL_SIZE + 2f))
@@ -368,17 +368,17 @@ public object RcTextMetricDocuments {
           outId = SWEEP_FLOAT_BASE,
           textId = TEXT_SPECIMEN,
           type = RcTextGuide.ADVANCE.type,
-        )
+        ),
       )
       add(
-        RcTextMeasure(outId = SWEEP_INK_FLOAT_BASE, textId = TEXT_SPECIMEN, type = INK_WIDTH_TYPE)
+        RcTextMeasure(outId = SWEEP_INK_FLOAT_BASE, textId = TEXT_SPECIMEN, type = INK_WIDTH_TYPE),
       )
       add(RcNoArg(RcOpcodes.MATRIX_SAVE))
       add(RcTransform2(RcOpcodes.MATRIX_TRANSLATE, literal(SWEEP_ORIGIN_X), literal(baseline)))
       add(drawText(TEXT_SPECIMEN, 0f, 0f))
       addAll(strokePaint(RcTextGuide.ADVANCE.colorArgb, 1f))
       add(
-        line(reference(SWEEP_FLOAT_BASE), literal(-32f), reference(SWEEP_FLOAT_BASE), literal(14f))
+        line(reference(SWEEP_FLOAT_BASE), literal(-32f), reference(SWEEP_FLOAT_BASE), literal(14f)),
       )
       add(RcNoArg(RcOpcodes.MATRIX_RESTORE))
 
@@ -390,7 +390,7 @@ public object RcTextMetricDocuments {
           digitsBefore = 3,
           digitsAfter = 1,
           flags = NO_LEADING_PAD,
-        )
+        ),
       )
       add(drawText(TEXT_SWEEP_VALUE, (SWEEP_WIDTH - 150).toFloat(), baseline))
       addAll(labelPaint(RcTextGuide.INK_RIGHT.colorArgb, LABEL_SIZE))
@@ -401,7 +401,7 @@ public object RcTextMetricDocuments {
           digitsBefore = 3,
           digitsAfter = 1,
           flags = NO_LEADING_PAD,
-        )
+        ),
       )
       add(drawText(TEXT_SWEEP_INK_VALUE, (SWEEP_WIDTH - 76).toFloat(), baseline))
     }
@@ -733,7 +733,7 @@ public object RcTextMetricDocuments {
                   outId = MODE_ADVANCE_FLOAT,
                   textId = TEXT_SPECIMEN,
                   type = RcTextGuide.ADVANCE.type,
-                )
+                ),
               )
               addAll(strokePaint(BOX_GUIDE_COLOR, 1f))
               add(
@@ -743,7 +743,7 @@ public object RcTextMetricDocuments {
                   literal(0f),
                   literal(MODE_BOX_WIDTH.toFloat()),
                   literal(MODE_BOX_HEIGHT.toFloat()),
-                )
+                ),
               )
 
               // The advance rule shares the box's left edge, so it is directly comparable to the
@@ -757,7 +757,7 @@ public object RcTextMetricDocuments {
                   literal(-6f),
                   reference(MODE_ADVANCE_FLOAT),
                   literal(MODE_BOX_HEIGHT + 6f),
-                )
+                ),
               )
 
               addAll(labelPaint(TITLE_COLOR, LABEL_SIZE + 2f))
@@ -770,13 +770,13 @@ public object RcTextMetricDocuments {
                   digitsBefore = 4,
                   digitsAfter = 1,
                   flags = NO_LEADING_PAD,
-                )
+                ),
               )
               add(drawText(TEXT_MODE_ADVANCE_VALUE, 12f, MODE_BOX_HEIGHT + 72f))
               addAll(labelPaint(BOX_GUIDE_COLOR, LABEL_SIZE))
               add(drawText(TEXT_MODE_BOX_NOTE, 72f, MODE_BOX_HEIGHT + 72f))
             },
-        )
+        ),
       )
 
       add(END) // content 4
@@ -1066,8 +1066,8 @@ public object RcTextMetricDocuments {
           PAINT_STYLE or (PAINT_STYLE_STROKE shl 16),
           PAINT_STROKE_WIDTH,
           widthPx.toRawBits(),
-        )
-      )
+        ),
+      ),
     )
 
   private fun labelPaint(argb: Int, sizePx: Float): List<RcOperation> =
@@ -1101,8 +1101,8 @@ public object RcTextMetricDocuments {
           sizePx.toRawBits(),
           PAINT_TYPEFACE or (style shl 16),
           fontFamilyId,
-        )
-      )
+        ),
+      ),
     )
   }
 }

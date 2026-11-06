@@ -176,13 +176,13 @@ public fun RcDocument.coreTextAsImages(
               widthWord,
               heightWord,
               0,
-            )
+            ),
           )
           add(END)
           add(END)
         } else {
           add(
-            RcImageLayout(ids.nextComponent(), -1, bitmapId, SCALE_INSIDE, RcFloatWord.literal(1f))
+            RcImageLayout(ids.nextComponent(), -1, bitmapId, SCALE_INSIDE, RcFloatWord.literal(1f)),
           )
           add(RcWidthModifier(RcDimensionType.EXACT, widthWord))
           add(RcHeightModifier(RcDimensionType.EXACT, heightWord))

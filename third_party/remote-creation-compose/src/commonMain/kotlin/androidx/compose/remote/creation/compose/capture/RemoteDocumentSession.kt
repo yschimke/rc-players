@@ -191,7 +191,7 @@ public class RemoteDocumentSession(
      * on every edit and a PNG encode costs far more than the rest of a render.
      */
     private inner class SessionPngImageProvider(
-        private val encodePng: (ImageBitmap) -> ByteArray?
+        private val encodePng: (ImageBitmap) -> ByteArray?,
     ) : PlatformImageProvider {
         private val encoded = HashMap<ImageBitmap, ByteArray?>()
 

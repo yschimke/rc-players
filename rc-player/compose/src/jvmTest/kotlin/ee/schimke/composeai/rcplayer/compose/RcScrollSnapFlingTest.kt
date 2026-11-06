@@ -82,7 +82,7 @@ class RcScrollSnapFlingTest {
         0f,
         70f,
         160f,
-      )
+      ),
     ) {
       drag(distance = 90f, velocity = 0f)
       assertEquals(70f, scrollPosition())
@@ -95,7 +95,7 @@ class RcScrollSnapFlingTest {
         RcTouchExpression.STOP_NOTCHES_SINGLE_EVEN,
         4f,
         160f,
-      )
+      ),
     ) {
       drag(distance = 20f, velocity = 800f)
       assertEquals(40f, scrollPosition())

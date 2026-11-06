@@ -137,7 +137,7 @@ class RcDocumentFontRenderTest {
     directory
       .resolve("canvas-fontdata-wdth.png")
       .writeBytes(
-        stack(widths.map { canvasDocument(RcFloatWord.literal(it), familyName = FAMILY_NAME) })
+        stack(widths.map { canvasDocument(RcFloatWord.literal(it), familyName = FAMILY_NAME) }),
       )
   }
 
@@ -214,7 +214,7 @@ class RcDocumentFontRenderTest {
               PAINT_FONT_AXIS or (1 shl 16),
               44,
               wdth.bits,
-            )
+            ),
           ),
           RcDrawText(
             42,

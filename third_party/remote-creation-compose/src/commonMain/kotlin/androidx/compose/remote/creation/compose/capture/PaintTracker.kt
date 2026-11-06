@@ -226,7 +226,7 @@ internal class PaintTracker {
                 when {
                     !remoteMatrix3x3.isIdentity -> {
                         paintBundle.setShaderMatrix(
-                            remoteMatrix3x3.getFloatIdForCreationState(creationState)
+                            remoteMatrix3x3.getFloatIdForCreationState(creationState),
                         )
                         usingShaderMatrix = true
                     }
@@ -266,7 +266,7 @@ internal class PaintTracker {
     }
 
     private fun extractFontSettings(
-        settings: List<FontVariation.Setting>?
+        settings: List<FontVariation.Setting>?,
     ): Pair<Array<String>?, FloatArray?> {
         val size = settings?.size ?: return Pair(null, null)
 

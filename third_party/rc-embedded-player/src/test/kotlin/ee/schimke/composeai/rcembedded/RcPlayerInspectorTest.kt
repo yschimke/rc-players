@@ -77,7 +77,7 @@ class RcPlayerInspectorTest {
                     Modifier.size(
                         with(documentDensity) { WIDTH.toDp() },
                         with(documentDensity) { HEIGHT.toDp() },
-                    )
+                    ),
                 ) {
                     RcPlayer(state = state, modifier = Modifier.fillMaxSize())
                 }

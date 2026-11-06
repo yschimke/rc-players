@@ -79,7 +79,7 @@ public fun RcInputField.requireValid(): Unit {
   require(
     kind == RcInputKind.NUMBER ||
       kind == RcInputKind.RANGE ||
-      listOf(minimum, maximum, step).all { it == null }
+      listOf(minimum, maximum, step).all { it == null },
   )
   require(listOfNotNull(minimum, maximum, step).all { it.isFinite() })
   require(minimum == null || maximum == null || minimum <= maximum)
@@ -87,7 +87,7 @@ public fun RcInputField.requireValid(): Unit {
   require(submit.isEmpty() || submitLabel.isNotBlank())
   require(
     (value.isEmpty() && kind in setOf(RcInputKind.NUMBER, RcInputKind.CHOICE)) ||
-      rcInputValueIsValid(kind.config, value, options, minimum, maximum, step)
+      rcInputValueIsValid(kind.config, value, options, minimum, maximum, step),
   ) {
     "Invalid initial input value: $key"
   }

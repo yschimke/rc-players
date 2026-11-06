@@ -29,7 +29,7 @@ import androidx.compose.ui.semantics.Role
 public class SemanticsPropertyKey<T>
 internal constructor(
     /** The name of the property. Should be the same as the constant from which it is accessed. */
-    public val name: String
+    public val name: String,
 ) {
     override fun toString(): String {
         return "SemanticsPropertyKey: $name"
@@ -202,7 +202,7 @@ internal class AccessibilitySemantics : SemanticsPropertyReceiver {
  * @param properties A lambda to configure the semantics.
  */
 public fun RemoteModifier.clearAndSetSemantics(
-    properties: SemanticsPropertyReceiver.() -> Unit
+    properties: SemanticsPropertyReceiver.() -> Unit,
 ): RemoteModifier =
     then(SemanticsModifier(1, AccessibilitySemantics().apply(properties).props.toMap()))
 
@@ -220,5 +220,5 @@ public fun RemoteModifier.semantics(
         SemanticsModifier(
             if (mergeDescendants) 2 else 0,
             AccessibilitySemantics().apply(properties).props.toMap(),
-        )
+        ),
     )

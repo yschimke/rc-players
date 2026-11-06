@@ -216,7 +216,7 @@ public class RemoteDocumentWriter(
             0 -> ModifierTouchDown
             1 -> ModifierTouchUp
             else -> ModifierTouchCancel
-          }
+          },
         )
         modifier.actions.forEach(::writeAction)
         containerEnd()

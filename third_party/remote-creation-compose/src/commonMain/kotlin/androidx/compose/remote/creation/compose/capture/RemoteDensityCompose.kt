@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.TextUnit
  * @return A [RemoteDensity] instance with the density and font scale from the display info.
  */
 internal fun RemoteDensity.Companion.from(
-    creationDisplayInfo: RemoteCreationDisplayInfo
+    creationDisplayInfo: RemoteCreationDisplayInfo,
 ): RemoteDensity {
     return RemoteDensity(
         creationDisplayInfo.density.density.rf,

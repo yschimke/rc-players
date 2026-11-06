@@ -129,7 +129,7 @@ class RcToKotlinRoundTripTest {
         RemoteCreationDisplayInfo(360, 480, dpi, densityBehavior = behavior),
         encodePng = ::encodePng,
         content = content,
-      )
+      ),
     )
   }
 
@@ -205,7 +205,7 @@ class RcToKotlinRoundTripTest {
           }
           val bitmap = Bitmap.makeFromImage(Image.makeFromEncoded(operation.data))
           operation.copy(type = -1, data = bitmap.readPixels()!!)
-        }
+        },
     )
 
   /** The kinds of layout component a document builds, in document order. */

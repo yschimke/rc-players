@@ -49,7 +49,7 @@ class RcAnimationTimelineTest {
           visibilityEasingType = 4,
           enterAnimation = RcLayoutAnimation.FadeIn,
           exitAnimation = RcLayoutAnimation.FadeOut,
-        )
+        ),
       )
 
     assertEquals(RcAnimationProgress(0f, 0f), timeline.progress(0f))

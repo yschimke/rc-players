@@ -249,6 +249,7 @@ tasks.withType<Test>().configureEach {
       "rc.android.out",
       "rc.android.settleFrames",
       "rc.textImages.out",
+      "rc.bitmapFonts.out",
     )) {
     (project.findProperty(name) as String?)?.let { systemProperty(name, it) }
   }
@@ -316,7 +317,7 @@ val rcNativePlayerUIKitProfile =
         inputs.files.singleFile
           .readText()
           .replace("@VERSION@", inputs.properties.getValue("releaseVersion").toString())
-          .replace("@SOURCE_REVISION@", inputs.properties.getValue("sourceRevision").toString())
+          .replace("@SOURCE_REVISION@", inputs.properties.getValue("sourceRevision").toString()),
       )
     }
   }

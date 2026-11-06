@@ -31,7 +31,7 @@ class CorpusActivity : ComponentActivity() {
     setContent {
       LazyColumn(
         modifier =
-          Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }.testTag("corpus")
+          Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }.testTag("corpus"),
       ) {
         items(documents, key = { it }) { name ->
           val bytes = remember(name) { assets.open(name).use { it.readBytes() } }

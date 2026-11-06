@@ -15,7 +15,7 @@ class BorderModifierWriteTest {
             color = 0xFF112233.toInt(),
             dynamicColor = false,
             shapeType = 2,
-          )
+          ),
         )
         encodeToByteArray()
       }

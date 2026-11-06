@@ -30,7 +30,7 @@ fun VariableLengthsSampleDp() {
   ) {
     RemoteBox(
       modifier =
-        RemoteModifier.size(16.rdp).border(layoutGap.asRemoteDp(), RemoteColor(Color(0xFF000000)))
+        RemoteModifier.size(16.rdp).border(layoutGap.asRemoteDp(), RemoteColor(Color(0xFF000000))),
     )
     RemoteBox(modifier = RemoteModifier.size(16.rdp).padding(layoutGap.asRemoteDp()))
   }

@@ -245,7 +245,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
                 CompareGE -> (args[0] as RemoteFloat).isGreaterThanOrEqualTo(args[1] as RemoteFloat)
                 Reference ->
                     (args[0] as RemoteFloat).createReference(
-                        (args.getOrNull(1) as? RemoteBoolean)?.constantValueOrNull ?: false
+                        (args.getOrNull(1) as? RemoteBoolean)?.constantValueOrNull ?: false,
                     )
                 DeltaFromReferenceInSeconds -> deltaFromReferenceInSeconds(args[0] as RemoteLong)
                 DeltaFromReferenceInMinutes -> deltaFromReferenceInMinutes(args[0] as RemoteLong)
@@ -393,7 +393,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
                     }
 
                     override fun computeRequiredCodePointSet(
-                        creationState: RemoteComposeCreationContext
+                        creationState: RemoteComposeCreationContext,
                     ): Set<String> {
                         val preFlags = flags and PAD_PRE_ZERO
                         val afterFlags = flags and PAD_AFTER_ZERO
@@ -869,7 +869,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
                 cacheKey = RemoteNamedCacheKey(domain, name),
             ) { creationState ->
                 floatArrayOf(
-                    creationState.writer.addNamedFloat(domain.prefixed(name), defaultValue)
+                    creationState.writer.addNamedFloat(domain.prefixed(name), defaultValue),
                 )
             }
         }
@@ -1328,7 +1328,7 @@ public fun deltaFromReferenceInSeconds(referenceEpochMillis: RemoteLong): Remote
             creationState.writer.timeAttribute(
                 referenceEpochMillis.getIdForCreationState(creationState),
                 TimeAttribute.TIME_FROM_NOW_SEC,
-            )
+            ),
         )
     }
 }
@@ -1355,7 +1355,7 @@ public fun deltaFromReferenceInMinutes(referenceEpochMillis: RemoteLong): Remote
             creationState.writer.timeAttribute(
                 referenceEpochMillis.getIdForCreationState(creationState),
                 TimeAttribute.TIME_FROM_NOW_MIN,
-            )
+            ),
         )
     }
 }
@@ -1382,7 +1382,7 @@ public fun deltaFromReferenceInHours(referenceEpochMillis: RemoteLong): RemoteFl
             creationState.writer.timeAttribute(
                 referenceEpochMillis.getIdForCreationState(creationState),
                 TimeAttribute.TIME_FROM_NOW_HR,
-            )
+            ),
         )
     }
 }
@@ -1409,7 +1409,7 @@ public fun timeOfReferenceInSeconds(referenceEpochMillis: RemoteLong): RemoteFlo
             creationState.writer.timeAttribute(
                 referenceEpochMillis.getIdForCreationState(creationState),
                 TimeAttribute.TIME_IN_SEC,
-            )
+            ),
         )
     }
 }
@@ -1436,7 +1436,7 @@ public fun timeOfReferenceInMinutes(referenceEpochMillis: RemoteLong): RemoteFlo
             creationState.writer.timeAttribute(
                 referenceEpochMillis.getIdForCreationState(creationState),
                 TimeAttribute.TIME_IN_MIN,
-            )
+            ),
         )
     }
 }
@@ -1463,7 +1463,7 @@ public fun timeOfReferenceInHours(referenceEpochMillis: RemoteLong): RemoteFloat
             creationState.writer.timeAttribute(
                 referenceEpochMillis.getIdForCreationState(creationState),
                 TimeAttribute.TIME_IN_HR,
-            )
+            ),
         )
     }
 }
@@ -1489,7 +1489,7 @@ public fun dayOfMonthForReference(referenceEpochMillis: RemoteLong): RemoteFloat
             creationState.writer.timeAttribute(
                 referenceEpochMillis.getIdForCreationState(creationState),
                 TimeAttribute.TIME_DAY_OF_MONTH,
-            )
+            ),
         )
     }
 }
@@ -1515,7 +1515,7 @@ public fun monthOfYearForReference(referenceEpochMillis: RemoteLong): RemoteFloa
             creationState.writer.timeAttribute(
                 referenceEpochMillis.getIdForCreationState(creationState),
                 TimeAttribute.TIME_MONTH_VALUE,
-            )
+            ),
         )
     }
 }
@@ -1538,7 +1538,7 @@ public fun dayOfWeekForReference(referenceEpochMillis: RemoteLong): RemoteFloat 
             creationState.writer.timeAttribute(
                 referenceEpochMillis.getIdForCreationState(creationState),
                 TimeAttribute.TIME_DAY_OF_WEEK,
-            )
+            ),
         )
     }
 }
@@ -1561,7 +1561,7 @@ public fun yearForReference(referenceEpochMillis: RemoteLong): RemoteFloat {
             creationState.writer.timeAttribute(
                 referenceEpochMillis.getIdForCreationState(creationState),
                 TimeAttribute.TIME_YEAR,
-            )
+            ),
         )
     }
 }
@@ -1583,7 +1583,7 @@ internal constructor(
 
     @RememberInComposition
     internal constructor(
-        id: Int
+        id: Int,
     ) : this(cacheKey = RemoteStateIdKey(id), idProvider = { asNan(id) })
 
     /**
@@ -1594,7 +1594,7 @@ internal constructor(
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     @RememberInComposition
     public constructor(
-        initialValue: Float
+        initialValue: Float,
     ) : this(
         cacheKey = RemoteStateInstanceKey(),
         idProvider = { creationState -> creationState.writer.floatExpression(initialValue) },
@@ -1608,7 +1608,7 @@ internal constructor(
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     @RememberInComposition
     public constructor(
-        value: RemoteFloatContext.() -> RemoteFloat
+        value: RemoteFloatContext.() -> RemoteFloat,
     ) : this(
         cacheKey = RemoteStateInstanceKey(),
         idProvider = { creationState ->
@@ -1686,7 +1686,7 @@ internal constructor(
      */
     @RememberInComposition
     public constructor(
-        value: RemoteFloatContext.() -> RemoteFloat
+        value: RemoteFloatContext.() -> RemoteFloat,
     ) : this(
         constantValueOrNull = null,
         cacheKey = RemoteStateInstanceKey(),
@@ -1704,7 +1704,7 @@ internal constructor(
      */
     @RememberInComposition
     public constructor(
-        value: () -> FloatArray
+        value: () -> FloatArray,
     ) : this(
         constantValueOrNull = null,
         cacheKey = RemoteStateInstanceKey(),
@@ -1971,7 +1971,7 @@ internal constructor(
             SPLINE_CUSTOM,
             EASE_OUT_BOUNCE,
             EASE_OUT_ELASTIC,
-        ]
+        ],
 )
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public annotation class AnimationType
@@ -2057,7 +2057,7 @@ public fun rememberMutableRemoteFloat(initialValue: Float): MutableRemoteFloat {
 @Composable
 @RemoteComposable
 public fun rememberMutableRemoteFloat(
-    value: RemoteFloatContext.() -> RemoteFloat
+    value: RemoteFloatContext.() -> RemoteFloat,
 ): MutableRemoteFloat {
     return remember { MutableRemoteFloat(value) }
 }

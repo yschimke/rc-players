@@ -76,7 +76,7 @@ public class RcManifestTypefaceLoader(private val fetchBytes: suspend (url: Stri
             weight = entry.weight,
             italic = entry.italic,
           )
-        }
+        },
       )
     }
       .rethrowCancellation()

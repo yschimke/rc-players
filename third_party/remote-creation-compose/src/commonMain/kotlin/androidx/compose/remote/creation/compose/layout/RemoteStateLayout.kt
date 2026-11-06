@@ -44,7 +44,7 @@ internal class RemoteStateLayoutNode : RemoteComposeNode() {
             WriterOp.StartStateLayout(
                 resolveModifier(scope, creationState),
                 currentState.getIdForCreationState(creationState),
-            )
+            ),
         )
 
         renderChildren(creationState, remoteCanvas)

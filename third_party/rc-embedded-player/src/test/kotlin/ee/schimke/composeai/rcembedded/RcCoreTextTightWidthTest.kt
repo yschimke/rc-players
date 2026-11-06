@@ -144,7 +144,7 @@ class RcCoreTextTightWidthTest {
                     Modifier.size(
                         with(documentDensity) { WIDTH.toDp() },
                         with(documentDensity) { HEIGHT.toDp() },
-                    )
+                    ),
                 ) {
                     document.value?.let { current ->
                         key(current) {

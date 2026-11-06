@@ -39,7 +39,7 @@ configurations.consumable("jsDistElements") {
 artifacts { add("jsDistElements", jsDistZip) }
 
 (components["java"] as AdhocComponentWithVariants).addVariantsFromConfiguration(
-  configurations["jsDistElements"]
+  configurations["jsDistElements"],
 ) {
   mapToMavenScope("runtime")
 }

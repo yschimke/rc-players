@@ -106,7 +106,7 @@ public data class RemoteRoundedClipShape(
                 topRight = CornerRadius(topEndRadius * radiusScale),
                 bottomRight = CornerRadius(bottomEndRadius * radiusScale),
                 bottomLeft = CornerRadius(bottomStartRadius * radiusScale),
-            )
+            ),
         )
     }
 }

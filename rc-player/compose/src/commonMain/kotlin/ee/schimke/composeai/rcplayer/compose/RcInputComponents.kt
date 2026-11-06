@@ -140,7 +140,7 @@ public fun rcInputComponents(
               role = Role.Switch,
               onValueChange = { change(it.toString()) },
             )
-            .padding(inset)
+            .padding(inset),
         ) {
           BasicText(if (controlValue == "true") "On" else "Off")
         }
@@ -185,7 +185,7 @@ public fun rcInputComponents(
             Column(
               Modifier.background(androidx.compose.ui.graphics.Color.White)
                 .heightIn(max = 240.dp)
-                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                .verticalScroll(androidx.compose.foundation.rememberScrollState()),
             ) {
               options.forEach { option ->
                 BasicText(
@@ -268,7 +268,7 @@ private fun RcRangeInput(
     currentChange(
       (minimum + round((candidate.coerceIn(minimum, maximum) - minimum) / step) * step)
         .coerceIn(minimum, maximum)
-        .toString()
+        .toString(),
     )
   }
   val fraction = ((value - minimum) / (maximum - minimum)).coerceIn(0.0, 1.0).toFloat()
@@ -318,10 +318,10 @@ private fun RcRangeInput(
           detectDragGestures { pointer, _ ->
             pointer.consume()
             update(
-              minimum + (pointer.position.x / size.width).coerceIn(0f, 1f) * (maximum - minimum)
+              minimum + (pointer.position.x / size.width).coerceIn(0f, 1f) * (maximum - minimum),
             )
           }
-        }
+        },
     ) {
       drawLine(
         Color.Gray,

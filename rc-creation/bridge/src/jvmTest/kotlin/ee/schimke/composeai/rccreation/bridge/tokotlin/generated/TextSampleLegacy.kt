@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.sp
 @RemoteComposable
 fun TextSampleLegacy() {
   RemoteColumn(
-    modifier = RemoteModifier.fillMaxWidth().padding(horizontal = 12.rdp, vertical = 6.rdp)
+    modifier = RemoteModifier.fillMaxWidth().padding(horizontal = 12.rdp, vertical = 6.rdp),
   ) {
     RemoteText(
       "Hello, \"remote\" \$world".rs,

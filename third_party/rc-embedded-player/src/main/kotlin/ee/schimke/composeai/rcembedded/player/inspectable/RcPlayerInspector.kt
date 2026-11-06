@@ -368,7 +368,7 @@ internal object RcPlayerInspector {
                 visibility = visibilityStr,
                 absX = absX,
                 absY = absY,
-            )
+            ),
         )
     }
 

@@ -33,7 +33,7 @@ internal constructor(
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public constructor(
-        constantValueOrNull: List<RemoteString>?
+        constantValueOrNull: List<RemoteString>?,
     ) : this(
         constantValueOrNull,
         constantValueOrNull?.let { values ->
@@ -100,7 +100,7 @@ private class StringArrayDerefImpl(val array: RemoteStringArray, val index: Remo
     }
 
     override fun computeRequiredCodePointSet(
-        creationState: RemoteComposeCreationContext
+        creationState: RemoteComposeCreationContext,
     ): Set<String>? {
         val constIndex = index.constantValueOrNull
         if (constIndex != null && array.constantValueOrNull != null) {

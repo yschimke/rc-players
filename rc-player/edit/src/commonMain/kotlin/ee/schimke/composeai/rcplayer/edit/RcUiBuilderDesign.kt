@@ -96,7 +96,7 @@ public class RcUiBuilderDesign(
  * authority on the schema, and the design should be run through it before anyone edits it.
  */
 public fun RcDocument.toUiBuilderDesign(
-  options: RcUiBuilderOptions = RcUiBuilderOptions()
+  options: RcUiBuilderOptions = RcUiBuilderOptions(),
 ): RcUiBuilderDesign = RcUiBuilderWriter(this, options).write()
 
 /** A JSON value, written in insertion order. */
@@ -278,7 +278,7 @@ private class RcUiBuilderWriter(
       is RcStateLayout -> {
         gap(
           "state layout ${operation.componentId} switches on integer ${operation.indexId}; " +
-            "only its first branch is generated"
+            "only its first branch is generated",
         )
         node.children
           .firstOrNull { it.operation is RcLayoutContent }
@@ -370,7 +370,7 @@ private class RcUiBuilderWriter(
       text.properties.filter { it.id !in TEXT_PROPERTIES_SAID && !it.isDefault() }.map { it.id }
     if (unsaid.isNotEmpty()) {
       gap(
-        "text ${text.textId} sets style properties ${unsaid.joinToString()} that have no property"
+        "text ${text.textId} sets style properties ${unsaid.joinToString()} that have no property",
       )
     }
     return node("text", "remote-m3/remote-text", props, null, modifiers(node))
@@ -448,7 +448,7 @@ private class RcUiBuilderWriter(
     val default = index.floats[id]?.takeUnless { it.isNaNEncoded }?.value
     gap(
       "a font weight reads ${index.describeId(id)}; " +
-        if (default != null) "its default is written" else "it is not generated"
+        if (default != null) "its default is written" else "it is not generated",
     )
     return default?.toInt()
   }
@@ -531,7 +531,7 @@ private class RcUiBuilderWriter(
         "canvas operations not generated: " +
           skipped.entries.joinToString { (name, count) ->
             if (count == 1) name else "$name x$count"
-          }
+          },
       )
     }
     return node("canvas", "draw/canvas", Json.Obj(), slots("ops" to ops), modifiers(node))
@@ -700,7 +700,7 @@ private class RcUiBuilderWriter(
             // A draw node has no join; the miter default is what it draws.
             if (packed != 0) {
               gap(
-                "stroke join ${STROKE_JOINS[packed] ?: packed} has no design property; miter is drawn"
+                "stroke join ${STROKE_JOINS[packed] ?: packed} has no design property; miter is drawn",
               )
             }
           PAINT_ANTI_ALIAS,
@@ -898,7 +898,7 @@ private class RcUiBuilderWriter(
     }
     if (border.wireVersion == 0) {
       gap(
-        "a version 0 border is re-created as version 1, which insets its stroke by half its width"
+        "a version 0 border is re-created as version 1, which insets its stroke by half its width",
       )
     }
     return obj(
@@ -907,7 +907,7 @@ private class RcUiBuilderWriter(
         num(
           border.borderWidth.value.let {
             if (RcDocumentIndex.bordersInDp(header)) it else it / density
-          }
+          },
         ),
       "color" to color,
     )
@@ -1037,7 +1037,7 @@ private class RcUiBuilderWriter(
   private fun hexOf(alpha: Float, red: Float, green: Float, blue: Float): String {
     fun channel(value: Float) = kotlin.math.round(value * 255f).toInt().coerceIn(0, 255)
     return colorHex(
-      (channel(alpha) shl 24) or (channel(red) shl 16) or (channel(green) shl 8) or channel(blue)
+      (channel(alpha) shl 24) or (channel(red) shl 16) or (channel(green) shl 8) or channel(blue),
     )
   }
 

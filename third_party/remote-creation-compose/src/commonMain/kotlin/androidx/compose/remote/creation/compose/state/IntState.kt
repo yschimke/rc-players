@@ -1010,7 +1010,7 @@ internal constructor(
      */
     @RememberInComposition
     internal constructor(
-        id: Long
+        id: Long,
     ) : this(
         constantValueOrNull = null,
         cacheKey = RemoteStateIdKey(id.toInt()),
@@ -1025,7 +1025,7 @@ internal constructor(
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     @RememberInComposition
     public constructor(
-        initialValue: Int
+        initialValue: Int,
     ) : this(
         constantValueOrNull = null,
         cacheKey = RemoteStateInstanceKey(),

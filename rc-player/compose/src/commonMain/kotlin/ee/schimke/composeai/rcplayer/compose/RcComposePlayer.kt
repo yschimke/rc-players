@@ -770,7 +770,7 @@ private fun RcComposePlayerResolved(
     if (layout != null) {
       linkedDocument.operations.forEach { node ->
         ((node as? RcLinkedNode.Operation)?.operation as? RcDebugMessage)?.let(
-          state::emitDebugMessage
+          state::emitDebugMessage,
         )
       }
     }
@@ -823,7 +823,7 @@ private fun RcComposePlayerResolved(
           documentWidth = document.header.width.coerceAtLeast(1).toFloat(),
           documentHeight = document.header.height.coerceAtLeast(1).toFloat(),
           onRepaint = { invalidationVersion += 1 },
-        )
+        ),
       )
       .applyAndroidXClickAreas(
         areas = state.clickAreas,
@@ -974,10 +974,12 @@ private fun RcComposePlayerResolved(
           viewportHeight = size.height,
           behavior = state.rootContentBehavior,
         )
-      withTransform({
-        translate(rootTransform.translateX, rootTransform.translateY)
-        scale(rootTransform.scaleX, rootTransform.scaleY, Offset.Zero)
-      }) {
+      withTransform(
+        {
+          translate(rootTransform.translateX, rootTransform.translateY)
+          scale(rootTransform.scaleX, rootTransform.scaleY, Offset.Zero)
+        },
+      ) {
         state.beginFrame(animationClock?.seconds() ?: (frameNanos / 1_000_000_000f))
         rcTrace(RcTraceCategory.FRAME, "rc:drawRoot") {
           drawOperations(
@@ -1114,7 +1116,7 @@ private fun RenderLayoutNode(
       // on nodes it still expects to find.
       Layout(
         Modifier.trackComponentGeometry(geometryIds, state, geometryProbe, playerRoot)
-          .inspectComponent(node, visibility, inspecting, contentInset)
+          .inspectComponent(node, visibility, inspecting, contentInset),
       ) { _, _ ->
         layout(0, 0) {}
       }
@@ -1165,7 +1167,7 @@ private fun RenderLayoutNode(
             textMeasurer,
             images,
             theme,
-          )
+          ),
         ) {
           node.children.forEach {
             RenderLayoutNode(
@@ -1202,7 +1204,7 @@ private fun RenderLayoutNode(
             textMeasurer,
             images,
             theme,
-          )
+          ),
         ) {
           val documentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
           node.content
@@ -1496,7 +1498,7 @@ private fun RenderLayoutNode(
             textMeasurer,
             images,
             theme,
-          )
+          ),
         ) {
           val children = node.content.children
           val target = selected.coerceIn(0, (children.size - 1).coerceAtLeast(0))
@@ -1551,7 +1553,7 @@ private fun RenderLayoutNode(
                 state,
                 geometryProbe,
                 playerRoot,
-              )
+              ),
             ) { _, _ ->
               layout(0, 0) {}
             }
@@ -1563,7 +1565,7 @@ private fun RenderLayoutNode(
                 state,
                 geometryProbe,
                 playerRoot,
-              )
+              ),
             ) {
               renderChildren()
             }
@@ -1698,7 +1700,7 @@ private fun RenderLayoutNode(
                 Color(
                   if (operation.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0)
                     state.color(operation.color)
-                  else operation.color
+                  else operation.color,
                 ),
               // `toSp()`, not `/ density.density`: Compose rasterizes `x.sp` at
               // `x * density * fontScale`, so returning the wire's pixels needs BOTH divided out.
@@ -1800,7 +1802,7 @@ private fun RenderLayoutNode(
               color =
                 Color(
                   if (colorId == -1) properties.intProperty(3, 0xff000000.toInt())
-                  else state.color(colorId)
+                  else state.color(colorId),
                 ),
               fontSize = with(density) { fontSize.toSp() },
               // **Ems, not pixels.** Property 12 carries what
@@ -1852,7 +1854,7 @@ private fun RenderLayoutNode(
                 when {
                   properties.booleanProperty(18, false) && properties.booleanProperty(19, false) ->
                     TextDecoration.combine(
-                      listOf(TextDecoration.Underline, TextDecoration.LineThrough)
+                      listOf(TextDecoration.Underline, TextDecoration.LineThrough),
                     )
                   properties.booleanProperty(18, false) -> TextDecoration.Underline
                   properties.booleanProperty(19, false) -> TextDecoration.LineThrough
@@ -1935,7 +1937,7 @@ private fun RenderLayoutNode(
               textMeasurer,
               images,
               theme,
-            )
+            ),
         ) { constraints ->
           val maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
           val maxHeight = if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE
@@ -2112,7 +2114,7 @@ private fun RcLayoutChild(
         images = images,
         theme = theme,
       )
-    }
+    },
   ) { measurables, constraints ->
     // Measured with the incoming constraints rather than a relaxed copy: the collapsible layout's
     // weight pass hands a weighted child exact constraints on the main axis, and the child's own
@@ -2287,7 +2289,7 @@ private fun RcCollapsibleLayout(
               childConstraints.copy(minWidth = share, maxWidth = share)
             } else {
               childConstraints.copy(minHeight = share, maxHeight = share)
-            }
+            },
           )
       }
     }
@@ -2307,11 +2309,11 @@ private fun RcCollapsibleLayout(
       retainedMainSizes.sum() + spacing * (retainedMainSizes.size - 1).coerceAtLeast(0)
     val width =
       constraints.constrainWidth(
-        if (orientation == RcCollapseOrientation.Horizontal) naturalMain else retainedCrossSize
+        if (orientation == RcCollapseOrientation.Horizontal) naturalMain else retainedCrossSize,
       )
     val height =
       constraints.constrainHeight(
-        if (orientation == RcCollapseOrientation.Horizontal) retainedCrossSize else naturalMain
+        if (orientation == RcCollapseOrientation.Horizontal) retainedCrossSize else naturalMain,
       )
     val mainAvailable = if (orientation == RcCollapseOrientation.Horizontal) width else height
     val mainPositions =
@@ -2463,7 +2465,7 @@ internal fun androidXMaxLines(overflow: Int, maxLines: Int): Int =
 // style list from the end in place: `filterIsInstance` first would allocate a filtered copy of the
 // list per lookup, on every recomposition and measure of every text.
 private inline fun <reified T : RcTextStyleProperty> List<RcTextStyleProperty>.lastProperty(
-  id: Int
+  id: Int,
 ): T? = lastOrNull { it is T && it.id == id } as T?
 
 private fun List<RcTextStyleProperty>.intProperty(id: Int, default: Int): Int =
@@ -3656,7 +3658,7 @@ private fun Modifier.trackComponentGeometry(
       val placeable = measurable.measure(constraints)
       tracked.forEach { id ->
         probe.onPublished(
-          state.publishComponentSize(id, placeable.width.toFloat(), placeable.height.toFloat())
+          state.publishComponentSize(id, placeable.width.toFloat(), placeable.height.toFloat()),
         )
       }
       layout(placeable.width, placeable.height) { placeable.place(0, 0) }
@@ -3735,7 +3737,7 @@ internal fun RcLayoutModifiers.withoutDimensions(): RcLayoutModifiers {
  * reversing the two.
  */
 internal fun RcLayoutModifiers.removingOrdered(
-  predicate: (RcOperation) -> Boolean
+  predicate: (RcOperation) -> Boolean,
 ): RcLayoutModifiers {
   val position = scrollPosition
   return copy(
@@ -4494,7 +4496,7 @@ private data class RcCornerClipShape(
         topRightCornerRadius = CornerRadius(topRight.coerceAtLeast(0f)),
         bottomRightCornerRadius = CornerRadius(bottomRight.coerceAtLeast(0f)),
         bottomLeftCornerRadius = CornerRadius(bottomLeft.coerceAtLeast(0f)),
-      )
+      ),
     )
 }
 
@@ -4528,7 +4530,7 @@ private fun Modifier.applyAndroidXRipple(
       interactions.tryEmit(press)
       val up = waitForUpOrCancellation()
       interactions.tryEmit(
-        if (up != null) PressInteraction.Release(press) else PressInteraction.Cancel(press)
+        if (up != null) PressInteraction.Release(press) else PressInteraction.Cancel(press),
       )
     }
   }
@@ -4917,7 +4919,7 @@ private class RcPaintState(
  * not contain.
  */
 private class RcFloatFunctionRuntime(
-  private val document: Map<Int, RcLinkedNode.Container> = emptyMap()
+  private val document: Map<Int, RcLinkedNode.Container> = emptyMap(),
 ) {
   val definitions = mutableMapOf<Int, RcLinkedNode.Container>()
 
@@ -5371,7 +5373,7 @@ private fun DrawScope.drawOperationsRouted(
                 state.resolve(conditional.left),
                 state.resolve(conditional.right),
                 holds,
-              )
+              ),
             )
             if (holds) {
               drawOperations(
@@ -5913,10 +5915,12 @@ private fun DrawScope.drawBitmap(
   val width = state.resolve(operation.right) - left
   val height = state.resolve(operation.bottom) - top
   if (width == 0f || height == 0f) return
-  withTransform({
-    translate(left, top)
-    scale(width / image.width, height / image.height, Offset.Zero)
-  }) {
+  withTransform(
+    {
+      translate(left, top)
+      scale(width / image.width, height / image.height, Offset.Zero)
+    },
+  ) {
     // The rect overload: it is the one that takes a sampling quality.
     drawImage(
       image = image,
@@ -6465,7 +6469,7 @@ private fun DrawScope.drawTextSegmentsOnPath(
         glyphs?.add(
           toDevice(placement.topLeft + Offset(0f, segment.firstBaseline)).let {
             RcGlyphPlacement(it.x, it.y, deviceRotationDegrees())
-          }
+          },
         )
       }
     }
@@ -6479,7 +6483,7 @@ private fun DrawScope.drawTextSegmentsOnPath(
         originX = glyphs.first().x,
         originY = glyphs.first().y,
         glyphs = glyphs,
-      )
+      ),
     )
   }
 }
@@ -7125,13 +7129,13 @@ private fun applyPaint(
       1 ->
         state.textSize =
           values.resolve(
-            ee.schimke.composeai.rcplayer.protocol.RcFloatWord(operation.words[index++])
+            ee.schimke.composeai.rcplayer.protocol.RcFloatWord(operation.words[index++]),
           )
       4 -> state.color = operation.words[index++] // PaintBundle.COLOR
       5 ->
         state.strokeWidth =
           values.resolve(
-            ee.schimke.composeai.rcplayer.protocol.RcFloatWord(operation.words[index++])
+            ee.schimke.composeai.rcplayer.protocol.RcFloatWord(operation.words[index++]),
           )
       7 ->
         state.strokeCap =
@@ -7216,7 +7220,7 @@ private fun applyPaint(
           val tag = paintFontAxisTag(operation.words[index++], values)
           val value =
             values.resolve(
-              ee.schimke.composeai.rcplayer.protocol.RcFloatWord(operation.words[index++])
+              ee.schimke.composeai.rcplayer.protocol.RcFloatWord(operation.words[index++]),
             )
           // The face is instanced at every axis below; wght/ital/slnt also pick the face when the
           // family is not a variable host face, as a static family's weights and styles do.
@@ -7269,7 +7273,7 @@ private fun buildRuntimeShader(
       shaders[shaderId]
         ?: state.document.operations.filterIsInstance<RcShaderData>().lastOrNull {
           it.shaderId == shaderId
-        }
+        },
     ) {
       "Missing ShaderData for shader $shaderId"
     }

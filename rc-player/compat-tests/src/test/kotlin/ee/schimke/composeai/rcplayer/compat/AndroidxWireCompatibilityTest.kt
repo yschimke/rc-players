@@ -862,7 +862,7 @@ class AndroidxWireCompatibilityTest {
   private val onePixelPng =
     Base64.getDecoder()
       .decode(
-        "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACAQMAAABIeJ9nAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGUExURf8Abv///5rktCEAAAABYktHRAH/Ai3eAAAAB3RJTUUH6ggCFygueZAHngAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0wOC0wMlQyMzo0MDo0NiswMDowMPuL5LUAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMDgtMDJUMjM6NDA6NDYrMDA6MDCK1lwJAAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTA4LTAyVDIzOjQwOjQ2KzAwOjAw3cN91gAAAAxJREFUCNdjYGBgAAAABAABJzQnCgAAAABJRU5ErkJggg=="
+        "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACAQMAAABIeJ9nAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGUExURf8Abv///5rktCEAAAABYktHRAH/Ai3eAAAAB3RJTUUH6ggCFygueZAHngAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0wOC0wMlQyMzo0MDo0NiswMDowMPuL5LUAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMDgtMDJUMjM6NDA6NDYrMDA6MDCK1lwJAAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTA4LTAyVDIzOjQwOjQ2KzAwOjAw3cN91gAAAAxJREFUCNdjYGBgAAAABAABJzQnCgAAAABJRU5ErkJggg==",
       )
 
   @Test
@@ -1145,7 +1145,7 @@ class AndroidxWireCompatibilityTest {
     val layer = assertIs<RcGraphicsLayerModifier>(document.operations.single())
     val translation =
       assertIs<RcGraphicsLayerAttribute.FloatValue>(
-        layer.attributes.single { it.index == RcGraphicsLayerModifier.TRANSLATION_X }
+        layer.attributes.single { it.index == RcGraphicsLayerModifier.TRANSLATION_X },
       )
     assertEquals(42, translation.value.referencedId)
     assertContentEquals(bytes, RcDocumentCodec.encode(document))
@@ -1429,7 +1429,7 @@ class AndroidxWireCompatibilityTest {
       MatrixOperations().eval(expression).putValues(expected)
       val actual =
         ee.schimke.composeai.rcplayer.runtime.RcMatrixEvaluator.evaluate(
-          expression.map { ee.schimke.composeai.rcplayer.protocol.RcFloatWord(it.toRawBits()) }
+          expression.map { ee.schimke.composeai.rcplayer.protocol.RcFloatWord(it.toRawBits()) },
         ) {
           it.value
         }

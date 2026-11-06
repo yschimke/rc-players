@@ -92,7 +92,7 @@ public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>)
     ?.let { operation ->
       throw IllegalArgumentException(
         "${operationName(operation.opcode)} writes a hardcoded named variable along with other " +
-          "ids, so it cannot be replaced by a constant"
+          "ids, so it cannot be replaced by a constant",
       )
     }
   // A loop writes its index on every iteration, and a loop cannot be swapped for a constant.
@@ -102,7 +102,7 @@ public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>)
     ?.let {
       throw IllegalArgumentException(
         "Named variable '${byId.getValue(it.indexVariableId).first.name}' is a loop index, so " +
-          "it cannot be replaced by a constant"
+          "it cannot be replaced by a constant",
       )
     }
   // An expression-change action looks its expression up by id when it runs. Replacing that
@@ -119,7 +119,7 @@ public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>)
     ?.let { id ->
       throw IllegalArgumentException(
         "Named variable '${byId.getValue(id).first.name}' is also the expression an " +
-          "expression-change action evaluates, so it cannot be replaced by a constant"
+          "expression-change action evaluates, so it cannot be replaced by a constant",
       )
     }
   val defined = mutableSetOf<Int>()
@@ -151,7 +151,7 @@ public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>)
           operation.id in defined -> null
           else -> definition(operation, targets.getValue(operation))
         }
-      }
+      },
   )
 }
 
@@ -233,7 +233,7 @@ private fun definition(variable: RcNamedVariable, value: RcHardcodedValue): RcOp
     else ->
       throw IllegalArgumentException(
         "Named variable '${variable.name}' has AndroidX type ${variable.type}, incompatible with " +
-          "${value::class.simpleName}"
+          "${value::class.simpleName}",
       )
   }
 

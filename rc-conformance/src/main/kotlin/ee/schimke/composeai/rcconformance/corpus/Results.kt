@@ -93,7 +93,7 @@ public object Results {
                 comparison.differingPixels?.let { put("differingPixels", it) }
                 comparison.rmse?.let { put("rmse", it) }
                 comparison.maxDelta?.let { put("maxDelta", it) }
-              }
+              },
             )
           }
         },

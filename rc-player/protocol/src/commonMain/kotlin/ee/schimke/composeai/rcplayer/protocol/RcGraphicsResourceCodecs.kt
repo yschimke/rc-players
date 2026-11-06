@@ -106,7 +106,7 @@ private object ShaderDataCodec : RcOperationCodec<RcShaderData> {
     output.writeInt(
       value.floatUniforms.size or
         (value.intUniforms.size shl 8) or
-        (value.bitmapUniforms.size shl 16)
+        (value.bitmapUniforms.size shl 16),
     )
     value.floatUniforms.forEach { (name, values) ->
       output.writeUtf8(name)

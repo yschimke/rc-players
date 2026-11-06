@@ -75,7 +75,7 @@ class RcNamedValueSemanticsTest {
     runSkikoComposeUiTest(size = Size(40f, 40f), density = Density(1f)) {
       val first =
         mutableStateMapOf<String, RcNamedValue>(
-          "USER:summary" to RcNamedValue.Text("From the first holder")
+          "USER:summary" to RcNamedValue.Text("From the first holder"),
         )
       val second = mutableStateMapOf<String, RcNamedValue>()
       var holder by mutableStateOf(first)

@@ -133,7 +133,7 @@ public fun RemoteAppleToggle(
           RemoteModifier.size(27.rdp)
             .offset(isOn.select(22.rdp, 2.rdp), 0.rdp)
             .clip(RemoteCircleShape)
-            .background(colors.secondaryBackground)
+            .background(colors.secondaryBackground),
       )
     }
   }
@@ -164,7 +164,7 @@ public fun RemoteAppleProgressView(
       contentAlignment = RemoteAlignment.CenterStart,
     ) {
       RemoteBox(
-        modifier = RemoteModifier.fillMaxWidth(progress).height(4.rdp).background(colors.accent)
+        modifier = RemoteModifier.fillMaxWidth(progress).height(4.rdp).background(colors.accent),
       )
     }
   }

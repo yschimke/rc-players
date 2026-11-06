@@ -109,7 +109,7 @@ internal class DocumentFontCache(private val data: ByteArray) {
                     .setWeight(key.weight)
                     .setSlant(
                         if (key.italic) FontStyle.FONT_SLANT_ITALIC
-                        else FontStyle.FONT_SLANT_UPRIGHT
+                        else FontStyle.FONT_SLANT_UPRIGHT,
                     )
             if (!key.variationSettings.isNullOrEmpty()) {
                 try {
@@ -120,7 +120,7 @@ internal class DocumentFontCache(private val data: ByteArray) {
             }
             val family = FontFamily.Builder(builder.build()).build()
             DocumentFont(
-                Typeface.CustomFallbackBuilder(family).setSystemFallback("sans-serif").build()
+                Typeface.CustomFallbackBuilder(family).setSystemFallback("sans-serif").build(),
             )
         } catch (_: Exception) {
             null

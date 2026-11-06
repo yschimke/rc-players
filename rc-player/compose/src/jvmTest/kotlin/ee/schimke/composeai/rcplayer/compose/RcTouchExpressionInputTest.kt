@@ -26,7 +26,7 @@ class RcTouchExpressionInputTest {
     ) {
       val registry =
         RcCustomComponentRegistry(
-          "probe" to { component, modifier -> BasicText(component.float(1).toString(), modifier) }
+          "probe" to { component, modifier -> BasicText(component.float(1).toString(), modifier) },
         )
       setContent { RcComposePlayer(document(root), customComponents = registry) }
       waitForIdle()
@@ -48,7 +48,7 @@ class RcTouchExpressionInputTest {
     ) {
       val registry =
         RcCustomComponentRegistry(
-          "probe" to { component, modifier -> BasicText(component.float(1).toString(), modifier) }
+          "probe" to { component, modifier -> BasicText(component.float(1).toString(), modifier) },
         )
       setContent {
         RcComposePlayer(document(root = true, touchReference = axis), customComponents = registry)
@@ -86,7 +86,7 @@ class RcTouchExpressionInputTest {
                   }
                 },
               )
-            }
+            },
         )
       val actions =
         listOf(
@@ -134,7 +134,7 @@ class RcTouchExpressionInputTest {
       val events = mutableListOf<RcPlayerEvent>()
       val registry =
         RcCustomComponentRegistry(
-          "probe" to { component, modifier -> BasicText(component.float(1).toString(), modifier) }
+          "probe" to { component, modifier -> BasicText(component.float(1).toString(), modifier) },
         )
       val document =
         document(
@@ -169,7 +169,7 @@ class RcTouchExpressionInputTest {
       val events = mutableListOf<RcPlayerEvent>()
       val registry =
         RcCustomComponentRegistry(
-          "probe" to { component, modifier -> BasicText(component.float(1).toString(), modifier) }
+          "probe" to { component, modifier -> BasicText(component.float(1).toString(), modifier) },
         )
       setContent {
         RcComposePlayer(

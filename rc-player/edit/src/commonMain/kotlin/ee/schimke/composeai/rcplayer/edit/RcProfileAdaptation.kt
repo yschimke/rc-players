@@ -221,7 +221,7 @@ private fun RcDocument.bakeDensity(target: RcTargetProfile, display: RcDisplay):
 private fun RcDocument.colorThemes(target: RcTargetProfile, approximate: Boolean): RcDocument {
   if (!approximate || RcOpcodes.COLOR_THEME in target.supportedOpcodes) return this
   return colorThemesAsFallbacks(
-    fixedTheme = if (RcOpcodes.THEME in target.supportedOpcodes) null else RcTheme.DARK
+    fixedTheme = if (RcOpcodes.THEME in target.supportedOpcodes) null else RcTheme.DARK,
   )
 }
 

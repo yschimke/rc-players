@@ -148,10 +148,10 @@ class GoogleFontFamiliesTest {
         val resolver = GoogleFontFamilies(source)
 
         assertNull(
-            resolver.composeFontFamily("google:Lobster Two", WEIGHT, UPRIGHT, listOf(WGHT to 700f))
+            resolver.composeFontFamily("google:Lobster Two", WEIGHT, UPRIGHT, listOf(WGHT to 700f)),
         )
         assertNull(
-            resolver.composeFontFamily("google:Lobster Two", WEIGHT, UPRIGHT, listOf(WGHT to 400f))
+            resolver.composeFontFamily("google:Lobster Two", WEIGHT, UPRIGHT, listOf(WGHT to 400f)),
         )
         assertEquals(1, source.variableCalls)
     }
@@ -178,7 +178,7 @@ class GoogleFontFamiliesTest {
     fun `no configured font source resolves nothing`() {
         val resolver = GoogleFontFamilies(null)
         assertNull(
-            resolver.composeFontFamily(GOOGLE_ROBOTO_FLEX, WEIGHT, UPRIGHT, listOf(WGHT to 700f))
+            resolver.composeFontFamily(GOOGLE_ROBOTO_FLEX, WEIGHT, UPRIGHT, listOf(WGHT to 700f)),
         )
     }
 

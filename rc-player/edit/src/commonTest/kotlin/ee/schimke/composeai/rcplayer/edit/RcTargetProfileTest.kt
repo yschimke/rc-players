@@ -339,7 +339,7 @@ class RcTargetProfileTest {
         END,
       )
     assertTrue(
-      document.validateFor(RcTargetProfiles.ANDROIDX).any { it.kind == Kind.UNSUPPORTED_OPERATION }
+      document.validateFor(RcTargetProfiles.ANDROIDX).any { it.kind == Kind.UNSUPPORTED_OPERATION },
     )
 
     val adapted = document.adaptTo(RcTargetProfiles.ANDROIDX)

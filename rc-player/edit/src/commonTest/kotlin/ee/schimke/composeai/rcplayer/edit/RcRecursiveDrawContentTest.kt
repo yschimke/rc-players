@@ -42,7 +42,7 @@ class RcRecursiveDrawContentTest {
     assertTrue(
       drawWithContent.validateFor(RcTargetProfiles.WIDGETS_V7).none {
         it.kind == Kind.RECURSIVE_DRAW_CONTENT
-      }
+      },
     )
   }
 

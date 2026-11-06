@@ -200,7 +200,7 @@ public fun RcWearDecoratedContainer(
           outline(cornerPx, edgeInsetPx!!, edgeWidthPx).drawAll(paint)
         }
         drawContent()
-      }
+      },
   ) {
     content()
   }
@@ -478,7 +478,7 @@ private fun RemoteDrawScope.drawFill(
             listOf(look.color.copy(alpha = 0f).rc, look.color.copy(alpha = look.alpha).rc),
             from,
             to,
-          )
+          ),
         ) {
           applyTo(paint, size)
         }
