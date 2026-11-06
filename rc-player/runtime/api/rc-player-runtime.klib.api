@@ -1199,7 +1199,8 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
 }
 
 final class ee.schimke.composeai.rcplayer.runtime/RcRasterizedText { // ee.schimke.composeai.rcplayer.runtime/RcRasterizedText|null[0]
-    constructor <init>(kotlin/ByteArray, kotlin/Int, kotlin/Int, kotlin/Float = ...) // ee.schimke.composeai.rcplayer.runtime/RcRasterizedText.<init>|<init>(kotlin.ByteArray;kotlin.Int;kotlin.Int;kotlin.Float){}[0]
+    constructor <init>(kotlin/ByteArray, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcplayer.runtime/RcRasterizedText.<init>|<init>(kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
+    constructor <init>(kotlin/ByteArray, kotlin/Int, kotlin/Int, kotlin/Float) // ee.schimke.composeai.rcplayer.runtime/RcRasterizedText.<init>|<init>(kotlin.ByteArray;kotlin.Int;kotlin.Int;kotlin.Float){}[0]
 
     final val baseline // ee.schimke.composeai.rcplayer.runtime/RcRasterizedText.baseline|{}baseline[0]
         final fun <get-baseline>(): kotlin/Float // ee.schimke.composeai.rcplayer.runtime/RcRasterizedText.baseline.<get-baseline>|<get-baseline>(){}[0]

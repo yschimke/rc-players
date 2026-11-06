@@ -96,5 +96,8 @@ public class RcRasterizedText(
   public val png: ByteArray,
   public val width: Int,
   public val height: Int,
-  public val baseline: Float = Float.NaN,
-)
+  public val baseline: Float,
+) {
+  /** Without a baseline: the constructor rasterizers built against 2.24 call, kept for them. */
+  public constructor(png: ByteArray, width: Int, height: Int) : this(png, width, height, Float.NaN)
+}

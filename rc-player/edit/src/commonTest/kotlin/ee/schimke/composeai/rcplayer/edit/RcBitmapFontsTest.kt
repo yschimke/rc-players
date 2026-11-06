@@ -382,6 +382,13 @@ class RcBitmapFontsTest {
         *rootLayout(*text(42, -7).toTypedArray()).toTypedArray(),
       )
     assertEquals(listOf(-7), emoji.bitmapFonts().skipped)
+    val hebrew =
+      document(
+        RcTextData(50, "digital7"),
+        RcTextData(42, "\u05e9\u05dc\u05d5\u05dd"),
+        *rootLayout(*text(42, -7).toTypedArray()).toTypedArray(),
+      )
+    assertEquals(listOf(-7), hebrew.bitmapFonts().skipped, "right to left")
   }
 
   @Test

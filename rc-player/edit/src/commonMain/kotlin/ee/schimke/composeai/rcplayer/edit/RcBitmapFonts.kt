@@ -572,7 +572,7 @@ private fun pathPlan(
   val size = paint.textSize ?: return null
   val text =
     values.text(operation.textId, index)?.takeIf {
-      it.isNotEmpty() && '\n' !in it && it.none(Char::isSurrogate)
+      it.isNotEmpty() && '\n' !in it && it.none(::unplaceable)
     } ?: return null
   val horizontal =
     operation.horizontalOffset.takeIf { it.referencedId == null }?.value ?: return null
@@ -665,8 +665,7 @@ private fun plan(
   val value = values.text(text.textId, at)
   val dynamic = if (value == null) glyphs(text.componentId) ?: return null else null
   val chars = value ?: dynamic!!.chars
-  // A glyph is a whole character: one outside the basic plane would be split in two.
-  if ('\n' in chars || chars.isEmpty() || chars.any { it.isSurrogate() }) return null
+  if ('\n' in chars || chars.isEmpty() || chars.any(::unplaceable)) return null
   // A changing text centred or set to its end is placed by its live width, which only the
   // anchored draw measures.
   if (dynamic != null && panX(align) != -1f && !anchorable) return null
@@ -811,6 +810,17 @@ private class DrawnFont(
       tokens.zipWithNext().sumOf { (a, b) -> kerning[a + b]?.toInt() ?: 0 }
   }
 }
+
+/**
+ * Whether [char] can't be drawn a glyph at a time from left to right: half of a character outside
+ * the basic plane, which would be split in two, or a right-to-left letter (Hebrew, Arabic and the
+ * scripts beside them, and their presentation forms), whose text a bitmap font would set backwards.
+ */
+private fun unplaceable(char: Char): Boolean =
+  char.isSurrogate() ||
+    char in '\u0590'..'\u08FF' ||
+    char in '\uFB1D'..'\uFDFF' ||
+    char in '\uFE70'..'\uFEFF'
 
 /** `CoreText` alignment as an anchored draw's horizontal pan: -1 start, 0 centre, 1 end. */
 private fun panX(align: Int): Float =
