@@ -5,16 +5,24 @@ import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcplayer.edit.RcDisplay
 import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
 import ee.schimke.composeai.rcplayer.edit.coreTextAsBitmapFonts
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
+import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnPath
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
+import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcNoArg
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
+import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import java.io.File
 import kotlin.math.abs
 import kotlin.test.Test
@@ -101,11 +109,16 @@ class RcBitmapFontsRenderTest {
               f(200f),
             ),
           ),
-          // The document's own draw stream, not a canvas component's: this player draws no text
-          // on a path inside a canvas yet, though it lays the glyphs out.
+          // In a canvas, as a watch face's bezel lettering would be.
+          RcRootLayout(-1),
+          RcLayoutContent(-2),
+          RcCanvasLayout(-3, -1),
+          RcWidthModifier(RcDimensionType.FILL, f(0f)),
+          RcHeightModifier(RcDimensionType.FILL, f(0f)),
+          RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
           RcPaintData(listOf(16, 50, 1, f(22f).bits, 4, 0xffffffff.toInt())),
           RcDrawTextOnPath(42, 70, f(30f), f(0f)),
-        ),
+        ) + List(4) { RcNoArg(RcOpcodes.CONTAINER_END) },
       )
     val original = bezel("google:Orbitron")
     val converted =
