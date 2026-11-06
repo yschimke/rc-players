@@ -33,7 +33,7 @@ androidx-compose-for-cmp = "1.12.1"
 # Baseline profiles for the published Android players (`rc-player/baselineprofile/`). The Gradle
 # plugin and the macrobenchmark runtime ship together; keep them on one version.
 androidx-benchmark = "1.5.0"
-ktfmt = "0.27.0"
+ktfmt = "0.28.0"
 tapmoc = "0.5.0"
 # Released versions only. Robolectric publishes `4.17-SNAPSHOT` to Sonatype, and Renovate ranks it
 # above `4.17-beta-2` — but no snapshot repository is declared here (nor should one be, for a
