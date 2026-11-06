@@ -111,7 +111,7 @@ public class RcComposeTextRasterizer(
     val png =
       Image.makeFromBitmap(bitmap.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)?.bytes
         ?: return null
-    return RcRasterizedText(png, width, height)
+    return RcRasterizedText(png, width, height, layout.firstBaseline)
   }
 
   /** The family the player would draw [text] in, or null where it would fall back. */

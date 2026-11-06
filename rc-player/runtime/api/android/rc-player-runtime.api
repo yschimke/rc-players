@@ -959,7 +959,9 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerStateKt {
 }
 
 public final class ee/schimke/composeai/rcplayer/runtime/RcRasterizedText {
-	public fun <init> ([BII)V
+	public fun <init> ([BIIF)V
+	public synthetic fun <init> ([BIIFILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getBaseline ()F
 	public final fun getHeight ()I
 	public final fun getPng ()[B
 	public final fun getWidth ()I

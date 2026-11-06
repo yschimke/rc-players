@@ -7,7 +7,14 @@ import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
 import ee.schimke.composeai.rcplayer.edit.coreTextAsBitmapFonts
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnPath
+import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcPaintData
+import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
+import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import java.io.File
 import kotlin.math.abs
 import kotlin.test.Test
@@ -68,6 +75,95 @@ class RcBitmapFontsRenderTest {
     )
   }
 
+  @Test
+  fun textOnAPathDrawnFromABitmapFontLooksAsItDidAsText() {
+    val out = System.getProperty("rc.bitmapFonts.out")?.let(::File)?.apply { mkdirs() }
+    fun bezel(family: String) =
+      RcDocument(
+        RcHeader(RcVersion(1, 1, 0)),
+        listOf(
+          RcTextData(50, family),
+          RcTextData(42, "ORBITRON 12:30"),
+          RcPathData(
+            70,
+            listOf(
+              command(RcPathCommands.MOVE),
+              f(24f),
+              f(200f),
+              command(RcPathCommands.CUBIC),
+              f(24f),
+              f(200f),
+              f(24f),
+              f(40f),
+              f(232f),
+              f(40f),
+              f(232f),
+              f(200f),
+            ),
+          ),
+          // The document's own draw stream, not a canvas component's: this player draws no text
+          // on a path inside a canvas yet, though it lays the glyphs out.
+          RcPaintData(listOf(16, 50, 1, f(22f).bits, 4, 0xffffffff.toInt())),
+          RcDrawTextOnPath(42, 70, f(30f), f(0f)),
+        ),
+      )
+    val original = bezel("google:Orbitron")
+    val converted =
+      original.coreTextAsBitmapFonts(RcTargetProfiles.ANDROIDX, setOf("Orbitron"), rasterizer)
+    assertTrue(converted.texts.singleOrNull()?.onPath == true, "skipped ${converted.skippedOnPath}")
+    val before = render(original)
+    val after = render(converted.document)
+    val fellBack = render(bezel("sans-serif"))
+    out?.let { File(it, "bezel.png").writeBytes(strip(original, before, after, fellBack)) }
+    // Glyphs turned along a curve put every edge pixel somewhere else at a fraction of a pixel's
+    // offset, so compare where the ink falls: where the run starts and ends, and its middle. This
+    // player rounds each glyph's advance on a path up to a pixel where AndroidX doesn't, which the
+    // conversion follows, so a run of 14 may end a few pixels apart.
+    val ink = Ink(before)
+    val drawn = Ink(after)
+    val fallback = Ink(fellBack)
+    assertTrue(
+      ink.near(drawn, RUN_TOLERANCE) && !ink.near(fallback, RUN_TOLERANCE),
+      "ink $ink, from a bitmap font $drawn, in the default family $fallback",
+    )
+  }
+
+  private fun f(value: Float) = RcFloatWord.literal(value)
+
+  /** Where a frame's bright ink is: its horizontal extent and its centre. */
+  private data class Ink(val left: Int, val right: Int, val x: Float, val y: Float) {
+    fun near(other: Ink, tolerance: Float): Boolean =
+      abs(left - other.left) <= tolerance &&
+        abs(right - other.right) <= tolerance &&
+        abs(x - other.x) <= tolerance / 2 &&
+        abs(y - other.y) <= tolerance / 2
+
+    companion object {
+      operator fun invoke(bitmap: Bitmap): Ink {
+        var left = Int.MAX_VALUE
+        var right = Int.MIN_VALUE
+        var sumX = 0L
+        var sumY = 0L
+        var count = 0
+        for (y in 0 until bitmap.height) {
+          for (x in 0 until bitmap.width) {
+            val c = bitmap.getColor(x, y)
+            if ((c ushr 24 and 0xff) > 150 && (c and 0xff) > 150) {
+              left = minOf(left, x)
+              right = maxOf(right, x)
+              sumX += x
+              sumY += y
+              count++
+            }
+          }
+        }
+        return Ink(left, right, sumX.toFloat() / count, sumY.toFloat() / count)
+      }
+    }
+  }
+
+  private fun command(id: Int) = RcFloatWord(0xff800000.toInt() or id)
+
   /**
    * The share of pixels whose channels differ by more than [TOLERANCE], with [b] read [dx] pixels
    * along: glyphs a bitmap font places on whole pixels, where `CoreText` lays the line out from its
@@ -122,6 +218,8 @@ class RcBitmapFontsRenderTest {
     const val DENSITY = 2f
     const val GAP = 12
     const val TOLERANCE = 16
+    /** Pixels a run's ends may lie apart, and half that for its middle. */
+    const val RUN_TOLERANCE = 8f
     const val SHIFT = 3
     const val MAX_DIFF = 0.06
     const val CORPUS = "../../scripts/rc-catalog-corpus/corpus"

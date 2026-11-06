@@ -252,10 +252,10 @@ internal val V7_WIDGETS_DEPRECATED_OPERATIONS: Set<Int> = setOf(RcOpcodes.ROOT_C
  * its styling rather than being rewritten into the older text layout, which drops what that can't
  * say. Only launcher widgets avoid core text.
  *
- * Also `DATA_BITMAP_FONT` and `DRAW_BITMAP_FONT_TEXT_RUN`: AndroidX's list has bitmap text's
- * measure and anchored draw but not the font they read, so nothing a Wear widget wrote could use
- * them. Every API level decodes both; `coreTextAsBitmapFonts` draws a face no watch ships with
- * them.
+ * Also `DATA_BITMAP_FONT`, `DRAW_BITMAP_FONT_TEXT_RUN` and `DRAW_BITMAP_FONT_TEXT_RUN_ON_PATH`:
+ * AndroidX's list has bitmap text's measure and anchored draw but not the font they read, so
+ * nothing a Wear widget wrote could use them. Level 7 decodes all three; `coreTextAsBitmapFonts`
+ * draws a face no watch ships with them, along a path too — a bezel's lettering.
  */
 internal val WEAR_WIDGETS_OPERATIONS: Set<Int> =
   setOf(
@@ -263,6 +263,7 @@ internal val WEAR_WIDGETS_OPERATIONS: Set<Int> =
     RcOpcodes.TEXT_STYLE,
     RcOpcodes.DATA_BITMAP_FONT,
     RcOpcodes.DRAW_BITMAP_FONT_TEXT_RUN,
+    RcOpcodes.DRAW_BITMAP_FONT_TEXT_RUN_ON_PATH,
     RcOpcodes.ACCESSIBILITY_SEMANTICS,
     RcOpcodes.ANIMATED_FLOAT,
     RcOpcodes.ANIMATION_SPEC,

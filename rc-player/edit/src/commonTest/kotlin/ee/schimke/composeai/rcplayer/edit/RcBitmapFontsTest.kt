@@ -8,6 +8,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRun
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRunOnPath
+import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnPath
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
@@ -15,6 +17,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
+import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty.BooleanValue
@@ -32,10 +35,14 @@ import kotlin.test.assertTrue
 class RcBitmapFontsTest {
   private val asked = mutableListOf<RcStyledText>()
 
-  /** Draws every glyph 10px wide and 20px high, remembering what it was asked. */
+  /**
+   * Draws every glyph 10px wide and 20px high at 28px, to scale at the larger size advances are
+   * measured at, remembering what it was asked at the text's own size.
+   */
   private val rasterizer = RcTextRasterizer { text ->
-    asked += text
-    RcRasterizedText(byteArrayOf(1, 2, 3), text.text.length * 10, 20)
+    val scale = text.fontSize / 28f
+    if (scale == 1f) asked += text
+    RcRasterizedText(byteArrayOf(1, 2, 3), (text.text.length * 10 * scale).toInt(), 20)
   }
 
   private fun f(value: Float) = RcFloatWord.literal(value)
@@ -68,7 +75,7 @@ class RcBitmapFontsTest {
     target: RcTargetProfile = RcTargetProfiles.WIDGETS_V6,
     families: Set<String> = setOf("Digital7"),
     glyphs: (Int) -> RcBitmapFontGlyphs? = { null },
-  ) = coreTextAsBitmapFonts(target, families, rasterizer, RcDisplay(2f), glyphs)
+  ) = coreTextAsBitmapFonts(target, families, rasterizer, RcDisplay(2f), glyphs = glyphs)
 
   @Test
   fun aTextInARequestedFamilyDrawsFromABitmapFontOfItsGlyphs() {
@@ -190,6 +197,148 @@ class RcBitmapFontsTest {
     assertEquals(
       emptyList(),
       clock.bitmapFonts(target = WearWithoutCoreText).document.validateFor(WearWithoutCoreText),
+    )
+  }
+
+  /** Draws each glyph 10px wide, with "AV" 4px tighter as a pair, its baseline 16px down. */
+  private val kerned = RcTextRasterizer { text ->
+    val scale = text.fontSize / 28f
+    if (scale == 1f) asked += text
+    val width = text.text.length * 10 - Regex("AV").findAll(text.text).count() * 4
+    RcRasterizedText(byteArrayOf(1, 2, 3), (width * scale).toInt(), 20, baseline = 16f)
+  }
+
+  @Test
+  fun aPairTheFaceSetsTighterIsKernedAndTheSlotSizedForIt() {
+    val word =
+      document(
+        RcTextData(50, "digital7"),
+        RcTextData(42, "AVA"),
+        *rootLayout(*text(42, -7).toTypedArray()).toTypedArray(),
+      )
+    val result =
+      word.coreTextAsBitmapFonts(
+        RcTargetProfiles.WIDGETS_V6,
+        setOf("digital7"),
+        kerned,
+        RcDisplay(2f),
+      )
+    val font = result.document.operations.filterIsInstance<RcBitmapFontData>().single()
+    assertEquals(mapOf("AV" to (-4).toShort()), font.kerning, "VA isn't tighter, so isn't kerned")
+    assertEquals(13f, result.texts.single().width, "30px less AV's 4, in dp")
+
+    val loose =
+      word.coreTextAsBitmapFonts(
+        RcTargetProfiles.WIDGETS_V6,
+        setOf("digital7"),
+        kerned,
+        RcDisplay(2f),
+        kerning = false,
+      )
+    assertEquals(
+      emptyMap(),
+      loose.document.operations.filterIsInstance<RcBitmapFontData>().single().kerning,
+    )
+  }
+
+  @Test
+  fun aSequenceAskedForIsOneGlyphWhereATextShowsIt() {
+    val word =
+      document(
+        RcTextData(50, "digital7"),
+        RcTextData(42, "fifo"),
+        *rootLayout(*text(42, -7).toTypedArray()).toTypedArray(),
+      )
+    val result =
+      word.coreTextAsBitmapFonts(
+        RcTargetProfiles.WIDGETS_V6,
+        setOf("digital7"),
+        rasterizer,
+        sequences = setOf("fi", "xy"),
+      )
+    val glyphs = result.document.operations.filterIsInstance<RcBitmapFontData>().single().glyphs
+    assertEquals(
+      listOf("f", "fi", "o"),
+      glyphs.map { it.chars },
+      "no lone i, and no xy the text never shows",
+    )
+    assertEquals(20.toShort(), glyphs.single { it.chars == "fi" }.bitmapWidth)
+  }
+
+  private fun canvas(vararg draws: RcOperation): RcDocument =
+    document(
+      RcTextData(50, "digital7"),
+      RcTextData(42, "12:30"),
+      RcPathData(70, listOf(path(10), f(0f), f(0f), path(11), f(0f), f(0f), f(200f), f(0f))),
+      *rootLayout(
+          ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout(-9, -1),
+          ee.schimke.composeai.rcplayer.protocol.RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
+          *draws,
+          END,
+          END,
+        )
+        .toTypedArray(),
+    )
+
+  private fun path(command: Int) = RcFloatWord(0xff800000.toInt() or command)
+
+  private val bezelPaint = RcPaintData(listOf(16, 50, 1, f(28f).bits, 4, 0xffff0000.toInt()))
+
+  @Test
+  fun textOnAPathDrawsAlongASectionOfItAsLongAsTheText() {
+    val bezel = canvas(bezelPaint, RcDrawTextOnPath(42, 70, f(10f), f(5f)))
+    val result = bezel.coreTextAsBitmapFonts(RcTargetProfiles.ANDROIDX, setOf("digital7"), kerned)
+    val operations = assertRoundTrips(result.document).operations
+
+    assertTrue(operations.none { it is RcDrawTextOnPath })
+    val draw = operations.filterIsInstance<RcDrawBitmapFontTextRunOnPath>().single()
+    val section = operations.filterIsInstance<RcPathData>().single { it.id == draw.pathId }
+    assertEquals(listOf(10, 11), section.words.mapNotNull { it.referencedId })
+    assertEquals(
+      listOf(10f, 0f, 10f, 0f, 60f, 0f),
+      section.words
+        .filter { it.referencedId == null }
+        .map { kotlin.math.round(it.value * 100) / 100 },
+      "from the offset, five 10px glyphs along",
+    )
+    assertEquals(f(5f - 16f), draw.yAdjustment, "the baseline on the path, as the text had it")
+    assertTrue(
+      asked.all { it.fontSize == 28f && it.density == 1f && it.color == 0xffff0000.toInt() },
+    )
+    assertEquals(listOf(true), result.texts.map { it.onPath })
+    assertEquals(
+      emptyList(),
+      result.document.validateFor(RcTargetProfiles.WEAR_WIDGETS).filter { it.opcode != null },
+    )
+  }
+
+  @Test
+  fun textOnAPathItCannotReadIsLeftAndReported() {
+    val stroked =
+      canvas(
+        bezelPaint,
+        RcPaintData(listOf(8 or (1 shl 16))),
+        RcDrawTextOnPath(42, 70, f(10f), f(5f)),
+      )
+    assertEquals(
+      listOf(42),
+      stroked
+        .coreTextAsBitmapFonts(RcTargetProfiles.ANDROIDX, setOf("digital7"), kerned)
+        .skippedOnPath,
+    )
+
+    val tooLong = canvas(bezelPaint, RcDrawTextOnPath(42, 70, f(180f), f(5f)))
+    val result = tooLong.coreTextAsBitmapFonts(RcTargetProfiles.ANDROIDX, setOf("digital7"), kerned)
+    assertEquals(listOf(42), result.skippedOnPath, "50px of text from 180px along a 200px path")
+    assertEquals(tooLong, result.document)
+
+    val launcher = canvas(bezelPaint, RcDrawTextOnPath(42, 70, f(10f), f(5f)))
+    assertEquals(
+      listOf(42),
+      launcher
+        .coreTextAsBitmapFonts(RcTargetProfiles.WIDGETS_V6, setOf("digital7"), kerned)
+        .skippedOnPath,
+      "no path op at level 6",
     )
   }
 }
