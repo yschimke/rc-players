@@ -4,8 +4,10 @@ import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcplayer.edit.RcDisplay
 import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
+import ee.schimke.composeai.rcplayer.edit.adaptTo
 import ee.schimke.composeai.rcplayer.edit.coreTextAsBitmapFonts
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -21,6 +23,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import java.io.File
@@ -80,6 +83,47 @@ class RcBitmapFontsRenderTest {
     assertTrue(
       diff < MAX_DIFF && diff < fallbackDiff / 3,
       "bitmap-font texts differ from CoreText in $diff of pixels, the default family in $fallbackDiff",
+    )
+  }
+
+  /**
+   * The same specimen as the Android 16 launcher lays it out: its texts adapted to `TextLayout`,
+   * then drawn from bitmap fonts, still look as they did, and none is left a `CoreText`.
+   */
+  @Test
+  fun aLauncherTextLayoutDrawnFromABitmapFontLooksAsItDid() {
+    val out = System.getProperty("rc.bitmapFonts.out")?.let(::File)?.apply { mkdirs() }
+    val original = RcDocumentCodec.decode(File("$CORPUS/$SAMPLE.rc").readBytes())
+    val launcher = original.adaptTo(RcTargetProfiles.WIDGETS_V6, approximateText = true).document
+    assertTrue(launcher.operations.any { it is RcTextLayout }, "the launcher's text component")
+    val converted =
+      launcher.coreTextAsBitmapFonts(
+        RcTargetProfiles.WIDGETS_V6,
+        FAMILIES,
+        rasterizer,
+        RcDisplay(DENSITY),
+      )
+    assertTrue(converted.texts.isNotEmpty(), "no text was converted; skipped ${converted.skipped}")
+    assertTrue(converted.document.operations.none { it is RcCoreText }, "a launcher reads none")
+    val fallback =
+      launcher.copy(
+        operations =
+          launcher.operations.map {
+            if (it is RcTextData && it.text.startsWith("google:")) it.copy(text = "sans-serif")
+            else it
+          },
+      )
+    val before = render(launcher)
+    val after = render(converted.document)
+    val fellBack = render(fallback)
+    val diff = (-SHIFT..SHIFT).minOf { differing(before, after, it) }
+    val fallbackDiff = (-SHIFT..SHIFT).minOf { differing(before, fellBack, it) }
+    out?.let {
+      File(it, "$SAMPLE-launcher.png").writeBytes(strip(launcher, before, after, fellBack))
+    }
+    assertTrue(
+      diff < MAX_DIFF && diff < fallbackDiff / 3,
+      "bitmap-font texts differ from TextLayout in $diff of pixels, the default family in $fallbackDiff",
     )
   }
 

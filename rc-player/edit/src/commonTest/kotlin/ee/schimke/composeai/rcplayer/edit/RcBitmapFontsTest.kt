@@ -20,6 +20,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty.BooleanValue
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty.FloatValue
@@ -113,6 +114,96 @@ class RcBitmapFontsTest {
       emptyList(),
       result.document.validateFor(RcTargetProfiles.WIDGETS_V6).filter { it.opcode != null },
     )
+  }
+
+  /** A `TextLayout` in the family named by text id 50, as the Android 16 launcher lays text out. */
+  private fun layout(textId: Int, componentId: Int, align: Int = 1, dynamicColor: Int? = null) =
+    listOf(
+      RcTextLayout(
+        componentId = componentId,
+        animationId = -1,
+        textId = textId,
+        color = dynamicColor ?: 0xff000000.toInt(),
+        fontSize = f(28f),
+        fontStyle = 0,
+        fontWeight = f(400f),
+        fontFamilyId = 50,
+        textAlignAndFlags =
+          if (dynamicColor != null) align or (RcTextLayout.FLAG_DYNAMIC_COLOR shl 16) else align,
+        overflow = 1,
+        maxLines = Int.MAX_VALUE,
+      ),
+      RcPaddingModifier(f(4f), f(0f), f(4f), f(0f)),
+      RcLayoutContent(componentId - 100),
+      END,
+      END,
+    )
+
+  @Test
+  fun aLauncherTextLayoutDrawsFromABitmapFontAsACoreTextWould() {
+    val launcher = screen(texts = layout(42, -7))
+    val result = launcher.bitmapFonts()
+    val operations = assertRoundTrips(result.document).operations
+
+    assertTrue(operations.none { it is RcTextLayout || it is RcCoreText })
+    assertEquals(
+      clock.bitmapFonts().document,
+      result.document,
+      "the same document its CoreText twin converts to",
+    )
+    assertEquals(-7, result.texts.single().componentId)
+    assertEquals(
+      emptyList(),
+      result.document.validateFor(RcTargetProfiles.WIDGETS_V6).filter { it.opcode != null },
+    )
+  }
+
+  @Test
+  fun aLauncherTextLayoutLeftAsTextStaysATextLayout() {
+    // Centred and changing: the launcher has no anchored draw, so it stays text.
+    val live =
+      screen(
+        RcNamedVariable(42, RcNamedVariable.STRING_TYPE, "USER:time"),
+        texts = layout(42, -7, align = 3) + layout(43, -8),
+      )
+    val result = live.bitmapFonts { RcBitmapFontGlyphs("0123456789:", maxLength = 5) }
+    val operations = assertRoundTrips(result.document).operations
+
+    assertEquals(listOf(-7), result.skipped)
+    assertEquals(listOf(-8), result.texts.map { it.componentId })
+    assertEquals(
+      layout(42, -7, align = 3).first(),
+      operations.filterIsInstance<RcTextLayout>().single(),
+    )
+    assertTrue(operations.none { it is RcCoreText }, "a launcher reads no CoreText")
+    assertEquals(
+      emptyList(),
+      result.document.validateFor(RcTargetProfiles.WIDGETS_V6).filter { it.opcode != null },
+    )
+  }
+
+  @Test
+  fun aLauncherTextLayoutWithADynamicColourTintsAWhiteMask() {
+    val themed =
+      screen(
+        RcColorConstant(60, 0xff00ff00.toInt()),
+        RcNamedVariable(60, RcNamedVariable.COLOR_TYPE, "USER:accent"),
+        texts = layout(42, -7, dynamicColor = 60),
+      )
+    val operations = themed.bitmapFonts().document.operations
+    assertTrue(asked.all { it.color == 0xffffffff.toInt() })
+    assertEquals(
+      RcPaintData(listOf(20 or (5 shl 16), 60)),
+      operations.filterIsInstance<RcPaintData>().single(),
+    )
+  }
+
+  @Test
+  fun aLauncherTextLayoutInAnotherFamilyIsLeftAlone() {
+    val launcher = screen(texts = layout(42, -7))
+    val result = launcher.bitmapFonts(families = setOf("gspot"))
+    assertEquals(launcher, result.document)
+    assertEquals(emptyList(), result.skipped)
   }
 
   @Test
