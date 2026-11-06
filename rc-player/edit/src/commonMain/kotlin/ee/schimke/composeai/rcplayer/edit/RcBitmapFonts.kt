@@ -764,8 +764,9 @@ private fun plan(
       family = family,
       fontData = fontData[int(P_FONT_FAMILY, -1)]?.data,
       fontSize = fontSize,
-      weight = if (style and 1 != 0) 700 else round(weight).toInt().coerceIn(1, 1000),
-      italic = style and 2 != 0,
+      // The wire's style is an enum, not a typeface bitmask: italic is 1, and weight is its own.
+      weight = round(weight).toInt().coerceIn(1, 1000),
+      italic = style == FONT_STYLE_ITALIC,
       color = constantColor ?: WHITE,
       tintId = if (constantColor == null) colorId else null,
       fontAxes = tags.zip(axisValues),
@@ -974,6 +975,9 @@ private const val COLOR_FILTER_ID = 20
 
 /** AndroidX `PaintBundle.BLEND_MODE_SRC_IN`: the mask's coverage in the filter's colour. */
 private const val BLEND_SRC_IN = 5
+
+/** `CoreText` and `TextLayout`'s italic font style, as players read it. */
+private const val FONT_STYLE_ITALIC = 1
 
 private const val P_COMPONENT_ID = 1
 private const val P_ANIMATION_ID = 2

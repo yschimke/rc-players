@@ -117,7 +117,13 @@ class RcBitmapFontsTest {
   }
 
   /** A `TextLayout` in the family named by text id 50, as the Android 16 launcher lays text out. */
-  private fun layout(textId: Int, componentId: Int, align: Int = 1, dynamicColor: Int? = null) =
+  private fun layout(
+    textId: Int,
+    componentId: Int,
+    align: Int = 1,
+    dynamicColor: Int? = null,
+    fontStyle: Int = 0,
+  ) =
     listOf(
       RcTextLayout(
         componentId = componentId,
@@ -125,7 +131,7 @@ class RcBitmapFontsTest {
         textId = textId,
         color = dynamicColor ?: 0xff000000.toInt(),
         fontSize = f(28f),
-        fontStyle = 0,
+        fontStyle = fontStyle,
         fontWeight = f(400f),
         fontFamilyId = 50,
         textAlignAndFlags =
@@ -195,6 +201,18 @@ class RcBitmapFontsTest {
     assertEquals(
       RcPaintData(listOf(20 or (5 shl 16), 60)),
       operations.filterIsInstance<RcPaintData>().single(),
+    )
+  }
+
+  /** The wire's font style is an enum (italic is 1), as players read it: italic, its own weight. */
+  @Test
+  fun anItalicTextIsDrawnItalicAtItsOwnWeight() {
+    screen(texts = layout(42, -7, fontStyle = 1)).bitmapFonts()
+    screen(texts = text(42, -8, IntValue(6, 1))).bitmapFonts()
+    assertTrue(asked.isNotEmpty())
+    assertTrue(
+      asked.all { it.italic && it.fontWeight == 400 },
+      "${asked.map { it.italic to it.fontWeight }}",
     )
   }
 
