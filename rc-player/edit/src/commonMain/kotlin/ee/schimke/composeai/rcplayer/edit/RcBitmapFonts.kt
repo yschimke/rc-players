@@ -13,6 +13,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRun
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRunOnPath
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapTextAnchored
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnPath
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
@@ -95,18 +96,21 @@ public data class RcBitmapFontTexts(
  * changes keeps the face, as long as [glyphs] says which characters it can show. A clock in an LCD
  * face is the case it is for.
  *
- * A `CoreText` converts when it is one line, its size, weight, slant and family are constant, and
- * it asks for nothing a bitmap font can't draw: letter spacing becomes the font's glyph spacing,
- * and constant font axes and line height are drawn into the glyphs; decoration and the like leave
- * it as it was, listed in [RcBitmapFontTexts.skipped]. Its text is a static value's characters, or
+ * A `CoreText` converts when it is one line that fits its slot — the width [wrapWidth] gives for
+ * its component id, or the document's — its size, weight, slant and family are constant, and it
+ * asks for nothing a bitmap font can't draw: letter spacing becomes the font's glyph spacing, and
+ * constant font axes and line height are drawn into the glyphs; decoration and the like leave it as
+ * it was, listed in [RcBitmapFontTexts.skipped]. Its text is a static value's characters, or
  * [glyphs] for its component id when the value changes; a changing text [glyphs] gives nothing for
  * is skipped. A text in any other family is left alone, unlisted.
  *
  * The text's component becomes a box with the same id, animation id and modifiers, holding a canvas
  * sized for the text — for a changing one, [RcBitmapFontGlyphs.maxLength] of its widest glyph —
- * that draws it from its start. A colour the player sets at playback stays live: the glyphs are
- * drawn as a white mask the canvas paint tints with that colour id. A constant colour is drawn into
- * the glyphs. Texts sharing a face, size and colour share one font.
+ * that draws it from its start. A changing text centred or set to its end is drawn anchored there
+ * by its live width, so it stays as aligned whatever it shows; a target without the anchored draw
+ * (the Android 16 launcher) keeps such a text. A colour the player sets at playback stays live: the
+ * glyphs are drawn as a white mask the canvas paint tints with that colour id. A constant colour is
+ * drawn into the glyphs. Texts sharing a face, size and colour share one font.
  *
  * A `DrawTextOnPath` with a static text converts where its canvas's paint is read from `PaintData`
  * alone (a filled face, size and colour, no shader or filter), its offsets are constant and its
@@ -136,6 +140,7 @@ public fun RcDocument.coreTextAsBitmapFonts(
   display: RcDisplay = RcDisplay.DEFAULT,
   kerning: Boolean = true,
   sequences: Set<String> = emptySet(),
+  wrapWidth: (componentId: Int) -> Float? = { null },
   glyphs: (componentId: Int) -> RcBitmapFontGlyphs? = { null },
 ): RcBitmapFontTexts {
   val unchanged = RcBitmapFontTexts(this, emptyList(), emptyList())
@@ -160,6 +165,7 @@ public fun RcDocument.coreTextAsBitmapFonts(
       componentIds(operations),
     )
   val runs = sequences.filter { it.length >= 2 }.toSet()
+  val documentWidth = header.width / (header.density.takeIf { it > 0f } ?: 1f)
   val skipped = mutableListOf<Int>()
   val skippedOnPath = mutableListOf<Int>()
 
@@ -176,7 +182,18 @@ public fun RcDocument.coreTextAsBitmapFonts(
         val family = values.text(familyId, node.start)
         if (familyId == -1 || !requested(family)) return@walk
         val plan =
-          plan(text, node, properties, family!!, values, fontData, tintable, display, glyphs)
+          plan(
+            text,
+            node,
+            properties,
+            family!!,
+            values,
+            fontData,
+            tintable,
+            RcOpcodes.DRAW_BITMAP_TEXT_ANCHORED in target.supportedOpcodes,
+            display,
+            glyphs,
+          )
         if (plan == null) skipped += text.componentId else plans += plan
       }
     }
@@ -335,6 +352,11 @@ public fun RcDocument.coreTextAsBitmapFonts(
           }
         val width = ceil(pixelWidth) / display.density
         val height = font.height / display.density
+        // One unwrapped line: a text its slot would wrap or cut keeps its own layout.
+        if (width > (wrapWidth(plan.text.componentId) ?: documentWidth) + 0.5f) {
+          skipped += plan.text.componentId
+          continue
+        }
         val box = buildList {
           fun size(dp: Float, pixels: Float): RcFloatWord {
             // Below level 7 the document is per display already; above, it scales with the
@@ -402,16 +424,32 @@ public fun RcDocument.coreTextAsBitmapFonts(
               ),
             )
           }
+          val pan = panX(plan.align)
           add(
-            RcDrawBitmapFontTextRun(
-              plan.text.textId,
-              font.fontId,
-              0,
-              -1,
-              RcFloatWord.literal(0f),
-              RcFloatWord.literal(0f),
-              RcFloatWord.literal(spacing),
-            ),
+            if (plan.dynamic != null && pan != -1f) {
+              // Its slot is its widest value: the live one sits within it as the text was aligned.
+              RcDrawBitmapTextAnchored(
+                plan.text.textId,
+                font.fontId,
+                RcFloatWord.literal(0f),
+                RcFloatWord.literal(-1f),
+                RcFloatWord.literal(pixelWidth * (1f + pan) / 2f),
+                RcFloatWord.literal(0f),
+                RcFloatWord.literal(pan),
+                RcFloatWord.literal(1f),
+                RcFloatWord.literal(spacing),
+              )
+            } else {
+              RcDrawBitmapFontTextRun(
+                plan.text.textId,
+                font.fontId,
+                0,
+                -1,
+                RcFloatWord.literal(0f),
+                RcFloatWord.literal(0f),
+                RcFloatWord.literal(spacing),
+              )
+            },
           )
           if (scale != null) add(RcNoArg(RcOpcodes.MATRIX_RESTORE))
           repeat(4) { add(END) }
@@ -441,7 +479,9 @@ public fun RcDocument.coreTextAsBitmapFonts(
         val section = plan.line.section(ids.next(), start, start + run)
         definitions += section
         val draw = buildList {
-          plan.face.tintId?.let { add(tint(it)) }
+          // The paint's colour already carries the live colour's alpha, which the player applies to
+          // the glyphs as well as the tint: opaque white for the draw, then the colour id again.
+          plan.face.tintId?.let { add(RcPaintData(listOf(PAINT_COLOR, WHITE) + tint(it).words)) }
           add(
             RcDrawBitmapFontTextRunOnPath(
               plan.operation.textId,
@@ -453,7 +493,7 @@ public fun RcDocument.coreTextAsBitmapFonts(
               RcFloatWord.literal(plan.verticalOffset - font.baseline),
             ),
           )
-          if (plan.face.tintId != null) add(RcPaintData(listOf(CLEAR_COLOR_FILTER)))
+          plan.face.tintId?.let { add(RcPaintData(listOf(CLEAR_COLOR_FILTER, PAINT_COLOR_ID, it))) }
         }
         replacements[plan.index] = plan.index to draw
         converted +=
@@ -510,7 +550,9 @@ private fun pathPlan(
   if (!paint.known || paint.unsupported) return null
   val size = paint.textSize ?: return null
   val text =
-    values.text(operation.textId, index)?.takeIf { it.isNotEmpty() && '\n' !in it } ?: return null
+    values.text(operation.textId, index)?.takeIf {
+      it.isNotEmpty() && '\n' !in it && it.none(Char::isSurrogate)
+    } ?: return null
   val horizontal =
     operation.horizontalOffset.takeIf { it.referencedId == null }?.value ?: return null
   val vertical = operation.verticalOffset.takeIf { it.referencedId == null }?.value ?: return null
@@ -572,6 +614,7 @@ private fun plan(
   values: RcValueAnalysis,
   fontData: Map<Int, RcFontData>,
   tintable: Boolean,
+  anchorable: Boolean,
   display: RcDisplay,
   glyphs: (Int) -> RcBitmapFontGlyphs?,
 ): CorePlan? {
@@ -601,7 +644,11 @@ private fun plan(
   val value = values.text(text.textId, at)
   val dynamic = if (value == null) glyphs(text.componentId) ?: return null else null
   val chars = value ?: dynamic!!.chars
-  if ('\n' in chars || chars.isEmpty()) return null
+  // A glyph is a whole character: one outside the basic plane would be split in two.
+  if ('\n' in chars || chars.isEmpty() || chars.any { it.isSurrogate() }) return null
+  // A changing text centred or set to its end is placed by its live width, which only the
+  // anchored draw measures.
+  if (dynamic != null && panX(align) != -1f && !anchorable) return null
   val tags =
     (properties[P_FONT_AXIS_TAGS] as? RcTextStyleProperty.IntArrayValue)?.values.orEmpty().map {
       values.text(it, at) ?: return null
@@ -744,6 +791,15 @@ private class DrawnFont(
   }
 }
 
+/** `CoreText` alignment as an anchored draw's horizontal pan: -1 start, 0 centre, 1 end. */
+private fun panX(align: Int): Float =
+  when (align) {
+    3 -> 0f
+    2,
+    6 -> 1f
+    else -> -1f
+  }
+
 /** `CoreText` alignment as a box's horizontal positioning: start, centre or end. */
 private fun boxAlignment(align: Int): Int =
   when (align) {
@@ -769,6 +825,10 @@ private const val MEASURE_SCALE = 8f
 
 /** The most glyphs a changing text can show for every pair of them to be kerned. */
 private const val MAX_KERNED_GLYPHS = 24
+
+/** AndroidX `PaintBundle.COLOR` and `COLOR_ID`. */
+private const val PAINT_COLOR = 4
+private const val PAINT_COLOR_ID = 19
 
 /** AndroidX `PaintBundle.CLEAR_COLOR_FILTER`. */
 private const val CLEAR_COLOR_FILTER = 21

@@ -141,13 +141,20 @@ internal class RcPolyline private constructor(private val points: List<Pair<Floa
  */
 internal class RcPaintTrack {
   var known: Boolean = true
-  var textSize: Float? = 36f
+  /** Null until `PaintData` sets it: a player's own default size isn't one the editor can know. */
+  var textSize: Float? = null
   var color: Int? = 0xff000000.toInt()
   var colorId: Int? = null
   var fontType: Int = 0
   var fontStyle: Int = 0
+  private var stroke = false
+  private var shader = false
+  private var filter = false
+
   /** What a text drawn as glyph images couldn't keep: a stroke, shader, gradient or filter. */
-  var unsupported: Boolean = false
+  val unsupported: Boolean
+    get() = stroke || shader || filter
+
   val axes: MutableList<Pair<Int, Float>> = mutableListOf()
 
   fun apply(words: List<Int>) {
@@ -174,14 +181,15 @@ internal class RcPaintTrack {
           fontStyle = command ushr 16
           fontType = word() ?: return unknown()
         }
-        8 -> if (command ushr 16 == 1) unsupported = true
-        9 -> if ((word() ?: return unknown()) != 0) unsupported = true
+        8 -> stroke = command ushr 16 == 1
+        9 -> shader = (word() ?: return unknown()) != 0
         13,
         20 -> {
           word() ?: return unknown()
-          unsupported = true
+          filter = true
         }
-        21 -> unsupported = false
+        // Clears the filter only: a stroke or shader set before it still holds.
+        21 -> filter = false
         5,
         12,
         22 -> word() ?: return unknown()

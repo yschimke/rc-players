@@ -74,8 +74,8 @@ public final class ee/schimke/composeai/rcplayer/edit/RcBitmapFontTexts {
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcBitmapFontsKt {
-	public static final fun coreTextAsBitmapFonts (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;Lee/schimke/composeai/rcplayer/runtime/RcTextRasterizer;Lee/schimke/composeai/rcplayer/edit/RcDisplay;ZLjava/util/Set;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rcplayer/edit/RcBitmapFontTexts;
-	public static synthetic fun coreTextAsBitmapFonts$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;Lee/schimke/composeai/rcplayer/runtime/RcTextRasterizer;Lee/schimke/composeai/rcplayer/edit/RcDisplay;ZLjava/util/Set;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcBitmapFontTexts;
+	public static final fun coreTextAsBitmapFonts (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;Lee/schimke/composeai/rcplayer/runtime/RcTextRasterizer;Lee/schimke/composeai/rcplayer/edit/RcDisplay;ZLjava/util/Set;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rcplayer/edit/RcBitmapFontTexts;
+	public static synthetic fun coreTextAsBitmapFonts$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;Lee/schimke/composeai/rcplayer/runtime/RcTextRasterizer;Lee/schimke/composeai/rcplayer/edit/RcDisplay;ZLjava/util/Set;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcBitmapFontTexts;
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcCollapseStateLayoutsKt {

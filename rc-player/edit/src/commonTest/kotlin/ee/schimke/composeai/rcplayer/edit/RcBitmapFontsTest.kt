@@ -9,6 +9,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRun
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRunOnPath
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapTextAnchored
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnPath
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
@@ -339,6 +340,93 @@ class RcBitmapFontsTest {
         .coreTextAsBitmapFonts(RcTargetProfiles.WIDGETS_V6, setOf("digital7"), kerned)
         .skippedOnPath,
       "no path op at level 6",
+    )
+  }
+
+  @Test
+  fun aCentredTextTheHostChangesIsDrawnAnchoredInItsSlot() {
+    val live =
+      screen(
+        RcNamedVariable(42, RcNamedVariable.STRING_TYPE, "USER:time"),
+        texts = text(42, -7, IntValue(9, 3)),
+      )
+    val glyphs = { _: Int -> RcBitmapFontGlyphs("0123456789:", maxLength = 5) }
+    val wear = live.bitmapFonts(target = WearWithoutCoreText, glyphs = glyphs).document.operations
+    val anchored = wear.filterIsInstance<RcDrawBitmapTextAnchored>().single()
+    assertEquals(f(25f) to f(0f), anchored.x to anchored.panX, "the middle of a 50px slot")
+    assertTrue(wear.none { it is RcDrawBitmapFontTextRun })
+
+    val launcher = live.bitmapFonts(glyphs = glyphs)
+    assertEquals(listOf(-7), launcher.skipped, "no anchored draw at level 6")
+  }
+
+  @Test
+  fun aTextWiderThanItsSlotOrSplittingACharacterIsLeft() {
+    assertEquals(
+      listOf(-7),
+      clock
+        .coreTextAsBitmapFonts(
+          RcTargetProfiles.WIDGETS_V6,
+          setOf("digital7"),
+          rasterizer,
+          RcDisplay(2f),
+          wrapWidth = { 20f },
+        )
+        .skipped,
+      "25dp of text in 20dp",
+    )
+    val emoji =
+      document(
+        RcTextData(50, "digital7"),
+        RcTextData(42, "12\uD83D\uDE00"),
+        *rootLayout(*text(42, -7).toTypedArray()).toTypedArray(),
+      )
+    assertEquals(listOf(-7), emoji.bitmapFonts().skipped)
+  }
+
+  @Test
+  fun textOnAPathInALiveColourIsTintedOnceAndThePaintRestored() {
+    val live =
+      canvas(
+        RcColorConstant(60, 0x8000ff00.toInt()),
+        RcPaintData(listOf(16, 50, 1, f(28f).bits, 19, 60)),
+        RcDrawTextOnPath(42, 70, f(10f), f(5f)),
+      )
+    val operations =
+      live
+        .coreTextAsBitmapFonts(RcTargetProfiles.ANDROIDX, setOf("digital7"), kerned)
+        .document
+        .operations
+    val draw = operations.indexOfFirst { it is RcDrawBitmapFontTextRunOnPath }
+    assertEquals(
+      RcPaintData(listOf(4, 0xffffffff.toInt(), 20 or (5 shl 16), 60)),
+      operations[draw - 1],
+    )
+    assertEquals(RcPaintData(listOf(21, 19, 60)), operations[draw + 1])
+  }
+
+  @Test
+  fun textOnAPathWithoutASizeOrStillStrokedIsLeft() {
+    val unsized =
+      canvas(RcPaintData(listOf(16, 50, 4, -1)), RcDrawTextOnPath(42, 70, f(10f), f(5f)))
+    assertEquals(
+      listOf(42),
+      unsized
+        .coreTextAsBitmapFonts(RcTargetProfiles.ANDROIDX, setOf("digital7"), kerned)
+        .skippedOnPath,
+    )
+    val stroked =
+      canvas(
+        bezelPaint,
+        RcPaintData(listOf(8 or (1 shl 16), 13, 0, 21)),
+        RcDrawTextOnPath(42, 70, f(10f), f(5f)),
+      )
+    assertEquals(
+      listOf(42),
+      stroked
+        .coreTextAsBitmapFonts(RcTargetProfiles.ANDROIDX, setOf("digital7"), kerned)
+        .skippedOnPath,
+      "clearing the filter leaves the stroke",
     )
   }
 }
