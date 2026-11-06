@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.26.0](https://github.com/yschimke/rc-players/compare/v2.25.0...v2.26.0) (2026-11-06)
+
+
+### Features
+
+* draw the launcher's TextLayout from bitmap fonts too ([#817](https://github.com/yschimke/rc-players/issues/817)) ([594d0a6](https://github.com/yschimke/rc-players/commit/594d0a6f3cd0282670f498b7c18d1dceae7e29e3))
+
 ## [2.25.0](https://github.com/yschimke/rc-players/compare/v2.24.0...v2.25.0) (2026-11-06)
 
 
