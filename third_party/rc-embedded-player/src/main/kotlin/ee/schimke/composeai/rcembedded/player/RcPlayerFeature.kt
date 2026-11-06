@@ -44,7 +44,7 @@ public abstract class RcPlayerFeature(
      * Identifies the feature. Within an [RcPlayerFeatureSet] a later feature with the same key
      * replaces an earlier one, which lets an app override a default feature.
      */
-    public val key: Key
+    public val key: Key,
 ) {
     /** Identity of a feature. Compared by reference, so declare one instance per feature. */
     public class Key(public val name: String) {

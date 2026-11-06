@@ -115,7 +115,7 @@ internal class RcParticleRuntime(
         "${system.variableIds.size} variables"
     }
     require(
-      compare.secondEquations.isEmpty() || compare.secondEquations.size == system.variableIds.size
+      compare.secondEquations.isEmpty() || compare.secondEquations.size == system.variableIds.size,
     ) {
       "ParticlesCompare ${compare.id} second result has ${compare.secondEquations.size} equations for " +
         "${system.variableIds.size} variables"
@@ -145,7 +145,7 @@ internal class RcParticleRuntime(
               1 +
                 compare.condition.size +
                 compare.firstEquations.sumOf { it.size } +
-                compare.secondEquations.sumOf { it.size }
+                compare.secondEquations.sumOf { it.size },
             )
             val first = system.particles[firstIndex]
             if (evaluatePair(compare.condition, system, first, second, first) > 0f) {

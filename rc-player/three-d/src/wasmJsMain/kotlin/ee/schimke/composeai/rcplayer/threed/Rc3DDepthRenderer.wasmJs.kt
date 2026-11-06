@@ -673,7 +673,7 @@ private fun createWebGl2Context(): WebGl2? =
         return null;
       }
     })()
-    """
+    """,
   )
 
 private fun loseContext(extension: JsAny): Unit = js("extension.loseContext()")

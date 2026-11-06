@@ -10,7 +10,7 @@ package ee.schimke.composeai.rccreation.bridge
 @RequiresOptIn(
   message =
     "rc-players' creation API is experimental and may change between minor releases. " +
-      "Opt in with @OptIn(ExperimentalRcCreationApi::class)."
+      "Opt in with @OptIn(ExperimentalRcCreationApi::class).",
 )
 @Retention(AnnotationRetention.BINARY)
 @Target(

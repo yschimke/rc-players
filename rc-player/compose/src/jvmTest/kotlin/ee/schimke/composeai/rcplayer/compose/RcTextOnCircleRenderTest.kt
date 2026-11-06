@@ -73,14 +73,14 @@ class RcTextOnCircleRenderTest {
         document(
           alignment = RcDrawTextOnCircle.ALIGN_START,
           placement = RcDrawTextOnCircle.PLACEMENT_OUTSIDE,
-        )
+        ),
       )
     val inside =
       render(
         document(
           alignment = RcDrawTextOnCircle.ALIGN_START,
           placement = RcDrawTextOnCircle.PLACEMENT_INSIDE,
-        )
+        ),
       )
 
     assertTrue(inkOnRing(outside) > 0 && inkOnRing(inside) > 0)

@@ -116,7 +116,7 @@ public fun RemoteRoundedCornerShape(size: RemoteFloat): RemoteRoundedCornerShape
  * @param percent Size in percents to apply.
  */
 public fun RemoteRoundedCornerShape(
-    @IntRange(from = 0, to = 100) percent: Int
+    @IntRange(from = 0, to = 100) percent: Int,
 ): RemoteRoundedCornerShape = RemoteRoundedCornerShape(RemoteCornerSize(percent))
 
 /**

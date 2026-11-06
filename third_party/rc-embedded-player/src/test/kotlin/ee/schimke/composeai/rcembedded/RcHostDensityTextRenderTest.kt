@@ -100,7 +100,7 @@ class RcHostDensityTextRenderTest {
                         Modifier.size(
                             with(documentDensity) { WIDTH.toDp() },
                             with(documentDensity) { HEIGHT.toDp() },
-                        )
+                        ),
                     ) {
                         RemoteImageSupport.enableEncodedImageReferences()
                         document.value?.let { current ->

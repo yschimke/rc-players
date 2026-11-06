@@ -41,7 +41,7 @@ import kotlin.test.assertIs
 
 class RcDocumentLinkerTest {
   private fun body(
-    vararg operations: ee.schimke.composeai.rcplayer.protocol.RcOperation
+    vararg operations: ee.schimke.composeai.rcplayer.protocol.RcOperation,
   ): ByteArray =
     RcWireWriter()
       .apply {
@@ -172,7 +172,7 @@ class RcDocumentLinkerTest {
               RcMacroCall(9, listOf(200)),
               RcNoArg(RcOpcodes.CONTAINER_END),
             ),
-          )
+          ),
         )
         .operations
         .map { assertIs<RcLinkedNode.Operation>(it).operation }
@@ -215,7 +215,7 @@ class RcDocumentLinkerTest {
             RcMacroCall(9, emptyList()),
             RcNoArg(RcOpcodes.CONTAINER_END),
           ),
-        )
+        ),
       )
     }
     assertFailsWith<RcLinkException> {
@@ -227,7 +227,7 @@ class RcDocumentLinkerTest {
             RcMacroCall(9, emptyList()),
             RcNoArg(RcOpcodes.CONTAINER_END),
           ),
-        )
+        ),
       )
     }
   }
@@ -239,7 +239,7 @@ class RcDocumentLinkerTest {
 
     val linked =
       RcDocumentLinker.link(
-        RcDocument(header, listOf(component, body, RcNoArg(RcOpcodes.CONTAINER_END)))
+        RcDocument(header, listOf(component, body, RcNoArg(RcOpcodes.CONTAINER_END))),
       )
 
     assertEquals(body, assertIs<RcLinkedNode.Operation>(linked.operations.single()).operation)

@@ -110,7 +110,7 @@ internal constructor(
               V7_ANDROIDX_OPERATIONS,
               V7_ANDROIDX_EXPERIMENTAL_OPERATIONS,
               V7_ANDROIDX_DEPRECATED_OPERATIONS,
-            )
+            ),
           )
         }
         if (profiles and RcProfiles.WIDGETS != 0) {
@@ -120,7 +120,7 @@ internal constructor(
               V7_WIDGETS_OPERATIONS,
               V7_WIDGETS_EXPERIMENTAL_OPERATIONS,
               V7_WIDGETS_DEPRECATED_OPERATIONS,
-            )
+            ),
           )
         }
       }

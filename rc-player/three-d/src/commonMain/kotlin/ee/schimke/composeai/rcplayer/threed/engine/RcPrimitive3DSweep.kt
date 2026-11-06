@@ -1055,7 +1055,8 @@ internal object RcPrimitive3DSweep {
     val perTurn = maxOf(8, sides * 2)
     val requested = perTurn.toDouble() * abs(turns).toDouble()
     require(
-      requested.isFinite() && requested * (sides + 1) * 3 <= RcPrimitive3DMath.MAX_GEOMETRY_ELEMENTS
+      requested.isFinite() &&
+        requested * (sides + 1) * 3 <= RcPrimitive3DMath.MAX_GEOMETRY_ELEMENTS,
     ) {
       "MeshPrimitive helix: $requested stations exceeds the geometry budget"
     }

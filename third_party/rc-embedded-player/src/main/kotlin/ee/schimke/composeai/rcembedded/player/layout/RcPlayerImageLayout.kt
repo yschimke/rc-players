@@ -82,7 +82,7 @@ internal fun RcPlayerImageLayout(layout: ImageLayout, modifier: Modifier) {
                         ImageScaling.SCALE_FILL_WIDTH -> ContentScale.FillWidth
                         else -> {
                             println(
-                                "Warning: unknown image scaleType ${layout.scaleType}; using Fit"
+                                "Warning: unknown image scaleType ${layout.scaleType}; using Fit",
                             )
                             ContentScale.Fit
                         }

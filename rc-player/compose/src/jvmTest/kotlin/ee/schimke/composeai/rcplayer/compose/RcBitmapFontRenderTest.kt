@@ -97,7 +97,7 @@ class RcBitmapFontRenderTest {
               0x80000000.toInt(),
               PAINT_COLOR_FILTER or (SRC_IN shl 16),
               0xff0000ff.toInt(),
-            )
+            ),
           ),
           RcDrawBitmapFontTextRun(
             41,

@@ -87,7 +87,7 @@ private fun warnIfHighRefreshRatePlistEntryIsMissing() {
     didWarnAboutHighRefreshRatePlist = true
     NSLog(
       "Remote Compose: CADisableMinimumFrameDurationOnPhone is not YES; " +
-        "continuing with the host application's refresh-rate configuration."
+        "continuing with the host application's refresh-rate configuration.",
     )
   }
 }
@@ -315,7 +315,7 @@ private fun createRcComposeViewController(
         configure = {
           this.opaque = opaque
           enforceStrictPlistSanityCheck = false
-        }
+        },
       ) {}
     }
   controller?.attach(RcDocumentCapabilities.of(document))
@@ -323,7 +323,7 @@ private fun createRcComposeViewController(
     configure = {
       this.opaque = opaque
       enforceStrictPlistSanityCheck = false
-    }
+    },
   ) {
     CompositionLocalProvider(
       LocalRcSoundHost provides soundHost,

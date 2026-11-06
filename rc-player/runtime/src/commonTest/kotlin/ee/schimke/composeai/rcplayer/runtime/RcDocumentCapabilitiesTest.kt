@@ -54,7 +54,7 @@ class RcDocumentCapabilitiesTest {
         doc(
           RcNamedVariable(1, RcNamedVariable.COLOR_TYPE, "USER:WearM3.surfaceContainer"),
           RcNamedVariable(2, RcNamedVariable.COLOR_TYPE, "USER:WearM3.onSurface"),
-        )
+        ),
       )
     assertEquals(
       setOf("USER:WearM3.surfaceContainer", "USER:WearM3.onSurface"),
@@ -71,7 +71,7 @@ class RcDocumentCapabilitiesTest {
         doc(
           RcNamedVariable(1, RcNamedVariable.INT_TYPE, "USER:light.kitchen.is_on"),
           RcNamedVariable(2, RcNamedVariable.STRING_TYPE, "USER:sensor.living_room_temp.state"),
-        )
+        ),
       )
     assertFalse(caps.supportsThemeProvider)
     assertTrue(caps.declaresNamedValue("USER:light.kitchen.is_on"))
@@ -103,7 +103,7 @@ class RcDocumentCapabilitiesTest {
           RcNamedVariable(2, RcNamedVariable.COLOR_TYPE, "USER:WearM3.primary"),
           colorTheme(group = 3),
           RcNoArg(RcOpcodes.CONTAINER_END),
-        )
+        ),
       )
     assertEquals(setOf("USER:WearM3.primary"), caps.colorNamedValues)
     assertEquals(setOf(3), caps.colorThemeGroups)
@@ -138,7 +138,7 @@ class RcDocumentCapabilitiesTest {
         doc(
           RcNamedVariable(1, RcNamedVariable.FLOAT_TYPE, "shaderColor"),
           RcNamedVariable(2, RcNamedVariable.COLOR_TYPE, "USER:shaderColor"),
-        )
+        ),
       )
     assertEquals(RcNamedVariable.COLOR_TYPE, both.namedValueType("shaderColor"))
   }

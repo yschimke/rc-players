@@ -78,10 +78,12 @@ public class RemoteVectorPainter : RemotePainter() {
         with(vector) {
             val shouldMirror = autoMirror && remoteLayoutDirection == RemoteLayoutDirection.Rtl
             if (shouldMirror) {
-                withTransform({
-                    translate(width, 0f.rf)
-                    scale(-1f.rf, 1f.rf, RemoteOffset.Zero)
-                }) {
+                withTransform(
+                    {
+                        translate(width, 0f.rf)
+                        scale(-1f.rf, 1f.rf, RemoteOffset.Zero)
+                    },
+                ) {
                     draw(null)
                 }
             } else {
@@ -161,7 +163,7 @@ internal fun createVectorPainterFromRemoteImageVector(
 }
 
 internal fun RemoteGroupComponent.createGroupComponent(
-    currentGroup: RemoteVectorGroup
+    currentGroup: RemoteVectorGroup,
 ): RemoteGroupComponent {
     for (index in 0 until currentGroup.size) {
         val vectorNode = currentGroup[index]

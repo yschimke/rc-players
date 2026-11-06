@@ -55,7 +55,7 @@ internal fun interface RemoteStateVisitor<R> {
 @Suppress("UNCHECKED_CAST")
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun <S : BaseRemoteState<*>> S.transform(
-    transform: (state: BaseRemoteState<*>) -> BaseRemoteState<*>?
+    transform: (state: BaseRemoteState<*>) -> BaseRemoteState<*>?,
 ): S {
     if (hasConstantValue) {
         val replaced = transform(this)
@@ -108,7 +108,7 @@ public fun <S : BaseRemoteState<*>> S.transform(
                         is RemoteNamedCacheKey ->
                             node
                                 ?: throw IllegalStateException(
-                                    "Named cache key missing state: $key"
+                                    "Named cache key missing state: $key",
                                 )
                         is RemoteStateIdKey,
                         is RemoteStateInstanceKey,

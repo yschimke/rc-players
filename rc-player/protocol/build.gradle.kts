@@ -65,16 +65,16 @@ abstract class GenerateRcOperationManifest : org.gradle.api.DefaultTask() {
               "    RcOperationInventoryEntry(${row[0]}, \"${row[1]}\", " +
                 "\"${stableName(row[1])}\", ${row[2]}, " +
                 "RcOperationStatus.${row[3].uppercase()}, " +
-                "${row[4].takeUnless { it == "-" }?.let { "\"$it\"" } ?: "null"}),"
+                "${row[4].takeUnless { it == "-" }?.let { "\"$it\"" } ?: "null"}),",
             )
           }
         appendLine("  )")
         appendLine(
           "  public val byOpcode: Map<Int, RcOperationInventoryEntry> = " +
-            "entries.associateBy { it.opcode }"
+            "entries.associateBy { it.opcode }",
         )
         appendLine("}")
-      }
+      },
     )
   }
 }
@@ -82,7 +82,7 @@ abstract class GenerateRcOperationManifest : org.gradle.api.DefaultTask() {
 val rcOperationManifest = layout.projectDirectory.file("src/main/rc-operations.manifest")
 val generatedRcOperations =
   layout.buildDirectory.file(
-    "generated/rcOperations/commonMain/ee/schimke/composeai/rcplayer/protocol/RcOperationManifest.kt"
+    "generated/rcOperations/commonMain/ee/schimke/composeai/rcplayer/protocol/RcOperationManifest.kt",
   )
 
 val generateRcOperationManifest =
@@ -155,7 +155,7 @@ kotlin {
       // `RcOperationInventory` should be.
       kotlin.srcDir(
         files(layout.buildDirectory.dir("generated/rcOperations/commonMain"))
-          .builtBy(generateRcOperationManifest)
+          .builtBy(generateRcOperationManifest),
       )
       // `api`, not `implementation`: the tracing seam is the base of the player's dependency graph
       // (`trace <- protocol <- runtime <- compose <- wasm host`), and every module above opens

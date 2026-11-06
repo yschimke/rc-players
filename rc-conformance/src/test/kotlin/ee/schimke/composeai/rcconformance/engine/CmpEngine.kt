@@ -749,8 +749,8 @@ private class CmpSession(
           JsonPrimitive(
             (linked?.operations?.count { !it.isMacroDefinition() } ?: document.operations.size) +
               declarationsExpansionConsumes() +
-              1
-          )
+              1,
+          ),
         )
       "ops:present",
       "ops:absent" -> Observation.Value(classNames().distinct().toJsonArray())
@@ -761,7 +761,7 @@ private class CmpSession(
               .groupingBy { it }
               .eachCount()
               .forEach { (n, c) -> put(n, JsonPrimitive(c)) }
-          }
+          },
         )
       // The document root is the container, not one of the components in it: the reference counts
       // `loom_id_remapping_tiers`' four macro-expanded boxes and not the `RootLayoutComponent` they
@@ -790,8 +790,8 @@ private class CmpSession(
               document.operations.filterIsInstance<RcPathData>().forEach { add(it.id) }
               document.operations.filterIsInstance<RcPathCreate>().forEach { add(it.id) }
               document.operations.filterIsInstance<RcPathAppend>().forEach { add(it.id) }
-            }
-          )
+            },
+          ),
         )
       "records:tweens" -> Observation.Value(presenceMap<RcPathTween> { it.outId })
       "trace:handled" ->
@@ -808,7 +808,7 @@ private class CmpSession(
         Observation.Value(
           buildJsonArray {
             document.operations.filterIsInstance<RcAnimationSpec>().forEach { add(it.toRecord()) }
-          }
+          },
         )
       "records:component_bindings" -> Observation.Value(componentBindings())
       "records:impulses" ->
@@ -819,10 +819,10 @@ private class CmpSession(
                 buildJsonObject {
                   put("duration", JsonPrimitive(impulse.duration.value))
                   put("startAt", JsonPrimitive(impulse.startAt.value))
-                }
+                },
               )
             }
-          }
+          },
         )
       // Names only — the bound values live in the compiled program, which is what the corpus says
       // it asserts (§4.2).
@@ -838,7 +838,7 @@ private class CmpSession(
                 },
               )
             }
-          }
+          },
         )
       "records:semantics" ->
         Observation.Value(
@@ -853,10 +853,10 @@ private class CmpSession(
                   put("mode", JsonPrimitive(semantics.mode))
                   put("enabled", JsonPrimitive(semantics.enabled))
                   put("clickable", JsonPrimitive(semantics.clickable))
-                }
+                },
               )
             }
-          }
+          },
         )
       else -> Observation.NotImplemented
     }
@@ -1013,7 +1013,7 @@ private class CmpSession(
           0 -> "GONE"
           2 -> "INVISIBLE"
           else -> "VISIBLE"
-        }
+        },
       ),
     )
   }
@@ -1060,7 +1060,9 @@ private class CmpSession(
         ?: return Observation.NotImplemented
     val snapshot = state()?.particleSnapshot(id) ?: return Observation.NotImplemented
     return Observation.Value(
-      buildJsonArray { snapshot.forEach { particle -> add(particle.toFloatArray().toJsonArray()) } }
+      buildJsonArray {
+        snapshot.forEach { particle -> add(particle.toFloatArray().toJsonArray()) }
+      },
     )
   }
 
@@ -1239,7 +1241,7 @@ private class CmpSession(
             put("text", JsonPrimitive(run.text))
             put("x", JsonPrimitive(run.originX))
             put("y", JsonPrimitive(run.originY))
-          }
+          },
         )
       }
   }
@@ -1279,7 +1281,7 @@ private class CmpSession(
             put("firstDeviceY", JsonPrimitive(ys.first()))
             put("deviceXOrder", JsonPrimitive(order(xs)))
             put("deviceYOrder", JsonPrimitive(order(ys)))
-          }
+          },
         )
       }
   }

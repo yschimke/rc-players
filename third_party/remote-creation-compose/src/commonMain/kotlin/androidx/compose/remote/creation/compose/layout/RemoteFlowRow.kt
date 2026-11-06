@@ -41,7 +41,7 @@ internal class RemoteFlowRowNode : RemoteLayoutNode() {
                 verticalArrangement.toRemote(),
                 maxItemsInEachRow,
                 maxLines,
-            )
+            ),
         )
         renderChildren(
             creationState,

@@ -88,7 +88,7 @@ class RcCorpusOptimizeTest {
         sizes.entries
           .sortedByDescending { it.value }
           .take(10)
-          .joinToString { "${it.key} ${it.value * 100 / after}%" }
+          .joinToString { "${it.key} ${it.value * 100 / after}%" },
     )
   }
 

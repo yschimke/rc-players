@@ -138,7 +138,7 @@ class RcTouchPositionRenderTest {
         Box(
           Modifier.fillMaxSize().pointerInput(Unit) {
             detectDragGestures { change, _ -> change.consume() }
-          }
+          },
         ) {
           RcComposePlayer(barAsWideAsTouchX(100), Modifier.fillMaxSize())
         }

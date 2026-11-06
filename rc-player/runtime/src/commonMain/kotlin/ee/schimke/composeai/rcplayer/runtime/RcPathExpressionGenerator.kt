@@ -9,7 +9,7 @@ import kotlin.math.sign
 
 /** Samples an AndroidX `PathExpression` and serializes its cubic path representation. */
 internal class RcPathExpressionGenerator(
-  private val expressionEvaluator: RcFloatExpressionEvaluator
+  private val expressionEvaluator: RcFloatExpressionEvaluator,
 ) {
   fun generate(operation: RcPathExpression, resolve: (RcFloatWord) -> Float): RcPathData {
     val count = resolve(operation.count).toInt()

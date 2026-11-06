@@ -45,7 +45,7 @@ public fun RemoteModifier.combinedClickable(
                             ClickableModifier(
                                 onClickActions,
                                 clickType = 0,
-                            )
+                            ),
                         )
                 }
 
@@ -56,7 +56,7 @@ public fun RemoteModifier.combinedClickable(
                             ClickableModifier(
                                 onLongClickActions,
                                 clickType = 1,
-                            )
+                            ),
                         )
                 }
 
@@ -67,14 +67,14 @@ public fun RemoteModifier.combinedClickable(
                             ClickableModifier(
                                 onDoubleClickActions,
                                 clickType = 2,
-                            )
+                            ),
                         )
                 }
 
                 modifier
             } else {
                 RemoteModifier
-            }
+            },
         )
         .then(
             if (role != null)
@@ -82,5 +82,5 @@ public fun RemoteModifier.combinedClickable(
                     this.remoteRole = role
                     this.enabled = enabled
                 }
-            else RemoteModifier
+            else RemoteModifier,
         )

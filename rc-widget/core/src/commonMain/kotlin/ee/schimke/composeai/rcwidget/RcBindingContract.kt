@@ -88,7 +88,7 @@ public data class RcBindingContract(val bindings: List<RcBinding>) {
               RcBinding(variable.name.removePrefix(USER_DOMAIN), it)
             }
           }
-          .distinct()
+          .distinct(),
       )
 
     /** [encode]'s text read back; lines it can't read are skipped. */
@@ -101,7 +101,7 @@ public data class RcBindingContract(val bindings: List<RcBinding>) {
               line.substringBeforeLast(':', "").takeIf { it.isNotEmpty() } ?: return@mapNotNull null
             RcBindingType.ofWireName(line.substringAfterLast(':'))?.let { RcBinding(name, it) }
           }
-          .toList()
+          .toList(),
       )
   }
 }

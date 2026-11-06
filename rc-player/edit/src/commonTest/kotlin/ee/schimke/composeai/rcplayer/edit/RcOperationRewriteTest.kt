@@ -23,7 +23,7 @@ class RcOperationRewriteTest {
   fun aRemovedContainerTakesItsBodyWithIt() {
     val doc =
       document(
-        *rootLayout(*box(10, hello).toTypedArray(), *box(20, world).toTypedArray()).toTypedArray()
+        *rootLayout(*box(10, hello).toTypedArray(), *box(20, world).toTypedArray()).toTypedArray(),
       )
     val rewritten = doc.rewriteOperations { _, operation ->
       if (
@@ -64,7 +64,7 @@ class RcOperationRewriteTest {
     // By default an operation the target lacks stays, and is reported.
     val kept = doc.adaptTo(target, emptySet(), RcDisplay.DEFAULT)
     assertTrue(
-      kept.violations.any { it.kind == Kind.UNSUPPORTED_OPERATION && it.opcode in silentOpcodes }
+      kept.violations.any { it.kind == Kind.UNSUPPORTED_OPERATION && it.opcode in silentOpcodes },
     )
 
     val dropped =

@@ -121,12 +121,12 @@ internal class GoogleFontFamilies(private val fonts: GoogleFontSource?) {
             FontVariation.Settings(
                 *variationAxes(weight, style, axes)
                     .map { (tag, value) -> FontVariation.Setting(tag, value) }
-                    .toTypedArray()
+                    .toTypedArray(),
             )
         val resolved =
             runCatching {
                 FontFamily(
-                    Font(file = file, weight = weight, style = style, variationSettings = settings)
+                    Font(file = file, weight = weight, style = style, variationSettings = settings),
                 )
             }
                 .getOrNull() ?: return null

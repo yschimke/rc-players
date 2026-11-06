@@ -10,7 +10,7 @@ class RcNativeImageResourceTest {
   fun publishedImageButtonExportsNativeImages() {
     val bytes =
       checkNotNull(
-          javaClass.getResourceAsStream("/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc")
+          javaClass.getResourceAsStream("/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc"),
         )
         .use { it.readBytes() }
     val snapshot = RcNativeSnapshotBridge.decode(bytes)
@@ -23,13 +23,13 @@ class RcNativeImageResourceTest {
       snapshot.root
         .descendants()
         .flatMap { it.commands }
-        .any { it.image != null || it.textureImageId == snapshot.images.single().id }
+        .any { it.image != null || it.textureImageId == snapshot.images.single().id },
     )
     assertTrue(
       snapshot.root.descendants().any { node ->
         node.clickable &&
           node.commands.any { command -> command.textureImageId == snapshot.images.single().id }
-      }
+      },
     )
     assertTrue(RcOpcodes.CANVAS_OPERATIONS !in snapshot.unsupportedOpcodes)
   }

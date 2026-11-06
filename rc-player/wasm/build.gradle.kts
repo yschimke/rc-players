@@ -41,7 +41,7 @@ composeCompiler {
 
 val optimizedPlayer =
   tasks.named<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenExec>(
-    "compileProductionExecutableKotlinWasmJsOptimize"
+    "compileProductionExecutableKotlinWasmJsOptimize",
   )
 
 // Binaryen is ~72 of the ~75 seconds `wasmPlayerTestDist` takes on a warm cache, and the Kotlin
@@ -164,13 +164,13 @@ tasks.register<Sync>("wasmPlayerTestDist") {
   )
   from(layout.buildDirectory.dir("wasmDist"))
   from(
-    project(":rc-player-compat-tests").layout.buildDirectory.file("fixtures/androidx-baseline.rc")
+    project(":rc-player-compat-tests").layout.buildDirectory.file("fixtures/androidx-baseline.rc"),
   )
   from(
     project(":rc-player-compat-tests")
       .layout
       .buildDirectory
-      .file("fixtures/androidx-component-value.rc")
+      .file("fixtures/androidx-component-value.rc"),
   )
   from(project(":rc-player-compat-tests").layout.buildDirectory.file("fixtures/androidx-layout.rc"))
   from(project(":rc-player-compat-tests").layout.buildDirectory.file("fixtures/androidx-scroll.rc"))
@@ -178,7 +178,7 @@ tasks.register<Sync>("wasmPlayerTestDist") {
     project(":rc-player-compose")
       .layout
       .projectDirectory
-      .file("src/jvmTest/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc")
+      .file("src/jvmTest/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc"),
   )
   // A document using the draft 3D operations, for the `?extensions=3d` cases; written by
   // `Rc3DDocumentBuilder` and held current by `:rc-player-3d`'s `Rc3DFixtureTest`.
@@ -186,7 +186,7 @@ tasks.register<Sync>("wasmPlayerTestDist") {
     project(":rc-player-3d")
       .layout
       .projectDirectory
-      .file("src/jvmTest/resources/rc-fixtures/rc3d-depth-scene.rc")
+      .file("src/jvmTest/resources/rc-fixtures/rc3d-depth-scene.rc"),
   )
   into(layout.buildDirectory.dir("wasmTestDist"))
 }
@@ -223,7 +223,7 @@ tasks.register<Sync>("rcCompareSite") {
   from(rootProject.layout.projectDirectory.dir("samples/web-compare")) { include("index.html") }
   from(layout.buildDirectory.dir("wasmDist")) { into("cmp") }
   from(
-    rootProject.layout.projectDirectory.file("third_party/remote-compose-player/dist/bundle.js")
+    rootProject.layout.projectDirectory.file("third_party/remote-compose-player/dist/bundle.js"),
   ) {
     into("js")
   }

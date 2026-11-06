@@ -48,7 +48,7 @@ internal class Rc3DSession(private val state: RcPlayerState, private val options
   private val arrays = mutableMapOf<Int, FloatArray?>()
   private val expressions =
     RcMeshExpressionGenerator(
-      RcFloatExpressionEvaluator { id -> arrays.getOrPut(id) { state.floatValues(id) } }
+      RcFloatExpressionEvaluator { id -> arrays.getOrPut(id) { state.floatValues(id) } },
     )
   /**
    * One bitmap per software composite in a frame, reused from frame to frame. A frame's composites

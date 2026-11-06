@@ -38,7 +38,7 @@ class RcDemoRenderTest {
             { component, modifier ->
               annotated = RcSpannableString.annotate(component)
               RcSpannableString.renderer(component, modifier)
-            }
+            },
         )
       setContent { RcComposePlayer(RcDemoDocuments.spannableString(), customComponents = registry) }
       waitForIdle()

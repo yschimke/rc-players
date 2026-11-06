@@ -57,7 +57,7 @@ class RcClickIndicationTest {
             buildList {
               if (withRipple) add(RcRippleModifier)
               add(
-                if (multiClick) RcMultiClickModifier(RcMultiClickType.SINGLE) else RcClickModifier
+                if (multiClick) RcMultiClickModifier(RcMultiClickType.SINGLE) else RcClickModifier,
               )
               add(RcHostAction(77))
               add(END)
@@ -66,7 +66,7 @@ class RcClickIndicationTest {
                 add(RcHostAction(78))
                 add(END)
               }
-            }
+            },
           )
         setContent { RcComposePlayer(document, onEvent = events::add) }
         waitForIdle()
@@ -112,7 +112,7 @@ class RcClickIndicationTest {
             RcMultiClickModifier(RcMultiClickType.DOUBLE),
             RcHostAction(73),
             END,
-          )
+          ),
         )
       mainClock.autoAdvance = false
       setContent { RcComposePlayer(document, onEvent = events::add) }
@@ -171,7 +171,7 @@ class RcClickIndicationTest {
             RcMultiClickModifier(RcMultiClickType.DOUBLE),
             RcHostAction(73),
             END,
-          )
+          ),
         )
       setContent { RcComposePlayer(document, onEvent = events::add) }
 
@@ -226,7 +226,7 @@ class RcClickIndicationTest {
             RcMultiClickModifier(RcMultiClickType.LONG),
             RcHostAction(72),
             END,
-          )
+          ),
         )
       setContent { RcComposePlayer(document, onEvent = events::add) }
 
@@ -268,7 +268,7 @@ class RcClickIndicationTest {
               blue = RcFloatWord.literal(0f),
               alpha = RcFloatWord.literal(1f),
               shapeType = RcBackgroundModifier.SHAPE_RECTANGLE,
-            )
+            ),
           )
           addAll(clickModifiers)
           add(END)

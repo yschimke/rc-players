@@ -141,7 +141,7 @@ class RcGraphicsResourceSupportTest {
     // play — the very thing this file is about.
     val operations =
       listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(
-        RcBitmapData(1, 2, 2, RcBitmapData.TYPE_RAW8888, 0, ByteArray(2 * 2 * 4))
+        RcBitmapData(1, 2, 2, RcBitmapData.TYPE_RAW8888, 0, ByteArray(2 * 2 * 4)),
       ) + List(100) { RcDrawToBitmap(1, 0, 0) }
 
     assertTrue(RcDocument(header, operations).composeSupportReport().fullyRenderable)
@@ -257,7 +257,7 @@ class RcGraphicsResourceSupportTest {
     // which bodies are called is reachability, and the walk does not do reachability.
     val operations =
       listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(
-        RcFloatFunctionDefine(9, listOf(1))
+        RcFloatFunctionDefine(9, listOf(1)),
       ) +
         (1..65).flatMap { id ->
           listOf(
@@ -306,7 +306,7 @@ class RcGraphicsResourceSupportTest {
     // called body's targets do reach the pool and must be counted where the call is.
     val operations =
       listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(
-        RcFloatFunctionDefine(9, emptyList())
+        RcFloatFunctionDefine(9, emptyList()),
       ) +
         (1..65).flatMap { id ->
           listOf(
@@ -338,7 +338,7 @@ class RcGraphicsResourceSupportTest {
     assertTrue(
       RcDocument(header, operations).composeSupportReport().issues.any {
         "mutable targets total" in it.detail
-      }
+      },
     )
   }
 

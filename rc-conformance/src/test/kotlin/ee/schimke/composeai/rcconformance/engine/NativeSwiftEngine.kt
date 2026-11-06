@@ -481,7 +481,7 @@ private class NativeSwiftSession(
                     },
                   )
                 }
-              }
+              },
             )
           }
         },
@@ -511,7 +511,7 @@ private class NativeSwiftSession(
     if (refused.isNotEmpty()) {
       System.err.println(
         "native-appkit: ${gold.name} produced no frame for ${refused.joinToString(", ")}" +
-          (parseErrors(stdout).takeIf { it.isNotEmpty() }?.let { " -- $it" } ?: "")
+          (parseErrors(stdout).takeIf { it.isNotEmpty() }?.let { " -- $it" } ?: ""),
       )
     }
     val parsed = Json.parseToJsonElement(stdout).jsonObject

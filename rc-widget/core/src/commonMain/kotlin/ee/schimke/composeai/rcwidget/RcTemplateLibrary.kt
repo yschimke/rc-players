@@ -108,7 +108,7 @@ public class RcTemplateLibrary(
  */
 public class RcBundledTemplates(
   /** Reads a file of the bundle by its path within it (`index.txt`, `blobs/…`), or null. */
-  private val open: (path: String) -> ByteArray?
+  private val open: (path: String) -> ByteArray?,
 ) : RcTemplateStore {
   private val shas: Map<String, String> by lazy {
     runCatching {

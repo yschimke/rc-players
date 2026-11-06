@@ -67,7 +67,7 @@ class RcRunActionRenderTest {
       assertTrue(RcPlayerEvent.HostAction(77) in events)
       assertTrue(RcPlayerEvent.HostAction(78) in events)
       assertTrue(
-        events.indexOf(RcPlayerEvent.HostAction(77)) < events.indexOf(RcPlayerEvent.HostAction(78))
+        events.indexOf(RcPlayerEvent.HostAction(77)) < events.indexOf(RcPlayerEvent.HostAction(78)),
       )
       val processCount = events.count { it == RcPlayerEvent.HostAction(78) }
 

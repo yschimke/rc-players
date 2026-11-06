@@ -209,7 +209,7 @@ internal class RemoteTextNode : RemoteComposeNode() {
     var fontFeatureSettings: String? = null
 
     private fun extractFontSettings(
-        settings: List<FontVariation.Setting>?
+        settings: List<FontVariation.Setting>?,
     ): Pair<Array<String>?, FloatArray?> {
         val size = settings?.size ?: return Pair(null, null)
 
@@ -303,8 +303,8 @@ internal class RemoteTextNode : RemoteComposeNode() {
                         fontAxisNames?.map { creationState.writer.addText(it) }?.toIntArray()
                             ?: intArrayOf(),
                     fontAxisValues = fontAxisValues ?: floatArrayOf(),
-                )
-            )
+                ),
+            ),
         )
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndText)
     }

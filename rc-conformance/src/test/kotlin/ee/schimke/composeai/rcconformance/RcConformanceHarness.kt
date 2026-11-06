@@ -44,7 +44,7 @@ public class RcConformanceHarness {
         player = System.getProperty(PLAYER_PROPERTY) ?: "cmp",
         out = System.getProperty(OUT_PROPERTY) ?: "build/conformance",
         filter = System.getProperty(FILTER_PROPERTY)?.takeIf(String::isNotBlank),
-      )
+      ),
     )
   }
 
@@ -64,7 +64,7 @@ private fun run(options: Options) {
     System.err.println(
       "no corpus at ${goldDir.absolutePath}\n" +
         "  Check out the vendor/androidx-rc-conformance branch and point --spec-dir (or RC_SPEC_DIR)\n" +
-        "  at third_party/rc-conformance-spec/compose/remote/specification/conformance."
+        "  at third_party/rc-conformance-spec/compose/remote/specification/conformance.",
     )
     error("no corpus at ${goldDir.absolutePath}")
   }
@@ -111,7 +111,7 @@ private fun run(options: Options) {
       .encodeToString(
         kotlinx.serialization.json.JsonObject.serializer(),
         Results.render(engine.name, engine.version, results, goldDir.absolutePath),
-      )
+      ),
   )
 
   val scorecard = Scorecard.render(engine.name, results)
@@ -133,7 +133,7 @@ private fun engineFor(player: String, specDir: File): ConformanceEngine =
     else ->
       error(
         "unknown player '$player'. Known lanes: cmp, native-appkit. " +
-          "A new lane is a new ConformanceEngine in the engine package."
+          "A new lane is a new ConformanceEngine in the engine package.",
       )
   }
 

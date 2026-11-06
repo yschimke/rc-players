@@ -32,7 +32,7 @@ internal constructor(
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public constructor(
-        constantValueOrNull: List<RemoteInt>?
+        constantValueOrNull: List<RemoteInt>?,
     ) : this(
         constantValueOrNull,
         constantValueOrNull?.let { values ->

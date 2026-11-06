@@ -210,7 +210,7 @@ internal class RcTypefaceCache(var resolver: RcTypefaceResolver? = null) {
                     weight = weight,
                     style = style,
                     variationSettings = settings,
-                )
+                ),
             )
         }
 
@@ -288,7 +288,7 @@ internal class RcTypefaceCache(var resolver: RcTypefaceResolver? = null) {
                     }
                     listeners.remove(request)?.fastForEach { it.run() }
                 }
-            }
+            },
         )
         isSync = false
     }
@@ -447,7 +447,7 @@ internal class RcCoreTypefaceResolverAdapter(private val cache: RcTypefaceCache)
                         weight = weight,
                         italic = italic,
                         variationSettings = variationSettings,
-                    )
+                    ),
                 )
             }
             val base = Typeface.create(fallbackTypeface, fallbackWeight, fallbackItalic)

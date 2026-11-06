@@ -166,10 +166,10 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
                     0x100000000L +
                         Utils.idFromNan(
                                 creationState.writer.textLength(
-                                    getIdForCreationState(creationState)
-                                )
+                                    getIdForCreationState(creationState),
+                                ),
                             )
-                            .toLong()
+                            .toLong(),
                 )
             }
         }
@@ -195,13 +195,13 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
                         0x100000000L +
                             Utils.idFromNan(
                                     creationState.writer.textLength(
-                                        getIdForCreationState(creationState)
-                                    )
+                                        getIdForCreationState(creationState),
+                                    ),
                                 )
                                 .toLong(),
                         0x100000000L + IntegerExpressionEvaluator.I_IFELSE,
                     )
-                }
+                },
             )
         }
 
@@ -226,13 +226,13 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
                         0x100000000L +
                             Utils.idFromNan(
                                     creationState.writer.textLength(
-                                        getIdForCreationState(creationState)
-                                    )
+                                        getIdForCreationState(creationState),
+                                    ),
                                 )
                                 .toLong(),
                         0x100000000L + IntegerExpressionEvaluator.I_IFELSE,
                     )
-                }
+                },
             )
         }
 
@@ -258,7 +258,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
                     )
 
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ) =
                     mergeSets(
                         this@RemoteString.computeRequiredCodePointSet(creationState),
@@ -304,7 +304,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
 
                 // TODO(b/): This is probably overestimate, consider refactoring.
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ) = this@RemoteString.computeRequiredCodePointSet(creationState)
             },
         )
@@ -343,7 +343,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
 
                 // Is this correct in all locales?
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ) =
                     this@RemoteString.computeRequiredCodePointSet(creationState)?.mapTo(HashSet()) {
                         it.uppercase()
@@ -385,7 +385,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
 
                 // Is this correct in all locales?
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ) =
                     this@RemoteString.computeRequiredCodePointSet(creationState)?.mapTo(HashSet()) {
                         it.lowercase()
@@ -420,7 +420,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
                 // This is likely an overestimate, but whitespace glyphs are typically encoded as
                 // a space so optimizing doesn't seem worthwhile.
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ) = this@RemoteString.computeRequiredCodePointSet(creationState)
             },
         )
@@ -456,7 +456,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
 
                 // TODO(b/): This is probably overestimate, consider refactoring.
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ) = this@RemoteString.computeRequiredCodePointSet(creationState)
             },
         )
@@ -489,7 +489,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
 
                 // TODO(b/): This is probably overestimate, consider refactoring.
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ) = this@RemoteString.computeRequiredCodePointSet(creationState)
             },
         )
@@ -526,7 +526,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
 
                     // TODO(b/): This is probably overestimate, consider refactoring.
                     override fun computeRequiredCodePointSet(
-                        creationState: RemoteComposeCreationContext
+                        creationState: RemoteComposeCreationContext,
                     ) = this@RemoteString.computeRequiredCodePointSet(creationState)
                 },
         )
@@ -565,7 +565,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
 
                     // TODO(b/): This is probably overestimate, consider refactoring.
                     override fun computeRequiredCodePointSet(
-                        creationState: RemoteComposeCreationContext
+                        creationState: RemoteComposeCreationContext,
                     ) = this@RemoteString.computeRequiredCodePointSet(creationState)
                 },
         )
@@ -585,7 +585,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public abstract fun computeRequiredCodePointSet(
-        creationState: RemoteComposeCreationContext
+        creationState: RemoteComposeCreationContext,
     ): Set<String>?
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -606,7 +606,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
                         creationState.writer.addText(value)
 
                     override fun computeRequiredCodePointSet(
-                        creationState: RemoteComposeCreationContext
+                        creationState: RemoteComposeCreationContext,
                     ) = value.toCodePointSet()
                 },
             )
@@ -643,7 +643,7 @@ public abstract class RemoteString internal constructor(cacheKey: RemoteStateCac
 
                     // Named strings can change so we can't statically determine the needed glyphs
                     override fun computeRequiredCodePointSet(
-                        creationState: RemoteComposeCreationContext
+                        creationState: RemoteComposeCreationContext,
                     ) = null
                 },
             )
@@ -677,14 +677,14 @@ private class SelectFloatImpl(
                 intArrayOf(
                     ifFalse.getIdForCreationState(creationState),
                     ifTrue.getIdForCreationState(creationState),
-                )
+                ),
             ),
             select.getIdForCreationState(creationState),
         )
     }
 
     override fun computeRequiredCodePointSet(
-        creationState: RemoteComposeCreationContext
+        creationState: RemoteComposeCreationContext,
     ): Set<String>? {
         if (a.hasConstantValue && b.hasConstantValue) {
             val selected = if (a.constantValue < b.constantValue) ifTrue else ifFalse
@@ -723,14 +723,14 @@ private class SelectIntImpl(
                 intArrayOf(
                     ifFalse.getIdForCreationState(creationState),
                     ifTrue.getIdForCreationState(creationState),
-                )
+                ),
             ),
             select.getIdForCreationState(creationState),
         )
     }
 
     override fun computeRequiredCodePointSet(
-        creationState: RemoteComposeCreationContext
+        creationState: RemoteComposeCreationContext,
     ): Set<String>? {
         if (a.hasConstantValue && b.hasConstantValue) {
             val selected = if (a.constantValue < b.constantValue) ifTrue else ifFalse
@@ -1026,7 +1026,7 @@ internal interface LazyRemoteString {
      *   be statically determined.
      */
     public fun computeRequiredCodePointSet(
-        creationState: RemoteComposeCreationContext
+        creationState: RemoteComposeCreationContext,
     ): Set<String>?
 }
 
@@ -1066,7 +1066,7 @@ internal constructor(
     /** Create a MutableRemoteString from an existing id. */
     @RememberInComposition
     internal constructor(
-        id: Int
+        id: Int,
     ) : this(
         constantValueOrNull = null,
         cacheKey = RemoteStateIdKey(id),
@@ -1075,7 +1075,7 @@ internal constructor(
                 override fun reserveTextId(creationState: RemoteComposeCreationContext) = id
 
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ) = null
             },
     )
@@ -1088,7 +1088,7 @@ internal constructor(
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     @RememberInComposition
     public constructor(
-        value: String
+        value: String,
     ) : this(
         constantValueOrNull = null,
         cacheKey = RemoteStateInstanceKey(),
@@ -1098,7 +1098,7 @@ internal constructor(
                     creationState.writer.addText(value)
 
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ) = null
             },
     )
@@ -1109,7 +1109,7 @@ internal constructor(
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public override fun computeRequiredCodePointSet(
-        creationState: RemoteComposeCreationContext
+        creationState: RemoteComposeCreationContext,
     ): Set<String>? = lazyRemoteString.computeRequiredCodePointSet(creationState)
 
     public companion object {

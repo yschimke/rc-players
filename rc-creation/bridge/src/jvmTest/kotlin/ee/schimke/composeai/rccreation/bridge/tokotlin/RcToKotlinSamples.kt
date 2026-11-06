@@ -88,7 +88,7 @@ fun LayoutSample() {
       RemoteBox(
         RemoteModifier.size(24.rdp)
           .clip(RemoteRoundedCornerShape(6.rdp))
-          .background(RemoteColor(Color.Blue))
+          .background(RemoteColor(Color.Blue)),
       )
     }
     RemoteBox(
@@ -173,17 +173,17 @@ fun InteractionSample() {
         RemoteModifier.size(40.rdp)
           .collapsiblePriority(2f)
           .clickable(hostAction("toggle".rs, 1.ri), role = Role.Switch)
-          .background(RemoteColor(Color.Gray))
+          .background(RemoteColor(Color.Gray)),
       )
       RemoteBox(RemoteModifier.weight(1f).height(40.rdp).clickable(hostAction(7)))
     }
     RemoteBox(
       RemoteModifier.fillMaxWidth().height(32.rdp).visibility(shown).semantics(
-        mergeDescendants = true
+        mergeDescendants = true,
       ) {
         contentDescription = "Panel".rs
         role = Role.Image
-      }
+      },
     )
     val side = remember { RemoteFloat.createNamedRemoteFloat("panel.side", 24f) }
     RemoteRow(RemoteModifier.width(RemoteIntrinsicSize.Max)) {

@@ -44,8 +44,8 @@ class RcHardcodeNamedValuesTest {
             "progress" to RcHardcodedValue.FloatValue(0.25f),
             "USER:WearM3.surfaceContainer" to RcHardcodedValue.Color(0xff445566.toInt()),
             "light.is_on" to RcHardcodedValue.BooleanValue(false),
-          )
-        )
+          ),
+        ),
       )
 
     assertEquals(

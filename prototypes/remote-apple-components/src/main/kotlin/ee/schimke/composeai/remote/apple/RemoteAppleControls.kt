@@ -251,7 +251,7 @@ public fun RemoteAppleStatusRow(
       modifier =
         RemoteModifier.size(10.rdp)
           .clip(RemoteCircleShape)
-          .background(active.select(colors.toggleOn, colors.secondaryLabel))
+          .background(active.select(colors.toggleOn, colors.secondaryLabel)),
     )
     RemoteText(
       text = title,

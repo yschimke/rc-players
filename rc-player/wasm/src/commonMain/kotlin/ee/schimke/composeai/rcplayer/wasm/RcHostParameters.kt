@@ -87,7 +87,7 @@ internal const val FALLBACK_LANGUAGE_TAG: String = "en"
 /** The player extensions `?extensions=` can turn on, by the name a page gives them. */
 internal enum class RcHostExtension(val parameterName: String) {
   /** The draft 3D operations, `:rc-player-3d` (docs/design/RC_3D_EXTENSION.md). */
-  ThreeD("3d")
+  ThreeD("3d"),
 }
 
 /**

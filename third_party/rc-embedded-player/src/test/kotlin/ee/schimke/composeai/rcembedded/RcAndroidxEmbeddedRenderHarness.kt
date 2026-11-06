@@ -66,7 +66,7 @@ class RcAndroidxEmbeddedRenderHarness(private val entry: RcEmbeddedRenderHarness
             File(
                 requireNotNull(System.getProperty(OUTPUT_PROPERTY)) {
                     "$OUTPUT_PROPERTY must be set alongside $INPUT_PROPERTY"
-                }
+                },
             )
         outputDir.mkdirs()
 
@@ -108,7 +108,7 @@ class RcAndroidxEmbeddedRenderHarness(private val entry: RcEmbeddedRenderHarness
                     Modifier.size(
                         with(documentDensity) { entry.width.toDp() },
                         with(documentDensity) { entry.height.toDp() },
-                    )
+                    ),
                 ) {
                     RemoteImageSupport.enableEncodedImageReferences()
                     val document = remember { RemoteDocument(bytes) }

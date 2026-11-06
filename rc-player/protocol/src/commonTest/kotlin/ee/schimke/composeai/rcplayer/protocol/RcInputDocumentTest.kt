@@ -17,7 +17,7 @@ class RcInputDocumentTest {
             submit = "configured-action",
             chrome = RcInputChrome.NONE,
           ),
-        )
+        ),
       )
     assertEquals(document, RcDocumentCodec.decode(RcDocumentCodec.encode(document)))
     assertEquals(RcVersion(1, 2, 0), document.header.version)

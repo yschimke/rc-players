@@ -52,7 +52,7 @@ class AndroidColorTableDriftTest {
             names(
                 repoFile(
                     "rc-player/protocol/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/protocol/" +
-                        "RcAndroidSystemColors.kt"
+                        "RcAndroidSystemColors.kt",
                 ),
                 marker = "public val NAMES",
                 opener = "listOf(",

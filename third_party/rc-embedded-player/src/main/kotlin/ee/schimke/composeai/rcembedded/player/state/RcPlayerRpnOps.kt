@@ -518,7 +518,7 @@ public fun parseRpn(
                         // fallback at the end of parseRpn.
                         println(
                             "Warning: unsupported RPN operator ${AnimatedFloatExpression.toMathName(v)} " +
-                                "($opCode); substituting 0"
+                                "($opCode); substituting 0",
                         )
                         stack.add(ConstantOp(0f))
                     }

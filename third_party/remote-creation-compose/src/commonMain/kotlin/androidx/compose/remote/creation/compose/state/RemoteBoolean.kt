@@ -116,13 +116,13 @@ internal constructor(
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public constructor(
-        value: Boolean
+        value: Boolean,
     ) : this(
         if (value) {
             RemoteInt(1)
         } else {
             RemoteInt(0)
-        }
+        },
     )
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -175,14 +175,14 @@ internal constructor(
                             intArrayOf(
                                 ifFalse.getIdForCreationState(creationState),
                                 ifTrue.getIdForCreationState(creationState),
-                            )
+                            ),
                         ),
                         intValue.getIdForCreationState(creationState),
                     )
                 }
 
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ): Set<String>? {
                     if (hasConstantValue) {
                         val selected = if (constantValue) ifTrue else ifFalse
@@ -325,7 +325,7 @@ internal constructor(
                         0x100000000L + IntegerExpressionEvaluator.I_IFELSE,
                     )
                 },
-            )
+            ),
         )
     }
 
@@ -494,7 +494,7 @@ internal constructor(
                     name = name,
                     defaultValue = if (defaultValue) 1 else 0,
                     domain = domain,
-                )
+                ),
             )
         }
     }

@@ -57,7 +57,7 @@ internal class RemoteRowNode : RemoteLayoutNode() {
                 remoteModifier,
                 horizontalArrangement.toRemote(layoutDirection),
                 verticalAlignment.toRemote(),
-            )
+            ),
         )
         renderChildren(
             creationState,

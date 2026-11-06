@@ -61,7 +61,7 @@ public object Rc3DGltf {
     ): Int {
       if (accessors.isNotEmpty()) accessors.append(',')
       accessors.append(
-        "{\"bufferView\":$view,\"componentType\":$componentType,\"count\":$count,\"type\":\"$type\"$extra}"
+        "{\"bufferView\":$view,\"componentType\":$componentType,\"count\":$count,\"type\":\"$type\"$extra}",
       )
       return accessorCount++
     }

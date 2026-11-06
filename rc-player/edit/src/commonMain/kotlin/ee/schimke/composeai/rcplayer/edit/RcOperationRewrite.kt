@@ -30,7 +30,7 @@ public sealed interface RcRewrite {
  * whose containers do not balance is returned unchanged, rather than cut at a guessed boundary.
  */
 public fun RcDocument.rewriteOperations(
-  rewrite: (index: Int, operation: RcOperation) -> RcRewrite
+  rewrite: (index: Int, operation: RcOperation) -> RcRewrite,
 ): RcDocument {
   val tree = operationTree(operations) ?: return this
   var changed = false

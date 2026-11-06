@@ -107,7 +107,7 @@ class RcEmbeddedRenderHarness(private val entry: Entry) {
             File(
                 requireNotNull(System.getProperty(OUTPUT_PROPERTY)) {
                     "$OUTPUT_PROPERTY must be set alongside $INPUT_PROPERTY"
-                }
+                },
             )
         outputDir.mkdirs()
 
@@ -147,7 +147,7 @@ class RcEmbeddedRenderHarness(private val entry: Entry) {
                     Modifier.size(
                         with(documentDensity) { entry.width.toDp() },
                         with(documentDensity) { entry.height.toDp() },
-                    )
+                    ),
                 ) {
                     // Before the constructor, not after: `RemoteDocument(bytes)` parses inside it,
                     // so a

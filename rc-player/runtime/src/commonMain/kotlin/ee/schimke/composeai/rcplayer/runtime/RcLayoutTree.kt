@@ -349,7 +349,7 @@ public object RcLayoutTree {
         val targets = bindings.map { it.componentId to it.type }.distinct()
         if (targets.size > 1) {
           throw RcLayoutException(
-            "ComponentValue output $valueId has conflicting bindings $targets"
+            "ComponentValue output $valueId has conflicting bindings $targets",
           )
         }
       }
@@ -525,7 +525,7 @@ public object RcLayoutTree {
     optionalContent(container, seenIds, styles)
       ?: directContent(container, seenIds, styles)
       ?: throw RcLayoutException(
-        "${container.operation::class.simpleName} requires LayoutComponentContent"
+        "${container.operation::class.simpleName} requires LayoutComponentContent",
       )
 
   private fun directContent(
@@ -616,7 +616,7 @@ public object RcLayoutTree {
       }
     if (scrollContainers.size > 1) {
       throw RcLayoutException(
-        "${container.operation::class.simpleName} has ${scrollContainers.size} RcScrollModifier operations"
+        "${container.operation::class.simpleName} has ${scrollContainers.size} RcScrollModifier operations",
       )
     }
     val scrollContainer = scrollContainers.singleOrNull()
@@ -718,12 +718,12 @@ public object RcLayoutTree {
   }
 
   private inline fun <reified T : RcOperation> List<RcOperation>.singleModifier(
-    component: RcOperation
+    component: RcOperation,
   ): T? {
     val matches = filterIsInstance<T>()
     if (matches.size > 1) {
       throw RcLayoutException(
-        "${component::class.simpleName} has ${matches.size} ${T::class.simpleName} operations"
+        "${component::class.simpleName} has ${matches.size} ${T::class.simpleName} operations",
       )
     }
     return matches.singleOrNull()

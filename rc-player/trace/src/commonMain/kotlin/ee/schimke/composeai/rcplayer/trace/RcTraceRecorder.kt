@@ -41,7 +41,7 @@ public class RcTraceRecorder(
    * capture is bounded rather than unbounded — past the cap, [summary] statistics keep accumulating
    * but individual events stop being retained, and [droppedEvents] reports how many were shed.
    */
-  private val maxEvents: Int = DEFAULT_MAX_EVENTS
+  private val maxEvents: Int = DEFAULT_MAX_EVENTS,
 ) {
   private val origin = TimeSource.Monotonic.markNow()
   private val retained = mutableListOf<RcTraceEvent>()

@@ -86,7 +86,7 @@ class RcCustomComponentRenderTest {
                 "${component.text(LABEL)}:${component.float(VALUE)}",
                 modifier.clickable { component.returnFloat(RESULT, 7f) },
               )
-            }
+            },
         )
 
       setContent { RcComposePlayer(document(), customComponents = registry) }
@@ -110,7 +110,7 @@ class RcCustomComponentRenderTest {
                 "${component.integer(VALUE)}/${component.color(LABEL).toUInt().toString(16)}",
                 modifier,
               )
-            }
+            },
         )
       val end = RcNoArg(RcOpcodes.CONTAINER_END)
       val document =

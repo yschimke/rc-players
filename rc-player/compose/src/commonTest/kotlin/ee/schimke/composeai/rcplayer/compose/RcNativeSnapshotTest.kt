@@ -108,10 +108,10 @@ class RcNativeSnapshotTest {
     assertEquals(1f, initial.properties.single { it.type == 1 }.floatValue)
     assertEquals("Initial", initial.properties.single { it.type == 3 }.textValue)
     assertTrue(
-      initial.properties.any { it.type == 2 && it.dataType == RcCustomProperty.FLOAT_RETURN }
+      initial.properties.any { it.type == 2 && it.dataType == RcCustomProperty.FLOAT_RETURN },
     )
     assertTrue(
-      initial.properties.any { it.type == 4 && it.dataType == RcCustomProperty.TEXT_RETURN }
+      initial.properties.any { it.type == 4 && it.dataType == RcCustomProperty.TEXT_RETURN },
     )
 
     val floatUpdate = session.returnCustomFloat(3, 2, 7f)
@@ -132,8 +132,8 @@ class RcNativeSnapshotTest {
           RcDocument(
             RcHeader(RcVersion(0, 1, 0)),
             operations.toList() + RcRootLayout(1) + RcNoArg(RcOpcodes.CONTAINER_END),
-          )
-        )
+          ),
+        ),
       )
 
     val static = snapshot(RcFloatConstant(100, RcFloatWord.literal(3f)))
@@ -147,7 +147,7 @@ class RcNativeSnapshotTest {
           100,
           listOf(RcFloatWord(0x7fc00000 or RcSystemVariables.CONTINUOUS_SEC)),
           null,
-        )
+        ),
       )
     assertTrue(animated.needsContinuousFrames)
     assertTrue(!animated.requestsNextFrame)
@@ -202,7 +202,7 @@ class RcNativeSnapshotTest {
             RcRootLayout(1),
             first.copy(role = 100),
             RcNoArg(RcOpcodes.CONTAINER_END),
-          )
+          ),
       )
     assertFailsWith<IllegalArgumentException> {
       RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(invalid))
@@ -215,14 +215,14 @@ class RcNativeSnapshotTest {
             RcRootLayout(1),
             first.copy(role = -1, mode = RcAccessibilitySemantics.MODE_CLEAR_AND_SET),
             RcNoArg(RcOpcodes.CONTAINER_END),
-          )
+          ),
       )
     assertTrue(
       RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(roleless))
         .root
         .children
         .single()
-        .hasSemantics
+        .hasSemantics,
     )
   }
 
@@ -550,7 +550,7 @@ class RcNativeSnapshotTest {
     assertTrue(
       snapshot.diagnostics.any {
         it.opcode == RcOpcodes.HAPTIC_FEEDBACK && it.severity == RcNativeDiagnostic.UNSUPPORTED
-      }
+      },
     )
   }
 
@@ -708,7 +708,7 @@ class RcNativeSnapshotTest {
               RcFloatWord.literal(20f).bits,
               RcFloatWord.literal(0f).bits,
               0,
-            )
+            ),
           ),
           RcDraw4(
             RcOpcodes.DRAW_RECT,
@@ -763,7 +763,7 @@ class RcNativeSnapshotTest {
               2,
               4,
               0xff112233.toInt(),
-            )
+            ),
           ),
           RcDraw4(
             RcOpcodes.DRAW_RECT,
@@ -810,7 +810,7 @@ class RcNativeSnapshotTest {
               RcTextStyleProperty.IntValue(17, 1),
               RcTextStyleProperty.BooleanValue(18, true),
               RcTextStyleProperty.BooleanValue(19, true),
-            )
+            ),
           ),
           RcRootLayout(1),
           RcCoreText(
@@ -862,7 +862,7 @@ class RcNativeSnapshotTest {
               RcFloatWord.literal(18f).bits,
               16 or (((1 shl 10) or 650) shl 16),
               2,
-            )
+            ),
           ),
           RcDrawText(
             textId = 40,
@@ -975,7 +975,7 @@ class RcNativeSnapshotTest {
           .single()
           .commands
           .single()
-          .image
+          .image,
       )
     assertEquals(null, image.contentDescription)
   }

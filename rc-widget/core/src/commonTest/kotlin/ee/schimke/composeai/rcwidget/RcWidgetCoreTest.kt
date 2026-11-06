@@ -260,7 +260,7 @@ class RcWearTemplatesTest {
     assertTrue(
       RcWearTemplates.forApp(withFill, RcWearHost.Pixel.large).namedVariables.any {
         it.name.endsWith(RcWearContainer.COLOR)
-      }
+      },
     )
   }
 
@@ -336,7 +336,7 @@ class RcWearTemplatesTest {
   @Test
   fun aDesignWithNoCardBoxHasNoTemplate() {
     assertNull(
-      RcWearTemplates.fromCardDesign(document(RcRootLayout(1), RcLayoutContent(2), END, END))
+      RcWearTemplates.fromCardDesign(document(RcRootLayout(1), RcLayoutContent(2), END, END)),
     )
   }
 }
@@ -395,7 +395,7 @@ class RcWidgetActionsTest {
     assertEquals(RcWidgetActionMetadata("raw"), RcWidgetActionMetadata.decode("raw"))
     assertNull(RcWidgetActionMetadata.decode(null))
     assertIs<RcWidgetActionMetadata>(
-      RcWidgetActionMetadata.decode("x" + RcWidgetActionMetadata.METADATA_MARKER + "broken")
+      RcWidgetActionMetadata.decode("x" + RcWidgetActionMetadata.METADATA_MARKER + "broken"),
     )
   }
 }
@@ -488,7 +488,7 @@ class RcTemplateLibraryTest {
   fun bundledTemplatesAreCheckedAgainstTheirIndex() {
     val files =
       RcBundledTemplates.layout(
-        mapOf("tile:large" to byteArrayOf(1, 2), "tile:small" to byteArrayOf(3))
+        mapOf("tile:large" to byteArrayOf(1, 2), "tile:small" to byteArrayOf(3)),
       )
     val bundle = RcBundledTemplates { files[it] }
     assertEquals(setOf("tile:large", "tile:small"), bundle.keys)

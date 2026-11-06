@@ -66,7 +66,7 @@ public fun RcDocument.animationTimeAsWallClock(loadedAt: Float? = null): RcDocum
       expression =
         operation.expression.map { word ->
           if (word.referencedId == RcSystemVariables.ANIMATION_TIME) word.withId(clockId) else word
-        }
+        },
     )
   }
   return copy(operations = listOfNotNull(definition) + rewritten)

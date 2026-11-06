@@ -65,10 +65,10 @@ val specDirProvider =
     .orElse(
       rootProject.layout.projectDirectory
         .dir(
-          "../rc-players-conformance-spec/third_party/rc-conformance-spec/compose/remote/specification/conformance"
+          "../rc-players-conformance-spec/third_party/rc-conformance-spec/compose/remote/specification/conformance",
         )
         .asFile
-        .absolutePath
+        .absolutePath,
     )
 
 tasks.register<Test>("conformance") {

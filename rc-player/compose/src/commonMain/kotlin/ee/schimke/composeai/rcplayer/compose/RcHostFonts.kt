@@ -119,6 +119,6 @@ internal fun rcInstancedFontFamily(faces: List<RcFontFace>, axes: List<RcFontAxi
         style = style,
         variationSettings = FontVariation.Settings(*settings.toTypedArray()),
       )
-    }
+    },
   )
 }

@@ -88,7 +88,7 @@ class RcSpringSelectionRenderTest {
   private fun fixture(name: String): RcDocument =
     RcDocumentCodec.decode(
       checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$name")) { "missing $name" }
-        .use { it.readBytes() }
+        .use { it.readBytes() },
     )
 
   private companion object {

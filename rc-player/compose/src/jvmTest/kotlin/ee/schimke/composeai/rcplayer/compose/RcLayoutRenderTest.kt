@@ -1005,7 +1005,7 @@ class RcLayoutRenderTest {
               RcTextStyleProperty.IntValue(1, 100),
               RcTextStyleProperty.IntValue(3, 0xffff0000.toInt()),
               RcTextStyleProperty.FloatValue(5, RcFloatWord.literal(24f)),
-            )
+            ),
           ),
           RcTextStyle(
             listOf(
@@ -1013,7 +1013,7 @@ class RcLayoutRenderTest {
               RcTextStyleProperty.IntValue(24, 100),
               RcTextStyleProperty.IntValue(9, RcTextLayout.ALIGN_CENTER),
               RcTextStyleProperty.IntValue(6, 1),
-            )
+            ),
           ),
           RcRootLayout(1),
           RcLayoutContent(2),
@@ -1058,7 +1058,7 @@ class RcLayoutRenderTest {
           val red = color ushr 16 and 0xff
           val green = color ushr 8 and 0xff
           red > green
-        }
+        },
       )
     } finally {
       scene.close()
@@ -1823,7 +1823,7 @@ class RcLayoutRenderTest {
                 RcGraphicsLayerModifier.TRANSLATION_Y,
                 RcFloatWord.literal(10f),
               ),
-            )
+            ),
           ),
           RcBackgroundModifier(
             flags = 0,
@@ -1886,8 +1886,8 @@ class RcLayoutRenderTest {
               RcGraphicsLayerAttribute.FloatValue(
                 RcGraphicsLayerModifier.ALPHA,
                 RcFloatWord.literal(0.8f),
-              )
-            )
+              ),
+            ),
           ),
           RcNoArg(RcOpcodes.CONTAINER_END),
           RcNoArg(RcOpcodes.CONTAINER_END),
@@ -2003,7 +2003,7 @@ class RcLayoutRenderTest {
               RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y,
               RcFloatWord.literal(0.5f),
             ),
-          )
+          ),
         ),
         solidBackground(1f, 0f, 0f),
         RcNoArg(RcOpcodes.CONTAINER_END),

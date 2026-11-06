@@ -61,7 +61,7 @@ class RcCoreTextConversionTest {
             IntValue(9, 3),
             IntValue(10, 3),
             IntValue(11, 2),
-          )
+          ),
         )
         .adaptTo(WearWithoutCoreText)
 
@@ -113,7 +113,7 @@ class RcCoreTextConversionTest {
           FloatValue(14, f(1.2f)),
           IntArrayValue(20, listOf(1)),
           FloatArrayValue(21, listOf(f(1f))),
-        )
+        ),
       )
     assertEquals(
       listOf(RcProfileViolation.Kind.UNSUPPORTED_OPERATION),
@@ -129,7 +129,7 @@ class RcCoreTextConversionTest {
           componentId = 7,
           textId = 42,
           dropped = setOf("fontAxis", "fontAxisValues", "letterSpacing", "lineHeightMultiplier"),
-        )
+        ),
       ),
       approximated.approximations,
     )

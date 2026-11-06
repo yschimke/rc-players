@@ -74,7 +74,7 @@ class RcGraphicsLayerClockRenderTest {
         directory
           .resolve("clock-layer-${second}s.png")
           .writeBytes(
-            checkNotNull(frame.encodeToData()) { "Skia declined to encode the render" }.bytes
+            checkNotNull(frame.encodeToData()) { "Skia declined to encode the render" }.bytes,
           )
       }
     } finally {
@@ -111,8 +111,8 @@ class RcGraphicsLayerClockRenderTest {
             RcGraphicsLayerAttribute.FloatValue(
               RcGraphicsLayerModifier.TRANSLATION_X,
               RcFloatWord(0x7fc00000 or TIME_ID),
-            )
-          )
+            ),
+          ),
         ),
         RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
         RcPaintData(listOf(4, RED)),

@@ -65,8 +65,8 @@ class RcPaintFontAxisRenderTest {
             listOf(
               RcFontFace("RobotoFlex.ttf", face, weight = 400),
               RcFontFace("RobotoFlex.ttf", face, weight = 900),
-            )
-          )
+            ),
+          ),
       )
     val regular = inkArea(document(wdth = null, weight = 400), fonts)
     val black = inkArea(document(wdth = null, weight = 900), fonts)
@@ -105,7 +105,7 @@ class RcPaintFontAxisRenderTest {
             PAINT_TYPEFACE or (weight shl 16),
             43,
           ) +
-            if (wdth == null) emptyList() else listOf(PAINT_FONT_AXIS or (1 shl 16), 44, wdth.bits)
+            if (wdth == null) emptyList() else listOf(PAINT_FONT_AXIS or (1 shl 16), 44, wdth.bits),
         ),
         RcDrawText(
           42,

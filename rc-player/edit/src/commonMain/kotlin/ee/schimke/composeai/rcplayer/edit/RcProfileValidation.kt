@@ -89,14 +89,14 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
             RcProfileViolation.Kind.HEADER_API_LEVEL,
             "Header version ${header.version.major}.${header.version.minor} names no API level " +
               "${target.name} reads",
-          )
+          ),
         )
       declaredLevel > target.apiLevel ->
         add(
           headerViolation(
             RcProfileViolation.Kind.HEADER_API_LEVEL,
             "Header declares API level $declaredLevel; ${target.name} reads up to ${target.apiLevel}",
-          )
+          ),
         )
     }
     // Android 16's platform `Header.read` takes a major version carrying the property-header magic
@@ -106,7 +106,7 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
         headerViolation(
           RcProfileViolation.Kind.HEADER_FORMAT,
           "${target.name} reads only the fixed width/height header, not a property header",
-        )
+        ),
       )
     }
 
@@ -125,7 +125,7 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
               index,
               opcode,
               "${operationName(opcode)} is not supported by ${target.name}",
-            )
+            ),
           )
         opcode !in declared.supportedOpcodes ->
           add(
@@ -135,7 +135,7 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
               opcode,
               "${operationName(opcode)} is not decoded under the header's own " +
                 "API level ${declared.apiLevel} and profiles 0x${declared.profiles.toString(16)}",
-            )
+            ),
           )
       }
       if (target.apiLevel <= 6) addAll(levelSixViolations(index, operation, target))
@@ -159,7 +159,7 @@ private fun RcDocument.recursiveDrawContent(target: RcTargetProfile): List<RcPro
             node.operation.opcode,
             "DrawContent inside CanvasOperations (drawWithContent, or a brush or painter " +
               "background) repaints its component forever on ${target.name}",
-          )
+          ),
         )
       }
       val nested = inCanvasOperations || node.operation.opcode == RcOpcodes.CANVAS_OPERATIONS
@@ -181,7 +181,7 @@ private fun levelSixViolations(
         index,
         operation.opcode,
         "${operationName(operation.opcode)}.$field must be a literal on ${target.name}",
-      )
+      ),
     )
   fun literals(vararg fields: Pair<String, RcFloatWord>) = fields.forEach { (field, value) ->
     if (value.isNaNEncoded) dynamic(field)
@@ -231,7 +231,7 @@ private fun levelSixViolations(
               index,
               operation.opcode,
               "Float operator ${operator - FLOAT_OPERATOR_OFFSET} was added after API level 6",
-            )
+            ),
           )
         }
     else -> Unit

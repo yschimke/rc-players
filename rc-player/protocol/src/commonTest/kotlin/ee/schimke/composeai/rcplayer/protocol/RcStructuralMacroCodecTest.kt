@@ -60,8 +60,8 @@ class RcStructuralMacroCodecTest {
               writeInt(0)
               writeInt(-1)
             }
-            .toByteArray()
-        )
+            .toByteArray(),
+        ),
       )
     }
   }

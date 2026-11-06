@@ -10,7 +10,7 @@ class RcNativeTitleCardTest {
   fun exportsTheMorningRunCardAsNativeLayoutAndText() {
     val document =
       File(
-          "../../third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc"
+          "../../third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc",
         )
         .readBytes()
     val snapshot = RcNativeSnapshotBridge.decode(document)

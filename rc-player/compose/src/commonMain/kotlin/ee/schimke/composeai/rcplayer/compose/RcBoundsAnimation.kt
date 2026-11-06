@@ -71,7 +71,7 @@ private class RcAnimateBoundsNode(var lookaheadScope: LookaheadScope, var spec: 
   }
 
   override fun Placeable.PlacementScope.isPlacementApproachInProgress(
-    lookaheadCoordinates: LayoutCoordinates
+    lookaheadCoordinates: LayoutCoordinates,
   ): Boolean {
     updateOffset(targetInParent(lookaheadCoordinates))
     return !offsetAnimation.isIdle

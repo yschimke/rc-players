@@ -36,7 +36,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
  */
 @Composable
 public fun rememberRcNamedValues(
-  vararg initial: Pair<String, RcNamedValue>
+  vararg initial: Pair<String, RcNamedValue>,
 ): SnapshotStateMap<String, RcNamedValue> = remember { mutableStateMapOf(*initial) }
 
 /**

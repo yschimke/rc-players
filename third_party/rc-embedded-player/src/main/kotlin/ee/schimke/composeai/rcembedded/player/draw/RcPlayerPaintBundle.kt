@@ -695,7 +695,7 @@ public fun updatePaintFromBundle(
                 // sub-ops rather than crash; what was parsed so far still applies.
                 println(
                     "Warning: unsupported PaintBundle sub-op ${cmd and 0xFFFF}; " +
-                        "skipping remainder of bundle"
+                        "skipping remainder of bundle",
                 )
                 return
             }

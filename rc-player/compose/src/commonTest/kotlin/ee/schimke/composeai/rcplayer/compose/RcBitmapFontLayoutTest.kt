@@ -62,7 +62,7 @@ class RcBitmapFontLayoutTest {
         RcDocument(
           RcHeader(RcVersion(1, 0, 0), modern = false),
           listOf(RcTextData(41, "AB"), font, measure),
-        )
+        ),
       )
 
     applyBitmapTextMeasure(measure, state)

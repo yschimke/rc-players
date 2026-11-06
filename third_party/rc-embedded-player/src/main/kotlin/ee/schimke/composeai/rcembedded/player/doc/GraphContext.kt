@@ -89,7 +89,7 @@ internal class GraphContext(
         set(value) {
             typefaceCache.resolver = value
             (store as? AndroidRemoteContext)?.setTypefaceResolver(
-                typefaceCache.coreTypefaceResolver
+                typefaceCache.coreTypefaceResolver,
             )
         }
 
@@ -102,7 +102,7 @@ internal class GraphContext(
         set(value) {
             field = value
             (value as? AndroidRemoteContext)?.setTypefaceResolver(
-                typefaceCache.coreTypefaceResolver
+                typefaceCache.coreTypefaceResolver,
             )
         }
 

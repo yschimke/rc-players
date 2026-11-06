@@ -385,7 +385,7 @@ internal class FloatArrayRemoteState(internal val floatArray: FloatArray, key: F
 
     override fun writeToDocument(creationState: RemoteComposeCreationContext): Int {
         throw UnsupportedOperationException(
-            "FloatArrayRemoteState cannot be written directly to document"
+            "FloatArrayRemoteState cannot be written directly to document",
         )
     }
 }
@@ -514,7 +514,7 @@ internal fun toCacheKeyList(args: Array<out Any?>): List<RemoteStateCacheKey> {
             else ->
                 throw IllegalArgumentException(
                     "Unsupported cache key type: ${it::class}. " +
-                        "Only primitives, Strings, Enums and RemoteStates are supported."
+                        "Only primitives, Strings, Enums and RemoteStates are supported.",
                 )
         }
     }

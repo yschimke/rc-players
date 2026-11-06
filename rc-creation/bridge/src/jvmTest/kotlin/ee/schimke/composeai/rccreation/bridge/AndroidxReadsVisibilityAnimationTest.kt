@@ -24,7 +24,7 @@ class AndroidxReadsVisibilityAnimationTest {
     writer.root {}
     val document = CoreDocument()
     document.initFromBuffer(
-      RemoteComposeBuffer.fromInputStream(ByteArrayInputStream(writer.encodeToByteArray()))
+      RemoteComposeBuffer.fromInputStream(ByteArrayInputStream(writer.encodeToByteArray())),
     )
     return document.operations
   }

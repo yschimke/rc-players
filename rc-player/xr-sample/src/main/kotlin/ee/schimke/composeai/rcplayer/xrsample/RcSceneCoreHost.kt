@@ -245,7 +245,7 @@ internal class RcSceneCoreHost(
           BoundingBox.fromMinMax(
             Vector3(packed.boundsMin[0], packed.boundsMin[1], packed.boundsMin[2]),
             Vector3(packed.boundsMax[0], packed.boundsMax[1], packed.boundsMax[2]),
-          )
+          ),
         )
         .build()
     // No bones: the player has already resolved every transform into the draw's matrices.
@@ -267,7 +267,7 @@ internal class RcSceneCoreHost(
       Pose(
         Vector3(t.x + area.offsetXMeters, t.y + area.offsetYMeters, t.z),
         transform.unscaled().rotation,
-      )
+      ),
     )
     // Uniform: the placement's own scale is uniform, and the public API takes one factor. A model
     // matrix with a non-uniform scale is approximated by its mean.

@@ -375,7 +375,7 @@ public object RcProfileDocuments {
         PAINT_STYLE or (PAINT_STYLE_FILL shl 16),
         PAINT_TEXT_SIZE,
         sizePx.toRawBits(),
-      )
+      ),
     )
 
   private fun strokePaint(argb: Int, widthPx: Float) =
@@ -386,7 +386,7 @@ public object RcProfileDocuments {
         PAINT_STYLE or (PAINT_STYLE_STROKE shl 16),
         PAINT_STROKE_WIDTH,
         widthPx.toRawBits(),
-      )
+      ),
     )
 
   private fun roundedClip(radius: Float) =

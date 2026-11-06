@@ -106,7 +106,7 @@ tasks.withType<Test>().configureEach {
 // needs (the WebGL2 cases skip there), and the cases' timings mean little in an unoptimized build.
 val optimizedTests =
   tasks.named<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenExec>(
-    "compileTestProductionExecutableKotlinWasmJsOptimize"
+    "compileTestProductionExecutableKotlinWasmJsOptimize",
   )
 
 tasks.register<Sync>("wasmWebGlTestDist") {

@@ -68,7 +68,7 @@ public object RcIntegerExpressionEvaluator {
         }
         in RcIntegerExpression.VAR1..RcIntegerExpression.VAR3 ->
           error(
-            "IntegerExpression variable token ${token - RcIntegerExpression.OFFSET} has no arguments"
+            "IntegerExpression variable token ${token - RcIntegerExpression.OFFSET} has no arguments",
           )
         else -> error("Unknown AndroidX integer-expression token $token")
       }

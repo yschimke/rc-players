@@ -28,7 +28,7 @@ public interface RemoteAction {
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> =
         error(
-            "Common action encoding is not implemented for ${this@RemoteAction::class.simpleName}"
+            "Common action encoding is not implemented for ${this@RemoteAction::class.simpleName}",
         )
 
     public companion object {

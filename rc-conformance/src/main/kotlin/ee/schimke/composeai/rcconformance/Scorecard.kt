@@ -34,7 +34,7 @@ public object Scorecard {
           "${results.count { it.status == "SUSPICIOUS" }} suspicious " +
           "(disputed reference behaviour), " +
           "${results.count { it.status == "SKIP" }} skipped. " +
-          "${results.count { it.status == "ERROR" }} errored — a crash, not a conformance gap."
+          "${results.count { it.status == "ERROR" }} errored — a crash, not a conformance gap.",
       )
       appendLine()
       appendLine(
@@ -43,7 +43,7 @@ public object Scorecard {
           "(§4): they are all `raster`, and an antialiasing-aware pixel walk across two text " +
           "stacks and two GPU backends disagrees for reasons that are not conformance gaps. " +
           "Binding checks: ${results.sumOf { it.checksFailed }} of " +
-          "${results.sumOf { it.checksTotal }} failing."
+          "${results.sumOf { it.checksTotal }} failing.",
       )
       appendLine()
 
@@ -71,7 +71,7 @@ public object Scorecard {
       appendLine(
         "The first two rows are **this runner's** gaps, not the player's. They are reported as " +
           "failures on purpose — the corpus exists to stop a player scoring well by declining to " +
-          "look — but they are the work list, not the verdict."
+          "look — but they are the work list, not the verdict.",
       )
       appendLine()
 
@@ -90,7 +90,7 @@ public object Scorecard {
       appendLine()
       appendLine(
         "Counted as **diffs**, not checks: one `particles` check compares a whole emitter and can " +
-          "produce dozens. `raster` is advisory throughout — reported, never binding."
+          "produce dozens. `raster` is advisory throughout — reported, never binding.",
       )
       appendLine()
       appendLine("| probe | diffs | unimplemented |")
@@ -139,7 +139,7 @@ public object Scorecard {
               "  - `${diff.at}` `${diff.probe}`" +
                 (diff.target?.let { " `$it`" } ?: "") +
                 " ${diff.property}: expected ${clip(diff.expected.toString())}, " +
-                "actual ${clip(diff.actual.toString())}"
+                "actual ${clip(diff.actual.toString())}",
             )
           }
           if (shown.size > DIFF_SAMPLE) appendLine("  - …and ${shown.size - DIFF_SAMPLE} more")

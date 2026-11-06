@@ -204,7 +204,7 @@ public fun RemoteModifier.graphicsLayer(
             alpha = alpha,
             cameraDistance = cameraDistance,
             renderEffect = renderEffect,
-        )
+        ),
     )
 
 /**
@@ -368,7 +368,7 @@ public fun RemoteModifier.graphicsLayer(block: GraphicsLayerScope.() -> Unit): R
             alpha = scope.alpha,
             cameraDistance = scope.cameraDistance,
             renderEffect = scope.renderEffect,
-        )
+        ),
     )
 }
 

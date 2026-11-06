@@ -136,7 +136,7 @@ public constructor(internal val intValue: RemoteInt, internal val enumEntries: E
                 }
 
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext
+                    creationState: RemoteComposeCreationContext,
                 ) = buildSet {
                     stringArray.constantValueOrNull?.fastForEach {
                         val codePointSet =
@@ -239,7 +239,7 @@ public constructor(public val remoteInt: MutableRemoteInt, enumEntries: EnumEntr
          * @return A [MutableRemoteEnum] instance.
          */
         internal inline fun <reified T : Enum<T>> createMutableForId(
-            id: Long
+            id: Long,
         ): MutableRemoteEnum<T> =
             MutableRemoteEnum(MutableRemoteInt.createMutableForId(id), enumEntries())
 
@@ -250,7 +250,7 @@ public constructor(public val remoteInt: MutableRemoteInt, enumEntries: EnumEntr
          * @return A [MutableRemoteEnum] instance.
          */
         public inline operator fun <reified T : Enum<T>> invoke(
-            initialValue: T
+            initialValue: T,
         ): MutableRemoteEnum<T> =
             MutableRemoteEnum(MutableRemoteInt.invoke(initialValue.ordinal), enumEntries())
     }
@@ -273,7 +273,7 @@ public constructor(public val remoteInt: MutableRemoteInt, enumEntries: EnumEntr
 @Composable
 @RemoteComposable
 public inline fun <reified T : Enum<T>> rememberMutableRemoteEnum(
-    initialValue: T
+    initialValue: T,
 ): MutableRemoteEnum<T> {
     return remember { MutableRemoteEnum(initialValue) }
 }

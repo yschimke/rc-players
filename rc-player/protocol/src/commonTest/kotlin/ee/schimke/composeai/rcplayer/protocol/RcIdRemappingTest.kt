@@ -87,7 +87,7 @@ class RcIdRemappingTest {
         listOf(
           RcGraphicsLayerAttribute.IntValue(RcGraphicsLayerModifier.SPOT_SHADOW_COLOR, spot),
           RcGraphicsLayerAttribute.IntValue(RcGraphicsLayerModifier.COMPOSITING_STRATEGY, alpha),
-        )
+        ),
       )
     }
     assertEquals(layer(150, 50), remap(layer(50, 50)))

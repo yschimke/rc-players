@@ -118,7 +118,7 @@ class RcPaintFloatIdRenderTest {
                     Modifier.size(
                         with(documentDensity) { width.toDp() },
                         with(documentDensity) { height.toDp() },
-                    )
+                    ),
                 ) {
                     RemoteImageSupport.enableEncodedImageReferences()
                     ExperimentalRemoteDocumentPlayer(

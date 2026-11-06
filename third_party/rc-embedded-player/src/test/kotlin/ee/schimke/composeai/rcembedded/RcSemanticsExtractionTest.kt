@@ -88,7 +88,7 @@ class RcSemanticsExtractionTest {
         val report = buildString {
             appendLine("document: $id  (${width}x${height})")
             appendLine(
-                "embedded player: ${embedded.nodes} semantics nodes, ${embedded.texts.size} text node(s)"
+                "embedded player: ${embedded.nodes} semantics nodes, ${embedded.texts.size} text node(s)",
             )
             embedded.texts.take(12).forEach { appendLine("  text: $it") }
         }
@@ -134,7 +134,7 @@ class RcSemanticsExtractionTest {
         val report = buildString {
             appendLine("document: $id  (${width}x${height})")
             appendLine(
-                "view player: ${view.nodes} semantics nodes, ${view.texts.size} text node(s)"
+                "view player: ${view.nodes} semantics nodes, ${view.texts.size} text node(s)",
             )
             view.texts.take(12).forEach { appendLine("  text: $it") }
         }

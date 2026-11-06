@@ -104,7 +104,7 @@ internal class RcDocumentFonts(fonts: Map<Int, ByteArray>) {
     /** The fonts [document] embeds, by id; a later `FontData` for an id replaces an earlier one. */
     fun of(document: RcDocument): RcDocumentFonts =
       RcDocumentFonts(
-        document.operations.filterIsInstance<RcFontData>().associate { it.fontId to it.data }
+        document.operations.filterIsInstance<RcFontData>().associate { it.fontId to it.data },
       )
   }
 }

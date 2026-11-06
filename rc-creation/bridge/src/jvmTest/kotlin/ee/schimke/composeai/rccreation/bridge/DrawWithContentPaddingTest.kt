@@ -38,7 +38,7 @@ class DrawWithContentPaddingTest {
           modifier.drawWithContent {
             drawRect(RemotePaint())
             drawContent()
-          }
+          },
         ) {}
       }
     RcDocumentCodec.decode(bytes).operations
@@ -89,7 +89,7 @@ class DrawWithContentPaddingTest {
         RemoteModifier.size(100.rdp).drawWithContent {
           drawRect(RemotePaint())
           drawContent()
-        }
+        },
       )
     assertEquals(listOf("rect", "rect", "content"), shapes)
   }

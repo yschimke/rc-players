@@ -135,7 +135,7 @@ class RcManifestTypefaceLoaderTest {
           {"file":"ok.ttf"}
         ]}]}
         """
-          .trimIndent()
+          .trimIndent(),
       )
 
     assertEquals(listOf("ok.ttf"), faces.map { it.file })
@@ -161,7 +161,7 @@ class RcManifestTypefaceLoaderTest {
           {"file":"not%2Ea%2Eparent.ttf"}
         ]}]}
         """
-          .trimIndent()
+          .trimIndent(),
       )
 
     // The last two are legitimate: a subdirectory, and a name whose decoded form is not `..` at
@@ -230,7 +230,7 @@ class RcManifestTypefaceLoaderTest {
           {"file":"c.ttf","style":"italic"}
         ]}]}
         """
-          .trimIndent()
+          .trimIndent(),
       )
 
     assertEquals(listOf(1000, 1, 400), faces.map { it.weight })

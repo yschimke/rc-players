@@ -155,7 +155,7 @@ tasks.withType<Test>().configureEach {
                 project.fileTree(embeddedInput) {
                     include("manifest.json")
                     include("**/*.rc")
-                }
+                },
             )
             .withPropertyName("embeddedDiagnosticInputs")
             .withPathSensitivity(org.gradle.api.tasks.PathSensitivity.RELATIVE)
@@ -173,8 +173,8 @@ tasks.withType<Test>().configureEach {
         .file(
             layout.settingsDirectory.file(
                 "rc-player/protocol/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/protocol/" +
-                    "RcAndroidSystemColors.kt"
-            )
+                    "RcAndroidSystemColors.kt",
+            ),
         )
         .withPropertyName("cmpAndroidColorTable")
         .withPathSensitivity(PathSensitivity.RELATIVE)

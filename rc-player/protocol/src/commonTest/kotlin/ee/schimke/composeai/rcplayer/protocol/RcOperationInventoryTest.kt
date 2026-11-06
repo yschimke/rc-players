@@ -55,7 +55,7 @@ class RcOperationInventoryTest {
     assertTrue(
       RcOperationInventory.entries
         .filter { it.status == RcOperationStatus.PARSE_ONLY }
-        .none { RcOperationProfiles.CMP_WASM_ALPHA18.supports(it.opcode) }
+        .none { RcOperationProfiles.CMP_WASM_ALPHA18.supports(it.opcode) },
     )
     assertEquals(
       RcOperationInventory.entries.count {
@@ -101,17 +101,17 @@ class RcOperationInventoryTest {
   fun androidXBaselineAndExperimentalEmbeddedProfilesStayDistinct() {
     assertTrue(RcOperationProfiles.ANDROIDX_JAVA_ALPHA18.supports(RcOpcodes.DRAW_RECT))
     assertTrue(
-      RcOperationProfiles.ANDROIDX_EMBEDDED_EXPERIMENTAL_ALPHA18.supports(RcOpcodes.DRAW_RECT)
+      RcOperationProfiles.ANDROIDX_EMBEDDED_EXPERIMENTAL_ALPHA18.supports(RcOpcodes.DRAW_RECT),
     )
     assertFalse(RcOperationProfiles.ANDROIDX_JAVA_ALPHA18.supports(RcOpcodes.DATA_BITMAP_FONT))
     assertTrue(
       RcOperationProfiles.ANDROIDX_EMBEDDED_EXPERIMENTAL_ALPHA18.supports(
-        RcOpcodes.DATA_BITMAP_FONT
-      )
+        RcOpcodes.DATA_BITMAP_FONT,
+      ),
     )
     assertFalse(RcOperationProfiles.ANDROIDX_JAVA_ALPHA18.supports(RcOpcodes.MACRO_CALL))
     assertTrue(
-      RcOperationProfiles.ANDROIDX_EMBEDDED_EXPERIMENTAL_ALPHA18.supports(RcOpcodes.MACRO_CALL)
+      RcOperationProfiles.ANDROIDX_EMBEDDED_EXPERIMENTAL_ALPHA18.supports(RcOpcodes.MACRO_CALL),
     )
   }
 
@@ -139,28 +139,28 @@ class RcOperationInventoryTest {
           RcOpcodes.DRAW_TEXT_ON_CIRCLE,
           RcOperationTarget.ANDROIDX_JAVA,
         )
-        .supported
+        .supported,
     )
     assertTrue(
       RcOperationSupportMatrix.entry(
           RcOpcodes.DRAW_TEXT_ON_CIRCLE,
           RcOperationTarget.CMP_MACOS,
         )
-        .supported
+        .supported,
     )
     assertTrue(
       RcOperationSupportMatrix.entry(
           RcOpcodes.MODIFIER_GRAPHICS_LAYER,
           RcOperationTarget.CMP_WASM,
         )
-        .supported
+        .supported,
     )
     assertTrue(
       RcOperationSupportMatrix.entry(
           RcOpcodes.MODIFIER_GRAPHICS_LAYER,
           RcOperationTarget.CMP_IOS,
         )
-        .supported
+        .supported,
     )
   }
 }

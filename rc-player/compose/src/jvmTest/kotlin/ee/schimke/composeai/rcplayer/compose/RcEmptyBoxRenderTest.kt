@@ -58,7 +58,7 @@ class RcEmptyBoxRenderTest {
             operations =
               document.operations.dropLast(2) +
                 RcLayoutContent(3) +
-                List(3) { RcNoArg(RcOpcodes.CONTAINER_END) }
+                List(3) { RcNoArg(RcOpcodes.CONTAINER_END) },
           )
         val reference =
           ImageComposeScene(width = 100, height = 100, density = Density(density)) {

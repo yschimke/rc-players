@@ -231,7 +231,7 @@ public data class RcDocumentSupport(val parseOnly: List<RcOperationInventoryEntr
     if (parseOnly.isNotEmpty()) {
       throw IllegalArgumentException(
         "Document contains parse-only operations: " +
-          parseOnly.joinToString { "${it.stableName}(${it.opcode})" }
+          parseOnly.joinToString { "${it.stableName}(${it.opcode})" },
       )
     }
   }

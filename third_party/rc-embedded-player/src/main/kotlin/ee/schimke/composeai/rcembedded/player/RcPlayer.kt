@@ -424,12 +424,12 @@ internal fun RcPlayerImpl(
             modifier
                 .then(
                     // preferredFrameRate adds a graphicsLayer, so only apply it when a rate is set.
-                    if (desiredFps > 0f) Modifier.preferredFrameRate(desiredFps) else Modifier
+                    if (desiredFps > 0f) Modifier.preferredFrameRate(desiredFps) else Modifier,
                 )
                 .then(
                     if (rootContentDescription != null)
                         Modifier.semantics { contentDescription = rootContentDescription }
-                    else Modifier
+                    else Modifier,
                 )
                 .rcPlayerRootInspector(state)
                 .onPlaced {
@@ -493,8 +493,8 @@ internal fun RcPlayerImpl(
                             preprocessed,
                             graphContext,
                         )
-                    else Modifier
-                )
+                    else Modifier,
+                ),
     ) {
         // ColorConstant / IntegerConstant / FloatExpression defaults already live in the
         // snapshot-backed store (applied by applyOperations during setup); the single store is the

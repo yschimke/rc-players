@@ -136,7 +136,7 @@ class RcTextMeasureInkRenderTest {
               PAINT_STYLE or (STYLE_STROKE shl 16),
               PAINT_STROKE_WIDTH,
               literal(STROKE.toFloat()).bits,
-            )
+            ),
           ),
           RcDraw4(
             RcOpcodes.DRAW_RECT,
@@ -157,7 +157,7 @@ class RcTextMeasureInkRenderTest {
             PAINT_STYLE or (STYLE_FILL shl 16),
             PAINT_TEXT_SIZE,
             literal(80f).bits,
-          )
+          ),
         ),
         RcDrawText(TEXT, 0, 2, 0, 2, literal(X), literal(Y), false),
       ) + measure,

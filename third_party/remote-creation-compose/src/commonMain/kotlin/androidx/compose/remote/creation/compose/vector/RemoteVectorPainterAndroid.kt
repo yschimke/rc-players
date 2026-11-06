@@ -48,7 +48,7 @@ public fun painterRemoteVector(
 }
 
 internal fun RemoteGroupComponent.createGroupComponent(
-    currentGroup: VectorGroup
+    currentGroup: VectorGroup,
 ): RemoteGroupComponent {
     for (index in 0 until currentGroup.size) {
         val vectorNode = currentGroup[index]

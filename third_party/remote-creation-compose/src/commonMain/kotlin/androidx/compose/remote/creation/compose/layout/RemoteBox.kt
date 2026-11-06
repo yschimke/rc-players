@@ -37,7 +37,7 @@ internal class RemoteBoxNode : RemoteLayoutNode() {
                 resolveModifier(scope, creationState),
                 horizontalAlignment.toRemote(layoutDirection),
                 verticalAlignment.toRemote(),
-            )
+            ),
         )
         renderChildren(creationState, remoteCanvas)
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndBox)

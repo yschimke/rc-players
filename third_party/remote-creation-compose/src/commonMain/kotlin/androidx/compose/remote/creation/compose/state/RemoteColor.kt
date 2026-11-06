@@ -163,7 +163,7 @@ internal constructor(
         cacheKey = RemoteOperationCacheKey.create(OperationKey.FromArgb, red, green, blue, alpha),
         idProvider = { creationState ->
             creationState.getOrPutVariableId(
-                RemoteOperationCacheKey.create(OperationKey.FromArgb, red, green, blue, alpha)
+                RemoteOperationCacheKey.create(OperationKey.FromArgb, red, green, blue, alpha),
             ) {
                 creationState.writer
                     .addColorExpression(
@@ -198,7 +198,7 @@ internal constructor(
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public constructor(
-        @ColorInt color: Int
+        @ColorInt color: Int,
     ) : this(
         constantValueOrNull = color,
         red = extractRedFloat(color).rf,
@@ -296,7 +296,7 @@ internal constructor(
                 creationState.writer.colorAttribute(
                     creationState.getOrPutVariableId(cacheKey) { idProvider(creationState) },
                     component,
-                )
+                ),
             )
         }
     }
@@ -482,7 +482,7 @@ internal constructor(
                                 hue,
                                 saturation,
                                 value,
-                            )
+                            ),
                         ) {
                             creationState.writer
                                 .addColorExpression(
@@ -547,7 +547,7 @@ internal constructor(
                             hue,
                             saturation,
                             value,
-                        )
+                        ),
                     ) {
                         creationState.writer
                             .addColorExpression(
@@ -627,7 +627,7 @@ public fun tween(@ColorInt from: Int, @ColorInt to: Int, tween: RemoteFloat): Re
         cacheKey = RemoteOperationCacheKey.create(OperationKey.TweenInt, from, to, tween),
         idProvider = { creationState ->
             creationState.getOrPutVariableId(
-                RemoteOperationCacheKey.create(OperationKey.TweenInt, from, to, tween)
+                RemoteOperationCacheKey.create(OperationKey.TweenInt, from, to, tween),
             ) {
                 creationState.writer
                     .addColorExpression(
@@ -666,7 +666,7 @@ public fun tween(from: RemoteColor, to: RemoteColor, tween: RemoteFloat): Remote
         cacheKey = RemoteOperationCacheKey.create(OperationKey.Tween, from, to, tween),
         idProvider = { creationState ->
             creationState.getOrPutVariableId(
-                RemoteOperationCacheKey.create(OperationKey.Tween, from, to, tween)
+                RemoteOperationCacheKey.create(OperationKey.Tween, from, to, tween),
             ) {
                 creationState.writer
                     .addColorExpression(
@@ -855,7 +855,7 @@ private fun asRemoteColor(arg: BaseRemoteState<*>): RemoteColor =
         is RemoteInt ->
             arg.constantValueOrNull?.let { RemoteColor(it) }
                 ?: throw IllegalArgumentException(
-                    "Dynamic RemoteInt cannot be used as a color: $arg"
+                    "Dynamic RemoteInt cannot be used as a color: $arg",
                 )
         else -> throw IllegalArgumentException("Expected RemoteColor or RemoteInt, but found $arg")
     }

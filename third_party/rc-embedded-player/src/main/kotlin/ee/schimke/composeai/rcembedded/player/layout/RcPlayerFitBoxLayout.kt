@@ -162,16 +162,16 @@ internal fun RcPlayerFitBoxLayout(layout: FitBoxLayout, modifier: Modifier) {
                             transitionSpec = {
                                 (fadeIn(
                                         animationSpec =
-                                            tween(durationMillis = duration, easing = easing)
+                                            tween(durationMillis = duration, easing = easing),
                                     ) togetherWith
                                         fadeOut(
                                             animationSpec =
-                                                tween(durationMillis = duration, easing = easing)
+                                                tween(durationMillis = duration, easing = easing),
                                         ))
                                     .using(
                                         SizeTransform(clip = false) { _, _ ->
                                             tween(durationMillis = duration, easing = easing)
-                                        }
+                                        },
                                     )
                             },
                         ) { currentIndex ->
@@ -189,7 +189,7 @@ internal fun RcPlayerFitBoxLayout(layout: FitBoxLayout, modifier: Modifier) {
                     if (transitionConfig.hasSharedElements) {
                         SharedTransitionLayout {
                             AnimatedFitBoxContent(
-                                sharedTransitionScope = this@SharedTransitionLayout
+                                sharedTransitionScope = this@SharedTransitionLayout,
                             )
                         }
                     } else {

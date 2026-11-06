@@ -35,7 +35,7 @@ internal constructor(
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public constructor(
-        constantValueOrNull: List<RemoteFloat>?
+        constantValueOrNull: List<RemoteFloat>?,
     ) : this(
         constantValueOrNull,
         constantValueOrNull?.let { values ->

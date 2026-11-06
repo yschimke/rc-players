@@ -22,7 +22,7 @@ class DpDocumentFontSizeTest {
   private fun fontSize(densityBehavior: RemoteDensityBehavior): Float = runBlocking {
     val bytes =
       captureCommonRemoteDocument(
-        RemoteCreationDisplayInfo(360, 480, 320, densityBehavior = densityBehavior)
+        RemoteCreationDisplayInfo(360, 480, 320, densityBehavior = densityBehavior),
       ) {
         RemoteText("Hello".rs, fontSize = 14.rsp, overflow = RemoteTextOverflow.Clip)
       }

@@ -55,7 +55,7 @@ public data class RemoteAppleTypography(
 
 /** Creates the Apple text scale with one family shared by every style. */
 public fun RemoteAppleTypography(
-  fontFamily: RemoteFontFamily = RemoteFontFamily.Named("apple:system")
+  fontFamily: RemoteFontFamily = RemoteFontFamily.Named("apple:system"),
 ): RemoteAppleTypography {
   val base = RemoteTextStyle(fontFamily = fontFamily)
   return RemoteAppleTypography(

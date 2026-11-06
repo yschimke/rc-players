@@ -727,7 +727,7 @@ public class RcPlayerState(
         message = text(operation.textId) ?: "null",
         value = resolve(operation.value),
         flags = operation.flags,
-      )
+      ),
     )
   }
 
@@ -1510,7 +1510,7 @@ public class RcPlayerState(
             RcPlayerEvent.HostActionMetadata(
               operation.actionId,
               currentText(operation.metadataTextId).orEmpty(),
-            )
+            ),
           )
         is RcHostNamedAction ->
           eventSink(
@@ -1519,7 +1519,7 @@ public class RcPlayerState(
                 "Missing host action name text ${operation.nameTextId}"
               },
               resolveHostActionValue(operation.value),
-            )
+            ),
           )
         is RcHapticFeedback -> performHapticFeedback(operation)
         is RcPlaySound -> playSound(operation)
@@ -1686,22 +1686,26 @@ public class RcPlayerState(
       RcHostNamedActionValue.None -> RcHostActionValue.None
       is RcHostNamedActionValue.FloatValue ->
         RcHostActionValue.FloatValue(
-          requireNotNull(floats[value.valueId]) { "Missing host action float ${value.valueId}" }
+          requireNotNull(floats[value.valueId]) { "Missing host action float ${value.valueId}" },
         )
       is RcHostNamedActionValue.IntegerValue ->
         RcHostActionValue.IntegerValue(
-          requireNotNull(integers[value.valueId]) { "Missing host action integer ${value.valueId}" }
+          requireNotNull(integers[value.valueId]) {
+            "Missing host action integer ${value.valueId}"
+          },
         )
       is RcHostNamedActionValue.TextValue ->
         RcHostActionValue.TextValue(
-          requireNotNull(currentText(value.valueId)) { "Missing host action text ${value.valueId}" }
+          requireNotNull(currentText(value.valueId)) {
+            "Missing host action text ${value.valueId}"
+          },
         )
       is RcHostNamedActionValue.FloatListValue ->
         RcHostActionValue.FloatListValue(
           requireNotNull(floatValues(value.valueId)) {
               "Missing host action float list ${value.valueId}"
             }
-            .toList()
+            .toList(),
         )
     }
 
@@ -1987,7 +1991,7 @@ public class RcPlayerState(
         RcNamedValue.FloatArrayValue(floatValues(variable.id)?.toList().orEmpty())
       else ->
         throw IllegalArgumentException(
-          "Named variable '$name' has AndroidX type ${variable.type}, which carries no host value"
+          "Named variable '$name' has AndroidX type ${variable.type}, which carries no host value",
         )
     }
   }
@@ -2027,7 +2031,7 @@ public class RcPlayerState(
         floatArrayOverrides[variable.id] = value.values.toFloatArray()
       else ->
         throw IllegalArgumentException(
-          "Named variable '$name' has AndroidX type ${variable.type}, incompatible with ${value::class.simpleName}"
+          "Named variable '$name' has AndroidX type ${variable.type}, incompatible with ${value::class.simpleName}",
         )
     }
   }

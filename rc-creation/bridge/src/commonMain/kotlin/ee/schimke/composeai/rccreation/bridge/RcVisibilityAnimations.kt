@@ -45,7 +45,7 @@ public fun RemoteWriter.defineVisibilityAnimation(
       height: Float,
       x: Float,
       y: Float,
-    ) -> Unit
+    ) -> Unit,
 ): Int {
   val args = FloatArray(VisibilityFunctionParameters)
   val id = createFloatFunction(args)

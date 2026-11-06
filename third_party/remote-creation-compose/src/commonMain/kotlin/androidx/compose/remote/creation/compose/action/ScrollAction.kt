@@ -29,7 +29,7 @@ internal class ScrollByAction(
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> {
         val positionState = scrollState.positionState
         return listOf(
-            RemoteActionData.FloatExpressionChange(positionState.id, (positionState + value).id)
+            RemoteActionData.FloatExpressionChange(positionState.id, (positionState + value).id),
         )
     }
 }

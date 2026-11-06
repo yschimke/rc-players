@@ -109,7 +109,7 @@ class RcAuthoredVisibilityAnimationTest {
           RemoteModifier.size(40.rdp, 20.rdp)
             .background(Color.Blue.rc)
             .visibility(visible)
-            .animateEnterExit(exit = rcCustomExitTransition(wipe))
+            .animateEnterExit(exit = rcCustomExitTransition(wipe)),
         ) {}
       }
     }

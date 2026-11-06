@@ -176,7 +176,7 @@ class RcGraphicsLayerAnimationRenderTest {
       directory
         .resolve("graphics-layer-tween.png")
         .writeBytes(
-          checkNotNull(frame.encodeToData()) { "Skia declined to encode the render" }.bytes
+          checkNotNull(frame.encodeToData()) { "Skia declined to encode the render" }.bytes,
         )
     } finally {
       scene.close()
@@ -207,8 +207,8 @@ class RcGraphicsLayerAnimationRenderTest {
           RcGraphicsLayerAttribute.FloatValue(
             RcGraphicsLayerModifier.TRANSLATION_X,
             RcFloatWord(0x7fc00000 or OFFSET_ID),
-          )
-        )
+          ),
+        ),
       )
     operations += RcNoArg(RcOpcodes.CANVAS_OPERATIONS)
     operations += RcPaintData(listOf(4, RED))

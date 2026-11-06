@@ -104,8 +104,8 @@ class RcGeometryRepaintRenderTest {
           RcGraphicsLayerAttribute.FloatValue(
             RcGraphicsLayerModifier.TRANSLATION_X,
             RcFloatWord.literal(0f),
-          )
-        )
+          ),
+        ),
       )
     operations += RcNoArg(RcOpcodes.CANVAS_OPERATIONS)
     operations += RcPaintData(listOf(4, GREEN))

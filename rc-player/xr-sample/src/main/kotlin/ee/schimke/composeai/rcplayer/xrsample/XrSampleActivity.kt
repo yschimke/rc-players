@@ -126,7 +126,7 @@ class XrSampleActivity : ComponentActivity() {
   private fun startDeviceTracking(session: Session) {
     val configured = runCatching {
       session.configure(
-        Config.Builder(session.config).setDeviceTracking(DeviceTrackingMode.SPATIAL).build()
+        Config.Builder(session.config).setDeviceTracking(DeviceTrackingMode.SPATIAL).build(),
       )
     }
       .getOrNull()

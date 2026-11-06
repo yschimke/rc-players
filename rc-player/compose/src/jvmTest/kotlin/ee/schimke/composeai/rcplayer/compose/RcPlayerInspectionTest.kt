@@ -150,7 +150,7 @@ class RcPlayerInspectionTest {
       }
       val container =
         requireNotNull(
-          nodes.firstOrNull { it.config.getOrElseNullable(RcComponentIdKey) { null } == 3 }
+          nodes.firstOrNull { it.config.getOrElseNullable(RcComponentIdKey) { null } == 3 },
         )
       val scrollOffset =
         requireNotNull(container.config.getOrElseNullable(RcScrollOffsetKey) { null }) {
@@ -159,7 +159,7 @@ class RcPlayerInspectionTest {
       assertEquals(Offset(0f, -40f), scrollOffset)
       val child =
         requireNotNull(
-          nodes.firstOrNull { it.config.getOrElseNullable(RcComponentIdKey) { null } == 5 }
+          nodes.firstOrNull { it.config.getOrElseNullable(RcComponentIdKey) { null } == 5 },
         )
       // `positionInRoot` carries the translation, because Compose realises a scroll by moving the
       // children. Taking the published offset back out — what a tree reader does — is what leaves

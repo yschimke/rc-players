@@ -363,25 +363,25 @@ public interface CustomComposablePlugin<T : Any> {
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class CustomPluginRegistry(private val plugins: Map<String, CustomComposablePlugin<*>>) {
     public constructor(
-        vararg plugins: CustomComposablePlugin<*>
+        vararg plugins: CustomComposablePlugin<*>,
     ) : this(
         HashMap<String, CustomComposablePlugin<*>>().apply {
             for (i in 0 until plugins.size) {
                 val p = plugins[i]
                 put(p.name, p)
             }
-        }
+        },
     )
 
     public constructor(
-        plugins: List<CustomComposablePlugin<*>>
+        plugins: List<CustomComposablePlugin<*>>,
     ) : this(
         HashMap<String, CustomComposablePlugin<*>>().apply {
             for (i in 0 until plugins.size) {
                 val p = plugins[i]
                 put(p.name, p)
             }
-        }
+        },
     )
 
     /**

@@ -63,7 +63,7 @@ public fun main(args: Array<String>) {
             {"id":"particle-loop","width":96,"height":64,"density":1}
           ]
       """
-        .trimIndent()
+        .trimIndent(),
     )
   File(output, "conformance.json")
     .writeText(
@@ -87,7 +87,7 @@ public fun main(args: Array<String>) {
             }
           }
       """
-        .trimIndent()
+        .trimIndent(),
     )
 }
 

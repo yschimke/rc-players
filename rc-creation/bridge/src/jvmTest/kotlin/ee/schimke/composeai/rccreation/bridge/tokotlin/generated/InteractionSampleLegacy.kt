@@ -51,18 +51,18 @@ fun InteractionSampleLegacy() {
           RemoteModifier.size(40.rdp)
             .collapsiblePriority(2f)
             .clickable(hostAction("toggle".rs, 1.ri), role = Role.Switch)
-            .background(RemoteColor(Color(0xFF888888)))
+            .background(RemoteColor(Color(0xFF888888))),
       )
       RemoteBox(modifier = RemoteModifier.weight(1f).height(40.rdp).clickable(hostAction(7)))
     }
     RemoteBox(
       modifier =
         RemoteModifier.fillMaxWidth().height(32.rdp).visibility(panelVisibility).semantics(
-          mergeDescendants = true
+          mergeDescendants = true,
         ) {
           contentDescription = "Panel".rs
           role = Role.Image
-        }
+        },
     )
     RemoteRow(modifier = RemoteModifier.width(RemoteIntrinsicSize.Max)) {
       RemoteBox(modifier = RemoteModifier.width(panelSide.asRemoteDp()).height(8.rdp))

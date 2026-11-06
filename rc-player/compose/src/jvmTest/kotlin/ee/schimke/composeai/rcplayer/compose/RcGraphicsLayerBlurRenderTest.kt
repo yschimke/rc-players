@@ -108,7 +108,7 @@ class RcGraphicsLayerBlurRenderTest {
         RcGraphicsLayerAttribute.IntValue(
           RcGraphicsLayerModifier.SHAPE,
           RcGraphicsLayerModifier.SHAPE_RECT,
-        )
+        ),
       )
       if (blur) {
         add(RcGraphicsLayerAttribute.FloatValue(RcGraphicsLayerModifier.BLUR_RADIUS_X, radius))
@@ -117,7 +117,7 @@ class RcGraphicsLayerBlurRenderTest {
           RcGraphicsLayerAttribute.IntValue(
             RcGraphicsLayerModifier.BLUR_TILE_MODE,
             RcGraphicsLayerModifier.TILE_MODE_DECAL,
-          )
+          ),
         )
       }
     }
@@ -140,7 +140,7 @@ class RcGraphicsLayerBlurRenderTest {
             RcFloatWord.literal(0f),
             RcFloatWord.literal(BAR.toFloat()),
             RcFloatWord.literal(HEIGHT.toFloat()),
-          )
+          ),
         )
         repeat(4) { add(end) }
       }

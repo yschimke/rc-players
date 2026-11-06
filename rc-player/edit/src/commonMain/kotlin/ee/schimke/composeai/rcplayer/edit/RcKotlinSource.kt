@@ -109,7 +109,7 @@ public data class RcKotlinSource(val code: String, val unsupported: List<String>
  * the same number.
  */
 public fun RcDocument.toRemoteComposeKotlin(
-  options: RcKotlinOptions = RcKotlinOptions()
+  options: RcKotlinOptions = RcKotlinOptions(),
 ): RcKotlinSource = RcKotlinWriter(this, options).write()
 
 private class RcKotlinWriter(
@@ -160,16 +160,16 @@ private class RcKotlinWriter(
 
   private fun render(): String = buildString {
     appendLine(
-      "// Generated from a Remote Compose document by rc-player-edit's toRemoteComposeKotlin."
+      "// Generated from a Remote Compose document by rc-player-edit's toRemoteComposeKotlin.",
     )
     appendLine(
       "// Document: ${header.width} x ${header.height}, " +
         "version ${header.version.major}.${header.version.minor}.${header.version.patch}, " +
-        "density behaviour ${densityName()}."
+        "density behaviour ${densityName()}.",
     )
     if (unsupported.isNotEmpty()) {
       appendLine(
-        "// ${unsupported.size} construct(s) could not be expressed: search for TODO(rc-to-kotlin)."
+        "// ${unsupported.size} construct(s) could not be expressed: search for TODO(rc-to-kotlin).",
       )
     }
     if (options.packageName.isNotEmpty()) {
@@ -266,7 +266,7 @@ private class RcKotlinWriter(
       is RcStateLayout -> {
         todo(
           "state layout ${operation.componentId} switches on integer ${operation.indexId}; " +
-            "only its first branch is generated"
+            "only its first branch is generated",
         )
         val branches = node.children.firstOrNull { it.operation is RcLayoutContent }?.children
         branches?.firstOrNull()?.let { statement(it, parent, topLevel) }
@@ -520,7 +520,7 @@ private class RcKotlinWriter(
       gap(
         "text ${text.textId} sets style properties " +
           unknown.joinToString { (TEXT_PROPERTY_NAMES[it.id] ?: "#${it.id}") } +
-          " that are not generated"
+          " that are not generated",
       )
     }
     if (text.textStyleId != null) gap("text ${text.textId} inherits a TextStyle; it is not applied")
@@ -948,7 +948,7 @@ private class RcKotlinWriter(
           "collapsiblePriority(${floatLiteral(operation.priority, "a collapsible priority")})"
         } else {
           gap(
-            "a collapsible priority outside a collapsible ${if (horizontal) "row" else "column"} is not generated"
+            "a collapsible priority outside a collapsible ${if (horizontal) "row" else "column"} is not generated",
           )
           null
         }
@@ -990,7 +990,7 @@ private class RcKotlinWriter(
         if (main) "weight(${if (value.isNaNEncoded) floatValue(value) else float(value.value)})"
         else {
           gap(
-            "a ${lower} weight outside a ${if (axis == "Width") "row" else "column"} is not generated"
+            "a ${lower} weight outside a ${if (axis == "Width") "row" else "column"} is not generated",
           )
           null
         }
@@ -1052,7 +1052,7 @@ private class RcKotlinWriter(
           if (densityBehavior == RcHeader.DENSITY_BEHAVIOR_PIXELS) {
             gap(
               "a $name bound reads ${describeId(word.referencedId!!)} in pixels; it is written " +
-                "as dp, which the creation API scales by the density again"
+                "as dp, which the creation API scales by the density again",
             )
           }
           import("androidx.compose.remote.creation.compose.state.asRemoteDp")
@@ -1082,7 +1082,7 @@ private class RcKotlinWriter(
       // The creation API writes version 1, which players inset by half the stroke; version 0
       // centres it on the bounds. No public call writes version 0.
       gap(
-        "a version 0 border is re-created as version 1, which insets its stroke by half its width"
+        "a version 0 border is re-created as version 1, which insets its stroke by half its width",
       )
     }
     import(
@@ -1419,7 +1419,7 @@ private class RcKotlinWriter(
       if (densityBehavior != RcHeader.DENSITY_BEHAVIOR_DP) {
         gap(
           "a length reads ${describeId(word.referencedId!!)} in pixels; it is written as dp, " +
-            "which the creation API scales by the density again"
+            "which the creation API scales by the density again",
         )
       }
       import("androidx.compose.remote.creation.compose.state.asRemoteDp")
@@ -1516,7 +1516,7 @@ private class RcKotlinWriter(
           // spacedBy takes an alignment, not a distribution: SpaceBetween, SpaceEvenly and
           // SpaceAround add their gap to the spacing at playback, which no call can say.
           gap(
-            "spacing combined with a distributed arrangement ($positioning) keeps only the spacing"
+            "spacing combined with a distributed arrangement ($positioning) keeps only the spacing",
           )
           ""
         }
@@ -1614,7 +1614,7 @@ private class RcKotlinWriter(
       }
       else -> {
         gap(
-          "named value \"$full\" is in a domain the creation API cannot name; it is written into the user domain"
+          "named value \"$full\" is in a domain the creation API cannot name; it is written into the user domain",
         )
         full to ""
       }

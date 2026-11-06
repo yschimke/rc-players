@@ -34,7 +34,7 @@ public class RemotePaddingValues(
 
     /** Creates a padding of [all] RemoteDp along all 4 edges. */
     public constructor(
-        all: RemoteDp
+        all: RemoteDp,
     ) : this(leftPadding = all, topPadding = all, rightPadding = all, bottomPadding = all)
 
     /**

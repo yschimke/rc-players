@@ -94,7 +94,7 @@ public sealed interface RemoteModifier {
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
         public fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
             error(
-                "Common modifier encoding is not implemented for ${this@Element::class.simpleName}"
+                "Common modifier encoding is not implemented for ${this@Element::class.simpleName}",
             )
     }
 

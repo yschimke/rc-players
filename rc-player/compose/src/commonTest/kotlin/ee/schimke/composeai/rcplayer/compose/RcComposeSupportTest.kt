@@ -101,7 +101,7 @@ class RcComposeSupportTest {
       document.composeSupportReport().issues.single().detail,
     )
     assertTrue(
-      document.composeSupportReport(availableCustomComponents = setOf("slot:hero")).fullyRenderable
+      document.composeSupportReport(availableCustomComponents = setOf("slot:hero")).fullyRenderable,
     )
   }
 
@@ -206,7 +206,7 @@ class RcComposeSupportTest {
       RcDocument(
         header,
         listOf(
-          ee.schimke.composeai.rcplayer.protocol.RcDebugMessage(99, RcFloatWord.literal(1f), 0)
+          ee.schimke.composeai.rcplayer.protocol.RcDebugMessage(99, RcFloatWord.literal(1f), 0),
         ),
       )
     assertEquals(
@@ -268,7 +268,7 @@ class RcComposeSupportTest {
     assertTrue(
       document(RcIdMap.TYPE_STRING)
         .composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18)
-        .fullyRenderable
+        .fullyRenderable,
     )
     // A float entry writes the float store, so the CoreText would render empty rather than fail.
     assertEquals(
@@ -362,7 +362,7 @@ class RcComposeSupportTest {
             initialDelayMillis = RcFloatWord.literal(500f),
             spacing = RcFloatWord.literal(12f),
             velocity = RcFloatWord.literal(40f),
-          )
+          ),
         ),
       )
 
@@ -383,7 +383,7 @@ class RcComposeSupportTest {
               initialDelayMillis = RcFloatWord.literal(0f),
               spacing = RcFloatWord.literal(0f),
               velocity = RcFloatWord.literal(0f),
-            )
+            ),
           ),
         )
         .composeSupportReport()
@@ -566,7 +566,7 @@ class RcComposeSupportTest {
   @Test
   fun acceptsShaderResetAndRejectsExternalShaderIds() {
     assertTrue(
-      RcDocument(header, listOf(RcPaintData(listOf(9, 0)))).composeSupportReport().fullyRenderable
+      RcDocument(header, listOf(RcPaintData(listOf(9, 0)))).composeSupportReport().fullyRenderable,
     )
     val issue =
       RcDocument(header, listOf(RcPaintData(listOf(9, 42)))).composeSupportReport().issues.single()
@@ -590,8 +590,8 @@ class RcComposeSupportTest {
               RcFloatWord.literal(1f).bits,
               0x736c6e74,
               RcFloatWord.literal(0f).bits,
-            )
-          )
+            ),
+          ),
         ),
       )
 
@@ -624,7 +624,9 @@ class RcComposeSupportTest {
       )
 
     assertTrue(
-      coreText(listOf(43), listOf(RcFloatWord.literal(700f))).composeSupportReport().fullyRenderable
+      coreText(listOf(43), listOf(RcFloatWord.literal(700f)))
+        .composeSupportReport()
+        .fullyRenderable,
     )
     // Positional arrays of different lengths cannot say which value belongs to which axis.
     assertEquals(
@@ -650,12 +652,12 @@ class RcComposeSupportTest {
           listOf(RcTextData(44, "ROND"), RcPaintData(listOf(23 or (1 shl 16), 44, 0))),
         )
         .composeSupportReport()
-        .fullyRenderable
+        .fullyRenderable,
     )
     assertTrue(
       RcDocument(header, listOf(RcPaintData(listOf(23 or (1 shl 16), 0x77647468, 0)))) // wdth
         .composeSupportReport()
-        .fullyRenderable
+        .fullyRenderable,
     )
     val undeclared =
       RcDocument(header, listOf(RcPaintData(listOf(23 or (1 shl 16), 44, 0))))
@@ -698,8 +700,8 @@ class RcComposeSupportTest {
               0xffffffff.toInt(),
               20 or (5 shl 16),
               42,
-            )
-          )
+            ),
+          ),
         ),
       )
 
@@ -721,8 +723,8 @@ class RcComposeSupportTest {
               List(colors) { 0xff000000.toInt() or it } +
               listOf(0) +
               List(4) { RcFloatWord.literal(it * 10f).bits } +
-              listOf(0)
-          )
+              listOf(0),
+          ),
         ),
       )
 
@@ -794,8 +796,8 @@ class RcComposeSupportTest {
                 RcGraphicsLayerModifier.SHAPE_RADIUS,
                 RcFloatWord.literal(40f),
               ),
-            )
-          )
+            ),
+          ),
         ),
       )
 
@@ -832,9 +834,9 @@ class RcComposeSupportTest {
               RcGraphicsLayerAttribute.FloatValue(
                 RcGraphicsLayerModifier.ROTATION_Z,
                 RcFloatWord.literal(-8f),
-              )
-            )
-          )
+              ),
+            ),
+          ),
         ),
       )
 
@@ -859,8 +861,8 @@ class RcComposeSupportTest {
               RcTextStyleProperty.BooleanValue(22, true),
               RcTextStyleProperty.FloatValue(25, RcFloatWord.literal(8f)),
               RcTextStyleProperty.FloatValue(26, RcFloatWord.literal(32f)),
-            )
-          )
+            ),
+          ),
         ),
       )
 
@@ -874,8 +876,8 @@ class RcComposeSupportTest {
         header,
         listOf(
           RcTextStyle(
-            listOf(RcTextStyleProperty.IntValue(1, 100), RcTextStyleProperty.IntValue(17, 2))
-          )
+            listOf(RcTextStyleProperty.IntValue(1, 100), RcTextStyleProperty.IntValue(17, 2)),
+          ),
         ),
       )
 
@@ -927,7 +929,7 @@ class RcComposeSupportTest {
     assertTrue(
       RcDocument(header, listOf(RcFontData(42, 0, byteArrayOf(1)), style))
         .composeSupportReport()
-        .fullyRenderable
+        .fullyRenderable,
     )
   }
 
@@ -958,7 +960,7 @@ class RcComposeSupportTest {
         fonts +
           (family?.let { listOf(RcTextData(42, it)) } ?: emptyList()) +
           RcTextStyle(
-            listOf(RcTextStyleProperty.IntValue(1, 100), RcTextStyleProperty.IntValue(8, 42))
+            listOf(RcTextStyleProperty.IntValue(1, 100), RcTextStyleProperty.IntValue(8, 42)),
           ),
       )
 
@@ -969,13 +971,13 @@ class RcComposeSupportTest {
     assertEquals("TextStyle", missing.operation)
     assertEquals("custom font family BrandFace (42) has no DataFont", missing.detail)
     assertTrue(
-      document(listOf(RcFontData(42, 0, byteArrayOf(1)))).composeSupportReport().fullyRenderable
+      document(listOf(RcFontData(42, 0, byteArrayOf(1)))).composeSupportReport().fullyRenderable,
     )
     assertTrue(document(emptyList(), family = "sans-serif").composeSupportReport().fullyRenderable)
     assertTrue(
       document(emptyList(), family = "google:Orbitron")
         .composeSupportReport(availableFontFamilies = setOf("Orbitron"))
-        .fullyRenderable
+        .fullyRenderable,
     )
     // A host's *default* face is a nameable family like any other — the browser lane's manifest
     // gives it a name (`Roboto Flex`) and loads it, so a document naming it must pass rather than
@@ -984,7 +986,7 @@ class RcComposeSupportTest {
     assertTrue(
       document(emptyList(), family = "google:Roboto Flex")
         .composeSupportReport(availableFontFamilies = setOf("Roboto Flex"))
-        .fullyRenderable
+        .fullyRenderable,
     )
     val unsupportedApple =
       document(emptyList(), family = "apple:system").composeSupportReport().issues.single()
@@ -995,12 +997,12 @@ class RcComposeSupportTest {
     assertTrue(
       document(emptyList(), family = "apple:system")
         .composeSupportReport(availableFontFamilies = setOf("apple:system"))
-        .fullyRenderable
+        .fullyRenderable,
     )
     assertTrue(
       document(emptyList(), family = "apple:Any Local Family")
         .composeSupportReport(availableFontFamilies = setOf("apple:*"))
-        .fullyRenderable
+        .fullyRenderable,
     )
   }
 
@@ -1163,7 +1165,7 @@ class RcComposeSupportTest {
     assertTrue(
       coreText(RcColorExpression(outId = 74, modeAndAlpha = 5, first = 1, second = 2, third = 3))
         .composeSupportReport()
-        .fullyRenderable
+        .fullyRenderable,
     )
     assertTrue(
       coreText(
@@ -1174,10 +1176,10 @@ class RcComposeSupportTest {
             darkModeIndex = -1,
             lightModeFallback = 0xff112233.toInt(),
             darkModeFallback = 0xff332211.toInt(),
-          )
+          ),
         )
         .composeSupportReport()
-        .fullyRenderable
+        .fullyRenderable,
     )
     // Nothing publishes 74 here, so the style still reads a colour that would resolve to 0.
     assertEquals(
@@ -1303,14 +1305,14 @@ class RcComposeSupportTest {
     assertTrue(
       RcDocument(header, listOf(RcPaintData(listOf(typeface, 3))))
         .composeSupportReport()
-        .fullyRenderable
+        .fullyRenderable,
     )
     // Above 10, a font type is the text id of a family name — `RcPaint.setTypeface(String)` —
     // held to CoreText's rule: renderable only when the host supplies the family.
     val named =
       RcDocument(header, listOf(RcTextData(42, "Roboto Flex"), RcPaintData(listOf(typeface, 42))))
     assertTrue(
-      named.composeSupportReport(availableFontFamilies = setOf("roboto flex")).fullyRenderable
+      named.composeSupportReport(availableFontFamilies = setOf("roboto flex")).fullyRenderable,
     )
     assertEquals(
       "custom font family Roboto Flex (42) has no DataFont",
@@ -1359,7 +1361,7 @@ class RcComposeSupportTest {
   @Test
   fun textLengthSelectorBelongsToTextAttributeOnly() {
     assertTrue(
-      RcDocument(header, listOf(RcTextAttribute(3, 4, 6))).composeSupportReport().fullyRenderable
+      RcDocument(header, listOf(RcTextAttribute(3, 4, 6))).composeSupportReport().fullyRenderable,
     )
     val issues = RcDocument(header, listOf(RcTextMeasure(3, 4, 6))).composeSupportReport().issues
     assertEquals(1, issues.size, issues.toString())
@@ -1481,9 +1483,9 @@ class RcComposeSupportTest {
               RcGraphicsLayerAttribute.FloatValue(
                 RcGraphicsLayerModifier.ROTATION_Z,
                 RcFloatWord.literal(-8f),
-              )
-            )
-          )
+              ),
+            ),
+          ),
         ),
       )
 

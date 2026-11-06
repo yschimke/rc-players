@@ -146,7 +146,7 @@ internal class HostIdAction(public val id: Int, public val metadata: RemoteStrin
                 RemoteActionData.Host(id)
             } else {
                 RemoteActionData.HostMetadata(id, metadataId)
-            }
+            },
         )
     }
 }

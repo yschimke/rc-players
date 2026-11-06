@@ -135,7 +135,7 @@ internal fun RcPlayerCollapsible(
             indexOfChild[child] = index
             if (
                 (child as? LayoutComponent)?.selfOrModifier(
-                    CollapsiblePriorityModifierOperation::class.java
+                    CollapsiblePriorityModifierOperation::class.java,
                 ) != null
             ) {
                 hasPriorities = true
@@ -157,7 +157,7 @@ internal fun RcPlayerCollapsible(
             // Skip children whose explicit visibility modifier marked them GONE.
             val explicitVisOp =
                 (child as? LayoutComponent)?.selfOrModifier(
-                    ComponentVisibilityOperation::class.java
+                    ComponentVisibilityOperation::class.java,
                 )
             if (explicitVisOp != null && child.mVisibility == Component.Visibility.GONE) {
                 return@fastForEach

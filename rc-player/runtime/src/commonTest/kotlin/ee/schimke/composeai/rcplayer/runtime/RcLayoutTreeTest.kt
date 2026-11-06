@@ -74,7 +74,7 @@ class RcLayoutTreeTest {
           RcBoxLayout(2, 20, 1, 4),
           RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(40f)),
           ends = 2,
-        )
+        ),
       )
     val box = assertIs<RcLayoutNode.Box>(root.children.single())
     assertEquals(2, box.componentId)
@@ -107,7 +107,7 @@ class RcLayoutTreeTest {
           custom,
           RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
           ends = 3,
-        )
+        ),
       )
 
     val content = assertIs<RcLayoutNode.Content>(root.children.single())
@@ -128,7 +128,7 @@ class RcLayoutTreeTest {
         RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
         RcComponentValue(RcComponentValue.WIDTH, componentId = 3, valueId = 90),
         ends = 4,
-      )
+      ),
     )
     // AndroidX skips a value naming no component rather than rejecting the document; RemoteSlider
     // writes one with component 0 ahead of its root.
@@ -138,7 +138,7 @@ class RcLayoutTreeTest {
         RcRootLayout(1),
         RcComponentValue(RcComponentValue.WIDTH, componentId = 404, valueId = 90),
         ends = 1,
-      )
+      ),
     )
     assertFailsWith<RcLayoutException> {
       treeOf(
@@ -161,7 +161,7 @@ class RcLayoutTreeTest {
           RcCanvasLayout(3, 30),
           RcRippleModifier,
           ends = 3,
-        )
+        ),
       )
     val content = assertIs<RcLayoutNode.Content>(root.children.single())
     val canvas = assertIs<RcLayoutNode.Canvas>(content.children.single())
@@ -181,7 +181,7 @@ class RcLayoutTreeTest {
           RcHostAction(77),
           RcNoArg(RcOpcodes.CONTAINER_END),
           ends = 3,
-        )
+        ),
       )
     val content = assertIs<RcLayoutNode.Content>(root.children.single())
     val canvas = assertIs<RcLayoutNode.Canvas>(content.children.single())
@@ -225,7 +225,7 @@ class RcLayoutTreeTest {
           touch,
           RcNoArg(RcOpcodes.CONTAINER_END),
           ends = 3,
-        )
+        ),
       )
     val content = assertIs<RcLayoutNode.Content>(root.children.single())
     val canvas = assertIs<RcLayoutNode.Canvas>(content.children.single())
@@ -250,7 +250,7 @@ class RcLayoutTreeTest {
       )
     val root =
       requireNotNull(
-        treeOf(RcRootLayout(1), RcLayoutContent(2), RcCanvasLayout(3, 30), marquee, ends = 3)
+        treeOf(RcRootLayout(1), RcLayoutContent(2), RcCanvasLayout(3, 30), marquee, ends = 3),
       )
     val content = assertIs<RcLayoutNode.Content>(root.children.single())
     val canvas = assertIs<RcLayoutNode.Canvas>(content.children.single())
@@ -277,7 +277,7 @@ class RcLayoutTreeTest {
           RcHostAction(73),
           end,
           ends = 3,
-        )
+        ),
       )
     val content = assertIs<RcLayoutNode.Content>(root.children.single())
     val canvas = assertIs<RcLayoutNode.Canvas>(content.children.single())
@@ -314,7 +314,7 @@ class RcLayoutTreeTest {
           RcHostAction(73),
           end,
           ends = 3,
-        )
+        ),
       )
     val content = assertIs<RcLayoutNode.Content>(root.children.single())
     val canvas = assertIs<RcLayoutNode.Canvas>(content.children.single())
@@ -340,7 +340,7 @@ class RcLayoutTreeTest {
       RcAccessibilitySemantics(20, RcAccessibilitySemantics.ROLE_IMAGE, 21, 22, 2, false, false)
     val root =
       requireNotNull(
-        treeOf(RcRootLayout(1), RcLayoutContent(2), RcCanvasLayout(3, 30), first, second, ends = 3)
+        treeOf(RcRootLayout(1), RcLayoutContent(2), RcCanvasLayout(3, 30), first, second, ends = 3),
       )
     val content = assertIs<RcLayoutNode.Content>(root.children.single())
     val canvas = assertIs<RcLayoutNode.Canvas>(content.children.single())
@@ -389,7 +389,7 @@ class RcLayoutTreeTest {
           RcCanvasLayout(3, 30),
           RcAlignByModifier(RcFloatWord(0x7fc00001), flags = 5),
           ends = 3,
-        )
+        ),
       )
 
     val content = assertIs<RcLayoutNode.Content>(root.children.single())
@@ -413,7 +413,7 @@ class RcLayoutTreeTest {
             RcFloatWord.literal(12f),
           ),
           ends = 5,
-        )
+        ),
       )
 
     val outerContent = assertIs<RcLayoutNode.Content>(root.children.single())
@@ -433,7 +433,7 @@ class RcLayoutTreeTest {
           RcLayoutContent(4),
           RcCanvasLayout(5, 50),
           ends = 5,
-        )
+        ),
       )
 
     val outerContent = assertIs<RcLayoutNode.Content>(root.children.single())
@@ -454,7 +454,7 @@ class RcLayoutTreeTest {
           RcLayoutContent(4),
           RcCanvasLayout(5, 50),
           ends = 5,
-        )
+        ),
       )
 
     val outerContent = assertIs<RcLayoutNode.Content>(root.children.single())
@@ -518,7 +518,7 @@ class RcLayoutTreeTest {
           RcColumnLayout(2, 20, 0, 0, RcFloatWord.literal(0f)),
           RcImageLayout(3, 30, 42, 4, RcFloatWord.literal(1f)),
           ends = 3,
-        )
+        ),
       )
     val column = assertIs<RcLayoutNode.Column>(root.children.single())
 
@@ -549,7 +549,7 @@ class RcLayoutTreeTest {
           RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
           RcNoArg(RcOpcodes.MATRIX_SAVE),
           ends = 4,
-        )
+        ),
       )
     val box = assertIs<RcLayoutNode.Box>(root.children.single())
 
@@ -574,7 +574,7 @@ class RcLayoutTreeTest {
           RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(10f)),
           RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
           ends = 2,
-        )
+        ),
       )
     assertEquals(
       10f,
@@ -608,7 +608,7 @@ class RcLayoutTreeTest {
           RcLayoutContent(4),
           RcComponentValue(RcComponentValue.WIDTH, componentId = 4, valueId = 90),
           ends = 4,
-        )
+        ),
       )
 
     val content = assertIs<RcLayoutNode.Content>(root.children.single())
@@ -623,7 +623,7 @@ class RcLayoutTreeTest {
           RcTextStyleProperty.IntValue(1, 100),
           RcTextStyleProperty.IntValue(3, 0xffff0000.toInt()),
           RcTextStyleProperty.FloatValue(5, RcFloatWord.literal(18f)),
-        )
+        ),
       )
     val child =
       RcTextStyle(
@@ -631,7 +631,7 @@ class RcLayoutTreeTest {
           RcTextStyleProperty.IntValue(1, 101),
           RcTextStyleProperty.IntValue(24, 100),
           RcTextStyleProperty.FloatValue(7, RcFloatWord.literal(700f)),
-        )
+        ),
       )
     val core =
       RcCoreText(
@@ -697,7 +697,7 @@ class RcLayoutTreeTest {
   ) =
     RcLayoutTree.build(
       RcDocumentLinker.link(
-        RcDocument(header, operations.toList() + List(ends) { RcNoArg(RcOpcodes.CONTAINER_END) })
-      )
+        RcDocument(header, operations.toList() + List(ends) { RcNoArg(RcOpcodes.CONTAINER_END) }),
+      ),
     )
 }

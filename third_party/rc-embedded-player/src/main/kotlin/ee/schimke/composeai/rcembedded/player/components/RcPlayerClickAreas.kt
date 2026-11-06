@@ -57,7 +57,7 @@ internal fun RcPlayerClickAreas(document: CoreDocument) {
                         with(density) { area.height().toDp() },
                     )
                     .semantics { if (label != null) contentDescription = label }
-                    .clickable { onAction(area.id, area.metadata) }
+                    .clickable { onAction(area.id, area.metadata) },
         )
     }
 }

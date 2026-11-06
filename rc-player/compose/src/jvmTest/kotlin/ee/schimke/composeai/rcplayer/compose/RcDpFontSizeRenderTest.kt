@@ -53,7 +53,7 @@ class RcDpFontSizeRenderTest {
             dpHeader(),
             operation(RcFloatWord(0x7fc00000 or SIZE_ID)),
             RcFloatConstant(SIZE_ID, RcFloatWord.literal(PIXELS)),
-          )
+          ),
         )
       assertEquals(legacy.toFloat(), variable.toFloat(), TOLERANCE_PX)
     }

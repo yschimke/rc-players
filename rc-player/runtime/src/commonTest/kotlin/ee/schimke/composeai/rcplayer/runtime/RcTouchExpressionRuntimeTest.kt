@@ -23,13 +23,13 @@ class RcTouchExpressionRuntimeTest {
 
     val percent =
       RcTouchExpressionRuntime(
-        touch(RcTouchExpression.STOP_NOTCHES_PERCENTS, listOf(.1f, .6f, .9f))
+        touch(RcTouchExpression.STOP_NOTCHES_PERCENTS, listOf(.1f, .6f, .9f)),
       )
     assertEquals(60f, percent.stopTarget(68f, 0f, 100f, ::resolve), absoluteTolerance = .001f)
 
     val absolute =
       RcTouchExpressionRuntime(
-        touch(RcTouchExpression.STOP_NOTCHES_ABSOLUTE, listOf(12f, 48f, 92f))
+        touch(RcTouchExpression.STOP_NOTCHES_ABSOLUTE, listOf(12f, 48f, 92f)),
       )
     assertEquals(48f, absolute.stopTarget(55f, 0f, 100f, ::resolve))
   }

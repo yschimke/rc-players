@@ -127,7 +127,7 @@ public data class RcComposeSupportReport(val issues: List<RcComposeSupportIssue>
     if (issues.isNotEmpty()) {
       throw IllegalArgumentException(
         "Document is not renderable by the CMP player: " +
-          issues.joinToString { "${it.operation}[${it.operationIndex}]: ${it.detail}" }
+          issues.joinToString { "${it.operation}[${it.operationIndex}]: ${it.detail}" },
       )
     }
   }
@@ -147,7 +147,7 @@ public data class RcComposeSupportReport(val issues: List<RcComposeSupportIssue>
     if (blocking.isNotEmpty()) {
       throw IllegalArgumentException(
         "Document is not playable by the CMP player: " +
-          blocking.joinToString { "${it.operation}[${it.operationIndex}]: ${it.detail}" }
+          blocking.joinToString { "${it.operation}[${it.operationIndex}]: ${it.detail}" },
       )
     }
   }
@@ -595,7 +595,7 @@ public fun RcDocument.composeSupportReport(
               index,
               "TextLayout",
               requireNotNull(
-                fontFamilyIssue(operation.fontFamilyId, texts, fontIds, availableFontFamilies)
+                fontFamilyIssue(operation.fontFamilyId, texts, fontIds, availableFontFamilies),
               ),
             )
         operation.textAlign !in RcTextLayout.ALIGN_LEFT..RcTextLayout.ALIGN_END ->
@@ -1398,7 +1398,7 @@ private fun invalidActionChild(
 }
 
 private fun hasUndispatchedAccessibilityClick(
-  node: ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
+  node: ee.schimke.composeai.rcplayer.runtime.RcLayoutNode,
 ): Boolean {
   if (node.modifiers.accessibility.any { it.clickable } && node.modifiers.clicks.isEmpty())
     return true
@@ -1422,7 +1422,7 @@ private fun hasUndispatchedAccessibilityClick(
 }
 
 private fun invalidLayoutComputeChild(
-  nodes: List<RcLinkedNode>
+  nodes: List<RcLinkedNode>,
 ): ee.schimke.composeai.rcplayer.protocol.RcOperation? {
   nodes.forEach { node ->
     if (node is RcLinkedNode.Container && node.operation is RcLayoutCompute) {

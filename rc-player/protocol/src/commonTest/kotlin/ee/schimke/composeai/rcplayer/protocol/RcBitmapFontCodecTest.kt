@@ -77,7 +77,7 @@ class RcBitmapFontCodecTest {
       )
     val bytes =
       RcDocumentCodec.encode(
-        RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), listOf(operation))
+        RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), listOf(operation)),
       )
     val operationOffset = bytes.indexOf(RcOpcodes.DRAW_BITMAP_FONT_TEXT_RUN.toByte())
 
@@ -118,7 +118,7 @@ class RcBitmapFontCodecTest {
     assertContentEquals(
       hex(
         "a7 00000028 00010001 00000001 41 00000032 ffff fffe 0002 0003 0004 0005 " +
-          "0001 00000002 4141 fffe"
+          "0001 00000002 4141 fffe",
       ),
       data.toByteArray(),
     )
@@ -140,7 +140,7 @@ class RcBitmapFontCodecTest {
       )
     val bytes =
       RcDocumentCodec.encode(
-        RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), listOf(operation))
+        RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), listOf(operation)),
       )
 
     assertEquals(

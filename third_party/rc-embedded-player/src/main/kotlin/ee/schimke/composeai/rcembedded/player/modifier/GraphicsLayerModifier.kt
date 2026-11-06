@@ -51,15 +51,15 @@ internal fun Modifier.graphicsLayer(op: GraphicsLayerModifierOperation): Modifie
         rememberGraphicsLayerFloatAsState(values[GraphicsLayerModifierOperation.ALPHA].source)
     val translationX =
         rememberGraphicsLayerFloatAsState(
-            values[GraphicsLayerModifierOperation.TRANSLATION_X].source
+            values[GraphicsLayerModifierOperation.TRANSLATION_X].source,
         )
     val translationY =
         rememberGraphicsLayerFloatAsState(
-            values[GraphicsLayerModifierOperation.TRANSLATION_Y].source
+            values[GraphicsLayerModifierOperation.TRANSLATION_Y].source,
         )
     val shadowElevation =
         rememberGraphicsLayerFloatAsState(
-            values[GraphicsLayerModifierOperation.SHADOW_ELEVATION].source
+            values[GraphicsLayerModifierOperation.SHADOW_ELEVATION].source,
         )
     val rotationX =
         rememberGraphicsLayerFloatAsState(values[GraphicsLayerModifierOperation.ROTATION_X].source)
@@ -69,15 +69,15 @@ internal fun Modifier.graphicsLayer(op: GraphicsLayerModifierOperation): Modifie
         rememberGraphicsLayerFloatAsState(values[GraphicsLayerModifierOperation.ROTATION_Z].source)
     val cameraDistance =
         rememberGraphicsLayerFloatAsState(
-            values[GraphicsLayerModifierOperation.CAMERA_DISTANCE].source
+            values[GraphicsLayerModifierOperation.CAMERA_DISTANCE].source,
         )
     val transformOriginX =
         rememberGraphicsLayerFloatAsState(
-            values[GraphicsLayerModifierOperation.TRANSFORM_ORIGIN_X].source
+            values[GraphicsLayerModifierOperation.TRANSFORM_ORIGIN_X].source,
         )
     val transformOriginY =
         rememberGraphicsLayerFloatAsState(
-            values[GraphicsLayerModifierOperation.TRANSFORM_ORIGIN_Y].source
+            values[GraphicsLayerModifierOperation.TRANSFORM_ORIGIN_Y].source,
         )
 
     return this.graphicsLayer {
