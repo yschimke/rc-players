@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.25.0](https://github.com/yschimke/rc-players/compare/v2.24.0...v2.25.0) (2026-11-06)
+
+
+### Features
+
+* coreTextAsBitmapFonts draws chosen faces from embedded bitmap fonts ([#813](https://github.com/yschimke/rc-players/issues/813)) ([7feed26](https://github.com/yschimke/rc-players/commit/7feed261c09ddbfe2c7d75cdf4a04350dd88fb7a))
+
+
+### Bug Fixes
+
+* **deps:** update ktfmt to v0.28.0 ([#811](https://github.com/yschimke/rc-players/issues/811)) ([cd243fe](https://github.com/yschimke/rc-players/commit/cd243feec69b94234239ec29f558430cb316f020))
+* draw text on a path inside a canvas component ([#815](https://github.com/yschimke/rc-players/issues/815)) ([9b31400](https://github.com/yschimke/rc-players/commit/9b31400d81d09479743154530a61e9b206c414ed))
+* keep RcRasterizedText's three-argument constructor and leave right-to-left text ([#814](https://github.com/yschimke/rc-players/issues/814)) ([28aa11c](https://github.com/yschimke/rc-players/commit/28aa11cfba57f68775a0820b721f480eae1bb2b3))
+
 ## [2.24.0](https://github.com/yschimke/rc-players/compare/v2.23.0...v2.24.0) (2026-11-05)
 
 
