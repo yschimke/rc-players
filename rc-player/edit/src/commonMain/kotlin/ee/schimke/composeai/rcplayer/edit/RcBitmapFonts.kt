@@ -32,6 +32,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcPathTween
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
+import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.runtime.RcFloatExpressionEvaluator
@@ -93,13 +95,13 @@ public data class RcBitmapFontTexts(
 )
 
 /**
- * Every `CoreText` and `DrawTextOnPath` set in one of [families] (by name, ignoring case and a
- * `google:` prefix) drawn instead with a bitmap font: each glyph it can show drawn once by
- * [rasterizer] and embedded, and the text drawn from them at playback. A face no player ships then
- * looks the same on every player and in every profile — launcher and Wear widgets included, which
- * have bitmap fonts at every API level — and, unlike [coreTextAsImages], a text the host or a timer
- * changes keeps the face, as long as [glyphs] says which characters it can show. A clock in an LCD
- * face is the case it is for.
+ * Every `CoreText`, `TextLayout` and `DrawTextOnPath` set in one of [families] (by name, ignoring
+ * case and a `google:` prefix) drawn instead with a bitmap font: each glyph it can show drawn once
+ * by [rasterizer] and embedded, and the text drawn from them at playback. A face no player ships
+ * then looks the same on every player and in every profile — launcher and Wear widgets included,
+ * which have bitmap fonts at every API level — and, unlike [coreTextAsImages], a text the host or a
+ * timer changes keeps the face, as long as [glyphs] says which characters it can show. A clock in
+ * an LCD face is the case it is for.
  *
  * A `CoreText` converts when it is one line that fits its slot — the width [wrapWidth] gives for
  * its component id, or the document's — its size, weight, slant and family are constant, and it
@@ -108,6 +110,10 @@ public data class RcBitmapFontTexts(
  * it was, listed in [RcBitmapFontTexts.skipped]. Its text is a static value's characters, or
  * [glyphs] for its component id when the value changes; a changing text [glyphs] gives nothing for
  * is skipped. A text in any other family is left alone, unlisted.
+ *
+ * A `TextLayout`, the text component below level 7 that the Android 16 launcher lays out, converts
+ * as the `CoreText` with its fields would; one left as text stays a `TextLayout`, which a target
+ * that reads no `CoreText` still decodes.
  *
  * The text's component becomes a box with the same id, animation id and modifiers, holding a canvas
  * sized for the text — for a changing one, [RcBitmapFontGlyphs.maxLength] of its widest glyph —
@@ -147,6 +153,77 @@ public fun RcDocument.coreTextAsBitmapFonts(
   sequences: Set<String> = emptySet(),
   wrapWidth: (componentId: Int) -> Float? = { null },
   glyphs: (componentId: Int) -> RcBitmapFontGlyphs? = { null },
+): RcBitmapFontTexts {
+  // The Android 16 launcher lays its text out with the older `TextLayout`: each in a requested
+  // family is read as the `CoreText` it says exactly, and any left as text goes back as it was.
+  val layouts = textLayoutsIn(families)
+  if (layouts.isEmpty()) {
+    return bitmapFonts(target, families, rasterizer, display, kerning, sequences, wrapWidth, glyphs)
+  }
+  val lifted =
+    copy(
+      operations =
+        operations.map { operation ->
+          (operation as? RcTextLayout)?.takeIf { it.componentId in layouts }?.asCoreText()
+            ?: operation
+        },
+    )
+  val result =
+    lifted.bitmapFonts(target, families, rasterizer, display, kerning, sequences, wrapWidth, glyphs)
+  if (result.texts.isEmpty()) {
+    return RcBitmapFontTexts(this, emptyList(), result.skipped, result.skippedOnPath)
+  }
+  val restored =
+    result.document.operations.map { operation ->
+      (operation as? RcCoreText)?.let { layouts[it.componentId] } ?: operation
+    }
+  return result.copy(document = result.document.copy(operations = restored))
+}
+
+/** The `TextLayout`s set in one of [families] that a `CoreText` says exactly, by component id. */
+private fun RcDocument.textLayoutsIn(families: Set<String>): Map<Int, RcTextLayout> {
+  val wanted = families.map { it.lowercase().removePrefix("google:") }.toSet()
+  if (wanted.isEmpty()) return emptyMap()
+  val strings = operations.filterIsInstance<RcTextData>().associate { it.id to it.text }
+  return operations
+    .filterIsInstance<RcTextLayout>()
+    .filter { layout ->
+      // A flag `CoreText` has no property for keeps the text as it is.
+      layout.flags and RcTextLayout.FLAG_DYNAMIC_COLOR.inv() == 0 &&
+        strings[layout.fontFamilyId]?.lowercase()?.removePrefix("google:") in wanted
+    }
+    .associateBy { it.componentId }
+}
+
+/** This `TextLayout` as the `CoreText` with the same fields. */
+private fun RcTextLayout.asCoreText(): RcCoreText {
+  val dynamicColor = flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0
+  return RcCoreText(
+    textId,
+    listOfNotNull(
+      RcTextStyleProperty.IntValue(P_COMPONENT_ID, componentId),
+      animationId.takeIf { it != -1 }?.let { RcTextStyleProperty.IntValue(P_ANIMATION_ID, it) },
+      RcTextStyleProperty.IntValue(if (dynamicColor) P_COLOR_ID else P_COLOR, color),
+      RcTextStyleProperty.FloatValue(P_FONT_SIZE, fontSize),
+      RcTextStyleProperty.IntValue(P_FONT_STYLE, fontStyle),
+      RcTextStyleProperty.FloatValue(P_FONT_WEIGHT, fontWeight),
+      RcTextStyleProperty.IntValue(P_FONT_FAMILY, fontFamilyId),
+      RcTextStyleProperty.IntValue(P_TEXT_ALIGN, textAlign),
+      RcTextStyleProperty.IntValue(P_OVERFLOW, overflow),
+      RcTextStyleProperty.IntValue(P_MAX_LINES, maxLines),
+    ),
+  )
+}
+
+private fun RcDocument.bitmapFonts(
+  target: RcTargetProfile,
+  families: Set<String>,
+  rasterizer: RcTextRasterizer,
+  display: RcDisplay,
+  kerning: Boolean,
+  sequences: Set<String>,
+  wrapWidth: (componentId: Int) -> Float?,
+  glyphs: (componentId: Int) -> RcBitmapFontGlyphs?,
 ): RcBitmapFontTexts {
   val unchanged = RcBitmapFontTexts(this, emptyList(), emptyList())
   val wanted = families.map { it.lowercase() }.toSet()
@@ -687,8 +764,9 @@ private fun plan(
       family = family,
       fontData = fontData[int(P_FONT_FAMILY, -1)]?.data,
       fontSize = fontSize,
-      weight = if (style and 1 != 0) 700 else round(weight).toInt().coerceIn(1, 1000),
-      italic = style and 2 != 0,
+      // The wire's style is an enum, not a typeface bitmask: italic is 1, and weight is its own.
+      weight = round(weight).toInt().coerceIn(1, 1000),
+      italic = style == FONT_STYLE_ITALIC,
       color = constantColor ?: WHITE,
       tintId = if (constantColor == null) colorId else null,
       fontAxes = tags.zip(axisValues),
@@ -898,6 +976,11 @@ private const val COLOR_FILTER_ID = 20
 /** AndroidX `PaintBundle.BLEND_MODE_SRC_IN`: the mask's coverage in the filter's colour. */
 private const val BLEND_SRC_IN = 5
 
+/** `CoreText` and `TextLayout`'s italic font style, as players read it. */
+private const val FONT_STYLE_ITALIC = 1
+
+private const val P_COMPONENT_ID = 1
+private const val P_ANIMATION_ID = 2
 private const val P_COLOR = 3
 private const val P_COLOR_ID = 4
 private const val P_FONT_SIZE = 5
@@ -905,6 +988,8 @@ private const val P_FONT_STYLE = 6
 private const val P_FONT_WEIGHT = 7
 private const val P_FONT_FAMILY = 8
 private const val P_TEXT_ALIGN = 9
+private const val P_OVERFLOW = 10
+private const val P_MAX_LINES = 11
 private const val P_LETTER_SPACING = 12
 private const val P_LINE_HEIGHT_ADD = 13
 private const val P_LINE_HEIGHT_MULTIPLIER = 14
