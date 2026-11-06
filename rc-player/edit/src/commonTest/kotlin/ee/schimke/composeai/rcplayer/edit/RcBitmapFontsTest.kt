@@ -429,4 +429,23 @@ class RcBitmapFontsTest {
       "clearing the filter leaves the stroke",
     )
   }
+
+  @Test
+  fun textOnAPathPlaybackRewritesIsLeft() {
+    val appended =
+      canvas(
+        ee.schimke.composeai.rcplayer.protocol.RcPathAppend(
+          70,
+          listOf(path(11), f(0f), f(0f), f(200f), f(40f)),
+        ),
+        bezelPaint,
+        RcDrawTextOnPath(42, 70, f(10f), f(5f)),
+      )
+    assertEquals(
+      listOf(42),
+      appended
+        .coreTextAsBitmapFonts(RcTargetProfiles.ANDROIDX, setOf("digital7"), kerned)
+        .skippedOnPath,
+    )
+  }
 }

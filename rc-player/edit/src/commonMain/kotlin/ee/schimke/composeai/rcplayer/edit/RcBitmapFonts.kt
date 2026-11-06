@@ -24,7 +24,12 @@ import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
+import ee.schimke.composeai.rcplayer.protocol.RcPathAppend
+import ee.schimke.composeai.rcplayer.protocol.RcPathCombine
+import ee.schimke.composeai.rcplayer.protocol.RcPathCreate
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
+import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
+import ee.schimke.composeai.rcplayer.protocol.RcPathTween
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
@@ -198,7 +203,23 @@ public fun RcDocument.coreTextAsBitmapFonts(
       }
     }
   }
-  val pathData = operations.filterIsInstance<RcPathData>().groupBy { it.id }
+  // A path playback rewrites — tweened, created, appended to, combined, an expression — is drawn
+  // as it then is, not as its data first says: only a path nothing writes after is static.
+  val rewrittenPaths =
+    operations
+      .mapNotNull {
+        when (it) {
+          is RcPathTween -> it.outId
+          is RcPathCreate -> it.id
+          is RcPathAppend -> it.id
+          is RcPathCombine -> it.outId
+          is RcPathExpression -> it.id
+          else -> null
+        }
+      }
+      .toSet()
+  val pathData =
+    operations.filterIsInstance<RcPathData>().filter { it.id !in rewrittenPaths }.groupBy { it.id }
   var paint = RcPaintTrack()
   operations.forEachIndexed { index, operation ->
     when {
