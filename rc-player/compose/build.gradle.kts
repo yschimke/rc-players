@@ -250,6 +250,7 @@ tasks.withType<Test>().configureEach {
       "rc.android.settleFrames",
       "rc.textImages.out",
       "rc.bitmapFonts.out",
+      "rc.canvasPathText.out",
     )) {
     (project.findProperty(name) as String?)?.let { systemProperty(name, it) }
   }

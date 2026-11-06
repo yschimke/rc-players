@@ -6311,8 +6311,6 @@ private fun DrawScope.drawTextOnCircle(
     horizontalOffset = 0f,
     verticalOffset = 0f,
     paint = paint,
-    style = style,
-    textMeasurer = textMeasurer,
   )
 }
 
@@ -6394,8 +6392,6 @@ private fun DrawScope.drawTextOnPathWithCompose(
     horizontalOffset = horizontalOffset,
     verticalOffset = verticalOffset,
     paint = paint,
-    style = style,
-    textMeasurer = textMeasurer,
   )
 }
 
@@ -6404,6 +6400,8 @@ private class RcTextSegment(
   val text: String,
   val advance: Float,
   val firstBaseline: Float,
+  /** The scalar as measured, drawn as it is rather than measured again where it lands. */
+  val layout: TextLayoutResult,
 )
 
 /**
@@ -6419,7 +6417,7 @@ private fun measureTextSegments(
   rcTrace(RcTraceCategory.FRAME, "rc:measureText") {
     unicodeScalars(text).map { scalar ->
       val layout = textMeasurer.measure(scalar, style)
-      RcTextSegment(scalar, layout.size.width.toFloat(), layout.firstBaseline)
+      RcTextSegment(scalar, layout.size.width.toFloat(), layout.firstBaseline, layout)
     }
   }
 
@@ -6429,8 +6427,6 @@ private fun DrawScope.drawTextSegmentsOnPath(
   horizontalOffset: Float,
   verticalOffset: Float,
   paint: RcPaintState,
-  style: androidx.compose.ui.text.TextStyle,
-  textMeasurer: TextMeasurer,
 ) {
   var contourLength = measure.length
   var distance = horizontalOffset
@@ -6457,13 +6453,11 @@ private fun DrawScope.drawTextSegmentsOnPath(
           segment.firstBaseline,
         )
       withTransform({ rotate(placement.angleDegrees, composePosition) }) {
-        drawText(
-          textMeasurer = textMeasurer,
-          text = segment.text,
-          topLeft = placement.topLeft,
-          style = style,
-          blendMode = paint.blendMode,
-        )
+        // The measured layout, as canvas text draws: handing the scalar back to
+        // `drawText(textMeasurer, …)` measures it again within what is left of the draw scope's
+        // size from its corner, which inside a canvas component can be nothing, so no glyph
+        // reached the frame.
+        drawRcTextLayout(segment.layout, placement.topLeft, paint)
         // The glyph's baseline origin and angle, read inside its own rotation so both are where
         // and how it was actually drawn — including any rotation the canvas was already under.
         glyphs?.add(
