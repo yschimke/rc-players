@@ -709,6 +709,52 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteLayoutD
 public abstract interface annotation class androidx/compose/remote/creation/compose/layout/RemoteLayoutScopeMarker : java/lang/annotation/Annotation {
 }
 
+public final class androidx/compose/remote/creation/compose/layout/RemoteMesh2DKt {
+	public static final fun drawMesh2D (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;IILandroidx/compose/remote/creation/compose/layout/RemoteMeshLayout;Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;)V
+	public static final fun drawMesh2D (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;IILandroidx/compose/remote/creation/compose/layout/RemoteMeshLayout;Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;)V
+	public static synthetic fun drawMesh2D$default (Landroidx/compose/remote/creation/compose/layout/RemoteCanvas;IILandroidx/compose/remote/creation/compose/layout/RemoteMeshLayout;Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
+	public static synthetic fun drawMesh2D$default (Landroidx/compose/remote/creation/compose/layout/RemoteDrawScope;IILandroidx/compose/remote/creation/compose/layout/RemoteMeshLayout;Landroidx/compose/remote/creation/compose/state/RemoteImageBitmap;Landroidx/compose/remote/creation/compose/state/RemotePaint;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
+}
+
+public final class androidx/compose/remote/creation/compose/layout/RemoteMesh2DScope {
+	public static final field $stable I
+	public final fun color (Landroidx/compose/remote/creation/compose/state/RemoteColor;)V
+	public final fun color-8_81llA (J)V
+	public final fun getAlpha ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getBlue ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getGreen ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getRed ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getTexU ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getTexV ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getU ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getV ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getX ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getY ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun rgb (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun rgba (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun setAlpha (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun setBlue (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun setGreen (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun setRed (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun setTexU (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun setTexV (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun setX (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun setY (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun texUv (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun xy (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+}
+
+public final class androidx/compose/remote/creation/compose/layout/RemoteMeshLayout : java/lang/Enum {
+	public static final field Fan Landroidx/compose/remote/creation/compose/layout/RemoteMeshLayout;
+	public static final field Grid Landroidx/compose/remote/creation/compose/layout/RemoteMeshLayout;
+	public static final field Polar Landroidx/compose/remote/creation/compose/layout/RemoteMeshLayout;
+	public static final field Ring Landroidx/compose/remote/creation/compose/layout/RemoteMeshLayout;
+	public static final field Strip Landroidx/compose/remote/creation/compose/layout/RemoteMeshLayout;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Landroidx/compose/remote/creation/compose/layout/RemoteMeshLayout;
+	public static fun values ()[Landroidx/compose/remote/creation/compose/layout/RemoteMeshLayout;
+}
+
 public final class androidx/compose/remote/creation/compose/layout/RemoteOffset {
 	public static final field $stable I
 	public static final field Companion Landroidx/compose/remote/creation/compose/layout/RemoteOffset$Companion;

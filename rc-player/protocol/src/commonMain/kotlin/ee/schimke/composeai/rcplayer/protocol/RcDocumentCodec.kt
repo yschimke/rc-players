@@ -167,7 +167,8 @@ public object RcDocumentCodec {
         rcGraphicsResourceOperationCodecs +
         rcBitmapFontOperationCodecs +
         rcParticleOperationCodecs +
-        rcSoundOperationCodecs)
+        rcSoundOperationCodecs +
+        rcMesh2DOperationCodecs)
       .associateBy { it.spec.opcode }
 
   public val supportedOperations: List<RcOperationSpec> =

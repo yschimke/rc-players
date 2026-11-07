@@ -1788,6 +1788,9 @@ public object RcOpcodes {
   public const val DATA_BITMAP: Int = 101
   public const val DATA_TEXT: Int = 102
   public const val ROOT_CONTENT_DESCRIPTION: Int = 103
+  public const val ADD_MESH_2D: Int = 104
+  public const val DRAW_MESH_2D: Int = 105
+  public const val MATRIX_FROM_MESH_2D: Int = 106
   public const val MODIFIER_BORDER: Int = 107
   public const val MODIFIER_CLIP_RECT: Int = 108
   public const val DATA_PATH: Int = 123

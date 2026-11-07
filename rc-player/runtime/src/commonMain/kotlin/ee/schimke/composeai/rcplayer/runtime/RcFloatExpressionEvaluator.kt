@@ -39,18 +39,25 @@ public class RcFloatExpressionEvaluator(private val arrays: (Int) -> FloatArray?
     variables: FloatArray = FloatArray(0),
     resolve: (RcFloatWord) -> Float = { it.value },
   ): Float {
-    val stack = FloatArray(128)
+    // A word pushes at most one value, so this stack cannot overflow.
+    val stack = FloatArray(max(128, expression.size + 1))
     var sp = -1
-    expression.forEach { word ->
-      val id = word.bits and NAN_PAYLOAD_MASK
-      when {
-        !word.isNaNEncoded -> stack[++sp] = word.value
-        id and ID_REGION_MASK == ID_REGION_ARRAY -> stack[++sp] = word.value
-        id in (OFFSET + 1)..LAST_OP -> sp = evaluateOperator(stack, sp, id, variables)
-        else -> stack[++sp] = resolve(word)
+    // A malformed document — an operator with too few operands, an array index past its end — must
+    // not take the player down with it. AndroidX's evaluator throws there; this one yields 0.
+    try {
+      expression.forEach { word ->
+        val id = word.bits and NAN_PAYLOAD_MASK
+        when {
+          !word.isNaNEncoded -> stack[++sp] = word.value
+          id and ID_REGION_MASK == ID_REGION_ARRAY -> stack[++sp] = word.value
+          id in (OFFSET + 1)..LAST_OP -> sp = evaluateOperator(stack, sp, id, variables)
+          else -> stack[++sp] = resolve(word)
+        }
       }
+    } catch (_: IndexOutOfBoundsException) {
+      return 0f
     }
-    return stack[sp]
+    return if (sp in stack.indices) stack[sp] else 0f
   }
 
   private fun evaluateOperator(
@@ -216,7 +223,9 @@ public class RcFloatExpressionEvaluator(private val arrays: (Int) -> FloatArray?
       }
       in 60..63 -> stack[++sp] = registers[id - OFFSET - 60]
       in 64..69 -> Unit // AndroidX reserves CMD1..CMD4 and the two following slots.
-      in 70..72 -> stack[++sp] = variables[id - OFFSET - 70]
+      // VAR1..VAR3 outside a context that binds them (a mesh expression evaluated as a plain
+      // float, say) read 0 rather than past the end of [variables].
+      in 70..72 -> stack[++sp] = variables.getOrElse(id - OFFSET - 70) { 0f }
       73 -> stack[sp] = -stack[sp]
       74 -> {
         stack[sp - 4] =

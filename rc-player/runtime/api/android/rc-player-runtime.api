@@ -676,6 +676,19 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcMatrixEvaluator {
 	public final fun operator-TypcxcU (I)I
 }
 
+public final class ee/schimke/composeai/rcplayer/runtime/RcMesh2DGeometry {
+	public fun <init> (III[F[F[I[I)V
+	public final fun frameMatrix (FFI)[F
+	public final fun getColors ()[I
+	public final fun getIndices ()[I
+	public final fun getLayout ()I
+	public final fun getPositions ()[F
+	public final fun getUCount ()I
+	public final fun getUv ()[F
+	public final fun getVCount ()I
+	public final fun getVertexCount ()I
+}
+
 public abstract interface class ee/schimke/composeai/rcplayer/runtime/RcNamedValue {
 }
 
@@ -869,6 +882,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;JLee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits;)V
 	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;JLee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun applyAddMesh2D (Lee/schimke/composeai/rcplayer/protocol/RcAddMesh2D;)Lee/schimke/composeai/rcplayer/runtime/RcMesh2DGeometry;
 	public final fun applyColorAttribute (Lee/schimke/composeai/rcplayer/protocol/RcColorAttribute;)V
 	public final fun applyColorExpression (Lee/schimke/composeai/rcplayer/protocol/RcColorExpression;)V
 	public final fun applyColorTheme (Lee/schimke/composeai/rcplayer/protocol/RcColorTheme;I)V
@@ -924,6 +938,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun isContinuouslyDriven (I)Z
 	public final fun long (I)Ljava/lang/Long;
 	public final fun matrixValues (I)[F
+	public final fun mesh2D (I)Lee/schimke/composeai/rcplayer/runtime/RcMesh2DGeometry;
 	public final fun namedValue (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/runtime/RcNamedValue;
 	public final fun namedVariable (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/protocol/RcNamedVariable;
 	public final fun particleSnapshot (I)Ljava/util/List;

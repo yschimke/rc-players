@@ -4,15 +4,18 @@ package ee.schimke.composeai.rcplayer.compat
 
 import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.core.WireBuffer
+import androidx.compose.remote.core.operations.AddMesh2D
 import androidx.compose.remote.core.operations.BitmapData
 import androidx.compose.remote.core.operations.BitmapFontData as AndroidxBitmapFontData
 import androidx.compose.remote.core.operations.BitmapTextMeasure as AndroidxBitmapTextMeasure
 import androidx.compose.remote.core.operations.DrawBitmapFontText
 import androidx.compose.remote.core.operations.DrawBitmapFontTextOnPath
 import androidx.compose.remote.core.operations.DrawBitmapTextAnchored
+import androidx.compose.remote.core.operations.DrawMesh2D
 import androidx.compose.remote.core.operations.DrawToBitmap
 import androidx.compose.remote.core.operations.Header
 import androidx.compose.remote.core.operations.IncludeReferencedOperations
+import androidx.compose.remote.core.operations.MatrixFromMesh2D
 import androidx.compose.remote.core.operations.ParticlesCompare
 import androidx.compose.remote.core.operations.ParticlesCreate
 import androidx.compose.remote.core.operations.ParticlesLoop
@@ -22,6 +25,7 @@ import androidx.compose.remote.core.operations.ShaderData
 import androidx.compose.remote.core.operations.Skip
 import androidx.compose.remote.core.operations.SoundData
 import androidx.compose.remote.core.operations.SoundExpression
+import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.ComponentStart
 import androidx.compose.remote.core.operations.layout.ContainerEnd
 import androidx.compose.remote.core.operations.loom.PatternArgument
@@ -30,6 +34,7 @@ import androidx.compose.remote.core.operations.loom.PatternDefine
 import androidx.compose.remote.core.operations.loom.PatternForEach
 import androidx.compose.remote.core.operations.loom.PatternInflation
 import androidx.compose.remote.core.operations.utilities.AnimatedFloatExpression
+import ee.schimke.composeai.rcplayer.protocol.RcAddMesh2D
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapTextMeasure
@@ -38,6 +43,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRun
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRunOnPath
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapTextAnchored
+import ee.schimke.composeai.rcplayer.protocol.RcDrawMesh2D
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcIncludeReferencedOperations
 import ee.schimke.composeai.rcplayer.protocol.RcMacroArgument
@@ -45,6 +51,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcMacroBlock
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
+import ee.schimke.composeai.rcplayer.protocol.RcMatrixFromMesh2D
 import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
@@ -272,6 +279,129 @@ class AndroidxExperimentalOperationCompatibilityTest {
     assertEquals(0x102, compare.flags)
     assertEquals(2, compare.firstEquations.size)
     assertTrue(compare.secondEquations.isEmpty())
+    assertContentEquals(bytes, RcDocumentCodec.encode(RcDocumentCodec.decode(bytes)))
+  }
+
+  /**
+   * alpha23's 2D meshes, every supply format: a parametric grid (with `u`, `v` and a clock id in
+   * its expressions), an antialiased one carrying its skirt width, literal 32-bit and half-float
+   * meshes, a spline strip, and the draw and matrix operations that reference them.
+   */
+  @Test
+  fun mesh2DOperationsUseAndroidxWriterBytes() {
+    val buffer = header()
+    val time = Utils.asNan(30)
+    val expressions =
+      arrayOf(
+        floatArrayOf(AnimatedFloatExpression.VAR1, 100f, AnimatedFloatExpression.MUL),
+        floatArrayOf(AnimatedFloatExpression.VAR2, 50f, AnimatedFloatExpression.MUL),
+        null,
+        null,
+        null,
+        floatArrayOf(1f, AnimatedFloatExpression.VAR1, AnimatedFloatExpression.SUB),
+        floatArrayOf(time, AnimatedFloatExpression.SIN),
+        floatArrayOf(AnimatedFloatExpression.VAR1),
+        null,
+      )
+    AddMesh2D.apply(
+      buffer,
+      140,
+      AddMesh2D.TYPE_EXPRESSION,
+      0,
+      4,
+      3,
+      0,
+      0,
+      expressions,
+      null,
+      null,
+      null,
+      null,
+    )
+    AddMesh2D.apply(
+      buffer,
+      141,
+      AddMesh2D.TYPE_EXPRESSION,
+      0,
+      4,
+      3,
+      AddMesh2D.FLAG_ANTIALIAS,
+      0,
+      expressions,
+      null,
+      null,
+      null,
+      null,
+      Utils.asNan(31),
+    )
+    val indices = intArrayOf(0, 1, 2, 2, 1, 3)
+    val verts = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f, 10f, 10f)
+    val uv = floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f)
+    val colors = intArrayOf(0xffff0000.toInt(), 0xff00ff00.toInt(), 0xff0000ff.toInt(), -1)
+    AddMesh2D.apply(
+      buffer,
+      142,
+      AddMesh2D.TYPE_VALUES,
+      0,
+      2,
+      2,
+      0,
+      0,
+      null,
+      indices,
+      verts,
+      uv,
+      colors,
+    )
+    AddMesh2D.apply(
+      buffer,
+      143,
+      AddMesh2D.TYPE_F16_VALUES,
+      0,
+      2,
+      2,
+      0,
+      0,
+      null,
+      indices,
+      verts,
+      uv,
+      null,
+    )
+    AddMesh2D.applySplineRoundStrip(buffer, 144, 8, 150, floatArrayOf(2f, 6f, 2f), null)
+    DrawMesh2D.apply(buffer, 140, DrawMesh2D.BLEND_MODULATE, 122)
+    MatrixFromMesh2D.apply(buffer, 142, 0.5f, Utils.asNan(32), MatrixFromMesh2D.FLAG_FULL)
+
+    val bytes = bytes(buffer)
+    val operations = RcDocumentCodec.decode(bytes).operations
+
+    val grid = assertIs<RcAddMesh2D>(operations[0])
+    assertEquals(140, grid.meshId)
+    assertEquals(RcAddMesh2D.TYPE_EXPRESSION, grid.type)
+    assertEquals(4 to 3, grid.uCount to grid.vCount)
+    assertEquals(RcAddMesh2D.EXPRESSION_GROUPS, grid.expressions.size)
+    assertEquals(3, grid.expression(RcAddMesh2D.EXP_X).size)
+    assertTrue(grid.expression(RcAddMesh2D.EXP_TEX_U).isEmpty())
+    assertEquals(30, grid.expression(RcAddMesh2D.EXP_COLOR_G).first().referencedId)
+    assertEquals(null, grid.antialiasWidth)
+    val antialiased = assertIs<RcAddMesh2D>(operations[1])
+    assertEquals(31, antialiased.antialiasWidth?.referencedId)
+    val values = assertIs<RcAddMesh2D>(operations[2])
+    assertEquals(indices.toList(), values.indices)
+    assertEquals(verts.toList(), values.vertices.map { it.value })
+    assertEquals(colors.toList(), values.colors)
+    val halves = assertIs<RcAddMesh2D>(operations[3])
+    assertEquals(verts.toList(), halves.vertices.map { it.value })
+    assertEquals(uv.toList(), halves.uv)
+    val strip = assertIs<RcAddMesh2D>(operations[4])
+    assertEquals(RcAddMesh2D.TYPE_SPLINE_ROUND_STRIP, strip.type)
+    assertEquals(RcAddMesh2D.LAYOUT_PATH_STRIP, strip.layout)
+    assertEquals(150, strip.aux)
+    assertEquals(listOf(2f, 6f, 2f), strip.widths.map { it.value })
+    assertEquals(RcDrawMesh2D(140, RcDrawMesh2D.BLEND_MODULATE, 122), operations[5])
+    val matrix = assertIs<RcMatrixFromMesh2D>(operations[6])
+    assertEquals(32, matrix.v.referencedId)
+    assertEquals(RcMatrixFromMesh2D.FLAG_FULL, matrix.flags)
     assertContentEquals(bytes, RcDocumentCodec.encode(RcDocumentCodec.decode(bytes)))
   }
 

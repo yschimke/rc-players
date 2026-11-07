@@ -42,6 +42,81 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcAccessibilitySemanti
 public final class ee/schimke/composeai/rcplayer/protocol/RcAccessibilitySemantics$Companion {
 }
 
+public final class ee/schimke/composeai/rcplayer/protocol/RcAddMesh2D : ee/schimke/composeai/rcplayer/protocol/RcOperation {
+	public static final field CAP_SEGMENTS_MASK I
+	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcAddMesh2D$Companion;
+	public static final field EXPRESSION_GROUPS I
+	public static final field EXP_COLOR_A I
+	public static final field EXP_COLOR_B I
+	public static final field EXP_COLOR_G I
+	public static final field EXP_COLOR_R I
+	public static final field EXP_TEX_U I
+	public static final field EXP_TEX_V I
+	public static final field EXP_WIDTH I
+	public static final field EXP_X I
+	public static final field EXP_Y I
+	public static final field FLAG_ANTIALIAS I
+	public static final field LAYOUT_FAN I
+	public static final field LAYOUT_GRID I
+	public static final field LAYOUT_PATH_STRIP I
+	public static final field LAYOUT_POLAR I
+	public static final field LAYOUT_RING I
+	public static final field LAYOUT_STRIP I
+	public static final field MAX_EXPRESSION_SIZE I
+	public static final field MAX_GRID I
+	public static final field MAX_INDICES I
+	public static final field MAX_VERTICES I
+	public static final field MAX_WIDTH_SAMPLES I
+	public static final field TYPE_EXPRESSION I
+	public static final field TYPE_F16_VALUES I
+	public static final field TYPE_PATH_SPLINE_STRIP I
+	public static final field TYPE_SPLINE_ROUND_STRIP I
+	public static final field TYPE_VALUES I
+	public synthetic fun <init> (IIIIIIILjava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Lee/schimke/composeai/rcplayer/protocol/RcFloatWord;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (IIIIIIILjava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Lee/schimke/composeai/rcplayer/protocol/RcFloatWord;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun component10 ()Ljava/util/List;
+	public final fun component11 ()Ljava/util/List;
+	public final fun component12 ()Ljava/util/List;
+	public final fun component13 ()Ljava/util/List;
+	public final fun component14 ()Ljava/util/List;
+	public final fun component15-D7zOPYg ()Lee/schimke/composeai/rcplayer/protocol/RcFloatWord;
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun component4 ()I
+	public final fun component5 ()I
+	public final fun component6 ()I
+	public final fun component7 ()I
+	public final fun component8 ()Ljava/util/List;
+	public final fun component9 ()Ljava/util/List;
+	public final fun copy-HN58Mfs (IIIIIIILjava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Lee/schimke/composeai/rcplayer/protocol/RcFloatWord;)Lee/schimke/composeai/rcplayer/protocol/RcAddMesh2D;
+	public static synthetic fun copy-HN58Mfs$default (Lee/schimke/composeai/rcplayer/protocol/RcAddMesh2D;IIIIIIILjava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Lee/schimke/composeai/rcplayer/protocol/RcFloatWord;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcAddMesh2D;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun expression (I)Ljava/util/List;
+	public final fun getAntialiasWidth-D7zOPYg ()Lee/schimke/composeai/rcplayer/protocol/RcFloatWord;
+	public final fun getAux ()I
+	public final fun getColors ()Ljava/util/List;
+	public final fun getExpressions ()Ljava/util/List;
+	public final fun getFlags ()I
+	public final fun getIndices ()Ljava/util/List;
+	public final fun getLayout ()I
+	public final fun getMeshId ()I
+	public fun getOpcode ()I
+	public final fun getType ()I
+	public final fun getUCount ()I
+	public final fun getUv ()Ljava/util/List;
+	public final fun getVCount ()I
+	public final fun getVertices ()Ljava/util/List;
+	public final fun getWidthPositions ()Ljava/util/List;
+	public final fun getWidths ()Ljava/util/List;
+	public fun hashCode ()I
+	public final fun isSplineStrip ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcAddMesh2D$Companion {
+}
+
 public final class ee/schimke/composeai/rcplayer/protocol/RcAlignByModifier : ee/schimke/composeai/rcplayer/protocol/RcOperation {
 	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcAlignByModifier$Companion;
 	public static final field FIRST_BASELINE_ID I
@@ -1081,6 +1156,29 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcDrawBitmapTextAnchor
 	public final fun getY-tGZKRUM ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcDrawMesh2D : ee/schimke/composeai/rcplayer/protocol/RcOperation {
+	public static final field BLEND_COLORS_ONLY I
+	public static final field BLEND_MODULATE I
+	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcDrawMesh2D$Companion;
+	public static final field NO_IMAGE I
+	public fun <init> (III)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun copy (III)Lee/schimke/composeai/rcplayer/protocol/RcDrawMesh2D;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/protocol/RcDrawMesh2D;IIIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDrawMesh2D;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBlend ()I
+	public final fun getImageId ()I
+	public final fun getMeshId ()I
+	public fun getOpcode ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcDrawMesh2D$Companion {
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcDrawText : ee/schimke/composeai/rcplayer/protocol/RcOperation {
@@ -2307,6 +2405,32 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcMatrixExpression : e
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/protocol/RcMatrixFromMesh2D : ee/schimke/composeai/rcplayer/protocol/RcOperation {
+	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcMatrixFromMesh2D$Companion;
+	public static final field FLAG_FULL I
+	public static final field FLAG_ORIGIN I
+	public static final field FLAG_ROTATION I
+	public static final field FLAG_SCALE I
+	public synthetic fun <init> (IIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun component2-tGZKRUM ()I
+	public final fun component3-tGZKRUM ()I
+	public final fun component4 ()I
+	public final fun copy-gPlUuBo (IIII)Lee/schimke/composeai/rcplayer/protocol/RcMatrixFromMesh2D;
+	public static synthetic fun copy-gPlUuBo$default (Lee/schimke/composeai/rcplayer/protocol/RcMatrixFromMesh2D;IIIIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcMatrixFromMesh2D;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFlags ()I
+	public final fun getMeshId ()I
+	public fun getOpcode ()I
+	public final fun getU-tGZKRUM ()I
+	public final fun getV-tGZKRUM ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcMatrixFromMesh2D$Companion {
+}
+
 public final class ee/schimke/composeai/rcplayer/protocol/RcMatrixFromPath : ee/schimke/composeai/rcplayer/protocol/RcOperation {
 	public synthetic fun <init> (IIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
@@ -2424,6 +2548,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOffsetModifier : ee/
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcOpcodes {
 	public static final field ACCESSIBILITY_SEMANTICS I
+	public static final field ADD_MESH_2D I
 	public static final field ANIMATED_FLOAT I
 	public static final field ANIMATION_SPEC I
 	public static final field ATTRIBUTE_COLOR I
@@ -2466,6 +2591,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOpcodes {
 	public static final field DRAW_CIRCLE I
 	public static final field DRAW_CONTENT I
 	public static final field DRAW_LINE I
+	public static final field DRAW_MESH_2D I
 	public static final field DRAW_OVAL I
 	public static final field DRAW_PATH I
 	public static final field DRAW_RECT I
@@ -2518,6 +2644,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOpcodes {
 	public static final field MACRO_FOR_EACH I
 	public static final field MATRIX_CONSTANT I
 	public static final field MATRIX_EXPRESSION I
+	public static final field MATRIX_FROM_MESH_2D I
 	public static final field MATRIX_FROM_PATH I
 	public static final field MATRIX_RESTORE I
 	public static final field MATRIX_ROTATE I

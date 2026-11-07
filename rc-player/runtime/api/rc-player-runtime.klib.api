@@ -1076,6 +1076,29 @@ final class ee.schimke.composeai.rcplayer.runtime/RcLinkedDocument { // ee.schim
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcLinkedDocument.toString|toString(){}[0]
 }
 
+final class ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry { // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/FloatArray, kotlin/FloatArray, kotlin/IntArray, kotlin/IntArray) // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.FloatArray;kotlin.FloatArray;kotlin.IntArray;kotlin.IntArray){}[0]
+
+    final val colors // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.colors|{}colors[0]
+        final fun <get-colors>(): kotlin/IntArray // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.colors.<get-colors>|<get-colors>(){}[0]
+    final val indices // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.indices|{}indices[0]
+        final fun <get-indices>(): kotlin/IntArray // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.indices.<get-indices>|<get-indices>(){}[0]
+    final val layout // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.layout|{}layout[0]
+        final fun <get-layout>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.layout.<get-layout>|<get-layout>(){}[0]
+    final val positions // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.positions|{}positions[0]
+        final fun <get-positions>(): kotlin/FloatArray // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.positions.<get-positions>|<get-positions>(){}[0]
+    final val uCount // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.uCount|{}uCount[0]
+        final fun <get-uCount>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.uCount.<get-uCount>|<get-uCount>(){}[0]
+    final val uv // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.uv|{}uv[0]
+        final fun <get-uv>(): kotlin/FloatArray // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.uv.<get-uv>|<get-uv>(){}[0]
+    final val vCount // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.vCount|{}vCount[0]
+        final fun <get-vCount>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.vCount.<get-vCount>|<get-vCount>(){}[0]
+    final val vertexCount // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.vertexCount|{}vertexCount[0]
+        final fun <get-vertexCount>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.vertexCount.<get-vertexCount>|<get-vertexCount>(){}[0]
+
+    final fun frameMatrix(kotlin/Float, kotlin/Float, kotlin/Int): kotlin/FloatArray? // ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry.frameMatrix|frameMatrix(kotlin.Float;kotlin.Float;kotlin.Int){}[0]
+}
+
 final class ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits { // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits|null[0]
     constructor <init>(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...) // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
 
@@ -1130,6 +1153,7 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
         final fun <get-onRepaint>(): kotlin/Function0<kotlin/Unit>? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.onRepaint.<get-onRepaint>|<get-onRepaint>(){}[0]
         final fun <set-onRepaint>(kotlin/Function0<kotlin/Unit>?) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.onRepaint.<set-onRepaint>|<set-onRepaint>(kotlin.Function0<kotlin.Unit>?){}[0]
 
+    final fun applyAddMesh2D(ee.schimke.composeai.rcplayer.protocol/RcAddMesh2D): ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.applyAddMesh2D|applyAddMesh2D(ee.schimke.composeai.rcplayer.protocol.RcAddMesh2D){}[0]
     final fun applyColorAttribute(ee.schimke.composeai.rcplayer.protocol/RcColorAttribute) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.applyColorAttribute|applyColorAttribute(ee.schimke.composeai.rcplayer.protocol.RcColorAttribute){}[0]
     final fun applyColorExpression(ee.schimke.composeai.rcplayer.protocol/RcColorExpression) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.applyColorExpression|applyColorExpression(ee.schimke.composeai.rcplayer.protocol.RcColorExpression){}[0]
     final fun applyColorTheme(ee.schimke.composeai.rcplayer.protocol/RcColorTheme, kotlin/Int) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.applyColorTheme|applyColorTheme(ee.schimke.composeai.rcplayer.protocol.RcColorTheme;kotlin.Int){}[0]
@@ -1171,6 +1195,7 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
     final fun isContinuouslyDriven(kotlin/Int): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.isContinuouslyDriven|isContinuouslyDriven(kotlin.Int){}[0]
     final fun long(kotlin/Int): kotlin/Long? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.long|long(kotlin.Int){}[0]
     final fun matrixValues(kotlin/Int): kotlin/FloatArray // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.matrixValues|matrixValues(kotlin.Int){}[0]
+    final fun mesh2D(kotlin/Int): ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.mesh2D|mesh2D(kotlin.Int){}[0]
     final fun namedValue(kotlin/String): ee.schimke.composeai.rcplayer.runtime/RcNamedValue // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.namedValue|namedValue(kotlin.String){}[0]
     final fun namedVariable(kotlin/String): ee.schimke.composeai.rcplayer.protocol/RcNamedVariable? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.namedVariable|namedVariable(kotlin.String){}[0]
     final fun particleSnapshot(kotlin/Int): kotlin.collections/List<kotlin.collections/List<kotlin/Float>> // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.particleSnapshot|particleSnapshot(kotlin.Int){}[0]

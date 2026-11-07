@@ -2151,6 +2151,8 @@ internal fun combineToFloatArray(
     remoteFloats: Array<RemoteFloat>,
     vararg extras: Float,
 ): FloatArray {
+    // LOCAL PATCH (rc-players): a mesh channel keeps its u/v-reading operands inline.
+    if (creationState is MeshExpressionContext) return creationState.combine(remoteFloats, extras)
     var totalSizeInline = extras.size
     val totalSizeReference = extras.size + remoteFloats.size
     val arrays =

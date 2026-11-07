@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.runtime
 
+import ee.schimke.composeai.rcplayer.protocol.RcAddMesh2D
 import ee.schimke.composeai.rcplayer.protocol.RcAndroidSystemColors
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBooleanConstant
@@ -167,6 +168,16 @@ public class RcPlayerState(
   private val bitmaps = mutableMapOf<Int, RcBitmapData>()
   private val floatExpressionEvaluator = RcFloatExpressionEvaluator(arrays = ::floatArray)
   private val pathExpressionGenerator = RcPathExpressionGenerator(floatExpressionEvaluator)
+  private val mesh2DGenerator = RcMesh2DGenerator(floatExpressionEvaluator)
+
+  /**
+   * The meshes `AddMesh2D` last expanded, by id. Like the View player's paint-context mesh cache
+   * they outlive the frame: a mesh is drawable wherever its definition has already been painted.
+   */
+  private val meshes2D = mutableMapOf<Int, RcMesh2DGeometry>()
+
+  /** Document-scope meshes whose channels read no variable, expanded once; see [mesh2D]. */
+  private val constantDocumentMeshes2D = mutableMapOf<Int, RcMesh2DGeometry>()
   private val soundRuntime = RcSoundRuntime(::resolve, soundSink)
   private val particleRuntime: RcParticleRuntime
   private val floatExpressionRuntimes = mutableMapOf<Int, RcFloatExpressionRuntime>()
@@ -1314,6 +1325,36 @@ public class RcPlayerState(
     floatArrayOverrides[id]
       ?: dynamicFloatLists[id]
       ?: floatLists[id]?.values?.map(::resolve)?.toFloatArray()
+
+  /**
+   * Runs an `AddMesh2D` the draw stream reached: evaluates its vertex expressions against the
+   * current frame's values and stores the geometry under its id, as `AddMesh2D.paint` does.
+   */
+  public fun applyAddMesh2D(operation: RcAddMesh2D): RcMesh2DGeometry =
+    mesh2DGenerator.expand(operation, ::resolve).also { meshes2D[operation.meshId] = it }
+
+  /**
+   * The geometry `AddMesh2D` last stored under [meshId].
+   *
+   * A mesh no draw stream has painted is one the document declares at its own scope, which no draw
+   * pass runs. It is expanded from the document's last definition at each use, so channels that
+   * read the clock or a host value follow them (and are noted as reads, so the canvas redraws). A
+   * definition whose channels read nothing variable is expanded once and kept.
+   */
+  public fun mesh2D(meshId: Int): RcMesh2DGeometry? {
+    meshes2D[meshId]?.let {
+      return it
+    }
+    constantDocumentMeshes2D[meshId]?.let {
+      return it
+    }
+    val definition =
+      document.operations.lastOrNull { it is RcAddMesh2D && it.meshId == meshId } as RcAddMesh2D?
+        ?: return null
+    val geometry = mesh2DGenerator.expand(definition, ::resolve)
+    if (!definition.readsVariables()) constantDocumentMeshes2D[meshId] = geometry
+    return geometry
+  }
 
   public fun applyPathExpression(operation: RcPathExpression) {
     setPath(operation.id, pathExpressionGenerator.generate(operation, ::resolve))
