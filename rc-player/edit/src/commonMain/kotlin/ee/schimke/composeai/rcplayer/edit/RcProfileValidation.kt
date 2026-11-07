@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
+import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
@@ -10,6 +11,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
+import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 
 /** One reason a document will not play on a [RcTargetProfile]. */
@@ -59,6 +61,17 @@ public data class RcProfileViolation(
      * launcher's widget host dies. Draw in a canvas of its own under or over the content instead.
      */
     RECURSIVE_DRAW_CONTENT,
+
+    /**
+     * An expression reads a `ComponentValue` (a measured width or height) of a component inside a
+     * state layout's branch. Android 16's player evaluates every branch's expressions, the hidden
+     * ones too, and a hidden branch is never measured: the widget shows `FloatExpression[…] =
+     * ([A_…] … ) len = 3` in its place. Compose capture writes one for each vector icon (its scale)
+     * and each canvas that draws from its size. Collapse the state layout once its index is known
+     * ([collapseConstantStateLayouts], as a widget bake does), or size the drawing without
+     * measuring it.
+     */
+    MEASURED_IN_HIDDEN_BRANCH,
   }
 }
 
@@ -71,7 +84,8 @@ public data class RcProfileViolation(
  * writer enforces — no variable image alpha or text size, and no float operators beyond level 6 —
  * and what Android 16 itself reads only as literals: paddings, and background and border colours
  * and sizes. At level 6, also a `DrawContent` inside `CanvasOperations`, which Android 16 paints
- * recursively until it overflows the stack.
+ * recursively until it overflows the stack, and an expression reading the measured size of a
+ * component inside a state layout's branch, which Android 16 evaluates while the branch is hidden.
  *
  * `Skip` guards are not visible here: a decoded document has already resolved them for the player
  * that decoded it. Decode with [RcTargetProfile.decode] to validate what the target actually reads.
@@ -141,6 +155,7 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
       if (target.apiLevel <= 6) addAll(levelSixViolations(index, operation, target))
     }
     if (target.apiLevel <= 6) addAll(recursiveDrawContent(target))
+    if (target.apiLevel <= 6) addAll(measuredInHiddenBranches(target))
   }
 
 /**
@@ -166,6 +181,57 @@ private fun RcDocument.recursiveDrawContent(target: RcTargetProfile): List<RcPro
       node.children.forEach { visit(it, nested) }
     }
     tree.forEach { visit(it, false) }
+  }
+
+/**
+ * Every operation that reads a `ComponentValue` measuring a component inside a branch of a state
+ * layout with more than one branch, reported once per measured value at its first reader.
+ */
+private fun RcDocument.measuredInHiddenBranches(target: RcTargetProfile): List<RcProfileViolation> =
+  buildList {
+    val tree = operationTree(operations) ?: return@buildList
+    val inBranch = BooleanArray(operations.size)
+    val branchComponents = mutableSetOf<Int>()
+    tree.forEach { root ->
+      root.walk { node ->
+        if (node.operation !is RcStateLayout) return@walk
+        val branches = node.stateLayoutBranches() ?: return@walk
+        if (branches.size < 2) return@walk
+        branches.forEach { branch ->
+          for (i in branch.start..branch.end) inBranch[i] = true
+          branch.walk { it.operation.declaredComponentId()?.let(branchComponents::add) }
+        }
+      }
+    }
+    // What a ComponentValue measures is its componentId, wherever the operation sits; -1 means the
+    // component it is written in, so its position decides.
+    val measured =
+      operations.withIndex().filter { (index, operation) ->
+        operation is RcComponentValue &&
+          if (operation.componentId == -1) inBranch[index]
+          else operation.componentId in branchComponents
+      }
+    if (measured.isEmpty()) return@buildList
+    for ((index, operation) in measured) {
+      val id = (operation as RcComponentValue).valueId
+      // Exact: an expression names an id as a NaN-boxed word. (The byte scan other edits use
+      // over-reports, and path data is full of small numbers.)
+      val reader =
+        operations.indices.firstOrNull { reader ->
+          val expression = operations[reader] as? RcFloatExpression ?: return@firstOrNull false
+          expression.expression.any { it.referencedId == id }
+        } ?: continue
+      add(
+        RcProfileViolation(
+          RcProfileViolation.Kind.MEASURED_IN_HIDDEN_BRANCH,
+          reader,
+          operations[reader].opcode,
+          "${operationName(operations[reader].opcode)} reads the measured size (id $id) of a " +
+            "component inside a state layout branch, which ${target.name} evaluates while the " +
+            "branch is hidden and unmeasured",
+        ),
+      )
+    }
   }
 
 /** The limits AndroidX's `WidgetsProfileWriterV6` puts on operations level 6 does decode. */
