@@ -608,6 +608,7 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun addNamedLong (Ljava/lang/String;J)I
 	public fun addNamedString (Ljava/lang/String;Ljava/lang/String;)I
 	public fun addPathData ([FI)I
+	public fun addShader (ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;)I
 	public fun addText (Ljava/lang/String;)I
 	public fun addThemedColor (Ljava/lang/String;SSII)I
 	public fun applyPaint (Landroidx/compose/remote/creation/common/PaintBundleData;)V
@@ -1239,6 +1240,8 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun addNamedString (Ljava/lang/String;Ljava/lang/String;)I
 	public abstract fun addPathData ([FI)I
 	public static synthetic fun addPathData$default (Landroidx/compose/remote/creation/common/RemoteWriter;[FIILjava/lang/Object;)I
+	public abstract fun addShader (ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;)I
+	public static synthetic fun addShader$default (Landroidx/compose/remote/creation/common/RemoteWriter;ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;ILjava/lang/Object;)I
 	public abstract fun addText (Ljava/lang/String;)I
 	public abstract fun addThemedColor (Ljava/lang/String;SSII)I
 	public abstract fun applyPaint (Landroidx/compose/remote/creation/common/PaintBundleData;)V
@@ -1342,6 +1345,7 @@ public final class androidx/compose/remote/creation/common/RemoteWriter$DefaultI
 	public static synthetic fun addBitmapFont$default (Landroidx/compose/remote/creation/common/RemoteWriter;Ljava/util/List;Ljava/util/Map;ILjava/lang/Object;)I
 	public static synthetic fun addBitmapUrl$default (Landroidx/compose/remote/creation/common/RemoteWriter;Ljava/lang/String;IIILjava/lang/Object;)I
 	public static synthetic fun addPathData$default (Landroidx/compose/remote/creation/common/RemoteWriter;[FIILjava/lang/Object;)I
+	public static synthetic fun addShader$default (Landroidx/compose/remote/creation/common/RemoteWriter;ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;ILjava/lang/Object;)I
 	public static synthetic fun createOffscreenBitmap$default (Landroidx/compose/remote/creation/common/RemoteWriter;IILjava/lang/Object;)I
 	public static fun drawComponentToBitmap (Landroidx/compose/remote/creation/common/RemoteWriter;I)V
 	public static fun drawComponentToBitmap (Landroidx/compose/remote/creation/common/RemoteWriter;II)V

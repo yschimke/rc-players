@@ -258,6 +258,22 @@ public interface RemoteWriter {
 
   public fun addPathData(pathData: FloatArray, winding: Int = 0): Int
 
+  /**
+   * LOCAL PATCH (rc-players): writes `ShaderData` (`DATA_SHADER`), an AGSL runtime shader compiled
+   * from the text [sourceId] (see [addText]), and returns the id [PaintBundleData.setShader] takes.
+   *
+   * Each float uniform value is a constant or a NaN-encoded variable id (an expression, a
+   * component's size, `animationTime`), which the player resolves every frame. At most 255 uniforms
+   * of each kind, 1 to 16 values per float uniform (up to a `float4x4`) and 1 to 4 per int uniform,
+   * as AGSL takes them.
+   */
+  public fun addShader(
+    sourceId: Int,
+    floatUniforms: Map<String, FloatArray> = emptyMap(),
+    intUniforms: Map<String, IntArray> = emptyMap(),
+    bitmapUniforms: Map<String, Int> = emptyMap(),
+  ): Int
+
   public fun applyPaint(paint: PaintBundleData)
 
   /** Returns and clears whether the next paint must be emitted as a complete state. */
