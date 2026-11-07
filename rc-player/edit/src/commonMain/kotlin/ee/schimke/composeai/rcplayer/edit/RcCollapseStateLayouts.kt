@@ -89,15 +89,22 @@ private fun removableBranches(
 ): List<RcOperationNode>? {
   if (layout.indexId == 0) return null
   val selected = values.integer(layout.indexId, at = node.start) ?: return null
-  val contents = node.children.filter { it.isContainer && it.operation is RcLayoutContent }
-  if (contents.size > 1) return null
-  val branches =
-    (contents.singleOrNull() ?: node).children.filter {
-      it.isContainer && it.operation.isLayoutComponent()
-    }
+  val branches = node.stateLayoutBranches() ?: return null
   if (selected !in branches.indices) return null
   val removed = branches.filterIndexed { index, _ -> index != selected }
   return removed.takeIf { it.all { branch -> branch.isLocal(inAction = false) } }
+}
+
+/**
+ * A state layout node's branches, counted as the player counts them: the layout components inside
+ * its `LayoutComponentContent`, or directly inside it. Null when it has more than one content.
+ */
+internal fun RcOperationNode.stateLayoutBranches(): List<RcOperationNode>? {
+  val contents = children.filter { it.isContainer && it.operation is RcLayoutContent }
+  if (contents.size > 1) return null
+  return (contents.singleOrNull() ?: this).children.filter {
+    it.isContainer && it.operation.isLayoutComponent()
+  }
 }
 
 /** Whether nothing in this subtree can be read or felt outside it. */
