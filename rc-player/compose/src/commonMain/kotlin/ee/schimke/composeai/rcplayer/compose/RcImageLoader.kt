@@ -9,8 +9,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.graphics.ImageBitmap
 import coil3.Image
+import coil3.ImageLoader
+import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.compose.LocalPlatformContext
+import coil3.network.ktor3.KtorNetworkFetcherFactory
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.size.Size
@@ -18,6 +21,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedDocument
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
+import io.ktor.client.HttpClient
 import kotlinx.coroutines.launch
 
 /**
@@ -69,16 +73,46 @@ private object CoilDefault : RcImageLoader {
 @Composable
 public fun rememberCoilRcImageLoader(): RcImageLoader {
   val context = LocalPlatformContext.current
-  return remember(context) {
-    val coil = SingletonImageLoader.get(context)
-    RcImageLoader { bitmap ->
-      val source = bitmap.data.decodeToString()
-      if (source.isBlank()) return@RcImageLoader null
-      val request = ImageRequest.Builder(context).data(source).size(Size.ORIGINAL).build()
-      (coil.execute(request) as? SuccessResult)?.image?.toRcImageBitmap()
-    }
+  return remember(context) { coilRcImageLoader(context, SingletonImageLoader.get(context)) }
+}
+
+/**
+ * Uses [imageLoader] instead of Coil's singleton: an app that keeps a separate loader for remote
+ * documents (its own cache, interceptors or access policy) passes it here or through
+ * [LocalRcImageLoader].
+ */
+@Composable
+public fun rememberCoilRcImageLoader(imageLoader: ImageLoader): RcImageLoader {
+  val context = LocalPlatformContext.current
+  return remember(context, imageLoader) { coilRcImageLoader(context, imageLoader) }
+}
+
+/**
+ * Coil's singleton (its cache, decoders and interceptors) with a document's remote images fetched
+ * through [httpClient], the app's own Ktor client: its OkHttp, proxy, certificate pinning, timeouts
+ * or headers. Without it, coil-network-ktor3 uses the engine the player declares for the platform
+ * (OkHttp on Android and the JVM, Darwin on Apple, fetch on Wasm).
+ */
+@Composable
+public fun rememberCoilRcImageLoader(httpClient: HttpClient): RcImageLoader {
+  val context = LocalPlatformContext.current
+  return remember(context, httpClient) {
+    val loader =
+      SingletonImageLoader.get(context)
+        .newBuilder()
+        .components { add(KtorNetworkFetcherFactory(httpClient)) }
+        .build()
+    coilRcImageLoader(context, loader)
   }
 }
+
+private fun coilRcImageLoader(context: PlatformContext, coil: ImageLoader): RcImageLoader =
+  RcImageLoader { bitmap ->
+    val source = bitmap.data.decodeToString()
+    if (source.isBlank()) return@RcImageLoader null
+    val request = ImageRequest.Builder(context).data(source).size(Size.ORIGINAL).build()
+    (coil.execute(request) as? SuccessResult)?.image?.toRcImageBitmap()
+  }
 
 internal expect fun Image.toRcImageBitmap(): ImageBitmap
 

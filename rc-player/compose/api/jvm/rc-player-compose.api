@@ -305,6 +305,8 @@ public final class ee/schimke/composeai/rcplayer/compose/RcImageLoader$DefaultIm
 public final class ee/schimke/composeai/rcplayer/compose/RcImageLoaderKt {
 	public static final fun getLocalRcImageLoader ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 	public static final fun rememberCoilRcImageLoader (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rcplayer/compose/RcImageLoader;
+	public static final fun rememberCoilRcImageLoader (Lcoil3/ImageLoader;Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rcplayer/compose/RcImageLoader;
+	public static final fun rememberCoilRcImageLoader (Lio/ktor/client/HttpClient;Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rcplayer/compose/RcImageLoader;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcInputComponentsKt {
