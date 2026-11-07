@@ -105,6 +105,22 @@ class RcMesh2DGeneratorTest {
   }
 
   @Test
+  fun aDocumentScopeMeshIsReExpandedWhenItReadsVariables() {
+    val clock =
+      mesh(
+        RcAddMesh2D.EXP_COLOR_G to listOf(nan(RcSystemVariables.ANIMATION_TIME), word(0.5f), mul),
+      )
+    val state = state(clock)
+    state.beginFrame(timeSeconds = 1f)
+    assertEquals(0x80, (state.mesh2D(60)!!.colors[0] ushr 8) and 0xff)
+    state.beginFrame(timeSeconds = 2f)
+    assertEquals(0xff, (state.mesh2D(60)!!.colors[0] ushr 8) and 0xff)
+    // A mesh of literals and u/v alone is expanded once.
+    val constant = state(mesh(RcAddMesh2D.EXP_X to listOf(var1, word(10f), mul)))
+    assertTrue(constant.mesh2D(60) === constant.mesh2D(60))
+  }
+
+  @Test
   fun theFrameOfAScaledGridIsItsScale() {
     val operation =
       mesh(

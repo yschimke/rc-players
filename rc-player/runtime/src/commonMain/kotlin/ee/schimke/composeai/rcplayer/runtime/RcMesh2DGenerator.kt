@@ -438,3 +438,20 @@ internal class RcMesh2DGenerator(private val evaluator: RcFloatExpressionEvaluat
 }
 
 private fun wrapsU(layout: Int): Boolean = RcMesh2DGenerator.wrapsU(layout)
+
+/**
+ * Whether any of this mesh's words reads a value that can change: a variable or array id rather
+ * than a literal, an expression operator or `u` / `v`.
+ */
+internal fun RcAddMesh2D.readsVariables(): Boolean {
+  fun RcFloatWord.isVariable(): Boolean {
+    if (!isNaNEncoded) return false
+    val id = bits and 0x7fffff
+    return id !in RcFloatExpressionEvaluator.OFFSET..RcFloatExpressionEvaluator.LAST_OP
+  }
+  return expressions.any { group -> group.any { it.isVariable() } } ||
+    vertices.any { it.isVariable() } ||
+    widths.any { it.isVariable() } ||
+    widthPositions.any { it.isVariable() } ||
+    antialiasWidth?.isVariable() == true
+}

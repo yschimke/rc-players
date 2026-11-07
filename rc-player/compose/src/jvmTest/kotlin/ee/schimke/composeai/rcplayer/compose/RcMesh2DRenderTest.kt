@@ -24,6 +24,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.jetbrains.skia.Bitmap
 
 /**
@@ -124,6 +125,55 @@ class RcMesh2DRenderTest {
     assertEquals(RED, coloursOnly(30, 30))
   }
 
+  /**
+   * A mesh declared at document scope — ahead of the layout, as a writer may put it — and drawn
+   * from a canvas: its clock-reading channel must follow the clock, not freeze at the first frame.
+   */
+  @OptIn(ExperimentalComposeUiApi::class)
+  @Test
+  fun aDocumentScopeMeshFollowsTheClock() {
+    val clockGreen =
+      parametricSquare().let { square ->
+        square.copy(
+          expressions =
+            square.expressions.mapIndexed { index, group ->
+              when (index) {
+                RcAddMesh2D.EXP_COLOR_G ->
+                  listOf(nan(ANIMATION_TIME), RcFloatWord.literal(0.25f), nan(MUL))
+                RcAddMesh2D.EXP_COLOR_R,
+                RcAddMesh2D.EXP_COLOR_B -> listOf(RcFloatWord.literal(0f))
+                else -> group
+              }
+            },
+        )
+      }
+    val document =
+      document(
+        listOf(clockGreen),
+        listOf(RcDrawMesh2D(71, RcDrawMesh2D.BLEND_MODULATE, RcDrawMesh2D.NO_IMAGE)),
+      )
+    val scene =
+      ImageComposeScene(width = SIZE, height = SIZE, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      fun greenAt(nanos: Long): Int {
+        scene.render(nanos - 16_000_000L)
+        val bitmap = Bitmap().apply { allocN32Pixels(SIZE, SIZE) }
+        check(scene.render(nanos).readPixels(bitmap))
+        return (bitmap.getColor(30, 30) ushr 8) and 0xff
+      }
+      // The clock starts at the scene's first frame.
+      scene.render(0L)
+      val first = greenAt(1_000_000_000L)
+      val later = greenAt(3_000_000_000L)
+      assertTrue(first in 0x30..0x50, "a quarter of a second's green at 1 s: $first")
+      assertTrue(later in 0xb0..0xd0, "three quarters at 3 s: $later")
+    } finally {
+      scene.close()
+    }
+  }
+
   /** A 3x3 parametric grid spanning (0, 0) to (60, 60): x = u * 60, y = v * 60. */
   private fun parametricSquare(): RcAddMesh2D =
     RcAddMesh2D(
@@ -189,5 +239,6 @@ class RcMesh2DRenderTest {
     const val BLUE = 0xff0000ff.toInt()
     const val VAR1 = 0x310000 + 70
     const val MUL = 0x310000 + 3
+    const val ANIMATION_TIME = 30
   }
 }

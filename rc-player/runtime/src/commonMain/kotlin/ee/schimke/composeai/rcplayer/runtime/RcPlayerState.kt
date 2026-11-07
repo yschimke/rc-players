@@ -175,6 +175,9 @@ public class RcPlayerState(
    * they outlive the frame: a mesh is drawable wherever its definition has already been painted.
    */
   private val meshes2D = mutableMapOf<Int, RcMesh2DGeometry>()
+
+  /** Document-scope meshes whose channels read no variable, expanded once; see [mesh2D]. */
+  private val constantDocumentMeshes2D = mutableMapOf<Int, RcMesh2DGeometry>()
   private val soundRuntime = RcSoundRuntime(::resolve, soundSink)
   private val particleRuntime: RcParticleRuntime
   private val floatExpressionRuntimes = mutableMapOf<Int, RcFloatExpressionRuntime>()
@@ -1331,14 +1334,27 @@ public class RcPlayerState(
     mesh2DGenerator.expand(operation, ::resolve).also { meshes2D[operation.meshId] = it }
 
   /**
-   * The geometry `AddMesh2D` last stored under [meshId]. A mesh the stream has not painted yet is
-   * expanded from the document's last definition of it, or null when there is none.
+   * The geometry `AddMesh2D` last stored under [meshId].
+   *
+   * A mesh no draw stream has painted is one the document declares at its own scope, which no draw
+   * pass runs. It is expanded from the document's last definition at each use, so channels that
+   * read the clock or a host value follow them (and are noted as reads, so the canvas redraws). A
+   * definition whose channels read nothing variable is expanded once and kept.
    */
-  public fun mesh2D(meshId: Int): RcMesh2DGeometry? =
-    meshes2D[meshId]
-      ?: document.operations
-        .lastOrNull { it is RcAddMesh2D && it.meshId == meshId }
-        ?.let { applyAddMesh2D(it as RcAddMesh2D) }
+  public fun mesh2D(meshId: Int): RcMesh2DGeometry? {
+    meshes2D[meshId]?.let {
+      return it
+    }
+    constantDocumentMeshes2D[meshId]?.let {
+      return it
+    }
+    val definition =
+      document.operations.lastOrNull { it is RcAddMesh2D && it.meshId == meshId } as RcAddMesh2D?
+        ?: return null
+    val geometry = mesh2DGenerator.expand(definition, ::resolve)
+    if (!definition.readsVariables()) constantDocumentMeshes2D[meshId] = geometry
+    return geometry
+  }
 
   public fun applyPathExpression(operation: RcPathExpression) {
     setPath(operation.id, pathExpressionGenerator.generate(operation, ::resolve))
