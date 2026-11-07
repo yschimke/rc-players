@@ -224,6 +224,48 @@ class RcBitmapFontsTest {
     assertEquals(emptyList(), result.skipped)
   }
 
+  /**
+   * A glyph whose ink stands outside the face's line comes back taller, its baseline lower by the
+   * rows above: every glyph is set on the lowest baseline by a margin above it, and made one height
+   * by a margin below.
+   */
+  @Test
+  fun glyphsTallerThanTheirLineShareOneBaselineAndHeight() {
+    val tall = RcTextRasterizer { text ->
+      when (text.text) {
+        // Ink 6px above the line.
+        "8" -> RcRasterizedText(byteArrayOf(8), 10, 26, 22f)
+        // Ink 4px below it.
+        "g" -> RcRasterizedText(byteArrayOf(9), 10, 24, 16f)
+        else -> RcRasterizedText(byteArrayOf(1), text.text.length * 10, 20, 16f)
+      }
+    }
+    val result =
+      screen(RcTextData(44, "8g1"), texts = text(44, -7))
+        .coreTextAsBitmapFonts(RcTargetProfiles.WIDGETS_V6, setOf("digital7"), tall, RcDisplay(2f))
+    val glyphs =
+      result.document.operations.filterIsInstance<RcBitmapFontData>().single().glyphs.associateBy {
+        it.chars
+      }
+    assertEquals(
+      mapOf("1" to (6 to 4), "8" to (0 to 4), "g" to (6 to 0)),
+      glyphs.mapValues { (_, glyph) -> glyph.marginTop.toInt() to glyph.marginBottom.toInt() },
+      "margins above and below",
+    )
+    assertTrue(
+      glyphs.values.all { it.marginTop + it.bitmapHeight + it.marginBottom == 30 },
+      "one line, 6px above and 4px below the face's",
+    )
+    assertEquals(15f, result.texts.single().height, "its slot is the line, in dp")
+  }
+
+  @Test
+  fun glyphsInsideTheirLineKeepNoMargins() {
+    val result = clock.bitmapFonts()
+    val glyphs = result.document.operations.filterIsInstance<RcBitmapFontData>().single().glyphs
+    assertTrue(glyphs.all { it.marginTop.toInt() == 0 && it.marginBottom.toInt() == 0 })
+  }
+
   @Test
   fun aTextInAnotherFamilyIsLeftAlone() {
     val result = clock.bitmapFonts(families = setOf("gspot"))

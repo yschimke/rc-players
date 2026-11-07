@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -29,6 +30,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcTextRasterizer
 import kotlin.math.ceil
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Image
+import org.jetbrains.skia.Surface
 
 /**
  * An [RcTextRasterizer] drawing text as this player draws a `CoreText`: the same Compose text
@@ -99,19 +101,35 @@ public class RcComposeTextRasterizer(
     val width = layout.size.width
     val height = layout.size.height
     if (width <= 0 || height <= 0) return null
-    val bitmap = ImageBitmap(width, height)
+    // A face whose glyphs stand taller than its line (Digital-7's digits) draws ink outside the
+    // laid-out box. Draw with room around it, then keep the box and whatever ink fell outside it,
+    // so no glyph loses its top or its feet; the baseline moves down by the rows kept above.
+    val pad = height
+    val padded = ImageBitmap(width, height + 2 * pad)
     CanvasDrawScope().draw(
       density,
       LayoutDirection.Ltr,
-      Canvas(bitmap),
-      Size(width.toFloat(), height.toFloat()),
+      Canvas(padded),
+      Size(width.toFloat(), (height + 2 * pad).toFloat()),
     ) {
-      drawText(layout)
+      translate(top = pad.toFloat()) { drawText(layout) }
     }
-    val png =
-      Image.makeFromBitmap(bitmap.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)?.bytes
-        ?: return null
-    return RcRasterizedText(png, width, height, layout.firstBaseline)
+    val skia = padded.asSkiaBitmap()
+    val inked =
+      (0 until skia.height).filter { y -> (0 until width).any { x -> skia.getAlphaf(x, y) > 0f } }
+    val top = minOf(pad, inked.firstOrNull() ?: pad)
+    val bottom = maxOf(pad + height, (inked.lastOrNull() ?: 0) + 1)
+    val image =
+      Image.makeFromBitmap(skia).let { whole ->
+        if (top == 0 && bottom == skia.height) whole
+        else
+          Surface.makeRasterN32Premul(width, bottom - top).run {
+            canvas.drawImage(whole, 0f, -top.toFloat())
+            makeImageSnapshot()
+          }
+      }
+    val png = image.encodeToData(EncodedImageFormat.PNG)?.bytes ?: return null
+    return RcRasterizedText(png, width, bottom - top, layout.firstBaseline + (pad - top))
   }
 
   /** The family the player would draw [text] in, or null where it would fall back. */

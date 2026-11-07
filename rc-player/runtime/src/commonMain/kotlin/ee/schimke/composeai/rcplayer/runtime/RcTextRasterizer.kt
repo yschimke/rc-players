@@ -88,9 +88,11 @@ public data class RcStyledText(
 }
 
 /**
- * A text drawn as a PNG [width] by [height] pixels: its laid-out box, not just its ink. [baseline]
- * is its first line's baseline from the top in pixels, or NaN where the rasterizer doesn't say;
- * text drawn along a path needs it to sit on the path as the player sets it.
+ * A text drawn as a PNG [width] by [height] pixels: its laid-out box, not just its ink, and taller
+ * where ink stands outside the box (a face whose glyphs are taller than its line), so none is cut.
+ * [baseline] is its first line's baseline from the top in pixels, or NaN where the rasterizer
+ * doesn't say: text drawn along a path needs it to sit on the path as the player sets it, and a
+ * bitmap font's glyphs to share one line.
  */
 public class RcRasterizedText(
   public val png: ByteArray,
