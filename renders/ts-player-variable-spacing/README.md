@@ -7,6 +7,10 @@ at `NaN`. The container then had no size, so no background and no touch area. It
 and no corner was rounded. With the fix, the layout is finite and the buttons fire their host named
 actions (`dismiss`, `setQuantity`).
 
+A second fix in the same documents: both quantity buttons name their action by text id 64, written
+once as a `DATA_TEXT` inside the "−" button's click. The data pass skipped a click's children, so "+"
+fired nothing until "−" had been tapped once. A click's definitions now load with the document.
+
 The documents are [Livery](https://github.com/yschimke/livery)'s sample catalog templates:
 
 - `banner-classic.rc` (`promo/banner@1`), with headline "Spring sale" and CTA "Shop now";

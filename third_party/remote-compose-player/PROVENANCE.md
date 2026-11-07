@@ -118,6 +118,13 @@ Local deltas over that snapshot (filed upstream unless noted):
   container had no size, no background and no touch area, and no corner was rounded. They now read
   the bits (`readNanIdBits`) and resolve a variable through the context, as the dimension modifiers
   do. Covered by `src/variable-bits.test.ts`. Not yet filed upstream.
+- **A click's definitions load with the document** (`src/core/CoreDocument.ts`). The data pass skips an
+  event modifier's children, because this player's actions do their work in `apply()`. That also
+  skipped the definitions among them: Compose writes an action's name once, as a `DATA_TEXT` inside
+  the first click that uses it, and a later button names it by id, so that button's action had no
+  name (and fired nothing) until the first button had been tapped. Definitions (texts, constants,
+  named variables, expressions; a whitelist) now load in the data pass; actions still run on input
+  only. Covered by `src/variable-bits.test.ts`. Not yet filed upstream.
 
 - **Document-fetch HTTP errors** (`src/web/main.ts`). Reject failed HTTP responses before reading
   their bodies or replacing the current document. The error reports the HTTP status without

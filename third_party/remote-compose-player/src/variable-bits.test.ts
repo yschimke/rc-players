@@ -41,3 +41,27 @@ clips[0].layoutDecorator(100, 50);
 clips[0].apply({ mMode: ContextMode.PAINT, getPaintContext: () => pc, getFloat: (id: number) => (id === 44 ? 16 : NaN) });
 assert.deepEqual(radii, [16, 16, 16, 16], 'radii held in a variable are read from it');
 console.log('rounded clip variables ok');
+
+// A click's definitions load with the document; its actions still run on input only. Compose writes an
+// action's name once, as a DATA_TEXT inside the first click that uses it, and a later button names it by
+// id: with the click's children skipped at load, that button's action had no name until the first one
+// had been tapped.
+import { CoreDocument } from './core/CoreDocument';
+import { TextData } from './core/operations/DataOperations';
+import { ClickModifier } from './core/operations/layout/modifiers/ModifierOperations';
+import { HostNamedActionOperation } from './core/operations/layout/modifiers/ActionOperations';
+
+const texts = new Map<number, string>();
+let ran = 0;
+const loading: any = new Proxy({
+    loadText: (id: number, text: string) => { texts.set(id, text); },
+    getText: (id: number) => texts.get(id),
+    getInteger: () => 1, getFloat: () => 1,
+    runNamedAction: () => { ran++; }, runAction: () => { ran++; },
+}, { get: (t: any, k) => (k in t ? t[k] : () => undefined) });
+const click = new ClickModifier();
+click.mList.push(new TextData(64, 'setQuantity'), new HostNamedActionOperation(64, 1, 63));
+(new CoreDocument() as any).applyOperations(loading, [click]);
+assert.equal(texts.get(64), 'setQuantity', "a click's definitions load with the document");
+assert.equal(ran, 0, "a click's actions don't run at load");
+console.log('click definitions ok');

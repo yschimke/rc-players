@@ -30169,6 +30169,12 @@ ${inner}`;
         op.markNotDirty();
         context.incrementOpCount(op);
         if (_CoreDocument.isEventModifier(op)) {
+          for (const child of op.getList?.() ?? []) {
+            if (_CoreDocument.isDefinition(child)) {
+              context.incrementOpCount(child);
+              child.apply(context);
+            }
+          }
           continue;
         }
         if (this.isContainer(op)) {
@@ -30177,6 +30183,14 @@ ${inner}`;
           op.apply(context);
         }
       }
+    }
+    /**
+     * LOCAL (rc-players): an operation that only defines data (a text, a constant, a named
+     * variable, an expression), so applying it at load is what the reference does, and never runs
+     * an action. A whitelist, so an operation with side effects can't start running at load.
+     */
+    static isDefinition(op) {
+      return op instanceof TextData || op instanceof FloatConstant || op instanceof ColorConstant || op instanceof IntegerConstant || op instanceof LongConstant || op instanceof BooleanConstant || op instanceof NamedVariable || op instanceof FloatExpression || op instanceof IntegerExpression || op instanceof TextFromFloat || op instanceof TextMerge;
     }
     static isEventModifier(op) {
       return op instanceof ClickModifier || op instanceof MultiClickModifier || op instanceof TouchDownModifier || op instanceof TouchUpModifier || op instanceof TouchCancelModifier;
