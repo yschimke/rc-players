@@ -12,7 +12,9 @@ import coil3.Image
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
+import coil3.Uri
 import coil3.compose.LocalPlatformContext
+import coil3.fetch.Fetcher
 import coil3.network.ktor3.KtorNetworkFetcherFactory
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
@@ -97,22 +99,31 @@ public fun rememberCoilRcImageLoader(imageLoader: ImageLoader): RcImageLoader {
 public fun rememberCoilRcImageLoader(httpClient: HttpClient): RcImageLoader {
   val context = LocalPlatformContext.current
   return remember(context, httpClient) {
-    val loader =
-      SingletonImageLoader.get(context)
-        .newBuilder()
-        .components { add(KtorNetworkFetcherFactory(httpClient)) }
-        .build()
-    coilRcImageLoader(context, loader)
+    // The singleton exactly as the app built it (cache, interceptors, decoders); only the player's
+    // own requests are fetched by the injected client, set per request.
+    coilRcImageLoader(
+      context,
+      SingletonImageLoader.get(context),
+      KtorNetworkFetcherFactory(httpClient),
+    )
   }
 }
 
-private fun coilRcImageLoader(context: PlatformContext, coil: ImageLoader): RcImageLoader =
-  RcImageLoader { bitmap ->
-    val source = bitmap.data.decodeToString()
-    if (source.isBlank()) return@RcImageLoader null
-    val request = ImageRequest.Builder(context).data(source).size(Size.ORIGINAL).build()
-    (coil.execute(request) as? SuccessResult)?.image?.toRcImageBitmap()
-  }
+private fun coilRcImageLoader(
+  context: PlatformContext,
+  coil: ImageLoader,
+  fetcher: Fetcher.Factory<Uri>? = null,
+): RcImageLoader = RcImageLoader { bitmap ->
+  val source = bitmap.data.decodeToString()
+  if (source.isBlank()) return@RcImageLoader null
+  val request =
+    ImageRequest.Builder(context)
+      .data(source)
+      .size(Size.ORIGINAL)
+      .apply { if (fetcher != null) fetcherFactory(fetcher, Uri::class) }
+      .build()
+  (coil.execute(request) as? SuccessResult)?.image?.toRcImageBitmap()
+}
 
 internal expect fun Image.toRcImageBitmap(): ImageBitmap
 

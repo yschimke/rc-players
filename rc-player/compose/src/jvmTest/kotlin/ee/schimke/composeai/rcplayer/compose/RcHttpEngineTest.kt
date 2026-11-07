@@ -2,6 +2,10 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.unit.Density
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.intercept.Interceptor
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -55,7 +59,8 @@ class RcHttpEngineTest {
     } finally {
       scene.close()
     }
-    val url = "https://images.example/injected.png"
+    // Unique per run: the default singleton keeps a disk cache across runs.
+    val url = "https://images.example/injected-${java.util.UUID.randomUUID()}.png"
     val image = runBlocking {
       assertNotNull(loader)
         .load(RcBitmapData(1, 2, 2, 0, RcBitmapData.ENCODING_URL, url.encodeToByteArray()))
@@ -63,5 +68,60 @@ class RcHttpEngineTest {
     assertEquals(listOf(url), requested)
     assertNotNull(image)
     assertEquals(2, image.width)
+  }
+
+  @Test
+  fun injectedClientKeepsTheSingletonsComponents() {
+    // An app's own interceptor on its Coil singleton still runs when the client is injected.
+    val intercepted = mutableListOf<String>()
+    val png =
+      Image.makeFromBitmap(Bitmap().apply { allocN32Pixels(2, 2) })
+        .encodeToData(EncodedImageFormat.PNG)!!
+        .bytes
+    val requested = mutableListOf<String>()
+    val client =
+      HttpClient(MockEngine) {
+        engine {
+          addHandler { request ->
+            requested += request.url.toString()
+            respond(png, headers = headersOf(HttpHeaders.ContentType, "image/png"))
+          }
+        }
+      }
+    val context = PlatformContext.INSTANCE
+    SingletonImageLoader.setUnsafe(
+      ImageLoader.Builder(context)
+        .components {
+          add(
+            Interceptor { chain ->
+              intercepted += chain.request.data.toString()
+              chain.proceed()
+            },
+          )
+        }
+        .build(),
+    )
+    try {
+      var loader: RcImageLoader? = null
+      val scene =
+        ImageComposeScene(width = 10, height = 10, density = Density(1f)) {
+          loader = rememberCoilRcImageLoader(client)
+        }
+      try {
+        scene.render()
+      } finally {
+        scene.close()
+      }
+      val url = "https://images.example/intercepted-${java.util.UUID.randomUUID()}.png"
+      val image = runBlocking {
+        assertNotNull(loader)
+          .load(RcBitmapData(1, 2, 2, 0, RcBitmapData.ENCODING_URL, url.encodeToByteArray()))
+      }
+      assertNotNull(image)
+      assertEquals(listOf(url), intercepted)
+      assertEquals(listOf(url), requested)
+    } finally {
+      SingletonImageLoader.reset()
+    }
   }
 }
