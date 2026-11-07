@@ -12,6 +12,8 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontListFontFamily
+import androidx.compose.ui.text.font.FontLoadingStrategy.Companion.Async
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.Hyphens
@@ -31,7 +33,8 @@ import kotlin.math.ceil
 /**
  * What every platform's `RcComposeTextRasterizer` draws with: this player's own text stack, style
  * mapping and family rules over [typefaces], on [fontFamilyResolver]. Only the image's encoding is
- * the platform's ([encodePng]).
+ * the platform's ([encodePng]). A face that loads asynchronously is declined: the image would keep
+ * the default face it is drawn in until it arrives. Hand the rasterizer faces already loaded.
  */
 internal class RcComposeTextDrawing(
   private val typefaces: RcTypefaceLoader,
@@ -44,6 +47,10 @@ internal class RcComposeTextDrawing(
     val variations =
       withWeightAxis(withItalicAxis(settings.withoutFeatures(), text.italic), text.fontWeight)
     val family = family(text, variations) ?: return null
+    // A face loaded asynchronously (a downloadable Google font) draws the default face until it
+    // arrives, which an image would keep for good: decline it, as a family the loader hasn't got.
+    if (family is FontListFontFamily && family.fonts.any { it.loadingStrategy == Async })
+      return null
     // Pixels in, so a font scale of 1: the size is already what the document asked for.
     val density = Density(text.density)
     val lineHeight =

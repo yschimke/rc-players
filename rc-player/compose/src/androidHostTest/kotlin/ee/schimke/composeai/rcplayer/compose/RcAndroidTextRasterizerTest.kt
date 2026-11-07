@@ -60,6 +60,29 @@ class RcAndroidTextRasterizerTest {
     assertEquals(plain.height + above, tall.height.toFloat(), 1f)
   }
 
+  /** A face loaded asynchronously would be drawn in the default face until it arrives: declined. */
+  @Test
+  fun aFaceStillDownloadingIsDeclined() {
+    val downloading =
+      FontFamily(
+        object : androidx.compose.ui.text.font.Font {
+          override val weight = androidx.compose.ui.text.font.FontWeight.Normal
+          override val style = androidx.compose.ui.text.font.FontStyle.Normal
+          override val loadingStrategy = androidx.compose.ui.text.font.FontLoadingStrategy.Async
+        }
+      )
+    val loader =
+      object : RcTypefaceLoader {
+        override val families: Set<String>
+          get() = setOf("exo 2")
+
+        override fun typeface(family: String, variations: RcFontVariations?): FontFamily? =
+          downloading.takeIf { family == "exo 2" }
+      }
+    val rasterizer = RcComposeTextRasterizer(RuntimeEnvironment.getApplication(), loader)
+    assertNull(rasterizer.rasterize(text("A", family = "google:Exo 2")))
+  }
+
   @Test
   fun aFamilyItHasntGotIsDeclined() {
     assertNull(rasterizer.rasterize(text("A", family = "Orbitron")))
