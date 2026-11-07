@@ -68,6 +68,41 @@ class RcMesh2DRenderTest {
   }
 
   @Test
+  fun aColourlessMeshIsFilledByThePaintsGradient() {
+    // A red-to-blue linear gradient from x = 0 to x = 60, as `PaintData` carries it.
+    val gradient =
+      RcPaintData(
+        listOf(
+          GRADIENT,
+          2,
+          RED,
+          BLUE,
+          0,
+          0f.toRawBits(),
+          0f.toRawBits(),
+          60f.toRawBits(),
+          0f.toRawBits(),
+          0,
+        ),
+      )
+    val pixels =
+      render(
+        gradient,
+        parametricSquare(),
+        RcDrawMesh2D(71, RcDrawMesh2D.BLEND_MODULATE, RcDrawMesh2D.NO_IMAGE),
+      )
+    val left = pixels(2, 30)
+    val right = pixels(57, 30)
+    assertTrue((left ushr 16) and 0xff > 0xe0 && left and 0xff < 0x20, "left is red: ${left.hex()}")
+    assertTrue(
+      (right ushr 16) and 0xff < 0x20 && right and 0xff > 0xe0,
+      "right is blue: ${right.hex()}",
+    )
+  }
+
+  private fun Int.hex() = toUInt().toString(16)
+
+  @Test
   fun matrixFromMesh2DPlacesDrawingOnTheSurface() {
     val pixels =
       render(
@@ -240,5 +275,8 @@ class RcMesh2DRenderTest {
     const val VAR1 = 0x310000 + 70
     const val MUL = 0x310000 + 3
     const val ANIMATION_TIME = 30
+
+    /** `PaintBundle.GRADIENT`. */
+    const val GRADIENT = 11
   }
 }
