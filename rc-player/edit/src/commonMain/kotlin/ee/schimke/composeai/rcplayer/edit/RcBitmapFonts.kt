@@ -135,6 +135,12 @@ public data class RcBitmapFontTexts(
  * 24. [sequences] adds glyphs for runs drawn as one — a ligature such as `fi`, or a joined pair in
  *     a script — wherever a text shows them; the player draws the longest glyph that matches.
  *
+ * A glyph whose ink stands outside the face's line (Digital-7's digits, an accent over a capital)
+ * is drawn whole, taller than the line, and every glyph of the face is set on one baseline by
+ * margins above and below: the text's slot is then as tall as its ink, where `CoreText` keeps its
+ * line's. A changing text centred or set to its end in such a face is left as it was, listed in
+ * [RcBitmapFontTexts.skipped]: the anchored draw would place each value by its own glyphs' top.
+ *
  * Each glyph is still placed on a whole pixel, so a face reads as itself but not pixel for pixel as
  * `CoreText` lays it out, and a joined script keeps only the joins [sequences] names, losing any
  * ink outside a glyph's line box. It suits a display face — an LCD clock, a heading, a bezel —
@@ -346,7 +352,7 @@ private fun RcDocument.bitmapFonts(
       val drawn = mutableListOf<Pair<String, RcBitmapData>>()
       val advances = mutableMapOf<String, Int>()
       val exact = mutableMapOf<String, Float>()
-      var baseline = Float.NaN
+      val baselines = mutableMapOf<String, Float>()
       for (token in tokens.sorted()) {
         val glyph =
           rasterizer.rasterize(face.styled(token))?.takeIf {
@@ -356,7 +362,7 @@ private fun RcDocument.bitmapFonts(
         // so a line keeps its length rather than gaining up to a pixel a glyph.
         val advance = glyph?.let { measure(rasterizer, face, token) }
         if (glyph == null || advance == null) return@forEach drop()
-        if (baseline.isNaN()) baseline = glyph.baseline
+        baselines[token] = glyph.baseline
         exact[token] = advance
         advances[token] = round(advance).toInt().coerceAtMost(glyph.width)
         drawn +=
@@ -397,6 +403,13 @@ private fun RcDocument.bitmapFonts(
           if (kern != 0) kerns[key] = kern.toShort()
         }
       }
+      // A glyph whose ink stands outside its line is drawn taller, its baseline as much lower:
+      // every glyph shares one line, so a margin above each sets them all on the lowest baseline,
+      // and one below makes them one height. A face with no such glyph keeps margins of zero.
+      val baseline = baselines.values.maxOrNull()?.takeUnless { it.isNaN() }
+      fun above(token: String) =
+        baseline?.let { round(it - baselines.getValue(token)).toInt() } ?: 0
+      val lineHeight = drawn.maxOf { (token, bitmap) -> above(token) + bitmap.height }
       val font =
         RcBitmapFontData(
           ids.next(),
@@ -405,9 +418,9 @@ private fun RcDocument.bitmapFonts(
               chars = token,
               bitmapId = bitmap.imageId,
               marginLeft = 0,
-              marginTop = 0,
+              marginTop = above(token).toShort(),
               marginRight = (advances.getValue(token) - bitmap.width).toShort(),
-              marginBottom = 0,
+              marginBottom = (lineHeight - above(token) - bitmap.height).toShort(),
               bitmapWidth = bitmap.width.toShort(),
               bitmapHeight = bitmap.height.toShort(),
             )
@@ -422,9 +435,10 @@ private fun RcDocument.bitmapFonts(
           advances,
           kerns,
           faceRuns,
-          drawn.maxOf { it.second.height },
-          baseline,
+          lineHeight,
+          baseline ?: Float.NaN,
           exact,
+          evenTops = drawn.map { (token, _) -> above(token) }.distinct().size <= 1,
         )
     }
 
@@ -452,6 +466,12 @@ private fun RcDocument.bitmapFonts(
         val height = font.height / display.density
         // One unwrapped line: a text its slot would wrap or cut keeps its own layout.
         if (width > (wrapWidth(plan.text.componentId) ?: documentWidth) + 0.5f) {
+          skipped += plan.text.componentId
+          continue
+        }
+        // A changing text drawn anchored is placed by its value's top; in a face whose glyphs stand
+        // above the line by different amounts that moves with the value, so it keeps its layout.
+        if (plan.dynamic != null && panX(plan.align) != -1f && !font.evenTops) {
           skipped += plan.text.componentId
           continue
         }
@@ -868,6 +888,12 @@ private class DrawnFont(
   val baseline: Float,
   /** Each glyph's advance to a fraction of a pixel, which [advances] rounds. */
   val exact: Map<String, Float>,
+  /**
+   * Whether every glyph has the same margin above it. The anchored draw measures a string's top
+   * from its glyphs' least margin, so a face whose glyphs stand above the line by different amounts
+   * would move up and down with the value it shows.
+   */
+  val evenTops: Boolean,
 ) {
   /**
    * What [advances] lose on average over [tokens] to their rounding: glyph spacing, which the

@@ -24,6 +24,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import java.io.File
@@ -125,6 +126,64 @@ class RcBitmapFontsRenderTest {
       diff < MAX_DIFF && diff < fallbackDiff / 3,
       "bitmap-font texts differ from TextLayout in $diff of pixels, the default family in $fallbackDiff",
     )
+  }
+
+  /**
+   * A face whose glyphs stand above its line (Roboto Flex's `Ǻ`, its acute over the ring) keeps
+   * them whole from a bitmap font: the glyphs are drawn taller and set on one baseline, and the
+   * text's slot is as tall as its ink, rather than cut at the line's top. The player clips the same
+   * text laid out as `CoreText` to its line, so this draws more of it than the text did.
+   */
+  @Test
+  fun glyphsTallerThanTheirLineAreDrawnWhole() {
+    val out = System.getProperty("rc.bitmapFonts.out")?.let(::File)?.apply { mkdirs() }
+    fun word(family: String) =
+      RcDocument(
+        RcHeader(RcVersion(1, 1, 0)),
+        listOf(
+          RcTextData(50, family),
+          RcTextData(42, "Ǻ Å A"),
+          RcRootLayout(-1),
+          RcLayoutContent(-2),
+          RcCoreText(
+            42,
+            listOf(
+              RcTextStyleProperty.IntValue(1, -7),
+              RcTextStyleProperty.IntValue(3, 0xffffffff.toInt()),
+              RcTextStyleProperty.FloatValue(5, f(64f)),
+              RcTextStyleProperty.IntValue(8, 50),
+            ),
+          ),
+          RcLayoutContent(-107),
+        ) + List(4) { RcNoArg(RcOpcodes.CONTAINER_END) },
+      )
+    val original = word("Roboto Flex")
+    val converted =
+      original.coreTextAsBitmapFonts(
+        RcTargetProfiles.ANDROIDX,
+        setOf("Roboto Flex"),
+        rasterizer,
+        RcDisplay(DENSITY),
+      )
+    assertTrue(converted.texts.isNotEmpty(), "skipped ${converted.skipped}")
+    val before = render(original)
+    val after = render(converted.document)
+    val fellBack = render(word("serif"))
+    out?.let { File(it, "tall-glyphs.png").writeBytes(strip(original, before, after, fellBack)) }
+    // Cut at the line, the accent and ring are missing: the glyphs' ink is that much shorter.
+    assertTrue(
+      inkHeight(after) >= inkHeight(before) + MIN_OVERFLOW,
+      "ink ${inkHeight(after)} rows tall from a bitmap font, ${inkHeight(before)} as CoreText",
+    )
+  }
+
+  /** How many rows [bitmap]'s bright ink spans, top to bottom. */
+  private fun inkHeight(bitmap: Bitmap): Int {
+    val rows =
+      (0 until bitmap.height).filter { y ->
+        (0 until bitmap.width).any { x -> Color.getR(bitmap.getColor(x, y)) > 128 }
+      }
+    return if (rows.isEmpty()) 0 else rows.last() - rows.first() + 1
   }
 
   @Test
@@ -278,6 +337,8 @@ class RcBitmapFontsRenderTest {
     /** Pixels a run's ends may lie apart, and half that for its middle. */
     const val RUN_TOLERANCE = 8f
     const val SHIFT = 3
+    /** Rows of `Ǻ` above Roboto Flex's line at 64px, density 2, less a margin. */
+    const val MIN_OVERFLOW = 10
     const val MAX_DIFF = 0.06
     const val CORPUS = "../../scripts/rc-catalog-corpus/corpus"
     const val FONTS = "../../rc-player/wasm/dist-assets/fonts"
