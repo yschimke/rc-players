@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.28.0](https://github.com/yschimke/rc-players/compare/v2.27.0...v2.28.0) (2026-11-07)
+
+
+### Features
+
+* OkHttp as the Ktor engine on Android and the JVM, and an injectable client for document images ([#825](https://github.com/yschimke/rc-players/issues/825)) ([e64d9f0](https://github.com/yschimke/rc-players/commit/e64d9f0e12496a91ebeef548610cd45899c8d1bf))
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.41.0 ([#823](https://github.com/yschimke/rc-players/issues/823)) ([e8412bf](https://github.com/yschimke/rc-players/commit/e8412bf782431b985adc2fbc09325d1723ec8914))
+
 ## [2.27.0](https://github.com/yschimke/rc-players/compare/v2.26.0...v2.27.0) (2026-11-07)
 
 
