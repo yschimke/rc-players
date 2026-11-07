@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.29.0](https://github.com/yschimke/rc-players/compare/v2.28.0...v2.29.0) (2026-11-07)
+
+
+### Features
+
+* decode, play and author Remote Compose 2D vertex meshes ([#830](https://github.com/yschimke/rc-players/issues/830)) ([b7f5089](https://github.com/yschimke/rc-players/commit/b7f508930957273ec2e66a8cc625f3625a3fbacd))
+
 ## [2.28.0](https://github.com/yschimke/rc-players/compare/v2.27.0...v2.28.0) (2026-11-07)
 
 
