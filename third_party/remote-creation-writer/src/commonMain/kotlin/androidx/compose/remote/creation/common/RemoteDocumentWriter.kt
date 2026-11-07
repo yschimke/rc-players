@@ -18,6 +18,7 @@ public class RemoteDocumentWriter(
   private val documentProfiles = profiles
   private var customComponentsUsed = false
   private var drawToBitmapUsed = false
+  private var shaderUsed = false
   private val bodyBuffer = RemoteWireBuffer()
   private var buffer = bodyBuffer
   private val declarationBuffer = RemoteWireBuffer()
@@ -653,6 +654,12 @@ public class RemoteDocumentWriter(
     if (drawToBitmapUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
       profiles = profiles or ProfileAndroidx
     }
+    // LOCAL PATCH (rc-players): likewise `ShaderData`, which remote-core reads only under the
+    // AndroidX profile (`createMapV7_Androidx`; the widgets maps have no runtime shaders).
+    // (A widgets-profile document can't hold one: `addShader` refuses it there.)
+    if (shaderUsed && (profiles and ProfileAndroidx) == 0) {
+      profiles = profiles or ProfileAndroidx
+    }
     val header =
       if (profiles != documentProfiles || customComponentsUsed) {
         val previous = buffer
@@ -1177,6 +1184,54 @@ public class RemoteDocumentWriter(
       id
     }
 
+  override fun addShader(
+    sourceId: Int,
+    floatUniforms: Map<String, FloatArray>,
+    intUniforms: Map<String, IntArray>,
+    bitmapUniforms: Map<String, Int>,
+  ): Int {
+    require(floatUniforms.size <= MaxShaderUniforms) { "At most $MaxShaderUniforms float uniforms" }
+    require(intUniforms.size <= MaxShaderUniforms) { "At most $MaxShaderUniforms int uniforms" }
+    require(bitmapUniforms.size <= MaxShaderUniforms) {
+      "At most $MaxShaderUniforms bitmap uniforms"
+    }
+    floatUniforms.forEach { (name, values) ->
+      require(values.size in 1..MaxShaderUniformValues) {
+        "Float uniform '$name' has ${values.size} values"
+      }
+    }
+    intUniforms.forEach { (name, values) ->
+      require(values.size in 1..MaxShaderIntUniformValues) {
+        "Int uniform '$name' has ${values.size} values"
+      }
+    }
+    check(documentProfiles and ProfileWidgets == 0 || documentProfiles and ProfileAndroidx != 0) {
+      "A widgets-profile document can't hold a runtime shader: remote-core's widgets operation maps " +
+        "have no ShaderData, and a widget host can't run one. Draw a fallback instead."
+    }
+    shaderUsed = true
+    val id = nextDataId++
+    operation(DataShader)
+    buffer.writeInt(id)
+    buffer.writeInt(sourceId)
+    buffer.writeInt(floatUniforms.size or (intUniforms.size shl 8) or (bitmapUniforms.size shl 16))
+    floatUniforms.forEach { (name, values) ->
+      buffer.writeUtf8(name)
+      buffer.writeInt(values.size)
+      values.forEach(buffer::writeFloat)
+    }
+    intUniforms.forEach { (name, values) ->
+      buffer.writeUtf8(name)
+      buffer.writeInt(values.size)
+      values.forEach(buffer::writeInt)
+    }
+    bitmapUniforms.forEach { (name, bitmapId) ->
+      buffer.writeUtf8(name)
+      buffer.writeInt(bitmapId)
+    }
+    return id
+  }
+
   override fun applyPaint(paint: PaintBundleData) {
     val values = paint.toIntArray()
     operation(PaintValues)
@@ -1678,6 +1733,10 @@ public class RemoteDocumentWriter(
     private const val DrawOval = 56
     private const val DrawTextOnCircleOp = 57
     private const val DataPath = 123
+    private const val DataShader = 45
+    private const val MaxShaderUniforms = 255
+    private const val MaxShaderUniformValues = 16
+    private const val MaxShaderIntUniformValues = 4
     private const val DrawPath = 124
     private const val DrawBitmap = 44
     private const val ColorTheme = 196
@@ -1725,6 +1784,7 @@ public class RemoteDocumentWriter(
         DataFloat,
         AnimatedFloat,
         DataPath,
+        DataShader,
         ColorExpression,
         TextFromFloat,
         TextMerge,
