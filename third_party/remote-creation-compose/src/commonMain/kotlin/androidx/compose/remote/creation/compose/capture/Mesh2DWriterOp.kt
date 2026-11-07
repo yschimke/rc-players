@@ -21,6 +21,7 @@ package androidx.compose.remote.creation.compose.capture
 
 import androidx.compose.remote.creation.common.Mesh2D
 import androidx.compose.remote.creation.common.RemoteWriter
+import androidx.compose.remote.creation.compose.state.MeshExpressionContext
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
 
@@ -28,8 +29,9 @@ import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
  * Writes one parametric mesh and draws it at once: `AddMesh2D` then `DrawMesh2D`, so the mesh id
  * the writer allocates never has to escape the recording.
  *
- * Each channel is written as the raw RPN of its [RemoteFloat] — never hoisted into a variable of
- * its own — because the `u` / `v` it reads only exist while the player expands the mesh.
+ * Each channel is lowered by [MeshExpressionContext]: whatever reads `u` / `v` stays inline in the
+ * channel — never hoisted into a float of its own, which the player would evaluate without them —
+ * and the rest becomes references to ordinary floats.
  */
 internal data class DrawMesh2DWriterOp(
     val layout: Int,
@@ -43,7 +45,8 @@ internal data class DrawMesh2DWriterOp(
     val antialiasWidth: RemoteFloat?,
 ) : WriterOp {
     override fun write(writer: RemoteWriter, creationState: RemoteComposeCreationState) {
-        val arrays = channels.map { channel -> channel?.let { meshExpression(it, creationState) } }
+        val lowering = MeshExpressionContext(creationState)
+        val arrays = channels.map { channel -> channel?.let { meshExpression(it, lowering) } }
         val meshId =
             writer.addMesh2D(
                 layout = layout,
@@ -66,18 +69,12 @@ internal data class DrawMesh2DWriterOp(
         )
     }
 
-    private fun meshExpression(
-        value: RemoteFloat,
-        creationState: RemoteComposeCreationState,
-    ): FloatArray {
-        value.constantValueOrNull?.let {
-            return floatArrayOf(it)
-        }
-        val array = value.arrayForCreationState(creationState)
+    private fun meshExpression(value: RemoteFloat, lowering: MeshExpressionContext): FloatArray {
+        val array = lowering.lower(value)
         require(array.size <= Mesh2D.MAX_EXPRESSION_SIZE) {
             "A mesh channel compiles to ${array.size} expression words; AddMesh2D allows " +
-                "${Mesh2D.MAX_EXPRESSION_SIZE}. Split the part that does not depend on u or v " +
-                "into a RemoteFloat of its own with createReference()."
+                "${Mesh2D.MAX_EXPRESSION_SIZE}. Everything that does not read u or v is already a " +
+                "reference, so the part that does has to be simpler."
         }
         return array
     }

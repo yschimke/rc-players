@@ -6712,7 +6712,8 @@ private fun DrawScope.applyMatrixFromMesh2D(operation: RcMatrixFromMesh2D, state
  * colours takes the paint's colour at every vertex (white under an image, so the texel shows
  * unchanged), and an untextured mesh passes its positions, which nothing samples. A textured mesh
  * maps its normalised uv onto the bitmap's pixels and modulates the texel by the vertex colour.
- * [RcDrawMesh2D.blend] is not consulted, exactly as the View player ignores it.
+ * [RcDrawMesh2D.BLEND_COLORS_ONLY] ignores the image and lets the vertex colours through, as
+ * AndroidX's `ComposePaintContext.drawMesh` does.
  */
 private fun DrawScope.drawMesh2D(
   operation: RcDrawMesh2D,
@@ -6724,7 +6725,11 @@ private fun DrawScope.drawMesh2D(
   val count = mesh.vertexCount
   if (count == 0 || mesh.indices.isEmpty()) return
   val image =
-    if (operation.imageId != RcDrawMesh2D.NO_IMAGE && mesh.uv.size == mesh.positions.size) {
+    if (
+      operation.blend != RcDrawMesh2D.BLEND_COLORS_ONLY &&
+        operation.imageId != RcDrawMesh2D.NO_IMAGE &&
+        mesh.uv.size == mesh.positions.size
+    ) {
       images[state.drawId(operation.imageId)]
     } else {
       null

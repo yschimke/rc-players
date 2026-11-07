@@ -4,6 +4,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcplayer.protocol.RcAddMesh2D
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -92,6 +93,37 @@ class RcMesh2DRenderTest {
     assertEquals(0, pixels(5, 5))
   }
 
+  @Test
+  fun aTexturedMeshSamplesItsImageUnlessColoursOnly() {
+    val blue =
+      RcBitmapData(
+        imageId = 80,
+        width = 1,
+        height = 1,
+        type = RcBitmapData.TYPE_RAW8888,
+        encoding = RcBitmapData.ENCODING_INLINE,
+        data = byteArrayOf(0, 0, 0xff.toByte(), 0xff.toByte()),
+      )
+    val textured =
+      render(
+        RcPaintData(listOf(4, RED)),
+        parametricSquare(),
+        RcDrawMesh2D(71, RcDrawMesh2D.BLEND_MODULATE, 80),
+        prefix = listOf(blue),
+      )
+    assertEquals(BLUE, textured(30, 30))
+    // As `ComposePaintContext.drawMesh`: colours only ignores the image, leaving the paint's
+    // colour.
+    val coloursOnly =
+      render(
+        RcPaintData(listOf(4, RED)),
+        parametricSquare(),
+        RcDrawMesh2D(71, RcDrawMesh2D.BLEND_COLORS_ONLY, 80),
+        prefix = listOf(blue),
+      )
+    assertEquals(RED, coloursOnly(30, 30))
+  }
+
   /** A 3x3 parametric grid spanning (0, 0) to (60, 60): x = u * 60, y = v * 60. */
   private fun parametricSquare(): RcAddMesh2D =
     RcAddMesh2D(
@@ -113,10 +145,13 @@ class RcMesh2DRenderTest {
     )
 
   @OptIn(ExperimentalComposeUiApi::class)
-  private fun render(vararg canvas: RcOperation): (Int, Int) -> Int {
+  private fun render(
+    vararg canvas: RcOperation,
+    prefix: List<RcOperation> = emptyList(),
+  ): (Int, Int) -> Int {
     val scene =
       ImageComposeScene(width = SIZE, height = SIZE, density = Density(1f)) {
-        RcComposePlayer(document(canvas.toList()))
+        RcComposePlayer(document(prefix, canvas.toList()))
       }
     try {
       val bitmap = Bitmap().apply { allocN32Pixels(SIZE, SIZE) }
@@ -127,18 +162,21 @@ class RcMesh2DRenderTest {
     }
   }
 
-  private fun document(canvas: List<RcOperation>): RcDocument {
+  private fun document(prefix: List<RcOperation>, canvas: List<RcOperation>): RcDocument {
     val end = RcNoArg(RcOpcodes.CONTAINER_END)
     return RcDocument(
       RcHeader(RcVersion(1, 0, 0), legacyWidth = SIZE, legacyHeight = SIZE, modern = false),
-      listOf(
-        RcRootLayout(1),
-        RcLayoutContent(2),
-        RcCanvasLayout(5, 50),
-        RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(SIZE.toFloat())),
-        RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(SIZE.toFloat())),
-        RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
-      ) + canvas + listOf(end, end, end, end),
+      prefix +
+        listOf(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcCanvasLayout(5, 50),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(SIZE.toFloat())),
+          RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(SIZE.toFloat())),
+          RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
+        ) +
+        canvas +
+        listOf(end, end, end, end),
     )
   }
 
@@ -148,6 +186,7 @@ class RcMesh2DRenderTest {
     const val SIZE = 80
     const val RED = 0xffff0000.toInt()
     const val GREEN = 0xff00ff00.toInt()
+    const val BLUE = 0xff0000ff.toInt()
     const val VAR1 = 0x310000 + 70
     const val MUL = 0x310000 + 3
   }
