@@ -110,6 +110,22 @@ Local deltas over that snapshot (filed upstream unless noted):
   refused, because the constant is re-applied from the document every frame and has no override.
   Not yet filed upstream.
 
+- **Variable `spacedBy` and rounded-clip radii** (`src/core/operations/layout/managers/*Layout.ts`,
+  `LayoutManager.ts`, `src/core/operations/layout/modifiers/ModifierOperations.ts`). Row, Column,
+  Flow and the collapsible layouts read `spacedBy`, and `RoundedClipRectModifier` its four radii, with
+  `readFloat`, and never resolved a NaN-boxed variable id. Compose writes dp spacing and corners as
+  expressions over the density, so every child of such a Row or Column was placed at NaN: the
+  container had no size, no background and no touch area, and no corner was rounded. They now read
+  the bits (`readNanIdBits`) and resolve a variable through the context, as the dimension modifiers
+  do. Covered by `src/variable-bits.test.ts`. Not yet filed upstream.
+- **A click's definitions load with the document** (`src/core/CoreDocument.ts`). The data pass skips an
+  event modifier's children, because this player's actions do their work in `apply()`. That also
+  skipped the definitions among them: Compose writes an action's name once, as a `DATA_TEXT` inside
+  the first click that uses it, and a later button names it by id, so that button's action had no
+  name (and fired nothing) until the first button had been tapped. Definitions (texts, constants,
+  named variables, expressions; a whitelist) now load in the data pass; actions still run on input
+  only. Covered by `src/variable-bits.test.ts`. Not yet filed upstream.
+
 - **Document-fetch HTTP errors** (`src/web/main.ts`). Reject failed HTTP responses before reading
   their bodies or replacing the current document. The error reports the HTTP status without
   copying potentially sensitive request URLs. Covered by `src/load-url.test.ts`. This local fix

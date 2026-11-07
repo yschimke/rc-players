@@ -17,7 +17,7 @@ import { TimeVariables } from './TimeVariables';
 import { BackgroundModifier, ClickModifier, MultiClickModifier, TouchDownModifier, TouchUpModifier,
          TouchCancelModifier } from './operations/layout/modifiers/ModifierOperations';
 import { LoopOperation } from './operations/layout/LoopOperation';
-import { Theme, TextData, BitmapData, FloatConstant, RootContentBehavior } from './operations/DataOperations';
+import { Theme, TextData, BitmapData, FloatConstant, ColorConstant, NamedVariable, RootContentBehavior } from './operations/DataOperations';
 import { LoomManager } from './operations/loom/LoomManager';
 import { RemapContext } from './operations/loom/RemapContext';
 import { ExpansionContext, type ExpansionDocument, type ArrayAccess } from './operations/loom/ExpansionContext';
@@ -28,6 +28,11 @@ import type { ByteSpan } from './RemoteComposeBuffer';
 import { ColorTheme } from './operations/ColorTheme';
 import { IntegerConstant } from './operations/IntegerConstant';
 import { LongConstant } from './operations/LongConstant';
+import { BooleanConstant } from './operations/BooleanConstant';
+import { FloatExpression } from './operations/FloatExpression';
+import { IntegerExpression } from './operations/IntegerExpression';
+import { TextFromFloat } from './operations/TextFromFloat';
+import { TextMerge } from './operations/TextMerge';
 import { DataListFloat } from './operations/DataListFloat';
 import type { TouchListener } from './TouchListener';
 
@@ -595,6 +600,16 @@ export class CoreDocument implements ExpansionDocument {
                 // here too, but its actions' apply() is empty (they run in runAction());
                 // ours do their work in apply(), so descending would fire every click action
                 // at load, leaving a "last tapped" variable at the last button's value.
+                // LOCAL (rc-players): its *definitions* still load now, as the reference's do.
+                // Compose writes an action's name once, as a DATA_TEXT inside the first click
+                // that uses it, and later clicks name it by id: skipped, every other button's
+                // action had no name until the first one had been tapped.
+                for (const child of (op as any).getList?.() ?? []) {
+                    if (CoreDocument.isDefinition(child)) {
+                        context.incrementOpCount(child);
+                        child.apply(context);
+                    }
+                }
                 continue;
             }
             if (this.isContainer(op)) {
@@ -603,6 +618,18 @@ export class CoreDocument implements ExpansionDocument {
                 op.apply(context);
             }
         }
+    }
+
+    /**
+     * LOCAL (rc-players): an operation that only defines data (a text, a constant, a named
+     * variable, an expression), so applying it at load is what the reference does, and never runs
+     * an action. A whitelist, so an operation with side effects can't start running at load.
+     */
+    private static isDefinition(op: Operation): boolean {
+        return op instanceof TextData || op instanceof FloatConstant || op instanceof ColorConstant
+            || op instanceof IntegerConstant || op instanceof LongConstant || op instanceof BooleanConstant
+            || op instanceof NamedVariable || op instanceof FloatExpression || op instanceof IntegerExpression
+            || op instanceof TextFromFloat || op instanceof TextMerge;
     }
 
     private static isEventModifier(op: Operation): boolean {

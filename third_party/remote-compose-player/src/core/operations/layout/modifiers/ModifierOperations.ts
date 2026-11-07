@@ -507,13 +507,24 @@ export class RoundedClipRectModifier extends Operation {
         const w = this.mLayoutW;
         const h = this.mLayoutH;
         if (w > 0 && h > 0) {
-            pc.roundedClipRect(w, h, this.mTopStart, this.mTopEnd, this.mBottomStart, this.mBottomEnd);
+            // LOCAL (rc-players): a radius may be a NaN-boxed variable id (Compose writes dp radii as an
+            // expression over the density); resolve it, as the dimension modifiers do. Used raw it was
+            // NaN, and no corner was rounded.
+            const r = (bits: number | undefined, raw: number) =>
+                bits !== undefined && isNaNBits(bits) ? context.getFloat(idFromBits(bits)) : raw;
+            pc.roundedClipRect(w, h, r(this.mBits?.[0], this.mTopStart), r(this.mBits?.[1], this.mTopEnd),
+                r(this.mBits?.[2], this.mBottomStart), r(this.mBits?.[3], this.mBottomEnd));
         }
     }
+    /** LOCAL (rc-players): the radii's raw bits, as read from the wire. */
+    mBits?: number[];
     deepToString(indent: string): string { return `${indent}RoundedClipRectModifier`; }
     static read(buffer: WireBuffer, operations: Operation[]): void {
-        operations.push(new RoundedClipRectModifier(
-            buffer.readFloat(), buffer.readFloat(), buffer.readFloat(), buffer.readFloat()));
+        // LOCAL (rc-players): bits, never readFloat, which can lose a NaN-boxed id.
+        const bits = [buffer.readNanIdBits(), buffer.readNanIdBits(), buffer.readNanIdBits(), buffer.readNanIdBits()];
+        const op = new RoundedClipRectModifier(intBitsToFloat(bits[0]), intBitsToFloat(bits[1]), intBitsToFloat(bits[2]), intBitsToFloat(bits[3]));
+        op.mBits = bits;
+        operations.push(op);
     }
 }
 
