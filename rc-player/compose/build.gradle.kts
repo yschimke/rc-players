@@ -129,6 +129,8 @@ kotlin {
       @Suppress("DEPRECATION") implementation(compose.animation)
       implementation(libs.coil.compose)
       implementation(libs.coil.network.ktor)
+      // `rememberCoilRcImageLoader(httpClient)` takes the app's Ktor client, so its type is public.
+      api(libs.ktor.client.core)
     }
     commonTest.dependencies {
       implementation(kotlin("test"))
@@ -137,14 +139,22 @@ kotlin {
       // consumer's POM.
       implementation(libs.kotlinx.coroutines.test)
     }
+    // The Ktor engine behind coil-network-ktor3, which fetches a document's remote images through
+    // the app's `SingletonImageLoader`. Its `HttpClient()` takes whichever engine the classpath
+    // offers, so the player declares exactly one per platform, the platform's own: OkHttp on
+    // Android and the JVM (most apps there already ship it, and a second engine beside it makes
+    // the choice arbitrary for the app's own Ktor clients too), Darwin on Apple, the browser's
+    // fetch on Wasm. OkHttp 5's Android artifact needs compileSdk 37, which the player already
+    // does for Compose 1.12.
+    //
     // `RcGoogleFontsTypefaceLoader`'s on-device path: Compose's GMS downloadable fonts. The shared
     // Google Fonts cache is read directly (`RcSharedFontCache`) rather than through
-    // `data-fonts-google`, whose okhttp 5 would force API 37 on every consumer.
+    // `data-fonts-google`.
     androidMain.dependencies {
       implementation(libs.androidx.compose.ui.text.google.fonts.cmp)
-      implementation(libs.ktor.client.cio)
+      implementation(libs.ktor.client.okhttp)
     }
-    jvmMain.dependencies { implementation(libs.ktor.client.cio) }
+    jvmMain.dependencies { implementation(libs.ktor.client.okhttp) }
     iosMain.dependencies { implementation(libs.ktor.client.darwin) }
     macosMain.dependencies { implementation(libs.ktor.client.darwin) }
     wasmJsMain.dependencies { implementation(libs.ktor.client.js) }
@@ -157,6 +167,8 @@ kotlin {
     jvmTest.dependencies {
       @Suppress("DEPRECATION") implementation(compose.desktop.currentOs)
       implementation(libs.jetbrains.compose.ui.test)
+      // `RcHttpEngineTest`: a document's image fetched through the app's injected Ktor client.
+      implementation(libs.ktor.client.mock)
       // Test-only: renders `rc-player-edit`'s rewrites beside the documents they came from, so a
       // rewrite that claims to draw the same thing is held to it pixel for pixel.
       implementation(project(":rc-player-edit"))
