@@ -3,6 +3,7 @@ package ee.schimke.composeai.rccreation.bridge
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.core.operations.ShaderData
+import androidx.compose.remote.creation.common.RemoteDocumentWriter
 import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
 import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocument
 import androidx.compose.remote.creation.compose.layout.RemoteBox
@@ -76,6 +77,19 @@ class RuntimeShaderBrushTest {
   fun androidxRemoteCoreReadsTheShader() {
     val document = CoreDocument()
     document.initFromBuffer(RemoteComposeBuffer.fromInputStream(ByteArrayInputStream(capture())))
+    assertNotNull(document.operations.filterIsInstance<ShaderData>().singleOrNull())
+  }
+
+  /** An AndroidX-profile document keeps its profile and reads back the same way. */
+  @Test
+  fun anAndroidxProfileDocumentReadsTheShader() {
+    val writer = RemoteDocumentWriter(100, 100, profiles = 0x200)
+    writer.addShader(writer.addText(Source), floatUniforms = mapOf("time" to floatArrayOf(0f)))
+    writer.root {}
+    val document = CoreDocument()
+    document.initFromBuffer(
+      RemoteComposeBuffer.fromInputStream(ByteArrayInputStream(writer.encodeToByteArray())),
+    )
     assertNotNull(document.operations.filterIsInstance<ShaderData>().singleOrNull())
   }
 

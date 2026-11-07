@@ -72,6 +72,12 @@ class ShaderDataWriteTest {
     }
   }
 
+  @Test
+  fun aWidgetsProfileDocumentRefusesAShader() {
+    val writer = RemoteDocumentWriter(100, 100, profiles = 0x100)
+    assertFailsWith<IllegalStateException> { writer.addShader(writer.addText("x")) }
+  }
+
   private fun bytes(vararg values: Int) = ByteArray(values.size) { values[it].toByte() }
 
   private fun int(value: Int) =

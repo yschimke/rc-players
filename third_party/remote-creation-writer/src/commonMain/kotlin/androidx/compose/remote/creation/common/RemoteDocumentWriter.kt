@@ -656,7 +656,8 @@ public class RemoteDocumentWriter(
     }
     // LOCAL PATCH (rc-players): likewise `ShaderData`, which remote-core reads only under the
     // AndroidX profile (`createMapV7_Androidx`; the widgets maps have no runtime shaders).
-    if (shaderUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
+    // (A widgets-profile document can't hold one: `addShader` refuses it there.)
+    if (shaderUsed && (profiles and ProfileAndroidx) == 0) {
       profiles = profiles or ProfileAndroidx
     }
     val header =
@@ -1203,6 +1204,10 @@ public class RemoteDocumentWriter(
       require(values.size in 1..MaxShaderIntUniformValues) {
         "Int uniform '$name' has ${values.size} values"
       }
+    }
+    check(documentProfiles and ProfileWidgets == 0 || documentProfiles and ProfileAndroidx != 0) {
+      "A widgets-profile document can't hold a runtime shader: remote-core's widgets operation maps " +
+        "have no ShaderData, and a widget host can't run one. Draw a fallback instead."
     }
     shaderUsed = true
     val id = nextDataId++
