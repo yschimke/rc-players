@@ -274,6 +274,68 @@ public interface RemoteWriter {
     bitmapUniforms: Map<String, Int> = emptyMap(),
   ): Int
 
+  /**
+   * LOCAL PATCH (rc-players): writes a parametric `AddMesh2D` (opcode 104, `TYPE_EXPRESSION`) and
+   * returns its id, as AndroidX's `RemoteComposeWriter.addMesh2D` does.
+   *
+   * Every channel is an RPN float expression over the mesh's domain parameters `u` and `v` (`VAR1`
+   * / `VAR2`, see [Mesh2D.U] and [Mesh2D.V]), at most 32 words, or null when absent: an absent
+   * position takes the [layout]'s default geometry (the unit square for a grid), absent uv is the
+   * identity mapping and with no colour channel at all the mesh has no vertex colours. Channels may
+   * reference any other float id, `animationTime` included, so a mesh animates for free.
+   *
+   * With [antialiasWidth] the mesh grows an alpha-fading skirt that wide (`FLAG_ANTIALIAS`), which
+   * needs at least one colour channel.
+   *
+   * The 2D mesh operations are experimental: the document's header is given the experimental
+   * profile (and the AndroidX one, unless it names widgets), as remote-core reads them only there.
+   */
+  public fun addMesh2D(
+    layout: Int,
+    uCount: Int,
+    vCount: Int,
+    x: FloatArray? = null,
+    y: FloatArray? = null,
+    texU: FloatArray? = null,
+    texV: FloatArray? = null,
+    alpha: FloatArray? = null,
+    red: FloatArray? = null,
+    green: FloatArray? = null,
+    blue: FloatArray? = null,
+    width: FloatArray? = null,
+    aux: Int = 0,
+    antialiasWidth: Float? = null,
+  ): Int
+
+  /**
+   * LOCAL PATCH (rc-players): writes a literal `AddMesh2D` (`TYPE_VALUES`, or `TYPE_F16_VALUES`
+   * with [halfFloat]): a triangle list of 16-bit [indices] over x,y [vertices], with optional u,v
+   * pairs [uv] (normalised) and packed ARGB [colors] per vertex. [layout], [uCount] and [vCount]
+   * describe the grid, if the vertices form one, for `MatrixFromMesh2D`.
+   */
+  public fun addMesh2DValues(
+    indices: IntArray,
+    vertices: FloatArray,
+    uv: FloatArray? = null,
+    colors: IntArray? = null,
+    halfFloat: Boolean = false,
+    layout: Int = Mesh2D.LAYOUT_GRID,
+    uCount: Int = 0,
+    vCount: Int = 0,
+  ): Int
+
+  /**
+   * LOCAL PATCH (rc-players): writes `DrawMesh2D` (opcode 105), drawing [meshId] with the current
+   * paint, textured by the bitmap [imageId] (0 for none).
+   */
+  public fun drawMesh2D(meshId: Int, imageId: Int = 0, blend: Int = Mesh2D.BLEND_MODULATE)
+
+  /**
+   * LOCAL PATCH (rc-players): writes `MatrixFromMesh2D` (opcode 106), multiplying the mesh's local
+   * frame at ([u], [v]) into the canvas matrix. [u] and [v] may be float ids.
+   */
+  public fun matrixFromMesh2D(meshId: Int, u: Float, v: Float, flags: Int = Mesh2D.MATRIX_FULL)
+
   public fun applyPaint(paint: PaintBundleData)
 
   /** Returns and clears whether the next paint must be emitted as a complete state. */

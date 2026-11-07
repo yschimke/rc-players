@@ -192,3 +192,70 @@ public object IntegerExpressionEvaluator {
   public const val I_VAR1: Int = OFFSET + 24
   public const val I_VAR2: Int = OFFSET + 25
 }
+
+/**
+ * LOCAL PATCH (rc-players): the constants of AndroidX's 2D mesh operations (`AddMesh2D`,
+ * `DrawMesh2D`, `MatrixFromMesh2D`, `Mesh2DGenerator`), for [RemoteWriter.addMesh2D].
+ */
+public object Mesh2D {
+  /** The first domain parameter, 0..1, in a mesh channel expression (`VAR1`). */
+  public val U: Float = AnimatedFloatExpression.VAR1
+
+  /** The second domain parameter, 0..1, in a mesh channel expression (`VAR2`). */
+  public val V: Float = AnimatedFloatExpression.VAR2
+
+  /** u across, v down; defaults to the unit square. */
+  public const val LAYOUT_GRID: Int = 0
+
+  /** u is an angle over a full turn, v the radius; defaults to the unit disc. */
+  public const val LAYOUT_POLAR: Int = 1
+
+  /** u is an angle, v crosses the band from radius 0.5 to 1. */
+  public const val LAYOUT_RING: Int = 2
+
+  /** u along, v across. */
+  public const val LAYOUT_STRIP: Int = 3
+
+  /** u is an angle about a shared centre vertex. */
+  public const val LAYOUT_FAN: Int = 4
+
+  /** u is arclength along the path in `aux`, v across. */
+  public const val LAYOUT_PATH_STRIP: Int = 5
+
+  public const val TYPE_EXPRESSION: Int = 0
+  public const val TYPE_VALUES: Int = 1
+  public const val TYPE_F16_VALUES: Int = 2
+
+  /** `AddMesh2D.FLAG_ANTIALIAS`. */
+  public const val FLAG_ANTIALIAS: Int = 1 shl 8
+
+  /** `DrawMesh2D.BLEND_COLORS_ONLY`. */
+  public const val BLEND_COLORS_ONLY: Int = 0
+
+  /** `DrawMesh2D.BLEND_MODULATE`: texel times vertex colour. */
+  public const val BLEND_MODULATE: Int = 1
+
+  /** `MatrixFromMesh2D.FLAG_ORIGIN`. */
+  public const val MATRIX_ORIGIN: Int = 0
+
+  /** `MatrixFromMesh2D.FLAG_ROTATION`. */
+  public const val MATRIX_ROTATION: Int = 1
+
+  /** `MatrixFromMesh2D.FLAG_SCALE`. */
+  public const val MATRIX_SCALE: Int = 2
+
+  /** `MatrixFromMesh2D.FLAG_FULL`. */
+  public const val MATRIX_FULL: Int = 3
+
+  /** `Limits.MAX_EXPRESSION_SIZE`: the longest a channel expression may be. */
+  public const val MAX_EXPRESSION_SIZE: Int = 32
+
+  /** `Limits.MAX_MESH_2D_GRID`: the most `uCount * vCount` a parametric mesh may have. */
+  public const val MAX_GRID: Int = 16_384
+
+  /** `Limits.MAX_MESH_2D_VERTICES`. */
+  public const val MAX_VERTICES: Int = 16_384
+
+  /** `Limits.MAX_MESH_2D_INDICES`. */
+  public const val MAX_INDICES: Int = 49_152
+}

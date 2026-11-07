@@ -19,6 +19,7 @@ public class RemoteDocumentWriter(
   private var customComponentsUsed = false
   private var drawToBitmapUsed = false
   private var shaderUsed = false
+  private var mesh2DUsed = false
   private val bodyBuffer = RemoteWireBuffer()
   private var buffer = bodyBuffer
   private val declarationBuffer = RemoteWireBuffer()
@@ -660,6 +661,15 @@ public class RemoteDocumentWriter(
     if (shaderUsed && (profiles and ProfileAndroidx) == 0) {
       profiles = profiles or ProfileAndroidx
     }
+    // LOCAL PATCH (rc-players): the 2D mesh operations are read only by remote-core's experimental
+    // V7 maps (`createMapV7_Androidx_Experimental` / `_Widgets_Experimental`), so a document that
+    // carries one names the experimental profile, and AndroidX's when it names neither base.
+    if (mesh2DUsed) {
+      if ((profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
+        profiles = profiles or ProfileAndroidx
+      }
+      profiles = profiles or ProfileExperimental
+    }
     val header =
       if (profiles != documentProfiles || customComponentsUsed) {
         val previous = buffer
@@ -1232,6 +1242,119 @@ public class RemoteDocumentWriter(
     return id
   }
 
+  override fun addMesh2D(
+    layout: Int,
+    uCount: Int,
+    vCount: Int,
+    x: FloatArray?,
+    y: FloatArray?,
+    texU: FloatArray?,
+    texV: FloatArray?,
+    alpha: FloatArray?,
+    red: FloatArray?,
+    green: FloatArray?,
+    blue: FloatArray?,
+    width: FloatArray?,
+    aux: Int,
+    antialiasWidth: Float?,
+  ): Int {
+    require(uCount >= 1 && vCount >= 1) { "Mesh2D needs at least one sample along u and v" }
+    require(uCount.toLong() * vCount.toLong() <= Mesh2D.MAX_GRID) {
+      "Mesh2D grid ${uCount}x$vCount exceeds MAX_MESH_2D_GRID (${Mesh2D.MAX_GRID})"
+    }
+    val groups = arrayOf(x, y, texU, texV, alpha, red, green, blue, width)
+    groups.forEach { group ->
+      require(group == null || group.size <= Mesh2D.MAX_EXPRESSION_SIZE) {
+        "Mesh2D expression has ${group!!.size} words; at most ${Mesh2D.MAX_EXPRESSION_SIZE}"
+      }
+    }
+    if (antialiasWidth != null) {
+      require(listOf(alpha, red, green, blue).any { it != null && it.isNotEmpty() }) {
+        "Mesh2D antialiasing needs vertex colours; set a colour channel"
+      }
+      require(antialiasWidth.isNaN() || (antialiasWidth >= 0f && antialiasWidth.isFinite())) {
+        "Mesh2D antialias width must be finite and not negative: $antialiasWidth"
+      }
+    }
+    mesh2DUsed = true
+    val id = nextDataId++
+    operation(AddMesh2DOp)
+    buffer.writeInt(id)
+    buffer.writeInt(Mesh2D.TYPE_EXPRESSION)
+    buffer.writeInt(layout)
+    buffer.writeInt(uCount)
+    buffer.writeInt(vCount)
+    buffer.writeInt(if (antialiasWidth != null) Mesh2D.FLAG_ANTIALIAS else 0)
+    buffer.writeInt(aux)
+    groups.forEach { group ->
+      // An absent channel is a zero length, not a missing field.
+      buffer.writeInt(group?.size ?: 0)
+      group?.forEach(buffer::writeFloat)
+    }
+    if (antialiasWidth != null) buffer.writeFloat(antialiasWidth)
+    return id
+  }
+
+  override fun addMesh2DValues(
+    indices: IntArray,
+    vertices: FloatArray,
+    uv: FloatArray?,
+    colors: IntArray?,
+    halfFloat: Boolean,
+    layout: Int,
+    uCount: Int,
+    vCount: Int,
+  ): Int {
+    require(vertices.size / 2 <= Mesh2D.MAX_VERTICES) { "Mesh2D has too many vertices" }
+    require(indices.size <= Mesh2D.MAX_INDICES) { "Mesh2D has too many indices" }
+    require(uv == null || uv.size / 2 <= Mesh2D.MAX_VERTICES) { "Mesh2D has too many uv pairs" }
+    require(colors == null || colors.size <= Mesh2D.MAX_VERTICES) { "Mesh2D has too many colours" }
+    require(indices.all { it in 0..0xffff }) { "Mesh2D indices are 16-bit" }
+    mesh2DUsed = true
+    val id = nextDataId++
+    operation(AddMesh2DOp)
+    buffer.writeInt(id)
+    buffer.writeInt(if (halfFloat) Mesh2D.TYPE_F16_VALUES else Mesh2D.TYPE_VALUES)
+    buffer.writeInt(layout)
+    buffer.writeInt(uCount)
+    buffer.writeInt(vCount)
+    buffer.writeInt(0)
+    buffer.writeInt(0)
+    buffer.writeInt(indices.size)
+    indices.forEach { buffer.writeShort(it) }
+    val safeUv = uv ?: FloatArray(0)
+    val safeColors = colors ?: IntArray(0)
+    buffer.writeInt(vertices.size)
+    buffer.writeInt(safeUv.size)
+    buffer.writeInt(safeColors.size)
+    if (halfFloat) {
+      vertices.forEach { buffer.writeShort(floatToHalf(it)) }
+      safeUv.forEach { buffer.writeShort(floatToHalf(it)) }
+    } else {
+      vertices.forEach(buffer::writeFloat)
+      safeUv.forEach(buffer::writeFloat)
+    }
+    safeColors.forEach(buffer::writeInt)
+    return id
+  }
+
+  override fun drawMesh2D(meshId: Int, imageId: Int, blend: Int) {
+    mesh2DUsed = true
+    operation(DrawMesh2DOp)
+    buffer.writeInt(meshId)
+    buffer.writeInt(blend)
+    buffer.writeInt(imageId)
+  }
+
+  override fun matrixFromMesh2D(meshId: Int, u: Float, v: Float, flags: Int) {
+    mesh2DUsed = true
+    operation(MatrixFromMesh2DOp)
+    buffer.writeInt(meshId)
+    buffer.writeFloat(u)
+    buffer.writeFloat(v)
+    buffer.writeInt(flags)
+  }
+
   override fun applyPaint(paint: PaintBundleData) {
     val values = paint.toIntArray()
     operation(PaintValues)
@@ -1734,6 +1857,9 @@ public class RemoteDocumentWriter(
     private const val DrawTextOnCircleOp = 57
     private const val DataPath = 123
     private const val DataShader = 45
+    private const val AddMesh2DOp = 104
+    private const val DrawMesh2DOp = 105
+    private const val MatrixFromMesh2DOp = 106
     private const val MaxShaderUniforms = 255
     private const val MaxShaderUniformValues = 16
     private const val MaxShaderIntUniformValues = 4
@@ -1836,6 +1962,7 @@ public class RemoteDocumentWriter(
     private const val CustomMinorVersion = 2
     private const val ProfileAndroidxExperimental = 0x201
     private const val ProfileAndroidx = 0x200
+    private const val ProfileExperimental = 0x1
     private const val ProfileWidgets = 0x100
     private const val PatchVersion = 0
     private const val IntSize = 4
@@ -1884,3 +2011,25 @@ private data class TextFromFloatKey(
   val after: Int,
   val flags: Int,
 )
+
+/** `Mesh2DGenerator.floatToHalf`: an IEEE 754 half, rounded to nearest, in the low 16 bits. */
+private fun floatToHalf(value: Float): Int {
+  val bits = value.toRawBits()
+  val sign = (bits ushr 16) and 0x8000
+  val exponent = (bits ushr 23) and 0xff
+  var mantissa = bits and 0x7fffff
+  if (exponent == 0xff) return sign or 0x7c00 or (if (mantissa != 0) 0x200 else 0)
+  val unbiased = exponent - 127 + 15
+  if (unbiased >= 0x1f) return sign or 0x7c00
+  if (unbiased <= 0) {
+    if (unbiased < -10) return sign
+    mantissa = mantissa or 0x800000
+    val shift = 14 - unbiased
+    var half = mantissa ushr shift
+    if ((mantissa ushr (shift - 1)) and 0x1 != 0) half++
+    return sign or half
+  }
+  var half = (unbiased shl 10) or (mantissa ushr 13)
+  if (mantissa and 0x1000 != 0) half++
+  return sign or half
+}

@@ -226,6 +226,32 @@ public final class androidx/compose/remote/creation/common/MatrixOperations {
 	public final fun getTRANSLATE_Y ()F
 }
 
+public final class androidx/compose/remote/creation/common/Mesh2D {
+	public static final field BLEND_COLORS_ONLY I
+	public static final field BLEND_MODULATE I
+	public static final field FLAG_ANTIALIAS I
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/Mesh2D;
+	public static final field LAYOUT_FAN I
+	public static final field LAYOUT_GRID I
+	public static final field LAYOUT_PATH_STRIP I
+	public static final field LAYOUT_POLAR I
+	public static final field LAYOUT_RING I
+	public static final field LAYOUT_STRIP I
+	public static final field MATRIX_FULL I
+	public static final field MATRIX_ORIGIN I
+	public static final field MATRIX_ROTATION I
+	public static final field MATRIX_SCALE I
+	public static final field MAX_EXPRESSION_SIZE I
+	public static final field MAX_GRID I
+	public static final field MAX_INDICES I
+	public static final field MAX_VERTICES I
+	public static final field TYPE_EXPRESSION I
+	public static final field TYPE_F16_VALUES I
+	public static final field TYPE_VALUES I
+	public final fun getU ()F
+	public final fun getV ()F
+}
+
 public final class androidx/compose/remote/creation/common/MonotonicSpline {
 	public fun <init> ([F[F)V
 	public final fun getPos (F)F
@@ -600,6 +626,8 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun addIdList ([I)F
 	public fun addInteger (I)J
 	public fun addLong (J)I
+	public fun addMesh2D (III[F[F[F[F[F[F[F[F[FILjava/lang/Float;)I
+	public fun addMesh2DValues ([I[F[F[IZIII)I
 	public final fun addNamedBitmapPng (Ljava/lang/String;[BII)I
 	public fun addNamedBitmapUrl (Ljava/lang/String;Ljava/lang/String;)I
 	public fun addNamedColor (Ljava/lang/String;I)I
@@ -633,6 +661,7 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun drawComponentToBitmap (I)V
 	public fun drawComponentToBitmap (II)V
 	public fun drawLine (FFFF)V
+	public fun drawMesh2D (III)V
 	public fun drawOnBitmap (III)V
 	public fun drawOval (FFFF)V
 	public fun drawPath (I)V
@@ -672,6 +701,7 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun image (Landroidx/compose/remote/creation/common/RemoteImageData;)V
 	public fun integerExpression ([J)J
 	public fun matrixExpression ([F)F
+	public fun matrixFromMesh2D (IFFI)V
 	public fun reserveFloatVariable ()F
 	public fun restore ()V
 	public final fun root (Lkotlin/jvm/functions/Function1;)V
@@ -1232,6 +1262,10 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun addIdList ([I)F
 	public abstract fun addInteger (I)J
 	public abstract fun addLong (J)I
+	public abstract fun addMesh2D (III[F[F[F[F[F[F[F[F[FILjava/lang/Float;)I
+	public static synthetic fun addMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;III[F[F[F[F[F[F[F[F[FILjava/lang/Float;ILjava/lang/Object;)I
+	public abstract fun addMesh2DValues ([I[F[F[IZIII)I
+	public static synthetic fun addMesh2DValues$default (Landroidx/compose/remote/creation/common/RemoteWriter;[I[F[F[IZIIIILjava/lang/Object;)I
 	public abstract fun addNamedBitmapUrl (Ljava/lang/String;Ljava/lang/String;)I
 	public abstract fun addNamedColor (Ljava/lang/String;I)I
 	public abstract fun addNamedFloat (Ljava/lang/String;F)F
@@ -1265,6 +1299,8 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public fun drawComponentToBitmap (I)V
 	public fun drawComponentToBitmap (II)V
 	public abstract fun drawLine (FFFF)V
+	public abstract fun drawMesh2D (III)V
+	public static synthetic fun drawMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;IIIILjava/lang/Object;)V
 	public abstract fun drawOnBitmap (III)V
 	public abstract fun drawOval (FFFF)V
 	public abstract fun drawPath (I)V
@@ -1303,6 +1339,8 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun image (Landroidx/compose/remote/creation/common/RemoteImageData;)V
 	public abstract fun integerExpression ([J)J
 	public abstract fun matrixExpression ([F)F
+	public abstract fun matrixFromMesh2D (IFFI)V
+	public static synthetic fun matrixFromMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;IFFIILjava/lang/Object;)V
 	public abstract fun reserveFloatVariable ()F
 	public abstract fun restore ()V
 	public abstract fun rotate (FFF)V
@@ -1344,11 +1382,15 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 public final class androidx/compose/remote/creation/common/RemoteWriter$DefaultImpls {
 	public static synthetic fun addBitmapFont$default (Landroidx/compose/remote/creation/common/RemoteWriter;Ljava/util/List;Ljava/util/Map;ILjava/lang/Object;)I
 	public static synthetic fun addBitmapUrl$default (Landroidx/compose/remote/creation/common/RemoteWriter;Ljava/lang/String;IIILjava/lang/Object;)I
+	public static synthetic fun addMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;III[F[F[F[F[F[F[F[F[FILjava/lang/Float;ILjava/lang/Object;)I
+	public static synthetic fun addMesh2DValues$default (Landroidx/compose/remote/creation/common/RemoteWriter;[I[F[F[IZIIIILjava/lang/Object;)I
 	public static synthetic fun addPathData$default (Landroidx/compose/remote/creation/common/RemoteWriter;[FIILjava/lang/Object;)I
 	public static synthetic fun addShader$default (Landroidx/compose/remote/creation/common/RemoteWriter;ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;ILjava/lang/Object;)I
 	public static synthetic fun createOffscreenBitmap$default (Landroidx/compose/remote/creation/common/RemoteWriter;IILjava/lang/Object;)I
 	public static fun drawComponentToBitmap (Landroidx/compose/remote/creation/common/RemoteWriter;I)V
 	public static fun drawComponentToBitmap (Landroidx/compose/remote/creation/common/RemoteWriter;II)V
+	public static synthetic fun drawMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;IIIILjava/lang/Object;)V
+	public static synthetic fun matrixFromMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;IFFIILjava/lang/Object;)V
 }
 
 public final class androidx/compose/remote/creation/common/StringUtils {

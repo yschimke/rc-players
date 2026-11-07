@@ -109,6 +109,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.VertexMode
+import androidx.compose.ui.graphics.Vertices
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
@@ -202,6 +204,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.offset
 import androidx.compose.ui.zIndex
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
+import ee.schimke.composeai.rcplayer.protocol.RcAddMesh2D
 import ee.schimke.composeai.rcplayer.protocol.RcAlignByModifier
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
@@ -230,6 +233,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRunOnPath
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapInt
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapScaled
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapTextAnchored
+import ee.schimke.composeai.rcplayer.protocol.RcDrawMesh2D
 import ee.schimke.composeai.rcplayer.protocol.RcDrawText
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextAnchored
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnCircle
@@ -260,6 +264,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcLayoutCompute
 import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcMarqueeModifier
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixExpression
+import ee.schimke.composeai.rcplayer.protocol.RcMatrixFromMesh2D
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixFromPath
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixVectorMath
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
@@ -5672,6 +5677,9 @@ private fun DrawScope.drawOperationsRouted(
       is RcDrawToBitmap -> targets.redirect(this, operation, state.drawId(operation.bitmapId))
       is RcBitmapData -> targets.declare(operation)
       is RcShaderData -> functions.shaders[operation.shaderId] = operation
+      is RcAddMesh2D -> state.applyAddMesh2D(operation)
+      is RcDrawMesh2D -> drawMesh2D(operation, state, paint, images)
+      is RcMatrixFromMesh2D -> applyMatrixFromMesh2D(operation, state)
       is RcNoArg ->
         when (operation.opcode) {
           RcOpcodes.MATRIX_SAVE -> drawContext.canvas.save()
@@ -6671,6 +6679,89 @@ private fun DrawScope.applyMatrixFromPath(
     val degrees = atan2(tangent.y, tangent.x) * 180f / PI.toFloat()
     drawContext.transform.rotate(degrees, Offset.Zero)
   }
+}
+
+/**
+ * `MatrixFromMesh2D`: concatenates the mesh's local frame at (u, v), as `AndroidPaintContext` does,
+ * so the stream's save/restore scopes it like any other transform. A mesh that is not there, or has
+ * no vertices, leaves the matrix alone.
+ */
+private fun DrawScope.applyMatrixFromMesh2D(operation: RcMatrixFromMesh2D, state: RcPlayerState) {
+  val mesh = state.mesh2D(operation.meshId) ?: return
+  val frame =
+    mesh.frameMatrix(state.resolve(operation.u), state.resolve(operation.v), operation.flags)
+      ?: return
+  val matrix = Matrix()
+  // [duX, duY, dvX, dvY, originX, originY] is the affine x' = duX·x + dvX·y + originX.
+  matrix.values[Matrix.ScaleX] = frame[0]
+  matrix.values[Matrix.SkewY] = frame[1]
+  matrix.values[Matrix.SkewX] = frame[2]
+  matrix.values[Matrix.ScaleY] = frame[3]
+  matrix.values[Matrix.TranslateX] = frame[4]
+  matrix.values[Matrix.TranslateY] = frame[5]
+  drawContext.transform.transform(matrix)
+}
+
+/**
+ * `DrawMesh2D`: the geometry the last `AddMesh2D` for the id stored, through Compose's
+ * `drawVertices` — Skia's `drawVertices` on Skiko, `android.graphics.Canvas.drawVertices` on
+ * Android — with the current paint, as `AndroidPaintContext.drawMesh` draws it.
+ *
+ * Compose's [Vertices] always carries a colour and a texture coordinate per vertex, where the
+ * platform calls take them optionally, so the absent channels are filled in: a mesh without vertex
+ * colours takes the paint's colour at every vertex (white under an image, so the texel shows
+ * unchanged), and an untextured mesh passes its positions, which nothing samples. A textured mesh
+ * maps its normalised uv onto the bitmap's pixels and modulates the texel by the vertex colour.
+ * [RcDrawMesh2D.blend] is not consulted, exactly as the View player ignores it.
+ */
+private fun DrawScope.drawMesh2D(
+  operation: RcDrawMesh2D,
+  state: RcPlayerState,
+  paint: RcPaintState,
+  images: Map<Int, ImageBitmap>,
+) {
+  val mesh = state.mesh2D(operation.meshId) ?: return
+  val count = mesh.vertexCount
+  if (count == 0 || mesh.indices.isEmpty()) return
+  val image =
+    if (operation.imageId != RcDrawMesh2D.NO_IMAGE && mesh.uv.size == mesh.positions.size) {
+      images[state.drawId(operation.imageId)]
+    } else {
+      null
+    }
+  val points = mesh.positions
+  val positions = List(count) { Offset(points[it * 2], points[it * 2 + 1]) }
+  val textureCoordinates =
+    if (image == null) {
+      positions
+    } else {
+      val uv = mesh.uv
+      List(count) { Offset(uv[it * 2] * image.width, uv[it * 2 + 1] * image.height) }
+    }
+  val vertexColors = mesh.colors.isNotEmpty()
+  val colors =
+    when {
+      vertexColors -> List(count) { Color(mesh.colors[it]) }
+      image != null -> List(count) { Color.White }
+      else -> List(count) { paint.composeColor() }
+    }
+  val composePaint =
+    Paint().apply {
+      // Skia modulates the vertex colours by the paint's shader, or by its colour when there is
+      // none, so the colour is white: the vertex colours carry it. They keep the paint's alpha,
+      // as on Android; without vertex colours the colour, alpha included, is in every vertex.
+      color = Color.White
+      alpha = if (vertexColors || image != null) paint.effectiveAlpha() else 1f
+      colorFilter = paint.colorFilter
+      blendMode = paint.blendMode
+      filterQuality = paint.filterQuality
+      if (image != null) shader = ImageShader(image, TileMode.Clamp, TileMode.Clamp)
+    }
+  drawContext.canvas.drawVertices(
+    Vertices(VertexMode.Triangles, positions, textureCoordinates, colors, mesh.indices.asList()),
+    BlendMode.Modulate,
+    composePaint,
+  )
 }
 
 private const val POSITION_MATRIX_FLAG = 0x01

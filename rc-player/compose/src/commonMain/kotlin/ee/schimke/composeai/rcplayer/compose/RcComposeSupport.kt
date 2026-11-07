@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
+import ee.schimke.composeai.rcplayer.protocol.RcAddMesh2D
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
@@ -496,6 +497,20 @@ public fun RcDocument.composeSupportReport(
               "placement ${operation.placement} is not implemented",
             )
       }
+    }
+    // Path strips are decoded but expanded to nothing (`RcMesh2DGenerator`): the mesh draws as a
+    // hole, so a lenient host can play the rest.
+    if (
+      operation is RcAddMesh2D &&
+        (operation.isSplineStrip || operation.layout == RcAddMesh2D.LAYOUT_PATH_STRIP)
+    ) {
+      issues +=
+        RcComposeSupportIssue(
+          index,
+          "AddMesh2D",
+          "path-strip meshes are not drawn by the CMP player",
+          RcComposeSupportSeverity.SKIPPABLE,
+        )
     }
     val supportedMeasurementTypes =
       when (operation) {

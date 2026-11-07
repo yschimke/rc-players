@@ -113,6 +113,10 @@ public object RcOperationProfiles {
       RcOpcodes.MACRO_CALL,
       RcOpcodes.MACRO_ARGUMENT,
       RcOpcodes.MACRO_BLOCK,
+      // remote-core alpha23 registers the 2D mesh ops only in its experimental V7 maps.
+      RcOpcodes.ADD_MESH_2D,
+      RcOpcodes.DRAW_MESH_2D,
+      RcOpcodes.MATRIX_FROM_MESH_2D,
     )
 
   /**
