@@ -6744,23 +6744,29 @@ private fun DrawScope.drawMesh2D(
       List(count) { Offset(uv[it * 2] * image.width, uv[it * 2 + 1] * image.height) }
     }
   val vertexColors = mesh.colors.isNotEmpty()
+  // Untextured, the mesh is filled by the paint's own shader (a gradient, a runtime shader) when it
+  // has one, sampled at the vertex positions: `ComposePaintContext.drawMesh` leaves the paint's
+  // shader in place and passes no texture coordinates. Vertex colours modulate it.
+  val brush = if (image == null) paint.brush else null
   val colors =
     when {
       vertexColors -> List(count) { Color(mesh.colors[it]) }
-      image != null -> List(count) { Color.White }
+      image != null || brush != null -> List(count) { Color.White }
       else -> List(count) { paint.composeColor() }
     }
   val composePaint =
     Paint().apply {
       // Skia modulates the vertex colours by the paint's shader, or by its colour when there is
       // none, so the colour is white: the vertex colours carry it. They keep the paint's alpha,
-      // as on Android; without vertex colours the colour, alpha included, is in every vertex.
+      // as on Android; without vertex colours or a shader the colour, alpha included, is in every
+      // vertex.
       color = Color.White
-      alpha = if (vertexColors || image != null) paint.effectiveAlpha() else 1f
+      alpha = if (vertexColors || image != null || brush != null) paint.effectiveAlpha() else 1f
       colorFilter = paint.colorFilter
       blendMode = paint.blendMode
       filterQuality = paint.filterQuality
       if (image != null) shader = ImageShader(image, TileMode.Clamp, TileMode.Clamp)
+      brush?.applyTo(size, this, paint.effectiveAlpha())
     }
   drawContext.canvas.drawVertices(
     Vertices(VertexMode.Triangles, positions, textureCoordinates, colors, mesh.indices.asList()),
