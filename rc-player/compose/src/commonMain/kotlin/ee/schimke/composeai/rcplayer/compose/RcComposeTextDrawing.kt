@@ -1,0 +1,159 @@
+package ee.schimke.composeai.rcplayer.compose
+
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontListFontFamily
+import androidx.compose.ui.text.font.FontLoadingStrategy.Companion.Async
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.em
+import ee.schimke.composeai.rcplayer.runtime.RcRasterizedText
+import ee.schimke.composeai.rcplayer.runtime.RcStyledText
+import kotlin.math.ceil
+
+/**
+ * What every platform's `RcComposeTextRasterizer` draws with: this player's own text stack, style
+ * mapping and family rules over [typefaces], on [fontFamilyResolver]. Only the image's encoding is
+ * the platform's ([encodePng]). A face that loads asynchronously is declined: the image would keep
+ * the default face it is drawn in until it arrives. Hand the rasterizer faces already loaded.
+ */
+internal class RcComposeTextDrawing(
+  private val typefaces: RcTypefaceLoader,
+  private val fontFamilyResolver: FontFamily.Resolver,
+  private val encodePng: (ImageBitmap) -> ByteArray?,
+) {
+  fun rasterize(text: RcStyledText): RcRasterizedText? {
+    val settings =
+      fontVariationSettings(text.fontAxes.map { it.first }, text.fontAxes.map { it.second })
+    val variations =
+      withWeightAxis(withItalicAxis(settings.withoutFeatures(), text.italic), text.fontWeight)
+    val family = family(text, variations) ?: return null
+    // A face loaded asynchronously (a downloadable Google font) draws the default face until it
+    // arrives, which an image would keep for good: decline it, as a family the loader hasn't got.
+    if (family is FontListFontFamily && family.fonts.any { it.loadingStrategy == Async })
+      return null
+    // Pixels in, so a font scale of 1: the size is already what the document asked for.
+    val density = Density(text.density)
+    val lineHeight =
+      if (text.lineHeightAdd == 0f && text.lineHeightMultiplier == 1f) TextUnit.Unspecified
+      else with(density) { (text.fontSize * text.lineHeightMultiplier + text.lineHeightAdd).toSp() }
+    val style =
+      TextStyle(
+        color = Color(text.color),
+        fontSize = with(density) { text.fontSize.toSp() },
+        letterSpacing = text.letterSpacing.em,
+        lineHeight = lineHeight,
+        lineHeightStyle =
+          LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+        fontWeight = FontWeight(text.fontWeight),
+        fontStyle = if (text.italic) FontStyle.Italic else FontStyle.Normal,
+        fontFeatureSettings = fontFeatureSettings(settings),
+        fontFamily = family,
+        textAlign =
+          if (text.justification == 1) TextAlign.Justify
+          else runCatching { androidXTextAlign(text.textAlign) }.getOrNull() ?: return null,
+        lineBreak =
+          when (text.lineBreak) {
+            1 -> LineBreak.Paragraph
+            2 -> LineBreak.Heading
+            else -> LineBreak.Simple
+          },
+        hyphens = if (text.hyphenation > 0) Hyphens.Auto else Hyphens.None,
+        textDecoration =
+          TextDecoration.combine(
+            listOfNotNull(
+              TextDecoration.Underline.takeIf { text.underline },
+              TextDecoration.LineThrough.takeIf { text.strikethrough },
+            ),
+          ),
+      )
+    val overflow = runCatching { androidXTextOverflow(text.overflow) }.getOrNull() ?: return null
+    val layout =
+      TextMeasurer(fontFamilyResolver, density, LayoutDirection.Ltr, cacheSize = 0)
+        .measure(
+          text.text,
+          style,
+          overflow = overflow,
+          maxLines = androidXMaxLines(text.overflow, text.maxLines),
+          constraints =
+            text.maxWidth?.let { Constraints(maxWidth = ceil(it).toInt().coerceAtLeast(1)) }
+              ?: Constraints(),
+        )
+    val width = layout.size.width
+    val height = layout.size.height
+    if (width <= 0 || height <= 0) return null
+    // A face whose glyphs stand taller than its line (Digital-7's digits) draws ink outside the
+    // laid-out box. Draw with room around it, then keep the box and whatever ink fell outside it,
+    // so no glyph loses its top or its feet; the baseline moves down by the rows kept above.
+    val pad = height
+    val padded = ImageBitmap(width, height + 2 * pad)
+    CanvasDrawScope().draw(
+      density,
+      LayoutDirection.Ltr,
+      Canvas(padded),
+      Size(width.toFloat(), (height + 2 * pad).toFloat()),
+    ) {
+      translate(top = pad.toFloat()) { drawText(layout) }
+    }
+    val pixels = IntArray(width * padded.height)
+    padded.readPixels(pixels)
+    val inked =
+      (0 until padded.height).filter { y ->
+        (0 until width).any { x -> pixels[y * width + x] ushr 24 != 0 }
+      }
+    val top = minOf(pad, inked.firstOrNull() ?: pad)
+    val bottom = maxOf(pad + height, (inked.lastOrNull() ?: 0) + 1)
+    val kept = ImageBitmap(width, bottom - top)
+    Canvas(kept).drawImage(padded, Offset(0f, -top.toFloat()), Paint())
+    val png = encodePng(kept) ?: return null
+    return RcRasterizedText(png, width, bottom - top, layout.firstBaseline + (pad - top))
+  }
+
+  /** The family the player would draw [text] in, or null where it would fall back. */
+  private fun family(text: RcStyledText, variations: RcFontVariations?): FontFamily? {
+    // A fresh set per text: the identity names the payload's bytes, so two images embedding
+    // different fonts can never share one cached typeface.
+    val embedded = text.fontData?.let { RcDocumentFonts(mapOf(EMBEDDED to it)) }
+    val name = text.fontFamily?.lowercase()
+    val generic = name == null || name in RC_GENERIC_FAMILIES
+    if (
+      !generic &&
+        embedded == null &&
+        typefaces.typeface(name!!.removePrefix("google:"), variations) == null
+    ) {
+      return null
+    }
+    return rcResolveTypeface(
+      text.fontFamily,
+      EMBEDDED,
+      embedded ?: RcDocumentFonts.Empty,
+      typefaces,
+      variations,
+      text.fontWeight,
+      text.italic,
+    )
+  }
+
+  private companion object {
+    const val EMBEDDED = 0
+  }
+}
