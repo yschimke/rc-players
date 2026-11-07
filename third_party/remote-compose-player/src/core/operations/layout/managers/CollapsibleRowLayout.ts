@@ -2,6 +2,7 @@
 // Port of Java CollapsibleRowLayout.java (computeVisibleChildren is shared, in CollapsiblePriority.ts).
 
 import { RowLayout } from './RowLayout';
+import { intBitsToFloat } from '../../Utils';
 import { Component, Visibility } from '../Component';
 import { CollapsiblePriority, computeVisibleChildren } from './CollapsiblePriority';
 import type { Operation } from '../../../Operation';
@@ -125,8 +126,11 @@ export class CollapsibleRowLayout extends RowLayout {
         const animationId = buffer.declareId();
         const horizontalPositioning = buffer.readInt();
         const verticalPositioning = buffer.readInt();
-        const spacedBy = buffer.readFloat();
-        operations.push(new CollapsibleRowLayout(componentId, animationId,
-            horizontalPositioning, verticalPositioning, spacedBy));
+        // LOCAL (rc-players): `spacedBy` may be a NaN-boxed variable id (Compose writes dp spacing
+        // as an expression over the density); read its bits, never readFloat, which can lose the id.
+        const spacedByBits = buffer.readNanIdBits();
+        const spacedBy = intBitsToFloat(spacedByBits);
+        { const op = new CollapsibleRowLayout(componentId, animationId,
+            horizontalPositioning, verticalPositioning, spacedBy); op.mSpacedByBits = spacedByBits; operations.push(op); }
     }
 }

@@ -2,6 +2,7 @@
 // Port of Java ColumnLayout.java with full measure/layout implementation.
 
 import { LayoutManager } from './LayoutManager';
+import { intBitsToFloat } from '../../Utils';
 import { LayoutComponent } from '../LayoutComponent';
 import { Component } from '../Component';
 import type { Operation } from '../../../Operation';
@@ -299,8 +300,11 @@ export class ColumnLayout extends LayoutManager {
         const animationId = buffer.declareId();
         const horizontalPositioning = buffer.readInt();
         const verticalPositioning = buffer.readInt();
-        const spacedBy = buffer.readFloat();
-        operations.push(new ColumnLayout(componentId, animationId,
-            horizontalPositioning, verticalPositioning, spacedBy));
+        // LOCAL (rc-players): `spacedBy` may be a NaN-boxed variable id (Compose writes dp spacing
+        // as an expression over the density); read its bits, never readFloat, which can lose the id.
+        const spacedByBits = buffer.readNanIdBits();
+        const spacedBy = intBitsToFloat(spacedByBits);
+        { const op = new ColumnLayout(componentId, animationId,
+            horizontalPositioning, verticalPositioning, spacedBy); op.mSpacedByBits = spacedByBits; operations.push(op); }
     }
 }

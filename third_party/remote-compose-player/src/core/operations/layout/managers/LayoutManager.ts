@@ -388,7 +388,17 @@ export abstract class LayoutManager extends LayoutComponent {
      *
      * Takes a PaintContext because that is all the layout managers are handed.
      */
+    /** LOCAL (rc-players): `spacedBy`'s raw bits, as read from the wire (see the layouts' `read`). */
+    mSpacedByBits?: number;
+
     protected spacedByPx(context: PaintContext, spacedBy: number): number {
+        // LOCAL (rc-players): a NaN-boxed `spacedBy` is a variable id, resolved through the context
+        // as the reference's updateVariables does. Used raw it was NaN, and so was every child's
+        // position, the container's size, its background and its touch area.
+        if (this.mSpacedByBits !== undefined && isNaNBits(this.mSpacedByBits)) {
+            const v = context.getContext().getFloat(idFromBits(this.mSpacedByBits));
+            spacedBy = Number.isFinite(v) ? v : 0;
+        }
         if (context.getDensityBehavior?.() !== RemoteContext.DENSITY_BEHAVIOR_DP) {
             return spacedBy;
         }

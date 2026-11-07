@@ -2,6 +2,7 @@
 // Port of Java FlowLayout.java — extends RowLayout with row segmentation.
 
 import { RowLayout } from './RowLayout';
+import { intBitsToFloat } from '../../Utils';
 import { LayoutComponent } from '../LayoutComponent';
 import { Component } from '../Component';
 import type { Operation } from '../../../Operation';
@@ -170,11 +171,15 @@ export class FlowLayout extends RowLayout {
         const animationId = buffer.declareId();
         const horizontalPositioning = buffer.readInt();
         const verticalPositioning = buffer.readInt();
-        const spacedBy = buffer.readFloat();
+        // LOCAL (rc-players): `spacedBy` may be a NaN-boxed variable id (Compose writes dp spacing
+        // as an expression over the density); read its bits, never readFloat, which can lose the id.
+        const spacedByBits = buffer.readNanIdBits();
+        const spacedBy = intBitsToFloat(spacedByBits);
         const maxItemsInEachRow = buffer.readInt();
         const maxLines = buffer.readInt();
         const op = new FlowLayout(componentId, animationId,
             horizontalPositioning, verticalPositioning, spacedBy);
+        op.mSpacedByBits = spacedByBits;
         op.mMaxItemsInEachRow = maxItemsInEachRow;
         op.mMaxLines = maxLines;
         operations.push(op);

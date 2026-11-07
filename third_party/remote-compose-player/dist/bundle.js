@@ -12142,19 +12142,25 @@ void main() {
       const w = this.mLayoutW;
       const h = this.mLayoutH;
       if (w > 0 && h > 0) {
-        pc.roundedClipRect(w, h, this.mTopStart, this.mTopEnd, this.mBottomStart, this.mBottomEnd);
+        const r = (bits, raw) => bits !== void 0 && isNaNBits(bits) ? context.getFloat(idFromBits(bits)) : raw;
+        pc.roundedClipRect(
+          w,
+          h,
+          r(this.mBits?.[0], this.mTopStart),
+          r(this.mBits?.[1], this.mTopEnd),
+          r(this.mBits?.[2], this.mBottomStart),
+          r(this.mBits?.[3], this.mBottomEnd)
+        );
       }
     }
     deepToString(indent) {
       return `${indent}RoundedClipRectModifier`;
     }
     static read(buffer, operations) {
-      operations.push(new _RoundedClipRectModifier(
-        buffer.readFloat(),
-        buffer.readFloat(),
-        buffer.readFloat(),
-        buffer.readFloat()
-      ));
+      const bits = [buffer.readNanIdBits(), buffer.readNanIdBits(), buffer.readNanIdBits(), buffer.readNanIdBits()];
+      const op = new _RoundedClipRectModifier(intBitsToFloat2(bits[0]), intBitsToFloat2(bits[1]), intBitsToFloat2(bits[2]), intBitsToFloat2(bits[3]));
+      op.mBits = bits;
+      operations.push(op);
     }
   };
   _RoundedClipRectModifier.OP_CODE = 54;
@@ -22351,17 +22357,11 @@ ${inner}`;
       const d = ctx.getDensity();
       return Number.isNaN(d) || d <= 0 ? 1 : d;
     }
-    /**
-     * `spacedBy` in physical pixels.
-     *
-     * Spacing is authored in dp but only scales when the document declares DENSITY_BEHAVIOR_DP
-     * — note `== DP`, not the `!= PIXELS` the dimension modifiers use. Under the default
-     * LEGACY behaviour the reference does not scale spacing either, so this returns the raw
-     * value for almost every document in the corpus.
-     *
-     * Takes a PaintContext because that is all the layout managers are handed.
-     */
     spacedByPx(context, spacedBy) {
+      if (this.mSpacedByBits !== void 0 && isNaNBits(this.mSpacedByBits)) {
+        const v = context.getContext().getFloat(idFromBits(this.mSpacedByBits));
+        spacedBy = Number.isFinite(v) ? v : 0;
+      }
       if (context.getDensityBehavior?.() !== RemoteContext.DENSITY_BEHAVIOR_DP) {
         return spacedBy;
       }
@@ -22751,14 +22751,19 @@ ${inner}`;
       const animationId = buffer.declareId();
       const horizontalPositioning = buffer.readInt();
       const verticalPositioning = buffer.readInt();
-      const spacedBy = buffer.readFloat();
-      operations.push(new _RowLayout(
-        componentId,
-        animationId,
-        horizontalPositioning,
-        verticalPositioning,
-        spacedBy
-      ));
+      const spacedByBits = buffer.readNanIdBits();
+      const spacedBy = intBitsToFloat2(spacedByBits);
+      {
+        const op = new _RowLayout(
+          componentId,
+          animationId,
+          horizontalPositioning,
+          verticalPositioning,
+          spacedBy
+        );
+        op.mSpacedByBits = spacedByBits;
+        operations.push(op);
+      }
     }
   };
   _RowLayout.OP_CODE = 203;
@@ -23024,14 +23029,19 @@ ${inner}`;
       const animationId = buffer.declareId();
       const horizontalPositioning = buffer.readInt();
       const verticalPositioning = buffer.readInt();
-      const spacedBy = buffer.readFloat();
-      operations.push(new _ColumnLayout(
-        componentId,
-        animationId,
-        horizontalPositioning,
-        verticalPositioning,
-        spacedBy
-      ));
+      const spacedByBits = buffer.readNanIdBits();
+      const spacedBy = intBitsToFloat2(spacedByBits);
+      {
+        const op = new _ColumnLayout(
+          componentId,
+          animationId,
+          horizontalPositioning,
+          verticalPositioning,
+          spacedBy
+        );
+        op.mSpacedByBits = spacedByBits;
+        operations.push(op);
+      }
     }
   };
   _ColumnLayout.OP_CODE = 204;
@@ -26113,7 +26123,8 @@ ${inner}`;
       const animationId = buffer.declareId();
       const horizontalPositioning = buffer.readInt();
       const verticalPositioning = buffer.readInt();
-      const spacedBy = buffer.readFloat();
+      const spacedByBits = buffer.readNanIdBits();
+      const spacedBy = intBitsToFloat2(spacedByBits);
       const maxItemsInEachRow = buffer.readInt();
       const maxLines = buffer.readInt();
       const op = new _FlowLayout(
@@ -26123,6 +26134,7 @@ ${inner}`;
         verticalPositioning,
         spacedBy
       );
+      op.mSpacedByBits = spacedByBits;
       op.mMaxItemsInEachRow = maxItemsInEachRow;
       op.mMaxLines = maxLines;
       operations.push(op);
@@ -27284,14 +27296,19 @@ ${inner}`;
       const animationId = buffer.declareId();
       const horizontalPositioning = buffer.readInt();
       const verticalPositioning = buffer.readInt();
-      const spacedBy = buffer.readFloat();
-      operations.push(new _CollapsibleRowLayout(
-        componentId,
-        animationId,
-        horizontalPositioning,
-        verticalPositioning,
-        spacedBy
-      ));
+      const spacedByBits = buffer.readNanIdBits();
+      const spacedBy = intBitsToFloat2(spacedByBits);
+      {
+        const op = new _CollapsibleRowLayout(
+          componentId,
+          animationId,
+          horizontalPositioning,
+          verticalPositioning,
+          spacedBy
+        );
+        op.mSpacedByBits = spacedByBits;
+        operations.push(op);
+      }
     }
   };
   _CollapsibleRowLayout.OP_CODE = 230;
@@ -27405,14 +27422,19 @@ ${inner}`;
       const animationId = buffer.declareId();
       const horizontalPositioning = buffer.readInt();
       const verticalPositioning = buffer.readInt();
-      const spacedBy = buffer.readFloat();
-      operations.push(new _CollapsibleColumnLayout(
-        componentId,
-        animationId,
-        horizontalPositioning,
-        verticalPositioning,
-        spacedBy
-      ));
+      const spacedByBits = buffer.readNanIdBits();
+      const spacedBy = intBitsToFloat2(spacedByBits);
+      {
+        const op = new _CollapsibleColumnLayout(
+          componentId,
+          animationId,
+          horizontalPositioning,
+          verticalPositioning,
+          spacedBy
+        );
+        op.mSpacedByBits = spacedByBits;
+        operations.push(op);
+      }
     }
   };
   _CollapsibleColumnLayout.OP_CODE = 233;
