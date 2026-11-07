@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.27.0](https://github.com/yschimke/rc-players/compare/v2.26.0...v2.27.0) (2026-11-07)
+
+
+### Features
+
+* **edit:** report measured sizes read in state layout branches on Android 16 ([#819](https://github.com/yschimke/rc-players/issues/819)) ([031749f](https://github.com/yschimke/rc-players/commit/031749f84048dae9f8682a66b55a6af0b86fa4f5))
+* rasterize text for bitmap fonts on Android too ([#822](https://github.com/yschimke/rc-players/issues/822)) ([bbcde26](https://github.com/yschimke/rc-players/commit/bbcde26fd6d8ca77cd013c53a2a620846c9c86e1))
+
+
+### Bug Fixes
+
+* draw a bitmap font's glyphs whole where they stand outside their line ([#821](https://github.com/yschimke/rc-players/issues/821)) ([0b88c36](https://github.com/yschimke/rc-players/commit/0b88c365322043523e934ffe4e0530c7720340f9))
+
 ## [2.26.0](https://github.com/yschimke/rc-players/compare/v2.25.0...v2.26.0) (2026-11-06)
 
 
