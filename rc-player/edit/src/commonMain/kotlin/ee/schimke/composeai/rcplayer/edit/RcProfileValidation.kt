@@ -191,17 +191,25 @@ private fun RcDocument.measuredInHiddenBranches(target: RcTargetProfile): List<R
   buildList {
     val tree = operationTree(operations) ?: return@buildList
     val inBranch = BooleanArray(operations.size)
+    val branchComponents = mutableSetOf<Int>()
     tree.forEach { root ->
       root.walk { node ->
         if (node.operation !is RcStateLayout) return@walk
         val branches = node.stateLayoutBranches() ?: return@walk
         if (branches.size < 2) return@walk
-        branches.forEach { branch -> for (i in branch.start..branch.end) inBranch[i] = true }
+        branches.forEach { branch ->
+          for (i in branch.start..branch.end) inBranch[i] = true
+          branch.walk { it.operation.declaredComponentId()?.let(branchComponents::add) }
+        }
       }
     }
+    // What a ComponentValue measures is its componentId, wherever the operation sits; -1 means the
+    // component it is written in, so its position decides.
     val measured =
       operations.withIndex().filter { (index, operation) ->
-        operation is RcComponentValue && inBranch[index]
+        operation is RcComponentValue &&
+          if (operation.componentId == -1) inBranch[index]
+          else operation.componentId in branchComponents
       }
     if (measured.isEmpty()) return@buildList
     for ((index, operation) in measured) {
