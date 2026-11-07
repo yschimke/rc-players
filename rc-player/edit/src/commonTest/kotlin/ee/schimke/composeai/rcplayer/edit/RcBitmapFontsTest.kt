@@ -259,6 +259,34 @@ class RcBitmapFontsTest {
     assertEquals(15f, result.texts.single().height, "its slot is the line, in dp")
   }
 
+  /**
+   * The anchored draw places a value by its own glyphs' least top margin: in a face whose glyphs
+   * stand above the line by different amounts, a centred changing text would move with its value,
+   * so it keeps its layout.
+   */
+  @Test
+  fun aCentredChangingTextInAFaceOfUnevenTopsIsLeftAsText() {
+    val tall = RcTextRasterizer { text ->
+      if (text.text == "8") RcRasterizedText(byteArrayOf(8), 10, 26, 22f)
+      else RcRasterizedText(byteArrayOf(1), text.text.length * 10, 20, 16f)
+    }
+    val live =
+      screen(
+        RcNamedVariable(42, RcNamedVariable.STRING_TYPE, "USER:time"),
+        texts = text(42, -7, IntValue(9, 3)),
+      )
+    val result =
+      live.coreTextAsBitmapFonts(
+        RcTargetProfiles.WEAR_WIDGETS,
+        setOf("digital7"),
+        tall,
+        RcDisplay(2f),
+        glyphs = { RcBitmapFontGlyphs("18", maxLength = 2) },
+      )
+    assertEquals(listOf(-7), result.skipped)
+    assertTrue(result.document.operations.none { it is RcDrawBitmapTextAnchored })
+  }
+
   @Test
   fun glyphsInsideTheirLineKeepNoMargins() {
     val result = clock.bitmapFonts()
