@@ -151,6 +151,31 @@ class RcLauncherWidgetTest {
     assertEquals("locked", tap.metadata?.currentValue)
   }
 
+  /**
+   * Android 17's `validateNestedViews` refuses a nested view whose own `mHasDrawInstructions` is
+   * set; the notification wrapper's isn't, while the children it plays keep theirs.
+   */
+  @Test
+  fun aNotificationViewNestsWithoutItsOwnDrawInstructionsFlag() {
+    val bytes = RemoteComposeWriter.obtain(100, 100, widgetsProfile).encodeToByteArray()
+    // `remoteViews` is the same view; built here because Robolectric's API 36 needs Java 21.
+    val document =
+      android.widget.RemoteViews(
+        android.widget.RemoteViews.DrawInstructions.Builder(listOf(platformWidgetDocument(bytes)))
+          .build()
+      )
+    val views = RcLauncherWidgets.forNotification(document)
+
+    fun field(of: Any, name: String): Any? =
+      android.widget.RemoteViews::class.java.getDeclaredField(name).apply { isAccessible = true }.get(of)
+
+    assertEquals(false, field(views, "mHasDrawInstructions"), "the wrapper")
+    for (child in listOf("mLandscape", "mPortrait")) {
+      val nested = assertNotNull(field(views, child), child)
+      assertEquals(true, field(nested, "mHasDrawInstructions"), child)
+    }
+  }
+
   @Test
   fun gridBoundsAndSlots() {
     assertEquals(RcWidgetCaptureSize(144, 168), RcWidgetSizing.cells(2, 2))

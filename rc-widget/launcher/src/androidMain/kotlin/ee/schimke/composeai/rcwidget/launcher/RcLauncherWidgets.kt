@@ -85,6 +85,44 @@ public object RcLauncherWidgets {
   }
 
   /**
+   * [document] as a notification's custom view (`setCustomBigContentView`): [remoteViews] wrapped
+   * by [forNotification], so Android 17 shows it.
+   */
+  @RequiresApi(MIN_HOST_API)
+  public fun notificationRemoteViews(
+    document: ByteArray,
+    actions: Map<Int, PendingIntent> = emptyMap(),
+    target: RcTargetProfile = targetFor(),
+  ): RemoteViews = forNotification(remoteViews(document, actions, target))
+
+  /**
+   * [views], a `RemoteViews.DrawInstructions` document from [remoteViews], as a landscape/portrait
+   * pair of itself, which SystemUI can nest in a notification's template.
+   *
+   * Since API 31 SystemUI puts every custom view of an app targeting it inside the system
+   * template, whatever `Notification.Style` is set: `Notification.Builder`'s
+   * `minimallyDecoratedExpandedContentView` → `buildCustomContentIntoTemplate` →
+   * `RemoteViews.addView`. From Android 17 (API 37), `addView` runs `validateNestedViews`, which
+   * refuses a nested view that has DrawInstructions:
+   * ```
+   * E/NotifContentInflater: couldn't inflate view for notification …
+   * java.lang.IllegalArgumentException: Cannot add a nested view that has DrawInstructions.
+   * ```
+   * and SystemUI cancels the notification with `REASON_ERROR` within half a second. Bare
+   * DrawInstructions views are fine as a launcher widget's root; only nesting is refused.
+   *
+   * The `RemoteViews(landscape, portrait)` wrapper doesn't take `mHasDrawInstructions` from its
+   * children, so it passes that check, and applying it plays the child for the current
+   * orientation, DrawInstructions and click intents included. On a Pixel 10a on Android 17 the
+   * wrapped document survives, draws and its taps fire. This leans on the check reading only the
+   * nested view's own flag: if a later build checks the wrapper's children too, the notification
+   * drops again. A nested `RemoteViews` is applied without a size, so a sized
+   * `RemoteViews(Map<SizeF, RemoteViews>)` wrapper would always play its smallest child: use this
+   * one.
+   */
+  public fun forNotification(views: RemoteViews): RemoteViews = RemoteViews(views, views.clone())
+
+  /**
    * What would keep [document] from playing on a launcher reading [target], as that launcher reads
    * it once [platformWidgetDocument] has prepared it: its header's level and profile bits select the
    * operation table, as the platform player's do. Empty means it plays. For tests and debug builds:
