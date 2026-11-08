@@ -52,7 +52,11 @@ internal data class BackgroundModifier(val color: RemoteColor) : RemoteModifier.
 /**
  * Draws a solid [color] background behind the content.
  *
+ * Example of applying a clipped solid background color:
+ *
+ * @sample androidx.compose.remote.creation.compose.samples.ModifierBackgroundAndClipSample
  * @param color The [RemoteColor] to use for the background.
+ * @return a [RemoteModifier] that draws a [color] background behind the content
  */
 public fun RemoteModifier.background(color: RemoteColor): RemoteModifier =
     this.then(BackgroundModifier(color))
@@ -68,6 +72,7 @@ public fun RemoteModifier.background(brush: RemoteBrush): RemoteModifier =
  * Draws a [painter] behind the content.
  *
  * @param painter The [RemotePainter] to use for the background.
+ * @return a [RemoteModifier] that draws [painter] behind the content
  */
 public fun RemoteModifier.background(painter: RemotePainter): RemoteModifier =
     this.drawWithContent {

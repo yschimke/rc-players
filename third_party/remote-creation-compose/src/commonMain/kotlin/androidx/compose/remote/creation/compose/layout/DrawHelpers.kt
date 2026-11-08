@@ -22,6 +22,7 @@ import androidx.compose.remote.creation.compose.state.RemotePathFillType
 import androidx.compose.remote.creation.compose.state.RemoteStrokeCap
 import androidx.compose.remote.creation.compose.state.RemoteStrokeJoin
 import androidx.compose.remote.creation.compose.state.RemoteTileMode
+import androidx.compose.remote.creation.compose.text.RemoteFontFamily
 import androidx.compose.remote.creation.compose.text.RemoteFontStyle
 import androidx.compose.remote.creation.compose.text.RemoteFontWeight
 import androidx.compose.remote.creation.compose.text.RemoteHyphens
@@ -35,8 +36,10 @@ import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.GenericFontFamily
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
@@ -235,4 +238,15 @@ internal fun RemotePaintingStyle.toComposePaintingStyle(): PaintingStyle =
         RemotePaintingStyle.Fill -> PaintingStyle.Fill
         RemotePaintingStyle.Stroke -> PaintingStyle.Stroke
         else -> PaintingStyle.Fill
+    }
+
+internal fun FontFamily.toRemoteFontFamily(): RemoteFontFamily? =
+    when (this) {
+        FontFamily.Default -> RemoteFontFamily.Default
+        FontFamily.SansSerif -> RemoteFontFamily.SansSerif
+        FontFamily.Serif -> RemoteFontFamily.Serif
+        FontFamily.Monospace -> RemoteFontFamily.Monospace
+        FontFamily.Cursive -> RemoteFontFamily.Cursive
+        is GenericFontFamily -> RemoteFontFamily.Named(name)
+        else -> null
     }

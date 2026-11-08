@@ -17,6 +17,10 @@ import androidx.annotation.RestrictTo
 import androidx.collection.MutableObjectIntMap
 import androidx.compose.remote.creation.common.RemoteDocumentWriter
 import androidx.compose.remote.creation.common.RemoteWriter
+import androidx.compose.remote.creation.common.Utils
+import androidx.compose.remote.creation.compose.layout.RemoteComponentToken
+import androidx.compose.remote.creation.compose.layout.RemoteComposeNode
+import androidx.compose.remote.creation.compose.layout.RemoteLayoutDirection
 import androidx.compose.remote.creation.compose.state.BaseRemoteState
 import androidx.compose.remote.creation.compose.state.RemoteStateCacheKey
 import androidx.compose.remote.creation.compose.state.nanIdContentEquals
@@ -26,14 +30,13 @@ import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.unit.LayoutDirection
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public open class RemoteComposeCreationState(
     public val creationDisplayInfo: RemoteCreationDisplayInfo,
     writer: RemoteWriter,
     public override val remoteDensity: RemoteDensity = RemoteDensity.from(creationDisplayInfo),
-    public override val layoutDirection: LayoutDirection = LayoutDirection.Ltr,
+    public override val layoutDirection: RemoteLayoutDirection = RemoteLayoutDirection.Ltr,
     public val supportedOperations: Set<Int> = emptySet(),
     private val platformImageProvider: PlatformImageProvider = NoOpPlatformImageProvider,
     internal var platformState: Any? = null,
@@ -73,11 +76,88 @@ public open class RemoteComposeCreationState(
         private set
 
     /**
-     * LOCAL PATCH (rc-players): the last component (a layout's content section) recorded so far, in
-     * document order: the component a size expression refers to, as AndroidX's
+     * The last component (a layout's content section) recorded so far, in document order: the
+     * component a size expression bound to no component token refers to, as AndroidX's
      * `RemoteComposeBuffer.lastComponentId` is.
      */
     internal var lastComponentId: Int = -1
+
+    /**
+     * Per-render state of a [RemoteComponentToken]: the component id its node was given in this
+     * render, and the float variables its `ComponentValue`s were written to.
+     *
+     * Port: upstream writes `ComponentValue`s inside the owning component's body, where the player
+     * binds them to that component. The port's writer writes them as declarations with an explicit
+     * component id, so a value requested before its component is recorded reserves a variable that
+     * [beginComponentContent] binds once the id is known.
+     */
+    private class TokenComponentState {
+        val variableIds: IntArray = IntArray(RemoteComponentToken.PROP_COUNT) { NO_VARIABLE_ID }
+        var componentId: Int = NO_COMPONENT_ID
+
+        companion object {
+            const val NO_VARIABLE_ID: Int = -1
+            const val NO_COMPONENT_ID: Int = 0
+        }
+    }
+
+    private val tokenComponentStates = HashMap<RemoteComponentToken, TokenComponentState>()
+
+    /**
+     * The [RemoteComposeNode] currently rendering its content or canvas commands, used to resolve
+     * component tokens from [RemoteStateScope]s that are not tied to a specific modifier node.
+     */
+    internal var currentRenderingNode: RemoteComposeNode? = null
+
+    /**
+     * Marks [token]'s component as recorded with [componentId] in this render, and binds any value
+     * of it requested before that to the component.
+     */
+    internal fun beginComponentContent(token: RemoteComponentToken, componentId: Int) {
+        val state = tokenComponentStates.getOrPut(token) { TokenComponentState() }
+        state.componentId = componentId
+        for (propIndex in 0 until RemoteComponentToken.PROP_COUNT) {
+            val reservedId = state.variableIds[propIndex]
+            if (reservedId != TokenComponentState.NO_VARIABLE_ID) {
+                writer.addComponentValue(
+                    RemoteComponentToken.toComponentValueType(propIndex),
+                    componentId,
+                    Utils.asNan(reservedId),
+                )
+            }
+        }
+    }
+
+    /**
+     * Returns the NaN-encoded float variable holding [propIndex] (`RemoteComponentToken.PROP_*`) of
+     * the component identified by [token]: written for its component id once it is recorded in this
+     * render, otherwise reserved for [beginComponentContent] to bind.
+     */
+    internal fun getComponentValue(token: RemoteComponentToken, propIndex: Int): Float {
+        val state = tokenComponentStates.getOrPut(token) { TokenComponentState() }
+        if (state.componentId != TokenComponentState.NO_COMPONENT_ID) {
+            return componentValue(state.componentId, propIndex)
+        }
+        val existingId = state.variableIds[propIndex]
+        if (existingId != TokenComponentState.NO_VARIABLE_ID) {
+            return Utils.asNan(existingId)
+        }
+        val reserved = writer.reserveFloatVariable()
+        state.variableIds[propIndex] = Utils.idFromNan(reserved)
+        return reserved
+    }
+
+    /** Writes (once) the `ComponentValue` [propIndex] of [componentId] and returns its variable. */
+    internal fun componentValue(componentId: Int, propIndex: Int): Float =
+        when (propIndex) {
+            RemoteComponentToken.PROP_WIDTH -> writer.addComponentWidthValue(componentId)
+            RemoteComponentToken.PROP_HEIGHT -> writer.addComponentHeightValue(componentId)
+            RemoteComponentToken.PROP_X -> writer.addComponentXValue(componentId)
+            RemoteComponentToken.PROP_Y -> writer.addComponentYValue(componentId)
+            RemoteComponentToken.PROP_ROOT_X -> writer.addComponentRootXValue(componentId)
+            RemoteComponentToken.PROP_ROOT_Y -> writer.addComponentRootYValue(componentId)
+            else -> throw IllegalArgumentException("Unknown property index: $propIndex")
+        }
 
     internal fun allocateComponentId(): Int = nextComponentId--
 
@@ -90,6 +170,8 @@ public open class RemoteComposeCreationState(
         nextComponentId = -1_000_000
         lastComponentId = -1
         claimedComponentIds.clear()
+        tokenComponentStates.clear()
+        currentRenderingNode = null
     }
 
     // LOCAL PATCH (rc-players): explicit ids already used in this render; see ComponentIdModifier.
@@ -133,6 +215,8 @@ public open class RemoteComposeCreationState(
         remoteVariableToId.clear()
         floatArrayCache.clear()
         longArrayCache.clear()
+        tokenComponentStates.clear()
+        currentRenderingNode = null
     }
 
     public override fun getOrPutFloatArray(key: Any, compute: () -> FloatArray): FloatArray =

@@ -712,6 +712,15 @@ public class RemoteDocumentWriter(
   override fun addComponentRootYValue(componentId: Int): Float =
     componentValue(ComponentPosRootY, componentId)
 
+  override fun addComponentValue(type: Int, componentId: Int, valueId: Float) {
+    val id = Utils.idFromNan(valueId)
+    componentValueIds.getOrPut(pairKey(componentId, type)) { id }
+    operation(ComponentValue)
+    buffer.writeInt(type)
+    buffer.writeInt(componentId)
+    buffer.writeInt(id)
+  }
+
   override fun setNamedVariable(id: Int, name: String, type: Int): Unit =
     writeNamedVariable(id, type, name)
 

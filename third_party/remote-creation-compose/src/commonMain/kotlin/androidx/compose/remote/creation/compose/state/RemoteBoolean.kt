@@ -20,12 +20,9 @@ import androidx.annotation.ColorInt
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.IntegerExpressionEvaluator
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
-import androidx.compose.remote.creation.compose.layout.RemoteComposable
-import androidx.compose.remote.creation.compose.state.RemoteBoolean.Companion.createNamedRemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteInt.Companion.createNamedRemoteInt
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.annotation.RememberInComposition
-import androidx.compose.runtime.remember
 
 /**
  * A class representing a remote boolean value.
@@ -34,6 +31,7 @@ import androidx.compose.runtime.remember
  * `0` for `false`. This allows boolean logic to be evaluated efficiently on the remote rendering
  * engine.
  */
+@Stable
 public open class RemoteBoolean
 internal constructor(
     internal val intValue: RemoteInt,
@@ -353,7 +351,7 @@ internal constructor(
             return RemoteColor(ifTrue)
         }
 
-        return tween(ifFalse, ifTrue, intValue.toRemoteFloat())
+        return lerp(ifFalse, ifTrue, intValue.toRemoteFloat())
     }
 
     /**
@@ -377,7 +375,7 @@ internal constructor(
             return ifTrue
         }
 
-        return tween(ifFalse, ifTrue, intValue.toRemoteFloat())
+        return lerp(ifFalse, ifTrue, intValue.toRemoteFloat())
     }
 
     /**
@@ -560,41 +558,3 @@ public val Boolean.rb: RemoteBoolean
     get() {
         return RemoteBoolean(this)
     }
-
-/**
- * Factory composable for mutable remote boolean state.
- *
- * @param initialValue The initial [Boolean] value.
- * @return A [MutableRemoteBoolean] instance that will be remembered across recompositions.
- */
-@Deprecated(
-    message = "Use remember { MutableRemoteBoolean(initialValue) } instead.",
-    replaceWith =
-        ReplaceWith(
-            "remember { MutableRemoteBoolean(initialValue) }",
-            "androidx.compose.runtime.remember",
-        ),
-)
-@Composable
-@RemoteComposable
-public fun rememberMutableRemoteBoolean(initialValue: Boolean): MutableRemoteBoolean {
-    return remember { MutableRemoteBoolean(initialValue) }
-}
-
-/**
- * Remembers a named remote boolean expression.
- *
- * @param name A unique name to identify this state within its [domain].
- * @param initialValue The initial [Boolean] value.
- * @param domain The domain for the named state. Defaults to [RemoteState.Domain.User].
- * @return A [RemoteBoolean] instance representing the named expression.
- */
-@Composable
-@RemoteComposable
-public fun rememberNamedRemoteBoolean(
-    name: String,
-    initialValue: Boolean,
-    domain: RemoteState.Domain = RemoteState.Domain.User,
-): RemoteBoolean {
-    return remember(name, domain) { createNamedRemoteBoolean(name, initialValue, domain) }
-}

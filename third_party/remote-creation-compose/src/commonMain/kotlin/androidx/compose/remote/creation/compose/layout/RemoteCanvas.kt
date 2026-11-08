@@ -49,7 +49,7 @@ public class RemoteCanvas(
     public val internalCanvas: RecordingCanvas,
 ) : RemoteStateScope by internalCanvas {
     public val drawScope: RemoteDrawScope = RemoteDrawScope(this)
-    public val remote: RemoteAccess = RemoteAccess(drawScope)
+    internal val remote: RemoteAccess = RemoteAccess(drawScope)
 
     /** Flushes recorded operations to the underlying creation state. */
     public fun flush() {
@@ -550,7 +550,10 @@ public class RemoteCanvas(
 
     /** Clips the current canvas state to the specified [path]. */
     public fun clipPath(path: RemotePath) {
-        val op = recordRenderingOp(WriterOp.ClipPath(path.snapshotData()))
+        val op =
+            internalCanvas.recordRenderingOp(
+                DocumentOp.Clip(WriterOp.ClipPath(path.snapshotData())),
+            )
         internalCanvas.buffer.addRoots(op, path)
     }
 

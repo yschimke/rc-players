@@ -29,6 +29,13 @@ public interface RemoteWriter {
   /** The y position of [componentId] in root coordinates. */
   public fun addComponentRootYValue(componentId: Int): Float
 
+  /**
+   * Binds the reserved float variable [valueId] to [componentId]'s value of [type] (AndroidX's
+   * `ComponentValue.WIDTH`, `HEIGHT`, `POS_X`, ...), as `RemoteComposeBuffer.addComponentValue`
+   * does. A later `addComponent*Value` of the same component and type returns the same variable.
+   */
+  public fun addComponentValue(type: Int, componentId: Int, valueId: Float)
+
   public fun startRoot()
 
   public fun endRoot()

@@ -45,14 +45,9 @@ import androidx.compose.remote.creation.common.TimeAttribute
 import androidx.compose.remote.creation.common.Utils
 import androidx.compose.remote.creation.common.Utils.asNan
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
-import androidx.compose.remote.creation.compose.layout.RemoteComposable
-import androidx.compose.remote.creation.compose.layout.RemoteFloatContext
-import androidx.compose.remote.creation.compose.state.RemoteFloat.Companion.createNamedRemoteFloatExpression
 import androidx.compose.remote.creation.compose.state.RemoteFloat.OperationKey
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.annotation.RememberInComposition
-import androidx.compose.runtime.remember
 import kotlin.math.pow
 
 /**
@@ -420,6 +415,18 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
     }
 
     /**
+     * Converts this [RemoteFloat] to a [RemoteString] using the default localized decimal format.
+     *
+     * @return A [RemoteString] representing the formatted float.
+     */
+    public fun toRemoteString(): RemoteString =
+        toRemoteStringWithPadding(
+            before = 40,
+            after = 3,
+            flags = SEPARATOR_COMMA_PERIOD or GROUPING_BY3 or PAD_AFTER_NONE or PAD_PRE_NONE,
+        )
+
+    /**
      * Returns a [RemoteString] that evaluates to the result of this [RemoteFloat] formatted
      * according to the provided [DecimalFormat].
      *
@@ -430,7 +437,9 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
      * @param format The [DecimalFormat] to use for determining separators, grouping, and padding.
      * @return A [RemoteString] representing the formatted float.
      */
-    public fun toRemoteString(format: DecimalFormat = DefaultJavaDecimalFormat): RemoteString =
+    // Port: upstream's `toRemoteString(DecimalFormat)` is an Android extension over Java's and
+    // ICU's DecimalFormat (`RemoteFormatting.android.kt`); the port's DecimalFormat is common.
+    public fun toRemoteString(format: DecimalFormat): RemoteString =
         formatRemoteFloatJvm(this, format)
 
     /**
@@ -797,11 +806,11 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
                 return "${args[0].toOperandString(precedence)}.toRemoteString()"
             }
             val str = args[1].toDebugString()
-            // Check if options match DefaultDecimalFormat (before=255, after=3|0, flags=533)
+            // Check if options match DefaultDecimalFormat (before=255/40, after=3|0, flags=533/21)
             val isDefault =
-                str == "255" &&
+                (str == "255" || str == "40") &&
                     (args[2].toDebugString() == "3" || args[2].toDebugString() == "0") &&
-                    args[3].toDebugString() == "533"
+                    (args[3].toDebugString() == "533" || args[3].toDebugString() == "21")
             return if (isDefault) {
                 "${args[0].toOperandString(precedence)}.toRemoteString()"
             } else {
@@ -875,25 +884,26 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
         }
 
         /**
-         * Creates a named [RemoteFloat] expression evaluated in a [RemoteFloatContext].
+         * Creates a named [RemoteFloat] with an initial [defaultValue]. This allows referring to a
+         * float by a symbolic name in the remote document. Named remote floats can be set via
+         * AndroidRemoteContext.setNamedFloat.
          *
          * @param name A unique name to identify this state within its [domain].
-         * @param domain The domain for the named state. Defaults to [RemoteState.Domain.User].
-         * @param expression A lambda that computes the [RemoteFloat] expression.
-         * @return A [RemoteFloat] representing the named float expression.
+         * @param defaultValue The initial [RemoteFloat] value or expression of the named float.
+         * @param domain The domain of the named float (defaults to [RemoteState.Domain.User]). This
+         *   helps avoid name collisions.
+         * @return A [RemoteFloat] representing the named float.
          */
-        public fun createNamedRemoteFloatExpression(
+        public fun createNamedRemoteFloat(
             name: String,
+            defaultValue: RemoteFloat,
             domain: RemoteState.Domain = RemoteState.Domain.User,
-            expression: RemoteFloatContext.() -> RemoteFloat,
         ): RemoteFloat {
             return RemoteFloatExpression(
                 constantValueOrNull = null,
                 cacheKey = RemoteNamedCacheKey(domain, name),
             ) { creationState ->
-                val context = RemoteFloatContext(creationState)
-                val result = expression(context)
-                val initialValueId = result.getFloatIdForCreationState(creationState)
+                val initialValueId = defaultValue.getFloatIdForCreationState(creationState)
                 if (Utils.isVariable(initialValueId)) {
                     val floatId = creationState.writer.floatExpression(initialValueId)
                     creationState.writer.setNamedVariable(
@@ -1601,20 +1611,17 @@ internal constructor(
     )
 
     /**
-     * Creates a [MutableRemoteFloat] initialized with the expression evaluated in [value].
+     * Creates a [MutableRemoteFloat] initialized with [initialValue].
      *
-     * @param value A lambda evaluated within [RemoteFloatContext] that provides the initial value.
+     * @param initialValue The initial [RemoteFloat] value or expression.
      */
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     @RememberInComposition
     public constructor(
-        value: RemoteFloatContext.() -> RemoteFloat,
+        initialValue: RemoteFloat,
     ) : this(
         cacheKey = RemoteStateInstanceKey(),
         idProvider = { creationState ->
-            val context = RemoteFloatContext(creationState)
-            val result = value(context)
-            creationState.writer.floatExpression(*result.arrayForCreationState(creationState))
+            creationState.writer.floatExpression(*initialValue.arrayForCreationState(creationState))
         },
     )
 
@@ -1653,6 +1660,17 @@ internal constructor(
         }
 
         /**
+         * Creates a new mutable state (allocates an ID) initialized with [initialValue].
+         *
+         * @param initialValue The initial [RemoteFloat] value or expression for the state.
+         * @return A new [MutableRemoteFloat] instance.
+         */
+        @RememberInComposition
+        public operator fun invoke(initialValue: RemoteFloat): MutableRemoteFloat {
+            return MutableRemoteFloat(initialValue)
+        }
+
+        /**
          * Maps an existing mutable ID to a state instance.
          *
          * @param id The existing mutable ID.
@@ -1680,37 +1698,21 @@ internal constructor(
 ) : RemoteFloat(cacheKey) {
 
     /**
-     * Creates a [RemoteFloatExpression] from a lambda evaluated within [RemoteFloatContext].
+     * Creates a [RemoteFloatExpression] from a lambda evaluated within the document's
+     * [RemoteStateScope].
      *
-     * @param value A lambda evaluated within [RemoteFloatContext] that provides the [RemoteFloat].
+     * @param value A lambda evaluated within the document's [RemoteStateScope] that provides the
+     *   [RemoteFloat].
      */
+    // Port: upstream's lambda receiver is `remote-creation-expression`'s `RemoteDocumentScope`.
     @RememberInComposition
     public constructor(
-        value: RemoteFloatContext.() -> RemoteFloat,
+        value: RemoteStateScope.() -> RemoteFloat,
     ) : this(
         constantValueOrNull = null,
         cacheKey = RemoteStateInstanceKey(),
         arrayProvider = { creationState ->
-            val context = RemoteFloatContext(creationState)
-            val remoteFloat = value(context)
-            remoteFloat.arrayForCreationState(creationState)
-        },
-    )
-
-    /**
-     * Creates a [RemoteFloatExpression] from a lambda returning a [FloatArray].
-     *
-     * @param value A lambda returning the raw [FloatArray] representing the expression.
-     */
-    @RememberInComposition
-    public constructor(
-        value: () -> FloatArray,
-    ) : this(
-        constantValueOrNull = null,
-        cacheKey = RemoteStateInstanceKey(),
-        arrayProvider = { creationState ->
-            val floatArrayId = creationState.writer.addFloatArray(value())
-            floatArrayOf(floatArrayId)
+            value(creationState).arrayForCreationState(creationState)
         },
     )
 
@@ -1973,8 +1975,7 @@ internal constructor(
             EASE_OUT_ELASTIC,
         ],
 )
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public annotation class AnimationType
+internal annotation class AnimationType
 
 /**
  * Converts a [Number] to a [FloatArray]. If the number is a [RemoteFloat], its
@@ -2002,124 +2003,12 @@ public fun toArray(a: RemoteFloat, creationState: RemoteComposeCreationContext):
     a.arrayForCreationState(creationState)
 
 /**
- * Composable function to remember and provide a [RemoteFloat] from a [FloatArray]. This is intended
- * for use within a `@Composable` context.
- *
- * @param value A lambda that provides the [FloatArray] to be remembered.
- * @return A [RemoteFloat] representing the remembered float array.
- */
-@Deprecated(
-    message = "Use remember { RemoteFloatExpression.fromFloatArray(value) } instead.",
-    replaceWith =
-        ReplaceWith(
-            "remember { RemoteFloatExpression.fromFloatArray(value) }",
-            "androidx.compose.runtime.remember",
-        ),
-)
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-@Composable
-@RemoteComposable
-public fun rememberRemoteFloatArray(value: () -> FloatArray): RemoteFloat {
-    return remember { RemoteFloatExpression(value) }
-}
-
-/**
- * Factory composable for mutable remote float state.
- *
- * @param initialValue The initial [Float] value.
- * @return A [MutableRemoteFloat] instance that will be remembered across recompositions.
- */
-@Deprecated(
-    message = "Use remember { MutableRemoteFloat(initialValue) } instead.",
-    replaceWith =
-        ReplaceWith(
-            "remember { MutableRemoteFloat(initialValue) }",
-            "androidx.compose.runtime.remember",
-        ),
-)
-@Composable
-@RemoteComposable
-public fun rememberMutableRemoteFloat(initialValue: Float): MutableRemoteFloat {
-    return remember { MutableRemoteFloat(initialValue) }
-}
-
-/**
- * Remembers a remote float expression based on [RemoteFloatContext].
- *
- * @param value A lambda that provides the [RemoteFloat] expression.
- * @return A [RemoteFloat] instance representing the provided expression.
- */
-@Deprecated(
-    message = "Use remember { MutableRemoteFloat(value) } instead.",
-    replaceWith =
-        ReplaceWith("remember { MutableRemoteFloat(value) }", "androidx.compose.runtime.remember"),
-)
-@Composable
-@RemoteComposable
-public fun rememberMutableRemoteFloat(
-    value: RemoteFloatContext.() -> RemoteFloat,
-): MutableRemoteFloat {
-    return remember { MutableRemoteFloat(value) }
-}
-
-/**
- * Factory composable for state.
- *
- * @param value A lambda that provides the [RemoteFloat] expression.
- * @return A [RemoteFloat] instance representing the provided expression.
- */
-@Deprecated(
-    message = "Use remember { RemoteFloatExpression(value) } instead.",
-    replaceWith =
-        ReplaceWith(
-            "remember { RemoteFloatExpression(value) }",
-            "androidx.compose.runtime.remember",
-        ),
-)
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-@Composable
-@RemoteComposable
-public fun rememberRemoteFloatExpression(value: RemoteFloatContext.() -> RemoteFloat): RemoteFloat {
-    return remember { RemoteFloatExpression(value) }
-}
-
-/**
- * Remembers a named remote float expression.
- *
- * @param name A unique name to identify this state within its [domain].
- * @param domain The domain for the named state. Defaults to [RemoteState.Domain.User].
- * @param value A lambda that provides the [RemoteFloat] expression.
- * @return A [RemoteFloat] instance representing the named expression.
- */
-@Composable
-@RemoteComposable
-public fun rememberNamedRemoteFloat(
-    name: String,
-    domain: RemoteState.Domain = RemoteState.Domain.User,
-    value: RemoteFloatContext.() -> RemoteFloat,
-): RemoteFloat {
-    return remember(name, domain) {
-        createNamedRemoteFloatExpression(name, domain, expression = value)
-    }
-}
-
-/**
- * Creates a [RemoteFloat] using a [RemoteFloatContext] and a specified
- * [RemoteComposeCreationContext].
- *
- * @param state The [RemoteComposeCreationContext] to use.
- * @param content A lambda that takes a [RemoteFloatContext] and returns a [RemoteFloat].
- * @return The created [RemoteFloat].
- */
-
-/**
  * Checks if a given float represents a time variable.
  *
  * @param fl The float to check.
  * @return `true` if the float is a time variable, `false` otherwise.
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public fun isTimeVar(fl: Float): Boolean {
+internal fun isTimeVar(fl: Float): Boolean {
     return RemoteContext.isTime(fl)
 }
 
@@ -2199,8 +2088,7 @@ internal fun combineToFloatArray(
 private const val MAX_SAFE_FLOAT_ARRAY = 30
 
 /** An inline value class representing a reference to a remote float. */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public data class RemoteFloatReference(private val v: Float)
+internal data class RemoteFloatReference(private val v: Float)
 
 /** Extension property to convert an [Int] to a [RemoteFloat]. */
 public val Int.rf: RemoteFloat

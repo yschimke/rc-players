@@ -18,10 +18,10 @@ package androidx.compose.remote.creation.compose.capture
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.RemoteWriter
+import androidx.compose.remote.creation.compose.layout.RemoteLayoutDirection
 import androidx.compose.remote.creation.compose.state.BaseRemoteState
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.unit.LayoutDirection
 
 /** Common state-allocation surface independent of the platform capture and player stack. */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -46,7 +46,7 @@ public interface RemoteComposeCreationContext : RemoteStateScope {
 
     public override val remoteDensity: RemoteDensity
 
-    public override val layoutDirection: LayoutDirection
+    public override val layoutDirection: RemoteLayoutDirection
 
     public override val densityBehavior: RemoteDensityBehavior
 

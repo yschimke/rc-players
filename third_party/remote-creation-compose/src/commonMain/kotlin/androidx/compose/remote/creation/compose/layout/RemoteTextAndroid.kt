@@ -27,6 +27,7 @@ import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.remote.creation.compose.state.RemoteTextUnit
 import androidx.compose.remote.creation.compose.text.RemoteFontFamily
 import androidx.compose.remote.creation.compose.text.RemoteTextStyle
+import androidx.compose.remote.creation.compose.text.toRemoteFontVariationSettings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
@@ -43,8 +44,16 @@ import androidx.compose.ui.text.style.TextOverflow
  * being *created*, not the remote environment where it will be displayed. This means these values
  * are fixed at creation time based on the local density.
  *
+ * Basic text display with custom color and font size:
+ *
  * @sample androidx.compose.remote.creation.compose.samples.RemoteTextSample
+ *
+ * Styling text with bold weight and italic font style:
+ *
  * @sample androidx.compose.remote.creation.compose.samples.RemoteTextStylingSample
+ *
+ * Using standard font families and variable font settings:
+ *
  * @sample androidx.compose.remote.creation.compose.samples.RemoteTextFontFamilySample
  * @param text The text to be displayed.
  * @param modifier The [RemoteModifier] to be applied to this text.
@@ -87,11 +96,11 @@ public fun RemoteText(
         fontStyle = fontStyle?.toRemoteFontStyle(),
         fontWeight = fontWeight?.toRemoteFontWeight(),
         fontFamily = fontFamily,
-        textAlign = (textAlign ?: TextAlign.Unspecified).toRemoteTextAlign(),
+        textAlign = textAlign?.takeUnless { it == TextAlign.Unspecified }?.toRemoteTextAlign(),
         overflow = overflow.toRemoteTextOverflow(),
         maxLines = maxLines,
         style = style,
         fontFeatureSettings = fontFeatureSettings,
-        fontVariationSettings = fontVariationSettings,
+        fontVariationSettings = fontVariationSettings?.toRemoteFontVariationSettings(),
     )
 }

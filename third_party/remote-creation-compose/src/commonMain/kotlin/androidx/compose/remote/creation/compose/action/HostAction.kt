@@ -34,7 +34,11 @@ import androidx.compose.remote.creation.compose.state.RemoteString
  *
  * Launcher widgets (`RemoteViews`) only dispatch id actions; use [hostAction] with an `id` there.
  *
+ * Example of dispatching a named action to the host when clicked:
+ *
+ * @sample androidx.compose.remote.creation.compose.samples.HostActionSample
  * @param name The name of the action.
+ * @return a [RemoteAction] that triggers the named [name] action on the host
  */
 public fun hostAction(name: RemoteString): RemoteAction = HostAction(name, HostAction.Type.NONE)
 
@@ -43,6 +47,7 @@ public fun hostAction(name: RemoteString): RemoteAction = HostAction(name, HostA
  *
  * @param name The name of the action.
  * @param value The float value to pass with the action, delivered to the host as a [Float].
+ * @return a [RemoteAction] that triggers the named [name] action with [value] on the host
  */
 public fun hostAction(name: RemoteString, value: RemoteFloat): RemoteAction =
     HostAction(name, value)
@@ -52,6 +57,7 @@ public fun hostAction(name: RemoteString, value: RemoteFloat): RemoteAction =
  *
  * @param name The name of the action.
  * @param value The int value to pass with the action, delivered to the host as an [Int].
+ * @return a [RemoteAction] that triggers the named [name] action with [value] on the host
  */
 public fun hostAction(name: RemoteString, value: RemoteInt): RemoteAction = HostAction(name, value)
 
@@ -60,6 +66,7 @@ public fun hostAction(name: RemoteString, value: RemoteInt): RemoteAction = Host
  *
  * @param name The name of the action.
  * @param value The string value to pass with the action, delivered to the host as a [String].
+ * @return a [RemoteAction] that triggers the named [name] action with [value] on the host
  */
 public fun hostAction(name: RemoteString, value: RemoteString): RemoteAction =
     HostAction(name, value)
@@ -72,8 +79,8 @@ public fun hostAction(name: RemoteString, value: RemoteString): RemoteAction =
  *
  * @param name The name of the action.
  * @param value The boolean value to pass with the action.
+ * @return a [RemoteAction] that triggers the named [name] action with [value] on the host
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun hostAction(name: RemoteString, value: RemoteBoolean): RemoteAction =
     HostAction(name, value.toRemoteInt())
 
@@ -96,8 +103,8 @@ public fun hostAction(name: RemoteString, value: RemoteBoolean): RemoteAction =
  * @param id The id of the action.
  * @param metadata Optional metadata delivered with the action. May be dynamic, for example built
  *   from touch positions or other remote state, and is resolved when the action runs.
+ * @return a [RemoteAction] that triggers the host action for [id]
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun hostAction(id: Int, metadata: RemoteString? = null): RemoteAction {
     require(id != -1) { "-1 is the default component id and cannot be used as a host action id" }
     return HostIdAction(id, metadata)

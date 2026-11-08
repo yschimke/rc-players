@@ -13,6 +13,7 @@ import androidx.compose.remote.creation.compose.layout.RemoteFitBox
 import androidx.compose.remote.creation.compose.layout.RemoteIntrinsicSize
 import androidx.compose.remote.creation.compose.layout.RemoteRow
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
+import androidx.compose.remote.creation.compose.modifier.RemoteRole
 import androidx.compose.remote.creation.compose.modifier.background
 import androidx.compose.remote.creation.compose.modifier.clickable
 import androidx.compose.remote.creation.compose.modifier.contentDescription
@@ -29,12 +30,12 @@ import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.asRemoteDp
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rememberNamedRemoteInt
+import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.ri
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
 
 @Composable
 @RemoteComposable
@@ -50,10 +51,10 @@ fun InteractionSampleDp() {
         modifier =
           RemoteModifier.size(40.rdp)
             .collapsiblePriority(2f)
-            .clickable(hostAction("toggle".rs, 1.ri), role = Role.Switch)
+            .clickable(hostAction("toggle".rs, 1.ri), role = RemoteRole.Switch)
             .background(RemoteColor(Color(0xFF888888))),
       )
-      RemoteBox(modifier = RemoteModifier.weight(1f).height(40.rdp).clickable(hostAction(7)))
+      RemoteBox(modifier = RemoteModifier.weight(1f.rf).height(40.rdp).clickable(hostAction(7)))
     }
     RemoteBox(
       modifier =
@@ -61,7 +62,7 @@ fun InteractionSampleDp() {
           mergeDescendants = true,
         ) {
           contentDescription = "Panel".rs
-          role = Role.Image
+          role = RemoteRole.Image
         },
     )
     RemoteRow(modifier = RemoteModifier.width(RemoteIntrinsicSize.Max)) {

@@ -20,8 +20,10 @@ import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.MatrixOperations
 import androidx.compose.remote.creation.common.Utils
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.runtime.Stable
 
 /** Represents a 3x3 transformation matrix. */
+@Stable
 public class RemoteMatrix3x3
 internal constructor(
     private val arrayProvider: (creationState: RemoteComposeCreationContext) -> FloatArray,
@@ -30,30 +32,30 @@ internal constructor(
 
     internal enum class OperationKey(override val precedence: Int = 100) : RemoteOperation {
         IDENTITY {
-            override fun toDebugString(args: List<RemoteStateCacheKey>) = "identity()"
+            override fun toDebugString(args: List<RemoteStateCacheKey>): String = "identity()"
         },
         ROTATE {
-            override fun toDebugString(args: List<RemoteStateCacheKey>) =
+            override fun toDebugString(args: List<RemoteStateCacheKey>): String =
                 "rotate(${args[0].toDebugString()})"
         },
         TRANSLATE_X {
-            override fun toDebugString(args: List<RemoteStateCacheKey>) =
+            override fun toDebugString(args: List<RemoteStateCacheKey>): String =
                 "translateX(${args[0].toDebugString()})"
         },
         TRANSLATE_Y {
-            override fun toDebugString(args: List<RemoteStateCacheKey>) =
+            override fun toDebugString(args: List<RemoteStateCacheKey>): String =
                 "translateY(${args[0].toDebugString()})"
         },
         TRANSLATE_XY {
-            override fun toDebugString(args: List<RemoteStateCacheKey>) =
+            override fun toDebugString(args: List<RemoteStateCacheKey>): String =
                 "translate(${args[0].toDebugString()}, ${args[1].toDebugString()})"
         },
         SCALE_X {
-            override fun toDebugString(args: List<RemoteStateCacheKey>) =
+            override fun toDebugString(args: List<RemoteStateCacheKey>): String =
                 "scaleX(${args[0].toDebugString()})"
         },
         SCALE_Y {
-            override fun toDebugString(args: List<RemoteStateCacheKey>) =
+            override fun toDebugString(args: List<RemoteStateCacheKey>): String =
                 "scaleY(${args[0].toDebugString()})"
         },
         ROTATION_AROUND {
@@ -63,7 +65,7 @@ internal constructor(
             }
         },
         MUL(3) {
-            override fun toDebugString(args: List<RemoteStateCacheKey>) =
+            override fun toDebugString(args: List<RemoteStateCacheKey>): String =
                 args.formatOp("*", precedence)
         };
 
@@ -90,6 +92,7 @@ internal constructor(
     override val constantValueOrNull: Any?
         get() = null
 
+    /** Returns `true` if this [RemoteMatrix3x3] is the identity matrix. */
     internal val isIdentity: Boolean
         get() = (cacheKey as? RemoteOperationCacheKey)?.op == OperationKey.IDENTITY
 

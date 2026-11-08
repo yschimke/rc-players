@@ -572,12 +572,8 @@ private class RcKotlinWriter(
           },
       )
     if (decorations.isNotEmpty()) {
-      import("androidx.compose.ui.text.style.TextDecoration")
-      fields +=
-        "textDecoration = " +
-          if (decorations.size == 1) "TextDecoration.${decorations[0]}"
-          else
-            "TextDecoration.combine(listOf(${decorations.joinToString { "TextDecoration.$it" }}))"
+      import("androidx.compose.remote.creation.compose.text.RemoteTextDecoration")
+      fields += "textDecoration = " + decorations.joinToString(" + ") { "RemoteTextDecoration.$it" }
     }
     if (fields.isEmpty()) return null
     import("androidx.compose.remote.creation.compose.text.RemoteTextStyle")
@@ -592,12 +588,13 @@ private class RcKotlinWriter(
       gap("font axes read from variables are not generated")
       return null
     }
-    import("androidx.compose.ui.text.font.FontVariation")
+    import("androidx.compose.remote.creation.compose.text.RemoteFontVariation")
     val settings =
       axes.indices.joinToString(", ") { index ->
-        "FontVariation.Setting(${quote(texts.getValue(axes[index]))}, ${float(values[index].value)})"
+        "RemoteFontVariation.Setting(${quote(texts.getValue(axes[index]))}, " +
+          "${literalFloat(values[index].value)})"
       }
-    return "FontVariation.Settings($settings)"
+    return "RemoteFontVariation.Settings($settings)"
   }
 
   private fun textLayout(node: RcOperationNode, text: RcTextLayout, parent: Parent) {
@@ -987,7 +984,7 @@ private class RcKotlinWriter(
       }
       RcDimensionType.WEIGHT -> {
         val main = (axis == "Width" && parent.isRow) || (axis == "Height" && parent.isColumn)
-        if (main) "weight(${if (value.isNaNEncoded) floatValue(value) else float(value.value)})"
+        if (main) "weight(${floatValue(value)})"
         else {
           gap(
             "a ${lower} weight outside a ${if (axis == "Width") "row" else "column"} is not generated",
@@ -1147,9 +1144,9 @@ private class RcKotlinWriter(
       ?.let {
         import(
           "androidx.compose.remote.creation.compose.modifier.role",
-          "androidx.compose.ui.semantics.Role",
+          "androidx.compose.remote.creation.compose.modifier.RemoteRole",
         )
-        properties += "role = Role.$it"
+        properties += "role = RemoteRole.$it"
       }
     if (!semantics.enabled) {
       import("androidx.compose.remote.creation.compose.modifier.enabled")
@@ -1193,15 +1190,14 @@ private class RcKotlinWriter(
           "combinedAction(${actions.joinToString(", ")})"
         }
       }
+    // `clickable`'s role defaults to none, so only a click that carries one names it.
     val role =
       when (semantics) {
-        null -> ", role = null"
-        else ->
-          if (semantics.role == RcAccessibilitySemantics.ROLE_BUTTON) ""
-          else {
-            import("androidx.compose.ui.semantics.Role")
-            ", role = Role.${ROLES.getValue(semantics.role)}"
-          }
+        null -> ""
+        else -> {
+          import("androidx.compose.remote.creation.compose.modifier.RemoteRole")
+          ", role = RemoteRole.${ROLES.getValue(semantics.role)}"
+        }
       }
     return "clickable($action$role)"
   }

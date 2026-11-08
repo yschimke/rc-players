@@ -13,11 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-@file:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-
 package androidx.compose.remote.creation.compose.layout
-
-import androidx.annotation.RestrictTo
 
 /**
  * A remote-compatible drawing scope for RemoteCompose that provides access to the content of the

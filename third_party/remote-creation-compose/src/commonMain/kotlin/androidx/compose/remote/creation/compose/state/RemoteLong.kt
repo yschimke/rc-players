@@ -18,11 +18,8 @@ package androidx.compose.remote.creation.compose.state
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
-import androidx.compose.remote.creation.compose.state.RemoteLong.Companion.createNamedRemoteLong
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.annotation.RememberInComposition
-import androidx.compose.runtime.remember
 
 /**
  * Abstract base class for all remote long representations. This class extends [RemoteState<Long>].
@@ -285,43 +282,6 @@ internal constructor(
          */
         internal fun createMutableForId(id: Int): MutableRemoteLong = MutableRemoteLong(id)
     }
-}
-
-/**
- * Factory composable for mutable remote long state.
- *
- * @param initialValue The initial [Long] value.
- * @return A [MutableRemoteLong] instance that will be remembered across recompositions.
- */
-@Deprecated(
-    message = "Use remember { MutableRemoteLong(initialValue) } instead.",
-    replaceWith =
-        ReplaceWith(
-            "remember { MutableRemoteLong(initialValue) }",
-            "androidx.compose.runtime.remember",
-        ),
-)
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-@Composable
-public fun rememberMutableRemoteLong(initialValue: Long): MutableRemoteLong {
-    return remember { MutableRemoteLong(initialValue) }
-}
-
-/**
- * Remembers a named remote long expression.
- *
- * @param name The unique name for this remote long.
- * @param defaultValue The initial long value.
- * @param domain The domain of the named long (defaults to [RemoteState.Domain.User]).
- * @return A [RemoteLong] representing the named remote long expression.
- */
-@Composable
-public fun rememberNamedRemoteLong(
-    name: String,
-    defaultValue: Long,
-    domain: RemoteState.Domain = RemoteState.Domain.User,
-): RemoteLong {
-    return remember(name, domain) { createNamedRemoteLong(name, defaultValue, domain) }
 }
 
 internal enum class RemoteLongOp(val symbol: String? = null) : RemoteOperation {

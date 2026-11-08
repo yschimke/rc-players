@@ -62,7 +62,7 @@ internal class RemoteCustomComponentNode : RemoteComposeNode() {
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Composable
 @RemoteComposable
-@Suppress("RestrictedApi", "ComposableLambdaParameterPosition")
+@Suppress("ComposableLambdaParameterPosition")
 public fun RemoteCustomComponent(
     name: String,
     modifier: RemoteModifier = RemoteModifier,
@@ -81,10 +81,9 @@ public fun RemoteCustomComponent(
 }
 
 /** An entry representing a single custom property or return binding. */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public sealed class CustomPropertyEntry {
-    public abstract val id: Short
-    public open val state: BaseRemoteState<*>?
+internal sealed class CustomPropertyEntry {
+    abstract val id: Short
+    open val state: BaseRemoteState<*>?
         get() = null
 
     public abstract fun toCustomProperty(
@@ -290,7 +289,7 @@ internal class RemoteBooleanReturnEntry(
 
 /** Scope for configuring properties and return bindings of a [RemoteCustomComponent]. */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-@Suppress("RestrictedApi", "ComposableLambdaParameterPosition")
+@Suppress("ComposableLambdaParameterPosition")
 public class RemoteCustomPropertiesScope
 public constructor(private val creationState: RemoteComposeCreationState? = null) {
     internal val entries = mutableListOf<CustomPropertyEntry>()

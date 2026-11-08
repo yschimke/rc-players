@@ -24,7 +24,6 @@ import androidx.compose.remote.creation.compose.state.RemoteMatrix3x3
 import androidx.compose.remote.creation.compose.state.RemotePaint
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.geometry.Size
 
 /**
  * A remote representation of a [androidx.compose.ui.graphics.Brush] that can be serialized and
@@ -36,13 +35,6 @@ import androidx.compose.ui.geometry.Size
  */
 @Immutable
 public abstract class RemoteBrush internal constructor() {
-
-    /**
-     * Return the intrinsic size of the [RemoteBrush]. If the there is no intrinsic size (i.e.
-     * filling bounds with an arbitrary color) return [Size.Unspecified]. If there is no intrinsic
-     * size in a single dimension, return [Size] with [Float.NaN] in the desired dimension.
-     */
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val intrinsicSize: Size = Size.Unspecified
 
     /**
      * Applies this [RemoteBrush] to a paint.
@@ -83,6 +75,8 @@ public abstract class RemoteShaderBrush internal constructor() : RemoteBrush() {
     /**
      * Applies this [RemoteShaderBrush] to a [paint] with a given [size] and [matrix3x3]
      * transformation.
+     *
+     * Example of applying a rotated gradient shader brush to a [RemotePaint]:
      *
      * @sample androidx.compose.remote.creation.compose.samples.RemoteCanvasShaderMatrixSample
      * @param paint The paint to apply the shader to.

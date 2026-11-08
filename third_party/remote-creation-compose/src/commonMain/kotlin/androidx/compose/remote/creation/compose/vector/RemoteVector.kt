@@ -48,7 +48,11 @@ import androidx.compose.remote.creation.compose.state.creationState
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.util.fastForEach
 
-/** DSL for building a vector with [RemotePathScope]. */
+/**
+ * DSL for building a vector with [RemotePathScope].
+ *
+ * @return the [List] of [RemotePathNode]s built by [block]
+ */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemotePathData(block: RemotePathScope.() -> Unit): List<RemotePathNode> =
     with(RemotePathScope()) {
@@ -128,10 +132,10 @@ internal class RemotePathComponent : RemoteVNode() {
         viewportSize: RemoteSize,
     ) {
         // The call below resets the path
-        pathData.toRemotePath(path, this.remoteCanvas.creationState)
+        pathData.toRemotePath(path, this.remoteCanvas)
         val hasTween = targetPathData != null && targetPathData!!.isNotEmpty()
         if (hasTween) {
-            targetPathData!!.toRemotePath(targetPath, this.remoteCanvas.creationState)
+            targetPathData!!.toRemotePath(targetPath, this.remoteCanvas)
         }
 
         val isTrimmed =
@@ -159,7 +163,7 @@ internal class RemotePathComponent : RemoteVNode() {
         if (effectiveFillBrush != null) {
             val fillPaint = RemotePaint {
                 this.colorFilter = colorFilter
-                this.remoteStyle = RemotePaintingStyle.Fill
+                this.style = RemotePaintingStyle.Fill
             }
             applyBrushToPaint(fillPaint, effectiveFillBrush, fillAlpha, viewportSize)
             if (hasTween) {
@@ -176,10 +180,10 @@ internal class RemotePathComponent : RemoteVNode() {
         if (effectiveStrokeBrush != null) {
             val strokePaint = RemotePaint {
                 this.colorFilter = colorFilter
-                this.remoteStyle = RemotePaintingStyle.Stroke
+                this.style = RemotePaintingStyle.Stroke
                 this.strokeWidth = strokeLineWidth
-                this.remoteStrokeCap = strokeLineCap
-                this.remoteStrokeJoin = strokeLineJoin
+                this.strokeCap = strokeLineCap
+                this.strokeJoin = strokeLineJoin
             }
             applyBrushToPaint(strokePaint, effectiveStrokeBrush, strokeAlpha, viewportSize)
             if (hasTween) {

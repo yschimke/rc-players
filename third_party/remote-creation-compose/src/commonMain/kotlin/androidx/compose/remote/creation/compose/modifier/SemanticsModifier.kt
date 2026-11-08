@@ -20,24 +20,23 @@ import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.RemoteModifierOperation
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.RemoteString
-import androidx.compose.ui.semantics.Role
 
 /**
- * SemanticsPropertyKey is the infrastructure for setting key/value pairs inside semantics block in
- * a type-safe way. Each key has one particular statically defined value type T.
+ * [RemoteSemanticsPropertyKey] is the infrastructure for setting key/value pairs inside semantics
+ * block in a type-safe way. Each key has one particular statically defined value type T.
  */
-public class SemanticsPropertyKey<T>
+public class RemoteSemanticsPropertyKey<T>
 internal constructor(
     /** The name of the property. Should be the same as the constant from which it is accessed. */
     public val name: String,
 ) {
     override fun toString(): String {
-        return "SemanticsPropertyKey: $name"
+        return "RemoteSemanticsPropertyKey: $name"
     }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other !is SemanticsPropertyKey<*>) return false
+        if (other !is RemoteSemanticsPropertyKey<*>) return false
         return name == other.name
     }
 
@@ -47,141 +46,120 @@ internal constructor(
 }
 
 /**
- * SemanticsPropertyReceiver is the scope provided by semantics {} blocks, letting you set key/value
- * pairs primarily via extension functions.
+ * [RemoteSemanticsPropertyReceiver] is the scope provided by semantics {} blocks, letting you set
+ * key/value pairs primarily via extension functions.
  */
-public interface SemanticsPropertyReceiver {
+public interface RemoteSemanticsPropertyReceiver {
     /**
      * Sets the semantics property [key] to [value].
      *
-     * @param key The [SemanticsPropertyKey] to set.
+     * @param key The [RemoteSemanticsPropertyKey] to set.
      * @param value The value to associate with [key].
      */
-    public operator fun <T> set(key: SemanticsPropertyKey<T>, value: T?)
+    public operator fun <T> set(key: RemoteSemanticsPropertyKey<T>, value: T?)
 
     @Suppress("HiddenAbstractMethodInInterface")
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public operator fun <T> get(key: SemanticsPropertyKey<T>): T?
+    public operator fun <T> get(key: RemoteSemanticsPropertyKey<T>): T?
 }
 
 /** General semantics properties, mainly used for accessibility and testing. */
-public object SemanticsProperties {
-    /** Semantics property key for [SemanticsPropertyReceiver.contentDescription]. */
-    public val ContentDescription: SemanticsPropertyKey<RemoteString> =
-        SemanticsPropertyKey("ContentDescription")
+public object RemoteSemanticsProperties {
+    /** Semantics property key for [RemoteSemanticsPropertyReceiver.contentDescription]. */
+    public val ContentDescription: RemoteSemanticsPropertyKey<RemoteString> =
+        RemoteSemanticsPropertyKey("ContentDescription")
 
-    /** Semantics property key for [SemanticsPropertyReceiver.role]. */
-    public val Role: SemanticsPropertyKey<Role> = SemanticsPropertyKey("Role")
+    /** Semantics property key for [RemoteSemanticsPropertyReceiver.role]. */
+    public val Role: RemoteSemanticsPropertyKey<RemoteRole> = RemoteSemanticsPropertyKey("Role")
 
-    /** Semantics property key for [SemanticsPropertyReceiver.remoteRole]. */
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public val RemoteRole: SemanticsPropertyKey<RemoteRole> = SemanticsPropertyKey("RemoteRole")
+    /** Semantics property key for [RemoteSemanticsPropertyReceiver.text]. */
+    public val Text: RemoteSemanticsPropertyKey<RemoteString> = RemoteSemanticsPropertyKey("Text")
 
-    /** Semantics property key for [SemanticsPropertyReceiver.text]. */
-    public val Text: SemanticsPropertyKey<RemoteString> = SemanticsPropertyKey("Text")
+    /** Semantics property key for [RemoteSemanticsPropertyReceiver.stateDescription]. */
+    public val StateDescription: RemoteSemanticsPropertyKey<RemoteString> =
+        RemoteSemanticsPropertyKey("StateDescription")
 
-    /** Semantics property key for [SemanticsPropertyReceiver.stateDescription]. */
-    public val StateDescription: SemanticsPropertyKey<RemoteString> =
-        SemanticsPropertyKey("StateDescription")
-
-    /** Semantics property key for [SemanticsPropertyReceiver.enabled]. */
-    public val Enabled: SemanticsPropertyKey<Boolean> = SemanticsPropertyKey("Enabled")
+    /** Semantics property key for [RemoteSemanticsPropertyReceiver.enabled]. */
+    public val Enabled: RemoteSemanticsPropertyKey<Boolean> = RemoteSemanticsPropertyKey("Enabled")
 }
 
 /**
  * Developer-set content description of the semantics node, for use in testing, accessibility and
  * similar use cases.
  */
-public var SemanticsPropertyReceiver.contentDescription: RemoteString?
-    get() = get(SemanticsProperties.ContentDescription)
+public var RemoteSemanticsPropertyReceiver.contentDescription: RemoteString?
+    get() = get(RemoteSemanticsProperties.ContentDescription)
     set(value) {
-        set(SemanticsProperties.ContentDescription, value)
+        set(RemoteSemanticsProperties.ContentDescription, value)
     }
 
 /** The type of user interface element. Accessibility services can use this to describe the node. */
-public var SemanticsPropertyReceiver.role: Role?
-    get() = get(SemanticsProperties.Role)
+public var RemoteSemanticsPropertyReceiver.role: RemoteRole?
+    get() = get(RemoteSemanticsProperties.Role)
     set(value) {
-        set(SemanticsProperties.Role, value)
+        set(RemoteSemanticsProperties.Role, value)
     }
-
-/** The type of user interface element. Accessibility services can use this to describe the node. */
-@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-@set:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public var SemanticsPropertyReceiver.remoteRole: RemoteRole?
-    get() = get(SemanticsProperties.RemoteRole)
-    set(value) {
-        set(SemanticsProperties.RemoteRole, value)
-    }
-
 /** Text content for the semantics node. */
-public var SemanticsPropertyReceiver.text: RemoteString?
-    get() = get(SemanticsProperties.Text)
+public var RemoteSemanticsPropertyReceiver.text: RemoteString?
+    get() = get(RemoteSemanticsProperties.Text)
     set(value) {
-        set(SemanticsProperties.Text, value)
+        set(RemoteSemanticsProperties.Text, value)
     }
 
 /** Description of the state for the semantics node. */
-public var SemanticsPropertyReceiver.stateDescription: RemoteString?
-    get() = get(SemanticsProperties.StateDescription)
+public var RemoteSemanticsPropertyReceiver.stateDescription: RemoteString?
+    get() = get(RemoteSemanticsProperties.StateDescription)
     set(value) {
-        set(SemanticsProperties.StateDescription, value)
+        set(RemoteSemanticsProperties.StateDescription, value)
     }
 
 /** Whether the component is enabled. */
-public var SemanticsPropertyReceiver.enabled: Boolean
-    get() = get(SemanticsProperties.Enabled) ?: true
+public var RemoteSemanticsPropertyReceiver.enabled: Boolean
+    get() = get(RemoteSemanticsProperties.Enabled) ?: true
     set(value) {
-        set(SemanticsProperties.Enabled, value)
+        set(RemoteSemanticsProperties.Enabled, value)
     }
 
+// Port: the merge mode is AndroidX's `AccessibleComponent.Mode` ordinal (SET 0, CLEAR_AND_SET 1,
+// MERGE 2), written through the common `RemoteModifierOperation.Semantics`.
 internal data class SemanticsModifier(
     val mergeMode: Int,
-    val properties: Map<SemanticsPropertyKey<*>, Any?>,
+    val properties: Map<RemoteSemanticsPropertyKey<*>, Any?>,
 ) : RemoteModifier.Element {
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.Semantics(
             contentDescriptionId =
-                (properties[SemanticsProperties.ContentDescription] as? RemoteString)?.id ?: 0,
+                (properties[RemoteSemanticsProperties.ContentDescription] as? RemoteString)?.id
+                    ?: 0,
             role =
-                (properties[SemanticsProperties.RemoteRole] as? RemoteRole)?.toAccessibleRole()
-                    ?: roleValue(properties[SemanticsProperties.Role] as? Role),
-            textId = (properties[SemanticsProperties.Text] as? RemoteString)?.id ?: 0,
+                (properties[RemoteSemanticsProperties.Role] as? RemoteRole)?.toAccessibleRole()
+                    ?: -1,
+            textId = (properties[RemoteSemanticsProperties.Text] as? RemoteString)?.id ?: 0,
             stateDescriptionId =
-                (properties[SemanticsProperties.StateDescription] as? RemoteString)?.id ?: 0,
+                (properties[RemoteSemanticsProperties.StateDescription] as? RemoteString)?.id ?: 0,
             mode = mergeMode,
-            enabled = properties[SemanticsProperties.Enabled] as? Boolean ?: true,
+            enabled = properties[RemoteSemanticsProperties.Enabled] as? Boolean ?: true,
             clickable = false,
         )
 }
 
-private fun roleValue(role: Role?): Int {
-    return when (role) {
-        Role.Button -> 0
-        Role.Checkbox -> 1
-        Role.Switch -> 2
-        Role.RadioButton -> 3
-        Role.Tab -> 4
-        Role.Image -> 5
-        Role.DropdownList -> 6
-        null -> -1
-        else -> 9
-    }
-}
+private const val SET = 0
+private const val CLEAR_AND_SET = 1
+private const val MERGE = 2
 
 /**
  * Scope provided by semantics {} blocks, letting you set key/value pairs primarily via extension
  * functions.
  */
-internal class AccessibilitySemantics : SemanticsPropertyReceiver {
-    internal val props: MutableMap<SemanticsPropertyKey<*>, Any?> = mutableMapOf()
+internal class AccessibilitySemantics : RemoteSemanticsPropertyReceiver {
+    internal val props: MutableMap<RemoteSemanticsPropertyKey<*>, Any?> = mutableMapOf()
 
-    override fun <T> set(key: SemanticsPropertyKey<T>, value: T?) {
+    override fun <T> set(key: RemoteSemanticsPropertyKey<T>, value: T?) {
         props[key] = value
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T> get(key: SemanticsPropertyKey<T>): T? {
+    override fun <T> get(key: RemoteSemanticsPropertyKey<T>): T? {
         return props[key] as T?
     }
 
@@ -200,25 +178,27 @@ internal class AccessibilitySemantics : SemanticsPropertyReceiver {
  * Clears the semantics of all descendants and sets new semantics.
  *
  * @param properties A lambda to configure the semantics.
+ * @return a [RemoteModifier] that clears descendant semantics and applies [properties]
  */
 public fun RemoteModifier.clearAndSetSemantics(
-    properties: SemanticsPropertyReceiver.() -> Unit,
+    properties: RemoteSemanticsPropertyReceiver.() -> Unit,
 ): RemoteModifier =
-    then(SemanticsModifier(1, AccessibilitySemantics().apply(properties).props.toMap()))
+    then(SemanticsModifier(CLEAR_AND_SET, AccessibilitySemantics().apply(properties).props.toMap()))
 
 /**
  * Adds semantics to the node.
  *
  * @param mergeDescendants Whether to merge the semantics of all descendants into this node.
  * @param properties A lambda to configure the semantics.
+ * @return a [RemoteModifier] that configures semantics using [properties]
  */
 public fun RemoteModifier.semantics(
     mergeDescendants: Boolean = false,
-    properties: SemanticsPropertyReceiver.() -> Unit,
+    properties: RemoteSemanticsPropertyReceiver.() -> Unit,
 ): RemoteModifier =
     then(
         SemanticsModifier(
-            if (mergeDescendants) 2 else 0,
+            if (mergeDescendants) MERGE else SET,
             AccessibilitySemantics().apply(properties).props.toMap(),
         ),
     )

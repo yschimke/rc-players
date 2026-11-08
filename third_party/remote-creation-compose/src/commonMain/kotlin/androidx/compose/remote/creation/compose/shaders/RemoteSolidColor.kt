@@ -16,7 +16,6 @@
 
 package androidx.compose.remote.creation.compose.shaders
 
-import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.compose.layout.RemoteSize
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemotePaint
@@ -28,14 +27,14 @@ import androidx.compose.runtime.Stable
  * Creates a solid color brush.
  *
  * @param color color to apply
+ * @return a [RemoteBrush] that fills with [color]
  */
 @Stable
 public fun RemoteBrush.Companion.solidColor(color: RemoteColor): RemoteBrush =
     RemoteSolidColor(color)
 
 @Immutable
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public class RemoteSolidColor(public val color: RemoteColor) : RemoteBrush() {
+internal class RemoteSolidColor(val color: RemoteColor) : RemoteBrush() {
 
     override fun RemoteStateScope.applyTo(paint: RemotePaint, size: RemoteSize) {
         paint.color = color

@@ -16,9 +16,9 @@
 
 package androidx.compose.remote.creation.compose.layout
 
-import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.rf
+import androidx.compose.runtime.Immutable
 
 /**
  * An immutable 2D floating-point offset that can be used to represent a point or a vector in a
@@ -30,19 +30,11 @@ import androidx.compose.remote.creation.compose.state.rf
  * @property x The horizontal displacement.
  * @property y The vertical displacement.
  */
+@Immutable
 public class RemoteOffset(
     public val x: RemoteFloat,
     public val y: RemoteFloat,
 ) {
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public constructor(x: Float, y: Float) : this(RemoteFloat(x), RemoteFloat(y))
-
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public constructor(x: Float, y: RemoteFloat) : this(RemoteFloat(x), y)
-
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public constructor(x: RemoteFloat, y: Float) : this(x, RemoteFloat(y))
-
     /** The magnitude of the smaller of the two components, [x] and [y]. */
     public val minDimension: RemoteFloat
         get() = x.min(y)

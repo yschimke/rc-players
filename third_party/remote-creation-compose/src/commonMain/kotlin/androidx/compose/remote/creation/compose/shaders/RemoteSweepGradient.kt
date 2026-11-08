@@ -46,6 +46,7 @@ import androidx.compose.runtime.Stable
  *   sweep gradient
  * @param center Center position of the sweep gradient circle. If this is set to null then the
  *   center of the drawing area is used as the center for the sweep gradient
+ * @return a [RemoteShaderBrush] that draws a sweep gradient with the given [colorStops]
  */
 @Stable
 public fun RemoteBrush.Companion.sweepGradient(
@@ -74,6 +75,7 @@ public fun RemoteBrush.Companion.sweepGradient(
  * @param colors List of colors to fill the sweep gradient
  * @param center Center position of the sweep gradient circle. If this is null then the center of
  *   the drawing area is used as the center for the sweep gradient
+ * @return a [RemoteShaderBrush] that draws a sweep gradient across the given [colors]
  */
 @Stable
 public fun RemoteBrush.Companion.sweepGradient(
@@ -102,12 +104,11 @@ public data class RemoteSweepGradient(
     }
 }
 
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public class RemoteSweepShader(
-    public val centerX: RemoteFloat,
-    public val centerY: RemoteFloat,
-    public val colors: List<RemoteColor>,
-    public val positions: List<RemoteFloat>?,
+internal class RemoteSweepShader(
+    val centerX: RemoteFloat,
+    val centerY: RemoteFloat,
+    val colors: List<RemoteColor>,
+    val positions: List<RemoteFloat>?,
 ) : RemoteShader() {
 
     override fun apply(creationState: RemoteComposeCreationContext, paintBundle: PaintBundleData) {

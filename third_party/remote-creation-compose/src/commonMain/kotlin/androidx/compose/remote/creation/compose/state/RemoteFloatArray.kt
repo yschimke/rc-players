@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-@file:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 
 package androidx.compose.remote.creation.compose.state
 
@@ -51,7 +50,7 @@ internal constructor(
 
     internal enum class OperationKey : RemoteOperation {
         Create {
-            override fun toDebugString(args: List<RemoteStateCacheKey>) =
+            override fun toDebugString(args: List<RemoteStateCacheKey>): String =
                 "arrayOf(${args.joinToDebugString()})"
 
             override fun reconstruct(args: List<BaseRemoteState<*>>): BaseRemoteState<*> =
@@ -61,7 +60,7 @@ internal constructor(
             override val precedence: Int
                 get() = 100
 
-            override fun toDebugString(args: List<RemoteStateCacheKey>) =
+            override fun toDebugString(args: List<RemoteStateCacheKey>): String =
                 args.formatArrayAccess(precedence)
 
             override fun reconstruct(args: List<BaseRemoteState<*>>): BaseRemoteState<*> {
@@ -74,7 +73,7 @@ internal constructor(
             }
         },
         IdList {
-            override fun toDebugString(args: List<RemoteStateCacheKey>) =
+            override fun toDebugString(args: List<RemoteStateCacheKey>): String =
                 "${args[0].toDebugString()}.asIdList()"
 
             override fun reconstruct(args: List<BaseRemoteState<*>>): BaseRemoteState<*> = args[0]

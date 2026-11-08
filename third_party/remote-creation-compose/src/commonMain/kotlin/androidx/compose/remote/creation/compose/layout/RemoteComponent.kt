@@ -18,49 +18,69 @@ package androidx.compose.remote.creation.compose.layout
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.compose.state.RemoteFloat
+import androidx.compose.remote.creation.compose.state.RemoteStateScope
+import androidx.compose.runtime.Stable
 
-/**
- * A class that provides access to remote component information.
- *
- * @param scope The scope instance.
- */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public class RemoteComponent(private val scope: RemoteDrawScope) {
-    private val context = RemoteFloatContext(scope.remoteComposeCreationState)
+/** Dynamic layout measurements of a RemoteCompose component in pixels. */
+@Stable
+public class RemoteComponent private constructor(private val context: RemoteFloatContext) {
+    /**
+     * Creates a [RemoteComponent] backed by [scope].
+     *
+     * @param scope [RemoteStateScope] providing the active component or target document
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public constructor(scope: RemoteStateScope) : this(RemoteFloatContext(scope))
 
-    /** The width of the component as a [RemoteFloat]. */
+    /**
+     * Creates a [RemoteComponent] bound to [token].
+     *
+     * @param token identity token of the target layout component
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public constructor(token: RemoteComponentToken) : this(RemoteFloatContext(token))
+
+    /** Width of this component in pixels. */
     public val width: RemoteFloat
         get() = context.componentWidth()
 
-    /** The height of the component as a [RemoteFloat]. */
+    /** Height of this component in pixels. */
     public val height: RemoteFloat
         get() = context.componentHeight()
 
-    /** The x-coordinate of the component center as a [RemoteFloat]. */
+    /** Horizontal center (`width / 2`) of this component in pixels. */
     public val centerX: RemoteFloat
         get() = context.componentCenterX()
 
-    /** The y-coordinate of the component center as a [RemoteFloat]. */
+    /** Vertical center (`height / 2`) of this component in pixels. */
     public val centerY: RemoteFloat
         get() = context.componentCenterY()
 
-    /** The x-coordinate of the component relative to its parent as a [RemoteFloat]. */
+    /** Horizontal offset of this component relative to its parent in pixels. */
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public val x: RemoteFloat
         get() = context.componentX()
 
-    /** The y-coordinate of the component relative to its parent as a [RemoteFloat]. */
+    /** Vertical offset of this component relative to its parent in pixels. */
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public val y: RemoteFloat
         get() = context.componentY()
 
-    /** The x-coordinate of the component relative to the root as a [RemoteFloat]. */
+    /** Horizontal offset of this component relative to the root in pixels. */
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public val rootX: RemoteFloat
         get() = context.componentRootX()
 
-    /** The y-coordinate of the component relative to the root as a [RemoteFloat]. */
+    /** Vertical offset of this component relative to the root in pixels. */
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public val rootY: RemoteFloat
         get() = context.componentRootY()
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RemoteComponent) return false
+        return context == other.context
+    }
+
+    override fun hashCode(): Int = context.hashCode()
 }

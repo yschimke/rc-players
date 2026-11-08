@@ -2,6 +2,7 @@ package androidx.compose.remote.creation.compose.text
 
 import androidx.compose.remote.creation.common.TextFromFloat.PAD_PRE_NONE
 import androidx.compose.remote.creation.common.TextFromFloat.PAD_PRE_ZERO
+import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.remote.creation.compose.state.RemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteString
@@ -11,10 +12,27 @@ import androidx.compose.runtime.Composable
 
 /** Default time values backed by the player's clock variables. */
 public object RemoteTimeDefaults {
-    /** Whether capture-time locale preferences use a 24-hour clock. */
-    @Composable public fun is24HourFormat(): RemoteBoolean = RemoteBoolean(platformUses24HourTime())
+    /**
+     * Returns a [RemoteBoolean] indicating whether the time should be displayed in 24-hour format.
+     * Currently captured at recording time.
+     *
+     * @return a [RemoteBoolean] that is `true` when 24-hour format is enabled
+     */
+    @RemoteComposable
+    @Composable
+    public fun is24HourFormat(): RemoteBoolean = RemoteBoolean(platformUses24HourTime())
 
-    /** A player-evaluated current-time string: "HH:mm" in 24-hour format, "h:mm" in 12-hour. */
+    /**
+     * Creates a [RemoteString] representing the current time in either 12-hour or 24-hour format.
+     *
+     * The 24-hour format is represented as "HH:mm", while the 12-hour format is represented as
+     * "h:mm".
+     *
+     * @param is24HourFormat A [RemoteBoolean] indicating whether to use 24-hour format. Defaults to
+     *   the system's current setting at the time of recording.
+     * @return A [RemoteString] that evaluates to the formatted time string.
+     */
+    @RemoteComposable
     @Composable
     public fun defaultTimeString(is24HourFormat: RemoteBoolean = is24HourFormat()): RemoteString {
         val mins =

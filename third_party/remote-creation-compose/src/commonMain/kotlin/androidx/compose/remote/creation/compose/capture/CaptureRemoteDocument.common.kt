@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -45,8 +46,8 @@ public suspend fun captureCommonRemoteDocument(
     // take it on the next refresh; see PROVENANCE.md, "Upstream follow-ups".
     val writer =
         RemoteDocumentWriter(
-            creationDisplayInfo.size.width.toInt(),
-            creationDisplayInfo.size.height.toInt(),
+            creationDisplayInfo.width,
+            creationDisplayInfo.height,
             creationDisplayInfo.densityBehavior.value,
         )
     captureCommonRemoteDocumentInto(
@@ -87,7 +88,7 @@ public suspend fun captureCommonRemoteDocumentInto(
                 creationDisplayInfo = creationDisplayInfo,
                 writer = writer,
                 remoteDensity = remoteDensity,
-                layoutDirection = layoutDirection,
+                layoutDirection = layoutDirection.toRemoteLayoutDirection(),
                 supportedOperations = supportedOperations,
                 platformImageProvider = platformImageProvider,
             )
@@ -97,7 +98,8 @@ public suspend fun captureCommonRemoteDocumentInto(
                 CompositionLocalProvider(
                     LocalRemoteComposeCreationState provides creationState,
                     LocalRemoteDensity provides remoteDensity,
-                    LocalDensity provides creationDisplayInfo.density,
+                    LocalDensity provides
+                        Density(creationDisplayInfo.density, creationDisplayInfo.fontScale),
                     LocalInspectionMode provides creationDisplayInfo.isInspectionMode,
                     LocalLayoutDirection provides layoutDirection,
                     // As upstream's Android capture: follows a nested LocalLayoutDirection.

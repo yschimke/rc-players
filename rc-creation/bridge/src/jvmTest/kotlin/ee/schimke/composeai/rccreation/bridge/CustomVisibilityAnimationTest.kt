@@ -18,8 +18,9 @@ import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.modifier.animateEnterExit
 import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.modifier.visibility
+import androidx.compose.remote.creation.compose.state.MutableRemoteInt
 import androidx.compose.remote.creation.compose.state.rdp
-import androidx.compose.remote.creation.compose.state.rememberMutableRemoteInt
+import androidx.compose.runtime.remember
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -48,8 +49,8 @@ class CustomVisibilityAnimationTest {
   private fun captureBytes(): Pair<Int, ByteArray> = runBlocking {
     val writer =
       RemoteDocumentWriter(
-        displayInfo.size.width.toInt(),
-        displayInfo.size.height.toInt(),
+        displayInfo.width,
+        displayInfo.height,
         displayInfo.densityBehavior.wireValue,
       )
     // The buffer is drawn back wiped from the right as progress grows.
@@ -67,7 +68,7 @@ class CustomVisibilityAnimationTest {
     captureCommonRemoteDocumentInto(writer, displayInfo) {
       RemoteBox(
         RemoteModifier.size(40.rdp)
-          .visibility(rememberMutableRemoteInt(1))
+          .visibility(remember { MutableRemoteInt(1) })
           .animateEnterExit(exit = rcCustomExitTransition(dissolve)),
       ) {}
     }

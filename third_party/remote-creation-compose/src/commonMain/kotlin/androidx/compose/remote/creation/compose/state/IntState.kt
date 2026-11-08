@@ -21,15 +21,15 @@ package androidx.compose.remote.creation.compose.state
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.IntegerExpressionEvaluator
+import androidx.compose.remote.creation.common.TextFromFloat.GROUPING_BY3
+import androidx.compose.remote.creation.common.TextFromFloat.PAD_AFTER_NONE
+import androidx.compose.remote.creation.common.TextFromFloat.PAD_PRE_NONE
+import androidx.compose.remote.creation.common.TextFromFloat.SEPARATOR_COMMA_PERIOD
 import androidx.compose.remote.creation.common.Utils
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
-import androidx.compose.remote.creation.compose.layout.RemoteComposable
-import androidx.compose.remote.creation.compose.state.RemoteInt.Companion.createNamedRemoteInt
 import androidx.compose.remote.creation.compose.state.RemoteInt.OperationKey
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.annotation.RememberInComposition
-import androidx.compose.runtime.remember
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -247,6 +247,19 @@ internal constructor(
     }
 
     /**
+     * Converts this [RemoteInt] to a [RemoteString] using the default localized integer format.
+     *
+     * @return A [RemoteString] representing the formatted integer.
+     */
+    public fun toRemoteString(): RemoteString =
+        toRemoteFloat()
+            .toRemoteStringWithPadding(
+                before = 40,
+                after = 0,
+                flags = SEPARATOR_COMMA_PERIOD or GROUPING_BY3 or PAD_AFTER_NONE or PAD_PRE_NONE,
+            )
+
+    /**
      * Converts this [RemoteInt] to a [RemoteString] using the specified [format].
      *
      * This method maps the localized [DecimalFormat] symbols (such as separators and grouping
@@ -256,7 +269,9 @@ internal constructor(
      * @param format The [DecimalFormat] to use for determining separators, grouping, and padding.
      * @return A [RemoteString] representing the formatted integer.
      */
-    public fun toRemoteString(format: DecimalFormat = DefaultJavaIntegerFormat): RemoteString =
+    // Port: upstream's `toRemoteString(DecimalFormat)` is an Android extension over Java's and
+    // ICU's DecimalFormat (`RemoteFormatting.android.kt`); the port's DecimalFormat is common.
+    public fun toRemoteString(format: DecimalFormat): RemoteString =
         formatRemoteIntJvm(this, format)
 
     /**
@@ -295,106 +310,160 @@ internal constructor(
         }
     }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public operator fun plus(v: Int): RemoteInt {
-        if (v == 0) {
+    /**
+     * Adds [other] to this [RemoteInt].
+     *
+     * @param other integer value to add
+     * @return a [RemoteInt] evaluating to `this + other`
+     */
+    public operator fun plus(other: Int): RemoteInt {
+        if (other == 0) {
             return this
         }
-        return binaryOp(this, v, OperationKey.Add, OP_ADD) { a, b -> a + b }
+        return binaryOp(this, other, OperationKey.Add, OP_ADD) { a, b -> a + b }
     }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public operator fun minus(v: Int): RemoteInt {
-        if (v == 0) {
+    /**
+     * Subtracts [other] from this [RemoteInt].
+     *
+     * @param other integer value to subtract
+     * @return a [RemoteInt] evaluating to `this - other`
+     */
+    public operator fun minus(other: Int): RemoteInt {
+        if (other == 0) {
             return this
         }
-        return binaryOp(this, v, OperationKey.Sub, OP_SUB) { a, b -> a - b }
+        return binaryOp(this, other, OperationKey.Sub, OP_SUB) { a, b -> a - b }
     }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public operator fun times(v: Int): RemoteInt {
-        if (v == 0) {
+    /**
+     * Multiplies this [RemoteInt] by [other].
+     *
+     * @param other integer multiplier
+     * @return a [RemoteInt] evaluating to `this * other`
+     */
+    public operator fun times(other: Int): RemoteInt {
+        if (other == 0) {
             return RemoteInt(0)
         }
-        if (v == 1) {
+        if (other == 1) {
             return this
         }
         if (constantValueOrNull != null && constantValueOrNull == 1) {
-            return RemoteInt(v)
+            return RemoteInt(other)
         }
-        return binaryOp(this, v, OperationKey.Mul, OP_MUL) { a, b -> a * b }
+        return binaryOp(this, other, OperationKey.Mul, OP_MUL) { a, b -> a * b }
     }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public operator fun div(v: Int): RemoteInt {
+    /**
+     * Divides this [RemoteInt] by [other] using truncating integer division.
+     *
+     * @param other integer divisor
+     * @return a [RemoteInt] evaluating to `this / other`
+     */
+    public operator fun div(other: Int): RemoteInt {
         if (constantValueOrNull != null && constantValueOrNull == 0) {
             return RemoteInt(0)
         }
-        if (v == 1) {
+        if (other == 1) {
             return this
         }
-        return binaryOp(this, v, OperationKey.Div, OP_DIV) { a, b -> a / b }
+        return binaryOp(this, other, OperationKey.Div, OP_DIV) { a, b -> a / b }
     }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public operator fun rem(v: Int): RemoteInt =
-        binaryOp(this, v, OperationKey.Mod, OP_MOD) { a, b -> a % b }
+    /**
+     * Computes the remainder of truncating division of this [RemoteInt] by [other].
+     *
+     * @param other integer divisor
+     * @return a [RemoteInt] evaluating to `this % other`
+     */
+    public operator fun rem(other: Int): RemoteInt =
+        binaryOp(this, other, OperationKey.Mod, OP_MOD) { a, b -> a % b }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public operator fun plus(v: RemoteInt): RemoteInt {
-        v.constantValueOrNull?.let {
+    /**
+     * Adds [other] to this [RemoteInt].
+     *
+     * @param other [RemoteInt] to add
+     * @return a [RemoteInt] evaluating to `this + other`
+     */
+    public operator fun plus(other: RemoteInt): RemoteInt {
+        other.constantValueOrNull?.let {
             return plus(it)
         }
         constantValueOrNull?.let {
-            return v.plus(it)
+            return other.plus(it)
         }
-        return binaryOp(this, v, OperationKey.Add, OP_ADD) { a, b -> a + b }
+        return binaryOp(this, other, OperationKey.Add, OP_ADD) { a, b -> a + b }
     }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public operator fun minus(v: RemoteInt): RemoteInt {
-        v.constantValueOrNull?.let {
+    /**
+     * Subtracts [other] from this [RemoteInt].
+     *
+     * @param other [RemoteInt] to subtract
+     * @return a [RemoteInt] evaluating to `this - other`
+     */
+    public operator fun minus(other: RemoteInt): RemoteInt {
+        other.constantValueOrNull?.let {
             return minus(it)
         }
         constantValueOrNull?.let {
-            return (-v).plus(it)
+            return (-other).plus(it)
         }
-        return binaryOp(this, v, OperationKey.Sub, OP_SUB) { a, b -> a - b }
+        return binaryOp(this, other, OperationKey.Sub, OP_SUB) { a, b -> a - b }
     }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public operator fun times(v: RemoteInt): RemoteInt {
+    /**
+     * Multiplies this [RemoteInt] by [other].
+     *
+     * @param other [RemoteInt] multiplier
+     * @return a [RemoteInt] evaluating to `this * other`
+     */
+    public operator fun times(other: RemoteInt): RemoteInt {
         if (
             (constantValueOrNull != null && constantValueOrNull == 0) ||
-                (v.constantValueOrNull != null && v.constantValueOrNull == 0)
+                (other.constantValueOrNull != null && other.constantValueOrNull == 0)
         ) {
             return RemoteInt(0)
         }
-        v.constantValueOrNull?.let {
+        other.constantValueOrNull?.let {
             return times(it)
         }
         constantValueOrNull?.let {
-            return v.times(it)
+            return other.times(it)
         }
-        return binaryOp(this, v, OperationKey.Mul, OP_MUL) { a, b -> a * b }
+        return binaryOp(this, other, OperationKey.Mul, OP_MUL) { a, b -> a * b }
     }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public operator fun div(v: RemoteInt): RemoteInt {
+    /**
+     * Divides this [RemoteInt] by [other] using truncating integer division.
+     *
+     * @param other [RemoteInt] divisor
+     * @return a [RemoteInt] evaluating to `this / other`
+     */
+    public operator fun div(other: RemoteInt): RemoteInt {
         if (constantValueOrNull != null && constantValueOrNull == 0) {
             return RemoteInt(0)
         }
-        v.constantValueOrNull?.let {
+        other.constantValueOrNull?.let {
             return div(it)
         }
-        return binaryOp(this, v, OperationKey.Div, OP_DIV) { a, b -> a / b }
+        return binaryOp(this, other, OperationKey.Div, OP_DIV) { a, b -> a / b }
     }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public operator fun rem(v: RemoteInt): RemoteInt =
-        binaryOp(this, v, OperationKey.Mod, OP_MOD) { a, b -> a % b }
+    /**
+     * Computes the remainder of truncating division of this [RemoteInt] by [other].
+     *
+     * @param other [RemoteInt] divisor
+     * @return a [RemoteInt] evaluating to `this % other`
+     */
+    public operator fun rem(other: RemoteInt): RemoteInt =
+        binaryOp(this, other, OperationKey.Mod, OP_MOD) { a, b -> a % b }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    /**
+     * Negates this [RemoteInt].
+     *
+     * @return a [RemoteInt] evaluating to `-this`
+     */
     public operator fun unaryMinus(): RemoteInt = unaryOp(OperationKey.Neg, OP_NEG) { v -> -v }
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -1373,52 +1442,11 @@ internal class RemoteIntSelect(
         get() = ifTrue.constantValueOrNull != null && ifFalse.constantValueOrNull != null
 }
 
-/**
- * Factory composable for mutable remote integer state.
- *
- * @param initialValue The initial [Int] value.
- * @return A [MutableRemoteInt] instance that will be remembered across recompositions.
- */
-@Deprecated(
-    message = "Use remember { MutableRemoteInt(initialValue) } instead.",
-    replaceWith =
-        ReplaceWith(
-            "remember { MutableRemoteInt(initialValue) }",
-            "androidx.compose.runtime.remember",
-        ),
-)
-@Composable
-@RemoteComposable
-public fun rememberMutableRemoteInt(initialValue: Int): MutableRemoteInt {
-    return remember { MutableRemoteInt(initialValue) }
-}
-
-/**
- * Remembers a named remote integer expression.
- *
- * @param name A unique name to identify this state within its [domain].
- * @param domain The domain for the named state. Defaults to [RemoteState.Domain.User].
- * @param defaultValue The initial [Int] value.
- * @return A [RemoteInt] instance representing the named expression.
- */
-@Composable
-@RemoteComposable
-public fun rememberNamedRemoteInt(
-    name: String,
-    defaultValue: Int,
-    domain: RemoteState.Domain = RemoteState.Domain.User,
-): RemoteInt {
-    return remember(name, domain) { createNamedRemoteInt(name, defaultValue, domain) }
-}
-
 /** Extension property to convert an [Int] to a [RemoteInt]. */
 public val Int.ri: RemoteInt
     get() {
         return RemoteInt(this)
     }
-
-private val DefaultJavaIntegerFormat: DecimalFormat =
-    DecimalFormat().apply { maximumFractionDigits = 0 }
 
 private fun formatRemoteIntJvm(value: RemoteInt, format: DecimalFormat): RemoteString {
     val (before, after, flags) = format.toJavaTextFromFloatOptions()

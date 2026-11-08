@@ -24,6 +24,7 @@ import androidx.compose.remote.creation.compose.layout.RemoteAlignment.Companion
 import androidx.compose.remote.creation.compose.layout.RemoteAlignment.Companion.End
 import androidx.compose.remote.creation.compose.layout.RemoteAlignment.Companion.Start
 import androidx.compose.remote.creation.compose.layout.RemoteAlignment.Companion.Top
+import androidx.compose.runtime.Stable
 
 /**
  * A remote equivalent of [androidx.compose.ui.Alignment]. It is used to define how a layout's
@@ -33,6 +34,7 @@ import androidx.compose.remote.creation.compose.layout.RemoteAlignment.Companion
  * - Horizontal: [Start], [CenterHorizontally], [End]
  * - Vertical: [Top], [CenterVertically], [Bottom]
  */
+@Stable
 public interface RemoteAlignment {
     @get:Suppress("HiddenAbstractMethodInInterface")
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -47,10 +49,7 @@ public interface RemoteAlignment {
      *
      * Pre-defined alignment objects are available: [Start], [CenterHorizontally], and [End].
      */
-    public sealed interface Horizontal {
-        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-        public fun toRemote(layoutDirection: RemoteLayoutDirection): Int
-    }
+    @Stable public sealed interface Horizontal
 
     /**
      * An alignment that defines how to place a child vertically inside a parent layout. This
@@ -60,9 +59,7 @@ public interface RemoteAlignment {
      * @see CenterVertically
      * @see Bottom
      */
-    public sealed interface Vertical {
-        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public fun toRemote(): Int
-    }
+    @Stable public sealed interface Vertical
 
     /** A collection of common [RemoteAlignment]s aware of layout direction. */
     public companion object {
@@ -167,6 +164,18 @@ public object RemoteAbsoluteAlignment {
         RemoteBiasAbsoluteAlignment.Horizontal(ColumnLayout.END)
 }
 
+internal fun RemoteAlignment.Horizontal.toRemote(layoutDirection: RemoteLayoutDirection): Int =
+    when (this) {
+        is RemoteBiasAlignment.Horizontal -> toRemote(layoutDirection)
+        is RemoteBiasAbsoluteAlignment.Horizontal -> toRemote()
+    }
+
+internal fun RemoteAlignment.Vertical.toRemote(): Int =
+    when (this) {
+        is RemoteBiasAlignment.Vertical -> toRemote()
+        is RemoteBiasAbsoluteAlignment.Vertical -> toRemote()
+    }
+
 /**
  * An [RemoteAlignment] specified by bias: [ColumnLayout.START] / [ColumnLayout.TOP],
  * [ColumnLayout.CENTER], [ColumnLayout.END] / [ColumnLayout.BOTTOM].
@@ -186,8 +195,7 @@ internal data class RemoteBiasAlignment(val horizontalBias: Int, val verticalBia
      * @see Vertical
      */
     internal data class Horizontal(val type: Int) : RemoteAlignment.Horizontal {
-        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-        override fun toRemote(layoutDirection: RemoteLayoutDirection): Int =
+        fun toRemote(layoutDirection: RemoteLayoutDirection): Int =
             when (type) {
                 ColumnLayout.START ->
                     if (layoutDirection == RemoteLayoutDirection.Ltr) type else ColumnLayout.END
@@ -204,7 +212,7 @@ internal data class RemoteBiasAlignment(val horizontalBias: Int, val verticalBia
      * @see Horizontal
      */
     internal data class Vertical(val type: Int) : RemoteAlignment.Vertical {
-        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) override fun toRemote(): Int = type
+        fun toRemote(): Int = type
     }
 }
 
@@ -229,8 +237,7 @@ internal data class RemoteBiasAbsoluteAlignment(val horizontalBias: Int, val ver
      * @see RemoteBiasAlignment.Horizontal
      */
     internal data class Horizontal(val bias: Int) : RemoteAlignment.Horizontal {
-        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-        override fun toRemote(layoutDirection: RemoteLayoutDirection): Int = bias
+        fun toRemote(): Int = bias
     }
 
     /**
@@ -240,6 +247,6 @@ internal data class RemoteBiasAbsoluteAlignment(val horizontalBias: Int, val ver
      * @see RemoteBiasAlignment.Horizontal
      */
     internal data class Vertical(val bias: Int) : RemoteAlignment.Vertical {
-        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) override fun toRemote(): Int = bias
+        fun toRemote(): Int = bias
     }
 }

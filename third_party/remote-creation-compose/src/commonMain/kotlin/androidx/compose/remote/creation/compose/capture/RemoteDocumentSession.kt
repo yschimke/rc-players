@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicReference
@@ -52,7 +53,7 @@ public class RemoteDocumentSession(
             creationDisplayInfo = creationDisplayInfo,
             writer = compositionWriter,
             remoteDensity = remoteDensity,
-            layoutDirection = layoutDirection,
+            layoutDirection = layoutDirection.toRemoteLayoutDirection(),
             supportedOperations = supportedOperations,
             platformImageProvider =
                 encodePng?.let { SessionPngImageProvider(it) } ?: NoOpPlatformImageProvider,
@@ -118,7 +119,8 @@ public class RemoteDocumentSession(
             CompositionLocalProvider(
                 LocalRemoteComposeCreationState provides creationState,
                 LocalRemoteDensity provides remoteDensity,
-                LocalDensity provides creationDisplayInfo.density,
+                LocalDensity provides
+                    Density(creationDisplayInfo.density, creationDisplayInfo.fontScale),
                 LocalInspectionMode provides creationDisplayInfo.isInspectionMode,
                 LocalLayoutDirection provides layoutDirection,
                 // As upstream's Android capture: follows a nested LocalLayoutDirection.

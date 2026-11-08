@@ -18,9 +18,9 @@ package androidx.compose.remote.creation.compose.modifier
 
 import androidx.compose.remote.creation.common.RemoteModifierOperation
 import androidx.compose.remote.creation.compose.capture.RemoteDensityBehavior
-import androidx.compose.remote.creation.compose.layout.RemoteFloatContext
 import androidx.compose.remote.creation.compose.layout.RemoteLayoutDirection
 import androidx.compose.remote.creation.compose.layout.RemoteSize
+import androidx.compose.remote.creation.compose.layout.remoteComponent
 import androidx.compose.remote.creation.compose.shapes.RemoteCircleShape
 import androidx.compose.remote.creation.compose.shapes.RemoteRectangleShape
 import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
@@ -33,9 +33,9 @@ internal class ClipModifier(val shape: RemoteShape = RemoteRectangleShape) :
     RemoteModifier.Element {
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
         if (shape == RemoteRectangleShape) return RemoteModifierOperation.ClipRect
-        val context = RemoteFloatContext(this)
-        val remoteSize = RemoteSize(context.componentWidth(), context.componentHeight())
         if (shape == RemoteCircleShape) {
+            val component = remoteComponent()
+            val remoteSize = RemoteSize(component.width, component.height)
             val radius =
                 if (densityBehavior == RemoteDensityBehavior.Dp) {
                     min(remoteSize.width, remoteSize.height) / remoteDensity.density / 2f
@@ -50,7 +50,9 @@ internal class ClipModifier(val shape: RemoteShape = RemoteRectangleShape) :
             )
         }
         if (shape is RemoteRoundedCornerShape) {
-            val isRtl = remoteLayoutDirection == RemoteLayoutDirection.Rtl
+            val component = remoteComponent()
+            val remoteSize = RemoteSize(component.width, component.height)
+            val isRtl = layoutDirection == RemoteLayoutDirection.Rtl
             return RemoteModifierOperation.RoundedClipRect(
                 (if (isRtl) shape.topEnd else shape.topStart)
                     .toDimension(remoteSize, remoteDensity, densityBehavior)
@@ -73,7 +75,11 @@ internal class ClipModifier(val shape: RemoteShape = RemoteRectangleShape) :
 /**
  * Clips the content to [shape].
  *
+ * Example of clipping a background to rounded corners:
+ *
+ * @sample androidx.compose.remote.creation.compose.samples.ModifierBackgroundAndClipSample
  * @param shape The [RemoteShape] to clip the content to.
+ * @return a [RemoteModifier] that clips the content to [shape]
  */
 public fun RemoteModifier.clip(shape: RemoteShape = RemoteRectangleShape): RemoteModifier =
     then(ClipModifier(shape))

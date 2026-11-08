@@ -13,18 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-@file:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-
 package androidx.compose.remote.creation.compose.layout
 
-import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.compose.state.RemoteDp
 import androidx.compose.remote.creation.compose.state.rdp
+import androidx.compose.runtime.Immutable
 
 /**
  * Describes a padding to be applied along the edges inside a box. Use the various
  * [RemotePaddingValues] constructors for convenient ways to build instances.
  */
+@Immutable
 public class RemotePaddingValues(
     public val leftPadding: RemoteDp = 0.rdp,
     public val topPadding: RemoteDp = 0.rdp,

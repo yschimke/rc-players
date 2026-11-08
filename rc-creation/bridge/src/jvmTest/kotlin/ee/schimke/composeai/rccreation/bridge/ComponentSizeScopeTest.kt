@@ -11,12 +11,11 @@ import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.shapes.RemoteCircleShape
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rememberRemoteImageBitmap
+import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
-import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
-import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,12 +23,13 @@ import kotlinx.coroutines.runBlocking
 
 /**
  * A size a modifier reads (here a circle clip's radius, `min(width, height) / 2`) refers to the
- * last component written before the modifier, as AndroidX's `RemoteComposeBuffer.lastComponentId`
- * does: so the fork's documents draw the same shapes as AndroidX's.
+ * component the modifier is on, as AndroidX's do since androidx-main `ab1b76a2f` ("Scope
+ * RemoteComponent to container and state scope"): not to the component written before it, which for
+ * a box's first modifier is its preceding sibling (or its parent's content).
  */
 class ComponentSizeScopeTest {
   @Test
-  fun sizesReferToTheLastComponentWrittenAsAndroidxDoes() = runBlocking {
+  fun sizesReferToTheClippedComponentItself() = runBlocking {
     val bytes =
       captureCommonRemoteDocument(RemoteCreationDisplayInfo(360, 480, 160)) {
         RemoteRow {
@@ -55,24 +55,23 @@ class ComponentSizeScopeTest {
       return expressions[id]?.expression.orEmpty().flatMap(::components).toSet()
     }
 
-    var lastComponent = -1
+    // A box's modifiers follow its `BoxLayout` operation, before its content section.
+    var currentBox = -1
     val expected = mutableListOf<Int>()
     val actual = mutableListOf<Set<Int>>()
     for (operation in operations) {
       when (operation) {
-        is RcLayoutContent -> lastComponent = operation.componentId
-        // An image is written with no content section: it is itself the last component.
-        is RcImageLayout -> lastComponent = operation.componentId
+        is RcBoxLayout -> currentBox = operation.componentId
         is RcRoundedClipRectModifier -> {
-          expected += lastComponent
+          expected += currentBox
           actual += components(operation.topStart)
         }
         else -> {}
       }
     }
     assertEquals(3, actual.size)
-    // The first clip reads the row's content, the second the first box's inner box's content and
-    // the third the image, which has none.
+    // Each 40dp box clips to a circle whose radius is read from its own size.
+    assertEquals(3, expected.toSet().size)
     assertEquals(expected.map { setOf(it) }, actual)
   }
 }

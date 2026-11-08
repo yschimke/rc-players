@@ -22,12 +22,9 @@ import androidx.compose.remote.creation.common.IntegerExpressionEvaluator
 import androidx.compose.remote.creation.common.TextTransform
 import androidx.compose.remote.creation.common.Utils
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
-import androidx.compose.remote.creation.compose.state.RemoteString.Companion.createNamedRemoteString
 import androidx.compose.remote.creation.compose.state.RemoteString.OperationKey
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.annotation.RememberInComposition
-import androidx.compose.runtime.remember
 
 /**
  * Abstract base class for all remote string representations.
@@ -1130,42 +1127,6 @@ internal constructor(
          */
         internal fun createMutableForId(id: Int): MutableRemoteString = MutableRemoteString(id)
     }
-}
-
-/**
- * Factory composable for mutable remote string state.
- *
- * @param initialValue The initial [String] value.
- * @return A [MutableRemoteString] instance that will be remembered across recompositions.
- */
-@Deprecated(
-    message = "Use remember { MutableRemoteString(initialValue) } instead.",
-    replaceWith =
-        ReplaceWith(
-            "remember { MutableRemoteString(initialValue) }",
-            "androidx.compose.runtime.remember",
-        ),
-)
-@Composable
-public fun rememberMutableRemoteString(initialValue: String): MutableRemoteString {
-    return remember { MutableRemoteString(initialValue) }
-}
-
-/**
- * Remembers a named remote string expression.
- *
- * @param name The unique name for this remote string.
- * @param defaultValue The initial [String] value for this remote string.
- * @param domain The domain of the named string (defaults to [RemoteState.Domain.User]).
- * @return A [RemoteString] representing the named remote string expression.
- */
-@Composable
-public fun rememberNamedRemoteString(
-    name: String,
-    defaultValue: String,
-    domain: RemoteState.Domain = RemoteState.Domain.User,
-): RemoteString {
-    return remember(name, domain) { createNamedRemoteString(name, defaultValue, domain) }
 }
 
 /** Extension property to convert a [String] to a [RemoteString]. */

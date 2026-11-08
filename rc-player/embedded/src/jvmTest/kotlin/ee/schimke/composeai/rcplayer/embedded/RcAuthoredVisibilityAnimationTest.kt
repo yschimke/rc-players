@@ -3,7 +3,7 @@ package ee.schimke.composeai.rcplayer.embedded
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.remote.creation.common.AnimatedFloatExpression
 import androidx.compose.remote.creation.common.RemoteDocumentWriter
-import androidx.compose.remote.creation.compose.action.valueChange
+import androidx.compose.remote.creation.compose.action.valueChangeAction
 import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
 import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocumentInto
 import androidx.compose.remote.creation.compose.capture.wireValue
@@ -15,10 +15,11 @@ import androidx.compose.remote.creation.compose.modifier.background
 import androidx.compose.remote.creation.compose.modifier.clickable
 import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.modifier.visibility
+import androidx.compose.remote.creation.compose.state.MutableRemoteInt
 import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rdp
-import androidx.compose.remote.creation.compose.state.rememberMutableRemoteInt
 import androidx.compose.remote.creation.compose.state.ri
+import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
@@ -86,8 +87,8 @@ class RcAuthoredVisibilityAnimationTest {
     val display = RemoteCreationDisplayInfo(50, 20, 160)
     val writer =
       RemoteDocumentWriter(
-        display.size.width.toInt(),
-        display.size.height.toInt(),
+        display.width,
+        display.height,
         display.densityBehavior.wireValue,
       )
     val wipe = writer.defineVisibilityAnimation { component, progress, width, height, x, y ->
@@ -102,9 +103,11 @@ class RcAuthoredVisibilityAnimationTest {
       restore()
     }
     captureCommonRemoteDocumentInto(writer, display) {
-      val visible = rememberMutableRemoteInt(VISIBLE)
+      val visible = remember { MutableRemoteInt(VISIBLE) }
       RemoteRow {
-        RemoteBox(RemoteModifier.size(10.rdp, 20.rdp).clickable(valueChange(visible, GONE.ri))) {}
+        RemoteBox(
+          RemoteModifier.size(10.rdp, 20.rdp).clickable(valueChangeAction(visible, GONE.ri)),
+        ) {}
         RemoteBox(
           RemoteModifier.size(40.rdp, 20.rdp)
             .background(Color.Blue.rc)

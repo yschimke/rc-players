@@ -618,6 +618,7 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun addComponentHeightValue (I)F
 	public fun addComponentRootXValue (I)F
 	public fun addComponentRootYValue (I)F
+	public fun addComponentValue (IIF)V
 	public fun addComponentWidthValue (I)F
 	public fun addComponentXValue (I)F
 	public fun addComponentYValue (I)F
@@ -1254,6 +1255,7 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun addComponentHeightValue (I)F
 	public abstract fun addComponentRootXValue (I)F
 	public abstract fun addComponentRootYValue (I)F
+	public abstract fun addComponentValue (IIF)V
 	public abstract fun addComponentWidthValue (I)F
 	public abstract fun addComponentXValue (I)F
 	public abstract fun addComponentYValue (I)F

@@ -18,8 +18,8 @@ package androidx.compose.remote.creation.compose.modifier
 
 import androidx.compose.remote.creation.common.RemoteModifierOperation
 import androidx.compose.remote.creation.compose.capture.RemoteDensityBehavior
-import androidx.compose.remote.creation.compose.layout.RemoteFloatContext
 import androidx.compose.remote.creation.compose.layout.RemoteSize
+import androidx.compose.remote.creation.compose.layout.remoteComponent
 import androidx.compose.remote.creation.compose.shapes.RemoteCircleShape
 import androidx.compose.remote.creation.compose.shapes.RemoteRectangleShape
 import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
@@ -40,16 +40,12 @@ internal class BorderModifier(
         if (shape === RemoteCircleShape) {
             shapeType = 1
         } else if (shape is RemoteRoundedCornerShape) {
-            val context = RemoteFloatContext(this)
+            val component = remoteComponent()
             shapeType = 2
+
+            val remoteSize = RemoteSize(component.width, component.height)
             roundedCorner =
-                shape.topStart
-                    .toDimension(
-                        RemoteSize(context.componentWidth(), context.componentHeight()),
-                        remoteDensity,
-                        densityBehavior,
-                    )
-                    .floatId
+                shape.topStart.toDimension(remoteSize, remoteDensity, densityBehavior).floatId
         }
         val resolvedWidth =
             if (densityBehavior == RemoteDensityBehavior.Dp) width.value.floatId
@@ -68,11 +64,15 @@ internal class BorderModifier(
 /**
  * Draws a border around the element.
  *
+ * Example of drawing a rounded border around a composable:
+ *
+ * @sample androidx.compose.remote.creation.compose.samples.ModifierBorderSample
  * @param width The width of the border.
  * @param color The color of the border.
  * @param shape The shape of the border. When [RemoteRoundedCornerShape] is used, only the
  *   [RemoteRoundedCornerShape.topStart] corner size is currently taken into consideration for all
  *   corners.
+ * @return a [RemoteModifier] that draws a border around the element
  */
 public fun RemoteModifier.border(
     width: RemoteDp,

@@ -64,10 +64,10 @@ public sealed class RemoteOutline {
 
     /** An area defined as a path. */
     public class Generic : RemoteOutline {
-        public val path: RemotePath?
+        internal val path: RemotePath?
         internal val block: (RemotePathScope.() -> Unit)?
 
-        public constructor(path: RemotePath) : super() {
+        internal constructor(path: RemotePath) : super() {
             this.path = path
             this.block = null
         }
