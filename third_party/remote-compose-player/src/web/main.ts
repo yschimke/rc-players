@@ -287,6 +287,20 @@ export class RcdPlayer {
         return { width: this.naturalWidth, height: this.naturalHeight };
     }
 
+    /**
+     * Root layout size in physical canvas pixels after the most recent paint. Call resize and
+     * repaint after changing width or named values before reading it. Unlike getNaturalSize,
+     * this reports content layout, not the document header. Documents without a root layout,
+     * or without a finite positive measurement yet, return null. Divide by getDensity() for dp.
+     */
+    getMeasuredSize(): { width: number; height: number } | null {
+        const root = this.document?.getRootLayoutComponent();
+        if (!root) return null;
+        const width = root.getWidth(), height = root.getHeight();
+        return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
+            ? { width, height } : null;
+    }
+
     /** Operations executed in the last painted frame — available with measurement off. */
     getOpsPerFrame(): number {
         return this.document?.getOpsPerFrame() ?? 0;
