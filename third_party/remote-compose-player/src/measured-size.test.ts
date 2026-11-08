@@ -4,7 +4,7 @@ import { CoreDocument } from './core/CoreDocument';
 import { RootLayoutComponent } from './core/operations/layout/RootLayoutComponent';
 import { Component } from './core/operations/layout/Component';
 import { BoxLayout } from './core/operations/layout/managers/BoxLayout';
-import { WidthModifier, HeightModifier } from './core/operations/layout/modifiers/ModifierOperations';
+import { WidthModifier, HeightModifier, ScrollModifier } from './core/operations/layout/modifiers/ModifierOperations';
 import { WebRemoteContext } from './web/WebRemoteContext';
 import type { MeasurePass } from './core/operations/layout/measure/MeasurePass';
 
@@ -76,3 +76,38 @@ assert.equal(fill.getHeight(), animatedHeight, 'measurement preserves the animat
 fillRoot.layoutTree(remote);
 assert.ok(Number.isFinite(fill.getHeight()), 'viewport layout stays finite with an active animation');
 console.log('unbounded measurement preserves live fill-height layout and animation state');
+
+// Measuring even a nested scroller must not alter its live limits or an in-progress drag.
+remote.mHeight = 160;
+remote.setAnimationEnabled(false);
+const scroll = new ScrollModifier(ScrollModifier.VERTICAL, 0, 0, 0);
+const scrollingBox = new BoxLayout(5, -1, BoxLayout.START, BoxLayout.TOP);
+const tallContent = new BoxLayout(6, -1, BoxLayout.START, BoxLayout.TOP);
+const outer = new BoxLayout(7, -1, BoxLayout.START, BoxLayout.TOP);
+for (const box of [scrollingBox, outer]) Object.assign(box, {
+    mWidthMod: new WidthModifier(WidthModifier.FILL, 0x7fc00000),
+    mHeightMod: new HeightModifier(HeightModifier.FILL, 0x7fc00000),
+});
+Object.assign(tallContent, {
+    mWidthMod: new WidthModifier(WidthModifier.FILL, 0x7fc00000),
+    mHeightMod: new HeightModifier(HeightModifier.EXACT, 0x43c80000), // 400f
+});
+Object.assign(scrollingBox, { mScrollModifier: scroll });
+scrollingBox.mChildrenComponents.push(tallContent);
+outer.mChildrenComponents.push(scrollingBox);
+const scrollRoot = new RootLayoutComponent(8);
+scrollRoot.getList().push(outer);
+Object.assign(doc, { mRootLayoutComponent: scrollRoot });
+scrollRoot.layoutTree(remote);
+assert.equal(scrollingBox.getHeight(), 160);
+scroll.onTouchDown(remote, 0, 0);
+scroll.onTouchDrag(remote, 0, -50);
+assert.equal(scroll.getScrollY(), -50);
+assert.equal(player.measureSize(), null, 'nested scrolling content uses its authored viewport');
+scroll.onTouchDrag(remote, 0, -60);
+assert.equal(scroll.getScrollY(), -60, 'measurement preserves the drag and scroll limits');
+scrollRoot.layoutTree(remote);
+assert.equal(scroll.getScrollY(), -60, 'viewport relayout preserves the current scroll offset');
+scroll.onTouchDrag(remote, 0, -1000);
+assert.equal(scroll.getScrollY(), -240, 'the 400px content retains its 240px scroll limit');
+console.log('measurement preserves nested scrolling limits and an in-progress drag');

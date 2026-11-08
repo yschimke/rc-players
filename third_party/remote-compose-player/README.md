@@ -226,6 +226,7 @@ at the current canvas width and an unconstrained height, returning `{ width, hei
 physical canvas pixels. Divide by `getDensity()` for dp/CSS pixels. It returns `null` for a
 document without a root layout or a finite positive result (including fill-height content).
 The sizing pass does not apply bounds or modify live animations, including for fill-height
-content that has no finite wrap-content size. It does not resize the canvas; the next paint
+content that has no finite wrap-content size. Documents containing scrolling layouts return
+`null` before measuring so their live scroll limits and drag offsets remain intact. It does not resize the canvas; the next paint
 measures again for the viewport. Call `repaint()`
 after changing named values before measuring. `getNaturalSize()` returns the authored header.

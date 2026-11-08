@@ -2,6 +2,7 @@
 // Port of Java RootLayoutComponent.java — uses MeasurePass for proper layout.
 
 import { Component } from './Component';
+import { LayoutComponent } from './LayoutComponent';
 import { PaintOperation } from '../../PaintOperation';
 import { MeasurePass } from './measure/MeasurePass';
 import type { Operation } from '../../Operation';
@@ -82,6 +83,20 @@ export class RootLayoutComponent extends Component {
         const content = this.getList().find((op): op is Component => op instanceof Component);
         const paint = context.getPaintContext();
         if (!content || !paint) return null;
+        // A scroller needs its authored viewport. Even measuring it unbounded changes live
+        // scroll limits, so preserve interaction state and let the host use its height fallback.
+        const pending = [content];
+        const visited = new Set<Component>();
+        while (pending.length) {
+            const component = pending.pop()!;
+            if (visited.has(component)) continue;
+            visited.add(component);
+            if (component instanceof LayoutComponent) {
+                if (component.getScrollModifier()) return null;
+                pending.push(...component.mChildrenComponents);
+            }
+            for (const child of component.getList()) if (child instanceof Component) pending.push(child);
+        }
         const pass = new MeasurePass();
         content.measure(paint, 0, width, 0, Infinity, pass);
         const measured = pass.get(content);

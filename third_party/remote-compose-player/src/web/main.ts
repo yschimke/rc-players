@@ -291,7 +291,8 @@ export class RcdPlayer {
      * Measure wrap-content at the current canvas width, in physical pixels. Unlike
      * getNaturalSize, this measures the first root content component, not the header or
      * allocated viewport. Height is unconstrained; fill-height/invalid results and documents
-     * without a root layout return null. Call repaint after changing named values first.
+     * without a root layout return null. Scrolling content retains its viewport and returns
+     * null as well. Call repaint after changing named values first.
      * The pass never lays out live components or changes their animation targets.
      * The next paint remeasures for its viewport; measuring does not resize the canvas.
      */
