@@ -225,5 +225,7 @@ After `resize(widthPx, heightPx)` and `repaint()`, `player.measureSize()` measur
 at the current canvas width and an unconstrained height, returning `{ width, height }` in
 physical canvas pixels. Divide by `getDensity()` for dp/CSS pixels. It returns `null` for a
 document without a root layout or a finite positive result (including fill-height content).
-It does not resize the canvas; the next paint measures again for the viewport. Call `repaint()`
+The sizing pass does not apply bounds or modify live animations, including for fill-height
+content that has no finite wrap-content size. It does not resize the canvas; the next paint
+measures again for the viewport. Call `repaint()`
 after changing named values before measuring. `getNaturalSize()` returns the authored header.

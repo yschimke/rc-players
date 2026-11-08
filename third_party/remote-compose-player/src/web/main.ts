@@ -292,6 +292,7 @@ export class RcdPlayer {
      * getNaturalSize, this measures the first root content component, not the header or
      * allocated viewport. Height is unconstrained; fill-height/invalid results and documents
      * without a root layout return null. Call repaint after changing named values first.
+     * The pass never lays out live components or changes their animation targets.
      * The next paint remeasures for its viewport; measuring does not resize the canvas.
      */
     measureSize(): { width: number; height: number } | null {
@@ -300,8 +301,9 @@ export class RcdPlayer {
         if (!doc || !context || !root) return null;
         try {
             doc.invalidateMeasure();
-            doc.measure(context, 0, this.canvas.width, 0, Infinity);
-            const width = root.getWidth(), height = root.getHeight();
+            const measured = root.measureContent(context, this.canvas.width);
+            if (!measured) return null;
+            const { width, height } = measured;
             return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
                 ? { width, height } : null;
         } finally {

@@ -11519,6 +11519,16 @@ void main() {
         }
       }
     }
+    /** Measure wrap-content without applying bounds or changing live layout animations. */
+    measureContent(context, width) {
+      const content = this.getList().find((op) => op instanceof Component);
+      const paint = context.getPaintContext();
+      if (!content || !paint) return null;
+      const pass = new MeasurePass();
+      content.measure(paint, 0, width, 0, Infinity, pass);
+      const measured = pass.get(content);
+      return { width: measured.getW(), height: measured.getH() };
+    }
     /** Measure the document and layout components, returning first child size */
     measureDoc(context, minWidth, maxWidth, minHeight, maxHeight) {
       this.mNeedsMeasure = false;
@@ -32365,6 +32375,28 @@ ${inner}`;
     getNaturalSize() {
       if (!this.document) return null;
       return { width: this.naturalWidth, height: this.naturalHeight };
+    }
+    /**
+     * Measure wrap-content at the current canvas width, in physical pixels. Unlike
+     * getNaturalSize, this measures the first root content component, not the header or
+     * allocated viewport. Height is unconstrained; fill-height/invalid results and documents
+     * without a root layout return null. Call repaint after changing named values first.
+     * The pass never lays out live components or changes their animation targets.
+     * The next paint remeasures for its viewport; measuring does not resize the canvas.
+     */
+    measureSize() {
+      const doc = this.document, context = this.remoteContext;
+      const root = doc?.getRootLayoutComponent();
+      if (!doc || !context || !root) return null;
+      try {
+        doc.invalidateMeasure();
+        const measured = root.measureContent(context, this.canvas.width);
+        if (!measured) return null;
+        const { width, height } = measured;
+        return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0 ? { width, height } : null;
+      } finally {
+        doc.invalidateMeasure();
+      }
     }
     /** Operations executed in the last painted frame — available with measurement off. */
     getOpsPerFrame() {

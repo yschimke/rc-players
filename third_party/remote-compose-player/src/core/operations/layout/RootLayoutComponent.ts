@@ -77,6 +77,17 @@ export class RootLayoutComponent extends Component {
 
     }
 
+    /** Measure wrap-content without applying bounds or changing live layout animations. */
+    measureContent(context: RemoteContext, width: number): { width: number; height: number } | null {
+        const content = this.getList().find((op): op is Component => op instanceof Component);
+        const paint = context.getPaintContext();
+        if (!content || !paint) return null;
+        const pass = new MeasurePass();
+        content.measure(paint, 0, width, 0, Infinity, pass);
+        const measured = pass.get(content);
+        return { width: measured.getW(), height: measured.getH() };
+    }
+
     /** Measure the document and layout components, returning first child size */
     measureDoc(context: RemoteContext, minWidth: number, maxWidth: number,
                minHeight: number, maxHeight: number): void {
@@ -103,11 +114,8 @@ export class RootLayoutComponent extends Component {
             }
         }
         if (firstComponent) {
-            // Layout may animate from the old bounds. Hosts need the measured destination,
-            // otherwise sizing a canvas to this transient height clips the animation's target.
-            const measured = measurePass.get(firstComponent);
-            this.setWidth(measured.getW());
-            this.setHeight(measured.getH());
+            this.setWidth(firstComponent.getWidth());
+            this.setHeight(firstComponent.getHeight());
         }
     }
 
