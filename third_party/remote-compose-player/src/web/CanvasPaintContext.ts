@@ -1934,7 +1934,11 @@ export class CanvasPaintContext extends PaintContext {
             return;
         }
         const text = this.textCache.get(textId);
-        if (!text) { bounds.fill(0); return; }
+        // Empty text has no ink, but still has the font's ascent/descent when requested.
+        // CoreText uses that flag for line height, including an empty bound body string.
+        if (text === undefined || (text.length === 0 && (flags & 0x02) === 0)) {
+            bounds.fill(0); return;
+        }
         const s = start >= 0 ? start : 0;
         const e = end >= 0 ? Math.min(end, text.length) : text.length;
         const substr = text.substring(s, e);
