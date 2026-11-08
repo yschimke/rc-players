@@ -218,3 +218,16 @@ This player agrees with the androidx reference on **159 of 180** corpus document
 frame by frame. `npx tsc --noEmit` reports pre-existing errors in `ColorAttribute.ts` and
 `BoxLayout.ts`; they predate this work and do not block the bundle, which esbuild builds
 without typechecking.
+
+### Measured content size
+
+After `resize(widthPx, heightPx)` and `repaint()`, `player.measureSize()` reads the root content's
+measurement from the most recent normal layout, in physical canvas pixels. Divide by
+`getDensity()` for dp/CSS pixels. It uses the layout destination, rather than intermediate
+animated bounds, and returns a copy. The query runs no extra sizing pass, so live expressions,
+animations, scrolling and drag offsets cannot be changed by asking for a size.
+
+Missing or invalid measurements, scrolling content and fill/weighted heights return `null`;
+hosts retain their authored-height fallback. Measurements use the current viewport constraints.
+Call `repaint()` after changing named values or viewport size before querying again.
+`getNaturalSize()` continues to return the authored header dimensions.

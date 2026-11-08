@@ -287,6 +287,20 @@ export class RcdPlayer {
         return { width: this.naturalWidth, height: this.naturalHeight };
     }
 
+    /**
+     * Last normal layout's root content measurement in physical canvas pixels. Call repaint
+     * after resizing or changing named values first. This query runs no measurement or layout
+     * and cannot change live expressions, animations or interaction state. Missing/invalid
+     * measurements, scrolling content and viewport-dependent heights return null.
+     */
+    measureSize(): { width: number; height: number } | null {
+        const measured = this.document?.getRootLayoutComponent()?.getMeasuredContentSize();
+        if (!measured) return null;
+        const { width, height } = measured;
+        return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
+            ? { width, height } : null;
+    }
+
     /** Operations executed in the last painted frame — available with measurement off. */
     getOpsPerFrame(): number {
         return this.document?.getOpsPerFrame() ?? 0;

@@ -11416,237 +11416,6 @@ void main() {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/layout/measure/MeasurePass.ts
-  var MeasurePass = class {
-    constructor() {
-      this.mList = /* @__PURE__ */ new Map();
-    }
-    clear() {
-      this.mList.clear();
-    }
-    add(measure) {
-      if (measure.mId === -1) throw new Error("Component has no id!");
-      this.mList.set(measure.mId, measure);
-    }
-    contains(id) {
-      return this.mList.has(id);
-    }
-    get(arg) {
-      if (typeof arg === "number") {
-        let m2 = this.mList.get(arg);
-        if (!m2) {
-          m2 = new ComponentMeasure(arg, 0, 0, 0, 0, ComponentMeasure.GONE);
-          this.mList.set(arg, m2);
-        }
-        return m2;
-      }
-      const c = arg;
-      const id = c.getComponentId();
-      let m = this.mList.get(id);
-      if (!m) {
-        m = new ComponentMeasure(
-          id,
-          c.getX(),
-          c.getY(),
-          c.getWidth(),
-          c.getHeight(),
-          c.getVisibility() & 15
-        );
-        this.mList.set(id, m);
-      }
-      return m;
-    }
-  };
-
-  // third_party/remote-compose-player/src/core/operations/layout/RootLayoutComponent.ts
-  var _RootLayoutComponent = class _RootLayoutComponent extends Component {
-    constructor(componentId = -1) {
-      super(componentId);
-      this.mCurrentId = -1;
-      this.mHasTouchListeners = false;
-    }
-    getHasTouchListeners() {
-      return this.mHasTouchListeners;
-    }
-    setHasTouchListeners(v) {
-      this.mHasTouchListeners = v;
-    }
-    assignIds(lastId) {
-      this.mCurrentId = lastId;
-      this.assignId(this);
-    }
-    assignId(component) {
-      if (component.getComponentId() === -1) {
-        this.mCurrentId--;
-        component.mComponentId = this.mCurrentId;
-      }
-      for (const op of component.getList()) {
-        if (op instanceof Component) {
-          this.assignId(op);
-        }
-      }
-    }
-    invalidateMeasure() {
-      this.mNeedsMeasure = true;
-      this.invalidateMeasureChildren(this);
-    }
-    invalidateMeasureChildren(component) {
-      component.mNeedsMeasure = true;
-      for (const op of component.getList()) {
-        if (op instanceof Component) {
-          this.invalidateMeasureChildren(op);
-        }
-      }
-    }
-    /** Measure then layout the tree of components */
-    layoutTree(context) {
-      if (!this.mNeedsMeasure) return;
-      this.mNeedsMeasure = false;
-      this.setWidth(context.mWidth);
-      this.setHeight(context.mHeight);
-      context.mViewportWidth = context.mWidth;
-      context.mViewportHeight = context.mHeight;
-      const measurePass = new MeasurePass();
-      for (const op of this.getList()) {
-        if (typeof op.measure === "function") {
-          const paintContext = context.getPaintContext();
-          if (paintContext) {
-            op.measure(paintContext, 0, this.mWidth, 0, this.mHeight, measurePass);
-            if (typeof op.layout === "function") {
-              op.layout(context, measurePass);
-            }
-          }
-        }
-      }
-    }
-    /** Measure the document and layout components, returning first child size */
-    measureDoc(context, minWidth, maxWidth, minHeight, maxHeight) {
-      this.mNeedsMeasure = false;
-      this.setWidth(context.mWidth);
-      this.setHeight(context.mHeight);
-      context.mViewportWidth = context.mWidth;
-      context.mViewportHeight = context.mHeight;
-      const measurePass = new MeasurePass();
-      let firstComponent = null;
-      for (const op of this.getList()) {
-        if (typeof op.measure === "function") {
-          if (firstComponent === null && op instanceof Component) {
-            firstComponent = op;
-          }
-          const paintContext = context.getPaintContext();
-          if (paintContext) {
-            op.measure(paintContext, minWidth, maxWidth, minHeight, maxHeight, measurePass);
-            if (typeof op.layout === "function") {
-              op.layout(context, measurePass);
-            }
-          }
-        }
-      }
-      if (firstComponent) {
-        this.setWidth(firstComponent.getWidth());
-        this.setHeight(firstComponent.getHeight());
-      }
-    }
-    paint(paintContext) {
-      this.mNeedsRepaint = false;
-      const remoteContext = paintContext.getContext();
-      paintContext.save();
-      if (!this.getParent()) {
-        paintContext.clipRect(0, 0, this.mWidth, this.mHeight);
-      }
-      for (const op of this.getList()) {
-        if (op instanceof PaintOperation) {
-          op.paint(paintContext);
-          remoteContext.incrementOpCount(op);
-        }
-      }
-      paintContext.restore();
-    }
-    getComponent(id) {
-      const queue = [this];
-      while (queue.length > 0) {
-        const c = queue.shift();
-        if (c.getComponentId() === id) return c;
-        for (const child of c.getList()) {
-          if (child instanceof Component) {
-            queue.push(child);
-          }
-        }
-      }
-      return null;
-    }
-    displayHierarchy() {
-      return `RootLayout(${this.getWidth()}x${this.getHeight()})`;
-    }
-    onClick(context, doc, x, y) {
-      for (const child of this.getList()) {
-        if (typeof child.onClick === "function") {
-          if (child.onClick(context, doc, x, y)) return true;
-        }
-      }
-      return false;
-    }
-    onTouchDown(context, doc, x, y) {
-      for (const child of this.getList()) {
-        if (typeof child.onTouchDown === "function") {
-          if (child.onTouchDown(context, doc, x, y)) return true;
-        }
-      }
-      return false;
-    }
-    write(buffer) {
-      buffer.start(_RootLayoutComponent.OP_CODE);
-      buffer.writeInt(this.getComponentId());
-    }
-    deepToString(indent) {
-      return `${indent}RootLayoutComponent(${this.getComponentId()})`;
-    }
-    static read(buffer, operations) {
-      const componentId = buffer.declareId();
-      const component = new _RootLayoutComponent(componentId);
-      operations.push(component);
-    }
-  };
-  _RootLayoutComponent.OP_CODE = 200;
-  var RootLayoutComponent = _RootLayoutComponent;
-
-  // third_party/remote-compose-player/src/core/TimeVariables.ts
-  var TimeVariables = class {
-    constructor(clock) {
-      this.mLastAnimationTime = -1;
-      this.mClock = clock;
-      this.mStartTime = performance.now() / 1e3;
-    }
-    getClock() {
-      return this.mClock;
-    }
-    /** Seconds elapsed since this TimeVariables was created. */
-    getElapsedSeconds() {
-      return performance.now() / 1e3 - this.mStartTime;
-    }
-    updateTime(context) {
-      const snapshot = this.mClock.snapshot();
-      context.loadFloat(RemoteContext.ID_OFFSET_TO_UTC, snapshot.getOffsetSeconds());
-      context.loadFloat(RemoteContext.ID_CONTINUOUS_SEC, snapshot.getContinuousSeconds());
-      context.loadInteger(RemoteContext.ID_EPOCH_SECOND, snapshot.getEpochSeconds());
-      context.loadFloat(RemoteContext.ID_TIME_IN_SEC, snapshot.getTimeInSec());
-      context.loadFloat(RemoteContext.ID_TIME_IN_MIN, snapshot.getTimeInMin());
-      context.loadFloat(RemoteContext.ID_TIME_IN_HR, snapshot.getHour());
-      context.loadFloat(RemoteContext.ID_CALENDAR_MONTH, snapshot.getMonth());
-      context.loadFloat(RemoteContext.ID_DAY_OF_MONTH, snapshot.getDayOfMonth());
-      context.loadFloat(RemoteContext.ID_WEEK_DAY, snapshot.getDayOfWeek());
-      context.loadFloat(RemoteContext.ID_DAY_OF_YEAR, snapshot.getDayOfYear());
-      context.loadFloat(RemoteContext.ID_YEAR, snapshot.getYear());
-      const animTime = this.getElapsedSeconds();
-      const deltaTime = this.mLastAnimationTime >= 0 ? animTime - this.mLastAnimationTime : 0;
-      this.mLastAnimationTime = animTime;
-      context.loadFloat(RemoteContext.ID_ANIMATION_TIME, animTime);
-      context.setAnimationTime(animTime);
-      context.loadFloat(RemoteContext.ID_ANIMATION_DELTA_TIME, deltaTime);
-      context.loadFloat(RemoteContext.ID_API_LEVEL, CoreDocument.DOCUMENT_API_LEVEL);
-    }
-  };
-
   // third_party/remote-compose-player/src/core/operations/layout/modifiers/ModifierOperations.ts
   var _WidthModifier = class _WidthModifier extends Operation {
     constructor(type, valueBits) {
@@ -13118,6 +12887,1485 @@ void main() {
   };
   _AccessibilitySemantics.OP_CODE = 250;
   var AccessibilitySemantics = _AccessibilitySemantics;
+
+  // third_party/remote-compose-player/src/core/operations/DataDynamicListFloat.ts
+  var _DataDynamicListFloat = class _DataDynamicListFloat extends Operation {
+    constructor(id, nbValuesBits) {
+      super();
+      this.isDynamic = true;
+      this.mId = id;
+      const nbValues = isNaNBits(nbValuesBits) ? NaN : intBitsToFloat2(nbValuesBits);
+      if (nbValues > _DataDynamicListFloat.MAX_FLOAT_ARRAY) {
+        throw new Error("Array too large");
+      }
+      this.mValues = new Float32Array(Math.floor(nbValues) || 0);
+      this.mArrayLengthBits = nbValuesBits;
+      this.mArrayLengthOut = nbValues;
+    }
+    updateVariables(context) {
+      if (isNaNBits(this.mArrayLengthBits)) {
+        this.mArrayLengthOut = context.getFloat(idFromBits(this.mArrayLengthBits));
+      }
+      if (Math.floor(this.mArrayLengthOut) !== this.mValues.length) {
+        this.mValues = new Float32Array(Math.floor(this.mArrayLengthOut) || 0);
+      }
+    }
+    registerListening(context) {
+      context.addCollection(this.mId, this);
+      if (isNaNBits(this.mArrayLengthBits)) {
+        context.listensTo(idFromBits(this.mArrayLengthBits), this);
+      }
+    }
+    apply(context) {
+      context.addCollection(this.mId, this);
+    }
+    getFloatValue(index) {
+      return this.mValues[index];
+    }
+    getFloats() {
+      return this.mValues;
+    }
+    getLength() {
+      return this.mValues.length;
+    }
+    updateValues(values) {
+      if (values.length !== this.mValues.length) {
+        this.mValues = new Float32Array(values.length);
+      }
+      this.mValues.set(values);
+    }
+    write(buffer) {
+      buffer.start(_DataDynamicListFloat.OP_CODE);
+      buffer.writeInt(this.mId);
+      buffer.writeFloat(this.mValues.length);
+    }
+    deepToString(indent) {
+      return `${indent}DataDynamicListFloat(id=${this.mId}, len=${this.mValues.length})`;
+    }
+    static read(buffer, operations) {
+      const id = buffer.declareId();
+      const lenBits = buffer.readNanIdBits();
+      const len = isNaNBits(lenBits) ? NaN : intBitsToFloat2(lenBits);
+      if (len > _DataDynamicListFloat.MAX_FLOAT_ARRAY) {
+        throw new Error(`${len} entries exceeds max = ${_DataDynamicListFloat.MAX_FLOAT_ARRAY}`);
+      }
+      operations.push(new _DataDynamicListFloat(id, lenBits));
+    }
+  };
+  _DataDynamicListFloat.OP_CODE = 197;
+  _DataDynamicListFloat.MAX_FLOAT_ARRAY = 2e3;
+  var DataDynamicListFloat = _DataDynamicListFloat;
+
+  // third_party/remote-compose-player/src/core/operations/layout/modifiers/LayoutComputeOperation.ts
+  var _LayoutComputeOperation = class _LayoutComputeOperation extends Operation {
+    constructor(type, boundsId, animateChanges) {
+      super();
+      this.mList = [];
+      this.mParent = null;
+      this.mBounds = new Float32Array(6);
+      this.mType = type;
+      this.mBoundsId = boundsId;
+      this.mAnimateChanges = animateChanges;
+    }
+    getList() {
+      return this.mList;
+    }
+    getType() {
+      return this.mType;
+    }
+    setParent(parent) {
+      this.mParent = parent;
+    }
+    registerListening(context) {
+      for (const op of this.mList) {
+        if (typeof op.registerListening === "function") {
+          op.registerListening(context);
+        }
+      }
+    }
+    updateVariables(context) {
+      let needsInvalidate = false;
+      for (const op of this.mList) {
+        if (typeof op.updateVariables === "function" && op.isDirty()) {
+          op.updateVariables(context);
+          context.incrementOpCount(op);
+          op.apply(context);
+          op.markNotDirty();
+          needsInvalidate = true;
+        }
+      }
+      if (needsInvalidate && this.mParent && typeof this.mParent.invalidateMeasure === "function") {
+        this.mParent.invalidateMeasure();
+      }
+    }
+    markDirty() {
+    }
+    apply(_context) {
+    }
+    applyToMeasure(context, m, parent) {
+      const collectionsAccess = context.getContext().getCollectionsAccess();
+      if (!collectionsAccess) return false;
+      const array = collectionsAccess.getArray(this.mBoundsId);
+      if (!array) return false;
+      this.mBounds[0] = m.getX();
+      this.mBounds[1] = m.getY();
+      this.mBounds[2] = m.getW();
+      this.mBounds[3] = m.getH();
+      this.mBounds[4] = parent.getW();
+      this.mBounds[5] = parent.getH();
+      if (array instanceof DataDynamicListFloat) {
+        array.updateValues(this.mBounds);
+      }
+      for (const operation of this.mList) {
+        if (typeof operation.updateVariables === "function" && operation.isDirty()) {
+          operation.updateVariables(context.getContext());
+        }
+        operation.apply(context.getContext());
+      }
+      const bounds = array.getFloats?.() ?? null;
+      if (!bounds) return false;
+      switch (this.mType) {
+        case _LayoutComputeOperation.TYPE_MEASURE:
+          m.setW(bounds[2]);
+          m.setH(bounds[3]);
+          break;
+        case _LayoutComputeOperation.TYPE_POSITION:
+          m.setX(bounds[0]);
+          m.setY(bounds[1]);
+          break;
+        default:
+          m.setX(bounds[0]);
+          m.setY(bounds[1]);
+          m.setW(bounds[2]);
+          m.setH(bounds[3]);
+      }
+      m.setAllowsAnimation(this.mAnimateChanges);
+      const positionChanged = bounds[0] !== this.mBounds[0] || bounds[1] !== this.mBounds[1];
+      const dimensionChanged = bounds[2] !== this.mBounds[2] || bounds[3] !== this.mBounds[3];
+      if (this.mType === _LayoutComputeOperation.TYPE_MEASURE && dimensionChanged) return true;
+      if (this.mType === _LayoutComputeOperation.TYPE_POSITION && positionChanged) return true;
+      return dimensionChanged || positionChanged;
+    }
+    write(buffer) {
+      buffer.start(_LayoutComputeOperation.OP_CODE);
+      buffer.writeInt(this.mType);
+      buffer.writeInt(this.mBoundsId);
+      buffer.writeBoolean(this.mAnimateChanges);
+    }
+    deepToString(indent) {
+      return `${indent}LayoutComputeOperation(type=${this.mType}, boundsId=${this.mBoundsId})`;
+    }
+    static read(buffer, operations) {
+      const type = buffer.readInt();
+      const boundsId = buffer.readId();
+      const animateChanges = buffer.readBoolean();
+      operations.push(new _LayoutComputeOperation(type, boundsId, animateChanges));
+    }
+  };
+  _LayoutComputeOperation.OP_CODE = 238;
+  _LayoutComputeOperation.TYPE_MEASURE = 0;
+  _LayoutComputeOperation.TYPE_POSITION = 1;
+  var LayoutComputeOperation = _LayoutComputeOperation;
+
+  // third_party/remote-compose-player/src/core/operations/layout/LayoutComponentContent.ts
+  var _LayoutComponentContent = class _LayoutComponentContent extends Component {
+    constructor(componentId) {
+      super(componentId);
+    }
+    write(buffer) {
+      buffer.start(_LayoutComponentContent.OP_CODE);
+      buffer.writeInt(this.getComponentId());
+    }
+    apply(_context) {
+    }
+    deepToString(indent) {
+      return `${indent}LayoutComponentContent(${this.getComponentId()})`;
+    }
+    static read(buffer, operations) {
+      const componentId = buffer.declareId();
+      operations.push(new _LayoutComponentContent(componentId));
+    }
+  };
+  _LayoutComponentContent.OP_CODE = 201;
+  var LayoutComponentContent = _LayoutComponentContent;
+
+  // third_party/remote-compose-player/src/core/operations/layout/CanvasContent.ts
+  var _CanvasContent = class _CanvasContent extends Component {
+    constructor(componentId) {
+      super(componentId);
+    }
+    write(buffer) {
+      buffer.start(_CanvasContent.OP_CODE);
+      buffer.writeInt(this.getComponentId());
+    }
+    apply(_context) {
+    }
+    deepToString(indent) {
+      return `${indent}CanvasContent(${this.getComponentId()})`;
+    }
+    static read(buffer, operations) {
+      const componentId = buffer.declareId();
+      operations.push(new _CanvasContent(componentId));
+    }
+  };
+  _CanvasContent.OP_CODE = 207;
+  var CanvasContent = _CanvasContent;
+
+  // third_party/remote-compose-player/src/core/operations/layout/CanvasOperations.ts
+  var _CanvasOperations = class _CanvasOperations extends PaintOperation {
+    constructor() {
+      super();
+      // Child drawing commands, collected during inflation (see getList()).
+      this.mList = [];
+    }
+    // Exposing getList() marks this as a Container: CoreDocument.inflateComponents
+    // redirects the ops between this one and its ContainerEnd into mList, and the
+    // DATA pass recurses through it so child data/variables load.
+    getList() {
+      return this.mList;
+    }
+    write(buffer) {
+      buffer.start(_CanvasOperations.OP_CODE);
+    }
+    paint(context) {
+      const remoteContext = context.getContext();
+      for (const op of this.mList) {
+        if (op.isDirty() && typeof op.updateVariables === "function") {
+          op.updateVariables(remoteContext);
+        }
+        remoteContext.incrementOpCount();
+        op.apply(remoteContext);
+      }
+    }
+    deepToString(indent) {
+      const inner = this.mList.map((op) => op.deepToString(indent + "  ")).join("\n");
+      return `${indent}CanvasOperations
+${inner}`;
+    }
+    static read(_buffer, operations) {
+      operations.push(new _CanvasOperations());
+    }
+  };
+  _CanvasOperations.OP_CODE = 173;
+  var CanvasOperations = _CanvasOperations;
+
+  // third_party/remote-compose-player/src/core/operations/ComponentValue.ts
+  var _ComponentValue = class _ComponentValue extends Operation {
+    constructor(type, componentId, valueId) {
+      super();
+      this.mType = type;
+      this.mComponentId = componentId;
+      this.mValueId = valueId;
+    }
+    getType() {
+      return this.mType;
+    }
+    getComponentId2() {
+      return this.mComponentId;
+    }
+    getValueId() {
+      return this.mValueId;
+    }
+    write(_buffer) {
+    }
+    apply(context) {
+      const doc = context.getDocument();
+      if (!doc) return;
+      const component = doc.getComponent(this.mComponentId);
+      if (!component) {
+        if (this.mType === _ComponentValue.WIDTH) {
+          context.loadFloat(this.mValueId, doc.getWidth());
+        } else if (this.mType === _ComponentValue.HEIGHT) {
+          context.loadFloat(this.mValueId, doc.getHeight());
+        }
+        return;
+      }
+      let lc = component;
+      if (lc.constructor?.OP_CODE === 201) {
+        const parent = lc.getParent?.();
+        if (parent) lc = parent;
+      }
+      if (typeof lc.addComponentValue === "function") lc.addComponentValue(this);
+      switch (this.mType) {
+        case _ComponentValue.WIDTH:
+          context.loadFloat(this.mValueId, lc.getWidth ? lc.getWidth() : doc.getWidth());
+          break;
+        case _ComponentValue.HEIGHT:
+          context.loadFloat(this.mValueId, lc.getHeight ? lc.getHeight() : doc.getHeight());
+          break;
+        case _ComponentValue.POS_X:
+          context.loadFloat(this.mValueId, lc.getX ? lc.getX() : 0);
+          break;
+        case _ComponentValue.POS_Y:
+          context.loadFloat(this.mValueId, lc.getY ? lc.getY() : 0);
+          break;
+        case _ComponentValue.POS_ROOT_X: {
+          const loc = lc.getLocationInWindow ? lc.getLocationInWindow() : [0, 0];
+          context.loadFloat(this.mValueId, loc[0]);
+          break;
+        }
+        case _ComponentValue.POS_ROOT_Y: {
+          const loc = lc.getLocationInWindow ? lc.getLocationInWindow() : [0, 0];
+          context.loadFloat(this.mValueId, loc[1]);
+          break;
+        }
+        case _ComponentValue.CONTENT_WIDTH:
+          context.loadFloat(this.mValueId, lc.getContentWidth ? lc.getContentWidth() : lc.getWidth ? lc.getWidth() : 0);
+          break;
+        case _ComponentValue.CONTENT_HEIGHT:
+          context.loadFloat(this.mValueId, lc.getContentHeight ? lc.getContentHeight() : lc.getHeight ? lc.getHeight() : 0);
+          break;
+        default:
+          context.loadFloat(this.mValueId, 0);
+          break;
+      }
+    }
+    deepToString(indent) {
+      return `${indent}ComponentValue(${this.mType}, ${this.mComponentId}, ${this.mValueId})`;
+    }
+    static read(buffer, operations) {
+      const type = buffer.readInt();
+      const componentId = buffer.readId();
+      const valueId = buffer.readId();
+      operations.push(new _ComponentValue(type, componentId, valueId));
+    }
+  };
+  _ComponentValue.OP_CODE = 150;
+  _ComponentValue.WIDTH = 0;
+  _ComponentValue.HEIGHT = 1;
+  _ComponentValue.POS_X = 2;
+  _ComponentValue.POS_Y = 3;
+  _ComponentValue.POS_ROOT_X = 4;
+  _ComponentValue.POS_ROOT_Y = 5;
+  _ComponentValue.CONTENT_WIDTH = 6;
+  _ComponentValue.CONTENT_HEIGHT = 7;
+  var ComponentValue = _ComponentValue;
+
+  // third_party/remote-compose-player/src/core/operations/layout/LayoutComponent.ts
+  var LayoutComponent = class _LayoutComponent extends Component {
+    constructor() {
+      super(...arguments);
+      // Extracted modifiers
+      this.mWidthMod = null;
+      this.mHeightMod = null;
+      // Min/max constraints reach a component two ways: the older WidthIn/HeightIn ops
+      // (231/232) and DimensionConstraints (243), which is what `requiredWidthIn` and
+      // `requiredHeightIn` compile to. Both expose getMin()/getMax(), and the measure
+      // pass only needs that, so store either.
+      this.mWidthInMod = null;
+      this.mHeightInMod = null;
+      this.mZIndexMod = null;
+      this.mGraphicsLayerMod = null;
+      // Padding
+      this.mPaddingLeft = 0;
+      // Padding declared *before* the size modifier, which is the only padding that adds
+      // to an explicit width/height. The reference walks the modifier list and stops at
+      // the size modifier (LayoutComponent.computeModifierDefinedWidth), so
+      // `.width(200).padding(30)` is 200 wide with 140 of content, while
+      // `.padding(30).width(200)` is 260 wide — exactly Compose's modifier-order rule.
+      this.mPadBeforeWidth = 0;
+      this.mHasWidthOp = false;
+      this.mHasHeightOp = false;
+      this.mPadBeforeHeight = 0;
+      this.mPaddingRight = 0;
+      this.mPaddingTop = 0;
+      this.mPaddingBottom = 0;
+      // Children components extracted during inflate
+      this.mChildrenComponents = [];
+      // Draw content operations (DrawContentModifier pattern)
+      this.mDrawContentOperations = null;
+      // Component modifier operations (non-structural modifiers that need paint)
+      this.mComponentModifiers = [];
+      // Content operations (paint ops from LayoutComponentContent/CanvasContent)
+      this.mContentOps = [];
+      // Has CanvasLayout-style content
+      this.mHasCanvasLayoutContent = false;
+      // Computed layout modifiers (LayoutComputeOperation)
+      this.mComputedLayoutModifiers = null;
+      // ComponentValue bindings (Java ComponentData pattern)
+      // Collected during inflate; updated during measure to expose dimensions as float variables
+      // (The base Component's list, typed: public there because a ComponentValue registers itself.)
+      this.mComponentValues = null;
+      // Scroll measurement state
+      this.mScrollModifier = null;
+      this.mScrollContentDimension = 0;
+      this.mScrollHostDimension = 0;
+    }
+    getWidthModifier() {
+      return this.mWidthMod;
+    }
+    getHeightModifier() {
+      return this.mHeightMod;
+    }
+    getWidthInModifier() {
+      return this.mWidthInMod;
+    }
+    getHeightInModifier() {
+      return this.mHeightInMod;
+    }
+    getScrollModifier() {
+      return this.mScrollModifier;
+    }
+    /** Choose which of two competing width/height modifiers a component keeps.
+     *  An EXACT / EXACT_DP fixed-size constraint takes precedence over a FILL/WRAP
+     *  (Compose composes `size().fillMaxSize()` so the fixed size wins); otherwise
+     *  the later modifier wins, preserving the previous last-writer behaviour.
+     *
+     *  When *both* are fixed the earlier one wins, because the modifier chain is emitted
+     *  outermost-first and Compose resolves `size(48).size(24)` to 48 — the outer call fixes the
+     *  constraints and the inner one is coerced into them. A widget that appends its own default
+     *  size behind the caller's is the common case (`RemoteIcon(modifier = size(48.dp))` carries a
+     *  24 dp default), so last-wins silently rendered every such icon at the default rather than
+     *  the size the document asked for. */
+    static preferExactSize(current, next) {
+      const isExact = (t) => t === WidthModifier.EXACT || t === WidthModifier.EXACT_DP;
+      if (current && isExact(current.getType())) {
+        return current;
+      }
+      return next;
+    }
+    inflate() {
+      this.mChildrenComponents = [];
+      this.mComponentModifiers = [];
+      this.mContentOps = [];
+      this.mPaddingLeft = 0;
+      this.mPaddingRight = 0;
+      this.mPaddingTop = 0;
+      this.mPaddingBottom = 0;
+      this.mPadBeforeWidth = 0;
+      this.mPadBeforeHeight = 0;
+      let sawWidth = false;
+      let sawHeight = false;
+      this.mComputedLayoutModifiers = null;
+      for (const op of this.getList()) {
+        if (op instanceof AnimationSpec) {
+          this.mAnimationSpec = op;
+          this.mAnimationId = op.getAnimationId();
+        }
+        if (op instanceof PaddingModifier) {
+          this.mPaddingLeft += op.mLeftValue;
+          this.mPaddingTop += op.mTopValue;
+          this.mPaddingRight += op.mRightValue;
+          this.mPaddingBottom += op.mBottomValue;
+          if (!sawWidth) this.mPadBeforeWidth += op.mLeftValue + op.mRightValue;
+          if (!sawHeight) this.mPadBeforeHeight += op.mTopValue + op.mBottomValue;
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof WidthModifier) {
+          this.mWidthMod = _LayoutComponent.preferExactSize(this.mWidthMod, op);
+          sawWidth = true;
+        } else if (op instanceof HeightModifier) {
+          this.mHeightMod = _LayoutComponent.preferExactSize(this.mHeightMod, op);
+          sawHeight = true;
+        } else if (op instanceof WidthInModifier) {
+          this.mWidthInMod = op;
+        } else if (op instanceof HeightInModifier) {
+          this.mHeightInMod = op;
+        } else if (op instanceof DimensionConstraintsModifier) {
+          const t = op.getType();
+          if (t === DimensionConstraintsModifier.HORIZONTAL || t === DimensionConstraintsModifier.REQUIRED_HORIZONTAL) {
+            this.mWidthInMod = op;
+          } else if (t === DimensionConstraintsModifier.VERTICAL || t === DimensionConstraintsModifier.REQUIRED_VERTICAL) {
+            this.mHeightInMod = op;
+          }
+        } else if (op instanceof ZIndexModifier) {
+          this.mZIndexMod = op;
+          this.mZIndex = op.mValue ?? 0;
+        } else if (op instanceof GraphicsLayerModifier) {
+          this.mGraphicsLayerMod = op;
+        } else if (op instanceof VisibilityModifier) {
+          op.setParent(this);
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof BackgroundModifier) {
+          op.setComponent(this);
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof BorderModifier) {
+          op.setComponent(this);
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof RoundedClipRectModifier) {
+          op.setComponent(this);
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof ClipRectModifier) {
+          op.setComponent(this);
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof OffsetModifier) {
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof ClickModifier || op instanceof MultiClickModifier) {
+          op.setComponent(this);
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof TouchDownModifier || op instanceof TouchUpModifier || op instanceof TouchCancelModifier) {
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof ScrollModifier) {
+          this.mScrollModifier = op;
+          op.inflate(this);
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof MarqueeModifier) {
+          op.setComponent(this);
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof RippleModifier) {
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof AccessibilitySemantics) {
+          this.mComponentModifiers.push(op);
+        } else if (op instanceof LayoutComputeOperation) {
+          if (this.mComputedLayoutModifiers === null) {
+            this.mComputedLayoutModifiers = [];
+          }
+          op.setParent(this);
+          this.mComputedLayoutModifiers.push(op);
+        } else if (op instanceof DrawContentModifier) {
+          this.mDrawContentOperations = [];
+        } else if (op instanceof LayoutComponentContent || op instanceof CanvasContent) {
+          if (op instanceof LayoutComponentContent) op.setParent(this);
+          for (const contentOp of op.getList()) {
+            if (contentOp instanceof Component) {
+              contentOp.setParent(this);
+              this.mChildrenComponents.push(contentOp);
+              contentOp.inflate();
+              if (contentOp instanceof CanvasContent) {
+                this.mHasCanvasLayoutContent = true;
+              }
+            } else if (contentOp instanceof ComponentValue) {
+              if (this.mComponentValues === null) {
+                this.mComponentValues = [];
+              }
+              this.mComponentValues.push(contentOp);
+            } else {
+              if (typeof contentOp.setComponent === "function") {
+                contentOp.setComponent(this);
+              }
+              this.mContentOps.push(contentOp);
+              this.hoistNestedComponentValues(contentOp);
+            }
+          }
+          if (op instanceof CanvasContent) {
+            this.mHasCanvasLayoutContent = true;
+          }
+        } else if (op instanceof Component) {
+          op.setParent(this);
+          this.mChildrenComponents.push(op);
+          op.inflate();
+        } else {
+          if (this.mDrawContentOperations !== null) {
+            this.mDrawContentOperations.push(op);
+          } else {
+            this.mContentOps.push(op);
+          }
+          this.hoistNestedComponentValues(op);
+        }
+      }
+      this.mHasWidthOp = sawWidth;
+      this.mHasHeightOp = sawHeight;
+      if (!this.mWidthMod) {
+        this.mWidthMod = new WidthModifier(WidthModifier.WRAP, 0);
+      }
+      if (!this.mHeightMod) {
+        this.mHeightMod = new HeightModifier(HeightModifier.WRAP, 0);
+      }
+      if (this.mAnimationSpec !== AnimationSpec.DEFAULT) {
+        for (const c of this.mChildrenComponents) {
+          if (c.mAnimationSpec === AnimationSpec.DEFAULT) c.mAnimationSpec = this.mAnimationSpec;
+        }
+      }
+      this.mX = 0;
+      this.mY = 0;
+      this.mWidth = this.modifierDefinedWidth(true);
+      this.mHeight = this.modifierDefinedHeight(true);
+    }
+    // --- Layout helpers ---
+    isWidthFill() {
+      return this.mWidthMod?.getType() === WidthModifier.FILL;
+    }
+    isHeightFill() {
+      return this.mHeightMod?.getType() === HeightModifier.FILL;
+    }
+    isWidthWrap() {
+      return this.mWidthMod?.getType() === WidthModifier.WRAP;
+    }
+    isHeightWrap() {
+      return this.mHeightMod?.getType() === HeightModifier.WRAP;
+    }
+    isWidthExact() {
+      const t = this.mWidthMod?.getType();
+      return t === WidthModifier.EXACT || t === WidthModifier.EXACT_DP;
+    }
+    isHeightExact() {
+      const t = this.mHeightMod?.getType();
+      return t === HeightModifier.EXACT || t === HeightModifier.EXACT_DP;
+    }
+    hasWidthWeight() {
+      return this.mWidthMod?.getType() === WidthModifier.WEIGHT;
+    }
+    hasHeightWeight() {
+      return this.mHeightMod?.getType() === HeightModifier.WEIGHT;
+    }
+    getWidthModValue() {
+      return this.mWidthMod?.getValue() ?? 0;
+    }
+    getHeightModValue() {
+      return this.mHeightMod?.getValue() ?? 0;
+    }
+    hasComputedLayout() {
+      return this.mComputedLayoutModifiers !== null;
+    }
+    applyComputedLayout(type, context, m, parent) {
+      if (this.mComputedLayoutModifiers !== null) {
+        let needsMeasure = false;
+        for (const modifier of this.mComputedLayoutModifiers) {
+          if (modifier.getType() === type) {
+            needsMeasure = modifier.applyToMeasure(context, m, parent) || needsMeasure;
+          }
+        }
+        return needsMeasure;
+      }
+      return false;
+    }
+    // --- Intrinsic size (matches Java LayoutComponent) ---
+    // Java LayoutManager.minIntrinsicHeight/Width: the modifier-defined size (isMin) or
+    // the largest child, whichever is bigger.
+    minIntrinsicHeight() {
+      let height = this.modifierDefinedHeight(true);
+      for (const c of this.mChildrenComponents) {
+        height = Math.max(height, c.minIntrinsicHeight());
+      }
+      return height;
+    }
+    minIntrinsicWidth() {
+      let width = this.modifierDefinedWidth(true);
+      for (const c of this.mChildrenComponents) {
+        width = Math.max(width, c.minIntrinsicWidth());
+      }
+      return width;
+    }
+    /**
+     * Java LayoutComponent.computeModifierDefinedWidth(context, isMin): the padding met
+     * before the width modifier, plus its exact value (a fill is 0 when isMin, else
+     * unbounded), raised to its widthIn minimum.
+     */
+    modifierDefinedWidth(isMin = false) {
+      let w = 0;
+      const t = this.mWidthMod?.getType();
+      if (this.mWidthMod && this.mHasWidthOp) {
+        if (t === WidthModifier.EXACT || t === WidthModifier.EXACT_DP) {
+          w = this.mWidthMod.getValue();
+        } else if (t === WidthModifier.FILL || t === WidthModifier.FILL_PARENT_MAX_WIDTH) {
+          w = isMin ? 0 : Number.MAX_VALUE;
+        }
+        const wIn = this.mWidthInMod;
+        if (wIn && wIn.getMin() >= 0) w = Math.max(w, wIn.getMin());
+      }
+      return this.mPadBeforeWidth + w;
+    }
+    /** Java LayoutComponent.computeModifierDefinedHeight(context, isMin). */
+    modifierDefinedHeight(isMin = false) {
+      let h = 0;
+      const t = this.mHeightMod?.getType();
+      if (this.mHeightMod && this.mHasHeightOp) {
+        if (t === HeightModifier.EXACT || t === HeightModifier.EXACT_DP) {
+          h = this.mHeightMod.getValue();
+        } else if (t === HeightModifier.FILL || t === HeightModifier.FILL_PARENT_MAX_HEIGHT) {
+          h = isMin ? 0 : Number.MAX_VALUE;
+        }
+        const hIn = this.mHeightInMod;
+        if (hIn && hIn.getMin() >= 0) h = Math.max(h, hIn.getMin());
+      }
+      return this.mPadBeforeHeight + h;
+    }
+    computeModifierDefinedWidth() {
+      if (this.isWidthExact()) return this.getWidthModValue() + this.mPaddingLeft + this.mPaddingRight;
+      return -1;
+    }
+    computeModifierDefinedHeight() {
+      if (this.isHeightExact()) return this.getHeightModValue() + this.mPaddingTop + this.mPaddingBottom;
+      return -1;
+    }
+    // --- ComponentValue (Java ComponentData pattern) ---
+    /**
+     * Collect ComponentValue bindings that live *inside* a content container (e.g.
+     * a `CanvasOperations` draw block) so this component's measured size reaches
+     * them via updateComponentValues. Without this, a CanvasOperations fill whose
+     * path geometry is built from `FloatExpression`s reading WIDTH/HEIGHT sees
+     * those variables unset (zero) and draws an empty path. Recurses through
+     * non-Component containers only — a nested child `Component` owns and collects
+     * its own ComponentValues in its own `inflate()`.
+     */
+    hoistNestedComponentValues(op) {
+      if (op instanceof Component) return;
+      const getList = op.getList;
+      if (typeof getList !== "function") return;
+      for (const child of getList.call(op)) {
+        if (child instanceof ComponentValue) {
+          if (child.getComponentId2() === this.getComponentId()) {
+            if (this.mComponentValues === null) this.mComponentValues = [];
+            this.mComponentValues.push(child);
+          }
+        } else {
+          this.hoistNestedComponentValues(child);
+        }
+      }
+    }
+    /** Update bound float variables with this component's dimensions/position.
+     *  Matches Java Component.updateComponentValues — called during both measure
+     *  (for WIDTH/HEIGHT) and layout (for all types including POS_X/POS_Y). */
+    updateComponentValues(context, measuredW, measuredH) {
+      if (this.mComponentValues === null) return;
+      for (const cv of this.mComponentValues) {
+        switch (cv.getType()) {
+          case ComponentValue.WIDTH:
+            context.loadFloat(cv.getValueId(), measuredW);
+            break;
+          case ComponentValue.HEIGHT:
+            context.loadFloat(cv.getValueId(), measuredH);
+            break;
+          case ComponentValue.POS_X:
+            context.loadFloat(cv.getValueId(), this.mX);
+            break;
+          case ComponentValue.POS_Y:
+            context.loadFloat(cv.getValueId(), this.mY);
+            break;
+          case ComponentValue.POS_ROOT_X: {
+            const loc = this.getLocationInWindow();
+            context.loadFloat(cv.getValueId(), loc[0]);
+            break;
+          }
+          case ComponentValue.POS_ROOT_Y: {
+            const loc = this.getLocationInWindow();
+            context.loadFloat(cv.getValueId(), loc[1]);
+            break;
+          }
+          case ComponentValue.CONTENT_WIDTH:
+            context.loadFloat(cv.getValueId(), measuredW - this.mPaddingLeft - this.mPaddingRight);
+            break;
+          case ComponentValue.CONTENT_HEIGHT:
+            context.loadFloat(cv.getValueId(), measuredH - this.mPaddingTop - this.mPaddingBottom);
+            break;
+        }
+      }
+    }
+    // --- Layout ---
+    layout(context, measure) {
+      super.layout(context, measure);
+      this.updateComponentValues(context, this.mWidth, this.mHeight);
+      for (const child of this.mChildrenComponents) {
+        child.layout(context, measure);
+      }
+      this.mNeedsMeasure = false;
+    }
+    animatingBounds(context) {
+      super.animatingBounds(context);
+      this.updateComponentValues(context, this.mWidth, this.mHeight);
+      this.layoutModifiers(this.mWidth, this.mHeight);
+    }
+    /** Walk modifiers reducing dimensions by padding and passing to decorators.
+     *  Matches Java ComponentModifiers.layout(). */
+    layoutModifiers(w, h) {
+      let currentW = w;
+      let currentH = h;
+      for (const mod of this.mComponentModifiers) {
+        if (mod instanceof PaddingModifier) {
+          currentW -= mod.mLeftValue + mod.mRightValue;
+          currentH -= mod.mTopValue + mod.mBottomValue;
+        }
+        if (typeof mod.layoutDecorator === "function") {
+          mod.layoutDecorator(currentW, currentH);
+        }
+      }
+    }
+    // --- Paint ---
+    drawContent(paintContext) {
+      paintContext.matrixSave();
+      paintContext.matrixTranslate(-this.mX, -this.mY);
+      this.paintingComponent(paintContext);
+      paintContext.matrixRestore();
+    }
+    paint(paintContext) {
+      if (this.applyAnimationAsNeeded(paintContext)) {
+        return;
+      }
+      if (Visibility.isGone(this.mVisibility)) return;
+      if (Visibility.isInvisible(this.mVisibility)) return;
+      const drawContentOps = this.mDrawContentOperations;
+      const hasCustomDraw = drawContentOps !== null && drawContentOps.some((op) => op instanceof PaintOperation);
+      if (hasCustomDraw) {
+        paintContext.matrixSave();
+        paintContext.matrixTranslate(this.mX, this.mY);
+        const context = paintContext.getContext();
+        for (const op of drawContentOps) {
+          context.incrementOpCount(op);
+          if (op.isDirty() && typeof op.updateVariables === "function") {
+            op.markNotDirty();
+            op.updateVariables(context);
+          }
+          op.apply(context);
+        }
+        paintContext.matrixRestore();
+      } else if (this.mGraphicsLayerMod) {
+        const layer = this.mGraphicsLayerMod;
+        layer.evaluate(paintContext);
+        paintContext.matrixSave();
+        paintContext.matrixTranslate(this.mX, this.mY);
+        paintContext.startGraphicsLayer(Math.trunc(this.getWidth()), Math.trunc(this.getHeight()));
+        const attributes = /* @__PURE__ */ new Map();
+        layer.fillInAttributes(attributes);
+        paintContext.setGraphicsLayer(attributes);
+        paintContext.matrixTranslate(-this.mX, -this.mY);
+        this.paintingComponent(paintContext);
+        paintContext.endGraphicsLayer();
+        paintContext.matrixRestore();
+      } else {
+        super.paint(paintContext);
+      }
+    }
+    /**
+     * Java ComponentModifiers.paint: paint the modifiers (background, border, clip, ...) at
+     * the component's origin, each padding translating the ones after it; the translations
+     * are backed out at the end. Every component kind runs it from its paintingComponent
+     * (LayoutComponent, CoreText, TextLayout, ImageLayout, Custom in Java).
+     */
+    paintModifiers(paintContext) {
+      const context = paintContext.getContext();
+      let tx = 0;
+      let ty = 0;
+      for (const mod of [this.mWidthMod, this.mHeightMod]) {
+        if (mod && mod.isDirty()) {
+          mod.markNotDirty();
+          mod.updateVariables(context);
+        }
+      }
+      let dw = this.mWidth;
+      let dh = this.mHeight;
+      for (const mod of this.mComponentModifiers) {
+        context.incrementOpCount(mod);
+        if (mod.isDirty() && typeof mod.updateVariables === "function") {
+          mod.markNotDirty();
+          mod.updateVariables(context);
+        }
+        if (mod instanceof PaddingModifier) {
+          paintContext.matrixTranslate(mod.mLeftValue, mod.mTopValue);
+          tx += mod.mLeftValue;
+          ty += mod.mTopValue;
+          dw -= mod.mLeftValue + mod.mRightValue;
+          dh -= mod.mTopValue + mod.mBottomValue;
+        } else if (mod instanceof ClickModifier || mod instanceof MultiClickModifier) {
+          paintContext.matrixTranslate(-tx, -ty);
+          mod.ripple.paint(paintContext, context, this.mWidth, this.mHeight);
+          paintContext.matrixTranslate(tx, ty);
+        } else if (mod instanceof RippleModifier) {
+          mod.ripple.paint(paintContext, context, dw, dh);
+        } else {
+          mod.apply(context);
+        }
+      }
+      paintContext.matrixTranslate(-tx, -ty);
+    }
+    paintingComponent(paintContext) {
+      if (Visibility.isGone(this.mVisibility) && this.mAnimateMeasure === null) return;
+      const context = paintContext.getContext();
+      paintContext.matrixSave();
+      paintContext.matrixTranslate(this.mX, this.mY);
+      this.paintModifiers(paintContext);
+      paintContext.matrixTranslate(this.mPaddingLeft, this.mPaddingTop);
+      for (const op of this.mContentOps) {
+        const isDecoration = op instanceof CanvasOperations;
+        if (isDecoration) {
+          paintContext.matrixTranslate(-this.mPaddingLeft, -this.mPaddingTop);
+        }
+        context.incrementOpCount(op);
+        if (op.isDirty() && typeof op.updateVariables === "function") {
+          op.markNotDirty();
+          op.updateVariables(context);
+        }
+        op.apply(context);
+        if (isDecoration) {
+          paintContext.matrixTranslate(this.mPaddingLeft, this.mPaddingTop);
+        }
+      }
+      const children = this.mChildrenComponents;
+      const shouldPaintChild = (child) => {
+        return (child.mAnimateMeasure !== null || !Visibility.isGone(child.mVisibility)) && this.isChildVisibleInViewport(child);
+      };
+      const paintChild = (child) => {
+        if (child.isDirty() && typeof child.updateVariables === "function") {
+          child.updateVariables(context);
+          child.markNotDirty();
+        }
+        if (shouldPaintChild(child)) {
+          context.incrementOpCount(child);
+          child.paint(paintContext);
+        }
+      };
+      if (children.length > 1) {
+        let needsSort = false;
+        for (const c of children) {
+          if (c.mZIndex !== 0) {
+            needsSort = true;
+            break;
+          }
+        }
+        if (needsSort) {
+          const sorted = [...children].sort((a, b) => a.mZIndex - b.mZIndex);
+          for (const child of sorted) {
+            paintChild(child);
+          }
+        } else {
+          for (const child of children) {
+            paintChild(child);
+          }
+        }
+      } else {
+        for (const child of children) {
+          paintChild(child);
+        }
+      }
+      paintContext.matrixRestore();
+    }
+    isChildVisibleInViewport(child) {
+      const scrollMod = this.mScrollModifier;
+      if (!scrollMod) return true;
+      const childX = child.getX();
+      const childY = child.getY();
+      const childW = child.getWidth();
+      const childH = child.getHeight();
+      if (childW <= 0 && childH <= 0) return true;
+      if (scrollMod.isVertical()) {
+        const hostHeight = this.mHeight - this.mPaddingTop - this.mPaddingBottom;
+        if (hostHeight <= 0) return true;
+        const scrollY = scrollMod.getScrollY();
+        const viewportTop = -scrollY;
+        const viewportBottom = viewportTop + hostHeight;
+        if (childY + childH < viewportTop || childY > viewportBottom) {
+          return false;
+        }
+      } else {
+        const hostWidth = this.mWidth - this.mPaddingLeft - this.mPaddingRight;
+        if (hostWidth <= 0) return true;
+        const scrollX = scrollMod.getScrollX();
+        const viewportLeft = -scrollX;
+        const viewportRight = viewportLeft + hostWidth;
+        if (childX + childW < viewportLeft || childX > viewportRight) {
+          return false;
+        }
+      }
+      return true;
+    }
+    /** Matches Java Component.updateVariables — re-push dimension/position values
+     *  when a component is marked dirty (e.g. by animation or expression change). */
+    updateVariables(context) {
+      if (this.mComponentValues !== null && this.mComponentValues.length > 0) {
+        this.updateComponentValues(context, this.mWidth, this.mHeight);
+      }
+      this.updatePadding();
+    }
+    /**
+     * Java LayoutComponent.updatePadding: re-sum the padding from the modifiers' resolved
+     * values. inflate() sums them once, before the data pass has run the modifiers'
+     * updateVariables, so a padding that resolves later (a variable, or a literal scaled by
+     * DENSITY_BEHAVIOR_DP) was left at its authored value.
+     */
+    updatePadding() {
+      this.mPaddingLeft = 0;
+      this.mPaddingTop = 0;
+      this.mPaddingRight = 0;
+      this.mPaddingBottom = 0;
+      this.mPadBeforeWidth = 0;
+      this.mPadBeforeHeight = 0;
+      let sawWidth = false;
+      let sawHeight = false;
+      for (const op of this.getList()) {
+        if (op instanceof PaddingModifier) {
+          this.mPaddingLeft += op.mLeftValue;
+          this.mPaddingTop += op.mTopValue;
+          this.mPaddingRight += op.mRightValue;
+          this.mPaddingBottom += op.mBottomValue;
+          if (!sawWidth) this.mPadBeforeWidth += op.mLeftValue + op.mRightValue;
+          if (!sawHeight) this.mPadBeforeHeight += op.mTopValue + op.mBottomValue;
+        } else if (op instanceof WidthModifier) {
+          sawWidth = true;
+        } else if (op instanceof HeightModifier) {
+          sawHeight = true;
+        }
+      }
+    }
+    // Inherits apply() from Component → PaintOperation chain.
+    // No override needed — matches Java LayoutComponent which does not override apply().
+    // --- Scroll ---
+    getScrollX() {
+      return this.mScrollModifier ? this.mScrollModifier.getScrollX() : 0;
+    }
+    getScrollY() {
+      return this.mScrollModifier ? this.mScrollModifier.getScrollY() : 0;
+    }
+    onClick(context, doc, x, y) {
+      if (!this.isVisible()) return false;
+      if (!(x >= this.mX && x <= this.mX + this.mWidth && y >= this.mY && y <= this.mY + this.mHeight)) return false;
+      const cx = x - this.mX - this.mPaddingLeft - this.getScrollX();
+      const cy = y - this.mY - this.mPaddingTop - this.getScrollY();
+      for (let i = this.mChildrenComponents.length - 1; i >= 0; i--) {
+        const child = this.mChildrenComponents[i];
+        if (child instanceof Component) {
+          if (child.onClick(context, doc, cx, cy)) return true;
+        }
+      }
+      {
+        let handled = false;
+        for (let i = this.mComponentModifiers.length - 1; i >= 0; i--) {
+          const mod = this.mComponentModifiers[i];
+          if (mod instanceof ClickModifier || mod instanceof MultiClickModifier) {
+            if (mod.onClick(context, doc, x - this.mX, y - this.mY)) handled = true;
+          }
+        }
+        return handled;
+      }
+      return false;
+    }
+    /**
+     * Touch dispatch, ported from `Component.onTouchDown` in the reference.
+     *
+     * This class has to override the base implementation because the base walks `mChildren`
+     * — the raw operation list — while a layout component keeps its children in
+     * `mChildrenComponents`. That divergence is what broke drag: `onTouchDown` was
+     * overridden and found the children, `onTouchDrag`/`Up`/`Cancel` were inherited and
+     * walked a list that, for a ColumnLayout with 12 children, holds 6 unrelated ops. Down
+     * worked and nothing after it did.
+     *
+     * Three rules come from the reference and all three matter:
+     *
+     *  - **Children receive window coordinates**, not content-relative ones. The previous
+     *    code subtracted this component's origin before recursing, so every level of
+     *    nesting shifted the hit test further off; only `getLocationInWindow` knows the
+     *    real offset, and `contains` already works in window space.
+     *  - **Iterate backwards and let the first component win.** The top-most component
+     *    under the finger captures the gesture; without this, several overlapping
+     *    components all captured the same press and then all received the drags.
+     *  - **`force` skips the bounds test.** This is what locks a drag to the component the
+     *    press landed in: `CoreDocument` only forwards drag/up to components that captured
+     *    the press, and passes force, so they keep receiving events after the finger has
+     *    moved outside them.
+     */
+    onTouchDown(context, doc, x, y) {
+      if (!this.contains(x, y)) return false;
+      return this.dispatchTouch(context, doc, x, y, 0, 0, true, "down");
+    }
+    onTouchDrag(context, doc, x, y, force) {
+      if (!force && !this.contains(x, y)) return false;
+      return this.dispatchTouch(context, doc, x, y, 0, 0, force, "drag");
+    }
+    onTouchUp(context, doc, x, y, dx, dy, force) {
+      if (!force && !this.contains(x, y)) return false;
+      return this.dispatchTouch(context, doc, x, y, dx, dy, force, "up");
+    }
+    onTouchCancel(context, doc, x, y, force) {
+      if (!force && !this.contains(x, y)) return false;
+      return this.dispatchTouch(context, doc, x, y, 0, 0, force, "cancel");
+    }
+    /**
+     * The shared body of all four, mirroring the reference's single loop.
+     *
+     * The reference keeps components, touch handlers and touch expressions in one list and
+     * switches on type; here they live in three collections, so the loop is unrolled but
+     * the order and the coordinate spaces are the same: children first (window coords),
+     * then this component's own consumers (local coords).
+     */
+    dispatchTouch(context, doc, x, y, dx, dy, force, phase) {
+      const loc = this.getLocationInWindow();
+      const lx = x - loc[0];
+      const ly = y - loc[1];
+      let handled = false;
+      let componentHandled = false;
+      for (let i = this.mChildrenComponents.length - 1; i >= 0; i--) {
+        const child = this.mChildrenComponents[i];
+        if (!(child instanceof _LayoutComponent)) continue;
+        if (componentHandled) continue;
+        const took = phase === "down" ? child.onTouchDown(context, doc, x, y) : phase === "drag" ? child.onTouchDrag(context, doc, x, y, force) : phase === "up" ? child.onTouchUp(context, doc, x, y, dx, dy, force) : child.onTouchCancel(context, doc, x, y, force);
+        if (took) componentHandled = true;
+      }
+      for (const op of this.mContentOps) {
+        if (op instanceof TouchExpression) {
+          if (this.deliverToExpression(op, context, lx, ly, dx, dy, phase)) {
+            if (phase === "down") doc.appliedTouchOperation(this);
+            handled = true;
+          }
+        }
+      }
+      for (const child of this.mChildrenComponents) {
+        if (!(child instanceof _LayoutComponent)) {
+          if (this.dispatchToOps(child.getList(), context, doc, lx, ly, dx, dy, phase)) {
+            handled = true;
+          }
+        }
+      }
+      for (const mod of this.mComponentModifiers) {
+        if (phase === "down" && mod instanceof RippleModifier) {
+          mod.ripple.animate(context, lx, ly);
+          handled = true;
+        } else if (phase === "down" && mod instanceof TouchDownModifier) {
+          mod.onTouchDown(context);
+          handled = true;
+        } else if (phase === "down" && (mod instanceof TouchUpModifier || mod instanceof TouchCancelModifier)) {
+          doc.modifierTouchTarget?.(this);
+          handled = true;
+        } else if (phase === "up" && mod instanceof TouchUpModifier) {
+          mod.onTouchUp(context);
+          doc.touchModifierRan?.(this);
+          handled = true;
+        } else if (phase === "cancel" && mod instanceof TouchCancelModifier) {
+          mod.onTouchCancel(context);
+          doc.touchModifierRan?.(this);
+          handled = true;
+        }
+      }
+      if (this.mScrollModifier) {
+        if (phase === "down") {
+          this.mScrollModifier.onTouchDown(context, lx, ly);
+          doc.appliedTouchOperation(this);
+          handled = true;
+        } else if (phase === "drag") {
+          if (this.mScrollModifier.onTouchDrag(context, lx, ly)) {
+            handled = true;
+          }
+        } else if (phase === "up") {
+          if (this.mScrollModifier.onTouchUp(context, lx, ly, dx, dy)) {
+            handled = true;
+          }
+        } else if (this.mScrollModifier.onTouchCancel(context, lx, ly)) {
+          handled = true;
+        }
+      }
+      return componentHandled || handled;
+    }
+    /** This component's own touch-up / touch-cancel modifier actions (a swipe's release). */
+    runOwnTouchModifiers(context, phase) {
+      for (const mod of this.mComponentModifiers) {
+        if (phase === "up" && mod instanceof TouchUpModifier) mod.onTouchUp(context);
+        else if (phase === "cancel" && mod instanceof TouchCancelModifier) mod.onTouchCancel(context);
+      }
+    }
+    /** One touch phase on a single expression. Only `down` is bounds-checked, as upstream. */
+    deliverToExpression(op, context, lx, ly, dx, dy, phase) {
+      op.updateVariables(context);
+      if (phase === "down") {
+        op.touchDown(context, lx, ly);
+      } else if (phase === "drag") {
+        op.touchDrag(context, lx, ly);
+      } else if (phase === "up") {
+        op.touchUp(context, lx, ly, dx, dy);
+      } else {
+        op.touchUp(context, lx, ly, 0, 0);
+      }
+      return true;
+    }
+    /** Recurse into a non-layout child's operations looking for touch expressions. */
+    dispatchToOps(ops, context, doc, lx, ly, dx, dy, phase) {
+      let handled = false;
+      for (const op of ops) {
+        if (op instanceof TouchExpression) {
+          this.deliverToExpression(op, context, lx, ly, dx, dy, phase);
+          if (phase === "down") doc.appliedTouchOperation(this);
+          handled = true;
+        } else if (typeof op.getList === "function") {
+          if (this.dispatchToOps(
+            op.getList(),
+            context,
+            doc,
+            lx,
+            ly,
+            dx,
+            dy,
+            phase
+          )) {
+            handled = true;
+          }
+        }
+      }
+      return handled;
+    }
+    /** Recursively search operation list for TouchExpression and dispatch touchDown */
+    dispatchTouchDownToOps(ops, context, doc, lx, ly) {
+      let handled = false;
+      for (const op of ops) {
+        if (op instanceof TouchExpression) {
+          op.updateVariables(context);
+          op.touchDown(context, lx, ly);
+          doc.appliedTouchOperation(this);
+          handled = true;
+        } else if (typeof op.getList === "function") {
+          handled = this.dispatchTouchDownToOps(op.getList(), context, doc, lx, ly) || handled;
+        }
+      }
+      return handled;
+    }
+    getLocationInWindow() {
+      let x = this.mX + this.mPaddingLeft;
+      let y = this.mY + this.mPaddingTop;
+      let parent = this.getParent();
+      while (parent) {
+        x += parent.mX;
+        y += parent.mY;
+        if (parent instanceof _LayoutComponent) {
+          x += parent.mPaddingLeft + parent.getScrollX();
+          y += parent.mPaddingTop + parent.getScrollY();
+        }
+        parent = parent.getParent();
+      }
+      return [x, y];
+    }
+  };
+
+  // third_party/remote-compose-player/src/core/operations/layout/measure/MeasurePass.ts
+  var MeasurePass = class {
+    constructor() {
+      this.mList = /* @__PURE__ */ new Map();
+    }
+    clear() {
+      this.mList.clear();
+    }
+    add(measure) {
+      if (measure.mId === -1) throw new Error("Component has no id!");
+      this.mList.set(measure.mId, measure);
+    }
+    contains(id) {
+      return this.mList.has(id);
+    }
+    get(arg) {
+      if (typeof arg === "number") {
+        let m2 = this.mList.get(arg);
+        if (!m2) {
+          m2 = new ComponentMeasure(arg, 0, 0, 0, 0, ComponentMeasure.GONE);
+          this.mList.set(arg, m2);
+        }
+        return m2;
+      }
+      const c = arg;
+      const id = c.getComponentId();
+      let m = this.mList.get(id);
+      if (!m) {
+        m = new ComponentMeasure(
+          id,
+          c.getX(),
+          c.getY(),
+          c.getWidth(),
+          c.getHeight(),
+          c.getVisibility() & 15
+        );
+        this.mList.set(id, m);
+      }
+      return m;
+    }
+  };
+
+  // third_party/remote-compose-player/src/core/operations/layout/RootLayoutComponent.ts
+  var _RootLayoutComponent = class _RootLayoutComponent extends Component {
+    constructor(componentId = -1) {
+      super(componentId);
+      this.mCurrentId = -1;
+      this.measuredContent = null;
+      this.mHasTouchListeners = false;
+    }
+    getHasTouchListeners() {
+      return this.mHasTouchListeners;
+    }
+    setHasTouchListeners(v) {
+      this.mHasTouchListeners = v;
+    }
+    assignIds(lastId) {
+      this.mCurrentId = lastId;
+      this.assignId(this);
+    }
+    assignId(component) {
+      if (component.getComponentId() === -1) {
+        this.mCurrentId--;
+        component.mComponentId = this.mCurrentId;
+      }
+      for (const op of component.getList()) {
+        if (op instanceof Component) {
+          this.assignId(op);
+        }
+      }
+    }
+    invalidateMeasure() {
+      this.mNeedsMeasure = true;
+      this.invalidateMeasureChildren(this);
+    }
+    invalidateMeasureChildren(component) {
+      component.mNeedsMeasure = true;
+      for (const op of component.getList()) {
+        if (op instanceof Component) {
+          this.invalidateMeasureChildren(op);
+        }
+      }
+    }
+    /** Measure then layout the tree of components */
+    layoutTree(context) {
+      if (!this.mNeedsMeasure) return;
+      this.mNeedsMeasure = false;
+      this.setWidth(context.mWidth);
+      this.setHeight(context.mHeight);
+      context.mViewportWidth = context.mWidth;
+      context.mViewportHeight = context.mHeight;
+      const measurePass = new MeasurePass();
+      let content;
+      for (const op of this.getList()) {
+        if (typeof op.measure === "function") {
+          const paintContext = context.getPaintContext();
+          if (paintContext) {
+            if (!content && op instanceof Component) content = op;
+            op.measure(paintContext, 0, this.mWidth, 0, this.mHeight, measurePass);
+            if (typeof op.layout === "function") {
+              op.layout(context, measurePass);
+            }
+          }
+        }
+      }
+      this.recordContentMeasurement(content, measurePass);
+    }
+    /** A copy of the last normal layout's content measurement; this never runs a sizing pass. */
+    getMeasuredContentSize() {
+      return this.measuredContent ? { ...this.measuredContent } : null;
+    }
+    recordContentMeasurement(content, pass) {
+      this.measuredContent = null;
+      if (!content) return;
+      const pending = [content];
+      const visited = /* @__PURE__ */ new Set();
+      while (pending.length) {
+        const component = pending.pop();
+        if (visited.has(component)) continue;
+        visited.add(component);
+        if (component instanceof LayoutComponent) {
+          const height = component.getHeightModifier()?.getType();
+          if (component.getScrollModifier() || height === HeightModifier.FILL || height === HeightModifier.WEIGHT) return;
+          pending.push(...component.mChildrenComponents);
+        }
+        for (const child of component.getList()) if (child instanceof Component) pending.push(child);
+      }
+      const measured = pass.get(content);
+      this.measuredContent = { width: measured.getW(), height: measured.getH() };
+    }
+    /** Measure the document and layout components, returning first child size */
+    measureDoc(context, minWidth, maxWidth, minHeight, maxHeight) {
+      this.mNeedsMeasure = false;
+      this.setWidth(context.mWidth);
+      this.setHeight(context.mHeight);
+      context.mViewportWidth = context.mWidth;
+      context.mViewportHeight = context.mHeight;
+      const measurePass = new MeasurePass();
+      let firstComponent = null;
+      for (const op of this.getList()) {
+        if (typeof op.measure === "function") {
+          if (firstComponent === null && op instanceof Component) {
+            firstComponent = op;
+          }
+          const paintContext = context.getPaintContext();
+          if (paintContext) {
+            op.measure(paintContext, minWidth, maxWidth, minHeight, maxHeight, measurePass);
+            if (typeof op.layout === "function") {
+              op.layout(context, measurePass);
+            }
+          }
+        }
+      }
+      if (firstComponent) {
+        this.setWidth(firstComponent.getWidth());
+        this.setHeight(firstComponent.getHeight());
+      }
+    }
+    paint(paintContext) {
+      this.mNeedsRepaint = false;
+      const remoteContext = paintContext.getContext();
+      paintContext.save();
+      if (!this.getParent()) {
+        paintContext.clipRect(0, 0, this.mWidth, this.mHeight);
+      }
+      for (const op of this.getList()) {
+        if (op instanceof PaintOperation) {
+          op.paint(paintContext);
+          remoteContext.incrementOpCount(op);
+        }
+      }
+      paintContext.restore();
+    }
+    getComponent(id) {
+      const queue = [this];
+      while (queue.length > 0) {
+        const c = queue.shift();
+        if (c.getComponentId() === id) return c;
+        for (const child of c.getList()) {
+          if (child instanceof Component) {
+            queue.push(child);
+          }
+        }
+      }
+      return null;
+    }
+    displayHierarchy() {
+      return `RootLayout(${this.getWidth()}x${this.getHeight()})`;
+    }
+    onClick(context, doc, x, y) {
+      for (const child of this.getList()) {
+        if (typeof child.onClick === "function") {
+          if (child.onClick(context, doc, x, y)) return true;
+        }
+      }
+      return false;
+    }
+    onTouchDown(context, doc, x, y) {
+      for (const child of this.getList()) {
+        if (typeof child.onTouchDown === "function") {
+          if (child.onTouchDown(context, doc, x, y)) return true;
+        }
+      }
+      return false;
+    }
+    write(buffer) {
+      buffer.start(_RootLayoutComponent.OP_CODE);
+      buffer.writeInt(this.getComponentId());
+    }
+    deepToString(indent) {
+      return `${indent}RootLayoutComponent(${this.getComponentId()})`;
+    }
+    static read(buffer, operations) {
+      const componentId = buffer.declareId();
+      const component = new _RootLayoutComponent(componentId);
+      operations.push(component);
+    }
+  };
+  _RootLayoutComponent.OP_CODE = 200;
+  var RootLayoutComponent = _RootLayoutComponent;
+
+  // third_party/remote-compose-player/src/core/TimeVariables.ts
+  var TimeVariables = class {
+    constructor(clock) {
+      this.mLastAnimationTime = -1;
+      this.mClock = clock;
+      this.mStartTime = performance.now() / 1e3;
+    }
+    getClock() {
+      return this.mClock;
+    }
+    /** Seconds elapsed since this TimeVariables was created. */
+    getElapsedSeconds() {
+      return performance.now() / 1e3 - this.mStartTime;
+    }
+    updateTime(context) {
+      const snapshot = this.mClock.snapshot();
+      context.loadFloat(RemoteContext.ID_OFFSET_TO_UTC, snapshot.getOffsetSeconds());
+      context.loadFloat(RemoteContext.ID_CONTINUOUS_SEC, snapshot.getContinuousSeconds());
+      context.loadInteger(RemoteContext.ID_EPOCH_SECOND, snapshot.getEpochSeconds());
+      context.loadFloat(RemoteContext.ID_TIME_IN_SEC, snapshot.getTimeInSec());
+      context.loadFloat(RemoteContext.ID_TIME_IN_MIN, snapshot.getTimeInMin());
+      context.loadFloat(RemoteContext.ID_TIME_IN_HR, snapshot.getHour());
+      context.loadFloat(RemoteContext.ID_CALENDAR_MONTH, snapshot.getMonth());
+      context.loadFloat(RemoteContext.ID_DAY_OF_MONTH, snapshot.getDayOfMonth());
+      context.loadFloat(RemoteContext.ID_WEEK_DAY, snapshot.getDayOfWeek());
+      context.loadFloat(RemoteContext.ID_DAY_OF_YEAR, snapshot.getDayOfYear());
+      context.loadFloat(RemoteContext.ID_YEAR, snapshot.getYear());
+      const animTime = this.getElapsedSeconds();
+      const deltaTime = this.mLastAnimationTime >= 0 ? animTime - this.mLastAnimationTime : 0;
+      this.mLastAnimationTime = animTime;
+      context.loadFloat(RemoteContext.ID_ANIMATION_TIME, animTime);
+      context.setAnimationTime(animTime);
+      context.loadFloat(RemoteContext.ID_ANIMATION_DELTA_TIME, deltaTime);
+      context.loadFloat(RemoteContext.ID_API_LEVEL, CoreDocument.DOCUMENT_API_LEVEL);
+    }
+  };
 
   // third_party/remote-compose-player/src/core/operations/DataOperations.ts
   var NANMAP_PATH_BASE = 3145728;
@@ -20737,98 +21985,6 @@ void main() {
   _TextMerge.OP_CODE = 136;
   var TextMerge = _TextMerge;
 
-  // third_party/remote-compose-player/src/core/operations/ComponentValue.ts
-  var _ComponentValue = class _ComponentValue extends Operation {
-    constructor(type, componentId, valueId) {
-      super();
-      this.mType = type;
-      this.mComponentId = componentId;
-      this.mValueId = valueId;
-    }
-    getType() {
-      return this.mType;
-    }
-    getComponentId2() {
-      return this.mComponentId;
-    }
-    getValueId() {
-      return this.mValueId;
-    }
-    write(_buffer) {
-    }
-    apply(context) {
-      const doc = context.getDocument();
-      if (!doc) return;
-      const component = doc.getComponent(this.mComponentId);
-      if (!component) {
-        if (this.mType === _ComponentValue.WIDTH) {
-          context.loadFloat(this.mValueId, doc.getWidth());
-        } else if (this.mType === _ComponentValue.HEIGHT) {
-          context.loadFloat(this.mValueId, doc.getHeight());
-        }
-        return;
-      }
-      let lc = component;
-      if (lc.constructor?.OP_CODE === 201) {
-        const parent = lc.getParent?.();
-        if (parent) lc = parent;
-      }
-      if (typeof lc.addComponentValue === "function") lc.addComponentValue(this);
-      switch (this.mType) {
-        case _ComponentValue.WIDTH:
-          context.loadFloat(this.mValueId, lc.getWidth ? lc.getWidth() : doc.getWidth());
-          break;
-        case _ComponentValue.HEIGHT:
-          context.loadFloat(this.mValueId, lc.getHeight ? lc.getHeight() : doc.getHeight());
-          break;
-        case _ComponentValue.POS_X:
-          context.loadFloat(this.mValueId, lc.getX ? lc.getX() : 0);
-          break;
-        case _ComponentValue.POS_Y:
-          context.loadFloat(this.mValueId, lc.getY ? lc.getY() : 0);
-          break;
-        case _ComponentValue.POS_ROOT_X: {
-          const loc = lc.getLocationInWindow ? lc.getLocationInWindow() : [0, 0];
-          context.loadFloat(this.mValueId, loc[0]);
-          break;
-        }
-        case _ComponentValue.POS_ROOT_Y: {
-          const loc = lc.getLocationInWindow ? lc.getLocationInWindow() : [0, 0];
-          context.loadFloat(this.mValueId, loc[1]);
-          break;
-        }
-        case _ComponentValue.CONTENT_WIDTH:
-          context.loadFloat(this.mValueId, lc.getContentWidth ? lc.getContentWidth() : lc.getWidth ? lc.getWidth() : 0);
-          break;
-        case _ComponentValue.CONTENT_HEIGHT:
-          context.loadFloat(this.mValueId, lc.getContentHeight ? lc.getContentHeight() : lc.getHeight ? lc.getHeight() : 0);
-          break;
-        default:
-          context.loadFloat(this.mValueId, 0);
-          break;
-      }
-    }
-    deepToString(indent) {
-      return `${indent}ComponentValue(${this.mType}, ${this.mComponentId}, ${this.mValueId})`;
-    }
-    static read(buffer, operations) {
-      const type = buffer.readInt();
-      const componentId = buffer.readId();
-      const valueId = buffer.readId();
-      operations.push(new _ComponentValue(type, componentId, valueId));
-    }
-  };
-  _ComponentValue.OP_CODE = 150;
-  _ComponentValue.WIDTH = 0;
-  _ComponentValue.HEIGHT = 1;
-  _ComponentValue.POS_X = 2;
-  _ComponentValue.POS_Y = 3;
-  _ComponentValue.POS_ROOT_X = 4;
-  _ComponentValue.POS_ROOT_Y = 5;
-  _ComponentValue.CONTENT_WIDTH = 6;
-  _ComponentValue.CONTENT_HEIGHT = 7;
-  var ComponentValue = _ComponentValue;
-
   // third_party/remote-compose-player/src/core/operations/DataMapIds.ts
   var DataMap = class {
     constructor(names, types, ids) {
@@ -20961,1135 +22117,6 @@ void main() {
   };
   _DataListFloat.OP_CODE = 147;
   var DataListFloat = _DataListFloat;
-
-  // third_party/remote-compose-player/src/core/operations/layout/LayoutComponentContent.ts
-  var _LayoutComponentContent = class _LayoutComponentContent extends Component {
-    constructor(componentId) {
-      super(componentId);
-    }
-    write(buffer) {
-      buffer.start(_LayoutComponentContent.OP_CODE);
-      buffer.writeInt(this.getComponentId());
-    }
-    apply(_context) {
-    }
-    deepToString(indent) {
-      return `${indent}LayoutComponentContent(${this.getComponentId()})`;
-    }
-    static read(buffer, operations) {
-      const componentId = buffer.declareId();
-      operations.push(new _LayoutComponentContent(componentId));
-    }
-  };
-  _LayoutComponentContent.OP_CODE = 201;
-  var LayoutComponentContent = _LayoutComponentContent;
-
-  // third_party/remote-compose-player/src/core/operations/layout/CanvasContent.ts
-  var _CanvasContent = class _CanvasContent extends Component {
-    constructor(componentId) {
-      super(componentId);
-    }
-    write(buffer) {
-      buffer.start(_CanvasContent.OP_CODE);
-      buffer.writeInt(this.getComponentId());
-    }
-    apply(_context) {
-    }
-    deepToString(indent) {
-      return `${indent}CanvasContent(${this.getComponentId()})`;
-    }
-    static read(buffer, operations) {
-      const componentId = buffer.declareId();
-      operations.push(new _CanvasContent(componentId));
-    }
-  };
-  _CanvasContent.OP_CODE = 207;
-  var CanvasContent = _CanvasContent;
-
-  // third_party/remote-compose-player/src/core/operations/DataDynamicListFloat.ts
-  var _DataDynamicListFloat = class _DataDynamicListFloat extends Operation {
-    constructor(id, nbValuesBits) {
-      super();
-      this.isDynamic = true;
-      this.mId = id;
-      const nbValues = isNaNBits(nbValuesBits) ? NaN : intBitsToFloat2(nbValuesBits);
-      if (nbValues > _DataDynamicListFloat.MAX_FLOAT_ARRAY) {
-        throw new Error("Array too large");
-      }
-      this.mValues = new Float32Array(Math.floor(nbValues) || 0);
-      this.mArrayLengthBits = nbValuesBits;
-      this.mArrayLengthOut = nbValues;
-    }
-    updateVariables(context) {
-      if (isNaNBits(this.mArrayLengthBits)) {
-        this.mArrayLengthOut = context.getFloat(idFromBits(this.mArrayLengthBits));
-      }
-      if (Math.floor(this.mArrayLengthOut) !== this.mValues.length) {
-        this.mValues = new Float32Array(Math.floor(this.mArrayLengthOut) || 0);
-      }
-    }
-    registerListening(context) {
-      context.addCollection(this.mId, this);
-      if (isNaNBits(this.mArrayLengthBits)) {
-        context.listensTo(idFromBits(this.mArrayLengthBits), this);
-      }
-    }
-    apply(context) {
-      context.addCollection(this.mId, this);
-    }
-    getFloatValue(index) {
-      return this.mValues[index];
-    }
-    getFloats() {
-      return this.mValues;
-    }
-    getLength() {
-      return this.mValues.length;
-    }
-    updateValues(values) {
-      if (values.length !== this.mValues.length) {
-        this.mValues = new Float32Array(values.length);
-      }
-      this.mValues.set(values);
-    }
-    write(buffer) {
-      buffer.start(_DataDynamicListFloat.OP_CODE);
-      buffer.writeInt(this.mId);
-      buffer.writeFloat(this.mValues.length);
-    }
-    deepToString(indent) {
-      return `${indent}DataDynamicListFloat(id=${this.mId}, len=${this.mValues.length})`;
-    }
-    static read(buffer, operations) {
-      const id = buffer.declareId();
-      const lenBits = buffer.readNanIdBits();
-      const len = isNaNBits(lenBits) ? NaN : intBitsToFloat2(lenBits);
-      if (len > _DataDynamicListFloat.MAX_FLOAT_ARRAY) {
-        throw new Error(`${len} entries exceeds max = ${_DataDynamicListFloat.MAX_FLOAT_ARRAY}`);
-      }
-      operations.push(new _DataDynamicListFloat(id, lenBits));
-    }
-  };
-  _DataDynamicListFloat.OP_CODE = 197;
-  _DataDynamicListFloat.MAX_FLOAT_ARRAY = 2e3;
-  var DataDynamicListFloat = _DataDynamicListFloat;
-
-  // third_party/remote-compose-player/src/core/operations/layout/modifiers/LayoutComputeOperation.ts
-  var _LayoutComputeOperation = class _LayoutComputeOperation extends Operation {
-    constructor(type, boundsId, animateChanges) {
-      super();
-      this.mList = [];
-      this.mParent = null;
-      this.mBounds = new Float32Array(6);
-      this.mType = type;
-      this.mBoundsId = boundsId;
-      this.mAnimateChanges = animateChanges;
-    }
-    getList() {
-      return this.mList;
-    }
-    getType() {
-      return this.mType;
-    }
-    setParent(parent) {
-      this.mParent = parent;
-    }
-    registerListening(context) {
-      for (const op of this.mList) {
-        if (typeof op.registerListening === "function") {
-          op.registerListening(context);
-        }
-      }
-    }
-    updateVariables(context) {
-      let needsInvalidate = false;
-      for (const op of this.mList) {
-        if (typeof op.updateVariables === "function" && op.isDirty()) {
-          op.updateVariables(context);
-          context.incrementOpCount(op);
-          op.apply(context);
-          op.markNotDirty();
-          needsInvalidate = true;
-        }
-      }
-      if (needsInvalidate && this.mParent && typeof this.mParent.invalidateMeasure === "function") {
-        this.mParent.invalidateMeasure();
-      }
-    }
-    markDirty() {
-    }
-    apply(_context) {
-    }
-    applyToMeasure(context, m, parent) {
-      const collectionsAccess = context.getContext().getCollectionsAccess();
-      if (!collectionsAccess) return false;
-      const array = collectionsAccess.getArray(this.mBoundsId);
-      if (!array) return false;
-      this.mBounds[0] = m.getX();
-      this.mBounds[1] = m.getY();
-      this.mBounds[2] = m.getW();
-      this.mBounds[3] = m.getH();
-      this.mBounds[4] = parent.getW();
-      this.mBounds[5] = parent.getH();
-      if (array instanceof DataDynamicListFloat) {
-        array.updateValues(this.mBounds);
-      }
-      for (const operation of this.mList) {
-        if (typeof operation.updateVariables === "function" && operation.isDirty()) {
-          operation.updateVariables(context.getContext());
-        }
-        operation.apply(context.getContext());
-      }
-      const bounds = array.getFloats?.() ?? null;
-      if (!bounds) return false;
-      switch (this.mType) {
-        case _LayoutComputeOperation.TYPE_MEASURE:
-          m.setW(bounds[2]);
-          m.setH(bounds[3]);
-          break;
-        case _LayoutComputeOperation.TYPE_POSITION:
-          m.setX(bounds[0]);
-          m.setY(bounds[1]);
-          break;
-        default:
-          m.setX(bounds[0]);
-          m.setY(bounds[1]);
-          m.setW(bounds[2]);
-          m.setH(bounds[3]);
-      }
-      m.setAllowsAnimation(this.mAnimateChanges);
-      const positionChanged = bounds[0] !== this.mBounds[0] || bounds[1] !== this.mBounds[1];
-      const dimensionChanged = bounds[2] !== this.mBounds[2] || bounds[3] !== this.mBounds[3];
-      if (this.mType === _LayoutComputeOperation.TYPE_MEASURE && dimensionChanged) return true;
-      if (this.mType === _LayoutComputeOperation.TYPE_POSITION && positionChanged) return true;
-      return dimensionChanged || positionChanged;
-    }
-    write(buffer) {
-      buffer.start(_LayoutComputeOperation.OP_CODE);
-      buffer.writeInt(this.mType);
-      buffer.writeInt(this.mBoundsId);
-      buffer.writeBoolean(this.mAnimateChanges);
-    }
-    deepToString(indent) {
-      return `${indent}LayoutComputeOperation(type=${this.mType}, boundsId=${this.mBoundsId})`;
-    }
-    static read(buffer, operations) {
-      const type = buffer.readInt();
-      const boundsId = buffer.readId();
-      const animateChanges = buffer.readBoolean();
-      operations.push(new _LayoutComputeOperation(type, boundsId, animateChanges));
-    }
-  };
-  _LayoutComputeOperation.OP_CODE = 238;
-  _LayoutComputeOperation.TYPE_MEASURE = 0;
-  _LayoutComputeOperation.TYPE_POSITION = 1;
-  var LayoutComputeOperation = _LayoutComputeOperation;
-
-  // third_party/remote-compose-player/src/core/operations/layout/CanvasOperations.ts
-  var _CanvasOperations = class _CanvasOperations extends PaintOperation {
-    constructor() {
-      super();
-      // Child drawing commands, collected during inflation (see getList()).
-      this.mList = [];
-    }
-    // Exposing getList() marks this as a Container: CoreDocument.inflateComponents
-    // redirects the ops between this one and its ContainerEnd into mList, and the
-    // DATA pass recurses through it so child data/variables load.
-    getList() {
-      return this.mList;
-    }
-    write(buffer) {
-      buffer.start(_CanvasOperations.OP_CODE);
-    }
-    paint(context) {
-      const remoteContext = context.getContext();
-      for (const op of this.mList) {
-        if (op.isDirty() && typeof op.updateVariables === "function") {
-          op.updateVariables(remoteContext);
-        }
-        remoteContext.incrementOpCount();
-        op.apply(remoteContext);
-      }
-    }
-    deepToString(indent) {
-      const inner = this.mList.map((op) => op.deepToString(indent + "  ")).join("\n");
-      return `${indent}CanvasOperations
-${inner}`;
-    }
-    static read(_buffer, operations) {
-      operations.push(new _CanvasOperations());
-    }
-  };
-  _CanvasOperations.OP_CODE = 173;
-  var CanvasOperations = _CanvasOperations;
-
-  // third_party/remote-compose-player/src/core/operations/layout/LayoutComponent.ts
-  var LayoutComponent = class _LayoutComponent extends Component {
-    constructor() {
-      super(...arguments);
-      // Extracted modifiers
-      this.mWidthMod = null;
-      this.mHeightMod = null;
-      // Min/max constraints reach a component two ways: the older WidthIn/HeightIn ops
-      // (231/232) and DimensionConstraints (243), which is what `requiredWidthIn` and
-      // `requiredHeightIn` compile to. Both expose getMin()/getMax(), and the measure
-      // pass only needs that, so store either.
-      this.mWidthInMod = null;
-      this.mHeightInMod = null;
-      this.mZIndexMod = null;
-      this.mGraphicsLayerMod = null;
-      // Padding
-      this.mPaddingLeft = 0;
-      // Padding declared *before* the size modifier, which is the only padding that adds
-      // to an explicit width/height. The reference walks the modifier list and stops at
-      // the size modifier (LayoutComponent.computeModifierDefinedWidth), so
-      // `.width(200).padding(30)` is 200 wide with 140 of content, while
-      // `.padding(30).width(200)` is 260 wide — exactly Compose's modifier-order rule.
-      this.mPadBeforeWidth = 0;
-      this.mHasWidthOp = false;
-      this.mHasHeightOp = false;
-      this.mPadBeforeHeight = 0;
-      this.mPaddingRight = 0;
-      this.mPaddingTop = 0;
-      this.mPaddingBottom = 0;
-      // Children components extracted during inflate
-      this.mChildrenComponents = [];
-      // Draw content operations (DrawContentModifier pattern)
-      this.mDrawContentOperations = null;
-      // Component modifier operations (non-structural modifiers that need paint)
-      this.mComponentModifiers = [];
-      // Content operations (paint ops from LayoutComponentContent/CanvasContent)
-      this.mContentOps = [];
-      // Has CanvasLayout-style content
-      this.mHasCanvasLayoutContent = false;
-      // Computed layout modifiers (LayoutComputeOperation)
-      this.mComputedLayoutModifiers = null;
-      // ComponentValue bindings (Java ComponentData pattern)
-      // Collected during inflate; updated during measure to expose dimensions as float variables
-      // (The base Component's list, typed: public there because a ComponentValue registers itself.)
-      this.mComponentValues = null;
-      // Scroll measurement state
-      this.mScrollModifier = null;
-      this.mScrollContentDimension = 0;
-      this.mScrollHostDimension = 0;
-    }
-    getWidthModifier() {
-      return this.mWidthMod;
-    }
-    getHeightModifier() {
-      return this.mHeightMod;
-    }
-    getWidthInModifier() {
-      return this.mWidthInMod;
-    }
-    getHeightInModifier() {
-      return this.mHeightInMod;
-    }
-    getScrollModifier() {
-      return this.mScrollModifier;
-    }
-    /** Choose which of two competing width/height modifiers a component keeps.
-     *  An EXACT / EXACT_DP fixed-size constraint takes precedence over a FILL/WRAP
-     *  (Compose composes `size().fillMaxSize()` so the fixed size wins); otherwise
-     *  the later modifier wins, preserving the previous last-writer behaviour.
-     *
-     *  When *both* are fixed the earlier one wins, because the modifier chain is emitted
-     *  outermost-first and Compose resolves `size(48).size(24)` to 48 — the outer call fixes the
-     *  constraints and the inner one is coerced into them. A widget that appends its own default
-     *  size behind the caller's is the common case (`RemoteIcon(modifier = size(48.dp))` carries a
-     *  24 dp default), so last-wins silently rendered every such icon at the default rather than
-     *  the size the document asked for. */
-    static preferExactSize(current, next) {
-      const isExact = (t) => t === WidthModifier.EXACT || t === WidthModifier.EXACT_DP;
-      if (current && isExact(current.getType())) {
-        return current;
-      }
-      return next;
-    }
-    inflate() {
-      this.mChildrenComponents = [];
-      this.mComponentModifiers = [];
-      this.mContentOps = [];
-      this.mPaddingLeft = 0;
-      this.mPaddingRight = 0;
-      this.mPaddingTop = 0;
-      this.mPaddingBottom = 0;
-      this.mPadBeforeWidth = 0;
-      this.mPadBeforeHeight = 0;
-      let sawWidth = false;
-      let sawHeight = false;
-      this.mComputedLayoutModifiers = null;
-      for (const op of this.getList()) {
-        if (op instanceof AnimationSpec) {
-          this.mAnimationSpec = op;
-          this.mAnimationId = op.getAnimationId();
-        }
-        if (op instanceof PaddingModifier) {
-          this.mPaddingLeft += op.mLeftValue;
-          this.mPaddingTop += op.mTopValue;
-          this.mPaddingRight += op.mRightValue;
-          this.mPaddingBottom += op.mBottomValue;
-          if (!sawWidth) this.mPadBeforeWidth += op.mLeftValue + op.mRightValue;
-          if (!sawHeight) this.mPadBeforeHeight += op.mTopValue + op.mBottomValue;
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof WidthModifier) {
-          this.mWidthMod = _LayoutComponent.preferExactSize(this.mWidthMod, op);
-          sawWidth = true;
-        } else if (op instanceof HeightModifier) {
-          this.mHeightMod = _LayoutComponent.preferExactSize(this.mHeightMod, op);
-          sawHeight = true;
-        } else if (op instanceof WidthInModifier) {
-          this.mWidthInMod = op;
-        } else if (op instanceof HeightInModifier) {
-          this.mHeightInMod = op;
-        } else if (op instanceof DimensionConstraintsModifier) {
-          const t = op.getType();
-          if (t === DimensionConstraintsModifier.HORIZONTAL || t === DimensionConstraintsModifier.REQUIRED_HORIZONTAL) {
-            this.mWidthInMod = op;
-          } else if (t === DimensionConstraintsModifier.VERTICAL || t === DimensionConstraintsModifier.REQUIRED_VERTICAL) {
-            this.mHeightInMod = op;
-          }
-        } else if (op instanceof ZIndexModifier) {
-          this.mZIndexMod = op;
-          this.mZIndex = op.mValue ?? 0;
-        } else if (op instanceof GraphicsLayerModifier) {
-          this.mGraphicsLayerMod = op;
-        } else if (op instanceof VisibilityModifier) {
-          op.setParent(this);
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof BackgroundModifier) {
-          op.setComponent(this);
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof BorderModifier) {
-          op.setComponent(this);
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof RoundedClipRectModifier) {
-          op.setComponent(this);
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof ClipRectModifier) {
-          op.setComponent(this);
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof OffsetModifier) {
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof ClickModifier || op instanceof MultiClickModifier) {
-          op.setComponent(this);
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof TouchDownModifier || op instanceof TouchUpModifier || op instanceof TouchCancelModifier) {
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof ScrollModifier) {
-          this.mScrollModifier = op;
-          op.inflate(this);
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof MarqueeModifier) {
-          op.setComponent(this);
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof RippleModifier) {
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof AccessibilitySemantics) {
-          this.mComponentModifiers.push(op);
-        } else if (op instanceof LayoutComputeOperation) {
-          if (this.mComputedLayoutModifiers === null) {
-            this.mComputedLayoutModifiers = [];
-          }
-          op.setParent(this);
-          this.mComputedLayoutModifiers.push(op);
-        } else if (op instanceof DrawContentModifier) {
-          this.mDrawContentOperations = [];
-        } else if (op instanceof LayoutComponentContent || op instanceof CanvasContent) {
-          if (op instanceof LayoutComponentContent) op.setParent(this);
-          for (const contentOp of op.getList()) {
-            if (contentOp instanceof Component) {
-              contentOp.setParent(this);
-              this.mChildrenComponents.push(contentOp);
-              contentOp.inflate();
-              if (contentOp instanceof CanvasContent) {
-                this.mHasCanvasLayoutContent = true;
-              }
-            } else if (contentOp instanceof ComponentValue) {
-              if (this.mComponentValues === null) {
-                this.mComponentValues = [];
-              }
-              this.mComponentValues.push(contentOp);
-            } else {
-              if (typeof contentOp.setComponent === "function") {
-                contentOp.setComponent(this);
-              }
-              this.mContentOps.push(contentOp);
-              this.hoistNestedComponentValues(contentOp);
-            }
-          }
-          if (op instanceof CanvasContent) {
-            this.mHasCanvasLayoutContent = true;
-          }
-        } else if (op instanceof Component) {
-          op.setParent(this);
-          this.mChildrenComponents.push(op);
-          op.inflate();
-        } else {
-          if (this.mDrawContentOperations !== null) {
-            this.mDrawContentOperations.push(op);
-          } else {
-            this.mContentOps.push(op);
-          }
-          this.hoistNestedComponentValues(op);
-        }
-      }
-      this.mHasWidthOp = sawWidth;
-      this.mHasHeightOp = sawHeight;
-      if (!this.mWidthMod) {
-        this.mWidthMod = new WidthModifier(WidthModifier.WRAP, 0);
-      }
-      if (!this.mHeightMod) {
-        this.mHeightMod = new HeightModifier(HeightModifier.WRAP, 0);
-      }
-      if (this.mAnimationSpec !== AnimationSpec.DEFAULT) {
-        for (const c of this.mChildrenComponents) {
-          if (c.mAnimationSpec === AnimationSpec.DEFAULT) c.mAnimationSpec = this.mAnimationSpec;
-        }
-      }
-      this.mX = 0;
-      this.mY = 0;
-      this.mWidth = this.modifierDefinedWidth(true);
-      this.mHeight = this.modifierDefinedHeight(true);
-    }
-    // --- Layout helpers ---
-    isWidthFill() {
-      return this.mWidthMod?.getType() === WidthModifier.FILL;
-    }
-    isHeightFill() {
-      return this.mHeightMod?.getType() === HeightModifier.FILL;
-    }
-    isWidthWrap() {
-      return this.mWidthMod?.getType() === WidthModifier.WRAP;
-    }
-    isHeightWrap() {
-      return this.mHeightMod?.getType() === HeightModifier.WRAP;
-    }
-    isWidthExact() {
-      const t = this.mWidthMod?.getType();
-      return t === WidthModifier.EXACT || t === WidthModifier.EXACT_DP;
-    }
-    isHeightExact() {
-      const t = this.mHeightMod?.getType();
-      return t === HeightModifier.EXACT || t === HeightModifier.EXACT_DP;
-    }
-    hasWidthWeight() {
-      return this.mWidthMod?.getType() === WidthModifier.WEIGHT;
-    }
-    hasHeightWeight() {
-      return this.mHeightMod?.getType() === HeightModifier.WEIGHT;
-    }
-    getWidthModValue() {
-      return this.mWidthMod?.getValue() ?? 0;
-    }
-    getHeightModValue() {
-      return this.mHeightMod?.getValue() ?? 0;
-    }
-    hasComputedLayout() {
-      return this.mComputedLayoutModifiers !== null;
-    }
-    applyComputedLayout(type, context, m, parent) {
-      if (this.mComputedLayoutModifiers !== null) {
-        let needsMeasure = false;
-        for (const modifier of this.mComputedLayoutModifiers) {
-          if (modifier.getType() === type) {
-            needsMeasure = modifier.applyToMeasure(context, m, parent) || needsMeasure;
-          }
-        }
-        return needsMeasure;
-      }
-      return false;
-    }
-    // --- Intrinsic size (matches Java LayoutComponent) ---
-    // Java LayoutManager.minIntrinsicHeight/Width: the modifier-defined size (isMin) or
-    // the largest child, whichever is bigger.
-    minIntrinsicHeight() {
-      let height = this.modifierDefinedHeight(true);
-      for (const c of this.mChildrenComponents) {
-        height = Math.max(height, c.minIntrinsicHeight());
-      }
-      return height;
-    }
-    minIntrinsicWidth() {
-      let width = this.modifierDefinedWidth(true);
-      for (const c of this.mChildrenComponents) {
-        width = Math.max(width, c.minIntrinsicWidth());
-      }
-      return width;
-    }
-    /**
-     * Java LayoutComponent.computeModifierDefinedWidth(context, isMin): the padding met
-     * before the width modifier, plus its exact value (a fill is 0 when isMin, else
-     * unbounded), raised to its widthIn minimum.
-     */
-    modifierDefinedWidth(isMin = false) {
-      let w = 0;
-      const t = this.mWidthMod?.getType();
-      if (this.mWidthMod && this.mHasWidthOp) {
-        if (t === WidthModifier.EXACT || t === WidthModifier.EXACT_DP) {
-          w = this.mWidthMod.getValue();
-        } else if (t === WidthModifier.FILL || t === WidthModifier.FILL_PARENT_MAX_WIDTH) {
-          w = isMin ? 0 : Number.MAX_VALUE;
-        }
-        const wIn = this.mWidthInMod;
-        if (wIn && wIn.getMin() >= 0) w = Math.max(w, wIn.getMin());
-      }
-      return this.mPadBeforeWidth + w;
-    }
-    /** Java LayoutComponent.computeModifierDefinedHeight(context, isMin). */
-    modifierDefinedHeight(isMin = false) {
-      let h = 0;
-      const t = this.mHeightMod?.getType();
-      if (this.mHeightMod && this.mHasHeightOp) {
-        if (t === HeightModifier.EXACT || t === HeightModifier.EXACT_DP) {
-          h = this.mHeightMod.getValue();
-        } else if (t === HeightModifier.FILL || t === HeightModifier.FILL_PARENT_MAX_HEIGHT) {
-          h = isMin ? 0 : Number.MAX_VALUE;
-        }
-        const hIn = this.mHeightInMod;
-        if (hIn && hIn.getMin() >= 0) h = Math.max(h, hIn.getMin());
-      }
-      return this.mPadBeforeHeight + h;
-    }
-    computeModifierDefinedWidth() {
-      if (this.isWidthExact()) return this.getWidthModValue() + this.mPaddingLeft + this.mPaddingRight;
-      return -1;
-    }
-    computeModifierDefinedHeight() {
-      if (this.isHeightExact()) return this.getHeightModValue() + this.mPaddingTop + this.mPaddingBottom;
-      return -1;
-    }
-    // --- ComponentValue (Java ComponentData pattern) ---
-    /**
-     * Collect ComponentValue bindings that live *inside* a content container (e.g.
-     * a `CanvasOperations` draw block) so this component's measured size reaches
-     * them via updateComponentValues. Without this, a CanvasOperations fill whose
-     * path geometry is built from `FloatExpression`s reading WIDTH/HEIGHT sees
-     * those variables unset (zero) and draws an empty path. Recurses through
-     * non-Component containers only — a nested child `Component` owns and collects
-     * its own ComponentValues in its own `inflate()`.
-     */
-    hoistNestedComponentValues(op) {
-      if (op instanceof Component) return;
-      const getList = op.getList;
-      if (typeof getList !== "function") return;
-      for (const child of getList.call(op)) {
-        if (child instanceof ComponentValue) {
-          if (child.getComponentId2() === this.getComponentId()) {
-            if (this.mComponentValues === null) this.mComponentValues = [];
-            this.mComponentValues.push(child);
-          }
-        } else {
-          this.hoistNestedComponentValues(child);
-        }
-      }
-    }
-    /** Update bound float variables with this component's dimensions/position.
-     *  Matches Java Component.updateComponentValues — called during both measure
-     *  (for WIDTH/HEIGHT) and layout (for all types including POS_X/POS_Y). */
-    updateComponentValues(context, measuredW, measuredH) {
-      if (this.mComponentValues === null) return;
-      for (const cv of this.mComponentValues) {
-        switch (cv.getType()) {
-          case ComponentValue.WIDTH:
-            context.loadFloat(cv.getValueId(), measuredW);
-            break;
-          case ComponentValue.HEIGHT:
-            context.loadFloat(cv.getValueId(), measuredH);
-            break;
-          case ComponentValue.POS_X:
-            context.loadFloat(cv.getValueId(), this.mX);
-            break;
-          case ComponentValue.POS_Y:
-            context.loadFloat(cv.getValueId(), this.mY);
-            break;
-          case ComponentValue.POS_ROOT_X: {
-            const loc = this.getLocationInWindow();
-            context.loadFloat(cv.getValueId(), loc[0]);
-            break;
-          }
-          case ComponentValue.POS_ROOT_Y: {
-            const loc = this.getLocationInWindow();
-            context.loadFloat(cv.getValueId(), loc[1]);
-            break;
-          }
-          case ComponentValue.CONTENT_WIDTH:
-            context.loadFloat(cv.getValueId(), measuredW - this.mPaddingLeft - this.mPaddingRight);
-            break;
-          case ComponentValue.CONTENT_HEIGHT:
-            context.loadFloat(cv.getValueId(), measuredH - this.mPaddingTop - this.mPaddingBottom);
-            break;
-        }
-      }
-    }
-    // --- Layout ---
-    layout(context, measure) {
-      super.layout(context, measure);
-      this.updateComponentValues(context, this.mWidth, this.mHeight);
-      for (const child of this.mChildrenComponents) {
-        child.layout(context, measure);
-      }
-      this.mNeedsMeasure = false;
-    }
-    animatingBounds(context) {
-      super.animatingBounds(context);
-      this.updateComponentValues(context, this.mWidth, this.mHeight);
-      this.layoutModifiers(this.mWidth, this.mHeight);
-    }
-    /** Walk modifiers reducing dimensions by padding and passing to decorators.
-     *  Matches Java ComponentModifiers.layout(). */
-    layoutModifiers(w, h) {
-      let currentW = w;
-      let currentH = h;
-      for (const mod of this.mComponentModifiers) {
-        if (mod instanceof PaddingModifier) {
-          currentW -= mod.mLeftValue + mod.mRightValue;
-          currentH -= mod.mTopValue + mod.mBottomValue;
-        }
-        if (typeof mod.layoutDecorator === "function") {
-          mod.layoutDecorator(currentW, currentH);
-        }
-      }
-    }
-    // --- Paint ---
-    drawContent(paintContext) {
-      paintContext.matrixSave();
-      paintContext.matrixTranslate(-this.mX, -this.mY);
-      this.paintingComponent(paintContext);
-      paintContext.matrixRestore();
-    }
-    paint(paintContext) {
-      if (this.applyAnimationAsNeeded(paintContext)) {
-        return;
-      }
-      if (Visibility.isGone(this.mVisibility)) return;
-      if (Visibility.isInvisible(this.mVisibility)) return;
-      const drawContentOps = this.mDrawContentOperations;
-      const hasCustomDraw = drawContentOps !== null && drawContentOps.some((op) => op instanceof PaintOperation);
-      if (hasCustomDraw) {
-        paintContext.matrixSave();
-        paintContext.matrixTranslate(this.mX, this.mY);
-        const context = paintContext.getContext();
-        for (const op of drawContentOps) {
-          context.incrementOpCount(op);
-          if (op.isDirty() && typeof op.updateVariables === "function") {
-            op.markNotDirty();
-            op.updateVariables(context);
-          }
-          op.apply(context);
-        }
-        paintContext.matrixRestore();
-      } else if (this.mGraphicsLayerMod) {
-        const layer = this.mGraphicsLayerMod;
-        layer.evaluate(paintContext);
-        paintContext.matrixSave();
-        paintContext.matrixTranslate(this.mX, this.mY);
-        paintContext.startGraphicsLayer(Math.trunc(this.getWidth()), Math.trunc(this.getHeight()));
-        const attributes = /* @__PURE__ */ new Map();
-        layer.fillInAttributes(attributes);
-        paintContext.setGraphicsLayer(attributes);
-        paintContext.matrixTranslate(-this.mX, -this.mY);
-        this.paintingComponent(paintContext);
-        paintContext.endGraphicsLayer();
-        paintContext.matrixRestore();
-      } else {
-        super.paint(paintContext);
-      }
-    }
-    /**
-     * Java ComponentModifiers.paint: paint the modifiers (background, border, clip, ...) at
-     * the component's origin, each padding translating the ones after it; the translations
-     * are backed out at the end. Every component kind runs it from its paintingComponent
-     * (LayoutComponent, CoreText, TextLayout, ImageLayout, Custom in Java).
-     */
-    paintModifiers(paintContext) {
-      const context = paintContext.getContext();
-      let tx = 0;
-      let ty = 0;
-      for (const mod of [this.mWidthMod, this.mHeightMod]) {
-        if (mod && mod.isDirty()) {
-          mod.markNotDirty();
-          mod.updateVariables(context);
-        }
-      }
-      let dw = this.mWidth;
-      let dh = this.mHeight;
-      for (const mod of this.mComponentModifiers) {
-        context.incrementOpCount(mod);
-        if (mod.isDirty() && typeof mod.updateVariables === "function") {
-          mod.markNotDirty();
-          mod.updateVariables(context);
-        }
-        if (mod instanceof PaddingModifier) {
-          paintContext.matrixTranslate(mod.mLeftValue, mod.mTopValue);
-          tx += mod.mLeftValue;
-          ty += mod.mTopValue;
-          dw -= mod.mLeftValue + mod.mRightValue;
-          dh -= mod.mTopValue + mod.mBottomValue;
-        } else if (mod instanceof ClickModifier || mod instanceof MultiClickModifier) {
-          paintContext.matrixTranslate(-tx, -ty);
-          mod.ripple.paint(paintContext, context, this.mWidth, this.mHeight);
-          paintContext.matrixTranslate(tx, ty);
-        } else if (mod instanceof RippleModifier) {
-          mod.ripple.paint(paintContext, context, dw, dh);
-        } else {
-          mod.apply(context);
-        }
-      }
-      paintContext.matrixTranslate(-tx, -ty);
-    }
-    paintingComponent(paintContext) {
-      if (Visibility.isGone(this.mVisibility) && this.mAnimateMeasure === null) return;
-      const context = paintContext.getContext();
-      paintContext.matrixSave();
-      paintContext.matrixTranslate(this.mX, this.mY);
-      this.paintModifiers(paintContext);
-      paintContext.matrixTranslate(this.mPaddingLeft, this.mPaddingTop);
-      for (const op of this.mContentOps) {
-        const isDecoration = op instanceof CanvasOperations;
-        if (isDecoration) {
-          paintContext.matrixTranslate(-this.mPaddingLeft, -this.mPaddingTop);
-        }
-        context.incrementOpCount(op);
-        if (op.isDirty() && typeof op.updateVariables === "function") {
-          op.markNotDirty();
-          op.updateVariables(context);
-        }
-        op.apply(context);
-        if (isDecoration) {
-          paintContext.matrixTranslate(this.mPaddingLeft, this.mPaddingTop);
-        }
-      }
-      const children = this.mChildrenComponents;
-      const shouldPaintChild = (child) => {
-        return (child.mAnimateMeasure !== null || !Visibility.isGone(child.mVisibility)) && this.isChildVisibleInViewport(child);
-      };
-      const paintChild = (child) => {
-        if (child.isDirty() && typeof child.updateVariables === "function") {
-          child.updateVariables(context);
-          child.markNotDirty();
-        }
-        if (shouldPaintChild(child)) {
-          context.incrementOpCount(child);
-          child.paint(paintContext);
-        }
-      };
-      if (children.length > 1) {
-        let needsSort = false;
-        for (const c of children) {
-          if (c.mZIndex !== 0) {
-            needsSort = true;
-            break;
-          }
-        }
-        if (needsSort) {
-          const sorted = [...children].sort((a, b) => a.mZIndex - b.mZIndex);
-          for (const child of sorted) {
-            paintChild(child);
-          }
-        } else {
-          for (const child of children) {
-            paintChild(child);
-          }
-        }
-      } else {
-        for (const child of children) {
-          paintChild(child);
-        }
-      }
-      paintContext.matrixRestore();
-    }
-    isChildVisibleInViewport(child) {
-      const scrollMod = this.mScrollModifier;
-      if (!scrollMod) return true;
-      const childX = child.getX();
-      const childY = child.getY();
-      const childW = child.getWidth();
-      const childH = child.getHeight();
-      if (childW <= 0 && childH <= 0) return true;
-      if (scrollMod.isVertical()) {
-        const hostHeight = this.mHeight - this.mPaddingTop - this.mPaddingBottom;
-        if (hostHeight <= 0) return true;
-        const scrollY = scrollMod.getScrollY();
-        const viewportTop = -scrollY;
-        const viewportBottom = viewportTop + hostHeight;
-        if (childY + childH < viewportTop || childY > viewportBottom) {
-          return false;
-        }
-      } else {
-        const hostWidth = this.mWidth - this.mPaddingLeft - this.mPaddingRight;
-        if (hostWidth <= 0) return true;
-        const scrollX = scrollMod.getScrollX();
-        const viewportLeft = -scrollX;
-        const viewportRight = viewportLeft + hostWidth;
-        if (childX + childW < viewportLeft || childX > viewportRight) {
-          return false;
-        }
-      }
-      return true;
-    }
-    /** Matches Java Component.updateVariables — re-push dimension/position values
-     *  when a component is marked dirty (e.g. by animation or expression change). */
-    updateVariables(context) {
-      if (this.mComponentValues !== null && this.mComponentValues.length > 0) {
-        this.updateComponentValues(context, this.mWidth, this.mHeight);
-      }
-      this.updatePadding();
-    }
-    /**
-     * Java LayoutComponent.updatePadding: re-sum the padding from the modifiers' resolved
-     * values. inflate() sums them once, before the data pass has run the modifiers'
-     * updateVariables, so a padding that resolves later (a variable, or a literal scaled by
-     * DENSITY_BEHAVIOR_DP) was left at its authored value.
-     */
-    updatePadding() {
-      this.mPaddingLeft = 0;
-      this.mPaddingTop = 0;
-      this.mPaddingRight = 0;
-      this.mPaddingBottom = 0;
-      this.mPadBeforeWidth = 0;
-      this.mPadBeforeHeight = 0;
-      let sawWidth = false;
-      let sawHeight = false;
-      for (const op of this.getList()) {
-        if (op instanceof PaddingModifier) {
-          this.mPaddingLeft += op.mLeftValue;
-          this.mPaddingTop += op.mTopValue;
-          this.mPaddingRight += op.mRightValue;
-          this.mPaddingBottom += op.mBottomValue;
-          if (!sawWidth) this.mPadBeforeWidth += op.mLeftValue + op.mRightValue;
-          if (!sawHeight) this.mPadBeforeHeight += op.mTopValue + op.mBottomValue;
-        } else if (op instanceof WidthModifier) {
-          sawWidth = true;
-        } else if (op instanceof HeightModifier) {
-          sawHeight = true;
-        }
-      }
-    }
-    // Inherits apply() from Component → PaintOperation chain.
-    // No override needed — matches Java LayoutComponent which does not override apply().
-    // --- Scroll ---
-    getScrollX() {
-      return this.mScrollModifier ? this.mScrollModifier.getScrollX() : 0;
-    }
-    getScrollY() {
-      return this.mScrollModifier ? this.mScrollModifier.getScrollY() : 0;
-    }
-    onClick(context, doc, x, y) {
-      if (!this.isVisible()) return false;
-      if (!(x >= this.mX && x <= this.mX + this.mWidth && y >= this.mY && y <= this.mY + this.mHeight)) return false;
-      const cx = x - this.mX - this.mPaddingLeft - this.getScrollX();
-      const cy = y - this.mY - this.mPaddingTop - this.getScrollY();
-      for (let i = this.mChildrenComponents.length - 1; i >= 0; i--) {
-        const child = this.mChildrenComponents[i];
-        if (child instanceof Component) {
-          if (child.onClick(context, doc, cx, cy)) return true;
-        }
-      }
-      {
-        let handled = false;
-        for (let i = this.mComponentModifiers.length - 1; i >= 0; i--) {
-          const mod = this.mComponentModifiers[i];
-          if (mod instanceof ClickModifier || mod instanceof MultiClickModifier) {
-            if (mod.onClick(context, doc, x - this.mX, y - this.mY)) handled = true;
-          }
-        }
-        return handled;
-      }
-      return false;
-    }
-    /**
-     * Touch dispatch, ported from `Component.onTouchDown` in the reference.
-     *
-     * This class has to override the base implementation because the base walks `mChildren`
-     * — the raw operation list — while a layout component keeps its children in
-     * `mChildrenComponents`. That divergence is what broke drag: `onTouchDown` was
-     * overridden and found the children, `onTouchDrag`/`Up`/`Cancel` were inherited and
-     * walked a list that, for a ColumnLayout with 12 children, holds 6 unrelated ops. Down
-     * worked and nothing after it did.
-     *
-     * Three rules come from the reference and all three matter:
-     *
-     *  - **Children receive window coordinates**, not content-relative ones. The previous
-     *    code subtracted this component's origin before recursing, so every level of
-     *    nesting shifted the hit test further off; only `getLocationInWindow` knows the
-     *    real offset, and `contains` already works in window space.
-     *  - **Iterate backwards and let the first component win.** The top-most component
-     *    under the finger captures the gesture; without this, several overlapping
-     *    components all captured the same press and then all received the drags.
-     *  - **`force` skips the bounds test.** This is what locks a drag to the component the
-     *    press landed in: `CoreDocument` only forwards drag/up to components that captured
-     *    the press, and passes force, so they keep receiving events after the finger has
-     *    moved outside them.
-     */
-    onTouchDown(context, doc, x, y) {
-      if (!this.contains(x, y)) return false;
-      return this.dispatchTouch(context, doc, x, y, 0, 0, true, "down");
-    }
-    onTouchDrag(context, doc, x, y, force) {
-      if (!force && !this.contains(x, y)) return false;
-      return this.dispatchTouch(context, doc, x, y, 0, 0, force, "drag");
-    }
-    onTouchUp(context, doc, x, y, dx, dy, force) {
-      if (!force && !this.contains(x, y)) return false;
-      return this.dispatchTouch(context, doc, x, y, dx, dy, force, "up");
-    }
-    onTouchCancel(context, doc, x, y, force) {
-      if (!force && !this.contains(x, y)) return false;
-      return this.dispatchTouch(context, doc, x, y, 0, 0, force, "cancel");
-    }
-    /**
-     * The shared body of all four, mirroring the reference's single loop.
-     *
-     * The reference keeps components, touch handlers and touch expressions in one list and
-     * switches on type; here they live in three collections, so the loop is unrolled but
-     * the order and the coordinate spaces are the same: children first (window coords),
-     * then this component's own consumers (local coords).
-     */
-    dispatchTouch(context, doc, x, y, dx, dy, force, phase) {
-      const loc = this.getLocationInWindow();
-      const lx = x - loc[0];
-      const ly = y - loc[1];
-      let handled = false;
-      let componentHandled = false;
-      for (let i = this.mChildrenComponents.length - 1; i >= 0; i--) {
-        const child = this.mChildrenComponents[i];
-        if (!(child instanceof _LayoutComponent)) continue;
-        if (componentHandled) continue;
-        const took = phase === "down" ? child.onTouchDown(context, doc, x, y) : phase === "drag" ? child.onTouchDrag(context, doc, x, y, force) : phase === "up" ? child.onTouchUp(context, doc, x, y, dx, dy, force) : child.onTouchCancel(context, doc, x, y, force);
-        if (took) componentHandled = true;
-      }
-      for (const op of this.mContentOps) {
-        if (op instanceof TouchExpression) {
-          if (this.deliverToExpression(op, context, lx, ly, dx, dy, phase)) {
-            if (phase === "down") doc.appliedTouchOperation(this);
-            handled = true;
-          }
-        }
-      }
-      for (const child of this.mChildrenComponents) {
-        if (!(child instanceof _LayoutComponent)) {
-          if (this.dispatchToOps(child.getList(), context, doc, lx, ly, dx, dy, phase)) {
-            handled = true;
-          }
-        }
-      }
-      for (const mod of this.mComponentModifiers) {
-        if (phase === "down" && mod instanceof RippleModifier) {
-          mod.ripple.animate(context, lx, ly);
-          handled = true;
-        } else if (phase === "down" && mod instanceof TouchDownModifier) {
-          mod.onTouchDown(context);
-          handled = true;
-        } else if (phase === "down" && (mod instanceof TouchUpModifier || mod instanceof TouchCancelModifier)) {
-          doc.modifierTouchTarget?.(this);
-          handled = true;
-        } else if (phase === "up" && mod instanceof TouchUpModifier) {
-          mod.onTouchUp(context);
-          doc.touchModifierRan?.(this);
-          handled = true;
-        } else if (phase === "cancel" && mod instanceof TouchCancelModifier) {
-          mod.onTouchCancel(context);
-          doc.touchModifierRan?.(this);
-          handled = true;
-        }
-      }
-      if (this.mScrollModifier) {
-        if (phase === "down") {
-          this.mScrollModifier.onTouchDown(context, lx, ly);
-          doc.appliedTouchOperation(this);
-          handled = true;
-        } else if (phase === "drag") {
-          if (this.mScrollModifier.onTouchDrag(context, lx, ly)) {
-            handled = true;
-          }
-        } else if (phase === "up") {
-          if (this.mScrollModifier.onTouchUp(context, lx, ly, dx, dy)) {
-            handled = true;
-          }
-        } else if (this.mScrollModifier.onTouchCancel(context, lx, ly)) {
-          handled = true;
-        }
-      }
-      return componentHandled || handled;
-    }
-    /** This component's own touch-up / touch-cancel modifier actions (a swipe's release). */
-    runOwnTouchModifiers(context, phase) {
-      for (const mod of this.mComponentModifiers) {
-        if (phase === "up" && mod instanceof TouchUpModifier) mod.onTouchUp(context);
-        else if (phase === "cancel" && mod instanceof TouchCancelModifier) mod.onTouchCancel(context);
-      }
-    }
-    /** One touch phase on a single expression. Only `down` is bounds-checked, as upstream. */
-    deliverToExpression(op, context, lx, ly, dx, dy, phase) {
-      op.updateVariables(context);
-      if (phase === "down") {
-        op.touchDown(context, lx, ly);
-      } else if (phase === "drag") {
-        op.touchDrag(context, lx, ly);
-      } else if (phase === "up") {
-        op.touchUp(context, lx, ly, dx, dy);
-      } else {
-        op.touchUp(context, lx, ly, 0, 0);
-      }
-      return true;
-    }
-    /** Recurse into a non-layout child's operations looking for touch expressions. */
-    dispatchToOps(ops, context, doc, lx, ly, dx, dy, phase) {
-      let handled = false;
-      for (const op of ops) {
-        if (op instanceof TouchExpression) {
-          this.deliverToExpression(op, context, lx, ly, dx, dy, phase);
-          if (phase === "down") doc.appliedTouchOperation(this);
-          handled = true;
-        } else if (typeof op.getList === "function") {
-          if (this.dispatchToOps(
-            op.getList(),
-            context,
-            doc,
-            lx,
-            ly,
-            dx,
-            dy,
-            phase
-          )) {
-            handled = true;
-          }
-        }
-      }
-      return handled;
-    }
-    /** Recursively search operation list for TouchExpression and dispatch touchDown */
-    dispatchTouchDownToOps(ops, context, doc, lx, ly) {
-      let handled = false;
-      for (const op of ops) {
-        if (op instanceof TouchExpression) {
-          op.updateVariables(context);
-          op.touchDown(context, lx, ly);
-          doc.appliedTouchOperation(this);
-          handled = true;
-        } else if (typeof op.getList === "function") {
-          handled = this.dispatchTouchDownToOps(op.getList(), context, doc, lx, ly) || handled;
-        }
-      }
-      return handled;
-    }
-    getLocationInWindow() {
-      let x = this.mX + this.mPaddingLeft;
-      let y = this.mY + this.mPaddingTop;
-      let parent = this.getParent();
-      while (parent) {
-        x += parent.mX;
-        y += parent.mY;
-        if (parent instanceof _LayoutComponent) {
-          x += parent.mPaddingLeft + parent.getScrollX();
-          y += parent.mPaddingTop + parent.getScrollY();
-        }
-        parent = parent.getParent();
-      }
-      return [x, y];
-    }
-  };
 
   // third_party/remote-compose-player/src/core/operations/layout/measure/Size.ts
   var Size = class {
@@ -32365,6 +32392,18 @@ ${inner}`;
     getNaturalSize() {
       if (!this.document) return null;
       return { width: this.naturalWidth, height: this.naturalHeight };
+    }
+    /**
+     * Last normal layout's root content measurement in physical canvas pixels. Call repaint
+     * after resizing or changing named values first. This query runs no measurement or layout
+     * and cannot change live expressions, animations or interaction state. Missing/invalid
+     * measurements, scrolling content and viewport-dependent heights return null.
+     */
+    measureSize() {
+      const measured = this.document?.getRootLayoutComponent()?.getMeasuredContentSize();
+      if (!measured) return null;
+      const { width, height } = measured;
+      return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0 ? { width, height } : null;
     }
     /** Operations executed in the last painted frame — available with measurement off. */
     getOpsPerFrame() {
