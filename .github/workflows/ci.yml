@@ -361,7 +361,8 @@ jobs:
       - name: Run the vendored JS player conformance test
         working-directory: third_party/remote-compose-player
         run: |
-          npm ci
+          # These tests stub Canvas2D and never load node-canvas's native binding.
+          npm ci --ignore-scripts
           npm test
 
       - name: Verify the published TypeScript bundle matches its source
