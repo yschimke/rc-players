@@ -3,6 +3,7 @@
 
 import { Component } from './Component';
 import { LayoutComponent } from './LayoutComponent';
+import { HeightModifier } from './modifiers/ModifierOperations';
 import { PaintOperation } from '../../PaintOperation';
 import { MeasurePass } from './measure/MeasurePass';
 import type { Operation } from '../../Operation';
@@ -14,6 +15,7 @@ export class RootLayoutComponent extends Component {
     static readonly OP_CODE = 200;
 
     private mCurrentId = -1;
+    private measuredContent: { width: number; height: number } | null = null;
     private mHasTouchListeners = false;
 
     constructor(componentId: number = -1) {
@@ -64,10 +66,12 @@ export class RootLayoutComponent extends Component {
         context.mViewportHeight = context.mHeight;
 
         const measurePass = new MeasurePass();
+        let content: Component | undefined;
         for (const op of this.getList()) {
             if (typeof (op as any).measure === 'function') {
                 const paintContext = context.getPaintContext();
                 if (paintContext) {
+                    if (!content && op instanceof Component) content = op;
                     (op as any).measure(paintContext, 0, this.mWidth, 0, this.mHeight, measurePass);
                     if (typeof (op as any).layout === 'function') {
                         (op as any).layout(context, measurePass);
@@ -75,16 +79,17 @@ export class RootLayoutComponent extends Component {
                 }
             }
         }
-
+        this.recordContentMeasurement(content, measurePass);
     }
 
-    /** Measure wrap-content without applying bounds or changing live layout animations. */
-    measureContent(context: RemoteContext, width: number): { width: number; height: number } | null {
-        const content = this.getList().find((op): op is Component => op instanceof Component);
-        const paint = context.getPaintContext();
-        if (!content || !paint) return null;
-        // A scroller needs its authored viewport. Even measuring it unbounded changes live
-        // scroll limits, so preserve interaction state and let the host use its height fallback.
+    /** A copy of the last normal layout's content measurement; this never runs a sizing pass. */
+    getMeasuredContentSize(): { width: number; height: number } | null {
+        return this.measuredContent ? { ...this.measuredContent } : null;
+    }
+
+    private recordContentMeasurement(content: Component | undefined, pass: MeasurePass): void {
+        this.measuredContent = null;
+        if (!content) return;
         const pending = [content];
         const visited = new Set<Component>();
         while (pending.length) {
@@ -92,15 +97,16 @@ export class RootLayoutComponent extends Component {
             if (visited.has(component)) continue;
             visited.add(component);
             if (component instanceof LayoutComponent) {
-                if (component.getScrollModifier()) return null;
+                // Scrollers and fill/weighted heights depend on the viewport; they cannot tell
+                // a host how tall to make that same viewport. Preserve its authored fallback.
+                const height = component.getHeightModifier()?.getType();
+                if (component.getScrollModifier() || height === HeightModifier.FILL || height === HeightModifier.WEIGHT) return;
                 pending.push(...component.mChildrenComponents);
             }
             for (const child of component.getList()) if (child instanceof Component) pending.push(child);
         }
-        const pass = new MeasurePass();
-        content.measure(paint, 0, width, 0, Infinity, pass);
         const measured = pass.get(content);
-        return { width: measured.getW(), height: measured.getH() };
+        this.measuredContent = { width: measured.getW(), height: measured.getH() };
     }
 
     /** Measure the document and layout components, returning first child size */

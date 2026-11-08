@@ -221,12 +221,13 @@ without typechecking.
 
 ### Measured content size
 
-After `resize(widthPx, heightPx)` and `repaint()`, `player.measureSize()` measures wrap-content
-at the current canvas width and an unconstrained height, returning `{ width, height }` in
-physical canvas pixels. Divide by `getDensity()` for dp/CSS pixels. It returns `null` for a
-document without a root layout or a finite positive result (including fill-height content).
-The sizing pass does not apply bounds or modify live animations, including for fill-height
-content that has no finite wrap-content size. Documents containing scrolling layouts return
-`null` before measuring so their live scroll limits and drag offsets remain intact. It does not resize the canvas; the next paint
-measures again for the viewport. Call `repaint()`
-after changing named values before measuring. `getNaturalSize()` returns the authored header.
+After `resize(widthPx, heightPx)` and `repaint()`, `player.measureSize()` reads the root content's
+measurement from the most recent normal layout, in physical canvas pixels. Divide by
+`getDensity()` for dp/CSS pixels. It uses the layout destination, rather than intermediate
+animated bounds, and returns a copy. The query runs no extra sizing pass, so live expressions,
+animations, scrolling and drag offsets cannot be changed by asking for a size.
+
+Missing or invalid measurements, scrolling content and fill/weighted heights return `null`;
+hosts retain their authored-height fallback. Measurements use the current viewport constraints.
+Call `repaint()` after changing named values or viewport size before querying again.
+`getNaturalSize()` continues to return the authored header dimensions.

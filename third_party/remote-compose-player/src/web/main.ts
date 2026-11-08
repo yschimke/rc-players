@@ -288,28 +288,17 @@ export class RcdPlayer {
     }
 
     /**
-     * Measure wrap-content at the current canvas width, in physical pixels. Unlike
-     * getNaturalSize, this measures the first root content component, not the header or
-     * allocated viewport. Height is unconstrained; fill-height/invalid results and documents
-     * without a root layout return null. Scrolling content retains its viewport and returns
-     * null as well. Call repaint after changing named values first.
-     * The pass never lays out live components or changes their animation targets.
-     * The next paint remeasures for its viewport; measuring does not resize the canvas.
+     * Last normal layout's root content measurement in physical canvas pixels. Call repaint
+     * after resizing or changing named values first. This query runs no measurement or layout
+     * and cannot change live expressions, animations or interaction state. Missing/invalid
+     * measurements, scrolling content and viewport-dependent heights return null.
      */
     measureSize(): { width: number; height: number } | null {
-        const doc = this.document, context = this.remoteContext;
-        const root = doc?.getRootLayoutComponent();
-        if (!doc || !context || !root) return null;
-        try {
-            doc.invalidateMeasure();
-            const measured = root.measureContent(context, this.canvas.width);
-            if (!measured) return null;
-            const { width, height } = measured;
-            return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
-                ? { width, height } : null;
-        } finally {
-            doc.invalidateMeasure();
-        }
+        const measured = this.document?.getRootLayoutComponent()?.getMeasuredContentSize();
+        if (!measured) return null;
+        const { width, height } = measured;
+        return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
+            ? { width, height } : null;
     }
 
     /** Operations executed in the last painted frame — available with measurement off. */

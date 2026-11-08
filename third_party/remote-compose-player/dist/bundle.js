@@ -14156,6 +14156,7 @@ ${inner}`;
     constructor(componentId = -1) {
       super(componentId);
       this.mCurrentId = -1;
+      this.measuredContent = null;
       this.mHasTouchListeners = false;
     }
     getHasTouchListeners() {
@@ -14200,10 +14201,12 @@ ${inner}`;
       context.mViewportWidth = context.mWidth;
       context.mViewportHeight = context.mHeight;
       const measurePass = new MeasurePass();
+      let content;
       for (const op of this.getList()) {
         if (typeof op.measure === "function") {
           const paintContext = context.getPaintContext();
           if (paintContext) {
+            if (!content && op instanceof Component) content = op;
             op.measure(paintContext, 0, this.mWidth, 0, this.mHeight, measurePass);
             if (typeof op.layout === "function") {
               op.layout(context, measurePass);
@@ -14211,12 +14214,15 @@ ${inner}`;
           }
         }
       }
+      this.recordContentMeasurement(content, measurePass);
     }
-    /** Measure wrap-content without applying bounds or changing live layout animations. */
-    measureContent(context, width) {
-      const content = this.getList().find((op) => op instanceof Component);
-      const paint = context.getPaintContext();
-      if (!content || !paint) return null;
+    /** A copy of the last normal layout's content measurement; this never runs a sizing pass. */
+    getMeasuredContentSize() {
+      return this.measuredContent ? { ...this.measuredContent } : null;
+    }
+    recordContentMeasurement(content, pass) {
+      this.measuredContent = null;
+      if (!content) return;
       const pending = [content];
       const visited = /* @__PURE__ */ new Set();
       while (pending.length) {
@@ -14224,15 +14230,14 @@ ${inner}`;
         if (visited.has(component)) continue;
         visited.add(component);
         if (component instanceof LayoutComponent) {
-          if (component.getScrollModifier()) return null;
+          const height = component.getHeightModifier()?.getType();
+          if (component.getScrollModifier() || height === HeightModifier.FILL || height === HeightModifier.WEIGHT) return;
           pending.push(...component.mChildrenComponents);
         }
         for (const child of component.getList()) if (child instanceof Component) pending.push(child);
       }
-      const pass = new MeasurePass();
-      content.measure(paint, 0, width, 0, Infinity, pass);
       const measured = pass.get(content);
-      return { width: measured.getW(), height: measured.getH() };
+      this.measuredContent = { width: measured.getW(), height: measured.getH() };
     }
     /** Measure the document and layout components, returning first child size */
     measureDoc(context, minWidth, maxWidth, minHeight, maxHeight) {
@@ -32389,27 +32394,16 @@ ${inner}`;
       return { width: this.naturalWidth, height: this.naturalHeight };
     }
     /**
-     * Measure wrap-content at the current canvas width, in physical pixels. Unlike
-     * getNaturalSize, this measures the first root content component, not the header or
-     * allocated viewport. Height is unconstrained; fill-height/invalid results and documents
-     * without a root layout return null. Scrolling content retains its viewport and returns
-     * null as well. Call repaint after changing named values first.
-     * The pass never lays out live components or changes their animation targets.
-     * The next paint remeasures for its viewport; measuring does not resize the canvas.
+     * Last normal layout's root content measurement in physical canvas pixels. Call repaint
+     * after resizing or changing named values first. This query runs no measurement or layout
+     * and cannot change live expressions, animations or interaction state. Missing/invalid
+     * measurements, scrolling content and viewport-dependent heights return null.
      */
     measureSize() {
-      const doc = this.document, context = this.remoteContext;
-      const root = doc?.getRootLayoutComponent();
-      if (!doc || !context || !root) return null;
-      try {
-        doc.invalidateMeasure();
-        const measured = root.measureContent(context, this.canvas.width);
-        if (!measured) return null;
-        const { width, height } = measured;
-        return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0 ? { width, height } : null;
-      } finally {
-        doc.invalidateMeasure();
-      }
+      const measured = this.document?.getRootLayoutComponent()?.getMeasuredContentSize();
+      if (!measured) return null;
+      const { width, height } = measured;
+      return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0 ? { width, height } : null;
     }
     /** Operations executed in the last painted frame — available with measurement off. */
     getOpsPerFrame() {
