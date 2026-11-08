@@ -361,7 +361,8 @@ jobs:
       - name: Run the vendored JS player conformance test
         working-directory: third_party/remote-compose-player
         run: |
-          npm ci
+          # These tests stub Canvas2D and never load node-canvas's native binding.
+          npm ci --ignore-scripts
           npm test
 
       - name: Verify the published TypeScript bundle matches its source
@@ -563,10 +564,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The Temurin macOS arm64 release asset repeatedly returned HTTP 504. Use the
+      # CDN-backed Zulu distribution for this runner while keeping the Java 17 toolchain.
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
-          distribution: temurin
-          java-version: "17.0.21+9"
+          distribution: zulu
+          java-version: "17"
+          check-latest: false
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       - uses: ./.github/actions/buildfetch-cache
         with:
