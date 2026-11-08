@@ -288,17 +288,25 @@ export class RcdPlayer {
     }
 
     /**
-     * Root layout size in physical canvas pixels after the most recent paint. Call resize and
-     * repaint after changing width or named values before reading it. Unlike getNaturalSize,
-     * this reports content layout, not the document header. Documents without a root layout,
-     * or without a finite positive measurement yet, return null. Divide by getDensity() for dp.
+     * Measure wrap-content at the current canvas width, in physical pixels. Unlike
+     * getNaturalSize, this measures the first root content component, not the header or
+     * allocated viewport. Height is unconstrained; fill-height/invalid results and documents
+     * without a root layout return null. Call repaint after changing named values first.
+     * The next paint remeasures for its viewport; measuring does not resize the canvas.
      */
-    getMeasuredSize(): { width: number; height: number } | null {
-        const root = this.document?.getRootLayoutComponent();
-        if (!root) return null;
-        const width = root.getWidth(), height = root.getHeight();
-        return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
-            ? { width, height } : null;
+    measureSize(): { width: number; height: number } | null {
+        const doc = this.document, context = this.remoteContext;
+        const root = doc?.getRootLayoutComponent();
+        if (!doc || !context || !root) return null;
+        try {
+            doc.invalidateMeasure();
+            doc.measure(context, 0, this.canvas.width, 0, Infinity);
+            const width = root.getWidth(), height = root.getHeight();
+            return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
+                ? { width, height } : null;
+        } finally {
+            doc.invalidateMeasure();
+        }
     }
 
     /** Operations executed in the last painted frame — available with measurement off. */

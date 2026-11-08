@@ -221,8 +221,9 @@ without typechecking.
 
 ### Measured content size
 
-After `resize(widthPx, heightPx)` and `repaint()`, `player.getMeasuredSize()` returns the root
-layout's `{ width, height }` in physical canvas pixels. Divide by `getDensity()` for dp/CSS
-pixels. It returns `null` for a document without a root layout or a finite positive measurement.
-The getter does not paint or schedule work; call `repaint()` after changing named values before
-reading it. `getNaturalSize()` continues to return the size from the document header.
+After `resize(widthPx, heightPx)` and `repaint()`, `player.measureSize()` measures wrap-content
+at the current canvas width and an unconstrained height, returning `{ width, height }` in
+physical canvas pixels. Divide by `getDensity()` for dp/CSS pixels. It returns `null` for a
+document without a root layout or a finite positive result (including fill-height content).
+It does not resize the canvas; the next paint measures again for the viewport. Call `repaint()`
+after changing named values before measuring. `getNaturalSize()` returns the authored header.

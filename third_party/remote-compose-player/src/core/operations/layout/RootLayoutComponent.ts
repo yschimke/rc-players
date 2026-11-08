@@ -103,8 +103,11 @@ export class RootLayoutComponent extends Component {
             }
         }
         if (firstComponent) {
-            this.setWidth(firstComponent.getWidth());
-            this.setHeight(firstComponent.getHeight());
+            // Layout may animate from the old bounds. Hosts need the measured destination,
+            // otherwise sizing a canvas to this transient height clips the animation's target.
+            const measured = measurePass.get(firstComponent);
+            this.setWidth(measured.getW());
+            this.setHeight(measured.getH());
         }
     }
 
