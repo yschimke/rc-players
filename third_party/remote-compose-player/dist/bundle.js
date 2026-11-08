@@ -6119,7 +6119,7 @@ void main() {
         return;
       }
       const text = this.textCache.get(textId);
-      if (!text) {
+      if (text === void 0 || text.length === 0 && (flags & 2) === 0) {
         bounds.fill(0);
         return;
       }
