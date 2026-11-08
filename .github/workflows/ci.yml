@@ -567,7 +567,10 @@ jobs:
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
-          java-version: "17.0.21+9"
+          # Prefer the runner's cached JDK 17. Requiring an exact patch forced a macOS
+          # download that repeatedly failed with HTTP 504 before any tests could run.
+          java-version: "17"
+          check-latest: false
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       - uses: ./.github/actions/buildfetch-cache
         with:
