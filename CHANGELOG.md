@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.30.0](https://github.com/yschimke/rc-players/compare/v2.29.0...v2.30.0) (2026-11-09)
+
+
+### Features
+
+* **creation:** refresh the AndroidX fork to androidx-main 1448d6497 ([#837](https://github.com/yschimke/rc-players/issues/837)) ([32779b3](https://github.com/yschimke/rc-players/commit/32779b313bd21a906a7a749c6be1fbb283dfe086))
+* **web:** expose the player root layout measured size ([#835](https://github.com/yschimke/rc-players/issues/835)) ([58a06e2](https://github.com/yschimke/rc-players/commit/58a06e284ffbdbe58e8d7abc3ef2b498a9d57c60))
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.42.0 ([#833](https://github.com/yschimke/rc-players/issues/833)) ([75f31a0](https://github.com/yschimke/rc-players/commit/75f31a0a0fd939c4014534cc601dc110469f73f2))
+* **web:** retain font height for empty text ([#836](https://github.com/yschimke/rc-players/issues/836)) ([6f185a2](https://github.com/yschimke/rc-players/commit/6f185a20b35db69515ba7b7bb615ef90eab32529))
+
 ## [2.29.0](https://github.com/yschimke/rc-players/compare/v2.28.0...v2.29.0) (2026-11-07)
 
 
