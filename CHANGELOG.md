@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.31.0](https://github.com/yschimke/rc-players/compare/v2.30.0...v2.31.0) (2026-11-09)
+
+
+### Features
+
+* **compose:** share one prepared document between players of the same template ([#838](https://github.com/yschimke/rc-players/issues/838)) ([71b1157](https://github.com/yschimke/rc-players/commit/71b1157a54fc834bad72ce28eaa38ad917b521e1))
+
 ## [2.30.0](https://github.com/yschimke/rc-players/compare/v2.29.0...v2.30.0) (2026-11-09)
 
 
