@@ -77,6 +77,7 @@ class RcPreparedDocumentRenderTest {
     val second = prepared.inlineImagesForPlayer()
 
     assertNotSame(first.getValue(7), second.getValue(7))
+    assertEquals(0, prepared.sharedImageCount, "a canvas is never also kept in the shared images")
     assertSame(prepared.linked, prepared.linked)
   }
 

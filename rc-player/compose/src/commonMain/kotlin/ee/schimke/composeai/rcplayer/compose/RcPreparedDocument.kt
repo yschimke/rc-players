@@ -35,16 +35,25 @@ public class RcPreparedDocument(public val document: RcDocument) {
   internal val declaresFloatAnimation: Boolean =
     document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null }
   internal val fonts: RcDocumentFonts = decodeInlineFonts(document)
-  private val decodedImages: Map<Int, ImageBitmap> = decodeInlineImages(document)
   private val emptyBitmaps: List<RcBitmapData> =
     document.operations.filterIsInstance<RcBitmapData>().filter {
       it.encoding == RcBitmapData.ENCODING_EMPTY
     }
+  // Only the decoded images are shared; a blank canvas is allocated per player, never here.
+  private val decodedImages: Map<Int, ImageBitmap> =
+    decodeInlineImages(
+      if (emptyBitmaps.isEmpty()) document
+      else RcDocument(document.header, document.operations.filter { it !in emptyBitmaps }),
+    )
 
   /**
    * One player's inline images: the decoded ones shared, and a fresh blank bitmap for each one the
    * document draws into, so two players never draw into the same pixels.
    */
+  /** The images every player shares, without the canvases each gets fresh. */
+  internal val sharedImageCount: Int
+    get() = decodedImages.size
+
   internal fun inlineImagesForPlayer(): MutableMap<Int, ImageBitmap> =
     decodedImages.toMutableMap().also { images ->
       emptyBitmaps.forEach { images[it.imageId] = ImageBitmap(it.width, it.height) }
