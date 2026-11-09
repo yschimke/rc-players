@@ -237,6 +237,38 @@ The player can time what it hands over and what comes back, but not what happens
 the canvas documents carry the drawn text run: `DrawTextRun` is the only text path the player
 measures itself.
 
+## Feeds: the cost of a card arriving
+
+A feed plays one template many times with different values, and while a list flings each new card
+composes for the first time. `./gradlew :rc-player-profile:rcPlayerFeedProfile`
+([`RcFeedProfile`](../../rc-player/profile/src/main/kotlin/ee/schimke/composeai/rcplayer/profile/RcFeedProfile.kt))
+scrolls a window of four 360×160 cards on by two new cards a frame, over card documents from the
+catalog corpus, and times each frame (composition, layout and a software draw of the window) for
+three ways of handing the template to the player:
+
+- **bytes** — each card decodes the bytes: decode, link, layout tree and state per card;
+- **shared `RcDocument`** — one decoded document: link, layout tree and state per card;
+- **shared `RcPreparedDocument`** — one prepared document: only the state per card.
+
+It is deliberately not a `LazyColumn`, whose prefetch and slot reuse would hide the per-card cost;
+on a device a real fling is measured with `FrameTimingMetric`, and this number is what prefetch has
+to fit into idle time. Every mode is warmed first and the modes interleave over five rounds.
+
+Measured on the same 4-CPU Linux JVM as above (300 frames per mode, two new cards each):
+
+| Template | bytes | shared `RcDocument` | shared `RcPreparedDocument` |
+| --- | ---: | ---: | ---: |
+| `appcard` default | 7.21 ms (100%) | 7.06 ms (98%) | 6.84 ms (95%) |
+| `appcard` icon + content image | 7.15 ms (100%) | 6.84 ms (96%) | 6.21 ms (87%) |
+| `titlecard` default | 5.51 ms (100%) | 5.52 ms (100%) | 4.90 ms (89%) |
+
+Sharing a prepared document saves 5–13% of an arrival frame here; sharing only the decoded document
+saves little more than the decode. Most of the frame is composing, laying out and drawing each new
+card's own Compose tree, which no sharing removes, and the software raster used here makes drawing a
+larger share than a device's GPU would. Reusing one card's player state for the next was considered
+and rejected: it would save state construction only, and a reset that missed any piece of document
+state would leak one item into another.
+
 ## One thing this profile found by accident
 
 The first version of the harness handed `RcComposePlayer` a bare `Modifier`. The raw-document path

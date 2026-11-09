@@ -311,11 +311,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionBlock
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionType
 import ee.schimke.composeai.rcplayer.runtime.RcComponentGeometry
-import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcImpulsePhase
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
-import ee.schimke.composeai.rcplayer.runtime.RcLayoutTree
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEffect
@@ -443,6 +441,33 @@ public fun RcComposePlayer(
   }
 }
 
+/** Plays a [prepared] document with a host image loader, also inherited by nested players. */
+@Composable
+public fun RcComposePlayer(
+  prepared: RcPreparedDocument,
+  imageLoader: RcImageLoader,
+  modifier: Modifier = Modifier,
+  theme: RcPlayerTheme = RcPlayerTheme.System,
+  namedValues: SnapshotStateMap<String, RcNamedValue> = rememberRcNamedValues(),
+  onEvent: (RcPlayerEvent) -> Unit = {},
+  typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
+  systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
+  customComponents: RcCustomComponentRegistry = RcCustomComponentRegistry.Empty,
+) {
+  CompositionLocalProvider(LocalRcImageLoader provides imageLoader) {
+    RcComposePlayer(
+      prepared,
+      modifier,
+      theme,
+      namedValues,
+      onEvent,
+      typefaces,
+      systemColors,
+      customComponents,
+    )
+  }
+}
+
 /** CMP implements the opt-in operation family, so `Skip` must observe the experimental bit. */
 internal fun decodeCmpDocument(bytes: ByteArray): RcDocument = RcDocumentCodec.decode(bytes)
 
@@ -484,12 +509,41 @@ public fun RcComposePlayer(
   systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
   customComponents: RcCustomComponentRegistry,
 ) {
+  val prepared = remember(document) { RcPreparedDocument(document) }
+  RcComposePlayer(
+    prepared,
+    modifier,
+    theme,
+    namedValues,
+    onEvent,
+    typefaces,
+    systemColors,
+    customComponents,
+  )
+}
+
+/**
+ * Plays a [prepared] document. Players that share one [RcPreparedDocument] share its decoding,
+ * linking and layout tree, and each still keeps its own state, seeded from its own [namedValues]
+ * before its first frame: the way to play many cards of one template (see [RcPreparedDocument]).
+ */
+@Composable
+public fun RcComposePlayer(
+  prepared: RcPreparedDocument,
+  modifier: Modifier = Modifier,
+  theme: RcPlayerTheme = RcPlayerTheme.System,
+  namedValues: SnapshotStateMap<String, RcNamedValue> = rememberRcNamedValues(),
+  onEvent: (RcPlayerEvent) -> Unit = {},
+  typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
+  systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
+  customComponents: RcCustomComponentRegistry = RcCustomComponentRegistry.Empty,
+) {
   // Resolve once, at the only place that can: `RcPlayerTheme.System` is a question for the host,
   // and everything below this point — section gating, and every `ColorTheme` selection — needs a
   // concrete answer. See [rcResolveSystemTheme] for why leaving it unresolved is not a neutral
   // default.
   RcComposePlayerResolved(
-    document,
+    prepared,
     modifier,
     theme.resolve(),
     namedValues,
@@ -502,7 +556,7 @@ public fun RcComposePlayer(
 
 @Composable
 private fun RcComposePlayerResolved(
-  document: RcDocument,
+  prepared: RcPreparedDocument,
   modifier: Modifier,
   theme: Int,
   namedValues: SnapshotStateMap<String, RcNamedValue>,
@@ -511,6 +565,7 @@ private fun RcComposePlayerResolved(
   systemColors: (name: String) -> Color?,
   customComponents: RcCustomComponentRegistry,
 ) {
+  val document = prepared.document
   val latestEventSink by rememberUpdatedState(onEvent)
   val latestSystemColors by rememberUpdatedState(systemColors)
   val latestTimeSource by rememberUpdatedState(LocalRcTimeSource.current)
@@ -627,10 +682,7 @@ private fun RcComposePlayerResolved(
         invalidationVersion += 1
       }
   }
-  val documentDeclaresFloatAnimation =
-    remember(document) {
-      document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null }
-    }
+  val documentDeclaresFloatAnimation = prepared.declaresFloatAnimation
   // What the document's reads of the clock ask of the player: nothing, a frame each second, or a
   // frame on every vsync for as long as it is shown (as opposed to a float tween or spring, which
   // needs frames only while it is moving). The state records every clock read as the player
@@ -767,8 +819,8 @@ private fun RcComposePlayerResolved(
     wakeIntervalSeconds = null
     invalidationVersion += 1
   }
-  val linkedDocument = remember(document) { RcDocumentLinker.link(document) }
-  val layout = remember(linkedDocument) { RcLayoutTree.build(linkedDocument) }
+  val linkedDocument = prepared.linked
+  val layout = prepared.layout
   LaunchedEffect(linkedDocument, layout) {
     // Layout rendering consumes paint operations through component content rather than walking
     // the document root. AndroidX still applies root-level diagnostics during document execution.
@@ -780,9 +832,9 @@ private fun RcComposePlayerResolved(
       }
     }
   }
-  val inlineImages = remember(document) { decodeInlineImages(document) }
+  val inlineImages = remember(prepared) { prepared.inlineImagesForPlayer() }
   val images = rememberRcImages(document, linkedDocument, inlineImages) { invalidationVersion += 1 }
-  val touchExpressions = remember(linkedDocument) { rcTouchExpressions(linkedDocument.operations) }
+  val touchExpressions = prepared.touchExpressions
   val offscreenTargets =
     remember(document) {
       RcOffscreenTargetPool(componentBuffers = rcComponentOffscreenBuffers(document))
@@ -794,7 +846,7 @@ private fun RcComposePlayerResolved(
       RcExtensionSessions.create(playerExtensions, document, state)
     }
   DisposableEffect(extensionSessions) { onDispose { extensionSessions?.dispose() } }
-  val fonts = remember(document) { decodeInlineFonts(document) }
+  val fonts = prepared.fonts
   val textMeasurer = rememberTextMeasurer()
   val drawObserver = LocalRcDrawObserver.current
   // Subscribe *composition* to invalidations, not just the draw layer below.
@@ -5722,7 +5774,7 @@ private class RcExtensionDrawScopeImpl(
   override fun bitmap(id: Int): ImageBitmap? = images[id]
 }
 
-private fun decodeInlineImages(document: RcDocument): MutableMap<Int, ImageBitmap> =
+internal fun decodeInlineImages(document: RcDocument): MutableMap<Int, ImageBitmap> =
   rcTrace(RcTraceCategory.DOCUMENT, "rc:decodeImages") { decodeInlineImagesUncounted(document) }
 
 private fun decodeInlineImagesUncounted(document: RcDocument): MutableMap<Int, ImageBitmap> =
@@ -5740,7 +5792,7 @@ private fun decodeInlineImagesUncounted(document: RcDocument): MutableMap<Int, I
     .toMap()
     .toMutableMap()
 
-private fun decodeInlineFonts(document: RcDocument): RcDocumentFonts =
+internal fun decodeInlineFonts(document: RcDocument): RcDocumentFonts =
   rcTrace(RcTraceCategory.DOCUMENT, "rc:decodeFonts") { RcDocumentFonts.of(document) }
 
 /**
