@@ -56,3 +56,21 @@ tasks.register<JavaExec>("rcPlayerProfile") {
   // what was asked for.
   args(layout.buildDirectory.dir("profile").get().asFile.absolutePath)
 }
+
+tasks.register<JavaExec>("rcPlayerFeedProfile") {
+  description = "Profile what a card arriving in a feed costs, per way of sharing its template."
+  group = "verification"
+  classpath = sourceSets.main.get().runtimeClasspath
+  mainClass.set("ee.schimke.composeai.rcplayer.profile.RcFeedProfileMain")
+  // Card-shaped documents from the catalog corpus: what a feed of one template plays.
+  val corpus = rootProject.file("scripts/rc-catalog-corpus/corpus")
+  args(
+    listOf(layout.buildDirectory.dir("profile").get().asFile.absolutePath) +
+      listOf(
+          "appcard__ideal__default__compact.rc",
+          "appcard__ideal__icon-content-image__compact.rc",
+          "titlecard__ideal__default__compact.rc",
+        )
+        .map { corpus.resolve(it).absolutePath },
+  )
+}

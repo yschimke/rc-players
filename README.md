@@ -389,6 +389,24 @@ CompositionLocalProvider(LocalRcImageLoader provides images) {
 }
 ```
 
+### Many players of one document
+
+A feed draws many cards from one template, each with its own named values. Prepare the document once
+and hand the same `RcPreparedDocument` to every card: decoding, linking, the layout tree and the
+document's inline images and fonts are then done once, and each card builds only its own state,
+seeded from its own values before its first frame, so no card shows or animates from another's data.
+
+```kotlin
+val card = RcPreparedDocument.decode(templateBytes) // once per template, on any thread
+
+items(feed) { item ->
+  RcComposePlayer(card, namedValues = remember(item) { item.values() })
+}
+```
+
+`./gradlew :rc-player-profile:rcPlayerFeedProfile` measures what a card arriving costs each way
+([`RC_PLAYER_PROFILING.md`](docs/design/RC_PLAYER_PROFILING.md#feeds-the-cost-of-a-card-arriving)).
+
 An override returns a Compose `ImageBitmap`, or null for an unavailable image. It owns its access
 policy and recoverable errors; it must not block the composition dispatcher. Use
 `RcImageLoader.Empty` to disable external loading. To keep Coil while configuring authentication,
