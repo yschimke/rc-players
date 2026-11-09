@@ -36,6 +36,7 @@ public class RemoteCollapsibleColumnScope {
      * Sets the vertical weight of the child.
      *
      * @param weight The weight of the child.
+     * @return a [RemoteModifier] that assigns vertical [weight] to the child
      */
     public fun RemoteModifier.weight(weight: RemoteFloat): RemoteModifier =
         then(HeightModifier(RemoteDimensionType.WEIGHT, weight))
@@ -44,6 +45,7 @@ public class RemoteCollapsibleColumnScope {
      * Sets the vertical weight of the child.
      *
      * @param weight The weight of the child.
+     * @return a [RemoteModifier] that assigns vertical [weight] to the child
      */
     public fun RemoteModifier.weight(
         @FloatRange(from = 0.0, fromInclusive = false) weight: Float,
@@ -56,8 +58,12 @@ public class RemoteCollapsibleColumnScope {
      * priority items remain visible longer. Items with the same priority are hidden sequentially in
      * reverse layout order (last child with same priority is hidden first).
      *
+     * Example of assigning collapsible priorities to children in a [RemoteCollapsibleColumn]:
+     *
+     * @sample androidx.compose.remote.creation.compose.samples.RemoteCollapsibleColumnSample
      * @param priority The priority of the child. Can be any float value; higher values are
      *   prioritized to remain visible longer.
+     * @return a [RemoteModifier] that assigns vertical collapsible [priority] to the child
      */
     public fun RemoteModifier.collapsiblePriority(priority: Float): RemoteModifier =
         then(CollapsiblePriorityModifier(1, RemoteFloat(priority)))
@@ -97,6 +103,8 @@ internal class RemoteCollapsibleColumnNode : RemoteLayoutNode() {
  * [RemoteCollapsibleColumnScope.collapsiblePriority] to control how they behave when the column is
  * collapsed.
  *
+ * Example of hiding lower-priority children when vertical space is constrained:
+ *
  * @sample androidx.compose.remote.creation.compose.samples.RemoteCollapsibleColumnSample
  * @param modifier The modifier to apply to this layout.
  * @param verticalArrangement The vertical arrangement of the children.
@@ -109,7 +117,7 @@ public fun RemoteCollapsibleColumn(
     modifier: RemoteModifier = RemoteModifier,
     verticalArrangement: RemoteArrangement.Vertical = RemoteArrangement.Top,
     horizontalAlignment: RemoteAlignment.Horizontal = RemoteAlignment.Start,
-    content: @Composable RemoteCollapsibleColumnScope.() -> Unit,
+    content: @RemoteComposable @Composable RemoteCollapsibleColumnScope.() -> Unit,
 ) {
     val scope = remember { RemoteCollapsibleColumnScope() }
     RemoteLayoutNode(

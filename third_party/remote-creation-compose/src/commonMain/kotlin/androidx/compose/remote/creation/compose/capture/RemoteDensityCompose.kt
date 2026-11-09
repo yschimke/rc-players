@@ -20,29 +20,14 @@ package androidx.compose.remote.creation.compose.capture
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.asRdp
 import androidx.compose.remote.creation.compose.state.asRemoteTextUnit
-import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
-
-/**
- * Creates a [RemoteDensity] instance from the provided [RemoteCreationDisplayInfo].
- *
- * @param creationDisplayInfo The display information containing the screen density and font scale.
- * @return A [RemoteDensity] instance with the density and font scale from the display info.
- */
-internal fun RemoteDensity.Companion.from(
-    creationDisplayInfo: RemoteCreationDisplayInfo,
-): RemoteDensity {
-    return RemoteDensity(
-        creationDisplayInfo.density.density.rf,
-        creationDisplayInfo.density.fontScale.rf,
-    )
-}
 
 /**
  * Converts a [TextUnit] to pixels using the provided [RemoteDensity].
  *
  * @param density The [RemoteDensity] used to convert this [TextUnit] to pixels.
+ * @return the size in pixels as a [RemoteFloat]
  */
 public fun TextUnit.toPx(density: RemoteDensity): RemoteFloat = asRemoteTextUnit().toPx(density)
 
@@ -50,6 +35,7 @@ public fun TextUnit.toPx(density: RemoteDensity): RemoteFloat = asRemoteTextUnit
  * Converts a [Dp] to pixels using the provided [RemoteDensity].
  *
  * @param density The [RemoteDensity] used to convert this [Dp] to pixels.
+ * @return the size in pixels as a [RemoteFloat]
  */
 public fun Dp.toPx(density: RemoteDensity): RemoteFloat = asRdp().toPx(density)
 
@@ -57,6 +43,7 @@ public fun Dp.toPx(density: RemoteDensity): RemoteFloat = asRdp().toPx(density)
  * Converts a [TextUnit] to pixels using this [RemoteDensity].
  *
  * @param textUnit The [TextUnit] value to convert.
+ * @return [textUnit] converted to pixels as a [RemoteFloat]
  */
 public fun RemoteDensity.toPx(textUnit: TextUnit): RemoteFloat =
     textUnit.asRemoteTextUnit().toPx(this)
@@ -65,5 +52,6 @@ public fun RemoteDensity.toPx(textUnit: TextUnit): RemoteFloat =
  * Converts a [Dp] to pixels using this [RemoteDensity].
  *
  * @param dp The [Dp] value to convert.
+ * @return [dp] converted to pixels as a [RemoteFloat]
  */
 public fun RemoteDensity.toPx(dp: Dp): RemoteFloat = dp.asRdp().toPx(this)

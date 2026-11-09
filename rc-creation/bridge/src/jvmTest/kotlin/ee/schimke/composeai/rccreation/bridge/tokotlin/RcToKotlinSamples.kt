@@ -15,6 +15,7 @@ import androidx.compose.remote.creation.compose.layout.RemoteIntrinsicSize
 import androidx.compose.remote.creation.compose.layout.RemoteRow
 import androidx.compose.remote.creation.compose.layout.RemoteText
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
+import androidx.compose.remote.creation.compose.modifier.RemoteRole
 import androidx.compose.remote.creation.compose.modifier.background
 import androidx.compose.remote.creation.compose.modifier.border
 import androidx.compose.remote.creation.compose.modifier.clickable
@@ -49,8 +50,10 @@ import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.remote.creation.compose.state.rsp
 import androidx.compose.remote.creation.compose.text.RemoteFontFamily
 import androidx.compose.remote.creation.compose.text.RemoteFontStyle
+import androidx.compose.remote.creation.compose.text.RemoteFontVariation
 import androidx.compose.remote.creation.compose.text.RemoteFontWeight
 import androidx.compose.remote.creation.compose.text.RemoteTextAlign
+import androidx.compose.remote.creation.compose.text.RemoteTextDecoration
 import androidx.compose.remote.creation.compose.text.RemoteTextOverflow
 import androidx.compose.remote.creation.compose.text.RemoteTextStyle
 import androidx.compose.runtime.Composable
@@ -60,9 +63,6 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontVariation
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
 
 /**
@@ -84,7 +84,7 @@ fun LayoutSample() {
       verticalAlignment = RemoteAlignment.CenterVertically,
     ) {
       RemoteBox(RemoteModifier.size(24.rdp).background(RemoteColor(Color.Red)))
-      RemoteBox(RemoteModifier.weight(1f).height(24.rdp).background(RemoteColor(Color.Green)))
+      RemoteBox(RemoteModifier.weight(1f.rf).height(24.rdp).background(RemoteColor(Color.Green)))
       RemoteBox(
         RemoteModifier.size(24.rdp)
           .clip(RemoteRoundedCornerShape(6.rdp))
@@ -137,9 +137,10 @@ fun TextSample() {
         RemoteTextStyle(
           letterSpacing = 0.5.sp.asRemoteTextUnit(),
           lineHeight = 24.sp.asRemoteTextUnit(),
-          textDecoration = TextDecoration.Underline,
+          textDecoration = RemoteTextDecoration.Underline,
         ),
-      fontVariationSettings = FontVariation.Settings(FontVariation.Setting("wdth", 75f)),
+      fontVariationSettings =
+        RemoteFontVariation.Settings(RemoteFontVariation.Setting("wdth", 75f.rf)),
     )
   }
 }
@@ -172,17 +173,17 @@ fun InteractionSample() {
       RemoteBox(
         RemoteModifier.size(40.rdp)
           .collapsiblePriority(2f)
-          .clickable(hostAction("toggle".rs, 1.ri), role = Role.Switch)
+          .clickable(hostAction("toggle".rs, 1.ri), role = RemoteRole.Switch)
           .background(RemoteColor(Color.Gray)),
       )
-      RemoteBox(RemoteModifier.weight(1f).height(40.rdp).clickable(hostAction(7)))
+      RemoteBox(RemoteModifier.weight(1f.rf).height(40.rdp).clickable(hostAction(7)))
     }
     RemoteBox(
       RemoteModifier.fillMaxWidth().height(32.rdp).visibility(shown).semantics(
         mergeDescendants = true,
       ) {
         contentDescription = "Panel".rs
-        role = Role.Image
+        role = RemoteRole.Image
       },
     )
     val side = remember { RemoteFloat.createNamedRemoteFloat("panel.side", 24f) }

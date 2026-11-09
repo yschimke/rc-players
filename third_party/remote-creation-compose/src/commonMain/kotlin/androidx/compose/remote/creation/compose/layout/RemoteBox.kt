@@ -16,15 +16,10 @@
 
 package androidx.compose.remote.creation.compose.layout
 
-import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.WriterOp
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.remember
-
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) @Stable public class RemoteBoxScope
 
 internal class RemoteBoxNode : RemoteLayoutNode() {
     var horizontalAlignment: RemoteAlignment.Horizontal = RemoteAlignment.Start
@@ -50,8 +45,9 @@ internal class RemoteBoxNode : RemoteLayoutNode() {
  * `RemoteBox` allows you to wrap multiple children and position them using [contentAlignment]. In
  * Remote Compose, this layout is recorded as a Box command.
  *
+ * Example of centering overlapping children inside a [RemoteBox]:
+ *
  * @sample androidx.compose.remote.creation.compose.samples.RemoteBoxSample
- * @sample androidx.compose.remote.creation.compose.samples.RemoteBoxStackingSample
  * @param modifier The modifier to be applied to this box.
  * @param contentAlignment The default alignment inside the Box.
  * @param content The content of the box.
@@ -61,9 +57,8 @@ internal class RemoteBoxNode : RemoteLayoutNode() {
 public fun RemoteBox(
     modifier: RemoteModifier = RemoteModifier,
     contentAlignment: RemoteAlignment = RemoteAlignment.TopStart,
-    content: @Composable () -> Unit,
+    content: @RemoteComposable @Composable () -> Unit,
 ) {
-    val scope = remember { RemoteBoxScope() }
     RemoteLayoutNode(
         factory = ::RemoteBoxNode,
         update = {

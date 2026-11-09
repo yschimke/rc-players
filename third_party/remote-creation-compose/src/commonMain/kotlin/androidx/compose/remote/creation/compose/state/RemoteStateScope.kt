@@ -22,11 +22,8 @@ import androidx.compose.remote.creation.compose.capture.RemoteDensity
 import androidx.compose.remote.creation.compose.capture.RemoteDensityBehavior
 import androidx.compose.remote.creation.compose.capture.toRemotePath
 import androidx.compose.remote.creation.compose.layout.RemoteLayoutDirection
-import androidx.compose.remote.creation.compose.layout.toComposeLayoutDirection
-import androidx.compose.remote.creation.compose.layout.toRemoteLayoutDirection
 import androidx.compose.remote.creation.compose.path.RemotePath
 import androidx.compose.remote.creation.compose.vector.RemotePathScope
-import androidx.compose.ui.unit.LayoutDirection
 
 /** Scope for accessing remote state IDs. */
 public interface RemoteStateScope {
@@ -38,13 +35,8 @@ public interface RemoteStateScope {
     /** The [RemoteDensity] associated with the document being drawn into. */
     public val remoteDensity: RemoteDensity
 
-    /** The [LayoutDirection] associated with the document being drawn into. */
-    public val layoutDirection: LayoutDirection
-
     /** The [RemoteLayoutDirection] associated with the document being drawn into. */
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public val remoteLayoutDirection: RemoteLayoutDirection
-        get() = layoutDirection.toRemoteLayoutDirection()
+    public val layoutDirection: RemoteLayoutDirection
 
     /** The density behavior associated with the document being drawn into. */
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -67,16 +59,16 @@ public interface RemoteStateScope {
         get() = (this as BaseRemoteState<*>).getLongIdForCreationState(creationState)
 }
 
-internal interface PlatformRemoteStateScope : RemoteStateScope {
-    override val layoutDirection: LayoutDirection
-        get() = remoteLayoutDirection.toComposeLayoutDirection()
-}
-
 /** The [RemoteComposeCreationContext] associated with the document being drawn into. */
 @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public val RemoteStateScope.creationState: RemoteComposeCreationContext
     get() = this as? RemoteComposeCreationContext ?: parentScope.creationState
 
-/** Builds a platform-neutral encoded path using this state allocation scope. */
+/**
+ * Builds a platform-neutral encoded path using this state allocation scope.
+ *
+ * @return the constructed [RemotePath]
+ */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteStateScope.remotePath(block: RemotePathScope.() -> Unit): RemotePath =
     RemotePathScope().apply(block).nodes.toRemotePath(creationState = this)

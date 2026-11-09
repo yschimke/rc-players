@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+@file:kotlin.jvm.JvmName("RemoteStateKt")
+@file:kotlin.jvm.JvmMultifileClass
+
 package androidx.compose.remote.creation.compose.state
 
 import androidx.annotation.RestrictTo
@@ -72,7 +75,7 @@ public interface RemoteState<T> {
      */
     public open class Domain
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    constructor(@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val coreDomain: String?) {
+    constructor(internal val coreDomain: String?) {
         /**
          * A string representation of the domain followed by a colon separator, or an empty string
          * if the domain is null. This is used to namespace named remote states.

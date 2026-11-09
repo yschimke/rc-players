@@ -16,11 +16,16 @@
 
 package androidx.compose.remote.creation.compose.modifier
 
-import androidx.annotation.RestrictTo
+import androidx.compose.runtime.Immutable
 import kotlin.jvm.JvmInline
 
-/** The type of user interface element. Accessibility services can use this to describe the node. */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+/**
+ * The type of user interface element. Accessibility services might use this to describe the element
+ * or do customizations.
+ *
+ * @see RemoteSemanticsPropertyReceiver.role
+ */
+@Immutable
 @JvmInline
 public value class RemoteRole internal constructor(internal val value: Int) {
     /** The wire value of AndroidX's `AccessibleComponent.Role` (its ordinal; 9 is `UNKNOWN`). */
@@ -33,6 +38,8 @@ public value class RemoteRole internal constructor(internal val value: Int) {
             Tab -> 4
             Image -> 5
             DropdownList -> 6
+            ValuePicker -> 7
+            Carousel -> 8
             else -> 9
         }
 
@@ -45,17 +52,75 @@ public value class RemoteRole internal constructor(internal val value: Int) {
             Tab -> "Tab"
             Image -> "Image"
             DropdownList -> "DropdownList"
+            ValuePicker -> "ValuePicker"
+            Carousel -> "Carousel"
             else -> "Unknown"
         }
 
     public companion object {
+        /**
+         * This element is a button control. Associated semantics properties and modifiers for
+         * accessibility: [RemoteModifier.clickable], [RemoteSemanticsProperties.Enabled].
+         */
         public val Button: RemoteRole = RemoteRole(0)
+
+        /**
+         * This element is a Checkbox which is a component that represents two states (checked /
+         * unchecked). Associated semantics properties and modifiers for accessibility:
+         * [RemoteModifier.clickable], [RemoteSemanticsProperties.StateDescription],
+         * [RemoteSemanticsProperties.Enabled].
+         */
         public val Checkbox: RemoteRole = RemoteRole(1)
+
+        /**
+         * This element is a Switch which is a two state toggleable component that provides on/off
+         * like options. Associated semantics properties and modifiers for accessibility:
+         * [RemoteModifier.clickable], [RemoteSemanticsProperties.StateDescription],
+         * [RemoteSemanticsProperties.Enabled].
+         */
         public val Switch: RemoteRole = RemoteRole(2)
+
+        /**
+         * This element is a RadioButton which is a component to represent two states, selected and
+         * not selected. Associated semantics properties and modifiers for accessibility:
+         * [RemoteModifier.clickable], [RemoteSemanticsProperties.StateDescription],
+         * [RemoteSemanticsProperties.Enabled].
+         */
         public val RadioButton: RemoteRole = RemoteRole(3)
+
+        /**
+         * This element is a Tab which represents a single page of content using a text label and/or
+         * icon. Associated semantics properties and modifiers for accessibility:
+         * [RemoteModifier.clickable], [RemoteSemanticsProperties.StateDescription],
+         * [RemoteSemanticsProperties.Enabled].
+         */
         public val Tab: RemoteRole = RemoteRole(4)
+
+        /**
+         * This element is an image. Associated semantics properties for accessibility:
+         * [RemoteSemanticsProperties.ContentDescription].
+         */
         public val Image: RemoteRole = RemoteRole(5)
+
+        /**
+         * This element is associated with a drop down menu or list. Associated semantics properties
+         * and modifiers for accessibility: [RemoteModifier.clickable],
+         * [RemoteSemanticsProperties.Enabled].
+         */
         public val DropdownList: RemoteRole = RemoteRole(6)
-        internal val Unknown: RemoteRole = RemoteRole(7)
+
+        /**
+         * This element is a value picker component allowing value navigation. Associated semantics
+         * properties and modifiers for accessibility: [RemoteModifier.verticalScroll],
+         * [RemoteSemanticsProperties.StateDescription], [RemoteSemanticsProperties.Enabled].
+         */
+        public val ValuePicker: RemoteRole = RemoteRole(7)
+
+        /**
+         * This element is a carousel displaying a scrollable collection of items. Associated
+         * semantics properties and modifiers for accessibility: [RemoteModifier.horizontalScroll],
+         * [RemoteSemanticsProperties.Enabled].
+         */
+        public val Carousel: RemoteRole = RemoteRole(8)
     }
 }

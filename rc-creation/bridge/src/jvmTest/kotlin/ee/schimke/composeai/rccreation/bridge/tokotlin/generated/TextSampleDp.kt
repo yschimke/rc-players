@@ -12,18 +12,19 @@ import androidx.compose.remote.creation.compose.modifier.padding
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.asRemoteTextUnit
 import androidx.compose.remote.creation.compose.state.rdp
+import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.remote.creation.compose.state.rsp
 import androidx.compose.remote.creation.compose.text.RemoteFontFamily
 import androidx.compose.remote.creation.compose.text.RemoteFontStyle
+import androidx.compose.remote.creation.compose.text.RemoteFontVariation
 import androidx.compose.remote.creation.compose.text.RemoteFontWeight
 import androidx.compose.remote.creation.compose.text.RemoteTextAlign
+import androidx.compose.remote.creation.compose.text.RemoteTextDecoration
 import androidx.compose.remote.creation.compose.text.RemoteTextOverflow
 import androidx.compose.remote.creation.compose.text.RemoteTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontVariation
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
 
 @Composable
@@ -64,9 +65,10 @@ fun TextSampleDp() {
         RemoteTextStyle(
           letterSpacing = 0.5f.sp.asRemoteTextUnit(),
           lineHeight = 24f.sp.asRemoteTextUnit(),
-          textDecoration = TextDecoration.Underline,
+          textDecoration = RemoteTextDecoration.Underline,
         ),
-      fontVariationSettings = FontVariation.Settings(FontVariation.Setting("wdth", 75f)),
+      fontVariationSettings =
+        RemoteFontVariation.Settings(RemoteFontVariation.Setting("wdth", 75f.rf)),
     )
   }
 }

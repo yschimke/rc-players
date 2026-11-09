@@ -15,6 +15,7 @@
  */
 
 @file:kotlin.jvm.JvmName("RemoteImageBrushKt")
+@file:kotlin.jvm.JvmMultifileClass
 
 package androidx.compose.remote.creation.compose.shaders
 
@@ -34,6 +35,7 @@ import androidx.compose.ui.layout.ContentScale
  * @param tileModeY The [ComposeTileMode] to use for the bitmap in the y-axis. Defaults to
  *   [ComposeTileMode.Clamp] to repeat the edge pixels
  * @param contentScale The [ContentScale] to use when scaling the bitmap.
+ * @return a [RemoteShaderBrush] that draws [image] as a texture
  */
 @Stable
 public fun RemoteBrush.Companion.image(
@@ -42,8 +44,8 @@ public fun RemoteBrush.Companion.image(
     tileModeY: ComposeTileMode = ComposeTileMode.Clamp,
     contentScale: ContentScale = ContentScale.None,
 ): RemoteShaderBrush =
-    RemoteImageBrush(
-        bitmap = image,
+    image(
+        image = image,
         tileModeX = tileModeX.toRemoteTileMode(),
         tileModeY = tileModeY.toRemoteTileMode(),
         contentScale = contentScale.toRemoteContentScale(),

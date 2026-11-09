@@ -27,7 +27,6 @@ import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PaintingStyle
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 
@@ -267,7 +266,7 @@ private fun RemoteDrawScope.shaded(layer: RcWearLayer): RemotePaint {
 }
 
 private fun stroke(width: RemoteFloat, color: RemoteColor) = RemotePaint {
-  style = PaintingStyle.Stroke
+  stroke()
   strokeWidth = width
   this.color = color
 }
@@ -512,3 +511,9 @@ private const val QUARTER_TURN = (kotlin.math.PI / 2).toFloat()
 
 /** The length a piece of no length is divided by, so its share is never NaN. */
 private const val MIN_PIECE = 0.001f
+
+/**
+ * Paints strokes rather than fills. AndroidX's `RemotePaint.style` is Compose's `PaintingStyle`
+ * until androidx-main `db6a60d2e` and a `RemotePaintingStyle` after it, as in the fork.
+ */
+internal expect fun RemotePaint.stroke()

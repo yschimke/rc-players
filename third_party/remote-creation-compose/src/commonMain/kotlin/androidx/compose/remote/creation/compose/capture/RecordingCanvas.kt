@@ -17,11 +17,11 @@
 package androidx.compose.remote.creation.compose.capture
 
 import androidx.annotation.RestrictTo
+import androidx.compose.remote.creation.compose.layout.RemoteLayoutDirection
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemotePaint
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.ui.graphics.Matrix
-import androidx.compose.ui.unit.LayoutDirection
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public interface RecordingCanvas : RemoteStateScope {
@@ -30,7 +30,7 @@ public interface RecordingCanvas : RemoteStateScope {
     public val creationDisplayInfo: RemoteCreationDisplayInfo
 
     override val remoteDensity: RemoteDensity
-    override val layoutDirection: LayoutDirection
+    override val layoutDirection: RemoteLayoutDirection
 
     public fun save(): Int
 

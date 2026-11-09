@@ -22,9 +22,10 @@ package androidx.compose.remote.creation.compose.capture
 import androidx.annotation.FloatRange
 import androidx.annotation.IntRange
 import androidx.compose.remote.creation.common.CoreDocument
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.unit.Density
+import androidx.compose.remote.creation.compose.state.rf
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 private const val baseDensity = 160f
 
@@ -50,15 +51,22 @@ public enum class RemoteDensityBehavior(internal val value: Int) {
  * These values serve as a guide for the predicted characteristics of the remote display, but the
  * actual characteristics may differ when the document is played back on a remote client.
  *
- * @property size The physical dimensions of the virtual display in pixels.
- * @property density The Compose [Density] of the virtual display.
+ * @property width The width of the virtual display in pixels.
+ * @property height The height of the virtual display in pixels.
+ * @property density The logical density of the virtual display.
+ * @property fontScale The user preference for the scaling factor for fonts, relative to the base
+ *   density scaling.
  * @property isInspectionMode Whether the capture is happening in an inspection or preview
  *   environment (e.g. inside an IDE preview). Defaults to false.
+ * @property densityBehavior The [RemoteDensityBehavior] to use for interpreting dimension values.
  */
+@Immutable
 public class RemoteCreationDisplayInfo
 internal constructor(
-    public val size: Size,
-    public val density: Density,
+    public val width: Int,
+    public val height: Int,
+    public val density: Float,
+    public val fontScale: Float = 1.0f,
     public val isInspectionMode: Boolean = false,
     public val densityBehavior: RemoteDensityBehavior = RemoteDensityBehavior.Legacy,
 )
@@ -89,20 +97,22 @@ public fun RemoteCreationDisplayInfo(
     densityBehavior: RemoteDensityBehavior = RemoteDensityBehavior.Legacy,
 ): RemoteCreationDisplayInfo {
     return RemoteCreationDisplayInfo(
-        Size(width.toFloat(), height.toFloat()),
-        Density(densityDpi / baseDensity, fontScale),
-        isInspectionMode,
-        densityBehavior,
+        width = width,
+        height = height,
+        density = densityDpi / baseDensity,
+        fontScale = fontScale,
+        isInspectionMode = isInspectionMode,
+        densityBehavior = densityBehavior,
     )
 }
 
 /** The width of the display in [Dp] units. */
 public val RemoteCreationDisplayInfo.widthDp: Dp
-    get() = with(density) { size.width.toDp() }
+    get() = (width / density).dp
 
 /** The height of the display in [Dp] units. */
 public val RemoteCreationDisplayInfo.heightDp: Dp
-    get() = with(density) { size.height.toDp() }
+    get() = (height / density).dp
 
 /**
  * LOCAL PATCH (rc-players): the header's density-behavior word, so a writer other than the byte
@@ -110,3 +120,7 @@ public val RemoteCreationDisplayInfo.heightDp: Dp
  */
 public val RemoteDensityBehavior.wireValue: Int
     get() = value
+
+internal fun RemoteDensity.Companion.from(
+    creationDisplayInfo: RemoteCreationDisplayInfo,
+): RemoteDensity = RemoteDensity(creationDisplayInfo.density.rf, creationDisplayInfo.fontScale.rf)

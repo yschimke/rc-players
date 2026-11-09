@@ -14,8 +14,10 @@ import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.remote.creation.compose.state.asRemoteTextUnit
 import androidx.compose.remote.creation.compose.state.rdp
+import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rsp
 import androidx.compose.remote.creation.compose.text.RemoteFontFamily
+import androidx.compose.remote.creation.compose.text.RemoteFontVariation
 import androidx.compose.remote.creation.compose.text.RemoteFontWeight
 import androidx.compose.remote.creation.compose.text.RemoteTextAlign
 import androidx.compose.remote.creation.compose.text.RemoteTextOverflow
@@ -23,7 +25,6 @@ import androidx.compose.remote.creation.compose.text.RemoteTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.unit.sp
 
 @Composable
@@ -47,7 +48,8 @@ fun CorpusTextBody() {
           letterSpacing = 0.8f.sp.asRemoteTextUnit(),
           lineHeight = 32f.sp.asRemoteTextUnit(),
         ),
-      fontVariationSettings = FontVariation.Settings(FontVariation.Setting("pnum", 1f)),
+      fontVariationSettings =
+        RemoteFontVariation.Settings(RemoteFontVariation.Setting("pnum", 1f.rf)),
     )
   }
 }

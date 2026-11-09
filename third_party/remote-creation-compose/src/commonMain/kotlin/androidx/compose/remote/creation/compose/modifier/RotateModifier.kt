@@ -16,16 +16,20 @@
 
 package androidx.compose.remote.creation.compose.modifier
 
+import androidx.compose.remote.creation.compose.shapes.RemoteRectangleShape
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 
 /**
  * Sets the degrees the view is rotated around the center of the composable. Increasing values
  * result in clockwise rotation. Negative degrees are used to rotate in the counter clockwise
- * direction
+ * direction.
  *
- * @param degrees Degrees to rotate the content.
+ * Example of rotating a box clockwise around its center:
+ *
  * @sample androidx.compose.remote.creation.compose.samples.RotateSample
+ * @param degrees Degrees to rotate the content.
+ * @return a [RemoteModifier] that rotates the content by [degrees]
  * @see graphicsLayer
  */
 public fun RemoteModifier.rotate(degrees: RemoteFloat): RemoteModifier =
-    graphicsLayer(rotationZ = degrees)
+    graphicsLayer(rotationZ = degrees, shape = RemoteRectangleShape)

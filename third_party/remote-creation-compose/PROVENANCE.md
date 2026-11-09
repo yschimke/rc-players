@@ -24,7 +24,8 @@ layer cannot reach from outside, and each one is a marked local patch.
   snapshot `16547072` (androidx-main `40ff48144`), then to androidx-main `51b1c49d7`
   (2026-10-15, a superset of snapshot `16617687` = `522d8695c`), then to androidx-main
   `5dab33683` (2026-10-27), then to androidx-main `a0e84553095` (2026-10-29), the commit
-  `remote-creation-compose:1.0.0-alpha23` was cut from.
+  `remote-creation-compose:1.0.0-alpha23` was cut from, then to androidx-main `1448d6497`
+  (2026-11-08).
 - License: Apache-2.0
 - Paths:
 
@@ -255,6 +256,142 @@ Deliberately skipped:
   constructors, `RemoteStateInstanceKey` and `RemoteColorConstantCacheKey` public for the library
   group. Here they stay internal, as the port's cache keys are (`a07eab443`, skipped before).
 
+## Refresh a0e84553095 → androidx-main 1448d6497
+
+The motivating fix is `ab1b76a2f` ("Scope RemoteComponent to container and state scope", with
+`d7a5c31b5` and `f1f51073e`): a size a modifier or drawing reads refers to the component it belongs
+to, through a `RemoteComponentToken`, not to `lastComponentId` (the component written before it,
+for a box's own modifiers its preceding sibling or its parent's content). It retires the fork's
+"sizes refer to the last component recorded" behaviour, which `ComponentSizeScopeTest` pinned; the
+test now asserts each 40dp box's circle clip reads its own size.
+
+Upstream moved its sources in this range: `src/main/java` became `src/jvmAndAndroidMain/kotlin`
+and `src/androidMain/kotlin` (`1be9a9fed`), and the state and AST code moved to a new
+`remote-creation-expression` module (`91c532558`, `0919df98a`), in the same packages. The fork maps
+them by package-relative path. Seventeen of the range's commits reach `androidx-main` through
+merges that `git log`'s default history simplification hides (`--full-history` lists them); they
+are attributed below with the rest. Files upstream renamed in `jvmAndAndroidMain` take upstream's name
+(`action/ValueChangeAction.kt`, `modifier/RemoteBlurEffect.kt`, `modifier/RemoteRenderEffect.kt`);
+those moved to `androidMain` (`*Android.kt` → `*.android.kt`) keep the fork's `*Android.kt` /
+`*Compose.kt` names in `commonMain`, as before. No `remote-core` wire format changed in the range.
+
+Taken:
+
+- Component scoping (`ab1b76a2f`, `d7a5c31b5`, `f1f51073e`): `RemoteComponentToken` (restricted)
+  on every node, created with the node's content and provided as `LocalRemoteComponentToken`;
+  public `RemoteComponent` (`width`, `height`, `centerX`, `centerY`; restricted `x`, `y`, `rootX`,
+  `rootY`, constructors from a scope or a token; `equals`/`hashCode`, `@Stable`); `@Composable
+  remoteComponent()` and `RemoteStateScope.remoteComponent()` in `layout/RemoteComponentCompose.kt`;
+  `RemoteFloatContext` internal; `RemoteComponentCacheKey` keyed by token; and `Border`, `Clip`
+  and `GraphicsLayer` modifiers read sizes through `remoteComponent()`. A modifier's scope resolves
+  its node's token; a draw scope or canvas resolves the node currently rendering
+  (`currentRenderingNode`), as upstream. The port writes `ComponentValue`s as declarations with
+  the component's explicit id, so where upstream emits them inside the owning component's body, the
+  port records the token's component id when the node is recorded (`beginComponentContent`, before
+  its modifiers convert) and writes values for that id; a value requested before its component is
+  recorded reserves a variable that is bound once the id is known, through the writer's new
+  `addComponentValue(type, componentId, valueId)` (`RemoteComposeBuffer.addComponentValue`). The
+  token state is per document, cleared with the caches and by `resetComponentIds()`. Without any
+  token the context falls back to the last component recorded, as upstream falls back to
+  `lastComponentId`.
+- `f1f51073e`: the `RemoteFloatContext` lambda APIs go: `createNamedRemoteFloatExpression` becomes
+  `createNamedRemoteFloat(name, defaultValue: RemoteFloat, domain)`, `MutableRemoteFloat` takes a
+  `RemoteFloat` (and `MutableRemoteFloat(RemoteFloat)` companion `invoke`), `RemoteFloatExpression`
+  takes a scope lambda (the document's `RemoteStateScope`, where upstream's is
+  `RemoteDocumentScope`), and `RemoteFloatExpression.fromFloatArray` goes.
+- `1b1ba0521`: the `rememberNamedRemote*` composables move to `state/RemoteStateComposables.kt`
+  (`@JvmName("RemoteStateKt")`), `rememberNamedRemoteFloat` takes a `RemoteFloat`, the deprecated
+  `rememberMutableRemote*`, `rememberRemoteFloatArray` and `rememberRemoteFloatExpression` go, and
+  `RemoteEnum.enumEntries` is public. `toRemoteString()` uses upstream's default format (40 integer
+  digits, 3 or 0 fraction digits, grouped); the port's common `DecimalFormat` overload stays, without
+  a default, where upstream's Java/ICU overloads moved to `RemoteFormatting.android.kt`.
+- Compose UI decoupling and promotions (with the `Remote` type prefixes of `7177ff18c`):
+  `RemoteCreationDisplayInfo` holds `width`, `height`,
+  `density`, `fontScale` (`1d600a819`; `RemoteDensity.from` moves beside it); `RemoteTextUnit` is
+  backed by `RemoteTextUnitType` with public constructors, its Compose API in
+  `state/RemoteTextUnitCompose.kt` (`d63c53ec4`); `RemoteImageBitmap` is an open
+  `BaseRemoteState<Any>` with a public URL constructor, its `ImageBitmap` API in
+  `state/RemoteImageBitmapCompose.kt` (`a1edaa2a0`);
+  `RemoteFontVariation` (`7056ec5ed`, `9a252fb8a`; `text/RemoteFontVariation.kt`, Compose
+  conversion in `text/RemoteFontVariationAndroid.kt`) on `RemoteText`, `RemoteTextStyle`,
+  `RemotePaint` and `PaintTracker`, whose axis values are now `RemoteFloat`s; `RemoteTextStyle`'s
+  Compose API (`fromTextStyle`, the `FontVariation.Settings` factory) in
+  `text/RemoteTextStyleAndroid.kt` (`99f14adf8`), reading font variations through the port's
+  `Font.variationSettings` compat; `RemoteFontFamily.fromComposeFontFamily` becomes the internal
+  `FontFamily.toRemoteFontFamily()` (`cec30cfa8`); `RemoteRole` with `ValuePicker` and `Carousel` mapped (`a38a0f359`)
+  and `RemoteSemantics*` types, `clickable(onClick, enabled, role: RemoteRole? = null)` (no role by
+  default) and the Compose `Role` overload removed (`af61a3e9c`); `RemoteStrokeCap`/`Join`,
+  `RemotePaintingStyle` and `RemoteBlendMode` on `RemotePaint` (`d3cd5dc90`, `db6a60d2e`,
+  `d98caffa0`, after `7ef214a7c`, `88669848f`); `RemoteBlendMode` and ARGB colours in
+  `RemoteImageVector` (`5898066b4`, `4484850ee`); `RemoteBitmapFont` (`1ec61e7e1`); `RemoteTileMode` and the `RemoteColor` linear
+  gradients (`67250b113`, so `shaders/RemoteLinearGradientAndroid.kt` goes); `RemoteRenderEffect`
+  and `RemoteBlurEffect`, `RemoteGraphicsLayerScope` (`379e83181` and the renames);
+  `RemoteStateScope.layoutDirection` and `RemoteShape.createOutline` take `RemoteLayoutDirection`
+  and `remoteLayoutDirection` goes (`a8c279329`; the fork's `RemoteComposeCreationState` and
+  `RemoteComposeCreationContext` with them, while `captureCommonRemoteDocument` and
+  `RemoteDocumentSession` still take Compose's `LayoutDirection` for `LocalLayoutDirection`).
+- API clean-ups: `RemoteAction.None` (`c62eca783`); `valueChange` → `valueChangeAction`,
+  `RemoteColor` `tween` → `lerp`, `RemoteEasing.cubic`/`spline` (`9e7f13cac`); `RemoteDp(RemoteFloat)`
+  / `RemoteDp(Float)` constructors and `RemoteInt`'s `Int` operators public with `other`
+  parameters (`91c532558`); `@RemoteComposable` slots and `@Immutable`/`@Stable` (`6503344d9`); the
+  no-op `@file:RestrictTo`s removed (`6b3a74cbd`); the primitive
+  `weight(Float)` and `RemoteOffset` overloads removed (`e6f8df93a`), the
+  `allowSendingEmptyFontAxis` flag removed (`afff0e6c2`; with no `Profile`, the port sends the
+  settings as upstream does for a `CORE_TEXT` profile), `RemoteBrush.intrinsicSize` removed
+  (`e0463c044`), helpers made internal (`9b16ab7fa`: `RemoteCanvas.remote`,
+  `RemoteVectorPainter.draw`, `RemoteImageVector.hasClipPath`, `AnimationType`, `isTimeVar`,
+  `RemoteFloatReference`), `remotePath` restricted, alpha/rotate/scale on `RemoteRectangleShape`
+  (`07a74b336`), `round` rounding half up (`floor(a + 0.5f)`, `0919df98a`), null-propagating
+  `computeRequiredCodePointSet` for string arrays and enums, the `RemoteStateLayout` content
+  lambdas `@RemoteComposable`, value classes' `value` internal (`d2196a0b5`), the foundation API
+  review (`ddb240a6f`, `ce56a93b7`, `28e5acdba`, `effec30dd`, `3a9e0563a`), and the KDoc passes
+  (`bef581aa9`, `55635633d`, `b91a6ef8c`, `978bc747f`, `960c9542e`).
+- `6c2271e14`: `RemoteCanvas.clipPath` is recorded as a clip (`DocumentOp.Clip`), not a draw.
+- `remoteComponent()`-reading callers outside the fork move with it: `:rc-widget-creation`'s size
+  breakpoints read the component inside the box they gate (an `expect`/`actual` keeps the
+  `RemoteFloatContext` form for AndroidX alpha23 on Android), and `:rc-player-edit`'s
+  `toRemoteComposeKotlin` writes `RemoteRole`, `RemoteTextDecoration`, `RemoteFontVariation` and
+  `weight(RemoteFloat)`.
+
+Already in the port: `37cc3c75b` (paths are snapshotted at record time, and the writer dedupes path
+data, `7ce0408b0`); `6f22a9fd0` (the fork's Android-named files already carry `@JvmName`s); the
+`withCanvasOperationsScope` cache frames of `09c269541`, whose bug cannot occur here: the writer
+hoists every expression into the document's declarations, so none is paint-only.
+
+Not applicable:
+
+- Upstream's capture loop, headless package and their Android helpers, which the port replaces with
+  `RemoteDocumentSession`: `dc209d471` (the `RemoteComposeCaptureState` split), `3b34e6bfc`,
+  `8525a7cbd`, `bf5a39a44` and `b75d2cb6a` (`CaptureTracer`), `6140a625e`, `f1f954105`, `b51def2d3`.
+- Files the fork does not carry: `RemoteTextMeasure`/`RemoteTextLayoutResult` (`6ee4d9bed`,
+  `981d83c75`, `d6687b729`), `PendingIntentActionHandler` (`3be30799c`), the one-handed gesture
+  classes (`8e6915cc9`, `d1143f5ea`; skipped before), `Hoist`, test resources (`aa07fa7d5`), the
+  remote-testing players (`99f2345f4`) and tests.
+- `remote-core` player changes (`412c1b7bb`, the 3D and embedded-document operation constants of
+  `3cc6af924`) and
+  `RemoteComposeWriter.addPathData(…, winding)`, which no longer dedupes because upstream's
+  `CanvasOperationBuffer` now does; the port's writer still dedupes.
+- `67860cefe`/`78428d941` and `9ec73dc4f`/`ae6ff2faf`: each reverted in the range.
+
+Deliberately skipped:
+
+- The file reorganisation that serves upstream's module split (`91c532558`, `0919df98a`,
+  `1b1ba0521`'s `Runtime*` and formatting extractions, `FastListUtils`): the fork keeps one module
+  and its file names. Their API changes are taken above.
+- Visibility widened only for `remote-creation-expression` (restricted-public `arrayProvider`,
+  `arrayForCreationState`, `createForId`/`createMutableForId`, state constructors taking cache
+  keys, `combineToLongArray`, `RemoteEasing`'s constructor, `RemoteMatrix3x3.isIdentity`,
+  `nanIdContentEquals`, `RemoteState<*>.cacheKey`): they stay internal, as the port's cache keys are (`a07eab443`, skipped
+  before).
+- `RemoteDocumentScope` and the `RemoteStateScope.resolveComponentToken()` member (`f1f51073e`
+  made the resolution a public member so the expression module can reach it): the fork resolves
+  tokens with `ab1b76a2f`'s internal walk of the scope chain.
+- The requested-property mask on `RemoteComponentToken` and the eager `ComponentValue` writes at
+  the start of a component: they exist to place values inside the component body, which the port's
+  explicit ids make unnecessary.
+- `toRecordingModifierElement()`/`RecordingModifier` and `document.*` writes: a mechanism change;
+  the port keeps `toRemoteModifierOperation()` and the common `RemoteWriter`.
+
 ## alpha22 write side: component offscreen buffers and visibility functions
 
 Not a refresh: `b34eed8a88b` ("Add custom visibility animation support", in the alpha22 cut
@@ -296,7 +433,7 @@ to offer upstream, and the list is meant to shrink.
 | --- | --- | --- |
 | `capture/CaptureRemoteDocument.common.kt` | `captureCommonRemoteDocumentInto(writer, …)`; the byte path calls it | Capture into any `RemoteWriter` |
 | `capture/RemoteDocumentSession.kt` (new) | A composition kept alive under a host `CompositionContext`, re-rendered into a fresh writer on demand; reports when a state its last render read changes (`onRenderInputsChanged`) | The live, in-process path. It mirrors upstream's Android `captureRemoteDocument` loop, including its `RenderInvalidationTracker`. |
-| `capture/CommonCreationState.kt` | `writer` settable (internal); `resetComponentIds()` | A session renders each frame into a fresh writer. Without the reset, every render renumbers every component (upstream has the same drift). |
+| `capture/CommonCreationState.kt` | `writer` settable (internal); `resetComponentIds()`, which also forgets the component tokens' ids | A session renders each frame into a fresh writer. Without the reset, every render renumbers every component (upstream has the same drift). |
 | `layout/RemoteComposeApplier.kt` | `onChangesApplied` | Tells a session when to re-render |
 | `modifier/ComponentIdModifier.kt` (new), `layout/RemoteComposeNode.kt`, `capture/CommonCreationState.kt`, `modifier/RemoteModifier.kt` | `RemoteModifier.componentId(id)`: a node takes a requested component id (at most `MaxExplicitComponentId`, -2,000,000, below both ranges a document allocates) instead of a positional one, once per render | Lets a host name components: an editor maps the player's geometry back to its own nodes (`RcComponentIds` in `:rc-creation-bridge`) |
 | `capture/DisplayInfo.kt` | `RemoteDensityBehavior.wireValue` | Lets a writer outside the module describe the same display |
@@ -305,6 +442,7 @@ to offer upstream, and the list is meant to shrink.
 | `modifier/DrawWithContentModifier.kt`, `layout/RemoteDrawScope.kt`, `layout/RemoteContentDrawScope.kt` | A `drawWithContent` after padding draws inside it: translated past the padding before it, its scope's `width`/`height` reduced by it, its content drawn back at the component's origin | **Port bug.** AndroidX writes it this way, and the player does not inset a draw modifier itself, so the fork drew a padded component's decoration over its padding |
 | `shaders/RemoteRuntimeShader.kt` (new), `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`addShader`) | `RemoteBrush.runtimeShader(source, floatUniforms, intUniforms, sizeUniform)`: AGSL written as `TextData` + `ShaderData` (`DATA_SHADER`) and set as the paint's shader; float uniforms are any `RemoteFloat` (resolved by the player every frame), and the painted size is passed as a `float2`. A document with a shader declares `PROFILE_ANDROIDX`, as one that draws to a bitmap does | The core format and both players run runtime shaders; the port had no way to write one. remote-core reads `ShaderData` only under the AndroidX profile. `ShaderDataWriteTest`, `RuntimeShaderBrushTest` (with AndroidX read-back) and `RcRuntimeShaderPlaybackTest` cover it. |
 | `layout/RemoteMesh2D.kt` (new), `capture/Mesh2DWriterOp.kt` (new), `state/MeshExpressionLowering.kt` (new), `state/FloatState.kt` (`combineToFloatArray`), `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`addMesh2D`, `addMesh2DValues`, `drawMesh2D`, `matrixFromMesh2D`) + `ProtocolPrimitives.kt` (`Mesh2D`) | `RemoteCanvas.drawMesh2D` / `RemoteDrawScope.drawMesh2D(uCount, vCount, layout, image, paint, antialiasWidth) { ... }`: a parametric 2D mesh written as `AddMesh2D` (`TYPE_EXPRESSION`) plus `DrawMesh2D`, each channel (`x`, `y`, `texU`, `texV`, `alpha`, `red`, `green`, `blue`) the raw RPN of a `RemoteFloat` over `u`/`v` (`VAR1`/`VAR2`). Channels are lowered under `state/MeshExpressionLowering.kt`'s context, which `combineToFloatArray` (`state/FloatState.kt`) defers to. Every operand that reads `u`/`v` stays inline. Every other operand becomes a reference to an ordinary float. The channels are not registered as roots either. So a `u`/`v` expression is never hoisted into a document float, which the player would evaluate without `u`/`v`. A document with a mesh declares `PROFILE_EXPERIMENTAL`, plus `PROFILE_ANDROIDX` unless it names AndroidX or widgets | The core format (alpha23, experimental) and rc-players' players draw meshes; the port had no way to write one. remote-core reads the mesh operations only in its experimental V7 maps. `Mesh2DWriteTest`, `Mesh2DAuthoringTest` (with AndroidX read-back) and `RcMesh2DPlaybackTest` cover it. |
+| `layout/RemoteText.kt` (`textAlign`) | An alignment neither the argument nor the style specifies is written as `Start` | **Upstream bug.** Since `99f14adf8` upstream passes `RemoteTextAlign.Unspecified` (`Int.MIN_VALUE`) through to `startTextComponent`: AndroidX's `CoreText` reads its low bits as start and its high bits as flags, and rc-players' player rejects it. |
 | `layout/RemoteText.kt` (`dpDocumentFontSizeDp`) | In a `RemoteDensityBehavior.Dp` document a constant font size is written in dp, not the capture's pixels | **Upstream bug.** remote-core alpha22's `CoreText`/`TextLayout` multiply a literal font size by the host density in a DP document, as they do padding, so the pixels upstream writes drew text at density squared in the View player and the CMP player alike. A non-constant size stays the pixel expression, which the core reads unscaled. `DpDocumentFontSizeTest` covers it. |
 
 ## Upstream follow-ups
@@ -323,6 +461,11 @@ behaviour until a fix lands there and a refresh takes it.
   literal when the density is constant, while `CoreText.updateVariables` scales a literal font size
   by the host density in a DP document. The fork writes dp there (local patch above); upstream
   should do the same, or the core should stop scaling. Upstream: `layout/RemoteText.kt`.
+
+- **Unspecified text alignment.** `RemoteText` writes `RemoteTextAlign.Unspecified`
+  (`Int.MIN_VALUE`) when neither its argument nor its style sets an alignment (`99f14adf8`), where
+  it wrote `Start` before. The fork writes `Start` (local patch above). Upstream:
+  `layout/RemoteText.kt`.
 
 ## Refreshing
 

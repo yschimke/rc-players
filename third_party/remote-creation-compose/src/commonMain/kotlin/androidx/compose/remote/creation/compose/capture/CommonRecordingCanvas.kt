@@ -17,6 +17,7 @@
 package androidx.compose.remote.creation.compose.capture
 
 import androidx.compose.remote.creation.compose.layout.RemoteCustomPropertiesScope
+import androidx.compose.remote.creation.compose.layout.RemoteLayoutDirection
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemotePaint
@@ -24,7 +25,6 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.StandardRemotePaint
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.ui.graphics.Matrix
-import androidx.compose.ui.unit.LayoutDirection
 
 /** JVM recorder for the platform-neutral RemoteCanvas write path. */
 internal class CommonRecordingCanvas(override val enableOptimizations: Boolean = false) :
@@ -37,7 +37,7 @@ internal class CommonRecordingCanvas(override val enableOptimizations: Boolean =
     override val remoteDensity: RemoteDensity
         get() = creationState.remoteDensity
 
-    override val layoutDirection: LayoutDirection
+    override val layoutDirection: RemoteLayoutDirection
         get() = creationState.layoutDirection
 
     override val creationDisplayInfo: RemoteCreationDisplayInfo

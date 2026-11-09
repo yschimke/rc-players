@@ -119,11 +119,11 @@ internal fun PaddingModifier.resolveBottom(scope: RemoteStateScope): RemoteFloat
     }
 
 internal fun PaddingModifier.resolveLeft(scope: RemoteStateScope): RemoteFloat =
-    if (scope.remoteLayoutDirection == RemoteLayoutDirection.Ltr) resolveStart(scope)
+    if (scope.layoutDirection == RemoteLayoutDirection.Ltr) resolveStart(scope)
     else resolveEnd(scope)
 
 internal fun PaddingModifier.resolveRight(scope: RemoteStateScope): RemoteFloat =
-    if (scope.remoteLayoutDirection == RemoteLayoutDirection.Ltr) resolveEnd(scope)
+    if (scope.layoutDirection == RemoteLayoutDirection.Ltr) resolveEnd(scope)
     else resolveStart(scope)
 
 /**
@@ -133,6 +133,7 @@ internal fun PaddingModifier.resolveRight(scope: RemoteStateScope): RemoteFloat 
  * @param top Padding at the top edge.
  * @param end Padding at the end edge.
  * @param bottom Padding at the bottom edge.
+ * @return a [RemoteModifier] that applies padding to each edge
  */
 public fun RemoteModifier.padding(
     start: RemoteFloat = 0f.rf,
@@ -145,6 +146,7 @@ public fun RemoteModifier.padding(
  * Adds [all] padding to each edge of the content.
  *
  * @param all Padding in pixels applied to all four edges.
+ * @return a [RemoteModifier] that applies [all] padding to all edges
  */
 public fun RemoteModifier.padding(all: RemoteFloat): RemoteModifier = padding(all, all, all, all)
 
@@ -154,6 +156,7 @@ public fun RemoteModifier.padding(all: RemoteFloat): RemoteModifier = padding(al
  *
  * @param horizontal Padding in pixels applied to the start and end edges.
  * @param vertical Padding in pixels applied to the top and bottom edges.
+ * @return a [RemoteModifier] that applies [horizontal] and [vertical] padding
  */
 public fun RemoteModifier.padding(
     horizontal: RemoteFloat = 0f.rf,
@@ -164,6 +167,7 @@ public fun RemoteModifier.padding(
  * Adds padding defined by the [paddingValues] object.
  *
  * @param paddingValues The [RemotePaddingValues] describing the padding for each edge.
+ * @return a [RemoteModifier] that applies [paddingValues]
  */
 public fun RemoteModifier.padding(paddingValues: RemotePaddingValues): RemoteModifier =
     padding(
@@ -177,6 +181,7 @@ public fun RemoteModifier.padding(paddingValues: RemotePaddingValues): RemoteMod
  * Adds [all] padding to each edge of the content.
  *
  * @param all Padding in [RemoteDp] applied to all four edges.
+ * @return a [RemoteModifier] that applies [all] padding to all edges
  */
 public fun RemoteModifier.padding(all: RemoteDp): RemoteModifier =
     padding(start = all, top = all, end = all, bottom = all)
@@ -188,6 +193,7 @@ public fun RemoteModifier.padding(all: RemoteDp): RemoteModifier =
  * @param top Padding at the top edge.
  * @param end Padding at the end edge.
  * @param bottom Padding at the bottom edge.
+ * @return a [RemoteModifier] that applies padding to each edge
  */
 public fun RemoteModifier.padding(
     start: RemoteDp = 0.rdp,
@@ -204,6 +210,7 @@ public fun RemoteModifier.padding(
  *
  * @param horizontal Padding in [RemoteDp] applied to the start and end edges.
  * @param vertical Padding in [RemoteDp] applied to the top and bottom edges.
+ * @return a [RemoteModifier] that applies [horizontal] and [vertical] padding
  */
 public fun RemoteModifier.padding(
     horizontal: RemoteDp = 0.rdp,

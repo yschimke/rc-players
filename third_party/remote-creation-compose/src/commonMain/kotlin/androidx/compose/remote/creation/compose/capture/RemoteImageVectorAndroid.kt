@@ -20,6 +20,7 @@
 package androidx.compose.remote.creation.compose.capture
 
 import androidx.annotation.RestrictTo
+import androidx.compose.remote.creation.compose.layout.toRemoteBlendMode
 import androidx.compose.remote.creation.compose.layout.toRemotePathFillType
 import androidx.compose.remote.creation.compose.layout.toRemoteStrokeCap
 import androidx.compose.remote.creation.compose.layout.toRemoteStrokeJoin
@@ -61,6 +62,7 @@ import androidx.compose.ui.unit.isSpecified
  * @param pathFillType specifies the winding rule that decides how the interior of a [RemotePath] is
  *   calculated.
  * @param pathBuilder [RemotePathScope] lambda for adding [RemotePathNode]s to this path.
+ * @return this [RemoteImageVector.Builder] instance for chaining calls
  */
 public fun RemoteImageVector.Builder.path(
     name: String = DefaultPathName,
@@ -104,6 +106,7 @@ public fun RemoteImageVector.Builder.path(
  * @param pathFillType specifies the winding rule that decides how the interior of a [RemotePath] is
  *   calculated.
  * @param pathBuilder [RemotePathScope] lambda for adding [RemotePathNode]s to this path.
+ * @return this [RemoteImageVector.Builder] instance for chaining calls
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteImageVector.Builder.path(
@@ -148,7 +151,7 @@ public fun ImageVector.toRemoteImageVector(): RemoteImageVector {
             viewportHeight = vHeight,
             tintColor = RemoteColor(tintColor),
             name = name,
-            tintBlendMode = tintBlendMode,
+            tintBlendMode = tintBlendMode.toRemoteBlendMode(),
             autoMirror = autoMirror,
         )
 

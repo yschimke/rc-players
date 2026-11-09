@@ -20,8 +20,8 @@ import androidx.annotation.RestrictTo
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.remote.creation.common.RemoteLayerAttribute
 import androidx.compose.remote.creation.common.RemoteModifierOperation
-import androidx.compose.remote.creation.compose.layout.RemoteFloatContext
 import androidx.compose.remote.creation.compose.layout.RemoteSize
+import androidx.compose.remote.creation.compose.layout.remoteComponent
 import androidx.compose.remote.creation.compose.shapes.RemoteCircleShape
 import androidx.compose.remote.creation.compose.shapes.RemoteRectangleShape
 import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
@@ -54,7 +54,7 @@ internal class GraphicsLayerModifier(
     val compositingStrategy: RemoteCompositingStrategy = RemoteCompositingStrategy.Auto,
     val alpha: RemoteFloat,
     val cameraDistance: RemoteFloat,
-    val renderEffect: RenderEffect?,
+    val renderEffect: RemoteRenderEffect?,
 ) : RemoteModifier.Element {
 
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
@@ -80,7 +80,7 @@ internal class GraphicsLayerModifier(
         float(Layer.ALPHA, alpha, 1f)
         float(Layer.CAMERA_DISTANCE, cameraDistance, 8f)
         int(Layer.COMPOSITING_STRATEGY, compositingStrategy.value, 0)
-        if (renderEffect is BlurEffect) {
+        if (renderEffect is RemoteBlurEffect) {
             attributes +=
                 RemoteLayerAttribute.FloatValue(
                     Layer.BLUR_RADIUS_X,
@@ -119,8 +119,8 @@ internal class GraphicsLayerModifier(
                         Layer.SHAPE_RECT,
                     )
             is RemoteRoundedCornerShape -> {
-                val context = RemoteFloatContext(this)
-                val remoteSize = RemoteSize(context.componentWidth(), context.componentHeight())
+                val component = remoteComponent()
+                val remoteSize = RemoteSize(component.width, component.height)
                 attributes +=
                     RemoteLayerAttribute.IntValue(
                         Layer.SHAPE,
@@ -141,10 +141,8 @@ internal class GraphicsLayerModifier(
 }
 
 /**
- * Applies a graphics layer modifier to the [RemoteModifier].
- *
- * A graphics layer modifier can be used to apply effects such as scaling, rotation, translation,
- * shadow, clipping, alpha, and render effects (like blur) to the drawing content.
+ * Applies visual effects such as scaling, rotation, translation, shadow, alpha, or clipping to
+ * content.
  *
  * This overload accepts [RemoteFloat] values, which allow binding properties to dynamic expressions
  * or state.
@@ -153,22 +151,25 @@ internal class GraphicsLayerModifier(
  * [RemoteRoundedCornerShape] is provided, [RemoteRoundedCornerShape.topStart] is used for all
  * corners.
  *
- * @param scaleX The horizontal scale factor.
- * @param scaleY The vertical scale factor.
- * @param rotationX The rotation of the layer around the X axis, in degrees.
- * @param rotationY The rotation of the layer around the Y axis, in degrees.
- * @param rotationZ The rotation of the layer around the Z axis, in degrees.
- * @param shadowElevation The shadow elevation of the layer.
- * @param transformOriginX The horizontal center of the transform, as a fraction of the layer width.
- * @param transformOriginY The vertical center of the transform, as a fraction of the layer height.
- * @param translationX The horizontal translation of the layer.
- * @param translationY The vertical translation of the layer.
- * @param alpha The alpha (opacity) of the layer.
- * @param shape The shape of the layer.
- * @param compositingStrategy The compositing strategy to use for the layer.
- * @param cameraDistance The camera distance for 3D transforms.
- * @param renderEffect The [RenderEffect] to apply, or null.
+ * @param scaleX horizontal scale factor
+ * @param scaleY vertical scale factor
+ * @param rotationX rotation of the layer around the X axis in degrees
+ * @param rotationY rotation of the layer around the Y axis in degrees
+ * @param rotationZ rotation of the layer around the Z axis in degrees
+ * @param shadowElevation shadow elevation of the layer
+ * @param transformOriginX horizontal center of the transform, as a fraction of the layer width
+ * @param transformOriginY vertical center of the transform, as a fraction of the layer height
+ * @param translationX horizontal translation of the layer
+ * @param translationY vertical translation of the layer
+ * @param alpha alpha (opacity) of the layer
+ * @param shape [RemoteShape] of the layer
+ * @param compositingStrategy [RemoteCompositingStrategy] to use for the layer
+ * @param cameraDistance camera distance for 3D transforms
+ * @param renderEffect [RemoteRenderEffect] to apply, or null
+ * @return a [RemoteModifier] that applies the graphics layer effects
  */
+// TODO: Remove @RestrictTo and restore default shape = RemoteRectangleShape once
+// GraphicsLayerModifier.android.kt is removed.
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteModifier.graphicsLayer(
     scaleX: RemoteFloat = 1f.rf,
@@ -185,7 +186,7 @@ public fun RemoteModifier.graphicsLayer(
     shape: RemoteShape,
     compositingStrategy: RemoteCompositingStrategy = RemoteCompositingStrategy.Auto,
     cameraDistance: RemoteFloat = 8f.rf, // Default Value for Camera Distance
-    renderEffect: RenderEffect? = null,
+    renderEffect: RemoteRenderEffect? = null,
 ): RemoteModifier =
     then(
         GraphicsLayerModifier(
@@ -230,7 +231,8 @@ public fun RemoteModifier.graphicsLayer(
  * @param shape The shape of the layer.
  * @param compositingStrategy The compositing strategy to use for the layer.
  * @param cameraDistance The camera distance for 3D transforms.
- * @param renderEffect The [RenderEffect] to apply, or null.
+ * @param renderEffect The [RemoteRenderEffect] to apply, or null.
+ * @return a [RemoteModifier] that applies the graphics layer effects
  */
 public fun RemoteModifier.graphicsLayer(
     scaleX: RemoteFloat = 1f.rf,
@@ -247,7 +249,7 @@ public fun RemoteModifier.graphicsLayer(
     shape: Shape = RectangleShape,
     compositingStrategy: CompositingStrategy = Auto,
     cameraDistance: RemoteFloat = 8f.rf, // Default Value for Camera Distance
-    renderEffect: RenderEffect? = null,
+    renderEffect: RemoteRenderEffect? = null,
 ): RemoteModifier =
     graphicsLayer(
         scaleX = scaleX,
@@ -268,7 +270,7 @@ public fun RemoteModifier.graphicsLayer(
     )
 
 /** Scope for configuring graphics layer properties in a type-safe builder lambda. */
-public interface GraphicsLayerScope {
+public interface RemoteGraphicsLayerScope {
     /** The horizontal scale factor. */
     public var scaleX: RemoteFloat
 
@@ -311,11 +313,11 @@ public interface GraphicsLayerScope {
     /** The compositing strategy to use for the layer. */
     public var compositingStrategy: CompositingStrategy
 
-    /** The [RenderEffect] to apply to this layer, or null. */
-    public var renderEffect: RenderEffect?
+    /** The [RemoteRenderEffect] to apply to this layer, or null. */
+    public var renderEffect: RemoteRenderEffect?
 }
 
-internal class GraphicsLayerScopeImpl : GraphicsLayerScope {
+internal class GraphicsLayerScopeImpl : RemoteGraphicsLayerScope {
     override var scaleX: RemoteFloat = 1f.rf
     override var scaleY: RemoteFloat = 1f.rf
     override var rotationX: RemoteFloat = 0f.rf
@@ -330,14 +332,14 @@ internal class GraphicsLayerScopeImpl : GraphicsLayerScope {
     override var cameraDistance: RemoteFloat = 8f.rf
     override var shape: Shape = RectangleShape
     override var compositingStrategy: CompositingStrategy = Auto
-    override var renderEffect: RenderEffect? = null
+    override var renderEffect: RemoteRenderEffect? = null
 }
 
 /**
  * Applies a graphics layer modifier to the [RemoteModifier] using a type-safe builder lambda.
  *
- * This overload allows configuring layer properties within a [GraphicsLayerScope] block, which is
- * similar to standard Compose's `graphicsLayer { ... }`.
+ * This overload allows configuring layer properties within a [RemoteGraphicsLayerScope] block,
+ * which is similar to standard Compose's `graphicsLayer { ... }`.
  *
  * Example usage:
  * ```
@@ -347,9 +349,12 @@ internal class GraphicsLayerScopeImpl : GraphicsLayerScope {
  * }
  * ```
  *
- * @param block The lambda block to configure the [GraphicsLayerScope].
+ * @param block The lambda block to configure the [RemoteGraphicsLayerScope].
+ * @return a [RemoteModifier] that applies the graphics layer configured by [block]
  */
-public fun RemoteModifier.graphicsLayer(block: GraphicsLayerScope.() -> Unit): RemoteModifier {
+public fun RemoteModifier.graphicsLayer(
+    block: RemoteGraphicsLayerScope.() -> Unit,
+): RemoteModifier {
     val scope = GraphicsLayerScopeImpl().apply(block)
     return then(
         GraphicsLayerModifier(

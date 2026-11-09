@@ -237,7 +237,11 @@ public fun ln(a: RemoteFloat): RemoteFloat = a.unaryOp(RemoteFloat.OperationKey.
  * @param a The [RemoteFloat] to be rounded.
  */
 public fun round(a: RemoteFloat): RemoteFloat =
-    a.unaryOp(RemoteFloat.OperationKey.Round) { a -> kotlin.math.round(a) }
+    // Uses floor(a + 0.5f) to match AnimatedFloatExpression OP_ROUND (Java Math.round /
+    // round-half-up)
+    // rather than kotlin.math.round (round-half-to-even), keeping constant folding in sync with
+    // wire evaluation while remaining platform-agnostic for KMP.
+    a.unaryOp(RemoteFloat.OperationKey.Round) { a -> floor(a + 0.5f) }
 
 /**
  * Computes the sine of the given [RemoteFloat].

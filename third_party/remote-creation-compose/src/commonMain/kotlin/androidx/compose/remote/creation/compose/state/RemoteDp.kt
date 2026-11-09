@@ -21,7 +21,6 @@ import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationCon
 import androidx.compose.remote.creation.compose.capture.RemoteDensity
 import androidx.compose.remote.creation.compose.state.RemoteDp.Companion.createNamedRemoteDp
 import androidx.compose.remote.creation.compose.state.RemoteFloat.Companion.createNamedRemoteFloat
-import androidx.compose.remote.creation.compose.state.RemoteFloat.Companion.createNamedRemoteFloatExpression
 import androidx.compose.runtime.Stable
 
 /**
@@ -32,9 +31,21 @@ import androidx.compose.runtime.Stable
  */
 @Stable
 public class RemoteDp
-internal constructor(
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val value: RemoteFloat,
-) : BaseRemoteState<Float>(RemoteStateInstanceKey()) {
+/**
+ * Creates a [RemoteDp] from a [RemoteFloat] [value].
+ *
+ * @param value scalar Dp value as a [RemoteFloat]
+ */
+public constructor(@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val value: RemoteFloat) :
+    BaseRemoteState<Float>(RemoteStateInstanceKey()) {
+
+    /**
+     * Creates a [RemoteDp] with the given literal [Float] [value].
+     *
+     * @param value The literal float value.
+     */
+    public constructor(value: Float) : this(value.rf)
+
     internal override val cacheKey: RemoteStateCacheKey
         get() = RemoteOperationCacheKey.create(OperationKey.ToPx, value)
 
@@ -232,22 +243,6 @@ internal constructor(
 
     public companion object {
         /**
-         * Creates a [RemoteDp] from a [RemoteFloat].
-         *
-         * @param value The [RemoteFloat] value.
-         * @return A [RemoteDp] representing the Dp.
-         */
-        public operator fun invoke(value: RemoteFloat): RemoteDp = RemoteDp(value)
-
-        /**
-         * Creates a [RemoteDp] from a literal [Float] value.
-         *
-         * @param value The [Float] value.
-         * @return A [RemoteDp] representing the constant Dp.
-         */
-        public operator fun invoke(value: Float): RemoteDp = RemoteDp(value.rf)
-
-        /**
          * Creates a [RemoteDp] referencing a remote ID.
          *
          * @param id The remote ID (stored as a [RemoteFloat]).
@@ -294,7 +289,13 @@ internal constructor(
             value: () -> RemoteDp,
         ): RemoteDp {
             val remoteDp = value()
-            return RemoteDp(createNamedRemoteFloatExpression(name, domain) { remoteDp.value })
+            return RemoteDp(
+                createNamedRemoteFloat(
+                    name = name,
+                    defaultValue = remoteDp.value,
+                    domain = domain,
+                ),
+            )
         }
     }
 }

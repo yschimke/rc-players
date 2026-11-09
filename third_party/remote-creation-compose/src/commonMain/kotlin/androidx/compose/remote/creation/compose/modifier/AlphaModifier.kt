@@ -16,13 +16,18 @@
 
 package androidx.compose.remote.creation.compose.modifier
 
+import androidx.compose.remote.creation.compose.shapes.RemoteRectangleShape
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 
 /**
  * Draw content with modified alpha that may be less than 1.
  *
+ * Example of rendering a box with semi-transparent alpha:
+ *
  * @sample androidx.compose.remote.creation.compose.samples.AlphaSample
  * @param alpha the fraction of children's alpha value and must be between `0` and `1`, inclusive.
+ * @return a [RemoteModifier] that draws content with the modified [alpha]
  * @see graphicsLayer
  */
-public fun RemoteModifier.alpha(alpha: RemoteFloat): RemoteModifier = graphicsLayer(alpha = alpha)
+public fun RemoteModifier.alpha(alpha: RemoteFloat): RemoteModifier =
+    graphicsLayer(alpha = alpha, shape = RemoteRectangleShape)

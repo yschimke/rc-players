@@ -19,11 +19,11 @@
 
 package androidx.compose.remote.creation.compose.vector
 
-import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.compose.capture.DefaultIconSize
 import androidx.compose.remote.creation.compose.capture.RemoteImageVector
 import androidx.compose.remote.creation.compose.capture.RemoteVectorGroup
 import androidx.compose.remote.creation.compose.capture.RemoteVectorPath
+import androidx.compose.remote.creation.compose.capture.TransparentArgb
 import androidx.compose.remote.creation.compose.layout.RemoteCanvas
 import androidx.compose.remote.creation.compose.layout.RemoteDrawScope
 import androidx.compose.remote.creation.compose.layout.RemoteLayoutDirection
@@ -34,14 +34,10 @@ import androidx.compose.remote.creation.compose.state.RemoteBlendMode
 import androidx.compose.remote.creation.compose.state.RemoteBlendModeColorFilter
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteColorFilter
-import androidx.compose.remote.creation.compose.state.asConstantColorOrNull
 import androidx.compose.remote.creation.compose.state.rf
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.isSpecified
 
 /** A [RemotePainter] that draws a [RemoteImageVector] into the provided [RemoteCanvas]. */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public class RemoteVectorPainter : RemotePainter() {
+internal class RemoteVectorPainter : RemotePainter() {
 
     internal var root: RemoteGroupComponent
         get() = RemoteGroupComponent()
@@ -76,7 +72,7 @@ public class RemoteVectorPainter : RemotePainter() {
 
     override fun RemoteDrawScope.onDraw() {
         with(vector) {
-            val shouldMirror = autoMirror && remoteLayoutDirection == RemoteLayoutDirection.Rtl
+            val shouldMirror = autoMirror && layoutDirection == RemoteLayoutDirection.Rtl
             if (shouldMirror) {
                 withTransform(
                     {
@@ -97,10 +93,11 @@ public class RemoteVectorPainter : RemotePainter() {
 }
 
 /**
- * Creates a [RemoteVectorPainter] from a [RemoteImageVector].
+ * Creates a [RemotePainter] from a [RemoteImageVector].
  *
  * @param vector The [RemoteImageVector] to create the painter for.
  * @param tintColor the tint color to apply to the image.
+ * @return a [RemotePainter] that draws [vector] with [tintColor]
  */
 public fun painterRemoteVector(
     vector: RemoteImageVector,
@@ -129,18 +126,12 @@ internal fun RemoteVectorPainter.configureRemoteVectorPainter(
 internal fun createColorFilter(
     tintColor: RemoteColor,
     tintBlendMode: RemoteBlendMode,
-): RemoteColorFilter? {
-    val constantColor = tintColor.asConstantColorOrNull()
-    return if (constantColor != null) {
-        if (constantColor.isSpecified && constantColor != Color.Transparent) {
-            RemoteBlendModeColorFilter(tintColor, tintBlendMode)
-        } else {
-            null
-        }
+): RemoteColorFilter? =
+    if (tintColor.constantValueOrNull == TransparentArgb) {
+        null
     } else {
         RemoteBlendModeColorFilter(tintColor, tintBlendMode)
     }
-}
 
 /** Helper method to create a VectorPainter instance from a RemoteImageVector */
 internal fun createVectorPainterFromRemoteImageVector(
@@ -211,8 +202,7 @@ internal fun RemoteGroupComponent.createGroupComponent(
  *
  * @param canvas The [RemoteCanvas] to draw onto.
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public fun RemoteVectorPainter.draw(canvas: RemoteCanvas) {
+internal fun RemoteVectorPainter.draw(canvas: RemoteCanvas) {
     with(canvas.drawScope) { onDraw() }
 }
 
@@ -222,8 +212,7 @@ public fun RemoteVectorPainter.draw(canvas: RemoteCanvas) {
  * @param canvas The [RemoteCanvas] to draw onto.
  * @param tintColor The tint color to apply to the vector.
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public fun RemoteImageVector.draw(
+internal fun RemoteImageVector.draw(
     canvas: RemoteCanvas,
     tintColor: RemoteColor = this.tintColor,
 ) {

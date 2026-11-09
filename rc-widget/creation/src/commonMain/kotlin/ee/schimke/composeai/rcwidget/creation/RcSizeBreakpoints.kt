@@ -86,9 +86,9 @@ public fun RemoteModifier.immediateSwap(): RemoteModifier =
  * dashboard cell.
  *
  * [thresholdsDp] is an ascending list of sizes in dp along [axis]; [content] is captured once per
- * tier, `0..thresholdsDp.size`, and the player picks one from `componentWidth()` /
- * `componentHeight()` compared against each threshold in pixels at playback density. The ladder is
- * a chain of `RemoteStateLayout(RemoteBoolean)`s, the overload every player evaluates.
+ * tier, `0..thresholdsDp.size`, and the player picks one from the component's width or height
+ * compared against each threshold in pixels at playback density. The ladder is a chain of
+ * `RemoteStateLayout(RemoteBoolean)`s, the overload every player evaluates.
  *
  * Inside a launcher capture ([LocalRcWidgetCaptureSize]) only the matching tier is captured.
  *
@@ -118,17 +118,17 @@ public fun RcSizeBreakpoint(
     return
   }
 
-  val dimension =
-    RemoteFloat.createNamedRemoteFloatExpression(
-      name = rememberRcExpressionName(BREAKPOINT_PREFIX),
-      domain = RemoteState.Domain.User,
-    ) {
-      when (axis) {
-        RcBreakpointAxis.Width -> componentWidth()
-        RcBreakpointAxis.Height -> componentHeight()
+  val name = rememberRcExpressionName(BREAKPOINT_PREFIX)
+  RemoteBox(modifier = modifier) {
+    val dimension =
+      rememberNamedComponentFloat(name, RemoteState.Domain.User) {
+        when (axis) {
+          RcBreakpointAxis.Width -> width
+          RcBreakpointAxis.Height -> height
+        }
       }
-    }
-  RemoteBox(modifier = modifier) { BreakpointTier(dimension, thresholdsDp, 0, content) }
+    BreakpointTier(dimension, thresholdsDp, 0, content)
+  }
 }
 
 @Composable
@@ -176,16 +176,32 @@ public fun RcMinSizeGate(
     return
   }
   val ratio = minWidthDp.toFloat() / minHeightDp.toFloat()
-  val gate =
-    RemoteFloat.createNamedRemoteFloatExpression(
-      rememberRcExpressionName(MIN_SIZE_PREFIX),
-      RemoteState.Domain.User,
-    ) {
-      componentWidth().min(componentHeight() * ratio.rf)
-    }
-  val roomy = gate.isGreaterThanOrEqualTo(minWidthDp.rdp.toPx())
-  RemoteBox(modifier = modifier) { RemoteStateLayout(roomy) { isRoomy -> content(isRoomy) } }
+  val name = rememberRcExpressionName(MIN_SIZE_PREFIX)
+  RemoteBox(modifier = modifier) {
+    val gate =
+      rememberNamedComponentFloat(name, RemoteState.Domain.User) { width.min(height * ratio.rf) }
+    val roomy = gate.isGreaterThanOrEqualTo(minWidthDp.rdp.toPx())
+    RemoteStateLayout(roomy) { isRoomy -> content(isRoomy) }
+  }
 }
 
 private const val BREAKPOINT_PREFIX = "__rc_breakpoint_"
 private const val MIN_SIZE_PREFIX = "__rc_min_size_gate_"
+
+/** The width and height of the layout component a size expression is read in, in pixels. */
+internal class RcComponentSize(val width: RemoteFloat, val height: RemoteFloat)
+
+/**
+ * A float named [name] in [domain], initialised to [value] of the enclosing layout component's
+ * size. Call it inside the content of the component it measures.
+ *
+ * AndroidX's creation API before androidx-main `ab1b76a2f` reads a component's size through a
+ * `RemoteFloatContext` lambda; the fork reads it through `remoteComponent()`, as AndroidX does
+ * after it. Each target writes the expression its library supports.
+ */
+@Composable
+internal expect fun rememberNamedComponentFloat(
+  name: String,
+  domain: RemoteState.Domain,
+  value: RcComponentSize.() -> RemoteFloat,
+): RemoteFloat

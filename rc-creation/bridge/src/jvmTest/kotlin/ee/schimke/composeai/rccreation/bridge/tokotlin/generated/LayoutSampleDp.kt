@@ -26,6 +26,7 @@ import androidx.compose.remote.creation.compose.modifier.wrapContentHeight
 import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.rdp
+import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
@@ -46,7 +47,7 @@ fun LayoutSampleDp() {
       RemoteBox(modifier = RemoteModifier.size(24.rdp).background(RemoteColor(Color(0xFFFF0000))))
       RemoteBox(
         modifier =
-          RemoteModifier.weight(1f).height(24.rdp).background(RemoteColor(Color(0xFF00FF00))),
+          RemoteModifier.weight(1f.rf).height(24.rdp).background(RemoteColor(Color(0xFF00FF00))),
       )
       RemoteBox(
         modifier =

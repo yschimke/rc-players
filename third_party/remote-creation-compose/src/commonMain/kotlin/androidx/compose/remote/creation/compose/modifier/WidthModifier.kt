@@ -41,6 +41,7 @@ internal class WidthModifier(public val type: RemoteDimensionType, public val va
  * Sets the width of the content using [RemoteDp].
  *
  * @param width The width to apply in [RemoteDp].
+ * @return a [RemoteModifier] that sets the width to [width]
  */
 public fun RemoteModifier.width(width: RemoteDp): RemoteModifier =
     then(WidthModifier(RemoteDimensionType.EXACT_DP, width.value))
@@ -49,6 +50,7 @@ public fun RemoteModifier.width(width: RemoteDp): RemoteModifier =
  * Sets the width of the content using [RemoteFloat].
  *
  * @param width The width to apply in pixels.
+ * @return a [RemoteModifier] that sets the width to [width]
  */
 public fun RemoteModifier.width(width: RemoteFloat): RemoteModifier =
     then(WidthModifier(RemoteDimensionType.EXACT, width))
@@ -57,6 +59,7 @@ public fun RemoteModifier.width(width: RemoteFloat): RemoteModifier =
  * Fills the maximum available width.
  *
  * @param fraction The fraction of the maximum width to use.
+ * @return a [RemoteModifier] that fills [fraction] of the maximum available width
  */
 public fun RemoteModifier.fillMaxWidth(fraction: RemoteFloat = RemoteFloat(1f)): RemoteModifier =
     then(WidthModifier(RemoteDimensionType.FILL, fraction))
@@ -69,6 +72,7 @@ public fun RemoteModifier.fillMaxWidth(fraction: Float): RemoteModifier =
  * Fills the parent's maximum available width.
  *
  * @param fraction The fraction of the parent's maximum width to use.
+ * @return a [RemoteModifier] that fills [fraction] of the parent's maximum width
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteModifier.fillParentMaxWidth(fraction: Float): RemoteModifier =
@@ -78,6 +82,7 @@ public fun RemoteModifier.fillParentMaxWidth(fraction: Float): RemoteModifier =
  * Fills the parent's maximum available width.
  *
  * @param fraction The fraction of the parent's maximum width to use.
+ * @return a [RemoteModifier] that fills [fraction] of the parent's maximum width
  */
 public fun RemoteModifier.fillParentMaxWidth(fraction: RemoteFloat = 1f.rf): RemoteModifier =
     then(WidthModifier(RemoteDimensionType.FILL_PARENT_MAX_WIDTH, fraction))
@@ -90,6 +95,7 @@ public fun RemoteModifier.width(width: Int): RemoteModifier =
  * Sets the width of the content to be its intrinsic size.
  *
  * @param intrinsicSize The intrinsic size to apply.
+ * @return a [RemoteModifier] that sets the width to [intrinsicSize]
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteModifier.width(intrinsicSize: RemoteIntrinsicSize): RemoteModifier =

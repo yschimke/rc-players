@@ -12,6 +12,7 @@ import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.remote.creation.compose.layout.RemoteRow
 import androidx.compose.remote.creation.compose.layout.RemoteText
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
+import androidx.compose.remote.creation.compose.modifier.RemoteRole
 import androidx.compose.remote.creation.compose.modifier.clickable
 import androidx.compose.remote.creation.compose.modifier.clip
 import androidx.compose.remote.creation.compose.modifier.fillMaxSize
@@ -25,16 +26,16 @@ import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
 import androidx.compose.remote.creation.compose.state.asRemoteTextUnit
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rememberNamedRemoteColor
+import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.remote.creation.compose.state.rsp
 import androidx.compose.remote.creation.compose.text.RemoteFontFamily
+import androidx.compose.remote.creation.compose.text.RemoteFontVariation
 import androidx.compose.remote.creation.compose.text.RemoteFontWeight
 import androidx.compose.remote.creation.compose.text.RemoteTextOverflow
 import androidx.compose.remote.creation.compose.text.RemoteTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.unit.sp
 
 @Composable
@@ -49,9 +50,9 @@ fun CorpusButtonFilled() {
           .heightIn(min = 52.rdp)
           .width(172.rdp)
           .clip(RemoteRoundedCornerShape(52.rdp))
-          .clickable(combinedAction())
+          .clickable(combinedAction(), role = RemoteRole.Button)
           .padding(horizontal = 28.rdp, vertical = 12.rdp)
-          .semantics(mergeDescendants = true) { role = Role.Button },
+          .semantics(mergeDescendants = true) { role = RemoteRole.Button },
       horizontalArrangement = RemoteArrangement.Center,
       verticalAlignment = RemoteAlignment.CenterVertically,
     ) {
@@ -70,7 +71,8 @@ fun CorpusButtonFilled() {
             letterSpacing = 0.8f.sp.asRemoteTextUnit(),
             lineHeight = 36f.sp.asRemoteTextUnit(),
           ),
-        fontVariationSettings = FontVariation.Settings(FontVariation.Setting("pnum", 1f)),
+        fontVariationSettings =
+          RemoteFontVariation.Settings(RemoteFontVariation.Setting("pnum", 1f.rf)),
       )
     }
   }

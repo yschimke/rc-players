@@ -36,6 +36,7 @@ public class RemoteCollapsibleRowScope {
      * Sets the horizontal weight of the child.
      *
      * @param weight The weight of the child.
+     * @return a [RemoteModifier] that assigns horizontal [weight] to the child
      */
     public fun RemoteModifier.weight(weight: RemoteFloat): RemoteModifier =
         then(WidthModifier(RemoteDimensionType.WEIGHT, weight))
@@ -44,6 +45,7 @@ public class RemoteCollapsibleRowScope {
      * Sets the horizontal weight of the child.
      *
      * @param weight The weight of the child.
+     * @return a [RemoteModifier] that assigns horizontal [weight] to the child
      */
     public fun RemoteModifier.weight(
         @FloatRange(from = 0.0, fromInclusive = false) weight: Float,
@@ -56,8 +58,12 @@ public class RemoteCollapsibleRowScope {
      * priority items remain visible longer. Items with the same priority are hidden sequentially in
      * reverse layout order (last child with same priority is hidden first).
      *
+     * Example of assigning collapsible priorities to children in a [RemoteCollapsibleRow]:
+     *
+     * @sample androidx.compose.remote.creation.compose.samples.RemoteCollapsibleRowSample
      * @param priority The priority of the child. Can be any float value; higher values are
      *   prioritized to remain visible longer.
+     * @return a [RemoteModifier] that assigns horizontal collapsible [priority] to the child
      */
     public fun RemoteModifier.collapsiblePriority(priority: Float): RemoteModifier =
         then(CollapsiblePriorityModifier(0, RemoteFloat(priority)))
@@ -101,6 +107,8 @@ internal class RemoteCollapsibleRowNode : RemoteLayoutNode() {
  * [RemoteCollapsibleRowScope.collapsiblePriority] to control how they behave when the row is
  * collapsed.
  *
+ * Example of hiding lower-priority children when horizontal space is constrained:
+ *
  * @sample androidx.compose.remote.creation.compose.samples.RemoteCollapsibleRowSample
  * @param modifier The modifier to apply to this layout.
  * @param horizontalArrangement The horizontal arrangement of the children.
@@ -113,7 +121,7 @@ public fun RemoteCollapsibleRow(
     modifier: RemoteModifier = RemoteModifier,
     horizontalArrangement: RemoteArrangement.Horizontal = RemoteArrangement.Start,
     verticalAlignment: RemoteAlignment.Vertical = RemoteAlignment.Top,
-    content: @Composable RemoteCollapsibleRowScope.() -> Unit,
+    content: @RemoteComposable @Composable RemoteCollapsibleRowScope.() -> Unit,
 ) {
     val scope = remember { RemoteCollapsibleRowScope() }
     RemoteLayoutNode(

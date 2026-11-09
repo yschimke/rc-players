@@ -283,7 +283,7 @@ private class Input(val key: Any?, val content: @Composable @RemoteComposable ()
 // fork's PROVENANCE.md, "Upstream follow-ups".
 private fun writerFor(display: RemoteCreationDisplayInfo): RemoteDocumentWriter =
   RemoteDocumentWriter(
-    display.size.width.toInt(),
-    display.size.height.toInt(),
+    display.width,
+    display.height,
     display.densityBehavior.wireValue,
   )

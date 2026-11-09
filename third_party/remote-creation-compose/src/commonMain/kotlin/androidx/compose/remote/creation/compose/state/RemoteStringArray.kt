@@ -106,13 +106,12 @@ private class StringArrayDerefImpl(val array: RemoteStringArray, val index: Remo
         if (constIndex != null && array.constantValueOrNull != null) {
             return array.constantValueOrNull[constIndex].computeRequiredCodePointSet(creationState)
         }
-        if (array.constantValueOrNull != null) {
-            var merged: Set<String>? = HashSet()
-            array.constantValueOrNull.fastForEach { str ->
-                merged = mergeSets(merged, str.computeRequiredCodePointSet(creationState))
+        val strings = array.constantValueOrNull ?: return null
+        return buildSet {
+            strings.fastForEach {
+                val codePointSet = it.computeRequiredCodePointSet(creationState) ?: return null
+                addAll(codePointSet)
             }
-            return merged
         }
-        return null
     }
 }
