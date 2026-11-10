@@ -177,9 +177,17 @@ bakes those expressions (`hardcodeDensity`) where the target needs literals, and
 border widths and offsets a level 7 header with legacy density behaviour has in pixels into the dp
 Android 16's level 6 header has them in. Without a display it assumes `RcDisplay.DEFAULT`, a 420dpi
 phone. `needsDisplay(target)` says whether the adaptation depends on the display at all — every
-launcher catalog widget does for `WIDGETS_V6`, none for `WIDGETS_V7` — so a server asks the client
-for its density only when it does, and serves one document to every display otherwise. Every
-launcher catalog widget then plays on Android 16, and is 21% smaller after `optimize()`.
+launcher catalog widget does for `WIDGETS_V6`, and for `WIDGETS_V7` only one that spaces a row or
+column by a density expression — so a server asks the client for its density only when it does, and
+serves one document to every display otherwise. Every launcher catalog widget then plays on
+Android 16, and is 21% smaller after `optimize()`.
+
+One literal the launcher needs at every level: a row's or column's `spacedBy`. The platform widget
+player, Android 16's and API 37's alike, lays a layout whose spacing is a variable out as nothing,
+so the whole document draws blank and reports no error — which is what a `RemoteDensity.Host`
+capture's `Arrangement.spacedBy(n.dp)` is. `validateFor` reports it for both launcher targets, and
+`adaptTo` writes the spacing as the number it is on the display, leaving a level 7 document's other
+density expressions alone.
 
 #### Back to source: `toRemoteComposeKotlin` and `toUiBuilderDesign`
 

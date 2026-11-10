@@ -2,10 +2,14 @@ package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
+import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleColumnLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleRowLayout
+import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcComponentStart
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcFlowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
@@ -16,6 +20,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
+import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTheme
@@ -161,6 +166,7 @@ public fun RcDocument.adaptTo(
       .dropRemarks(target)
       .rewriteUnsupported(target, unsupported)
       .bakeDensity(target, display)
+      .literalLayoutSpacing(target, display)
       .foldLiteralFields(target)
       .headerFor(target, display, densityViolations)
   return RcProfileAdaptation(adapted, adapted.validateFor(target) + densityViolations, dropped)
@@ -197,6 +203,7 @@ public data class RcDisplay(
  * serves every display.
  */
 public fun RcDocument.needsDisplay(target: RcTargetProfile): Boolean {
+  if (spacingReadsDisplay(target)) return true
   if (target.apiLevel >= 7) return false
   val readsDensity = operations.any { operation ->
     operation is RcFloatExpression &&
@@ -231,8 +238,79 @@ private fun RcDocument.wallClockAnimation(
 ): RcDocument = if (approximate && target.isLauncherWidget) animationTimeAsWallClock() else this
 
 /** Whether [this] is played by the Android platform's launcher widget player. */
-private val RcTargetProfile.isLauncherWidget: Boolean
+internal val RcTargetProfile.isLauncherWidget: Boolean
   get() = apiLevel <= 6 || profiles and RcProfiles.WIDGETS != 0
+
+/**
+ * The spacing a row, column or flow layout puts between its children, or null for anything else.
+ */
+internal val RcOperation.layoutSpacing: RcFloatWord?
+  get() =
+    when (this) {
+      is RcRowLayout -> spacedBy
+      is RcColumnLayout -> spacedBy
+      is RcFlowLayout -> spacedBy
+      is RcCollapsibleRowLayout -> spacedBy
+      is RcCollapsibleColumnLayout -> spacedBy
+      else -> null
+    }
+
+private fun RcOperation.withLayoutSpacing(spacing: RcFloatWord): RcOperation =
+  when (this) {
+    is RcRowLayout -> copy(spacedBy = spacing)
+    is RcColumnLayout -> copy(spacedBy = spacing)
+    is RcFlowLayout -> copy(spacedBy = spacing)
+    is RcCollapsibleRowLayout -> copy(spacedBy = spacing)
+    is RcCollapsibleColumnLayout -> copy(spacedBy = spacing)
+    else -> this
+  }
+
+/**
+ * This document with each layout's spacing a literal, for the platform's launcher widget player.
+ *
+ * That player — Android 16's and API 37's alike — lays out a row or column whose `spacedBy` is a
+ * variable as nothing: the whole document draws blank, and reports no error. A `RemoteDensity.Host`
+ * capture writes every `Arrangement.spacedBy(n.dp)` that way, as an expression over the display's
+ * density. So the spacing is read as the document has it on [display] and written as that number,
+ * at every API level: unlike a padding, a level 7 player does not read it as a variable either.
+ *
+ * Only the spacing is made a literal; a level 7 document keeps its other density expressions. A
+ * spacing that no display fixes — one following a host value or the time — stays a variable, and
+ * [validateFor] reports it.
+ */
+private fun RcDocument.literalLayoutSpacing(
+  target: RcTargetProfile,
+  display: RcDisplay,
+): RcDocument {
+  if (!target.isLauncherWidget) return this
+  if (operations.none { it.layoutSpacing?.isNaNEncoded == true }) return this
+  // Baking only changes expression operands, so each operation keeps its index.
+  val values = RcValueAnalysis(hardcodeDensity(display.density, display.fontScale).operations)
+  var changed = false
+  val rewritten = operations.mapIndexed { index, operation ->
+    val id = operation.layoutSpacing?.takeIf { it.isNaNEncoded }?.referencedId
+    val literal = id?.let { values.float(it, at = index) }?.takeUnless { it.isNaNEncoded }
+    if (literal == null) operation else operation.withLayoutSpacing(literal).also { changed = true }
+  }
+  return if (changed) copy(operations = rewritten) else this
+}
+
+/**
+ * Whether a layout's spacing in this document, on the launcher widget player [target] is, comes out
+ * differently on different displays: a variable no display-free reading fixes, which one display's
+ * density does.
+ */
+private fun RcDocument.spacingReadsDisplay(target: RcTargetProfile): Boolean {
+  if (!target.isLauncherWidget) return false
+  if (operations.none { it.layoutSpacing?.isNaNEncoded == true }) return false
+  val fixed = RcValueAnalysis(operations)
+  val display = RcDisplay.DEFAULT
+  val baked = RcValueAnalysis(hardcodeDensity(display.density, display.fontScale).operations)
+  return operations.withIndex().any { (index, operation) ->
+    val id = operation.layoutSpacing?.takeIf { it.isNaNEncoded }?.referencedId
+    id != null && fixed.float(id, at = index) == null && baked.float(id, at = index) != null
+  }
+}
 
 private val STRUCTURAL_OPCODES: Set<Int> =
   setOf(

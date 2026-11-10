@@ -153,6 +153,18 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
           )
       }
       if (target.apiLevel <= 6) addAll(levelSixViolations(index, operation, target))
+      // The platform's launcher widget player, at either level, lays a row or column out as nothing
+      // when its spacing is a variable: the whole document draws blank.
+      if (target.isLauncherWidget && operation.layoutSpacing?.isNaNEncoded == true) {
+        add(
+          RcProfileViolation(
+            RcProfileViolation.Kind.DYNAMIC_VALUE,
+            index,
+            opcode,
+            "${operationName(opcode)}.spacedBy must be a literal on ${target.name}",
+          ),
+        )
+      }
     }
     if (target.apiLevel <= 6) addAll(recursiveDrawContent(target))
     if (target.apiLevel <= 6) addAll(measuredInHiddenBranches(target))
