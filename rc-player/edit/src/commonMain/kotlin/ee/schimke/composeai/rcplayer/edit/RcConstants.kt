@@ -61,9 +61,18 @@ internal class RcValueAnalysis(private val operations: List<RcOperation>) {
   fun integer(id: Int, at: Int): Int? =
     integerWithLastWrite(id)?.takeIf { (_, last) -> last < at }?.first
 
-  /** The value float [id] always holds by the time the operation at [at] reads it, or null. */
+  /**
+   * The value float [id] always holds by the time the operation at [at] reads it, or null.
+   *
+   * An id only integers write reads as their value: the player keeps an integer's float view in
+   * step (`setInteger`), so a float expression over a flag written in as an integer constant — a
+   * `select` on a hardcoded boolean — folds.
+   */
   fun float(id: Int, at: Int): RcFloatWord? =
-    floatWithLastWrite(id)?.takeIf { (_, last) -> last < at }?.first
+    (floatWithLastWrite(id) ?: integerAsFloat(id))?.takeIf { (_, last) -> last < at }?.first
+
+  private fun integerAsFloat(id: Int): Pair<RcFloatWord, Int>? =
+    integerWithLastWrite(id)?.let { (value, last) -> RcFloatWord.literal(value.toFloat()) to last }
 
   /** The colour [id] always holds by the time the operation at [at] reads it, or null. */
   fun color(id: Int, at: Int): Int? =
