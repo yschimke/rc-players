@@ -277,6 +277,15 @@ public final class ee/schimke/composeai/rcplayer/edit/RcOptimizeKt {
 	public static final fun stripDebugOperations (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcPlayerFeature : java/lang/Enum {
+	public static final field DYNAMIC_TEXT_COLOR Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
+	public static final field MODIFIER_COLOR_REFERENCES Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
+	public static final field VARIABLE_FLOAT_FIELDS Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
+	public static fun values ()[Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptation {
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;)V
 	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -414,12 +423,15 @@ public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfile {
 	public final fun decode ([BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public static synthetic fun decode$default (Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;[BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public final fun getApiLevel ()I
+	public final fun getMissingFeatures ()Ljava/util/Set;
 	public final fun getName ()Ljava/lang/String;
 	public final fun getProfiles ()I
 	public final fun getSupportedOpcodes ()Ljava/util/Set;
 	public fun toString ()Ljava/lang/String;
 	public final fun without ([ILjava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+	public final fun without ([Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
 	public static synthetic fun without$default (Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;[ILjava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+	public static synthetic fun without$default (Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;[Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;Ljava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfile$Companion {

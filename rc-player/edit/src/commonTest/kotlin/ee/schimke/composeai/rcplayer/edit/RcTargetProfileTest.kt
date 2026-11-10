@@ -17,6 +17,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
+import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
@@ -27,6 +28,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcSkip
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
@@ -263,6 +265,128 @@ class RcTargetProfileTest {
         .copy(red = red, green = none, blue = none, alpha = half),
       adapted[4],
     )
+  }
+
+  /**
+   * A player that decodes level 8 but reads paddings only as literals: as Baklava, at any level.
+   */
+  @Test
+  fun aPlayerWithoutVariableFloatFieldsGetsLiteralPaddingsAtItsOwnLevel() {
+    val target = RcTargetProfiles.ANDROIDX.without(RcPlayerFeature.VARIABLE_FLOAT_FIELDS)
+    val variable =
+      androidxDocument(
+        RcNamedVariable(60, RcNamedVariable.FLOAT_TYPE, "USER:inset"),
+        RcPaddingModifier(ref(60), ref(60), ref(60), ref(60)),
+      )
+    assertEquals(
+      listOf("left", "top", "right", "bottom").map { "MODIFIER_PADDING.$it" },
+      variable.validateFor(target).map { it.message.substringBefore(" must") },
+    )
+    assertTrue(variable.validateFor(RcTargetProfiles.ANDROIDX).isEmpty())
+
+    val constant =
+      androidxDocument(
+        RcFloatConstant(60, RcFloatWord.literal(8f)),
+        RcPaddingModifier(ref(60), ref(60), ref(60), ref(60)),
+      )
+    val adaptation = constant.adaptTo(target)
+    assertTrue(adaptation.isPlayable, adaptation.violations.toString())
+    assertEquals(
+      padding(RcFloatWord.literal(8f)),
+      assertRoundTrips(adaptation.document).operations[1],
+    )
+    // Level 8 keeps its own header and operations: only the field changed.
+    assertEquals(constant.header, adaptation.document.header)
+    // AndroidX itself reads the variable: nothing to rewrite.
+    assertEquals(constant, constant.adaptTo(RcTargetProfiles.ANDROIDX).document)
+  }
+
+  /** Kobento's MCU player: colours by id are fine, a variable padding is not. Each on its own. */
+  @Test
+  fun floatFieldsAndModifierColourReferencesAreSeparateFeatures() {
+    val colorReference = RcBackgroundModifier.COLOR_REFERENCE_FLAG
+    val document =
+      androidxDocument(
+        RcNamedVariable(60, RcNamedVariable.FLOAT_TYPE, "USER:inset"),
+        RcNamedVariable(61, RcNamedVariable.COLOR_TYPE, "USER:accent"),
+        RcPaddingModifier(ref(60), ref(60), ref(60), ref(60)),
+        background(colorReference, 61, 0f),
+      )
+    fun dynamicFields(target: RcTargetProfile) =
+      document.validateFor(target).map { it.message.substringBefore(" must") }
+
+    assertEquals(
+      listOf("left", "top", "right", "bottom").map { "MODIFIER_PADDING.$it" },
+      dynamicFields(RcTargetProfiles.ANDROIDX.without(RcPlayerFeature.VARIABLE_FLOAT_FIELDS)),
+    )
+    assertEquals(
+      listOf("MODIFIER_BACKGROUND.colorId"),
+      dynamicFields(RcTargetProfiles.ANDROIDX.without(RcPlayerFeature.MODIFIER_COLOR_REFERENCES)),
+    )
+    // Level 6 has neither, as before.
+    assertEquals(5, dynamicFields(RcTargetProfiles.WIDGETS_V6).count { it.startsWith("MODIFIER_") })
+  }
+
+  /** A text component around nothing: the layout, its content wrapper, and both ends. */
+  private fun text(color: Int, flags: Int): Array<RcOperation> =
+    arrayOf(textLayout(color, flags), RcLayoutContent(-3), END, END)
+
+  private fun textLayout(color: Int, flags: Int) =
+    RcTextLayout(
+      componentId = 7,
+      animationId = -1,
+      textId = 42,
+      color = color,
+      fontSize = RcFloatWord.literal(14f),
+      fontStyle = 0,
+      fontWeight = RcFloatWord.literal(400f),
+      fontFamilyId = -1,
+      textAlignAndFlags = RcTextLayout.ALIGN_LEFT or (flags shl 16),
+      overflow = 1,
+      maxLines = Int.MAX_VALUE,
+    )
+
+  @Test
+  fun aPlayerWithoutDynamicTextColorGetsTheColour() {
+    val target = RcTargetProfiles.ANDROIDX.without(RcPlayerFeature.DYNAMIC_TEXT_COLOR)
+    val constant =
+      androidxDocument(
+        RcColorConstant(61, 0xff1d1b20.toInt()),
+        *text(color = 61, flags = RcTextLayout.FLAG_DYNAMIC_COLOR),
+      )
+    val adaptation = constant.adaptTo(target)
+    assertTrue(adaptation.isPlayable, adaptation.violations.toString())
+    assertEquals(
+      textLayout(color = 0xff1d1b20.toInt(), flags = 0),
+      assertRoundTrips(adaptation.document).operations[1],
+    )
+    assertEquals(constant, constant.adaptTo(RcTargetProfiles.ANDROIDX).document)
+
+    // A colour the host can change stays a reference, and is reported.
+    val bound =
+      androidxDocument(
+        RcNamedVariable(61, RcNamedVariable.COLOR_TYPE, "USER:accent"),
+        *text(color = 61, flags = RcTextLayout.FLAG_DYNAMIC_COLOR),
+      )
+    assertEquals(
+      listOf("LAYOUT_TEXT.color must be a literal on ${target.name}"),
+      bound.adaptTo(target).violations.map { it.message },
+    )
+  }
+
+  @Test
+  fun withoutKeepsWhatEachOtherCallTookOff() {
+    val target =
+      RcTargetProfiles.ANDROIDX.without(RcOpcodes.CORE_TEXT)
+        .without(RcPlayerFeature.VARIABLE_FLOAT_FIELDS)
+        .without(RcPlayerFeature.DYNAMIC_TEXT_COLOR)
+    assertFalse(RcOpcodes.CORE_TEXT in target.supportedOpcodes)
+    assertEquals(
+      setOf(RcPlayerFeature.VARIABLE_FLOAT_FIELDS, RcPlayerFeature.DYNAMIC_TEXT_COLOR),
+      target.missingFeatures,
+    )
+    assertEquals(RcTargetProfiles.ANDROIDX.apiLevel, target.apiLevel)
+    assertTrue(RcTargetProfiles.ANDROIDX.missingFeatures.isEmpty())
   }
 
   /**

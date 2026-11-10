@@ -29,6 +29,18 @@ final enum class ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder : kotli
     final fun values(): kotlin/Array<ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder> // ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder.values|values#static(){}[0]
 }
 
+final enum class ee.schimke.composeai.rcplayer.edit/RcPlayerFeature : kotlin/Enum<ee.schimke.composeai.rcplayer.edit/RcPlayerFeature> { // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature|null[0]
+    enum entry DYNAMIC_TEXT_COLOR // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.DYNAMIC_TEXT_COLOR|null[0]
+    enum entry MODIFIER_COLOR_REFERENCES // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.MODIFIER_COLOR_REFERENCES|null[0]
+    enum entry VARIABLE_FLOAT_FIELDS // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.VARIABLE_FLOAT_FIELDS|null[0]
+
+    final val entries // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rcplayer.edit/RcPlayerFeature> // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): ee.schimke.composeai.rcplayer.edit/RcPlayerFeature // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ee.schimke.composeai.rcplayer.edit/RcPlayerFeature> // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.values|values#static(){}[0]
+}
+
 abstract fun interface ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations { // ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations|null[0]
     abstract fun rewrite(ee.schimke.composeai.rcplayer.protocol/RcOperation): ee.schimke.composeai.rcplayer.edit/RcRewrite // ee.schimke.composeai.rcplayer.edit/RcUnsupportedOperations.rewrite|rewrite(ee.schimke.composeai.rcplayer.protocol.RcOperation){}[0]
 
@@ -405,6 +417,8 @@ final class ee.schimke.composeai.rcplayer.edit/RcSizeReport { // ee.schimke.comp
 final class ee.schimke.composeai.rcplayer.edit/RcTargetProfile { // ee.schimke.composeai.rcplayer.edit/RcTargetProfile|null[0]
     final val apiLevel // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.apiLevel|{}apiLevel[0]
         final fun <get-apiLevel>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.apiLevel.<get-apiLevel>|<get-apiLevel>(){}[0]
+    final val missingFeatures // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.missingFeatures|{}missingFeatures[0]
+        final fun <get-missingFeatures>(): kotlin.collections/Set<ee.schimke.composeai.rcplayer.edit/RcPlayerFeature> // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.missingFeatures.<get-missingFeatures>|<get-missingFeatures>(){}[0]
     final val name // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.name|{}name[0]
         final fun <get-name>(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.name.<get-name>|<get-name>(){}[0]
     final val profiles // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.profiles|{}profiles[0]
@@ -414,6 +428,7 @@ final class ee.schimke.composeai.rcplayer.edit/RcTargetProfile { // ee.schimke.c
 
     final fun decode(kotlin/ByteArray, ee.schimke.composeai.rcplayer.protocol/RcWireLimits = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.decode|decode(kotlin.ByteArray;ee.schimke.composeai.rcplayer.protocol.RcWireLimits){}[0]
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.toString|toString(){}[0]
+    final fun without(kotlin/Array<out ee.schimke.composeai.rcplayer.edit/RcPlayerFeature>..., kotlin/String = ...): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.without|without(kotlin.Array<out|ee.schimke.composeai.rcplayer.edit.RcPlayerFeature>...;kotlin.String){}[0]
     final fun without(kotlin/IntArray..., kotlin/String = ...): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.without|without(kotlin.IntArray...;kotlin.String){}[0]
 
     final object Companion { // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.Companion|null[0]

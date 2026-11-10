@@ -124,13 +124,13 @@ public fun RcDocument.adaptTo(
  * reported when it asked for the document. The overloads without one assume [RcDisplay.DEFAULT];
  * [needsDisplay] says whether the result depends on it, and so whether to ask the client.
  *
- * Below API level 7, where the player reads a text size or padding only as a literal, the
- * document's density and font-size expressions are baked for [display] first ([hardcodeDensity]),
- * so a `RemoteDensity.Host` document's sizes fold into the literals that player needs. [display]
- * also lets a level 7 header with legacy density behaviour be rewritten to the level 6 form: that
- * form makes Android 16 multiply border widths and offsets by the density, which the level 7 form
- * reads as pixels, so each is divided by [display]'s density. A variable one cannot be, and leaves
- * the header as it is, reported.
+ * Where the player reads a text size or padding only as a literal (below API level 7, or without
+ * [RcPlayerFeature.VARIABLE_FLOAT_FIELDS]), the document's density and font-size expressions are
+ * baked for [display] first ([hardcodeDensity]), so a `RemoteDensity.Host` document's sizes fold
+ * into the literals that player needs. [display] also lets a level 7 header with legacy density
+ * behaviour be rewritten to the level 6 form: that form makes Android 16 multiply border widths and
+ * offsets by the density, which the level 7 form reads as pixels, so each is divided by [display]'s
+ * density. A variable one cannot be, and leaves the header as it is, reported.
  *
  * The result is right only on [display]: serve it to that client, not to others.
  */
@@ -167,6 +167,7 @@ public fun RcDocument.adaptTo(
         else it
       }
       .foldLiteralFields(target)
+      .literalTextColors(target)
       .headerFor(target, display, densityViolations)
   return RcProfileAdaptation(adapted, adapted.validateFor(target) + densityViolations, dropped)
 }
@@ -203,12 +204,12 @@ public data class RcDisplay(
  */
 public fun RcDocument.needsDisplay(target: RcTargetProfile): Boolean {
   if (spacingReadsDisplay(target)) return true
-  if (target.apiLevel >= 7) return false
   val readsDensity = operations.any { operation ->
     operation is RcFloatExpression &&
       operation.expression.any { it.referencedId in DISPLAY_VARIABLES }
   }
-  if (readsDensity) return true
+  if (target.readsLiteralFloatFieldsOnly && readsDensity) return true
+  if (target.apiLevel >= 7) return false
   if (legacyHeader(header) == header) return false
   return operations.any { operation ->
     when (operation) {
@@ -222,7 +223,8 @@ public fun RcDocument.needsDisplay(target: RcTargetProfile): Boolean {
 private val DISPLAY_VARIABLES = setOf(RcSystemVariables.DENSITY, RcSystemVariables.FONT_SIZE)
 
 private fun RcDocument.bakeDensity(target: RcTargetProfile, display: RcDisplay): RcDocument =
-  if (target.apiLevel >= 7) this else hardcodeDensity(display.density, display.fontScale)
+  if (!target.readsLiteralFloatFieldsOnly) this
+  else hardcodeDensity(display.density, display.fontScale)
 
 private fun RcDocument.colorThemes(target: RcTargetProfile, approximate: Boolean): RcDocument {
   if (!approximate || RcOpcodes.COLOR_THEME in target.supportedOpcodes) return this
@@ -297,16 +299,20 @@ private fun RcDocument.dropRemarks(target: RcTargetProfile): RcDocument =
   else copy(operations = operations.filterNot { it is RcRemark })
 
 private fun RcDocument.foldLiteralFields(target: RcTargetProfile): RcDocument {
-  if (target.apiLevel >= 7) return this
+  val floats = target.readsLiteralFloatFieldsOnly
+  val colors = target.readsLiteralModifierColorsOnly
+  if (!floats && !colors) return this
   val values = RcValueAnalysis(operations)
   var changed = false
   fun RcFloatWord.literalAt(index: Int): RcFloatWord {
+    if (!floats) return this
     val id = referencedId?.takeIf { isNaNEncoded } ?: return this
     return values.float(id, at = index)?.also { changed = true } ?: this
   }
   // A colour reference Android 16 would read as a rectangle, inlined as the literal RGBA it reads.
   fun literalColor(flags: Int, colorId: Int, index: Int): LiteralColor {
-    val argb = if (flags and COLOR_REFERENCE == 0) null else values.color(colorId, at = index)
+    val argb =
+      if (!colors || flags and COLOR_REFERENCE == 0) null else values.color(colorId, at = index)
     if (argb == null) return LiteralColor(flags, colorId, null)
     changed = true
     val rgba = listOf(16, 8, 0, 24).map { RcFloatWord.literal(((argb ushr it) and 0xff) / 255f) }
@@ -353,6 +359,27 @@ private fun RcDocument.foldLiteralFields(target: RcTargetProfile): RcDocument {
       }
       else -> operation
     }
+  }
+  return if (changed) copy(operations = rewritten) else this
+}
+
+/**
+ * Each `TextLayout` whose colour is an id ([RcTextLayout.FLAG_DYNAMIC_COLOR]) the colour nothing
+ * can change, for a target without [RcPlayerFeature.DYNAMIC_TEXT_COLOR]: the colour itself, and the
+ * flag cleared.
+ */
+private fun RcDocument.literalTextColors(target: RcTargetProfile): RcDocument {
+  if (RcPlayerFeature.DYNAMIC_TEXT_COLOR !in target.missingFeatures) return this
+  val values = RcValueAnalysis(operations)
+  val dynamic = RcTextLayout.FLAG_DYNAMIC_COLOR shl 16
+  var changed = false
+  val rewritten = operations.mapIndexed { index, operation ->
+    if (operation !is RcTextLayout || operation.textAlignAndFlags and dynamic == 0) {
+      return@mapIndexed operation
+    }
+    val argb = values.color(operation.color, at = index) ?: return@mapIndexed operation
+    changed = true
+    operation.copy(color = argb, textAlignAndFlags = operation.textAlignAndFlags and dynamic.inv())
   }
   return if (changed) copy(operations = rewritten) else this
 }

@@ -152,7 +152,22 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
             ),
           )
       }
-      if (target.apiLevel <= 6) addAll(levelSixViolations(index, operation, target))
+      addAll(literalFieldViolations(index, operation, target))
+      if (target.apiLevel <= 6) addAll(levelSixOperatorViolations(index, operation))
+      if (
+        RcPlayerFeature.DYNAMIC_TEXT_COLOR in target.missingFeatures &&
+          operation is RcTextLayout &&
+          operation.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0
+      ) {
+        add(
+          RcProfileViolation(
+            RcProfileViolation.Kind.DYNAMIC_VALUE,
+            index,
+            opcode,
+            "${operationName(opcode)}.color must be a literal on ${target.name}",
+          ),
+        )
+      }
       // The platform's launcher widget player, at either level, lays a row or column out as nothing
       // when its spacing is a variable: the whole document draws blank.
       if (target.isLauncherWidget && operation.layoutSpacing?.isNaNEncoded == true) {
@@ -246,8 +261,13 @@ private fun RcDocument.measuredInHiddenBranches(target: RcTargetProfile): List<R
     }
   }
 
-/** The limits AndroidX's `WidgetsProfileWriterV6` puts on operations level 6 does decode. */
-private fun levelSixViolations(
+/**
+ * The fields a target reads only as literals holding a variable: float fields where
+ * [RcTargetProfile.readsLiteralFloatFieldsOnly], modifier colour ids where
+ * [RcTargetProfile.readsLiteralModifierColorsOnly]. What AndroidX's `WidgetsProfileWriterV6`
+ * refuses, and Android 16 stores raw.
+ */
+private fun literalFieldViolations(
   index: Int,
   operation: RcOperation,
   target: RcTargetProfile,
@@ -261,12 +281,14 @@ private fun levelSixViolations(
         "${operationName(operation.opcode)}.$field must be a literal on ${target.name}",
       ),
     )
+  val floats = target.readsLiteralFloatFieldsOnly
+  val colors = target.readsLiteralModifierColorsOnly
   fun literals(vararg fields: Pair<String, RcFloatWord>) = fields.forEach { (field, value) ->
-    if (value.isNaNEncoded) dynamic(field)
+    if (floats && value.isNaNEncoded) dynamic(field)
   }
   when (operation) {
-    is RcImageLayout -> if (operation.alpha.isNaNEncoded) dynamic("alpha")
-    is RcTextLayout -> if (operation.fontSize.isNaNEncoded) dynamic("fontSize")
+    is RcImageLayout -> literals("alpha" to operation.alpha)
+    is RcTextLayout -> literals("fontSize" to operation.fontSize)
     // Android 16 stores these raw and never resolves a variable in them.
     is RcPaddingModifier ->
       literals(
@@ -278,7 +300,7 @@ private fun levelSixViolations(
     // Android 16 reads the four words AndroidX now spends on flags and a colour id as a rectangle,
     // so a colour reference draws the zero RGBA written beside it: transparent.
     is RcBackgroundModifier -> {
-      if (operation.usesColorId) dynamic("colorId")
+      if (colors && operation.usesColorId) dynamic("colorId")
       literals(
         "red" to operation.red,
         "green" to operation.green,
@@ -287,7 +309,7 @@ private fun levelSixViolations(
       )
     }
     is RcBorderModifier -> {
-      if (operation.usesColorId) dynamic("colorId")
+      if (colors && operation.usesColorId) dynamic("colorId")
       literals(
         "borderWidth" to operation.borderWidth,
         "roundedCorner" to operation.roundedCorner,
@@ -297,23 +319,28 @@ private fun levelSixViolations(
         "alpha" to operation.alpha,
       )
     }
-    is RcFloatExpression ->
-      operation.expression
-        .mapNotNull { it.floatOperator() }
-        .filter { it >= LEVEL_6_OPERATOR_LIMIT }
-        .distinct()
-        .forEach { operator ->
-          add(
-            RcProfileViolation(
-              RcProfileViolation.Kind.FLOAT_OPERATOR,
-              index,
-              operation.opcode,
-              "Float operator ${operator - FLOAT_OPERATOR_OFFSET} was added after API level 6",
-            ),
-          )
-        }
     else -> Unit
   }
+}
+
+/** The float operators AndroidX's `WidgetsProfileWriterV6` refuses: those added after level 6. */
+private fun levelSixOperatorViolations(
+  index: Int,
+  operation: RcOperation,
+): List<RcProfileViolation> {
+  if (operation !is RcFloatExpression) return emptyList()
+  return operation.expression
+    .mapNotNull { it.floatOperator() }
+    .filter { it >= LEVEL_6_OPERATOR_LIMIT }
+    .distinct()
+    .map { operator ->
+      RcProfileViolation(
+        RcProfileViolation.Kind.FLOAT_OPERATOR,
+        index,
+        operation.opcode,
+        "Float operator ${operator - FLOAT_OPERATOR_OFFSET} was added after API level 6",
+      )
+    }
 }
 
 /** The operator a NaN-encoded expression word names, or null for a literal or variable. */
