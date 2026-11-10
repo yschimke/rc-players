@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.31.1](https://github.com/yschimke/rc-players/compare/v2.31.0...v2.31.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.27.4 ([#841](https://github.com/yschimke/rc-players/issues/841)) ([e4c360e](https://github.com/yschimke/rc-players/commit/e4c360e6c469bb4b60b1944c00770f5691f764f5))
+* recover host-density documents for the platform widget player ([#840](https://github.com/yschimke/rc-players/issues/840)) ([5e79b32](https://github.com/yschimke/rc-players/commit/5e79b32cd44ccfa4809fbd3bb3ef4ff7cbb2bab4))
+
 ## [2.31.0](https://github.com/yschimke/rc-players/compare/v2.30.0...v2.31.0) (2026-11-09)
 
 
