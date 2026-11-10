@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.32.0](https://github.com/yschimke/rc-players/compare/v2.31.1...v2.32.0) (2026-11-10)
+
+
+### Features
+
+* profiles without player features, not just operations ([#843](https://github.com/yschimke/rc-players/issues/843)) ([b7bf637](https://github.com/yschimke/rc-players/commit/b7bf6374b74485c465e65d5aef1ede222162fded))
+
+
+### Bug Fixes
+
+* **edit:** remove a baked widget's constant state layouts ([#844](https://github.com/yschimke/rc-players/issues/844)) ([40261f8](https://github.com/yschimke/rc-players/commit/40261f82cd8d26657ac63d15bd88245a39e4af22))
+
 ## [2.31.1](https://github.com/yschimke/rc-players/compare/v2.31.0...v2.31.1) (2026-11-10)
 
 
