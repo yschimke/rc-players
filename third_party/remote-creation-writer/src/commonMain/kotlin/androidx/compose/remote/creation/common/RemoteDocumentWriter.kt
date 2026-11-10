@@ -324,25 +324,27 @@ public class RemoteDocumentWriter(
         buffer.writeFloat(modifier.maximum)
         buffer.writeFloat(modifier.notchMaximum)
 
-        operation(TouchExpression)
-        buffer.writeInt(Utils.idFromNan(modifier.position))
-        buffer.writeFloat(0f)
-        buffer.writeFloat(0f)
-        buffer.writeFloat(modifier.maximum)
-        buffer.writeFloat(0f)
-        buffer.writeInt(3)
-        buffer.writeInt(3)
-        buffer.writeFloat(Utils.asNan(if (modifier.direction != 0) 13 else 14))
-        buffer.writeFloat(-1f)
-        buffer.writeFloat(Utils.asNan(0x310003))
-        if (modifier.notches > 0) {
-          buffer.writeInt((3 shl 16) or 2)
-          buffer.writeFloat(modifier.notches.toFloat())
-          buffer.writeFloat(modifier.notchMaximum)
-        } else {
-          buffer.writeInt(0)
-        }
-        buffer.writeInt(0)
+        touchExpression(
+          id = Utils.idFromNan(modifier.position),
+          value = 0f,
+          min = 0f,
+          max = modifier.maximum,
+          velocityId = 0f,
+          touchEffects = 3,
+          expression =
+            floatArrayOf(
+              Utils.asNan(if (modifier.direction != 0) 13 else 14),
+              -1f,
+              Utils.asNan(0x310003),
+            ),
+          stopMode = if (modifier.notches > 0) TouchStop.NOTCHES_EVEN else TouchStop.GENTLY,
+          stopSpec =
+            if (modifier.notches > 0) {
+              floatArrayOf(modifier.notches.toFloat(), modifier.notchMaximum)
+            } else {
+              null
+            },
+        )
         containerEnd()
       }
     }
@@ -902,11 +904,48 @@ public class RemoteDocumentWriter(
 
   override fun textMerge(leftId: Int, rightId: Int): Int {
     val id = nextDataId++
+    textMerge(id, leftId, rightId)
+    return id
+  }
+
+  override fun textMerge(outputId: Int, leftId: Int, rightId: Int) {
     operation(TextMerge)
-    buffer.writeInt(id)
+    buffer.writeInt(outputId)
     buffer.writeInt(leftId)
     buffer.writeInt(rightId)
-    return id
+  }
+
+  override fun touchExpression(
+    id: Int,
+    value: Float,
+    min: Float,
+    max: Float,
+    velocityId: Float,
+    touchEffects: Int,
+    expression: FloatArray,
+    stopMode: Int,
+    stopSpec: FloatArray?,
+    easingSpec: FloatArray?,
+  ) {
+    require(expression.size <= 32) { "a touch expression is at most 32 words: ${expression.size}" }
+    require(stopMode in 0..0xffff) { "stop mode out of range: $stopMode" }
+    val stops = stopSpec ?: FloatArray(0)
+    val easing = easingSpec ?: FloatArray(0)
+    require(stops.size <= 200) { "a stop spec is at most 200 words: ${stops.size}" }
+    require(easing.size <= 200) { "an easing spec is at most 200 words: ${easing.size}" }
+    operation(TouchExpression)
+    buffer.writeInt(id)
+    buffer.writeFloat(value)
+    buffer.writeFloat(min)
+    buffer.writeFloat(max)
+    buffer.writeFloat(velocityId)
+    buffer.writeInt(touchEffects)
+    buffer.writeInt(expression.size)
+    expression.forEach(buffer::writeFloat)
+    buffer.writeInt((stopMode shl 16) or stops.size)
+    stops.forEach(buffer::writeFloat)
+    buffer.writeInt(easing.size)
+    easing.forEach(buffer::writeFloat)
   }
 
   override fun textSubtext(textId: Int, start: Float, length: Float): Int {

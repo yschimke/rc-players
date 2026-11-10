@@ -198,6 +198,37 @@ public interface RemoteWriter {
 
   public fun textMerge(leftId: Int, rightId: Int): Int
 
+  /**
+   * LOCAL PATCH (rc-players): writes `TextMerge` into [outputId], an id the caller reserved (see
+   * [reserveFloatVariable]), as AndroidX's `RemoteComposeBuffer.textMerge(id, left, right)` does.
+   * Merging a string with the empty one copies it into [outputId], and keeps it following.
+   */
+  public fun textMerge(outputId: Int, leftId: Int, rightId: Int)
+
+  /**
+   * LOCAL PATCH (rc-players): writes a free-standing `TouchExpression` (opcode 157), as AndroidX's
+   * `RemoteComposeBuffer.addTouchExpression` does: the float [id] (reserved with
+   * [reserveFloatVariable]) starts at [value] and, while a touch drags, follows the RPN
+   * [expression] (over [RemoteContext.FLOAT_TOUCH_POS_X] and the like, at most 32 words), clamped
+   * to [min]..[max]. On release it settles by [stopMode] (one of [TouchStop]) with [stopSpec] (its
+   * notches or positions, at most 200 words), easing by [easingSpec].
+   *
+   * [velocityId] is a float the player writes the drag's velocity to, or 0 for none; [touchEffects]
+   * the haptic and visual effects flags, 0 for none.
+   */
+  public fun touchExpression(
+    id: Int,
+    value: Float,
+    min: Float,
+    max: Float,
+    velocityId: Float,
+    touchEffects: Int,
+    expression: FloatArray,
+    stopMode: Int,
+    stopSpec: FloatArray? = null,
+    easingSpec: FloatArray? = null,
+  )
+
   public fun textSubtext(textId: Int, start: Float, length: Float): Int
 
   public fun textTransform(textId: Int, start: Float, length: Float, operation: Int): Int
