@@ -161,6 +161,11 @@ public fun RcDocument.adaptTo(
       .dropRemarks(target)
       .rewriteUnsupported(target, unsupported)
       .bakeDensity(target, display)
+      .let {
+        // The platform's widget player lays a layout with a variable spacing out as nothing.
+        if (target.isLauncherWidget) it.hardcodeLayoutSpacing(display.density, display.fontScale)
+        else it
+      }
       .foldLiteralFields(target)
       .headerFor(target, display, densityViolations)
   return RcProfileAdaptation(adapted, adapted.validateFor(target) + densityViolations, dropped)
@@ -197,6 +202,7 @@ public data class RcDisplay(
  * serves every display.
  */
 public fun RcDocument.needsDisplay(target: RcTargetProfile): Boolean {
+  if (spacingReadsDisplay(target)) return true
   if (target.apiLevel >= 7) return false
   val readsDensity = operations.any { operation ->
     operation is RcFloatExpression &&
@@ -231,8 +237,30 @@ private fun RcDocument.wallClockAnimation(
 ): RcDocument = if (approximate && target.isLauncherWidget) animationTimeAsWallClock() else this
 
 /** Whether [this] is played by the Android platform's launcher widget player. */
-private val RcTargetProfile.isLauncherWidget: Boolean
+internal val RcTargetProfile.isLauncherWidget: Boolean
   get() = apiLevel <= 6 || profiles and RcProfiles.WIDGETS != 0
+
+/**
+ * Whether a layout's spacing in this document, on the launcher widget player [target] is, comes out
+ * differently on different displays: a variable no display-free reading fixes, which one display's
+ * density does.
+ */
+private fun RcDocument.spacingReadsDisplay(target: RcTargetProfile): Boolean {
+  if (!target.isLauncherWidget) return false
+  // As [adaptTo] sees it: a layout in a macro's body is inlined before its spacing is written.
+  val operations = inlineStructuralOperations(target).operations
+  if (operations.none { it.layoutSpacing?.isNaNEncoded == true }) return false
+  val fixed = RcValueAnalysis(operations)
+  val display = RcDisplay.DEFAULT
+  val baked =
+    RcValueAnalysis(
+      copy(operations = operations).hardcodeDensity(display.density, display.fontScale).operations,
+    )
+  return operations.withIndex().any { (index, operation) ->
+    val id = operation.layoutSpacing?.takeIf { it.isNaNEncoded }?.referencedId
+    id != null && fixed.float(id, at = index) == null && baked.float(id, at = index) != null
+  }
+}
 
 private val STRUCTURAL_OPCODES: Set<Int> =
   setOf(

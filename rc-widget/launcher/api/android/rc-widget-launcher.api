@@ -73,6 +73,8 @@ public final class ee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets {
 	public static synthetic fun actionActivity$default (Lee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets;Landroid/content/Context;Landroid/content/Intent;IILjava/lang/String;ILjava/lang/Object;)Landroid/app/PendingIntent;
 	public final fun actionBroadcast (Landroid/content/Context;Ljava/lang/Class;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)Landroid/app/PendingIntent;
 	public static synthetic fun actionBroadcast$default (Lee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets;Landroid/content/Context;Ljava/lang/Class;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Landroid/app/PendingIntent;
+	public final fun forDisplay ([BFFLee/schimke/composeai/rcplayer/edit/RcTargetProfile;)[B
+	public static synthetic fun forDisplay$default (Lee/schimke/composeai/rcwidget/launcher/RcLauncherWidgets;[BFFLee/schimke/composeai/rcplayer/edit/RcTargetProfile;ILjava/lang/Object;)[B
 	public final fun forNotification (Landroid/widget/RemoteViews;)Landroid/widget/RemoteViews;
 	public final fun isSupported ()Z
 	public final fun notificationRemoteViews ([BLjava/util/Map;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;)Landroid/widget/RemoteViews;

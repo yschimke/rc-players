@@ -3,14 +3,20 @@ package ee.schimke.composeai.rcwidget.launcher
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.res.Resources
 import android.net.Uri
 import android.os.Build
 import android.widget.RemoteViews
 import androidx.annotation.RequiresApi
 import androidx.compose.remote.creation.profile.Profile
+import ee.schimke.composeai.rcplayer.edit.RcDisplay
 import ee.schimke.composeai.rcplayer.edit.RcProfileViolation
 import ee.schimke.composeai.rcplayer.edit.RcTargetProfile
+import ee.schimke.composeai.rcplayer.edit.adaptTo
+import ee.schimke.composeai.rcplayer.edit.hardcodeLayoutSpacing
 import ee.schimke.composeai.rcplayer.edit.validateFor
+import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcwidget.RcWidgetTarget
 import ee.schimke.composeai.rcwidget.RcWidgetTargets
 import ee.schimke.composeai.rcwidget.RcWidgetActionMetadata
@@ -75,13 +81,61 @@ public object RcLauncherWidgets {
     actions: Map<Int, PendingIntent>,
     target: RcTargetProfile,
   ): RemoteViews {
+    val resources = Resources.getSystem()
+    val played =
+      forDisplay(
+        document,
+        resources.displayMetrics.density,
+        resources.configuration.fontScale,
+        target,
+      )
     val views =
       RemoteViews(
-        RemoteViews.DrawInstructions.Builder(listOf(platformWidgetDocument(document, target)))
+        RemoteViews.DrawInstructions.Builder(listOf(platformWidgetDocument(played, target)))
           .build()
       )
     for ((actionId, intent) in actions) views.setOnClickPendingIntent(actionId, intent)
     return views
+  }
+
+  /**
+   * [document] recovered for the platform's widget player [target] on a display of [density] and
+   * [fontScale]: what that player would draw as nothing, rewritten into what it draws. A document
+   * written for a newer or freer player — a `RemoteDensity.Host` capture, most often — is the case.
+   *
+   * - Each layout's spacing is made a literal ([hardcodeLayoutSpacing]). The player, Android 16's
+   *   and API 37's alike, lays a row or column whose `spacedBy` is a variable out as nothing, so a
+   *   host-density capture — every `Arrangement.spacedBy(n.dp)` an expression over the density —
+   *   draws blank on a launcher and in a notification, with no error.
+   * - What [target] still can't read ([validateFor]) is then adapted for it ([adaptTo]): on Android
+   *   16 the density baked in and the paddings, text sizes and colours folded to the literals its
+   *   level 6 player needs. The adaptation is kept only where it leaves fewer violations.
+   *
+   * [remoteViews] and [notificationRemoteViews] apply this for the device's own display, so every
+   * host that publishes through them is covered; call it directly only to hand the bytes to
+   * `RemoteViews.DrawInstructions` yourself. A document [target] already plays, or that this can't
+   * read, comes back as it was given.
+   */
+  public fun forDisplay(
+    document: ByteArray,
+    density: Float,
+    fontScale: Float = 1f,
+    target: RcTargetProfile = targetFor(),
+  ): ByteArray {
+    // Read as [target] reads it, so content a writer guarded for another player stays out.
+    val decoded =
+      runCatching { target.decode(document, RcWireLimits()) }.getOrNull() ?: return document
+    val spaced = decoded.hardcodeLayoutSpacing(density, fontScale)
+    val violations = spaced.validateFor(target)
+    val recovered =
+      if (violations.isEmpty()) spaced
+      else {
+        val widget =
+          if (target.apiLevel <= 6) RcWidgetTargets.LauncherAndroid16 else RcWidgetTargets.Launcher
+        val adapted = spaced.adaptTo(target, widget.approximations, RcDisplay(density, fontScale))
+        if (adapted.violations.size < violations.size) adapted.document else spaced
+      }
+    return if (recovered === decoded) document else RcDocumentCodec.encode(recovered)
   }
 
   /**

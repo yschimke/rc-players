@@ -7,14 +7,23 @@ import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.Operations
 import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.creation.RemoteComposeWriter
+import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
+import androidx.compose.remote.creation.compose.capture.RemoteDensity
+import androidx.compose.remote.creation.compose.capture.captureSingleRemoteDocument
+import androidx.compose.remote.creation.compose.layout.RemoteArrangement
 import androidx.compose.remote.creation.compose.layout.RemoteBox
+import androidx.compose.remote.creation.compose.layout.RemoteColumn
 import androidx.compose.remote.creation.compose.layout.RemoteText
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.modifier.clickable
 import androidx.compose.remote.creation.compose.modifier.fillMaxSize
+import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rs
 import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
+import ee.schimke.composeai.rcplayer.edit.validateFor
+import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcwidget.RcWidgetActionMetadata
@@ -174,6 +183,50 @@ class RcLauncherWidgetTest {
       val nested = assertNotNull(field(views, child), child)
       assertEquals(true, field(nested, "mHasDrawInstructions"), child)
     }
+  }
+
+  /**
+   * The platform's widget player draws a document blank when a layout's spacing is a variable,
+   * which is what a host-density capture's `spacedBy(10.dp)` is. [RcLauncherWidgets.forDisplay],
+   * which `remoteViews` applies, writes it as the number it is on the display.
+   */
+  @Test
+  fun aHostDensitySpacingIsALiteralForTheLauncher() {
+    val context = RuntimeEnvironment.getApplication()
+    val captured = runBlocking {
+      captureSingleRemoteDocument(
+          context = context,
+          creationDisplayInfo = RemoteCreationDisplayInfo(200, 100, 160),
+          remoteDensity = RemoteDensity.Host,
+          profile = widgetsProfile,
+        ) {
+          RemoteColumn(verticalArrangement = RemoteArrangement.spacedBy(10.rdp)) {
+            RemoteText("one".rs)
+            RemoteText("two".rs)
+          }
+        }
+        .bytes
+    }
+    fun decode(bytes: ByteArray) = RcDocumentCodec.decode(bytes, RcWireLimits())
+    fun spacing(bytes: ByteArray) =
+      decode(bytes)
+        .operations
+        .filterIsInstance<RcColumnLayout>()
+        .map { it.spacedBy }
+    assertTrue(spacing(captured).any { it.isNaNEncoded }, "the capture's spacing is a variable")
+
+    val modern = RcTargetProfiles.WIDGETS_V7
+    val played = RcLauncherWidgets.forDisplay(captured, density = 2.75f, target = modern)
+    assertEquals(listOf(RcFloatWord.literal(27.5f)), spacing(played).filter { it.bits != 0 })
+    assertTrue(spacing(played).none { it.isNaNEncoded })
+    // Nothing left to do: the same bytes come back.
+    assertTrue(RcLauncherWidgets.forDisplay(played, density = 2.75f, target = modern) === played)
+
+    // Android 16 reads more only as literals: the rest of the document is adapted for it too.
+    val baklava = RcTargetProfiles.WIDGETS_V6
+    assertTrue(decode(captured).validateFor(baklava).isNotEmpty(), "the capture needs adapting")
+    val adapted = RcLauncherWidgets.forDisplay(captured, density = 2.75f, target = baklava)
+    assertEquals(emptyList(), decode(adapted).validateFor(baklava))
   }
 
   @Test
