@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.32.1](https://github.com/yschimke/rc-players/compare/v2.32.0...v2.32.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **edit:** fold a float expression that reads an integer id ([#846](https://github.com/yschimke/rc-players/issues/846)) ([9c49a98](https://github.com/yschimke/rc-players/commit/9c49a989c1984254b752cb36dfbc4579a1b432c0))
+
 ## [2.32.0](https://github.com/yschimke/rc-players/compare/v2.31.1...v2.32.0) (2026-11-10)
 
 
