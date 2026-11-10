@@ -125,6 +125,34 @@ class RcOptimizeTest {
   }
 
   @Test
+  fun aFloatExpressionOverAHardcodedFlagFolds() {
+    // select(10, 0) on a named boolean, as Compose writes it: 0, 10, flag, IFELSE.
+    val source =
+      document(
+        RcIntegerConstant(50, 0),
+        RcNamedVariable(50, RcNamedVariable.INT_TYPE, "USER:has_cancel"),
+        RcFloatExpression(51, listOf(f(0f), f(10f), ref(50), op(IFELSE)), animation = null),
+      )
+    assertSame(source, source.foldConstantExpressions())
+
+    val shown = source.hardcodeNamedValues(mapOf("has_cancel" to RcHardcodedValue.Integer(1)))
+    assertEquals(RcFloatConstant(51, f(10f)), shown.foldConstantExpressions().operations.last())
+    val hidden = source.hardcodeNamedValues(mapOf("has_cancel" to RcHardcodedValue.Integer(0)))
+    assertEquals(RcFloatConstant(51, f(0f)), hidden.foldConstantExpressions().operations.last())
+  }
+
+  @Test
+  fun anIdWrittenAsBothIntegerAndFloatDoesNotFoldAsEither() {
+    val source =
+      document(
+        RcIntegerConstant(50, 1),
+        RcFloatConstant(50, f(2f)),
+        RcFloatExpression(51, listOf(ref(50), f(3f), op(MUL)), animation = null),
+      )
+    assertSame(source, source.foldConstantExpressions())
+  }
+
+  @Test
   fun aProducerReadBeforeItRunsDoesNotFold() {
     // A constant is loaded when the document opens; the attribute before the expression would see
     // the folded colour rather than the one in force when it ran.
@@ -228,6 +256,7 @@ class RcOptimizeTest {
 
   private companion object {
     const val MUL = 3
+    const val IFELSE = 26
     /** An id list's id, in the array region AndroidX's writer allocates them in. */
     const val LIST = 0x20002A
     const val RAND = 39
