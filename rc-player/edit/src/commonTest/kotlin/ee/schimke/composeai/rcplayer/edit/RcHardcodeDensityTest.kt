@@ -79,6 +79,21 @@ class RcHardcodeDensityTest {
     assertEquals(dpPadding.operations, modern.operations)
   }
 
+  @Test
+  fun aModernPlayerWithoutVariableFloatFieldsGetsTheDensityBaked() {
+    val target = RcTargetProfiles.ANDROIDX.without(RcPlayerFeature.VARIABLE_FLOAT_FIELDS)
+    assertTrue(dpPadding.needsDisplay(target))
+    assertFalse(dpPadding.needsDisplay(RcTargetProfiles.ANDROIDX))
+
+    val served = dpPadding.adaptTo(target, emptySet(), RcDisplay(density = 2.75f))
+    assertTrue(served.isPlayable, served.violations.toString())
+    val literal = RcFloatWord.literal(33f)
+    assertEquals(
+      RcPaddingModifier(literal, literal, literal, literal),
+      served.document.operations.filterIsInstance<RcPaddingModifier>().single(),
+    )
+  }
+
   /** A `RemoteDensity.Host` column's `Arrangement.spacedBy(10.dp)`, at document level 7. */
   private val dpSpacing =
     RcDocument(

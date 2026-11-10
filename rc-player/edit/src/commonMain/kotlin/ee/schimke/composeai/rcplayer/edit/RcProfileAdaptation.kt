@@ -124,13 +124,13 @@ public fun RcDocument.adaptTo(
  * reported when it asked for the document. The overloads without one assume [RcDisplay.DEFAULT];
  * [needsDisplay] says whether the result depends on it, and so whether to ask the client.
  *
- * Below API level 7, where the player reads a text size or padding only as a literal, the
- * document's density and font-size expressions are baked for [display] first ([hardcodeDensity]),
- * so a `RemoteDensity.Host` document's sizes fold into the literals that player needs. [display]
- * also lets a level 7 header with legacy density behaviour be rewritten to the level 6 form: that
- * form makes Android 16 multiply border widths and offsets by the density, which the level 7 form
- * reads as pixels, so each is divided by [display]'s density. A variable one cannot be, and leaves
- * the header as it is, reported.
+ * Where the player reads a text size or padding only as a literal (below API level 7, or without
+ * [RcPlayerFeature.VARIABLE_FLOAT_FIELDS]), the document's density and font-size expressions are
+ * baked for [display] first ([hardcodeDensity]), so a `RemoteDensity.Host` document's sizes fold
+ * into the literals that player needs. [display] also lets a level 7 header with legacy density
+ * behaviour be rewritten to the level 6 form: that form makes Android 16 multiply border widths and
+ * offsets by the density, which the level 7 form reads as pixels, so each is divided by [display]'s
+ * density. A variable one cannot be, and leaves the header as it is, reported.
  *
  * The result is right only on [display]: serve it to that client, not to others.
  */
@@ -204,12 +204,12 @@ public data class RcDisplay(
  */
 public fun RcDocument.needsDisplay(target: RcTargetProfile): Boolean {
   if (spacingReadsDisplay(target)) return true
-  if (target.apiLevel >= 7) return false
   val readsDensity = operations.any { operation ->
     operation is RcFloatExpression &&
       operation.expression.any { it.referencedId in DISPLAY_VARIABLES }
   }
-  if (readsDensity) return true
+  if (target.readsLiteralFloatFieldsOnly && readsDensity) return true
+  if (target.apiLevel >= 7) return false
   if (legacyHeader(header) == header) return false
   return operations.any { operation ->
     when (operation) {
@@ -223,7 +223,8 @@ public fun RcDocument.needsDisplay(target: RcTargetProfile): Boolean {
 private val DISPLAY_VARIABLES = setOf(RcSystemVariables.DENSITY, RcSystemVariables.FONT_SIZE)
 
 private fun RcDocument.bakeDensity(target: RcTargetProfile, display: RcDisplay): RcDocument =
-  if (target.apiLevel >= 7) this else hardcodeDensity(display.density, display.fontScale)
+  if (!target.readsLiteralFloatFieldsOnly) this
+  else hardcodeDensity(display.density, display.fontScale)
 
 private fun RcDocument.colorThemes(target: RcTargetProfile, approximate: Boolean): RcDocument {
   if (!approximate || RcOpcodes.COLOR_THEME in target.supportedOpcodes) return this
