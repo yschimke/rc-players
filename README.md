@@ -186,8 +186,14 @@ One literal the launcher needs at every level: a row's or column's `spacedBy`. T
 player, Android 16's and API 37's alike, lays a layout whose spacing is a variable out as nothing,
 so the whole document draws blank and reports no error — which is what a `RemoteDensity.Host`
 capture's `Arrangement.spacedBy(n.dp)` is. `validateFor` reports it for both launcher targets, and
-`adaptTo` writes the spacing as the number it is on the display, leaving a level 7 document's other
-density expressions alone.
+`adaptTo` writes the spacing as the number it is on the display (`hardcodeLayoutSpacing`), leaving
+a level 7 document's other density expressions alone.
+
+An app publishing a widget or a notification body does none of this itself:
+`RcLauncherWidgets.remoteViews` and `notificationRemoteViews` recover the document for the device's
+own display first (`RcLauncherWidgets.forDisplay`) — the spacing, then on Android 16 whatever else
+`validateFor` still reports, adapted — so a document captured at host density, or written for a
+freer player, draws rather than showing a blank widget.
 
 #### Back to source: `toRemoteComposeKotlin` and `toUiBuilderDesign`
 
