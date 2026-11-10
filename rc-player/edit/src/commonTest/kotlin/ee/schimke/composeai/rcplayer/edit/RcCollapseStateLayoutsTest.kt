@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
+import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -125,11 +126,11 @@ class RcCollapseStateLayoutsTest {
   fun aBranchHoldingAnythingElseIsNotCollapsed() {
     val blockers: List<List<RcOperation>> =
       listOf(
-        listOf(RcTextData(100, "hidden")),
         listOf(RcTextStyle(listOf(RcTextStyleProperty.IntValue(1, 5)))),
         listOf(RcBitmapFontData(300, emptyList())),
-        listOf(RcFloatExpression(301, listOf(one), animation = null)),
         listOf(RcPathCreate(302, zero, zero)),
+        // A value written inside a handler is written when it fires, not when the document opens.
+        listOf(RcClickModifier, RcFloatConstant(303, one), END),
         listOf(RcTheme(RcTheme.DARK)),
         listOf(RcConditionalOperations(RcConditionalOperations.EQUAL, zero, zero), END),
         // An action outside a handler runs as the branch draws, not on touch.
@@ -138,6 +139,80 @@ class RcCollapseStateLayoutsTest {
     blockers.forEach { content ->
       val source = branches(0, box(20), box(30, *content.toTypedArray()))
       assertSame(source, source.collapseConstantStateLayouts(), content.toString())
+    }
+  }
+
+  @Test
+  fun aRemovedBranchLeavesItsPlainValuesBehind() {
+    // Ids are document-wide: the text and the expression may be read outside the branch.
+    val values =
+      listOf(
+        RcTextData(100, "hidden"),
+        RcFloatExpression(301, listOf(one), animation = null),
+        RcColorConstant(302, 0x11223344),
+        RcNamedVariable(302, RcNamedVariable.COLOR_TYPE, "USER:accent"),
+        // Measures the branch being removed: a hidden branch publishes zero.
+        RcComponentValue(RcComponentValue.WIDTH, 30, 303),
+      )
+    val hidden = box(30, *values.toTypedArray(), RcDraw4(RcOpcodes.DRAW_RECT, zero, zero, one, one))
+    val result = assertRoundTrips(branches(0, box(20), hidden).collapseConstantStateLayouts())
+
+    assertEquals(listOf(20), shownBranches(result))
+    assertEquals(
+      values.dropLast(1) + RcFloatConstant(303, zero),
+      result.operations.filter { it.isPlainValue() && it != RcIntegerConstant(INDEX, 0) },
+    )
+  }
+
+  @Test
+  fun aCollapsedStateLayoutIsReplacedByItsBranch() {
+    val source =
+      branches(
+        1,
+        box(20),
+        box(30, RcPaddingModifier(one, one, one, one)),
+        after =
+          listOf(
+            RcComponentValue(RcComponentValue.WIDTH, 10, 201),
+            RcComponentValue(RcComponentValue.HEIGHT, 9, 202),
+            RcComponentValue(RcComponentValue.HEIGHT, 30, 203),
+          ),
+      )
+
+    val result =
+      assertRoundTrips(source.collapseConstantStateLayouts().unwrapSingleBranchStateLayouts())
+
+    assertEquals(
+      listOf(
+        RcIntegerConstant(INDEX, 1),
+        *rootLayout(*box(30, RcPaddingModifier(one, one, one, one)).toTypedArray()).toTypedArray(),
+        // What measured the state layout or its content measures the branch in their place.
+        RcComponentValue(RcComponentValue.WIDTH, 30, 201),
+        RcComponentValue(RcComponentValue.HEIGHT, 30, 202),
+        RcComponentValue(RcComponentValue.HEIGHT, 30, 203),
+      ),
+      result.operations,
+    )
+  }
+
+  @Test
+  fun aStateLayoutThatIsMoreThanItsBranchIsNotUnwrapped() {
+    fun state(vararg inside: RcOperation, index: Int = 0, animation: Int = -1) =
+      document(*rootLayout(RcStateLayout(10, animation, 0, 0, index), *inside, END).toTypedArray())
+    val content = arrayOf(RcLayoutContent(9), *box(20).toTypedArray(), END)
+    val kept =
+      listOf(
+        // Still choosing between branches, or between one and nothing.
+        state(RcLayoutContent(9), *box(20).toTypedArray(), *box(30).toTypedArray(), END),
+        state(*content, index = INDEX),
+        // Modifiers and an animation of its own would be lost with it.
+        state(RcPaddingModifier(one, one, one, one), *content),
+        state(*content, animation = 5),
+        // Something positional beside the branch.
+        state(RcLayoutContent(9), RcTheme(RcTheme.DARK), *box(20).toTypedArray(), END),
+      )
+    kept.forEach { source ->
+      assertSame(source, source.unwrapSingleBranchStateLayouts(), source.operations.toString())
     }
   }
 

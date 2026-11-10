@@ -1,16 +1,29 @@
 package ee.schimke.composeai.rcplayer.edit
 
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcBooleanConstant
+import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
+import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
+import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
 
 /**
  * This document with every state layout whose index can never change rewritten to the one branch
@@ -25,13 +38,15 @@ import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
  * one. Keeping the container rather than unwrapping the branch matters because a state layout sizes
  * itself to its showing branch and ignores its own fill modifiers; a box in its place would not.
  *
- * **Conservative by construction.** A branch is only removed when everything in it is local to it:
- * layout components, modifiers, drawing, and actions inside click and touch handlers (which cannot
- * fire while it is hidden). A `.rc` document's ids are document-wide and some of its semantics are
- * positional, so anything else in a hidden branch — a text, constant, expression, style, font,
- * theme marker, conditional, loop, or an operation this does not recognise — may be read or felt
- * outside it, and its presence leaves the state layout as it is. A `ComponentValue` elsewhere that
- * measures a component in a removed branch becomes the constant `0` a hidden branch publishes.
+ * **Conservative by construction.** A branch is only removed when everything in it is local to it
+ * or a plain value: layout components, modifiers, drawing, actions inside click and touch handlers
+ * (which cannot fire while it is hidden), and the data, constants and expressions that only give an
+ * id a value. A `.rc` document's ids are document-wide, so those values **stay**, in place and in
+ * order, where the branch was: something outside it may read them, and a host may still bind a
+ * named one. Some of a document's semantics are positional, so anything else in a hidden branch — a
+ * style, font, theme marker, conditional, loop, a value inside a handler, or an operation this does
+ * not recognise — leaves the state layout as it is. A `ComponentValue` that measures a component in
+ * a removed branch becomes the constant `0` a hidden branch publishes.
  *
  * Also left as they are: a state layout whose index is out of range for its branches, and every
  * state layout in a document using macros, since an expanded macro can write any id.
@@ -56,7 +71,9 @@ public fun RcDocument.collapseConstantStateLayouts(): RcDocument {
     if (branches != null) {
       replaced[node.start] = layout.copy(indexId = 0)
       branches.forEach { branch ->
-        for (index in branch.start..branch.end) removed[index] = true
+        for (index in branch.start..branch.end) {
+          if (!operations[index].isPlainValue()) removed[index] = true
+        }
         branch.walk { it.operation.declaredComponentId()?.let(removedComponents::add) }
       }
     }
@@ -107,21 +124,46 @@ internal fun RcOperationNode.stateLayoutBranches(): List<RcOperationNode>? {
   }
 }
 
-/** Whether nothing in this subtree can be read or felt outside it. */
+/** Whether nothing in this subtree can be felt outside it, once the plain values in it are kept. */
 private fun RcOperationNode.isLocal(inAction: Boolean): Boolean {
   val opcode = operation.opcode
   val allowed =
-    opcode in LOCAL_OPCODES || opcode in ACTION_CONTAINERS || (inAction && opcode in ACTION_OPCODES)
+    opcode in LOCAL_OPCODES ||
+      opcode in ACTION_CONTAINERS ||
+      (inAction && opcode in ACTION_OPCODES) ||
+      (!inAction && !isContainer && operation.isPlainValue())
   if (!allowed) return false
   val childInAction = inAction || opcode in ACTION_CONTAINERS
   return children.all { it.isLocal(childInAction) }
 }
 
 /**
+ * An operation whose only effect is the value it gives an id, wherever in a layout it is written:
+ * what a removed branch leaves behind, since ids are document-wide. A named variable is one too —
+ * it is the host's handle on the constant beside it.
+ */
+internal fun RcOperation.isPlainValue(): Boolean =
+  this is RcTextData ||
+    this is RcFloatConstant ||
+    this is RcIntegerConstant ||
+    this is RcColorConstant ||
+    this is RcBooleanConstant ||
+    this is RcLongConstant ||
+    this is RcPathData ||
+    this is RcBitmapData ||
+    this is RcNamedVariable ||
+    this is RcFloatExpression ||
+    this is RcIntegerExpression ||
+    this is RcColorExpression ||
+    this is RcComponentValue ||
+    this is RcTextFromFloat ||
+    this is RcTextMerge
+
+/**
  * What a hidden branch may hold and still be removed: its layout, its modifiers and its drawing.
  * None of these gives an id a value another operation could read. Deliberately absent: scroll
  * (which keeps scroll state), custom and compute layouts, draw-to-bitmap (which fills a bitmap id),
- * and everything that defines a value.
+ * and everything that defines a value ([isPlainValue] covers the ones that stay behind).
  */
 private val LOCAL_OPCODES: Set<Int> =
   setOf(
@@ -219,3 +261,66 @@ private val ACTION_OPCODES: Set<Int> =
     RcOpcodes.HAPTIC_FEEDBACK,
     RcOpcodes.PLAY_SOUND,
   )
+
+/**
+ * This document with every state layout that is down to one branch replaced by that branch.
+ *
+ * [collapseConstantStateLayouts] keeps the container, which is right for a player that sizes a
+ * state layout as the format says. The platform's widget player (Android 16 and 17) does not: a
+ * branch that fills its parent is laid out with no size inside a state layout, and what follows it
+ * in a column is placed over what came before. So a document baked for that player
+ * ([hardcodeNamedValues], then collapse) is finished with this: the branch takes the state layout's
+ * place in its parent, and is laid out as any other child.
+ *
+ * Only a state layout that shows its first branch unconditionally (index id `0`), has exactly one,
+ * has no modifiers or animation of its own, and holds nothing else but plain values is replaced;
+ * those values stay where they were. A `ComponentValue` that measured the state layout, or its
+ * content, measures the branch instead. A document using macros is returned as it is.
+ */
+public fun RcDocument.unwrapSingleBranchStateLayouts(): RcDocument {
+  val operations = operations
+  if (operations.none { it is RcStateLayout && it.indexId == 0 }) return this
+  if (operations.any { it is RcMacroDefine || it is RcMacroCall || it is RcMacroForEach }) {
+    return this
+  }
+  val tree = operationTree(operations) ?: return this
+
+  val removed = BooleanArray(operations.size)
+  // The component a removed state layout or content is now measured as.
+  val measuredAs = mutableMapOf<Int, Int>()
+
+  fun visit(node: RcOperationNode) {
+    val layout = node.operation as? RcStateLayout
+    if (layout != null && layout.indexId == 0 && layout.animationId == -1) {
+      val content = node.children.singleOrNull()?.takeIf { it.operation is RcLayoutContent }
+      val inside = content?.children
+      val branch = inside?.singleOrNull { it.isContainer }
+      val branchId = branch?.operation?.takeIf { it.isLayoutComponent() }?.declaredComponentId()
+      val restArePlain = inside?.all { it === branch || it.operation.isPlainValue() } == true
+      if (content != null && branchId != null && restArePlain) {
+        listOf(node.start, node.end, content.start, content.end).forEach { removed[it] = true }
+        measuredAs[layout.componentId] = branchId
+        content.operation.declaredComponentId()?.let { measuredAs[it] = branchId }
+      }
+    }
+    node.children.forEach(::visit)
+  }
+  tree.forEach(::visit)
+  if (measuredAs.isEmpty()) return this
+
+  // A branch that was itself an unwrapped state layout: follow it to the component that is left.
+  fun resolve(componentId: Int): Int {
+    var id = componentId
+    repeat(measuredAs.size) { id = measuredAs[id] ?: return id }
+    return id
+  }
+  val rewritten = operations.mapIndexedNotNull { index, operation ->
+    when {
+      removed[index] -> null
+      operation is RcComponentValue && operation.componentId in measuredAs ->
+        operation.copy(componentId = resolve(operation.componentId))
+      else -> operation
+    }
+  }
+  return copy(operations = rewritten)
+}
