@@ -122,8 +122,9 @@ public object RcLauncherWidgets {
     fontScale: Float = 1f,
     target: RcTargetProfile = targetFor(),
   ): ByteArray {
+    // Read as [target] reads it, so content a writer guarded for another player stays out.
     val decoded =
-      runCatching { RcDocumentCodec.decode(document, RcWireLimits()) }.getOrNull() ?: return document
+      runCatching { target.decode(document, RcWireLimits()) }.getOrNull() ?: return document
     val spaced = decoded.hardcodeLayoutSpacing(density, fontScale)
     val violations = spaced.validateFor(target)
     val recovered =

@@ -247,10 +247,15 @@ internal val RcTargetProfile.isLauncherWidget: Boolean
  */
 private fun RcDocument.spacingReadsDisplay(target: RcTargetProfile): Boolean {
   if (!target.isLauncherWidget) return false
+  // As [adaptTo] sees it: a layout in a macro's body is inlined before its spacing is written.
+  val operations = inlineStructuralOperations(target).operations
   if (operations.none { it.layoutSpacing?.isNaNEncoded == true }) return false
   val fixed = RcValueAnalysis(operations)
   val display = RcDisplay.DEFAULT
-  val baked = RcValueAnalysis(hardcodeDensity(display.density, display.fontScale).operations)
+  val baked =
+    RcValueAnalysis(
+      copy(operations = operations).hardcodeDensity(display.density, display.fontScale).operations,
+    )
   return operations.withIndex().any { (index, operation) ->
     val id = operation.layoutSpacing?.takeIf { it.isNaNEncoded }?.referencedId
     id != null && fixed.float(id, at = index) == null && baked.float(id, at = index) != null
