@@ -75,7 +75,7 @@ Beside the stack, and depending on `protocol` and `runtime` rather than the othe
 
 | Module | Artifact | What it is |
 | --- | --- | --- |
-| `rc-player/edit` | `rc-player-edit` | Rewrites over a decoded document, for code that changes a `.rc` file rather than plays it: embed URL bitmaps inline, hardcode host-bound named values, collapse state layouts whose index can no longer change to their one live branch — when the hidden branches hold only layout, modifiers, drawing and touch handlers, so nothing outside can depend on them — fold and strip what a document no longer needs, check or adapt a document for the player it targets, and combine two documents into the branches of one state layout a host switches through a named value — identical definitions carried once, and the components both screens show (or that the caller pairs) given one animation id, so they move between their positions. No Compose. |
+| `rc-player/edit` | `rc-player-edit` | Rewrites over a decoded document, for code that changes a `.rc` file rather than plays it: embed URL bitmaps inline, hardcode host-bound named values, collapse state layouts whose index can no longer change to their one live branch — when the hidden branches hold only layout, modifiers, drawing, touch handlers and plain values, which stay behind since ids are document-wide — and replace a state layout that is down to one branch by that branch, for the platform's widget player, which lays a filling branch out with no size inside one; fold and strip what a document no longer needs, check or adapt a document for the player it targets, and combine two documents into the branches of one state layout a host switches through a named value — identical definitions carried once, and the components both screens show (or that the caller pairs) given one animation id, so they move between their positions. No Compose. |
 
 ```kotlin
 val document = RcDocumentCodec.decode(bytes)
@@ -85,6 +85,7 @@ val baked =
     .hardcodeNamedValues(mapOf("tab" to RcHardcodedValue.Integer(2)))
     .hardcodeUnboundNamedValues(bound = setOf("progress"))
     .collapseConstantStateLayouts()
+    .unwrapSingleBranchStateLayouts() // for the platform's widget player
     .optimize()
 File("baked.rc").writeBytes(RcDocumentCodec.encode(baked))
 ```

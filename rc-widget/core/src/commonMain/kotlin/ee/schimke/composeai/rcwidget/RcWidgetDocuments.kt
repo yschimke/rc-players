@@ -10,6 +10,7 @@ import ee.schimke.composeai.rcplayer.edit.embedBitmapUrls
 import ee.schimke.composeai.rcplayer.edit.hardcodeDensity
 import ee.schimke.composeai.rcplayer.edit.hardcodeNamedValues
 import ee.schimke.composeai.rcplayer.edit.optimize
+import ee.schimke.composeai.rcplayer.edit.unwrapSingleBranchStateLayouts
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 
 /**
@@ -61,7 +62,8 @@ public object RcWidgetDocuments {
   /**
    * [template] for a host that cannot bind values: [values] written in as constants, each image URL
    * the document loads fetched ([fetchImage]) and embedded, the state layouts that became constant
-   * collapsed to their live branch, and the document optimised.
+   * replaced by their live branch (the platform's player mis-lays a branch left inside one), and
+   * the document optimised.
    *
    * Null when an image cannot be fetched: a host that cannot load a URL would draw nothing there,
    * so the caller falls back (a direct capture, a placeholder) rather than serve a hole.
@@ -84,7 +86,11 @@ public object RcWidgetDocuments {
     images: Map<String, ByteArray> = emptyMap(),
   ): RcDocument {
     val embedded = if (images.isEmpty()) template else template.embedBitmapUrls(images)
-    return embedded.hardcodeNamedValues(values).collapseConstantStateLayouts().optimize()
+    return embedded
+      .hardcodeNamedValues(values)
+      .collapseConstantStateLayouts()
+      .unwrapSingleBranchStateLayouts()
+      .optimize()
   }
 
   /**
