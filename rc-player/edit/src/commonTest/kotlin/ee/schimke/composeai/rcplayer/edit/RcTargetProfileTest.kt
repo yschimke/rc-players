@@ -271,8 +271,8 @@ class RcTargetProfileTest {
    * A player that decodes level 8 but reads paddings only as literals: as Baklava, at any level.
    */
   @Test
-  fun aPlayerWithoutVariableFieldsGetsLiteralPaddingsAtItsOwnLevel() {
-    val target = RcTargetProfiles.ANDROIDX.without(RcPlayerFeature.VARIABLE_FIELDS)
+  fun aPlayerWithoutVariableFloatFieldsGetsLiteralPaddingsAtItsOwnLevel() {
+    val target = RcTargetProfiles.ANDROIDX.without(RcPlayerFeature.VARIABLE_FLOAT_FIELDS)
     val variable =
       androidxDocument(
         RcNamedVariable(60, RcNamedVariable.FLOAT_TYPE, "USER:inset"),
@@ -299,6 +299,32 @@ class RcTargetProfileTest {
     assertEquals(constant.header, adaptation.document.header)
     // AndroidX itself reads the variable: nothing to rewrite.
     assertEquals(constant, constant.adaptTo(RcTargetProfiles.ANDROIDX).document)
+  }
+
+  /** Kobento's MCU player: colours by id are fine, a variable padding is not. Each on its own. */
+  @Test
+  fun floatFieldsAndModifierColourReferencesAreSeparateFeatures() {
+    val colorReference = RcBackgroundModifier.COLOR_REFERENCE_FLAG
+    val document =
+      androidxDocument(
+        RcNamedVariable(60, RcNamedVariable.FLOAT_TYPE, "USER:inset"),
+        RcNamedVariable(61, RcNamedVariable.COLOR_TYPE, "USER:accent"),
+        RcPaddingModifier(ref(60), ref(60), ref(60), ref(60)),
+        background(colorReference, 61, 0f),
+      )
+    fun dynamicFields(target: RcTargetProfile) =
+      document.validateFor(target).map { it.message.substringBefore(" must") }
+
+    assertEquals(
+      listOf("left", "top", "right", "bottom").map { "MODIFIER_PADDING.$it" },
+      dynamicFields(RcTargetProfiles.ANDROIDX.without(RcPlayerFeature.VARIABLE_FLOAT_FIELDS)),
+    )
+    assertEquals(
+      listOf("MODIFIER_BACKGROUND.colorId"),
+      dynamicFields(RcTargetProfiles.ANDROIDX.without(RcPlayerFeature.MODIFIER_COLOR_REFERENCES)),
+    )
+    // Level 6 has neither, as before.
+    assertEquals(5, dynamicFields(RcTargetProfiles.WIDGETS_V6).count { it.startsWith("MODIFIER_") })
   }
 
   /** A text component around nothing: the layout, its content wrapper, and both ends. */
@@ -352,11 +378,11 @@ class RcTargetProfileTest {
   fun withoutKeepsWhatEachOtherCallTookOff() {
     val target =
       RcTargetProfiles.ANDROIDX.without(RcOpcodes.CORE_TEXT)
-        .without(RcPlayerFeature.VARIABLE_FIELDS)
+        .without(RcPlayerFeature.VARIABLE_FLOAT_FIELDS)
         .without(RcPlayerFeature.DYNAMIC_TEXT_COLOR)
     assertFalse(RcOpcodes.CORE_TEXT in target.supportedOpcodes)
     assertEquals(
-      setOf(RcPlayerFeature.VARIABLE_FIELDS, RcPlayerFeature.DYNAMIC_TEXT_COLOR),
+      setOf(RcPlayerFeature.VARIABLE_FLOAT_FIELDS, RcPlayerFeature.DYNAMIC_TEXT_COLOR),
       target.missingFeatures,
     )
     assertEquals(RcTargetProfiles.ANDROIDX.apiLevel, target.apiLevel)

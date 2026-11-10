@@ -278,7 +278,8 @@ public final class ee/schimke/composeai/rcplayer/edit/RcOptimizeKt {
 
 public final class ee/schimke/composeai/rcplayer/edit/RcPlayerFeature : java/lang/Enum {
 	public static final field DYNAMIC_TEXT_COLOR Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
-	public static final field VARIABLE_FIELDS Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
+	public static final field MODIFIER_COLOR_REFERENCES Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
+	public static final field VARIABLE_FLOAT_FIELDS Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
 	public static fun values ()[Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;

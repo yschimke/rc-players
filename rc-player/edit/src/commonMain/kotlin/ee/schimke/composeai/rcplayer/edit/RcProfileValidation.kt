@@ -152,7 +152,7 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
             ),
           )
       }
-      if (target.readsLiteralFieldsOnly) addAll(literalFieldViolations(index, operation, target))
+      addAll(literalFieldViolations(index, operation, target))
       if (target.apiLevel <= 6) addAll(levelSixOperatorViolations(index, operation))
       if (
         RcPlayerFeature.DYNAMIC_TEXT_COLOR in target.missingFeatures &&
@@ -262,8 +262,10 @@ private fun RcDocument.measuredInHiddenBranches(target: RcTargetProfile): List<R
   }
 
 /**
- * The fields a target reads only as literals ([RcTargetProfile.readsLiteralFieldsOnly]) holding a
- * variable: what AndroidX's `WidgetsProfileWriterV6` refuses, and Android 16 stores raw.
+ * The fields a target reads only as literals holding a variable: float fields where
+ * [RcTargetProfile.readsLiteralFloatFieldsOnly], modifier colour ids where
+ * [RcTargetProfile.readsLiteralModifierColorsOnly]. What AndroidX's `WidgetsProfileWriterV6`
+ * refuses, and Android 16 stores raw.
  */
 private fun literalFieldViolations(
   index: Int,
@@ -279,12 +281,14 @@ private fun literalFieldViolations(
         "${operationName(operation.opcode)}.$field must be a literal on ${target.name}",
       ),
     )
+  val floats = target.readsLiteralFloatFieldsOnly
+  val colors = target.readsLiteralModifierColorsOnly
   fun literals(vararg fields: Pair<String, RcFloatWord>) = fields.forEach { (field, value) ->
-    if (value.isNaNEncoded) dynamic(field)
+    if (floats && value.isNaNEncoded) dynamic(field)
   }
   when (operation) {
-    is RcImageLayout -> if (operation.alpha.isNaNEncoded) dynamic("alpha")
-    is RcTextLayout -> if (operation.fontSize.isNaNEncoded) dynamic("fontSize")
+    is RcImageLayout -> literals("alpha" to operation.alpha)
+    is RcTextLayout -> literals("fontSize" to operation.fontSize)
     // Android 16 stores these raw and never resolves a variable in them.
     is RcPaddingModifier ->
       literals(
@@ -296,7 +300,7 @@ private fun literalFieldViolations(
     // Android 16 reads the four words AndroidX now spends on flags and a colour id as a rectangle,
     // so a colour reference draws the zero RGBA written beside it: transparent.
     is RcBackgroundModifier -> {
-      if (operation.usesColorId) dynamic("colorId")
+      if (colors && operation.usesColorId) dynamic("colorId")
       literals(
         "red" to operation.red,
         "green" to operation.green,
@@ -305,7 +309,7 @@ private fun literalFieldViolations(
       )
     }
     is RcBorderModifier -> {
-      if (operation.usesColorId) dynamic("colorId")
+      if (colors && operation.usesColorId) dynamic("colorId")
       literals(
         "borderWidth" to operation.borderWidth,
         "roundedCorner" to operation.roundedCorner,

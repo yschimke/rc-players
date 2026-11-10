@@ -117,12 +117,19 @@ internal constructor(
     )
 
   /**
-   * Whether the player reads an image's alpha, a text's size, a padding and a background's or
-   * border's colour and size only as literals: below API level 7, and wherever
-   * [RcPlayerFeature.VARIABLE_FIELDS] is missing.
+   * Whether the player reads an image's alpha, a text's size, a padding, and a background's or
+   * border's float fields only as literals: below API level 7, and wherever
+   * [RcPlayerFeature.VARIABLE_FLOAT_FIELDS] is missing.
    */
-  internal val readsLiteralFieldsOnly: Boolean
-    get() = apiLevel < 7 || RcPlayerFeature.VARIABLE_FIELDS in missingFeatures
+  internal val readsLiteralFloatFieldsOnly: Boolean
+    get() = apiLevel < 7 || RcPlayerFeature.VARIABLE_FLOAT_FIELDS in missingFeatures
+
+  /**
+   * Whether the player reads a background's or border's colour only as the colour, not by id: below
+   * API level 7, and wherever [RcPlayerFeature.MODIFIER_COLOR_REFERENCES] is missing.
+   */
+  internal val readsLiteralModifierColorsOnly: Boolean
+    get() = apiLevel < 7 || RcPlayerFeature.MODIFIER_COLOR_REFERENCES in missingFeatures
 
   public companion object {
     /**
@@ -232,12 +239,20 @@ public object RcTargetProfiles {
  */
 public enum class RcPlayerFeature {
   /**
-   * A variable in a field AndroidX reads as either: an image's alpha, a text's size, a padding, a
-   * background's or border's colour and size. API level 6 has none; a player without it resolves
-   * such a field to nothing (a NaN padding, a transparent colour). [adaptTo] writes each constant
-   * one as the literal it is, and [validateFor] reports any that change while playing.
+   * A variable in a float field AndroidX reads as either: an image's alpha, a text's size, a
+   * padding, a background's or border's colour components, a border's width and corner. API level 6
+   * has none; a player without it resolves such a field to nothing (a padding of NaN, and the
+   * component it lays out with it). [adaptTo] writes each constant one as the literal it is, and
+   * [validateFor] reports any that change while playing.
    */
-  VARIABLE_FIELDS,
+  VARIABLE_FLOAT_FIELDS,
+
+  /**
+   * A background's or border's colour given as a colour id rather than as the colour. API level 6
+   * has none; a player without it draws the components written beside the id, transparent.
+   * [adaptTo] writes each constant one as the colour, and [validateFor] reports the rest.
+   */
+  MODIFIER_COLOR_REFERENCES,
 
   /**
    * A `TextLayout` colour given as a colour id ([RcTextLayout.FLAG_DYNAMIC_COLOR]) rather than as

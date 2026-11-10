@@ -298,16 +298,20 @@ private fun RcDocument.dropRemarks(target: RcTargetProfile): RcDocument =
   else copy(operations = operations.filterNot { it is RcRemark })
 
 private fun RcDocument.foldLiteralFields(target: RcTargetProfile): RcDocument {
-  if (!target.readsLiteralFieldsOnly) return this
+  val floats = target.readsLiteralFloatFieldsOnly
+  val colors = target.readsLiteralModifierColorsOnly
+  if (!floats && !colors) return this
   val values = RcValueAnalysis(operations)
   var changed = false
   fun RcFloatWord.literalAt(index: Int): RcFloatWord {
+    if (!floats) return this
     val id = referencedId?.takeIf { isNaNEncoded } ?: return this
     return values.float(id, at = index)?.also { changed = true } ?: this
   }
   // A colour reference Android 16 would read as a rectangle, inlined as the literal RGBA it reads.
   fun literalColor(flags: Int, colorId: Int, index: Int): LiteralColor {
-    val argb = if (flags and COLOR_REFERENCE == 0) null else values.color(colorId, at = index)
+    val argb =
+      if (!colors || flags and COLOR_REFERENCE == 0) null else values.color(colorId, at = index)
     if (argb == null) return LiteralColor(flags, colorId, null)
     changed = true
     val rgba = listOf(16, 8, 0, 24).map { RcFloatWord.literal(((argb ushr it) and 0xff) / 255f) }

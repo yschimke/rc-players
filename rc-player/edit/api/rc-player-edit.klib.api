@@ -31,7 +31,8 @@ final enum class ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder : kotli
 
 final enum class ee.schimke.composeai.rcplayer.edit/RcPlayerFeature : kotlin/Enum<ee.schimke.composeai.rcplayer.edit/RcPlayerFeature> { // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature|null[0]
     enum entry DYNAMIC_TEXT_COLOR // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.DYNAMIC_TEXT_COLOR|null[0]
-    enum entry VARIABLE_FIELDS // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.VARIABLE_FIELDS|null[0]
+    enum entry MODIFIER_COLOR_REFERENCES // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.MODIFIER_COLOR_REFERENCES|null[0]
+    enum entry VARIABLE_FLOAT_FIELDS // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.VARIABLE_FLOAT_FIELDS|null[0]
 
     final val entries // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.entries|#static{}entries[0]
         final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rcplayer.edit/RcPlayerFeature> // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.entries.<get-entries>|<get-entries>#static(){}[0]
