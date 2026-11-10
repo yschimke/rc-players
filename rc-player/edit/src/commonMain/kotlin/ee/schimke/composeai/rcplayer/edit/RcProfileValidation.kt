@@ -152,7 +152,22 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
             ),
           )
       }
-      if (target.apiLevel <= 6) addAll(levelSixViolations(index, operation, target))
+      if (target.readsLiteralFieldsOnly) addAll(literalFieldViolations(index, operation, target))
+      if (target.apiLevel <= 6) addAll(levelSixOperatorViolations(index, operation))
+      if (
+        RcPlayerFeature.DYNAMIC_TEXT_COLOR in target.missingFeatures &&
+          operation is RcTextLayout &&
+          operation.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0
+      ) {
+        add(
+          RcProfileViolation(
+            RcProfileViolation.Kind.DYNAMIC_VALUE,
+            index,
+            opcode,
+            "${operationName(opcode)}.color must be a literal on ${target.name}",
+          ),
+        )
+      }
       // The platform's launcher widget player, at either level, lays a row or column out as nothing
       // when its spacing is a variable: the whole document draws blank.
       if (target.isLauncherWidget && operation.layoutSpacing?.isNaNEncoded == true) {
@@ -246,8 +261,11 @@ private fun RcDocument.measuredInHiddenBranches(target: RcTargetProfile): List<R
     }
   }
 
-/** The limits AndroidX's `WidgetsProfileWriterV6` puts on operations level 6 does decode. */
-private fun levelSixViolations(
+/**
+ * The fields a target reads only as literals ([RcTargetProfile.readsLiteralFieldsOnly]) holding a
+ * variable: what AndroidX's `WidgetsProfileWriterV6` refuses, and Android 16 stores raw.
+ */
+private fun literalFieldViolations(
   index: Int,
   operation: RcOperation,
   target: RcTargetProfile,
@@ -297,23 +315,28 @@ private fun levelSixViolations(
         "alpha" to operation.alpha,
       )
     }
-    is RcFloatExpression ->
-      operation.expression
-        .mapNotNull { it.floatOperator() }
-        .filter { it >= LEVEL_6_OPERATOR_LIMIT }
-        .distinct()
-        .forEach { operator ->
-          add(
-            RcProfileViolation(
-              RcProfileViolation.Kind.FLOAT_OPERATOR,
-              index,
-              operation.opcode,
-              "Float operator ${operator - FLOAT_OPERATOR_OFFSET} was added after API level 6",
-            ),
-          )
-        }
     else -> Unit
   }
+}
+
+/** The float operators AndroidX's `WidgetsProfileWriterV6` refuses: those added after level 6. */
+private fun levelSixOperatorViolations(
+  index: Int,
+  operation: RcOperation,
+): List<RcProfileViolation> {
+  if (operation !is RcFloatExpression) return emptyList()
+  return operation.expression
+    .mapNotNull { it.floatOperator() }
+    .filter { it >= LEVEL_6_OPERATOR_LIMIT }
+    .distinct()
+    .map { operator ->
+      RcProfileViolation(
+        RcProfileViolation.Kind.FLOAT_OPERATOR,
+        index,
+        operation.opcode,
+        "Float operator ${operator - FLOAT_OPERATOR_OFFSET} was added after API level 6",
+      )
+    }
 }
 
 /** The operator a NaN-encoded expression word names, or null for a literal or variable. */

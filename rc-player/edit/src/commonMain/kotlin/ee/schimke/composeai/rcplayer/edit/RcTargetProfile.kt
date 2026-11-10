@@ -62,6 +62,11 @@ internal constructor(
    * allow-list like Wear's — rather than with the set the header's own level and bits select.
    */
   internal val fixedOperations: Boolean = false,
+  /**
+   * What the player gets wrong in operations it does decode: forms of them it can't play, which
+   * [adaptTo] writes another way and [validateFor] reports. Empty for every AndroidX profile.
+   */
+  public val missingFeatures: Set<RcPlayerFeature> = emptySet(),
 ) {
   /**
    * Decodes [bytes] as this player would: a `Skip` guard is resolved against this profile's API
@@ -71,7 +76,9 @@ internal constructor(
   public fun decode(bytes: ByteArray, limits: RcWireLimits = RcWireLimits()): RcDocument =
     RcDocumentCodec.decode(bytes, limits, libraryApiLevel = apiLevel, profile = profiles)
 
-  override fun toString(): String = "RcTargetProfile($name, apiLevel=$apiLevel, profiles=$profiles)"
+  override fun toString(): String =
+    "RcTargetProfile($name, apiLevel=$apiLevel, profiles=$profiles" +
+      (if (missingFeatures.isEmpty()) ")" else ", missing=$missingFeatures)")
 
   /**
    * This player without [opcodes]: the same level, bits and decoding, for a host that can't yet
@@ -82,7 +89,40 @@ internal constructor(
     vararg opcodes: Int,
     name: String = "${this.name} without ${opcodes.toList()}",
   ): RcTargetProfile =
-    RcTargetProfile(name, apiLevel, profiles, supportedOpcodes - opcodes.toSet(), fixedOperations)
+    RcTargetProfile(
+      name,
+      apiLevel,
+      profiles,
+      supportedOpcodes - opcodes.toSet(),
+      fixedOperations,
+      missingFeatures,
+    )
+
+  /**
+   * This player without [features]: the same operations, for a player that decodes them but gets
+   * some of their forms wrong (an embedded player that reads a padding only as a literal, say), so
+   * adapting a document to it writes those forms another way and validating reports what is left.
+   */
+  public fun without(
+    vararg features: RcPlayerFeature,
+    name: String = "${this.name} without ${features.toList()}",
+  ): RcTargetProfile =
+    RcTargetProfile(
+      name,
+      apiLevel,
+      profiles,
+      supportedOpcodes,
+      fixedOperations,
+      missingFeatures + features,
+    )
+
+  /**
+   * Whether the player reads an image's alpha, a text's size, a padding and a background's or
+   * border's colour and size only as literals: below API level 7, and wherever
+   * [RcPlayerFeature.VARIABLE_FIELDS] is missing.
+   */
+  internal val readsLiteralFieldsOnly: Boolean
+    get() = apiLevel < 7 || RcPlayerFeature.VARIABLE_FIELDS in missingFeatures
 
   public companion object {
     /**
@@ -182,7 +222,29 @@ public object RcTargetProfiles {
     )
 
   private fun RcTargetProfile.named(name: String): RcTargetProfile =
-    RcTargetProfile(name, apiLevel, profiles, supportedOpcodes, fixedOperations)
+    RcTargetProfile(name, apiLevel, profiles, supportedOpcodes, fixedOperations, missingFeatures)
+}
+
+/**
+ * A form of an operation a player decodes but can't play: what [RcTargetProfile.without] takes off
+ * a profile, beside the operations [RcTargetProfile.supportedOpcodes] lists. An operation is in a
+ * player's set or not; a feature is how a player it does decode may carry a value.
+ */
+public enum class RcPlayerFeature {
+  /**
+   * A variable in a field AndroidX reads as either: an image's alpha, a text's size, a padding, a
+   * background's or border's colour and size. API level 6 has none; a player without it resolves
+   * such a field to nothing (a NaN padding, a transparent colour). [adaptTo] writes each constant
+   * one as the literal it is, and [validateFor] reports any that change while playing.
+   */
+  VARIABLE_FIELDS,
+
+  /**
+   * A `TextLayout` colour given as a colour id ([RcTextLayout.FLAG_DYNAMIC_COLOR]) rather than as
+   * the colour. A player without it draws the id as an ARGB value, near transparent. [adaptTo]
+   * writes each constant one as the colour, and [validateFor] reports any that change.
+   */
+  DYNAMIC_TEXT_COLOR,
 }
 
 /**

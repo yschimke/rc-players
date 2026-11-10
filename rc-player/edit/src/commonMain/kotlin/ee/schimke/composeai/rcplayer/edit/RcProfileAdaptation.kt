@@ -167,6 +167,7 @@ public fun RcDocument.adaptTo(
         else it
       }
       .foldLiteralFields(target)
+      .literalTextColors(target)
       .headerFor(target, display, densityViolations)
   return RcProfileAdaptation(adapted, adapted.validateFor(target) + densityViolations, dropped)
 }
@@ -297,7 +298,7 @@ private fun RcDocument.dropRemarks(target: RcTargetProfile): RcDocument =
   else copy(operations = operations.filterNot { it is RcRemark })
 
 private fun RcDocument.foldLiteralFields(target: RcTargetProfile): RcDocument {
-  if (target.apiLevel >= 7) return this
+  if (!target.readsLiteralFieldsOnly) return this
   val values = RcValueAnalysis(operations)
   var changed = false
   fun RcFloatWord.literalAt(index: Int): RcFloatWord {
@@ -353,6 +354,27 @@ private fun RcDocument.foldLiteralFields(target: RcTargetProfile): RcDocument {
       }
       else -> operation
     }
+  }
+  return if (changed) copy(operations = rewritten) else this
+}
+
+/**
+ * Each `TextLayout` whose colour is an id ([RcTextLayout.FLAG_DYNAMIC_COLOR]) the colour nothing
+ * can change, for a target without [RcPlayerFeature.DYNAMIC_TEXT_COLOR]: the colour itself, and the
+ * flag cleared.
+ */
+private fun RcDocument.literalTextColors(target: RcTargetProfile): RcDocument {
+  if (RcPlayerFeature.DYNAMIC_TEXT_COLOR !in target.missingFeatures) return this
+  val values = RcValueAnalysis(operations)
+  val dynamic = RcTextLayout.FLAG_DYNAMIC_COLOR shl 16
+  var changed = false
+  val rewritten = operations.mapIndexed { index, operation ->
+    if (operation !is RcTextLayout || operation.textAlignAndFlags and dynamic == 0) {
+      return@mapIndexed operation
+    }
+    val argb = values.color(operation.color, at = index) ?: return@mapIndexed operation
+    changed = true
+    operation.copy(color = argb, textAlignAndFlags = operation.textAlignAndFlags and dynamic.inv())
   }
   return if (changed) copy(operations = rewritten) else this
 }
