@@ -165,12 +165,76 @@ class AnimatedVectorEvaluationTest {
   }
 
   /**
-   * The same animators through both ways of drawing, at several times: repeats in both modes, and
-   * one animator after another on the same property.
+   * The other example: from 0 to 1 with `Accelerate` on the animator and plain keyframes is a
+   * quarter of the way half way through. `evaluateAt` returned a half.
+   */
+  @Test
+  fun theAnimatorsInterpolatorIsApplied() {
+    val accelerating =
+      RemotePropertyAnimator(
+        "rotation",
+        duration = 100,
+        keyframes = listOf(RemoteKeyframe(0f, 0f), RemoteKeyframe(1f, 1f)),
+        interpolator = RemoteInterpolator.Accelerate(),
+      )
+    assertEquals(0.25f, accelerating.evaluateAt(50, 0.5f) as Float, 0.0001f)
+    val drawnAccelerating =
+      vector(
+        rotation =
+          listOf(
+            rotation(
+              duration = 100,
+              keyframes = listOf(RemoteKeyframe(0f, 1f), RemoteKeyframe(1f, 2f)),
+              interpolator = RemoteInterpolator.Accelerate(),
+            ),
+          ),
+      )
+    assertEquals(1.25f, written(drawnAccelerating, 0.5f).rotation, 0.001f)
+    assertEquals(1.25f, painted(drawnAccelerating, 0.5f).rotation, 0.001f)
+  }
+
+  /** The keyframe's interpolator after the animator's: `Accelerate` twice is the fourth power. */
+  @Test
+  fun theKeyframesInterpolatorIsAppliedAfterTheAnimators() {
+    val twice =
+      vector(
+        rotation =
+          listOf(
+            rotation(
+              duration = 100,
+              keyframes =
+                listOf(
+                  RemoteKeyframe(0f, 1f),
+                  RemoteKeyframe(1f, 17f, RemoteInterpolator.Accelerate()),
+                ),
+              interpolator = RemoteInterpolator.Accelerate(),
+            ),
+          ),
+      )
+    assertEquals(2f, written(twice, 0.5f).rotation, 0.001f)
+    assertEquals(2f, painted(twice, 0.5f).rotation, 0.001f)
+  }
+
+  /**
+   * The same animators through both ways of drawing, at several times: repeats in both modes, an
+   * interpolator on the animator, on a keyframe and on both, more than two keyframes, a start
+   * delay, and one animator after another on the same property.
    */
   @Test
   fun bothWaysOfDrawingAgree() {
     val reverse = RemotePropertyAnimator.REPEAT_MODE_REVERSE
+    val threeKeyframes =
+      listOf(
+        RemoteKeyframe(0f, 10f),
+        RemoteKeyframe(0.25f, 90f, RemoteInterpolator.Decelerate()),
+        RemoteKeyframe(1f, 40f, RemoteInterpolator.FastOutSlowIn),
+      )
+    val threeColours =
+      listOf(
+        RemoteKeyframe(0f, BLACK),
+        RemoteKeyframe(0.5f, 0xFF00FF00.toInt(), RemoteInterpolator.Accelerate()),
+        RemoteKeyframe(1f, 0xFFFF0000.toInt()),
+      )
     val vectors =
       mapOf(
         "plain" to vector(listOf(rotation(1000)), listOf(fill(1000))),
@@ -186,6 +250,61 @@ class AnimatedVectorEvaluationTest {
           ),
         "restarted twice" to
           vector(listOf(rotation(1000, repeatCount = 2)), listOf(fill(1000, repeatCount = 2))),
+        "the animator's interpolator" to
+          vector(
+            listOf(rotation(1000, interpolator = RemoteInterpolator.Accelerate())),
+            listOf(fill(1000, interpolator = RemoteInterpolator.Decelerate())),
+          ),
+        "an interpolator with a factor" to
+          vector(
+            listOf(rotation(1000, interpolator = RemoteInterpolator.Accelerate(1.5f))),
+            listOf(fill(1000, interpolator = RemoteInterpolator.Decelerate(2f))),
+          ),
+        "a keyframe's interpolator" to
+          vector(
+            listOf(
+              rotation(
+                1000,
+                keyframes =
+                  listOf(
+                    RemoteKeyframe(0f, 10f),
+                    RemoteKeyframe(1f, 110f, RemoteInterpolator.AccelerateDecelerate),
+                  ),
+              ),
+            ),
+            listOf(
+              fill(
+                1000,
+                keyframes =
+                  listOf(
+                    RemoteKeyframe(0f, BLACK),
+                    RemoteKeyframe(1f, 0xFF0000FF.toInt(), RemoteInterpolator.Accelerate()),
+                  ),
+              ),
+            ),
+          ),
+        "three keyframes, reversed, eased, delayed" to
+          vector(
+            listOf(
+              rotation(
+                1000,
+                startDelay = 500,
+                repeatCount = 1,
+                repeatMode = reverse,
+                keyframes = threeKeyframes,
+                interpolator = RemoteInterpolator.AccelerateDecelerate,
+              ),
+            ),
+            listOf(
+              fill(
+                1250,
+                repeatCount = 1,
+                repeatMode = reverse,
+                keyframes = threeColours,
+                interpolator = RemoteInterpolator.LinearOutSlowIn,
+              ),
+            ),
+          ),
         "one animator after a repeated one" to
           vector(
             listOf(

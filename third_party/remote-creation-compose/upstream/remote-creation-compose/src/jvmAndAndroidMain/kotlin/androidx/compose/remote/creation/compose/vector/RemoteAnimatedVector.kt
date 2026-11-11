@@ -246,7 +246,8 @@ public class RemotePropertyAnimator(
 
         val effectiveDuration = if (duration > 0) duration else 1
         val elapsed = timeMs - startDelay
-        val iterationFraction: Float
+        // LOCAL PATCH (rc-players): a `var`, for the animator's interpolator below.
+        var iterationFraction: Float
         if (elapsed < 0) {
             iterationFraction = 0f
         } else if (repeatCount >= 0 && elapsed >= duration * (repeatCount + 1)) {
@@ -260,6 +261,11 @@ public class RemotePropertyAnimator(
             }
             iterationFraction = fraction
         }
+        // LOCAL PATCH (rc-players): the animator's own interpolator, on the iteration's fraction
+        // and before the keyframe segment's, as `computeAnimatorLocalProgress` applies it for
+        // `painterRemoteAnimatedVector`. Upstream applies only the keyframe's here, so an
+        // `Accelerate` animator with plain keyframes is linear.
+        iterationFraction = interpolator.transform(iterationFraction)
 
         // Find adjacent keyframes
         val k0 = keyframes.first()
@@ -327,14 +333,16 @@ public fun interface RemoteInterpolator {
         public val LinearOutSlowIn: RemoteInterpolator = CubicBezier(0.0f, 0.0f, 0.2f, 1.0f)
     }
 
-    public class Accelerate(private val factor: Float = 1.0f) : RemoteInterpolator {
+    // LOCAL PATCH (rc-players): `factor` is internal, for the painter's expression of this curve.
+    public class Accelerate(internal val factor: Float = 1.0f) : RemoteInterpolator {
         override fun transform(fraction: Float): Float {
             return if (factor == 1.0f) fraction * fraction
             else fraction.toDouble().pow(2.0 * factor).toFloat()
         }
     }
 
-    public class Decelerate(private val factor: Float = 1.0f) : RemoteInterpolator {
+    // LOCAL PATCH (rc-players): `factor` is internal, as `Accelerate`'s.
+    public class Decelerate(internal val factor: Float = 1.0f) : RemoteInterpolator {
         override fun transform(fraction: Float): Float {
             return if (factor == 1.0f) 1.0f - (1.0f - fraction) * (1.0f - fraction)
             else (1.0f - (1.0f - fraction).toDouble().pow(2.0 * factor)).toFloat()
