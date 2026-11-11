@@ -20,6 +20,8 @@ public class RemoteDocumentWriter(
   private var drawToBitmapUsed = false
   private var shaderUsed = false
   private var mesh2DUsed = false
+  private var patternUsed = false
+  private var bitmapFontOnPathUsed = false
   private val bodyBuffer = RemoteWireBuffer()
   private var wire = bodyBuffer
   private val declarationBuffer = RemoteWireBuffer()
@@ -529,6 +531,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun definePattern(id: Int, parameterIds: IntArray) {
+    patternUsed = true
     operation(PatternDefine)
     wire.writeInt(id)
     wire.writeInt(parameterIds.size)
@@ -555,6 +558,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun inflatePattern(id: Int, argumentIds: IntArray) {
+    patternUsed = true
     operation(PatternInflation)
     wire.writeInt(id)
     wire.writeInt(argumentIds.size)
@@ -567,6 +571,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun addPatternForEach(collectionId: Int, localItemId: Int) {
+    patternUsed = true
     operation(PatternForEach)
     wire.writeInt(collectionId)
     wire.writeInt(localItemId)
@@ -709,6 +714,22 @@ public class RemoteDocumentWriter(
         profiles = profiles or ProfileAndroidx
       }
       profiles = profiles or ProfileExperimental
+    }
+    // LOCAL PATCH (rc-players): likewise the pattern operations (`MACRO_DEFINE`, `MACRO_CALL`,
+    // `MACRO_FOR_EACH`), which remote-core reads only under the AndroidX experimental map
+    // (`createMapV7_Androidx_Experimental`; the widgets maps have none). The capture functions take
+    // no profile, so without this a document from `RemoteCanvas.definePattern` or `forEach` would
+    // be refused as holding unknown operations.
+    if (patternUsed) {
+      if ((profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
+        profiles = profiles or ProfileAndroidx
+      }
+      profiles = profiles or ProfileExperimental
+    }
+    // LOCAL PATCH (rc-players): and a bitmap-font text run on a path, read under the AndroidX or
+    // widgets profile (`createMapV7_Androidx` / `_Widgets`), as `DrawToBitmap` is.
+    if (bitmapFontOnPathUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
+      profiles = profiles or ProfileAndroidx
     }
     val header =
       if (profiles != documentProfiles || customComponentsUsed) {
@@ -1598,6 +1619,7 @@ public class RemoteDocumentWriter(
     yAdj: Float,
     glyphSpacing: Float,
   ) {
+    bitmapFontOnPathUsed = true
     operation(DrawBitmapFontTextRunOnPath)
     writeTextIdWithGlyphSpacing(textId, glyphSpacing)
     wire.writeInt(bitmapFontId)
