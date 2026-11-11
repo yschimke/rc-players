@@ -16,14 +16,54 @@ works without a server, and the server-side pieces run the same code.
 | Module | Artifact | Targets | What it holds |
 | --- | --- | --- | --- |
 | `rc-widget/core` | `rc-widget-core` | JVM · Android · iOS · macOS · wasmJs | What a phone, a watch and a server have to agree on about a document. No Compose and no Android; safe on a server. |
-| `rc-widget/creation` | `rc-widget-creation` | JVM · Android · iOS · macOS · wasmJs | Creation helpers. Compiled against AndroidX's `remote-creation-compose` on Android and against rc-players' CMP fork everywhere else. |
+| `rc-widget/creation` | `rc-widget-creation` | JVM · Android · iOS · macOS · wasmJs | Creation helpers against rc-players' CMP creation API (`rc-creation-compose`, package `ee.schimke.composeai.rccreation`) on every target. Package `ee.schimke.composeai.rcwidget.creation`. |
+| `rc-widget/creation-androidx` | `rc-widget-creation-androidx` | Android | The same helpers against AndroidX's own `remote-creation-compose`, and the AndroidX capture profiles. Package `ee.schimke.composeai.rcwidget.creation.androidx`. |
 | `rc-widget/launcher` | `rc-widget-launcher` | Android | Android launcher widgets (`RemoteViews.DrawInstructions`). |
 | `rc-widget/wear` | `rc-widget-wear` | Android | Wear OS widgets through Glance Wear. |
 
 ```
-rc-player-edit ─▶ rc-widget-core ─▶ rc-widget-creation ─▶ rc-widget-launcher
-                                                     └──▶ rc-widget-wear
+rc-player-edit ─▶ rc-widget-core ─▶ rc-widget-creation            (rc-creation-compose, every target)
+                               └──▶ rc-widget-creation-androidx ─▶ rc-widget-launcher
+                                    (AndroidX creation, Android) └▶ rc-widget-wear
 ```
+
+### Two bindings of one source
+
+rc-players' creation API and AndroidX's are the same API in two packages
+(`ee.schimke.composeai.rccreation.compose` and `androidx.compose.remote.creation.compose`), so
+`@RemoteComposable` content written for one is not content for the other. The creation helpers
+exist once for each:
+
+- **`rc-widget-creation`** is the Compose Multiplatform binding, on every target including Android.
+  Use it for content captured with `rc-creation-compose`: a design server on the JVM, an editor, an
+  in-app card played by `rc-player-embedded`.
+- **`rc-widget-creation-androidx`** is the AndroidX binding, Android only. Use it for content that
+  has to compose with AndroidX-only libraries: a launcher widget captured for `RemoteViews`, a Wear
+  widget through Glance Wear, anything built from Wear `remote-material3`. `rc-widget-launcher` and
+  `rc-widget-wear` are built on it and take AndroidX `@RemoteComposable` content.
+
+Both can be in one app; their packages differ, and so do the creation libraries under them.
+
+The AndroidX binding is not a second copy to maintain. Its build (`generateAndroidxBinding`) copies
+every file of `rc-widget-creation`'s `commonMain` except `RcCreationCompat.kt` and rewrites three
+package prefixes: `ee.schimke.composeai.rccreation.compose` to
+`androidx.compose.remote.creation.compose`, `ee.schimke.composeai.rccreation.foundation` to
+`androidx.compose.remote.foundation`, and its own `ee.schimke.composeai.rcwidget.creation` to
+`ee.schimke.composeai.rcwidget.creation.androidx`. The result is build output, never committed; the
+module's committed ABI dump is what review sees of it. Three files are written by hand in
+`rc-widget/creation-androidx/src`:
+
+- `RcCreationCompat.kt`, the seam. rc-players' creation modules track androidx-main, and the
+  AndroidX release the widget lane is pinned to is behind it in two places these helpers touch: how
+  a component's size is read (`remoteComponent()` on androidx-main, a `RemoteFloatContext` lambda in
+  the release) and the type of `RemotePaint.style`. Each binding has its own `RcCreationCompat.kt`
+  with the same two internal functions, and the generated files call them.
+- `AndroidxExperimentalProfile.kt` and `WrapModeProfile.kt`, the AndroidX capture profiles, which
+  have no counterpart on the CMP side (its capture takes no `Profile`).
+
+A helper added to `rc-widget-creation` appears in both bindings. If it uses something the pinned
+AndroidX release lacks, `rc-widget-creation-androidx` stops compiling, and the difference goes
+behind another function in `RcCreationCompat.kt`.
 
 ### `rc-widget-core`
 
@@ -94,7 +134,12 @@ rc-player-edit ─▶ rc-widget-core ─▶ rc-widget-creation ─▶ rc-widget-
   - Everything is drawn to fit the host's rounded rect at the host's own radius, so one style fits
     a pill, a 26 dp corner and a 4 dp one.
   - `rcReadableAlpha` caps a fill under text at the alpha that keeps WCAG contrast.
-- **AndroidX capture profiles for Android:** `androidXExperimental`, and `androidXExperimentalWrap`
+
+### `rc-widget-creation-androidx`
+
+- Everything above, in `ee.schimke.composeai.rcwidget.creation.androidx`, over AndroidX's creation
+  API.
+- **AndroidX capture profiles:** `androidXExperimental`, and `androidXExperimentalWrap`
   (paint-measure off).
 
 ### `rc-widget-launcher`
@@ -189,7 +234,7 @@ The same template plays in the app with live values:
 
 A server running the JVM artifacts can do everything above for a client that asks:
 
-- capture with `rc-widget-creation` on the fork;
+- capture with `rc-widget-creation` and `rc-creation-compose`;
 - read the client's `RC-Player` header, `negotiate()` a target and `serve()` the template for it;
 - publish `RcBundledTemplates.layout(...)` as static, content-addressed files;
 - check user-pushed designs with `RcTemplateCheck.problems`.

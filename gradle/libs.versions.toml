@@ -122,7 +122,7 @@ wear = "1.4.0"
 # https://developer.android.com/jetpack/androidx/releases/compose-remote.
 # One line for every consumer: the vendored embedded player, the compat tests, the
 # `remote-apple-components` prototype and the widget lane (`rc-widget/launcher`, `rc-widget/wear`,
-# the Android half of `rc-widget/creation`), which captures and publishes to real hosts — a
+# `rc-widget/creation-androidx`), which captures and publishes to real hosts — a
 # launcher's `RemoteViews.DrawInstructions` player and Glance Wear. The widget lane used to sit on
 # its own, newer `compose-remote-widgets` ref; it merged back into this one at alpha22, when the
 # player line caught up. Keep it on what the widget hosts' first consumer
@@ -286,7 +286,8 @@ androidx-test-runner = { module = "androidx.test:runner", version = "1.7.0" }
 androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version = "2.4.1" }
 junit = { module = "junit:junit", version.ref = "junit" }
 truth = { module = "com.google.truth:truth", version.ref = "truth" }
-# AndroidX's own tests of `remote-creation-expression`, carried in `third_party/remote-creation-compose`.
+# AndroidX's own tests of `remote-creation-expression`, carried in
+# `third_party/remote-creation-compose/expression`.
 test-parameter-injector = { module = "com.google.testparameterinjector:test-parameter-injector", version = "1.25" }
 # ASM — used by `:daemon:harness`'s `S3_5RecompileSaveLoopRealModeTest` to mint two
 # `.class` files with the same FQN (`ee.schimke.composeai.daemon.MutableSquare`) but different

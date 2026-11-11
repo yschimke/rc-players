@@ -1,20 +1,33 @@
 # Forked: Compose Multiplatform Remote Compose creation
 
-Covers `:third-party-remote-creation-compose` (this directory) and
-`:third-party-remote-creation-writer` (`../remote-creation-writer`), published as
-`third-party-remote-creation-compose` and `third-party-remote-creation-writer`.
+Covers the four creation modules whose sources are in this directory and beside it:
+
+| Gradle project and artifact | Directory | AndroidX module it mirrors | Package |
+| --- | --- | --- | --- |
+| `rc-creation-writer` | `../remote-creation-writer` | none: stands where `remote-core`, `remote-creation-core` and `remote-creation` (Java) are | `ee.schimke.composeai.rccreation.common` |
+| `rc-creation-expression` | `expression/` | `remote-creation-expression` | `ee.schimke.composeai.rccreation.compose` |
+| `rc-creation-compose` | `compose/` | `remote-creation-compose` | `ee.schimke.composeai.rccreation.compose` |
+| `rc-creation-foundation` | `foundation/` | `foundation/foundation` | `ee.schimke.composeai.rccreation.foundation` |
+
+They depend on each other as upstream's do: `foundation` → `compose` → `expression` → the writer.
+Until the relocation below they were one module and the writer, published as
+`third-party-remote-creation-compose` and `third-party-remote-creation-writer`; those coordinates
+are no longer published.
 
 This is a fork of AndroidX's Remote Compose **creation** stack, ported to Compose Multiplatform, so
 `@RemoteComposable` content can be authored and captured on every rc-players target.
 
-The fork stays in **AndroidX's own package** (`androidx.compose.remote.creation.*`) and changes as
-little as it can. Component libraries such as Wear `remote-material3`, catalog code, and code a UI
-builder exports are all written against that API. They then compile against this fork in a CMP host
-and against real AndroidX on an Android device, from the same source.
+The fork is AndroidX's source in **rc-players' own package**: `ee.schimke.composeai.rccreation`
+where AndroidX has `androidx.compose.remote.creation` (and `androidx.compose.remote.foundation`).
+Apart from that rename it changes as little as it can, and every other difference is a marked
+hunk. It declares none of AndroidX's classes or Gradle capabilities, so it can be in one app with
+AndroidX's own artifacts; `:rc-creation-coexistence-check` verifies that. Why it left AndroidX's
+package, and what that costs, is in
+[`docs/design/RC_CREATION_BRIDGE.md`](../../docs/design/RC_CREATION_BRIDGE.md).
 
-Anything rc-players adds to creation lives outside this fork, in its own package
-(`ee.schimke.composeai.rccreation`, `:rc-creation-bridge`). The fork carries only the seams that
-layer cannot reach from outside, and each one is a marked local patch.
+Anything rc-players adds to creation lives outside this fork, in
+`ee.schimke.composeai.rccreation.bridge` (`:rc-creation-bridge`). The fork carries only the seams
+that layer cannot reach from outside, and each one is a marked local patch.
 
 The direction is convergence: AndroidX's creation is now multiplatform for the JVM and Android, and
 the fork is being brought back into line with it step by step. What still has to differ and why,
@@ -36,32 +49,42 @@ the plan, and the feedback for AndroidX are in
 
 | This fork | AndroidX source (under `compose/remote/`) |
 | --- | --- |
-| `upstream/remote-creation-expression/src/main/java` | `remote-creation-expression/src/main/java` |
-| `upstream/remote-creation-compose/src/jvmAndAndroidMain/kotlin` | `remote-creation-compose/src/jvmAndAndroidMain/kotlin` |
-| `upstream/remote-creation-compose/src/androidMain/kotlin` | `remote-creation-compose/src/androidMain/kotlin` |
-| `upstream/foundation/foundation/src/main/java` | `foundation/foundation/src/main/java` |
-| `src/` | nothing: files only the fork has |
+| `expression/upstream/remote-creation-expression/src/main/java` | `remote-creation-expression/src/main/java` |
+| `expression/upstream/remote-creation-expression/src/test/java` | `remote-creation-expression/src/test/java` |
+| `compose/upstream/remote-creation-compose/src/jvmAndAndroidMain/kotlin` | `remote-creation-compose/src/jvmAndAndroidMain/kotlin` |
+| `compose/upstream/remote-creation-compose/src/androidMain/kotlin` | `remote-creation-compose/src/androidMain/kotlin` |
+| `foundation/upstream/foundation/foundation/src/main/java` | `foundation/foundation/src/main/java` |
+| `expression/src/`, `compose/src/` | nothing: files only the fork has |
 | `../remote-creation-writer` | write-side sources from `remote-core`, `remote-creation-core` and `remote-creation`, re-expressed as a common `RemoteWriter` (which the carried Kotlin names `RemoteComposeWriter`, a typealias) |
+
+Below a source root, a file is at upstream's path with the fork's package directories:
+`ee/schimke/composeai/rccreation/compose/…` for `androidx/compose/remote/creation/compose/…`, and
+`ee/schimke/composeai/rccreation/foundation/…` for `androidx/compose/remote/foundation/…`.
 
 ## Layout, and measuring the difference
 
-A file with an AndroidX counterpart sits under `upstream/` at the counterpart's path: the upstream
-module, its source set, then the same package path and file name. So `upstream/` mirrors
-`compose/remote/` of an androidx checkout, and the map between the two is the identity. All four
-roots are source directories of the fork's one `commonMain` (`build.gradle.kts`); the directory
-says where a file comes from, not which targets it compiles for. Upstream's `androidMain` files are
-among them, under their `*.android.kt` names: what the fork carries from there needs only Compose
-UI, which Compose Multiplatform has on every target.
+A file with an AndroidX counterpart sits in the module that mirrors its upstream module, under
+`upstream/`, at the counterpart's path: the upstream module, its source set, then the same file
+name under the package path, with the fork's package in place of AndroidX's. So each module's
+`upstream/` mirrors a module of `compose/remote/` in an androidx checkout, and the map between the
+two is the package map and nothing else. An `upstream/` root is a source directory of its module's
+`commonMain` (each module's `build.gradle.kts`); the directory says where a file comes from, not
+which targets it compiles for. Upstream's `androidMain` files are among them, under their
+`*.android.kt` names: what the fork carries from there needs only Compose UI, which Compose
+Multiplatform has on every target.
 
-`src/commonMain`, `src/androidMain` and `src/skikoMain` hold what has no upstream file: the local
-additions, the stand-ins for Java classes (`RemotePath`, `RemoteDecimalFormat`), the layout
-nodes' `WriterOp`, and the platform `actual`s. `src/jvmTest` holds what AndroidX's own tests,
-carried under `upstream/remote-creation-expression/src/test`, need in place of the Java writer.
+`compose/src/commonMain`, `compose/src/androidMain` and `compose/src/skikoMain` hold what has no
+upstream file: the local additions, the stand-in for a Java class (`RemotePath`), the layout nodes'
+`WriterOp`, and the platform `actual`s. `expression/src/commonMain` holds the three fork-only files
+the expression module's own sources need (`RemoteDecimalFormat`, `MeshExpressionLowering`,
+`RemoteTextUnitDp.kt`), and `expression/src/jvmTest` what AndroidX's own tests, carried under
+`expression/upstream/remote-creation-expression/src/test`, need in place of the Java writer.
 
 `scripts/diff-upstream.sh <androidx checkout>` compares the two trees. It sorts imports, drops a
 comma that ends a line (this repository's ktfmt adds one after a lone argument it breaks onto its
 own line, AndroidX's does not), rewrites upstream's names for its Java classes to the fork's
-(`scripts/upstream-fqn.tsv`), and reports the upstream files not carried, the fork-only files, and
+(`scripts/upstream-fqn.tsv`) and upstream's packages to the fork's
+(`scripts/upstream-packages.tsv`, for a file's text and for its path), and reports the upstream files not carried, the fork-only files, and
 the hunks of every carried file that differs; `--summary` prints the counts.
 `scripts/upstream-renames.tsv` lists carried files that are not at their upstream path, and is
 empty. At androidx-main `21a1a95e4`:
@@ -76,6 +99,8 @@ empty. At androidx-main `21a1a95e4`:
 | After the canvas port fixes | 214 | 97 | 86 | 31 | 0 | 17 | 208 | 141 | 57 | 10 |
 | As that change merged (`6368c6a1`) | 214 | 97 | 86 | 31 | 0 | 17 | 214 | 147 | 57 | 10 |
 | After the upstream bug patches | 214 | 96 | 87 | 31 | 0 | 17 | 232 | 163 | 59 | 10 |
+| After the relocation | 214 | 96 | 87 | 31 | 0 | 17 | 232 | 163 | 59 | 10 |
+| After the module split (step 3) | 214 | 96 | 87 | 31 | 0 | 18 | 233 | 166 | 57 | 10 |
 
 The third row is step 1's tree measured with the two things the script learned in step 2 (the
 trailing comma, and import-only hunks counted apart), so that the last two rows compare like with
@@ -115,6 +140,11 @@ extensions but not `rememberRemoteCreationDisplayInfo`, which reads Android reso
 
 ## The CMP port it starts from
 
+From here to "Relocation to `ee.schimke.composeai.rccreation`" this file is a log. Its sections
+name modules, packages and paths as they were when each was written: one module,
+`:third-party-remote-creation-compose`, in `androidx.compose.remote.creation.compose`, with
+`upstream/` and `src/` directly under this directory.
+
 The CMP port of those sources was made in yschimke/remote-m3-catalog `vendor/` and published there
 as `ee.schimke.remotecompose:*:4307936-ps17-cmp09`. Its `vendor/README.md` lists what the port took
 from upstream and what it left out. This fork is that port's **commonMain**, copied from
@@ -135,7 +165,8 @@ These are deliberately **not** carried:
 
 Every target, Android included, captures through the common `RemoteWriter`.
 
-Formatting: `./gradlew :third-party-remote-creation-compose:ktfmtFormat` uses ktfmt's kotlinlang
+Formatting: `./gradlew :rc-creation-expression:ktfmtFormat :rc-creation-compose:ktfmtFormat
+:rc-creation-foundation:ktfmtFormat` uses ktfmt's kotlinlang
 style, which AndroidX uses. It re-wraps lines in about 80 files where the port had drifted.
 `../remote-creation-writer` is the port's own code and keeps Google style. Both are `explicitApi()`:
 AndroidX's sources already were, and the writer's implicit visibilities and return types (in
@@ -943,6 +974,71 @@ after one. The animated vector patches change no document of an animator that do
 whose keyframes are linear, which is every one there was. The 183 documents that are new are the
 new tests'.
 
+## Relocation to `ee.schimke.composeai.rccreation`, and the module split (step 3)
+
+Two changes made together, so that consumers move once. Neither changes a document: the JVM tests
+of the writer, the three modules, `:rc-creation-bridge`, `:rc-player-embedded` and
+`:rc-player-edit` encode the same bytes before and after
+([RC_CREATION_UPSTREAM.md](../../docs/design/RC_CREATION_UPSTREAM.md), "How this was checked").
+
+**The relocation.** Every package the fork declares moved, and nothing else:
+
+| Was | Is |
+| --- | --- |
+| `androidx.compose.remote.creation.compose` and its subpackages | `ee.schimke.composeai.rccreation.compose` |
+| `androidx.compose.remote.foundation` and its subpackages | `ee.schimke.composeai.rccreation.foundation` |
+| `androidx.compose.remote.creation.common` (the writer; never an AndroidX package) | `ee.schimke.composeai.rccreation.common` |
+
+What was done, and what a refresh repeats for each file it takes whole (this rewrite is all of
+it; the writer's package is not AndroidX's, so an upstream file never names it):
+
+```sh
+perl -pi -e '
+  s/\bandroidx\.compose\.remote\.creation\.compose\b/ee.schimke.composeai.rccreation.compose/g;
+  s/\bandroidx\.compose\.remote\.foundation\b/ee.schimke.composeai.rccreation.foundation/g;
+' <files>
+```
+
+- `git mv` each package directory, so history follows the files.
+- Rewrite the three prefixes in every file: package statements, imports, qualified names, KDoc
+  links and `@sample` references alike. References to packages the fork does not declare are left
+  alone: `androidx.compose.remote.core.*` and the rest of `androidx.compose.remote.creation.*`
+  (AndroidX's Java modules, which the JVM tests read through the released artifacts),
+  `androidx.compose.runtime`, `androidx.compose.ui`, `androidx.annotation`, `androidx.collection`.
+- `scripts/upstream-packages.tsv` records the map and `diff-upstream.sh` applies it to upstream's
+  side, text and paths, before comparing. It also sorts imports where their AndroidX names sort, so
+  the import block keeps upstream's order. The counts did not move: 232 hunks (163 marked, 59
+  import-only, 10 unmarked) on both sides of the change.
+- The AndroidX Gradle capabilities the Android variants declared
+  (`androidx.compose.remote:remote-creation-compose`, `…:remote-creation-expression`,
+  `androidx.compose.remote.foundation:foundation`) are gone, with the `capabilitiesResolution`
+  rules in the widget modules that chose AndroidX over the fork. `verifyPublishedCapabilities`
+  stays, in `published-capabilities.gradle.kts`: every published variant offers its own module's
+  capability.
+- One formatting difference fell out: `capture/RemoteComposeCaptureState.kt`'s KDoc line naming
+  `RemoteComposeWriter` is one character shorter and fits on one line again, as upstream's does.
+
+**The split.** One module became three, with the directories above. What had to change in the
+sources, all of it in files that already carried marked hunks or in fork-only files:
+
+| Where | What | Why |
+| --- | --- | --- |
+| `capture/RemoteComposeCreationState.kt` (`RemoteDocumentScope.lastComponentId`, `KMP`), `layout/RemoteFloatContext.kt`, `state/RemoteStateScope.kt`, `capture/RemoteComposeCaptureState.kt` | `RemoteFloatContext` asks the scope it is given for the last component recorded. The creation state answers with the id it tracks, `RemoteStateScope` with its parent's | Upstream reads `document.buffer.lastComponentId`, through the scope's `document`. The Kotlin writer has no such field while a render is recorded, so the fork read the creation state, and found it by casting the scope to `RemoteStateScope`, a type of the compose module. Asking the scope keeps upstream's shape (the scope is the way to the answer) and needs no type from above. |
+| `state/RemoteStateCacheKey.kt` (`RemoteConstantCacheKey`, `KMP`), `state/RemoteStateVisitor.kt` | A constant key keeps the state of a value `resolveConstantState` cannot rebuild, which in practice is an image's; for a number, a boolean, a string or null it keeps none, as before. `resolveConstantState` is upstream's text again apart from `.javaClass` | Upstream's key holds a `WeakReference` to its state, so the visitor is handed an image constant's state and never rebuilds one. Without weak references the fork kept no state and rebuilt every constant, the image from its Compose `ImageBitmap`, which only the compose module can turn into a `RemoteImageBitmap`. Keeping the state for exactly the values that cannot be rebuilt changes nothing for the others (their keys still answer no state, so `isCanvasScopedExpressionKey` and the visitors see what they saw) and adds no lifetime: the state already holds its key and the bitmap. |
+| `state/RemoteTextUnitDp.kt` (new, `expression/src`), `layout/RemoteText.kt` (`dpDocumentFontSizeDp`) | `RemoteTextUnit.toDp(fontScale)`, restricted | The DP font size patch in `RemoteText` (compose) used `RemoteFontScaleConverter`, internal to the expression module upstream. The conversion is offered from a fork-only file there, so upstream's declaration keeps its visibility. |
+| `state/MeshExpressionLowering.kt` (`expression/src`) | Restricted public, where it was `@PublishedApi internal` | The creation state that consults it is the expression module's, and `Mesh2DWriterOp`, which sets it, is the compose module's. |
+
+`RemoteDecimalFormat.kt` and `MeshExpressionLowering.kt` moved from the one module's `src/` to
+`expression/src/`, because the expression sources use them. The modules are still built with the
+Compose compiler, the expression module included (upstream's needs only `runtime-annotation`), so
+their classes keep the stability metadata they were published with. The union of the three ABI
+dumps is the one module's dump plus what the table adds.
+
+The script's counts after the split: 233 hunks, 166 marked (three more: the member on
+`RemoteDocumentScope` and its two overrides), 57 import-only (two fewer: `RemoteFloatContext` no
+longer imports the creation state, `RemoteStateVisitor` no longer imports `ImageBitmap`), 10
+unmarked, and 18 fork-only files (`RemoteTextUnitDp.kt`).
+
 ## Known port issues
 
 - **Scroll orientation** was reversed (`verticalScroll` wrote 1, the wire's horizontal). Fixed on
@@ -957,8 +1053,9 @@ new tests'.
 ## Local patches
 
 Every patched line sits under a `// LOCAL PATCH (rc-players)` comment. Each patch is generic enough
-to offer upstream, and the list is meant to shrink. Paths are package-relative; a file marked
-(new) is under `src/commonMain`, the others under `upstream/`.
+to offer upstream, and the list is meant to shrink. Paths are package-relative (below
+`ee/schimke/composeai/rccreation/compose/`); a file marked (new) is under a module's
+`src/commonMain`, the others under its `upstream/`.
 
 | Where | What | Why |
 | --- | --- | --- |
@@ -1014,10 +1111,16 @@ the structural feedback, in
 ## Refreshing
 
 Apply the upstream delta to the files this fork carries, as the port's earlier refreshes did, rather
-than re-copying. Then re-apply the patches above. A file upstream adds, renames or moves between
-modules goes to the same path under `upstream/`. `:rc-player-embedded:jvmTest` is the check that the
-seams still hold, `:third-party-remote-creation-compose:jvmTest` runs AndroidX's own expression
-tests against the result, and `scripts/diff-upstream.sh --summary <androidx checkout>` should show no file
-under another name and no more unmarked hunks than before; update the table above with its
-numbers. A line that has to differ from upstream's gets a `KMP (rc-players)` or
+than re-copying. For a file taken whole (one upstream adds, or one that was identical): copy it to
+the mapped path, rewrite its packages with the command under "Relocation" above, and re-apply the
+patches listed here. A file upstream adds, renames or moves between modules goes to the same path
+under the `upstream/` of the module that mirrors its upstream module, in the fork's package
+directories. `:rc-player-embedded:jvmTest` is the check that the seams still hold,
+`:rc-creation-expression:jvmTest` runs AndroidX's own expression tests against the result,
+`:rc-creation-coexistence-check:check` that nothing of AndroidX's package came in with the copy, and
+`scripts/diff-upstream.sh --summary <androidx checkout>` should show no file under another name
+and no more unmarked hunks than before; update the table above with its numbers. The script
+applies the package map to upstream's side, so a file that was copied without the rewrite, or to
+the unmapped path, shows up at once: as "not carried", or as a file that differs on every line that
+names a package. A line that has to differ from upstream's gets a `KMP (rc-players)` or
 `LOCAL PATCH (rc-players)` comment saying why.

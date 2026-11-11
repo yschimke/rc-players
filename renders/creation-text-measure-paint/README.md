@@ -33,4 +33,4 @@ RC_LAYOUT_EVIDENCE_DIR=<dir> scripts/agent-gradle.sh :rc-player-embedded:jvmTest
 
 writes `text-measure-paint.png`; `before.png` is that file with the fix reverted (the
 `onPaintWrittenOutsideCanvas` call in
-`third_party/remote-creation-compose/upstream/…/layout/RemoteTextMeasure.kt`).
+`third_party/remote-creation-compose/compose/upstream/…/layout/RemoteTextMeasure.kt`).

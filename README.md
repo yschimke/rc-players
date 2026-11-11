@@ -95,10 +95,19 @@ File("baked.rc").writeBytes(RcDocumentCodec.encode(baked))
 Authoring Remote Compose from Compose Multiplatform, beside the player so one change can move both.
 A fork plus a layer; the design is in [`docs/design/RC_CREATION_BRIDGE.md`](docs/design/RC_CREATION_BRIDGE.md).
 
+The fork is AndroidX's creation API in rc-players' own package, `ee.schimke.composeai.rccreation`,
+as four modules that mirror AndroidX's (`writer <- expression <- compose <- foundation`). It
+declares none of AndroidX's classes or capabilities, so an app can use it beside AndroidX's own
+`androidx.compose.remote` artifacts. Coming from `third-party-remote-creation-compose` or from the
+`androidx.compose.remote.creation.compose` package:
+[`docs/MIGRATING_CREATION.md`](docs/MIGRATING_CREATION.md).
+
 | Module | Artifact | What it is |
 | --- | --- | --- |
-| `third_party/remote-creation-writer` | `third-party-remote-creation-writer` | The common `RemoteWriter` and `.rc` byte writer under the fork. |
-| `third_party/remote-creation-compose` | `third-party-remote-creation-compose` | AndroidX `remote-creation-compose` and `remote-foundation` for Compose Multiplatform, in AndroidX's package with marked local patches ([PROVENANCE](third_party/remote-creation-compose/PROVENANCE.md)). Declares AndroidX's capabilities: on Android, take this or AndroidX's, never both. |
+| `third_party/remote-creation-writer` | `rc-creation-writer` | The common `RemoteWriter` and `.rc` byte writer under the other three, where AndroidX has `remote-core` and `remote-creation-core`. Package `ee.schimke.composeai.rccreation.common`. |
+| `third_party/remote-creation-compose/expression` | `rc-creation-expression` | AndroidX `remote-creation-expression` for Compose Multiplatform: the remote state types (`RemoteFloat`, `RemoteColor`, `RemoteState`, …), their expressions and the creation state. Package `ee.schimke.composeai.rccreation.compose`. |
+| `third_party/remote-creation-compose/compose` | `rc-creation-compose` | AndroidX `remote-creation-compose` for Compose Multiplatform: `@RemoteComposable` layouts, modifiers, actions, canvas and capture, with marked local patches ([PROVENANCE](third_party/remote-creation-compose/PROVENANCE.md)). Brings `rc-creation-expression` with it. Package `ee.schimke.composeai.rccreation.compose`. |
+| `third_party/remote-creation-compose/foundation` | `rc-creation-foundation` | AndroidX Remote Compose `foundation` for Compose Multiplatform: `RemoteBasicText`, `RemoteBasicImage`, `RemoteBasicIcon`, `RemoteSpacer`. Package `ee.schimke.composeai.rccreation.foundation`. |
 | `rc-creation/bridge` | `rc-creation-bridge` | rc-players' own creation API: `RcHostBridge` (host values, actions and Compose content by name) and `RcComponentIds` (stable component ids a host chooses), plus published `RemoteInput` creation helpers for the [input controls contract](docs/design/RC_INPUT_COMPONENTS.md). |
 | `rc-player/three-d` | `rc-player-3d` | Opt-in support for the draft AndroidX 3D operations (meshes, camera, lights, parametric primitives): a software rasterizer and a GPU `drawVertices` path, installed through `LocalRcPlayerExtensions`. See [`RC_3D_EXTENSION.md`](docs/design/RC_3D_EXTENSION.md). |
 | `rc-player/xr-sample` | (not published) | An Android XR app that plays a 3D document and hands its rigid meshes to SceneCore as entities in the room, keeping deforming ones and the 2D card on the panel. See [`RC_3D_EXTENSION.md` → XR](docs/design/RC_3D_EXTENSION.md#xr). |
@@ -222,8 +231,16 @@ File("Card.kt").writeText(source.code)
 source.unsupported.forEach(::println)
 ```
 
+The source imports rc-players' creation API (`ee.schimke.composeai.rccreation.compose`, the
+`rc-creation-compose` artifact) unless asked for AndroidX's:
+`RcKotlinOptions(creationApi = RcKotlinCreationApi.AndroidX)` writes the same file with
+`androidx.compose.remote.creation.compose` imports. The generator writes the API as androidx-main
+has it, so a released AndroidX artifact can be a few names behind, and `RemoteModifier.componentId`
+exists only in rc-players'.
+
 The Linux viewer does the same from the command line: `remote-compose-player --to-kotlin in.rc
-Card.kt`, or `--to-uid in.rc card.uid` with the images beside it in `card.assets/`.
+Card.kt` (add `--androidx` for AndroidX's imports), or `--to-uid in.rc card.uid` with the images
+beside it in `card.assets/`.
 `rc-creation-bridge`'s round trip holds the Kotlin to its promise: hand-written remote content is
 captured, decompiled, and the committed generated source — compiled in the same test source set —
 captures to the same document operation for operation, in dp and legacy density. Over the catalog
@@ -246,9 +263,10 @@ on the device. A server can also serve them. The design is in
 | Module | Artifact | What it is |
 | --- | --- | --- |
 | `rc-widget/core` | `rc-widget-core` | Target negotiation (`RcPlayerCapabilities`, `RcWidgetTargets`), baking templates for hosts that cannot bind values (`RcWidgetDocuments`), binding contracts and template checks, the Wear container's named frame (`RcWearContainer`, `RcWearTemplates`), tap rewrites and numeric widget action ids, and a local template library with disk and bundled stores. No Compose and no Android; runs on a server. |
-| `rc-widget/creation` | `rc-widget-creation` | Reproducible expression names, size breakpoints a launcher capture resolves, numeric widget host actions, and custom host-framed Wear containers (backgrounds, edges, ring and fill levels). AndroidX's creation API on Android, the CMP fork elsewhere. |
-| `rc-widget/launcher` | `rc-widget-launcher` | Android launcher widgets: capture profiles, the Android 16 compatibility pass, local capture with embedded images, `RemoteViews` and `PendingIntent` assembly, sizing, and an in-app resizable preview of the real `RemoteViews`. |
-| `rc-widget/wear` | `rc-widget-wear` | Wear OS widgets through Glance Wear: templates captured once and instantiated per widget and watch, taps that open the app, the host-framed document, remembered frames, and the provider-configuration contract. |
+| `rc-widget/creation` | `rc-widget-creation` | Reproducible expression names, size breakpoints a launcher capture resolves, numeric widget host actions, and custom host-framed Wear containers (backgrounds, edges, ring and fill levels), against the CMP creation API (`rc-creation-compose`) on every target, Android included. Package `ee.schimke.composeai.rcwidget.creation`. |
+| `rc-widget/creation-androidx` | `rc-widget-creation-androidx` | The same helpers against AndroidX's own creation API, for Android code that composes with AndroidX-only libraries, plus the AndroidX capture profiles. Android only; generated from `rc-widget-creation`'s source at build time. Package `ee.schimke.composeai.rcwidget.creation.androidx`, so an app can hold both. |
+| `rc-widget/launcher` | `rc-widget-launcher` | Android launcher widgets, on AndroidX's creation API (`rc-widget-creation-androidx`): capture profiles, the Android 16 compatibility pass, local capture with embedded images, `RemoteViews` and `PendingIntent` assembly, sizing, and an in-app resizable preview of the real `RemoteViews`. |
+| `rc-widget/wear` | `rc-widget-wear` | Wear OS widgets through Glance Wear, on AndroidX's creation API (`rc-widget-creation-androidx`): templates captured once and instantiated per widget and watch, taps that open the app, the host-framed document, remembered frames, and the provider-configuration contract. |
 
 ### The browser host (`rc-player/wasm`)
 

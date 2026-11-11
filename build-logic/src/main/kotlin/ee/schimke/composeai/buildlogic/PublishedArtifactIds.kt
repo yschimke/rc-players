@@ -4,7 +4,7 @@ package ee.schimke.composeai.buildlogic
  * The artifact id each published project carries, addressed by project path.
  *
  * A table rather than a rule. The sibling repositories derive the id by flattening the project path
- * (`:data-theme-core` -> `data-theme-core`) and that holds for seven of the eight projects here —
+ * (`:data-theme-core` -> `data-theme-core`) and that holds for all but one of the projects here —
  * but `:third-party-remote-compose-player-dist` publishes as `remote-compose-player-js-dist`, and a
  * rule with one exception silently written into it is worse than a list.
  *
