@@ -609,6 +609,32 @@ plays the sequence above (the second call was blue before the fix), and `LoomPat
 `:rc-creation-bridge` has AndroidX's reader (`remote-core` 1.0.0-alpha23) expand it: a paint now
 precedes every circle.*
 
+### An animated vector's two evaluations disagree on repeats and on the animator's interpolator
+
+`vector/RemoteAnimatedVector.kt` evaluates a `RemotePropertyAnimator` twice over, and the two do
+not agree. Both are upstream's text; the fork carries them unchanged, so both behaviours are the
+fork's too.
+
+- `RemotePropertyAnimator.evaluateAt` (the path `RemoteAnimatedVector.draw(writer, progress)`
+  takes) works out the iteration and, under `REPEAT_MODE_REVERSE`, reverses odd ones, then
+  interpolates between the adjacent keyframes with the *destination keyframe's* interpolator. It
+  never applies the animator's own `interpolator`: a 0-to-1 animator with
+  `RemoteInterpolator.Accelerate()` and default keyframes returns 0.5 halfway through, not 0.25.
+- `computeAnimatorLocalProgress` in `vector/RemoteAnimatedVectorPainter.android.kt` (the path
+  `painterRemoteAnimatedVector` takes, where progress is a `RemoteFloat`) does the opposite: it
+  applies the animator's interpolator, but maps progress over `startDelay … startDelay + duration`
+  and clamps, so an animator with a non-zero `repeatCount` holds its end value after the first
+  iteration instead of restarting or reversing. `totalDuration` counts the repeats
+  (`startDelay + duration * (repeatCount + 1)`), so the vector's timeline is the right length and
+  the animator simply stops moving part of the way along it.
+
+Suggested: one definition of an animator's value at a time, applied in both — iteration and
+reverse first, then the animator's interpolator, then the keyframe segment's.
+
+Read at `21a1a95e4`; reported by review on the PR that carried these files. Not patched here, and
+not tested: the files are identical to upstream's, and nothing in this repository draws an animated
+vector yet.
+
 ### `RemoteLog.kt` has no caller
 
 `common/capture/RemoteLog.kt` declares `RemoteLog` and `LogTodo`, both `internal`. Nothing in
