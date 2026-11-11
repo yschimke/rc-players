@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.33.0](https://github.com/yschimke/rc-players/compare/v2.32.1...v2.33.0) (2026-11-11)
+
+
+### Features
+
+* **creation:** write free-standing touch expressions from the fork ([#849](https://github.com/yschimke/rc-players/issues/849)) ([b296124](https://github.com/yschimke/rc-players/commit/b296124322860f1970a57f67c3a9dd9f13290831))
+
 ## [2.32.1](https://github.com/yschimke/rc-players/compare/v2.32.0...v2.32.1) (2026-11-10)
 
 
