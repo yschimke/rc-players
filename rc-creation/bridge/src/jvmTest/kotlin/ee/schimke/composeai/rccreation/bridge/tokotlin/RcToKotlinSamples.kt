@@ -148,8 +148,8 @@ fun TextSample() {
 @Composable
 @RemoteComposable
 fun NamedValuesSample() {
-  val surface = rememberNamedRemoteColor("theme.surface", Color(0xFF1C1B1F))
-  val onSurface = rememberNamedRemoteColor("theme.onSurface", Color(0xFFE6E1E5))
+  val surface = rememberNamedRemoteColor("theme.surface", RemoteColor(Color(0xFF1C1B1F)))
+  val onSurface = rememberNamedRemoteColor("theme.onSurface", RemoteColor(Color(0xFFE6E1E5)))
   val title = remember { RemoteString.createNamedRemoteString("card.title", "Untitled") }
   RemoteBox(
     RemoteModifier.fillMaxSize().background(surface).clickable(hostAction("open".rs)).semantics {

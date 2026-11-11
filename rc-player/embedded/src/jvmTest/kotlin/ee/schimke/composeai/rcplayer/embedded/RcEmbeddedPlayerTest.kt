@@ -23,7 +23,6 @@ import androidx.compose.remote.creation.compose.modifier.padding
 import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.modifier.width
 import androidx.compose.remote.creation.compose.state.RemoteColor
-import androidx.compose.remote.creation.compose.state.createNamedRemoteColor
 import androidx.compose.remote.creation.compose.state.rb
 import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rdp
@@ -41,6 +40,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
@@ -170,7 +170,7 @@ class RcEmbeddedPlayerTest {
         else
           RemoteBox(
             RemoteModifier.fillMaxSize()
-              .background(RemoteColor.createNamedRemoteColor("swatch", Color.Blue)),
+              .background(RemoteColor.createNamedRemoteColor("swatch", Color.Blue.toArgb())),
           )
       }
     }

@@ -8,7 +8,6 @@ import androidx.compose.remote.creation.compose.state.RemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteString
-import androidx.compose.remote.creation.compose.state.createNamedRemoteColor
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -193,7 +192,7 @@ public class RcLiveBridge : RcHostBridge {
   @Composable
   override fun color(name: String, value: () -> Color): RemoteColor {
     bind(name) { RcNamedValue.Color(value().toArgb()) }
-    return RemoteColor.createNamedRemoteColor(name, initial(value))
+    return RemoteColor.createNamedRemoteColor(name, initial(value).toArgb())
   }
 
   @Composable

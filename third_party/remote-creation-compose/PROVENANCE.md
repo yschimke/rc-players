@@ -25,7 +25,7 @@ layer cannot reach from outside, and each one is a marked local patch.
   (2026-10-15, a superset of snapshot `16617687` = `522d8695c`), then to androidx-main
   `5dab33683` (2026-10-27), then to androidx-main `a0e84553095` (2026-10-29), the commit
   `remote-creation-compose:1.0.0-alpha23` was cut from, then to androidx-main `1448d6497`
-  (2026-11-08).
+  (2026-11-08), then to androidx-main `21a1a95e4` (2026-11-10).
 - License: Apache-2.0
 - Paths:
 
@@ -391,6 +391,87 @@ Deliberately skipped:
   explicit ids make unnecessary.
 - `toRecordingModifierElement()`/`RecordingModifier` and `document.*` writes: a mechanism change;
   the port keeps `toRemoteModifierOperation()` and the common `RemoteWriter`.
+
+## Refresh 1448d6497 → androidx-main 21a1a95e4
+
+The range finishes the Compose UI decoupling: upstream deletes the public `androidMain` wrappers
+that took Compose UI types (`ContentScale`, `FontWeight`, `TextOverflow`, `TileMode`, `Shape`,
+`CompositingStrategy`, `Brush`, `Color`, `Dp`, `IntSize`) and makes the `Remote*` overloads beside
+them public, with the defaults the wrappers had. The fork carried those wrappers in `commonMain`
+(`*Android.kt`), and they go with upstream's, as the Compose `Role` and `IntrinsicSize` overloads
+did before: the same source compiles against either library only if neither has them. What stays in
+the fork's `*Android.kt` / `*Compose.kt` files is what upstream's `*.android.kt` files still hold.
+Seven commits touch the carried sources; none changes a wire format, and
+`../remote-creation-writer` is unchanged.
+
+Taken:
+
+- `af1bac731`: `RemoteImage`, `RemoteText`, `graphicsLayer`, `RemoteBrush.image`,
+  `RemoteBrush.radialGradient` and `RemoteImageVector.Builder.path` take `RemoteContentScale`,
+  `RemoteFontStyle`/`RemoteFontWeight`/`RemoteTextAlign`/`RemoteTextOverflow`/
+  `RemoteFontVariation.Settings`, `RemoteShape`/`RemoteCompositingStrategy`, `RemoteTileMode` and
+  `RemoteBrush`/`RemoteStrokeCap`/`RemoteStrokeJoin`/`RemotePathFillType` only, unrestricted and
+  with defaults (`Fit`, `Clip`, `RemoteRectangleShape`, `Clamp`, `None`, `DefaultFillType`);
+  `RemoteGraphicsLayerScope.shape` and `compositingStrategy` are `RemoteShape` and
+  `RemoteCompositingStrategy`, and the scope overload delegates to the argument one. Removed with
+  their files (`layout/RemoteImageAndroid.kt`, `layout/RemoteTextAndroid.kt`,
+  `layout/RemoteContentScaleAndroid.kt`, `shaders/RemoteImageBrushAndroid.kt`,
+  `shaders/RemoteRadialGradientAndroid.kt`, `vector/RemoteVectorPainterAndroid.kt`,
+  `capture/RemoteDensityCompose.kt`): the Compose-typed overloads of the above,
+  `painterRemoteVector(ImageVector)` (convert with `ImageVector.toRemoteImageVector()`), the
+  `Dp`/`TextUnit` `toPx` extensions on and for `RemoteDensity`, and the internal
+  `toRemoteContentScale`/`toRemoteTileMode`/`toRemoteTextOverflow`/`toRemotePaintingStyle`
+  conversions. Named state defaults are `Remote*` values:
+  `RemoteColor.createNamedRemoteColor(name, defaultValue: RemoteColor, domain)` is new (a constant
+  default is a named colour; any other is named on an id-to-id colour expression of it, written
+  through `RemoteWriter.addColorExpression` and `setNamedVariable` where upstream calls
+  `setColorName`), `rememberNamedRemoteColor` and `rememberNamedRemoteDp` take a `RemoteColor` and a
+  `RemoteDp` and move to `state/RemoteStateComposables.kt` with `rememberRemoteImageBitmap(url)` and
+  `rememberNamedRemoteImageBitmap(name, url, domain)`, and the `Color` and `Dp`
+  `createNamedRemoteColor`/`createNamedRemoteDp` overloads, `rememberNamedRemoteColor(name, Int)`,
+  `rememberNamedRemoteDp(name, domain, value)` and the top-level
+  `createNamedRemoteImageBitmap(name, url, domain)` go.
+- `ccade014a`: `RemoteContentScale`, `RemoteTextOverflow`, `RemoteCompositingStrategy` and
+  `RemotePathFillType` are unrestricted.
+- `00600f9da` (carried part): the restricted wrappers go: `path` with a `RemoteBrush` and Compose
+  stroke types, `RemoteBlendModeColorFilter(color, BlendMode)` (`state/RemoteColorFilterAndroid.kt`),
+  the `RemoteTextStyle` factory taking `FontVariation.Settings`, and the `IntSize` API of
+  `a97f4da26` (`RemoteImageBitmap.IntrinsicSize`, `createNamedRemoteImageBitmap(…, size, …)`,
+  `rememberNamedRemoteImageBitmap(…, size, …)`; the `width`/`height` companion overload stays).
+- `06067dbfa`: `RemoteBasicImage` takes a `RemoteContentScale` and `RemoteBasicText` the
+  `Remote*` text types; `RemoteBasicIcon`'s default tint is written as ARGB.
+- `6979e8551`: `RemoteFontVariation.weight`/`width`/`slant`, used by `PaintTracker`.
+- `02bc68077`: `RemoteComponent.positionInParent` and `positionInRoot` (`RemoteOffset`s) are public
+  and replace the restricted `x`, `y`, `rootX` and `rootY`.
+- `de4a9909e`: `RemoteState.Domain(namespace)` is a public constructor that rejects an empty
+  namespace or one containing `:`, `Domain.None` and `prefixed` are public, and `Domain` is
+  `@Stable`.
+- Callers outside the fork move with it: `:rc-creation-bridge`, `:rc-player-embedded` and
+  `:rc-widget-creation` name colours from ARGB (`createNamedRemoteColor(name, Int)`, which AndroidX
+  alpha23 has too), and `:rc-player-edit`'s `toRemoteComposeKotlin` writes
+  `rememberNamedRemoteColor(name, RemoteColor(Color(…)))`.
+  `CreationRefresh21a1a95e4Test` (`:rc-creation-bridge`) covers the new API.
+
+Already in the port: the `RemoteOffset` move into `remote-creation-expression` (`02bc68077`), as
+the fork keeps one module; `Domain.equals`/`hashCode` by namespace.
+
+Not applicable:
+
+- Files the fork does not carry: `RemoteAnimatedVector` (moved to `jvmAndAndroidMain` by
+  `00600f9da`; its painter and parser are Android-only), the `RemoteComposeCaptureState`
+  factories of upstream's capture loop (`00600f9da`), `createThemedRemoteColor`.
+- The `RcFloat`/`RcScope` DSL in `remote-creation-core` (`a4c2a8762`, `61d9715bd`), which is not
+  carried (`97010f58b`, before).
+- `remote-core`: profile operation tables (`48e08566f`, `353f021ee`; the writer validates no
+  operation list) and comment-only changes (`e3fb5ee40`).
+- Players, tests, build files and documentation: `28fb38004`, `300a543b2` (the embedded player,
+  `third_party/rc-embedded-player`'s concern), `e95d0e5ef`, `7f6caf201`, `0b2376ee0`, `d3d73ec7e`,
+  and three unrelated commits that `--full-history` lists for `compose/remote/Documentation`
+  (`1b5737e50`, `b706516a0`, `fa6cb5492`).
+
+Deliberately skipped:
+
+- Nothing new. Visibility widened only for `remote-creation-expression` stays internal, as before.
 
 ## alpha22 write side: component offscreen buffers and visibility functions
 

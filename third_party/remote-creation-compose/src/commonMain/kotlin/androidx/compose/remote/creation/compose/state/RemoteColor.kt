@@ -20,6 +20,7 @@ import androidx.annotation.ColorInt
 import androidx.annotation.FloatRange
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.ColorAttribute
+import androidx.compose.remote.creation.common.NamedVariableType
 import androidx.compose.remote.creation.common.Utils
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
 import androidx.compose.remote.creation.compose.state.RemoteColor.OperationKey
@@ -431,6 +432,47 @@ internal constructor(
                         domain.prefixed(name),
                         defaultValue,
                     )
+                },
+            )
+        }
+
+        /**
+         * Creates a named [RemoteColor] with an initial [defaultValue].
+         *
+         * Named remote colors can be overridden by [name] at playback time.
+         *
+         * @param name unique name identifying this state within its [domain]
+         * @param defaultValue initial [RemoteColor] constant or expression
+         * @param domain domain for the named state, defaulting to [RemoteState.Domain.User]
+         * @return a named [RemoteColor] initialized to [defaultValue]
+         */
+        public fun createNamedRemoteColor(
+            name: String,
+            defaultValue: RemoteColor,
+            domain: RemoteState.Domain = RemoteState.Domain.User,
+        ): RemoteColor {
+            return RemoteColor(
+                constantValueOrNull = null,
+                cacheKey = RemoteNamedCacheKey(domain, name),
+                red = null,
+                green = null,
+                blue = null,
+                alpha = null,
+                idProvider = { creationState ->
+                    val constValue = defaultValue.constantValueOrNull
+                    if (constValue != null) {
+                        creationState.writer.addNamedColor(domain.prefixed(name), constValue)
+                    } else {
+                        val baseId = defaultValue.getIdForCreationState(creationState).toShort()
+                        val colorId =
+                            creationState.writer.addColorExpression(baseId, baseId, 0f).toInt()
+                        creationState.writer.setNamedVariable(
+                            colorId,
+                            domain.prefixed(name),
+                            NamedVariableType.COLOR,
+                        )
+                        colorId
+                    }
                 },
             )
         }

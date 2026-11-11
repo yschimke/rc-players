@@ -21,7 +21,6 @@ import androidx.compose.remote.creation.compose.state.RemotePaintingStyle
 import androidx.compose.remote.creation.compose.state.RemotePathFillType
 import androidx.compose.remote.creation.compose.state.RemoteStrokeCap
 import androidx.compose.remote.creation.compose.state.RemoteStrokeJoin
-import androidx.compose.remote.creation.compose.state.RemoteTileMode
 import androidx.compose.remote.creation.compose.text.RemoteFontFamily
 import androidx.compose.remote.creation.compose.text.RemoteFontStyle
 import androidx.compose.remote.creation.compose.text.RemoteFontWeight
@@ -29,13 +28,11 @@ import androidx.compose.remote.creation.compose.text.RemoteHyphens
 import androidx.compose.remote.creation.compose.text.RemoteLineBreak
 import androidx.compose.remote.creation.compose.text.RemoteTextAlign
 import androidx.compose.remote.creation.compose.text.RemoteTextDecoration
-import androidx.compose.remote.creation.compose.text.RemoteTextOverflow
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.PaintingStyle
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -44,17 +41,6 @@ import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
-
-internal fun TextOverflow.toRemoteTextOverflow(): RemoteTextOverflow =
-    when (this) {
-        TextOverflow.Clip -> RemoteTextOverflow.Clip
-        TextOverflow.Visible -> RemoteTextOverflow.Visible
-        TextOverflow.Ellipsis -> RemoteTextOverflow.Ellipsis
-        TextOverflow.StartEllipsis -> RemoteTextOverflow.StartEllipsis
-        TextOverflow.MiddleEllipsis -> RemoteTextOverflow.MiddleEllipsis
-        else -> RemoteTextOverflow.Clip
-    }
 
 internal fun TextAlign.toRemoteTextAlign(): RemoteTextAlign =
     when (this) {
@@ -201,15 +187,6 @@ internal fun TextDecoration.toRemoteTextDecoration(): RemoteTextDecoration {
     return underline + lineThrough
 }
 
-internal fun TileMode.toRemoteTileMode(): RemoteTileMode =
-    when (this) {
-        TileMode.Clamp -> RemoteTileMode.Clamp
-        TileMode.Repeated -> RemoteTileMode.Repeated
-        TileMode.Mirror -> RemoteTileMode.Mirror
-        TileMode.Decal -> RemoteTileMode.Decal
-        else -> RemoteTileMode.Clamp
-    }
-
 internal fun FontStyle.toRemoteFontStyle(): RemoteFontStyle =
     when (this) {
         FontStyle.Normal -> RemoteFontStyle.Normal
@@ -224,13 +201,6 @@ internal fun PathFillType.toRemotePathFillType(): RemotePathFillType =
         PathFillType.NonZero -> RemotePathFillType.NonZero
         PathFillType.EvenOdd -> RemotePathFillType.EvenOdd
         else -> RemotePathFillType.NonZero
-    }
-
-internal fun PaintingStyle.toRemotePaintingStyle(): RemotePaintingStyle =
-    when (this) {
-        PaintingStyle.Fill -> RemotePaintingStyle.Fill
-        PaintingStyle.Stroke -> RemotePaintingStyle.Stroke
-        else -> RemotePaintingStyle.Fill
     }
 
 internal fun RemotePaintingStyle.toComposePaintingStyle(): PaintingStyle =

@@ -143,7 +143,7 @@ class RcKotlinSourceTest {
     assertTrue(source.isComplete, source.unsupported.toString())
     assertContains(
       source.code,
-      "val brandPrimary = rememberNamedRemoteColor(\"brand.primary\", Color(0xFF112233))",
+      "val brandPrimary = rememberNamedRemoteColor(\"brand.primary\", RemoteColor(Color(0xFF112233)))",
     )
     assertContains(
       source.code,
