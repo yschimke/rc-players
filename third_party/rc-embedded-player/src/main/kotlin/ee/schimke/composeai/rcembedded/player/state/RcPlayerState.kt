@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-@file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection")
+@file:Suppress("PrimitiveInCollection")
 
 package ee.schimke.composeai.rcembedded.player.state
 

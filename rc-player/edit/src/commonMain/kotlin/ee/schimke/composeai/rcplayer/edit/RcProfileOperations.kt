@@ -2,13 +2,22 @@ package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 
-// Transcribed from AndroidX remote-core 1.0.0-alpha19 `Operations.java` (the per-API-level and
-// per-profile operation maps) and remote-creation-android 1.0.0-alpha19 `RcPlatformProfiles.java`
-// (the Wear widgets allow-list). Same order as the source so a diff against a newer alpha is a
-// line-for-line read. `RcTargetProfile.forDocument` combines them exactly as
-// `Operations.getOperations(apiLevel, profiles)` does.
+// Transcribed from AndroidX remote-core `Operations.java` (the per-API-level and per-profile
+// operation sets) at androidx-main `21a1a95e41d` (2026-11-10), which 1.0.0-alpha23 already matches,
+// and remote-creation-android 1.0.0-alpha19 `RcPlatformProfiles.java` (the Wear widgets
+// allow-list). Same order as the source so a diff against a newer release is a line-for-line read.
+// `RcTargetProfile.of` combines them exactly as `Operations.getOperations(apiLevel, profiles)`
+// does, and `RcAndroidxProfileTablesTest` pins the result for every combination AndroidX's own
+// `OperationsProfilesTest` pins.
 
-/** `fillDefaultVersionMap`: every API level from 6 up. */
+/**
+ * AndroidX `Operations.EVENT_ACTION`, which its experimental AndroidX profile decodes. This library
+ * has no codec for it (`rc-operations.manifest` lists it `unavailable`), so `RcOpcodes` has no
+ * constant; the number is here so the profile is the set AndroidX's player reads.
+ */
+private const val EVENT_ACTION: Int = 100
+
+/** `populateCommonOperations`: every API level from 6 up. */
 internal val BASE_OPERATIONS: Set<Int> =
   setOf(
     RcOpcodes.HEADER,
@@ -28,8 +37,8 @@ internal val BASE_OPERATIONS: Set<Int> =
     RcOpcodes.DRAW_RECT,
     RcOpcodes.DRAW_ROUND_RECT,
     RcOpcodes.DRAW_TEXT_ON_PATH,
-    // RcOpcodes.DRAW_TEXT_ON_CIRCLE: commented out of alpha19 `fillDefaultVersionMap`, so only
-    // the Wear allow-list, which names it, decodes it.
+    // RcOpcodes.DRAW_TEXT_ON_CIRCLE: AndroidX registers a reader for it, but in no API level's or
+    // profile's set, so only the Wear allow-list, which names it, decodes it.
     RcOpcodes.DRAW_TEXT_RUN,
     RcOpcodes.DRAW_BITMAP_FONT_TEXT_RUN,
     RcOpcodes.DRAW_TWEEN_PATH,
@@ -137,14 +146,14 @@ internal val BASE_OPERATIONS: Set<Int> =
     RcOpcodes.ATTRIBUTE_COLOR,
   )
 
-/** `createMapV6`, beyond the base set. */
+/** `populateBaselineV6Operations`, beyond the base set. */
 internal val V6_OPERATIONS: Set<Int> =
   setOf(
     RcOpcodes.DATA_SHADER,
     RcOpcodes.ROOT_CONTENT_BEHAVIOR,
   )
 
-/** `createMapV7`, the baseline additions every v7+ profile gets. */
+/** `populateBaselineV7Operations`, the baseline additions every v7+ profile gets. */
 internal val V7_BASELINE_OPERATIONS: Set<Int> =
   setOf(
     RcOpcodes.REM,
@@ -153,7 +162,7 @@ internal val V7_BASELINE_OPERATIONS: Set<Int> =
     RcOpcodes.MATRIX_VECTOR_MATH,
   )
 
-/** `createMapV7_Androidx`. */
+/** `PROFILE_ANDROIDX_OPS`. */
 internal val V7_ANDROIDX_OPERATIONS: Set<Int> =
   setOf(
     RcOpcodes.MATRIX_FROM_PATH,
@@ -175,12 +184,12 @@ internal val V7_ANDROIDX_OPERATIONS: Set<Int> =
     RcOpcodes.TEXT_STYLE,
     RcOpcodes.TEXT_TRANSFORM,
     RcOpcodes.COLOR_THEME,
+    RcOpcodes.MODIFIER_ALIGN_BY,
   )
 
-/** `createMapV7_Androidx_Experimental`. */
+/** `PROFILE_ANDROIDX_EXPERIMENTAL_OPS`. */
 internal val V7_ANDROIDX_EXPERIMENTAL_OPERATIONS: Set<Int> =
   setOf(
-    RcOpcodes.MODIFIER_ALIGN_BY,
     RcOpcodes.LAYOUT_COMPUTE,
     RcOpcodes.LAYOUT_FLOW,
     RcOpcodes.MODIFIER_MULTI_CLICK,
@@ -196,12 +205,16 @@ internal val V7_ANDROIDX_EXPERIMENTAL_OPERATIONS: Set<Int> =
     RcOpcodes.DATA_SOUND,
     RcOpcodes.SOUND_EXPRESSION,
     RcOpcodes.PLAY_SOUND,
+    EVENT_ACTION,
+    RcOpcodes.ADD_MESH_2D,
+    RcOpcodes.DRAW_MESH_2D,
+    RcOpcodes.MATRIX_FROM_MESH_2D,
   )
 
-/** `createMapV7_Androidx_Deprecated`. */
+/** `PROFILE_ANDROIDX_DEPRECATED_OPS`. */
 internal val V7_ANDROIDX_DEPRECATED_OPERATIONS: Set<Int> = setOf(RcOpcodes.ROOT_CONTENT_BEHAVIOR)
 
-/** `createMapV7_Widgets`. */
+/** `PROFILE_WIDGETS_OPS`. */
 internal val V7_WIDGETS_OPERATIONS: Set<Int> =
   setOf(
     RcOpcodes.MATRIX_FROM_PATH,
@@ -221,12 +234,12 @@ internal val V7_WIDGETS_OPERATIONS: Set<Int> =
     RcOpcodes.TEXT_STYLE,
     RcOpcodes.TEXT_TRANSFORM,
     RcOpcodes.COLOR_THEME,
+    RcOpcodes.MODIFIER_ALIGN_BY,
   )
 
-/** `createMapV7_Widgets_Experimental`. */
+/** `PROFILE_WIDGETS_EXPERIMENTAL_OPS`. */
 internal val V7_WIDGETS_EXPERIMENTAL_OPERATIONS: Set<Int> =
   setOf(
-    RcOpcodes.MODIFIER_ALIGN_BY,
     RcOpcodes.LAYOUT_COMPUTE,
     RcOpcodes.LAYOUT_FLOW,
     RcOpcodes.MODIFIER_MULTI_CLICK,
@@ -241,9 +254,12 @@ internal val V7_WIDGETS_EXPERIMENTAL_OPERATIONS: Set<Int> =
     RcOpcodes.DATA_SOUND,
     RcOpcodes.SOUND_EXPRESSION,
     RcOpcodes.PLAY_SOUND,
+    RcOpcodes.ADD_MESH_2D,
+    RcOpcodes.DRAW_MESH_2D,
+    RcOpcodes.MATRIX_FROM_MESH_2D,
   )
 
-/** `createMapV7_Widgets_Deprecated`. */
+/** `PROFILE_WIDGETS_DEPRECATED_OPS`. */
 internal val V7_WIDGETS_DEPRECATED_OPERATIONS: Set<Int> = setOf(RcOpcodes.ROOT_CONTENT_BEHAVIOR)
 
 /**

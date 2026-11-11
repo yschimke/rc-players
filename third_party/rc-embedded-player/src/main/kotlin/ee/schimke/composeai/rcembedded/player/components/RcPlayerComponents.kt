@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-@file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection", "ModifierParameter")
+@file:Suppress("PrimitiveInCollection", "ModifierParameter")
 
 package ee.schimke.composeai.rcembedded.player.components
 
@@ -39,16 +39,20 @@ import androidx.compose.remote.core.operations.layout.managers.RowLayout
 import androidx.compose.remote.core.operations.layout.managers.StateLayout
 import androidx.compose.remote.core.operations.layout.managers.TextLayout
 import androidx.compose.remote.core.operations.layout.modifiers.ComponentVisibilityOperation
+import androidx.compose.remote.core.operations.layout.modifiers.PaddingModifierOperation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionOnScreen
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastFirstOrNull
@@ -61,6 +65,7 @@ import ee.schimke.composeai.rcembedded.player.LocalGraphContext
 import ee.schimke.composeai.rcembedded.player.LocalHasTouchExpressions
 import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
 import ee.schimke.composeai.rcembedded.player.LocalRootLayoutCoordinates
+import ee.schimke.composeai.rcembedded.player.doc.rawDimensionDp
 import ee.schimke.composeai.rcembedded.player.draw.executeOperations
 import ee.schimke.composeai.rcembedded.player.inspectable.rcComponentContentInspector
 import ee.schimke.composeai.rcembedded.player.inspectable.rcComponentOuterInspector
@@ -73,6 +78,7 @@ import ee.schimke.composeai.rcembedded.player.layout.RcPlayerRow
 import ee.schimke.composeai.rcembedded.player.layout.RcPlayerStateLayout
 import ee.schimke.composeai.rcembedded.player.modifier.ClickActionHandlers
 import ee.schimke.composeai.rcembedded.player.modifier.toModifier
+import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 /**
  * Renders a document that has no root layout component — a raw draw-list document whose draw
@@ -254,6 +260,32 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
         // children collapsing to wrap size). As the outermost modifier, onPlaced reports the full
         // component size and placement and fires after layout.
         val sizeFeedbackOps = componentValueMap[component.getId()]
+        if (!sizeFeedbackOps.isNullOrEmpty()) {
+            // Content size subtracts the padding Modifier.padding applies now. The padding may be
+            // a variable, which LayoutComponent's padding only resolves at setup, so resolve it
+            // here and republish the content size when it changes without the component's own
+            // bounds changing (onPlaced below only publishes on a bounds change).
+            val contentPadding = rememberContentPaddingPx(component)
+            SideEffect {
+                if (placement.contentPadding != contentPadding) {
+                    placement.contentPadding = contentPadding
+                    if (placement.boundsInitialized) {
+                        publishComponentValues(
+                            ops = sizeFeedbackOps,
+                            width = placement.width,
+                            height = placement.height,
+                            contentWidth = placement.contentWidth(),
+                            contentHeight = placement.contentHeight(),
+                            posInParent = placement.posInParent,
+                            rootOffset = placement.rootOffset,
+                            store = remoteContext,
+                            states = componentValueStateMap,
+                            initial = false,
+                        )
+                    }
+                }
+            }
+        }
         if (
             !sizeFeedbackOps.isNullOrEmpty() || touchExpressions.isNotEmpty() || hasTouchExpressions
         ) {
@@ -300,20 +332,12 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
                             !sizeFeedbackOps.isNullOrEmpty() &&
                                 (sizeChanged || parentPosChanged || rootPosChanged)
                         ) {
-                            val contentW =
-                                (w - component.paddingLeft - component.paddingRight).coerceAtLeast(
-                                    0f,
-                                )
-                            val contentH =
-                                (h - component.paddingTop - component.paddingBottom).coerceAtLeast(
-                                    0f,
-                                )
                             publishComponentValues(
                                 ops = sizeFeedbackOps,
                                 width = w,
                                 height = h,
-                                contentWidth = contentW,
-                                contentHeight = contentH,
+                                contentWidth = placement.contentWidth(),
+                                contentHeight = placement.contentHeight(),
                                 posInParent = posInParent,
                                 rootOffset = rootOffset,
                                 store = remoteContext,
@@ -396,6 +420,37 @@ private fun RcPlayerLayoutComponent(
             )
         }
     }
+}
+
+/**
+ * The total padding of [component]'s padding modifiers in px, as left, top, right and bottom,
+ * resolved reactively the way `Modifier.padding(PaddingModifierOperation)` applies them.
+ */
+@Composable
+private fun rememberContentPaddingPx(component: LayoutComponent): Rect {
+    val density = LocalDensity.current.density
+    val behavior = LocalCoreDocument.current.densityBehavior
+    var left = 0f
+    var top = 0f
+    var right = 0f
+    var bottom = 0f
+    component.componentModifiers.list.fastForEach { op ->
+        if (op is PaddingModifierOperation) {
+            left +=
+                rawDimensionDp(rememberRemoteFloatAsState(op.rawLeft).value, behavior, density)
+                    .value * density
+            top +=
+                rawDimensionDp(rememberRemoteFloatAsState(op.rawTop).value, behavior, density)
+                    .value * density
+            right +=
+                rawDimensionDp(rememberRemoteFloatAsState(op.rawRight).value, behavior, density)
+                    .value * density
+            bottom +=
+                rawDimensionDp(rememberRemoteFloatAsState(op.rawBottom).value, behavior, density)
+                    .value * density
+        }
+    }
+    return Rect(left, top, right, bottom)
 }
 
 @Composable

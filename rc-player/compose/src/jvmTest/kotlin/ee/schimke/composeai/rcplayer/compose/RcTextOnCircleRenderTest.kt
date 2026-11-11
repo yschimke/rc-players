@@ -8,6 +8,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw3
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnCircle
+import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
@@ -99,6 +100,42 @@ class RcTextOnCircleRenderTest {
     assertEquals(0, inkAnywhere(bitmap))
   }
 
+  /**
+   * Every geometry field may be a float variable (`width / 2` in `RemoteTimeText`), not only a
+   * literal. AndroidX's embedded player read them raw until androidx-main `6de498aec`, and threw on
+   * the NaN ids; this player resolves each through the document's floats.
+   */
+  @Test
+  fun variableGeometryDrawsWhatTheSameLiteralsDraw() {
+    val literal = render(document())
+    val variable =
+      render(
+        document(
+          definitions =
+            listOf(
+              RcFloatConstant(CENTER_ID, RcFloatWord.literal(CENTER)),
+              RcFloatConstant(RADIUS_ID, RcFloatWord.literal(RADIUS - WARP)),
+              RcFloatConstant(ANGLE_ID, RcFloatWord.literal(-90f)),
+              RcFloatConstant(WARP_ID, RcFloatWord.literal(WARP)),
+            ),
+          center = variable(CENTER_ID),
+          radiusWord = variable(RADIUS_ID),
+          startAngle = variable(ANGLE_ID),
+          warpWord = variable(WARP_ID),
+        ),
+      )
+
+    assertTrue(inkOnRing(literal) > 0)
+    assertEquals(ringSignature(literal), ringSignature(variable))
+    assertEquals(inkAnywhere(literal), inkAnywhere(variable))
+  }
+
+  /** A variable nothing has written yet is not a number; the draw is skipped, as upstream's is. */
+  @Test
+  fun anUnresolvedCentreDrawsNothingRatherThanThrowing() {
+    assertEquals(0, inkAnywhere(render(document(center = variable(CENTER_ID)))))
+  }
+
   @Test
   fun writesTheBeforeAfterEvidenceStrip() {
     // Opt-in, on the `rc.embedded.input` pattern this repo already uses: skipped (as a pass) unless
@@ -174,8 +211,14 @@ class RcTextOnCircleRenderTest {
     placement: Int = RcDrawTextOnCircle.PLACEMENT_OUTSIDE,
     radius: Float = RADIUS - WARP,
     warpRadiusOffset: Float = WARP,
+    definitions: List<RcOperation> = emptyList(),
+    center: RcFloatWord = RcFloatWord.literal(CENTER),
+    radiusWord: RcFloatWord = RcFloatWord.literal(radius),
+    startAngle: RcFloatWord = RcFloatWord.literal(-90f),
+    warpWord: RcFloatWord = RcFloatWord.literal(warpRadiusOffset),
   ): RcDocument {
     val operations = mutableListOf<RcOperation>()
+    operations += definitions
     operations += RcTextData(7, "REMOTE COMPOSE")
     operations += RcRootLayout(1)
     operations += RcLayoutContent(2)
@@ -189,11 +232,11 @@ class RcTextOnCircleRenderTest {
     operations +=
       RcDrawTextOnCircle(
         textId = 7,
-        centerX = RcFloatWord.literal(CENTER),
-        centerY = RcFloatWord.literal(CENTER),
-        radius = RcFloatWord.literal(radius),
-        startAngle = RcFloatWord.literal(-90f),
-        warpRadiusOffset = RcFloatWord.literal(warpRadiusOffset),
+        centerX = center,
+        centerY = center,
+        radius = radiusWord,
+        startAngle = startAngle,
+        warpRadiusOffset = warpWord,
         alignment = alignment,
         placement = placement,
       )
@@ -225,6 +268,9 @@ class RcTextOnCircleRenderTest {
   }
 
   /** Dark pixels within a few points of the ring's own radius. */
+  /** A float variable id, NaN-encoded as the wire does. */
+  private fun variable(id: Int) = RcFloatWord(0x7fc00000 or id)
+
   private fun inkOnRing(bitmap: Bitmap): Int =
     countInk(bitmap) { distance -> distance in (RADIUS - 16f)..(RADIUS + 16f) }
 
@@ -283,5 +329,9 @@ class RcTextOnCircleRenderTest {
     /** Non-zero so a renderer that ignored the warp offset would draw on the wrong ring. */
     const val WARP = 10f
     const val GAP = 16
+    const val CENTER_ID = 50
+    const val RADIUS_ID = 51
+    const val ANGLE_ID = 52
+    const val WARP_ID = 53
   }
 }

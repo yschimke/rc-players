@@ -1787,7 +1787,7 @@ private fun particleCompareWork(operation: RcParticleCompare, particleCount: Int
 /**
  * Graphics-layer attributes the CMP backend accepts, by the value kind each is written as: every
  * attribute AndroidX's `AndroidPaintContext.setGraphicsLayer` reads, plus `COMPOSITING_STRATEGY`,
- * which both AndroidX players ignore and so does this one.
+ * which the View player ignores and AndroidX's embedded player and this one apply.
  */
 private val SUPPORTED_LAYER_FLOATS =
   setOf(

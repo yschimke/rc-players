@@ -1536,6 +1536,9 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcGraphicsLayerModifie
 	public static final field BLUR_TILE_MODE I
 	public static final field CAMERA_DISTANCE I
 	public static final field COMPOSITING_STRATEGY I
+	public static final field COMPOSITING_STRATEGY_AUTO I
+	public static final field COMPOSITING_STRATEGY_MODULATE_ALPHA I
+	public static final field COMPOSITING_STRATEGY_OFFSCREEN I
 	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcGraphicsLayerModifier$Companion;
 	public static final field HAS_BLUR I
 	public static final field ROTATION_X I
