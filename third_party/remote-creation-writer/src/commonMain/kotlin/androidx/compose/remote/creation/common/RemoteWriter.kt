@@ -9,7 +9,21 @@ package androidx.compose.remote.creation.common
  * common encoder will implement the same surface directly.
  */
 public interface RemoteWriter {
+  /**
+   * The writer itself. AndroidX's Kotlin reaches some operations through
+   * `RemoteComposeWriter.getBuffer()` (`writer.buffer.definePattern(…)`), a `RemoteComposeBuffer`
+   * under the writer; here the writer writes them itself, and this lets that text stand.
+   */
+  public val buffer: RemoteWriter
+    get() = this
+
   public fun createFloatId(): Float
+
+  /** The next free id, as `RemoteComposeWriter.nextId`. */
+  public fun nextId(): Int
+
+  /** The writer's paint builder, as `RemoteComposeWriter.getRcPaint`. */
+  public val rcPaint: RcPaint
 
   public val componentIdForCache: Int
 
@@ -118,6 +132,13 @@ public interface RemoteWriter {
 
   public fun endConditionalOperations()
 
+  /** A conditional block around [content], as `RemoteComposeWriter.conditionalOperations`. */
+  public fun conditionalOperations(type: Int, first: Float, second: Float, content: () -> Unit) {
+    conditionalOperations(type, first, second)
+    content()
+    endConditionalOperations()
+  }
+
   public fun drawOnBitmap(bitmapId: Int, mode: Int, color: Int)
 
   /**
@@ -159,6 +180,13 @@ public interface RemoteWriter {
   public fun startLoop(indexId: Int, from: Float, step: Float, until: Float)
 
   public fun endLoop()
+
+  /** A loop around [content], as `RemoteComposeWriter.loop`. */
+  public fun loop(indexId: Int, from: Float, step: Float, until: Float, content: () -> Unit) {
+    startLoop(indexId, from, step, until)
+    content()
+    endLoop()
+  }
 
   public fun setNamedVariable(id: Int, name: String, type: Int)
 
@@ -408,7 +436,17 @@ public interface RemoteWriter {
 
   public fun scale(scaleX: Float, scaleY: Float, centerX: Float, centerY: Float)
 
+  /** A scale about the origin, as `RemoteComposeWriter.scale(float, float)`. */
+  public fun scale(scaleX: Float, scaleY: Float) {
+    scale(scaleX, scaleY, Float.NaN, Float.NaN)
+  }
+
   public fun rotate(angle: Float, centerX: Float, centerY: Float)
+
+  /** A rotation about the origin, as `RemoteComposeWriter.rotate(float)`. */
+  public fun rotate(angle: Float) {
+    rotate(angle, Float.NaN, Float.NaN)
+  }
 
   public fun skew(skewX: Float, skewY: Float)
 
@@ -472,6 +510,42 @@ public interface RemoteWriter {
     horizontalOffset: Float,
     verticalOffset: Float,
   )
+
+  /**
+   * Draws [start] to [end] of the text [textId] with the bitmap font [bitmapFontId] at ([x], [y]),
+   * as `RemoteComposeWriter.drawBitmapFontTextRun` (`DRAW_BITMAP_FONT_TEXT_RUN`, 48). An [end] of
+   * -1 is the end of the text.
+   */
+  public fun drawBitmapFontTextRun(
+    textId: Int,
+    bitmapFontId: Int,
+    start: Int,
+    end: Int,
+    x: Float,
+    y: Float,
+    glyphSpacing: Float,
+  )
+
+  /**
+   * Draws [start] to [end] of the text [textId] with the bitmap font [bitmapFontId] along the path
+   * [pathId], [yAdj] away from it, as `RemoteComposeWriter.drawBitmapFontTextRunOnPath`
+   * (`DRAW_BITMAP_FONT_TEXT_RUN_ON_PATH`, 49).
+   */
+  public fun drawBitmapFontTextRunOnPath(
+    textId: Int,
+    bitmapFontId: Int,
+    pathId: Int,
+    start: Int,
+    end: Int,
+    yAdj: Float,
+    glyphSpacing: Float,
+  )
+
+  /**
+   * A float holding the [attribute] (a [TextAttribute] constant) of the text [textId] measured with
+   * the current paint, as `RemoteComposeWriter.textAttribute` (`ATTRIBUTE_TEXT`, 170).
+   */
+  public fun textAttribute(textId: Int, attribute: Short): Float
 
   public fun drawTextRun(
     textId: Int,

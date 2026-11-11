@@ -138,6 +138,11 @@ public class PaintBundle {
 
   public fun toIntArray(): IntArray = values.toIntArray()
 
+  /** Forgets every value set, as `PaintBundle.reset`. */
+  public fun reset() {
+    values.clear()
+  }
+
   private fun command(type: Int, value: Int): PaintBundle = appendCommand(type or (value shl 16))
 
   private fun value(type: Int, value: Int): PaintBundle {

@@ -325,3 +325,46 @@ public object CollapsiblePriority {
   public const val HORIZONTAL: Int = 0
   public const val VERTICAL: Int = 1
 }
+
+/** The opcodes of `Operations` the carried Kotlin names, as AndroidX's `remote-core` has them. */
+public object Operations {
+  public const val CLIP_PATH: Int = 38
+  public const val COLOR_THEME: Int = 196
+  public const val MODIFIER_TOUCH_DOWN: Int = 219
+  public const val MODIFIER_TOUCH_UP: Int = 220
+  public const val MODIFIER_TOUCH_CANCEL: Int = 225
+}
+
+/**
+ * `ConditionalOperations`' comparison types, as AndroidX's `remote-core` names them; an `Int` here,
+ * as [RemoteWriter.conditionalOperations] takes one.
+ */
+public object ConditionalOperations {
+  public const val TYPE_EQ: Int = 0
+  public const val TYPE_NEQ: Int = 1
+  public const val TYPE_LT: Int = 2
+  public const val TYPE_LTE: Int = 3
+  public const val TYPE_GT: Int = 4
+  public const val TYPE_GTE: Int = 5
+}
+
+/** `PaintContext`'s text measuring flags, as AndroidX's `remote-core` names them. */
+public object PaintContext {
+  public const val TEXT_MEASURE_MONOSPACE_WIDTH: Int = 0x01
+  public const val TEXT_MEASURE_FONT_HEIGHT: Int = 0x02
+  public const val TEXT_MEASURE_SPACES: Int = 0x04
+  public const val TEXT_COMPLEX: Int = 0x08
+}
+
+/** `TextAttribute`'s attribute types, as AndroidX's `remote-core` names them. */
+public object TextAttribute {
+  public const val MEASURE_WIDTH: Short = 0
+  public const val MEASURE_HEIGHT: Short = 1
+  public const val MEASURE_LEFT: Short = 2
+  public const val MEASURE_RIGHT: Short = 3
+  public const val MEASURE_TOP: Short = 4
+  public const val MEASURE_BOTTOM: Short = 5
+  public const val TEXT_LENGTH: Short = 6
+  public const val MEASURE_MONOSPACE_FLAG: Int = PaintContext.TEXT_MEASURE_MONOSPACE_WIDTH shl 8
+  public const val MEASURE_MAX_HEIGHT_FLAG: Int = PaintContext.TEXT_MEASURE_FONT_HEIGHT shl 8
+}

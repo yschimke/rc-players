@@ -9,6 +9,10 @@
 abstract interface androidx.compose.remote.creation.common/RemoteWriter { // androidx.compose.remote.creation.common/RemoteWriter|null[0]
     abstract val componentIdForCache // androidx.compose.remote.creation.common/RemoteWriter.componentIdForCache|{}componentIdForCache[0]
         abstract fun <get-componentIdForCache>(): kotlin/Int // androidx.compose.remote.creation.common/RemoteWriter.componentIdForCache.<get-componentIdForCache>|<get-componentIdForCache>(){}[0]
+    abstract val rcPaint // androidx.compose.remote.creation.common/RemoteWriter.rcPaint|{}rcPaint[0]
+        abstract fun <get-rcPaint>(): androidx.compose.remote.creation.common/RcPaint // androidx.compose.remote.creation.common/RemoteWriter.rcPaint.<get-rcPaint>|<get-rcPaint>(){}[0]
+    open val buffer // androidx.compose.remote.creation.common/RemoteWriter.buffer|{}buffer[0]
+        open fun <get-buffer>(): androidx.compose.remote.creation.common/RemoteWriter // androidx.compose.remote.creation.common/RemoteWriter.buffer.<get-buffer>|<get-buffer>(){}[0]
 
     abstract fun addBitmapFont(kotlin.collections/List<androidx.compose.remote.creation.common/BitmapFontGlyph>, kotlin.collections/Map<kotlin/String, kotlin/Short> = ...): kotlin/Int // androidx.compose.remote.creation.common/RemoteWriter.addBitmapFont|addBitmapFont(kotlin.collections.List<androidx.compose.remote.creation.common.BitmapFontGlyph>;kotlin.collections.Map<kotlin.String,kotlin.Short>){}[0]
     abstract fun addBitmapUrl(kotlin/String, kotlin/Int = ..., kotlin/Int = ...): kotlin/Int // androidx.compose.remote.creation.common/RemoteWriter.addBitmapUrl|addBitmapUrl(kotlin.String;kotlin.Int;kotlin.Int){}[0]
@@ -59,6 +63,8 @@ abstract interface androidx.compose.remote.creation.common/RemoteWriter { // and
     abstract fun definePattern(kotlin/Int, kotlin/IntArray) // androidx.compose.remote.creation.common/RemoteWriter.definePattern|definePattern(kotlin.Int;kotlin.IntArray){}[0]
     abstract fun drawArc(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteWriter.drawArc|drawArc(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
     abstract fun drawBitmap(kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Int) // androidx.compose.remote.creation.common/RemoteWriter.drawBitmap|drawBitmap(kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Int){}[0]
+    abstract fun drawBitmapFontTextRun(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteWriter.drawBitmapFontTextRun|drawBitmapFontTextRun(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
+    abstract fun drawBitmapFontTextRunOnPath(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteWriter.drawBitmapFontTextRunOnPath|drawBitmapFontTextRunOnPath(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Float){}[0]
     abstract fun drawCircle(kotlin/Float, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteWriter.drawCircle|drawCircle(kotlin.Float;kotlin.Float;kotlin.Float){}[0]
     abstract fun drawComponentContent() // androidx.compose.remote.creation.common/RemoteWriter.drawComponentContent|drawComponentContent(){}[0]
     abstract fun drawLine(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteWriter.drawLine|drawLine(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
@@ -104,6 +110,7 @@ abstract interface androidx.compose.remote.creation.common/RemoteWriter { // and
     abstract fun integerExpression(kotlin/LongArray...): kotlin/Long // androidx.compose.remote.creation.common/RemoteWriter.integerExpression|integerExpression(kotlin.LongArray...){}[0]
     abstract fun matrixExpression(kotlin/FloatArray...): kotlin/Float // androidx.compose.remote.creation.common/RemoteWriter.matrixExpression|matrixExpression(kotlin.FloatArray...){}[0]
     abstract fun matrixFromMesh2D(kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Int = ...) // androidx.compose.remote.creation.common/RemoteWriter.matrixFromMesh2D|matrixFromMesh2D(kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Int){}[0]
+    abstract fun nextId(): kotlin/Int // androidx.compose.remote.creation.common/RemoteWriter.nextId|nextId(){}[0]
     abstract fun reserveFloatVariable(): kotlin/Float // androidx.compose.remote.creation.common/RemoteWriter.reserveFloatVariable|reserveFloatVariable(){}[0]
     abstract fun restore() // androidx.compose.remote.creation.common/RemoteWriter.restore|restore(){}[0]
     abstract fun rotate(kotlin/Float, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteWriter.rotate|rotate(kotlin.Float;kotlin.Float;kotlin.Float){}[0]
@@ -126,6 +133,7 @@ abstract interface androidx.compose.remote.creation.common/RemoteWriter { // and
     abstract fun startRow(androidx.compose.remote.creation.common/RemoteModifierData, kotlin/Int, kotlin/Int) // androidx.compose.remote.creation.common/RemoteWriter.startRow|startRow(androidx.compose.remote.creation.common.RemoteModifierData;kotlin.Int;kotlin.Int){}[0]
     abstract fun startStateLayout(androidx.compose.remote.creation.common/RemoteModifierData, kotlin/Int) // androidx.compose.remote.creation.common/RemoteWriter.startStateLayout|startStateLayout(androidx.compose.remote.creation.common.RemoteModifierData;kotlin.Int){}[0]
     abstract fun startTextComponent(androidx.compose.remote.creation.common/RemoteTextData) // androidx.compose.remote.creation.common/RemoteWriter.startTextComponent|startTextComponent(androidx.compose.remote.creation.common.RemoteTextData){}[0]
+    abstract fun textAttribute(kotlin/Int, kotlin/Short): kotlin/Float // androidx.compose.remote.creation.common/RemoteWriter.textAttribute|textAttribute(kotlin.Int;kotlin.Short){}[0]
     abstract fun textLength(kotlin/Int): kotlin/Float // androidx.compose.remote.creation.common/RemoteWriter.textLength|textLength(kotlin.Int){}[0]
     abstract fun textLookup(kotlin/Float, kotlin/Float): kotlin/Int // androidx.compose.remote.creation.common/RemoteWriter.textLookup|textLookup(kotlin.Float;kotlin.Float){}[0]
     abstract fun textLookup(kotlin/Float, kotlin/Int): kotlin/Int // androidx.compose.remote.creation.common/RemoteWriter.textLookup|textLookup(kotlin.Float;kotlin.Int){}[0]
@@ -137,8 +145,12 @@ abstract interface androidx.compose.remote.creation.common/RemoteWriter { // and
     abstract fun translate(kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteWriter.translate|translate(kotlin.Float;kotlin.Float){}[0]
     abstract fun writeModifier(androidx.compose.remote.creation.common/RemoteModifierOperation) // androidx.compose.remote.creation.common/RemoteWriter.writeModifier|writeModifier(androidx.compose.remote.creation.common.RemoteModifierOperation){}[0]
     open fun addStringList(kotlin/IntArray...): kotlin/Float // androidx.compose.remote.creation.common/RemoteWriter.addStringList|addStringList(kotlin.IntArray...){}[0]
+    open fun conditionalOperations(kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Function0<kotlin/Unit>) // androidx.compose.remote.creation.common/RemoteWriter.conditionalOperations|conditionalOperations(kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Function0<kotlin.Unit>){}[0]
     open fun drawComponentToBitmap(kotlin/Int) // androidx.compose.remote.creation.common/RemoteWriter.drawComponentToBitmap|drawComponentToBitmap(kotlin.Int){}[0]
     open fun drawComponentToBitmap(kotlin/Int, kotlin/Int) // androidx.compose.remote.creation.common/RemoteWriter.drawComponentToBitmap|drawComponentToBitmap(kotlin.Int;kotlin.Int){}[0]
+    open fun loop(kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Function0<kotlin/Unit>) // androidx.compose.remote.creation.common/RemoteWriter.loop|loop(kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Function0<kotlin.Unit>){}[0]
+    open fun rotate(kotlin/Float) // androidx.compose.remote.creation.common/RemoteWriter.rotate|rotate(kotlin.Float){}[0]
+    open fun scale(kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteWriter.scale|scale(kotlin.Float;kotlin.Float){}[0]
     open fun setColorName(kotlin/Int, kotlin/String) // androidx.compose.remote.creation.common/RemoteWriter.setColorName|setColorName(kotlin.Int;kotlin.String){}[0]
     open fun setFloatName(kotlin/Int, kotlin/String) // androidx.compose.remote.creation.common/RemoteWriter.setFloatName|setFloatName(kotlin.Int;kotlin.String){}[0]
     open fun setStringName(kotlin/Int, kotlin/String) // androidx.compose.remote.creation.common/RemoteWriter.setStringName|setStringName(kotlin.Int;kotlin.String){}[0]
@@ -918,6 +930,7 @@ final class androidx.compose.remote.creation.common/PaintBundle { // androidx.co
     constructor <init>() // androidx.compose.remote.creation.common/PaintBundle.<init>|<init>(){}[0]
 
     final fun clearColorFilter(): androidx.compose.remote.creation.common/PaintBundle // androidx.compose.remote.creation.common/PaintBundle.clearColorFilter|clearColorFilter(){}[0]
+    final fun reset() // androidx.compose.remote.creation.common/PaintBundle.reset|reset(){}[0]
     final fun setAlpha(kotlin/Float): androidx.compose.remote.creation.common/PaintBundle // androidx.compose.remote.creation.common/PaintBundle.setAlpha|setAlpha(kotlin.Float){}[0]
     final fun setAntiAlias(kotlin/Boolean): androidx.compose.remote.creation.common/PaintBundle // androidx.compose.remote.creation.common/PaintBundle.setAntiAlias|setAntiAlias(kotlin.Boolean){}[0]
     final fun setBlendMode(kotlin/Int): androidx.compose.remote.creation.common/PaintBundle // androidx.compose.remote.creation.common/PaintBundle.setBlendMode|setBlendMode(kotlin.Int){}[0]
@@ -1075,11 +1088,26 @@ final class androidx.compose.remote.creation.common/PaintBundle { // androidx.co
     }
 }
 
+final class androidx.compose.remote.creation.common/RcPaint { // androidx.compose.remote.creation.common/RcPaint|null[0]
+    constructor <init>(androidx.compose.remote.creation.common/RemoteWriter) // androidx.compose.remote.creation.common/RcPaint.<init>|<init>(androidx.compose.remote.creation.common.RemoteWriter){}[0]
+
+    final fun commit() // androidx.compose.remote.creation.common/RcPaint.commit|commit(){}[0]
+    final fun setColor(kotlin/Int): androidx.compose.remote.creation.common/RcPaint // androidx.compose.remote.creation.common/RcPaint.setColor|setColor(kotlin.Int){}[0]
+    final fun setStrokeCap(kotlin/Int): androidx.compose.remote.creation.common/RcPaint // androidx.compose.remote.creation.common/RcPaint.setStrokeCap|setStrokeCap(kotlin.Int){}[0]
+    final fun setStrokeJoin(kotlin/Int): androidx.compose.remote.creation.common/RcPaint // androidx.compose.remote.creation.common/RcPaint.setStrokeJoin|setStrokeJoin(kotlin.Int){}[0]
+    final fun setStrokeWidth(kotlin/Float): androidx.compose.remote.creation.common/RcPaint // androidx.compose.remote.creation.common/RcPaint.setStrokeWidth|setStrokeWidth(kotlin.Float){}[0]
+    final fun setStyle(kotlin/Int): androidx.compose.remote.creation.common/RcPaint // androidx.compose.remote.creation.common/RcPaint.setStyle|setStyle(kotlin.Int){}[0]
+    final fun setTextSize(kotlin/Float): androidx.compose.remote.creation.common/RcPaint // androidx.compose.remote.creation.common/RcPaint.setTextSize|setTextSize(kotlin.Float){}[0]
+    final fun setTypeface(kotlin/Int, kotlin/Int, kotlin/Boolean): androidx.compose.remote.creation.common/RcPaint // androidx.compose.remote.creation.common/RcPaint.setTypeface|setTypeface(kotlin.Int;kotlin.Int;kotlin.Boolean){}[0]
+}
+
 final class androidx.compose.remote.creation.common/RemoteDocumentWriter : androidx.compose.remote.creation.common/RemoteWriter { // androidx.compose.remote.creation.common/RemoteDocumentWriter|null[0]
     constructor <init>(kotlin/Int, kotlin/Int, kotlin/Int = ..., kotlin/Int = ...) // androidx.compose.remote.creation.common/RemoteDocumentWriter.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
 
     final val componentIdForCache // androidx.compose.remote.creation.common/RemoteDocumentWriter.componentIdForCache|{}componentIdForCache[0]
         final fun <get-componentIdForCache>(): kotlin/Int // androidx.compose.remote.creation.common/RemoteDocumentWriter.componentIdForCache.<get-componentIdForCache>|<get-componentIdForCache>(){}[0]
+    final val rcPaint // androidx.compose.remote.creation.common/RemoteDocumentWriter.rcPaint|{}rcPaint[0]
+        final fun <get-rcPaint>(): androidx.compose.remote.creation.common/RcPaint // androidx.compose.remote.creation.common/RemoteDocumentWriter.rcPaint.<get-rcPaint>|<get-rcPaint>(){}[0]
 
     final fun addBitmapFont(kotlin.collections/List<androidx.compose.remote.creation.common/BitmapFontGlyph>, kotlin.collections/Map<kotlin/String, kotlin/Short>): kotlin/Int // androidx.compose.remote.creation.common/RemoteDocumentWriter.addBitmapFont|addBitmapFont(kotlin.collections.List<androidx.compose.remote.creation.common.BitmapFontGlyph>;kotlin.collections.Map<kotlin.String,kotlin.Short>){}[0]
     final fun addBitmapPng(kotlin/ByteArray, kotlin/Int, kotlin/Int): kotlin/Int // androidx.compose.remote.creation.common/RemoteDocumentWriter.addBitmapPng|addBitmapPng(kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
@@ -1133,6 +1161,8 @@ final class androidx.compose.remote.creation.common/RemoteDocumentWriter : andro
     final fun definePattern(kotlin/Int, kotlin/IntArray) // androidx.compose.remote.creation.common/RemoteDocumentWriter.definePattern|definePattern(kotlin.Int;kotlin.IntArray){}[0]
     final fun drawArc(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteDocumentWriter.drawArc|drawArc(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
     final fun drawBitmap(kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Int) // androidx.compose.remote.creation.common/RemoteDocumentWriter.drawBitmap|drawBitmap(kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Int){}[0]
+    final fun drawBitmapFontTextRun(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteDocumentWriter.drawBitmapFontTextRun|drawBitmapFontTextRun(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
+    final fun drawBitmapFontTextRunOnPath(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteDocumentWriter.drawBitmapFontTextRunOnPath|drawBitmapFontTextRunOnPath(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Float){}[0]
     final fun drawCircle(kotlin/Float, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteDocumentWriter.drawCircle|drawCircle(kotlin.Float;kotlin.Float;kotlin.Float){}[0]
     final fun drawComponentContent() // androidx.compose.remote.creation.common/RemoteDocumentWriter.drawComponentContent|drawComponentContent(){}[0]
     final fun drawLine(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteDocumentWriter.drawLine|drawLine(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
@@ -1179,6 +1209,7 @@ final class androidx.compose.remote.creation.common/RemoteDocumentWriter : andro
     final fun integerExpression(kotlin/LongArray...): kotlin/Long // androidx.compose.remote.creation.common/RemoteDocumentWriter.integerExpression|integerExpression(kotlin.LongArray...){}[0]
     final fun matrixExpression(kotlin/FloatArray...): kotlin/Float // androidx.compose.remote.creation.common/RemoteDocumentWriter.matrixExpression|matrixExpression(kotlin.FloatArray...){}[0]
     final fun matrixFromMesh2D(kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Int) // androidx.compose.remote.creation.common/RemoteDocumentWriter.matrixFromMesh2D|matrixFromMesh2D(kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Int){}[0]
+    final fun nextId(): kotlin/Int // androidx.compose.remote.creation.common/RemoteDocumentWriter.nextId|nextId(){}[0]
     final fun reserveFloatVariable(): kotlin/Float // androidx.compose.remote.creation.common/RemoteDocumentWriter.reserveFloatVariable|reserveFloatVariable(){}[0]
     final fun restore() // androidx.compose.remote.creation.common/RemoteDocumentWriter.restore|restore(){}[0]
     final fun root(kotlin/Function1<androidx.compose.remote.creation.common/RemoteDocumentWriter, kotlin/Unit>) // androidx.compose.remote.creation.common/RemoteDocumentWriter.root|root(kotlin.Function1<androidx.compose.remote.creation.common.RemoteDocumentWriter,kotlin.Unit>){}[0]
@@ -1203,6 +1234,7 @@ final class androidx.compose.remote.creation.common/RemoteDocumentWriter : andro
     final fun startStateLayout(androidx.compose.remote.creation.common/RemoteModifierData, kotlin/Int) // androidx.compose.remote.creation.common/RemoteDocumentWriter.startStateLayout|startStateLayout(androidx.compose.remote.creation.common.RemoteModifierData;kotlin.Int){}[0]
     final fun startTextComponent(androidx.compose.remote.creation.common/RemoteTextData) // androidx.compose.remote.creation.common/RemoteDocumentWriter.startTextComponent|startTextComponent(androidx.compose.remote.creation.common.RemoteTextData){}[0]
     final fun text(kotlin/String, kotlin/Float = ..., kotlin/Int = ...) // androidx.compose.remote.creation.common/RemoteDocumentWriter.text|text(kotlin.String;kotlin.Float;kotlin.Int){}[0]
+    final fun textAttribute(kotlin/Int, kotlin/Short): kotlin/Float // androidx.compose.remote.creation.common/RemoteDocumentWriter.textAttribute|textAttribute(kotlin.Int;kotlin.Short){}[0]
     final fun textLength(kotlin/Int): kotlin/Float // androidx.compose.remote.creation.common/RemoteDocumentWriter.textLength|textLength(kotlin.Int){}[0]
     final fun textLookup(kotlin/Float, kotlin/Float): kotlin/Int // androidx.compose.remote.creation.common/RemoteDocumentWriter.textLookup|textLookup(kotlin.Float;kotlin.Float){}[0]
     final fun textLookup(kotlin/Float, kotlin/Int): kotlin/Int // androidx.compose.remote.creation.common/RemoteDocumentWriter.textLookup|textLookup(kotlin.Float;kotlin.Int){}[0]
@@ -1487,6 +1519,21 @@ final object androidx.compose.remote.creation.common/ComponentValue { // android
         final fun <get-POS_Y>(): kotlin/Int // androidx.compose.remote.creation.common/ComponentValue.POS_Y.<get-POS_Y>|<get-POS_Y>(){}[0]
     final const val WIDTH // androidx.compose.remote.creation.common/ComponentValue.WIDTH|{}WIDTH[0]
         final fun <get-WIDTH>(): kotlin/Int // androidx.compose.remote.creation.common/ComponentValue.WIDTH.<get-WIDTH>|<get-WIDTH>(){}[0]
+}
+
+final object androidx.compose.remote.creation.common/ConditionalOperations { // androidx.compose.remote.creation.common/ConditionalOperations|null[0]
+    final const val TYPE_EQ // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_EQ|{}TYPE_EQ[0]
+        final fun <get-TYPE_EQ>(): kotlin/Int // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_EQ.<get-TYPE_EQ>|<get-TYPE_EQ>(){}[0]
+    final const val TYPE_GT // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_GT|{}TYPE_GT[0]
+        final fun <get-TYPE_GT>(): kotlin/Int // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_GT.<get-TYPE_GT>|<get-TYPE_GT>(){}[0]
+    final const val TYPE_GTE // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_GTE|{}TYPE_GTE[0]
+        final fun <get-TYPE_GTE>(): kotlin/Int // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_GTE.<get-TYPE_GTE>|<get-TYPE_GTE>(){}[0]
+    final const val TYPE_LT // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_LT|{}TYPE_LT[0]
+        final fun <get-TYPE_LT>(): kotlin/Int // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_LT.<get-TYPE_LT>|<get-TYPE_LT>(){}[0]
+    final const val TYPE_LTE // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_LTE|{}TYPE_LTE[0]
+        final fun <get-TYPE_LTE>(): kotlin/Int // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_LTE.<get-TYPE_LTE>|<get-TYPE_LTE>(){}[0]
+    final const val TYPE_NEQ // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_NEQ|{}TYPE_NEQ[0]
+        final fun <get-TYPE_NEQ>(): kotlin/Int // androidx.compose.remote.creation.common/ConditionalOperations.TYPE_NEQ.<get-TYPE_NEQ>|<get-TYPE_NEQ>(){}[0]
 }
 
 final object androidx.compose.remote.creation.common/CoreDocument { // androidx.compose.remote.creation.common/CoreDocument|null[0]
@@ -1803,6 +1850,30 @@ final object androidx.compose.remote.creation.common/NamedVariable { // androidx
         final fun <get-STRING_TYPE>(): kotlin/Int // androidx.compose.remote.creation.common/NamedVariable.STRING_TYPE.<get-STRING_TYPE>|<get-STRING_TYPE>(){}[0]
 }
 
+final object androidx.compose.remote.creation.common/Operations { // androidx.compose.remote.creation.common/Operations|null[0]
+    final const val CLIP_PATH // androidx.compose.remote.creation.common/Operations.CLIP_PATH|{}CLIP_PATH[0]
+        final fun <get-CLIP_PATH>(): kotlin/Int // androidx.compose.remote.creation.common/Operations.CLIP_PATH.<get-CLIP_PATH>|<get-CLIP_PATH>(){}[0]
+    final const val COLOR_THEME // androidx.compose.remote.creation.common/Operations.COLOR_THEME|{}COLOR_THEME[0]
+        final fun <get-COLOR_THEME>(): kotlin/Int // androidx.compose.remote.creation.common/Operations.COLOR_THEME.<get-COLOR_THEME>|<get-COLOR_THEME>(){}[0]
+    final const val MODIFIER_TOUCH_CANCEL // androidx.compose.remote.creation.common/Operations.MODIFIER_TOUCH_CANCEL|{}MODIFIER_TOUCH_CANCEL[0]
+        final fun <get-MODIFIER_TOUCH_CANCEL>(): kotlin/Int // androidx.compose.remote.creation.common/Operations.MODIFIER_TOUCH_CANCEL.<get-MODIFIER_TOUCH_CANCEL>|<get-MODIFIER_TOUCH_CANCEL>(){}[0]
+    final const val MODIFIER_TOUCH_DOWN // androidx.compose.remote.creation.common/Operations.MODIFIER_TOUCH_DOWN|{}MODIFIER_TOUCH_DOWN[0]
+        final fun <get-MODIFIER_TOUCH_DOWN>(): kotlin/Int // androidx.compose.remote.creation.common/Operations.MODIFIER_TOUCH_DOWN.<get-MODIFIER_TOUCH_DOWN>|<get-MODIFIER_TOUCH_DOWN>(){}[0]
+    final const val MODIFIER_TOUCH_UP // androidx.compose.remote.creation.common/Operations.MODIFIER_TOUCH_UP|{}MODIFIER_TOUCH_UP[0]
+        final fun <get-MODIFIER_TOUCH_UP>(): kotlin/Int // androidx.compose.remote.creation.common/Operations.MODIFIER_TOUCH_UP.<get-MODIFIER_TOUCH_UP>|<get-MODIFIER_TOUCH_UP>(){}[0]
+}
+
+final object androidx.compose.remote.creation.common/PaintContext { // androidx.compose.remote.creation.common/PaintContext|null[0]
+    final const val TEXT_COMPLEX // androidx.compose.remote.creation.common/PaintContext.TEXT_COMPLEX|{}TEXT_COMPLEX[0]
+        final fun <get-TEXT_COMPLEX>(): kotlin/Int // androidx.compose.remote.creation.common/PaintContext.TEXT_COMPLEX.<get-TEXT_COMPLEX>|<get-TEXT_COMPLEX>(){}[0]
+    final const val TEXT_MEASURE_FONT_HEIGHT // androidx.compose.remote.creation.common/PaintContext.TEXT_MEASURE_FONT_HEIGHT|{}TEXT_MEASURE_FONT_HEIGHT[0]
+        final fun <get-TEXT_MEASURE_FONT_HEIGHT>(): kotlin/Int // androidx.compose.remote.creation.common/PaintContext.TEXT_MEASURE_FONT_HEIGHT.<get-TEXT_MEASURE_FONT_HEIGHT>|<get-TEXT_MEASURE_FONT_HEIGHT>(){}[0]
+    final const val TEXT_MEASURE_MONOSPACE_WIDTH // androidx.compose.remote.creation.common/PaintContext.TEXT_MEASURE_MONOSPACE_WIDTH|{}TEXT_MEASURE_MONOSPACE_WIDTH[0]
+        final fun <get-TEXT_MEASURE_MONOSPACE_WIDTH>(): kotlin/Int // androidx.compose.remote.creation.common/PaintContext.TEXT_MEASURE_MONOSPACE_WIDTH.<get-TEXT_MEASURE_MONOSPACE_WIDTH>|<get-TEXT_MEASURE_MONOSPACE_WIDTH>(){}[0]
+    final const val TEXT_MEASURE_SPACES // androidx.compose.remote.creation.common/PaintContext.TEXT_MEASURE_SPACES|{}TEXT_MEASURE_SPACES[0]
+        final fun <get-TEXT_MEASURE_SPACES>(): kotlin/Int // androidx.compose.remote.creation.common/PaintContext.TEXT_MEASURE_SPACES.<get-TEXT_MEASURE_SPACES>|<get-TEXT_MEASURE_SPACES>(){}[0]
+}
+
 final object androidx.compose.remote.creation.common/Rc { // androidx.compose.remote.creation.common/Rc|null[0]
     final object System { // androidx.compose.remote.creation.common/Rc.System|null[0]
         final val FONT_SIZE // androidx.compose.remote.creation.common/Rc.System.FONT_SIZE|{}FONT_SIZE[0]
@@ -1982,6 +2053,27 @@ final object androidx.compose.remote.creation.common/StringUtils { // androidx.c
         final fun <get-SEPARATOR_UNDER_PERIOD>(): kotlin/Byte // androidx.compose.remote.creation.common/StringUtils.SEPARATOR_UNDER_PERIOD.<get-SEPARATOR_UNDER_PERIOD>|<get-SEPARATOR_UNDER_PERIOD>(){}[0]
 
     final fun floatToString(kotlin/Float, kotlin/Int, kotlin/Int, kotlin/Char, kotlin/Char, kotlin/Byte, kotlin/Byte, kotlin/Int): kotlin/String // androidx.compose.remote.creation.common/StringUtils.floatToString|floatToString(kotlin.Float;kotlin.Int;kotlin.Int;kotlin.Char;kotlin.Char;kotlin.Byte;kotlin.Byte;kotlin.Int){}[0]
+}
+
+final object androidx.compose.remote.creation.common/TextAttribute { // androidx.compose.remote.creation.common/TextAttribute|null[0]
+    final const val MEASURE_BOTTOM // androidx.compose.remote.creation.common/TextAttribute.MEASURE_BOTTOM|{}MEASURE_BOTTOM[0]
+        final fun <get-MEASURE_BOTTOM>(): kotlin/Short // androidx.compose.remote.creation.common/TextAttribute.MEASURE_BOTTOM.<get-MEASURE_BOTTOM>|<get-MEASURE_BOTTOM>(){}[0]
+    final const val MEASURE_HEIGHT // androidx.compose.remote.creation.common/TextAttribute.MEASURE_HEIGHT|{}MEASURE_HEIGHT[0]
+        final fun <get-MEASURE_HEIGHT>(): kotlin/Short // androidx.compose.remote.creation.common/TextAttribute.MEASURE_HEIGHT.<get-MEASURE_HEIGHT>|<get-MEASURE_HEIGHT>(){}[0]
+    final const val MEASURE_LEFT // androidx.compose.remote.creation.common/TextAttribute.MEASURE_LEFT|{}MEASURE_LEFT[0]
+        final fun <get-MEASURE_LEFT>(): kotlin/Short // androidx.compose.remote.creation.common/TextAttribute.MEASURE_LEFT.<get-MEASURE_LEFT>|<get-MEASURE_LEFT>(){}[0]
+    final const val MEASURE_MAX_HEIGHT_FLAG // androidx.compose.remote.creation.common/TextAttribute.MEASURE_MAX_HEIGHT_FLAG|{}MEASURE_MAX_HEIGHT_FLAG[0]
+        final fun <get-MEASURE_MAX_HEIGHT_FLAG>(): kotlin/Int // androidx.compose.remote.creation.common/TextAttribute.MEASURE_MAX_HEIGHT_FLAG.<get-MEASURE_MAX_HEIGHT_FLAG>|<get-MEASURE_MAX_HEIGHT_FLAG>(){}[0]
+    final const val MEASURE_MONOSPACE_FLAG // androidx.compose.remote.creation.common/TextAttribute.MEASURE_MONOSPACE_FLAG|{}MEASURE_MONOSPACE_FLAG[0]
+        final fun <get-MEASURE_MONOSPACE_FLAG>(): kotlin/Int // androidx.compose.remote.creation.common/TextAttribute.MEASURE_MONOSPACE_FLAG.<get-MEASURE_MONOSPACE_FLAG>|<get-MEASURE_MONOSPACE_FLAG>(){}[0]
+    final const val MEASURE_RIGHT // androidx.compose.remote.creation.common/TextAttribute.MEASURE_RIGHT|{}MEASURE_RIGHT[0]
+        final fun <get-MEASURE_RIGHT>(): kotlin/Short // androidx.compose.remote.creation.common/TextAttribute.MEASURE_RIGHT.<get-MEASURE_RIGHT>|<get-MEASURE_RIGHT>(){}[0]
+    final const val MEASURE_TOP // androidx.compose.remote.creation.common/TextAttribute.MEASURE_TOP|{}MEASURE_TOP[0]
+        final fun <get-MEASURE_TOP>(): kotlin/Short // androidx.compose.remote.creation.common/TextAttribute.MEASURE_TOP.<get-MEASURE_TOP>|<get-MEASURE_TOP>(){}[0]
+    final const val MEASURE_WIDTH // androidx.compose.remote.creation.common/TextAttribute.MEASURE_WIDTH|{}MEASURE_WIDTH[0]
+        final fun <get-MEASURE_WIDTH>(): kotlin/Short // androidx.compose.remote.creation.common/TextAttribute.MEASURE_WIDTH.<get-MEASURE_WIDTH>|<get-MEASURE_WIDTH>(){}[0]
+    final const val TEXT_LENGTH // androidx.compose.remote.creation.common/TextAttribute.TEXT_LENGTH|{}TEXT_LENGTH[0]
+        final fun <get-TEXT_LENGTH>(): kotlin/Short // androidx.compose.remote.creation.common/TextAttribute.TEXT_LENGTH.<get-TEXT_LENGTH>|<get-TEXT_LENGTH>(){}[0]
 }
 
 final object androidx.compose.remote.creation.common/TextFromFloat { // androidx.compose.remote.creation.common/TextFromFloat|null[0]
