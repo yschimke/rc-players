@@ -20,6 +20,8 @@ internal data class AndroidxDraw(
   val arguments: List<Float>,
   /** The colour of the paint the call was made with, as the paint operations before it set it. */
   val color: Int,
+  /** The text size of that paint; 0 before any paint operation has set one. */
+  val textSize: Float = 0f,
 ) {
   override fun toString(): String = "$name${arguments} #${color.toUInt().toString(16)}"
 }
@@ -49,10 +51,11 @@ internal fun androidxPaints(bytes: ByteArray, width: Int, height: Int): List<And
 private class RecordingPaintContext(context: RemoteContext) : PaintContext(context), PaintChanges {
   val draws = mutableListOf<AndroidxDraw>()
   private var color = 0xff000000.toInt()
+  private var textSize = 0f
   private val savedColors = ArrayDeque<Int>()
 
   private fun record(name: String, vararg arguments: Float) {
-    draws += AndroidxDraw(name, arguments.toList(), color)
+    draws += AndroidxDraw(name, arguments.toList(), color, textSize)
   }
 
   override fun drawCircle(centerX: Float, centerY: Float, radius: Float) =
@@ -153,6 +156,7 @@ private class RecordingPaintContext(context: RemoteContext) : PaintContext(conte
   override fun translate(translateX: Float, translateY: Float) = Unit
 
   override fun getTextBounds(textId: Int, start: Int, end: Int, flags: Int, bounds: FloatArray) {
+    record("textBounds", textId.toFloat())
     bounds.fill(0f)
   }
 
@@ -208,7 +212,9 @@ private class RecordingPaintContext(context: RemoteContext) : PaintContext(conte
     this.color = color
   }
 
-  override fun setTextSize(size: Float) = Unit
+  override fun setTextSize(size: Float) {
+    textSize = size
+  }
 
   override fun setStrokeWidth(width: Float) = Unit
 
