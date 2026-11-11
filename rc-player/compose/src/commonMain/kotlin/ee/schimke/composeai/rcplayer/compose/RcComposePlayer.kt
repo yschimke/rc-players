@@ -2759,6 +2759,10 @@ private fun Modifier.applyComponentModifiers(
   val rippleInteractions =
     if (modifiers.ordered.any { it is RcRippleModifier }) remember { MutableInteractionSource() }
     else null
+  // The press handlers sit outside the component's padding (see `applyPressHandlers`), so their
+  // presses are in the component's own space; the ripple is inside whatever padding precedes it.
+  val pressInteractions =
+    rcInsetPresses(rippleInteractions, rcPaddingBeforeRipple(modifiers, state, density))
   var result =
     if (modifiers.layoutComputes.isEmpty()) this
     else {
@@ -2827,6 +2831,46 @@ private fun Modifier.applyComponentModifiers(
       }
     }
   }
+  var pressHandlersApplied = false
+
+  /**
+   * Appends the component's click and touch-action handlers, once: before its first padding, or
+   * after its last modifier when it has none.
+   *
+   * `remote-core` hit-tests a gesture against the component's whole box and hands it to every
+   * handler in `ComponentModifiers`, in coordinates that leave out only the padding *preceding* the
+   * handler (androidx-main `412c1b7bb` made long press, double click and touch cancel follow click,
+   * touch down, up and drag in that). A Compose pointer node only sees what lands inside the
+   * modifiers before it, so appended after the padding, as these used to be, the handlers missed
+   * every press in the padding and reported the rest in the padded content's space: a ripple
+   * written before the padding started its wave short of the finger by the padding's width.
+   *
+   * The caller puts the graphics layer on first, so a transformed component is still pressed where
+   * it is drawn.
+   */
+  @Composable
+  fun applyPressHandlers(modifier: Modifier): Modifier {
+    if (pressHandlersApplied) return modifier
+    pressHandlersApplied = true
+    var handled = modifier
+    // No indication on the clickable itself: AndroidX draws no press feedback unless the document
+    // asks for a ripple, and Compose's default indication would wash the component on press, hover
+    // and focus. When it does ask, the clickable's presses reach the ripple's `Indication` through
+    // `pressInteractions`.
+    if (modifiers.clicks.any { it.type != RcClickActionType.CLICK }) {
+      handled = handled.applyAndroidXMultiClick(modifiers.clicks, state, pressInteractions)
+    } else if (modifiers.clicks.isNotEmpty()) {
+      handled =
+        handled.clickable(interactionSource = pressInteractions, indication = null) {
+          modifiers.clicks.forEach(state::executeClick)
+        }
+    }
+    if (modifiers.touchActions.isNotEmpty()) {
+      handled = handled.applyAndroidXTouchActions(modifiers, state, geometryComponentIds)
+    }
+    return handled
+  }
+
   var scrollApplied = false
   var operationIndex = 0
   while (operationIndex < modifiers.ordered.size) {
@@ -2842,6 +2886,9 @@ private fun Modifier.applyComponentModifiers(
     // when the wire DrawContent marker follows it.
     if (operation is RcPaddingModifier && !appliedCanvasOperations) {
       result = applyCanvasOperations(applyPendingGraphicsLayer(result))
+    }
+    if (operation is RcPaddingModifier) {
+      result = applyPressHandlers(applyPendingGraphicsLayer(result))
     }
     result =
       when (operation) {
@@ -2918,21 +2965,7 @@ private fun Modifier.applyComponentModifiers(
     // stream leaves the drawing untransformed.
     result = applyCanvasOperations(applyPendingGraphicsLayer(result))
   }
-  // No indication on the clickable itself: AndroidX draws no press feedback unless the document
-  // asks for a ripple, and Compose's default indication would wash the component on press, hover
-  // and focus. When it does ask, the clickable's presses reach the ripple's `Indication` through
-  // `rippleInteractions`.
-  if (modifiers.clicks.any { it.type != RcClickActionType.CLICK }) {
-    result = result.applyAndroidXMultiClick(modifiers.clicks, state, rippleInteractions)
-  } else if (modifiers.clicks.isNotEmpty()) {
-    result =
-      result.clickable(interactionSource = rippleInteractions, indication = null) {
-        modifiers.clicks.forEach(state::executeClick)
-      }
-  }
-  if (modifiers.touchActions.isNotEmpty()) {
-    result = result.applyAndroidXTouchActions(modifiers, state, geometryComponentIds)
-  }
+  result = applyPressHandlers(result)
   modifiers.accessibility.forEach { semantics ->
     result =
       result.applyAccessibilitySemantics(
@@ -2942,6 +2975,76 @@ private fun Modifier.applyComponentModifiers(
       )
   }
   return result
+}
+
+/**
+ * The padding, left and top, the modifier chain applies before the component's ripple: how far the
+ * ripple's own space sits inside the component's. Zero without a ripple. Sums each run of padding
+ * modifiers as [applyComponentModifiers] applies it, so the two cannot disagree by a rounding.
+ */
+private fun rcPaddingBeforeRipple(
+  modifiers: RcLayoutModifiers,
+  state: RcPlayerState,
+  density: Density,
+): Offset {
+  val ripple = modifiers.ordered.indexOfFirst { it is RcRippleModifier }
+  if (ripple <= 0) return Offset.Zero
+  var x = 0
+  var y = 0
+  var index = 0
+  while (index < ripple) {
+    var left = 0f
+    var top = 0f
+    var run = false
+    while (index < ripple) {
+      if (run && modifiers.scrollPosition == index) break
+      val padding = modifiers.ordered[index] as? RcPaddingModifier ?: break
+      left += state.dpTypedPixels(state.resolve(padding.left), density)
+      top += state.dpTypedPixels(state.resolve(padding.top), density)
+      run = true
+      index++
+    }
+    if (run) {
+      x += left.coerceAtLeast(0f).roundToInt()
+      y += top.coerceAtLeast(0f).roundToInt()
+    } else {
+      index++
+    }
+  }
+  return Offset(x.toFloat(), y.toFloat())
+}
+
+/**
+ * An interaction source whose presses reach [target] moved by [inset]: the presses of a handler in
+ * the component's space, for an indication [inset] inside it. [target] itself when there is nothing
+ * to move.
+ */
+@Composable
+private fun rcInsetPresses(
+  target: MutableInteractionSource?,
+  inset: Offset,
+): MutableInteractionSource? {
+  if (target == null || inset == Offset.Zero) return target
+  val source = remember(target) { MutableInteractionSource() }
+  val currentInset by rememberUpdatedState(inset)
+  LaunchedEffect(source, target) {
+    val presses = mutableMapOf<PressInteraction.Press, PressInteraction.Press>()
+    source.interactions.collect { interaction ->
+      when (interaction) {
+        is PressInteraction.Press -> {
+          val moved = PressInteraction.Press(interaction.pressPosition - currentInset)
+          presses[interaction] = moved
+          target.emit(moved)
+        }
+        is PressInteraction.Release ->
+          presses.remove(interaction.press)?.let { target.emit(PressInteraction.Release(it)) }
+        is PressInteraction.Cancel ->
+          presses.remove(interaction.press)?.let { target.emit(PressInteraction.Cancel(it)) }
+        else -> target.emit(interaction)
+      }
+    }
+  }
+  return source
 }
 
 /**
