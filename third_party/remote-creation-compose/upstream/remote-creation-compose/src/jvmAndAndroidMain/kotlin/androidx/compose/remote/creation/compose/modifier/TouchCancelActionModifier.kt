@@ -22,6 +22,8 @@ import androidx.compose.remote.creation.compose.action.resolveAction
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 
 internal class TouchCancelActionModifier(public val action: RemoteAction) : RemoteModifier.Element {
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.Touch(2, resolveAction(action))
 }

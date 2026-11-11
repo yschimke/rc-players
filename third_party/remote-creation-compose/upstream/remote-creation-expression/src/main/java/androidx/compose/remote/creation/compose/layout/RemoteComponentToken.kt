@@ -17,18 +17,25 @@
 package androidx.compose.remote.creation.compose.layout
 
 import androidx.annotation.RestrictTo
+import androidx.compose.remote.creation.common.ComponentValue
 
 /**
  * Identity token representing a specific layout component node in a RemoteCompose composition tree.
  *
- * Expressions scoped to this component read its `ComponentValue`s (width, height, position) by
- * token, so they refer to this component wherever they are consumed.
+ * Tracks which [ComponentValue] properties have been requested by expressions scoped to this
+ * component so they can be emitted directly into the component's body during rendering.
  */
-// Port: upstream also records which properties were requested (`requestedMask`) so it can write
-// their `ComponentValue`s inside the component's body. The port writes them with the component's
-// explicit id instead (see `RemoteComposeCreationState.getComponentValue`), so it needs no mask.
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class RemoteComponentToken public constructor() {
+    internal var requestedMask: Int = 0
+        private set
+
+    internal fun markRequested(propIndex: Int) {
+        requestedMask = requestedMask or (1 shl propIndex)
+    }
+
+    internal fun isRequested(propIndex: Int): Boolean = (requestedMask and (1 shl propIndex)) != 0
+
     internal companion object {
         internal const val PROP_WIDTH: Int = 0
         internal const val PROP_HEIGHT: Int = 1
@@ -38,15 +45,14 @@ public class RemoteComponentToken public constructor() {
         internal const val PROP_ROOT_Y: Int = 5
         internal const val PROP_COUNT: Int = 6
 
-        /** The wire `ComponentValue` type of [propIndex]: AndroidX's `ComponentValue.WIDTH`, ... */
         internal fun toComponentValueType(propIndex: Int): Int =
             when (propIndex) {
-                PROP_WIDTH -> 0
-                PROP_HEIGHT -> 1
-                PROP_X -> 2
-                PROP_Y -> 3
-                PROP_ROOT_X -> 4
-                PROP_ROOT_Y -> 5
+                PROP_WIDTH -> ComponentValue.WIDTH
+                PROP_HEIGHT -> ComponentValue.HEIGHT
+                PROP_X -> ComponentValue.POS_X
+                PROP_Y -> ComponentValue.POS_Y
+                PROP_ROOT_X -> ComponentValue.POS_ROOT_X
+                PROP_ROOT_Y -> ComponentValue.POS_ROOT_Y
                 else -> throw IllegalArgumentException("Unknown property index: $propIndex")
             }
     }

@@ -20,7 +20,7 @@ import androidx.annotation.RestrictTo
 import androidx.collection.MutableIntObjectMap
 import androidx.compose.remote.creation.common.AnimatedFloatExpression
 import androidx.compose.remote.creation.common.Utils
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.runtime.annotation.RememberInComposition
 
 /**
@@ -68,8 +68,8 @@ constructor(public val size: Int) : BaseRemoteState<List<RemoteFloat>>(RemoteSta
         },
     }
 
-    override fun writeToDocument(creationState: RemoteComposeCreationContext): Int {
-        return Utils.idFromNan(creationState.writer.addDynamicFloatArray(size.toFloat()))
+    override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
+        return Utils.idFromNan(creationState.document.addDynamicFloatArray(size.toFloat()))
     }
 
     /**
@@ -126,13 +126,13 @@ constructor(public val size: Int) : BaseRemoteState<List<RemoteFloat>>(RemoteSta
         pendingSetList.add(PendingSet(index, v, generation++))
     }
 
-    private fun maybeWritePendingSets(upTo: Int, creationState: RemoteComposeCreationContext) {
+    private fun maybeWritePendingSets(upTo: Int, creationState: RemoteComposeCreationState) {
         val iterator = pendingSetList.iterator()
         while (iterator.hasNext()) {
             val element = iterator.next()
             if (element.generation <= upTo) {
                 iterator.remove()
-                creationState.writer.setArrayValue(
+                creationState.document.setArrayValue(
                     getIdForCreationState(creationState),
                     element.index.getFloatIdForCreationState(creationState),
                     element.value.getFloatIdForCreationState(creationState),
@@ -141,7 +141,7 @@ constructor(public val size: Int) : BaseRemoteState<List<RemoteFloat>>(RemoteSta
         }
     }
 
-    private fun arrayForCreationState(creationState: RemoteComposeCreationContext): FloatArray {
+    private fun arrayForCreationState(creationState: RemoteComposeCreationState): FloatArray {
         return creationState.getOrPutFloatArray(cacheKey) {
             floatArrayOf(getFloatIdForCreationState(creationState))
         }

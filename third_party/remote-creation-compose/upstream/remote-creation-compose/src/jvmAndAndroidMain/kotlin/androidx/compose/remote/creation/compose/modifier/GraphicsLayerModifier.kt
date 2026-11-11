@@ -51,6 +51,8 @@ internal class GraphicsLayerModifier(
     val renderEffect: RemoteRenderEffect?,
 ) : RemoteModifier.Element {
 
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
         val attributes = mutableListOf<RemoteLayerAttribute>()
         fun float(id: Int, value: RemoteFloat, default: Float) {
@@ -305,6 +307,8 @@ public fun RemoteModifier.graphicsLayer(
     )
 }
 
+// KMP (rc-players): the attribute ids and values of `remote-core`'s
+// `GraphicsLayerModifierOperation`, which upstream reads from that class.
 private object Layer {
     const val SCALE_X = 0
     const val SCALE_Y = 1

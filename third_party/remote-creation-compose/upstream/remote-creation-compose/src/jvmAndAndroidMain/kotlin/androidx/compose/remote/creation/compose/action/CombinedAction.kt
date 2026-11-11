@@ -31,6 +31,8 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
 public fun combinedAction(vararg actions: RemoteAction): RemoteAction = CombinedAction(*actions)
 
 internal class CombinedAction(public vararg val actions: RemoteAction) : RemoteAction {
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> = actions.flatMap {
         resolveAction(it)
     }

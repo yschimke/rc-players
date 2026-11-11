@@ -4,18 +4,27 @@
 # pure-Kotlin RemotePath is in the Compose module. A member import (`….Utils.asNan`) follows its
 # class. Meant to be empty once the fork's write side has upstream's names.
 androidx.compose.remote.core.CoreDocument	androidx.compose.remote.creation.common.CoreDocument
+androidx.compose.remote.core.RemoteComposeBuffer	androidx.compose.remote.creation.common.RemoteComposeBuffer
 androidx.compose.remote.core.RemoteContext	androidx.compose.remote.creation.common.RemoteContext
 androidx.compose.remote.core.operations.BitmapTextMeasure	androidx.compose.remote.creation.common.BitmapTextMeasure
 androidx.compose.remote.core.operations.ColorAttribute	androidx.compose.remote.creation.common.ColorAttribute
+androidx.compose.remote.core.operations.ComponentValue	androidx.compose.remote.creation.common.ComponentValue
 androidx.compose.remote.core.operations.DrawTextOnCircle	androidx.compose.remote.creation.common.DrawTextOnCircle
 androidx.compose.remote.core.operations.ImageAttribute	androidx.compose.remote.creation.common.ImageAttribute
+androidx.compose.remote.core.operations.NamedVariable	androidx.compose.remote.creation.common.NamedVariable
 androidx.compose.remote.core.operations.TextFromFloat	androidx.compose.remote.creation.common.TextFromFloat
 androidx.compose.remote.core.operations.TextTransform	androidx.compose.remote.creation.common.TextTransform
 androidx.compose.remote.core.operations.TimeAttribute	androidx.compose.remote.creation.common.TimeAttribute
 androidx.compose.remote.core.operations.Utils	androidx.compose.remote.creation.common.Utils
+androidx.compose.remote.core.operations.layout.MultiClickModifier	androidx.compose.remote.creation.common.MultiClickModifier
+androidx.compose.remote.core.operations.layout.animation.AnimationSpec	androidx.compose.remote.creation.common.AnimationSpec
+androidx.compose.remote.core.operations.layout.managers.CollapsiblePriority	androidx.compose.remote.creation.common.CollapsiblePriority
 androidx.compose.remote.core.operations.layout.managers.ColumnLayout	androidx.compose.remote.creation.common.ColumnLayout
 androidx.compose.remote.core.operations.layout.managers.CoreText	androidx.compose.remote.creation.common.CoreText
+androidx.compose.remote.core.operations.layout.managers.Custom	androidx.compose.remote.creation.common.Custom
 androidx.compose.remote.core.operations.layout.managers.TextLayout	androidx.compose.remote.creation.common.TextLayout
+androidx.compose.remote.core.operations.layout.modifiers.DimensionModifierOperation	androidx.compose.remote.creation.common.DimensionModifierOperation
+androidx.compose.remote.core.operations.layout.modifiers.HostNamedActionOperation	androidx.compose.remote.creation.common.HostNamedActionOperation
 androidx.compose.remote.core.operations.paint.PaintBundle	androidx.compose.remote.creation.common.PaintBundle
 androidx.compose.remote.core.operations.utilities.AnimatedFloatExpression	androidx.compose.remote.creation.common.AnimatedFloatExpression
 androidx.compose.remote.core.operations.utilities.ImageScaling	androidx.compose.remote.creation.common.ImageScaling
@@ -23,7 +32,10 @@ androidx.compose.remote.core.operations.utilities.IntegerExpressionEvaluator	and
 androidx.compose.remote.core.operations.utilities.MatrixOperations	androidx.compose.remote.creation.common.MatrixOperations
 androidx.compose.remote.core.operations.utilities.StringUtils	androidx.compose.remote.creation.common.StringUtils
 androidx.compose.remote.core.operations.utilities.easing.CubicEasing	androidx.compose.remote.creation.common.CubicEasing
+androidx.compose.remote.core.operations.utilities.easing.FloatAnimation	androidx.compose.remote.creation.common.FloatAnimation
 androidx.compose.remote.core.operations.utilities.easing.GeneralEasing	androidx.compose.remote.creation.common.GeneralEasing
 androidx.compose.remote.core.operations.utilities.easing.MonotonicSpline	androidx.compose.remote.creation.common.MonotonicSpline
+androidx.compose.remote.core.semantics.AccessibleComponent	androidx.compose.remote.creation.common.AccessibleComponent
 androidx.compose.remote.creation.Rc	androidx.compose.remote.creation.common.Rc
+androidx.compose.remote.creation.RemoteComposeWriter	androidx.compose.remote.creation.common.RemoteComposeWriter
 androidx.compose.remote.creation.RemotePath	androidx.compose.remote.creation.compose.path.RemotePath

@@ -20,6 +20,7 @@
 package androidx.compose.remote.creation.compose.modifier
 
 import androidx.annotation.RestrictTo
+import androidx.compose.remote.creation.common.DimensionModifierOperation.Type
 import androidx.compose.remote.creation.common.RemoteModifierOperation
 import androidx.compose.remote.creation.compose.layout.RemoteIntrinsicSize
 import androidx.compose.remote.creation.compose.state.RemoteDp
@@ -27,13 +28,14 @@ import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.rf
 
-internal class HeightModifier(val type: RemoteDimensionType, val value: RemoteFloat) :
-    RemoteModifier.Element {
+internal class HeightModifier(val type: Type, val value: RemoteFloat) : RemoteModifier.Element {
     internal constructor(
         typeInt: Int,
         value: RemoteFloat,
-    ) : this(RemoteDimensionType.entries[typeInt], value)
+    ) : this(Type.fromInt(typeInt), value)
 
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.Height(type.ordinal, value.floatId)
 
@@ -47,7 +49,7 @@ internal class HeightModifier(val type: RemoteDimensionType, val value: RemoteFl
  * @return a [RemoteModifier] that sets the height to [height]
  */
 public fun RemoteModifier.height(height: RemoteDp): RemoteModifier =
-    then(HeightModifier(RemoteDimensionType.EXACT_DP, height.value))
+    then(HeightModifier(Type.EXACT_DP, height.value))
 
 /**
  * Sets the height of the content using [RemoteFloat].
@@ -56,7 +58,7 @@ public fun RemoteModifier.height(height: RemoteDp): RemoteModifier =
  * @return a [RemoteModifier] that sets the height to [height]
  */
 public fun RemoteModifier.height(height: RemoteFloat): RemoteModifier =
-    then(HeightModifier(RemoteDimensionType.EXACT, height))
+    then(HeightModifier(Type.EXACT, height))
 
 /**
  * Fills the maximum available height.
@@ -65,15 +67,15 @@ public fun RemoteModifier.height(height: RemoteFloat): RemoteModifier =
  * @return a [RemoteModifier] that fills [fraction] of the maximum available height
  */
 public fun RemoteModifier.fillMaxHeight(fraction: RemoteFloat = 1f.rf): RemoteModifier =
-    then(HeightModifier(RemoteDimensionType.FILL, fraction))
+    then(HeightModifier(Type.FILL, fraction))
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteModifier.fillMaxHeight(fraction: Float): RemoteModifier =
-    then(HeightModifier(RemoteDimensionType.FILL, RemoteFloat(fraction)))
+    then(HeightModifier(Type.FILL, RemoteFloat(fraction)))
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteModifier.fillParentMaxHeight(fraction: Float): RemoteModifier =
-    then(HeightModifier(RemoteDimensionType.FILL_PARENT_MAX_HEIGHT, RemoteFloat(fraction)))
+    then(HeightModifier(Type.FILL_PARENT_MAX_HEIGHT, RemoteFloat(fraction)))
 
 /**
  * Fills the parent's maximum available height.
@@ -82,11 +84,11 @@ public fun RemoteModifier.fillParentMaxHeight(fraction: Float): RemoteModifier =
  * @return a [RemoteModifier] that fills [fraction] of the parent's maximum height
  */
 public fun RemoteModifier.fillParentMaxHeight(fraction: RemoteFloat = 1f.rf): RemoteModifier =
-    then(HeightModifier(RemoteDimensionType.FILL_PARENT_MAX_HEIGHT, fraction))
+    then(HeightModifier(Type.FILL_PARENT_MAX_HEIGHT, fraction))
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteModifier.height(height: Int): RemoteModifier =
-    then(HeightModifier(RemoteDimensionType.EXACT, height.rf))
+    then(HeightModifier(Type.EXACT, height.rf))
 
 /**
  * Sets the height of the content to be its intrinsic size.

@@ -25,6 +25,8 @@ internal class CollapsiblePriorityModifier(
     val priority: RemoteFloat,
 ) : RemoteModifier.Element {
 
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.CollapsiblePriority(orientation, priority.floatId)
 }

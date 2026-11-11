@@ -30,7 +30,7 @@ import androidx.compose.ui.graphics.Matrix
 internal class CommonRecordingCanvas(override val enableOptimizations: Boolean = false) :
     InternalRecordingCanvas {
     override val buffer = CanvasOperationBuffer(enableOptimizations)
-    override lateinit var creationState: RemoteComposeCreationState
+    override lateinit var creationState: RemoteComposeCaptureState
     override val parentScope: RemoteStateScope
         get() = creationState
 
@@ -157,7 +157,7 @@ internal class CommonRecordingCanvas(override val enableOptimizations: Boolean =
         buffer.flush(creationState)
     }
 
-    override fun setRemoteComposeCreationState(creationState: RemoteComposeCreationState) {
+    override fun setRemoteComposeCreationState(creationState: RemoteComposeCaptureState) {
         this.creationState = creationState
     }
 

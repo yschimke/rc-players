@@ -29,10 +29,12 @@ internal class RemoteFlowRowNode : RemoteLayoutNode() {
     var maxLines: Int = Int.MAX_VALUE
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
-        val scope = overriddenScope(creationState)
+        val scope = overriddenScope(remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         val remoteModifier = resolveModifier(scope, creationState)
         (horizontalArrangement as? RemoteSpaced)?.let {
-            remoteModifier.spacedBy = it.getSpacingFloatId(creationState)
+            remoteModifier.spacedBy = it.getSpacingFloatId(scope)
         }
         remoteCanvas.internalCanvas.recordRenderingOp(
             WriterOp.StartFlow(
@@ -48,6 +50,8 @@ internal class RemoteFlowRowNode : RemoteLayoutNode() {
             remoteCanvas,
             reversed = shouldReverse(horizontalArrangement, layoutDirection),
         )
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndFlow)
     }
 }

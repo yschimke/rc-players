@@ -25,6 +25,8 @@ import androidx.compose.remote.creation.compose.state.RemotePaint
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 
 internal data class BackgroundModifier(val color: RemoteColor) : RemoteModifier.Element {
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         if (color.hasConstantValue) {
             RemoteModifierOperation.Background(

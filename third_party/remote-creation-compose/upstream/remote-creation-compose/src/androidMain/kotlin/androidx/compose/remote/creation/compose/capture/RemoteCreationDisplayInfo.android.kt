@@ -22,9 +22,6 @@ package androidx.compose.remote.creation.compose.capture
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-// Port: upstream's `rememberRemoteCreationDisplayInfo`, which reads Android resources, is not
-// carried.
-
 /** The width of the display in [Dp] units. */
 public val RemoteCreationDisplayInfo.widthDp: Dp
     get() = (width / density).dp
@@ -32,3 +29,6 @@ public val RemoteCreationDisplayInfo.widthDp: Dp
 /** The height of the display in [Dp] units. */
 public val RemoteCreationDisplayInfo.heightDp: Dp
     get() = (height / density).dp
+
+// KMP (rc-players): `rememberRemoteCreationDisplayInfo` is not carried: it reads Android
+// resources and the configuration.

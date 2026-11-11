@@ -20,31 +20,44 @@ package androidx.compose.remote.creation.compose.state
 
 import androidx.compose.remote.creation.common.AnimatedFloatExpression
 import androidx.compose.remote.creation.common.Utils
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 
 /**
- * The creation context a mesh channel is lowered in.
+ * How a mesh channel is lowered.
  *
  * A mesh channel reads `u` / `v` (`VAR1` / `VAR2` / `VAR3`), which only exist while the player
  * expands the mesh. The ordinary lowering is free to replace any operand by a reference to a float
  * of its own — when the inline array would grow past its safe size, or when the operand was already
  * written — and a float written to the document is evaluated by the player with no `u` / `v` at
- * all. Under this context [combineToFloatArray] keeps every operand that reads them inline, while
- * an operand that does not (the clock, a size, a phase) becomes a reference: it is evaluated once a
- * frame rather than once a vertex, and keeps the channel short. Arrays are never cached here, so a
- * shared sub-expression lowered elsewhere cannot leak a reference in.
+ * all. While this is the creation state's `meshExpressionLowering`, [combineToFloatArray] keeps
+ * every operand that reads them inline, while an operand that does not (the clock, a size, a phase)
+ * becomes a reference: it is evaluated once a frame rather than once a vertex, and keeps the
+ * channel short. Arrays are never cached meanwhile, so a shared sub-expression lowered elsewhere
+ * cannot leak a reference in.
  */
-internal class MeshExpressionContext(val base: RemoteComposeCreationContext) :
-    RemoteComposeCreationContext by base {
-    override fun getOrPutFloatArray(key: Any, compute: () -> FloatArray): FloatArray = compute()
+@PublishedApi
+internal class MeshExpressionLowering(val base: RemoteComposeCreationState) {
+    /** Runs [block] with this as the creation state's mesh lowering, or with none for null. */
+    private inline fun <T> RemoteComposeCreationState.lowering(
+        lowering: MeshExpressionLowering?,
+        block: () -> T,
+    ): T {
+        val previous = meshExpressionLowering
+        meshExpressionLowering = lowering
+        try {
+            return block()
+        } finally {
+            meshExpressionLowering = previous
+        }
+    }
 
     fun lower(value: RemoteFloat): FloatArray {
         value.constantValueOrNull?.let {
             return floatArrayOf(it)
         }
-        val array = value.arrayForCreationState(this)
+        val array = base.lowering(this) { value.arrayForCreationState(base) }
         if (array.size == 1 || array.readsMeshVariables()) return array
-        return floatArrayOf(value.getFloatIdForCreationState(base))
+        return floatArrayOf(base.lowering(null) { value.getFloatIdForCreationState(base) })
     }
 
     fun combine(remoteFloats: Array<RemoteFloat>, extras: FloatArray): FloatArray {

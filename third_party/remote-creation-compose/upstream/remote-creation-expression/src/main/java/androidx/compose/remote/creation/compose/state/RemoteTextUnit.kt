@@ -17,7 +17,7 @@
 package androidx.compose.remote.creation.compose.state
 
 import androidx.annotation.RestrictTo
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.RemoteDensity
 import androidx.compose.remote.creation.compose.state.RemoteTextUnit.OperationKey
 import androidx.compose.remote.creation.compose.text.RemoteFontScaleConverter
@@ -40,7 +40,8 @@ public constructor(
     public val value: RemoteFloat,
     public val type: RemoteTextUnitType = RemoteTextUnitType.Sp,
 ) : BaseRemoteState<Float>(RemoteStateInstanceKey()) {
-    internal override val cacheKey: RemoteStateCacheKey
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public override val cacheKey: RemoteStateCacheKey
         get() = RemoteOperationCacheKey.create(OperationKey.Sp, value, type)
 
     /**
@@ -71,7 +72,7 @@ public constructor(
         get() = value.constantValueOrNull
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    override fun writeToDocument(creationState: RemoteComposeCreationContext): Int {
+    override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
         return toPx(creationState.remoteDensity).writeToDocument(creationState)
     }
 

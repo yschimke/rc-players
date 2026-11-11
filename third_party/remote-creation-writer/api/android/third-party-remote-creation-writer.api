@@ -1,3 +1,23 @@
+public final class androidx/compose/remote/creation/common/AccessibleComponent {
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/AccessibleComponent;
+}
+
+public final class androidx/compose/remote/creation/common/AccessibleComponent$Role : java/lang/Enum {
+	public static final field BUTTON Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+	public static final field CAROUSEL Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+	public static final field CHECKBOX Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+	public static final field DROPDOWN_LIST Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+	public static final field IMAGE Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+	public static final field PICKER Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+	public static final field RADIO_BUTTON Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+	public static final field SWITCH Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+	public static final field TAB Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+	public static final field UNKNOWN Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+	public static fun values ()[Landroidx/compose/remote/creation/common/AccessibleComponent$Role;
+}
+
 public final class androidx/compose/remote/creation/common/AnimatedFloatExpression {
 	public static final field Companion Landroidx/compose/remote/creation/common/AnimatedFloatExpression$Companion;
 	public static final field OFFSET I
@@ -60,6 +80,34 @@ public final class androidx/compose/remote/creation/common/AnimatedFloatExpressi
 	public final fun toString ([F[Ljava/lang/String;)Ljava/lang/String;
 }
 
+public final class androidx/compose/remote/creation/common/AnimationSpec {
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/AnimationSpec;
+}
+
+public final class androidx/compose/remote/creation/common/AnimationSpec$ANIMATION : java/lang/Enum {
+	public static final field CUSTOM Landroidx/compose/remote/creation/common/AnimationSpec$ANIMATION;
+	public static final field FADE_IN Landroidx/compose/remote/creation/common/AnimationSpec$ANIMATION;
+	public static final field FADE_OUT Landroidx/compose/remote/creation/common/AnimationSpec$ANIMATION;
+	public static final field PARTICLE Landroidx/compose/remote/creation/common/AnimationSpec$ANIMATION;
+	public static final field ROTATE Landroidx/compose/remote/creation/common/AnimationSpec$ANIMATION;
+	public static final field SLIDE_BOTTOM Landroidx/compose/remote/creation/common/AnimationSpec$ANIMATION;
+	public static final field SLIDE_LEFT Landroidx/compose/remote/creation/common/AnimationSpec$ANIMATION;
+	public static final field SLIDE_RIGHT Landroidx/compose/remote/creation/common/AnimationSpec$ANIMATION;
+	public static final field SLIDE_TOP Landroidx/compose/remote/creation/common/AnimationSpec$ANIMATION;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Landroidx/compose/remote/creation/common/AnimationSpec$ANIMATION;
+	public static fun values ()[Landroidx/compose/remote/creation/common/AnimationSpec$ANIMATION;
+}
+
+public final class androidx/compose/remote/creation/common/AnimationSpec$SEQUENCE : java/lang/Enum {
+	public static final field AFTER Landroidx/compose/remote/creation/common/AnimationSpec$SEQUENCE;
+	public static final field BEFORE Landroidx/compose/remote/creation/common/AnimationSpec$SEQUENCE;
+	public static final field CONCURRENT Landroidx/compose/remote/creation/common/AnimationSpec$SEQUENCE;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Landroidx/compose/remote/creation/common/AnimationSpec$SEQUENCE;
+	public static fun values ()[Landroidx/compose/remote/creation/common/AnimationSpec$SEQUENCE;
+}
+
 public final class androidx/compose/remote/creation/common/BitmapFontGlyph {
 	public fun <init> (Ljava/lang/String;ISSSSSS)V
 	public final fun component1 ()Ljava/lang/String;
@@ -91,6 +139,12 @@ public final class androidx/compose/remote/creation/common/BitmapTextMeasure {
 	public static final field MEASURE_WIDTH I
 }
 
+public final class androidx/compose/remote/creation/common/CollapsiblePriority {
+	public static final field HORIZONTAL I
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/CollapsiblePriority;
+	public static final field VERTICAL I
+}
+
 public final class androidx/compose/remote/creation/common/ColorAttribute {
 	public static final field COLOR_ALPHA S
 	public static final field COLOR_BLUE S
@@ -112,6 +166,16 @@ public final class androidx/compose/remote/creation/common/ColumnLayout {
 	public static final field SPACE_EVENLY I
 	public static final field START I
 	public static final field TOP I
+}
+
+public final class androidx/compose/remote/creation/common/ComponentValue {
+	public static final field HEIGHT I
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/ComponentValue;
+	public static final field POS_ROOT_X I
+	public static final field POS_ROOT_Y I
+	public static final field POS_X I
+	public static final field POS_Y I
+	public static final field WIDTH I
 }
 
 public final class androidx/compose/remote/creation/common/CoreDocument {
@@ -140,6 +204,57 @@ public final class androidx/compose/remote/creation/common/CubicEasing {
 	public final fun setup (FFFF)V
 }
 
+public final class androidx/compose/remote/creation/common/Custom {
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/Custom;
+}
+
+public final class androidx/compose/remote/creation/common/Custom$CustomProperty {
+	public static final field COLOR_ID_PROP S
+	public static final field COLOR_PROP S
+	public static final field COLOR_RETURN S
+	public static final field Companion Landroidx/compose/remote/creation/common/Custom$CustomProperty$Companion;
+	public static final field FLOAT_PROP S
+	public static final field FLOAT_RETURN S
+	public static final field INT_ID_PROP S
+	public static final field INT_PROP S
+	public static final field INT_RETURN S
+	public static final field STRING_PROP S
+	public static final field TEXT_RETURN S
+	public fun <init> (SSF)V
+	public fun <init> (SSI)V
+	public final fun getDataType ()S
+	public final fun getFloatValue ()F
+	public final fun getId ()S
+	public final fun getIntValue ()I
+}
+
+public final class androidx/compose/remote/creation/common/Custom$CustomProperty$Companion {
+}
+
+public final class androidx/compose/remote/creation/common/DimensionModifierOperation {
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/DimensionModifierOperation;
+}
+
+public final class androidx/compose/remote/creation/common/DimensionModifierOperation$Type : java/lang/Enum {
+	public static final field Companion Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type$Companion;
+	public static final field EXACT Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+	public static final field EXACT_DP Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+	public static final field FILL Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+	public static final field FILL_PARENT_MAX_HEIGHT Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+	public static final field FILL_PARENT_MAX_WIDTH Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+	public static final field INTRINSIC_MAX Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+	public static final field INTRINSIC_MIN Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+	public static final field WEIGHT Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+	public static final field WRAP Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+	public static fun values ()[Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+}
+
+public final class androidx/compose/remote/creation/common/DimensionModifierOperation$Type$Companion {
+	public final fun fromInt (I)Landroidx/compose/remote/creation/common/DimensionModifierOperation$Type;
+}
+
 public final class androidx/compose/remote/creation/common/DrawTextOnCircle {
 	public static final field INSTANCE Landroidx/compose/remote/creation/common/DrawTextOnCircle;
 }
@@ -161,9 +276,23 @@ public final class androidx/compose/remote/creation/common/DrawTextOnCircle$Plac
 	public static fun values ()[Landroidx/compose/remote/creation/common/DrawTextOnCircle$Placement;
 }
 
+public final class androidx/compose/remote/creation/common/FloatAnimation {
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/FloatAnimation;
+	public final fun packToFloatArray (FI[FFF)[F
+}
+
 public final class androidx/compose/remote/creation/common/GeneralEasing {
 	public static final field CUBIC_STANDARD I
 	public static final field INSTANCE Landroidx/compose/remote/creation/common/GeneralEasing;
+}
+
+public final class androidx/compose/remote/creation/common/HostNamedActionOperation {
+	public static final field FLOAT_ARRAY_TYPE I
+	public static final field FLOAT_TYPE I
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/HostNamedActionOperation;
+	public static final field INT_TYPE I
+	public static final field NONE_TYPE I
+	public static final field STRING_TYPE I
 }
 
 public final class androidx/compose/remote/creation/common/ImageAttribute {
@@ -257,18 +386,27 @@ public final class androidx/compose/remote/creation/common/MonotonicSpline {
 	public final fun getPos (F)F
 }
 
-public final class androidx/compose/remote/creation/common/NamedVariableType {
-	public static final field COLOR I
-	public static final field FLOAT I
-	public static final field FLOAT_ARRAY I
-	public static final field IMAGE I
-	public static final field INSTANCE Landroidx/compose/remote/creation/common/NamedVariableType;
-	public static final field INT I
-	public static final field LONG I
-	public static final field STRING I
+public final class androidx/compose/remote/creation/common/MultiClickModifier {
+	public static final field CLICK_TYPE_DOUBLE I
+	public static final field CLICK_TYPE_LONG I
+	public static final field CLICK_TYPE_SINGLE I
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/MultiClickModifier;
+}
+
+public final class androidx/compose/remote/creation/common/NamedVariable {
+	public static final field COLOR_TYPE I
+	public static final field FLOAT_ARRAY_TYPE I
+	public static final field FLOAT_TYPE I
+	public static final field IMAGE_TYPE I
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/NamedVariable;
+	public static final field INT_TYPE I
+	public static final field LONG_TYPE I
+	public static final field STRING_TYPE I
 }
 
 public final class androidx/compose/remote/creation/common/PaintBundle {
+	public static final field Alpha I
+	public static final field AntiAlias I
 	public static final field BLEND_MODE_CLEAR I
 	public static final field BLEND_MODE_COLOR I
 	public static final field BLEND_MODE_COLOR_BURN I
@@ -298,22 +436,13 @@ public final class androidx/compose/remote/creation/common/PaintBundle {
 	public static final field BLEND_MODE_SRC_OUT I
 	public static final field BLEND_MODE_SRC_OVER I
 	public static final field BLEND_MODE_XOR I
-	public static final field INSTANCE Landroidx/compose/remote/creation/common/PaintBundle;
-	public static final field STYLE_FILL I
-	public static final field STYLE_FILL_AND_STROKE I
-	public static final field STYLE_STROKE I
-}
-
-public final class androidx/compose/remote/creation/common/PaintBundleData {
-	public static final field Alpha I
-	public static final field AntiAlias I
 	public static final field BlendMode I
 	public static final field ClearColorFilter I
 	public static final field Color I
 	public static final field ColorFilter I
 	public static final field ColorFilterId I
 	public static final field ColorId I
-	public static final field Companion Landroidx/compose/remote/creation/common/PaintBundleData$Companion;
+	public static final field Companion Landroidx/compose/remote/creation/common/PaintBundle$Companion;
 	public static final field FONT_TYPE_DEFAULT I
 	public static final field FONT_TYPE_MONOSPACE I
 	public static final field FONT_TYPE_SANS_SERIF I
@@ -326,6 +455,9 @@ public final class androidx/compose/remote/creation/common/PaintBundleData {
 	public static final field LinearGradient I
 	public static final field PathEffect I
 	public static final field RadialGradient I
+	public static final field STYLE_FILL I
+	public static final field STYLE_FILL_AND_STROKE I
+	public static final field STYLE_STROKE I
 	public static final field Shader I
 	public static final field ShaderMatrix I
 	public static final field StrokeCap I
@@ -338,37 +470,37 @@ public final class androidx/compose/remote/creation/common/PaintBundleData {
 	public static final field Texture I
 	public static final field Typeface I
 	public fun <init> ()V
-	public final fun clearColorFilter ()Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setAlpha (F)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setAntiAlias (Z)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setBlendMode (I)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setColor (I)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setColorFilter (II)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setColorFilterId (II)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setColorId (I)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setFallbackTypeface (IIZ)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setFilterBitmap (Z)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setFontAxes ([I[F)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setImageFilterQuality (I)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setLinearGradient ([II[FFFFFI)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setPathEffect ([F)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setRadialGradient ([II[FFFFI)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setShader (I)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setShaderMatrix (F)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setStrokeCap (I)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setStrokeJoin (I)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setStrokeMiter (F)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setStrokeWidth (F)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setStyle (I)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setSweepGradient ([II[FFF)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setTextSize (F)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setTextStyle (IIZZ)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public static synthetic fun setTextStyle$default (Landroidx/compose/remote/creation/common/PaintBundleData;IIZZILjava/lang/Object;)Landroidx/compose/remote/creation/common/PaintBundleData;
-	public final fun setTextureShader (ISSSS)Landroidx/compose/remote/creation/common/PaintBundleData;
+	public final fun clearColorFilter ()Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setAlpha (F)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setAntiAlias (Z)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setBlendMode (I)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setColor (I)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setColorFilter (II)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setColorFilterId (II)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setColorId (I)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setFallbackTypeface (IIZ)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setFilterBitmap (Z)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setImageFilterQuality (I)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setLinearGradient ([II[FFFFFI)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setPathEffect ([F)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setRadialGradient ([II[FFFFI)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setShader (I)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setShaderMatrix (F)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setStrokeCap (I)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setStrokeJoin (I)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setStrokeMiter (F)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setStrokeWidth (F)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setStyle (I)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setSweepGradient ([II[FFF)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setTextAxis ([I[F)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setTextSize (F)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setTextStyle (IIZZ)Landroidx/compose/remote/creation/common/PaintBundle;
+	public static synthetic fun setTextStyle$default (Landroidx/compose/remote/creation/common/PaintBundle;IIZZILjava/lang/Object;)Landroidx/compose/remote/creation/common/PaintBundle;
+	public final fun setTextureShader (ISSSS)Landroidx/compose/remote/creation/common/PaintBundle;
 	public final fun toIntArray ()[I
 }
 
-public final class androidx/compose/remote/creation/common/PaintBundleData$Companion {
+public final class androidx/compose/remote/creation/common/PaintBundle$Companion {
 }
 
 public final class androidx/compose/remote/creation/common/Rc {
@@ -492,6 +624,11 @@ public final class androidx/compose/remote/creation/common/RemoteActionData$Stri
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class androidx/compose/remote/creation/common/RemoteComposeBuffer {
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/RemoteComposeBuffer;
+	public final fun packAnimation (FI[FFF)[F
+}
+
 public final class androidx/compose/remote/creation/common/RemoteContext {
 	public static final field ID_ACCELERATION_X I
 	public static final field ID_ACCELERATION_Y I
@@ -566,40 +703,6 @@ public final class androidx/compose/remote/creation/common/RemoteContext {
 	public final fun isTime (F)Z
 }
 
-public final class androidx/compose/remote/creation/common/RemoteCustomPropertyData {
-	public static final field ColorIdProperty S
-	public static final field ColorProperty S
-	public static final field ColorReturn S
-	public static final field Companion Landroidx/compose/remote/creation/common/RemoteCustomPropertyData$Companion;
-	public static final field FloatProperty S
-	public static final field FloatReturn S
-	public static final field IntIdProperty S
-	public static final field IntProperty S
-	public static final field IntReturn S
-	public static final field StringProperty S
-	public static final field TextReturn S
-	public fun <init> (SSIF)V
-	public synthetic fun <init> (SSIFILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()S
-	public final fun component2 ()S
-	public final fun component3 ()I
-	public final fun component4 ()F
-	public final fun copy (SSIF)Landroidx/compose/remote/creation/common/RemoteCustomPropertyData;
-	public static synthetic fun copy$default (Landroidx/compose/remote/creation/common/RemoteCustomPropertyData;SSIFILjava/lang/Object;)Landroidx/compose/remote/creation/common/RemoteCustomPropertyData;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getDataType ()S
-	public final fun getFloatValue ()F
-	public final fun getId ()S
-	public final fun getIntValue ()I
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class androidx/compose/remote/creation/common/RemoteCustomPropertyData$Companion {
-	public final fun float (SSF)Landroidx/compose/remote/creation/common/RemoteCustomPropertyData;
-	public final fun int (SSI)Landroidx/compose/remote/creation/common/RemoteCustomPropertyData;
-}
-
 public final class androidx/compose/remote/creation/common/RemoteDocumentWriter : androidx/compose/remote/creation/common/RemoteWriter {
 	public static final field Companion Landroidx/compose/remote/creation/common/RemoteDocumentWriter$Companion;
 	public static final field DensityBehaviorDp I
@@ -610,6 +713,7 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun addBitmapFont (Ljava/util/List;Ljava/util/Map;)I
 	public final fun addBitmapPng ([BII)I
 	public fun addBitmapUrl (Ljava/lang/String;II)I
+	public fun addClipPath (I)V
 	public fun addColor (I)I
 	public fun addColorExpression (FFFF)S
 	public fun addColorExpression (IFFF)S
@@ -624,8 +728,8 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun addComponentYValue (I)F
 	public fun addDynamicFloatArray (F)F
 	public fun addFloatArray ([F)F
-	public fun addIdList ([I)F
 	public fun addInteger (I)J
+	public fun addList ([I)F
 	public fun addLong (J)I
 	public fun addMesh2D (III[F[F[F[F[F[F[F[F[FILjava/lang/Float;)I
 	public fun addMesh2DValues ([I[F[F[IZIII)I
@@ -637,24 +741,27 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun addNamedLong (Ljava/lang/String;J)I
 	public fun addNamedString (Ljava/lang/String;Ljava/lang/String;)I
 	public fun addPathData ([FI)I
+	public fun addPatternForEach (II)V
 	public fun addShader (ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;)I
+	public fun addStringList ([I)F
 	public fun addText (Ljava/lang/String;)I
 	public fun addThemedColor (Ljava/lang/String;SSII)I
-	public fun applyPaint (Landroidx/compose/remote/creation/common/PaintBundleData;)V
+	public fun addTouchExpression (IFFFFI[FI[F[F)V
+	public fun applyPaint (Landroidx/compose/remote/creation/common/PaintBundle;)V
 	public fun bitmapAttribute (IS)F
 	public fun bitmapTextMeasure (IIIF)F
 	public fun callFloatFunction (I[F)V
-	public fun clipPath (I)V
+	public fun checkAndClearForceSendingNewPaint ()Z
 	public fun clipRect (FFFF)V
-	public fun colorAttribute (IS)F
 	public final fun column (IIFILkotlin/jvm/functions/Function1;)V
 	public static synthetic fun column$default (Landroidx/compose/remote/creation/common/RemoteDocumentWriter;IIFILkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
-	public fun consumePaintReset ()Z
+	public fun conditionalOperations (IFF)V
 	public fun createBitmap (II)I
 	public fun createFloatFunction ([F)I
 	public fun createFloatId ()F
 	public fun createOffscreenBitmap (I)I
 	public fun createTextFromFloat (FIII)I
+	public fun definePattern (I[I)V
 	public fun drawArc (FFFFFF)V
 	public fun drawBitmap (IFFFFI)V
 	public fun drawCircle (FFF)V
@@ -682,24 +789,27 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun endCollapsibleColumn ()V
 	public fun endCollapsibleRow ()V
 	public fun endColumn ()V
-	public fun endConditional ()V
+	public fun endConditionalOperations ()V
 	public fun endCustom ()V
 	public fun endFitBox ()V
 	public fun endFloatFunction ()V
 	public fun endFlow ()V
 	public fun endLoop ()V
-	public fun endPatternDefinition ()V
+	public fun endPatternDefine ()V
 	public fun endPatternForEach ()V
 	public fun endPatternInflation ()V
 	public fun endRoot ()V
 	public fun endRow ()V
 	public fun endStateLayout ()V
-	public fun endText ()V
+	public fun endTextComponent ()V
 	public fun floatExpression ([F)F
 	public fun floatExpression ([F[F)F
+	public fun getColorAttribute (IS)F
 	public fun getComponentIdForCache ()I
 	public fun idLookup (FF)I
+	public fun idLookup (IFF)V
 	public fun image (Landroidx/compose/remote/creation/common/RemoteImageData;)V
+	public fun inflatePattern (I[I)V
 	public fun integerExpression ([J)J
 	public fun matrixExpression ([F)F
 	public fun matrixFromMesh2D (IFFI)V
@@ -710,7 +820,10 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun save ()V
 	public fun scale (FFFF)V
 	public fun setArrayValue (IFF)V
+	public fun setColorName (ILjava/lang/String;)V
+	public fun setFloatName (ILjava/lang/String;)V
 	public fun setNamedVariable (ILjava/lang/String;I)V
+	public fun setStringName (ILjava/lang/String;)V
 	public fun skew (FF)V
 	public fun startBox (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
 	public fun startCanvas (Landroidx/compose/remote/creation/common/RemoteModifierData;)V
@@ -718,20 +831,17 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun startCollapsibleColumn (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
 	public fun startCollapsibleRow (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
 	public fun startColumn (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
-	public fun startConditional (IFF)V
 	public fun startCustom (Landroidx/compose/remote/creation/common/RemoteModifierData;ILjava/util/List;)V
 	public fun startFitBox (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
 	public fun startFlow (Landroidx/compose/remote/creation/common/RemoteModifierData;IIII)V
 	public fun startLoop (IFFF)V
-	public fun startPatternDefinition (I[I)V
-	public fun startPatternForEach (II)V
-	public fun startPatternInflation (I[I)V
 	public fun startRoot ()V
 	public fun startRow (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
 	public fun startStateLayout (Landroidx/compose/remote/creation/common/RemoteModifierData;I)V
-	public fun startText (Landroidx/compose/remote/creation/common/RemoteTextData;)V
+	public fun startTextComponent (Landroidx/compose/remote/creation/common/RemoteTextData;)V
 	public final fun text (Ljava/lang/String;FI)V
 	public static synthetic fun text$default (Landroidx/compose/remote/creation/common/RemoteDocumentWriter;Ljava/lang/String;FIILjava/lang/Object;)V
+	public fun textCreateId (Ljava/lang/String;)I
 	public fun textLength (I)F
 	public fun textLookup (FF)I
 	public fun textLookup (FI)I
@@ -740,9 +850,7 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun textSubtext (IFF)I
 	public fun textTransform (IFFI)I
 	public fun timeAttribute (IS[I)F
-	public fun touchExpression (IFFFFI[FI[F[F)V
 	public fun translate (FF)V
-	public fun writeIdLookup (IFF)V
 	public fun writeModifier (Landroidx/compose/remote/creation/common/RemoteModifierOperation;)V
 }
 
@@ -1249,6 +1357,7 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public static synthetic fun addBitmapFont$default (Landroidx/compose/remote/creation/common/RemoteWriter;Ljava/util/List;Ljava/util/Map;ILjava/lang/Object;)I
 	public abstract fun addBitmapUrl (Ljava/lang/String;II)I
 	public static synthetic fun addBitmapUrl$default (Landroidx/compose/remote/creation/common/RemoteWriter;Ljava/lang/String;IIILjava/lang/Object;)I
+	public abstract fun addClipPath (I)V
 	public abstract fun addColor (I)I
 	public abstract fun addColorExpression (FFFF)S
 	public abstract fun addColorExpression (IFFF)S
@@ -1263,8 +1372,8 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun addComponentYValue (I)F
 	public abstract fun addDynamicFloatArray (F)F
 	public abstract fun addFloatArray ([F)F
-	public abstract fun addIdList ([I)F
 	public abstract fun addInteger (I)J
+	public abstract fun addList ([I)F
 	public abstract fun addLong (J)I
 	public abstract fun addMesh2D (III[F[F[F[F[F[F[F[F[FILjava/lang/Float;)I
 	public static synthetic fun addMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;III[F[F[F[F[F[F[F[F[FILjava/lang/Float;ILjava/lang/Object;)I
@@ -1278,24 +1387,28 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun addNamedString (Ljava/lang/String;Ljava/lang/String;)I
 	public abstract fun addPathData ([FI)I
 	public static synthetic fun addPathData$default (Landroidx/compose/remote/creation/common/RemoteWriter;[FIILjava/lang/Object;)I
+	public abstract fun addPatternForEach (II)V
 	public abstract fun addShader (ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;)I
 	public static synthetic fun addShader$default (Landroidx/compose/remote/creation/common/RemoteWriter;ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;ILjava/lang/Object;)I
+	public fun addStringList ([I)F
 	public abstract fun addText (Ljava/lang/String;)I
 	public abstract fun addThemedColor (Ljava/lang/String;SSII)I
-	public abstract fun applyPaint (Landroidx/compose/remote/creation/common/PaintBundleData;)V
+	public abstract fun addTouchExpression (IFFFFI[FI[F[F)V
+	public static synthetic fun addTouchExpression$default (Landroidx/compose/remote/creation/common/RemoteWriter;IFFFFI[FI[F[FILjava/lang/Object;)V
+	public abstract fun applyPaint (Landroidx/compose/remote/creation/common/PaintBundle;)V
 	public abstract fun bitmapAttribute (IS)F
 	public abstract fun bitmapTextMeasure (IIIF)F
 	public abstract fun callFloatFunction (I[F)V
-	public abstract fun clipPath (I)V
+	public abstract fun checkAndClearForceSendingNewPaint ()Z
 	public abstract fun clipRect (FFFF)V
-	public abstract fun colorAttribute (IS)F
-	public abstract fun consumePaintReset ()Z
+	public abstract fun conditionalOperations (IFF)V
 	public abstract fun createBitmap (II)I
 	public abstract fun createFloatFunction ([F)I
 	public abstract fun createFloatId ()F
 	public abstract fun createOffscreenBitmap (I)I
 	public static synthetic fun createOffscreenBitmap$default (Landroidx/compose/remote/creation/common/RemoteWriter;IILjava/lang/Object;)I
 	public abstract fun createTextFromFloat (FIII)I
+	public abstract fun definePattern (I[I)V
 	public abstract fun drawArc (FFFFFF)V
 	public abstract fun drawBitmap (IFFFFI)V
 	public abstract fun drawCircle (FFF)V
@@ -1323,24 +1436,27 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun endCollapsibleColumn ()V
 	public abstract fun endCollapsibleRow ()V
 	public abstract fun endColumn ()V
-	public abstract fun endConditional ()V
+	public abstract fun endConditionalOperations ()V
 	public abstract fun endCustom ()V
 	public abstract fun endFitBox ()V
 	public abstract fun endFloatFunction ()V
 	public abstract fun endFlow ()V
 	public abstract fun endLoop ()V
-	public abstract fun endPatternDefinition ()V
+	public abstract fun endPatternDefine ()V
 	public abstract fun endPatternForEach ()V
 	public abstract fun endPatternInflation ()V
 	public abstract fun endRoot ()V
 	public abstract fun endRow ()V
 	public abstract fun endStateLayout ()V
-	public abstract fun endText ()V
+	public abstract fun endTextComponent ()V
 	public abstract fun floatExpression ([F)F
 	public abstract fun floatExpression ([F[F)F
+	public abstract fun getColorAttribute (IS)F
 	public abstract fun getComponentIdForCache ()I
 	public abstract fun idLookup (FF)I
+	public abstract fun idLookup (IFF)V
 	public abstract fun image (Landroidx/compose/remote/creation/common/RemoteImageData;)V
+	public abstract fun inflatePattern (I[I)V
 	public abstract fun integerExpression ([J)J
 	public abstract fun matrixExpression ([F)F
 	public abstract fun matrixFromMesh2D (IFFI)V
@@ -1351,7 +1467,10 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun save ()V
 	public abstract fun scale (FFFF)V
 	public abstract fun setArrayValue (IFF)V
+	public fun setColorName (ILjava/lang/String;)V
+	public fun setFloatName (ILjava/lang/String;)V
 	public abstract fun setNamedVariable (ILjava/lang/String;I)V
+	public fun setStringName (ILjava/lang/String;)V
 	public abstract fun skew (FF)V
 	public abstract fun startBox (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
 	public abstract fun startCanvas (Landroidx/compose/remote/creation/common/RemoteModifierData;)V
@@ -1359,18 +1478,15 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun startCollapsibleColumn (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
 	public abstract fun startCollapsibleRow (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
 	public abstract fun startColumn (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
-	public abstract fun startConditional (IFF)V
 	public abstract fun startCustom (Landroidx/compose/remote/creation/common/RemoteModifierData;ILjava/util/List;)V
 	public abstract fun startFitBox (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
 	public abstract fun startFlow (Landroidx/compose/remote/creation/common/RemoteModifierData;IIII)V
 	public abstract fun startLoop (IFFF)V
-	public abstract fun startPatternDefinition (I[I)V
-	public abstract fun startPatternForEach (II)V
-	public abstract fun startPatternInflation (I[I)V
 	public abstract fun startRoot ()V
 	public abstract fun startRow (Landroidx/compose/remote/creation/common/RemoteModifierData;II)V
 	public abstract fun startStateLayout (Landroidx/compose/remote/creation/common/RemoteModifierData;I)V
-	public abstract fun startText (Landroidx/compose/remote/creation/common/RemoteTextData;)V
+	public abstract fun startTextComponent (Landroidx/compose/remote/creation/common/RemoteTextData;)V
+	public fun textCreateId (Ljava/lang/String;)I
 	public abstract fun textLength (I)F
 	public abstract fun textLookup (FF)I
 	public abstract fun textLookup (FI)I
@@ -1379,10 +1495,7 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun textSubtext (IFF)I
 	public abstract fun textTransform (IFFI)I
 	public abstract fun timeAttribute (IS[I)F
-	public abstract fun touchExpression (IFFFFI[FI[F[F)V
-	public static synthetic fun touchExpression$default (Landroidx/compose/remote/creation/common/RemoteWriter;IFFFFI[FI[F[FILjava/lang/Object;)V
 	public abstract fun translate (FF)V
-	public abstract fun writeIdLookup (IFF)V
 	public abstract fun writeModifier (Landroidx/compose/remote/creation/common/RemoteModifierOperation;)V
 }
 
@@ -1393,12 +1506,17 @@ public final class androidx/compose/remote/creation/common/RemoteWriter$DefaultI
 	public static synthetic fun addMesh2DValues$default (Landroidx/compose/remote/creation/common/RemoteWriter;[I[F[F[IZIIIILjava/lang/Object;)I
 	public static synthetic fun addPathData$default (Landroidx/compose/remote/creation/common/RemoteWriter;[FIILjava/lang/Object;)I
 	public static synthetic fun addShader$default (Landroidx/compose/remote/creation/common/RemoteWriter;ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;ILjava/lang/Object;)I
+	public static fun addStringList (Landroidx/compose/remote/creation/common/RemoteWriter;[I)F
+	public static synthetic fun addTouchExpression$default (Landroidx/compose/remote/creation/common/RemoteWriter;IFFFFI[FI[F[FILjava/lang/Object;)V
 	public static synthetic fun createOffscreenBitmap$default (Landroidx/compose/remote/creation/common/RemoteWriter;IILjava/lang/Object;)I
 	public static fun drawComponentToBitmap (Landroidx/compose/remote/creation/common/RemoteWriter;I)V
 	public static fun drawComponentToBitmap (Landroidx/compose/remote/creation/common/RemoteWriter;II)V
 	public static synthetic fun drawMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;IIIILjava/lang/Object;)V
 	public static synthetic fun matrixFromMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;IFFIILjava/lang/Object;)V
-	public static synthetic fun touchExpression$default (Landroidx/compose/remote/creation/common/RemoteWriter;IFFFFI[FI[F[FILjava/lang/Object;)V
+	public static fun setColorName (Landroidx/compose/remote/creation/common/RemoteWriter;ILjava/lang/String;)V
+	public static fun setFloatName (Landroidx/compose/remote/creation/common/RemoteWriter;ILjava/lang/String;)V
+	public static fun setStringName (Landroidx/compose/remote/creation/common/RemoteWriter;ILjava/lang/String;)V
+	public static fun textCreateId (Landroidx/compose/remote/creation/common/RemoteWriter;Ljava/lang/String;)I
 }
 
 public final class androidx/compose/remote/creation/common/StringUtils {

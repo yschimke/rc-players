@@ -42,6 +42,9 @@ import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 
+// KMP (rc-players): the conversions to and from `android.graphics` types (`BlendMode`,
+// `Paint.Style`, `Paint.Cap`, `Paint.Join`) are not carried.
+
 internal fun TextAlign.toRemoteTextAlign(): RemoteTextAlign =
     when (this) {
         TextAlign.Left,
@@ -154,7 +157,8 @@ internal fun RemoteStrokeJoin.toComposeStrokeJoin(): StrokeJoin =
         else -> StrokeJoin.Miter
     }
 
-// Port: Compose Multiplatform's common `LineBreak` has no `strategy`; its presets map 1:1.
+// KMP (rc-players): Compose Multiplatform's common `LineBreak` has no `strategy`; its presets map
+// 1:1.
 internal fun LineBreak.toRemoteLineBreak(): RemoteLineBreak =
     when (this) {
         LineBreak.Simple -> RemoteLineBreak.Simple
@@ -196,6 +200,17 @@ internal fun FontStyle.toRemoteFontStyle(): RemoteFontStyle =
 
 internal fun FontWeight.toRemoteFontWeight(): RemoteFontWeight = RemoteFontWeight(weight)
 
+internal fun FontFamily.toRemoteFontFamily(): RemoteFontFamily? =
+    when (this) {
+        FontFamily.Default -> RemoteFontFamily.Default
+        FontFamily.SansSerif -> RemoteFontFamily.SansSerif
+        FontFamily.Serif -> RemoteFontFamily.Serif
+        FontFamily.Monospace -> RemoteFontFamily.Monospace
+        FontFamily.Cursive -> RemoteFontFamily.Cursive
+        is GenericFontFamily -> RemoteFontFamily.Named(name)
+        else -> null
+    }
+
 internal fun PathFillType.toRemotePathFillType(): RemotePathFillType =
     when (this) {
         PathFillType.NonZero -> RemotePathFillType.NonZero
@@ -208,15 +223,4 @@ internal fun RemotePaintingStyle.toComposePaintingStyle(): PaintingStyle =
         RemotePaintingStyle.Fill -> PaintingStyle.Fill
         RemotePaintingStyle.Stroke -> PaintingStyle.Stroke
         else -> PaintingStyle.Fill
-    }
-
-internal fun FontFamily.toRemoteFontFamily(): RemoteFontFamily? =
-    when (this) {
-        FontFamily.Default -> RemoteFontFamily.Default
-        FontFamily.SansSerif -> RemoteFontFamily.SansSerif
-        FontFamily.Serif -> RemoteFontFamily.Serif
-        FontFamily.Monospace -> RemoteFontFamily.Monospace
-        FontFamily.Cursive -> RemoteFontFamily.Cursive
-        is GenericFontFamily -> RemoteFontFamily.Named(name)
-        else -> null
     }

@@ -16,14 +16,15 @@
 
 package androidx.compose.remote.creation.compose.modifier
 
+import androidx.compose.remote.creation.common.DimensionModifierOperation.Type
 import androidx.compose.remote.creation.compose.state.RemoteDp
 
 private fun RemoteModifier.Element.isWidthConstrained(): Boolean =
-    (this is WidthModifier && this.type != RemoteDimensionType.WRAP) ||
+    (this is WidthModifier && this.type != Type.WRAP) ||
         (this is WidthInModifier && this.min != null)
 
 private fun RemoteModifier.Element.isHeightConstrained(): Boolean =
-    (this is HeightModifier && this.type != RemoteDimensionType.WRAP) ||
+    (this is HeightModifier && this.type != Type.WRAP) ||
         (this is HeightInModifier && this.min != null)
 
 /**

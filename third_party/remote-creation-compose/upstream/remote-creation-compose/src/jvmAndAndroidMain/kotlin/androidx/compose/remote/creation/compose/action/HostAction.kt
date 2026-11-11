@@ -17,6 +17,7 @@
 package androidx.compose.remote.creation.compose.action
 
 import androidx.annotation.RestrictTo
+import androidx.compose.remote.creation.common.HostNamedActionOperation
 import androidx.compose.remote.creation.common.RemoteActionData
 import androidx.compose.remote.creation.compose.state.RemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteFloat
@@ -119,11 +120,11 @@ internal class HostAction(
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public enum class Type(public val value: Int) {
-        FLOAT(0),
-        INT(1),
-        STRING(2),
-        FLOAT_ARRAY(3),
-        NONE(-1),
+        FLOAT(HostNamedActionOperation.FLOAT_TYPE),
+        INT(HostNamedActionOperation.INT_TYPE),
+        STRING(HostNamedActionOperation.STRING_TYPE),
+        FLOAT_ARRAY(HostNamedActionOperation.FLOAT_ARRAY_TYPE),
+        NONE(HostNamedActionOperation.NONE_TYPE),
     }
 
     // TODO: Add a RemoteFloatArray type and use it here!
@@ -133,6 +134,8 @@ internal class HostAction(
 
     public constructor(name: RemoteString, value: RemoteString) : this(name, Type.STRING, value)
 
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> {
         val valueId = value?.id ?: -1
         // A dynamic name is referenced by its text id, which players resolve to the current value
@@ -146,6 +149,8 @@ internal class HostAction(
 internal class HostIdAction(public val id: Int, public val metadata: RemoteString? = null) :
     RemoteAction {
 
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> {
         val metadataId = metadata?.id
         return listOf(

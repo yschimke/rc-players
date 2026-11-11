@@ -15,7 +15,7 @@
  */
 package androidx.compose.remote.creation.compose.capture
 
-import androidx.compose.remote.creation.common.PaintBundleData
+import androidx.compose.remote.creation.common.PaintBundle
 import androidx.compose.remote.creation.compose.shaders.RemoteShader
 import androidx.compose.remote.creation.compose.state.RemoteBlendMode
 import androidx.compose.remote.creation.compose.state.RemoteColor
@@ -74,9 +74,10 @@ internal class PaintTracker {
 
     fun updateWithPaint(
         newPaint: RemotePaint,
-        paintBundle: PaintBundleData,
-        creationState: RemoteComposeCreationContext,
+        paintBundle: PaintBundle,
+        creationState: RemoteComposeCreationState,
     ) {
+
         // Color
         val targetRemoteColor = newPaint.color
         val colorVal: Int
@@ -166,7 +167,7 @@ internal class PaintTracker {
 
         val targetFontVariationSettings =
             combineFontSettings(newPaint.fontFeatureSettings, newPaint.fontVariationSettings)
-        // The port has no `Profile`: the settings are sent as they are, as upstream does for a
+        // KMP (rc-players): no `Profile`: the settings are sent as they are, as upstream does for a
         // profile with `CORE_TEXT` and as the removed `allowSendingEmptyFontAxis` did by default.
         val settingsToUse = targetFontVariationSettings
         updateIfChanged(settingsToUse, fontVariationSettings) {
@@ -177,12 +178,12 @@ internal class PaintTracker {
                 if (fontAxisNames != null && fontAxisValues != null) {
                     val axisTags =
                         IntArray(fontAxisNames.size) { i ->
-                            creationState.writer.addText(fontAxisNames[i])
+                            creationState.document.addText(fontAxisNames[i])
                         }
-                    paintBundle.setFontAxes(axisTags, fontAxisValues)
+                    paintBundle.setTextAxis(axisTags, fontAxisValues)
                 }
             } else {
-                paintBundle.setFontAxes(intArrayOf(), floatArrayOf())
+                paintBundle.setTextAxis(intArrayOf(), floatArrayOf())
             }
         }
 
@@ -238,22 +239,22 @@ internal class PaintTracker {
 
     private fun getTypefaceId(
         paintTypeface: RemoteTypeface?,
-        creationState: RemoteComposeCreationContext,
+        creationState: RemoteComposeCreationState,
     ): Int {
         return when (paintTypeface) {
-            null -> PaintBundleData.FONT_TYPE_DEFAULT
-            RemoteTypeface.Default -> PaintBundleData.FONT_TYPE_DEFAULT
-            RemoteTypeface.DefaultBold -> PaintBundleData.FONT_TYPE_DEFAULT
-            RemoteTypeface.Serif -> PaintBundleData.FONT_TYPE_SERIF
-            RemoteTypeface.SansSerif -> PaintBundleData.FONT_TYPE_SANS_SERIF
-            RemoteTypeface.Monospace -> PaintBundleData.FONT_TYPE_MONOSPACE
+            null -> PaintBundle.FONT_TYPE_DEFAULT
+            RemoteTypeface.Default -> PaintBundle.FONT_TYPE_DEFAULT
+            RemoteTypeface.DefaultBold -> PaintBundle.FONT_TYPE_DEFAULT
+            RemoteTypeface.Serif -> PaintBundle.FONT_TYPE_SERIF
+            RemoteTypeface.SansSerif -> PaintBundle.FONT_TYPE_SANS_SERIF
+            RemoteTypeface.Monospace -> PaintBundle.FONT_TYPE_MONOSPACE
             is RemoteTypeface.Named -> {
                 when (paintTypeface.name.lowercase()) {
-                    "sans-serif" -> PaintBundleData.FONT_TYPE_SANS_SERIF
-                    "serif" -> PaintBundleData.FONT_TYPE_SERIF
-                    "monospace" -> PaintBundleData.FONT_TYPE_MONOSPACE
-                    "default" -> PaintBundleData.FONT_TYPE_DEFAULT
-                    else -> creationState.writer.addText(paintTypeface.name)
+                    "sans-serif" -> PaintBundle.FONT_TYPE_SANS_SERIF
+                    "serif" -> PaintBundle.FONT_TYPE_SERIF
+                    "monospace" -> PaintBundle.FONT_TYPE_MONOSPACE
+                    "default" -> PaintBundle.FONT_TYPE_DEFAULT
+                    else -> creationState.document.addText(paintTypeface.name)
                 }
             }
         }
@@ -261,7 +262,7 @@ internal class PaintTracker {
 
     private fun extractFontSettings(
         settings: List<RemoteFontVariation.Setting>?,
-        creationState: RemoteComposeCreationContext,
+        creationState: RemoteComposeCreationState,
     ): Pair<Array<String>?, FloatArray?> {
         val size = settings?.size ?: return Pair(null, null)
 

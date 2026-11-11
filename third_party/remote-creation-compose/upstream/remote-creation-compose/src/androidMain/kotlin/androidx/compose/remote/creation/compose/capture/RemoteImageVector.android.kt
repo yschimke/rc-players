@@ -34,7 +34,14 @@ import androidx.compose.ui.graphics.vector.VectorGroup
 import androidx.compose.ui.graphics.vector.VectorPath
 import androidx.compose.ui.unit.isSpecified
 
-/** Converts a Compose UI [ImageVector] to a [RemoteImageVector]. */
+// KMP (rc-players): `RemoteImageVector.vectorResource(@DrawableRes …)` is not carried: it reads
+// an Android resource.
+
+/**
+ * Converts a Compose UI [ImageVector] to a [RemoteImageVector].
+ *
+ * @return a [RemoteImageVector] with the paths and groups of this [ImageVector]
+ */
 public fun ImageVector.toRemoteImageVector(): RemoteImageVector {
     val defWidth = if (defaultWidth.isSpecified) defaultWidth.asRdp() else DefaultIconSize.rdp
     val defHeight = if (defaultHeight.isSpecified) defaultHeight.asRdp() else DefaultIconSize.rdp

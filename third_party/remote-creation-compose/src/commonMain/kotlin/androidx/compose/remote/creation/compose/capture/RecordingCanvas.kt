@@ -26,7 +26,7 @@ import androidx.compose.ui.graphics.Matrix
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public interface RecordingCanvas : RemoteStateScope {
     public val enableOptimizations: Boolean
-    public var creationState: RemoteComposeCreationState
+    public var creationState: RemoteComposeCaptureState
     public val creationDisplayInfo: RemoteCreationDisplayInfo
 
     override val remoteDensity: RemoteDensity
@@ -66,7 +66,7 @@ public interface RecordingCanvas : RemoteStateScope {
 
     public fun flush()
 
-    public fun setRemoteComposeCreationState(creationState: RemoteComposeCreationState)
+    public fun setRemoteComposeCreationState(creationState: RemoteComposeCaptureState)
 
     public fun custom(
         config: String,

@@ -16,10 +16,10 @@
 
 package androidx.compose.remote.creation.compose.layout
 
-import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.RemoteModifierData
 import androidx.compose.remote.creation.compose.capture.LocalRemoteDensity
 import androidx.compose.remote.creation.compose.capture.LocalRemoteLayoutDirection
+import androidx.compose.remote.creation.compose.capture.RemoteComponentTokenProvider
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.RemoteDensity
 import androidx.compose.remote.creation.compose.capture.WriterOp
@@ -38,7 +38,7 @@ import androidx.compose.runtime.DisallowComposableCalls
 import androidx.compose.runtime.Updater
 import androidx.compose.runtime.remember
 
-internal abstract class RemoteComposeNode {
+internal abstract class RemoteComposeNode : RemoteComponentTokenProvider {
     val children = mutableListOf<RemoteComposeNode>()
     var modifier: RemoteModifier = RemoteModifier
     var remoteDensity: RemoteDensity = RemoteDensity.Host
@@ -52,18 +52,20 @@ internal abstract class RemoteComposeNode {
     internal open val supportsComponentToken: Boolean
         get() = true
 
-    internal fun getOrCreateComponentToken(): RemoteComponentToken? =
+    override fun getOrCreateComponentToken(): RemoteComponentToken? =
         if (supportsComponentToken) {
             componentToken ?: RemoteComponentToken().also { componentToken = it }
         } else {
             null
         }
 
-    fun overriddenScope(creationState: RemoteComposeCreationState): RemoteStateScope {
+    // KMP (rc-players): no `attachComponentTokenFlush`: the Kotlin writer names a component's
+    // id in each `ComponentValue`, so nothing has to be flushed inside the component's body.
+    fun overriddenScope(scope: RemoteStateScope): RemoteStateScope {
         return OverriddenScope(
-            parentScope = creationState,
+            parentScope = scope,
             remoteDensity = remoteDensity,
-            layoutDirection = creationState.layoutDirection,
+            layoutDirection = scope.layoutDirection,
             node = this,
         )
     }
@@ -102,15 +104,17 @@ internal abstract class RemoteComposeNode {
         remoteCanvas: RemoteCanvas,
         reversed: Boolean = false,
     ) {
-        val previousComponent = creationState.enterComponentScope(renderedComponentId)
         val previousNode = creationState.currentRenderingNode
         if (supportsComponentToken) {
             creationState.currentRenderingNode = this
         }
         try {
             if (modifier.hasDrawWithContent()) {
+                // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes,
+                // where
+                // upstream writes to `document` here.
                 remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.StartCanvasOperations)
-                modifier.drawWithContent(overriddenScope(creationState), remoteCanvas) {
+                modifier.drawWithContent(overriddenScope(remoteCanvas), remoteCanvas) {
                     remoteCanvas.internalCanvas.drawComponentContent()
                 }
                 remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndCanvasOperations)
@@ -123,7 +127,6 @@ internal abstract class RemoteComposeNode {
             }
         } finally {
             creationState.currentRenderingNode = previousNode
-            creationState.restoreComponentScope(previousComponent)
         }
     }
 }
@@ -133,6 +136,8 @@ internal class RemoteRootNode : RemoteComposeNode() {
         get() = false
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.StartRoot)
         renderChildren(creationState, remoteCanvas)
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndRoot)
@@ -143,7 +148,6 @@ internal abstract class RemoteLayoutNode : RemoteComposeNode() {
     var layoutDirection: RemoteLayoutDirection = RemoteLayoutDirection.Ltr
 }
 
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Composable
 internal inline fun <T : RemoteComposeNode> RemoteComposeNode(
     noinline factory: () -> T,
@@ -156,7 +160,6 @@ internal inline fun <T : RemoteComposeNode> RemoteComposeNode(
     }
 }
 
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @Composable
 internal inline fun <T : RemoteComposeNode> RemoteComposeNode(
     noinline factory: () -> T,
@@ -219,25 +222,6 @@ internal class OverriddenScope(
     override val remoteDensity: RemoteDensity,
     override val layoutDirection: RemoteLayoutDirection,
     val node: RemoteComposeNode,
-) : RemoteStateScope
-
-/**
- * Resolves the [RemoteComponentToken] of the component this scope belongs to: a modifier's node, or
- * the node currently rendering its content or drawing, or `null` outside any component.
- */
-// Port: upstream's `RemoteStateScope.resolveComponentToken()` member (made one for
-// `remote-creation-expression` in `f1f51073e`), kept the internal walk of `ab1b76a2f` here.
-internal fun RemoteStateScope.resolveComponentToken(): RemoteComponentToken? {
-    var scope: RemoteStateScope = this
-    while (true) {
-        if (scope is OverriddenScope) {
-            return scope.node.getOrCreateComponentToken()
-        }
-        if (scope is RemoteComposeCreationState) {
-            return scope.currentRenderingNode?.getOrCreateComponentToken()
-        }
-        val parent = scope.parentScope
-        if (parent === scope) return null
-        scope = parent
-    }
+) : RemoteStateScope {
+    override fun resolveComponentToken(): RemoteComponentToken? = node.getOrCreateComponentToken()
 }

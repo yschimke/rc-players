@@ -16,6 +16,7 @@
 
 package androidx.compose.remote.creation.compose.modifier
 
+import androidx.compose.remote.creation.common.AccessibleComponent
 import androidx.compose.runtime.Immutable
 import kotlin.jvm.JvmInline
 
@@ -28,19 +29,18 @@ import kotlin.jvm.JvmInline
 @Immutable
 @JvmInline
 public value class RemoteRole internal constructor(internal val value: Int) {
-    /** The wire value of AndroidX's `AccessibleComponent.Role` (its ordinal; 9 is `UNKNOWN`). */
-    internal fun toAccessibleRole(): Int =
+    internal fun toAccessibleRole(): AccessibleComponent.Role =
         when (this) {
-            Button -> 0
-            Checkbox -> 1
-            Switch -> 2
-            RadioButton -> 3
-            Tab -> 4
-            Image -> 5
-            DropdownList -> 6
-            ValuePicker -> 7
-            Carousel -> 8
-            else -> 9
+            Button -> AccessibleComponent.Role.BUTTON
+            Checkbox -> AccessibleComponent.Role.CHECKBOX
+            Switch -> AccessibleComponent.Role.SWITCH
+            RadioButton -> AccessibleComponent.Role.RADIO_BUTTON
+            Tab -> AccessibleComponent.Role.TAB
+            Image -> AccessibleComponent.Role.IMAGE
+            DropdownList -> AccessibleComponent.Role.DROPDOWN_LIST
+            ValuePicker -> AccessibleComponent.Role.PICKER
+            Carousel -> AccessibleComponent.Role.CAROUSEL
+            else -> AccessibleComponent.Role.UNKNOWN
         }
 
     override fun toString(): String =

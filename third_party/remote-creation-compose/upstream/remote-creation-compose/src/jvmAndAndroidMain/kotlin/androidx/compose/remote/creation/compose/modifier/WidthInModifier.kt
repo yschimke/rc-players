@@ -23,6 +23,8 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
 
 internal class WidthInModifier(val min: RemoteDp? = null, val max: RemoteDp? = null) :
     RemoteModifier.Element {
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
         val isPixels = densityBehavior == RemoteDensityBehavior.Pixels
         val minValue = min?.let { if (isPixels) it.toPx().floatId else it.value.floatId } ?: 0f

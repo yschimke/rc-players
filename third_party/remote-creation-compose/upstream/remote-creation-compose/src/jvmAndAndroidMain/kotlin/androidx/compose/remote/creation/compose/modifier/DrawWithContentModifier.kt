@@ -35,6 +35,8 @@ public fun RemoteModifier.drawWithContent(
 
 internal class DrawWithContentModifier(val onDraw: RemoteContentDrawScope.() -> Unit) :
     RemoteModifier.Element {
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.DrawContent
 }

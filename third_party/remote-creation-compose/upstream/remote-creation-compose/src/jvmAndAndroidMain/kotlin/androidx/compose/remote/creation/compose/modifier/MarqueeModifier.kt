@@ -18,7 +18,6 @@
 package androidx.compose.remote.creation.compose.modifier
 
 import androidx.annotation.RestrictTo
-import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.remote.creation.common.RemoteModifierOperation
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 
@@ -36,8 +35,8 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
  * @param initialDelayMillis The duration to wait before starting the first iteration of the
  *   animation, in millis. By default, there will be no initial delay if animationMode is
  *   WhileFocused, otherwise the initial delay will be repeatDelayMillis.
- * @param spacing A [MarqueeSpacing] that specifies how much space to leave at the end of the
- *   content before showing the beginning again.
+ * @param spacing Specifies how much space to leave at the end of the content before showing the
+ *   beginning again.
  * @param velocity The speed of the animation in dps / second.
  */
 internal class MarqueeModifier(
@@ -49,8 +48,10 @@ internal class MarqueeModifier(
     val velocity: Float,
 ) : RemoteModifier.Element {
 
-    override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
-        RemoteModifierOperation.Marquee(
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
+    override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
+        return RemoteModifierOperation.Marquee(
             iterations,
             animationMode,
             repeatDelayMillis,
@@ -58,6 +59,7 @@ internal class MarqueeModifier(
             spacing,
             velocity,
         )
+    }
 }
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)

@@ -34,6 +34,8 @@ internal class BorderModifier(
     public val color: RemoteColor,
     public val shape: RemoteShape = RemoteRectangleShape,
 ) : RemoteModifier.Element {
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
         var shapeType = 0
         var roundedCorner = 0f

@@ -17,16 +17,16 @@
 package androidx.compose.remote.creation.compose.state
 
 import androidx.annotation.RestrictTo
-import androidx.compose.remote.creation.common.PaintBundleData
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.common.PaintBundle
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 
 /** Represents a color filter that can be used with remote paint. */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public sealed interface RemoteColorFilter {
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun applyToPaintBundle(
-        paintBundle: PaintBundleData,
-        creationState: RemoteComposeCreationContext,
+        paintBundle: PaintBundle,
+        creationState: RemoteComposeCreationState,
     )
 }
 
@@ -42,8 +42,8 @@ public class RemoteBlendModeColorFilter(
     public val blendMode: RemoteBlendMode,
 ) : RemoteColorFilter {
     override fun applyToPaintBundle(
-        paintBundle: PaintBundleData,
-        creationState: RemoteComposeCreationContext,
+        paintBundle: PaintBundle,
+        creationState: RemoteComposeCreationState,
     ) {
         val constantColor = color.constantValueOrNull
         if (constantColor != null) {

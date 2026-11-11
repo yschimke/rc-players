@@ -135,12 +135,12 @@ class OffscreenBitmapAndFunctionWriteTest {
   @Test
   fun aFunctionResetsThePaintInsideAndAfterIt() {
     RemoteDocumentWriter(100, 100).apply {
-      consumePaintReset()
+      checkAndClearForceSendingNewPaint()
       createFloatFunction(FloatArray(0))
-      assertEquals(true, consumePaintReset())
-      assertEquals(false, consumePaintReset())
+      assertEquals(true, checkAndClearForceSendingNewPaint())
+      assertEquals(false, checkAndClearForceSendingNewPaint())
       endFloatFunction()
-      assertEquals(true, consumePaintReset())
+      assertEquals(true, checkAndClearForceSendingNewPaint())
     }
   }
 

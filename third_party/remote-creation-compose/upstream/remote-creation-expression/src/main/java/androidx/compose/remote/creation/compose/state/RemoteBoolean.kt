@@ -19,10 +19,11 @@ package androidx.compose.remote.creation.compose.state
 import androidx.annotation.ColorInt
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.IntegerExpressionEvaluator
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.state.RemoteInt.Companion.createNamedRemoteInt
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.annotation.RememberInComposition
+import kotlin.jvm.JvmStatic
 
 /**
  * A class representing a remote boolean value.
@@ -34,11 +35,12 @@ import androidx.compose.runtime.annotation.RememberInComposition
 @Stable
 public open class RemoteBoolean
 internal constructor(
-    internal val intValue: RemoteInt,
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val intValue: RemoteInt,
     internal val floatComparison: SelectFloatCondition.FloatComparison? = null,
     internal val intComparison: SelectIntCondition.IntComparison? = null,
 ) : BaseRemoteState<Boolean>(RemoteStateInstanceKey()) {
-    internal override val cacheKey: RemoteStateCacheKey
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public override val cacheKey: RemoteStateCacheKey
         get() = intValue.cacheKey
 
     internal enum class OperationKey : RemoteOperation {
@@ -91,7 +93,7 @@ internal constructor(
         get() = intValue
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationContext): Int =
+    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int =
         intValue.writeToDocument(creationState)
 
     /**
@@ -167,20 +169,18 @@ internal constructor(
             cacheKey =
                 RemoteOperationCacheKey.create(OperationKey.SelectString, this, ifTrue, ifFalse),
             object : LazyRemoteString {
-                override fun reserveTextId(creationState: RemoteComposeCreationContext): Int {
-                    return creationState.writer.textLookup(
-                        creationState.writer.addIdList(
-                            intArrayOf(
-                                ifFalse.getIdForCreationState(creationState),
-                                ifTrue.getIdForCreationState(creationState),
-                            ),
+                override fun reserveTextId(creationState: RemoteComposeCreationState): Int {
+                    return creationState.document.textLookup(
+                        creationState.document.addStringList(
+                            ifFalse.getIdForCreationState(creationState),
+                            ifTrue.getIdForCreationState(creationState),
                         ),
                         intValue.getIdForCreationState(creationState),
                     )
                 }
 
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext,
+                    creationState: RemoteComposeCreationState,
                 ): Set<String>? {
                     if (hasConstantValue) {
                         val selected = if (constantValue) ifTrue else ifFalse
@@ -470,7 +470,8 @@ internal constructor(
          * @param id The remote ID (stored as a [RemoteInt]).
          * @return A [RemoteBoolean] referencing the ID.
          */
-        internal fun createForId(id: Int): RemoteBoolean =
+        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+        public fun createForId(id: Int): RemoteBoolean =
             RemoteBoolean(RemoteInt.createForId(0x100000000L + id))
 
         /**
@@ -482,6 +483,7 @@ internal constructor(
          * @param defaultValue The initial [Boolean] value for the named remote boolean.
          * @return A [RemoteBoolean] representing the named boolean.
          */
+        @JvmStatic
         public fun createNamedRemoteBoolean(
             name: String,
             defaultValue: Boolean,
@@ -519,6 +521,8 @@ internal constructor(remoteInt: MutableRemoteInt) :
                 0 -> false
                 is Int -> true
                 null -> null
+                // KMP (rc-players): the common metadata compilation does not find this `when`
+                // over an `Int?` exhaustive without an `else`.
                 else -> true
             }
 
@@ -527,7 +531,7 @@ internal constructor(remoteInt: MutableRemoteInt) :
         get() = intValue as MutableRemoteInt
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationContext): Int =
+    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int =
         intValue.writeToDocument(creationState)
 
     public companion object {
@@ -537,7 +541,8 @@ internal constructor(remoteInt: MutableRemoteInt) :
          * @param id The ID for this mutable boolean.
          * @return A [MutableRemoteBoolean] instance.
          */
-        internal fun createMutableForId(id: Long): MutableRemoteBoolean =
+        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+        public fun createMutableForId(id: Long): MutableRemoteBoolean =
             MutableRemoteBoolean(MutableRemoteInt.createMutableForId(id))
 
         /**
@@ -546,6 +551,7 @@ internal constructor(remoteInt: MutableRemoteInt) :
          * @param initialValue The initial value for this mutable boolean.
          * @return A [MutableRemoteBoolean] instance.
          */
+        @RememberInComposition
         public operator fun invoke(initialValue: Boolean): MutableRemoteBoolean {
             val initInt: Int = if (initialValue) 1 else 0
             return MutableRemoteBoolean(MutableRemoteInt(initInt))

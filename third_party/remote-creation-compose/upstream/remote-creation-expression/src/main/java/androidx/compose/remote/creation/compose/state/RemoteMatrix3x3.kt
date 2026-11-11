@@ -19,14 +19,14 @@ package androidx.compose.remote.creation.compose.state
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.MatrixOperations
 import androidx.compose.remote.creation.common.Utils
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.runtime.Stable
 
 /** Represents a 3x3 transformation matrix. */
 @Stable
 public class RemoteMatrix3x3
 internal constructor(
-    private val arrayProvider: (creationState: RemoteComposeCreationContext) -> FloatArray,
+    private val arrayProvider: (creationState: RemoteComposeCreationState) -> FloatArray,
     cacheKey: RemoteStateCacheKey,
 ) : BaseRemoteState<Any>(cacheKey) {
 
@@ -93,7 +93,8 @@ internal constructor(
         get() = null
 
     /** Returns `true` if this [RemoteMatrix3x3] is the identity matrix. */
-    internal val isIdentity: Boolean
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public val isIdentity: Boolean
         get() = (cacheKey as? RemoteOperationCacheKey)?.op == OperationKey.IDENTITY
 
     /**
@@ -120,8 +121,8 @@ internal constructor(
     }
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationContext): Int =
-        Utils.idFromNan(creationState.writer.matrixExpression(*arrayProvider(creationState)))
+    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int =
+        Utils.idFromNan(creationState.document.matrixExpression(*arrayProvider(creationState)))
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public companion object {

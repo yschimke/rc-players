@@ -94,7 +94,8 @@ public fun RemoteTextStyle.Companion.fromTextStyle(style: TextStyle): RemoteText
     )
 }
 
-// Port: `Font.variationSettings` is read through the port's compat (`FontVariationSettingsCompat`),
+// KMP (rc-players): `Font.variationSettings` is read through the port's compat
+// (`FontVariationSettingsCompat`),
 // which reads every font's settings the way upstream reads `AndroidFont` and `ResourceFont`'s.
 private fun Font.extractVariationSettings(): FontVariation.Settings? = variationSettings
 

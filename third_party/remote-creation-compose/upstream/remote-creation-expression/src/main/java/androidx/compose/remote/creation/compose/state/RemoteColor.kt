@@ -20,11 +20,11 @@ import androidx.annotation.ColorInt
 import androidx.annotation.FloatRange
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.ColorAttribute
-import androidx.compose.remote.creation.common.NamedVariableType
 import androidx.compose.remote.creation.common.Utils
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.state.RemoteColor.OperationKey
 import androidx.compose.runtime.Stable
+import kotlin.jvm.JvmStatic
 
 private const val WhiteArgb = 0xFFFFFFFF.toInt()
 private const val TransparentArgb = 0x00000000
@@ -43,20 +43,21 @@ private const val RgbMask: Int = 0x00FFFFFF
  */
 @Stable
 public open class RemoteColor
-internal constructor(
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public constructor(
     // Backing with Long was considered to support wide color gamuts and color spaces (similar to
     // Compose UI Color or Android ColorLong), but handling color spaces would be difficult
     // outside of Android in platform-agnostic JVM targets, so 32-bit packed ARGB Int was chosen
     // instead.
     /** Constant 32-bit ARGB [ColorInt] value of this color, or `null` if dynamic. */
     @get:ColorInt @get:Suppress("AutoBoxing") public override val constantValueOrNull: Int?,
-    internal override val cacheKey: RemoteStateCacheKey,
+    cacheKey: RemoteStateCacheKey,
     red: RemoteFloat?,
     green: RemoteFloat?,
     blue: RemoteFloat?,
     alpha: RemoteFloat?,
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public val idProvider: (creationState: RemoteComposeCreationContext) -> Int,
+    public val idProvider: (creationState: RemoteComposeCreationState) -> Int,
 ) : BaseRemoteState<Int>(cacheKey) {
 
     /**
@@ -166,7 +167,7 @@ internal constructor(
             creationState.getOrPutVariableId(
                 RemoteOperationCacheKey.create(OperationKey.FromArgb, red, green, blue, alpha),
             ) {
-                creationState.writer
+                creationState.document
                     .addColorExpression(
                         alpha.getFloatIdForCreationState(creationState),
                         red.getFloatIdForCreationState(creationState),
@@ -178,9 +179,10 @@ internal constructor(
         },
     )
 
-    internal constructor(
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public constructor(
         cacheKey: RemoteStateCacheKey,
-        idProvider: (creationState: RemoteComposeCreationContext) -> Int,
+        idProvider: (creationState: RemoteComposeCreationState) -> Int,
     ) : this(
         constantValueOrNull = null,
         cacheKey = cacheKey,
@@ -207,11 +209,11 @@ internal constructor(
         blue = extractBlueFloat(color).rf,
         alpha = extractAlphaFloat(color).rf,
         cacheKey = RemoteColorConstantCacheKey(color),
-        idProvider = { creationState -> creationState.writer.addColor(color) },
+        idProvider = { creationState -> creationState.document.addColor(color) },
     )
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationContext): Int {
+    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
         return idProvider(creationState)
     }
 
@@ -294,7 +296,7 @@ internal constructor(
             cacheKey = key,
         ) { creationState ->
             floatArrayOf(
-                creationState.writer.colorAttribute(
+                creationState.document.getColorAttribute(
                     creationState.getOrPutVariableId(cacheKey) { idProvider(creationState) },
                     component,
                 ),
@@ -415,6 +417,7 @@ internal constructor(
          * @param domain The domain for the named state. Defaults to [RemoteState.Domain.User].
          * @return A [RemoteColor] representing the named color.
          */
+        @JvmStatic
         public fun createNamedRemoteColor(
             name: String,
             @ColorInt defaultValue: Int,
@@ -428,7 +431,7 @@ internal constructor(
                 blue = null,
                 alpha = null,
                 idProvider = { creationState ->
-                    creationState.writer.addNamedColor(
+                    creationState.document.addNamedColor(
                         domain.prefixed(name),
                         defaultValue,
                     )
@@ -446,6 +449,7 @@ internal constructor(
          * @param domain domain for the named state, defaulting to [RemoteState.Domain.User]
          * @return a named [RemoteColor] initialized to [defaultValue]
          */
+        @JvmStatic
         public fun createNamedRemoteColor(
             name: String,
             defaultValue: RemoteColor,
@@ -461,16 +465,12 @@ internal constructor(
                 idProvider = { creationState ->
                     val constValue = defaultValue.constantValueOrNull
                     if (constValue != null) {
-                        creationState.writer.addNamedColor(domain.prefixed(name), constValue)
+                        creationState.document.addNamedColor(domain.prefixed(name), constValue)
                     } else {
                         val baseId = defaultValue.getIdForCreationState(creationState).toShort()
                         val colorId =
-                            creationState.writer.addColorExpression(baseId, baseId, 0f).toInt()
-                        creationState.writer.setNamedVariable(
-                            colorId,
-                            domain.prefixed(name),
-                            NamedVariableType.COLOR,
-                        )
+                            creationState.document.addColorExpression(baseId, baseId, 0f).toInt()
+                        creationState.document.setColorName(colorId, domain.prefixed(name))
                         colorId
                     }
                 },
@@ -526,7 +526,7 @@ internal constructor(
                                 value,
                             ),
                         ) {
-                            creationState.writer
+                            creationState.document
                                 .addColorExpression(
                                     fixedAlpha,
                                     hue.getFloatIdForCreationState(creationState),
@@ -591,7 +591,7 @@ internal constructor(
                             value,
                         ),
                     ) {
-                        creationState.writer
+                        creationState.document
                             .addColorExpression(
                                 alpha.toFloat() / 255f,
                                 hue.getFloatIdForCreationState(creationState),
@@ -671,7 +671,7 @@ public fun lerp(@ColorInt from: Int, @ColorInt to: Int, fraction: RemoteFloat): 
             creationState.getOrPutVariableId(
                 RemoteOperationCacheKey.create(OperationKey.TweenInt, from, to, fraction),
             ) {
-                creationState.writer
+                creationState.document
                     .addColorExpression(
                         from,
                         to,
@@ -710,7 +710,7 @@ public fun lerp(from: RemoteColor, to: RemoteColor, fraction: RemoteFloat): Remo
             creationState.getOrPutVariableId(
                 RemoteOperationCacheKey.create(OperationKey.Tween, from, to, fraction),
             ) {
-                creationState.writer
+                creationState.document
                     .addColorExpression(
                         from.getIdForCreationState(creationState).toShort(),
                         to.getIdForCreationState(creationState).toShort(),

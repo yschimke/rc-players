@@ -19,7 +19,7 @@ package androidx.compose.remote.creation.compose.state
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.BitmapFontGlyph
 import androidx.compose.remote.creation.common.BitmapTextMeasure
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.util.fastFirstOrNull
 import kotlin.math.max
 import kotlin.math.min
@@ -95,8 +95,10 @@ constructor(
         get() = null
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationContext): Int {
-        return creationState.writer.addBitmapFont(
+    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
+        // KMP (rc-players): `RemoteWriter.addBitmapFont` takes a list of its own glyph type,
+        // where `RemoteComposeWriter` takes an array of `BitmapFontData.Glyph`.
+        return creationState.document.addBitmapFont(
             List(glyphs.size) { index ->
                 val glyph = glyphs[index]
                 BitmapFontGlyph(
@@ -185,7 +187,7 @@ constructor(
             cacheKey = RemoteOperationCacheKey.create(OperationKey.MeasureWidth, this, text),
         ) { creationState ->
             floatArrayOf(
-                creationState.writer.bitmapTextMeasure(
+                creationState.document.bitmapTextMeasure(
                     text.getIdForCreationState(creationState),
                     getIdForCreationState(creationState),
                     BitmapTextMeasure.MEASURE_WIDTH,
@@ -211,7 +213,7 @@ constructor(
             cacheKey = RemoteOperationCacheKey.create(OperationKey.MeasureHeight, this, text),
         ) { creationState ->
             floatArrayOf(
-                creationState.writer.bitmapTextMeasure(
+                creationState.document.bitmapTextMeasure(
                     text.getIdForCreationState(creationState),
                     getIdForCreationState(creationState),
                     BitmapTextMeasure.MEASURE_HEIGHT,

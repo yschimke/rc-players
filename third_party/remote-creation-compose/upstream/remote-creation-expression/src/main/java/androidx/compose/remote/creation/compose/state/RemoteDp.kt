@@ -17,7 +17,7 @@
 package androidx.compose.remote.creation.compose.state
 
 import androidx.annotation.RestrictTo
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.RemoteDensity
 import androidx.compose.remote.creation.compose.state.RemoteDp.Companion.createNamedRemoteDp
 import androidx.compose.remote.creation.compose.state.RemoteFloat.Companion.createNamedRemoteFloat
@@ -46,7 +46,8 @@ public constructor(@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val va
      */
     public constructor(value: Float) : this(value.rf)
 
-    internal override val cacheKey: RemoteStateCacheKey
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public override val cacheKey: RemoteStateCacheKey
         get() = RemoteOperationCacheKey.create(OperationKey.ToPx, value)
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -84,7 +85,7 @@ public constructor(@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val va
         get() = value.constantValueOrNull
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    override fun writeToDocument(creationState: RemoteComposeCreationContext): Int {
+    override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
         return toPx(creationState.remoteDensity).writeToDocument(creationState)
     }
 
@@ -111,7 +112,7 @@ public constructor(@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val va
     }
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    override fun getFloatIdForCreationState(creationState: RemoteComposeCreationContext): Float {
+    override fun getFloatIdForCreationState(creationState: RemoteComposeCreationState): Float {
         return toPx(creationState.remoteDensity).getFloatIdForCreationState(creationState)
     }
 

@@ -21,7 +21,6 @@ package androidx.compose.remote.creation.compose.capture
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.compose.layout.BlackArgb
-import androidx.compose.remote.creation.compose.path.RemotePath
 import androidx.compose.remote.creation.compose.shaders.RemoteBrush
 import androidx.compose.remote.creation.compose.state.RemoteBlendMode
 import androidx.compose.remote.creation.compose.state.RemoteColor
@@ -569,6 +568,7 @@ internal constructor(
  * @param translationY the translation in virtual pixels to apply along the y-axis
  * @param clipPathData the path information used to clip the content within the group
  * @param block builder lambda to add children to this group
+ * @return this [RemoteImageVector.Builder] instance for chaining calls
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteImageVector.Builder.group(
@@ -589,20 +589,21 @@ public fun RemoteImageVector.Builder.group(
 }
 
 /**
- * DSL extension for adding a [RemoteVectorPath] with Remote Compose path styling types to [this].
+ * Adds a path to this [RemoteImageVector.Builder].
  *
- * @param name the name for this path
- * @param fill specifies the [RemoteBrush] used to fill the path
- * @param fillAlpha the alpha to fill the path
- * @param stroke specifies the [RemoteBrush] used to fill the stroke
- * @param strokeAlpha the alpha to stroke the path
- * @param strokeLineWidth the width of the line to stroke the path
- * @param strokeLineCap specifies the [RemoteStrokeCap] for a stroked path
- * @param strokeLineJoin specifies the [RemoteStrokeJoin] for a stroked path
- * @param strokeLineMiter specifies the miter limit for a stroked path
- * @param pathFillType specifies the [RemotePathFillType] winding rule that decides how the interior
- *   of a [RemotePath] is calculated
- * @param pathBuilder [RemotePathScope] lambda for adding [RemotePathNode]s to this path
+ * @param name name for this path
+ * @param fill [RemoteBrush] used to fill the path
+ * @param fillAlpha alpha to fill the path
+ * @param stroke [RemoteBrush] used to stroke the path
+ * @param strokeAlpha alpha to stroke the path
+ * @param strokeLineWidth width of the line to stroke the path
+ * @param strokeLineCap [RemoteStrokeCap] for a stroked path
+ * @param strokeLineJoin [RemoteStrokeJoin] for a stroked path
+ * @param strokeLineMiter miter limit for a stroked path
+ * @param pathFillType [RemotePathFillType] winding rule that decides how the interior of a path is
+ *   calculated
+ * @param pathBuilder [RemotePathScope] lambda for drawing commands in this path
+ * @return this [RemoteImageVector.Builder] instance for chaining calls
  */
 public fun RemoteImageVector.Builder.path(
     name: String = DefaultPathName,
@@ -638,9 +639,9 @@ private fun <T> ArrayList<T>.pop(): T = this.removeAt(size - 1)
 private fun <T> ArrayList<T>.peek(): T = this[size - 1]
 
 /** For image vectors that don't have an intrinsic size. */
-internal const val DefaultIconSize = 24f
+internal val DefaultIconSize = 24f
 
-internal const val DefaultGroupName = ""
+internal val DefaultGroupName = ""
 internal val DefaultRotation = 0.0f.rf
 internal val DefaultPivotX = 0.0f.rf
 internal val DefaultPivotY = 0.0f.rf
@@ -652,7 +653,6 @@ internal val DefaultTranslationY = 0.0f.rf
 internal val EmptyPath = emptyList<RemotePathNode>()
 
 internal val DefaultPathName = ""
-
 internal val DefaultStrokeLineWidth = 0.0f.rf
 internal val DefaultStrokeLineMiter = 4.0f.rf
 internal val DefaultTrimPathStart = 0.0f.rf

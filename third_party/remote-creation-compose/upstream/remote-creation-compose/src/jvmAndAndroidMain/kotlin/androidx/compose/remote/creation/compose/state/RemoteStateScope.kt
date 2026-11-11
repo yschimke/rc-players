@@ -17,16 +17,20 @@
 package androidx.compose.remote.creation.compose.state
 
 import androidx.annotation.RestrictTo
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.common.RemoteComposeWriter
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.RemoteDensity
 import androidx.compose.remote.creation.compose.capture.RemoteDensityBehavior
+import androidx.compose.remote.creation.compose.capture.RemoteDocumentScope
 import androidx.compose.remote.creation.compose.capture.toRemotePath
+import androidx.compose.remote.creation.compose.layout.RemoteComponentToken
 import androidx.compose.remote.creation.compose.layout.RemoteLayoutDirection
 import androidx.compose.remote.creation.compose.path.RemotePath
 import androidx.compose.remote.creation.compose.vector.RemotePathScope
 
 /** Scope for accessing remote state IDs. */
-public interface RemoteStateScope {
+@Suppress("HiddenSuperclass")
+public interface RemoteStateScope : RemoteDocumentScope {
     /** The parent [RemoteStateScope] associated with the document being drawn into. */
     @get:Suppress("HiddenAbstractMethodInInterface")
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -37,6 +41,20 @@ public interface RemoteStateScope {
 
     /** The [RemoteLayoutDirection] associated with the document being drawn into. */
     public val layoutDirection: RemoteLayoutDirection
+
+    /** The [RemoteComposeWriter] associated with the document being drawn into. */
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    override val document: RemoteComposeWriter
+        get() = parentScope.document
+
+    /**
+     * Resolves the active [RemoteComponentToken] for this scope, or `null` if none is bound.
+     *
+     * @return the active [RemoteComponentToken], or `null` if none is bound
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    override fun resolveComponentToken(): RemoteComponentToken? =
+        parentScope.resolveComponentToken()
 
     /** The density behavior associated with the document being drawn into. */
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -59,16 +77,20 @@ public interface RemoteStateScope {
         get() = (this as BaseRemoteState<*>).getLongIdForCreationState(creationState)
 }
 
-/** The [RemoteComposeCreationContext] associated with the document being drawn into. */
-@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public val RemoteStateScope.creationState: RemoteComposeCreationContext
-    get() = this as? RemoteComposeCreationContext ?: parentScope.creationState
-
 /**
- * Builds a platform-neutral encoded path using this state allocation scope.
+ * Build the [RemotePath], encoding using this [RemoteStateScope].
  *
  * @return the constructed [RemotePath]
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public fun RemoteStateScope.remotePath(block: RemotePathScope.() -> Unit): RemotePath =
-    RemotePathScope().apply(block).nodes.toRemotePath(creationState = this)
+public fun RemoteStateScope.remotePath(fn: RemotePathScope.() -> Unit): RemotePath {
+    return RemotePathScope().apply(fn).nodes.toRemotePath(creationState = this)
+}
+
+/** The [RemoteComposeCreationState] associated with the document being drawn into. */
+@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public val RemoteStateScope.creationState: RemoteComposeCreationState
+    get() = this as? RemoteComposeCreationState ?: parentScope.creationState
+
+// KMP (rc-players): `withGlobalScope` is not carried: `RemoteWriter` has no `beginGlobal` /
+// `endGlobal`, as it hoists every declaration ahead of the layout itself.

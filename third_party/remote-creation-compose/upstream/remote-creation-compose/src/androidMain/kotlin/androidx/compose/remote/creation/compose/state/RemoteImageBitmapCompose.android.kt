@@ -18,6 +18,8 @@
 
 package androidx.compose.remote.creation.compose.state
 
+import androidx.compose.remote.creation.compose.capture.addBitmap
+import androidx.compose.remote.creation.compose.capture.addNamedBitmap
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.annotation.RememberInComposition
@@ -34,6 +36,8 @@ public operator fun RemoteImageBitmap.Companion.invoke(value: ImageBitmap): Remo
     return MutableRemoteImageBitmap(
         constantValueOrNull = value,
         cacheKey = RemoteConstantCacheKey(value),
+        // KMP (rc-players): encoded by the host (`RemoteComposeCaptureState.addBitmap`), where
+        // upstream hands `document` an Android bitmap.
         idProvider = { creationState -> creationState.addBitmap(value) },
     )
 }
@@ -66,6 +70,7 @@ public fun RemoteImageBitmap.Companion.createNamedRemoteImageBitmap(
         constantValueOrNull = null,
         cacheKey = RemoteNamedCacheKey(domain, name),
     ) { creationState ->
+        // KMP (rc-players): encoded by the host, where upstream hands `document` an Android bitmap.
         creationState.addNamedBitmap(domain.prefixed(name), defaultValue)
     }
 
@@ -87,6 +92,7 @@ public fun RemoteImageBitmap.Companion.createNamedRemoteImageBitmap(
         constantValueOrNull = null,
         cacheKey = RemoteNamedCacheKey(domain, name),
     ) { creationState ->
+        // KMP (rc-players): encoded by the host, where upstream hands `document` an Android bitmap.
         creationState.addNamedBitmap(domain.prefixed(name), bitmap)
     }
 }
@@ -130,6 +136,7 @@ public fun MutableRemoteImageBitmap(initialValue: ImageBitmap): MutableRemoteIma
     MutableRemoteImageBitmap(
         constantValueOrNull = initialValue,
         cacheKey = RemoteStateInstanceKey(),
+        // KMP (rc-players): encoded by the host, where upstream hands `document` an Android bitmap.
         idProvider = { creationState -> creationState.addBitmap(initialValue) },
     )
 

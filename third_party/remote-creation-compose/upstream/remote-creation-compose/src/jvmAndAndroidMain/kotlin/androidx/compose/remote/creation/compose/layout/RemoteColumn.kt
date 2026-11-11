@@ -16,10 +16,10 @@
 
 package androidx.compose.remote.creation.compose.layout
 
+import androidx.compose.remote.creation.common.DimensionModifierOperation.Type
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.WriterOp
 import androidx.compose.remote.creation.compose.modifier.HeightModifier
-import androidx.compose.remote.creation.compose.modifier.RemoteDimensionType
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.runtime.Composable
@@ -40,7 +40,7 @@ public class RemoteColumnScope {
      * @return a [RemoteModifier] that allocates height proportional to [weight]
      */
     public fun RemoteModifier.weight(weight: RemoteFloat): RemoteModifier =
-        then(HeightModifier(RemoteDimensionType.WEIGHT, weight))
+        then(HeightModifier(Type.WEIGHT, weight))
 }
 
 internal class RemoteColumnNode : RemoteLayoutNode() {
@@ -48,10 +48,12 @@ internal class RemoteColumnNode : RemoteLayoutNode() {
     var horizontalAlignment: RemoteAlignment.Horizontal = RemoteAlignment.Start
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
-        val scope = overriddenScope(creationState)
+        val scope = overriddenScope(remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         val remoteModifier = resolveModifier(scope, creationState)
         (verticalArrangement as? RemoteSpaced)?.let {
-            remoteModifier.spacedBy = it.getSpacingFloatId(creationState)
+            remoteModifier.spacedBy = it.getSpacingFloatId(scope)
         }
         remoteCanvas.internalCanvas.recordRenderingOp(
             WriterOp.StartColumn(
@@ -61,6 +63,8 @@ internal class RemoteColumnNode : RemoteLayoutNode() {
             ),
         )
         renderChildren(creationState, remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndColumn)
     }
 }

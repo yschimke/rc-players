@@ -24,6 +24,8 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
 internal class IncludeMacroModifier(val id: Int, val args: Array<out RemoteInt>? = null) :
     RemoteModifier.Element {
 
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.MacroCall(id, args?.map { it.id }?.toIntArray() ?: intArrayOf())
 }

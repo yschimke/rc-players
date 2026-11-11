@@ -31,6 +31,8 @@ import androidx.compose.remote.creation.compose.state.min
 
 internal class ClipModifier(val shape: RemoteShape = RemoteRectangleShape) :
     RemoteModifier.Element {
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
         if (shape == RemoteRectangleShape) return RemoteModifierOperation.ClipRect
         if (shape == RemoteCircleShape) {

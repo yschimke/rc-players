@@ -113,3 +113,56 @@ public class MonotonicSpline(unused: FloatArray?, private val values: FloatArray
     return values[index] * (1f - fraction) + values[index + 1] * fraction
   }
 }
+
+/** `FloatAnimation`'s pure helpers, as AndroidX's `remote-core` names them. */
+public object FloatAnimation {
+  /** Packs an animation description into the float array a float expression carries. */
+  public fun packToFloatArray(
+    duration: Float,
+    type: Int,
+    spec: FloatArray?,
+    initialValue: Float,
+    wrap: Float,
+  ): FloatArray {
+    val hasInitialValue = !initialValue.isNaN()
+    val hasWrap = !wrap.isNaN()
+    val specificationSize = spec?.size ?: 0
+    var size = 0
+
+    if (hasInitialValue) size++
+    if (spec != null) size++
+    if (spec != null || type != 1) size += 1 + specificationSize
+    if (hasInitialValue) size++
+    if (hasWrap) size++
+    if (duration != 1f || size > 0) size++
+    if (hasWrap || hasInitialValue) size++
+
+    if (size == 0) return floatArrayOf()
+
+    val result = FloatArray(size)
+    var position = 0
+    result[position++] = duration
+    if (size > 1) {
+      val wrapBit = if (hasWrap) 1 else 0
+      val initialValueBit = if (hasInitialValue) 2 else 0
+      val bits = type or ((wrapBit or initialValueBit) shl 8)
+      result[position++] = Float.fromBits((specificationSize shl 16) or bits)
+    }
+    spec?.copyInto(result, position).also { position += specificationSize }
+    if (hasInitialValue) result[position++] = initialValue
+    if (hasWrap) result[position] = wrap
+    return result
+  }
+}
+
+/** `RemoteComposeBuffer`'s pure helpers, as AndroidX's `remote-core` names them. */
+public object RemoteComposeBuffer {
+  /** [FloatAnimation.packToFloatArray], under the name the buffer has for it. */
+  public fun packAnimation(
+    duration: Float,
+    type: Int,
+    spec: FloatArray?,
+    initialValue: Float,
+    wrap: Float,
+  ): FloatArray = FloatAnimation.packToFloatArray(duration, type, spec, initialValue, wrap)
+}

@@ -94,41 +94,6 @@ public object RemoteContext {
       )
 }
 
-public object PaintBundle {
-  public const val BLEND_MODE_CLEAR: Int = 0
-  public const val BLEND_MODE_SRC: Int = 1
-  public const val BLEND_MODE_DST: Int = 2
-  public const val BLEND_MODE_SRC_OVER: Int = 3
-  public const val BLEND_MODE_DST_OVER: Int = 4
-  public const val BLEND_MODE_SRC_IN: Int = 5
-  public const val BLEND_MODE_DST_IN: Int = 6
-  public const val BLEND_MODE_SRC_OUT: Int = 7
-  public const val BLEND_MODE_DST_OUT: Int = 8
-  public const val BLEND_MODE_SRC_ATOP: Int = 9
-  public const val BLEND_MODE_DST_ATOP: Int = 10
-  public const val BLEND_MODE_XOR: Int = 11
-  public const val BLEND_MODE_PLUS: Int = 12
-  public const val BLEND_MODE_MODULATE: Int = 13
-  public const val BLEND_MODE_SCREEN: Int = 14
-  public const val BLEND_MODE_OVERLAY: Int = 15
-  public const val BLEND_MODE_DARKEN: Int = 16
-  public const val BLEND_MODE_LIGHTEN: Int = 17
-  public const val BLEND_MODE_COLOR_DODGE: Int = 18
-  public const val BLEND_MODE_COLOR_BURN: Int = 19
-  public const val BLEND_MODE_HARD_LIGHT: Int = 20
-  public const val BLEND_MODE_SOFT_LIGHT: Int = 21
-  public const val BLEND_MODE_DIFFERENCE: Int = 22
-  public const val BLEND_MODE_EXCLUSION: Int = 23
-  public const val BLEND_MODE_MULTIPLY: Int = 24
-  public const val BLEND_MODE_HUE: Int = 25
-  public const val BLEND_MODE_SATURATION: Int = 26
-  public const val BLEND_MODE_COLOR: Int = 27
-  public const val BLEND_MODE_LUMINOSITY: Int = 28
-  public const val STYLE_FILL: Int = 0
-  public const val STYLE_STROKE: Int = 1
-  public const val STYLE_FILL_AND_STROKE: Int = 2
-}
-
 public object CoreText {
   public const val BREAK_STRATEGY_SIMPLE: Int = 0
   public const val BREAK_STRATEGY_HIGH_QUALITY: Int = 1
@@ -262,7 +227,7 @@ public object DrawTextOnCircle {
 
 /**
  * LOCAL PATCH (rc-players): how a `TouchExpression` settles when its touch is released
- * ([RemoteWriter.touchExpression]'s `stopMode`), as AndroidX's `TouchExpression.STOP_*`.
+ * ([RemoteWriter.addTouchExpression]'s `stopMode`), as AndroidX's `TouchExpression.STOP_*`.
  */
 public object TouchStop {
   public const val GENTLY: Int = 0
@@ -273,4 +238,90 @@ public object TouchStop {
   public const val NOTCHES_ABSOLUTE: Int = 5
   public const val ABSOLUTE_POS: Int = 6
   public const val NOTCHES_SINGLE_EVEN: Int = 7
+}
+
+/** `DimensionModifierOperation`'s sizing types, as AndroidX's `remote-core` names them. */
+public object DimensionModifierOperation {
+  /** How a width or height modifier sizes its component; the wire value is the ordinal. */
+  public enum class Type {
+    EXACT,
+    FILL,
+    WRAP,
+    WEIGHT,
+    INTRINSIC_MIN,
+    INTRINSIC_MAX,
+    EXACT_DP,
+    FILL_PARENT_MAX_WIDTH,
+    FILL_PARENT_MAX_HEIGHT;
+
+    public companion object {
+      /** The type whose wire value is [value]. */
+      public fun fromInt(value: Int): Type = entries[value]
+    }
+  }
+}
+
+/** `HostNamedActionOperation`'s value types, as AndroidX's `remote-core` names them. */
+public object HostNamedActionOperation {
+  public const val FLOAT_TYPE: Int = 0
+  public const val INT_TYPE: Int = 1
+  public const val STRING_TYPE: Int = 2
+  public const val FLOAT_ARRAY_TYPE: Int = 3
+  public const val NONE_TYPE: Int = -1
+}
+
+/** `AccessibleComponent`'s roles, as AndroidX's `remote-core` names them. */
+public object AccessibleComponent {
+  /** A component's accessibility role; the wire value is the ordinal. */
+  public enum class Role {
+    BUTTON,
+    CHECKBOX,
+    SWITCH,
+    RADIO_BUTTON,
+    TAB,
+    IMAGE,
+    DROPDOWN_LIST,
+    PICKER,
+    CAROUSEL,
+    UNKNOWN,
+  }
+}
+
+/** `AnimationSpec`'s transition types, as AndroidX's `remote-core` names them. */
+public object AnimationSpec {
+  /** Transition effect applied when a component enters or leaves a state layout. */
+  @Suppress("ktlint:standard:class-naming")
+  public enum class ANIMATION {
+    FADE_IN,
+    FADE_OUT,
+    SLIDE_LEFT,
+    SLIDE_RIGHT,
+    SLIDE_TOP,
+    SLIDE_BOTTOM,
+    ROTATE,
+    PARTICLE,
+    /** Animates the component with a float function the document defines, named by id. */
+    CUSTOM,
+  }
+
+  /** When a component's enter or exit transition runs relative to the state layout's change. */
+  @Suppress("ktlint:standard:class-naming")
+  public enum class SEQUENCE {
+    CONCURRENT,
+    BEFORE,
+    AFTER,
+  }
+}
+
+/** `MultiClickModifier`'s click types, as AndroidX's `remote-core` names them. */
+public object MultiClickModifier {
+  public const val CLICK_TYPE_SINGLE: Int = 0
+  public const val CLICK_TYPE_LONG: Int = 1
+  public const val CLICK_TYPE_DOUBLE: Int = 2
+}
+
+/** `CollapsiblePriority`'s orientations, as AndroidX's `remote-core` names them. */
+public object CollapsiblePriority {
+  public const val HORIZONTAL: Int = 0
+  public const val VERTICAL: Int = 1
 }

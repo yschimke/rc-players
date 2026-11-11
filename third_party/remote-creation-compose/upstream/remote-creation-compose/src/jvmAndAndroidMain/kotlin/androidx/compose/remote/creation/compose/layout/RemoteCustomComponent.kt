@@ -17,7 +17,7 @@
 package androidx.compose.remote.creation.compose.layout
 
 import androidx.annotation.RestrictTo
-import androidx.compose.remote.creation.common.RemoteCustomPropertyData
+import androidx.compose.remote.creation.common.Custom.CustomProperty
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.state.BaseRemoteState
@@ -34,9 +34,10 @@ internal class RemoteCustomComponentNode : RemoteComposeNode() {
     var name: String = ""
     var properties: RemoteCustomPropertiesScope.() -> Unit = {}
 
-    // Port: recorded through the port's CanvasOperationBuffer (CanvasOp.CustomComponent) in the
-    // layout stream, where upstream writes startCustom/endCustom to the document directly.
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
+        // KMP (rc-players): recorded through the fork's CanvasOperationBuffer
+        // (`CanvasOp.CustomComponent`) and written when the canvas flushes, where upstream
+        // writes `startCustom` / `endCustom` to `document` here.
         remoteCanvas.internalCanvas.custom(
             config = name,
             modifier = modifier,
@@ -86,59 +87,49 @@ internal sealed class CustomPropertyEntry {
     open val state: BaseRemoteState<*>?
         get() = null
 
-    public abstract fun toCustomProperty(
-        creationState: RemoteComposeCreationState,
-    ): RemoteCustomPropertyData
+    abstract fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty
 }
 
 internal class IntPropertyEntry(
     override val id: Short,
     val value: Int,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.int(id, RemoteCustomPropertyData.IntProperty, value)
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(id, CustomProperty.INT_PROP, value)
 }
 
 internal class FloatPropertyEntry(
     override val id: Short,
     val value: Float,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.float(id, RemoteCustomPropertyData.FloatProperty, value)
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(id, CustomProperty.FLOAT_PROP, value)
 }
 
 internal class StringPropertyEntry(
     override val id: Short,
     val value: String,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.int(
-            id,
-            RemoteCustomPropertyData.StringProperty,
-            creationState.writer.addText(value),
-        )
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(id, CustomProperty.STRING_PROP, creationState.document.addText(value))
 }
 
 internal class BooleanPropertyEntry(
     override val id: Short,
     val value: Boolean,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.int(
-            id,
-            RemoteCustomPropertyData.IntProperty,
-            if (value) 1 else 0,
-        )
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(id, CustomProperty.INT_PROP, if (value) 1 else 0)
 }
 
 internal class RemoteFloatPropertyEntry(
     override val id: Short,
     override val state: RemoteFloat,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.float(
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(
             id,
-            RemoteCustomPropertyData.FloatProperty,
+            CustomProperty.FLOAT_PROP,
             state.getFloatIdForCreationState(creationState),
         )
 }
@@ -147,29 +138,21 @@ internal class RemoteStringPropertyEntry(
     override val id: Short,
     override val state: RemoteString,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.int(
-            id,
-            RemoteCustomPropertyData.StringProperty,
-            state.getIdForCreationState(creationState),
-        )
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(id, CustomProperty.STRING_PROP, state.getIdForCreationState(creationState))
 }
 
 internal class RemoteIntPropertyEntry(
     override val id: Short,
     override val state: RemoteInt,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
         if (state.hasConstantValue) {
-            RemoteCustomPropertyData.int(
-                id,
-                RemoteCustomPropertyData.IntProperty,
-                state.constantValue,
-            )
+            CustomProperty(id, CustomProperty.INT_PROP, state.constantValue)
         } else {
-            RemoteCustomPropertyData.int(
+            CustomProperty(
                 id,
-                RemoteCustomPropertyData.IntIdProperty,
+                CustomProperty.INT_ID_PROP,
                 state.getIdForCreationState(creationState),
             )
         }
@@ -179,17 +162,13 @@ internal class RemoteColorPropertyEntry(
     override val id: Short,
     override val state: RemoteColor,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
         if (state.hasConstantValue) {
-            RemoteCustomPropertyData.int(
-                id,
-                RemoteCustomPropertyData.ColorProperty,
-                state.constantValue,
-            )
+            CustomProperty(id, CustomProperty.COLOR_PROP, state.constantValue)
         } else {
-            RemoteCustomPropertyData.int(
+            CustomProperty(
                 id,
-                RemoteCustomPropertyData.ColorIdProperty,
+                CustomProperty.COLOR_ID_PROP,
                 state.getIdForCreationState(creationState),
             )
         }
@@ -199,17 +178,13 @@ internal class RemoteBooleanPropertyEntry(
     override val id: Short,
     override val state: RemoteBoolean,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
         if (state.hasConstantValue) {
-            RemoteCustomPropertyData.int(
-                id,
-                RemoteCustomPropertyData.IntProperty,
-                if (state.constantValue) 1 else 0,
-            )
+            CustomProperty(id, CustomProperty.INT_PROP, if (state.constantValue) 1 else 0)
         } else {
-            RemoteCustomPropertyData.int(
+            CustomProperty(
                 id,
-                RemoteCustomPropertyData.IntIdProperty,
+                CustomProperty.INT_ID_PROP,
                 state.toRemoteInt().getIdForCreationState(creationState),
             )
         }
@@ -219,22 +194,18 @@ internal class RemoteImageBitmapPropertyEntry(
     override val id: Short,
     override val state: RemoteImageBitmap,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.int(
-            id,
-            RemoteCustomPropertyData.IntProperty,
-            state.getIdForCreationState(creationState),
-        )
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(id, CustomProperty.INT_PROP, state.getIdForCreationState(creationState))
 }
 
 internal class RemoteFloatReturnEntry(
     override val id: Short,
     override val state: RemoteFloat,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.float(
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(
             id,
-            RemoteCustomPropertyData.FloatReturn,
+            CustomProperty.FLOAT_RETURN,
             state.getFloatIdForCreationState(creationState),
         )
 }
@@ -243,46 +214,34 @@ internal class RemoteStringReturnEntry(
     override val id: Short,
     override val state: RemoteString,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.int(
-            id,
-            RemoteCustomPropertyData.TextReturn,
-            state.getIdForCreationState(creationState),
-        )
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(id, CustomProperty.TEXT_RETURN, state.getIdForCreationState(creationState))
 }
 
 internal class RemoteIntReturnEntry(
     override val id: Short,
     override val state: RemoteInt,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.int(
-            id,
-            RemoteCustomPropertyData.IntReturn,
-            state.getIdForCreationState(creationState),
-        )
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(id, CustomProperty.INT_RETURN, state.getIdForCreationState(creationState))
 }
 
 internal class RemoteColorReturnEntry(
     override val id: Short,
     override val state: RemoteColor,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.int(
-            id,
-            RemoteCustomPropertyData.ColorReturn,
-            state.getIdForCreationState(creationState),
-        )
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(id, CustomProperty.COLOR_RETURN, state.getIdForCreationState(creationState))
 }
 
 internal class RemoteBooleanReturnEntry(
     override val id: Short,
     override val state: RemoteBoolean,
 ) : CustomPropertyEntry() {
-    override fun toCustomProperty(creationState: RemoteComposeCreationState) =
-        RemoteCustomPropertyData.int(
+    override fun toCustomProperty(creationState: RemoteComposeCreationState): CustomProperty =
+        CustomProperty(
             id,
-            RemoteCustomPropertyData.IntReturn,
+            CustomProperty.INT_RETURN,
             state.toRemoteInt().getIdForCreationState(creationState),
         )
 }
@@ -294,7 +253,7 @@ public class RemoteCustomPropertiesScope
 public constructor(private val creationState: RemoteComposeCreationState? = null) {
     internal val entries = mutableListOf<CustomPropertyEntry>()
 
-    internal val properties: List<RemoteCustomPropertyData>
+    internal val properties: List<CustomProperty>
         get() {
             val state =
                 creationState ?: error("creationState required to evaluate properties eagerly")

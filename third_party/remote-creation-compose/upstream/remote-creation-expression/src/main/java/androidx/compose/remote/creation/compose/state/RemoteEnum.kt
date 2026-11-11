@@ -17,11 +17,13 @@
 package androidx.compose.remote.creation.compose.state
 
 import androidx.annotation.RestrictTo
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.state.RemoteInt.Companion.createNamedRemoteInt
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.annotation.RememberInComposition
 import kotlin.enums.EnumEntries
 import kotlin.enums.enumEntries
+import kotlin.jvm.JvmStatic
 
 /**
  * A class representing a remote enum value.
@@ -39,7 +41,8 @@ public constructor(
     /** All entries of the enum type [T]. */
     public val enumEntries: EnumEntries<T>,
 ) : BaseRemoteState<T>(RemoteStateInstanceKey()) {
-    internal override val cacheKey: RemoteStateCacheKey
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public override val cacheKey: RemoteStateCacheKey
         get() = constantValueOrNull?.let { RemoteConstantCacheKey(it) } ?: intValue.cacheKey
 
     @get:Suppress("AutoBoxing")
@@ -54,7 +57,7 @@ public constructor(
         get() = intValue
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationContext): Int =
+    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int =
         intValue.writeToDocument(creationState)
 
     internal enum class OperationKey : RemoteOperation {
@@ -124,18 +127,18 @@ public constructor(
             constantValueOrNull = null,
             cacheKey = RemoteOperationCacheKey.create(OperationKey.ToString, this, stringArray),
             object : LazyRemoteString {
-                override fun reserveTextId(creationState: RemoteComposeCreationContext): Int {
+                override fun reserveTextId(creationState: RemoteComposeCreationState): Int {
                     val strings = stringArray.constantValueOrNull!!
                     val stringIds =
                         IntArray(strings.size) { strings[it].getIdForCreationState(creationState) }
-                    return creationState.writer.textLookup(
-                        creationState.writer.addIdList(stringIds),
+                    return creationState.document.textLookup(
+                        creationState.document.addStringList(*stringIds),
                         intValue.getIdForCreationState(creationState),
                     )
                 }
 
                 override fun computeRequiredCodePointSet(
-                    creationState: RemoteComposeCreationContext,
+                    creationState: RemoteComposeCreationState,
                 ): Set<String>? {
                     val strings = stringArray.constantValueOrNull ?: return null
                     return buildSet {
@@ -198,6 +201,7 @@ public constructor(
          * @param defaultValue The initial [Enum] value for the named remote enum.
          * @return A [RemoteEnum] representing the named enum.
          */
+        @JvmStatic
         public inline fun <reified T : Enum<T>> createNamedRemoteEnum(
             name: String,
             defaultValue: T,
@@ -222,6 +226,7 @@ public constructor(
  */
 public class MutableRemoteEnum<T : Enum<T>>
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+@RememberInComposition
 public constructor(public val remoteInt: MutableRemoteInt, enumEntries: EnumEntries<T>) :
     RemoteEnum<T>(remoteInt, enumEntries), MutableRemoteState<T> {
 
@@ -230,7 +235,7 @@ public constructor(public val remoteInt: MutableRemoteInt, enumEntries: EnumEntr
         get() = intValue as MutableRemoteInt
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationContext): Int =
+    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int =
         intValue.writeToDocument(creationState)
 
     public companion object {
@@ -251,9 +256,10 @@ public constructor(public val remoteInt: MutableRemoteInt, enumEntries: EnumEntr
          * @param initialValue The initial value for this mutable enum.
          * @return A [MutableRemoteEnum] instance.
          */
+        @RememberInComposition
         public inline operator fun <reified T : Enum<T>> invoke(
             initialValue: T,
         ): MutableRemoteEnum<T> =
-            MutableRemoteEnum(MutableRemoteInt.invoke(initialValue.ordinal), enumEntries())
+            MutableRemoteEnum(MutableRemoteInt(initialValue.ordinal), enumEntries())
     }
 }

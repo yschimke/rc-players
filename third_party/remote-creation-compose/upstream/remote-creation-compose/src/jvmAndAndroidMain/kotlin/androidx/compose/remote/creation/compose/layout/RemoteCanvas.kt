@@ -625,7 +625,7 @@ public class RemoteCanvas(
         step: RemoteFloat,
         body: (index: RemoteFloat) -> Unit,
     ) {
-        val loopVariableId = internalCanvas.creationState.writer.createFloatId()
+        val loopVariableId = internalCanvas.creationState.document.createFloatId()
         val loopVariable = MutableRemoteFloat(loopVariableId)
         val childSpan = internalCanvas.recordInChildSpan { body(loopVariable) }
 

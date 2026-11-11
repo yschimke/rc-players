@@ -11,9 +11,17 @@
 #   --hunks        the diff of every carried file that differs
 #   --unmarked     only the hunks under neither `LOCAL PATCH (rc-players)` nor `KMP (rc-players)`
 #
+# A hunk that must stay different carries one of two markers, with its reason, in a comment:
+#   LOCAL PATCH (rc-players)  something the fork adds, or does differently on purpose
+#   KMP (rc-players)          a substitution forced by the non-JVM targets or by the Kotlin writer
+# A hunk that changes nothing but `import` lines (and blank ones) follows from the hunks of its file's body, and has
+# no place for a comment; it is counted on its own, as neither marked nor unmarked.
+#
 # Both sides are normalised before comparing: trailing whitespace goes, runs of blank lines
-# collapse, each file's imports are sorted and de-duplicated, and `@kotlin.jvm.JvmName` and its
-# like are written `@JvmName` (common code has to qualify or import them, JVM code does not).
+# collapse, each file's imports are sorted and de-duplicated, `@kotlin.jvm.JvmName` and its
+# like are written `@JvmName` (common code has to qualify or import them, JVM code does not), and
+# a comma that ends a line goes (this repository's ktfmt puts a trailing comma after a lone
+# argument that it breaks onto its own line, and AndroidX's does not).
 # Upstream's side also has the names in upstream-fqn.tsv rewritten, because the fork's writer
 # declares AndroidX's Java classes under the same simple names in another package.
 #
@@ -29,7 +37,7 @@
 set -euo pipefail
 
 usage() {
-  sed -n '2,12p' "$0" >&2
+  sed -n '2,18p' "$0" >&2
   exit 2
 }
 
@@ -64,10 +72,10 @@ rows upstream-fqn.tsv | awk -F'\t' '{
   printf "s/%s([^A-Za-z0-9_]|$)/%s\\1/g\n", from, $2
 }' >"$work/fqn.sed"
 
-# Trailing whitespace, `kotlin.jvm.` on annotations, blank-line runs, and the import block (sorted,
-# unique, where it started).
+# Trailing whitespace, a comma ending a line, `kotlin.jvm.` on annotations, blank-line runs, and the
+# import block (sorted, unique, where it started).
 normalise() {
-  sed -E -e 's/[[:space:]]*$//' -e 's/@((file|get|set):)?kotlin\.jvm\.Jvm/@\1Jvm/g' |
+  sed -E -e 's/[[:space:]]*$//' -e 's/,$//' -e 's/@((file|get|set):)?kotlin\.jvm\.Jvm/@\1Jvm/g' |
     awk '
       /^import kotlin\.jvm\.Jvm[A-Za-z]*$/ { next }
       /^import / { imports[n++] = $0; next }
@@ -137,21 +145,23 @@ done <"$work/pairs"
 cut -f4 "$work/status" | cat - "$work/fork-parts" | LC_ALL=C sort -u >"$work/fork-used"
 LC_ALL=C comm -23 "$work/fork-files" "$work/fork-used" >"$work/fork-only"
 
-# One hunk per record, each tagged marked or unmarked.
+# One hunk per record, each tagged marked, import-only or unmarked.
 awk '
   function flush() {
     if (hunk == "") return
     if (hunk ~ /LOCAL PATCH \(rc-players\)|KMP \(rc-players\)/) marked++
+    else if (changed > 0 && changed == imports) import_only++
     else { unmarked++; if (!header_printed) { printf "%s", header; header_printed = 1 }; printf "%s", hunk }
-    hunk = ""
+    hunk = ""; changed = 0; imports = 0
   }
   /^--- / { flush(); header = $0 "\n"; header_printed = 0; next }
   /^\+\+\+ / { header = header $0 "\n"; next }
   /^@@ / { flush(); hunk = $0 "\n"; next }
+  /^[-+]./ { changed++; if ($0 ~ /^[-+]import /) imports++ }
   { hunk = hunk $0 "\n" }
-  END { flush(); printf "%d\t%d\n", marked + unmarked, unmarked > counts }
+  END { flush(); printf "%d\t%d\t%d\t%d\n", marked + import_only + unmarked, marked, import_only, unmarked > counts }
 ' counts="$work/hunk-counts" "$work/diff" >"$work/unmarked"
-[ -f "$work/hunk-counts" ] || printf '0\t0\n' >"$work/hunk-counts"
+[ -f "$work/hunk-counts" ] || printf '0\t0\t0\t0\n' >"$work/hunk-counts"
 
 summary() {
   awk -F'\t' '
@@ -167,7 +177,7 @@ summary() {
     }' "$work/status"
   echo
   echo "fork-only files: $(wc -l <"$work/fork-only" | tr -d ' ')"
-  awk -F'\t' '{ printf "hunks in differing files: %d, of which unmarked: %d\n", $1, $2 }' "$work/hunk-counts"
+  awk -F'\t' '{ printf "hunks in differing files: %d (marked: %d, import-only: %d, unmarked: %d)\n", $1, $2, $3, $4 }' "$work/hunk-counts"
   echo
   echo "\"other path\": carried under another name, split or merged (upstream-renames.tsv);"
   echo "these are counted under identical or differing as well."
