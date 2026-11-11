@@ -804,9 +804,13 @@ public class RcPlayerState(
 
   /**
    * The float expressions that read loop index [indexId], directly or through each other, in
-   * document order. The writer hoists an index formula (`i * 20`, its dp-to-px scale) into the
-   * header, outside the loop; AndroidX re-evaluates it as a listener each time the loop writes the
-   * index, so every iteration draws its own value rather than the header's.
+   * document order. The creation fork's writer used to hoist an index formula (`i * 20`, its
+   * dp-to-px scale) into the header, outside the loop, and documents written that way exist.
+   * Re-evaluating them here for each value of the index draws what their author meant. AndroidX
+   * does not: `LoopOperation.paint` applies only the loop's own operations per iteration, and a
+   * header expression that listens to the index is only marked dirty (`CanvasLoopReadBackTest` in
+   * `:rc-creation-bridge` shows it drawing every iteration at one place). The writer now keeps such
+   * a formula in the loop, where both players evaluate it.
    */
   private fun loopDependents(indexId: Int): List<RcFloatExpression> =
     loopDependentExpressions.getOrPut(indexId) {

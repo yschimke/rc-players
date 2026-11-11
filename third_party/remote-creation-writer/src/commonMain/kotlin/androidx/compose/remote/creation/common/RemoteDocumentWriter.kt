@@ -642,9 +642,16 @@ public class RemoteDocumentWriter(
     wire.writeFloat(from)
     wire.writeFloat(step)
     wire.writeFloat(until)
+    // What the body computes from the index is computed in the body, once per iteration: a player
+    // runs an expression declared ahead of the layout once a frame, not once per index
+    // (`LoopOperation.paint` applies only the loop's own operations for each value).
+    bodyScopes += mutableSetOf(indexId)
   }
 
-  override fun endLoop(): Unit = containerEnd()
+  override fun endLoop() {
+    endBodyScope()
+    containerEnd()
+  }
 
   public fun column(
     horizontal: Int = HorizontalStart,

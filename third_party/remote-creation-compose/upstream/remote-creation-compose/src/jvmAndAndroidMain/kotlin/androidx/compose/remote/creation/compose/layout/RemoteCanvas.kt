@@ -938,19 +938,13 @@ public class RemoteCanvas(
         step: RemoteFloat,
         body: (index: RemoteFloat) -> Unit,
     ) {
-        // LOCAL PATCH (rc-players): the index's id is taken while recording and the body reads it
-        // through a float expression, as the port always has. Upstream's `MutableRemoteFloat()`
-        // reserves the id when the loop is written, which renumbers the document, so it waits
-        // for a refresh.
-        val loopVariableId = document.createFloatId()
-        val loopVariable = MutableRemoteFloat(loopVariableId)
+        val loopVariable = MutableRemoteFloat()
         val childSpan = buffer.recordInChildSpan { body(loopVariable) }
 
         val op =
             buffer.recordRenderingOp(
                 CanvasOp.Draw { writer ->
-                    val indexId = Utils.idFromNan(loopVariableId)
-                    writer.loop(indexId, from.floatId, step.floatId, until.floatId) {
+                    writer.loop(loopVariable.id, from.floatId, step.floatId, until.floatId) {
                         childSpan.record(writer, creationState)
                     }
                 },
@@ -969,8 +963,18 @@ public class RemoteCanvas(
      * @param body Code that generates draw calls to run in a loop.
      */
     public fun loop(from: Int, until: RemoteInt, body: (index: RemoteInt) -> Unit) {
-        // LOCAL PATCH (rc-players): through the float loop, as the port always has; see there.
-        loop(from.rf, until.toRemoteFloat(), 1.rf) { index -> body(index.toRemoteInt()) }
+        val loopVariable = MutableRemoteFloat()
+        val childSpan = buffer.recordInChildSpan { body(loopVariable.toRemoteInt()) }
+
+        val op =
+            buffer.recordRenderingOp(
+                CanvasOp.Draw { writer ->
+                    writer.loop(loopVariable.id, from.toFloat(), 1f, until.floatId) {
+                        childSpan.record(writer, creationState)
+                    }
+                },
+            )
+        buffer.addRoots(op, until)
     }
 
     private fun generateFormalArg(id: Int, actualArg: Any?): BaseRemoteState<*> {
