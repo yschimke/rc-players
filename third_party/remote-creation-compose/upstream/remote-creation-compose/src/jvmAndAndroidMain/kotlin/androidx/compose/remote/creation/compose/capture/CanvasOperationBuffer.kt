@@ -850,9 +850,14 @@ internal class CanvasOperationBuffer(val enableOptimizations: Boolean = false) {
      * Pushes a new save/restore scope onto the save hierarchy, or emits a standalone save command
      * if reinstating an outer frame inside a child span.
      *
-     * @return The updated [saveCount].
+     * @return The [saveCount] before this save: what [restoreToCount] takes to undo it.
      */
     public fun save(): Int {
+        // LOCAL PATCH (rc-players): the count before the save, as `android.graphics.Canvas.save`
+        // returns and as `RemoteCanvas.save` documents ("the value to pass to restoreToCount to
+        // balance this save"). Upstream returns the count after it, which `restoreToCount` restores
+        // nothing for, so the save stays open.
+        val saveCountBefore = globalSaveCounter
         if (globalSaveCounter < initialSpanSaveCount) {
             recordRenderingOp(CanvasOp.Draw { it.save() })
             globalSaveCounter++
@@ -862,7 +867,7 @@ internal class CanvasOperationBuffer(val enableOptimizations: Boolean = false) {
             currentSaveRestoreNode = node
             globalSaveCounter++
         }
-        return globalSaveCounter
+        return saveCountBefore
     }
 
     /** Restores the canvas state from the previous [save] call. */

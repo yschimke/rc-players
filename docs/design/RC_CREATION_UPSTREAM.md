@@ -535,6 +535,23 @@ the JVM parser as it is for `addPathString`.
 *Verified by reading; the fork's port of the parser is tested (`CarriedCreationApiTest` in
 `:rc-creation-bridge`), AndroidX's is not run here.*
 
+### `RemoteCanvas.save()` returns a count `restoreToCount` does nothing with
+
+`common/layout/RemoteCanvas.kt:193-197` documents `save()` as returning "the value to pass to
+`restoreToCount` to balance this `save`", as `android.graphics.Canvas.save` does. It returns
+`buffer.save()`, and `CanvasOperationBuffer.save` (`common/capture/CanvasOperationBuffer.kt:846-857`)
+increments `globalSaveCounter` and returns it: the count after the save. `restoreToCount`
+(`:877-881`) restores `while (globalSaveCounter > saveCount)`, so
+`val count = canvas.save(); …; canvas.restoreToCount(count)` restores nothing. The save stays open,
+its transform and clip apply to everything drawn afterwards, and inside a child block
+(`drawConditionally`, `loop`, a pattern) the block ends with "Unbalanced save/restore in child
+span". Nothing upstream calls `restoreToCount`, and `RemoteCanvasTest` only reads `saveCount`.
+Suggested fix: return the count before the increment. The fork does.
+
+*Verified by reading, and by tests here: `RcSaveRestoreToCountPlaybackTest` in `:rc-player-embedded`
+captures the documented sequence, alone, nested and inside a conditional block, and plays it;
+before the fix what followed `restoreToCount` was drawn translated, and the block threw.*
+
 ### `RemoteTextMeasurer` changes the paint behind the canvas's back
 
 Each measurement writes a paint directly (`common/layout/RemoteTextMeasure.kt:219-230`:

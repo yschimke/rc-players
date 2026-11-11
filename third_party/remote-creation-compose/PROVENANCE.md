@@ -865,6 +865,7 @@ to offer upstream, and the list is meant to shrink. Paths are package-relative; 
 | Where | What | Why |
 | --- | --- | --- |
 | `capture/CaptureRemoteDocument.kt` | `captureCommonRemoteDocumentInto(writer, …)`; the byte path calls it | Capture into any `RemoteWriter` |
+| `capture/CanvasOperationBuffer.kt` (`save`) | `save()` returns the save count before it, not after | **Upstream bug.** `RemoteCanvas.save` documents its result as what `restoreToCount` takes to balance it, as `android.graphics.Canvas.save` returns; upstream returns the incremented count, for which `restoreToCount` restores nothing, so the save stays open (and a child block throws for the unbalanced save). `RcSaveRestoreToCountPlaybackTest` and `CarriedCreationApiTest` cover it. |
 | `capture/RemoteDocumentSession.kt` (new) | A composition kept alive under a host `CompositionContext`, re-rendered into a fresh writer on demand; reports when a state its last render read changes (`onRenderInputsChanged`) | The live, in-process path. It mirrors upstream's Android `captureRemoteDocument` loop, including its `RenderInvalidationTracker`. |
 | `capture/RemoteComposeCreationState.kt` | `resetComponentIds()`, which also forgets the component tokens' ids (the session sets upstream's own `document` for each render) | A session renders each frame into a fresh writer. Without the reset, every render renumbers every component (upstream has the same drift). |
 | `layout/RemoteComposeApplier.kt` | `onChangesApplied` | Tells a session when to re-render |

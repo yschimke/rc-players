@@ -131,7 +131,7 @@ class CarriedCreationApiTest {
       canvas.scale(2f.rf, 2f.rf)
       drawRect(paint)
       counts += canvas.saveCount
-      canvas.restoreToCount(outer - 1)
+      canvas.restoreToCount(outer)
       counts += canvas.saveCount
       drawCircle(paint, 3f.rf)
     }
