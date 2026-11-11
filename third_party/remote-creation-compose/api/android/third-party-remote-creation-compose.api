@@ -111,6 +111,8 @@ public class androidx/compose/remote/creation/compose/capture/RemoteComposeCreat
 	public final fun getReady ()Z
 	public fun getRemoteDensity ()Landroidx/compose/remote/creation/compose/capture/RemoteDensity;
 	public final fun getRemoteVariableToId ()Landroidx/collection/MutableObjectIntMap;
+	public final fun readsRetiredId ([F)Z
+	public final fun readsRetiredId ([J)Z
 	public final fun recordScopedFloatArrayKey (Landroidx/compose/remote/creation/compose/state/RemoteStateCacheKey;)V
 	public final fun recordScopedLongArrayKey (Landroidx/compose/remote/creation/compose/state/RemoteStateCacheKey;)V
 	public final fun recordScopedVariableKey (Landroidx/compose/remote/creation/compose/state/RemoteStateCacheKey;)V
@@ -123,6 +125,10 @@ public class androidx/compose/remote/creation/compose/capture/RemoteComposeCreat
 	public final fun setReady (Z)V
 	public fun setRemoteDensity (Landroidx/compose/remote/creation/compose/capture/RemoteDensity;)V
 	public final fun withCanvasOperationsScope (Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
+}
+
+public final class androidx/compose/remote/creation/compose/capture/RemoteComposeCreationStateKt {
+	public static final field INTEGER_ID_OFFSET J
 }
 
 public final class androidx/compose/remote/creation/compose/capture/RemoteCompositionLocalsKt {

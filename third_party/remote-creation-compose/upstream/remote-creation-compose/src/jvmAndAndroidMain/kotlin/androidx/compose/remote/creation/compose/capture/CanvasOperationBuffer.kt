@@ -867,6 +867,7 @@ internal class CanvasOperationBuffer(val enableOptimizations: Boolean = false) {
             currentSaveRestoreNode = node
             globalSaveCounter++
         }
+        // LOCAL PATCH (rc-players): the count before the save; see the top of this function.
         return saveCountBefore
     }
 

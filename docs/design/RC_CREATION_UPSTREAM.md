@@ -550,6 +550,17 @@ in the body only what is computed from the pattern's parameters (or the for-each
 everything else before the definition; or scope the caches to the body. The fork's writer does the
 first: it tracks the ids a body owns and writes a declaration in the body only when it reads one.
 
+Two more forms of the same exposure, read in upstream and not run against it. A body nested in a
+body: an expression of the outer pattern's parameter first used inside a `forEach` in it is
+declared in the for-each's template, and the same caches answer that id for the outer body's later
+use, unless the canvas's common sub-expression pass saw both uses (it sees what a draw registers
+with `addRoots`; a paint's states are not registered). And an id taken while the body is being
+recorded: `x.floatId` on an expression of the parameter, for a `RemotePath` coordinate, writes the
+expression at that moment, before the pattern definition is written when the canvas flushes, so
+it is outside the template. `vector/RemoteVector.kt`'s `toRemotePath(clipPath, remoteCanvas)` takes
+ids that way. The fork checks its caches against the ids of bodies that have ended, and refuses
+the second form when the body is opened.
+
 *Verified with a document laid out as upstream's writer lays it out (the fork's, before the fix,
 wrote every declaration of a pattern body in the body): `LoomPatternsTest` in `:rc-creation-bridge`
 has AndroidX's reader (`remote-core` 1.0.0-alpha23) expand "a pattern that draws a circle of a named
