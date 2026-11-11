@@ -884,10 +884,8 @@ behaviours (it calls every function above), and its decoration document under bo
 
 ## Known port issues
 
-- **Scroll orientation.** `modifier/ScrollModifier.kt` writes 1 for `verticalScroll` and 0 for
-  `horizontalScroll`. `remote-creation-core`'s `ScrollModifier` has `VERTICAL = 0` and
-  `HORIZONTAL = 1`, and `ScrollModifierOperation` reads 0 as vertical. Found by reading both sides
-  in step 2 and left as it is, because the step must not change a document; fixed separately.
+- **Scroll orientation** was reversed (`verticalScroll` wrote 1, the wire's horizontal). Fixed on
+  its own, with `ScrollDirectionTest`.
 - **Unbalanced `save`/`restore`.** As upstream since step 4, a `restore` without a `save` throws,
   a child block (`drawConditionally`, `loop`, `drawToOffscreenBitmap`, a pattern) has to restore
   what it saves, and a `save` with nothing drawn inside a block does not keep the block alive. The

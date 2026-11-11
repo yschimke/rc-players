@@ -155,9 +155,7 @@ public fun RemoteModifier.horizontalScroll(state: RemoteScrollState): RemoteModi
 }
 
 // KMP (rc-players): there is no `remote-creation-core` `ScrollModifier` to read `VERTICAL` and
-// `HORIZONTAL` from, so the port has its own.
-// TODO(rc-players): these are the reverse of that class's (`VERTICAL = 0`, `HORIZONTAL = 1`,
-// which is also what `ScrollModifierOperation` reads). Left as the port has them so that the
-// documents written do not change in the realignment; see PROVENANCE.md, "Known port issues".
-private const val Horizontal = 0
-private const val Vertical = 1
+// `HORIZONTAL` from, so the port has its own, with that class's values: the wire's direction,
+// which `ScrollModifierOperation` reads as vertical when 0.
+private const val Vertical = 0
+private const val Horizontal = 1
