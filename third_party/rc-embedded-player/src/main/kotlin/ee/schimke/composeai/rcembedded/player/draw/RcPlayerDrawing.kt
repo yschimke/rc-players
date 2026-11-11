@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-@file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection")
+@file:Suppress("PrimitiveInCollection")
 @file:OptIn(ExperimentalRemotePlayerApi::class)
 
 package ee.schimke.composeai.rcembedded.player.draw

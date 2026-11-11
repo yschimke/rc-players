@@ -19,7 +19,7 @@ removed on 2026-09-25; the CMP player (`rc-player/compose`) is this repository's
 - Paths:
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/embedded`
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/utils`
-- Commit: `a328222bef45dc531efb8fba3760b15b0bba67f4` (`androidx-main`, 2026-11-04)
+- Commit: `21a1a95e41de8a72a30e70b471122530089a5c58` (`androidx-main`, 2026-11-10)
 - License: Apache-2.0
 
 ## How the copy is made
@@ -35,16 +35,17 @@ removed on 2026-09-25; the CMP player (`rc-player/compose`) is this repository's
    it.
 3. Run `./gradlew :third-party-rc-embedded-player:ktfmtFormat`. This module is formatted in ktfmt's
    kotlinlang style, which is what AndroidX uses (`build.gradle.kts`). The formatter changes import
-   order in an upstream file, since the renamed imports sort differently. It also rewraps the odd
-   line where AndroidX's ktfmt version differs from this one: `RcPlayerState.kt`,
-   `components/RcPlayerTouch.kt` and `modifier/ClickModifier.kt` at this pin.
+   order in an upstream file, since the renamed imports sort differently. Where AndroidX's ktfmt
+   version differs from this one it also adds a trailing comma to an argument list that is already
+   broken over lines, and rewraps the odd line: `RcPlayerState.kt`, `components/RcPlayerTouch.kt`
+   and `modifier/ClickModifier.kt` at this pin.
 4. Re-apply the patches and version-skew shims below. Every patched line sits under a
    `// LOCAL PATCH (rc-players)` or `// VERSION SKEW (rc-players)` comment, and the helpers they need
    live in files of their own.
 
 `scripts/diff-upstream.sh <androidx checkout>` diffs this copy against a checkout with the package
-rewrite and import order normalised. Its output should be the patches and shims listed here and nothing more
-than that rewrapping.
+rewrite and import order normalised. Its output should be the patches and shims listed here and
+nothing more than that formatting.
 
 ## Version skew
 
@@ -59,16 +60,24 @@ no reflection left in the copied sources.
 `remote-core`, `remote-player-compose` and `remote-creation-compose` `-sources.jar`s match that
 tree file for file (302/302, 103/103 and 213/214, the odd one out being the generated `R.java`).
 The pin is `androidx-main` HEAD rather than that commit because HEAD compiles against alpha23 with
-one small shim, and the player work after the cut (TextAttribute/TextMeasure ink bounds,
-`697c967d0d9`; O(1) core-paint seeding, `e293d337e0f`) is what a comparison lane should measure.
-Move the pin back to the newest commit that compiles if a later refresh needs more shimming.
+two one-line shims, and the player work after the cut (TextAttribute/TextMeasure ink bounds,
+`697c967d0d9`; O(1) core-paint seeding, `e293d337e0f`; float variables resolved across the player,
+`300a543b216`; the layer compositing strategy, `28fb380046b`) is what a comparison lane should
+measure. Nothing the player gained after the cut reaches a `remote-core` member alpha23 lacks: the
+graphics layer's `COMPOSITING_STRATEGY` attribute and the raw padding and dimension accessors the
+float-variable sweep reads are all in the release. Move the pin back to the newest commit that
+compiles if a later refresh needs more shimming.
 
-The shim, to be removed once the pinned release catches up:
+The shims, both in `CreationVersionSkew.kt` and both to be removed once the pinned release catches
+up. Each stands in for a name that moved after the cut; the file that uses it drops that one import
+line and resolves the alias from its own package instead.
 
-- `CreationVersionSkew.kt` declares `RemoteCapturedDocument` as a typealias of alpha23's
-  `CapturedDocument`. `remote-creation-compose` renamed the class in `7177ff18cdd`, after the cut,
-  and `RcPlayer.kt` / `RcPlayerState.kt` import the new name; here they drop that one import line
-  and resolve the alias from their own package instead.
+- `RemoteCapturedDocument` is a typealias of alpha23's `CapturedDocument`. `remote-creation-compose`
+  renamed the class in `7177ff18cdd`, and `RcPlayer.kt` / `RcPlayerState.kt` import the new name.
+- `PendingIntentActionHandler` is a typealias of alpha23's class of that name in
+  `androidx.compose.remote.creation.compose.action`. `3be30799c59` moved it, unchanged but for its
+  KDoc links, to `remote-player-compose`'s `androidx.compose.remote.player.compose.action`, where
+  `RcPlayer.kt` now imports it from.
 
 The previous pin's two shims retired with alpha23, which ships the core changes they stood in for:
 `doc/RcPlayerPreprocess.kt`'s `floatExpressions` registration (`461d551382f`) and the
@@ -94,6 +103,28 @@ Files that exist only here:
 - `CreationVersionSkew.kt`: the version-skew shim described above.
 - `../GoogleFontFamilies.kt`: the Google Fonts cache resolver behind the `google:` patch. It is null
   unless `composeai.fonts.cacheDir` is set, which is a render-side property no app sets.
+
+### The 2026-11-11 refresh
+
+Upstream from `a328222bef` to `21a1a95e41` retires no local patch and adds one shim, the
+`PendingIntentActionHandler` move above. In the copied sources it changes:
+
+- Float variables resolved across the player (`300a543b216`). A row's, column's or collapsible
+  layout's child weight is read reactively (the new `layout/RcPlayerWeight.kt`) and a child whose
+  weight is not a positive number is left unweighted, where a variable weight reached
+  `Modifier.weight` as NaN and threw. `CoreText` letter spacing, line height and autosize bounds
+  are resolved, and a value that is not a number is read as unset. A text's font weight is clamped
+  to 1..1000. The content size a component publishes subtracts padding as `Modifier.padding`
+  applies it, and is republished when a variable padding changes.
+- `DrawTextOnCircle` reads its centre, radius, start angle and warp offset through the draw's read
+  context (`6de498aec4f`), and draws nothing on an empty circle, as the View player does.
+- The graphics layer's `COMPOSITING_STRATEGY` maps to Compose's `CompositingStrategy`
+  (`28fb380046b`). The View player still ignores the attribute.
+- The `RestrictedApiAndroidX` lint suppressions are gone from every file (`960c9542e6f`).
+
+The other `remote-player-compose` commits in the range change upstream's own tests and API files,
+neither of which is copied. `renders/embedded-refresh-21a1a95e41/` has the embedded lane over the
+catalog corpus before and after.
 
 ### The 2026-11-05 refresh
 
