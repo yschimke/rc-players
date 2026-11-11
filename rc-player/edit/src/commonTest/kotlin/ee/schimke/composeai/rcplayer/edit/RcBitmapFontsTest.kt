@@ -343,6 +343,73 @@ class RcBitmapFontsTest {
     )
   }
 
+  /** Two texts alike but for their constant colours: red and blue. */
+  private val twoColours =
+    screen(
+      texts =
+        text(42, -7, IntValue(3, 0xffff0000.toInt())) +
+          text(43, -8, IntValue(3, 0xff0000ff.toInt())),
+    )
+
+  @Test
+  fun eachConstantColourDrawsItsOwnFontByDefault() {
+    val operations = twoColours.bitmapFonts().document.operations
+    assertEquals(2, operations.filterIsInstance<RcBitmapFontData>().size)
+    assertTrue(operations.none { it is RcPaintData }, "the colours are drawn into the glyphs")
+  }
+
+  @Test
+  fun withMasksConstantColoursShareOneFontEachCanvasTintingIt() {
+    val operations =
+      twoColours
+        .coreTextAsBitmapFonts(
+          RcTargetProfiles.WIDGETS_V6,
+          setOf("Digital7"),
+          rasterizer,
+          RcDisplay(2f),
+          masks = true,
+        )
+        .document
+        .operations
+    val font = operations.filterIsInstance<RcBitmapFontData>().single()
+    assertEquals(
+      listOf("0", "1", "2", "3", ":"),
+      font.glyphs.map { it.chars },
+      "both texts' glyphs",
+    )
+    assertTrue(asked.all { it.color == 0xffffffff.toInt() }, "white masks")
+    assertEquals(
+      listOf(
+        RcPaintData(listOf(13 or (5 shl 16), 0xffff0000.toInt())),
+        RcPaintData(listOf(13 or (5 shl 16), 0xff0000ff.toInt())),
+      ),
+      operations.filterIsInstance<RcPaintData>(),
+      "each text's canvas tints the mask its colour",
+    )
+    assertEquals(
+      listOf(font.fontId, font.fontId),
+      operations.filterIsInstance<RcDrawBitmapFontTextRun>().map { it.bitmapFontId },
+    )
+  }
+
+  @Test
+  fun liveColoursShareOneFont() {
+    val themed =
+      screen(
+        RcColorConstant(60, 0xff00ff00.toInt()),
+        RcNamedVariable(60, RcNamedVariable.COLOR_TYPE, "USER:accent"),
+        RcColorConstant(61, 0xff0000ff.toInt()),
+        RcNamedVariable(61, RcNamedVariable.COLOR_TYPE, "USER:warning"),
+        texts = text(42, -7, IntValue(4, 60)) + text(43, -8, IntValue(4, 61)),
+      )
+    val operations = themed.bitmapFonts().document.operations
+    assertEquals(1, operations.filterIsInstance<RcBitmapFontData>().size, "the same white glyphs")
+    assertEquals(
+      listOf(RcPaintData(listOf(20 or (5 shl 16), 60)), RcPaintData(listOf(20 or (5 shl 16), 61))),
+      operations.filterIsInstance<RcPaintData>(),
+    )
+  }
+
   @Test
   fun letterSpacingBecomesGlyphSpacing() {
     val spaced = screen(texts = text(42, -7, FloatValue(12, f(0.5f))))
