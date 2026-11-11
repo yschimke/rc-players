@@ -1,0 +1,1704 @@
+public final class ee/schimke/composeai/rccreation/common/AccessibleComponent {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/AccessibleComponent;
+}
+
+public final class ee/schimke/composeai/rccreation/common/AccessibleComponent$Role : java/lang/Enum {
+	public static final field BUTTON Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+	public static final field CAROUSEL Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+	public static final field CHECKBOX Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+	public static final field DROPDOWN_LIST Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+	public static final field IMAGE Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+	public static final field PICKER Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+	public static final field RADIO_BUTTON Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+	public static final field SWITCH Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+	public static final field TAB Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+	public static final field UNKNOWN Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+	public static fun values ()[Lee/schimke/composeai/rccreation/common/AccessibleComponent$Role;
+}
+
+public final class ee/schimke/composeai/rccreation/common/AnimatedFloatExpression {
+	public static final field Companion Lee/schimke/composeai/rccreation/common/AnimatedFloatExpression$Companion;
+	public static final field OFFSET I
+	public fun <init> ()V
+}
+
+public final class ee/schimke/composeai/rccreation/common/AnimatedFloatExpression$Companion {
+	public final fun getABS ()F
+	public final fun getACOS ()F
+	public final fun getADD ()F
+	public final fun getASIN ()F
+	public final fun getATAN ()F
+	public final fun getATAN2 ()F
+	public final fun getA_AVG ()F
+	public final fun getA_DEREF ()F
+	public final fun getA_LEN ()F
+	public final fun getA_LERP ()F
+	public final fun getA_MAX ()F
+	public final fun getA_MIN ()F
+	public final fun getA_SPLINE ()F
+	public final fun getA_SPLINE_LOOP ()F
+	public final fun getA_SUM ()F
+	public final fun getA_SUM_SQR ()F
+	public final fun getA_SUM_TILL ()F
+	public final fun getA_SUM_XY ()F
+	public final fun getCBRT ()F
+	public final fun getCEIL ()F
+	public final fun getCHANGE_SIGN ()F
+	public final fun getCLAMP ()F
+	public final fun getCOPY_SIGN ()F
+	public final fun getCOS ()F
+	public final fun getCUBIC ()F
+	public final fun getDEG ()F
+	public final fun getDIV ()F
+	public final fun getEXP ()F
+	public final fun getFLOOR ()F
+	public final fun getIFELSE ()F
+	public final fun getLERP ()F
+	public final fun getLN ()F
+	public final fun getLOG ()F
+	public final fun getMAD ()F
+	public final fun getMAX ()F
+	public final fun getMIN ()F
+	public final fun getMOD ()F
+	public final fun getMUL ()F
+	public final fun getPOW ()F
+	public final fun getRAD ()F
+	public final fun getRAND ()F
+	public final fun getRAND_IN_RANGE ()F
+	public final fun getROUND ()F
+	public final fun getSIGN ()F
+	public final fun getSIN ()F
+	public final fun getSQRT ()F
+	public final fun getSUB ()F
+	public final fun getTAN ()F
+	public final fun getVAR1 ()F
+	public final fun getVAR2 ()F
+	public final fun getVAR3 ()F
+	public final fun isMathOperator (F)Z
+	public final fun toString ([F[Ljava/lang/String;)Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/AnimationSpec {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/AnimationSpec;
+}
+
+public final class ee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION : java/lang/Enum {
+	public static final field CUSTOM Lee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION;
+	public static final field FADE_IN Lee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION;
+	public static final field FADE_OUT Lee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION;
+	public static final field PARTICLE Lee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION;
+	public static final field ROTATE Lee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION;
+	public static final field SLIDE_BOTTOM Lee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION;
+	public static final field SLIDE_LEFT Lee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION;
+	public static final field SLIDE_RIGHT Lee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION;
+	public static final field SLIDE_TOP Lee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION;
+	public static fun values ()[Lee/schimke/composeai/rccreation/common/AnimationSpec$ANIMATION;
+}
+
+public final class ee/schimke/composeai/rccreation/common/AnimationSpec$SEQUENCE : java/lang/Enum {
+	public static final field AFTER Lee/schimke/composeai/rccreation/common/AnimationSpec$SEQUENCE;
+	public static final field BEFORE Lee/schimke/composeai/rccreation/common/AnimationSpec$SEQUENCE;
+	public static final field CONCURRENT Lee/schimke/composeai/rccreation/common/AnimationSpec$SEQUENCE;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rccreation/common/AnimationSpec$SEQUENCE;
+	public static fun values ()[Lee/schimke/composeai/rccreation/common/AnimationSpec$SEQUENCE;
+}
+
+public final class ee/schimke/composeai/rccreation/common/BitmapFontGlyph {
+	public fun <init> (Ljava/lang/String;ISSSSSS)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()I
+	public final fun component3 ()S
+	public final fun component4 ()S
+	public final fun component5 ()S
+	public final fun component6 ()S
+	public final fun component7 ()S
+	public final fun component8 ()S
+	public final fun copy (Ljava/lang/String;ISSSSSS)Lee/schimke/composeai/rccreation/common/BitmapFontGlyph;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/BitmapFontGlyph;Ljava/lang/String;ISSSSSSILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/BitmapFontGlyph;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBitmapId ()I
+	public final fun getChars ()Ljava/lang/String;
+	public final fun getHeight ()S
+	public final fun getMarginBottom ()S
+	public final fun getMarginLeft ()S
+	public final fun getMarginRight ()S
+	public final fun getMarginTop ()S
+	public final fun getWidth ()S
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/BitmapTextMeasure {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/BitmapTextMeasure;
+	public static final field MEASURE_HEIGHT I
+	public static final field MEASURE_WIDTH I
+}
+
+public final class ee/schimke/composeai/rccreation/common/CollapsiblePriority {
+	public static final field HORIZONTAL I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/CollapsiblePriority;
+	public static final field VERTICAL I
+}
+
+public final class ee/schimke/composeai/rccreation/common/ColorAttribute {
+	public static final field COLOR_ALPHA S
+	public static final field COLOR_BLUE S
+	public static final field COLOR_BRIGHTNESS S
+	public static final field COLOR_GREEN S
+	public static final field COLOR_HUE S
+	public static final field COLOR_RED S
+	public static final field COLOR_SATURATION S
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/ColorAttribute;
+}
+
+public final class ee/schimke/composeai/rccreation/common/ColumnLayout {
+	public static final field BOTTOM I
+	public static final field CENTER I
+	public static final field END I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/ColumnLayout;
+	public static final field SPACE_AROUND I
+	public static final field SPACE_BETWEEN I
+	public static final field SPACE_EVENLY I
+	public static final field START I
+	public static final field TOP I
+}
+
+public final class ee/schimke/composeai/rccreation/common/ComponentValue {
+	public static final field HEIGHT I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/ComponentValue;
+	public static final field POS_ROOT_X I
+	public static final field POS_ROOT_Y I
+	public static final field POS_X I
+	public static final field POS_Y I
+	public static final field WIDTH I
+}
+
+public final class ee/schimke/composeai/rccreation/common/ConditionalOperations {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/ConditionalOperations;
+	public static final field TYPE_EQ I
+	public static final field TYPE_GT I
+	public static final field TYPE_GTE I
+	public static final field TYPE_LT I
+	public static final field TYPE_LTE I
+	public static final field TYPE_NEQ I
+}
+
+public final class ee/schimke/composeai/rccreation/common/CoreDocument {
+	public static final field DENSITY_BEHAVIOR_DP I
+	public static final field DENSITY_BEHAVIOR_LEGACY I
+	public static final field DENSITY_BEHAVIOR_PIXELS I
+	public static final field DOCUMENT_API_LEVEL I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/CoreDocument;
+}
+
+public final class ee/schimke/composeai/rccreation/common/CoreText {
+	public static final field BREAK_STRATEGY_BALANCED I
+	public static final field BREAK_STRATEGY_HIGH_QUALITY I
+	public static final field BREAK_STRATEGY_SIMPLE I
+	public static final field HYPHENATION_FREQUENCY_FULL I
+	public static final field HYPHENATION_FREQUENCY_FULL_FAST I
+	public static final field HYPHENATION_FREQUENCY_NONE I
+	public static final field HYPHENATION_FREQUENCY_NORMAL I
+	public static final field HYPHENATION_FREQUENCY_NORMAL_FAST I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/CoreText;
+}
+
+public final class ee/schimke/composeai/rccreation/common/CubicEasing {
+	public fun <init> ()V
+	public final fun get (F)F
+	public final fun setup (FFFF)V
+}
+
+public final class ee/schimke/composeai/rccreation/common/Custom {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/Custom;
+}
+
+public final class ee/schimke/composeai/rccreation/common/Custom$CustomProperty {
+	public static final field COLOR_ID_PROP S
+	public static final field COLOR_PROP S
+	public static final field COLOR_RETURN S
+	public static final field Companion Lee/schimke/composeai/rccreation/common/Custom$CustomProperty$Companion;
+	public static final field FLOAT_PROP S
+	public static final field FLOAT_RETURN S
+	public static final field INT_ID_PROP S
+	public static final field INT_PROP S
+	public static final field INT_RETURN S
+	public static final field STRING_PROP S
+	public static final field TEXT_RETURN S
+	public fun <init> (SSF)V
+	public fun <init> (SSI)V
+	public final fun getDataType ()S
+	public final fun getFloatValue ()F
+	public final fun getId ()S
+	public final fun getIntValue ()I
+}
+
+public final class ee/schimke/composeai/rccreation/common/Custom$CustomProperty$Companion {
+}
+
+public final class ee/schimke/composeai/rccreation/common/DimensionModifierOperation {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/DimensionModifierOperation;
+}
+
+public final class ee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type : java/lang/Enum {
+	public static final field Companion Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type$Companion;
+	public static final field EXACT Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+	public static final field EXACT_DP Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+	public static final field FILL Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+	public static final field FILL_PARENT_MAX_HEIGHT Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+	public static final field FILL_PARENT_MAX_WIDTH Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+	public static final field INTRINSIC_MAX Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+	public static final field INTRINSIC_MIN Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+	public static final field WEIGHT Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+	public static final field WRAP Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+	public static fun values ()[Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+}
+
+public final class ee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type$Companion {
+	public final fun fromInt (I)Lee/schimke/composeai/rccreation/common/DimensionModifierOperation$Type;
+}
+
+public final class ee/schimke/composeai/rccreation/common/DrawTextOnCircle {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/DrawTextOnCircle;
+}
+
+public final class ee/schimke/composeai/rccreation/common/DrawTextOnCircle$Alignment : java/lang/Enum {
+	public static final field CENTER Lee/schimke/composeai/rccreation/common/DrawTextOnCircle$Alignment;
+	public static final field END Lee/schimke/composeai/rccreation/common/DrawTextOnCircle$Alignment;
+	public static final field START Lee/schimke/composeai/rccreation/common/DrawTextOnCircle$Alignment;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rccreation/common/DrawTextOnCircle$Alignment;
+	public static fun values ()[Lee/schimke/composeai/rccreation/common/DrawTextOnCircle$Alignment;
+}
+
+public final class ee/schimke/composeai/rccreation/common/DrawTextOnCircle$Placement : java/lang/Enum {
+	public static final field INSIDE Lee/schimke/composeai/rccreation/common/DrawTextOnCircle$Placement;
+	public static final field OUTSIDE Lee/schimke/composeai/rccreation/common/DrawTextOnCircle$Placement;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rccreation/common/DrawTextOnCircle$Placement;
+	public static fun values ()[Lee/schimke/composeai/rccreation/common/DrawTextOnCircle$Placement;
+}
+
+public final class ee/schimke/composeai/rccreation/common/FloatAnimation {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/FloatAnimation;
+	public final fun packToFloatArray (FI[FFF)[F
+}
+
+public final class ee/schimke/composeai/rccreation/common/GeneralEasing {
+	public static final field CUBIC_STANDARD I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/GeneralEasing;
+}
+
+public final class ee/schimke/composeai/rccreation/common/HostNamedActionOperation {
+	public static final field FLOAT_ARRAY_TYPE I
+	public static final field FLOAT_TYPE I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/HostNamedActionOperation;
+	public static final field INT_TYPE I
+	public static final field NONE_TYPE I
+	public static final field STRING_TYPE I
+}
+
+public final class ee/schimke/composeai/rccreation/common/ImageAttribute {
+	public static final field IMAGE_HEIGHT S
+	public static final field IMAGE_WIDTH S
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/ImageAttribute;
+}
+
+public final class ee/schimke/composeai/rccreation/common/ImageScaling {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/ImageScaling;
+	public static final field SCALE_CROP I
+	public static final field SCALE_FILL_BOUNDS I
+	public static final field SCALE_FILL_HEIGHT I
+	public static final field SCALE_FILL_WIDTH I
+	public static final field SCALE_FIT I
+	public static final field SCALE_INSIDE I
+	public static final field SCALE_NONE I
+}
+
+public final class ee/schimke/composeai/rccreation/common/IntegerExpressionEvaluator {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/IntegerExpressionEvaluator;
+	public static final field I_ABS I
+	public static final field I_ADD I
+	public static final field I_AND I
+	public static final field I_CLAMP I
+	public static final field I_COPY_SIGN I
+	public static final field I_DECR I
+	public static final field I_DIV I
+	public static final field I_IFELSE I
+	public static final field I_INCR I
+	public static final field I_MAD I
+	public static final field I_MAX I
+	public static final field I_MIN I
+	public static final field I_MOD I
+	public static final field I_MUL I
+	public static final field I_NEG I
+	public static final field I_NOT I
+	public static final field I_OR I
+	public static final field I_SHL I
+	public static final field I_SHR I
+	public static final field I_SIGN I
+	public static final field I_SUB I
+	public static final field I_USHR I
+	public static final field I_VAR1 I
+	public static final field I_VAR2 I
+	public static final field I_XOR I
+	public static final field OFFSET I
+}
+
+public final class ee/schimke/composeai/rccreation/common/MatrixOperations {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/MatrixOperations;
+	public final fun getIDENTITY ()F
+	public final fun getMUL ()F
+	public final fun getROT_PZ ()F
+	public final fun getROT_Z ()F
+	public final fun getSCALE_X ()F
+	public final fun getSCALE_Y ()F
+	public final fun getTRANSLATE2 ()F
+	public final fun getTRANSLATE_X ()F
+	public final fun getTRANSLATE_Y ()F
+}
+
+public final class ee/schimke/composeai/rccreation/common/Mesh2D {
+	public static final field BLEND_COLORS_ONLY I
+	public static final field BLEND_MODULATE I
+	public static final field FLAG_ANTIALIAS I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/Mesh2D;
+	public static final field LAYOUT_FAN I
+	public static final field LAYOUT_GRID I
+	public static final field LAYOUT_PATH_STRIP I
+	public static final field LAYOUT_POLAR I
+	public static final field LAYOUT_RING I
+	public static final field LAYOUT_STRIP I
+	public static final field MATRIX_FULL I
+	public static final field MATRIX_ORIGIN I
+	public static final field MATRIX_ROTATION I
+	public static final field MATRIX_SCALE I
+	public static final field MAX_EXPRESSION_SIZE I
+	public static final field MAX_GRID I
+	public static final field MAX_INDICES I
+	public static final field MAX_VERTICES I
+	public static final field TYPE_EXPRESSION I
+	public static final field TYPE_F16_VALUES I
+	public static final field TYPE_VALUES I
+	public final fun getU ()F
+	public final fun getV ()F
+}
+
+public final class ee/schimke/composeai/rccreation/common/MonotonicSpline {
+	public fun <init> ([F[F)V
+	public final fun getPos (F)F
+}
+
+public final class ee/schimke/composeai/rccreation/common/MultiClickModifier {
+	public static final field CLICK_TYPE_DOUBLE I
+	public static final field CLICK_TYPE_LONG I
+	public static final field CLICK_TYPE_SINGLE I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/MultiClickModifier;
+}
+
+public final class ee/schimke/composeai/rccreation/common/NamedVariable {
+	public static final field COLOR_TYPE I
+	public static final field FLOAT_ARRAY_TYPE I
+	public static final field FLOAT_TYPE I
+	public static final field IMAGE_TYPE I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/NamedVariable;
+	public static final field INT_TYPE I
+	public static final field LONG_TYPE I
+	public static final field STRING_TYPE I
+}
+
+public final class ee/schimke/composeai/rccreation/common/Operations {
+	public static final field CLIP_PATH I
+	public static final field COLOR_THEME I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/Operations;
+	public static final field MODIFIER_TOUCH_CANCEL I
+	public static final field MODIFIER_TOUCH_DOWN I
+	public static final field MODIFIER_TOUCH_UP I
+}
+
+public final class ee/schimke/composeai/rccreation/common/PaintBundle {
+	public static final field Alpha I
+	public static final field AntiAlias I
+	public static final field BLEND_MODE_CLEAR I
+	public static final field BLEND_MODE_COLOR I
+	public static final field BLEND_MODE_COLOR_BURN I
+	public static final field BLEND_MODE_COLOR_DODGE I
+	public static final field BLEND_MODE_DARKEN I
+	public static final field BLEND_MODE_DIFFERENCE I
+	public static final field BLEND_MODE_DST I
+	public static final field BLEND_MODE_DST_ATOP I
+	public static final field BLEND_MODE_DST_IN I
+	public static final field BLEND_MODE_DST_OUT I
+	public static final field BLEND_MODE_DST_OVER I
+	public static final field BLEND_MODE_EXCLUSION I
+	public static final field BLEND_MODE_HARD_LIGHT I
+	public static final field BLEND_MODE_HUE I
+	public static final field BLEND_MODE_LIGHTEN I
+	public static final field BLEND_MODE_LUMINOSITY I
+	public static final field BLEND_MODE_MODULATE I
+	public static final field BLEND_MODE_MULTIPLY I
+	public static final field BLEND_MODE_OVERLAY I
+	public static final field BLEND_MODE_PLUS I
+	public static final field BLEND_MODE_SATURATION I
+	public static final field BLEND_MODE_SCREEN I
+	public static final field BLEND_MODE_SOFT_LIGHT I
+	public static final field BLEND_MODE_SRC I
+	public static final field BLEND_MODE_SRC_ATOP I
+	public static final field BLEND_MODE_SRC_IN I
+	public static final field BLEND_MODE_SRC_OUT I
+	public static final field BLEND_MODE_SRC_OVER I
+	public static final field BLEND_MODE_XOR I
+	public static final field BlendMode I
+	public static final field ClearColorFilter I
+	public static final field Color I
+	public static final field ColorFilter I
+	public static final field ColorFilterId I
+	public static final field ColorId I
+	public static final field Companion Lee/schimke/composeai/rccreation/common/PaintBundle$Companion;
+	public static final field FONT_TYPE_DEFAULT I
+	public static final field FONT_TYPE_MONOSPACE I
+	public static final field FONT_TYPE_SANS_SERIF I
+	public static final field FONT_TYPE_SERIF I
+	public static final field FallbackTypeface I
+	public static final field FilterBitmap I
+	public static final field FontAxis I
+	public static final field Gradient I
+	public static final field ImageFilterQuality I
+	public static final field LinearGradient I
+	public static final field PathEffect I
+	public static final field RadialGradient I
+	public static final field STYLE_FILL I
+	public static final field STYLE_FILL_AND_STROKE I
+	public static final field STYLE_STROKE I
+	public static final field Shader I
+	public static final field ShaderMatrix I
+	public static final field StrokeCap I
+	public static final field StrokeJoin I
+	public static final field StrokeMiter I
+	public static final field StrokeWidth I
+	public static final field Style I
+	public static final field SweepGradient I
+	public static final field TextSize I
+	public static final field Texture I
+	public static final field Typeface I
+	public fun <init> ()V
+	public final fun clearColorFilter ()Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun reset ()V
+	public final fun setAlpha (F)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setAntiAlias (Z)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setBlendMode (I)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setColor (I)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setColorFilter (II)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setColorFilterId (II)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setColorId (I)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setFallbackTypeface (IIZ)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setFilterBitmap (Z)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setImageFilterQuality (I)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setLinearGradient ([II[FFFFFI)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setPathEffect ([F)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setRadialGradient ([II[FFFFI)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setShader (I)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setShaderMatrix (F)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setStrokeCap (I)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setStrokeJoin (I)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setStrokeMiter (F)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setStrokeWidth (F)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setStyle (I)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setSweepGradient ([II[FFF)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setTextAxis ([I[F)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setTextSize (F)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setTextStyle (IIZZ)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public static synthetic fun setTextStyle$default (Lee/schimke/composeai/rccreation/common/PaintBundle;IIZZILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun setTextureShader (ISSSS)Lee/schimke/composeai/rccreation/common/PaintBundle;
+	public final fun toIntArray ()[I
+}
+
+public final class ee/schimke/composeai/rccreation/common/PaintBundle$Companion {
+}
+
+public final class ee/schimke/composeai/rccreation/common/PaintContext {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/PaintContext;
+	public static final field TEXT_COMPLEX I
+	public static final field TEXT_MEASURE_FONT_HEIGHT I
+	public static final field TEXT_MEASURE_MONOSPACE_WIDTH I
+	public static final field TEXT_MEASURE_SPACES I
+}
+
+public final class ee/schimke/composeai/rccreation/common/Rc {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/Rc;
+}
+
+public final class ee/schimke/composeai/rccreation/common/Rc$System {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/Rc$System;
+	public final fun getFONT_SIZE ()F
+}
+
+public final class ee/schimke/composeai/rccreation/common/Rc$Texture {
+	public static final field FILTER_DEFAULT S
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/Rc$Texture;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RcPaint {
+	public fun <init> (Lee/schimke/composeai/rccreation/common/RemoteWriter;)V
+	public final fun commit ()V
+	public final fun setColor (I)Lee/schimke/composeai/rccreation/common/RcPaint;
+	public final fun setStrokeCap (I)Lee/schimke/composeai/rccreation/common/RcPaint;
+	public final fun setStrokeJoin (I)Lee/schimke/composeai/rccreation/common/RcPaint;
+	public final fun setStrokeWidth (F)Lee/schimke/composeai/rccreation/common/RcPaint;
+	public final fun setStyle (I)Lee/schimke/composeai/rccreation/common/RcPaint;
+	public final fun setTextSize (F)Lee/schimke/composeai/rccreation/common/RcPaint;
+	public final fun setTypeface (IIZ)Lee/schimke/composeai/rccreation/common/RcPaint;
+}
+
+public abstract interface class ee/schimke/composeai/rccreation/common/RemoteActionData {
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteActionData$FloatChange : ee/schimke/composeai/rccreation/common/RemoteActionData {
+	public fun <init> (IF)V
+	public final fun component1 ()I
+	public final fun component2 ()F
+	public final fun copy (IF)Lee/schimke/composeai/rccreation/common/RemoteActionData$FloatChange;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteActionData$FloatChange;IFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteActionData$FloatChange;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getTargetId ()I
+	public final fun getValue ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteActionData$FloatExpressionChange : ee/schimke/composeai/rccreation/common/RemoteActionData {
+	public fun <init> (II)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun copy (II)Lee/schimke/composeai/rccreation/common/RemoteActionData$FloatExpressionChange;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteActionData$FloatExpressionChange;IIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteActionData$FloatExpressionChange;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getExpressionId ()I
+	public final fun getTargetId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteActionData$Host : ee/schimke/composeai/rccreation/common/RemoteActionData {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lee/schimke/composeai/rccreation/common/RemoteActionData$Host;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteActionData$Host;IILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteActionData$Host;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getActionId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteActionData$HostMetadata : ee/schimke/composeai/rccreation/common/RemoteActionData {
+	public fun <init> (II)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun copy (II)Lee/schimke/composeai/rccreation/common/RemoteActionData$HostMetadata;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteActionData$HostMetadata;IIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteActionData$HostMetadata;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getActionId ()I
+	public final fun getMetadataId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteActionData$HostNamed : ee/schimke/composeai/rccreation/common/RemoteActionData {
+	public fun <init> (III)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun copy (III)Lee/schimke/composeai/rccreation/common/RemoteActionData$HostNamed;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteActionData$HostNamed;IIIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteActionData$HostNamed;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getNameId ()I
+	public final fun getType ()I
+	public final fun getValueId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteActionData$IntegerChange : ee/schimke/composeai/rccreation/common/RemoteActionData {
+	public fun <init> (II)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun copy (II)Lee/schimke/composeai/rccreation/common/RemoteActionData$IntegerChange;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteActionData$IntegerChange;IIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteActionData$IntegerChange;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getTargetId ()I
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteActionData$IntegerExpressionChange : ee/schimke/composeai/rccreation/common/RemoteActionData {
+	public fun <init> (JJ)V
+	public final fun component1 ()J
+	public final fun component2 ()J
+	public final fun copy (JJ)Lee/schimke/composeai/rccreation/common/RemoteActionData$IntegerExpressionChange;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteActionData$IntegerExpressionChange;JJILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteActionData$IntegerExpressionChange;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getExpressionId ()J
+	public final fun getTargetId ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteActionData$StringChange : ee/schimke/composeai/rccreation/common/RemoteActionData {
+	public fun <init> (II)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun copy (II)Lee/schimke/composeai/rccreation/common/RemoteActionData$StringChange;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteActionData$StringChange;IIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteActionData$StringChange;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getTargetId ()I
+	public final fun getValueId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteComposeBuffer {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/RemoteComposeBuffer;
+	public final fun packAnimation (FI[FFF)[F
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteContext {
+	public static final field ID_ACCELERATION_X I
+	public static final field ID_ACCELERATION_Y I
+	public static final field ID_ACCELERATION_Z I
+	public static final field ID_ANIMATION_DELTA_TIME I
+	public static final field ID_ANIMATION_TIME I
+	public static final field ID_API_LEVEL I
+	public static final field ID_CALENDAR_MONTH I
+	public static final field ID_COMPONENT_HEIGHT I
+	public static final field ID_COMPONENT_WIDTH I
+	public static final field ID_CONTINUOUS_SEC I
+	public static final field ID_DAY_OF_MONTH I
+	public static final field ID_DAY_OF_YEAR I
+	public static final field ID_DENSITY I
+	public static final field ID_EPOCH_SECOND I
+	public static final field ID_FONT_SIZE I
+	public static final field ID_GYRO_ROT_X I
+	public static final field ID_GYRO_ROT_Y I
+	public static final field ID_GYRO_ROT_Z I
+	public static final field ID_LIGHT I
+	public static final field ID_MAGNETIC_X I
+	public static final field ID_MAGNETIC_Y I
+	public static final field ID_MAGNETIC_Z I
+	public static final field ID_OFFSET_TO_UTC I
+	public static final field ID_TIME_IN_HR I
+	public static final field ID_TIME_IN_MIN I
+	public static final field ID_TIME_IN_SEC I
+	public static final field ID_TOUCH_EVENT_TIME I
+	public static final field ID_TOUCH_POS_X I
+	public static final field ID_TOUCH_POS_Y I
+	public static final field ID_TOUCH_VEL_X I
+	public static final field ID_TOUCH_VEL_Y I
+	public static final field ID_WEEK_DAY I
+	public static final field ID_WINDOW_HEIGHT I
+	public static final field ID_WINDOW_WIDTH I
+	public static final field ID_YEAR I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/RemoteContext;
+	public final fun getFLOAT_ACCELERATION_X ()F
+	public final fun getFLOAT_ACCELERATION_Y ()F
+	public final fun getFLOAT_ACCELERATION_Z ()F
+	public final fun getFLOAT_ANIMATION_DELTA_TIME ()F
+	public final fun getFLOAT_ANIMATION_TIME ()F
+	public final fun getFLOAT_API_LEVEL ()F
+	public final fun getFLOAT_CALENDAR_MONTH ()F
+	public final fun getFLOAT_COMPONENT_HEIGHT ()F
+	public final fun getFLOAT_COMPONENT_WIDTH ()F
+	public final fun getFLOAT_CONTINUOUS_SEC ()F
+	public final fun getFLOAT_DAY_OF_MONTH ()F
+	public final fun getFLOAT_DAY_OF_YEAR ()F
+	public final fun getFLOAT_DENSITY ()F
+	public final fun getFLOAT_FONT_SIZE ()F
+	public final fun getFLOAT_GYRO_ROT_X ()F
+	public final fun getFLOAT_GYRO_ROT_Y ()F
+	public final fun getFLOAT_GYRO_ROT_Z ()F
+	public final fun getFLOAT_LIGHT ()F
+	public final fun getFLOAT_MAGNETIC_X ()F
+	public final fun getFLOAT_MAGNETIC_Y ()F
+	public final fun getFLOAT_MAGNETIC_Z ()F
+	public final fun getFLOAT_OFFSET_TO_UTC ()F
+	public final fun getFLOAT_TIME_IN_HR ()F
+	public final fun getFLOAT_TIME_IN_MIN ()F
+	public final fun getFLOAT_TIME_IN_SEC ()F
+	public final fun getFLOAT_TOUCH_EVENT_TIME ()F
+	public final fun getFLOAT_TOUCH_POS_X ()F
+	public final fun getFLOAT_TOUCH_POS_Y ()F
+	public final fun getFLOAT_TOUCH_VEL_X ()F
+	public final fun getFLOAT_TOUCH_VEL_Y ()F
+	public final fun getFLOAT_WEEK_DAY ()F
+	public final fun getFLOAT_WINDOW_HEIGHT ()F
+	public final fun getFLOAT_WINDOW_WIDTH ()F
+	public final fun getFLOAT_YEAR ()F
+	public final fun isTime (F)Z
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteDocumentWriter : ee/schimke/composeai/rccreation/common/RemoteWriter {
+	public static final field Companion Lee/schimke/composeai/rccreation/common/RemoteDocumentWriter$Companion;
+	public static final field DensityBehaviorDp I
+	public static final field HorizontalStart I
+	public static final field VerticalTop I
+	public fun <init> (IIII)V
+	public synthetic fun <init> (IIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun addBitmapFont (Ljava/util/List;Ljava/util/Map;)I
+	public final fun addBitmapPng ([BII)I
+	public fun addBitmapUrl (Ljava/lang/String;II)I
+	public fun addClipPath (I)V
+	public fun addColor (I)I
+	public fun addColorExpression (FFFF)S
+	public fun addColorExpression (IFFF)S
+	public fun addColorExpression (IIF)S
+	public fun addColorExpression (SSF)S
+	public fun addComponentHeightValue (I)F
+	public fun addComponentRootXValue (I)F
+	public fun addComponentRootYValue (I)F
+	public fun addComponentValue (IIF)V
+	public fun addComponentWidthValue (I)F
+	public fun addComponentXValue (I)F
+	public fun addComponentYValue (I)F
+	public fun addDynamicFloatArray (F)F
+	public fun addFloatArray ([F)F
+	public fun addInteger (I)J
+	public fun addList ([I)F
+	public fun addLong (J)I
+	public fun addMesh2D (III[F[F[F[F[F[F[F[F[FILjava/lang/Float;)I
+	public fun addMesh2DValues ([I[F[F[IZIII)I
+	public final fun addNamedBitmapPng (Ljava/lang/String;[BII)I
+	public fun addNamedBitmapUrl (Ljava/lang/String;Ljava/lang/String;)I
+	public fun addNamedColor (Ljava/lang/String;I)I
+	public fun addNamedFloat (Ljava/lang/String;F)F
+	public fun addNamedInt (Ljava/lang/String;I)J
+	public fun addNamedLong (Ljava/lang/String;J)I
+	public fun addNamedString (Ljava/lang/String;Ljava/lang/String;)I
+	public fun addPathData ([FI)I
+	public fun addPatternForEach (II)V
+	public fun addShader (ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;)I
+	public fun addStringList ([I)F
+	public fun addText (Ljava/lang/String;)I
+	public fun addThemedColor (Ljava/lang/String;SSII)I
+	public fun addTouchExpression (IFFFFI[FI[F[F)V
+	public fun applyPaint (Lee/schimke/composeai/rccreation/common/PaintBundle;)V
+	public fun bitmapAttribute (IS)F
+	public fun bitmapTextMeasure (IIIF)F
+	public fun callFloatFunction (I[F)V
+	public fun checkAndClearForceSendingNewPaint ()Z
+	public fun clipRect (FFFF)V
+	public final fun column (IIFILkotlin/jvm/functions/Function1;)V
+	public static synthetic fun column$default (Lee/schimke/composeai/rccreation/common/RemoteDocumentWriter;IIFILkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
+	public fun conditionalOperations (IFF)V
+	public fun conditionalOperations (IFFLkotlin/jvm/functions/Function0;)V
+	public fun createBitmap (II)I
+	public fun createFloatFunction ([F)I
+	public fun createFloatId ()F
+	public fun createOffscreenBitmap (I)I
+	public fun createTextFromFloat (FIII)I
+	public fun definePattern (I[I)V
+	public fun drawArc (FFFFFF)V
+	public fun drawBitmap (IFFFFI)V
+	public fun drawBitmapFontTextRun (IIIIFFF)V
+	public fun drawBitmapFontTextRunOnPath (IIIIIFF)V
+	public fun drawCircle (FFF)V
+	public fun drawComponentContent ()V
+	public fun drawComponentToBitmap (I)V
+	public fun drawComponentToBitmap (II)V
+	public fun drawLine (FFFF)V
+	public fun drawMesh2D (III)V
+	public fun drawOnBitmap (III)V
+	public fun drawOval (FFFF)V
+	public fun drawPath (I)V
+	public fun drawRect (FFFF)V
+	public fun drawRoundRect (FFFFFF)V
+	public fun drawScaledBitmap (IFFFFFFFFIFLjava/lang/String;)V
+	public fun drawSector (FFFFFF)V
+	public fun drawTextAnchored (IFFFFI)V
+	public fun drawTextOnCircle (IFFFFFLee/schimke/composeai/rccreation/common/DrawTextOnCircle$Alignment;Lee/schimke/composeai/rccreation/common/DrawTextOnCircle$Placement;)V
+	public fun drawTextOnPath (IIFF)V
+	public fun drawTextRun (IIIIIFFZ)V
+	public fun drawTextRun (Ljava/lang/String;IIIIFFZ)V
+	public fun drawTweenPath (IIFFF)V
+	public final fun encodeToByteArray ()[B
+	public fun endBox ()V
+	public fun endCanvas ()V
+	public fun endCanvasOperations ()V
+	public fun endCollapsibleColumn ()V
+	public fun endCollapsibleRow ()V
+	public fun endColumn ()V
+	public fun endConditionalOperations ()V
+	public fun endCustom ()V
+	public fun endFitBox ()V
+	public fun endFloatFunction ()V
+	public fun endFlow ()V
+	public fun endLoop ()V
+	public fun endPatternDefine ()V
+	public fun endPatternForEach ()V
+	public fun endPatternInflation ()V
+	public fun endRoot ()V
+	public fun endRow ()V
+	public fun endStateLayout ()V
+	public fun endTextComponent ()V
+	public fun floatExpression ([F)F
+	public fun floatExpression ([F[F)F
+	public fun getBuffer ()Lee/schimke/composeai/rccreation/common/RemoteWriter;
+	public fun getColorAttribute (IS)F
+	public fun getComponentIdForCache ()I
+	public fun getRcPaint ()Lee/schimke/composeai/rccreation/common/RcPaint;
+	public fun idLookup (FF)I
+	public fun idLookup (IFF)V
+	public fun image (Lee/schimke/composeai/rccreation/common/RemoteImageData;)V
+	public fun inflatePattern (I[I)V
+	public fun integerExpression ([J)J
+	public fun isRetired (I)Z
+	public fun loop (IFFFLkotlin/jvm/functions/Function0;)V
+	public fun matrixExpression ([F)F
+	public fun matrixFromMesh2D (IFFI)V
+	public fun nextId ()I
+	public fun reserveFloatVariable ()F
+	public fun restore ()V
+	public final fun root (Lkotlin/jvm/functions/Function1;)V
+	public fun rotate (F)V
+	public fun rotate (FFF)V
+	public fun save ()V
+	public fun scale (FF)V
+	public fun scale (FFFF)V
+	public fun setArrayValue (IFF)V
+	public fun setColorName (ILjava/lang/String;)V
+	public fun setFloatName (ILjava/lang/String;)V
+	public fun setNamedVariable (ILjava/lang/String;I)V
+	public fun setStringName (ILjava/lang/String;)V
+	public fun skew (FF)V
+	public fun startBox (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public fun startCanvas (Lee/schimke/composeai/rccreation/common/RemoteModifierData;)V
+	public fun startCanvasOperations ()V
+	public fun startCollapsibleColumn (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public fun startCollapsibleRow (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public fun startColumn (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public fun startCustom (Lee/schimke/composeai/rccreation/common/RemoteModifierData;ILjava/util/List;)V
+	public fun startFitBox (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public fun startFlow (Lee/schimke/composeai/rccreation/common/RemoteModifierData;IIII)V
+	public fun startLoop (IFFF)V
+	public fun startRoot ()V
+	public fun startRow (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public fun startStateLayout (Lee/schimke/composeai/rccreation/common/RemoteModifierData;I)V
+	public fun startTextComponent (Lee/schimke/composeai/rccreation/common/RemoteTextData;)V
+	public final fun text (Ljava/lang/String;FI)V
+	public static synthetic fun text$default (Lee/schimke/composeai/rccreation/common/RemoteDocumentWriter;Ljava/lang/String;FIILjava/lang/Object;)V
+	public fun textAttribute (IS)F
+	public fun textCreateId (Ljava/lang/String;)I
+	public fun textLength (I)F
+	public fun textLookup (FF)I
+	public fun textLookup (FI)I
+	public fun textMerge (II)I
+	public fun textMerge (III)V
+	public fun textSubtext (IFF)I
+	public fun textTransform (IFFI)I
+	public fun timeAttribute (IS[I)F
+	public fun translate (FF)V
+	public fun writeModifier (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation;)V
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteDocumentWriter$Companion {
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteImageData {
+	public fun <init> (Lee/schimke/composeai/rccreation/common/RemoteModifierData;IIF)V
+	public final fun component1 ()Lee/schimke/composeai/rccreation/common/RemoteModifierData;
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun component4 ()F
+	public final fun copy (Lee/schimke/composeai/rccreation/common/RemoteModifierData;IIF)Lee/schimke/composeai/rccreation/common/RemoteImageData;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteImageData;Lee/schimke/composeai/rccreation/common/RemoteModifierData;IIFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteImageData;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAlpha ()F
+	public final fun getBitmapId ()I
+	public final fun getModifier ()Lee/schimke/composeai/rccreation/common/RemoteModifierData;
+	public final fun getScaleType ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class ee/schimke/composeai/rccreation/common/RemoteLayerAttribute {
+	public abstract fun getId ()I
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteLayerAttribute$FloatValue : ee/schimke/composeai/rccreation/common/RemoteLayerAttribute {
+	public fun <init> (IF)V
+	public final fun component1 ()I
+	public final fun component2 ()F
+	public final fun copy (IF)Lee/schimke/composeai/rccreation/common/RemoteLayerAttribute$FloatValue;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteLayerAttribute$FloatValue;IFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteLayerAttribute$FloatValue;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getId ()I
+	public final fun getValue ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteLayerAttribute$IntValue : ee/schimke/composeai/rccreation/common/RemoteLayerAttribute {
+	public fun <init> (II)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun copy (II)Lee/schimke/composeai/rccreation/common/RemoteLayerAttribute$IntValue;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteLayerAttribute$IntValue;IIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteLayerAttribute$IntValue;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getId ()I
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierData {
+	public fun <init> ()V
+	public fun <init> (IFILjava/util/List;)V
+	public synthetic fun <init> (IFILjava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getComponentId ()I
+	public final fun getContentComponentId ()I
+	public final fun getOperations ()Ljava/util/List;
+	public final fun getSpacedBy ()F
+	public final fun setComponentId (I)V
+	public final fun setContentComponentId (I)V
+	public final fun setSpacedBy (F)V
+	public final fun then (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation;)Lee/schimke/composeai/rccreation/common/RemoteModifierData;
+	public final fun writeTo (Lee/schimke/composeai/rccreation/common/RemoteWriter;)V
+}
+
+public abstract interface class ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$AlignBy : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (FI)V
+	public synthetic fun <init> (FIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()F
+	public final fun component2 ()I
+	public final fun copy (FI)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$AlignBy;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$AlignBy;FIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$AlignBy;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFlags ()I
+	public final fun getLine ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$AnimationSpec : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (IFIFIIIII)V
+	public synthetic fun <init> (IFIFIIIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun component2 ()F
+	public final fun component3 ()I
+	public final fun component4 ()F
+	public final fun component5 ()I
+	public final fun component6 ()I
+	public final fun component7 ()I
+	public final fun component8 ()I
+	public final fun component9 ()I
+	public final fun copy (IFIFIIIII)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$AnimationSpec;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$AnimationSpec;IFIFIIIIIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$AnimationSpec;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAnimationId ()I
+	public final fun getEnterAnimation ()I
+	public final fun getEnterFunctionId ()I
+	public final fun getExitAnimation ()I
+	public final fun getExitFunctionId ()I
+	public final fun getMotionDuration ()F
+	public final fun getMotionEasingType ()I
+	public final fun getVisibilityDuration ()F
+	public final fun getVisibilityEasingType ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Background : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (IIFFFFI)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()F
+	public final fun component4 ()F
+	public final fun component5 ()F
+	public final fun component6 ()F
+	public final fun component7 ()I
+	public final fun copy (IIFFFFI)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Background;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Background;IIFFFFIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Background;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAlpha ()F
+	public final fun getBlue ()F
+	public final fun getColorId ()I
+	public final fun getFlags ()I
+	public final fun getGreen ()F
+	public final fun getRed ()F
+	public final fun getShape ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Border : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (FFIZI)V
+	public final fun component1 ()F
+	public final fun component2 ()F
+	public final fun component3 ()I
+	public final fun component4 ()Z
+	public final fun component5 ()I
+	public final fun copy (FFIZI)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Border;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Border;FFIZIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Border;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getColor ()I
+	public final fun getDynamicColor ()Z
+	public final fun getRoundedCorner ()F
+	public final fun getShapeType ()I
+	public final fun getWidth ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Click : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (ILjava/util/List;)V
+	public final fun component1 ()I
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (ILjava/util/List;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Click;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Click;ILjava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Click;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getActions ()Ljava/util/List;
+	public final fun getClickType ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$ClipRect : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$ClipRect;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$CollapsiblePriority : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (IF)V
+	public final fun component1 ()I
+	public final fun component2 ()F
+	public final fun copy (IF)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$CollapsiblePriority;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$CollapsiblePriority;IFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$CollapsiblePriority;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getOrientation ()I
+	public final fun getPriority ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$DrawContent : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$DrawContent;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$GraphicsLayer : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (Ljava/util/List;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun copy (Ljava/util/List;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$GraphicsLayer;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$GraphicsLayer;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$GraphicsLayer;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAttributes ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Height : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (IF)V
+	public final fun component1 ()I
+	public final fun component2 ()F
+	public final fun copy (IF)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Height;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Height;IFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Height;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getType ()I
+	public final fun getValue ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$HeightIn : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (FF)V
+	public final fun component1 ()F
+	public final fun component2 ()F
+	public final fun copy (FF)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$HeightIn;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$HeightIn;FFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$HeightIn;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMax ()F
+	public final fun getMin ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$MacroCall : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (I[I)V
+	public final fun component1 ()I
+	public final fun component2 ()[I
+	public final fun copy (I[I)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$MacroCall;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$MacroCall;I[IILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$MacroCall;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getArgumentIds ()[I
+	public final fun getId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Marquee : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (IIFFFF)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()F
+	public final fun component4 ()F
+	public final fun component5 ()F
+	public final fun component6 ()F
+	public final fun copy (IIFFFF)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Marquee;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Marquee;IIFFFFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Marquee;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAnimationMode ()I
+	public final fun getInitialDelayMillis ()F
+	public final fun getIterations ()I
+	public final fun getRepeatDelayMillis ()F
+	public final fun getSpacing ()F
+	public final fun getVelocity ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Offset : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (FF)V
+	public final fun component1 ()F
+	public final fun component2 ()F
+	public final fun copy (FF)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Offset;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Offset;FFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Offset;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getX ()F
+	public final fun getY ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Padding : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (FFFF)V
+	public final fun component1 ()F
+	public final fun component2 ()F
+	public final fun component3 ()F
+	public final fun component4 ()F
+	public final fun copy (FFFF)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Padding;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Padding;FFFFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Padding;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBottom ()F
+	public final fun getLeft ()F
+	public final fun getRight ()F
+	public final fun getTop ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Ripple : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Ripple;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$RoundedClipRect : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (FFFF)V
+	public final fun component1 ()F
+	public final fun component2 ()F
+	public final fun component3 ()F
+	public final fun component4 ()F
+	public final fun copy (FFFF)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$RoundedClipRect;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$RoundedClipRect;FFFFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$RoundedClipRect;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBottomEnd ()F
+	public final fun getBottomStart ()F
+	public final fun getTopEnd ()F
+	public final fun getTopStart ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Scroll : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (IFFFI)V
+	public final fun component1 ()I
+	public final fun component2 ()F
+	public final fun component3 ()F
+	public final fun component4 ()F
+	public final fun component5 ()I
+	public final fun copy (IFFFI)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Scroll;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Scroll;IFFFIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Scroll;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDirection ()I
+	public final fun getMaximum ()F
+	public final fun getNotchMaximum ()F
+	public final fun getNotches ()I
+	public final fun getPosition ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Semantics : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (IIIIIZZ)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun component4 ()I
+	public final fun component5 ()I
+	public final fun component6 ()Z
+	public final fun component7 ()Z
+	public final fun copy (IIIIIZZ)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Semantics;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Semantics;IIIIIZZILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Semantics;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getClickable ()Z
+	public final fun getContentDescriptionId ()I
+	public final fun getEnabled ()Z
+	public final fun getMode ()I
+	public final fun getRole ()I
+	public final fun getStateDescriptionId ()I
+	public final fun getTextId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Touch : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (ILjava/util/List;)V
+	public final fun component1 ()I
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (ILjava/util/List;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Touch;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Touch;ILjava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Touch;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getActions ()Ljava/util/List;
+	public final fun getType ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Visibility : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Visibility;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Visibility;IILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Visibility;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValueId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$Width : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (IF)V
+	public final fun component1 ()I
+	public final fun component2 ()F
+	public final fun copy (IF)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Width;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Width;IFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$Width;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getType ()I
+	public final fun getValue ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$WidthIn : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (FF)V
+	public final fun component1 ()F
+	public final fun component2 ()F
+	public final fun copy (FF)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$WidthIn;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$WidthIn;FFILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$WidthIn;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMax ()F
+	public final fun getMin ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteModifierOperation$ZIndex : ee/schimke/composeai/rccreation/common/RemoteModifierOperation {
+	public fun <init> (F)V
+	public final fun component1 ()F
+	public final fun copy (F)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$ZIndex;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$ZIndex;FILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteModifierOperation$ZIndex;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteTextData {
+	public fun <init> (Lee/schimke/composeai/rccreation/common/RemoteModifierData;IIIIFFFIFIIIIFFFIIIZZ[I[FZI)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/common/RemoteModifierData;IIIIFFFIFIIIIFFFIIIZZ[I[FZIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lee/schimke/composeai/rccreation/common/RemoteModifierData;
+	public final fun component10 ()F
+	public final fun component11 ()I
+	public final fun component12 ()I
+	public final fun component13 ()I
+	public final fun component14 ()I
+	public final fun component15 ()F
+	public final fun component16 ()F
+	public final fun component17 ()F
+	public final fun component18 ()I
+	public final fun component19 ()I
+	public final fun component2 ()I
+	public final fun component20 ()I
+	public final fun component21 ()Z
+	public final fun component22 ()Z
+	public final fun component23 ()[I
+	public final fun component24 ()[F
+	public final fun component25 ()Z
+	public final fun component26 ()I
+	public final fun component3 ()I
+	public final fun component4 ()I
+	public final fun component5 ()I
+	public final fun component6 ()F
+	public final fun component7 ()F
+	public final fun component8 ()F
+	public final fun component9 ()I
+	public final fun copy (Lee/schimke/composeai/rccreation/common/RemoteModifierData;IIIIFFFIFIIIIFFFIIIZZ[I[FZI)Lee/schimke/composeai/rccreation/common/RemoteTextData;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteTextData;Lee/schimke/composeai/rccreation/common/RemoteModifierData;IIIIFFFIFIIIIFFFIIIZZ[I[FZIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteTextData;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAutosize ()Z
+	public final fun getColor ()I
+	public final fun getColorId ()I
+	public final fun getFlags ()I
+	public final fun getFontAxisIds ()[I
+	public final fun getFontAxisValues ()[F
+	public final fun getFontFamilyId ()I
+	public final fun getFontSize ()F
+	public final fun getFontStyle ()I
+	public final fun getFontWeight ()F
+	public final fun getHyphenationFrequency ()I
+	public final fun getJustificationMode ()I
+	public final fun getLetterSpacing ()F
+	public final fun getLineBreakStrategy ()I
+	public final fun getLineHeightAdd ()F
+	public final fun getLineHeightMultiplier ()F
+	public final fun getMaxFontSize ()F
+	public final fun getMaxLines ()I
+	public final fun getMinFontSize ()F
+	public final fun getModifier ()Lee/schimke/composeai/rccreation/common/RemoteModifierData;
+	public final fun getOverflow ()I
+	public final fun getStrikethrough ()Z
+	public final fun getTextAlign ()I
+	public final fun getTextId ()I
+	public final fun getTextStyleId ()I
+	public final fun getUnderline ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteWireBuffer {
+	public fun <init> ()V
+	public fun <init> (I)V
+	public synthetic fun <init> (IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getSize ()I
+	public final fun overwriteInt (II)V
+	public final fun toByteArray ()[B
+	public final fun writeByte (I)V
+	public final fun writeBytes ([B)V
+	public final fun writeFloat (F)V
+	public final fun writeInt (I)V
+	public final fun writeLong (J)V
+	public final fun writeShort (I)V
+	public final fun writeUtf8 (Ljava/lang/String;)V
+}
+
+public abstract interface class ee/schimke/composeai/rccreation/common/RemoteWriter {
+	public abstract fun addBitmapFont (Ljava/util/List;Ljava/util/Map;)I
+	public static synthetic fun addBitmapFont$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;Ljava/util/List;Ljava/util/Map;ILjava/lang/Object;)I
+	public abstract fun addBitmapUrl (Ljava/lang/String;II)I
+	public static synthetic fun addBitmapUrl$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;Ljava/lang/String;IIILjava/lang/Object;)I
+	public abstract fun addClipPath (I)V
+	public abstract fun addColor (I)I
+	public abstract fun addColorExpression (FFFF)S
+	public abstract fun addColorExpression (IFFF)S
+	public abstract fun addColorExpression (IIF)S
+	public abstract fun addColorExpression (SSF)S
+	public abstract fun addComponentHeightValue (I)F
+	public abstract fun addComponentRootXValue (I)F
+	public abstract fun addComponentRootYValue (I)F
+	public abstract fun addComponentValue (IIF)V
+	public abstract fun addComponentWidthValue (I)F
+	public abstract fun addComponentXValue (I)F
+	public abstract fun addComponentYValue (I)F
+	public abstract fun addDynamicFloatArray (F)F
+	public abstract fun addFloatArray ([F)F
+	public abstract fun addInteger (I)J
+	public abstract fun addList ([I)F
+	public abstract fun addLong (J)I
+	public abstract fun addMesh2D (III[F[F[F[F[F[F[F[F[FILjava/lang/Float;)I
+	public static synthetic fun addMesh2D$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;III[F[F[F[F[F[F[F[F[FILjava/lang/Float;ILjava/lang/Object;)I
+	public abstract fun addMesh2DValues ([I[F[F[IZIII)I
+	public static synthetic fun addMesh2DValues$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;[I[F[F[IZIIIILjava/lang/Object;)I
+	public abstract fun addNamedBitmapUrl (Ljava/lang/String;Ljava/lang/String;)I
+	public abstract fun addNamedColor (Ljava/lang/String;I)I
+	public abstract fun addNamedFloat (Ljava/lang/String;F)F
+	public abstract fun addNamedInt (Ljava/lang/String;I)J
+	public abstract fun addNamedLong (Ljava/lang/String;J)I
+	public abstract fun addNamedString (Ljava/lang/String;Ljava/lang/String;)I
+	public abstract fun addPathData ([FI)I
+	public static synthetic fun addPathData$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;[FIILjava/lang/Object;)I
+	public abstract fun addPatternForEach (II)V
+	public abstract fun addShader (ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;)I
+	public static synthetic fun addShader$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;ILjava/lang/Object;)I
+	public fun addStringList ([I)F
+	public abstract fun addText (Ljava/lang/String;)I
+	public abstract fun addThemedColor (Ljava/lang/String;SSII)I
+	public abstract fun addTouchExpression (IFFFFI[FI[F[F)V
+	public static synthetic fun addTouchExpression$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IFFFFI[FI[F[FILjava/lang/Object;)V
+	public abstract fun applyPaint (Lee/schimke/composeai/rccreation/common/PaintBundle;)V
+	public abstract fun bitmapAttribute (IS)F
+	public abstract fun bitmapTextMeasure (IIIF)F
+	public abstract fun callFloatFunction (I[F)V
+	public abstract fun checkAndClearForceSendingNewPaint ()Z
+	public abstract fun clipRect (FFFF)V
+	public abstract fun conditionalOperations (IFF)V
+	public fun conditionalOperations (IFFLkotlin/jvm/functions/Function0;)V
+	public abstract fun createBitmap (II)I
+	public abstract fun createFloatFunction ([F)I
+	public abstract fun createFloatId ()F
+	public abstract fun createOffscreenBitmap (I)I
+	public static synthetic fun createOffscreenBitmap$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IILjava/lang/Object;)I
+	public abstract fun createTextFromFloat (FIII)I
+	public abstract fun definePattern (I[I)V
+	public abstract fun drawArc (FFFFFF)V
+	public abstract fun drawBitmap (IFFFFI)V
+	public abstract fun drawBitmapFontTextRun (IIIIFFF)V
+	public abstract fun drawBitmapFontTextRunOnPath (IIIIIFF)V
+	public abstract fun drawCircle (FFF)V
+	public abstract fun drawComponentContent ()V
+	public fun drawComponentToBitmap (I)V
+	public fun drawComponentToBitmap (II)V
+	public abstract fun drawLine (FFFF)V
+	public abstract fun drawMesh2D (III)V
+	public static synthetic fun drawMesh2D$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IIIILjava/lang/Object;)V
+	public abstract fun drawOnBitmap (III)V
+	public abstract fun drawOval (FFFF)V
+	public abstract fun drawPath (I)V
+	public abstract fun drawRect (FFFF)V
+	public abstract fun drawRoundRect (FFFFFF)V
+	public abstract fun drawScaledBitmap (IFFFFFFFFIFLjava/lang/String;)V
+	public abstract fun drawSector (FFFFFF)V
+	public abstract fun drawTextAnchored (IFFFFI)V
+	public abstract fun drawTextOnCircle (IFFFFFLee/schimke/composeai/rccreation/common/DrawTextOnCircle$Alignment;Lee/schimke/composeai/rccreation/common/DrawTextOnCircle$Placement;)V
+	public abstract fun drawTextOnPath (IIFF)V
+	public abstract fun drawTextRun (IIIIIFFZ)V
+	public fun drawTextRun (Ljava/lang/String;IIIIFFZ)V
+	public abstract fun drawTweenPath (IIFFF)V
+	public abstract fun endBox ()V
+	public abstract fun endCanvas ()V
+	public abstract fun endCanvasOperations ()V
+	public abstract fun endCollapsibleColumn ()V
+	public abstract fun endCollapsibleRow ()V
+	public abstract fun endColumn ()V
+	public abstract fun endConditionalOperations ()V
+	public abstract fun endCustom ()V
+	public abstract fun endFitBox ()V
+	public abstract fun endFloatFunction ()V
+	public abstract fun endFlow ()V
+	public abstract fun endLoop ()V
+	public abstract fun endPatternDefine ()V
+	public abstract fun endPatternForEach ()V
+	public abstract fun endPatternInflation ()V
+	public abstract fun endRoot ()V
+	public abstract fun endRow ()V
+	public abstract fun endStateLayout ()V
+	public abstract fun endTextComponent ()V
+	public abstract fun floatExpression ([F)F
+	public abstract fun floatExpression ([F[F)F
+	public fun getBuffer ()Lee/schimke/composeai/rccreation/common/RemoteWriter;
+	public abstract fun getColorAttribute (IS)F
+	public abstract fun getComponentIdForCache ()I
+	public abstract fun getRcPaint ()Lee/schimke/composeai/rccreation/common/RcPaint;
+	public abstract fun idLookup (FF)I
+	public abstract fun idLookup (IFF)V
+	public abstract fun image (Lee/schimke/composeai/rccreation/common/RemoteImageData;)V
+	public abstract fun inflatePattern (I[I)V
+	public abstract fun integerExpression ([J)J
+	public fun isRetired (I)Z
+	public fun loop (IFFFLkotlin/jvm/functions/Function0;)V
+	public abstract fun matrixExpression ([F)F
+	public abstract fun matrixFromMesh2D (IFFI)V
+	public static synthetic fun matrixFromMesh2D$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IFFIILjava/lang/Object;)V
+	public abstract fun nextId ()I
+	public abstract fun reserveFloatVariable ()F
+	public abstract fun restore ()V
+	public fun rotate (F)V
+	public abstract fun rotate (FFF)V
+	public abstract fun save ()V
+	public fun scale (FF)V
+	public abstract fun scale (FFFF)V
+	public abstract fun setArrayValue (IFF)V
+	public fun setColorName (ILjava/lang/String;)V
+	public fun setFloatName (ILjava/lang/String;)V
+	public abstract fun setNamedVariable (ILjava/lang/String;I)V
+	public fun setStringName (ILjava/lang/String;)V
+	public abstract fun skew (FF)V
+	public abstract fun startBox (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public abstract fun startCanvas (Lee/schimke/composeai/rccreation/common/RemoteModifierData;)V
+	public abstract fun startCanvasOperations ()V
+	public abstract fun startCollapsibleColumn (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public abstract fun startCollapsibleRow (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public abstract fun startColumn (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public abstract fun startCustom (Lee/schimke/composeai/rccreation/common/RemoteModifierData;ILjava/util/List;)V
+	public abstract fun startFitBox (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public abstract fun startFlow (Lee/schimke/composeai/rccreation/common/RemoteModifierData;IIII)V
+	public abstract fun startLoop (IFFF)V
+	public abstract fun startRoot ()V
+	public abstract fun startRow (Lee/schimke/composeai/rccreation/common/RemoteModifierData;II)V
+	public abstract fun startStateLayout (Lee/schimke/composeai/rccreation/common/RemoteModifierData;I)V
+	public abstract fun startTextComponent (Lee/schimke/composeai/rccreation/common/RemoteTextData;)V
+	public abstract fun textAttribute (IS)F
+	public fun textCreateId (Ljava/lang/String;)I
+	public abstract fun textLength (I)F
+	public abstract fun textLookup (FF)I
+	public abstract fun textLookup (FI)I
+	public abstract fun textMerge (II)I
+	public abstract fun textMerge (III)V
+	public abstract fun textSubtext (IFF)I
+	public abstract fun textTransform (IFFI)I
+	public abstract fun timeAttribute (IS[I)F
+	public abstract fun translate (FF)V
+	public abstract fun writeModifier (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation;)V
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteWriter$DefaultImpls {
+	public static synthetic fun addBitmapFont$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;Ljava/util/List;Ljava/util/Map;ILjava/lang/Object;)I
+	public static synthetic fun addBitmapUrl$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;Ljava/lang/String;IIILjava/lang/Object;)I
+	public static synthetic fun addMesh2D$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;III[F[F[F[F[F[F[F[F[FILjava/lang/Float;ILjava/lang/Object;)I
+	public static synthetic fun addMesh2DValues$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;[I[F[F[IZIIIILjava/lang/Object;)I
+	public static synthetic fun addPathData$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;[FIILjava/lang/Object;)I
+	public static synthetic fun addShader$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;ILjava/lang/Object;)I
+	public static fun addStringList (Lee/schimke/composeai/rccreation/common/RemoteWriter;[I)F
+	public static synthetic fun addTouchExpression$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IFFFFI[FI[F[FILjava/lang/Object;)V
+	public static fun conditionalOperations (Lee/schimke/composeai/rccreation/common/RemoteWriter;IFFLkotlin/jvm/functions/Function0;)V
+	public static synthetic fun createOffscreenBitmap$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IILjava/lang/Object;)I
+	public static fun drawComponentToBitmap (Lee/schimke/composeai/rccreation/common/RemoteWriter;I)V
+	public static fun drawComponentToBitmap (Lee/schimke/composeai/rccreation/common/RemoteWriter;II)V
+	public static synthetic fun drawMesh2D$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IIIILjava/lang/Object;)V
+	public static fun drawTextRun (Lee/schimke/composeai/rccreation/common/RemoteWriter;Ljava/lang/String;IIIIFFZ)V
+	public static fun getBuffer (Lee/schimke/composeai/rccreation/common/RemoteWriter;)Lee/schimke/composeai/rccreation/common/RemoteWriter;
+	public static fun isRetired (Lee/schimke/composeai/rccreation/common/RemoteWriter;I)Z
+	public static fun loop (Lee/schimke/composeai/rccreation/common/RemoteWriter;IFFFLkotlin/jvm/functions/Function0;)V
+	public static synthetic fun matrixFromMesh2D$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IFFIILjava/lang/Object;)V
+	public static fun rotate (Lee/schimke/composeai/rccreation/common/RemoteWriter;F)V
+	public static fun scale (Lee/schimke/composeai/rccreation/common/RemoteWriter;FF)V
+	public static fun setColorName (Lee/schimke/composeai/rccreation/common/RemoteWriter;ILjava/lang/String;)V
+	public static fun setFloatName (Lee/schimke/composeai/rccreation/common/RemoteWriter;ILjava/lang/String;)V
+	public static fun setStringName (Lee/schimke/composeai/rccreation/common/RemoteWriter;ILjava/lang/String;)V
+	public static fun textCreateId (Lee/schimke/composeai/rccreation/common/RemoteWriter;Ljava/lang/String;)I
+}
+
+public final class ee/schimke/composeai/rccreation/common/StringUtils {
+	public static final field GROUPING_BY3 B
+	public static final field GROUPING_BY32 B
+	public static final field GROUPING_BY4 B
+	public static final field GROUPING_NONE B
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/StringUtils;
+	public static final field SEPARATOR_COMMA_PERIOD B
+	public static final field SEPARATOR_PERIOD_COMMA B
+	public static final field SEPARATOR_SPACE_COMMA B
+	public static final field SEPARATOR_UNDER_PERIOD B
+	public final fun floatToString (FIICCBBI)Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/TextAttribute {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/TextAttribute;
+	public static final field MEASURE_BOTTOM S
+	public static final field MEASURE_HEIGHT S
+	public static final field MEASURE_LEFT S
+	public static final field MEASURE_MAX_HEIGHT_FLAG I
+	public static final field MEASURE_MONOSPACE_FLAG I
+	public static final field MEASURE_RIGHT S
+	public static final field MEASURE_TOP S
+	public static final field MEASURE_WIDTH S
+	public static final field TEXT_LENGTH S
+}
+
+public final class ee/schimke/composeai/rccreation/common/TextFromFloat {
+	public static final field GROUPING_BY3 I
+	public static final field GROUPING_BY32 I
+	public static final field GROUPING_BY4 I
+	public static final field GROUPING_NONE I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/TextFromFloat;
+	public static final field OPTIONS_NEGATIVE_PARENTHESES I
+	public static final field OPTIONS_ROUNDING I
+	public static final field PAD_AFTER_NONE I
+	public static final field PAD_AFTER_SPACE I
+	public static final field PAD_AFTER_ZERO I
+	public static final field PAD_PRE_NONE I
+	public static final field PAD_PRE_SPACE I
+	public static final field PAD_PRE_ZERO I
+	public static final field SEPARATOR_COMMA_PERIOD I
+	public static final field SEPARATOR_PERIOD_COMMA I
+	public static final field SEPARATOR_SPACE_COMMA I
+	public static final field SEPARATOR_UNDER_PERIOD I
+}
+
+public final class ee/schimke/composeai/rccreation/common/TextLayout {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/TextLayout;
+	public static final field OVERFLOW_CLIP I
+	public static final field OVERFLOW_ELLIPSIS I
+	public static final field OVERFLOW_MIDDLE_ELLIPSIS I
+	public static final field OVERFLOW_START_ELLIPSIS I
+	public static final field OVERFLOW_VISIBLE I
+	public static final field TEXT_ALIGN_CENTER I
+	public static final field TEXT_ALIGN_END I
+	public static final field TEXT_ALIGN_JUSTIFY I
+	public static final field TEXT_ALIGN_LEFT I
+	public static final field TEXT_ALIGN_RIGHT I
+	public static final field TEXT_ALIGN_START I
+}
+
+public final class ee/schimke/composeai/rccreation/common/TextTransform {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/TextTransform;
+	public static final field TEXT_CAPITALIZE I
+	public static final field TEXT_TO_LOWERCASE I
+	public static final field TEXT_TO_UPPERCASE I
+	public static final field TEXT_TRIM I
+	public static final field TEXT_UPPERCASE_FIRST_CHAR I
+}
+
+public final class ee/schimke/composeai/rccreation/common/TimeAttribute {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/TimeAttribute;
+	public static final field TIME_DAY_OF_MONTH S
+	public static final field TIME_DAY_OF_WEEK S
+	public static final field TIME_FROM_NOW_HR S
+	public static final field TIME_FROM_NOW_MIN S
+	public static final field TIME_FROM_NOW_SEC S
+	public static final field TIME_IN_HR S
+	public static final field TIME_IN_MIN S
+	public static final field TIME_IN_SEC S
+	public static final field TIME_MONTH_VALUE S
+	public static final field TIME_YEAR S
+}
+
+public final class ee/schimke/composeai/rccreation/common/TouchStop {
+	public static final field ABSOLUTE_POS I
+	public static final field ENDS I
+	public static final field GENTLY I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/TouchStop;
+	public static final field INSTANTLY I
+	public static final field NOTCHES_ABSOLUTE I
+	public static final field NOTCHES_EVEN I
+	public static final field NOTCHES_PERCENTS I
+	public static final field NOTCHES_SINGLE_EVEN I
+}
+
+public final class ee/schimke/composeai/rccreation/common/Utils {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/Utils;
+	public final fun asNan (I)F
+	public final fun getBrightness (I)F
+	public final fun getHue (I)F
+	public final fun getSaturation (I)F
+	public final fun hsvToRgb (FFF)I
+	public final fun idFromLong (J)J
+	public final fun idFromNan (F)I
+	public final fun idString (I)Ljava/lang/String;
+	public final fun idStringFromNan (F)Ljava/lang/String;
+	public final fun interpolateColor (IIF)I
+	public final fun isVariable (F)Z
+	public final fun longIdFromNan (F)J
+}
+

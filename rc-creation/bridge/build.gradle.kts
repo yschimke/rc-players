@@ -46,7 +46,7 @@ kotlin {
       @Suppress("DEPRECATION") implementation(compose.desktop.currentOs)
     }
     commonMain.dependencies {
-      api(project(":third-party-remote-creation-compose"))
+      api(project(":rc-creation-compose"))
       api(project(":rc-player-protocol"))
       @Suppress("DEPRECATION") api(compose.runtime)
       @Suppress("DEPRECATION") api(compose.ui)

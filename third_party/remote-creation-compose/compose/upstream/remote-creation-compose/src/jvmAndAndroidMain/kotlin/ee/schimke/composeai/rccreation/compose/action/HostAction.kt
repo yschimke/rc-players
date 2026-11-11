@@ -1,0 +1,164 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package ee.schimke.composeai.rccreation.compose.action
+
+import androidx.annotation.RestrictTo
+import ee.schimke.composeai.rccreation.common.HostNamedActionOperation
+import ee.schimke.composeai.rccreation.common.RemoteActionData
+import ee.schimke.composeai.rccreation.compose.state.RemoteBoolean
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.RemoteInt
+import ee.schimke.composeai.rccreation.compose.state.RemoteState
+import ee.schimke.composeai.rccreation.compose.state.RemoteStateScope
+import ee.schimke.composeai.rccreation.compose.state.RemoteString
+
+/**
+ * Creates a [RemoteAction] that triggers a named action on the host.
+ *
+ * Named actions are delivered to the `onNamedAction` callback of the Compose players. [name] may be
+ * a constant or a dynamic [RemoteString]; a dynamic name is resolved to its current value when the
+ * action runs.
+ *
+ * Launcher widgets (`RemoteViews`) only dispatch id actions; use [hostAction] with an `id` there.
+ *
+ * Example of dispatching a named action to the host when clicked:
+ *
+ * @sample ee.schimke.composeai.rccreation.compose.samples.HostActionSample
+ * @param name The name of the action.
+ * @return a [RemoteAction] that triggers the named [name] action on the host
+ */
+public fun hostAction(name: RemoteString): RemoteAction = HostAction(name, HostAction.Type.NONE)
+
+/**
+ * Creates a [RemoteAction] that triggers a named action on the host with a float value.
+ *
+ * @param name The name of the action.
+ * @param value The float value to pass with the action, delivered to the host as a [Float].
+ * @return a [RemoteAction] that triggers the named [name] action with [value] on the host
+ */
+public fun hostAction(name: RemoteString, value: RemoteFloat): RemoteAction =
+    HostAction(name, value)
+
+/**
+ * Creates a [RemoteAction] that triggers a named action on the host with an int value.
+ *
+ * @param name The name of the action.
+ * @param value The int value to pass with the action, delivered to the host as an [Int].
+ * @return a [RemoteAction] that triggers the named [name] action with [value] on the host
+ */
+public fun hostAction(name: RemoteString, value: RemoteInt): RemoteAction = HostAction(name, value)
+
+/**
+ * Creates a [RemoteAction] that triggers a named action on the host with a string value.
+ *
+ * @param name The name of the action.
+ * @param value The string value to pass with the action, delivered to the host as a [String].
+ * @return a [RemoteAction] that triggers the named [name] action with [value] on the host
+ */
+public fun hostAction(name: RemoteString, value: RemoteString): RemoteAction =
+    HostAction(name, value)
+
+/**
+ * Creates a [RemoteAction] that triggers a named action on the host with a boolean value.
+ *
+ * The document format has no boolean payload, so the value is delivered to the host as an [Int]:
+ * `1` for `true` and `0` for `false`.
+ *
+ * @param name The name of the action.
+ * @param value The boolean value to pass with the action.
+ * @return a [RemoteAction] that triggers the named [name] action with [value] on the host
+ */
+public fun hostAction(name: RemoteString, value: RemoteBoolean): RemoteAction =
+    HostAction(name, value.toRemoteInt())
+
+/**
+ * Creates a [RemoteAction] that triggers an id action on the host, with optional string [metadata].
+ *
+ * Id actions are delivered to the `onAction` callback of the Compose players, and are the only host
+ * actions that platform `RemoteViews` hosts (launcher widgets, notifications) dispatch: a click
+ * runs the `PendingIntent` registered with `RemoteViews.setOnClickPendingIntent(id, ...)`.
+ *
+ * [id] is written into the document as a literal, so it is stable across captures and can be used
+ * as a key on the host. Choose ids that do not collide with explicit component ids in the same
+ * document, because players also treat an id action as a programmatic click on a component with
+ * that id.
+ *
+ * To pass several values, combine them into [metadata] with [RemoteString] concatenation, for
+ * example `"x=".rs + x.toRemoteString() + "&y=".rs + y.toRemoteString()`, and decode them on the
+ * host.
+ *
+ * @param id The id of the action.
+ * @param metadata Optional metadata delivered with the action. May be dynamic, for example built
+ *   from touch positions or other remote state, and is resolved when the action runs.
+ * @return a [RemoteAction] that triggers the host action for [id]
+ */
+public fun hostAction(id: Int, metadata: RemoteString? = null): RemoteAction {
+    require(id != -1) { "-1 is the default component id and cannot be used as a host action id" }
+    return HostIdAction(id, metadata)
+}
+
+/** Run the named host action when invoked. */
+internal class HostAction(
+    public val name: RemoteString,
+    public val type: Type = Type.NONE,
+    public val value: RemoteState<*>? = null,
+) : RemoteAction {
+
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public enum class Type(public val value: Int) {
+        FLOAT(HostNamedActionOperation.FLOAT_TYPE),
+        INT(HostNamedActionOperation.INT_TYPE),
+        STRING(HostNamedActionOperation.STRING_TYPE),
+        FLOAT_ARRAY(HostNamedActionOperation.FLOAT_ARRAY_TYPE),
+        NONE(HostNamedActionOperation.NONE_TYPE),
+    }
+
+    // TODO: Add a RemoteFloatArray type and use it here!
+    public constructor(name: RemoteString, value: RemoteFloat) : this(name, Type.FLOAT, value)
+
+    public constructor(name: RemoteString, value: RemoteInt) : this(name, Type.INT, value)
+
+    public constructor(name: RemoteString, value: RemoteString) : this(name, Type.STRING, value)
+
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
+    override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> {
+        val valueId = value?.id ?: -1
+        // A dynamic name is referenced by its text id, which players resolve to the current value
+        // when the action runs. This keeps the action a named action (with its typed value)
+        // rather than an id action keyed on an unstable, writer-allocated variable id.
+        return listOf(RemoteActionData.HostNamed(name.id, type.value, valueId))
+    }
+}
+
+/** Run the host action with a stable integer [id], and optional [metadata], when invoked. */
+internal class HostIdAction(public val id: Int, public val metadata: RemoteString? = null) :
+    RemoteAction {
+
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
+    override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> {
+        val metadataId = metadata?.id
+        return listOf(
+            if (metadataId == null) {
+                RemoteActionData.Host(id)
+            } else {
+                RemoteActionData.HostMetadata(id, metadataId)
+            },
+        )
+    }
+}

@@ -3,19 +3,19 @@
 
 package ee.schimke.composeai.rccreation.bridge.tokotlin.generated
 
-import androidx.compose.remote.creation.compose.layout.RemoteAlignment
-import androidx.compose.remote.creation.compose.layout.RemoteBox
-import androidx.compose.remote.creation.compose.layout.RemoteComposable
-import androidx.compose.remote.creation.compose.layout.RemoteContentScale
-import androidx.compose.remote.creation.compose.layout.RemoteImage
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.fillMaxSize
-import androidx.compose.remote.creation.compose.modifier.size
-import androidx.compose.remote.creation.compose.state.rdp
-import androidx.compose.remote.creation.compose.state.rememberNamedRemoteImageBitmap
-import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
+import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
+import ee.schimke.composeai.rccreation.compose.layout.RemoteContentScale
+import ee.schimke.composeai.rccreation.compose.layout.RemoteImage
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
+import ee.schimke.composeai.rccreation.compose.modifier.size
+import ee.schimke.composeai.rccreation.compose.state.rdp
+import ee.schimke.composeai.rccreation.compose.state.rememberNamedRemoteImageBitmap
+import ee.schimke.composeai.rccreation.compose.state.rf
 import kotlin.io.encoding.Base64
 import org.jetbrains.skia.Image
 

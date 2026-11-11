@@ -1,0 +1,138 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package ee.schimke.composeai.rccreation.compose.shaders
+
+import androidx.annotation.RestrictTo
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
+import ee.schimke.composeai.rccreation.common.PaintBundle
+import ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState
+import ee.schimke.composeai.rccreation.compose.layout.RemoteOffset
+import ee.schimke.composeai.rccreation.compose.layout.RemoteSize
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.RemoteStateScope
+import ee.schimke.composeai.rccreation.compose.util.fastMap
+
+/**
+ * Creates a sweep gradient with the given colors dispersed around the center with offsets defined
+ * in each colorstop pair. The sweep begins relative to 3 o'clock and continues clockwise until it
+ * reaches the starting position again.
+ *
+ * Ex:
+ * ```
+ *  RemoteBrush.sweepGradient(
+ *      0.0f.rf to Color.Red.rc,
+ *      0.3f.rf to Color.Green.rc,
+ *      1.0f.rf to Color.Blue.rc,
+ *      center = RemoteOffset(0.rf, 100.rf)
+ * )
+ * ```
+ *
+ * @param colorStops Colors and offsets to determine how the colors are dispersed throughout the
+ *   sweep gradient
+ * @param center Center position of the sweep gradient circle. If this is set to null then the
+ *   center of the drawing area is used as the center for the sweep gradient
+ * @return a [RemoteShaderBrush] that draws a sweep gradient with the given [colorStops]
+ */
+@Stable
+public fun RemoteBrush.Companion.sweepGradient(
+    vararg colorStops: Pair<RemoteFloat, RemoteColor>,
+    center: RemoteOffset? = null,
+): RemoteShaderBrush =
+    RemoteSweepGradient(
+        colors = List(colorStops.size) { i -> colorStops[i].second },
+        stops = List(colorStops.size) { i -> colorStops[i].first },
+        center = center,
+    )
+
+/**
+ * Creates a sweep gradient with the given colors dispersed evenly around the center. The sweep
+ * begins relative to 3 o'clock and continues clockwise until it reaches the starting position
+ * again.
+ *
+ * Ex:
+ * ```
+ *  RemoteBrush.sweepGradient(
+ *      listOf(Color.Red.rc, Color.Blue.rc),
+ *      center = RemoteOffset(10.rf, 20.rf)
+ * )
+ * ```
+ *
+ * @param colors List of colors to fill the sweep gradient
+ * @param center Center position of the sweep gradient circle. If this is null then the center of
+ *   the drawing area is used as the center for the sweep gradient
+ * @return a [RemoteShaderBrush] that draws a sweep gradient across the given [colors]
+ */
+@Stable
+public fun RemoteBrush.Companion.sweepGradient(
+    colors: List<RemoteColor>,
+    center: RemoteOffset? = null,
+): RemoteShaderBrush = RemoteSweepGradient(colors = colors, stops = null, center = center)
+
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+@Immutable
+public data class RemoteSweepGradient(
+    private val colors: List<RemoteColor>,
+    private val stops: List<RemoteFloat>? = null,
+    private val center: RemoteOffset? = null,
+) : RemoteShaderBrush() {
+
+    override fun RemoteStateScope.createShader(size: RemoteSize): RemoteShader {
+        val realCenter = center ?: size.center
+        val centerX = resolve(realCenter.x, size.width)
+        val centerY = resolve(realCenter.y, size.height)
+        return RemoteSweepShader(
+            centerX = centerX,
+            centerY = centerY,
+            colors = colors,
+            positions = stops,
+        )
+    }
+}
+
+internal class RemoteSweepShader(
+    val centerX: RemoteFloat,
+    val centerY: RemoteFloat,
+    val colors: List<RemoteColor>,
+    val positions: List<RemoteFloat>?,
+) : RemoteShader() {
+
+    override fun apply(creationState: RemoteComposeCreationState, paintBundle: PaintBundle) {
+        var mask = 0
+        val colorsArray =
+            IntArray(colors.size) { i ->
+                val color = colors[i]
+                val constantValue = color.constantValueOrNull
+                if (constantValue != null) {
+                    constantValue
+                } else {
+                    mask = mask or (1 shl i)
+                    color.getIdForCreationState(creationState)
+                }
+            }
+        val positionsArray =
+            positions?.fastMap { it.getFloatIdForCreationState(creationState) }?.toFloatArray()
+
+        paintBundle.setSweepGradient(
+            colorsArray,
+            mask,
+            positionsArray,
+            centerX.getFloatIdForCreationState(creationState),
+            centerY.getFloatIdForCreationState(creationState),
+        )
+    }
+}

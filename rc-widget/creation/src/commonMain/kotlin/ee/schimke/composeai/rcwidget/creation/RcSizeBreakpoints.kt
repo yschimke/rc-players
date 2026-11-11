@@ -2,17 +2,17 @@
 
 package ee.schimke.composeai.rcwidget.creation
 
-import androidx.compose.remote.creation.compose.layout.RemoteBox
-import androidx.compose.remote.creation.compose.layout.RemoteStateLayout
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.animationSpec
-import androidx.compose.remote.creation.compose.state.RemoteFloat
-import androidx.compose.remote.creation.compose.state.RemoteState
-import androidx.compose.remote.creation.compose.state.rdp
-import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.layout.RemoteStateLayout
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.animationSpec
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.RemoteState
+import ee.schimke.composeai.rccreation.compose.state.rdp
+import ee.schimke.composeai.rccreation.compose.state.rf
 
 /**
  * The size a launcher widget is captured for, in dp. A launcher host recaptures on every resize
@@ -190,18 +190,3 @@ private const val MIN_SIZE_PREFIX = "__rc_min_size_gate_"
 
 /** The width and height of the layout component a size expression is read in, in pixels. */
 internal class RcComponentSize(val width: RemoteFloat, val height: RemoteFloat)
-
-/**
- * A float named [name] in [domain], initialised to [value] of the enclosing layout component's
- * size. Call it inside the content of the component it measures.
- *
- * AndroidX's creation API before androidx-main `ab1b76a2f` reads a component's size through a
- * `RemoteFloatContext` lambda; the fork reads it through `remoteComponent()`, as AndroidX does
- * after it. Each target writes the expression its library supports.
- */
-@Composable
-internal expect fun rememberNamedComponentFloat(
-  name: String,
-  domain: RemoteState.Domain,
-  value: RcComponentSize.() -> RemoteFloat,
-): RemoteFloat

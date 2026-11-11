@@ -18,6 +18,19 @@ final enum class ee.schimke.composeai.rcplayer.edit/RcApproximation : kotlin/Enu
     final fun values(): kotlin/Array<ee.schimke.composeai.rcplayer.edit/RcApproximation> // ee.schimke.composeai.rcplayer.edit/RcApproximation.values|values#static(){}[0]
 }
 
+final enum class ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi : kotlin/Enum<ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi> { // ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi|null[0]
+    enum entry AndroidX // ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi.AndroidX|null[0]
+    enum entry RcCreation // ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi.RcCreation|null[0]
+
+    final val composePackage // ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi.composePackage|{}composePackage[0]
+        final fun <get-composePackage>(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi.composePackage.<get-composePackage>|<get-composePackage>(){}[0]
+    final val entries // ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi> // ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi // ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi> // ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi.values|values#static(){}[0]
+}
+
 final enum class ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder : kotlin/Enum<ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder> { // ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder|null[0]
     enum entry Android // ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder.Android|null[0]
     enum entry Skia // ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder.Skia|null[0]
@@ -279,8 +292,10 @@ final class ee.schimke.composeai.rcplayer.edit/RcDisplay { // ee.schimke.compose
 }
 
 final class ee.schimke.composeai.rcplayer.edit/RcKotlinOptions { // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions|null[0]
-    constructor <init>(kotlin/String = ..., kotlin/String = ..., kotlin/Float? = ..., ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder = ...) // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.<init>|<init>(kotlin.String;kotlin.String;kotlin.Float?;ee.schimke.composeai.rcplayer.edit.RcKotlinImageDecoder){}[0]
+    constructor <init>(kotlin/String = ..., kotlin/String = ..., kotlin/Float? = ..., ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder = ..., ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi = ...) // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.<init>|<init>(kotlin.String;kotlin.String;kotlin.Float?;ee.schimke.composeai.rcplayer.edit.RcKotlinImageDecoder;ee.schimke.composeai.rcplayer.edit.RcKotlinCreationApi){}[0]
 
+    final val creationApi // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.creationApi|{}creationApi[0]
+        final fun <get-creationApi>(): ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.creationApi.<get-creationApi>|<get-creationApi>(){}[0]
     final val density // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.density|{}density[0]
         final fun <get-density>(): kotlin/Float? // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.density.<get-density>|<get-density>(){}[0]
     final val functionName // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.functionName|{}functionName[0]
@@ -294,7 +309,8 @@ final class ee.schimke.composeai.rcplayer.edit/RcKotlinOptions { // ee.schimke.c
     final fun component2(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.component2|component2(){}[0]
     final fun component3(): kotlin/Float? // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.component3|component3(){}[0]
     final fun component4(): ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.component4|component4(){}[0]
-    final fun copy(kotlin/String = ..., kotlin/String = ..., kotlin/Float? = ..., ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder = ...): ee.schimke.composeai.rcplayer.edit/RcKotlinOptions // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.copy|copy(kotlin.String;kotlin.String;kotlin.Float?;ee.schimke.composeai.rcplayer.edit.RcKotlinImageDecoder){}[0]
+    final fun component5(): ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.component5|component5(){}[0]
+    final fun copy(kotlin/String = ..., kotlin/String = ..., kotlin/Float? = ..., ee.schimke.composeai.rcplayer.edit/RcKotlinImageDecoder = ..., ee.schimke.composeai.rcplayer.edit/RcKotlinCreationApi = ...): ee.schimke.composeai.rcplayer.edit/RcKotlinOptions // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.copy|copy(kotlin.String;kotlin.String;kotlin.Float?;ee.schimke.composeai.rcplayer.edit.RcKotlinImageDecoder;ee.schimke.composeai.rcplayer.edit.RcKotlinCreationApi){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcKotlinOptions.toString|toString(){}[0]

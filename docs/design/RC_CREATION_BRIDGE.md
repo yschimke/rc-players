@@ -1,6 +1,6 @@
 # Creation in rc-players, and the host bridge
 
-**Status: published, experimental.** This note records the design of `third_party/remote-creation-*`,
+**Status: published, experimental.** This note records the design of the creation fork (`third_party/remote-creation-*`),
 `rc-creation/` and `rc-player/embedded/`, what it was measured against, and what comes next. It
 follows the measurements in yschimke/remote-m3-catalog#133.
 
@@ -17,41 +17,85 @@ mode does not invent a second representation. **The document stays canonical in 
 changes is the route a host-owned value takes to the screen.
 
 To make that a single change instead of a cross-repository dance, creation moves here, beside the
-player. It is split in two: one fork, plus a layer of rc-players' own.
+player. It is split in two: one fork, in modules that mirror AndroidX's, plus a layer of
+rc-players' own.
 
 | Module | Package | Contents |
 | --- | --- | --- |
-| `:third-party-remote-creation-writer` | `androidx.compose.remote.creation.common` | **Fork.** `RemoteWriter` and the common byte writer. |
-| `:third-party-remote-creation-compose` | `androidx.compose.remote.creation.compose`, `androidx.compose.remote.foundation` | **Fork.** `@RemoteComposable` creation, kept in AndroidX's package with marked local patches only ([PROVENANCE](../../third_party/remote-creation-compose/PROVENANCE.md)). |
-| `:rc-creation-bridge` | `ee.schimke.composeai.rccreation` | **Layer.** rc-players' own creation API: the host bridge contract and explicit component ids. |
+| `:rc-creation-writer` | `ee.schimke.composeai.rccreation.common` | **Fork.** `RemoteWriter` and the common byte writer. |
+| `:rc-creation-expression` | `ee.schimke.composeai.rccreation.compose` (`state`, and the parts of `capture`, `layout` and `text` AndroidX keeps there) | **Fork.** AndroidX `remote-creation-expression`: remote state types, expressions, the creation state. |
+| `:rc-creation-compose` | `ee.schimke.composeai.rccreation.compose` | **Fork.** AndroidX `remote-creation-compose`: `@RemoteComposable` creation, with marked local patches only ([PROVENANCE](../../third_party/remote-creation-compose/PROVENANCE.md)). |
+| `:rc-creation-foundation` | `ee.schimke.composeai.rccreation.foundation` | **Fork.** AndroidX Remote Compose `foundation`. |
+| `:rc-creation-bridge` | `ee.schimke.composeai.rccreation.bridge` | **Layer.** rc-players' own creation API: the host bridge contract and explicit component ids. |
 | `:rc-player-embedded` | `ee.schimke.composeai.rcplayer.embedded` | **Layer.** `RcLiveBridge` and `RcEmbeddedPlayer`; the only module that knows both creation and the player. |
 
-### Why one fork in AndroidX's package, not two
+### Why the fork is in rc-players' package
 
-A second fork, relocated and free to restructure, was considered and rejected.
+The fork is AndroidX's creation source, module for module, in the package
+`ee.schimke.composeai.rccreation`: `androidx.compose.remote.creation.compose` became
+`ee.schimke.composeai.rccreation.compose`, `androidx.compose.remote.foundation` became
+`ee.schimke.composeai.rccreation.foundation`, and the writer is
+`ee.schimke.composeai.rccreation.common`. It is published as `rc-creation-writer`,
+`rc-creation-expression`, `rc-creation-compose` and `rc-creation-foundation`, declares none of
+AndroidX's classes or Gradle capabilities, and can be in one app with AndroidX's own artifacts.
+`:rc-creation-coexistence-check` holds it to that on every build: one source set compiled against
+both libraries on Android and on the JVM, and a comparison of their class files.
 
-Component libraries are written against `androidx.compose.remote.creation.*`: Wear
-`remote-material3`, the catalog's components, and the Kotlin a UI builder exports. With the fork in
-that package, the same source compiles against the fork in a CMP host (editor, preview, desktop)
-and against real AndroidX on a device. A relocated fork would need a second build of every
-component library, and exported code would no longer match what ships.
+This reverses the first decision, which kept one fork in AndroidX's own package so that the same
+source compiled against the fork in a CMP host and against AndroidX on a device. Three things
+changed since it was made.
 
-Structural work therefore goes in the layer, in rc-players' own package. When the layer needs
-something only the fork's internals can give (a capture seam, an id reset, an applier hook), the
-fork gets a small marked patch that is generic enough to offer upstream. The fork's diff from
-upstream stays reviewable, and refreshes stay mechanical.
+- **AndroidX is multiplatform in that package now, for the JVM and Android**
+  (`remote-creation-compose` since `1be9a9fed`, with the state types in `remote-creation-expression`
+  since `91c532558`). While the fork shared the package, its classes collided with AndroidX's only
+  on Android, where AndroidX published. With AndroidX on the JVM as well, a desktop tool or a server
+  that had the fork and anything depending on AndroidX's artifacts would have loaded two sets of the
+  same class names. The collision would have spread to the target the fork is used on most.
+- **"The same source compiles against both" held only at an alpha cut.** The fork tracks
+  androidx-main, ahead of the releases, so that API changes are exercised here before they ship. In
+  between, source written against the fork used names the released AndroidX did not have yet:
+  `:rc-widget-creation` already needed an `expect`/`actual` (`RcCreationCompat`) to compile against
+  the fork off Android and alpha23 on it. The promise the shared package was kept for was only
+  intermittently true.
+- **The capability conflict kept the fork off Android wherever AndroidX was present.** To stop
+  duplicate classes at dex time, the fork declared AndroidX's Gradle capabilities on Android, so
+  Gradle refused the pair. Any app with a launcher widget, Glance Wear or Wear `remote-material3`
+  has AndroidX's creation on its classpath, so in exactly the apps that capture on a device, the
+  CMP creation API and everything built on it (`rc-creation-bridge`, `rc-player-embedded`) could not
+  be used at all. Every module in between needed a `capabilitiesResolution` rule that picked a
+  side.
 
-The one cost is on Android: the fork and AndroidX's own `remote-creation-compose` share class
-names. Publishing it needs a Gradle capability that both provide, so Gradle reports the conflict
-when both are present instead of silently loading duplicate classes.
+The owners' projects (Livery, Cadence, Home Assistant) take creation from here on every target, so
+the move was made before they migrated, and they migrate once:
+[`docs/MIGRATING_CREATION.md`](../MIGRATING_CREATION.md).
 
-**AndroidX has moved since this was written.** `remote-creation-compose` is now multiplatform for
-the JVM and Android, and its state types live in a separate `remote-creation-expression` module
-(androidx-main `21a1a95e4`). It still has no iOS, macOS or Wasm target, so the fork is still
-needed, but its direction is now convergence: take upstream's file names, layout, types and module
-boundaries, and keep only the differences those other targets force.
-[RC_CREATION_UPSTREAM.md](RC_CREATION_UPSTREAM.md) records what those differences are, the plan and
-its state, and the feedback for AndroidX. The package decision above is unchanged by it.
+What it costs:
+
+- **Component libraries written against AndroidX do not run on the CMP API.** Wear
+  `remote-material3`, and any library compiled against `androidx.compose.remote.creation.compose`,
+  takes AndroidX's `RemoteModifier`, `RemoteColor` and `@RemoteComposable`; those are different
+  types from rc-players' of the same simple names. Such a library is used with AndroidX's creation
+  on Android, or its source is built a second time against `rc-creation-compose` (a package rewrite,
+  as far as the API it uses exists on both sides).
+- **Code that must compose with AndroidX-only libraries needs an AndroidX binding.** The widget
+  lane is the case in this repository: `:rc-widget-creation` is the CMP binding on every target, and
+  `:rc-widget-creation-androidx` is the same helpers generated against AndroidX's API for
+  `:rc-widget-launcher` and `:rc-widget-wear` ([RC_WIDGETS.md](RC_WIDGETS.md)). A library that wants
+  to serve both does the same.
+- **Exported code names one of the two.** `toRemoteComposeKotlin` writes rc-players' imports by
+  default and AndroidX's on request (`RcKotlinOptions.creationApi`); the file is otherwise the
+  same.
+- **A refresh from androidx-main has one more mechanical step,** the package rewrite, which
+  `diff-upstream.sh` applies to upstream's side before it compares, so the measured difference from
+  AndroidX is what it was.
+
+What did not change: the fork is still AndroidX's source with a short, marked list of differences,
+laid out as upstream's modules and files, and still converging on it. Structural work goes in the
+layer, `ee.schimke.composeai.rccreation.bridge`. When the layer needs something only the fork's
+internals can give (a capture seam, an id reset, an applier hook), the fork gets a small marked
+patch that is generic enough to offer upstream. AndroidX still has no iOS, macOS or Wasm target, so
+the fork is still needed. [RC_CREATION_UPSTREAM.md](RC_CREATION_UPSTREAM.md) records what the
+differences are, the plan and its state, and the feedback for AndroidX.
 
 Creation does not depend on the player, and the player does not depend on creation.
 
@@ -154,8 +198,10 @@ targets are declared but not built here, because they need a macOS host.
 `-PrcPlayersDir` (yschimke/remote-m3-catalog#133). Its existing UI suite passes as it does on the
 capture path: 25 of 26, and the remaining one fails the same way on both, for a font absent from the
 checkout. That covers every golden widget design in every host shape, icons, backgrounds, edits,
-failures and clocks, and every published Remote Material 3 component recording. The published
-`remote-material3` binary links against this fork unchanged.
+failures and clocks, and every published Remote Material 3 component recording. That run was made
+while the fork was in AndroidX's package, when the published `remote-material3` binary linked
+against it unchanged; since the move to `ee.schimke.composeai.rccreation` a component library is
+built from source against `rc-creation-compose` instead.
 
 ## How the live session has to run
 
@@ -267,20 +313,26 @@ the layout:
 
 ## Publishing and stability
 
-All four modules publish with the player, under the same version and BOM.
+All six modules publish with the player, under the same version and BOM.
 
-- **The fork** (`third-party-remote-creation-writer`, `third-party-remote-creation-compose`) is
+- **The fork** (`rc-creation-writer`, `rc-creation-expression`, `rc-creation-compose`,
+  `rc-creation-foundation`) is
   `explicitApi()` and ABI-dumped like the player. Its surface is AndroidX's, so it follows AndroidX's
   stability; the dumps make a refresh's changes reviewable rather than gating them.
 - **The layer** (`rc-creation-bridge`, `rc-player-embedded`) is ABI-dumped and
   `@ExperimentalRcCreationApi`: callers opt in, and its shape may change between minor releases.
   The player's geometry hook (`LocalRcComponentCoordinates`) is `@ExperimentalRcPlayerApi` in
   `rc-player-compose` for the same reason.
-- **Android.** The fork and AndroidX's own `remote-creation-compose` share class names. The compose
-  fork declares AndroidX's capabilities (`androidx.compose.remote:remote-creation-compose`,
-  `androidx.compose.remote.foundation:foundation`), so a consumer that resolves both gets Gradle's
-  capability conflict, naming them, instead of duplicate classes at dex time.
-  yschimke/wear-m3-catalog#652 is the precedent for how badly a silent duplicate FQN fails.
+- **Beside AndroidX.** The fork is in its own package and declares no capability of AndroidX's, so
+  a consumer can resolve both. Before the move it shared AndroidX's class names and declared AndroidX's
+  capabilities on Android so that Gradle would refuse the pair
+  (yschimke/wear-m3-catalog#652 is the precedent for how badly a silent duplicate FQN fails);
+  `verifyNoSharedClasses` in `:rc-creation-coexistence-check` now checks that there is nothing to
+  refuse.
+- **The old coordinates stop.** `third-party-remote-creation-writer` and
+  `third-party-remote-creation-compose` are not published from this version on, with no relocation
+  POM and no stub: their last release keeps working, in AndroidX's package, and
+  [`docs/MIGRATING_CREATION.md`](../MIGRATING_CREATION.md) is the way forward.
 
 ## What comes next
 

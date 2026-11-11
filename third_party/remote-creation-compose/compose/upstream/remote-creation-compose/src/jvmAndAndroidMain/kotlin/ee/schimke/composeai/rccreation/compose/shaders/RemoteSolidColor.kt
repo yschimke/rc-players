@@ -1,0 +1,53 @@
+/*
+ * Copyright (C) 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package ee.schimke.composeai.rccreation.compose.shaders
+
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
+import ee.schimke.composeai.rccreation.compose.layout.RemoteSize
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemotePaint
+import ee.schimke.composeai.rccreation.compose.state.RemoteStateScope
+
+/**
+ * Creates a solid color brush.
+ *
+ * @param color color to apply
+ * @return a [RemoteBrush] that fills with [color]
+ */
+@Stable
+public fun RemoteBrush.Companion.solidColor(color: RemoteColor): RemoteBrush =
+    RemoteSolidColor(color)
+
+@Immutable
+internal class RemoteSolidColor(val color: RemoteColor) : RemoteBrush() {
+
+    override fun RemoteStateScope.applyTo(paint: RemotePaint, size: RemoteSize) {
+        paint.color = color
+        paint.shader = null
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RemoteSolidColor) return false
+        return color.isStructurallyEqual(other.color)
+    }
+
+    override fun hashCode(): Int = color.cacheKey.hashCode()
+
+    override fun toString(): String = "RemoteSolidColor(color=$color)"
+}

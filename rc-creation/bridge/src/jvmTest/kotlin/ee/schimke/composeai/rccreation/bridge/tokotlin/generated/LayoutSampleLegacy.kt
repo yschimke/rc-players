@@ -3,32 +3,32 @@
 
 package ee.schimke.composeai.rccreation.bridge.tokotlin.generated
 
-import androidx.compose.remote.creation.compose.layout.RemoteAlignment
-import androidx.compose.remote.creation.compose.layout.RemoteArrangement
-import androidx.compose.remote.creation.compose.layout.RemoteBox
-import androidx.compose.remote.creation.compose.layout.RemoteColumn
-import androidx.compose.remote.creation.compose.layout.RemoteComposable
-import androidx.compose.remote.creation.compose.layout.RemoteFlowRow
-import androidx.compose.remote.creation.compose.layout.RemoteRow
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.background
-import androidx.compose.remote.creation.compose.modifier.border
-import androidx.compose.remote.creation.compose.modifier.clip
-import androidx.compose.remote.creation.compose.modifier.fillMaxSize
-import androidx.compose.remote.creation.compose.modifier.fillMaxWidth
-import androidx.compose.remote.creation.compose.modifier.height
-import androidx.compose.remote.creation.compose.modifier.heightIn
-import androidx.compose.remote.creation.compose.modifier.offset
-import androidx.compose.remote.creation.compose.modifier.padding
-import androidx.compose.remote.creation.compose.modifier.size
-import androidx.compose.remote.creation.compose.modifier.width
-import androidx.compose.remote.creation.compose.modifier.wrapContentHeight
-import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
-import androidx.compose.remote.creation.compose.state.RemoteColor
-import androidx.compose.remote.creation.compose.state.rdp
-import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
+import ee.schimke.composeai.rccreation.compose.layout.RemoteArrangement
+import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.layout.RemoteColumn
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
+import ee.schimke.composeai.rccreation.compose.layout.RemoteFlowRow
+import ee.schimke.composeai.rccreation.compose.layout.RemoteRow
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.background
+import ee.schimke.composeai.rccreation.compose.modifier.border
+import ee.schimke.composeai.rccreation.compose.modifier.clip
+import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
+import ee.schimke.composeai.rccreation.compose.modifier.fillMaxWidth
+import ee.schimke.composeai.rccreation.compose.modifier.height
+import ee.schimke.composeai.rccreation.compose.modifier.heightIn
+import ee.schimke.composeai.rccreation.compose.modifier.offset
+import ee.schimke.composeai.rccreation.compose.modifier.padding
+import ee.schimke.composeai.rccreation.compose.modifier.size
+import ee.schimke.composeai.rccreation.compose.modifier.width
+import ee.schimke.composeai.rccreation.compose.modifier.wrapContentHeight
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.rdp
+import ee.schimke.composeai.rccreation.compose.state.rf
 
 @Composable
 @RemoteComposable

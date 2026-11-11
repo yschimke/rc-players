@@ -30,7 +30,7 @@ kotlin {
 
   sourceSets {
     androidMain.dependencies {
-      api(project(":rc-widget-creation"))
+      api(project(":rc-widget-creation-androidx"))
       api(libs.compose.remote.core)
       api(libs.compose.remote.creation)
       api(libs.compose.remote.creation.core)
@@ -47,27 +47,6 @@ kotlin {
       implementation(libs.junit)
       implementation(libs.robolectric)
     }
-  }
-}
-
-// The fork `:rc-widget-creation` compiles against declares AndroidX's capabilities; on Android take
-// AndroidX's own.
-configurations.configureEach {
-  resolutionStrategy.capabilitiesResolution {
-    listOf(
-        "androidx.compose.remote:remote-creation-compose",
-        "androidx.compose.remote:remote-creation-expression",
-        "androidx.compose.remote.foundation:foundation",
-      )
-      .forEach { capability ->
-        withCapability(capability) {
-          candidates
-            .firstOrNull {
-              (it.id as? ModuleComponentIdentifier)?.group?.startsWith("androidx.") == true
-            }
-            ?.let { select(it) }
-        }
-      }
   }
 }
 

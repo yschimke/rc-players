@@ -1,6 +1,6 @@
 # The creation fork and AndroidX: divergence, realignment, and feedback for upstream
 
-**Status: steps 0 to 2 and 4 of the realignment are done, and the canvas differences step 4 kept are settled; steps 3, 5 and 6 are planned.** This note records
+**Status: steps 0 to 4 of the realignment are done, the canvas differences step 4 kept are settled, and the fork is in rc-players' own package; steps 5 and 6 are planned.** This note records
 three things about `third_party/remote-creation-compose` and `third_party/remote-creation-writer`,
 the Compose Multiplatform fork of AndroidX Remote Compose creation:
 
@@ -21,7 +21,18 @@ relative to `compose/remote/` in the androidx repository. Three prefixes are abb
 
 The fork's history, refresh by refresh, is in
 [PROVENANCE.md](../../third_party/remote-creation-compose/PROVENANCE.md). Why the fork exists and
-why it stays in AndroidX's package is in [RC_CREATION_BRIDGE.md](RC_CREATION_BRIDGE.md).
+why it is in rc-players' package and not AndroidX's is in
+[RC_CREATION_BRIDGE.md](RC_CREATION_BRIDGE.md).
+
+The fork declares AndroidX's Kotlin in its own packages, and this note names a file by AndroidX's
+path when it is about upstream and by the fork's when it is about the fork:
+
+| AndroidX | The fork | Published as |
+| --- | --- | --- |
+| `androidx.compose.remote.creation.compose` in `remote-creation-expression` | `ee.schimke.composeai.rccreation.compose` | `rc-creation-expression` |
+| `androidx.compose.remote.creation.compose` in `remote-creation-compose` | `ee.schimke.composeai.rccreation.compose` | `rc-creation-compose` |
+| `androidx.compose.remote.foundation` | `ee.schimke.composeai.rccreation.foundation` | `rc-creation-foundation` |
+| `remote-core`, `remote-creation-core`, `remote-creation` (Java, not carried) | `ee.schimke.composeai.rccreation.common`, the Kotlin writer | `rc-creation-writer` |
 
 ## Why there is a fork
 
@@ -83,14 +94,14 @@ forces it.
 | `util/DocumentStats.kt` and `capture/CustomComponentFactory.kt` not carried | They are over `remote-core`'s Java classes for a document that has been read (`CoreDocument`, `operations.layout.Component`). |
 | `capture/RemoteLog.kt` not carried, and `currentProfileSupports*` answered from the operations a host names | Both read the capture state's `Profile`: `RemoteLog` its `RcPlatformServices`, the capability functions its operation table. |
 | `RemotePath(pathData: String)` ported from `remote-core`'s `RemotePathBase`, and `addPathString` as an extension over it | `RemoteComposeWriter.addPathString` asks `RcPlatformServices.parsePath` (`remote-creation-core/…/RemoteComposeWriter.java:2253`), and `vector/RemoteAnimatedVector.kt` draws with it. |
-| A Gradle capability shared with AndroidX on Android | The fork keeps AndroidX's package and class names, so the two cannot be on one classpath. |
+| Its own package, `ee.schimke.composeai.rccreation`, and its own coordinates | AndroidX's artifacts are multiplatform for the JVM and Android in `androidx.compose.remote.creation.compose`. A fork that kept that package could not be on a classpath with them, on the two targets where it is used most; see [RC_CREATION_BRIDGE.md](RC_CREATION_BRIDGE.md). This is the one difference every carried file has, and `diff-upstream.sh` removes it before it compares. |
 
 ## Divergence that is not necessary
 
 The rest of what differs is history: the fork began as a hand-made port with its own file names
 (gone since step 1), its own visibility and creation-state types (gone since step 2), one module
-where upstream now has three, its own canvas recording (gone since step 4), and its own capture
-loop. None of that is forced by anything upstream, and
+where upstream now has three (gone since step 3), its own canvas recording (gone since step 4), and
+its own capture loop. None of that is forced by anything upstream, and
 all of it makes every refresh from androidx-main harder to do and to review. The plan below removes
 it in an order that keeps each step small and keeps the bytes the fork writes unchanged until the
 last step.
@@ -99,9 +110,20 @@ last step.
 
 Divergence is measured by
 [`third_party/remote-creation-compose/scripts/diff-upstream.sh`](../../third_party/remote-creation-compose/scripts/diff-upstream.sh),
-which compares the fork with an androidx checkout file by file after normalising import order and
+which compares the fork with an androidx checkout file by file after normalising import order,
 the names in `scripts/upstream-fqn.tsv` (upstream's Java classes, which the fork's writer declares
-in another package).
+in another package) and the packages in `scripts/upstream-packages.tsv`:
+
+| Upstream's package | The fork's |
+| --- | --- |
+| `androidx.compose.remote.creation.compose` | `ee.schimke.composeai.rccreation.compose` |
+| `androidx.compose.remote.foundation` | `ee.schimke.composeai.rccreation.foundation` |
+
+The script applies that map to upstream's side, to a file's text (package statements, imports,
+qualified names, KDoc links, `@sample` references) and to its path, so a carried file is compared
+with upstream's text as it reads in the fork's package, and the relocation itself adds nothing to
+the counts below. Imports are sorted where their AndroidX names sort, so the block keeps upstream's
+order on both sides.
 
 | | Upstream files | Identical | Differing | Not carried | Carried under another name, split or merged | Fork-only files | Differing hunks | Marked | Import-only | Unmarked |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -111,6 +133,9 @@ in another package).
 | After step 2 | 210 | 95 | 79 | 36 | 0 | 17 | 226 | 120 | 54 | 52 |
 | After step 4 | 214 | 97 | 86 | 31 | 0 | 17 | 215 | 147 | 58 | 10 |
 | After the canvas port fixes | 214 | 97 | 86 | 31 | 0 | 17 | 208 | 141 | 57 | 10 |
+| After the upstream bug patches | 214 | 96 | 87 | 31 | 0 | 17 | 232 | 163 | 59 | 10 |
+| After the relocation to `ee.schimke.composeai.rccreation` | 214 | 96 | 87 | 31 | 0 | 17 | 232 | 163 | 59 | 10 |
+| After step 3 | 214 | 96 | 87 | 31 | 0 | 18 | 233 | 166 | 57 | 10 |
 
 A marked hunk carries `LOCAL PATCH (rc-players)` (a fork addition or a deliberate difference) or
 `KMP (rc-players)` (a substitution forced by the non-JVM targets or by the Kotlin writer), with its
@@ -122,6 +147,11 @@ third row is step 1's tree counted that way. Step 4 added the four test files of
 meant to alter what is written: the hunks step 4 kept so that no document changed (`usePaint`, the
 paint around a block that may not run, pivots, `String` text, the loop index) became upstream's
 lines, and what replaced the rest is marked with its reason (PROVENANCE.md, "Canvas port fixes").
+The relocation changes no count: it is a rename the script undoes. Step 3 adds three marked hunks
+(`lastComponentId` on `RemoteDocumentScope`, and its two overrides in `remote-creation-compose`),
+removes two import-only ones (`RemoteFloatContext` no longer names the creation state, and
+`RemoteStateVisitor` no longer imports `ImageBitmap`), and adds one fork-only file
+(`state/RemoteTextUnitDp.kt`).
 Of the 10 unmarked hunks left, 2 are an upstream change to
 `RemoteCornerBasedShape` that alters the documents written and waits for a refresh, and 8 are the
 two formatters disagreeing about where to break a line. The 31 files not carried are the capture
@@ -130,16 +160,38 @@ Java reader, and 17 Android-only files.
 
 | Step | What | State |
 | --- | --- | --- |
-| 0 | Make divergence measurable (`diff-upstream.sh` and its data files). Declare the `androidx.compose.remote:remote-creation-expression` capability, so the fork and that AndroidX artifact cannot both be resolved on Android. | Done |
-| 1 | Renames and moves only. Every carried file has upstream's name and sits at upstream's path under `third_party/remote-creation-compose/upstream/<upstream module>/src/<source set>/…`; declarations that upstream keeps in another file moved there; `@file:JvmName`s match upstream's. No behaviour change: the documents written are byte-identical. | Done |
+| 0 | Make divergence measurable (`diff-upstream.sh` and its data files). Declare the `androidx.compose.remote:remote-creation-expression` capability, so the fork and that AndroidX artifact cannot both be resolved on Android (withdrawn in step 3a, when the fork left AndroidX's package). | Done |
+| 1 | Renames and moves only. Every carried file has upstream's name and sits at upstream's path under `third_party/remote-creation-compose/upstream/<upstream module>/src/<source set>/…` (since step 3, `third_party/remote-creation-compose/<expression, compose or foundation>/upstream/…`, with the fork's package directories); declarations that upstream keeps in another file moved there; `@file:JvmName`s match upstream's. No behaviour change: the documents written are byte-identical. | Done |
 | 2 | Take upstream's visibility and scope types: the restricted-public cache keys and helpers, `RemoteDocumentScope` with `document` and `resolveComponentToken()`, the `RemoteComposeCreationState` / `RemoteComposeCaptureState` split, and `RemoteComposeWriter`'s method names on the fork's writer interface. The 31 files of `remote-creation-expression` are upstream's text again: 21 identical, 10 with marked hunks only (and one formatter hunk). Every other hunk that has to stay is marked with its reason. No document changes. | Done |
-| 3 | Split the one Gradle module into three that mirror upstream: expression, compose, foundation. Two marked hunks in the expression files still reach into the compose side and have to go first: `RemoteFloatContext` finds the creation state through `RemoteStateScope`, and `RemoteStateVisitor` rebuilds an image constant from a Compose `ImageBitmap`. | Planned |
+| 3 | Split the one Gradle module into three that mirror upstream, each published under its own coordinates: `rc-creation-expression`, `rc-creation-compose`, `rc-creation-foundation`, over `rc-creation-writer`, with upstream's dependencies between them (`foundation` → `compose` → `expression` → the writer). The two marked hunks in the expression files that reached into the compose side went first. `RemoteFloatContext` asks its scope for the last component (`RemoteDocumentScope.lastComponentId`, a marked member beside `document`, where upstream reads `document.buffer.lastComponentId`); the creation state answers and `RemoteStateScope` passes the question to its parent. `RemoteStateVisitor.resolveConstantState` is upstream's text again: a constant key keeps the state of a value that cannot be rebuilt from the value alone (an image), where upstream keeps a weak reference to every state, so the expression module no longer needs Compose UI's `ImageBitmap`. Two fork-only pieces cross the new boundary as restricted API: `MeshExpressionLowering`, and `RemoteTextUnit.toDp`, which `RemoteText`'s DP font size patch calls where it used the expression module's internal `RemoteFontScaleConverter`. No document changes. | Done |
+| 3a | Relocate the fork out of AndroidX's packages, to `ee.schimke.composeai.rccreation`, and stop declaring AndroidX's Gradle capabilities. Not a step towards upstream's text but the condition for being used beside it; `diff-upstream.sh` learned the package map, so every count is what it was. `:rc-creation-coexistence-check` compiles one source set against the fork and AndroidX's `remote-creation-compose` on Android and on the JVM and checks that the two share no class. No document changes. | Done |
 | 4 | Carry what is no longer Android-only upstream: `RemoteTextMeasure.kt`, `RemoteProfileCapabilities.kt`, `Hoist`, `RemoteAnimatedVector.kt` and its painter, `CaptureTracer.kt`, the `RemoteCanvas` API the fork lacked (`skew`, `saveCount`/`restoreToCount`, `custom`, the bitmap-font text runs, `startStateLayout`, the Loom patterns and `forEach`), with the writer operations under them, and the four JVM tests of `remote-creation-expression`. The fork's `RecordingCanvas` is folded into `RemoteCanvas`, as upstream did, so `RemoteCanvas.kt` and `CanvasOperationBuffer.kt` are upstream's text with marked hunks. No document that could be captured before changes; where the port's canvas wrote something other than upstream's text does, the port's bytes are kept under a marked hunk and listed in PROVENANCE.md ("Known port issues"). `CaptureUpdateThrottle.kt` moved to step 5 (it is built on `headless/UpdateRateLimiter`), and `RemoteLog.kt` to step 6 (it logs through the `Profile`). | Done |
 | 5 | Carry upstream's capture loop, `capture/headless/`, `capture/CaptureUpdateThrottle.kt` and `capture/CaptureRemoteDocument.kt`, with the JVM-only constructs replaced, in place of the fork's own. Layout nodes then write as they render, as upstream's do, which retires `WriterOp`. | Planned |
 | 6 | The writer under upstream's names, so that the modifier, action and canvas files become upstream's text. Its design depends on AndroidX's answer to items 1, 2 and 8 below. | Planned, not designed |
 
 After step 6 the only differences left should be the replacements for the JVM-only constructs
 listed in items 3, 5 and 6, and the additions listed under "Candidate contributions".
+
+### A refresh, with the fork in its own package
+
+A refresh from androidx-main is what it was, with one mechanical step added:
+
+1. Copy upstream's changed file to its place: the module that mirrors upstream's (`expression/`,
+   `compose/` or `foundation/` under `third_party/remote-creation-compose/`), `upstream/`, upstream's
+   source root, then the package path with `ee/schimke/composeai/rccreation/…` in place of
+   `androidx/compose/remote/creation/…` (`…/rccreation/foundation/…` for `…/remote/foundation/…`).
+2. Rewrite its packages, as `scripts/upstream-packages.tsv` lists them:
+   `androidx.compose.remote.creation.compose` to `ee.schimke.composeai.rccreation.compose` and
+   `androidx.compose.remote.foundation` to `ee.schimke.composeai.rccreation.foundation`, everywhere
+   in the file. Names of upstream's Java classes (`androidx.compose.remote.core.…`,
+   `androidx.compose.remote.creation.RemoteComposeWriter`) become the writer's, as
+   `scripts/upstream-fqn.tsv` lists them.
+3. Re-apply the marked hunks (`LOCAL PATCH (rc-players)`, `KMP (rc-players)`), and format.
+
+`diff-upstream.sh --summary <androidx checkout>` verifies the result: it applies steps 1 and 2 to
+upstream's side itself, so a file that was copied and rewritten correctly is identical, or differs
+only in its marked hunks. A file upstream moves between modules moves between the fork's modules
+with it.
 
 ## Feedback for AndroidX
 
@@ -162,7 +214,7 @@ JVM while `document` is that class. The Kotlin uses a fraction of it: about 40 d
 **Suggested.** A Kotlin interface in `remote-creation`'s `commonMain` (which today holds one
 31-line file) declaring the methods the Kotlin calls; `RemoteComposeWriter` implements it;
 `RemoteDocumentScope.document` is typed as the interface. The fork's
-`third_party/remote-creation-writer/src/commonMain/kotlin/androidx/compose/remote/creation/common/RemoteWriter.kt`
+`third_party/remote-creation-writer/src/commonMain/kotlin/ee/schimke/composeai/rccreation/common/RemoteWriter.kt`
 (128 functions) is a working version of this surface, with a second implementation behind it, and
 can be offered as a starting point.
 
@@ -377,7 +429,7 @@ float array and the builder verbs (`moveTo`, `lineTo`, `cubicTo`, …).
 
 **Suggested.** Make the pure-Kotlin builder the common class, and make `path`, `transform(Matrix)`
 and the `RectF` overloads platform extension functions. The fork's
-`third_party/remote-creation-compose/src/commonMain/kotlin/androidx/compose/remote/creation/compose/path/RemotePath.kt`
+`third_party/remote-creation-compose/compose/src/commonMain/kotlin/ee/schimke/composeai/rccreation/compose/path/RemotePath.kt`
 (150 lines) is such a builder.
 
 ### 11. Modifiers and actions are built as `remote-creation-core` Java objects
@@ -419,15 +471,15 @@ is small and not specific to rc-players. File paths are under
 
 | Addition | What it is for | In the fork | Upstream today |
 | --- | --- | --- | --- |
-| Capture into a caller-supplied writer | A host that wants the operations, not the bytes | `captureCommonRemoteDocumentInto(writer, …)` in `upstream/remote-creation-compose/src/jvmAndAndroidMain/…/capture/CaptureRemoteDocument.kt` | `RemoteComposeCaptureState` has a constructor taking a `RemoteComposeWriter` and `document` is a `var`, but no public capture uses them |
-| A composition under a host's `CompositionContext`, re-rendered on demand, reporting when a state its last render read has changed | Live preview and editors: the remote content recomposes with the host's | `src/commonMain/…/capture/RemoteDocumentSession.kt`; `onChangesApplied` on `RemoteComposeApplier` | Free-standing recomposers only (`headlessRenderFlow`, internal); `rememberRemoteDocument` in `android/capture/RemoteComposeCapture.android.kt` is the nearest |
-| Component ids that restart with each render of a retained tree | Anything keyed on a component id (editor selection, player state) survives a re-render | `resetComponentIds()` in `upstream/remote-creation-expression/…/capture/RemoteComposeCreationState.kt` | Not present |
-| `RemoteModifier.componentId(id)` | A host names a component and maps player geometry back to its own nodes | `src/commonMain/…/modifier/ComponentIdModifier.kt` | `RecordingModifier.componentId(id)` exists in Java (`remote-creation-core/…/modifiers/RecordingModifier.java:146`); the Compose layer calls it only to number a custom component (`common/layout/RemoteCustomComponent.kt:42`), and no `RemoteModifier` exposes it |
-| `RemoteBrush.runtimeShader(source, uniforms…)` | AGSL shaders with `RemoteFloat` uniforms | `src/commonMain/…/shaders/RemoteRuntimeShader.kt` | The core reads `ShaderData`; nothing in `remote-creation-compose` writes it |
-| `drawMesh2D` on `RemoteCanvas` and `RemoteDrawScope`, channels as `RemoteFloat` expressions over `u`/`v` | Parametric 2D meshes | `src/commonMain/…/layout/RemoteMesh2D.kt`, `state/MeshExpressionLowering.kt` | The core has the experimental operations; `remote-creation-core`'s `dsl/RcMesh.kt` writes them, nothing in `remote-creation-compose` does |
+| Capture into a caller-supplied writer | A host that wants the operations, not the bytes | `captureCommonRemoteDocumentInto(writer, …)` in `compose/upstream/remote-creation-compose/src/jvmAndAndroidMain/…/capture/CaptureRemoteDocument.kt` | `RemoteComposeCaptureState` has a constructor taking a `RemoteComposeWriter` and `document` is a `var`, but no public capture uses them |
+| A composition under a host's `CompositionContext`, re-rendered on demand, reporting when a state its last render read has changed | Live preview and editors: the remote content recomposes with the host's | `compose/src/commonMain/…/capture/RemoteDocumentSession.kt`; `onChangesApplied` on `RemoteComposeApplier` | Free-standing recomposers only (`headlessRenderFlow`, internal); `rememberRemoteDocument` in `android/capture/RemoteComposeCapture.android.kt` is the nearest |
+| Component ids that restart with each render of a retained tree | Anything keyed on a component id (editor selection, player state) survives a re-render | `resetComponentIds()` in `expression/upstream/remote-creation-expression/…/capture/RemoteComposeCreationState.kt` | Not present |
+| `RemoteModifier.componentId(id)` | A host names a component and maps player geometry back to its own nodes | `compose/src/commonMain/…/modifier/ComponentIdModifier.kt` | `RecordingModifier.componentId(id)` exists in Java (`remote-creation-core/…/modifiers/RecordingModifier.java:146`); the Compose layer calls it only to number a custom component (`common/layout/RemoteCustomComponent.kt:42`), and no `RemoteModifier` exposes it |
+| `RemoteBrush.runtimeShader(source, uniforms…)` | AGSL shaders with `RemoteFloat` uniforms | `compose/src/commonMain/…/shaders/RemoteRuntimeShader.kt` | The core reads `ShaderData`; nothing in `remote-creation-compose` writes it |
+| `drawMesh2D` on `RemoteCanvas` and `RemoteDrawScope`, channels as `RemoteFloat` expressions over `u`/`v` | Parametric 2D meshes | `compose/src/commonMain/…/layout/RemoteMesh2D.kt`, `expression/src/commonMain/…/state/MeshExpressionLowering.kt` | The core has the experimental operations; `remote-creation-core`'s `dsl/RcMesh.kt` writes them, nothing in `remote-creation-compose` does |
 | A free-standing touch expression (`addTouchExpression`), and `textMerge` into a reserved id | Drag controls: a slider following the touch position, its value as a label | `../remote-creation-writer/…/RemoteWriter.kt` | In `RemoteComposeBuffer`; not reachable from `remote-creation-compose` |
 | Component offscreen buffers and float functions | Custom visibility animations | `../remote-creation-writer/…/RemoteWriter.kt` (`createOffscreenBitmap`, `createFloatFunction`, …) | In `RemoteComposeWriter` and the `RcScope` DSL; not in `remote-creation-compose` |
-| `toRemoteString(DecimalFormat)` over a plain Kotlin `DecimalFormat` | Number formatting off Android | `src/commonMain/…/state/RemoteDecimalFormat.kt` | The overloads take `java.text.DecimalFormat` or ICU's, in `android/state/RemoteFormatting.android.kt` |
+| `toRemoteString(DecimalFormat)` over a plain Kotlin `DecimalFormat` | Number formatting off Android | `expression/src/commonMain/…/state/RemoteDecimalFormat.kt` | The overloads take `java.text.DecimalFormat` or ICU's, in `android/state/RemoteFormatting.android.kt` |
 | PNG encoding supplied by the host (`encodePng: (ImageBitmap) -> ByteArray?`) | Inline bitmaps without a platform service | `captureCommonRemoteDocument` | `RcPlatformServices`, a Java interface, per platform |
 
 Three of the bug fixes under "Bugs and inconsistencies found" are patches to upstream's own text
@@ -435,8 +487,8 @@ and could be offered as they are:
 
 | Fix | In the fork | Applies upstream |
 | --- | --- | --- |
-| An animated vector's repeats, in the painter | `computeAnimatorLocalProgress`, `evaluateDynamicFloat`, `evaluateDynamicColor` in `upstream/remote-creation-compose/src/androidMain/…/vector/RemoteAnimatedVectorPainter.android.kt` | As it is |
-| An animated vector's interpolators, the same in both evaluations | `RemotePropertyAnimator.evaluateAt` and `RemoteInterpolator.Accelerate`/`Decelerate` in `upstream/remote-creation-compose/src/jvmAndAndroidMain/…/vector/RemoteAnimatedVector.kt`; `transformInterpolator`, `evaluateAnimatorFloat`, `evaluateAnimatorColor` in the painter | As it is |
+| An animated vector's repeats, in the painter | `computeAnimatorLocalProgress`, `evaluateDynamicFloat`, `evaluateDynamicColor` in `compose/upstream/remote-creation-compose/src/androidMain/…/vector/RemoteAnimatedVectorPainter.android.kt` | As it is |
+| An animated vector's interpolators, the same in both evaluations | `RemotePropertyAnimator.evaluateAt` and `RemoteInterpolator.Accelerate`/`Decelerate` in `compose/upstream/remote-creation-compose/src/jvmAndAndroidMain/…/vector/RemoteAnimatedVector.kt`; `transformInterpolator`, `evaluateAnimatorFloat`, `evaluateAnimatorColor` in the painter | As it is |
 | A text measurement does not change the paint a draw uses | `measureAttribute` in `…/layout/RemoteTextMeasure.kt`, `flush`, `usePaintInternal`, `recordRenderingOp` and `paintWrittenOutsideTracker` in `…/layout/RemoteCanvas.kt`, one field in `…/capture/RemoteComposeCaptureState.kt` | As it is: none of it touches what the fork replaces |
 
 The loop fix is not on that list: the fork makes it in its own writer (`startLoop`, `endLoop`),
@@ -800,6 +852,13 @@ tests failed before the patches.*
 
 ## How this was checked
 
+- The relocation and step 3 were checked the way step 2 was. `RemoteDocumentWriter` dumped every
+  document it encoded while the JVM tests of the writer, the creation modules, `:rc-creation-bridge`,
+  `:rc-player-embedded` and `:rc-player-edit` ran, on a worktree of the commit before and on the
+  result: 830 encodes in 49 test classes, 535 distinct documents, the same bytes in the same order in every class (one class, `RcEmbeddedPlayerTest`, re-renders a live session a number of times that varies from run to run of the same commit; its documents are the same set). `diff-upstream.sh` counted the same hunks before and after the relocation, and
+  the five that step 3 changed are listed under the plan's table. That the two libraries can share
+  a classpath is checked on every build by `:rc-creation-coexistence-check`; against the fork as it
+  was before the relocation, the same comparison finds 626 classes in both.
 - File and line counts, import counts and the construct lists were recomputed from the upstream
   checkout at `21a1a95e4` with `find`, `grep` and `wc`, not carried over from earlier notes.
 - "Could be common code" is established by a build only for what the fork carries: those files
@@ -837,10 +896,10 @@ tests failed before the patches.*
   match byte for byte. Each writer operation the step added is read back by AndroidX's own reader
   (`remote-core` 1.0.0-alpha23) in `NewWriterOperationsReadBackTest`, `CarriedCreationApiTest` and
   `LoomPatternsTest` of `:rc-creation-bridge`; AndroidX's four expression tests run against the
-  fork in `:third-party-remote-creation-compose:jvmTest`.
+  fork in `:rc-creation-expression:jvmTest` (`:third-party-remote-creation-compose:jvmTest` then).
 - Step 2 was checked by having `RemoteDocumentWriter` dump every document it encoded while the
   JVM tests of `:rc-creation-bridge`, `:rc-player-embedded`, `:rc-player-edit` and
-  `:third-party-remote-creation-writer` ran, with 22 more captured for the purpose (the round-trip
+  `:third-party-remote-creation-writer` (now `:rc-creation-writer`) ran, with 22 more captured for the purpose (the round-trip
   samples and two documents of clips, borders, `drawWithContent`, a canvas, text, actions, named
   values, gradients, scrolling and a state layout, under both density behaviours), before and
   after: the same 112 distinct documents, and the 22 byte for byte.

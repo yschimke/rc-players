@@ -1,12 +1,12 @@
 package ee.schimke.composeai.rccreation.bridge
 
-import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
-import androidx.compose.remote.creation.compose.capture.RemoteDensityBehavior
-import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocument
-import androidx.compose.remote.creation.compose.layout.RemoteText
-import androidx.compose.remote.creation.compose.state.rs
-import androidx.compose.remote.creation.compose.state.rsp
-import androidx.compose.remote.creation.compose.text.RemoteTextOverflow
+import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
+import ee.schimke.composeai.rccreation.compose.capture.RemoteDensityBehavior
+import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocument
+import ee.schimke.composeai.rccreation.compose.layout.RemoteText
+import ee.schimke.composeai.rccreation.compose.state.rs
+import ee.schimke.composeai.rccreation.compose.state.rsp
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextOverflow
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty

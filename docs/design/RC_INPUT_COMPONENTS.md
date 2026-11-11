@@ -123,9 +123,10 @@ callbacks live in `rcInputComponents`/the native or JS host, rather than executi
 `canCreateRcInputs()` checks writer operation support only (an empty common-writer operation set
 means unrestricted); `RemoteInput` invokes its fallback when that set excludes LAYOUT_CUSTOM.
 The common writer declares the experimental profile/API required by custom components when they
-are emitted. On Android, select the creation fork **or** upstream AndroidX creation, never both;
-apps keeping upstream AndroidX can use the toolkit-independent protocol/fragment API and the same
-property contract. The bridge and its transitive writer/creation artifacts participate in the
+are emitted. The creation modules (`rc-creation-compose`, package
+`ee.schimke.composeai.rccreation`) can sit beside upstream AndroidX creation in one app; apps that
+author with upstream AndroidX alone can use the toolkit-independent protocol/fragment API and the
+same property contract. The bridge and its transitive writer/creation artifacts participate in the
 existing Maven publication/release set and ABI gates.
 
 TypeScript authors use exported `InputField`/`InputKind`, `inputDocument(fields)` and

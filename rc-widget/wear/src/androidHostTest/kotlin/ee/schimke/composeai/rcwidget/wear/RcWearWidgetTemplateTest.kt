@@ -24,9 +24,9 @@ import ee.schimke.composeai.rcwidget.RcWearContainer
 import ee.schimke.composeai.rcwidget.RcWearContainerType
 import ee.schimke.composeai.rcwidget.RcWearFrame
 import ee.schimke.composeai.rcwidget.RcWearHost
-import ee.schimke.composeai.rcwidget.creation.RcWearBackground
-import ee.schimke.composeai.rcwidget.creation.RcWearEdge
-import ee.schimke.composeai.rcwidget.creation.RcWearGlow
+import ee.schimke.composeai.rcwidget.creation.androidx.RcWearBackground
+import ee.schimke.composeai.rcwidget.creation.androidx.RcWearEdge
+import ee.schimke.composeai.rcwidget.creation.androidx.RcWearGlow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

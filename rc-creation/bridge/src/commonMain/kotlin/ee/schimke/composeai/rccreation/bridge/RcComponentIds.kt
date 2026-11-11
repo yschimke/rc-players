@@ -1,8 +1,8 @@
 package ee.schimke.composeai.rccreation.bridge
 
-import androidx.compose.remote.creation.compose.modifier.MaxExplicitComponentId
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.componentId
+import ee.schimke.composeai.rccreation.compose.modifier.MaxExplicitComponentId
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.componentId
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 

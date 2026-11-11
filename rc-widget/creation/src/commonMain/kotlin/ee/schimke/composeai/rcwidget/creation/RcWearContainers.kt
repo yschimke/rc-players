@@ -2,16 +2,16 @@
 
 package ee.schimke.composeai.rcwidget.creation
 
-import androidx.compose.remote.creation.compose.layout.RemoteBox
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.fillMaxSize
-import androidx.compose.remote.creation.compose.modifier.padding
-import androidx.compose.remote.creation.compose.state.RemoteColor
-import androidx.compose.remote.creation.compose.state.RemoteDp
-import androidx.compose.remote.creation.compose.state.RemoteState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
+import ee.schimke.composeai.rccreation.compose.modifier.padding
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemoteDp
+import ee.schimke.composeai.rccreation.compose.state.RemoteState
 import ee.schimke.composeai.rcwidget.RcWearContainer
 import ee.schimke.composeai.rcwidget.RcWearFrame
 import ee.schimke.composeai.rcwidget.RcWearHost

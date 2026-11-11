@@ -1,0 +1,85 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package ee.schimke.composeai.rccreation.compose.modifier
+
+import ee.schimke.composeai.rccreation.common.RemoteModifierOperation
+import ee.schimke.composeai.rccreation.compose.capture.RemoteDensityBehavior
+import ee.schimke.composeai.rccreation.compose.layout.RemoteSize
+import ee.schimke.composeai.rccreation.compose.layout.remoteComponent
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteCircleShape
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteRectangleShape
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteShape
+import ee.schimke.composeai.rccreation.compose.shapes.toDimension
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemoteDp
+import ee.schimke.composeai.rccreation.compose.state.RemoteStateScope
+
+internal class BorderModifier(
+    public val width: RemoteDp,
+    public val color: RemoteColor,
+    public val shape: RemoteShape = RemoteRectangleShape,
+) : RemoteModifier.Element {
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
+    override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
+        var shapeType = 0
+        var roundedCorner = 0f
+        if (shape === RemoteCircleShape) {
+            shapeType = 1
+        } else if (shape is RemoteRoundedCornerShape) {
+            val component = remoteComponent()
+            shapeType = 2
+
+            val remoteSize = RemoteSize(component.width, component.height)
+            roundedCorner =
+                shape.topStart.toDimension(remoteSize, remoteDensity, densityBehavior).floatId
+        }
+        val resolvedWidth =
+            if (densityBehavior == RemoteDensityBehavior.Dp) width.value.floatId
+            else width.toPx().floatId
+        val constantColor = color.constantValueOrNull
+        return RemoteModifierOperation.Border(
+            resolvedWidth,
+            roundedCorner,
+            constantColor ?: color.id,
+            constantColor == null,
+            shapeType,
+        )
+    }
+}
+
+/**
+ * Draws a border around the element.
+ *
+ * Example of drawing a rounded border around a composable:
+ *
+ * @sample ee.schimke.composeai.rccreation.compose.samples.ModifierBorderSample
+ * @param width The width of the border.
+ * @param color The color of the border.
+ * @param shape The shape of the border. When [RemoteRoundedCornerShape] is used, only the
+ *   [RemoteRoundedCornerShape.topStart] corner size is currently taken into consideration for all
+ *   corners.
+ * @return a [RemoteModifier] that draws a border around the element
+ */
+public fun RemoteModifier.border(
+    width: RemoteDp,
+    color: RemoteColor,
+    shape: RemoteShape = RemoteRectangleShape,
+): RemoteModifier {
+    return then(BorderModifier(width, color, shape))
+}

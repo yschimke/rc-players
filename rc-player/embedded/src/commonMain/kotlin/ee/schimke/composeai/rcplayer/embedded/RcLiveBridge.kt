@@ -1,14 +1,5 @@
 package ee.schimke.composeai.rcplayer.embedded
 
-import androidx.compose.remote.creation.compose.action.RemoteAction
-import androidx.compose.remote.creation.compose.action.hostAction
-import androidx.compose.remote.creation.compose.layout.RemoteComposable
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.state.RemoteBoolean
-import androidx.compose.remote.creation.compose.state.RemoteColor
-import androidx.compose.remote.creation.compose.state.RemoteFloat
-import androidx.compose.remote.creation.compose.state.RemoteString
-import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.State
@@ -28,6 +19,15 @@ import ee.schimke.composeai.rccreation.bridge.RcHostBridge
 import ee.schimke.composeai.rccreation.bridge.RcHostContentSlot
 import ee.schimke.composeai.rccreation.bridge.rcBridgeName
 import ee.schimke.composeai.rccreation.bridge.rcHostContentConfig
+import ee.schimke.composeai.rccreation.compose.action.RemoteAction
+import ee.schimke.composeai.rccreation.compose.action.hostAction
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.state.RemoteBoolean
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.RemoteString
+import ee.schimke.composeai.rccreation.compose.state.rs
 import ee.schimke.composeai.rcplayer.compose.RcCustomComponentRegistry
 import ee.schimke.composeai.rcplayer.compose.RcCustomContent
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue

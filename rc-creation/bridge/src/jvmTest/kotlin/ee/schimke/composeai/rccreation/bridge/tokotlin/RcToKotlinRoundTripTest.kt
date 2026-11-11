@@ -1,9 +1,5 @@
 package ee.schimke.composeai.rccreation.bridge.tokotlin
 
-import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
-import androidx.compose.remote.creation.compose.capture.RemoteDensityBehavior
-import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocument
-import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
@@ -19,6 +15,10 @@ import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.NamedValuesSamp
 import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.TextSampleDp
 import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.TextSampleLegacy
 import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.VariableLengthsSampleDp
+import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
+import ee.schimke.composeai.rccreation.compose.capture.RemoteDensityBehavior
+import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocument
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
 import ee.schimke.composeai.rcplayer.edit.RcKotlinOptions
 import ee.schimke.composeai.rcplayer.edit.toRemoteComposeKotlin
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData

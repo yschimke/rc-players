@@ -1,14 +1,6 @@
 package ee.schimke.composeai.rcplayer.embedded
 
 import androidx.compose.foundation.layout.size
-import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
-import androidx.compose.remote.creation.compose.layout.RemoteBox
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.background
-import androidx.compose.remote.creation.compose.modifier.fillMaxSize
-import androidx.compose.remote.creation.compose.shaders.RemoteBrush
-import androidx.compose.remote.creation.compose.shaders.runtimeShader
-import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
@@ -20,6 +12,14 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
+import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.background
+import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
+import ee.schimke.composeai.rccreation.compose.shaders.RemoteBrush
+import ee.schimke.composeai.rccreation.compose.shaders.runtimeShader
+import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import kotlin.math.abs
 import kotlin.test.Test

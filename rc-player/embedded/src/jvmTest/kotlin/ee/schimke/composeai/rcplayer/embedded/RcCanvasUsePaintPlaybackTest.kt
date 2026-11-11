@@ -1,18 +1,18 @@
 package ee.schimke.composeai.rcplayer.embedded
 
-import androidx.compose.remote.creation.compose.layout.RemoteDrawScope
-import androidx.compose.remote.creation.compose.painter.painterRemoteImageBitmap
-import androidx.compose.remote.creation.compose.state.RemoteBlendMode
-import androidx.compose.remote.creation.compose.state.RemoteBlendModeColorFilter
-import androidx.compose.remote.creation.compose.state.RemoteColor
-import androidx.compose.remote.creation.compose.state.RemotePaint
-import androidx.compose.remote.creation.compose.state.rb
-import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
+import ee.schimke.composeai.rccreation.compose.layout.RemoteDrawScope
+import ee.schimke.composeai.rccreation.compose.painter.painterRemoteImageBitmap
+import ee.schimke.composeai.rccreation.compose.state.RemoteBlendMode
+import ee.schimke.composeai.rccreation.compose.state.RemoteBlendModeColorFilter
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemotePaint
+import ee.schimke.composeai.rccreation.compose.state.rb
+import ee.schimke.composeai.rccreation.compose.state.rf
 import kotlin.test.Test
 
 /**

@@ -2,13 +2,13 @@
 
 package ee.schimke.composeai.rcwidget.creation
 
-import androidx.compose.remote.creation.compose.action.RemoteAction
-import androidx.compose.remote.creation.compose.action.hostAction
-import androidx.compose.remote.creation.compose.state.RemoteString
-import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import ee.schimke.composeai.rccreation.compose.action.RemoteAction
+import ee.schimke.composeai.rccreation.compose.action.hostAction
+import ee.schimke.composeai.rccreation.compose.state.RemoteString
+import ee.schimke.composeai.rccreation.compose.state.rs
 import ee.schimke.composeai.rcwidget.RcWidgetActionIds
 import ee.schimke.composeai.rcwidget.RcWidgetActionMetadata
 

@@ -92,7 +92,50 @@ class RcKotlinSourceTest {
       "RemoteBox(modifier = RemoteModifier.size(24.rdp).padding(8.rdp)" +
         ".background(RemoteColor(Color(0xFFFF0000))))",
     )
-    assertContains(source.code, "import androidx.compose.remote.creation.compose.layout.RemoteBox")
+    assertContains(source.code, "import ee.schimke.composeai.rccreation.compose.layout.RemoteBox")
+  }
+
+  @Test
+  fun theCreationImportsAreRcPlayersOwnUnlessAndroidxIsAskedFor() {
+    val box =
+      withBehavior(
+        RcHeader.DENSITY_BEHAVIOR_DP,
+        document(
+          *rootLayoutArray(*modifiedBox(RcWidthModifier(RcDimensionType.EXACT_DP, word(24f)))),
+        ),
+      )
+    fun creationImports(code: String) =
+      code.lines().filter { it.startsWith("import ") && "Remote" in it }
+
+    val default = box.toRemoteComposeKotlin()
+    assertEquals(RcKotlinCreationApi.RcCreation, RcKotlinOptions().creationApi)
+    assertTrue(default.isComplete, default.unsupported.toString())
+    assertContains(default.code, "import ee.schimke.composeai.rccreation.compose.layout.RemoteBox")
+    assertTrue("androidx.compose.remote" !in default.code, default.code)
+
+    val androidx =
+      box.toRemoteComposeKotlin(RcKotlinOptions(creationApi = RcKotlinCreationApi.AndroidX))
+    assertTrue(androidx.isComplete, androidx.unsupported.toString())
+    assertContains(
+      androidx.code,
+      "import androidx.compose.remote.creation.compose.layout.RemoteBox",
+    )
+    assertTrue("ee.schimke.composeai.rccreation" !in androidx.code, androidx.code)
+
+    // The same file apart from the package its creation imports name, which stay sorted.
+    assertEquals(
+      creationImports(default.code).map {
+        it.replace(
+          "ee.schimke.composeai.rccreation.compose",
+          "androidx.compose.remote.creation.compose",
+        )
+      },
+      creationImports(androidx.code),
+    )
+    val androidxImports = androidx.code.lines().filter { it.startsWith("import ") }
+    assertEquals(androidxImports.sorted(), androidxImports)
+    fun body(code: String) = code.lines().filterNot { it.startsWith("import ") }
+    assertEquals(body(default.code), body(androidx.code))
   }
 
   @Test
@@ -260,7 +303,7 @@ class RcKotlinSourceTest {
     assertContains(source.code, "height(RemoteIntrinsicSize.Min)")
     assertContains(
       source.code,
-      "import androidx.compose.remote.creation.compose.layout.RemoteIntrinsicSize",
+      "import ee.schimke.composeai.rccreation.compose.layout.RemoteIntrinsicSize",
     )
   }
 

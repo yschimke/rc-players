@@ -19,12 +19,12 @@ import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcwidget.RcWearContainerType
 import ee.schimke.composeai.rcwidget.RcWearFrame
 import ee.schimke.composeai.rcwidget.RcWearTemplates
-import ee.schimke.composeai.rcwidget.creation.ProvideRcExpressionNames
-import ee.schimke.composeai.rcwidget.creation.RcWearBackground
-import ee.schimke.composeai.rcwidget.creation.RcWearLevel
-import ee.schimke.composeai.rcwidget.creation.RcWearLevelLook
-import ee.schimke.composeai.rcwidget.creation.RcWearTemplateContainer
-import ee.schimke.composeai.rcwidget.creation.androidXExperimentalWrap
+import ee.schimke.composeai.rcwidget.creation.androidx.ProvideRcExpressionNames
+import ee.schimke.composeai.rcwidget.creation.androidx.RcWearBackground
+import ee.schimke.composeai.rcwidget.creation.androidx.RcWearLevel
+import ee.schimke.composeai.rcwidget.creation.androidx.RcWearLevelLook
+import ee.schimke.composeai.rcwidget.creation.androidx.RcWearTemplateContainer
+import ee.schimke.composeai.rcwidget.creation.androidx.androidXExperimentalWrap
 
 /**
  * Wear widget templates captured on the watch (or the phone) itself: one capture per design, with

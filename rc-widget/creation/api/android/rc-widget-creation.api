@@ -1,7 +1,3 @@
-public final class ee/schimke/composeai/rcwidget/creation/AndroidxExperimentalProfileKt {
-	public static final fun getAndroidXExperimental ()Landroidx/compose/remote/creation/profile/Profile;
-}
-
 public final class ee/schimke/composeai/rcwidget/creation/RcBreakpointAxis : java/lang/Enum {
 	public static final field Height Lee/schimke/composeai/rcwidget/creation/RcBreakpointAxis;
 	public static final field Width Lee/schimke/composeai/rcwidget/creation/RcBreakpointAxis;
@@ -23,10 +19,10 @@ public final class ee/schimke/composeai/rcwidget/creation/RcExpressionNamesKt {
 public final class ee/schimke/composeai/rcwidget/creation/RcSizeBreakpointsKt {
 	public static final fun ProvideRcChildCaptureShare (IIILkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
 	public static final fun ProvideRcWidgetCaptureSize (Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;I)V
-	public static final fun RcMinSizeGate (IILandroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
-	public static final fun RcSizeBreakpoint ([ILandroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rcwidget/creation/RcBreakpointAxis;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RcMinSizeGate (IILee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RcSizeBreakpoint ([ILee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rcwidget/creation/RcBreakpointAxis;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
 	public static final fun getLocalRcWidgetCaptureSize ()Landroidx/compose/runtime/ProvidableCompositionLocal;
-	public static final fun immediateSwap (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;)Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;
+	public static final fun immediateSwap (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;)Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;
 }
 
 public final class ee/schimke/composeai/rcwidget/creation/RcWearBackground {
@@ -72,12 +68,12 @@ public final class ee/schimke/composeai/rcwidget/creation/RcWearBand$Side : java
 }
 
 public final class ee/schimke/composeai/rcwidget/creation/RcWearContainersKt {
-	public static final fun RcWearContainerFrame (Landroidx/compose/remote/creation/compose/state/RemoteColor;Landroidx/compose/remote/creation/compose/state/RemoteDp;Landroidx/compose/remote/creation/compose/state/RemoteDp;Landroidx/compose/remote/creation/compose/state/RemoteDp;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rcwidget/creation/RcWearBackground;Lee/schimke/composeai/rcwidget/creation/RcWearLevel;Lee/schimke/composeai/rcwidget/creation/RcWearLevelLook;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
-	public static final fun RcWearTemplateContainer (Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rcwidget/creation/RcWearBackground;Lee/schimke/composeai/rcwidget/creation/RcWearLevel;Lee/schimke/composeai/rcwidget/creation/RcWearLevelLook;Lee/schimke/composeai/rcwidget/RcWearFrame;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RcWearContainerFrame (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rcwidget/creation/RcWearBackground;Lee/schimke/composeai/rcwidget/creation/RcWearLevel;Lee/schimke/composeai/rcwidget/creation/RcWearLevelLook;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RcWearTemplateContainer (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rcwidget/creation/RcWearBackground;Lee/schimke/composeai/rcwidget/creation/RcWearLevel;Lee/schimke/composeai/rcwidget/creation/RcWearLevelLook;Lee/schimke/composeai/rcwidget/RcWearFrame;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
 }
 
 public final class ee/schimke/composeai/rcwidget/creation/RcWearDecoratedContainerKt {
-	public static final fun RcWearDecoratedContainer (Lee/schimke/composeai/rcwidget/creation/RcWearBackground;Landroidx/compose/remote/creation/compose/state/RemoteColor;Landroidx/compose/remote/creation/compose/state/RemoteDp;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rcwidget/creation/RcWearLevel;Lee/schimke/composeai/rcwidget/creation/RcWearLevelLook;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RcWearDecoratedContainer (Lee/schimke/composeai/rcwidget/creation/RcWearBackground;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rcwidget/creation/RcWearLevel;Lee/schimke/composeai/rcwidget/creation/RcWearLevelLook;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
 	public static final fun rcContrast--OWjLjI (JJ)F
 	public static final fun rcReadableAlpha-gPfMexM (JJJJF)F
 }
@@ -150,22 +146,22 @@ public abstract interface class ee/schimke/composeai/rcwidget/creation/RcWearLay
 public final class ee/schimke/composeai/rcwidget/creation/RcWearLevel {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rcwidget/creation/RcWearLevel$Companion;
-	public fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Z)V
-	public synthetic fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Z)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun component2 ()Z
-	public final fun copy (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Z)Lee/schimke/composeai/rcwidget/creation/RcWearLevel;
-	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/creation/RcWearLevel;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ZILjava/lang/Object;)Lee/schimke/composeai/rcwidget/creation/RcWearLevel;
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Z)Lee/schimke/composeai/rcwidget/creation/RcWearLevel;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/creation/RcWearLevel;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ZILjava/lang/Object;)Lee/schimke/composeai/rcwidget/creation/RcWearLevel;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getFraction ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getFraction ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun getVertical ()Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
 public final class ee/schimke/composeai/rcwidget/creation/RcWearLevel$Companion {
-	public final fun of (Landroidx/compose/remote/creation/compose/state/RemoteFloat;FFZ)Lee/schimke/composeai/rcwidget/creation/RcWearLevel;
-	public static synthetic fun of$default (Lee/schimke/composeai/rcwidget/creation/RcWearLevel$Companion;Landroidx/compose/remote/creation/compose/state/RemoteFloat;FFZILjava/lang/Object;)Lee/schimke/composeai/rcwidget/creation/RcWearLevel;
+	public final fun of (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;FFZ)Lee/schimke/composeai/rcwidget/creation/RcWearLevel;
+	public static synthetic fun of$default (Lee/schimke/composeai/rcwidget/creation/RcWearLevel$Companion;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;FFZILjava/lang/Object;)Lee/schimke/composeai/rcwidget/creation/RcWearLevel;
 }
 
 public final class ee/schimke/composeai/rcwidget/creation/RcWearLevelLook {
@@ -218,12 +214,8 @@ public final class ee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize {
 public final class ee/schimke/composeai/rcwidget/creation/RcWidgetHostActionsKt {
 	public static final fun ProvideRcWidgetActions (Lee/schimke/composeai/rcwidget/RcWidgetActionIds;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;I)V
 	public static final fun isRcWidgetActionCapture (Landroidx/compose/runtime/Composer;I)Z
-	public static final fun rcWidgetActionMetadata (Landroidx/compose/remote/creation/compose/state/RemoteString;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteString;)Landroidx/compose/remote/creation/compose/state/RemoteString;
-	public static synthetic fun rcWidgetActionMetadata$default (Landroidx/compose/remote/creation/compose/state/RemoteString;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/state/RemoteString;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/state/RemoteString;
-	public static final fun rcWidgetHostAction (Ljava/lang/String;Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/action/RemoteAction;
-}
-
-public final class ee/schimke/composeai/rcwidget/creation/WrapModeProfileKt {
-	public static final fun getAndroidXExperimentalWrap ()Landroidx/compose/remote/creation/profile/Profile;
+	public static final fun rcWidgetActionMetadata (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteString;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
+	public static synthetic fun rcWidgetActionMetadata$default (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteString;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
+	public static final fun rcWidgetHostAction (Ljava/lang/String;Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/compose/action/RemoteAction;
 }
 

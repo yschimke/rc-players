@@ -4,7 +4,7 @@ package ee.schimke.composeai.buildlogic
  * The artifact id each published project carries, addressed by project path.
  *
  * A table rather than a rule. The sibling repositories derive the id by flattening the project path
- * (`:data-theme-core` -> `data-theme-core`) and that holds for seven of the eight projects here —
+ * (`:data-theme-core` -> `data-theme-core`) and that holds for all but one of the projects here —
  * but `:third-party-remote-compose-player-dist` publishes as `remote-compose-player-js-dist`, and a
  * rule with one exception silently written into it is worse than a list.
  *
@@ -27,10 +27,13 @@ object PublishedArtifactIds {
       ":rc-creation-bridge" to "rc-creation-bridge",
       ":rc-widget-core" to "rc-widget-core",
       ":rc-widget-creation" to "rc-widget-creation",
+      ":rc-widget-creation-androidx" to "rc-widget-creation-androidx",
       ":rc-widget-launcher" to "rc-widget-launcher",
       ":rc-widget-wear" to "rc-widget-wear",
-      ":third-party-remote-creation-writer" to "third-party-remote-creation-writer",
-      ":third-party-remote-creation-compose" to "third-party-remote-creation-compose",
+      ":rc-creation-writer" to "rc-creation-writer",
+      ":rc-creation-expression" to "rc-creation-expression",
+      ":rc-creation-compose" to "rc-creation-compose",
+      ":rc-creation-foundation" to "rc-creation-foundation",
       ":third-party-rc-embedded-player" to "third-party-rc-embedded-player",
       // The vendored TypeScript player's bundle. Named for what it contains rather than for the
       // project that wraps it, and published under that name since 1.53.x — a coordinate cannot be

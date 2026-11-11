@@ -3,12 +3,12 @@ package ee.schimke.composeai.rccreation.bridge
 import androidx.compose.remote.core.operations.DrawText
 import androidx.compose.remote.core.operations.DrawTextOnPath
 import androidx.compose.remote.core.operations.TextData
-import androidx.compose.remote.creation.compose.path.RemotePath
-import androidx.compose.remote.creation.compose.state.RemoteColor
-import androidx.compose.remote.creation.compose.state.RemotePaint
-import androidx.compose.remote.creation.compose.state.rf
-import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.ui.graphics.Color
+import ee.schimke.composeai.rccreation.compose.path.RemotePath
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemotePaint
+import ee.schimke.composeai.rccreation.compose.state.rf
+import ee.schimke.composeai.rccreation.compose.state.rs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

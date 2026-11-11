@@ -4,7 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.os.Bundle
 import android.util.Xml
-import ee.schimke.composeai.rcwidget.creation.RcWidgetCaptureSize
+import ee.schimke.composeai.rcwidget.creation.androidx.RcWidgetCaptureSize
 import kotlin.math.roundToInt
 import org.xmlpull.v1.XmlPullParser
 

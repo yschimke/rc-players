@@ -27,9 +27,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcwidget.RcWidgetActionMetadata
-import ee.schimke.composeai.rcwidget.creation.RcSizeBreakpoint
-import ee.schimke.composeai.rcwidget.creation.RcWidgetCaptureSize
-import ee.schimke.composeai.rcwidget.creation.rcWidgetHostAction
+import ee.schimke.composeai.rcwidget.creation.androidx.RcSizeBreakpoint
+import ee.schimke.composeai.rcwidget.creation.androidx.RcWidgetCaptureSize
+import ee.schimke.composeai.rcwidget.creation.androidx.rcWidgetHostAction
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

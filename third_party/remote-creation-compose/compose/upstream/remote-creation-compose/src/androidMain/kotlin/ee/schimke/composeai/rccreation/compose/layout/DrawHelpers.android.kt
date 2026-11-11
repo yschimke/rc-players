@@ -1,0 +1,226 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package ee.schimke.composeai.rccreation.compose.layout
+
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.PaintingStyle
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.GenericFontFamily
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import ee.schimke.composeai.rccreation.compose.state.RemoteBlendMode
+import ee.schimke.composeai.rccreation.compose.state.RemotePaintingStyle
+import ee.schimke.composeai.rccreation.compose.state.RemotePathFillType
+import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeCap
+import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeJoin
+import ee.schimke.composeai.rccreation.compose.text.RemoteFontFamily
+import ee.schimke.composeai.rccreation.compose.text.RemoteFontStyle
+import ee.schimke.composeai.rccreation.compose.text.RemoteFontWeight
+import ee.schimke.composeai.rccreation.compose.text.RemoteHyphens
+import ee.schimke.composeai.rccreation.compose.text.RemoteLineBreak
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextAlign
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextDecoration
+
+// KMP (rc-players): the conversions to and from `android.graphics` types (`BlendMode`,
+// `Paint.Style`, `Paint.Cap`, `Paint.Join`) are not carried.
+
+internal fun TextAlign.toRemoteTextAlign(): RemoteTextAlign =
+    when (this) {
+        TextAlign.Left,
+        TextAlign.Unspecified -> RemoteTextAlign.Left
+        TextAlign.Right -> RemoteTextAlign.Right
+        TextAlign.Center -> RemoteTextAlign.Center
+        TextAlign.Justify -> RemoteTextAlign.Justify
+        TextAlign.Start -> RemoteTextAlign.Start
+        TextAlign.End -> RemoteTextAlign.End
+        else -> RemoteTextAlign.Left
+    }
+
+internal fun BlendMode.toRemoteBlendMode(): RemoteBlendMode =
+    when (this) {
+        BlendMode.Clear -> RemoteBlendMode.Clear
+        BlendMode.Src -> RemoteBlendMode.Src
+        BlendMode.Dst -> RemoteBlendMode.Dst
+        BlendMode.SrcOver -> RemoteBlendMode.SrcOver
+        BlendMode.DstOver -> RemoteBlendMode.DstOver
+        BlendMode.SrcIn -> RemoteBlendMode.SrcIn
+        BlendMode.DstIn -> RemoteBlendMode.DstIn
+        BlendMode.SrcOut -> RemoteBlendMode.SrcOut
+        BlendMode.DstOut -> RemoteBlendMode.DstOut
+        BlendMode.SrcAtop -> RemoteBlendMode.SrcAtop
+        BlendMode.DstAtop -> RemoteBlendMode.DstAtop
+        BlendMode.Xor -> RemoteBlendMode.Xor
+        BlendMode.Plus -> RemoteBlendMode.Plus
+        BlendMode.Modulate -> RemoteBlendMode.Modulate
+        BlendMode.Screen -> RemoteBlendMode.Screen
+        BlendMode.Overlay -> RemoteBlendMode.Overlay
+        BlendMode.Darken -> RemoteBlendMode.Darken
+        BlendMode.Lighten -> RemoteBlendMode.Lighten
+        BlendMode.ColorDodge -> RemoteBlendMode.ColorDodge
+        BlendMode.ColorBurn -> RemoteBlendMode.ColorBurn
+        BlendMode.Hardlight -> RemoteBlendMode.Hardlight
+        BlendMode.Softlight -> RemoteBlendMode.Softlight
+        BlendMode.Difference -> RemoteBlendMode.Difference
+        BlendMode.Exclusion -> RemoteBlendMode.Exclusion
+        BlendMode.Multiply -> RemoteBlendMode.Multiply
+        BlendMode.Hue -> RemoteBlendMode.Hue
+        BlendMode.Saturation -> RemoteBlendMode.Saturation
+        BlendMode.Color -> RemoteBlendMode.Color
+        BlendMode.Luminosity -> RemoteBlendMode.Luminosity
+        else -> RemoteBlendMode.SrcOver
+    }
+
+internal fun RemoteBlendMode.toComposeBlendMode(): BlendMode =
+    when (this) {
+        RemoteBlendMode.Clear -> BlendMode.Clear
+        RemoteBlendMode.Src -> BlendMode.Src
+        RemoteBlendMode.Dst -> BlendMode.Dst
+        RemoteBlendMode.SrcOver -> BlendMode.SrcOver
+        RemoteBlendMode.DstOver -> BlendMode.DstOver
+        RemoteBlendMode.SrcIn -> BlendMode.SrcIn
+        RemoteBlendMode.DstIn -> BlendMode.DstIn
+        RemoteBlendMode.SrcOut -> BlendMode.SrcOut
+        RemoteBlendMode.DstOut -> BlendMode.DstOut
+        RemoteBlendMode.SrcAtop -> BlendMode.SrcAtop
+        RemoteBlendMode.DstAtop -> BlendMode.DstAtop
+        RemoteBlendMode.Xor -> BlendMode.Xor
+        RemoteBlendMode.Plus -> BlendMode.Plus
+        RemoteBlendMode.Modulate -> BlendMode.Modulate
+        RemoteBlendMode.Screen -> BlendMode.Screen
+        RemoteBlendMode.Overlay -> BlendMode.Overlay
+        RemoteBlendMode.Darken -> BlendMode.Darken
+        RemoteBlendMode.Lighten -> BlendMode.Lighten
+        RemoteBlendMode.ColorDodge -> BlendMode.ColorDodge
+        RemoteBlendMode.ColorBurn -> BlendMode.ColorBurn
+        RemoteBlendMode.Hardlight -> BlendMode.Hardlight
+        RemoteBlendMode.Softlight -> BlendMode.Softlight
+        RemoteBlendMode.Difference -> BlendMode.Difference
+        RemoteBlendMode.Exclusion -> BlendMode.Exclusion
+        RemoteBlendMode.Multiply -> BlendMode.Multiply
+        RemoteBlendMode.Hue -> BlendMode.Hue
+        RemoteBlendMode.Saturation -> BlendMode.Saturation
+        RemoteBlendMode.Color -> BlendMode.Color
+        RemoteBlendMode.Luminosity -> BlendMode.Luminosity
+        else -> BlendMode.SrcOver
+    }
+
+internal fun StrokeCap.toRemoteStrokeCap(): RemoteStrokeCap =
+    when (this) {
+        StrokeCap.Butt -> RemoteStrokeCap.Butt
+        StrokeCap.Round -> RemoteStrokeCap.Round
+        StrokeCap.Square -> RemoteStrokeCap.Square
+        else -> RemoteStrokeCap.Butt
+    }
+
+internal fun RemoteStrokeCap.toComposeStrokeCap(): StrokeCap =
+    when (this) {
+        RemoteStrokeCap.Butt -> StrokeCap.Butt
+        RemoteStrokeCap.Round -> StrokeCap.Round
+        RemoteStrokeCap.Square -> StrokeCap.Square
+        else -> StrokeCap.Butt
+    }
+
+internal fun StrokeJoin.toRemoteStrokeJoin(): RemoteStrokeJoin =
+    when (this) {
+        StrokeJoin.Miter -> RemoteStrokeJoin.Miter
+        StrokeJoin.Round -> RemoteStrokeJoin.Round
+        StrokeJoin.Bevel -> RemoteStrokeJoin.Bevel
+        else -> RemoteStrokeJoin.Miter
+    }
+
+internal fun RemoteStrokeJoin.toComposeStrokeJoin(): StrokeJoin =
+    when (this) {
+        RemoteStrokeJoin.Miter -> StrokeJoin.Miter
+        RemoteStrokeJoin.Round -> StrokeJoin.Round
+        RemoteStrokeJoin.Bevel -> StrokeJoin.Bevel
+        else -> StrokeJoin.Miter
+    }
+
+// KMP (rc-players): Compose Multiplatform's common `LineBreak` has no `strategy`; its presets map
+// 1:1.
+internal fun LineBreak.toRemoteLineBreak(): RemoteLineBreak =
+    when (this) {
+        LineBreak.Simple -> RemoteLineBreak.Simple
+        LineBreak.Paragraph -> RemoteLineBreak.Paragraph
+        LineBreak.Heading -> RemoteLineBreak.Heading
+        else -> RemoteLineBreak.Simple
+    }
+
+internal fun Hyphens.toRemoteHyphens(): RemoteHyphens =
+    when (this) {
+        Hyphens.Auto -> RemoteHyphens.Auto
+        Hyphens.None,
+        Hyphens.Unspecified -> RemoteHyphens.None
+        else -> RemoteHyphens.None
+    }
+
+internal fun TextDecoration.toRemoteTextDecoration(): RemoteTextDecoration {
+    val underline =
+        if (contains(TextDecoration.Underline)) {
+            RemoteTextDecoration.Underline
+        } else {
+            RemoteTextDecoration.None
+        }
+    val lineThrough =
+        if (contains(TextDecoration.LineThrough)) {
+            RemoteTextDecoration.LineThrough
+        } else {
+            RemoteTextDecoration.None
+        }
+    return underline + lineThrough
+}
+
+internal fun FontStyle.toRemoteFontStyle(): RemoteFontStyle =
+    when (this) {
+        FontStyle.Normal -> RemoteFontStyle.Normal
+        FontStyle.Italic -> RemoteFontStyle.Italic
+        else -> RemoteFontStyle.Normal
+    }
+
+internal fun FontWeight.toRemoteFontWeight(): RemoteFontWeight = RemoteFontWeight(weight)
+
+internal fun FontFamily.toRemoteFontFamily(): RemoteFontFamily? =
+    when (this) {
+        FontFamily.Default -> RemoteFontFamily.Default
+        FontFamily.SansSerif -> RemoteFontFamily.SansSerif
+        FontFamily.Serif -> RemoteFontFamily.Serif
+        FontFamily.Monospace -> RemoteFontFamily.Monospace
+        FontFamily.Cursive -> RemoteFontFamily.Cursive
+        is GenericFontFamily -> RemoteFontFamily.Named(name)
+        else -> null
+    }
+
+internal fun PathFillType.toRemotePathFillType(): RemotePathFillType =
+    when (this) {
+        PathFillType.NonZero -> RemotePathFillType.NonZero
+        PathFillType.EvenOdd -> RemotePathFillType.EvenOdd
+        else -> RemotePathFillType.NonZero
+    }
+
+internal fun RemotePaintingStyle.toComposePaintingStyle(): PaintingStyle =
+    when (this) {
+        RemotePaintingStyle.Fill -> PaintingStyle.Fill
+        RemotePaintingStyle.Stroke -> PaintingStyle.Stroke
+        else -> PaintingStyle.Fill
+    }

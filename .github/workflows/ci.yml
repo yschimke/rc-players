@@ -406,10 +406,13 @@ jobs:
             :rc-player-3d:jvmTest \
             :rc-player-3d:compileAndroidMain \
             :rc-player-edit:jvmTest \
-            :third-party-remote-creation-writer:jvmTest \
+            :rc-creation-writer:jvmTest \
+            :rc-creation-expression:jvmTest \
             :rc-player-embedded:jvmTest \
             :rc-creation-bridge:jvmTest \
-            :third-party-remote-creation-compose:compileAndroidMain \
+            :rc-creation-compose:compileAndroidMain \
+            :rc-creation-foundation:compileAndroidMain \
+            :rc-creation-coexistence-check:check \
             :rc-creation-bridge:compileAndroidMain \
             :rc-player-embedded:compileAndroidMain \
             :rc-player-wasm:jvmTest \
@@ -452,14 +455,19 @@ jobs:
             :rc-player-3d:checkKotlinAbi \
             :rc-player-3d:compileKotlinWasmJs \
             :rc-player-edit:checkKotlinAbi \
-            :third-party-remote-creation-writer:checkKotlinAbi \
-            :third-party-remote-creation-compose:checkKotlinAbi \
-            :third-party-remote-creation-compose:verifyPublishedCapabilities \
+            :rc-creation-writer:checkKotlinAbi \
+            :rc-creation-expression:checkKotlinAbi \
+            :rc-creation-compose:checkKotlinAbi \
+            :rc-creation-foundation:checkKotlinAbi \
+            :rc-creation-expression:verifyPublishedCapabilities \
+            :rc-creation-compose:verifyPublishedCapabilities \
+            :rc-creation-foundation:verifyPublishedCapabilities \
             :rc-creation-bridge:checkKotlinAbi \
             :rc-player-embedded:checkKotlinAbi \
             :rc-player-embedded:compileKotlinWasmJs \
             :rc-widget-core:checkKotlinAbi \
             :rc-widget-creation:checkKotlinAbi \
+            :rc-widget-creation-androidx:checkKotlinAbi \
             :rc-widget-launcher:checkKotlinAbi \
             :rc-widget-wear:checkKotlinAbi \
             :rc-widget-creation:compileKotlinWasmJs \
@@ -482,6 +490,7 @@ jobs:
             rc-player/compose:jvmTest,testAndroidHostTest,wasmJsBrowserTest \
             rc-player/edit:jvmTest,testAndroidHostTest,wasmJsBrowserTest \
             third_party/remote-creation-writer:jvmTest \
+            third_party/remote-creation-compose/expression:jvmTest \
             rc-player/embedded:jvmTest \
             rc-player/wasm:jvmTest \
             rc-player/compat-tests:test \
@@ -625,8 +634,10 @@ jobs:
             :rc-player-runtime:checkKotlinAbi \
             :rc-player-compose:checkKotlinAbi \
             :rc-player-edit:checkKotlinAbi \
-            :third-party-remote-creation-writer:checkKotlinAbi \
-            :third-party-remote-creation-compose:checkKotlinAbi \
+            :rc-creation-writer:checkKotlinAbi \
+            :rc-creation-expression:checkKotlinAbi \
+            :rc-creation-compose:checkKotlinAbi \
+            :rc-creation-foundation:checkKotlinAbi \
             :rc-creation-bridge:checkKotlinAbi \
             :rc-player-embedded:checkKotlinAbi \
             :rc-player-embedded:compileKotlinIosArm64 \

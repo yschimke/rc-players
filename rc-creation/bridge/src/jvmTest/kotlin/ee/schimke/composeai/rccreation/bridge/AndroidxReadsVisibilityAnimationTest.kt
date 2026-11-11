@@ -7,7 +7,7 @@ import androidx.compose.remote.core.operations.BitmapData
 import androidx.compose.remote.core.operations.DrawContent
 import androidx.compose.remote.core.operations.DrawToBitmap
 import androidx.compose.remote.core.operations.FloatFunctionDefine
-import androidx.compose.remote.creation.common.RemoteDocumentWriter
+import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
 import java.io.ByteArrayInputStream
 import kotlin.test.Test
 import kotlin.test.assertEquals

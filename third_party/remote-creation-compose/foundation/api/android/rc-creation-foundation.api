@@ -1,0 +1,16 @@
+public final class ee/schimke/composeai/rccreation/foundation/icon/RemoteBasicIconKt {
+	public static final fun RemoteBasicIcon (Lee/schimke/composeai/rccreation/compose/capture/RemoteImageVector;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/foundation/image/RemoteBasicImageKt {
+	public static final fun RemoteBasicImage-69sFG-8 (Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;ILee/schimke/composeai/rccreation/compose/state/RemoteFloat;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/foundation/layout/RemoteSpacerKt {
+	public static final fun RemoteSpacer (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/foundation/text/RemoteBasicTextKt {
+	public static final fun RemoteBasicText-UnfsBCo (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;Lee/schimke/composeai/rccreation/compose/text/RemoteFontStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteFontWeight;Lee/schimke/composeai/rccreation/compose/text/RemoteFontFamily;Lee/schimke/composeai/rccreation/compose/text/RemoteTextAlign;IILee/schimke/composeai/rccreation/compose/text/RemoteFontVariation$Settings;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Landroidx/compose/runtime/Composer;III)V
+}
+

@@ -1,0 +1,583 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+@file:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+
+package ee.schimke.composeai.rccreation.compose.state
+
+import androidx.annotation.ColorInt
+import androidx.annotation.RestrictTo
+import androidx.compose.runtime.Immutable
+import ee.schimke.composeai.rccreation.common.RemoteContext
+import ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComponentToken
+
+/**
+ * Represents a key used for caching [BaseRemoteState] instances or expressions in
+ * [ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState].
+ *
+ * Caching based on these keys prevents redundant operations and document writes when the same
+ * expression or state is encountered multiple times during document creation.
+ */
+@Immutable
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public interface RemoteStateCacheKey {
+    /** The child argument cache keys of this node in the AST DAG. Empty for leaf nodes. */
+    public val args: List<RemoteStateCacheKey>
+        get() = emptyList()
+
+    public fun toDebugString(): String
+}
+
+/**
+ * Traverses this [RemoteStateCacheKey] DAG using the provided [visitor].
+ *
+ * @param visitor The visitor that inspects each node.
+ * @param memo A memoization map to ensure shared DAG nodes are visited once.
+ * @return The result of visiting this node.
+ */
+internal fun <R> RemoteStateCacheKey.accept(
+    visitor: RemoteStateVisitor<R>,
+    memo: MutableMap<RemoteStateCacheKey, R> = mutableMapOf(),
+): R {
+    memo[this]?.let {
+        return it
+    }
+    val visitedArgs = ArrayList<R>(args.size)
+    for (i in 0 until args.size) {
+        visitedArgs.add(args[i].accept(visitor, memo))
+    }
+    val state = (this as? BaseRemoteStateCacheKey)?.getState()
+    val result = visitor.visit(this, state, visitedArgs)
+    memo[this] = result
+    return result
+}
+
+internal fun List<RemoteStateCacheKey>.joinToDebugString(
+    separator: String = ", ",
+    startIndex: Int = 0,
+): String = buildString {
+    for (i in startIndex until this@joinToDebugString.size) {
+        if (i > startIndex) {
+            append(separator)
+        }
+        append(this@joinToDebugString[i].toDebugString())
+    }
+}
+
+internal fun List<RemoteStateCacheKey>.formatOp(opSymbol: String, precedence: Int): String =
+    this[0].toOperandString(precedence) +
+        " $opSymbol " +
+        this[1].toOperandString(precedence, isRightOperand = true)
+
+internal fun List<RemoteStateCacheKey>.formatArrayAccess(precedence: Int): String =
+    this[0].toOperandString(precedence) + "[" + this[1].toDebugString() + "]"
+
+internal fun List<RemoteStateCacheKey>.formatSelect(opSymbol: String): String {
+    val cond =
+        "${this[0].toOperandString(1)} $opSymbol " +
+            this[1].toOperandString(1, isRightOperand = true)
+    val trueBranch = this[2].toOperandString(0, isRightOperand = true)
+    val falseBranch = this[3].toOperandString(0, isRightOperand = true)
+    return "$cond ? $trueBranch : $falseBranch"
+}
+
+internal fun List<String>.fastJoinToString(separator: String = ", "): String = buildString {
+    for (i in indices) {
+        if (i > 0) {
+            append(separator)
+        }
+        append(this@fastJoinToString[i])
+    }
+}
+
+internal fun Enum<*>.formatCamelCaseFunction(args: List<RemoteStateCacheKey>): String =
+    "${name.replaceFirstChar { it.lowercase() }}(${args.joinToDebugString()})"
+
+/**
+ * Interface implemented by remote operation keys (e.g. `RemoteFloat.OperationKey`) to define
+ * precedence, custom AST debug formatting (e.g. `user:a + user:b`), and AST node reconstruction.
+ */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public interface RemoteOperation {
+    public val precedence: Int
+        get() = 100
+
+    /** Formats this operation AST using its evaluated operand [args]. */
+    public fun toDebugString(args: List<RemoteStateCacheKey>): String
+
+    /**
+     * Reconstructs the [BaseRemoteState] operation using the new [args].
+     *
+     * @param args The transformed argument list of [BaseRemoteState] instances.
+     * @return The reconstructed [BaseRemoteState] instance.
+     */
+    public fun reconstruct(args: List<BaseRemoteState<*>>): BaseRemoteState<*> =
+        throw UnsupportedOperationException("Reconstruction is not supported for $this")
+}
+
+/**
+ * Formats this cache key as an operand string within an outer operation.
+ *
+ * If this key represents a nested operation whose [RemoteOperation.precedence] is lower than
+ * [parentPrecedence] (or equal, if [isRightOperand] is true), the resulting debug string is wrapped
+ * in parentheses to accurately preserve evaluation order and associativity.
+ */
+internal fun RemoteStateCacheKey.toOperandString(
+    parentPrecedence: Int,
+    isRightOperand: Boolean = false,
+): String {
+    val str = toDebugString()
+    if (this is RemoteOperationCacheKey) {
+        val childOp = op as? RemoteOperation
+        if (childOp != null) {
+            val needsParentheses =
+                childOp.precedence < parentPrecedence ||
+                    (childOp.precedence == parentPrecedence && isRightOperand) ||
+                    (childOp.precedence == 0 && parentPrecedence == 0)
+            if (needsParentheses) {
+                return "($str)"
+            }
+        }
+    }
+    return str
+}
+
+/** Base class for [RemoteStateCacheKey] implementations that provides a memoized [hashCode]. */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public abstract class BaseRemoteStateCacheKey : RemoteStateCacheKey {
+    private var _hashCode: Int = 0
+
+    /**
+     * Associated BaseRemoteState instance, used for common sub-expression elimination and DAG
+     * traversal. Default implementation returns null. Note to save memory this deliberately doesn't
+     * have a backing field because not all sub-classes need it.
+     */
+    public open fun getState(): BaseRemoteState<*>? = null
+
+    /**
+     * Associates this key with a BaseRemoteState instance. Default implementation is a no-op to
+     * avoid allocating backing fields on keys that do not retain state.
+     */
+    public open fun setState(state: BaseRemoteState<*>?) {}
+
+    final override fun hashCode(): Int {
+        if (_hashCode == 0) {
+            _hashCode = hashCodeImpl()
+            if (_hashCode == 0) _hashCode = 1
+        }
+        return _hashCode
+    }
+
+    protected abstract fun hashCodeImpl(): Int
+
+    abstract override fun equals(other: Any?): Boolean
+}
+
+/** A fallback cache key based on the identity of this key instance. */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public class RemoteStateInstanceKey : BaseRemoteStateCacheKey() {
+    // KMP (rc-players): `System.identityHashCode` is JVM-only; an instance's own hash stands in.
+    private val identity = Any().hashCode()
+    private var state: BaseRemoteState<*>? = null
+
+    override fun getState(): BaseRemoteState<*>? = state
+
+    override fun setState(state: BaseRemoteState<*>?) {
+        this.state = state
+    }
+
+    // KMP (rc-players): `System.identityHashCode` is JVM-only.
+    override fun hashCodeImpl(): Int = identity
+
+    override fun equals(other: Any?): Boolean = this === other
+
+    override fun toDebugString(): String = "instance"
+}
+
+internal class RemoteStateArrayKey(internal val size: Int) : BaseRemoteStateCacheKey() {
+    // KMP (rc-players): `System.identityHashCode` is JVM-only; an instance's own hash stands in.
+    private val identity = Any().hashCode()
+    private var state: BaseRemoteState<*>? = null
+
+    override fun getState(): BaseRemoteState<*>? = state
+
+    override fun setState(state: BaseRemoteState<*>?) {
+        this.state = state
+    }
+
+    // KMP (rc-players): `System.identityHashCode` is JVM-only.
+    override fun hashCodeImpl(): Int = identity
+
+    override fun equals(other: Any?): Boolean = this === other
+
+    override fun toDebugString(): String = "mutableFloatArray(size=$size)"
+}
+
+/** A cache key for constant values (primitive types, strings, etc.). */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public class RemoteConstantCacheKey(public val value: Any?) : BaseRemoteStateCacheKey() {
+    // KMP (rc-players): no `java.lang.ref.WeakReference` in common Kotlin. A constant key keeps no
+    // state for a value `resolveConstantState` rebuilds (a number, a boolean, a string, null), and
+    // for any other (an image, whose state only `remote-creation-compose` can build) it keeps the
+    // state itself. That state already holds this key and the value, so nothing outlives what it
+    // did with the weak reference gone.
+    private var state: BaseRemoteState<*>? = null
+
+    override fun getState(): BaseRemoteState<*>? = state
+
+    override fun setState(state: BaseRemoteState<*>?) {
+        this.state =
+            if (value == null || value is Number || value is Boolean || value is String) null
+            else state
+    }
+
+    init {
+        if (value is Float) {
+            check(!value.isNaN()) { "Float constant value cannot be NaN" }
+        }
+        if (value is Double) {
+            check(!value.isNaN()) { "Double constant value cannot be NaN" }
+        }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RemoteConstantCacheKey) return false
+        if (value != other.value) return false
+        return true
+    }
+
+    override fun hashCodeImpl(): Int =
+        when (value) {
+            // Enums inherit java.lang.Object.hashCode() (identity hash code), which is
+            // non-deterministic across JVM executions. We hash the declaring class name and
+            // constant name to ensure determinism.
+            // KMP (rc-players): `Enum.declaringJavaClass` is JVM-only.
+            is Enum<*> -> value::class.simpleName.hashCode() + value.name.hashCode()
+            else -> value?.hashCode() ?: 0
+        }
+
+    override fun toString(): String = "RemoteConstantCacheKey(value=$value)"
+
+    override fun toDebugString(): String =
+        when (value) {
+            null -> "null"
+            is String -> "\"$value\""
+            is Enum<*> -> "${value::class.simpleName}.${value.name}"
+            else -> value.toString()
+        }
+}
+
+/** A cache key for constant color values, identified by their packed ARGB integer value. */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public class RemoteColorConstantCacheKey(@ColorInt public val color: Int) :
+    BaseRemoteStateCacheKey() {
+    private var state: BaseRemoteState<*>? = null
+
+    override fun getState(): BaseRemoteState<*>? = state
+
+    override fun setState(state: BaseRemoteState<*>?) {
+        this.state = state
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RemoteColorConstantCacheKey) return false
+        return color == other.color
+    }
+
+    override fun hashCodeImpl(): Int = color.hashCode()
+
+    override fun toString(): String =
+        "RemoteColorConstantCacheKey(color=0x${color.toUInt().toString(16)})"
+
+    override fun toDebugString(): String = "Color(0x${color.toUInt().toString(16)})"
+}
+
+/** A cache key for named variables, identified by their [name] and [domain]. */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public class RemoteNamedCacheKey(
+    public val domain: RemoteState.Domain,
+    public val name: String,
+) : BaseRemoteStateCacheKey() {
+    private var state: BaseRemoteState<*>? = null
+
+    override fun getState(): BaseRemoteState<*>? = state
+
+    override fun setState(state: BaseRemoteState<*>?) {
+        this.state = state
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RemoteNamedCacheKey) return false
+        if (domain != other.domain) return false
+        if (name != other.name) return false
+        return true
+    }
+
+    override fun hashCodeImpl(): Int {
+        var result = domain.hashCode()
+        result = 31 * result + name.hashCode()
+        return result
+    }
+
+    override fun toString(): String = "RemoteNamedCacheKey(domain=$domain, name=$name)"
+
+    override fun toDebugString(): String = "${domain.prefix.lowercase()}$name"
+}
+
+/** A cache key for variable by id. */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public class RemoteStateIdKey(public val id: Int) : BaseRemoteStateCacheKey() {
+    private var state: BaseRemoteState<*>? = null
+
+    override fun getState(): BaseRemoteState<*>? = state
+
+    override fun setState(state: BaseRemoteState<*>?) {
+        this.state = state
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RemoteStateIdKey) return false
+        if (id != other.id) return false
+        return true
+    }
+
+    override fun hashCodeImpl(): Int = id
+
+    override fun toString(): String = "RemoteStateIdKey(id=$id)"
+
+    override fun toDebugString(): String {
+        return when (id) {
+            RemoteContext.ID_CONTINUOUS_SEC -> "context:continuous_sec"
+            RemoteContext.ID_TIME_IN_SEC -> "context:time_in_sec"
+            RemoteContext.ID_TIME_IN_MIN -> "context:time_in_min"
+            RemoteContext.ID_TIME_IN_HR -> "context:time_in_hr"
+            RemoteContext.ID_WINDOW_WIDTH -> "context:window_width"
+            RemoteContext.ID_WINDOW_HEIGHT -> "context:window_height"
+            RemoteContext.ID_COMPONENT_WIDTH -> "context:component_width"
+            RemoteContext.ID_COMPONENT_HEIGHT -> "context:component_height"
+            RemoteContext.ID_CALENDAR_MONTH -> "context:calendar_month"
+            RemoteContext.ID_OFFSET_TO_UTC -> "context:offset_to_utc"
+            RemoteContext.ID_WEEK_DAY -> "context:week_day"
+            RemoteContext.ID_DAY_OF_MONTH -> "context:day_of_month"
+            RemoteContext.ID_DAY_OF_YEAR -> "context:day_of_year"
+            RemoteContext.ID_YEAR -> "context:year"
+            RemoteContext.ID_TOUCH_POS_X -> "context:touch_pos_x"
+            RemoteContext.ID_TOUCH_POS_Y -> "context:touch_pos_y"
+            RemoteContext.ID_TOUCH_VEL_X -> "context:touch_vel_x"
+            RemoteContext.ID_TOUCH_VEL_Y -> "context:touch_vel_y"
+            RemoteContext.ID_ACCELERATION_X -> "context:acceleration_x"
+            RemoteContext.ID_ACCELERATION_Y -> "context:acceleration_y"
+            RemoteContext.ID_ACCELERATION_Z -> "context:acceleration_z"
+            RemoteContext.ID_GYRO_ROT_X -> "context:gyro_rot_x"
+            RemoteContext.ID_GYRO_ROT_Y -> "context:gyro_rot_y"
+            RemoteContext.ID_GYRO_ROT_Z -> "context:gyro_rot_z"
+            RemoteContext.ID_MAGNETIC_X -> "context:magnetic_x"
+            RemoteContext.ID_MAGNETIC_Y -> "context:magnetic_y"
+            RemoteContext.ID_MAGNETIC_Z -> "context:magnetic_z"
+            RemoteContext.ID_LIGHT -> "context:light"
+            RemoteContext.ID_DENSITY -> "context:density"
+            RemoteContext.ID_API_LEVEL -> "context:api_level"
+            RemoteContext.ID_TOUCH_EVENT_TIME -> "context:touch_event_time"
+            RemoteContext.ID_ANIMATION_TIME -> "context:animation_time"
+            RemoteContext.ID_ANIMATION_DELTA_TIME -> "context:animation_delta_time"
+            RemoteContext.ID_EPOCH_SECOND -> "context:epoch_second"
+            RemoteContext.ID_FONT_SIZE -> "context:font_size"
+            else -> "context:#$id"
+        }
+    }
+}
+
+/** A synthetic state wrapper for literal [FloatArray] arguments in operations. */
+internal class FloatArrayRemoteState(internal val floatArray: FloatArray, key: FloatArrayCacheKey) :
+    BaseRemoteState<FloatArray>(key) {
+    override val constantValueOrNull: FloatArray
+        get() = floatArray
+
+    override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
+        throw UnsupportedOperationException(
+            "FloatArrayRemoteState cannot be written directly to document",
+        )
+    }
+}
+
+/**
+ * A cache key for literal [FloatArray] arguments.
+ *
+ * Elements may be NaN-encoded variable ids or operators, so equality uses [nanIdContentEquals]
+ * rather than [FloatArray.contentEquals], which treats all NaNs as equal.
+ */
+internal class FloatArrayCacheKey(internal val floatArray: FloatArray) : BaseRemoteStateCacheKey() {
+    override fun equals(other: Any?): Boolean {
+        return other is FloatArrayCacheKey && floatArray.nanIdContentEquals(other.floatArray)
+    }
+
+    override fun hashCodeImpl(): Int = floatArray.nanIdContentHashCode()
+
+    override fun toDebugString(): String = floatArray.contentToString()
+}
+
+/**
+ * A cache key for component-specific values (like width/height/center), identified by the
+ * [componentId] (or component [token]) and the [type] of value.
+ */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public class RemoteComponentCacheKey
+internal constructor(
+    public val componentId: Int,
+    public val type: String,
+    internal val token: RemoteComponentToken?,
+) : BaseRemoteStateCacheKey() {
+    public constructor(componentId: Int, type: String) : this(componentId, type, null)
+
+    internal constructor(token: RemoteComponentToken, type: String) : this(-1, type, token)
+
+    private var state: BaseRemoteState<*>? = null
+
+    override fun getState(): BaseRemoteState<*>? = state
+
+    override fun setState(state: BaseRemoteState<*>?) {
+        this.state = state
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RemoteComponentCacheKey) return false
+        if (token != other.token) return false
+        if (token == null && componentId != other.componentId) return false
+        if (type != other.type) return false
+        return true
+    }
+
+    override fun hashCodeImpl(): Int {
+        var result = token?.hashCode() ?: componentId
+        result = 31 * result + type.hashCode()
+        return result
+    }
+
+    override fun toString(): String =
+        if (token != null) {
+            "RemoteComponentCacheKey(token=${token.hashCode()}, type=$type)"
+        } else {
+            "RemoteComponentCacheKey(componentId=$componentId, type=$type)"
+        }
+
+    override fun toDebugString(): String =
+        if (token != null) {
+            "component:@${token.hashCode()}.$type"
+        } else {
+            "component:$componentId.$type"
+        }
+}
+
+/**
+ * A cache key for operations performed on other remote states, identified by the operation [op]
+ * (usually an [Enum]) and its [args].
+ */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public class RemoteOperationCacheKey(
+    public val op: Enum<*>,
+    override val args: List<RemoteStateCacheKey>,
+) : BaseRemoteStateCacheKey() {
+    private var state: BaseRemoteState<*>? = null
+
+    override fun getState(): BaseRemoteState<*>? = state
+
+    override fun setState(state: BaseRemoteState<*>?) {
+        this.state = state
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RemoteOperationCacheKey) return false
+        if (op != other.op) return false
+        if (args != other.args) return false
+        return true
+    }
+
+    override fun hashCodeImpl(): Int {
+        // Enums inherit java.lang.Object.hashCode() (identity hash code), which is
+        // non-deterministic across JVM executions. We hash the declaring class name and
+        // constant name to ensure determinism.
+        // KMP (rc-players): `Enum.declaringJavaClass` is JVM-only.
+        var result = op::class.simpleName.hashCode() + op.name.hashCode()
+        result = 31 * result + args.hashCode()
+        return result
+    }
+
+    override fun toString(): String = "RemoteOperationCacheKey(op=$op, args=$args)"
+
+    override fun toDebugString(): String {
+        return if (op is RemoteOperation) {
+            (op as RemoteOperation).toDebugString(args)
+        } else {
+            "Operation($op, args=[${args.joinToDebugString()}])"
+        }
+    }
+
+    public companion object {
+        /** Creates a [RemoteOperationCacheKey] by converting [args] to a list of cache keys. */
+        public fun create(op: Enum<*>, vararg args: Any?): RemoteOperationCacheKey =
+            RemoteOperationCacheKey(op, toCacheKeyList(args))
+    }
+}
+
+/**
+ * Converts a list of arguments into a list of [RemoteStateCacheKey]s. Any argument that is not
+ * already a [RemoteStateCacheKey] is wrapped in a [RemoteConstantCacheKey].
+ */
+internal fun toCacheKeyList(args: Array<out Any?>): List<RemoteStateCacheKey> {
+    return args.map {
+        when (it) {
+            null -> RemoteConstantCacheKey(null)
+            is RemoteConstantCacheKey -> it
+            is RemoteState<*> -> it.cacheKey
+            is RemoteStateCacheKey -> it
+            is Byte,
+            is Short,
+            is Int,
+            is Long,
+            is Float,
+            is Double,
+            is Boolean,
+            is Char,
+            is String,
+            is Enum<*> -> RemoteConstantCacheKey(it)
+            else ->
+                throw IllegalArgumentException(
+                    "Unsupported cache key type: ${it::class}. " +
+                        "Only primitives, Strings, Enums and RemoteStates are supported.",
+                )
+        }
+    }
+}
+
+/** The cache key for this remote state within the RemoteComposeCreationState. */
+@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public val RemoteState<*>.cacheKey: RemoteStateCacheKey
+    get() =
+        if (this is BaseRemoteState<*>) cacheKey
+        else throw IllegalArgumentException("Not a BaseRemoteState")
+
+/** The canonical domain identifier for user-defined state in the RemoteCompose wire protocol. */
+internal const val USER_DOMAIN: String = "USER"
+
+/** The canonical domain identifier for system-defined state in the RemoteCompose wire protocol. */
+internal const val SYSTEM_DOMAIN: String = "SYSTEM"

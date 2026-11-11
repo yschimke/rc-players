@@ -1,15 +1,15 @@
 package ee.schimke.composeai.rccreation.bridge
 
-import androidx.compose.remote.creation.common.RemoteContext
-import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
-import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocument
-import androidx.compose.remote.creation.compose.layout.RemoteBox
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.horizontalScroll
-import androidx.compose.remote.creation.compose.modifier.rememberRemoteScrollState
-import androidx.compose.remote.creation.compose.modifier.size
-import androidx.compose.remote.creation.compose.modifier.verticalScroll
-import androidx.compose.remote.creation.compose.state.rdp
+import ee.schimke.composeai.rccreation.common.RemoteContext
+import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
+import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocument
+import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.horizontalScroll
+import ee.schimke.composeai.rccreation.compose.modifier.rememberRemoteScrollState
+import ee.schimke.composeai.rccreation.compose.modifier.size
+import ee.schimke.composeai.rccreation.compose.modifier.verticalScroll
+import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcScrollModifier

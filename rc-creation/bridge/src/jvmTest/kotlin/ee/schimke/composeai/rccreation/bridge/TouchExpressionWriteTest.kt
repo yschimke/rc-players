@@ -4,11 +4,11 @@ import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.core.operations.TextMerge
 import androidx.compose.remote.core.operations.TouchExpression
-import androidx.compose.remote.creation.common.AnimatedFloatExpression
-import androidx.compose.remote.creation.common.RemoteContext
-import androidx.compose.remote.creation.common.RemoteDocumentWriter
-import androidx.compose.remote.creation.common.TouchStop
-import androidx.compose.remote.creation.common.Utils
+import ee.schimke.composeai.rccreation.common.AnimatedFloatExpression
+import ee.schimke.composeai.rccreation.common.RemoteContext
+import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
+import ee.schimke.composeai.rccreation.common.TouchStop
+import ee.schimke.composeai.rccreation.common.Utils
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
 import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression

@@ -1,9 +1,9 @@
 package ee.schimke.composeai.rccreation.bridge
 
-import androidx.compose.remote.creation.common.RemoteWriter
-import androidx.compose.remote.creation.common.Utils
-import androidx.compose.remote.creation.compose.modifier.RemoteEnterTransition
-import androidx.compose.remote.creation.compose.modifier.RemoteExitTransition
+import ee.schimke.composeai.rccreation.common.RemoteWriter
+import ee.schimke.composeai.rccreation.common.Utils
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteEnterTransition
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteExitTransition
 
 /**
  * Defines a custom visibility animation in the document [this] writes, and returns its function id,

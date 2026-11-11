@@ -15,8 +15,8 @@ public final class ee/schimke/composeai/rcwidget/launcher/RcAdaptiveRemoteDocume
 }
 
 public final class ee/schimke/composeai/rcwidget/launcher/RcLauncherCaptureKt {
-	public static final fun captureLauncherWidget (Landroid/content/Context;Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;Landroidx/compose/remote/creation/profile/Profile;ILjava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static synthetic fun captureLauncherWidget$default (Landroid/content/Context;Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;Landroidx/compose/remote/creation/profile/Profile;ILjava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public static final fun captureLauncherWidget (Landroid/content/Context;Lee/schimke/composeai/rcwidget/creation/androidx/RcWidgetCaptureSize;Landroidx/compose/remote/creation/profile/Profile;ILjava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun captureLauncherWidget$default (Landroid/content/Context;Lee/schimke/composeai/rcwidget/creation/androidx/RcWidgetCaptureSize;Landroidx/compose/remote/creation/profile/Profile;ILjava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
 public final class ee/schimke/composeai/rcwidget/launcher/RcLauncherGridBounds {
@@ -55,7 +55,7 @@ public final class ee/schimke/composeai/rcwidget/launcher/RcLauncherWidgetCaptur
 
 public final class ee/schimke/composeai/rcwidget/launcher/RcLauncherWidgetPreviewKt {
 	public static final fun RcLauncherGrid-D3g__18 (Lee/schimke/composeai/rcwidget/launcher/RcLauncherGridBounds;IILkotlin/jvm/functions/Function2;Landroidx/compose/ui/Modifier;JJJJFLkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;III)V
-	public static final fun RcLauncherWidgetPreview (Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;Lkotlin/jvm/functions/Function3;Landroidx/compose/ui/Modifier;Ljava/lang/Object;Ljava/lang/String;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RcLauncherWidgetPreview (Lee/schimke/composeai/rcwidget/creation/androidx/RcWidgetCaptureSize;Lkotlin/jvm/functions/Function3;Landroidx/compose/ui/Modifier;Ljava/lang/Object;Ljava/lang/String;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
 	public static final fun inflateWidgetPreview (Landroid/content/Context;Landroid/widget/RemoteViews;)Landroid/widget/FrameLayout;
 }
 
@@ -135,8 +135,8 @@ public final class ee/schimke/composeai/rcwidget/launcher/RcWidgetSizing {
 	public static final field CELL_HEIGHT_DP I
 	public static final field CELL_WIDTH_DP I
 	public static final field INSTANCE Lee/schimke/composeai/rcwidget/launcher/RcWidgetSizing;
-	public final fun cells (II)Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;
-	public final fun slotOf (Landroid/appwidget/AppWidgetManager;I)Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;
-	public final fun slotOf (Landroid/os/Bundle;)Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;
+	public final fun cells (II)Lee/schimke/composeai/rcwidget/creation/androidx/RcWidgetCaptureSize;
+	public final fun slotOf (Landroid/appwidget/AppWidgetManager;I)Lee/schimke/composeai/rcwidget/creation/androidx/RcWidgetCaptureSize;
+	public final fun slotOf (Landroid/os/Bundle;)Lee/schimke/composeai/rcwidget/creation/androidx/RcWidgetCaptureSize;
 }
 
