@@ -6,6 +6,7 @@ import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.PaintData
 import androidx.compose.remote.creation.common.RemoteDocumentWriter
 import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
+import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocument
 import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocumentInto
 import androidx.compose.remote.creation.compose.layout.RemoteCanvas
 import androidx.compose.remote.creation.compose.layout.RemoteDrawScope
@@ -49,6 +50,26 @@ class LoomPatternsTest {
 
   private val paint
     get() = RemotePaint { color = RemoteColor(Color.Red) }
+
+  /**
+   * The capture functions take no profile, and AndroidX reads the pattern operations only under its
+   * experimental one, so the writer names it in the header when a document holds a pattern: what
+   * `captureCommonRemoteDocument` returns loads in AndroidX's reader, where it was refused as
+   * holding unknown operations.
+   */
+  @Test
+  fun theDefaultCaptureDeclaresTheProfileAPatternNeeds() {
+    val doc = runBlocking {
+      captureCommonRemoteDocument(RemoteCreationDisplayInfo(200, 100, 160)) {
+        RemoteCanvas(RemoteModifier.fillMaxSize()) {
+          remoteCanvas.forEach(RemoteFloatArray(1f, 2f, 3f)) { item ->
+            drawCircle(paint, item + 1f)
+          }
+        }
+      }
+    }
+    assertEquals(3, radiusInputs(doc).size)
+  }
 
   private val level = RemoteFloat.createNamedRemoteFloat("level", 2f)
 
