@@ -425,6 +425,14 @@ public interface RemoteWriter {
 
   public fun applyPaint(paint: PaintBundle)
 
+  /**
+   * Whether [id] belonged to a loop, pattern or for-each body that has ended. Such an id is
+   * declared inside that body only (a player computes it there, or gives it a new id each time it
+   * expands the body), so nothing written afterwards may read it: a caller that remembers the ids
+   * it was given has to ask again for one that is retired.
+   */
+  public fun isRetired(id: Int): Boolean = false
+
   /** Returns and clears whether the next paint must be emitted as a complete state. */
   public fun checkAndClearForceSendingNewPaint(): Boolean
 

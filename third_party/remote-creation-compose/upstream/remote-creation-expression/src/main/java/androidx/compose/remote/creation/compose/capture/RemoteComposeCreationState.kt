@@ -303,9 +303,9 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
     ): FloatArray {
         // LOCAL PATCH (rc-players): a 2D mesh channel's arrays are never cached.
         if (meshExpressionLowering != null) return compute()
-        floatArrayCache[key]?.let {
-            return it
-        }
+        // LOCAL PATCH (rc-players): an array that reads an id of a body that has ended is lowered
+        // again; see [readsRetiredId].
+        floatArrayCache[key]?.let { if (!readsRetiredId(it)) return it }
         val computed = compute()
         floatArrayCache[key] = computed
         recordScopedFloatArrayKey(key)
@@ -322,9 +322,8 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
         key: RemoteStateCacheKey,
         crossinline compute: () -> LongArray,
     ): LongArray {
-        longArrayCache[key]?.let {
-            return it
-        }
+        // LOCAL PATCH (rc-players): as for a float array; see [readsRetiredId].
+        longArrayCache[key]?.let { if (!readsRetiredId(it)) return it }
         val computed = compute()
         longArrayCache[key] = computed
         recordScopedLongArrayKey(key)
@@ -342,7 +341,8 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
     ): Int {
         val key = LoweredFloatExpressionKey(array, animation)
         val existing = floatExpressionIds.getOrDefault(key, -1)
-        if (existing != -1) {
+        // LOCAL PATCH (rc-players): not an id of a body that has ended; see [readsRetiredId].
+        if (existing != -1 && !document.isRetired(existing)) {
             return existing
         }
         val id = write()
@@ -361,13 +361,45 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
     ): Int {
         val key = LoweredIntExpressionKey(array)
         val existing = intExpressionIds.getOrDefault(key, -1)
-        if (existing != -1) {
+        // LOCAL PATCH (rc-players): not an id of a body that has ended; see [readsRetiredId].
+        if (existing != -1 && !document.isRetired(existing)) {
             return existing
         }
         val id = write()
         intExpressionIds.put(key, id)
         recordScopedIntExpressionKey(key)
         return id
+    }
+
+    /**
+     * LOCAL PATCH (rc-players): whether a lowered expression reads an id the writer has retired.
+     *
+     * What a loop, pattern or for-each body computes from its own ids (its index, parameters or
+     * item) is declared in that body, and the writer retires those ids when the body ends: a player
+     * computes them in the body only, or gives them new ids each time it expands it. These caches
+     * are not scoped to a body, so an entry made in one is checked before it is answered outside
+     * it, and made again there. Upstream's caches have no such check, and its writer declares in
+     * place, so an id a nested body declared is answered for the body around it.
+     */
+    @PublishedApi
+    internal fun readsRetiredId(array: FloatArray): Boolean {
+        for (value in array) {
+            if (value.isNaN() && document.isRetired(Utils.idFromNan(value))) return true
+        }
+        return false
+    }
+
+    @PublishedApi
+    internal fun readsRetiredId(array: LongArray): Boolean {
+        for (value in array) {
+            if (
+                value >= INTEGER_ID_OFFSET &&
+                    document.isRetired((value - INTEGER_ID_OFFSET).toInt())
+            ) {
+                return true
+            }
+        }
+        return false
     }
 
     /** Clears all caches tied to the current [document]. */
@@ -394,7 +426,8 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
         crossinline compute: () -> Int,
     ): Int {
         val id = remoteVariableToId.getOrDefault(key, -1)
-        if (id == -1) {
+        // LOCAL PATCH (rc-players): not an id of a body that has ended; see [readsRetiredId].
+        if (id == -1 || document.isRetired(id)) {
             val nextId = compute()
             remoteVariableToId.put(key, nextId)
             recordScopedVariableKey(key)
@@ -403,6 +436,9 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
         return id
     }
 }
+
+// LOCAL PATCH (rc-players): where an integer expression's ids start; see `readsRetiredId`.
+@PublishedApi internal const val INTEGER_ID_OFFSET: Long = 0x100000000L
 
 private fun RemoteStateCacheKey.isCanvasScopedExpressionKey(): Boolean {
     if (this is RemoteOperationCacheKey) return true

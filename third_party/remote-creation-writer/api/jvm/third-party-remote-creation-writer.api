@@ -857,6 +857,7 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun image (Landroidx/compose/remote/creation/common/RemoteImageData;)V
 	public fun inflatePattern (I[I)V
 	public fun integerExpression ([J)J
+	public fun isRetired (I)Z
 	public fun loop (IFFFLkotlin/jvm/functions/Function0;)V
 	public fun matrixExpression ([F)F
 	public fun matrixFromMesh2D (IFFI)V
@@ -1515,6 +1516,7 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun image (Landroidx/compose/remote/creation/common/RemoteImageData;)V
 	public abstract fun inflatePattern (I[I)V
 	public abstract fun integerExpression ([J)J
+	public fun isRetired (I)Z
 	public fun loop (IFFFLkotlin/jvm/functions/Function0;)V
 	public abstract fun matrixExpression ([F)F
 	public abstract fun matrixFromMesh2D (IFFI)V
@@ -1577,6 +1579,7 @@ public final class androidx/compose/remote/creation/common/RemoteWriter$DefaultI
 	public static synthetic fun drawMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;IIIILjava/lang/Object;)V
 	public static fun drawTextRun (Landroidx/compose/remote/creation/common/RemoteWriter;Ljava/lang/String;IIIIFFZ)V
 	public static fun getBuffer (Landroidx/compose/remote/creation/common/RemoteWriter;)Landroidx/compose/remote/creation/common/RemoteWriter;
+	public static fun isRetired (Landroidx/compose/remote/creation/common/RemoteWriter;I)Z
 	public static fun loop (Landroidx/compose/remote/creation/common/RemoteWriter;IFFFLkotlin/jvm/functions/Function0;)V
 	public static synthetic fun matrixFromMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;IFFIILjava/lang/Object;)V
 	public static fun rotate (Landroidx/compose/remote/creation/common/RemoteWriter;F)V

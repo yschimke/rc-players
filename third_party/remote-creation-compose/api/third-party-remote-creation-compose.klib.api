@@ -2528,6 +2528,8 @@ open class androidx.compose.remote.creation.compose.capture/RemoteComposeCreatio
     final fun clearDocumentCaches() // androidx.compose.remote.creation.compose.capture/RemoteComposeCreationState.clearDocumentCaches|clearDocumentCaches(){}[0]
     final fun enterCanvasOperationsScope() // androidx.compose.remote.creation.compose.capture/RemoteComposeCreationState.enterCanvasOperationsScope|enterCanvasOperationsScope(){}[0]
     final fun exitCanvasOperationsScope() // androidx.compose.remote.creation.compose.capture/RemoteComposeCreationState.exitCanvasOperationsScope|exitCanvasOperationsScope(){}[0]
+    final fun readsRetiredId(kotlin/FloatArray): kotlin/Boolean // androidx.compose.remote.creation.compose.capture/RemoteComposeCreationState.readsRetiredId|readsRetiredId(kotlin.FloatArray){}[0]
+    final fun readsRetiredId(kotlin/LongArray): kotlin/Boolean // androidx.compose.remote.creation.compose.capture/RemoteComposeCreationState.readsRetiredId|readsRetiredId(kotlin.LongArray){}[0]
     final fun recordScopedFloatArrayKey(androidx.compose.remote.creation.compose.state/RemoteStateCacheKey) // androidx.compose.remote.creation.compose.capture/RemoteComposeCreationState.recordScopedFloatArrayKey|recordScopedFloatArrayKey(androidx.compose.remote.creation.compose.state.RemoteStateCacheKey){}[0]
     final fun recordScopedLongArrayKey(androidx.compose.remote.creation.compose.state/RemoteStateCacheKey) // androidx.compose.remote.creation.compose.capture/RemoteComposeCreationState.recordScopedLongArrayKey|recordScopedLongArrayKey(androidx.compose.remote.creation.compose.state.RemoteStateCacheKey){}[0]
     final fun recordScopedVariableKey(androidx.compose.remote.creation.compose.state/RemoteStateCacheKey) // androidx.compose.remote.creation.compose.capture/RemoteComposeCreationState.recordScopedVariableKey|recordScopedVariableKey(androidx.compose.remote.creation.compose.state.RemoteStateCacheKey){}[0]
@@ -3453,6 +3455,8 @@ final object androidx.compose.remote.creation.compose/RemoteComposeCreationCompo
         final fun <set-isEnforceCleanRecompositionEnabled>(kotlin/Boolean) // androidx.compose.remote.creation.compose/RemoteComposeCreationComposeFlags.isEnforceCleanRecompositionEnabled.<set-isEnforceCleanRecompositionEnabled>|<set-isEnforceCleanRecompositionEnabled>(kotlin.Boolean){}[0]
 }
 
+final const val androidx.compose.remote.creation.compose.capture/INTEGER_ID_OFFSET // androidx.compose.remote.creation.compose.capture/INTEGER_ID_OFFSET|{}INTEGER_ID_OFFSET[0]
+    final fun <get-INTEGER_ID_OFFSET>(): kotlin/Long // androidx.compose.remote.creation.compose.capture/INTEGER_ID_OFFSET.<get-INTEGER_ID_OFFSET>|<get-INTEGER_ID_OFFSET>(){}[0]
 final const val androidx.compose.remote.creation.compose.modifier/MaxExplicitComponentId // androidx.compose.remote.creation.compose.modifier/MaxExplicitComponentId|{}MaxExplicitComponentId[0]
     final fun <get-MaxExplicitComponentId>(): kotlin/Int // androidx.compose.remote.creation.compose.modifier/MaxExplicitComponentId.<get-MaxExplicitComponentId>|<get-MaxExplicitComponentId>(){}[0]
 final const val androidx.compose.remote.creation.compose.state/CUBIC_ACCELERATE // androidx.compose.remote.creation.compose.state/CUBIC_ACCELERATE|{}CUBIC_ACCELERATE[0]

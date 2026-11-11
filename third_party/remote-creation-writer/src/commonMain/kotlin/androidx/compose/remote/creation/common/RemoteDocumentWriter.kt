@@ -48,9 +48,11 @@ public class RemoteDocumentWriter(
 
   /**
    * One entry per open [createFloatFunction]: what restores the dedup caches to their state before
-   * it.
+   * it, and the buffer the function is written into, whole.
    */
-  private val functionScopes = mutableListOf<() -> Unit>()
+  private val functionScopes = mutableListOf<FunctionScope>()
+
+  private class FunctionScope(val restoreCaches: () -> Unit, val buffer: RemoteWireBuffer)
 
   /**
    * One entry per open [definePattern], [addPatternForEach] or [startLoop]: the ids that belong to
@@ -63,17 +65,54 @@ public class RemoteDocumentWriter(
    * forgotten when the body ends. Every other declaration made in a body goes ahead of the layout
    * like any other, so what is declared for the body and read again after it is one id, declared
    * once, outside the template.
+   *
+   * A body also owns what is defined in it without being a declaration: an id reserved while it is
+   * open ([nextId], [createFloatId], [reserveFloatVariable]) and the id an operation written in
+   * place defines (a text attribute, a mesh, a themed colour, a function). Whatever reads those is
+   * then a declaration of the body's too.
+   *
+   * Every declaration is written through [declaration], which has to be told what it reads;
+   * [operation] refuses a declaration's opcode. So no kind of declaration can go ahead of the
+   * layout without that question having been answered for it.
    */
   private val bodyScopes = mutableListOf<MutableSet<Int>>()
+
+  /** The ids of every body that has ended: nothing declared from here on may read one. */
+  private val retiredIds = mutableSetOf<Int>()
+
+  /** Every id a declaration has been asked about ([inBody]): what has been read so far. */
+  private val readIds = mutableSetOf<Int>()
+
+  /** The id [newId] gave out last, until the operation that defines it is written. */
+  private var undefinedId = NoId
 
   init {
     writeHeader(width, height, profiles, densityBehavior)
     headerSize = wire.toByteArray().size
   }
 
-  override fun createFloatId(): Float = Utils.asNan(nextDataId++)
+  override fun createFloatId(): Float = Utils.asNan(reservedId())
 
-  override fun nextId(): Int = nextDataId++
+  override fun nextId(): Int = reservedId()
+
+  override fun isRetired(id: Int): Boolean = id in retiredIds
+
+  /** An id for what the next operation defines. */
+  private fun newId(): Int {
+    val id = nextDataId++
+    undefinedId = id
+    return id
+  }
+
+  /**
+   * An id handed to the caller, who defines it later. Reserved while a body is open, it is the
+   * body's: what defines it is written there, and so is whatever reads it.
+   */
+  private fun reservedId(): Int {
+    val id = nextDataId++
+    bodyScopes.lastOrNull()?.add(id)
+    return id
+  }
 
   override val rcPaint: RcPaint = RcPaint(this)
 
@@ -538,7 +577,7 @@ public class RemoteDocumentWriter(
     parameterIds.forEach(wire::writeInt)
     patternDefinitions += wire to wire.size
     wire.writeInt(0)
-    bodyScopes += parameterIds.toMutableSet()
+    openBody(parameterIds.toMutableSet())
     // LOCAL PATCH (rc-players): the body is a template, drawn where the pattern is called with
     // whatever paint the player has there, so the first paint in it is written in full, and so is
     // the first after the definition, after each call and after a for-each, where the player's
@@ -575,7 +614,7 @@ public class RemoteDocumentWriter(
     operation(PatternForEach)
     wire.writeInt(collectionId)
     wire.writeInt(localItemId)
-    bodyScopes += mutableSetOf(localItemId)
+    openBody(mutableSetOf(localItemId))
     paintResetPending = true
   }
 
@@ -615,14 +654,20 @@ public class RemoteDocumentWriter(
    * before it runs a visibility function).
    */
   override fun createFloatFunction(args: FloatArray): Int {
-    val id = nextDataId++
-    val parameterIds = IntArray(args.size) { nextDataId++ }
+    val id = reservedId()
+    val parameterIds = IntArray(args.size) { reservedId() }
     parameterIds.forEachIndexed { index, parameterId -> args[index] = Utils.asNan(parameterId) }
-    operation(FunctionDefine)
+    // Inside another function, in it. Inside a loop, pattern or for-each body, in that body, which
+    // owns it: the function may read what the body owns, and nothing says so before it is written.
+    val buffer =
+      functionScopes.lastOrNull()?.buffer
+        ?: if (bodyScopes.isEmpty()) declarationBuffer else bodyBuffer
+    functionScopes += FunctionScope(snapshotCaches(), buffer)
+    wire = buffer
+    wire.writeByte(FunctionDefine)
     wire.writeInt(id)
     wire.writeInt(parameterIds.size)
     parameterIds.forEach(wire::writeInt)
-    functionScopes += snapshotCaches()
     paintResetPending = true
     return id
   }
@@ -630,7 +675,7 @@ public class RemoteDocumentWriter(
   override fun endFloatFunction() {
     check(functionScopes.isNotEmpty()) { "endFloatFunction without createFloatFunction" }
     containerEnd()
-    functionScopes.removeLast().invoke()
+    functionScopes.removeLast().restoreCaches()
     paintResetPending = true
   }
 
@@ -650,7 +695,7 @@ public class RemoteDocumentWriter(
     // What the body computes from the index is computed in the body, once per iteration: a player
     // runs an expression declared ahead of the layout once a frame, not once per index
     // (`LoopOperation.paint` applies only the loop's own operations for each value).
-    bodyScopes += mutableSetOf(indexId)
+    openBody(mutableSetOf(indexId))
   }
 
   override fun endLoop() {
@@ -783,7 +828,7 @@ public class RemoteDocumentWriter(
   override fun addComponentValue(type: Int, componentId: Int, valueId: Float) {
     val id = Utils.idFromNan(valueId)
     componentValueIds.getOrPut(pairKey(componentId, type)) { id }
-    operation(ComponentValue)
+    declaration(ComponentValue, id, inBody(id))
     wire.writeInt(type)
     wire.writeInt(componentId)
     wire.writeInt(id)
@@ -795,7 +840,7 @@ public class RemoteDocumentWriter(
   override fun addInteger(value: Int): Long {
     val id =
       integerIds.getOrPut(value) {
-        val allocated = nextDataId++
+        val allocated = newId()
         writeInteger(allocated, value)
         allocated
       }
@@ -803,28 +848,28 @@ public class RemoteDocumentWriter(
   }
 
   override fun addNamedInt(name: String, initialValue: Int): Long {
-    val id = nextDataId++
+    val id = newId()
     writeNamedVariable(id, androidx.compose.remote.creation.common.NamedVariable.INT_TYPE, name)
     writeInteger(id, initialValue)
     return id.toLong() + IntegerIdOffset
   }
 
   override fun addNamedFloat(name: String, initialValue: Float): Float {
-    val id = nextDataId++
+    val id = newId()
     writeNamedVariable(id, androidx.compose.remote.creation.common.NamedVariable.FLOAT_TYPE, name)
-    operation(DataFloat)
+    declaration(DataFloat, id, readsBody = false)
     wire.writeInt(id)
     wire.writeFloat(initialValue)
     return Utils.asNan(id)
   }
 
-  override fun reserveFloatVariable(): Float = Utils.asNan(nextDataId++)
+  override fun reserveFloatVariable(): Float = Utils.asNan(reservedId())
 
   override fun addFloatArray(values: FloatArray): Float {
     val key = IntArrayKey(IntArray(values.size) { values[it].toRawBits() })
     val id =
       floatArrayIds.getOrPut(key) {
-        val allocated = nextDataId++
+        val allocated = newId()
         declaration(FloatList, allocated, inBody(values))
         wire.writeInt(allocated)
         wire.writeInt(values.size)
@@ -837,7 +882,7 @@ public class RemoteDocumentWriter(
   override fun addList(ids: IntArray): Float {
     val id =
       idListIds.getOrPut(IntArrayKey(ids)) {
-        val allocated = nextDataId++
+        val allocated = newId()
         declaration(IdList, allocated, ids.any(::inBody))
         wire.writeInt(allocated)
         wire.writeInt(ids.size)
@@ -848,7 +893,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun addDynamicFloatArray(size: Float): Float {
-    val id = nextDataId++
+    val id = newId()
     declaration(DynamicFloatList, id, inBody(size))
     wire.writeInt(id)
     wire.writeFloat(size)
@@ -868,7 +913,7 @@ public class RemoteDocumentWriter(
     val key = IntArrayKey(values.toRawBits())
     val id =
       floatExpressionIds.getOrPut(key) {
-        val allocated = nextDataId++
+        val allocated = newId()
         declaration(AnimatedFloat, allocated, inBody(values) || inBody(animation))
         wire.writeInt(allocated)
         wire.writeInt(values.size or ((animation?.size ?: 0) shl 16))
@@ -894,7 +939,7 @@ public class RemoteDocumentWriter(
     val key = LongArrayKey(longArrayOf(mask.toLong(), *values))
     val id =
       integerExpressionIds.getOrPut(key) {
-        val allocated = nextDataId++
+        val allocated = newId()
         val reads = values.any { it >= IntegerIdOffset && inBody((it - IntegerIdOffset).toInt()) }
         declaration(IntegerExpression, allocated, reads)
         wire.writeInt(allocated)
@@ -907,7 +952,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun timeAttribute(longId: Int, type: Short, vararg args: Int): Float {
-    val id = nextDataId++
+    val id = newId()
     declaration(AttributeTime, id, inBody(longId))
     wire.writeInt(id)
     wire.writeInt(longId)
@@ -918,7 +963,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun idLookup(arrayId: Float, index: Float): Int {
-    val id = nextDataId++
+    val id = newId()
     declaration(IdLookup, id, inBody(arrayId) || inBody(index))
     wire.writeInt(id)
     wire.writeInt(Utils.idFromNan(arrayId))
@@ -936,7 +981,7 @@ public class RemoteDocumentWriter(
   override fun textLookup(arrayId: Float, index: Float): Int {
     val key = pairKey(arrayId.toRawBits(), index.toRawBits())
     return textLookupIds.getOrPut(key) {
-      val id = nextDataId++
+      val id = newId()
       declaration(TextLookup, id, inBody(arrayId) || inBody(index))
       wire.writeInt(id)
       wire.writeInt(Utils.idFromNan(arrayId))
@@ -948,7 +993,7 @@ public class RemoteDocumentWriter(
   override fun textLookup(arrayId: Float, indexId: Int): Int {
     val key = pairKey(arrayId.toRawBits(), indexId)
     return textLookupIntIds.getOrPut(key) {
-      val id = nextDataId++
+      val id = newId()
       declaration(TextLookupInt, id, inBody(arrayId) || inBody(indexId))
       wire.writeInt(id)
       wire.writeInt(Utils.idFromNan(arrayId))
@@ -960,7 +1005,7 @@ public class RemoteDocumentWriter(
   override fun textLength(textId: Int): Float {
     val id =
       textLengthIds.getOrPut(textId) {
-        val allocated = nextDataId++
+        val allocated = newId()
         declaration(TextLength, allocated, inBody(textId))
         wire.writeInt(allocated)
         wire.writeInt(textId)
@@ -970,7 +1015,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun textMerge(leftId: Int, rightId: Int): Int {
-    val id = nextDataId++
+    val id = newId()
     textMerge(id, leftId, rightId)
     return id
   }
@@ -1000,6 +1045,8 @@ public class RemoteDocumentWriter(
     val easing = easingSpec ?: FloatArray(0)
     require(stops.size <= 200) { "a stop spec is at most 200 words: ${stops.size}" }
     require(easing.size <= 200) { "an easing spec is at most 200 words: ${easing.size}" }
+    // Written in place into an id its caller reserved: in a body, the body's.
+    bodyScopes.lastOrNull()?.add(id)
     operation(TouchExpression)
     wire.writeInt(id)
     wire.writeFloat(value)
@@ -1016,7 +1063,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun textSubtext(textId: Int, start: Float, length: Float): Int {
-    val id = nextDataId++
+    val id = newId()
     declaration(TextSubtext, id, inBody(textId) || inBody(start) || inBody(length))
     wire.writeInt(id)
     wire.writeInt(textId)
@@ -1026,7 +1073,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun textTransform(textId: Int, start: Float, length: Float, operation: Int): Int {
-    val id = nextDataId++
+    val id = newId()
     declaration(TextTransform, id, inBody(textId) || inBody(start) || inBody(length))
     wire.writeInt(id)
     wire.writeInt(textId)
@@ -1039,7 +1086,7 @@ public class RemoteDocumentWriter(
   override fun createTextFromFloat(value: Float, before: Int, after: Int, flags: Int): Int {
     val key = TextFromFloatKey(value.toRawBits(), before, after, flags)
     return textFromFloatIds.getOrPut(key) {
-      val id = nextDataId++
+      val id = newId()
       declaration(TextFromFloat, id, inBody(value))
       wire.writeInt(id)
       wire.writeFloat(value)
@@ -1050,7 +1097,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun getColorAttribute(colorId: Int, type: Short): Float {
-    val id = nextDataId++
+    val id = newId()
     declaration(AttributeColor, id, inBody(colorId))
     wire.writeInt(id)
     wire.writeInt(colorId)
@@ -1059,7 +1106,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun bitmapAttribute(bitmapId: Int, type: Short): Float {
-    val id = nextDataId++
+    val id = newId()
     declaration(AttributeImage, id, inBody(bitmapId))
     wire.writeInt(id)
     wire.writeInt(bitmapId)
@@ -1074,7 +1121,7 @@ public class RemoteDocumentWriter(
     type: Int,
     glyphSpacing: Float,
   ): Float {
-    val id = nextDataId++
+    val id = newId()
     declaration(
       BitmapTextMeasure,
       id,
@@ -1094,7 +1141,7 @@ public class RemoteDocumentWriter(
 
   override fun addBitmapUrl(url: String, width: Int, height: Int): Int =
     bitmapUrlIds.getOrPut(url) {
-      val id = nextDataId++
+      val id = newId()
       writeBitmapData(
         id = id,
         type = BitmapTypePng,
@@ -1115,7 +1162,7 @@ public class RemoteDocumentWriter(
    */
   public fun addBitmapPng(png: ByteArray, width: Int, height: Int): Int =
     inlineBitmapIds.getOrPut(png.asList()) {
-      val id = nextDataId++
+      val id = newId()
       writeBitmapData(
         id = id,
         type = BitmapTypePng,
@@ -1141,7 +1188,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun createBitmap(width: Int, height: Int): Int {
-    val id = nextDataId++
+    val id = newId()
     writeBitmapData(
       id = id,
       type = BitmapTypeRaw8888,
@@ -1154,7 +1201,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun createOffscreenBitmap(componentId: Int): Int {
-    val id = nextDataId++
+    val id = newId()
     val payload =
       if (componentId == 0) byteArrayOf()
       else
@@ -1178,8 +1225,8 @@ public class RemoteDocumentWriter(
   override fun addBitmapFont(glyphs: List<BitmapFontGlyph>, kerningTable: Map<String, Short>): Int {
     require(glyphs.size < 0xffff) { "Too many glyphs, the maximum is 65535" }
     require(kerningTable.size < 0xffff) { "Kerning table too big, the maximum size is 65535" }
-    val id = nextDataId++
-    operation(DataBitmapFont)
+    val id = newId()
+    declaration(DataBitmapFont, id, glyphs.any { inBody(it.bitmapId) })
     wire.writeInt(id)
     wire.writeInt(glyphs.size or (if (kerningTable.isEmpty()) 0 else 1 shl 16))
     glyphs
@@ -1205,7 +1252,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun matrixExpression(vararg expression: Float): Float {
-    val id = nextDataId++
+    val id = newId()
     declaration(MatrixExpression, id, inBody(expression))
     wire.writeInt(id)
     wire.writeInt(0)
@@ -1215,8 +1262,8 @@ public class RemoteDocumentWriter(
   }
 
   override fun addColor(argb: Int): Int {
-    val id = nextDataId++
-    operation(ColorConstant)
+    val id = newId()
+    declaration(ColorConstant, id, readsBody = false)
     wire.writeInt(id)
     wire.writeInt(argb)
     return id
@@ -1277,7 +1324,7 @@ public class RemoteDocumentWriter(
     lightFallback: Int,
     darkFallback: Int,
   ): Int {
-    val id = nextDataId++
+    val id = newId()
     val groupId = textId(group)
     operation(ColorTheme)
     wire.writeInt(id)
@@ -1290,20 +1337,20 @@ public class RemoteDocumentWriter(
   }
 
   override fun addNamedString(name: String, initialValue: String): Int {
-    val id = nextDataId++
+    val id = newId()
     writeNamedVariable(id, androidx.compose.remote.creation.common.NamedVariable.STRING_TYPE, name)
     writeText(id, initialValue)
     return id
   }
 
   override fun addLong(value: Long): Int {
-    val id = nextDataId++
+    val id = newId()
     writeLong(id, value)
     return id
   }
 
   override fun addNamedLong(name: String, initialValue: Long): Int {
-    val id = nextDataId++
+    val id = newId()
     writeNamedVariable(id, androidx.compose.remote.creation.common.NamedVariable.LONG_TYPE, name)
     writeLong(id, initialValue)
     return id
@@ -1311,7 +1358,7 @@ public class RemoteDocumentWriter(
 
   override fun addPathData(pathData: FloatArray, winding: Int): Int =
     pathIds.getOrPut(PathKey(pathData, winding)) {
-      val id = nextDataId++
+      val id = newId()
       declaration(DataPath, id, inBody(pathData))
       wire.writeInt(id or (winding shl 24))
       wire.writeInt(pathData.size)
@@ -1345,8 +1392,12 @@ public class RemoteDocumentWriter(
         "have no ShaderData, and a widget host can't run one. Draw a fallback instead."
     }
     shaderUsed = true
-    val id = nextDataId++
-    operation(DataShader)
+    val id = newId()
+    declaration(
+      DataShader,
+      id,
+      inBody(sourceId) || floatUniforms.values.any(::inBody) || bitmapUniforms.values.any(::inBody),
+    )
     wire.writeInt(id)
     wire.writeInt(sourceId)
     wire.writeInt(floatUniforms.size or (intUniforms.size shl 8) or (bitmapUniforms.size shl 16))
@@ -1402,7 +1453,7 @@ public class RemoteDocumentWriter(
       }
     }
     mesh2DUsed = true
-    val id = nextDataId++
+    val id = newId()
     operation(AddMesh2DOp)
     wire.writeInt(id)
     wire.writeInt(Mesh2D.TYPE_EXPRESSION)
@@ -1436,7 +1487,7 @@ public class RemoteDocumentWriter(
     require(colors == null || colors.size <= Mesh2D.MAX_VERTICES) { "Mesh2D has too many colours" }
     require(indices.all { it in 0..0xffff }) { "Mesh2D indices are 16-bit" }
     mesh2DUsed = true
-    val id = nextDataId++
+    val id = newId()
     operation(AddMesh2DOp)
     wire.writeInt(id)
     wire.writeInt(if (halfFloat) Mesh2D.TYPE_F16_VALUES else Mesh2D.TYPE_VALUES)
@@ -1650,7 +1701,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun textAttribute(textId: Int, attribute: Short): Float {
-    val id = nextDataId++
+    val id = newId()
     operation(AttributeText)
     wire.writeInt(id)
     wire.writeInt(textId)
@@ -1834,8 +1885,8 @@ public class RemoteDocumentWriter(
     val key = pairKey(componentId, type)
     val id =
       componentValueIds.getOrPut(key) {
-        val allocated = nextDataId++
-        operation(ComponentValue)
+        val allocated = newId()
+        declaration(ComponentValue, allocated, readsBody = false)
         wire.writeInt(type)
         wire.writeInt(componentId)
         wire.writeInt(allocated)
@@ -1844,38 +1895,79 @@ public class RemoteDocumentWriter(
     return Utils.asNan(id)
   }
 
+  /**
+   * Starts an operation that is not a declaration: it is written where it is called, in the body.
+   * If it defines an id ([newId]) while a loop, pattern or for-each body is open, the id is that
+   * body's.
+   */
   private fun operation(opcode: Int) {
-    wire =
-      when {
-        functionScopes.isNotEmpty() -> declarationBuffer
-        opcode in DeclarationOpcodes -> declarationBuffer
-        else -> bodyBuffer
-      }
+    check(opcode !in DeclarationOpcodes) {
+      "Operation $opcode is a declaration: write it through declaration(), which says what it reads"
+    }
+    if (undefinedId != NoId) {
+      bodyScopes.lastOrNull()?.add(undefinedId)
+      undefinedId = NoId
+    }
+    wire = functionScopes.lastOrNull()?.buffer ?: bodyBuffer
     wire.writeByte(opcode)
   }
 
   /**
-   * Starts a declaration of [id] that reads other values. [inBody] says one of them belongs to an
-   * open pattern, for-each or loop body ([bodyScopes]): then the declaration is written in the body
-   * and [id] belongs to the body too. Otherwise it goes ahead of the layout.
+   * Starts a declaration of [id]: the one way a declaration is written. [readsBody] is whether
+   * anything it reads belongs to an open loop, pattern or for-each body ([inBody] of each id and
+   * float it takes; `false` only for a declaration that takes none). If so it is written in the
+   * body and [id] is the body's too. Otherwise it goes ahead of the layout. In a function, it stays
+   * in the function either way.
    */
-  private fun declaration(opcode: Int, id: Int, inBody: Boolean) {
-    if (!inBody || functionScopes.isNotEmpty()) return operation(opcode)
-    bodyScopes.last() += id
-    wire = bodyBuffer
+  private fun declaration(opcode: Int, id: Int, readsBody: Boolean) {
+    check(opcode in DeclarationOpcodes) { "Operation $opcode is not a declaration" }
+    undefinedId = NoId
+    val function = functionScopes.lastOrNull()
+    wire =
+      when {
+        function != null -> {
+          bodyScopes.lastOrNull()?.add(id)
+          function.buffer
+        }
+        readsBody -> {
+          bodyScopes.last() += id
+          bodyBuffer
+        }
+        else -> declarationBuffer
+      }
     wire.writeByte(opcode)
   }
 
-  private fun inBody(id: Int): Boolean = bodyScopes.any { id in it }
+  private fun inBody(id: Int): Boolean {
+    readIds += id
+    return bodyScopes.any { id in it }
+  }
 
   /** Whether [value] is the id of something that belongs to an open body. */
   private fun inBody(value: Float): Boolean = value.isNaN() && inBody(Utils.idFromNan(value))
 
   private fun inBody(values: FloatArray?): Boolean = values != null && values.any(::inBody)
 
+  /**
+   * Opens a body that owns [ids]. A declaration that read one of them before now was written
+   * without knowing they are a body's (an id taken for an expression of a pattern's parameter while
+   * the pattern was being recorded, say): it is ahead of the layout, or in the wrong body, and
+   * cannot be moved. Better to fail here than to write a body that reads an id nothing binds.
+   */
+  private fun openBody(ids: MutableSet<Int>) {
+    val early = ids.filter { it in readIds }
+    check(early.isEmpty()) {
+      "Something that reads $early was declared before its body was opened. What a pattern, " +
+        "for-each or loop body computes from its parameter, item or index has to be asked for " +
+        "when the body is written, not while it is recorded."
+    }
+    bodyScopes += ids
+  }
+
   /** Forgets what the innermost body declared, so nothing after it reads an id it owned. */
   private fun endBodyScope() {
     val owned = bodyScopes.removeLast()
+    retiredIds += owned
     dedupCaches().forEach { cache -> cache.values.removeAll { it in owned } }
   }
 
@@ -1928,31 +2020,31 @@ public class RemoteDocumentWriter(
 
   private fun textId(value: String): Int =
     textIds.getOrPut(value) {
-      val id = nextDataId++
+      val id = newId()
       writeText(id, value)
       id
     }
 
   private fun writeText(id: Int, value: String) {
-    operation(DataText)
+    declaration(DataText, id, inBody(id))
     wire.writeInt(id)
     wire.writeUtf8(value)
   }
 
   private fun writeLong(id: Int, value: Long) {
-    operation(DataLong)
+    declaration(DataLong, id, inBody(id))
     wire.writeInt(id)
     wire.writeLong(value)
   }
 
   private fun writeInteger(id: Int, value: Int) {
-    operation(DataInt)
+    declaration(DataInt, id, inBody(id))
     wire.writeInt(id)
     wire.writeInt(value)
   }
 
   private fun writeNamedVariable(id: Int, type: Int, name: String) {
-    operation(NamedVariable)
+    declaration(NamedVariable, id, inBody(id))
     wire.writeInt(id)
     wire.writeInt(type)
     wire.writeUtf8(name)
@@ -1966,7 +2058,7 @@ public class RemoteDocumentWriter(
     height: Int,
     data: ByteArray,
   ) {
-    operation(DataBitmap)
+    declaration(DataBitmap, id, inBody(id))
     wire.writeInt(id)
     wire.writeInt((type shl 16) or (width and 0xffff))
     wire.writeInt((encoding shl 16) or (height and 0xffff))
@@ -1981,7 +2073,7 @@ public class RemoteDocumentWriter(
     fourth: Int,
     readsInBody: Boolean = false,
   ): Short {
-    val id = nextDataId++
+    val id = newId()
     // An argument is a colour or float id, a colour, or a float's bits, by mode.
     val reads =
       readsInBody ||
@@ -2000,6 +2092,7 @@ public class RemoteDocumentWriter(
     public const val HorizontalStart: Int = 1
     public const val VerticalTop: Int = 4
 
+    private const val NoId = -1
     private const val Header = 0
     private const val PaintValues = 40
     private const val DataBitmap = 101

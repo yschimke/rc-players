@@ -775,7 +775,21 @@ bytes after it.
   what it computes from them has to be in it. Every other declaration made in a body still goes
   ahead of the layout, so a value the body is the first to read is the same id for the code after
   it (as first written, the step put every declaration of a body in the body, and a named float
-  read first in a pattern was undeclared after it). (`endPatternDefine` also measured the body in whichever
+  read first in a pattern was undeclared after it). That holds for every kind of declaration:
+  the writer has one way to write one (`declaration`, which is told what it reads; the plain
+  `operation` refuses a declaration's opcode), so a runtime shader with a uniform of the parameter,
+  a path, a text merged or formatted from it, a colour expression, a bitmap font of its bitmaps are
+  all the body's. A body also owns what is defined in it by an operation written in place (a text
+  attribute, a mesh, a themed colour, a touch expression, a float function) and any id reserved
+  while it is open, so what reads those is the body's too. When a body ends the writer retires its
+  ids (`RemoteWriter.isRetired`), and the creation state's caches, which are not scoped to a body,
+  no longer answer one: an expression first asked for in a nested body is declared again in the
+  body around it, however it is reached (a paint's states included, which the canvas's common
+  sub-expression pass never sees). One case is refused rather than written wrong: an id taken
+  for an expression of a parameter while the body is recorded, not when it is written
+  (`(parameter * 2f).getFloatIdForCreationState(…)` for a path's coordinate, say) is declared
+  before the writer knows the body exists and cannot be moved into it, so opening the body throws
+  and says so. (`endPatternDefine` also measured the body in whichever
   buffer was written last; it measures the one the definition began in.) Nothing wrote a pattern
   before this step.
 - **AndroidX's four tests of `remote-creation-expression`** are carried at their upstream path,
@@ -890,15 +904,6 @@ behaviours (it calls every function above), and its decoration document under bo
   a child block (`drawConditionally`, `loop`, `drawToOffscreenBitmap`, a pattern) has to restore
   what it saves, and a `save` with nothing drawn inside a block does not keep the block alive. The
   port wrote whatever sequence it was given. This is the one place step 4 is stricter than before.
-- **A body's own value reached only through a paint, used in a nested body and again outside
-  it.** What a pattern, for-each or loop body computes from its own ids is written in that body and
-  the writer forgets it at the body's end, but the creation state's caches
-  (`remoteVariableToId`, the lowered-expression caches) are not scoped to a body. The canvas's
-  common sub-expression pass moves an expression used in two bodies to the one that holds both,
-  for the states a draw registers; a paint's states are not registered. So an expression of a
-  pattern's parameter that is first used in a paint inside a nested for-each or loop, and again in
-  a paint in the pattern's own body, would still be answered with the inner body's id. Not
-  reproduced; upstream has the same caches.
 - **`RemoteCornerBasedShape`'s shared radius** is still not taken (two unmarked hunks): it changes
   the documents of every shape whose four corners are equal and was left out of this change.
 
@@ -916,6 +921,7 @@ to offer upstream, and the list is meant to shrink. Paths are package-relative; 
 | `layout/RemoteCanvas.kt` (both `drawBitmap`s) | No content description is id 0 | Upstream passes `""`, which declares an empty text and names it as the description; 0 is what the format and `RemoteComposeWriter.drawBitmap(…, null)` have for none. |
 | `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`bodyScopes`, `declaration`, `startLoop`/`endLoop`, `definePattern`/`endPatternDefine`, `addPatternForEach`/`endPatternForEach`) | A declaration that reads an id a loop, pattern or for-each body owns (its index, parameters or item, or anything declared from them) is written in the body and forgotten at its end; every other declaration goes ahead of the layout | Follows from the Kotlin writer declaring ahead of the layout, where upstream's writes in place: a player computes a header expression once a frame, and expands a template with its own ids replaced. `CanvasLoopReadBackTest`, `RcCanvasLoopPlaybackTest`, `LoomPatternsTest` and `RcPatternCapturedStatePlaybackTest` cover it. |
 | `capture/RemoteDocumentSession.kt` (new) | A composition kept alive under a host `CompositionContext`, re-rendered into a fresh writer on demand; reports when a state its last render read changes (`onRenderInputsChanged`) | The live, in-process path. It mirrors upstream's Android `captureRemoteDocument` loop, including its `RenderInvalidationTracker`. |
+| `capture/RemoteComposeCreationState.kt` (`getOrPutVariableId`, `getOrPutFloatArray`, `getOrPutLongArray`, `getOrPutFloatExpressionId`, `getOrPutIntExpressionId`, `readsRetiredId`), `../remote-creation-writer/.../RemoteWriter.kt` (`isRetired`) | A cached id, or a cached lowered expression that reads one, is not answered once the writer has retired it: it is asked for again | The caches are per document (upstream scopes some to a canvas), and what a pattern, for-each or loop body declares from its own ids exists only in that body. Without the check an expression first used in a nested body was answered with the nested body's id in the body around it. `BodyOwnedDeclarationsTest` covers the writer's side. |
 | `capture/RemoteComposeCreationState.kt` | `resetComponentIds()`, which also forgets the component tokens' ids (the session sets upstream's own `document` for each render) | A session renders each frame into a fresh writer. Without the reset, every render renumbers every component (upstream has the same drift). |
 | `layout/RemoteComposeApplier.kt` | `onChangesApplied` | Tells a session when to re-render |
 | `modifier/ComponentIdModifier.kt` (new), `layout/RemoteComposeNode.kt`, `capture/RemoteComposeCreationState.kt`, `modifier/RemoteModifier.kt` | `RemoteModifier.componentId(id)`: a node takes a requested component id (at most `MaxExplicitComponentId`, -2,000,000, below both ranges a document allocates) instead of a positional one, once per render | Lets a host name components: an editor maps the player's geometry back to its own nodes (`RcComponentIds` in `:rc-creation-bridge`) |
