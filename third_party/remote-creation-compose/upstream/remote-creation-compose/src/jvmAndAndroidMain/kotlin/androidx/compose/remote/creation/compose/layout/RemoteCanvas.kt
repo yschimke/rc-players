@@ -252,12 +252,8 @@ public class RemoteCanvas(
 
     /** Scales the canvas by [sx] and [sy] around the pivot point ([px], [py]). */
     public fun scale(sx: RemoteFloat, sy: RemoteFloat, px: RemoteFloat, py: RemoteFloat) {
-        // LOCAL PATCH (rc-players): written as translate, scale, translate, as the port always
-        // has. Upstream writes one scale with its pivot (`PendingOp.Scale(sx, sy, px, py)`), which
-        // changes the documents written, so it waits for a refresh.
-        translate(px, py)
-        scale(sx, sy)
-        translate(-px, -py)
+        val op = buffer.recordRenderingOp(CanvasOp.Transform(PendingOp.Scale(sx, sy, px, py)))
+        buffer.addRoots(op, sx, sy, px, py)
     }
 
     /**
@@ -282,12 +278,8 @@ public class RemoteCanvas(
 
     /** Rotates the canvas by [degrees] around the pivot point ([px], [py]). */
     public fun rotate(degrees: RemoteFloat, px: RemoteFloat, py: RemoteFloat) {
-        // LOCAL PATCH (rc-players): written as translate, rotate, translate, as the port always
-        // has. Upstream writes one rotation with its pivot (`PendingOp.Rotate(degrees, px, py)`),
-        // which changes the documents written, so it waits for a refresh.
-        translate(px, py)
-        rotate(degrees)
-        translate(-px, -py)
+        val op = buffer.recordRenderingOp(CanvasOp.Transform(PendingOp.Rotate(degrees, px, py)))
+        buffer.addRoots(op, degrees, px, py)
     }
 
     /**
