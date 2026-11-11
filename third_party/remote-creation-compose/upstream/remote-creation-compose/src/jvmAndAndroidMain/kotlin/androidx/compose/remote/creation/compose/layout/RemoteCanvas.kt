@@ -122,11 +122,10 @@ public class RemoteCanvas(
 
     /** Processes a [RemotePaint] object and serializes its changes to the remote document. */
     public fun usePaint(paint: RemotePaint?) {
-        // LOCAL PATCH (rc-players): records nothing, as the port always has. Upstream writes the
-        // paint here (`recordRenderingOp { usePaintInternal(snapshotPaint(it)) }`); doing so
-        // changes the document of every painter and icon, so it waits for a refresh
-        // (PROVENANCE.md, "Known port issues").
-        paint?.let { recordRenderingOp {} }
+        paint?.let {
+            val paintSnapshot = snapshotPaint(it)
+            recordRenderingOp { usePaintInternal(paintSnapshot) }
+        }
     }
 
     internal fun snapshotPaint(paint: RemotePaint?): RemotePaint? = paint?.let {
