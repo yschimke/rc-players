@@ -636,12 +636,24 @@ then the draw: text with a 12 px paint, placed by a 20 px measurement, is 20 px 
 
 The fork patches it locally. The canvas is told when a measurement has been written
 (`RemoteComposeCaptureState.onPaintWrittenOutsideCanvas`, set while `RemoteCanvas.flush` writes and
-called at the end of `measureAttribute`'s provider). If one of its draws is being written it sends
-the paint it last applied again, in full, there, between the measurement and the draw; in any case
-the next paint it sends is whole. A document that measures in a draw carries one more paint
-operation per measurement first read there; no other document changes. What it does not cover: a
-draw with no paint at all before it in its component, which draws with the measurement's size on
-the player's default paint, since there is no paint of the author's to send again. Suggested fix
+called at the end of `measureAttribute`'s provider). In every case the next paint it sends is
+whole. Beyond that it depends on where the measurement was written:
+
+- as a draw's argument: the paint last applied is sent again, in full, there, between the
+  measurement and the draw;
+- as a property of the paint being worked out (`RemotePaint { textSize = measured.size.width }`,
+  a stroke width, a colour): nothing is sent from the callback, because the measurement is not
+  cached until its provider returns and applying a paint there would measure again without end;
+  the paint is worked out a second time once the first pass is over, and sent whole;
+- outside a draw (a transform's argument, an expression two draws share, which is written ahead
+  of both, a layout modifier): nothing is sent there, and the paint last applied is sent again
+  before the next draw that inherits its paint, if no component's content has begun since.
+
+A measurement of a measurement, and one in a conditional block, a loop's body or a pattern's body,
+are these cases again. A document that measures on a canvas carries one more paint operation per
+measurement first read in a draw; no other document changes. What it does not cover: a draw with
+no paint at all before it in its component, which draws with the measurement's size on the
+player's default paint, since there is no paint of the author's to send again. Suggested fix
 upstream: the same, or resolve a draw's arguments before its paint.
 
 *Verified by reading both sides, and by tests here, each failing before the patch.
@@ -650,7 +662,12 @@ the text drawn (`renders/creation-text-measure-paint/`): 41×14 px before for "H
 paint, 25×9 after, which is what 12 px text is. `CanvasTextMeasureReadBackTest` in
 `:rc-creation-bridge` has AndroidX's `CoreDocument` (`remote-core` 1.0.0-alpha23) paint the
 document into a context that records the text size at each `getTextBounds` and `drawTextRun`: 20
-at the measurement and 12 at each draw, where it was 20 at the draws.*
+at the measurement and 12 at each draw, where it was 20 at the draws. It has a test for each case
+above, asserting the order of paints, measurements and texts written and the sizes AndroidX draws
+at. One thing seen on the way and not changed: this repository's CMP player throws from Skia's
+`TextStyle.setFontSize` on the first frame of a document whose paint's text size is an
+*expression* of a measurement (`measured.size.width * 0.4f`), presumably evaluated before the
+measurement has a value (not looked into); a text size that is the measurement itself plays.*
 
 ### A loop's body is written against the paint before it
 

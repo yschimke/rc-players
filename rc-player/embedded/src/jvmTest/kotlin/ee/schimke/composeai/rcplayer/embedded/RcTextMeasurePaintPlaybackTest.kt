@@ -62,6 +62,22 @@ class RcTextMeasurePaintPlaybackTest {
     drawText("HHH".rs, 0f.rf, (2 * ROW + BASELINE).rf, text(12f))
   }
 
+  /**
+   * The middle row's paint takes its own text size from a measurement: the height of a line of 10
+   * px text, which is about 12 px. The paint is being worked out when the measurement is written.
+   */
+  private val aPaintSizedByAMeasurement: RemoteDrawScope.(RemoteTextMeasurer) -> Unit =
+    { measurer ->
+      drawText("HH".rs, 0f.rf, BASELINE.rf, text(20f))
+      val measured = measurer.measure("HH".rs, fontSize = 10.rsp)
+      val sized = RemotePaint {
+        color = RemoteColor(Color.Black)
+        textSize = measured.size.height
+      }
+      drawText("HHH".rs, 0f.rf, (ROW + BASELINE).rf, sized)
+      drawText("HHH".rs, 0f.rf, (2 * ROW + BASELINE).rf, text(12f))
+    }
+
   /** The box of the pixels drawn in [row]: left, top, right, bottom, each inclusive. */
   private fun ImageBitmap.ink(row: Int): IntArray {
     val pixels = toPixelMap()
@@ -117,6 +133,26 @@ class RcTextMeasurePaintPlaybackTest {
       abs(drawn.height() - small.height()) <= 1 && abs(drawn.width() - small.width()) <= 1,
       "12 px text after a measurement is ${drawn.width()}x${drawn.height()}, " +
         "12 px text is ${small.width()}x${small.height()}",
+    )
+  }
+
+  @Test
+  fun aPaintWhoseTextSizeIsAMeasurementDrawsAtThatSize() {
+    val reference = play(withoutAMeasurement)
+    val drawn = play(aPaintSizedByAMeasurement)
+    val small = reference.ink(1)
+    val sized = drawn.ink(1)
+    assertTrue(
+      abs(sized.height() - small.height()) <= 1 && abs(sized.width() - small.width()) <= 4,
+      "text sized by a measurement, about 12 px, is ${sized.width()}x${sized.height()}, " +
+        "12 px text is ${small.width()}x${small.height()}",
+    )
+    val after = drawn.ink(2)
+    val plain = reference.ink(2)
+    assertTrue(
+      abs(after.height() - plain.height()) <= 1 && abs(after.width() - plain.width()) <= 1,
+      "12 px text after it is ${after.width()}x${after.height()}, " +
+        "12 px text is ${plain.width()}x${plain.height()}",
     )
   }
 
