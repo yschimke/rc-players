@@ -30,7 +30,7 @@ internal class RemoteCanvasNode : RemoteComposeNode() {
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
         val remoteModifier = resolveModifier(scope, creationState)
-        remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.StartCanvas(remoteModifier))
+        remoteCanvas.recordRenderingOp(WriterOp.StartCanvas(remoteModifier))
         // A `RemoteDrawScope.remoteComponent()` in this canvas's drawing refers to this canvas.
         val previousNode = creationState.currentRenderingNode
         creationState.currentRenderingNode = this
@@ -45,7 +45,7 @@ internal class RemoteCanvasNode : RemoteComposeNode() {
 
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
-        remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndCanvas)
+        remoteCanvas.recordRenderingOp(WriterOp.EndCanvas)
     }
 }
 

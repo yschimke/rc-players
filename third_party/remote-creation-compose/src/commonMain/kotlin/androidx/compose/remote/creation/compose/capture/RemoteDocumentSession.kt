@@ -156,10 +156,9 @@ public class RemoteDocumentSession(
             )
         try {
             snapshot.enter {
-                val recordingCanvas =
-                    CommonRecordingCanvas().apply { setRemoteComposeCreationState(state) }
-                rootNode.render(state, RemoteCanvas(recordingCanvas))
-                recordingCanvas.flush()
+                val remoteCanvas = RemoteCanvas(state)
+                rootNode.render(state, remoteCanvas)
+                remoteCanvas.flush()
             }
             // The render's own writes are notified by its apply, below, and are no reason to
             // render again; a later change to one of them is.

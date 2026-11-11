@@ -82,7 +82,7 @@ internal class RemoteCollapsibleColumnNode : RemoteLayoutNode() {
         (verticalArrangement as? RemoteSpaced)?.let {
             remoteModifier.spacedBy = it.getSpacingFloatId(scope)
         }
-        remoteCanvas.internalCanvas.recordRenderingOp(
+        remoteCanvas.recordRenderingOp(
             WriterOp.StartCollapsibleColumn(
                 remoteModifier,
                 horizontalAlignment.toRemote(layoutDirection),
@@ -92,7 +92,7 @@ internal class RemoteCollapsibleColumnNode : RemoteLayoutNode() {
         renderChildren(creationState, remoteCanvas)
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
-        remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndCollapsibleColumn)
+        remoteCanvas.recordRenderingOp(WriterOp.EndCollapsibleColumn)
     }
 }
 
