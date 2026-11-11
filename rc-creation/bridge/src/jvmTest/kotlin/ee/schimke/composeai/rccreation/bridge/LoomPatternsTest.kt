@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rccreation.bridge
 
 import androidx.compose.remote.core.operations.DrawCircle
+import androidx.compose.remote.core.operations.FloatConstant
 import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.PaintData
 import androidx.compose.remote.creation.common.RemoteDocumentWriter
@@ -22,6 +23,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcIdLookup
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -167,6 +169,56 @@ class LoomPatternsTest {
         }
       }
     assertEquals(List(5) { listOf("paint", "circle") }.flatten(), order)
+  }
+
+  /**
+   * A named float a pattern's body reads first, and a circle after the pattern reads too: it is
+   * declared outside the template, so AndroidX, which gives what a template declares a new id each
+   * time it expands it, still finds it for the circle. What the body computes from its parameter
+   * stays in the body.
+   */
+  @Test
+  fun whatAPatternReadsFromOutsideIsDeclaredOutsideIt() {
+    val doc = bytes {
+      val dot =
+        remoteCanvas.definePattern<RemoteFloat> { scale -> drawCircle(paint, level * scale) }
+      dot(level + 1f)
+      drawCircle(paint, level)
+    }
+    // AndroidX: the circle after the pattern reads a float the expanded document declares.
+    assertTrue(lastCircleReadsADeclaredFloat(doc), "the circle after the pattern reads no float")
+    val operations = written(doc)
+    val define = operations.filterIsInstance<RcMacroDefine>().single()
+    val named = operations.filterIsInstance<RcNamedVariable>().single { it.name.endsWith("level") }
+    assertTrue(
+      operations.indexOf(named) < operations.indexOf(define),
+      "declared before the pattern",
+    )
+    val body = RcDocumentCodec.decodeOperations(define.body)
+    assertTrue(body.none { it is RcNamedVariable }, "not in the template: $body")
+    val product = body.filterIsInstance<RcFloatExpression>().single()
+    assertTrue(product.expression.any { it.referencedId == define.parameterIds.single() })
+  }
+
+  /** Whether the radius of the last circle AndroidX drew is the id of a float it declared. */
+  private fun lastCircleReadsADeclaredFloat(bytes: ByteArray): Boolean {
+    val operations = androidxOperations(bytes)
+    val declared = operations.all<FloatConstant>().map { it.field<Int>("mId") }
+    val radius = operations.all<DrawCircle>().last().field<Float>("mValue3")
+    return radius.isNaN() && (radius.toRawBits() and 0x3fffff) in declared
+  }
+
+  /** The same for a for-each body. */
+  @Test
+  fun whatAForEachBodyReadsFromOutsideIsDeclaredOutsideIt() {
+    val doc = bytes {
+      remoteCanvas.forEach(listOf(level + 1f, level + 2f)) { item ->
+        drawCircle(paint, item * level)
+      }
+      drawCircle(paint, level)
+    }
+    assertEquals(3, androidxOperations(doc).all<DrawCircle>().size)
+    assertTrue(lastCircleReadsADeclaredFloat(doc))
   }
 
   private companion object {

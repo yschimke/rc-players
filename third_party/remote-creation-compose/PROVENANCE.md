@@ -768,9 +768,13 @@ bytes after it.
   `writer.buffer`, and that text can now stand. New stand-ins for constants (in
   `upstream-fqn.tsv`): `Operations`, `ConditionalOperations`, `PaintContext`, `TextAttribute`.
   Inside `definePattern`…`endPatternDefine` and `addPatternForEach`…`endPatternForEach` the writer
-  now writes a declaration where it is made instead of ahead of the layout, and forgets it at the
-  end of the body: the body is a template the player expands with its parameters replaced, so what
-  it computes from them has to be in it. (`endPatternDefine` also measured the body in whichever
+  writes a declaration that reads one of the body's own ids (a parameter, the item, or something
+  already declared from one) where it is made instead of ahead of the layout, and forgets it at
+  the end of the body: the body is a template the player expands with its parameters replaced, so
+  what it computes from them has to be in it. Every other declaration made in a body still goes
+  ahead of the layout, so a value the body is the first to read is the same id for the code after
+  it (as first written, the step put every declaration of a body in the body, and a named float
+  read first in a pattern was undeclared after it). (`endPatternDefine` also measured the body in whichever
   buffer was written last; it measures the one the definition began in.) Nothing wrote a pattern
   before this step.
 - **AndroidX's four tests of `remote-creation-expression`** are carried at their upstream path,
