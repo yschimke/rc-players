@@ -259,3 +259,18 @@ public object DrawTextOnCircle {
     INSIDE,
   }
 }
+
+/**
+ * LOCAL PATCH (rc-players): how a `TouchExpression` settles when its touch is released
+ * ([RemoteWriter.touchExpression]'s `stopMode`), as AndroidX's `TouchExpression.STOP_*`.
+ */
+public object TouchStop {
+  public const val GENTLY: Int = 0
+  public const val INSTANTLY: Int = 1
+  public const val ENDS: Int = 2
+  public const val NOTCHES_EVEN: Int = 3
+  public const val NOTCHES_PERCENTS: Int = 4
+  public const val NOTCHES_ABSOLUTE: Int = 5
+  public const val ABSOLUTE_POS: Int = 6
+  public const val NOTCHES_SINGLE_EVEN: Int = 7
+}

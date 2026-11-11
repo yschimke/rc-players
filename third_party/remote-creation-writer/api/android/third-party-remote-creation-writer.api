@@ -736,9 +736,11 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun textLookup (FF)I
 	public fun textLookup (FI)I
 	public fun textMerge (II)I
+	public fun textMerge (III)V
 	public fun textSubtext (IFF)I
 	public fun textTransform (IFFI)I
 	public fun timeAttribute (IS[I)F
+	public fun touchExpression (IFFFFI[FI[F[F)V
 	public fun translate (FF)V
 	public fun writeIdLookup (IFF)V
 	public fun writeModifier (Landroidx/compose/remote/creation/common/RemoteModifierOperation;)V
@@ -1373,9 +1375,12 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun textLookup (FF)I
 	public abstract fun textLookup (FI)I
 	public abstract fun textMerge (II)I
+	public abstract fun textMerge (III)V
 	public abstract fun textSubtext (IFF)I
 	public abstract fun textTransform (IFFI)I
 	public abstract fun timeAttribute (IS[I)F
+	public abstract fun touchExpression (IFFFFI[FI[F[F)V
+	public static synthetic fun touchExpression$default (Landroidx/compose/remote/creation/common/RemoteWriter;IFFFFI[FI[F[FILjava/lang/Object;)V
 	public abstract fun translate (FF)V
 	public abstract fun writeIdLookup (IFF)V
 	public abstract fun writeModifier (Landroidx/compose/remote/creation/common/RemoteModifierOperation;)V
@@ -1393,6 +1398,7 @@ public final class androidx/compose/remote/creation/common/RemoteWriter$DefaultI
 	public static fun drawComponentToBitmap (Landroidx/compose/remote/creation/common/RemoteWriter;II)V
 	public static synthetic fun drawMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;IIIILjava/lang/Object;)V
 	public static synthetic fun matrixFromMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;IFFIILjava/lang/Object;)V
+	public static synthetic fun touchExpression$default (Landroidx/compose/remote/creation/common/RemoteWriter;IFFFFI[FI[F[FILjava/lang/Object;)V
 }
 
 public final class androidx/compose/remote/creation/common/StringUtils {
@@ -1464,6 +1470,18 @@ public final class androidx/compose/remote/creation/common/TimeAttribute {
 	public static final field TIME_IN_SEC S
 	public static final field TIME_MONTH_VALUE S
 	public static final field TIME_YEAR S
+}
+
+public final class androidx/compose/remote/creation/common/TouchStop {
+	public static final field ABSOLUTE_POS I
+	public static final field ENDS I
+	public static final field GENTLY I
+	public static final field INSTANCE Landroidx/compose/remote/creation/common/TouchStop;
+	public static final field INSTANTLY I
+	public static final field NOTCHES_ABSOLUTE I
+	public static final field NOTCHES_EVEN I
+	public static final field NOTCHES_PERCENTS I
+	public static final field NOTCHES_SINGLE_EVEN I
 }
 
 public final class androidx/compose/remote/creation/common/Utils {
