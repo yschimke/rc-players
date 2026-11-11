@@ -42,7 +42,7 @@ internal class RemoteStateLayoutNode : RemoteComposeNode() {
         val scope = overriddenScope(remoteCanvas)
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
-        remoteCanvas.internalCanvas.recordRenderingOp(
+        remoteCanvas.recordRenderingOp(
             WriterOp.StartStateLayout(
                 resolveModifier(scope, creationState),
                 currentState.getIdForCreationState(creationState),
@@ -52,7 +52,7 @@ internal class RemoteStateLayoutNode : RemoteComposeNode() {
         renderChildren(creationState, remoteCanvas)
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
-        remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndStateLayout)
+        remoteCanvas.recordRenderingOp(WriterOp.EndStateLayout)
     }
 }
 

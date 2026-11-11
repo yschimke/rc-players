@@ -17,6 +17,7 @@
 package androidx.compose.remote.creation.compose.vector
 
 import androidx.annotation.RestrictTo
+import androidx.compose.remote.creation.common.Operations
 import androidx.compose.remote.creation.compose.capture.DefaultGroupName
 import androidx.compose.remote.creation.compose.capture.DefaultPivotX
 import androidx.compose.remote.creation.compose.capture.DefaultPivotY
@@ -271,9 +272,8 @@ internal class RemoteGroupComponent : RemoteVNode() {
                 scaleY.constantValue == 1f)
         val hasClip =
             clipPathData.isNotEmpty() &&
-                // KMP (rc-players): no `Profile`; `Operations.CLIP_PATH` (38) among the operations
-                // the host opted in to.
-                38 in this@draw.remoteCanvas.internalCanvas.creationState.supportedOperations
+                // KMP (rc-players): no `Profile`; the operations the host opted in to.
+                Operations.CLIP_PATH in this@draw.remoteCanvas.creationState.supportedOperations
 
         if (hasTransform || hasClip) {
             withTransform(

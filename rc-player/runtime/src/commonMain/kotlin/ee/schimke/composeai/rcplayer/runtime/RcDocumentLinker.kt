@@ -85,7 +85,8 @@ public object RcDocumentLinker {
    *
    * The scan tracks nesting, because a macro body may contain containers of its own.
    */
-  private fun foldMacroBodies(operations: List<RcOperation>): List<RcOperation> {
+  private fun foldMacroBodies(rawOperations: List<RcOperation>): List<RcOperation> {
+    val operations = dropMacroBodyTerminators(rawOperations)
     if (operations.none { it is RcMacroDefine && it.body.isEmpty() }) return operations
     val out = mutableListOf<RcOperation>()
     var index = 0
@@ -119,6 +120,35 @@ public object RcDocumentLinker {
       index = cursor + 1
     }
     return out
+  }
+
+  /**
+   * Drops the `CONTAINER_END` AndroidX's writer puts after a definition whose body it wrote as a
+   * length and bytes (`RemoteComposeBuffer.endPatternDefine`: `PatternDefine.applyEnd` fills in the
+   * length, then `addContainerEnd`). `PatternDefine` is a container to AndroidX's reader, so that
+   * end closes it; here a definition with its body is closed by nothing.
+   *
+   * A document built in memory has no such end, and a definition that is the last thing in a
+   * container is followed by that container's own. The two are told apart by the count: only when
+   * the document has exactly one end too many for each definition followed by one are they the
+   * definitions' own.
+   */
+  private fun dropMacroBodyTerminators(operations: List<RcOperation>): List<RcOperation> {
+    val terminated =
+      operations.indices.filter { index ->
+        val operation = operations[index]
+        operation is RcMacroDefine &&
+          operation.body.isNotEmpty() &&
+          operations.getOrNull(index + 1)?.opcode == RcOpcodes.CONTAINER_END
+      }
+    if (terminated.isEmpty()) return operations
+    val starts = operations.count {
+      it.opcode in RcOpcodes.CONTAINER_STARTS || (it is RcMacroDefine && it.body.isEmpty())
+    }
+    val ends = operations.count { it.opcode == RcOpcodes.CONTAINER_END }
+    if (ends - starts != terminated.size) return operations
+    val dropped = terminated.mapTo(mutableSetOf()) { it + 1 }
+    return operations.filterIndexed { index, _ -> index !in dropped }
   }
 
   private fun linkNodes(rawOperations: List<RcOperation>): List<RcLinkedNode> {

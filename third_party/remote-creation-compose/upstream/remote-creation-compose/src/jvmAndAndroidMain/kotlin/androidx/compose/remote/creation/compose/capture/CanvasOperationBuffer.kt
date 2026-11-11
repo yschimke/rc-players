@@ -24,9 +24,10 @@ import androidx.compose.remote.creation.compose.modifier.toRemoteModifierData
 import androidx.compose.remote.creation.compose.state.BaseRemoteState
 import androidx.compose.remote.creation.compose.state.RemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteFloat
-import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
 import androidx.compose.remote.creation.compose.state.RemoteOperationCacheKey
 import androidx.compose.remote.creation.compose.state.RemoteStateCacheKey
+import androidx.compose.remote.creation.compose.state.nanIdContentEquals
+import androidx.compose.remote.creation.compose.state.nanIdContentHashCode
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -117,7 +118,7 @@ internal sealed class PendingOp {
 }
 
 /**
- * Represents an operation in the document program built before wire serialization.
+ * Represents an operation in the structured canvas recording buffer.
  *
  * These operations are optimized (elided, flattened, fused) before being flushed to the actual
  * [RemoteComposeWriter] during serialization.
@@ -219,43 +220,13 @@ internal sealed class CanvasOp {
         dest.add(spanOp)
     }
 
-    /** A document-level declaration emitted before the root body. */
-    class Declaration(val action: () -> Unit) : CanvasOp() {
-        override fun write(writer: RemoteComposeWriter, creationState: RemoteComposeCaptureState) {
-            action()
-        }
-
-        override fun emitsWireCommands(): Boolean = true
-
-        override fun toString(): String = "Declaration"
-    }
-
     /** Represents an actual drawing or state-setting operation (e.g., drawRect). */
-    class Draw
-    private constructor(
-        val switchesCanvas: Boolean,
-        private val operation: WriterOp?,
-        private val beforeWrite: (() -> Unit)?,
-        private val writerAction: ((RemoteComposeWriter) -> Unit)?,
-    ) : CanvasOp() {
-        constructor(operation: WriterOp) : this(false, operation, null, null)
-
-        constructor(
-            operation: WriterOp,
-            beforeWrite: (() -> Unit)?,
-        ) : this(false, operation, beforeWrite, null)
-
-        constructor(
-            switchesCanvas: Boolean = false,
-            action: (RemoteComposeWriter) -> Unit,
-        ) : this(switchesCanvas, null, null, action)
-
-        constructor(action: (RemoteComposeWriter) -> Unit) : this(false, null, null, action)
+    class Draw(val switchesCanvas: Boolean = false, val action: (RemoteComposeWriter) -> Unit) :
+        CanvasOp() {
+        constructor(action: (RemoteComposeWriter) -> Unit) : this(false, action)
 
         override fun write(writer: RemoteComposeWriter, creationState: RemoteComposeCaptureState) {
-            beforeWrite?.invoke()
-            operation?.write(writer, creationState)
-            writerAction?.invoke(writer)
+            action(writer)
         }
 
         // Visual drawing primitive that renders content directly to the canvas.
@@ -270,18 +241,9 @@ internal sealed class CanvasOp {
     }
 
     /** Represents a clipping operation. */
-    class Clip
-    private constructor(
-        private val operation: WriterOp?,
-        private val writerAction: ((RemoteComposeWriter) -> Unit)?,
-    ) : CanvasOp() {
-        constructor(operation: WriterOp) : this(operation, null)
-
-        constructor(action: (RemoteComposeWriter) -> Unit) : this(null, action)
-
+    class Clip(val action: (RemoteComposeWriter) -> Unit) : CanvasOp() {
         override fun write(writer: RemoteComposeWriter, creationState: RemoteComposeCaptureState) {
-            operation?.write(writer, creationState)
-            writerAction?.invoke(writer)
+            action(writer)
         }
 
         override fun hasTransformsOrClips(): Boolean = true
@@ -302,8 +264,7 @@ internal sealed class CanvasOp {
      */
     class Transform(val op: PendingOp) : CanvasOp() {
         override fun write(writer: RemoteComposeWriter, creationState: RemoteComposeCaptureState) {
-            // KMP (rc-players): no `writer.buffer`; see `PendingOp.write`.
-            op.write(writer, creationState)
+            op.write(writer.buffer, creationState)
         }
 
         override fun hasTransformsOrClips(): Boolean = true
@@ -311,14 +272,15 @@ internal sealed class CanvasOp {
         // State modification only; does not draw pixels directly.
         override fun containsDrawingPrimitives(): Boolean = false
 
-        // Emits a matrix transformation command to the document writer.
+        // Emits a matrix transformation wire command (`writer.buffer.addXxx()`) to the document.
         override fun emitsWireCommands(): Boolean = true
 
         override fun toString(): String = "Transform(${op::class.simpleName})"
     }
 
     /**
-     * Represents a save/restore group around child operations.
+     * Represents a save/restore group (corresponding to [RemoteComposeWriter.save] and
+     * [RemoteComposeWriter.restore]).
      *
      * @property parent The parent [SaveRestore] scope, or null if this is the root scope.
      * @property children The list of child operations inside this save/restore block.
@@ -512,20 +474,10 @@ internal sealed class CanvasOp {
     class DrawConditionally(
         val condition: RemoteBoolean,
         val childSpan: CanvasOperationBuffer.Span,
-        val forcePaintRefresh: () -> Unit,
+        val action: (RemoteComposeWriter, RemoteComposeCaptureState) -> Unit,
     ) : CanvasOp() {
         override fun write(writer: RemoteComposeWriter, creationState: RemoteComposeCaptureState) {
-            if (condition.hasConstantValue) {
-                if (condition.constantValue) childSpan.record(writer, creationState)
-                return
-            }
-            val conditionId =
-                with(creationState) { condition.toRemoteInt().toRemoteFloat().floatId }
-            writer.conditionalOperations(1, conditionId, 0f)
-            forcePaintRefresh()
-            childSpan.record(writer, creationState)
-            forcePaintRefresh()
-            writer.endConditionalOperations()
+            action(writer, creationState)
         }
 
         override fun hasTransformsOrClips(): Boolean = childSpan.hasTransformsOrClips()
@@ -548,69 +500,6 @@ internal sealed class CanvasOp {
         override fun toString(): String = "DrawConditionally(${condition.toDebugString()})"
     }
 
-    /** Redirects a child span to an offscreen bitmap and then restores the previous target. */
-    class DrawToBitmap(
-        val bitmap: RemoteImageBitmap,
-        val previousBitmapId: Int,
-        val clearColor: Int?,
-        val childSpan: CanvasOperationBuffer.Span,
-        val forcePaintRefresh: () -> Unit,
-    ) : CanvasOp() {
-        override fun write(writer: RemoteComposeWriter, creationState: RemoteComposeCaptureState) {
-            val bitmapId = bitmap.getIdForCreationState(creationState)
-            writer.drawOnBitmap(bitmapId, if (clearColor == null) 1 else 0, clearColor ?: 0)
-            forcePaintRefresh()
-            childSpan.record(writer, creationState)
-            forcePaintRefresh()
-            writer.drawOnBitmap(previousBitmapId, 1, 0)
-        }
-
-        override fun containsDrawingPrimitives(): Boolean = true
-
-        override fun switchesCanvasOrHasCondition(): Boolean = true
-
-        override fun emitsWireCommands(): Boolean = true
-
-        override fun optimizeChildScopes(program: CanvasOperationBuffer) {
-            program.optimizeSpan(childSpan)
-        }
-
-        override fun toString(): String = "DrawToBitmap(clearColor=$clearColor)"
-    }
-
-    /** Repeats a child span over a remote float range. */
-    class Loop(
-        val indexId: Int,
-        val from: RemoteFloat,
-        val step: RemoteFloat,
-        val until: RemoteFloat,
-        val childSpan: CanvasOperationBuffer.Span,
-    ) : CanvasOp() {
-        override fun write(writer: RemoteComposeWriter, creationState: RemoteComposeCaptureState) {
-            val fromValue = from.getFloatIdForCreationState(creationState)
-            val stepValue = step.getFloatIdForCreationState(creationState)
-            val untilValue = until.getFloatIdForCreationState(creationState)
-            writer.startLoop(indexId, fromValue, stepValue, untilValue)
-            childSpan.record(writer, creationState)
-            writer.endLoop()
-        }
-
-        override fun containsDrawingPrimitives(): Boolean = childSpan.containsDrawingPrimitives()
-
-        override fun switchesCanvasOrHasCondition(): Boolean = true
-
-        override fun emitsWireCommands(): Boolean = childSpan.emitsWireCommands()
-
-        override fun optimizeChildScopes(program: CanvasOperationBuffer) {
-            program.optimizeSpan(childSpan)
-        }
-
-        override fun shouldPrune(program: CanvasOperationBuffer): Boolean =
-            !childSpan.emitsWireCommands()
-
-        override fun toString(): String = "Loop(indexId=$indexId)"
-    }
-
     /**
      * Represents a custom component layout operation.
      *
@@ -627,6 +516,9 @@ internal sealed class CanvasOp {
         val childSpan: CanvasOperationBuffer.Span?,
     ) : CanvasOp() {
         override fun write(writer: RemoteComposeWriter, creationState: RemoteComposeCaptureState) {
+            // KMP (rc-players): the Kotlin writer takes the modifier as data and the name as a
+            // text id, and numbers the component itself, where upstream builds a
+            // `RecordingModifier` and takes its id from `writer.nextId()`.
             writer.startCustom(
                 creationState.toRemoteModifierData(modifier),
                 creationState.document.addText(config),
@@ -701,11 +593,6 @@ internal inline fun <T> List<T>.evaluateElisionPass(isTopLevel: Boolean, op: (T)
     }
 }
 
-/**
- * Typed, scoped Remote Compose program retained until all document-level optimization passes have
- * completed. Recording adapters are producers of this IR; they are not part of its serialization
- * contract.
- */
 internal class CanvasOperationBuffer(val enableOptimizations: Boolean = false) {
 
     /**
@@ -737,6 +624,19 @@ internal class CanvasOperationBuffer(val enableOptimizations: Boolean = false) {
         var next: Span? = null
         var optimized = false
 
+        /** Wire IDs of the path data written in this span, keyed by content and winding. */
+        private val pathDataIds = MutableObjectIntMap<PathDataKey>()
+
+        /**
+         * Returns the wire ID of [pathData] with [winding] in this span. The path data is written
+         * to [writer] on first use, and later uses with identical path data and winding reuse its
+         * ID.
+         */
+        fun getOrPutPathData(writer: RemoteComposeWriter, pathData: FloatArray, winding: Int): Int =
+            pathDataIds.getOrPut(PathDataKey(pathData, winding)) {
+                writer.addPathData(pathData, winding)
+            }
+
         fun createChildSpan(): Span {
             val childSpan = Span(this, depth + 1)
             if (child == null) {
@@ -767,7 +667,6 @@ internal class CanvasOperationBuffer(val enableOptimizations: Boolean = false) {
 
         fun record(writer: RemoteComposeWriter, creationState: RemoteComposeCaptureState) {
             for (i in 0 until operations.size) {
-                // KMP (rc-players): no `writer.buffer`; see `PendingOp.write`.
                 operations[i].op.write(writer, creationState)
             }
         }
@@ -887,40 +786,158 @@ internal class CanvasOperationBuffer(val enableOptimizations: Boolean = false) {
         var visited = false
     }
 
-    private var declarationRoot = Span(null, 0)
-    private var lastDeclarationOp: SpanOp? = null
     internal var spanTreeRoot = Span(null, 0)
     internal var insertPoint = spanTreeRoot
     private val operationMap = HashMap<RemoteStateCacheKey, SpanOp>()
     private val usageMap = LinkedHashMap<RemoteStateCacheKey, ArrayList<SpanOp>>()
     private val expressionMap = LinkedHashMap<RemoteStateCacheKey, BaseRemoteState<*>>()
+    private var globalSaveCounter: Int = 0
+    internal var initialSpanSaveCount: Int = 0
+    internal var currentSaveRestoreNode: CanvasOp.SaveRestore? = null
     internal var lastRenderingOp: SpanOp? = null
 
+    public val saveCount: Int
+        get() = globalSaveCounter
+
     /**
-     * Records a structured rendering operation into the current active span.
+     * Propagates a flag up the active save block hierarchy ([currentSaveRestoreNode] and its
+     * parents) marking them as containing at least one draw call.
      *
-     * This method creates a [SpanOp] wrapping the given [op], adds it to the current [insertPoint]
-     * span, and automatically establishes a sequential dependency on the previously recorded
-     * rendering operation (if any) to preserve execution order.
+     * This is used during optimization to ensure that save/restore blocks that actually perform
+     * drawing are preserved, while empty save/restore blocks can be pruned.
+     */
+    private fun markDrawCall() {
+        var s = currentSaveRestoreNode
+        while (s != null) {
+            s.hasDrawCalls = true
+            s = s.parent
+        }
+    }
+
+    /**
+     * Records a structured rendering operation into the current active span or active save block.
+     *
+     * If optimizations are enabled and the buffer is currently inside a save block
+     * ([currentSaveRestoreNode] is not null), the operation is added to the active save node's
+     * children list for post-processing/optimization rather than being immediately recorded.
+     *
+     * If the operation is a [CanvasOp.Draw], this method also triggers [markDrawCall] to mark the
+     * active save hierarchy as containing drawing operations, ensuring they are not optimized away.
      *
      * @param op The structured canvas operation to record.
      * @return The created [SpanOp] representing this operation in the dependency graph.
      */
     public fun recordRenderingOp(op: CanvasOp): SpanOp {
-        val spanOp = SpanOp(insertPoint, op)
-        insertPoint.operations.add(spanOp)
-        lastRenderingOp?.let { spanOp.deps.add(it) }
-        lastRenderingOp = spanOp
-        return spanOp
+        if (op.triggersDrawCall()) {
+            markDrawCall()
+        }
+        if (currentSaveRestoreNode != null) {
+            currentSaveRestoreNode!!.children.add(op)
+            return currentSaveRestoreNode!!.getRootSaveNode().spanOp!!
+        } else {
+            val spanOp = SpanOp(insertPoint, op)
+            insertPoint.operations.add(spanOp)
+            lastRenderingOp?.let { spanOp.deps.add(it) }
+            lastRenderingOp = spanOp
+            if (op is CanvasOp.SaveRestore) {
+                op.spanOp = spanOp
+            }
+            return spanOp
+        }
     }
 
-    /** Records a declaration in the preamble, independently of the current body scope. */
-    internal fun recordDeclaration(action: () -> Unit): SpanOp {
-        val spanOp = SpanOp(declarationRoot, CanvasOp.Declaration(action))
-        declarationRoot.operations.add(spanOp)
-        lastDeclarationOp?.let { spanOp.deps.add(it) }
-        lastDeclarationOp = spanOp
-        return spanOp
+    /**
+     * Pushes a new save/restore scope onto the save hierarchy, or emits a standalone save command
+     * if reinstating an outer frame inside a child span.
+     *
+     * @return The [saveCount] before this save: what [restoreToCount] takes to undo it.
+     */
+    public fun save(): Int {
+        // LOCAL PATCH (rc-players): the count before the save, as `android.graphics.Canvas.save`
+        // returns and as `RemoteCanvas.save` documents ("the value to pass to restoreToCount to
+        // balance this save"). Upstream returns the count after it, which `restoreToCount` restores
+        // nothing for, so the save stays open.
+        val saveCountBefore = globalSaveCounter
+        if (globalSaveCounter < initialSpanSaveCount) {
+            recordRenderingOp(CanvasOp.Draw { it.save() })
+            globalSaveCounter++
+        } else {
+            val node = CanvasOp.SaveRestore(parent = currentSaveRestoreNode)
+            recordRenderingOp(node)
+            currentSaveRestoreNode = node
+            globalSaveCounter++
+        }
+        // LOCAL PATCH (rc-players): the count before the save; see the top of this function.
+        return saveCountBefore
+    }
+
+    /** Restores the canvas state from the previous [save] call. */
+    public fun restore() {
+        if (currentSaveRestoreNode != null) {
+            currentSaveRestoreNode = currentSaveRestoreNode?.parent
+            globalSaveCounter--
+        } else if (globalSaveCounter > 0) {
+            recordRenderingOp(CanvasOp.Draw { it.restore() })
+            globalSaveCounter--
+        } else {
+            throw IllegalStateException("Underflow in restore - more restores than saves")
+        }
+    }
+
+    /**
+     * Restores the canvas state to the specified [saveCount].
+     *
+     * @param saveCount The save count to restore to.
+     */
+    public fun restoreToCount(saveCount: Int) {
+        while (globalSaveCounter > saveCount) {
+            restore()
+        }
+    }
+
+    /**
+     * Records commands within an isolated child span, restoring previous insertion points and save
+     * scopes when done.
+     *
+     * @param action The block containing drawing operations to record into the child span.
+     * @return The recorded child [Span].
+     */
+    public inline fun recordInChildSpan(action: () -> Unit): Span {
+        val childSpan = insertPoint.createChildSpan()
+        val prevInsertPoint = insertPoint
+        val prevSaveNode = currentSaveRestoreNode
+        val prevLastRenderingOp = lastRenderingOp
+        val prevGlobalSaveCounter = globalSaveCounter
+        val prevInitialSpanSaveCount = initialSpanSaveCount
+        insertPoint = childSpan
+        currentSaveRestoreNode = null
+        lastRenderingOp = null
+        initialSpanSaveCount = globalSaveCounter
+        var exceptionThrown = false
+        try {
+            action()
+        } catch (e: Throwable) {
+            exceptionThrown = true
+            throw e
+        } finally {
+            val netSaveCountChange = globalSaveCounter - prevGlobalSaveCounter
+            val exitGlobalSaveCounter = globalSaveCounter
+
+            insertPoint = prevInsertPoint
+            currentSaveRestoreNode = prevSaveNode
+            lastRenderingOp = prevLastRenderingOp
+            initialSpanSaveCount = prevInitialSpanSaveCount
+            globalSaveCounter = prevGlobalSaveCounter
+
+            if (!exceptionThrown && netSaveCountChange != 0) {
+                throw IllegalStateException(
+                    "Unbalanced save/restore in child span: net save count change was " +
+                        "$netSaveCountChange (must be 0, entered at " +
+                        "$prevGlobalSaveCounter, exited at $exitGlobalSaveCounter)",
+                )
+            }
+        }
+        return childSpan
     }
 
     /**
@@ -942,18 +959,12 @@ internal class CanvasOperationBuffer(val enableOptimizations: Boolean = false) {
         }
     }
 
-    /** Returns a string representation of the document program's current span tree. */
+    /** Returns a string representation of the operation buffer's current span tree. */
     override fun toString(): String {
-        val hasDeclarations =
-            declarationRoot.operations.isNotEmpty() || declarationRoot.child != null
-        val hasBody = spanTreeRoot.operations.isNotEmpty() || spanTreeRoot.child != null
-        if (!hasDeclarations && !hasBody) return "CanvasOperationBuffer(empty)"
-        return buildString {
-            append("CanvasOperationBuffer(")
-            if (hasDeclarations) append("declarations=").append(declarationRoot)
-            if (hasDeclarations && hasBody) append(", ")
-            if (hasBody) append("body=").append(spanTreeRoot)
-            append(")")
+        return if (spanTreeRoot.operations.isNotEmpty() || spanTreeRoot.child != null) {
+            spanTreeRoot.toString()
+        } else {
+            "CanvasOperationBuffer(empty)"
         }
     }
 
@@ -964,38 +975,23 @@ internal class CanvasOperationBuffer(val enableOptimizations: Boolean = false) {
      * 1. Applies Common Subexpression Elimination (CSE) and hoisting to state expressions.
      * 2. Discovers the ideal spans for rendering operations based on dependency chains.
      * 3. Records all operations into the document by executing them in the correct order.
-     * 4. Resets the program state, clearing maps and resetting the span tree root for the next use.
+     * 4. Resets the buffer state, clearing maps and resetting the span tree root for the next use.
      *
      * @param creationState The state used to write operations to the document and allocate variable
      *   IDs.
      */
     public fun flush(creationState: RemoteComposeCaptureState) {
-        optimize(creationState)
-        writeTo(creationState.document, creationState)
-    }
-
-    /** Applies document-level optimization passes without encoding the resulting program. */
-    internal fun optimize(creationState: RemoteComposeCaptureState) {
         commonSubExpressionElimination(creationState)
 
+        // Run optimizations on the span tree
         if (enableOptimizations) {
-            optimizeSpan(declarationRoot)
-            declarationRoot.sortAllSpans()
             optimizeSpan(spanTreeRoot)
             spanTreeRoot.sortAllSpans()
         }
-    }
 
-    /** Serializes the already optimized program to [writer], then clears it for reuse. */
-    internal fun writeTo(
-        writer: RemoteComposeWriter,
-        creationState: RemoteComposeCaptureState,
-    ) {
-        declarationRoot.record(writer, creationState)
-        spanTreeRoot.record(writer, creationState)
+        spanTreeRoot.record(creationState.document, creationState)
 
-        declarationRoot = Span(null, 0)
-        lastDeclarationOp = null
+        // Reset for next flush
         spanTreeRoot = Span(null, 0)
         insertPoint = spanTreeRoot
         operationMap.clear()
@@ -1098,6 +1094,7 @@ internal class CanvasOperationBuffer(val enableOptimizations: Boolean = false) {
                     if (angleVal == null) {
                         break // Cannot commute past dynamic rotation, stop here.
                     }
+                    // KMP (rc-players): `kotlin.math` for `java.lang.Math`.
                     val rad = angleVal * PI.toFloat() / 180f
                     val cosine = cos(rad)
                     val sine = sin(rad)
@@ -1616,6 +1613,23 @@ internal class CanvasOperationBuffer(val enableOptimizations: Boolean = false) {
                 }
             }
         }
+    }
+
+    /**
+     * Identical path data and winding recorded into the same [Span]. Each span is written into
+     * exactly one wire container, so a DATA_PATH id is never referenced outside the container that
+     * defines it. Path data holds NaN-encoded commands and variable ids, so equality uses
+     * [nanIdContentEquals].
+     */
+    private class PathDataKey(val pathData: FloatArray, val winding: Int) {
+        private val hashCode: Int = 31 * winding + pathData.nanIdContentHashCode()
+
+        override fun equals(other: Any?): Boolean =
+            other is PathDataKey &&
+                winding == other.winding &&
+                pathData.nanIdContentEquals(other.pathData)
+
+        override fun hashCode(): Int = hashCode
     }
 
     internal companion object {

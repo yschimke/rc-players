@@ -36,7 +36,7 @@ internal class RemoteFlowRowNode : RemoteLayoutNode() {
         (horizontalArrangement as? RemoteSpaced)?.let {
             remoteModifier.spacedBy = it.getSpacingFloatId(scope)
         }
-        remoteCanvas.internalCanvas.recordRenderingOp(
+        remoteCanvas.recordRenderingOp(
             WriterOp.StartFlow(
                 remoteModifier,
                 horizontalArrangement.toRemote(layoutDirection),
@@ -52,7 +52,7 @@ internal class RemoteFlowRowNode : RemoteLayoutNode() {
         )
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
-        remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndFlow)
+        remoteCanvas.recordRenderingOp(WriterOp.EndFlow)
     }
 }
 

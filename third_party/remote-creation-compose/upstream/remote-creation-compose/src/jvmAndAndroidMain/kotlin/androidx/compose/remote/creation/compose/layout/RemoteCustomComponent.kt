@@ -38,7 +38,7 @@ internal class RemoteCustomComponentNode : RemoteComposeNode() {
         // KMP (rc-players): recorded through the fork's CanvasOperationBuffer
         // (`CanvasOp.CustomComponent`) and written when the canvas flushes, where upstream
         // writes `startCustom` / `endCustom` to `document` here.
-        remoteCanvas.internalCanvas.custom(
+        remoteCanvas.custom(
             config = name,
             modifier = modifier,
             content = { renderChildren(creationState, remoteCanvas) },

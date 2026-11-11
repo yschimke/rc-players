@@ -55,7 +55,7 @@ internal class RemoteColumnNode : RemoteLayoutNode() {
         (verticalArrangement as? RemoteSpaced)?.let {
             remoteModifier.spacedBy = it.getSpacingFloatId(scope)
         }
-        remoteCanvas.internalCanvas.recordRenderingOp(
+        remoteCanvas.recordRenderingOp(
             WriterOp.StartColumn(
                 remoteModifier,
                 horizontalAlignment.toRemote(layoutDirection),
@@ -65,7 +65,7 @@ internal class RemoteColumnNode : RemoteLayoutNode() {
         renderChildren(creationState, remoteCanvas)
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
-        remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndColumn)
+        remoteCanvas.recordRenderingOp(WriterOp.EndColumn)
     }
 }
 

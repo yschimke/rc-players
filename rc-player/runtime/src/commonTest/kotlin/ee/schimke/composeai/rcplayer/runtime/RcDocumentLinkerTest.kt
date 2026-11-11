@@ -100,6 +100,36 @@ class RcDocumentLinkerTest {
     assertEquals(2, ids.distinct().size)
   }
 
+  /**
+   * AndroidX's writer closes a definition it wrote with its body's length (`endPatternDefine`) with
+   * a `CONTAINER_END`. It links as the same definition without one does.
+   */
+  @Test
+  fun aDefinitionWrittenWithItsBodyLengthIsClosedByItsOwnEnd() {
+    val definition = RcMacroDefine(9, listOf(100), body(RcIdOperation(RcOpcodes.DRAW_PATH, 100)))
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    fun paths(operations: List<ee.schimke.composeai.rcplayer.protocol.RcOperation>) =
+      RcDocumentLinker.link(RcDocument(header, operations)).operations.map { node ->
+        val canvas = assertIs<RcLinkedNode.Container>(node)
+        canvas.children.map {
+          assertIs<RcIdOperation>(assertIs<RcLinkedNode.Operation>(it).operation).id
+        }
+      }
+    val call = listOf(RcMacroCall(9, listOf(200)), end, RcMacroCall(9, listOf(201)), end)
+    val canvas = RcNoArg(RcOpcodes.CANVAS_OPERATIONS)
+
+    val asWritten = listOf(canvas, definition, end) + call + end
+    val inMemory = listOf(canvas, definition) + call + end
+
+    assertEquals(listOf(listOf(200, 201)), paths(asWritten))
+    assertEquals(paths(inMemory), paths(asWritten))
+    // A definition that is the last thing in its container is not mistaken for one with an end.
+    assertEquals(
+      listOf(emptyList(), listOf(200)),
+      paths(listOf(canvas, definition, end, canvas, RcMacroCall(9, listOf(200)), end, end)),
+    )
+  }
+
   @Test
   fun configuredOperationLimitAppliesToMacroBodies() {
     val definition =

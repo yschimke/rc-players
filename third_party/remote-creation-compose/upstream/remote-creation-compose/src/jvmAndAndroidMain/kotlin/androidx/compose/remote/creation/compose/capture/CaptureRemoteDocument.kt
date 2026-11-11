@@ -131,10 +131,9 @@ public suspend fun captureCommonRemoteDocumentInto(
             }
 
             Snapshot.withMutableSnapshot {
-                val recordingCanvas =
-                    CommonRecordingCanvas().apply { setRemoteComposeCreationState(creationState) }
-                rootNode.render(creationState, RemoteCanvas(recordingCanvas))
-                recordingCanvas.flush()
+                val remoteCanvas = RemoteCanvas(creationState)
+                rootNode.render(creationState, remoteCanvas)
+                remoteCanvas.flush()
             }
         } finally {
             composition.dispose()

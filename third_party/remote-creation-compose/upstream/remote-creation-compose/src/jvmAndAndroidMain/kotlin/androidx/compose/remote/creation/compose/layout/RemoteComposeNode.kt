@@ -113,11 +113,11 @@ internal abstract class RemoteComposeNode : RemoteComponentTokenProvider {
                 // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes,
                 // where
                 // upstream writes to `document` here.
-                remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.StartCanvasOperations)
+                remoteCanvas.recordRenderingOp(WriterOp.StartCanvasOperations)
                 modifier.drawWithContent(overriddenScope(remoteCanvas), remoteCanvas) {
-                    remoteCanvas.internalCanvas.drawComponentContent()
+                    remoteCanvas.drawComponentContent()
                 }
-                remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndCanvasOperations)
+                remoteCanvas.recordRenderingOp(WriterOp.EndCanvasOperations)
             }
 
             if (!reversed) {
@@ -138,9 +138,9 @@ internal class RemoteRootNode : RemoteComposeNode() {
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
-        remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.StartRoot)
+        remoteCanvas.recordRenderingOp(WriterOp.StartRoot)
         renderChildren(creationState, remoteCanvas)
-        remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndRoot)
+        remoteCanvas.recordRenderingOp(WriterOp.EndRoot)
     }
 }
 

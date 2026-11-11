@@ -22,9 +22,7 @@ package androidx.compose.remote.creation.compose.layout
 public class RemoteContentDrawScope
 internal constructor(
     remoteCanvas: RemoteCanvas,
-    private val content: RemoteDrawScope.() -> Unit = {
-        remoteCanvas.internalCanvas.drawComponentContent()
-    },
+    private val content: RemoteDrawScope.() -> Unit = { remoteCanvas.drawComponentContent() },
     // LOCAL PATCH (rc-players): the padding a `drawWithContent` sits inside is the fork's
     // `DrawInset`, which `RemoteDrawScope` applies; upstream passes the content size and the
     // offset to this class (`1d18c52eb`). See `DrawWithContentModifier.kt`.

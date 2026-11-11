@@ -169,21 +169,12 @@ public fun RemoteCanvas.drawMesh2D(
         "A ${uCount}x$vCount mesh exceeds AddMesh2D's ${Mesh2D.MAX_GRID} vertices"
     }
     val scope = RemoteMesh2DScope().apply(channels)
-    val op =
-        internalCanvas.recordRenderingOp(
-            paint,
-            DrawMesh2DWriterOp(
-                layout.value,
-                uCount,
-                vCount,
-                scope.channels(),
-                image,
-                antialiasWidth,
-            ),
-        )
+    val mesh =
+        DrawMesh2DWriterOp(layout.value, uCount, vCount, scope.channels(), image, antialiasWidth)
+    val op = recordRenderingOp(paint) { mesh.write(document, creationState) }
     // The channels are deliberately not roots: a root can be hoisted into a variable of its own,
     // and one that reads u or v means nothing outside the mesh.
-    internalCanvas.buffer.addRoots(op, image, antialiasWidth)
+    buffer.addRoots(op, image, antialiasWidth)
 }
 
 /** [RemoteCanvas.drawMesh2D] in a draw scope, where `width` and `height` size the mesh. */

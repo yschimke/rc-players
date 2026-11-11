@@ -29,7 +29,7 @@ internal class RemoteFitBoxNode : RemoteLayoutNode() {
         val scope = overriddenScope(remoteCanvas)
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
-        remoteCanvas.internalCanvas.recordRenderingOp(
+        remoteCanvas.recordRenderingOp(
             WriterOp.StartFitBox(
                 resolveModifier(scope, creationState),
                 horizontalAlignment.toRemote(layoutDirection),
@@ -39,7 +39,7 @@ internal class RemoteFitBoxNode : RemoteLayoutNode() {
         renderChildren(creationState, remoteCanvas)
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
-        remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndFitBox)
+        remoteCanvas.recordRenderingOp(WriterOp.EndFitBox)
     }
 }
 

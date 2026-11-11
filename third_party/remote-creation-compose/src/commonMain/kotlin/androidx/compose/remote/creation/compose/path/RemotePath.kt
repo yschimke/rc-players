@@ -18,6 +18,15 @@ package androidx.compose.remote.creation.compose.path
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.Utils
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.ceil
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.sin
+import kotlin.math.sqrt
+import kotlin.math.tan
 
 /** Platform-neutral encoded path used by Creation Compose. */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -114,7 +123,209 @@ public class RemotePath(initialCapacity: Int = DefaultCapacity) {
         values[size++] = Utils.asNan(Close)
     }
 
+    /**
+     * The path of an SVG path string, as `RemotePath(pathData: String)` reads one on the JVM
+     * (`remote-core`'s `RemotePathBase.parsePathData`): the absolute commands `M`, `L`, `H`, `C`,
+     * `S`, `Q` and `Z`, and the arcs `A` and `a`, their numbers separated by commas or spaces. Any
+     * other command is an [IllegalArgumentException], as it is there.
+     */
+    public constructor(pathData: String) : this() {
+        parsePathData(pathData)
+    }
+
+    /**
+     * An elliptical arc from the current point to ([x], [y]) as cubics, as `RemotePathBase.arcTo`:
+     * radii [rx] and [ry], the ellipse rotated by [angle] degrees.
+     */
+    public fun arcTo(
+        rx: Float,
+        ry: Float,
+        angle: Float,
+        largeArc: Boolean,
+        sweep: Boolean,
+        x: Float,
+        y: Float,
+    ) {
+        val x0 = currentX
+        val y0 = currentY
+        if (rx == 0f || ry == 0f) {
+            lineTo(x, y)
+            return
+        }
+        val alpha = angle.toDouble() * PI / 180.0
+        val cosAlpha = cos(alpha)
+        val sinAlpha = sin(alpha)
+
+        val dx = (x0 - x) / 2.0
+        val dy = (y0 - y) / 2.0
+        val x1p = cosAlpha * dx + sinAlpha * dy
+        val y1p = -sinAlpha * dx + cosAlpha * dy
+
+        var rxp = abs(rx).toDouble()
+        var ryp = abs(ry).toDouble()
+        val check = (x1p * x1p) / (rxp * rxp) + (y1p * y1p) / (ryp * ryp)
+        if (check > 1.0) {
+            val s = sqrt(check)
+            rxp *= s
+            ryp *= s
+        }
+
+        val sign = if (largeArc == sweep) -1.0 else 1.0
+        val numerator = (rxp * rxp * ryp * ryp) - (rxp * rxp * y1p * y1p) - (ryp * ryp * x1p * x1p)
+        val denominator = (rxp * rxp * y1p * y1p) + (ryp * ryp * x1p * x1p)
+        val root = sqrt(max(0.0, numerator / denominator))
+        val cxp = sign * root * rxp * y1p / ryp
+        val cyp = -sign * root * ryp * x1p / rxp
+
+        val cx = cosAlpha * cxp - sinAlpha * cyp + (x0 + x) / 2.0
+        val cy = sinAlpha * cxp + cosAlpha * cyp + (y0 + y) / 2.0
+
+        val theta1 = atan2((y1p - cyp) / ryp, (x1p - cxp) / rxp)
+        var dTheta = atan2((-y1p - cyp) / ryp, (-x1p - cxp) / rxp) - theta1
+
+        if (sweep && dTheta < 0) {
+            dTheta += 2 * PI
+        } else if (!sweep && dTheta > 0) {
+            dTheta -= 2 * PI
+        }
+
+        var segments = ceil(abs(dTheta) / (PI / 2.0)).toInt()
+        if (segments == 0) {
+            segments = 1
+        }
+
+        for (i in 0 until segments) {
+            val s1 = theta1 + i * dTheta / segments
+            val s2 = theta1 + (i + 1) * dTheta / segments
+
+            val t = 4.0 / 3.0 * tan((s2 - s1) / 4.0)
+
+            val xstart = cosAlpha * rxp * cos(s1) - sinAlpha * ryp * sin(s1) + cx
+            val ystart = sinAlpha * rxp * cos(s1) + cosAlpha * ryp * sin(s1) + cy
+
+            val xend = cosAlpha * rxp * cos(s2) - sinAlpha * ryp * sin(s2) + cx
+            val yend = sinAlpha * rxp * cos(s2) + cosAlpha * ryp * sin(s2) + cy
+
+            val cp1x = xstart + t * (-cosAlpha * rxp * sin(s1) - sinAlpha * ryp * cos(s1))
+            val cp1y = ystart + t * (-sinAlpha * rxp * sin(s1) + cosAlpha * ryp * cos(s1))
+
+            val cp2x = xend - t * (-cosAlpha * rxp * sin(s2) - sinAlpha * ryp * cos(s2))
+            val cp2y = yend - t * (-sinAlpha * rxp * sin(s2) + cosAlpha * ryp * cos(s2))
+
+            cubicTo(
+                cp1x.toFloat(),
+                cp1y.toFloat(),
+                cp2x.toFloat(),
+                cp2y.toFloat(),
+                xend.toFloat(),
+                yend.toFloat(),
+            )
+        }
+    }
+
+    /** `RemotePathBase.parsePathData`, command for command. */
+    private fun parsePathData(pathData: String) {
+        val cords = FloatArray(6)
+        for (command in splitCommands(pathData)) {
+            val cmd = command[0]
+            val rest = command.substring(1).trim()
+            // As `String.split` in Java: no trailing empty strings, and the input itself when
+            // nothing separates it.
+            val values =
+                if (rest.isEmpty()) listOf("")
+                else rest.split(ValueSeparator).dropLastWhile { it.isEmpty() }
+            when (cmd) {
+                'M' -> moveTo(values[0].toFloat(), values[1].toFloat())
+                'L' ->
+                    for (i in values.indices step 2) {
+                        lineTo(values[i].toFloat(), values[i + 1].toFloat())
+                    }
+                'H' ->
+                    for (value in values) {
+                        lineTo(value.toFloat(), cords[1])
+                    }
+                'C' ->
+                    for (i in values.indices step 6) {
+                        cubicTo(
+                            values[i].toFloat(),
+                            values[i + 1].toFloat(),
+                            values[i + 2].toFloat(),
+                            values[i + 3].toFloat(),
+                            values[i + 4].toFloat(),
+                            values[i + 5].toFloat(),
+                        )
+                    }
+                'S' ->
+                    for (i in values.indices step 4) {
+                        cubicTo(
+                            2 * cords[0] - cords[2],
+                            2 * cords[1] - cords[3],
+                            values[i].toFloat(),
+                            values[i + 1].toFloat(),
+                            values[i + 2].toFloat(),
+                            values[i + 3].toFloat(),
+                        )
+                    }
+                'Q' ->
+                    for (i in values.indices step 4) {
+                        quadTo(
+                            values[i].toFloat(),
+                            values[i + 1].toFloat(),
+                            values[i + 2].toFloat(),
+                            values[i + 3].toFloat(),
+                        )
+                    }
+                'A',
+                'a' ->
+                    for (i in values.indices step 7) {
+                        var x = values[i + 5].toFloat()
+                        var y = values[i + 6].toFloat()
+                        if (cmd == 'a') {
+                            x += currentX
+                            y += currentY
+                        }
+                        arcTo(
+                            values[i].toFloat(),
+                            values[i + 1].toFloat(),
+                            values[i + 2].toFloat(),
+                            values[i + 3].toFloat() != 0f,
+                            values[i + 4].toFloat() != 0f,
+                            x,
+                            y,
+                        )
+                    }
+                'Z' -> close()
+                else -> throw IllegalArgumentException("Unsupported command: $cmd")
+            }
+            if (cmd != 'Z' && cmd != 'H') {
+                cords[0] = values[values.size - 2].toFloat()
+                cords[1] = values[values.size - 1].toFloat()
+                if (cmd == 'C' || cmd == 'S') {
+                    cords[2] = values[values.size - 4].toFloat()
+                    cords[3] = values[values.size - 3].toFloat()
+                }
+            }
+        }
+    }
+
+    /** `pathData.split("(?=[MmZzLlHhVvCcSsQqTtAa])")`: a new piece before each command letter. */
+    private fun splitCommands(pathData: String): List<String> {
+        val commands = ArrayList<String>()
+        var start = 0
+        for (i in 1 until pathData.length) {
+            if (pathData[i] in CommandLetters) {
+                commands.add(pathData.substring(start, i))
+                start = i
+            }
+        }
+        if (start < pathData.length) commands.add(pathData.substring(start))
+        return commands
+    }
+
     public fun toFloatArray(): FloatArray = values.copyOf(size)
+
+    /** A copy of the encoded path, under the name AndroidX's `RemotePath` has for it. */
+    public fun createFloatArray(): FloatArray = toFloatArray()
 
     private fun appendMove(type: Int, first: Float, second: Float) {
         ensureCapacity(3)
@@ -146,5 +357,7 @@ public class RemotePath(initialCapacity: Int = DefaultCapacity) {
         const val Conic = 13
         const val Cubic = 14
         const val Close = 15
+        const val CommandLetters = "MmZzLlHhVvCcSsQqTtAa"
+        val ValueSeparator = Regex("[,\\s]+")
     }
 }

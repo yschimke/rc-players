@@ -42,10 +42,10 @@ internal constructor(
     // LOCAL PATCH (rc-players): the padding a draw modifier's earlier modifiers inset it by, as
     // AndroidX sizes a `drawWithContent` scope (see `RemoteModifier.drawWithContent`).
     internal val inset: DrawInset? = null,
-) : RemoteStateScope by remoteCanvas {
+) : RemoteStateScope by remoteCanvas.creationState {
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public val remoteComposeCreationState: RemoteComposeCreationState
-        get() = remoteCanvas.internalCanvas.creationState
+        get() = remoteCanvas.creationState
 
     /** The width of the drawing area as a [RemoteFloat]. */
     public val width: RemoteFloat

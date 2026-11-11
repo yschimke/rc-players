@@ -291,7 +291,7 @@ internal class RemoteTextNode : RemoteComposeNode() {
 
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
-        remoteCanvas.internalCanvas.recordRenderingOp(
+        remoteCanvas.recordRenderingOp(
             WriterOp.StartText(
                 RemoteTextData(
                     modifier = resolveModifier(scope, creationState),
@@ -323,7 +323,7 @@ internal class RemoteTextNode : RemoteComposeNode() {
         )
         // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
         // upstream writes to `document` here.
-        remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndText)
+        remoteCanvas.recordRenderingOp(WriterOp.EndText)
     }
 }
 
