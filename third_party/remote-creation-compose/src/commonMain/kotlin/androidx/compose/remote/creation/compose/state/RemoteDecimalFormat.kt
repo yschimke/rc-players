@@ -1,5 +1,20 @@
 package androidx.compose.remote.creation.compose.state
 
+import androidx.compose.remote.creation.common.TextFromFloat.GROUPING_BY3
+import androidx.compose.remote.creation.common.TextFromFloat.GROUPING_BY4
+import androidx.compose.remote.creation.common.TextFromFloat.GROUPING_NONE
+import androidx.compose.remote.creation.common.TextFromFloat.OPTIONS_NEGATIVE_PARENTHESES
+import androidx.compose.remote.creation.common.TextFromFloat.OPTIONS_ROUNDING
+import androidx.compose.remote.creation.common.TextFromFloat.PAD_AFTER_NONE
+import androidx.compose.remote.creation.common.TextFromFloat.PAD_AFTER_ZERO
+import androidx.compose.remote.creation.common.TextFromFloat.PAD_PRE_NONE
+import androidx.compose.remote.creation.common.TextFromFloat.PAD_PRE_ZERO
+import androidx.compose.remote.creation.common.TextFromFloat.SEPARATOR_COMMA_PERIOD
+import androidx.compose.remote.creation.common.TextFromFloat.SEPARATOR_PERIOD_COMMA
+import androidx.compose.remote.creation.common.TextFromFloat.SEPARATOR_SPACE_COMMA
+import androidx.compose.remote.creation.common.TextFromFloat.SEPARATOR_UNDER_PERIOD
+import kotlin.math.pow
+
 /** Deterministic, platform-neutral number formatting options for remote text. */
 public class DecimalFormat {
     public var decimalFormatSymbols: DecimalFormatSymbols = DecimalFormatSymbols()
@@ -21,4 +36,113 @@ public data class DecimalFormatSymbols(
 public enum class RoundingMode {
     UNNECESSARY,
     HALF_EVEN,
+}
+
+internal data class TextFromFloatOptions(val before: Int, val after: Int, val flags: Int)
+
+internal val DefaultJavaDecimalFormat: DecimalFormat = DecimalFormat()
+
+internal fun DecimalFormat.toJavaTextFromFloatOptions(): TextFromFloatOptions {
+    val decimalSeparator = decimalFormatSymbols.decimalSeparator
+    val groupingSeparator = decimalFormatSymbols.groupingSeparator
+
+    val grouping =
+        if (!isGroupingUsed) {
+            GROUPING_NONE
+        } else if (groupingSize == 3) {
+            GROUPING_BY3
+        } else if (groupingSize == 4) {
+            GROUPING_BY4
+        } else {
+            GROUPING_NONE
+        }
+
+    val separator =
+        if (groupingSeparator == ',' && decimalSeparator == '.') {
+            SEPARATOR_COMMA_PERIOD
+        } else if (groupingSeparator == '.' && decimalSeparator == ',') {
+            SEPARATOR_PERIOD_COMMA
+        } else if (groupingSeparator == ' ' && decimalSeparator == ',') {
+            SEPARATOR_SPACE_COMMA
+        } else if (groupingSeparator == '_' && decimalSeparator == '.') {
+            SEPARATOR_UNDER_PERIOD
+        } else {
+            SEPARATOR_COMMA_PERIOD
+        }
+
+    val before = maximumIntegerDigits.coerceAtMost(255)
+    val after = maximumFractionDigits.coerceAtMost(255)
+    var options = 0
+    if (negativePrefix == "(") {
+        options = options or OPTIONS_NEGATIVE_PARENTHESES
+    }
+
+    if (roundingMode != RoundingMode.UNNECESSARY) {
+        options = options or OPTIONS_ROUNDING
+    }
+
+    var flags = separator or grouping or options
+
+    if (minimumFractionDigits > 1) {
+        flags = flags or PAD_AFTER_ZERO
+    } else {
+        flags = flags or PAD_AFTER_NONE
+    }
+
+    if (minimumIntegerDigits > 1) {
+        flags = flags or PAD_PRE_ZERO
+    } else {
+        flags = flags or PAD_PRE_NONE
+    }
+
+    return TextFromFloatOptions(before, after, flags)
+}
+
+internal fun formatRemoteFloatJvm(value: RemoteFloat, format: DecimalFormat): RemoteString {
+    val (before, after, flags) = format.toJavaTextFromFloatOptions()
+
+    if (format.minimumFractionDigits == 0 && after > 0 && format !== DefaultJavaDecimalFormat) {
+        value.constantValueOrNull?.let { constVal ->
+            val resolvedAfter = if (constVal % 1f == 0f) 0 else after
+            return value.toRemoteStringWithPadding(
+                before,
+                resolvedAfter,
+                flags,
+                format.minimumIntegerDigits,
+            )
+        }
+
+        val epsilonVal = (0.5f * 10f.pow(-after)).coerceAtLeast(0.00001f)
+        val epsilon = epsilonVal.rf
+        val isInteger = abs(value - round(value)).isLessThan(epsilon)
+        return isInteger.select(
+            round(value).toRemoteInt().toRemoteString(format),
+            value.toRemoteStringWithPadding(
+                before,
+                after,
+                flags,
+                format.minimumIntegerDigits,
+            ),
+        )
+    }
+
+    return value.toRemoteStringWithPadding(
+        before,
+        after,
+        flags,
+        format.minimumIntegerDigits,
+    )
+}
+
+internal fun formatRemoteIntJvm(value: RemoteInt, format: DecimalFormat): RemoteString {
+    val (before, after, flags) = format.toJavaTextFromFloatOptions()
+    val resolvedAfter = if (format.minimumFractionDigits == 0) 0 else after
+    return value
+        .toRemoteFloat()
+        .toRemoteStringWithPadding(
+            before,
+            resolvedAfter,
+            flags,
+            format.minimumIntegerDigits,
+        )
 }

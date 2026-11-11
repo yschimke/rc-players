@@ -40,6 +40,17 @@ kotlin {
     }
 
     sourceSets {
+        // The files with an AndroidX counterpart sit under `upstream/`, each at its upstream path:
+        // the module and source set it comes from, then the same package path. All four roots
+        // compile into `commonMain`, `androidMain`'s among them: what the fork carries from there
+        // needs only Compose UI, which Compose Multiplatform has on every target. `src/` holds
+        // what the fork adds. See PROVENANCE.md.
+        commonMain {
+            kotlin.srcDir("upstream/remote-creation-expression/src/main/java")
+            kotlin.srcDir("upstream/remote-creation-compose/src/jvmAndAndroidMain/kotlin")
+            kotlin.srcDir("upstream/remote-creation-compose/src/androidMain/kotlin")
+            kotlin.srcDir("upstream/foundation/foundation/src/main/java")
+        }
         commonMain.dependencies {
             api(project(":third-party-remote-creation-writer"))
             api("androidx.annotation:annotation:1.11.0")
