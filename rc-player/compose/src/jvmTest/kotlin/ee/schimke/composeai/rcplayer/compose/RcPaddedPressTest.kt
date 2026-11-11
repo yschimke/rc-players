@@ -21,6 +21,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcHostAction
 import ee.schimke.composeai.rcplayer.protocol.RcMultiClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcMultiClickType
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
+import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRippleModifier
@@ -126,6 +127,73 @@ class RcPaddedPressTest {
   }
 
   /**
+   * An offset written after the padding moves what the component draws, and the handlers with it:
+   * this player hit-tests where it draws (`RC_CONFORMANCE_PUSHBACK.md` §9; `remote-core` tests the
+   * layout box and leaves offsets out). Widening the handlers to the padding must not leave them
+   * behind at the un-offset box.
+   */
+  @Test
+  fun anOffsetWrittenAfterThePaddingMovesTheHandlersWithTheContent() {
+    // The 100px box is laid out at 0..100 and drawn, padding and all, at 40..140.
+    val presses =
+      listOf(
+        Offset(110f, 110f) to true, // the shifted content, past the un-offset box
+        Offset(130f, 130f) to true, // the shifted padding
+        Offset(10f, 10f) to false, // the un-offset box, where nothing is drawn any more
+      )
+    for (multiClick in listOf(false, true)) for ((press, fires) in presses) {
+      runSkikoComposeUiTest(size = Size(OFFSET_SCENE, OFFSET_SCENE), density = Density(1f)) {
+        val events = mutableListOf<RcPlayerEvent>()
+        setContent {
+          RcComposePlayer(offsetDocument(multiClick, ripple = null), onEvent = events::add)
+        }
+        waitForIdle()
+        onRoot().performTouchInput {
+          down(press)
+          up()
+        }
+        mainClock.advanceTimeBy(1_500)
+        assertEquals(
+          if (fires) listOf<RcPlayerEvent>(RcPlayerEvent.HostAction(77)) else emptyList(),
+          events,
+          "multiClick=$multiClick press=$press",
+        )
+      }
+    }
+  }
+
+  @Test
+  fun theRippleStartsUnderTheFingerOnEitherSideOfALaterOffset() {
+    for (multiClick in listOf(false, true)) for (rippleFirst in listOf(true, false)) {
+      runSkikoComposeUiTest(size = Size(OFFSET_SCENE, OFFSET_SCENE), density = Density(1f)) {
+        setContent { RcComposePlayer(offsetDocument(multiClick, ripple = rippleFirst)) }
+        waitForIdle()
+        mainClock.autoAdvance = false
+        // Inside the ripple's bounds whichever side of the offset it is written.
+        onRoot().performTouchInput { down(Offset(PRESS, PRESS)) }
+        mainClock.advanceTimeBy(48)
+        val pixels = onRoot().captureToImage().toPixelMap()
+        var x = 0.0
+        var y = 0.0
+        var lit = 0.0
+        for (py in 0 until pixels.height) for (px in 0 until pixels.width) {
+          val light = pixels[px, py].red.toDouble()
+          x += px * light
+          y += py * light
+          lit += light
+        }
+        val where = "multiClick=$multiClick rippleBeforeOffset=$rippleFirst"
+        assertTrue(lit > 0.0, "no ripple drawn ($where)")
+        assertTrue(
+          abs(x / lit - PRESS) < 2.0 && abs(y / lit - PRESS) < 2.0,
+          "the ripple started at (${x / lit}, ${y / lit}), not under the press at $PRESS ($where)",
+        )
+        onRoot().performTouchInput { up() }
+      }
+    }
+  }
+
+  /**
    * Evidence for `renders/cmp-padded-press/`, written only when `RC_LAYOUT_EVIDENCE_DIR` is set:
    * the box 120ms into a press at (70, 70), with the padding written after the ripple and click and
    * then before them, at 3x. The green ticks surround the press; the grey disc is the ripple's
@@ -197,6 +265,42 @@ class RcPaddedPressTest {
     /** Inside the padded content, off its centre so a mirrored or centred origin cannot pass. */
     const val PRESS = 70f
     val END = RcNoArg(RcOpcodes.CONTAINER_END)
+
+    const val OFFSET_SCENE = 160f
+
+    /**
+     * A 100 x 100 box with no background on a 160px scene: 20px of padding, then an offset of (40,
+     * 40), then the click handlers. [ripple] puts a ripple before the offset (true), after it
+     * (false) or nowhere (null). The offset is after the padding, so the handlers are installed
+     * outside it.
+     */
+    fun offsetDocument(multiClick: Boolean, ripple: Boolean?): RcDocument {
+      val inset = RcFloatWord.literal(20f)
+      val shift = RcFloatWord.literal(40f)
+      return RcDocument(
+        RcHeader(
+          RcVersion(1, 0, 0),
+          legacyWidth = OFFSET_SCENE.toInt(),
+          legacyHeight = OFFSET_SCENE.toInt(),
+          modern = false,
+        ),
+        buildList {
+          add(RcRootLayout(1))
+          add(RcBoxLayout(2, 20, 1, 1))
+          add(RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(100f)))
+          add(RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(100f)))
+          add(RcPaddingModifier(inset, inset, inset, inset))
+          if (ripple == true) add(RcRippleModifier)
+          add(RcOffsetModifier(shift, shift))
+          if (ripple == false) add(RcRippleModifier)
+          add(if (multiClick) RcMultiClickModifier(RcMultiClickType.SINGLE) else RcClickModifier)
+          add(RcHostAction(77))
+          add(END)
+          add(END)
+          add(END)
+        },
+      )
+    }
 
     /**
      * A 120 x 120 opaque black box with 40px of padding all round, written before or after its

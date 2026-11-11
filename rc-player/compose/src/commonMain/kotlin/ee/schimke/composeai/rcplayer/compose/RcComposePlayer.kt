@@ -2759,10 +2759,14 @@ private fun Modifier.applyComponentModifiers(
   val rippleInteractions =
     if (modifiers.ordered.any { it is RcRippleModifier }) remember { MutableInteractionSource() }
     else null
-  // The press handlers sit outside the component's padding (see `applyPressHandlers`), so their
-  // presses are in the component's own space; the ripple is inside whatever padding precedes it.
+  // The press handlers sit outside the component's padding and inside its offsets (see
+  // `applyPressHandlers`), so their presses are in the drawn box's space; the ripple is inside
+  // whatever padding precedes it and outside whatever offset follows it.
   val pressInteractions =
-    rcInsetPresses(rippleInteractions, rcPaddingBeforeRipple(modifiers, state, density))
+    rcInsetPresses(
+      rippleInteractions,
+      if (rippleInteractions == null) Offset.Zero else rcRippleInset(modifiers, state, density),
+    )
   var result =
     if (modifiers.layoutComputes.isEmpty()) this
     else {
@@ -2845,8 +2849,10 @@ private fun Modifier.applyComponentModifiers(
    * every press in the padding and reported the rest in the padded content's space: a ripple
    * written before the padding started its wave short of the finger by the padding's width.
    *
-   * The caller puts the graphics layer on first, so a transformed component is still pressed where
-   * it is drawn.
+   * The caller puts the graphics layer on first, and wraps the handlers in the offsets written
+   * after the padding (see below), so a transformed or offset component is still pressed where it
+   * is drawn. That is this player's stance rather than `remote-core`'s, which tests the layout box
+   * and leaves offsets out (`RC_CONFORMANCE_PUSHBACK.md` §9).
    */
   @Composable
   fun applyPressHandlers(modifier: Modifier): Modifier {
@@ -2887,8 +2893,19 @@ private fun Modifier.applyComponentModifiers(
     if (operation is RcPaddingModifier && !appliedCanvasOperations) {
       result = applyCanvasOperations(applyPendingGraphicsLayer(result))
     }
-    if (operation is RcPaddingModifier) {
-      result = applyPressHandlers(applyPendingGraphicsLayer(result))
+    if (operation is RcPaddingModifier && !pressHandlersApplied) {
+      // An offset written after this padding moves what the component draws from here on, and the
+      // handlers have to move with it while still covering the padding. So they go on inside the
+      // sum of those offsets, which is then undone for the rest of the chain; each offset still
+      // applies at its own place, and none of this changes a measured size.
+      val laterOffsets = modifiers.ordered.drop(operationIndex).filterIsInstance<RcOffsetModifier>()
+      result = applyPendingGraphicsLayer(result)
+      result =
+        if (laterOffsets.isEmpty()) applyPressHandlers(result)
+        else {
+          val shift: Density.() -> IntOffset = { rcOffsetPixels(laterOffsets, state, density) }
+          applyPressHandlers(result.offset(shift)).offset { -shift() }
+        }
     }
     result =
       when (operation) {
@@ -2922,13 +2939,7 @@ private fun Modifier.applyComponentModifiers(
           operationIndex = next - 1
           result.rcPaddingPixels(left = left, top = top, right = right, bottom = bottom, density)
         }
-        is RcOffsetModifier ->
-          result.offset {
-            IntOffset(
-              state.dpTypedPixels(state.resolve(operation.x), density).roundToInt(),
-              state.dpTypedPixels(state.resolve(operation.y), density).roundToInt(),
-            )
-          }
+        is RcOffsetModifier -> result.offset { rcOffsetPixels(listOf(operation), state, density) }
         is RcZIndexModifier -> result.zIndex(state.resolve(operation.value))
         is RcBackgroundModifier,
         is RcBorderModifier,
@@ -2977,18 +2988,37 @@ private fun Modifier.applyComponentModifiers(
   return result
 }
 
+/** The whole pixels [offsets] move a component by, each rounded as its own modifier rounds it. */
+private fun rcOffsetPixels(
+  offsets: List<RcOffsetModifier>,
+  state: RcPlayerState,
+  density: Density,
+): IntOffset {
+  var x = 0
+  var y = 0
+  for (offset in offsets) {
+    x += state.dpTypedPixels(state.resolve(offset.x), density).roundToInt()
+    y += state.dpTypedPixels(state.resolve(offset.y), density).roundToInt()
+  }
+  return IntOffset(x, y)
+}
+
 /**
- * The padding, left and top, the modifier chain applies before the component's ripple: how far the
- * ripple's own space sits inside the component's. Zero without a ripple. Sums each run of padding
- * modifiers as [applyComponentModifiers] applies it, so the two cannot disagree by a rounding.
+ * How far the component's ripple sits from its press handlers, which is what a press has to be
+ * moved by to land in the ripple's own space.
+ *
+ * The handlers are outside every padding and inside every offset ([applyComponentModifiers]'s
+ * `applyPressHandlers`); the ripple is at its wire position. So the ripple is in by the padding
+ * written before it and out by the offsets written after it. Sums each run of padding modifiers and
+ * each offset as the chain applies them, so the two cannot disagree by a rounding.
  */
-private fun rcPaddingBeforeRipple(
+private fun rcRippleInset(
   modifiers: RcLayoutModifiers,
   state: RcPlayerState,
   density: Density,
 ): Offset {
   val ripple = modifiers.ordered.indexOfFirst { it is RcRippleModifier }
-  if (ripple <= 0) return Offset.Zero
+  if (ripple < 0) return Offset.Zero
   var x = 0
   var y = 0
   var index = 0
@@ -3011,7 +3041,13 @@ private fun rcPaddingBeforeRipple(
       index++
     }
   }
-  return Offset(x.toFloat(), y.toFloat())
+  val after =
+    rcOffsetPixels(
+      modifiers.ordered.drop(ripple + 1).filterIsInstance<RcOffsetModifier>(),
+      state,
+      density,
+    )
+  return Offset((x - after.x).toFloat(), (y - after.y).toFloat())
 }
 
 /**
