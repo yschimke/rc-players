@@ -9,9 +9,9 @@ import androidx.compose.remote.creation.compose.modifier.padding
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteDp
 import androidx.compose.remote.creation.compose.state.RemoteState
-import androidx.compose.remote.creation.compose.state.createNamedRemoteColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import ee.schimke.composeai.rcwidget.RcWearContainer
 import ee.schimke.composeai.rcwidget.RcWearFrame
 import ee.schimke.composeai.rcwidget.RcWearHost
@@ -66,7 +66,7 @@ public fun RcWearTemplateContainer(
     fill =
       RemoteColor.createNamedRemoteColor(
         RcWearContainer.COLOR,
-        defaultFill,
+        defaultFill.toArgb(),
         RemoteState.Domain.User,
       ),
     cornerRadius = named(RcWearContainer.CORNER_RADIUS, defaults.cornerRadiusDp),

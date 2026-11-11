@@ -1337,15 +1337,12 @@ private class RcKotlinWriter(
     named[id]
       ?.takeIf { it.type == RcNamedVariable.COLOR_TYPE }
       ?.let { variable ->
-        import(
-          "androidx.compose.remote.creation.compose.state.rememberNamedRemoteColor",
-          "androidx.compose.ui.graphics.Color",
-        )
+        import("androidx.compose.remote.creation.compose.state.rememberNamedRemoteColor")
         reportComputed(id, variable.name)
         val (name, domain) = domainOf(variable.name)
         return hoist(
           identifier(name),
-          "rememberNamedRemoteColor(${quote(name)}, ${colorLiteral(colors[id] ?: 0)}$domain)",
+          "rememberNamedRemoteColor(${quote(name)}, ${literalColor(colors[id] ?: 0)}$domain)",
         )
       }
     colors[id]?.let {

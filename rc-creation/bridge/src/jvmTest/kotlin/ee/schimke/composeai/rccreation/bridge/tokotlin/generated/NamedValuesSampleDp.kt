@@ -14,6 +14,7 @@ import androidx.compose.remote.creation.compose.modifier.clickable
 import androidx.compose.remote.creation.compose.modifier.contentDescription
 import androidx.compose.remote.creation.compose.modifier.fillMaxSize
 import androidx.compose.remote.creation.compose.modifier.semantics
+import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.remote.creation.compose.state.rememberNamedRemoteColor
 import androidx.compose.remote.creation.compose.state.rs
@@ -27,9 +28,9 @@ import androidx.compose.ui.graphics.Color
 @Composable
 @RemoteComposable
 fun NamedValuesSampleDp() {
-  val themeSurface = rememberNamedRemoteColor("theme.surface", Color(0xFF1C1B1F))
+  val themeSurface = rememberNamedRemoteColor("theme.surface", RemoteColor(Color(0xFF1C1B1F)))
   val cardTitle = remember { RemoteString.createNamedRemoteString("card.title", "Untitled") }
-  val themeOnSurface = rememberNamedRemoteColor("theme.onSurface", Color(0xFFE6E1E5))
+  val themeOnSurface = rememberNamedRemoteColor("theme.onSurface", RemoteColor(Color(0xFFE6E1E5)))
   RemoteBox(
     modifier =
       RemoteModifier.fillMaxSize()

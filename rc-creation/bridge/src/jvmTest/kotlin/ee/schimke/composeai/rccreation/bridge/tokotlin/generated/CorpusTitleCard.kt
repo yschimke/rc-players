@@ -25,6 +25,7 @@ import androidx.compose.remote.creation.compose.modifier.padding
 import androidx.compose.remote.creation.compose.modifier.width
 import androidx.compose.remote.creation.compose.modifier.wrapContentHeight
 import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
+import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.asRemoteTextUnit
 import androidx.compose.remote.creation.compose.state.rb
 import androidx.compose.remote.creation.compose.state.rdp
@@ -55,9 +56,9 @@ private val Image70Png: String =
 @Composable
 @RemoteComposable
 fun CorpusTitleCard() {
-  val wearM3OnSurface = rememberNamedRemoteColor("WearM3.onSurface", Color(0xFFF6EDFF))
+  val wearM3OnSurface = rememberNamedRemoteColor("WearM3.onSurface", RemoteColor(Color(0xFFF6EDFF)))
   val wearM3OnSurfaceVariant =
-    rememberNamedRemoteColor("WearM3.onSurfaceVariant", Color(0xFFCAC4D0))
+    rememberNamedRemoteColor("WearM3.onSurfaceVariant", RemoteColor(Color(0xFFCAC4D0)))
   val image70 = remember {
     Image.makeFromEncoded(Base64.decode(Image70Png)).toComposeImageBitmap().rb
   }

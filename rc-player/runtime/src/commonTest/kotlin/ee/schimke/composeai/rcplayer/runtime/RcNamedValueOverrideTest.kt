@@ -1,5 +1,7 @@
 package ee.schimke.composeai.rcplayer.runtime
 
+import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
+import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
@@ -97,5 +99,45 @@ class RcNamedValueOverrideTest {
     state.clearNamedValue("dyn")
     state.applyDataOperation(declaration)
     assertEquals(listOf(0f, 0f), state.floatValues(60)?.toList())
+  }
+
+  /**
+   * A named colour whose default is not a constant is the output of a colour expression. The
+   * expression runs again whenever content state is replayed, and must not replace a host override:
+   * AndroidX's `RemoteComposeState.updateColor` returns early for an overridden id.
+   */
+  @Test
+  fun aColourOverrideSurvivesTheExpressionThatDefaultsItAndClearingHandsItBack() {
+    val red = 0xffff0000.toInt()
+    val blue = 0xff0000ff.toInt()
+    val expression =
+      RcColorExpression(
+        61,
+        RcColorExpression.ID_ID_INTERPOLATE,
+        60,
+        60,
+        RcFloatWord.literal(0f).bits,
+      )
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(0, 1, 0)),
+          listOf(
+            RcColorConstant(60, red),
+            expression,
+            RcNamedVariable(61, RcNamedVariable.COLOR_TYPE, "USER:accent"),
+          ),
+        ),
+      )
+    state.applyColorExpression(expression)
+    assertEquals(red, state.color(61))
+
+    state.setNamedValue("USER:accent", RcNamedValue.Color(blue))
+    state.applyColorExpression(expression)
+    assertEquals(blue, state.color(61))
+
+    state.clearNamedValue("USER:accent")
+    state.applyColorExpression(expression)
+    assertEquals(red, state.color(61))
   }
 }

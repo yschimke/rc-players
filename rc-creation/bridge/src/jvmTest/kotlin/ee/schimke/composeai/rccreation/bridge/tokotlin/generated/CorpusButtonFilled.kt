@@ -23,6 +23,7 @@ import androidx.compose.remote.creation.compose.modifier.semantics
 import androidx.compose.remote.creation.compose.modifier.width
 import androidx.compose.remote.creation.compose.modifier.widthIn
 import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
+import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.asRemoteTextUnit
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rememberNamedRemoteColor
@@ -41,7 +42,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 @RemoteComposable
 fun CorpusButtonFilled() {
-  val wearM3OnPrimary = rememberNamedRemoteColor("WearM3.onPrimary", Color(0xFF210F48))
+  val wearM3OnPrimary = rememberNamedRemoteColor("WearM3.onPrimary", RemoteColor(Color(0xFF210F48)))
   RemoteBox(modifier = RemoteModifier.fillMaxSize(), contentAlignment = RemoteAlignment.Center) {
     // TODO(rc-to-kotlin): click action ValueIntegerExpressionChangeAction is not generated
     RemoteRow(

@@ -10,13 +10,13 @@ import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteState
 import androidx.compose.remote.creation.compose.state.RemoteString
-import androidx.compose.remote.creation.compose.state.createNamedRemoteColor
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 
 /**
  * How remote content reaches what its host owns: values, actions and real UI.
@@ -108,7 +108,7 @@ public object RcDocumentBridge : RcHostBridge {
 
   @Composable
   override fun color(name: String, value: () -> Color): RemoteColor =
-    RemoteColor.createNamedRemoteColor(name, value())
+    RemoteColor.createNamedRemoteColor(name, value().toArgb())
 
   @Composable
   override fun text(name: String, value: () -> String): RemoteString =
