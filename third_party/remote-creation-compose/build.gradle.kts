@@ -61,6 +61,18 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
         }
         commonTest.dependencies { implementation(kotlin("test")) }
+        // AndroidX's own tests of `remote-creation-expression`, at their upstream path. JVM only:
+        // they are JUnit 4 and Truth, and read what they wrote with AndroidX's reader
+        // (`remote-core`, which comes with `remote-creation-core`).
+        jvmTest {
+            kotlin.srcDir("upstream/remote-creation-expression/src/test/java")
+            dependencies {
+                implementation(libs.junit)
+                implementation(libs.truth)
+                implementation(libs.test.parameter.injector)
+                implementation(libs.compose.remote.creation.core)
+            }
+        }
     }
 }
 
