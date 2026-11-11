@@ -27,10 +27,12 @@ import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStrokeCap
 import androidx.compose.remote.creation.compose.state.RemoteStrokeJoin
 import androidx.compose.remote.creation.compose.state.RemoteTimeVariables
+import androidx.compose.remote.creation.compose.state.abs
 import androidx.compose.remote.creation.compose.state.clamp
 import androidx.compose.remote.creation.compose.state.cos
 import androidx.compose.remote.creation.compose.state.cubicEasing
 import androidx.compose.remote.creation.compose.state.lerp
+import androidx.compose.remote.creation.compose.state.max
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.selectIfLt
 import androidx.compose.runtime.Composable
@@ -539,6 +541,27 @@ private fun computeAnimatorLocalProgress(
     if (endFraction <= startFraction) return 1f.rf
 
     val rawLocal = (progress - startFraction.rf) / (endFraction - startFraction).rf
+    // LOCAL PATCH (rc-players): an animator that repeats starts again, or runs back, after each
+    // iteration, as `RemotePropertyAnimator.evaluateAt` has it: `rawLocal` counts iterations.
+    // Upstream clamps it to the first, so the animator holds its end value for the rest of a
+    // timeline that `totalDuration` made long enough for every iteration.
+    if (anim.repeatCount != 0) {
+        val reverse = anim.repeatMode == RemotePropertyAnimator.REPEAT_MODE_REVERSE
+        val iterations = (anim.repeatCount + 1).toFloat()
+        val elapsed =
+            if (anim.repeatCount < 0) max(rawLocal, 0f) else clamp(rawLocal, 0f, iterations)
+        val fraction =
+            if (reverse) {
+                // Up over an even iteration and down over an odd one.
+                1f.rf - abs(elapsed % 2f - 1f.rf)
+            } else if (anim.repeatCount < 0) {
+                elapsed % 1f
+            } else {
+                // The last iteration ends at 1, where the remainder is 0 again.
+                selectIfLt(rawLocal, iterations.rf, elapsed % 1f, 1f.rf)
+            }
+        return transformInterpolator(anim.interpolator, fraction)
+    }
     val clamped = clamp(rawLocal, 0f, 1f)
     return transformInterpolator(anim.interpolator, clamped)
 }
@@ -569,7 +592,8 @@ private fun evaluateDynamicFloat(
     for (i in (sorted.size - 2) downTo 0) {
         val anim = sorted[i]
         val stageExpr = evaluateAnimatorFloat(anim, baseValue, totalDuration, progress)
-        val endFraction = (anim.startDelay + anim.duration).toFloat() / totalDuration
+        // LOCAL PATCH (rc-players): an animator ends after its last iteration, not its first.
+        val endFraction = anim.totalDuration.toFloat() / totalDuration
         result = selectIfLt(progress, endFraction.rf, stageExpr, result)
     }
     return result
@@ -648,7 +672,8 @@ private fun evaluateDynamicColor(
     for (i in (sorted.size - 2) downTo 0) {
         val anim = sorted[i]
         val stageExpr = evaluateAnimatorColor(anim, baseColor, totalDuration, progress) ?: continue
-        val endFraction = (anim.startDelay + anim.duration).toFloat() / totalDuration
+        // LOCAL PATCH (rc-players): an animator ends after its last iteration, not its first.
+        val endFraction = anim.totalDuration.toFloat() / totalDuration
         result = progress.isLessThan(endFraction.rf).select(stageExpr, result)
     }
     return result
