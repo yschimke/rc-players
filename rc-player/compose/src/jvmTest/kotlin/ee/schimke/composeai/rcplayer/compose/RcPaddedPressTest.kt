@@ -1,14 +1,19 @@
 package ee.schimke.composeai.rcplayer.compose
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SkikoComposeUiTest
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
@@ -194,6 +199,137 @@ class RcPaddedPressTest {
   }
 
   /**
+   * The player lays out in the direction it inherits, and under RTL the chain mirrors: the wire's
+   * left and right padding are applied as start and end, and an offset's x runs the other way (as
+   * in AndroidX's embedded player; `remote-core` and the View player are physical). A press is
+   * physical, so what it is moved by to reach the ripple has to be the padding on the ripple's
+   * physical left: the wire's *right* under RTL.
+   */
+  @Test
+  fun underRtlTheRippleStartsUnderTheFingerPastAsymmetricPadding() {
+    for (multiClick in listOf(false, true)) {
+      runSkikoComposeUiTest(size = Size(SIZE, SIZE), density = Density(1f)) {
+        setContent { Rtl { RcComposePlayer(asymmetricDocument(multiClick)) } }
+        waitForIdle()
+        mainClock.autoAdvance = false
+        // Left 40 and right 10 on the wire: under RTL the content is at x 10..80.
+        val press = Offset(50f, 60f)
+        onRoot().performTouchInput { down(press) }
+        mainClock.advanceTimeBy(48)
+        assertRippleAt(press, "multiClick=$multiClick")
+        onRoot().performTouchInput { up() }
+      }
+    }
+  }
+
+  /**
+   * The offset is (-40, 40) on the wire, which under RTL moves the box 40 to the right: laid out at
+   * 0..100 and drawn at 40..140, content at 60..120, as in the LTR tests above.
+   */
+  @Test
+  fun underRtlAnOffsetStillMovesTheHandlersWithTheContent() {
+    val presses =
+      listOf(
+        Offset(110f, 110f) to true, // the shifted content, past the un-offset box
+        Offset(130f, 130f) to true, // the shifted padding
+        Offset(10f, 10f) to false, // the un-offset box, where nothing is drawn any more
+      )
+    for (multiClick in listOf(false, true)) for ((press, fires) in presses) {
+      runSkikoComposeUiTest(size = Size(OFFSET_SCENE, OFFSET_SCENE), density = Density(1f)) {
+        val events = mutableListOf<RcPlayerEvent>()
+        setContent {
+          Rtl {
+            RcComposePlayer(
+              offsetDocument(multiClick, ripple = null, background = true, shiftX = -40f),
+              onEvent = events::add,
+            )
+          }
+        }
+        waitForIdle()
+        // The background is painted after the offset, so the frame says which way the offset ran:
+        // mirrored, the content starts at 60 (what the box's own bounds clip of it is not drawn).
+        assertEquals(Offset(60f, 60f), drawnContent().topLeft, "where the content is drawn")
+        onRoot().performTouchInput {
+          down(press)
+          up()
+        }
+        mainClock.advanceTimeBy(1_500)
+        assertEquals(
+          if (fires) listOf<RcPlayerEvent>(RcPlayerEvent.HostAction(77)) else emptyList(),
+          events,
+          "multiClick=$multiClick press=$press",
+        )
+      }
+    }
+  }
+
+  @Test
+  fun underRtlTheRippleStartsUnderTheFingerOnEitherSideOfALaterOffset() {
+    for (multiClick in listOf(false, true)) for (rippleFirst in listOf(true, false)) {
+      runSkikoComposeUiTest(size = Size(OFFSET_SCENE, OFFSET_SCENE), density = Density(1f)) {
+        setContent {
+          Rtl { RcComposePlayer(offsetDocument(multiClick, ripple = rippleFirst, shiftX = -40f)) }
+        }
+        waitForIdle()
+        mainClock.autoAdvance = false
+        // Inside the ripple's bounds whichever side of the offset it is written.
+        val press = Offset(PRESS, PRESS)
+        onRoot().performTouchInput { down(press) }
+        mainClock.advanceTimeBy(48)
+        assertRippleAt(press, "multiClick=$multiClick rippleBeforeOffset=$rippleFirst")
+        onRoot().performTouchInput { up() }
+      }
+    }
+  }
+
+  @Composable
+  private fun Rtl(content: @Composable () -> Unit) =
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl, content = content)
+
+  /** The bounds of the opaque pixels of the frame: a document's black background. */
+  private fun SkikoComposeUiTest.drawnContent(): androidx.compose.ui.geometry.Rect {
+    val pixels = onRoot().captureToImage().toPixelMap()
+    var left = pixels.width
+    var top = pixels.height
+    var right = -1
+    var bottom = -1
+    for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
+      if (pixels[x, y].alpha == 1f) {
+        left = minOf(left, x)
+        top = minOf(top, y)
+        right = maxOf(right, x)
+        bottom = maxOf(bottom, y)
+      }
+    }
+    assertTrue(right >= left, "nothing drawn")
+    return androidx.compose.ui.geometry.Rect(
+      left.toFloat(),
+      top.toFloat(),
+      right + 1f,
+      bottom + 1f,
+    )
+  }
+
+  /** The wave has barely left its origin: the centre of what it has lit is where it started. */
+  private fun SkikoComposeUiTest.assertRippleAt(press: Offset, where: String) {
+    val pixels = onRoot().captureToImage().toPixelMap()
+    var x = 0.0
+    var y = 0.0
+    var lit = 0.0
+    for (py in 0 until pixels.height) for (px in 0 until pixels.width) {
+      val light = pixels[px, py].red.toDouble()
+      x += px * light
+      y += py * light
+      lit += light
+    }
+    assertTrue(lit > 0.0, "no ripple drawn ($where)")
+    assertTrue(
+      abs(x / lit - press.x) < 2.0 && abs(y / lit - press.y) < 2.0,
+      "the ripple started at (${x / lit}, ${y / lit}), not under the press at $press ($where)",
+    )
+  }
+
+  /**
    * Evidence for `renders/cmp-padded-press/`, written only when `RC_LAYOUT_EVIDENCE_DIR` is set:
    * the box 120ms into a press at (70, 70), with the padding written after the ripple and click and
    * then before them, at 3x. The green ticks surround the press; the grey disc is the ripple's
@@ -267,14 +403,66 @@ class RcPaddedPressTest {
     val END = RcNoArg(RcOpcodes.CONTAINER_END)
 
     const val OFFSET_SCENE = 160f
+    val BLACK =
+      RcBackgroundModifier(
+        flags = 0,
+        colorId = 0,
+        reserved1 = 0,
+        reserved2 = 0,
+        red = RcFloatWord.literal(0f),
+        green = RcFloatWord.literal(0f),
+        blue = RcFloatWord.literal(0f),
+        alpha = RcFloatWord.literal(1f),
+        shapeType = RcBackgroundModifier.SHAPE_RECTANGLE,
+      )
 
     /**
-     * A 100 x 100 box with no background on a 160px scene: 20px of padding, then an offset of (40,
-     * 40), then the click handlers. [ripple] puts a ripple before the offset (true), after it
-     * (false) or nowhere (null). The offset is after the padding, so the handlers are installed
-     * outside it.
+     * A 120 x 120 black box whose padding, 40 left and 10 right on the wire and 20 above and below,
+     * is written before its ripple and click.
      */
-    fun offsetDocument(multiClick: Boolean, ripple: Boolean?): RcDocument {
+    fun asymmetricDocument(multiClick: Boolean): RcDocument =
+      RcDocument(
+        RcHeader(
+          RcVersion(1, 0, 0),
+          legacyWidth = SIZE.toInt(),
+          legacyHeight = SIZE.toInt(),
+          modern = false,
+        ),
+        buildList {
+          add(RcRootLayout(1))
+          add(RcBoxLayout(2, 20, 1, 4))
+          add(RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(SIZE)))
+          add(RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(SIZE)))
+          add(BLACK)
+          add(
+            RcPaddingModifier(
+              RcFloatWord.literal(40f),
+              RcFloatWord.literal(20f),
+              RcFloatWord.literal(10f),
+              RcFloatWord.literal(20f),
+            ),
+          )
+          add(RcRippleModifier)
+          add(if (multiClick) RcMultiClickModifier(RcMultiClickType.SINGLE) else RcClickModifier)
+          add(RcHostAction(77))
+          add(END)
+          add(END)
+          add(END)
+        },
+      )
+
+    /**
+     * A 100 x 100 box on a 160px scene: 20px of padding, then an offset of ([shiftX], 40), then a
+     * black [background] if asked for, then the click handlers. [ripple] puts a ripple before the
+     * offset (true), after it (false) or nowhere (null). The offset is after the padding, so the
+     * handlers are installed outside it.
+     */
+    fun offsetDocument(
+      multiClick: Boolean,
+      ripple: Boolean?,
+      background: Boolean = false,
+      shiftX: Float = 40f,
+    ): RcDocument {
       val inset = RcFloatWord.literal(20f)
       val shift = RcFloatWord.literal(40f)
       return RcDocument(
@@ -291,7 +479,8 @@ class RcPaddedPressTest {
           add(RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(100f)))
           add(RcPaddingModifier(inset, inset, inset, inset))
           if (ripple == true) add(RcRippleModifier)
-          add(RcOffsetModifier(shift, shift))
+          add(RcOffsetModifier(RcFloatWord.literal(shiftX), shift))
+          if (background) add(BLACK)
           if (ripple == false) add(RcRippleModifier)
           add(if (multiClick) RcMultiClickModifier(RcMultiClickType.SINGLE) else RcClickModifier)
           add(RcHostAction(77))

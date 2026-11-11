@@ -160,6 +160,7 @@ import androidx.compose.ui.node.invalidateSemantics
 import androidx.compose.ui.platform.InfiniteAnimationPolicy
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -2765,7 +2766,8 @@ private fun Modifier.applyComponentModifiers(
   val pressInteractions =
     rcInsetPresses(
       rippleInteractions,
-      if (rippleInteractions == null) Offset.Zero else rcRippleInset(modifiers, state, density),
+      if (rippleInteractions == null) Offset.Zero
+      else rcRippleInset(modifiers, state, density, LocalLayoutDirection.current),
     )
   var result =
     if (modifiers.layoutComputes.isEmpty()) this
@@ -3011,12 +3013,20 @@ private fun rcOffsetPixels(
  * `applyPressHandlers`); the ripple is at its wire position. So the ripple is in by the padding
  * written before it and out by the offsets written after it. Sums each run of padding modifiers and
  * each offset as the chain applies them, so the two cannot disagree by a rounding.
+ *
+ * A press is physical and the chain is not: it applies the wire's left and right padding as start
+ * and end, and `Modifier.offset` runs its x from the start edge. So under [LayoutDirection.Rtl] the
+ * padding on the ripple's left is each run's *end*, and a later offset moved the handlers the other
+ * way. (The offsets the handlers are wrapped in mirror with the ones they stand for, so the
+ * handlers stay on the drawn box in either direction.)
  */
 private fun rcRippleInset(
   modifiers: RcLayoutModifiers,
   state: RcPlayerState,
   density: Density,
+  layoutDirection: LayoutDirection,
 ): Offset {
+  val rtl = layoutDirection == LayoutDirection.Rtl
   val ripple = modifiers.ordered.indexOfFirst { it is RcRippleModifier }
   if (ripple < 0) return Offset.Zero
   var x = 0
@@ -3025,18 +3035,20 @@ private fun rcRippleInset(
   while (index < ripple) {
     var left = 0f
     var top = 0f
+    var right = 0f
     var run = false
     while (index < ripple) {
       if (run && modifiers.scrollPosition == index) break
       val padding = modifiers.ordered[index] as? RcPaddingModifier ?: break
       left += state.dpTypedPixels(state.resolve(padding.left), density)
       top += state.dpTypedPixels(state.resolve(padding.top), density)
+      right += state.dpTypedPixels(state.resolve(padding.right), density)
       run = true
       index++
     }
     if (run) {
-      x += left.coerceAtLeast(0f).roundToInt()
-      y += top.coerceAtLeast(0f).roundToInt()
+      x += if (rtl) rcPaddingEndPixels(left, right) else rcPaddingStartPixels(left)
+      y += rcPaddingStartPixels(top)
     } else {
       index++
     }
@@ -3047,7 +3059,7 @@ private fun rcRippleInset(
       state,
       density,
     )
-  return Offset((x - after.x).toFloat(), (y - after.y).toFloat())
+  return Offset((if (rtl) x + after.x else x - after.x).toFloat(), (y - after.y).toFloat())
 }
 
 /**
@@ -3099,10 +3111,10 @@ private fun Modifier.rcPaddingPixels(
   bottom: Float,
   density: Density,
 ): Modifier {
-  val start = left.coerceAtLeast(0f).roundToInt()
-  val topEdge = top.coerceAtLeast(0f).roundToInt()
-  val end = rcCombinedPaddingPixels(left, right) - start
-  val bottomEdge = rcCombinedPaddingPixels(top, bottom) - topEdge
+  val start = rcPaddingStartPixels(left)
+  val topEdge = rcPaddingStartPixels(top)
+  val end = rcPaddingEndPixels(left, right)
+  val bottomEdge = rcPaddingEndPixels(top, bottom)
   return with(density) {
     this@rcPaddingPixels.padding(
       start = start.toDp(),
@@ -3112,6 +3124,13 @@ private fun Modifier.rcPaddingPixels(
     )
   }
 }
+
+/** The leading edge (start, or top) of a padding run, in the whole pixels the chain applies. */
+private fun rcPaddingStartPixels(first: Float): Int = first.coerceAtLeast(0f).roundToInt()
+
+/** The trailing edge (end, or bottom): what the rounded total leaves after the leading edge. */
+private fun rcPaddingEndPixels(first: Float, second: Float): Int =
+  rcCombinedPaddingPixels(first, second) - rcPaddingStartPixels(first)
 
 internal fun rcCombinedPaddingPixels(first: Float, second: Float): Int =
   (first.coerceAtLeast(0f) + second.coerceAtLeast(0f)).roundToInt()
