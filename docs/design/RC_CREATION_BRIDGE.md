@@ -45,6 +45,14 @@ The one cost is on Android: the fork and AndroidX's own `remote-creation-compose
 names. Publishing it needs a Gradle capability that both provide, so Gradle reports the conflict
 when both are present instead of silently loading duplicate classes.
 
+**AndroidX has moved since this was written.** `remote-creation-compose` is now multiplatform for
+the JVM and Android, and its state types live in a separate `remote-creation-expression` module
+(androidx-main `21a1a95e4`). It still has no iOS, macOS or Wasm target, so the fork is still
+needed, but its direction is now convergence: take upstream's file names, layout, types and module
+boundaries, and keep only the differences those other targets force.
+[RC_CREATION_UPSTREAM.md](RC_CREATION_UPSTREAM.md) records what those differences are, the plan and
+its state, and the feedback for AndroidX. The package decision above is unchanged by it.
+
 Creation does not depend on the player, and the player does not depend on creation.
 
 Targets are the player's own: JVM, Android, iOS, macOS and Wasm. The port's legacy JVM writer

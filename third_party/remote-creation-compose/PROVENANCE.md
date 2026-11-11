@@ -16,6 +16,11 @@ Anything rc-players adds to creation lives outside this fork, in its own package
 (`ee.schimke.composeai.rccreation`, `:rc-creation-bridge`). The fork carries only the seams that
 layer cannot reach from outside, and each one is a marked local patch.
 
+The direction is convergence: AndroidX's creation is now multiplatform for the JVM and Android, and
+the fork is being brought back into line with it step by step. What still has to differ and why,
+the plan, and the feedback for AndroidX are in
+[`docs/design/RC_CREATION_UPSTREAM.md`](../../docs/design/RC_CREATION_UPSTREAM.md).
+
 ## Upstream
 
 - Repository: <https://github.com/androidx/androidx>
@@ -619,7 +624,9 @@ to offer upstream, and the list is meant to shrink. Paths are package-relative; 
 ## Upstream follow-ups
 
 Problems found here that belong in AndroidX, not in a local patch. The fork keeps upstream's
-behaviour until a fix lands there and a refresh takes it.
+behaviour until a fix lands there and a refresh takes it. They are written up for AndroidX, with
+the structural feedback, in
+[`docs/design/RC_CREATION_UPSTREAM.md`](../../docs/design/RC_CREATION_UPSTREAM.md).
 
 - **Dp header dimensions.** With `RemoteDensityBehavior.Dp`, `RemoteCreationDisplayInfo.size`
   (pixels) is written unscaled into a header the player reads as dp, so a 200 px display at
