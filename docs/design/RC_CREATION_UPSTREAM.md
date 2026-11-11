@@ -751,13 +751,26 @@ The fork patches it locally, to that definition:
 
 - `computeAnimatorLocalProgress` counts iterations: for an animator with a non-zero `repeatCount`
   the fraction is the remainder of the elapsed iterations, run back on odd iterations under
-  `REPEAT_MODE_REVERSE`, and the end value after the last. Where one animator follows another on
-  the same property (`evaluateDynamicFloat`, `evaluateDynamicColor`), the first ends after its last
-  iteration, not its first. An animator that does not repeat writes the expression it wrote before.
+  `REPEAT_MODE_REVERSE`, and the end value after the last. An animator that does not repeat
+  writes the expression it wrote before.
+- Where several animators drive one property, the painter (`evaluateDynamicFloat`,
+  `evaluateDynamicColor`) chooses as `RemoteAnimatedVector.evaluate` does: the next animator, by
+  start delay, takes over when its start delay is reached. Upstream's painter switches at the end
+  of the earlier animator's first iteration instead, which is the same moment only when the two
+  are end to end and the first does not repeat: with a gap it showed the second's first value
+  where `evaluate` holds the first's last, and with an overlap it let the first run on.
 - `evaluateAt` applies the animator's interpolator to the iteration's fraction before it looks for
   the keyframe segment.
 - The painter applies the end keyframe's interpolator to each segment's fraction, and writes
   `Accelerate` and `Decelerate` with their factor.
+
+`evaluate`'s rule, which both now follow, has one odd corner that is recorded here and not
+changed: of the animators whose start delay has been reached it takes the one with the latest,
+and of two with the same the later in the list; before any has been reached it takes the one with
+the earliest, and of two with the same the *earlier* in the list. So two animators with the same
+start delay show the first one's first keyframe until they start and the second one's values
+after, and the first never runs. The order of the list matters nowhere else. An animator is cut
+short by the next one's start whatever it is doing, including one that repeats without end.
 
 What is left: a path morph (`pathData`) in the painter is laid out as segments of the whole
 timeline (`extractPathSegments`), with neither repeats nor the animator's interpolator, so the two
@@ -770,7 +783,10 @@ the painter, which cannot write an arbitrary function as an expression.
 `AnimatedVectorEvaluationTest` in `:rc-creation-bridge` draws the same vectors both ways and has
 AndroidX's `CoreDocument` (`remote-core` 1.0.0-alpha23) paint each document into a context that
 records the rotation and the fill colour it draws with, so the painter's expressions are evaluated
-by AndroidX. Nine sets of animators (repeats in both modes, an interpolator on the animator, on a
+by AndroidX. Seven sets of several animators on one property (the second starting during the
+first's repeats, while it runs, and after it has ended; none started yet; three listed out of
+order; two with the same start delay; one repeating without end and then another) agree at every
+start delay, a millisecond either side and between. Nine sets of animators (repeats in both modes, an interpolator on the animator, on a
 keyframe, on both and with a factor, three keyframes with a start delay, one animator after a
 repeated one) at ten times each agree, and the two examples above have their values. All five
 tests failed before the patches.*

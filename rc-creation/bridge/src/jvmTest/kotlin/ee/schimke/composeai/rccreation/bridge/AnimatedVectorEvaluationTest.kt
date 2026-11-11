@@ -62,7 +62,8 @@ class AnimatedVectorEvaluationTest {
   private fun drawn(bytes: ByteArray): Drawn {
     val calls = androidxPaints(bytes, 48, 48)
     return Drawn(
-      rotation = calls.first { it.name == "matrixRotate" }.arguments[0],
+      // A group with no transform at all is written without one: a rotation of 0.
+      rotation = calls.firstOrNull { it.name == "matrixRotate" }?.arguments?.get(0) ?: 0f,
       color = calls.single { it.name == "path" }.color,
     )
   }
@@ -103,6 +104,7 @@ class AnimatedVectorEvaluationTest {
 
   private fun fill(
     duration: Int,
+    startDelay: Int = 0,
     repeatCount: Int = 0,
     repeatMode: Int = RemotePropertyAnimator.REPEAT_MODE_RESTART,
     keyframes: List<RemoteKeyframe> =
@@ -112,6 +114,7 @@ class AnimatedVectorEvaluationTest {
     RemotePropertyAnimator(
       "fillColor",
       duration,
+      startDelay = startDelay,
       repeatCount = repeatCount,
       repeatMode = repeatMode,
       keyframes = keyframes,
@@ -327,6 +330,159 @@ class AnimatedVectorEvaluationTest {
         val painted = painted(vector, time)
         if (!written.isCloseTo(painted)) {
           failures += "$name at $time: written $written, painted $painted"
+        }
+      }
+    }
+    assertTrue(failures.isEmpty(), failures.joinToString("\n", prefix = "\n"))
+  }
+
+  /** From [from] to [to], linearly. */
+  private fun turn(from: Float, to: Float) =
+    listOf(RemoteKeyframe(0f, from), RemoteKeyframe(1f, to))
+
+  private fun shade(from: Int, to: Int) =
+    listOf(
+      RemoteKeyframe(0f, 0xFF000000.toInt() or from),
+      RemoteKeyframe(1f, 0xFF000000.toInt() or to),
+    )
+
+  /**
+   * The progress at which `RemoteAnimatedVector.evaluate`, which truncates the time to whole
+   * milliseconds, is at [ms] and not a millisecond short of it.
+   */
+  private fun RemoteAnimatedVector.progressAt(ms: Int): Float {
+    var progress = ms.toFloat() / totalDuration
+    while ((progress * totalDuration).toInt() < ms) progress = Math.nextUp(progress)
+    return progress
+  }
+
+  /**
+   * The example from review: 0 to 10 over 100 ms, restarted once, and 10 to 30 from 100 ms. The
+   * second takes over when it starts, in the middle of the first one's repeat.
+   */
+  @Test
+  fun aLaterAnimatorTakesOverWhenItsStartDelayIsReached() {
+    val vector =
+      vector(
+        rotation =
+          listOf(
+            rotation(100, repeatCount = 1, keyframes = turn(0f, 10f)),
+            rotation(100, startDelay = 100, keyframes = turn(10f, 30f)),
+          ),
+      )
+    assertEquals(200, vector.totalDuration)
+    for ((ms, expected) in
+      listOf(0 to 0f, 50 to 5f, 99 to 9.9f, 100 to 10f, 150 to 20f, 200 to 30f)) {
+      val progress = vector.progressAt(ms)
+      assertEquals(expected, written(vector, progress).rotation, 0.01f, "written at $ms ms")
+      assertEquals(expected, painted(vector, progress).rotation, 0.01f, "painted at $ms ms")
+    }
+  }
+
+  /**
+   * Several animators on one property, through both ways of drawing. `RemoteAnimatedVector
+   * .evaluate` defines which one counts at a time: of those whose start delay has been reached, the
+   * one with the latest (of two with the same, the later in the list); before any has, the one with
+   * the earliest (of two with the same, the earlier in the list), at its first keyframe. So an
+   * animator is cut short by the next one's start, holds its end value until then, and the order of
+   * the list matters only between equal start delays.
+   */
+  @Test
+  fun bothWaysOfDrawingChooseTheSameAnimator() {
+    val reverse = RemotePropertyAnimator.REPEAT_MODE_REVERSE
+    // Each with the times, in milliseconds, it is compared at: every start, a millisecond either
+    // side of it, and points between.
+    val cases =
+      mapOf(
+        "the second starts during the first one's repeats" to
+          (vector(
+            listOf(
+              rotation(100, repeatCount = 1, keyframes = turn(0f, 10f)),
+              rotation(100, startDelay = 100, keyframes = turn(10f, 30f)),
+            ),
+            listOf(
+              fill(100, repeatCount = 1, keyframes = shade(0x000000, 0x0000FF)),
+              fill(100, startDelay = 100, keyframes = shade(0x00FF00, 0xFF0000)),
+            ),
+          ) to listOf(0, 30, 99, 100, 101, 150, 199, 200)),
+        "the second starts while the first is running" to
+          (vector(
+            listOf(
+              rotation(400, keyframes = turn(10f, 110f)),
+              rotation(400, startDelay = 200, keyframes = turn(200f, 300f)),
+            ),
+            listOf(
+              fill(400, keyframes = shade(0x000000, 0x0000FF)),
+              fill(400, startDelay = 200, keyframes = shade(0x00FF00, 0xFF0000)),
+            ),
+          ) to listOf(0, 100, 199, 200, 201, 300, 400, 500, 600)),
+        "the second starts after the first has ended" to
+          (vector(
+            listOf(
+              rotation(100, keyframes = turn(10f, 110f)),
+              rotation(100, startDelay = 300, keyframes = turn(200f, 300f)),
+            ),
+            listOf(
+              fill(100, keyframes = shade(0x000000, 0x0000FF)),
+              fill(100, startDelay = 300, keyframes = shade(0x00FF00, 0xFF0000)),
+            ),
+          ) to listOf(0, 50, 100, 150, 299, 300, 301, 350, 400)),
+        "none has started yet, and a repeat is cut short" to
+          (vector(
+            listOf(
+              rotation(100, startDelay = 100, repeatCount = 3, repeatMode = reverse),
+              rotation(100, startDelay = 350, keyframes = turn(200f, 300f)),
+            ),
+            listOf(
+              fill(100, startDelay = 100, repeatCount = 3, repeatMode = reverse),
+              fill(100, startDelay = 350, keyframes = shade(0x00FF00, 0xFF0000)),
+            ),
+          ) to listOf(0, 50, 99, 100, 101, 150, 250, 349, 350, 351, 400, 450, 500)),
+        "three, listed out of order" to
+          (vector(
+            listOf(
+              rotation(100, startDelay = 400, keyframes = turn(300f, 350f)),
+              rotation(300, keyframes = turn(10f, 110f)),
+              rotation(100, startDelay = 200, keyframes = turn(150f, 250f)),
+            ),
+            listOf(
+              fill(100, startDelay = 400, keyframes = shade(0xFF0000, 0xFFFF00)),
+              fill(300, keyframes = shade(0x000000, 0x0000FF)),
+              fill(100, startDelay = 200, keyframes = shade(0x00FF00, 0x00FFFF)),
+            ),
+          ) to listOf(0, 100, 199, 200, 201, 250, 300, 350, 399, 400, 401, 450, 500)),
+        "two with the same start delay" to
+          (vector(
+            listOf(
+              rotation(100, startDelay = 100, keyframes = turn(10f, 110f)),
+              rotation(100, startDelay = 100, keyframes = turn(200f, 300f)),
+            ),
+            listOf(
+              fill(100, startDelay = 100, keyframes = shade(0x000000, 0x0000FF)),
+              fill(100, startDelay = 100, keyframes = shade(0x00FF00, 0xFF0000)),
+            ),
+          ) to listOf(0, 50, 99, 100, 101, 150, 200)),
+        "one that repeats without end, then another" to
+          (vector(
+            listOf(
+              rotation(100, repeatCount = -1, keyframes = turn(10f, 110f)),
+              rotation(100, startDelay = 250, keyframes = turn(200f, 300f)),
+            ),
+            listOf(
+              fill(100, repeatCount = -1, repeatMode = reverse),
+              fill(100, startDelay = 250, keyframes = shade(0x00FF00, 0xFF0000)),
+            ),
+          ) to listOf(0, 30, 130, 230, 249, 250, 251, 300, 350, 1000)),
+      )
+    val failures = mutableListOf<String>()
+    for ((name, case) in cases) {
+      val (vector, times) = case
+      for (ms in times) {
+        val progress = vector.progressAt(ms)
+        val written = written(vector, progress)
+        val painted = painted(vector, progress)
+        if (!written.isCloseTo(painted)) {
+          failures += "$name at $ms ms: written $written, painted $painted"
         }
       }
     }

@@ -599,8 +599,10 @@ private fun evaluateDynamicFloat(
     for (i in (sorted.size - 2) downTo 0) {
         val anim = sorted[i]
         val stageExpr = evaluateAnimatorFloat(anim, baseValue, totalDuration, progress)
-        // LOCAL PATCH (rc-players): an animator ends after its last iteration, not its first.
-        val endFraction = anim.totalDuration.toFloat() / totalDuration
+        // LOCAL PATCH (rc-players): the next animator takes over when its start delay is reached,
+        // whatever this one is doing, as `RemoteAnimatedVector.evaluate` chooses among them.
+        // Upstream switches at the end of this one's first iteration.
+        val endFraction = sorted[i + 1].startDelay.toFloat() / totalDuration
         result = selectIfLt(progress, endFraction.rf, stageExpr, result)
     }
     return result
@@ -693,8 +695,10 @@ private fun evaluateDynamicColor(
     for (i in (sorted.size - 2) downTo 0) {
         val anim = sorted[i]
         val stageExpr = evaluateAnimatorColor(anim, baseColor, totalDuration, progress) ?: continue
-        // LOCAL PATCH (rc-players): an animator ends after its last iteration, not its first.
-        val endFraction = anim.totalDuration.toFloat() / totalDuration
+        // LOCAL PATCH (rc-players): the next animator takes over when its start delay is reached,
+        // whatever this one is doing, as `RemoteAnimatedVector.evaluate` chooses among them.
+        // Upstream switches at the end of this one's first iteration.
+        val endFraction = sorted[i + 1].startDelay.toFloat() / totalDuration
         result = progress.isLessThan(endFraction.rf).select(stageExpr, result)
     }
     return result
