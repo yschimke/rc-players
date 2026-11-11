@@ -1,0 +1,6 @@
+# Upstream source root (under compose/remote in an androidx checkout) -> the fork directory, under
+# this module, that carries its files at the same package-relative path.
+remote-creation-expression/src/main/java	src/commonMain/kotlin
+remote-creation-compose/src/jvmAndAndroidMain/kotlin	src/commonMain/kotlin
+remote-creation-compose/src/androidMain/kotlin	src/commonMain/kotlin
+foundation/foundation/src/main/java	src/commonMain/kotlin

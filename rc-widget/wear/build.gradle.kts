@@ -53,6 +53,7 @@ configurations.configureEach {
   resolutionStrategy.capabilitiesResolution {
     listOf(
         "androidx.compose.remote:remote-creation-compose",
+        "androidx.compose.remote:remote-creation-expression",
         "androidx.compose.remote.foundation:foundation",
       )
       .forEach { capability ->
