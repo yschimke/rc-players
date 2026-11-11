@@ -127,6 +127,13 @@ public sealed interface RemoteActionData {
 
   public data class HostNamed(val nameId: Int, val type: Int, val valueId: Int) : RemoteActionData
 
+  /**
+   * A named host action whose name is constant text: the text is declared where the action is
+   * written, inside its click or touch modifier, as `remote-creation-core`'s `HostAction` does.
+   */
+  public data class HostNamedText(val name: String, val type: Int, val valueId: Int) :
+    RemoteActionData
+
   public data class IntegerChange(val targetId: Int, val value: Int) : RemoteActionData
 
   public data class IntegerExpressionChange(val targetId: Long, val expressionId: Long) :
@@ -138,6 +145,12 @@ public sealed interface RemoteActionData {
     RemoteActionData
 
   public data class StringChange(val targetId: Int, val valueId: Int) : RemoteActionData
+
+  /**
+   * A string change to constant text, declared where the action is written, as
+   * `remote-creation-core`'s `ValueStringChange` does.
+   */
+  public data class StringChangeText(val targetId: Int, val value: String) : RemoteActionData
 }
 
 /** Resolved modifier chain attached to one layout component. */
@@ -154,7 +167,13 @@ public class RemoteModifierData(
     return this
   }
 
+  // KMP (rc-players): what a `RecordingModifier.then { }` element is upstream: run once this
+  // component's modifiers are written, inside the component and ahead of its content, to write what
+  // has to be the component's own (the `ComponentValue`s asked of it before it began).
+  public var afterOperations: (() -> Unit)? = null
+
   public fun writeTo(writer: RemoteWriter) {
     operations.forEach { writer.writeModifier(it) }
+    afterOperations?.invoke()
   }
 }

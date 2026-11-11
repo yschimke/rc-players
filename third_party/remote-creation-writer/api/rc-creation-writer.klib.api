@@ -145,10 +145,12 @@ abstract interface ee.schimke.composeai.rccreation.common/RemoteWriter { // ee.s
     abstract fun translate(kotlin/Float, kotlin/Float) // ee.schimke.composeai.rccreation.common/RemoteWriter.translate|translate(kotlin.Float;kotlin.Float){}[0]
     abstract fun writeModifier(ee.schimke.composeai.rccreation.common/RemoteModifierOperation) // ee.schimke.composeai.rccreation.common/RemoteWriter.writeModifier|writeModifier(ee.schimke.composeai.rccreation.common.RemoteModifierOperation){}[0]
     open fun addStringList(kotlin/IntArray...): kotlin/Float // ee.schimke.composeai.rccreation.common/RemoteWriter.addStringList|addStringList(kotlin.IntArray...){}[0]
+    open fun beginGlobal() // ee.schimke.composeai.rccreation.common/RemoteWriter.beginGlobal|beginGlobal(){}[0]
     open fun conditionalOperations(kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Function0<kotlin/Unit>) // ee.schimke.composeai.rccreation.common/RemoteWriter.conditionalOperations|conditionalOperations(kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Function0<kotlin.Unit>){}[0]
     open fun drawComponentToBitmap(kotlin/Int) // ee.schimke.composeai.rccreation.common/RemoteWriter.drawComponentToBitmap|drawComponentToBitmap(kotlin.Int){}[0]
     open fun drawComponentToBitmap(kotlin/Int, kotlin/Int) // ee.schimke.composeai.rccreation.common/RemoteWriter.drawComponentToBitmap|drawComponentToBitmap(kotlin.Int;kotlin.Int){}[0]
     open fun drawTextRun(kotlin/String, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Boolean) // ee.schimke.composeai.rccreation.common/RemoteWriter.drawTextRun|drawTextRun(kotlin.String;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Boolean){}[0]
+    open fun endGlobal() // ee.schimke.composeai.rccreation.common/RemoteWriter.endGlobal|endGlobal(){}[0]
     open fun isRetired(kotlin/Int): kotlin/Boolean // ee.schimke.composeai.rccreation.common/RemoteWriter.isRetired|isRetired(kotlin.Int){}[0]
     open fun loop(kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Function0<kotlin/Unit>) // ee.schimke.composeai.rccreation.common/RemoteWriter.loop|loop(kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Function0<kotlin.Unit>){}[0]
     open fun rotate(kotlin/Float) // ee.schimke.composeai.rccreation.common/RemoteWriter.rotate|rotate(kotlin.Float){}[0]
@@ -240,6 +242,25 @@ sealed interface ee.schimke.composeai.rccreation.common/RemoteActionData { // ee
         final fun toString(): kotlin/String // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamed.toString|toString(){}[0]
     }
 
+    final class HostNamedText : ee.schimke.composeai.rccreation.common/RemoteActionData { // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText|null[0]
+        constructor <init>(kotlin/String, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.<init>|<init>(kotlin.String;kotlin.Int;kotlin.Int){}[0]
+
+        final val name // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.name|{}name[0]
+            final fun <get-name>(): kotlin/String // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.name.<get-name>|<get-name>(){}[0]
+        final val type // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.type|{}type[0]
+            final fun <get-type>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.type.<get-type>|<get-type>(){}[0]
+        final val valueId // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.valueId|{}valueId[0]
+            final fun <get-valueId>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.valueId.<get-valueId>|<get-valueId>(){}[0]
+
+        final fun component1(): kotlin/String // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.component1|component1(){}[0]
+        final fun component2(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.component2|component2(){}[0]
+        final fun component3(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.component3|component3(){}[0]
+        final fun copy(kotlin/String = ..., kotlin/Int = ..., kotlin/Int = ...): ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.copy|copy(kotlin.String;kotlin.Int;kotlin.Int){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rccreation.common/RemoteActionData.HostNamedText.toString|toString(){}[0]
+    }
+
     final class IntegerChange : ee.schimke.composeai.rccreation.common/RemoteActionData { // ee.schimke.composeai.rccreation.common/RemoteActionData.IntegerChange|null[0]
         constructor <init>(kotlin/Int, kotlin/Int) // ee.schimke.composeai.rccreation.common/RemoteActionData.IntegerChange.<init>|<init>(kotlin.Int;kotlin.Int){}[0]
 
@@ -286,6 +307,22 @@ sealed interface ee.schimke.composeai.rccreation.common/RemoteActionData { // ee
         final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChange.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChange.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChange.toString|toString(){}[0]
+    }
+
+    final class StringChangeText : ee.schimke.composeai.rccreation.common/RemoteActionData { // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText|null[0]
+        constructor <init>(kotlin/Int, kotlin/String) // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText.<init>|<init>(kotlin.Int;kotlin.String){}[0]
+
+        final val targetId // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText.targetId|{}targetId[0]
+            final fun <get-targetId>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText.targetId.<get-targetId>|<get-targetId>(){}[0]
+        final val value // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText.value|{}value[0]
+            final fun <get-value>(): kotlin/String // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText.value.<get-value>|<get-value>(){}[0]
+
+        final fun component1(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText.component1|component1(){}[0]
+        final fun component2(): kotlin/String // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText.component2|component2(){}[0]
+        final fun copy(kotlin/Int = ..., kotlin/String = ...): ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText.copy|copy(kotlin.Int;kotlin.String){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rccreation.common/RemoteActionData.StringChangeText.toString|toString(){}[0]
     }
 }
 
@@ -1148,6 +1185,7 @@ final class ee.schimke.composeai.rccreation.common/RemoteDocumentWriter : ee.sch
     final fun addThemedColor(kotlin/String, kotlin/Short, kotlin/Short, kotlin/Int, kotlin/Int): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.addThemedColor|addThemedColor(kotlin.String;kotlin.Short;kotlin.Short;kotlin.Int;kotlin.Int){}[0]
     final fun addTouchExpression(kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Int, kotlin/FloatArray, kotlin/Int, kotlin/FloatArray?, kotlin/FloatArray?) // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.addTouchExpression|addTouchExpression(kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Int;kotlin.FloatArray;kotlin.Int;kotlin.FloatArray?;kotlin.FloatArray?){}[0]
     final fun applyPaint(ee.schimke.composeai.rccreation.common/PaintBundle) // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.applyPaint|applyPaint(ee.schimke.composeai.rccreation.common.PaintBundle){}[0]
+    final fun beginGlobal() // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.beginGlobal|beginGlobal(){}[0]
     final fun bitmapAttribute(kotlin/Int, kotlin/Short): kotlin/Float // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.bitmapAttribute|bitmapAttribute(kotlin.Int;kotlin.Short){}[0]
     final fun bitmapTextMeasure(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Float): kotlin/Float // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.bitmapTextMeasure|bitmapTextMeasure(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float){}[0]
     final fun callFloatFunction(kotlin/Int, kotlin/FloatArray...) // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.callFloatFunction|callFloatFunction(kotlin.Int;kotlin.FloatArray...){}[0]
@@ -1193,6 +1231,7 @@ final class ee.schimke.composeai.rccreation.common/RemoteDocumentWriter : ee.sch
     final fun endFitBox() // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.endFitBox|endFitBox(){}[0]
     final fun endFloatFunction() // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.endFloatFunction|endFloatFunction(){}[0]
     final fun endFlow() // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.endFlow|endFlow(){}[0]
+    final fun endGlobal() // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.endGlobal|endGlobal(){}[0]
     final fun endLoop() // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.endLoop|endLoop(){}[0]
     final fun endPatternDefine() // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.endPatternDefine|endPatternDefine(){}[0]
     final fun endPatternForEach() // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.endPatternForEach|endPatternForEach(){}[0]
@@ -1287,6 +1326,9 @@ final class ee.schimke.composeai.rccreation.common/RemoteModifierData { // ee.sc
     final val operations // ee.schimke.composeai.rccreation.common/RemoteModifierData.operations|{}operations[0]
         final fun <get-operations>(): kotlin.collections/MutableList<ee.schimke.composeai.rccreation.common/RemoteModifierOperation> // ee.schimke.composeai.rccreation.common/RemoteModifierData.operations.<get-operations>|<get-operations>(){}[0]
 
+    final var afterOperations // ee.schimke.composeai.rccreation.common/RemoteModifierData.afterOperations|{}afterOperations[0]
+        final fun <get-afterOperations>(): kotlin/Function0<kotlin/Unit>? // ee.schimke.composeai.rccreation.common/RemoteModifierData.afterOperations.<get-afterOperations>|<get-afterOperations>(){}[0]
+        final fun <set-afterOperations>(kotlin/Function0<kotlin/Unit>?) // ee.schimke.composeai.rccreation.common/RemoteModifierData.afterOperations.<set-afterOperations>|<set-afterOperations>(kotlin.Function0<kotlin.Unit>?){}[0]
     final var componentId // ee.schimke.composeai.rccreation.common/RemoteModifierData.componentId|{}componentId[0]
         final fun <get-componentId>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteModifierData.componentId.<get-componentId>|<get-componentId>(){}[0]
         final fun <set-componentId>(kotlin/Int) // ee.schimke.composeai.rccreation.common/RemoteModifierData.componentId.<set-componentId>|<set-componentId>(kotlin.Int){}[0]

@@ -27,25 +27,35 @@ internal class RemoteCanvasNode : RemoteComposeNode() {
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
         val scope = overriddenScope(remoteCanvas)
-        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
-        // upstream writes to `document` here.
+        // KMP (rc-players): written through a `WriterOp`, where upstream calls `document` here.
         val remoteModifier = resolveModifier(scope, creationState)
-        remoteCanvas.recordRenderingOp(WriterOp.StartCanvas(remoteModifier))
-        // A `RemoteDrawScope.remoteComponent()` in this canvas's drawing refers to this canvas.
+        remoteCanvas.writeLayout(WriterOp.StartCanvas(remoteModifier))
+        // KMP (rc-players): the node's own id, where upstream reads the writer's `lastComponentId`.
+        val canvasComponentId = componentIdForToken
+
         val previousNode = creationState.currentRenderingNode
         creationState.currentRenderingNode = this
+        componentToken?.let { creationState.beginComponentContent(it, canvasComponentId) }
         try {
-            if (!modifier.drawWithContent(scope, remoteCanvas, onDraw)) {
-                val drawScope = RemoteDrawScope(remoteCanvas)
-                drawScope.onDraw()
+            creationState.withCanvasOperationsScope {
+                if (!modifier.drawWithContent(scope, remoteCanvas, onDraw)) {
+                    val drawScope = RemoteDrawScope(remoteCanvas)
+                    drawScope.onDraw()
+                }
+
+                componentToken?.let {
+                    creationState.beginComponentContent(it, canvasComponentId)
+                    creationState.disableDirectComponentEmission(it)
+                }
+                remoteCanvas.flush()
             }
         } finally {
+            componentToken?.let { creationState.endComponentContent(it) }
             creationState.currentRenderingNode = previousNode
         }
 
-        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
-        // upstream writes to `document` here.
-        remoteCanvas.recordRenderingOp(WriterOp.EndCanvas)
+        // KMP (rc-players): written through a `WriterOp`, where upstream calls `document` here.
+        remoteCanvas.writeLayout(WriterOp.EndCanvas)
     }
 }
 

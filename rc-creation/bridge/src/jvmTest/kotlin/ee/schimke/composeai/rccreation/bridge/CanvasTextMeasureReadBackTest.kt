@@ -205,9 +205,9 @@ class CanvasTextMeasureReadBackTest {
       drawText("b".rs, x, 40f.rf, text(12f))
     }
     assertEquals(listOf("textBounds@20", "textRun@12", "textRun@12"), sizes(bytes))
-    // It is written ahead of the layout, so the canvas's content begins after it: the paint after
-    // the first is whole too, the writer's own flag for that being still set.
-    assertEquals(listOf("paint", "measure", "paint", "text", "paint", "text"), order(bytes))
+    // It is written in the canvas, ahead of the first draw: the paint after it is whole, and the
+    // second draw's is the first's.
+    assertEquals(listOf("paint", "measure", "paint", "text", "text"), order(bytes))
   }
 
   /** A measurement whose own font size is another measurement: each is made at its own size. */

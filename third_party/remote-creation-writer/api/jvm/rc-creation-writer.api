@@ -625,6 +625,21 @@ public final class ee/schimke/composeai/rccreation/common/RemoteActionData$HostN
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rccreation/common/RemoteActionData$HostNamedText : ee/schimke/composeai/rccreation/common/RemoteActionData {
+	public fun <init> (Ljava/lang/String;II)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun copy (Ljava/lang/String;II)Lee/schimke/composeai/rccreation/common/RemoteActionData$HostNamedText;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteActionData$HostNamedText;Ljava/lang/String;IIILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteActionData$HostNamedText;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getName ()Ljava/lang/String;
+	public final fun getType ()I
+	public final fun getValueId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class ee/schimke/composeai/rccreation/common/RemoteActionData$IntegerChange : ee/schimke/composeai/rccreation/common/RemoteActionData {
 	public fun <init> (II)V
 	public final fun component1 ()I
@@ -660,6 +675,19 @@ public final class ee/schimke/composeai/rccreation/common/RemoteActionData$Strin
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getTargetId ()I
 	public final fun getValueId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteActionData$StringChangeText : ee/schimke/composeai/rccreation/common/RemoteActionData {
+	public fun <init> (ILjava/lang/String;)V
+	public final fun component1 ()I
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (ILjava/lang/String;)Lee/schimke/composeai/rccreation/common/RemoteActionData$StringChangeText;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/common/RemoteActionData$StringChangeText;ILjava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteActionData$StringChangeText;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getTargetId ()I
+	public final fun getValue ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -788,6 +816,7 @@ public final class ee/schimke/composeai/rccreation/common/RemoteDocumentWriter :
 	public fun addThemedColor (Ljava/lang/String;SSII)I
 	public fun addTouchExpression (IFFFFI[FI[F[F)V
 	public fun applyPaint (Lee/schimke/composeai/rccreation/common/PaintBundle;)V
+	public fun beginGlobal ()V
 	public fun bitmapAttribute (IS)F
 	public fun bitmapTextMeasure (IIIF)F
 	public fun callFloatFunction (I[F)V
@@ -838,6 +867,7 @@ public final class ee/schimke/composeai/rccreation/common/RemoteDocumentWriter :
 	public fun endFitBox ()V
 	public fun endFloatFunction ()V
 	public fun endFlow ()V
+	public fun endGlobal ()V
 	public fun endLoop ()V
 	public fun endPatternDefine ()V
 	public fun endPatternForEach ()V
@@ -960,10 +990,12 @@ public final class ee/schimke/composeai/rccreation/common/RemoteModifierData {
 	public fun <init> ()V
 	public fun <init> (IFILjava/util/List;)V
 	public synthetic fun <init> (IFILjava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getAfterOperations ()Lkotlin/jvm/functions/Function0;
 	public final fun getComponentId ()I
 	public final fun getContentComponentId ()I
 	public final fun getOperations ()Ljava/util/List;
 	public final fun getSpacedBy ()F
+	public final fun setAfterOperations (Lkotlin/jvm/functions/Function0;)V
 	public final fun setComponentId (I)V
 	public final fun setContentComponentId (I)V
 	public final fun setSpacedBy (F)V
@@ -1448,6 +1480,7 @@ public abstract interface class ee/schimke/composeai/rccreation/common/RemoteWri
 	public abstract fun addTouchExpression (IFFFFI[FI[F[F)V
 	public static synthetic fun addTouchExpression$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IFFFFI[FI[F[FILjava/lang/Object;)V
 	public abstract fun applyPaint (Lee/schimke/composeai/rccreation/common/PaintBundle;)V
+	public fun beginGlobal ()V
 	public abstract fun bitmapAttribute (IS)F
 	public abstract fun bitmapTextMeasure (IIIF)F
 	public abstract fun callFloatFunction (I[F)V
@@ -1497,6 +1530,7 @@ public abstract interface class ee/schimke/composeai/rccreation/common/RemoteWri
 	public abstract fun endFitBox ()V
 	public abstract fun endFloatFunction ()V
 	public abstract fun endFlow ()V
+	public fun endGlobal ()V
 	public abstract fun endLoop ()V
 	public abstract fun endPatternDefine ()V
 	public abstract fun endPatternForEach ()V
@@ -1572,12 +1606,14 @@ public final class ee/schimke/composeai/rccreation/common/RemoteWriter$DefaultIm
 	public static synthetic fun addShader$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;ILjava/util/Map;Ljava/util/Map;Ljava/util/Map;ILjava/lang/Object;)I
 	public static fun addStringList (Lee/schimke/composeai/rccreation/common/RemoteWriter;[I)F
 	public static synthetic fun addTouchExpression$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IFFFFI[FI[F[FILjava/lang/Object;)V
+	public static fun beginGlobal (Lee/schimke/composeai/rccreation/common/RemoteWriter;)V
 	public static fun conditionalOperations (Lee/schimke/composeai/rccreation/common/RemoteWriter;IFFLkotlin/jvm/functions/Function0;)V
 	public static synthetic fun createOffscreenBitmap$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IILjava/lang/Object;)I
 	public static fun drawComponentToBitmap (Lee/schimke/composeai/rccreation/common/RemoteWriter;I)V
 	public static fun drawComponentToBitmap (Lee/schimke/composeai/rccreation/common/RemoteWriter;II)V
 	public static synthetic fun drawMesh2D$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IIIILjava/lang/Object;)V
 	public static fun drawTextRun (Lee/schimke/composeai/rccreation/common/RemoteWriter;Ljava/lang/String;IIIIFFZ)V
+	public static fun endGlobal (Lee/schimke/composeai/rccreation/common/RemoteWriter;)V
 	public static fun getBuffer (Lee/schimke/composeai/rccreation/common/RemoteWriter;)Lee/schimke/composeai/rccreation/common/RemoteWriter;
 	public static fun isRetired (Lee/schimke/composeai/rccreation/common/RemoteWriter;I)Z
 	public static fun loop (Lee/schimke/composeai/rccreation/common/RemoteWriter;IFFFLkotlin/jvm/functions/Function0;)V

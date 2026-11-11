@@ -15,6 +15,7 @@ import androidx.compose.remote.core.operations.NamedVariable
 import androidx.compose.remote.core.operations.PaintData
 import androidx.compose.remote.core.operations.PathData
 import androidx.compose.remote.core.operations.TextAttribute
+import androidx.compose.remote.core.operations.TextData
 import androidx.compose.remote.core.operations.TextFromFloat
 import androidx.compose.remote.core.operations.layout.managers.StateLayout
 import androidx.compose.runtime.Composable
@@ -238,7 +239,8 @@ class CarriedCreationApiTest {
     assertEquals(1, attributes.map { it.mTextId }.toSet().size)
     val flat = operations.flattened()
     attributes.forEach { attribute ->
-      val before = flat[flat.indexOf(attribute) - 1]
+      // The measured text is declared where it is first read, between the two.
+      val before = flat.subList(0, flat.indexOf(attribute)).last { it !is TextData }
       assertTrue(before is PaintData, "a paint precedes each measurement, not $before")
       assertTrue("TextSize(20.0)" in before.mPaintData.toString(), before.mPaintData.toString())
     }

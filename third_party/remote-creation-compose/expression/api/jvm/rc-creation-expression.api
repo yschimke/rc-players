@@ -11,6 +11,8 @@ public class ee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreati
 	public final fun beginComponentContent (Lee/schimke/composeai/rccreation/compose/layout/RemoteComponentToken;I)V
 	public final fun claimComponentId (I)Z
 	public final fun clearDocumentCaches ()V
+	public final fun disableDirectComponentEmission (Lee/schimke/composeai/rccreation/compose/layout/RemoteComponentToken;)V
+	public final fun endComponentContent (Lee/schimke/composeai/rccreation/compose/layout/RemoteComponentToken;)V
 	public final fun enterCanvasOperationsScope ()V
 	public final fun exitCanvasOperationsScope ()V
 	public final fun getCurrentRenderingNode ()Lee/schimke/composeai/rccreation/compose/capture/RemoteComponentTokenProvider;
@@ -25,6 +27,7 @@ public class ee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreati
 	public final fun getReady ()Z
 	public fun getRemoteDensity ()Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;
 	public final fun getRemoteVariableToId ()Landroidx/collection/MutableObjectIntMap;
+	public final fun isInCanvasOperationsScope ()Z
 	public final fun readsRetiredId ([F)Z
 	public final fun readsRetiredId ([J)Z
 	public final fun recordScopedFloatArrayKey (Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;)V
@@ -86,6 +89,8 @@ public final class ee/schimke/composeai/rccreation/compose/layout/RemoteComponen
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteComponentToken {
 	public static final field $stable I
 	public fun <init> ()V
+	public final fun restoreRequested (I)V
+	public final fun saveRequested ()I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteOffset {

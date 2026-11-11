@@ -433,6 +433,16 @@ public interface RemoteWriter {
    */
   public fun isRetired(id: Int): Boolean = false
 
+  /**
+   * Begins a section of global operations, as `RemoteComposeWriter.beginGlobal`: what is written
+   * until [endGlobal] is moved ahead of the root, wherever it is written from. Every other
+   * operation, a declaration included, is written where it is made.
+   */
+  public fun beginGlobal() {}
+
+  /** Ends the section [beginGlobal] began. */
+  public fun endGlobal() {}
+
   /** Returns and clears whether the next paint must be emitted as a complete state. */
   public fun checkAndClearForceSendingNewPaint(): Boolean
 
