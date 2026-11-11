@@ -72,6 +72,14 @@ public class RemoteCanvas(
 
     private var forceSendingPaint: Boolean = false
 
+    // LOCAL PATCH (rc-players): the paint last applied, whether a draw is being written, whether
+    // a paint is being worked out, and whether the player's paint is no longer the one last
+    // applied; see `paintWrittenOutsideTracker`.
+    private var lastPaint: RemotePaint? = null
+    private var writingDraw: Boolean = false
+    private var applyingPaint: Boolean = false
+    private var paintLost: Boolean = false
+
     private var currentDrawToBitmapId: Int = 0
 
     public val drawScope: RemoteDrawScope = RemoteDrawScope(this)
@@ -79,7 +87,32 @@ public class RemoteCanvas(
 
     /** Flushes recorded operations to the underlying creation state. */
     public fun flush() {
-        buffer.flush(creationState)
+        // LOCAL PATCH (rc-players): while this canvas writes, it is told of a paint written behind
+        // its tracker (`RemoteTextMeasurer`).
+        val outer = creationState.onPaintWrittenOutsideCanvas
+        creationState.onPaintWrittenOutsideCanvas = ::paintWrittenOutsideTracker
+        try {
+            buffer.flush(creationState)
+        } finally {
+            creationState.onPaintWrittenOutsideCanvas = outer
+        }
+    }
+
+    // LOCAL PATCH (rc-players): a `RemoteTextMeasurer` measurement writes a paint of its own (the
+    // size and weight it measures at) where its value is first needed, which is usually between a
+    // draw's paint and the draw: text drawn with a 12 px paint at a position measured at 20 px
+    // was drawn at 20 px, and a later draw whose paint the tracker took to be unchanged inherited
+    // it. The paint is sent again, whole, after the measurement when it falls in a draw, and the
+    // next one is sent whole wherever it falls. Not from here while a paint is being worked out
+    // (the measurement is one of its own properties, and is not cached until its provider, which
+    // is calling this, returns: applying a paint here would measure again, without end) or
+    // outside a draw (a paint has no place among a component's modifiers): `usePaintInternal`
+    // then sends it. Upstream's tracker is not told.
+    private fun paintWrittenOutsideTracker() {
+        // A component's content began since the last paint: the player has no paint of ours.
+        if (document.checkAndClearForceSendingNewPaint()) lastPaint = null
+        forceSendingPaint = true
+        if (writingDraw && !applyingPaint) usePaintInternal(lastPaint) else paintLost = true
     }
 
     /** Draws the content of the component. */
@@ -142,23 +175,56 @@ public class RemoteCanvas(
 
     internal fun usePaintInternal(paint: RemotePaint?) {
         if (paint == null) {
+            // LOCAL PATCH (rc-players): a draw that inherits its paint, after a measurement written
+            // outside any draw: the paint it inherits is sent again, unless a component's content
+            // began since. See `paintWrittenOutsideTracker`.
+            if (paintLost) {
+                paintLost = false
+                if (document.checkAndClearForceSendingNewPaint()) lastPaint = null
+                usePaintInternal(lastPaint)
+            }
             return
         }
 
-        val paintBundle = PaintBundle()
+        // LOCAL PATCH (rc-players): see `paintWrittenOutsideTracker`.
+        lastPaint = paint
+        paintLost = false
+        applyingPaint = true
+        var paintBundle = PaintBundle()
 
         tracker.reset(forceSendingPaint || document.checkAndClearForceSendingNewPaint())
         tracker.updateWithPaint(paint, paintBundle, creationState)
+        // LOCAL PATCH (rc-players): a property of this paint was a measurement, written with its
+        // own paint while this one was worked out. Worked out again, whole: the measurement is
+        // cached now, so nothing is written this time. See `paintWrittenOutsideTracker`.
+        if (paintLost) {
+            paintLost = false
+            paintBundle = PaintBundle()
+            tracker.reset(true)
+            tracker.updateWithPaint(paint, paintBundle, creationState)
+        }
+        applyingPaint = false
 
         if (tracker.isChanged) {
             // KMP (rc-players): the Kotlin writer's name for `buffer.addPaint`.
             document.applyPaint(paintBundle)
         }
-        forceSendingPaint = false
+        // LOCAL PATCH (rc-players): `false`, unless the second pass measured again.
+        forceSendingPaint = paintLost
     }
 
     internal fun recordRenderingOp(action: () -> Unit): CanvasOperationBuffer.SpanOp {
-        return buffer.recordRenderingOp(CanvasOp.Draw { action() })
+        // LOCAL PATCH (rc-players): marked as a draw, for `paintWrittenOutsideTracker`.
+        return buffer.recordRenderingOp(
+            CanvasOp.Draw {
+                writingDraw = true
+                try {
+                    action()
+                } finally {
+                    writingDraw = false
+                }
+            },
+        )
     }
 
     internal fun recordRenderingOp(

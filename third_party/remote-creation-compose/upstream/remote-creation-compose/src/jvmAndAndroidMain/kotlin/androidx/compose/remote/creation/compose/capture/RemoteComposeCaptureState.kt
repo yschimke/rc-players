@@ -59,6 +59,11 @@ public open class RemoteComposeCaptureState : RemoteComposeCreationState, Remote
 
     public val time: MutableState<Long> = mutableLongStateOf(0L)
 
+    // LOCAL PATCH (rc-players): what the canvas being flushed does when something writes a paint
+    // its `PaintTracker` did not see, which a `RemoteTextMeasurer` measurement does; see
+    // `RemoteCanvas.flush`.
+    internal var onPaintWrittenOutsideCanvas: (() -> Unit)? = null
+
     // KMP (rc-players): see above; upstream's three constructors each take a `Profile`.
     public constructor(
         creationDisplayInfo: RemoteCreationDisplayInfo,

@@ -27,10 +27,13 @@ import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStrokeCap
 import androidx.compose.remote.creation.compose.state.RemoteStrokeJoin
 import androidx.compose.remote.creation.compose.state.RemoteTimeVariables
+import androidx.compose.remote.creation.compose.state.abs
 import androidx.compose.remote.creation.compose.state.clamp
 import androidx.compose.remote.creation.compose.state.cos
 import androidx.compose.remote.creation.compose.state.cubicEasing
 import androidx.compose.remote.creation.compose.state.lerp
+import androidx.compose.remote.creation.compose.state.max
+import androidx.compose.remote.creation.compose.state.pow
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.selectIfLt
 import androidx.compose.runtime.Composable
@@ -308,8 +311,14 @@ private fun transformInterpolator(
     return when (interpolator) {
         RemoteInterpolator.AccelerateDecelerate ->
             (1f.rf - cos(progress * (PI.toFloat()).rf)) / 2f.rf
-        is RemoteInterpolator.Accelerate -> progress * progress
-        is RemoteInterpolator.Decelerate -> 1f.rf - (1f.rf - progress) * (1f.rf - progress)
+        // LOCAL PATCH (rc-players): with the interpolator's factor, as its `transform` has it.
+        // Upstream writes the factor-1 curve whatever the factor.
+        is RemoteInterpolator.Accelerate ->
+            if (interpolator.factor == 1f) progress * progress
+            else pow(progress, 2f * interpolator.factor)
+        is RemoteInterpolator.Decelerate ->
+            if (interpolator.factor == 1f) 1f.rf - (1f.rf - progress) * (1f.rf - progress)
+            else 1f.rf - pow(1f.rf - progress, 2f * interpolator.factor)
         is RemoteInterpolator.CubicBezier ->
             cubicEasing(
                 interpolator.x1.rf,
@@ -539,6 +548,27 @@ private fun computeAnimatorLocalProgress(
     if (endFraction <= startFraction) return 1f.rf
 
     val rawLocal = (progress - startFraction.rf) / (endFraction - startFraction).rf
+    // LOCAL PATCH (rc-players): an animator that repeats starts again, or runs back, after each
+    // iteration, as `RemotePropertyAnimator.evaluateAt` has it: `rawLocal` counts iterations.
+    // Upstream clamps it to the first, so the animator holds its end value for the rest of a
+    // timeline that `totalDuration` made long enough for every iteration.
+    if (anim.repeatCount != 0) {
+        val reverse = anim.repeatMode == RemotePropertyAnimator.REPEAT_MODE_REVERSE
+        val iterations = (anim.repeatCount + 1).toFloat()
+        val elapsed =
+            if (anim.repeatCount < 0) max(rawLocal, 0f) else clamp(rawLocal, 0f, iterations)
+        val fraction =
+            if (reverse) {
+                // Up over an even iteration and down over an odd one.
+                1f.rf - abs(elapsed % 2f - 1f.rf)
+            } else if (anim.repeatCount < 0) {
+                elapsed % 1f
+            } else {
+                // The last iteration ends at 1, where the remainder is 0 again.
+                selectIfLt(rawLocal, iterations.rf, elapsed % 1f, 1f.rf)
+            }
+        return transformInterpolator(anim.interpolator, fraction)
+    }
     val clamped = clamp(rawLocal, 0f, 1f)
     return transformInterpolator(anim.interpolator, clamped)
 }
@@ -569,7 +599,10 @@ private fun evaluateDynamicFloat(
     for (i in (sorted.size - 2) downTo 0) {
         val anim = sorted[i]
         val stageExpr = evaluateAnimatorFloat(anim, baseValue, totalDuration, progress)
-        val endFraction = (anim.startDelay + anim.duration).toFloat() / totalDuration
+        // LOCAL PATCH (rc-players): the next animator takes over when its start delay is reached,
+        // whatever this one is doing, as `RemoteAnimatedVector.evaluate` chooses among them.
+        // Upstream switches at the end of this one's first iteration.
+        val endFraction = sorted[i + 1].startDelay.toFloat() / totalDuration
         result = selectIfLt(progress, endFraction.rf, stageExpr, result)
     }
     return result
@@ -590,7 +623,13 @@ private fun evaluateAnimatorFloat(
         val from = (anim.keyframes[0].value as? Number)?.toFloat() ?: baseValue
         val to = (anim.keyframes[1].value as? Number)?.toFloat() ?: from
         if (from == to) return from.rf
-        return lerp(from.rf, to.rf, localProgress)
+        // LOCAL PATCH (rc-players): through the end keyframe's interpolator, as `evaluateAt`
+        // applies it after the animator's own. Upstream applies no keyframe's here.
+        return lerp(
+            from.rf,
+            to.rf,
+            transformInterpolator(anim.keyframes[1].interpolator, localProgress),
+        )
     }
     val kf = anim.keyframes
     var kfResult: RemoteFloat = run {
@@ -600,7 +639,11 @@ private fun evaluateAnimatorFloat(
         val frac1 = kf[kf.size - 1].fraction
         val segmentProgress =
             if (frac1 > frac0) {
-                clamp((localProgress - frac0.rf) / (frac1 - frac0).rf, 0f, 1f)
+                // LOCAL PATCH (rc-players): through the end keyframe's interpolator; see above.
+                transformInterpolator(
+                    kf[kf.size - 1].interpolator,
+                    clamp((localProgress - frac0.rf) / (frac1 - frac0).rf, 0f, 1f),
+                )
             } else 1f.rf
         lerp(last0.rf, last1.rf, segmentProgress)
     }
@@ -611,7 +654,11 @@ private fun evaluateAnimatorFloat(
         val frac1 = kf[j + 1].fraction
         val segmentProgress =
             if (frac1 > frac0) {
-                clamp((localProgress - frac0.rf) / (frac1 - frac0).rf, 0f, 1f)
+                // LOCAL PATCH (rc-players): through the end keyframe's interpolator; see above.
+                transformInterpolator(
+                    kf[j + 1].interpolator,
+                    clamp((localProgress - frac0.rf) / (frac1 - frac0).rf, 0f, 1f),
+                )
             } else 1f.rf
         val stageExpr = lerp(val0.rf, val1.rf, segmentProgress)
         kfResult = selectIfLt(localProgress, frac1.rf, stageExpr, kfResult)
@@ -648,7 +695,10 @@ private fun evaluateDynamicColor(
     for (i in (sorted.size - 2) downTo 0) {
         val anim = sorted[i]
         val stageExpr = evaluateAnimatorColor(anim, baseColor, totalDuration, progress) ?: continue
-        val endFraction = (anim.startDelay + anim.duration).toFloat() / totalDuration
+        // LOCAL PATCH (rc-players): the next animator takes over when its start delay is reached,
+        // whatever this one is doing, as `RemoteAnimatedVector.evaluate` chooses among them.
+        // Upstream switches at the end of this one's first iteration.
+        val endFraction = sorted[i + 1].startDelay.toFloat() / totalDuration
         result = progress.isLessThan(endFraction.rf).select(stageExpr, result)
     }
     return result
@@ -670,7 +720,9 @@ private fun evaluateAnimatorColor(
         val from = (anim.keyframes[0].value as? Number)?.toInt() ?: baseColor ?: return null
         val to = (anim.keyframes[1].value as? Number)?.toInt() ?: from
         if (from == to) return RemoteColor(from)
-        return lerp(from, to, localProgress)
+        // LOCAL PATCH (rc-players): through the end keyframe's interpolator; see
+        // `evaluateAnimatorFloat`.
+        return lerp(from, to, transformInterpolator(anim.keyframes[1].interpolator, localProgress))
     }
     val kf = anim.keyframes
     var kfResult: RemoteColor = run {
@@ -680,7 +732,11 @@ private fun evaluateAnimatorColor(
         val frac1 = kf[kf.size - 1].fraction
         val segmentProgress =
             if (frac1 > frac0) {
-                clamp((localProgress - frac0.rf) / (frac1 - frac0).rf, 0f, 1f)
+                // LOCAL PATCH (rc-players): through the end keyframe's interpolator; see above.
+                transformInterpolator(
+                    kf[kf.size - 1].interpolator,
+                    clamp((localProgress - frac0.rf) / (frac1 - frac0).rf, 0f, 1f),
+                )
             } else 1f.rf
         lerp(last0, last1, segmentProgress)
     }
@@ -691,7 +747,11 @@ private fun evaluateAnimatorColor(
         val frac1 = kf[j + 1].fraction
         val segmentProgress =
             if (frac1 > frac0) {
-                clamp((localProgress - frac0.rf) / (frac1 - frac0).rf, 0f, 1f)
+                // LOCAL PATCH (rc-players): through the end keyframe's interpolator; see above.
+                transformInterpolator(
+                    kf[j + 1].interpolator,
+                    clamp((localProgress - frac0.rf) / (frac1 - frac0).rf, 0f, 1f),
+                )
             } else 1f.rf
         val stageExpr = lerp(val0, val1, segmentProgress)
         kfResult = localProgress.isLessThan(frac1.rf).select(stageExpr, kfResult)

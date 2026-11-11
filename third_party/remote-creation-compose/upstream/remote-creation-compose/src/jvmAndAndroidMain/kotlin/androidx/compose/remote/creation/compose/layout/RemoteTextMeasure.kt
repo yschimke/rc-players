@@ -20,6 +20,7 @@ import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.PaintContext
 import androidx.compose.remote.creation.common.TextAttribute
 import androidx.compose.remote.creation.compose.capture.LocalRemoteDensity
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCaptureState
 import androidx.compose.remote.creation.compose.capture.RemoteDensity
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteFloatExpression
@@ -228,12 +229,14 @@ public class RemoteTextMeasurer(internal val density: RemoteDensity) {
                 )
                 .commit()
 
-            floatArrayOf(
-                doc.textAttribute(
-                    text.getIdForCreationState(creationState),
-                    attributeType,
-                ),
-            )
+            // LOCAL PATCH (rc-players): the paint committed above is the player's from here on, and
+            // nothing told the canvas whose draw is being written: it would draw with this size and
+            // weight, and send later paints as differences from one the player no longer has. It is
+            // told once the measurement is written, and sends its own paint again.
+            val attribute =
+                doc.textAttribute(text.getIdForCreationState(creationState), attributeType)
+            (creationState as? RemoteComposeCaptureState)?.onPaintWrittenOutsideCanvas?.invoke()
+            floatArrayOf(attribute)
         }
     }
 }

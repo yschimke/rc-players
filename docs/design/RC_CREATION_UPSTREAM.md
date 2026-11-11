@@ -430,6 +430,18 @@ is small and not specific to rc-players. File paths are under
 | `toRemoteString(DecimalFormat)` over a plain Kotlin `DecimalFormat` | Number formatting off Android | `src/commonMain/…/state/RemoteDecimalFormat.kt` | The overloads take `java.text.DecimalFormat` or ICU's, in `android/state/RemoteFormatting.android.kt` |
 | PNG encoding supplied by the host (`encodePng: (ImageBitmap) -> ByteArray?`) | Inline bitmaps without a platform service | `captureCommonRemoteDocument` | `RcPlatformServices`, a Java interface, per platform |
 
+Three of the bug fixes under "Bugs and inconsistencies found" are patches to upstream's own text
+and could be offered as they are:
+
+| Fix | In the fork | Applies upstream |
+| --- | --- | --- |
+| An animated vector's repeats, in the painter | `computeAnimatorLocalProgress`, `evaluateDynamicFloat`, `evaluateDynamicColor` in `upstream/remote-creation-compose/src/androidMain/…/vector/RemoteAnimatedVectorPainter.android.kt` | As it is |
+| An animated vector's interpolators, the same in both evaluations | `RemotePropertyAnimator.evaluateAt` and `RemoteInterpolator.Accelerate`/`Decelerate` in `upstream/remote-creation-compose/src/jvmAndAndroidMain/…/vector/RemoteAnimatedVector.kt`; `transformInterpolator`, `evaluateAnimatorFloat`, `evaluateAnimatorColor` in the painter | As it is |
+| A text measurement does not change the paint a draw uses | `measureAttribute` in `…/layout/RemoteTextMeasure.kt`, `flush`, `usePaintInternal`, `recordRenderingOp` and `paintWrittenOutsideTracker` in `…/layout/RemoteCanvas.kt`, one field in `…/capture/RemoteComposeCaptureState.kt` | As it is: none of it touches what the fork replaces |
+
+The loop fix is not on that list: the fork makes it in its own writer (`startLoop`, `endLoop`),
+where upstream's place for it is `RemoteCanvas.loop`, two lines in each overload.
+
 ## Bugs and inconsistencies found
 
 Each says how it was verified. None depends on the structural items above.
@@ -616,8 +628,74 @@ force-new-paint flag is set only at a component's content start
 (`RemoteComposeWriter.java:3698-3701`). A draw after a measurement, with a paint whose text size
 equals the one the tracker last sent, therefore draws with the measurement's size and weight.
 
-*Verified by reading both sides. The fork carries the file unchanged and has the same behaviour;
-`CarriedCreationApiTest` asserts only that a paint precedes each measurement.*
+The draw that reads the measurement is hit first. A measurement is written where its value is first
+asked for, and a canvas draw asks for its arguments after it has applied its paint
+(`recordRenderingOp(paint) { usePaintInternal(…); action() }`, `:162-171`), so
+`drawText(text, measured.size.width, y, paint)` writes the draw's paint, then the measurement's,
+then the draw: text with a 12 px paint, placed by a 20 px measurement, is 20 px text.
+
+The fork patches it locally. The canvas is told when a measurement has been written
+(`RemoteComposeCaptureState.onPaintWrittenOutsideCanvas`, set while `RemoteCanvas.flush` writes and
+called at the end of `measureAttribute`'s provider). In every case the next paint it sends is
+whole. Beyond that it depends on where the measurement was written:
+
+- as a draw's argument: the paint last applied is sent again, in full, there, between the
+  measurement and the draw;
+- as a property of the paint being worked out (`RemotePaint { textSize = measured.size.width }`,
+  a stroke width, a colour): nothing is sent from the callback, because the measurement is not
+  cached until its provider returns and applying a paint there would measure again without end;
+  the paint is worked out a second time once the first pass is over, and sent whole;
+- outside a draw (a transform's argument, an expression two draws share, which is written ahead
+  of both, a layout modifier): nothing is sent there, and the paint last applied is sent again
+  before the next draw that inherits its paint, if no component's content has begun since.
+
+A measurement of a measurement, and one in a conditional block, a loop's body or a pattern's body,
+are these cases again. A document that measures on a canvas carries one more paint operation per
+measurement first read in a draw; no other document changes. What it does not cover: a draw with
+no paint at all before it in its component, which draws with the measurement's size on the
+player's default paint, since there is no paint of the author's to send again. Suggested fix
+upstream: the same, or resolve a draw's arguments before its paint.
+
+*Verified by reading both sides, and by tests here, each failing before the patch.
+`RcTextMeasurePaintPlaybackTest` in `:rc-player-embedded` plays it in the CMP player and measures
+the text drawn (`renders/creation-text-measure-paint/`): 41×14 px before for "HHH" with a 12 px
+paint, 25×9 after, which is what 12 px text is. `CanvasTextMeasureReadBackTest` in
+`:rc-creation-bridge` has AndroidX's `CoreDocument` (`remote-core` 1.0.0-alpha23) paint the
+document into a context that records the text size at each `getTextBounds` and `drawTextRun`: 20
+at the measurement and 12 at each draw, where it was 20 at the draws. It has a test for each case
+above, asserting the order of paints, measurements and texts written and the sizes AndroidX draws
+at. One thing seen on the way and not changed: this repository's CMP player throws from Skia's
+`TextStyle.setFontSize` on the first frame of a document whose paint's text size is an
+*expression* of a measurement (`measured.size.width * 0.4f`), presumably evaluated before the
+measurement has a value (not looked into); a text size that is the measurement itself plays.*
+
+### A loop's body is written against the paint before it
+
+`RemoteCanvas.loop` (`common/layout/RemoteCanvas.kt:909-950`, both overloads) records its body
+through the canvas's one `PaintTracker` and writes it with `childSpan.record` inside
+`writer.loop { }`, with no forced paint before or after: `forceSendingPaint` is set around
+`drawConditionally` and `drawToOffscreenBitmap` only (`:850-852`, `:870-872`, `:896-898`), and the
+writer's flag only at a component's content start. A loop's body is written once and drawn once
+per value of the index, so the paint the player has at the top of the body is the body's last one
+on every pass after the first. `drawRect(red)`, then a loop whose body draws a red rectangle and a
+blue one: the body's first rectangle is sent no paint, since red is what the tracker last sent, and
+from the second pass on it is blue. The other direction is the conditional block's: when the range
+is empty (its end is a value the player holds), the player still has the paint from before the
+loop, the tracker has the body's last, and a draw after the loop whose paint equals the tracker's
+sends nothing. Suggested fix: `forceSendingPaint = true` before and after `childSpan.record` in
+both overloads, as in `drawConditionally`.
+
+The fork patches it locally, in its writer rather than in the canvas: `startLoop` and `endLoop`
+set the writer's force flag, as its pattern and for-each operations already do, so the first paint
+in a loop's body and the first after the loop are whole.
+
+*Verified by reading, and by tests here, each failing before the patch.
+`RcCanvasLoopPaintPlaybackTest` in `:rc-player-embedded` plays the sequence above with three passes
+and with none (`renders/creation-loop-paint/`). `CanvasPaintReadBackTest` in `:rc-creation-bridge`
+has AndroidX's `CoreDocument` (`remote-core` 1.0.0-alpha23) paint it: red, then red and blue three
+times, then blue and red, where the second and third passes drew blue twice. Not run against
+AndroidX's own writer. A for-each over a list and `drawToOffscreenBitmap` were already covered
+(`RcPatternPaintPlaybackTest`, `RcCanvasPaintAfterBlockPlaybackTest`) and are not affected.*
 
 ### A pattern's body is written against the paint before it
 
@@ -644,8 +722,7 @@ precedes every circle.*
 ### An animated vector's two evaluations disagree on repeats and on the animator's interpolator
 
 `vector/RemoteAnimatedVector.kt` evaluates a `RemotePropertyAnimator` twice over, and the two do
-not agree. Both are upstream's text; the fork carries them unchanged, so both behaviours are the
-fork's too.
+not agree. Both are upstream's text. The fork patches both locally (below).
 
 - `RemotePropertyAnimator.evaluateAt` (the path `RemoteAnimatedVector.draw(writer, progress)`
   takes) works out the iteration and, under `REPEAT_MODE_REVERSE`, reverses odd ones, then
@@ -660,12 +737,59 @@ fork's too.
   (`startDelay + duration * (repeatCount + 1)`), so the vector's timeline is the right length and
   the animator simply stops moving part of the way along it.
 
+Two more differences come to light once those two agree, and belong to the same fix. The
+painter's float and colour animators never apply a *keyframe's* interpolator (`evaluateAnimatorFloat`
+and `evaluateAnimatorColor` interpolate each segment linearly), where `evaluateAt` applies the
+segment's end keyframe's. And `transformInterpolator` writes `Accelerate` and `Decelerate` as the
+squares they are for a factor of 1, whatever the factor (`RemoteInterpolator.Accelerate.factor` is
+private, so it could not read it).
+
 Suggested: one definition of an animator's value at a time, applied in both — iteration and
 reverse first, then the animator's interpolator, then the keyframe segment's.
 
-Read at `21a1a95e4`; reported by review on the PR that carried these files. Not patched here, and
-not tested: the files are identical to upstream's, and nothing in this repository draws an animated
-vector yet.
+The fork patches it locally, to that definition:
+
+- `computeAnimatorLocalProgress` counts iterations: for an animator with a non-zero `repeatCount`
+  the fraction is the remainder of the elapsed iterations, run back on odd iterations under
+  `REPEAT_MODE_REVERSE`, and the end value after the last. An animator that does not repeat
+  writes the expression it wrote before.
+- Where several animators drive one property, the painter (`evaluateDynamicFloat`,
+  `evaluateDynamicColor`) chooses as `RemoteAnimatedVector.evaluate` does: the next animator, by
+  start delay, takes over when its start delay is reached. Upstream's painter switches at the end
+  of the earlier animator's first iteration instead, which is the same moment only when the two
+  are end to end and the first does not repeat: with a gap it showed the second's first value
+  where `evaluate` holds the first's last, and with an overlap it let the first run on.
+- `evaluateAt` applies the animator's interpolator to the iteration's fraction before it looks for
+  the keyframe segment.
+- The painter applies the end keyframe's interpolator to each segment's fraction, and writes
+  `Accelerate` and `Decelerate` with their factor.
+
+`evaluate`'s rule, which both now follow, has one odd corner that is recorded here and not
+changed: of the animators whose start delay has been reached it takes the one with the latest,
+and of two with the same the later in the list; before any has been reached it takes the one with
+the earliest, and of two with the same the *earlier* in the list. So two animators with the same
+start delay show the first one's first keyframe until they start and the second one's values
+after, and the first never runs. The order of the list matters nowhere else. An animator is cut
+short by the next one's start whatever it is doing, including one that repeats without end.
+
+What is left: a path morph (`pathData`) in the painter is laid out as segments of the whole
+timeline (`extractPathSegments`), with neither repeats nor the animator's interpolator, so the two
+ways still differ there for an animator that repeats or has an interpolator of its own; two
+keyframes that are not at fractions 0 and 1 are read as if they were by the painter; and an
+interpolator that is not one of the library's own (any other `RemoteInterpolator { }`) is linear in
+the painter, which cannot write an arbitrary function as an expression.
+
+*Read at `21a1a95e4`; reported by review on the PR that carried these files. Tested here:
+`AnimatedVectorEvaluationTest` in `:rc-creation-bridge` draws the same vectors both ways and has
+AndroidX's `CoreDocument` (`remote-core` 1.0.0-alpha23) paint each document into a context that
+records the rotation and the fill colour it draws with, so the painter's expressions are evaluated
+by AndroidX. Seven sets of several animators on one property (the second starting during the
+first's repeats, while it runs, and after it has ended; none started yet; three listed out of
+order; two with the same start delay; one repeating without end and then another) agree at every
+start delay, a millisecond either side and between. Nine sets of animators (repeats in both modes, an interpolator on the animator, on a
+keyframe, on both and with a factor, three keyframes with a start delay, one animator after a
+repeated one) at ten times each agree, and the two examples above have their values. All five
+tests failed before the patches.*
 
 ### `RemoteLog.kt` has no caller
 
@@ -697,6 +821,15 @@ vector yet.
   with a call (`drawToBitmap` setting the paint's alpha, for one) is read, not run. The documents
   were compared as in step 4: 129 distinct ones before, 121 of them byte for byte the same after,
   and the 8 that changed all use what was fixed.
+- The four patches to upstream's own bugs (the animated vector's repeats and interpolators, the
+  text measurement's paint, the loop's paint) were each checked by a test that failed before the
+  patch, in the same two readers: the CMP player with pixels asserted (`:rc-player-embedded`:
+  `RcTextMeasurePaintPlaybackTest`, `RcCanvasLoopPaintPlaybackTest`), and AndroidX's `CoreDocument`
+  painting into the recording context, which now also records the text size a call is made with
+  (`:rc-creation-bridge`: `CanvasTextMeasureReadBackTest`, `CanvasPaintReadBackTest`,
+  `AnimatedVectorEvaluationTest`). The documents were compared as before: 180 distinct ones on the
+  commit before, 179 of them byte for byte the same after, and the one that changed measures text
+  in a draw.
 - Step 4 was checked the way step 2 was (next item), on a worktree of the commit before it and on
   the result: the 107 distinct documents the four modules' JVM tests encoded before are all
   encoded to the same bytes after, and 18 captured for the purpose (the six round-trip samples and
