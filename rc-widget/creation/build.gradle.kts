@@ -40,7 +40,7 @@ kotlin {
   sourceSets {
     commonMain.dependencies {
       api(project(":rc-widget-core"))
-      api(project(":third-party-remote-creation-compose"))
+      api(project(":rc-creation-compose"))
       @Suppress("DEPRECATION") api(compose.runtime)
       @Suppress("DEPRECATION") api(compose.ui)
     }

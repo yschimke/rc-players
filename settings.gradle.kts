@@ -177,12 +177,19 @@ include(":rc-player-xr-sample")
 
 project(":rc-player-xr-sample").projectDir = file("rc-player/xr-sample")
 
-// Creation: rc-players' own API over the creation fork, in its own package
-// (`ee.schimke.composeai.rccreation`), and the module that joins creation to the player. Published,
+// Creation: rc-players' own API over the creation modules (`:rc-creation-compose` and its
+// siblings, further down), in `ee.schimke.composeai.rccreation.bridge`, and the module that joins
+// creation to the player. Published,
 // experimental; see docs/design/RC_CREATION_BRIDGE.md.
 include(":rc-creation-bridge")
 
 project(":rc-creation-bridge").projectDir = file("rc-creation/bridge")
+
+// Build-only: compiles one source set against `:rc-creation-compose` and AndroidX's own
+// `remote-creation-compose` together, on Android and on the JVM, and checks the two share no class.
+include(":rc-creation-coexistence-check")
+
+project(":rc-creation-coexistence-check").projectDir = file("rc-creation/coexistence")
 
 include(":rc-player-embedded")
 
@@ -272,18 +279,31 @@ include(":prototype-remote-apple-components")
 project(":prototype-remote-apple-components").projectDir =
   file("prototypes/remote-apple-components")
 
-// The Compose Multiplatform creation fork: AndroidX `remote-creation-compose` /
-// `foundation` and the common write core, in AndroidX's own package with marked local patches only.
-// See third_party/remote-creation-compose/PROVENANCE.md.
-include(":third-party-remote-creation-writer")
+// Compose Multiplatform Remote Compose creation: a fork of AndroidX's creation modules in
+// rc-players' own package (`ee.schimke.composeai.rccreation`), one module for each of upstream's,
+// over the common write core:
+//
+//     writer <- expression <- compose <- foundation
+//
+// The sources stay under `third_party/`, because they are AndroidX's with marked local patches;
+// see third_party/remote-creation-compose/PROVENANCE.md.
+include(":rc-creation-writer")
 
-project(":third-party-remote-creation-writer").projectDir =
-  file("third_party/remote-creation-writer")
+project(":rc-creation-writer").projectDir = file("third_party/remote-creation-writer")
 
-include(":third-party-remote-creation-compose")
+include(":rc-creation-expression")
 
-project(":third-party-remote-creation-compose").projectDir =
-  file("third_party/remote-creation-compose")
+project(":rc-creation-expression").projectDir =
+  file("third_party/remote-creation-compose/expression")
+
+include(":rc-creation-compose")
+
+project(":rc-creation-compose").projectDir = file("third_party/remote-creation-compose/compose")
+
+include(":rc-creation-foundation")
+
+project(":rc-creation-foundation").projectDir =
+  file("third_party/remote-creation-compose/foundation")
 
 // The vendored, locally patched AndroidX embedded player — the Android comparison lane the CMP
 // player above is measured against. Provenance and the patch log are in

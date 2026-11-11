@@ -30,8 +30,10 @@ object PublishedArtifactIds {
       ":rc-widget-creation-androidx" to "rc-widget-creation-androidx",
       ":rc-widget-launcher" to "rc-widget-launcher",
       ":rc-widget-wear" to "rc-widget-wear",
-      ":third-party-remote-creation-writer" to "third-party-remote-creation-writer",
-      ":third-party-remote-creation-compose" to "third-party-remote-creation-compose",
+      ":rc-creation-writer" to "rc-creation-writer",
+      ":rc-creation-expression" to "rc-creation-expression",
+      ":rc-creation-compose" to "rc-creation-compose",
+      ":rc-creation-foundation" to "rc-creation-foundation",
       ":third-party-rc-embedded-player" to "third-party-rc-embedded-player",
       // The vendored TypeScript player's bundle. Named for what it contains rather than for the
       // project that wraps it, and published under that name since 1.53.x — a coordinate cannot be

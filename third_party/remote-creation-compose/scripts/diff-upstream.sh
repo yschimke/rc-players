@@ -30,7 +30,7 @@
 # marked hunks; this script shows whether that was done.
 #
 # The data beside this script:
-#   upstream-roots.tsv    upstream source root -> the fork directory that carries it
+#   upstream-roots.tsv    upstream source root -> the fork module directory that carries it
 #   upstream-renames.tsv  upstream files the fork carries at another path, each with its reason
 #   upstream-fqn.tsv      upstream name -> the fork's name for it
 #   upstream-packages.tsv upstream package -> the fork's package (text and paths)
@@ -107,8 +107,8 @@ normalise() {
       END { if (n && !flushed) { cmd = "LC_ALL=C sort -u"; for (i = 0; i < n; i++) print imports[i] | cmd; close(cmd) } }'
 }
 
-# Every fork source file, relative to the module.
-(cd "$module_dir" && find . -name '*.kt' -not -path './build/*' | sed 's|^\./||' | LC_ALL=C sort) \
+# Every fork source file, relative to the directory the three modules are in.
+(cd "$module_dir" && find . -name '*.kt' -not -path './*/build/*' | sed 's|^\./||' | LC_ALL=C sort) \
   >"$work/fork-files"
 
 # pairs: root <tab> upstream path under the root <tab> fork path under the module (or `-`).

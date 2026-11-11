@@ -1,5 +1,7 @@
-// The common write core under the creation fork: `RemoteWriter` and the `.rc` byte writer. The
-// Compose Multiplatform port's own code; see ../remote-creation-compose/PROVENANCE.md.
+// `:rc-creation-writer`: the common write core under the creation modules, `RemoteWriter` and the
+// `.rc` byte writer, in the package `ee.schimke.composeai.rccreation.common`. The Compose
+// Multiplatform port's own code, standing where AndroidX has `remote-core` and
+// `remote-creation-core`; see ../remote-creation-compose/PROVENANCE.md.
 plugins {
   id("composeai.base-conventions")
   id("composeai.jvm-conventions")
@@ -34,9 +36,9 @@ tasks.named("check") { dependsOn("checkKotlinAbi") }
 
 composeAiMavenPublishing {
   coordinates(
-    artifactId = "third-party-remote-creation-writer",
-    displayName = "Remote Compose Creation — Common Writer (fork)",
+    artifactId = "rc-creation-writer",
+    displayName = "Remote Compose Creation — Common Writer",
     description =
-      "The common RemoteWriter and .rc byte writer under rc-players' Compose Multiplatform fork of AndroidX Remote Compose creation.",
+      "The common RemoteWriter and .rc byte writer under rc-players' Compose Multiplatform Remote Compose creation modules, in the package ee.schimke.composeai.rccreation.common.",
   )
 }
