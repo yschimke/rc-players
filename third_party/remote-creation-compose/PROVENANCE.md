@@ -824,11 +824,8 @@ the rest of what is new there has a default.
 
 ## Known port issues
 
-- **Scroll orientation.** `modifier/ScrollModifier.kt` writes 1 for `verticalScroll` and 0 for
-  `horizontalScroll`. `remote-creation-core`'s `ScrollModifier` has `VERTICAL = 0` and
-  `HORIZONTAL = 1`, and `ScrollModifierOperation` reads 0 as vertical. Found by reading both sides
-  in step 2 and left as it is, because the step must not change a document; not checked in a
-  player.
+- **Scroll orientation** was reversed (`verticalScroll` wrote 1, the wire's horizontal). Fixed on
+  its own, with `ScrollDirectionTest`.
 
 Found in step 4, where `layout/RemoteCanvas.kt` became upstream's text. Each is what the port has
 always written, kept under a marked hunk because the step must not change a document; none was
