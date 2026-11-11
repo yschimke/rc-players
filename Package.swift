@@ -114,11 +114,11 @@ if !nativeOnly {
     .binaryTarget(
       name: "RcComposePlayer",
       url:
-        "https://github.com/yschimke/rc-players/releases/download/v0.0.0/RcComposePlayer.xcframework.zip",
+        "https://github.com/yschimke/rc-players/releases/download/v2.33.0/RcComposePlayer.xcframework.zip",
       // On `main` these two are the placeholder and a resolve fails loudly on the checksum rather
       // than fetching something unverified. On a bare `X.Y.Z` tag they are the real released
       // values, written by scripts/update-package-swift.sh. Check which you are looking at.
-      checksum: "0000000000000000000000000000000000000000000000000000000000000000"
+      checksum: "5675ed0e323b3bf00d3ebc98350f37913988a5945cecf1cee4b4620854cabb85"
     ), at: 0)
 }
 
