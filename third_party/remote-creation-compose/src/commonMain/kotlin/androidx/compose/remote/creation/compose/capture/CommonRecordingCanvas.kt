@@ -29,7 +29,7 @@ import androidx.compose.ui.graphics.Matrix
 /** JVM recorder for the platform-neutral RemoteCanvas write path. */
 internal class CommonRecordingCanvas(override val enableOptimizations: Boolean = false) :
     InternalRecordingCanvas {
-    override val buffer = RemoteDocumentProgram(enableOptimizations)
+    override val buffer = CanvasOperationBuffer(enableOptimizations)
     override lateinit var creationState: RemoteComposeCreationState
     override val parentScope: RemoteStateScope
         get() = creationState
@@ -47,31 +47,31 @@ internal class CommonRecordingCanvas(override val enableOptimizations: Boolean =
     override var currentDrawToBitmapId: Int = 0
     private val paintTracker = PaintTracker()
 
-    override fun recordRenderingOp(op: DocumentOp): RemoteDocumentProgram.SpanOp =
+    override fun recordRenderingOp(op: CanvasOp): CanvasOperationBuffer.SpanOp =
         buffer.recordRenderingOp(op)
 
-    override fun recordRenderingOp(action: () -> Unit): RemoteDocumentProgram.SpanOp =
-        recordRenderingOp(DocumentOp.Draw { action() })
+    override fun recordRenderingOp(action: () -> Unit): CanvasOperationBuffer.SpanOp =
+        recordRenderingOp(CanvasOp.Draw { action() })
 
-    override fun recordRenderingOp(operation: WriterOp): RemoteDocumentProgram.SpanOp =
-        recordRenderingOp(DocumentOp.Draw(operation))
+    override fun recordRenderingOp(operation: WriterOp): CanvasOperationBuffer.SpanOp =
+        recordRenderingOp(CanvasOp.Draw(operation))
 
     override fun recordRenderingOp(
         paint: RemotePaint?,
         action: () -> Unit,
-    ): RemoteDocumentProgram.SpanOp = recordRenderingOp(action)
+    ): CanvasOperationBuffer.SpanOp = recordRenderingOp(action)
 
     override fun recordRenderingOp(
         paint: RemotePaint?,
         operation: WriterOp,
-    ): RemoteDocumentProgram.SpanOp {
+    ): CanvasOperationBuffer.SpanOp {
         val snapshot = paint?.let(::StandardRemotePaint)
         val force = forceSendingPaint
         forceSendingPaint = false
         return recordRenderingOp(WriterOp.Painted(snapshot, operation, paintTracker, force))
     }
 
-    override fun recordInChildSpan(action: () -> Unit): RemoteDocumentProgram.Span {
+    override fun recordInChildSpan(action: () -> Unit): CanvasOperationBuffer.Span {
         val child = buffer.insertPoint.createChildSpan()
         val previous = buffer.insertPoint
         buffer.insertPoint = child
@@ -86,7 +86,7 @@ internal class CommonRecordingCanvas(override val enableOptimizations: Boolean =
     override fun recordInOffscreenChildSpan(
         bitmapId: Int,
         action: () -> Unit,
-    ): RemoteDocumentProgram.Span {
+    ): CanvasOperationBuffer.Span {
         val previous = currentDrawToBitmapId
         return recordInChildSpan {
             currentDrawToBitmapId = bitmapId
@@ -169,8 +169,7 @@ internal class CommonRecordingCanvas(override val enableOptimizations: Boolean =
     ) {
         val scope = RemoteCustomPropertiesScope().apply(properties)
         val child = content?.let(::recordInChildSpan)
-        val op =
-            recordRenderingOp(DocumentOp.CustomComponent(config, modifier, scope.entries, child))
+        val op = recordRenderingOp(CanvasOp.CustomComponent(config, modifier, scope.entries, child))
         scope.entries.mapNotNull { it.state }.forEach { buffer.addRoots(op, it) }
     }
 }

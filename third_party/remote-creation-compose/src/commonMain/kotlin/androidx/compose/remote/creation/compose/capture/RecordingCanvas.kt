@@ -80,30 +80,30 @@ public interface RecordingCanvas : RemoteStateScope {
 }
 
 internal interface InternalRecordingCanvas : RecordingCanvas {
-    val buffer: RemoteDocumentProgram
+    val buffer: CanvasOperationBuffer
     var forceSendingPaint: Boolean
     var currentDrawToBitmapId: Int
 
-    fun recordRenderingOp(op: DocumentOp): RemoteDocumentProgram.SpanOp
+    fun recordRenderingOp(op: CanvasOp): CanvasOperationBuffer.SpanOp
 
-    fun recordRenderingOp(action: () -> Unit): RemoteDocumentProgram.SpanOp
+    fun recordRenderingOp(action: () -> Unit): CanvasOperationBuffer.SpanOp
 
-    fun recordRenderingOp(operation: WriterOp): RemoteDocumentProgram.SpanOp
+    fun recordRenderingOp(operation: WriterOp): CanvasOperationBuffer.SpanOp
 
     fun recordRenderingOp(
         paint: RemotePaint?,
         action: () -> Unit,
-    ): RemoteDocumentProgram.SpanOp
+    ): CanvasOperationBuffer.SpanOp
 
     fun recordRenderingOp(
         paint: RemotePaint?,
         operation: WriterOp,
-    ): RemoteDocumentProgram.SpanOp
+    ): CanvasOperationBuffer.SpanOp
 
-    fun recordInChildSpan(action: () -> Unit): RemoteDocumentProgram.Span
+    fun recordInChildSpan(action: () -> Unit): CanvasOperationBuffer.Span
 
     fun recordInOffscreenChildSpan(
         bitmapId: Int,
         action: () -> Unit,
-    ): RemoteDocumentProgram.Span
+    ): CanvasOperationBuffer.Span
 }

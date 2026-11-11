@@ -1,0 +1,4 @@
+# Upstream files the fork carries at another path: upstream file (under compose/remote), fork file
+# (under this module), reason. A file the fork splits has one row per part, the compared part first.
+#
+# Empty: every carried file sits at its upstream path under `upstream/`.

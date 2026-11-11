@@ -40,6 +40,17 @@ kotlin {
     }
 
     sourceSets {
+        // The files with an AndroidX counterpart sit under `upstream/`, each at its upstream path:
+        // the module and source set it comes from, then the same package path. All four roots
+        // compile into `commonMain`, `androidMain`'s among them: what the fork carries from there
+        // needs only Compose UI, which Compose Multiplatform has on every target. `src/` holds
+        // what the fork adds. See PROVENANCE.md.
+        commonMain {
+            kotlin.srcDir("upstream/remote-creation-expression/src/main/java")
+            kotlin.srcDir("upstream/remote-creation-compose/src/jvmAndAndroidMain/kotlin")
+            kotlin.srcDir("upstream/remote-creation-compose/src/androidMain/kotlin")
+            kotlin.srcDir("upstream/foundation/foundation/src/main/java")
+        }
         commonMain.dependencies {
             api(project(":third-party-remote-creation-writer"))
             api("androidx.annotation:annotation:1.11.0")
@@ -61,8 +72,10 @@ ktfmt { kotlinLangStyle() }
 // The fork carries AndroidX's own class names. On Android a consumer could also resolve AndroidX's
 // `remote-creation-compose` (or `remote-foundation`, through it), and two jars defining the same
 // classes fail late and confusingly. Declaring AndroidX's capabilities makes Gradle refuse the pair
-// at resolution, naming both. AndroidX publishes those only for Android, so only the Android
-// variants declare them.
+// at resolution, naming both. `remote-creation-expression` is one of them: upstream moved the state
+// types (`RemoteFloat`, `RemoteColor`, `RemoteState`, …) into that module, so it can arrive without
+// `remote-creation-compose`. AndroidX's releases so far publish these only for Android, so only the
+// Android variants declare them.
 //
 // Declaring any capability replaces the implicit one, so the Android variants restate theirs: the
 // coordinates of the module they are published in, `…-android`, which is what a consumer resolving
@@ -72,6 +85,7 @@ ktfmt { kotlinLangStyle() }
 val androidxCapabilities =
     listOf(
         "androidx.compose.remote:remote-creation-compose",
+        "androidx.compose.remote:remote-creation-expression",
         "androidx.compose.remote.foundation:foundation",
     )
 
