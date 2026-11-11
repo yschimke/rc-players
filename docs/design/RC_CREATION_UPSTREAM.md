@@ -535,6 +535,28 @@ the JVM parser as it is for `addPathString`.
 *Verified by reading; the fork's port of the parser is tested (`CarriedCreationApiTest` in
 `:rc-creation-bridge`), AndroidX's is not run here.*
 
+### What a pattern's body declares first is not declared for the code after it
+
+The creation state caches the id it gave a state (`remoteVariableToId` and the lowered-expression
+caches, `expression/capture/RemoteComposeCreationState.kt`), and the writer writes a declaration
+where it is first asked for. A value from outside a pattern that its body is the first to read (a
+named float, say) is therefore declared inside `MACRO_DEFINE`, in the template. AndroidX gives
+what a template declares a new id when it expands it, so the original id is declared nowhere in
+the expanded document, and a later draw that reads the same state, for which the cache still
+answers the original id, reads a variable that does not exist. `withCanvasOperationsScope` scopes
+those caches to a canvas, not to a pattern, for-each or loop body, and the canvas's common
+sub-expression pass hoists only an operation used twice, not a named value. Suggested fix: declare
+in the body only what is computed from the pattern's parameters (or the for-each's item), and
+everything else before the definition; or scope the caches to the body. The fork's writer does the
+first: it tracks the ids a body owns and writes a declaration in the body only when it reads one.
+
+*Verified with a document laid out as upstream's writer lays it out (the fork's, before the fix,
+wrote every declaration of a pattern body in the body): `LoomPatternsTest` in `:rc-creation-bridge`
+has AndroidX's reader (`remote-core` 1.0.0-alpha23) expand "a pattern that draws a circle of a named
+float's radius, called, then a circle of the same radius", and the last circle's radius was an id
+no operation declared; `RcPatternCapturedStatePlaybackTest` in `:rc-player-embedded` plays it, and
+before the fix neither circle was drawn. Not run against AndroidX's own writer.*
+
 ### `RemoteCanvas.save()` returns a count `restoreToCount` does nothing with
 
 `common/layout/RemoteCanvas.kt:193-197` documents `save()` as returning "the value to pass to
