@@ -16,10 +16,10 @@
 
 package androidx.compose.remote.creation.compose.text
 
-import androidx.compose.runtime.Composable
-
 /**
  * Whether the platform shows time in 24-hour format: what the fork's captures provide as
- * `LocalIs24HourFormat`, which upstream's Android capture reads from `DateFormat`.
+ * `LocalIs24HourFormat`, which upstream's Android capture reads from `DateFormat` with the
+ * `Context` it is given. Not composable, and takes no context: a capture composes under its own
+ * recomposer, with none of the host's composition locals.
  */
-@Composable internal expect fun platformUses24HourTime(): Boolean
+internal expect fun platformUses24HourTime(): Boolean
