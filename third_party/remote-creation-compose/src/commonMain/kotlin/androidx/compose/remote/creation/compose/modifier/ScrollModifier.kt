@@ -149,5 +149,7 @@ public fun RemoteModifier.horizontalScroll(state: RemoteScrollState): RemoteModi
     return this.then(ClipModifier()).then(ScrollModifier(Horizontal, state))
 }
 
-private const val Horizontal = 0
-private const val Vertical = 1
+// `remote-creation-core`'s `ScrollModifier.VERTICAL` and `HORIZONTAL`: the wire's direction, which
+// `ScrollModifierOperation` reads as vertical when 0.
+private const val Vertical = 0
+private const val Horizontal = 1

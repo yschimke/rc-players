@@ -164,6 +164,9 @@ public class RcPlayerState(
    * another length would otherwise be zero-filled away on the next frame. Reads check here first.
    */
   private val floatArrayOverrides = mutableMapOf<Int, FloatArray>()
+
+  /** Colour ids the host overrides by name; document writes to them are ignored ([setColor]). */
+  private val colorOverrides = mutableSetOf<Int>()
   private val idMaps = mutableMapOf<Int, RcIdMap>()
   private val bitmaps = mutableMapOf<Int, RcBitmapData>()
   private val floatExpressionEvaluator = RcFloatExpressionEvaluator(arrays = ::floatArray)
@@ -1917,7 +1920,13 @@ public class RcPlayerState(
     return changed
   }
 
+  /**
+   * A document write to the colour [id]: a colour expression's or a themed colour's output. Ignored
+   * while the host overrides that colour by name, as AndroidX's `RemoteComposeState.updateColor` is
+   * — otherwise an expression-backed named colour would replace the host's value every frame.
+   */
   public fun setColor(id: Int, argb: Int) {
+    if (id in colorOverrides) return
     colors[id] = argb
   }
 
@@ -1986,6 +1995,13 @@ public class RcPlayerState(
       // change it again.
       textOverrides.remove(variable.id)
       baseTexts[variable.id]?.let { texts[variable.id] = it } ?: texts.remove(variable.id)
+      return
+    }
+    if (variable.type == RcNamedVariable.COLOR_TYPE) {
+      // Drop the override before restoring, so the document's own writes (a colour expression
+      // naming this id) land again; the remembered value stands until the next one does.
+      colorOverrides.remove(variable.id)
+      (documentNamedValues[name] as? RcNamedValue.Color)?.let { colors[variable.id] = it.argb }
       return
     }
     val numeric =
@@ -2057,8 +2073,10 @@ public class RcPlayerState(
       // same as any other host write, or the next frame's clock would replace the override.
       variable.type == RcNamedVariable.FLOAT_TYPE && value is RcNamedValue.FloatValue ->
         setFloat(variable.id, value.value)
-      variable.type == RcNamedVariable.COLOR_TYPE && value is RcNamedValue.Color ->
+      variable.type == RcNamedVariable.COLOR_TYPE && value is RcNamedValue.Color -> {
+        colorOverrides.add(variable.id)
         colors[variable.id] = value.argb
+      }
       variable.type == RcNamedVariable.INT_TYPE && value is RcNamedValue.Integer -> {
         if (variable.id in RcSystemVariables.ALL) claimedSystemIds.add(variable.id)
         setInteger(variable.id, value.value)
