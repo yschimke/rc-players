@@ -18,7 +18,7 @@
 # no place for a comment; it is counted on its own, as neither marked nor unmarked.
 #
 # Both sides are normalised before comparing: trailing whitespace goes, runs of blank lines
-# collapse, each file's imports are sorted and de-duplicated, `@kotlin.jvm.JvmName` and its
+# collapse, each file's imports are sorted (by the name AndroidX has for them) and de-duplicated, `@kotlin.jvm.JvmName` and its
 # like are written `@JvmName` (common code has to qualify or import them, JVM code does not), and
 # a comma that ends a line goes (this repository's ktfmt puts a trailing comma after a lone
 # argument that it breaks onto its own line, and AndroidX's does not).
@@ -89,22 +89,34 @@ rows upstream-packages.tsv | awk -F'\t' '{
   printf "s|^%s(/\|$)|%s\\1|\n", from, to
 }' >"$work/path.sed"
 fork_path() { printf '%s\n' "$1" | sed -E -f "$work/path.sed"; }
+rows upstream-packages.tsv >"$work/packages"
 
 # Trailing whitespace, a comma ending a line, `kotlin.jvm.` on annotations, blank-line runs, and the
 # import block (sorted, unique, where it started).
 normalise() {
   sed -E -e 's/[[:space:]]*$//' -e 's/,$//' -e 's/@((file|get|set):)?kotlin\.jvm\.Jvm/@\1Jvm/g' |
-    awk '
-      /^import kotlin\.jvm\.Jvm[A-Za-z]*$/ { next }
-      /^import / { imports[n++] = $0; next }
-      n && !flushed {
-        cmd = "LC_ALL=C sort -u"
-        for (i = 0; i < n; i++) print imports[i] | cmd
+    awk -v packages="$work/packages" '
+      # An import is sorted where its AndroidX name would sort, so that the fork being in another
+      # package does not reorder the block and move its hunks.
+      BEGIN { p = 0; while ((getline row < packages) > 0) { split(row, col, "\t"); theirs[p] = col[1]; ours[p] = col[2]; p++ } }
+      function key(line,    i, prefix) {
+        for (i = 0; i < p; i++) {
+          prefix = "import " ours[i]
+          if (index(line, prefix ".") == 1) return "import " theirs[i] substr(line, length(prefix) + 1)
+        }
+        return line
+      }
+      function flush(    i, cmd) {
+        cmd = "LC_ALL=C sort -u | cut -f2-"
+        for (i = 0; i < n; i++) print key(imports[i]) "\t" imports[i] | cmd
         close(cmd); flushed = 1; blank = 0
       }
+      /^import kotlin\.jvm\.Jvm[A-Za-z]*$/ { next }
+      /^import / { imports[n++] = $0; next }
+      n && !flushed { flush() }
       /^$/ { if (blank++) next; print; next }
       { blank = 0; print }
-      END { if (n && !flushed) { cmd = "LC_ALL=C sort -u"; for (i = 0; i < n; i++) print imports[i] | cmd; close(cmd) } }'
+      END { if (n && !flushed) flush() }'
 }
 
 # Every fork source file, relative to the directory the three modules are in.

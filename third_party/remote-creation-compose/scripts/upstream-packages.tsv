@@ -7,5 +7,10 @@
 #
 # Only packages the fork declares are listed. `androidx.compose.remote.core` and the rest of
 # `androidx.compose.remote.creation` stay AndroidX's: the fork does not carry them.
+#
+# The last row is the writer's package. Upstream has no package of that name (its classes are
+# reached through upstream-fqn.tsv); the row is the name the fork's writer had while the fork was in
+# AndroidX's package, kept so that imports sort where they did.
 androidx.compose.remote.creation.compose	ee.schimke.composeai.rccreation.compose
 androidx.compose.remote.foundation	ee.schimke.composeai.rccreation.foundation
+androidx.compose.remote.creation.common	ee.schimke.composeai.rccreation.common
