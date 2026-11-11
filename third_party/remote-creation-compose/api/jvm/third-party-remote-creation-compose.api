@@ -224,6 +224,13 @@ public final class androidx/compose/remote/creation/compose/capture/RemoteImageV
 	public static final fun toRemoteImageVector (Landroidx/compose/ui/graphics/vector/ImageVector;)Landroidx/compose/remote/creation/compose/capture/RemoteImageVector;
 }
 
+public final class androidx/compose/remote/creation/compose/capture/RemoteProfileCapabilitiesKt {
+	public static final fun currentProfileSupports ([ILandroidx/compose/runtime/Composer;I)Z
+	public static final fun currentProfileSupportsPathClip (Landroidx/compose/runtime/Composer;I)Z
+	public static final fun currentProfileSupportsThemedColors (Landroidx/compose/runtime/Composer;I)Z
+	public static final fun currentProfileSupportsTouchModifiers (Landroidx/compose/runtime/Composer;I)Z
+}
+
 public final class androidx/compose/remote/creation/compose/layout/ComposableSingletons$RemoteCustomComponentKt {
 	public static final field INSTANCE Landroidx/compose/remote/creation/compose/layout/ComposableSingletons$RemoteCustomComponentKt;
 	public fun <init> ()V
@@ -867,6 +874,38 @@ public final class androidx/compose/remote/creation/compose/layout/RemoteStateLa
 
 public final class androidx/compose/remote/creation/compose/layout/RemoteTextKt {
 	public static final fun RemoteText-FB4sgHk (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/modifier/RemoteModifier;Landroidx/compose/remote/creation/compose/state/RemoteColor;Landroidx/compose/remote/creation/compose/state/RemoteTextUnit;Landroidx/compose/remote/creation/compose/text/RemoteFontStyle;Landroidx/compose/remote/creation/compose/text/RemoteFontWeight;Landroidx/compose/remote/creation/compose/text/RemoteFontFamily;Landroidx/compose/remote/creation/compose/text/RemoteTextAlign;IILjava/lang/String;Landroidx/compose/remote/creation/compose/text/RemoteFontVariation$Settings;Landroidx/compose/remote/creation/compose/text/RemoteTextStyle;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class androidx/compose/remote/creation/compose/layout/RemoteTextLayoutResult {
+	public static final field $stable I
+	public fun <init> (Landroidx/compose/remote/creation/compose/layout/RemoteSize;)V
+	public fun <init> (Landroidx/compose/remote/creation/compose/layout/RemoteSize;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public synthetic fun <init> (Landroidx/compose/remote/creation/compose/layout/RemoteSize;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+	public final fun getAscent ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getDescent ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getFirstBaseline ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getGlyphBottom ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getGlyphLeft ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getGlyphRight ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getGlyphTop ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getHeight ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getLastBaseline ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getMonospaceWidth ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public final fun getSize ()Landroidx/compose/remote/creation/compose/layout/RemoteSize;
+	public final fun getWidth ()Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class androidx/compose/remote/creation/compose/layout/RemoteTextMeasureKt {
+	public static final fun rememberRemoteTextMeasurer (Landroidx/compose/runtime/Composer;I)Landroidx/compose/remote/creation/compose/layout/RemoteTextMeasurer;
+}
+
+public final class androidx/compose/remote/creation/compose/layout/RemoteTextMeasurer {
+	public static final field $stable I
+	public fun <init> (Landroidx/compose/remote/creation/compose/capture/RemoteDensity;)V
+	public final fun measure (Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/text/RemoteTextStyle;Landroidx/compose/remote/creation/compose/state/RemoteTextUnit;)Landroidx/compose/remote/creation/compose/layout/RemoteTextLayoutResult;
+	public static synthetic fun measure$default (Landroidx/compose/remote/creation/compose/layout/RemoteTextMeasurer;Landroidx/compose/remote/creation/compose/state/RemoteString;Landroidx/compose/remote/creation/compose/text/RemoteTextStyle;Landroidx/compose/remote/creation/compose/state/RemoteTextUnit;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/layout/RemoteTextLayoutResult;
 }
 
 public final class androidx/compose/remote/creation/compose/layout/RemoteTime {
@@ -2663,6 +2702,7 @@ public final class androidx/compose/remote/creation/compose/state/RemoteStateIns
 }
 
 public final class androidx/compose/remote/creation/compose/state/RemoteStateKt {
+	public static final fun Hoist ([Landroidx/compose/remote/creation/compose/state/RemoteState;Landroidx/compose/runtime/Composer;I)V
 	public static final fun rememberNamedRemoteBoolean (Ljava/lang/String;ZLandroidx/compose/remote/creation/compose/state/RemoteState$Domain;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/state/RemoteBoolean;
 	public static final fun rememberNamedRemoteColor (Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteColor;Landroidx/compose/remote/creation/compose/state/RemoteState$Domain;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/state/RemoteColor;
 	public static final fun rememberNamedRemoteDp (Ljava/lang/String;Landroidx/compose/remote/creation/compose/state/RemoteDp;Landroidx/compose/remote/creation/compose/state/RemoteState$Domain;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/state/RemoteDp;
@@ -3223,6 +3263,130 @@ public final class androidx/compose/remote/creation/compose/text/RemoteTypeface$
 	public static fun values ()[Landroidx/compose/remote/creation/compose/text/RemoteTypeface$Style;
 }
 
+public final class androidx/compose/remote/creation/compose/vector/RemoteAnimatedVector {
+	public static final field $stable I
+	public static final field Companion Landroidx/compose/remote/creation/compose/vector/RemoteAnimatedVector$Companion;
+	public fun <init> (Ljava/lang/String;FFFFLandroidx/compose/remote/creation/compose/vector/RemoteAnimatedVectorGroup;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;FFFFLandroidx/compose/remote/creation/compose/vector/RemoteAnimatedVectorGroup;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun draw (Landroidx/compose/remote/creation/common/RemoteWriter;F)V
+	public final fun getHeight ()F
+	public final fun getName ()Ljava/lang/String;
+	public final fun getRootGroup ()Landroidx/compose/remote/creation/compose/vector/RemoteAnimatedVectorGroup;
+	public final fun getTargets ()Ljava/util/List;
+	public final fun getTotalDuration ()I
+	public final fun getViewportHeight ()F
+	public final fun getViewportWidth ()F
+	public final fun getWidth ()F
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemoteAnimatedVector$Companion {
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemoteAnimatedVectorGroup : androidx/compose/remote/creation/compose/vector/RemoteAnimatedVectorNode {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;FFFFFFFLjava/lang/String;Ljava/lang/String;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;FFFFFFFLjava/lang/String;Ljava/lang/String;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getChildren ()Ljava/util/List;
+	public final fun getClipPathData ()Ljava/lang/String;
+	public final fun getClipPathName ()Ljava/lang/String;
+	public fun getName ()Ljava/lang/String;
+	public final fun getPivotX ()F
+	public final fun getPivotY ()F
+	public final fun getRotation ()F
+	public final fun getScaleX ()F
+	public final fun getScaleY ()F
+	public final fun getTranslationX ()F
+	public final fun getTranslationY ()F
+}
+
+public abstract interface class androidx/compose/remote/creation/compose/vector/RemoteAnimatedVectorNode {
+	public abstract fun getName ()Ljava/lang/String;
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemoteAnimatedVectorPainter_androidKt {
+	public static final fun defaultProgress (Landroidx/compose/remote/creation/compose/vector/RemoteAnimatedVector;)Landroidx/compose/remote/creation/compose/state/RemoteFloat;
+	public static final fun painterRemoteAnimatedVector (Landroidx/compose/remote/creation/compose/vector/RemoteAnimatedVector;Landroidx/compose/remote/creation/compose/state/RemoteFloat;)Landroidx/compose/remote/creation/compose/painter/RemotePainter;
+	public static synthetic fun painterRemoteAnimatedVector$default (Landroidx/compose/remote/creation/compose/vector/RemoteAnimatedVector;Landroidx/compose/remote/creation/compose/state/RemoteFloat;ILjava/lang/Object;)Landroidx/compose/remote/creation/compose/painter/RemotePainter;
+	public static final fun rememberRemoteAnimatedVectorPainter (Landroidx/compose/remote/creation/compose/vector/RemoteAnimatedVector;Landroidx/compose/remote/creation/compose/state/RemoteFloat;Landroidx/compose/runtime/Composer;II)Landroidx/compose/remote/creation/compose/painter/RemotePainter;
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemoteAnimatedVectorPath : androidx/compose/remote/creation/compose/vector/RemoteAnimatedVectorNode {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;FLjava/lang/Integer;FFIIFFFF)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;FLjava/lang/Integer;FFIIFFFFILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getFillAlpha ()F
+	public final fun getFillColor ()Ljava/lang/Integer;
+	public fun getName ()Ljava/lang/String;
+	public final fun getPathData ()Ljava/lang/String;
+	public final fun getStrokeAlpha ()F
+	public final fun getStrokeColor ()Ljava/lang/Integer;
+	public final fun getStrokeLineCap ()I
+	public final fun getStrokeLineJoin ()I
+	public final fun getStrokeLineMiter ()F
+	public final fun getStrokeWidth ()F
+	public final fun getTrimPathEnd ()F
+	public final fun getTrimPathOffset ()F
+	public final fun getTrimPathStart ()F
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemoteAnimatedVectorTarget {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getAnimators ()Ljava/util/List;
+	public final fun getName ()Ljava/lang/String;
+}
+
+public abstract interface class androidx/compose/remote/creation/compose/vector/RemoteInterpolator {
+	public static final field Companion Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator$Companion;
+	public abstract fun transform (F)F
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemoteInterpolator$Accelerate : androidx/compose/remote/creation/compose/vector/RemoteInterpolator {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (F)V
+	public synthetic fun <init> (FILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun transform (F)F
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemoteInterpolator$Companion {
+	public final fun getAccelerateDecelerate ()Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator;
+	public final fun getFastOutLinearIn ()Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator;
+	public final fun getFastOutSlowIn ()Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator;
+	public final fun getLinear ()Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator;
+	public final fun getLinearOutSlowIn ()Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator;
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemoteInterpolator$CubicBezier : androidx/compose/remote/creation/compose/vector/RemoteInterpolator {
+	public static final field $stable I
+	public fun <init> (FFFF)V
+	public final fun getX1 ()F
+	public final fun getX2 ()F
+	public final fun getY1 ()F
+	public final fun getY2 ()F
+	public fun transform (F)F
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemoteInterpolator$Decelerate : androidx/compose/remote/creation/compose/vector/RemoteInterpolator {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (F)V
+	public synthetic fun <init> (FILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun transform (F)F
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemoteKeyframe {
+	public static final field $stable I
+	public fun <init> (FLjava/lang/Object;Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator;)V
+	public synthetic fun <init> (FLjava/lang/Object;Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getFraction ()F
+	public final fun getInterpolator ()Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator;
+	public final fun getValue ()Ljava/lang/Object;
+}
+
 public abstract class androidx/compose/remote/creation/compose/vector/RemotePathNode {
 	public static final field $stable I
 	public synthetic fun <init> (ZZLkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -3680,6 +3844,27 @@ public final class androidx/compose/remote/creation/compose/vector/RemotePathSco
 	public final fun relativeVerticalTo (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
 	public final fun verticalLineTo (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
 	public final fun verticalLineToRelative (Landroidx/compose/remote/creation/compose/state/RemoteFloat;)V
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemotePropertyAnimator {
+	public static final field $stable I
+	public static final field Companion Landroidx/compose/remote/creation/compose/vector/RemotePropertyAnimator$Companion;
+	public static final field REPEAT_MODE_RESTART I
+	public static final field REPEAT_MODE_REVERSE I
+	public fun <init> (Ljava/lang/String;IIIILjava/util/List;Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator;)V
+	public synthetic fun <init> (Ljava/lang/String;IIIILjava/util/List;Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun evaluateAt (IF)Ljava/lang/Object;
+	public final fun getDuration ()I
+	public final fun getInterpolator ()Landroidx/compose/remote/creation/compose/vector/RemoteInterpolator;
+	public final fun getKeyframes ()Ljava/util/List;
+	public final fun getPropertyName ()Ljava/lang/String;
+	public final fun getRepeatCount ()I
+	public final fun getRepeatMode ()I
+	public final fun getStartDelay ()I
+	public final fun getTotalDuration ()I
+}
+
+public final class androidx/compose/remote/creation/compose/vector/RemotePropertyAnimator$Companion {
 }
 
 public final class androidx/compose/remote/creation/compose/vector/RemoteVectorKt {

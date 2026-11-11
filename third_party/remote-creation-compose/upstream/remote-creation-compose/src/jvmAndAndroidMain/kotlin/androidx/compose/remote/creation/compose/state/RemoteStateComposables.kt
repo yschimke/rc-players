@@ -18,7 +18,11 @@
 
 package androidx.compose.remote.creation.compose.state
 
+import androidx.annotation.RestrictTo
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
+import androidx.compose.remote.creation.compose.layout.RemoteCanvas
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
+import androidx.compose.remote.creation.compose.layout.RemoteComposeNode
 import androidx.compose.remote.creation.compose.state.RemoteBoolean.Companion.createNamedRemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteFloat.Companion.createNamedRemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteInt.Companion.createNamedRemoteInt
@@ -261,4 +265,48 @@ public fun rememberNamedRemoteInt(
     domain: RemoteState.Domain = RemoteState.Domain.User,
 ): RemoteInt {
     return remember(name, domain) { createNamedRemoteInt(name, defaultValue, domain) }
+}
+
+// ==============================================================================================
+// RemoteState Hoisting Composables
+// ==============================================================================================
+
+internal class RemoteHoistNode : RemoteComposeNode() {
+    var states: Array<out RemoteState<*>> = emptyArray()
+
+    override val supportsComponentToken: Boolean
+        get() = false
+
+    override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
+        // KMP (rc-players): recorded, and written when the canvas flushes, as the fork's layouts
+        // are. The Kotlin writer puts every declaration ahead of the layout, so a hoisted state
+        // ends there, not at this container: evaluated whatever is hidden, which is what the
+        // caller asks for.
+        val states = states
+        remoteCanvas.recordRenderingOp {
+            for (state in states) {
+                if (state is BaseRemoteState<*>) {
+                    state.getIdForCreationState(creationState)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Explicitly registers one or more [RemoteState] expressions to be hoisted and evaluated at the
+ * current container level in the document hierarchy.
+ *
+ * This ensures the operations underlying the given states (such as string formatting or
+ * mathematical operations) are emitted at this container level, so that they are evaluated whenever
+ * this container is rendered, rather than being trapped inside a conditionally hidden child
+ * container (such as an inactive branch of a RemoteStateLayout).
+ *
+ * @param states The remote state expressions to hoist to the current container scope.
+ */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+@RemoteComposable
+@Composable
+public fun Hoist(vararg states: RemoteState<*>) {
+    RemoteComposeNode(factory = ::RemoteHoistNode, update = { set(states) { this.states = it } })
 }

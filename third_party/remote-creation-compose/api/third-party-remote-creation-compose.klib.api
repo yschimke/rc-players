@@ -115,6 +115,50 @@ abstract fun interface androidx.compose.remote.creation.compose.layout/RemotePat
     open fun invoke() // androidx.compose.remote.creation.compose.layout/RemotePattern0.invoke|invoke(){}[0]
 }
 
+abstract fun interface androidx.compose.remote.creation.compose.vector/RemoteInterpolator { // androidx.compose.remote.creation.compose.vector/RemoteInterpolator|null[0]
+    abstract fun transform(kotlin/Float): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.transform|transform(kotlin.Float){}[0]
+
+    final class Accelerate : androidx.compose.remote.creation.compose.vector/RemoteInterpolator { // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Accelerate|null[0]
+        constructor <init>(kotlin/Float = ...) // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Accelerate.<init>|<init>(kotlin.Float){}[0]
+
+        final fun transform(kotlin/Float): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Accelerate.transform|transform(kotlin.Float){}[0]
+    }
+
+    final class CubicBezier : androidx.compose.remote.creation.compose.vector/RemoteInterpolator { // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.CubicBezier|null[0]
+        constructor <init>(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.CubicBezier.<init>|<init>(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
+
+        final val x1 // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.CubicBezier.x1|{}x1[0]
+            final fun <get-x1>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.CubicBezier.x1.<get-x1>|<get-x1>(){}[0]
+        final val x2 // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.CubicBezier.x2|{}x2[0]
+            final fun <get-x2>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.CubicBezier.x2.<get-x2>|<get-x2>(){}[0]
+        final val y1 // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.CubicBezier.y1|{}y1[0]
+            final fun <get-y1>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.CubicBezier.y1.<get-y1>|<get-y1>(){}[0]
+        final val y2 // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.CubicBezier.y2|{}y2[0]
+            final fun <get-y2>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.CubicBezier.y2.<get-y2>|<get-y2>(){}[0]
+
+        final fun transform(kotlin/Float): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.CubicBezier.transform|transform(kotlin.Float){}[0]
+    }
+
+    final class Decelerate : androidx.compose.remote.creation.compose.vector/RemoteInterpolator { // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Decelerate|null[0]
+        constructor <init>(kotlin/Float = ...) // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Decelerate.<init>|<init>(kotlin.Float){}[0]
+
+        final fun transform(kotlin/Float): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Decelerate.transform|transform(kotlin.Float){}[0]
+    }
+
+    final object Companion { // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Companion|null[0]
+        final val AccelerateDecelerate // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Companion.AccelerateDecelerate|{}AccelerateDecelerate[0]
+            final fun <get-AccelerateDecelerate>(): androidx.compose.remote.creation.compose.vector/RemoteInterpolator // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Companion.AccelerateDecelerate.<get-AccelerateDecelerate>|<get-AccelerateDecelerate>(){}[0]
+        final val FastOutLinearIn // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Companion.FastOutLinearIn|{}FastOutLinearIn[0]
+            final fun <get-FastOutLinearIn>(): androidx.compose.remote.creation.compose.vector/RemoteInterpolator // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Companion.FastOutLinearIn.<get-FastOutLinearIn>|<get-FastOutLinearIn>(){}[0]
+        final val FastOutSlowIn // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Companion.FastOutSlowIn|{}FastOutSlowIn[0]
+            final fun <get-FastOutSlowIn>(): androidx.compose.remote.creation.compose.vector/RemoteInterpolator // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Companion.FastOutSlowIn.<get-FastOutSlowIn>|<get-FastOutSlowIn>(){}[0]
+        final val Linear // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Companion.Linear|{}Linear[0]
+            final fun <get-Linear>(): androidx.compose.remote.creation.compose.vector/RemoteInterpolator // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Companion.Linear.<get-Linear>|<get-Linear>(){}[0]
+        final val LinearOutSlowIn // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Companion.LinearOutSlowIn|{}LinearOutSlowIn[0]
+            final fun <get-LinearOutSlowIn>(): androidx.compose.remote.creation.compose.vector/RemoteInterpolator // androidx.compose.remote.creation.compose.vector/RemoteInterpolator.Companion.LinearOutSlowIn.<get-LinearOutSlowIn>|<get-LinearOutSlowIn>(){}[0]
+    }
+}
+
 abstract interface <#A: kotlin/Any?> androidx.compose.remote.creation.compose.state/MutableRemoteState : androidx.compose.remote.creation.compose.state/RemoteState<#A> { // androidx.compose.remote.creation.compose.state/MutableRemoteState|null[0]
     open val asEncodedMutable // androidx.compose.remote.creation.compose.state/MutableRemoteState.asEncodedMutable|{}asEncodedMutable[0]
         open fun <get-asEncodedMutable>(): androidx.compose.remote.creation.compose.state/MutableRemoteState<*> // androidx.compose.remote.creation.compose.state/MutableRemoteState.asEncodedMutable.<get-asEncodedMutable>|<get-asEncodedMutable>(){}[0]
@@ -454,6 +498,11 @@ sealed interface androidx.compose.remote.creation.compose.text/RemoteTypeface { 
         final val name // androidx.compose.remote.creation.compose.text/RemoteTypeface.Serif.name|{}name[0]
             final fun <get-name>(): kotlin/String // androidx.compose.remote.creation.compose.text/RemoteTypeface.Serif.name.<get-name>|<get-name>(){}[0]
     }
+}
+
+sealed interface androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorNode { // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorNode|null[0]
+    abstract val name // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorNode.name|{}name[0]
+        abstract fun <get-name>(): kotlin/String // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorNode.name.<get-name>|<get-name>(){}[0]
 }
 
 abstract class <#A: kotlin/Any> androidx.compose.remote.creation.compose.state/BaseRemoteState : androidx.compose.remote.creation.compose.state/RemoteState<#A> { // androidx.compose.remote.creation.compose.state/BaseRemoteState|null[0]
@@ -1013,6 +1062,45 @@ final class androidx.compose.remote.creation.compose.layout/RemoteSize { // andr
         final val Zero // androidx.compose.remote.creation.compose.layout/RemoteSize.Companion.Zero|{}Zero[0]
             final fun <get-Zero>(): androidx.compose.remote.creation.compose.layout/RemoteSize // androidx.compose.remote.creation.compose.layout/RemoteSize.Companion.Zero.<get-Zero>|<get-Zero>(){}[0]
     }
+}
+
+final class androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult { // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult|null[0]
+    constructor <init>(androidx.compose.remote.creation.compose.layout/RemoteSize) // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.<init>|<init>(androidx.compose.remote.creation.compose.layout.RemoteSize){}[0]
+    constructor <init>(androidx.compose.remote.creation.compose.layout/RemoteSize, androidx.compose.remote.creation.compose.state/RemoteFloat, androidx.compose.remote.creation.compose.state/RemoteFloat, androidx.compose.remote.creation.compose.state/RemoteFloat, androidx.compose.remote.creation.compose.state/RemoteFloat, androidx.compose.remote.creation.compose.state/RemoteFloat, androidx.compose.remote.creation.compose.state/RemoteFloat, androidx.compose.remote.creation.compose.state/RemoteFloat, androidx.compose.remote.creation.compose.state/RemoteFloat = ..., androidx.compose.remote.creation.compose.state/RemoteFloat = ...) // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.<init>|<init>(androidx.compose.remote.creation.compose.layout.RemoteSize;androidx.compose.remote.creation.compose.state.RemoteFloat;androidx.compose.remote.creation.compose.state.RemoteFloat;androidx.compose.remote.creation.compose.state.RemoteFloat;androidx.compose.remote.creation.compose.state.RemoteFloat;androidx.compose.remote.creation.compose.state.RemoteFloat;androidx.compose.remote.creation.compose.state.RemoteFloat;androidx.compose.remote.creation.compose.state.RemoteFloat;androidx.compose.remote.creation.compose.state.RemoteFloat;androidx.compose.remote.creation.compose.state.RemoteFloat){}[0]
+    constructor <init>(androidx.compose.remote.creation.compose.state/RemoteFloat, androidx.compose.remote.creation.compose.state/RemoteFloat) // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.<init>|<init>(androidx.compose.remote.creation.compose.state.RemoteFloat;androidx.compose.remote.creation.compose.state.RemoteFloat){}[0]
+
+    final val ascent // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.ascent|{}ascent[0]
+        final fun <get-ascent>(): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.ascent.<get-ascent>|<get-ascent>(){}[0]
+    final val descent // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.descent|{}descent[0]
+        final fun <get-descent>(): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.descent.<get-descent>|<get-descent>(){}[0]
+    final val firstBaseline // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.firstBaseline|{}firstBaseline[0]
+        final fun <get-firstBaseline>(): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.firstBaseline.<get-firstBaseline>|<get-firstBaseline>(){}[0]
+    final val glyphBottom // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.glyphBottom|{}glyphBottom[0]
+        final fun <get-glyphBottom>(): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.glyphBottom.<get-glyphBottom>|<get-glyphBottom>(){}[0]
+    final val glyphLeft // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.glyphLeft|{}glyphLeft[0]
+        final fun <get-glyphLeft>(): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.glyphLeft.<get-glyphLeft>|<get-glyphLeft>(){}[0]
+    final val glyphRight // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.glyphRight|{}glyphRight[0]
+        final fun <get-glyphRight>(): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.glyphRight.<get-glyphRight>|<get-glyphRight>(){}[0]
+    final val glyphTop // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.glyphTop|{}glyphTop[0]
+        final fun <get-glyphTop>(): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.glyphTop.<get-glyphTop>|<get-glyphTop>(){}[0]
+    final val height // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.height|{}height[0]
+        final fun <get-height>(): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.height.<get-height>|<get-height>(){}[0]
+    final val lastBaseline // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.lastBaseline|{}lastBaseline[0]
+        final fun <get-lastBaseline>(): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.lastBaseline.<get-lastBaseline>|<get-lastBaseline>(){}[0]
+    final val monospaceWidth // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.monospaceWidth|{}monospaceWidth[0]
+        final fun <get-monospaceWidth>(): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.monospaceWidth.<get-monospaceWidth>|<get-monospaceWidth>(){}[0]
+    final val size // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.size|{}size[0]
+        final fun <get-size>(): androidx.compose.remote.creation.compose.layout/RemoteSize // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.size.<get-size>|<get-size>(){}[0]
+    final val width // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.width|{}width[0]
+        final fun <get-width>(): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.width.<get-width>|<get-width>(){}[0]
+
+    final fun toString(): kotlin/String // androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult.toString|toString(){}[0]
+}
+
+final class androidx.compose.remote.creation.compose.layout/RemoteTextMeasurer { // androidx.compose.remote.creation.compose.layout/RemoteTextMeasurer|null[0]
+    constructor <init>(androidx.compose.remote.creation.compose.capture/RemoteDensity) // androidx.compose.remote.creation.compose.layout/RemoteTextMeasurer.<init>|<init>(androidx.compose.remote.creation.compose.capture.RemoteDensity){}[0]
+
+    final fun measure(androidx.compose.remote.creation.compose.state/RemoteString, androidx.compose.remote.creation.compose.text/RemoteTextStyle = ..., androidx.compose.remote.creation.compose.state/RemoteTextUnit? = ...): androidx.compose.remote.creation.compose.layout/RemoteTextLayoutResult // androidx.compose.remote.creation.compose.layout/RemoteTextMeasurer.measure|measure(androidx.compose.remote.creation.compose.state.RemoteString;androidx.compose.remote.creation.compose.text.RemoteTextStyle;androidx.compose.remote.creation.compose.state.RemoteTextUnit?){}[0]
 }
 
 final class androidx.compose.remote.creation.compose.layout/RemoteTime { // androidx.compose.remote.creation.compose.layout/RemoteTime|null[0]
@@ -1781,6 +1869,109 @@ final class androidx.compose.remote.creation.compose.text/RemoteTextStyle { // a
     }
 }
 
+final class androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector { // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector|null[0]
+    constructor <init>(kotlin/String, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup, kotlin.collections/List<androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorTarget> = ...) // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.<init>|<init>(kotlin.String;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;androidx.compose.remote.creation.compose.vector.RemoteAnimatedVectorGroup;kotlin.collections.List<androidx.compose.remote.creation.compose.vector.RemoteAnimatedVectorTarget>){}[0]
+
+    final val height // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.height|{}height[0]
+        final fun <get-height>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.height.<get-height>|<get-height>(){}[0]
+    final val name // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.name|{}name[0]
+        final fun <get-name>(): kotlin/String // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.name.<get-name>|<get-name>(){}[0]
+    final val rootGroup // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.rootGroup|{}rootGroup[0]
+        final fun <get-rootGroup>(): androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.rootGroup.<get-rootGroup>|<get-rootGroup>(){}[0]
+    final val targets // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.targets|{}targets[0]
+        final fun <get-targets>(): kotlin.collections/List<androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorTarget> // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.targets.<get-targets>|<get-targets>(){}[0]
+    final val totalDuration // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.totalDuration|{}totalDuration[0]
+        final fun <get-totalDuration>(): kotlin/Int // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.totalDuration.<get-totalDuration>|<get-totalDuration>(){}[0]
+    final val viewportHeight // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.viewportHeight|{}viewportHeight[0]
+        final fun <get-viewportHeight>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.viewportHeight.<get-viewportHeight>|<get-viewportHeight>(){}[0]
+    final val viewportWidth // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.viewportWidth|{}viewportWidth[0]
+        final fun <get-viewportWidth>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.viewportWidth.<get-viewportWidth>|<get-viewportWidth>(){}[0]
+    final val width // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.width|{}width[0]
+        final fun <get-width>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.width.<get-width>|<get-width>(){}[0]
+
+    final fun draw(androidx.compose.remote.creation.common/RemoteWriter, kotlin/Float) // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.draw|draw(androidx.compose.remote.creation.common.RemoteWriter;kotlin.Float){}[0]
+
+    final object Companion // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector.Companion|null[0]
+}
+
+final class androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup : androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorNode { // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup|null[0]
+    constructor <init>(kotlin/String = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/String = ..., kotlin/String = ..., kotlin.collections/List<androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorNode> = ...) // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.<init>|<init>(kotlin.String;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.String;kotlin.String;kotlin.collections.List<androidx.compose.remote.creation.compose.vector.RemoteAnimatedVectorNode>){}[0]
+
+    final val children // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.children|{}children[0]
+        final fun <get-children>(): kotlin.collections/List<androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorNode> // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.children.<get-children>|<get-children>(){}[0]
+    final val clipPathData // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.clipPathData|{}clipPathData[0]
+        final fun <get-clipPathData>(): kotlin/String // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.clipPathData.<get-clipPathData>|<get-clipPathData>(){}[0]
+    final val clipPathName // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.clipPathName|{}clipPathName[0]
+        final fun <get-clipPathName>(): kotlin/String // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.clipPathName.<get-clipPathName>|<get-clipPathName>(){}[0]
+    final val name // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.name|{}name[0]
+        final fun <get-name>(): kotlin/String // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.name.<get-name>|<get-name>(){}[0]
+    final val pivotX // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.pivotX|{}pivotX[0]
+        final fun <get-pivotX>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.pivotX.<get-pivotX>|<get-pivotX>(){}[0]
+    final val pivotY // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.pivotY|{}pivotY[0]
+        final fun <get-pivotY>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.pivotY.<get-pivotY>|<get-pivotY>(){}[0]
+    final val rotation // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.rotation|{}rotation[0]
+        final fun <get-rotation>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.rotation.<get-rotation>|<get-rotation>(){}[0]
+    final val scaleX // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.scaleX|{}scaleX[0]
+        final fun <get-scaleX>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.scaleX.<get-scaleX>|<get-scaleX>(){}[0]
+    final val scaleY // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.scaleY|{}scaleY[0]
+        final fun <get-scaleY>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.scaleY.<get-scaleY>|<get-scaleY>(){}[0]
+    final val translationX // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.translationX|{}translationX[0]
+        final fun <get-translationX>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.translationX.<get-translationX>|<get-translationX>(){}[0]
+    final val translationY // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.translationY|{}translationY[0]
+        final fun <get-translationY>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorGroup.translationY.<get-translationY>|<get-translationY>(){}[0]
+}
+
+final class androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath : androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorNode { // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath|null[0]
+    constructor <init>(kotlin/String = ..., kotlin/String = ..., kotlin/Int? = ..., kotlin/Float = ..., kotlin/Int? = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ..., kotlin/Float = ...) // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.<init>|<init>(kotlin.String;kotlin.String;kotlin.Int?;kotlin.Float;kotlin.Int?;kotlin.Float;kotlin.Float;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
+
+    final val fillAlpha // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.fillAlpha|{}fillAlpha[0]
+        final fun <get-fillAlpha>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.fillAlpha.<get-fillAlpha>|<get-fillAlpha>(){}[0]
+    final val fillColor // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.fillColor|{}fillColor[0]
+        final fun <get-fillColor>(): kotlin/Int? // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.fillColor.<get-fillColor>|<get-fillColor>(){}[0]
+    final val name // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.name|{}name[0]
+        final fun <get-name>(): kotlin/String // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.name.<get-name>|<get-name>(){}[0]
+    final val pathData // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.pathData|{}pathData[0]
+        final fun <get-pathData>(): kotlin/String // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.pathData.<get-pathData>|<get-pathData>(){}[0]
+    final val strokeAlpha // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeAlpha|{}strokeAlpha[0]
+        final fun <get-strokeAlpha>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeAlpha.<get-strokeAlpha>|<get-strokeAlpha>(){}[0]
+    final val strokeColor // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeColor|{}strokeColor[0]
+        final fun <get-strokeColor>(): kotlin/Int? // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeColor.<get-strokeColor>|<get-strokeColor>(){}[0]
+    final val strokeLineCap // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeLineCap|{}strokeLineCap[0]
+        final fun <get-strokeLineCap>(): kotlin/Int // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeLineCap.<get-strokeLineCap>|<get-strokeLineCap>(){}[0]
+    final val strokeLineJoin // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeLineJoin|{}strokeLineJoin[0]
+        final fun <get-strokeLineJoin>(): kotlin/Int // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeLineJoin.<get-strokeLineJoin>|<get-strokeLineJoin>(){}[0]
+    final val strokeLineMiter // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeLineMiter|{}strokeLineMiter[0]
+        final fun <get-strokeLineMiter>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeLineMiter.<get-strokeLineMiter>|<get-strokeLineMiter>(){}[0]
+    final val strokeWidth // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeWidth|{}strokeWidth[0]
+        final fun <get-strokeWidth>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.strokeWidth.<get-strokeWidth>|<get-strokeWidth>(){}[0]
+    final val trimPathEnd // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.trimPathEnd|{}trimPathEnd[0]
+        final fun <get-trimPathEnd>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.trimPathEnd.<get-trimPathEnd>|<get-trimPathEnd>(){}[0]
+    final val trimPathOffset // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.trimPathOffset|{}trimPathOffset[0]
+        final fun <get-trimPathOffset>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.trimPathOffset.<get-trimPathOffset>|<get-trimPathOffset>(){}[0]
+    final val trimPathStart // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.trimPathStart|{}trimPathStart[0]
+        final fun <get-trimPathStart>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorPath.trimPathStart.<get-trimPathStart>|<get-trimPathStart>(){}[0]
+}
+
+final class androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorTarget { // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorTarget|null[0]
+    constructor <init>(kotlin/String, kotlin.collections/List<androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator> = ...) // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorTarget.<init>|<init>(kotlin.String;kotlin.collections.List<androidx.compose.remote.creation.compose.vector.RemotePropertyAnimator>){}[0]
+
+    final val animators // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorTarget.animators|{}animators[0]
+        final fun <get-animators>(): kotlin.collections/List<androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator> // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorTarget.animators.<get-animators>|<get-animators>(){}[0]
+    final val name // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorTarget.name|{}name[0]
+        final fun <get-name>(): kotlin/String // androidx.compose.remote.creation.compose.vector/RemoteAnimatedVectorTarget.name.<get-name>|<get-name>(){}[0]
+}
+
+final class androidx.compose.remote.creation.compose.vector/RemoteKeyframe { // androidx.compose.remote.creation.compose.vector/RemoteKeyframe|null[0]
+    constructor <init>(kotlin/Float, kotlin/Any, androidx.compose.remote.creation.compose.vector/RemoteInterpolator = ...) // androidx.compose.remote.creation.compose.vector/RemoteKeyframe.<init>|<init>(kotlin.Float;kotlin.Any;androidx.compose.remote.creation.compose.vector.RemoteInterpolator){}[0]
+
+    final val fraction // androidx.compose.remote.creation.compose.vector/RemoteKeyframe.fraction|{}fraction[0]
+        final fun <get-fraction>(): kotlin/Float // androidx.compose.remote.creation.compose.vector/RemoteKeyframe.fraction.<get-fraction>|<get-fraction>(){}[0]
+    final val interpolator // androidx.compose.remote.creation.compose.vector/RemoteKeyframe.interpolator|{}interpolator[0]
+        final fun <get-interpolator>(): androidx.compose.remote.creation.compose.vector/RemoteInterpolator // androidx.compose.remote.creation.compose.vector/RemoteKeyframe.interpolator.<get-interpolator>|<get-interpolator>(){}[0]
+    final val value // androidx.compose.remote.creation.compose.vector/RemoteKeyframe.value|{}value[0]
+        final fun <get-value>(): kotlin/Any // androidx.compose.remote.creation.compose.vector/RemoteKeyframe.value.<get-value>|<get-value>(){}[0]
+}
+
 final class androidx.compose.remote.creation.compose.vector/RemotePathScope { // androidx.compose.remote.creation.compose.vector/RemotePathScope|null[0]
     constructor <init>() // androidx.compose.remote.creation.compose.vector/RemotePathScope.<init>|<init>(){}[0]
 
@@ -1860,6 +2051,36 @@ final class androidx.compose.remote.creation.compose.vector/RemotePathScope { //
     final fun relativeVerticalTo(androidx.compose.remote.creation.compose.state/RemoteFloat) // androidx.compose.remote.creation.compose.vector/RemotePathScope.relativeVerticalTo|relativeVerticalTo(androidx.compose.remote.creation.compose.state.RemoteFloat){}[0]
     final fun verticalLineTo(androidx.compose.remote.creation.compose.state/RemoteFloat) // androidx.compose.remote.creation.compose.vector/RemotePathScope.verticalLineTo|verticalLineTo(androidx.compose.remote.creation.compose.state.RemoteFloat){}[0]
     final fun verticalLineToRelative(androidx.compose.remote.creation.compose.state/RemoteFloat) // androidx.compose.remote.creation.compose.vector/RemotePathScope.verticalLineToRelative|verticalLineToRelative(androidx.compose.remote.creation.compose.state.RemoteFloat){}[0]
+}
+
+final class androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator { // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator|null[0]
+    constructor <init>(kotlin/String, kotlin/Int, kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin.collections/List<androidx.compose.remote.creation.compose.vector/RemoteKeyframe> = ..., androidx.compose.remote.creation.compose.vector/RemoteInterpolator = ...) // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.<init>|<init>(kotlin.String;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.collections.List<androidx.compose.remote.creation.compose.vector.RemoteKeyframe>;androidx.compose.remote.creation.compose.vector.RemoteInterpolator){}[0]
+
+    final val duration // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.duration|{}duration[0]
+        final fun <get-duration>(): kotlin/Int // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.duration.<get-duration>|<get-duration>(){}[0]
+    final val interpolator // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.interpolator|{}interpolator[0]
+        final fun <get-interpolator>(): androidx.compose.remote.creation.compose.vector/RemoteInterpolator // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.interpolator.<get-interpolator>|<get-interpolator>(){}[0]
+    final val keyframes // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.keyframes|{}keyframes[0]
+        final fun <get-keyframes>(): kotlin.collections/List<androidx.compose.remote.creation.compose.vector/RemoteKeyframe> // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.keyframes.<get-keyframes>|<get-keyframes>(){}[0]
+    final val propertyName // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.propertyName|{}propertyName[0]
+        final fun <get-propertyName>(): kotlin/String // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.propertyName.<get-propertyName>|<get-propertyName>(){}[0]
+    final val repeatCount // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.repeatCount|{}repeatCount[0]
+        final fun <get-repeatCount>(): kotlin/Int // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.repeatCount.<get-repeatCount>|<get-repeatCount>(){}[0]
+    final val repeatMode // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.repeatMode|{}repeatMode[0]
+        final fun <get-repeatMode>(): kotlin/Int // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.repeatMode.<get-repeatMode>|<get-repeatMode>(){}[0]
+    final val startDelay // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.startDelay|{}startDelay[0]
+        final fun <get-startDelay>(): kotlin/Int // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.startDelay.<get-startDelay>|<get-startDelay>(){}[0]
+    final val totalDuration // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.totalDuration|{}totalDuration[0]
+        final fun <get-totalDuration>(): kotlin/Int // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.totalDuration.<get-totalDuration>|<get-totalDuration>(){}[0]
+
+    final fun evaluateAt(kotlin/Int, kotlin/Float): kotlin/Any? // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.evaluateAt|evaluateAt(kotlin.Int;kotlin.Float){}[0]
+
+    final object Companion { // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.Companion|null[0]
+        final const val REPEAT_MODE_RESTART // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.Companion.REPEAT_MODE_RESTART|{}REPEAT_MODE_RESTART[0]
+            final fun <get-REPEAT_MODE_RESTART>(): kotlin/Int // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.Companion.REPEAT_MODE_RESTART.<get-REPEAT_MODE_RESTART>|<get-REPEAT_MODE_RESTART>(){}[0]
+        final const val REPEAT_MODE_REVERSE // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.Companion.REPEAT_MODE_REVERSE|{}REPEAT_MODE_REVERSE[0]
+            final fun <get-REPEAT_MODE_REVERSE>(): kotlin/Int // androidx.compose.remote.creation.compose.vector/RemotePropertyAnimator.Companion.REPEAT_MODE_REVERSE.<get-REPEAT_MODE_REVERSE>|<get-REPEAT_MODE_REVERSE>(){}[0]
+    }
 }
 
 final class androidx.compose.remote.creation.compose.widgets/WidgetInformation { // androidx.compose.remote.creation.compose.widgets/WidgetInformation|null[0]
@@ -3330,6 +3551,8 @@ final val androidx.compose.remote.creation.compose.layout/androidx_compose_remot
 final val androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemotePaddingValues$stableprop // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemotePaddingValues$stableprop|#static{}androidx_compose_remote_creation_compose_layout_RemotePaddingValues$stableprop[0]
 final val androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteRowScope$stableprop // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteRowScope$stableprop|#static{}androidx_compose_remote_creation_compose_layout_RemoteRowScope$stableprop[0]
 final val androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteSize$stableprop // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteSize$stableprop|#static{}androidx_compose_remote_creation_compose_layout_RemoteSize$stableprop[0]
+final val androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTextLayoutResult$stableprop // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTextLayoutResult$stableprop|#static{}androidx_compose_remote_creation_compose_layout_RemoteTextLayoutResult$stableprop[0]
+final val androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTextMeasurer$stableprop // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTextMeasurer$stableprop|#static{}androidx_compose_remote_creation_compose_layout_RemoteTextMeasurer$stableprop[0]
 final val androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTime$stableprop // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTime$stableprop|#static{}androidx_compose_remote_creation_compose_layout_RemoteTime$stableprop[0]
 final val androidx.compose.remote.creation.compose.modifier/androidx_compose_remote_creation_compose_modifier_RemoteBlurEffect$stableprop // androidx.compose.remote.creation.compose.modifier/androidx_compose_remote_creation_compose_modifier_RemoteBlurEffect$stableprop|#static{}androidx_compose_remote_creation_compose_modifier_RemoteBlurEffect$stableprop[0]
 final val androidx.compose.remote.creation.compose.modifier/androidx_compose_remote_creation_compose_modifier_RemoteEnterTransition$stableprop // androidx.compose.remote.creation.compose.modifier/androidx_compose_remote_creation_compose_modifier_RemoteEnterTransition$stableprop|#static{}androidx_compose_remote_creation_compose_modifier_RemoteEnterTransition$stableprop[0]
@@ -3467,6 +3690,14 @@ final val androidx.compose.remote.creation.compose.text/androidx_compose_remote_
 final val androidx.compose.remote.creation.compose.text/androidx_compose_remote_creation_compose_text_RemoteTypeface_Named$stableprop // androidx.compose.remote.creation.compose.text/androidx_compose_remote_creation_compose_text_RemoteTypeface_Named$stableprop|#static{}androidx_compose_remote_creation_compose_text_RemoteTypeface_Named$stableprop[0]
 final val androidx.compose.remote.creation.compose.text/androidx_compose_remote_creation_compose_text_RemoteTypeface_SansSerif$stableprop // androidx.compose.remote.creation.compose.text/androidx_compose_remote_creation_compose_text_RemoteTypeface_SansSerif$stableprop|#static{}androidx_compose_remote_creation_compose_text_RemoteTypeface_SansSerif$stableprop[0]
 final val androidx.compose.remote.creation.compose.text/androidx_compose_remote_creation_compose_text_RemoteTypeface_Serif$stableprop // androidx.compose.remote.creation.compose.text/androidx_compose_remote_creation_compose_text_RemoteTypeface_Serif$stableprop|#static{}androidx_compose_remote_creation_compose_text_RemoteTypeface_Serif$stableprop[0]
+final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVector$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVector$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemoteAnimatedVector$stableprop[0]
+final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorGroup$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorGroup$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorGroup$stableprop[0]
+final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorPath$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorPath$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorPath$stableprop[0]
+final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorTarget$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorTarget$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorTarget$stableprop[0]
+final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Accelerate$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Accelerate$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Accelerate$stableprop[0]
+final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_CubicBezier$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_CubicBezier$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemoteInterpolator_CubicBezier$stableprop[0]
+final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Decelerate$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Decelerate$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Decelerate$stableprop[0]
+final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteKeyframe$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteKeyframe$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemoteKeyframe$stableprop[0]
 final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemotePathNode$stableprop[0]
 final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_AddArc$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_AddArc$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemotePathNode_AddArc$stableprop[0]
 final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_ArcTo$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_ArcTo$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemotePathNode_ArcTo$stableprop[0]
@@ -3491,6 +3722,7 @@ final val androidx.compose.remote.creation.compose.vector/androidx_compose_remot
 final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_RelativeVerticalTo$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_RelativeVerticalTo$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemotePathNode_RelativeVerticalTo$stableprop[0]
 final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_VerticalTo$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_VerticalTo$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemotePathNode_VerticalTo$stableprop[0]
 final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathScope$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathScope$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemotePathScope$stableprop[0]
+final val androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePropertyAnimator$stableprop // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePropertyAnimator$stableprop|#static{}androidx_compose_remote_creation_compose_vector_RemotePropertyAnimator$stableprop[0]
 final val androidx.compose.remote.creation.compose.widgets/androidx_compose_remote_creation_compose_widgets_WidgetInformation$stableprop // androidx.compose.remote.creation.compose.widgets/androidx_compose_remote_creation_compose_widgets_WidgetInformation$stableprop|#static{}androidx_compose_remote_creation_compose_widgets_WidgetInformation$stableprop[0]
 final val androidx.compose.remote.creation.compose/androidx_compose_remote_creation_compose_RemoteComposeCreationComposeFlags$stableprop // androidx.compose.remote.creation.compose/androidx_compose_remote_creation_compose_RemoteComposeCreationComposeFlags$stableprop|#static{}androidx_compose_remote_creation_compose_RemoteComposeCreationComposeFlags$stableprop[0]
 
@@ -3686,6 +3918,10 @@ final fun androidx.compose.remote.creation.compose.capture/androidx_compose_remo
 final fun androidx.compose.remote.creation.compose.capture/androidx_compose_remote_creation_compose_capture_WriterOp_StartRow$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.capture/androidx_compose_remote_creation_compose_capture_WriterOp_StartRow$stableprop_getter|androidx_compose_remote_creation_compose_capture_WriterOp_StartRow$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.capture/androidx_compose_remote_creation_compose_capture_WriterOp_StartStateLayout$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.capture/androidx_compose_remote_creation_compose_capture_WriterOp_StartStateLayout$stableprop_getter|androidx_compose_remote_creation_compose_capture_WriterOp_StartStateLayout$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.capture/androidx_compose_remote_creation_compose_capture_WriterOp_StartText$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.capture/androidx_compose_remote_creation_compose_capture_WriterOp_StartText$stableprop_getter|androidx_compose_remote_creation_compose_capture_WriterOp_StartText$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.capture/currentProfileSupports(kotlin/IntArray..., androidx.compose.runtime/Composer?, kotlin/Int): kotlin/Boolean // androidx.compose.remote.creation.compose.capture/currentProfileSupports|currentProfileSupports(kotlin.IntArray...;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+final fun androidx.compose.remote.creation.compose.capture/currentProfileSupportsPathClip(androidx.compose.runtime/Composer?, kotlin/Int): kotlin/Boolean // androidx.compose.remote.creation.compose.capture/currentProfileSupportsPathClip|currentProfileSupportsPathClip(androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+final fun androidx.compose.remote.creation.compose.capture/currentProfileSupportsThemedColors(androidx.compose.runtime/Composer?, kotlin/Int): kotlin/Boolean // androidx.compose.remote.creation.compose.capture/currentProfileSupportsThemedColors|currentProfileSupportsThemedColors(androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+final fun androidx.compose.remote.creation.compose.capture/currentProfileSupportsTouchModifiers(androidx.compose.runtime/Composer?, kotlin/Int): kotlin/Boolean // androidx.compose.remote.creation.compose.capture/currentProfileSupportsTouchModifiers|currentProfileSupportsTouchModifiers(androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 final fun androidx.compose.remote.creation.compose.layout/RemoteBox(androidx.compose.remote.creation.compose.modifier/RemoteModifier?, androidx.compose.remote.creation.compose.layout/RemoteAlignment?, kotlin/Function2<androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // androidx.compose.remote.creation.compose.layout/RemoteBox|RemoteBox(androidx.compose.remote.creation.compose.modifier.RemoteModifier?;androidx.compose.remote.creation.compose.layout.RemoteAlignment?;kotlin.Function2<androidx.compose.runtime.Composer,kotlin.Int,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun androidx.compose.remote.creation.compose.layout/RemoteBox(androidx.compose.remote.creation.compose.modifier/RemoteModifier?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // androidx.compose.remote.creation.compose.layout/RemoteBox|RemoteBox(androidx.compose.remote.creation.compose.modifier.RemoteModifier?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun androidx.compose.remote.creation.compose.layout/RemoteCanvas(androidx.compose.remote.creation.compose.modifier/RemoteModifier?, kotlin/Function1<androidx.compose.remote.creation.compose.layout/RemoteDrawScope, kotlin/Unit>, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // androidx.compose.remote.creation.compose.layout/RemoteCanvas|RemoteCanvas(androidx.compose.remote.creation.compose.modifier.RemoteModifier?;kotlin.Function1<androidx.compose.remote.creation.compose.layout.RemoteDrawScope,kotlin.Unit>;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
@@ -3720,7 +3956,10 @@ final fun androidx.compose.remote.creation.compose.layout/androidx_compose_remot
 final fun androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemotePaddingValues$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemotePaddingValues$stableprop_getter|androidx_compose_remote_creation_compose_layout_RemotePaddingValues$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteRowScope$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteRowScope$stableprop_getter|androidx_compose_remote_creation_compose_layout_RemoteRowScope$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteSize$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteSize$stableprop_getter|androidx_compose_remote_creation_compose_layout_RemoteSize$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTextLayoutResult$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTextLayoutResult$stableprop_getter|androidx_compose_remote_creation_compose_layout_RemoteTextLayoutResult$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTextMeasurer$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTextMeasurer$stableprop_getter|androidx_compose_remote_creation_compose_layout_RemoteTextMeasurer$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTime$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.layout/androidx_compose_remote_creation_compose_layout_RemoteTime$stableprop_getter|androidx_compose_remote_creation_compose_layout_RemoteTime$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.layout/rememberRemoteTextMeasurer(androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.layout/RemoteTextMeasurer // androidx.compose.remote.creation.compose.layout/rememberRemoteTextMeasurer|rememberRemoteTextMeasurer(androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 final fun androidx.compose.remote.creation.compose.layout/remoteComponent(androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.remote.creation.compose.layout/RemoteComponent // androidx.compose.remote.creation.compose.layout/remoteComponent|remoteComponent(androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 final fun androidx.compose.remote.creation.compose.modifier/androidx_compose_remote_creation_compose_modifier_RemoteBlurEffect$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.modifier/androidx_compose_remote_creation_compose_modifier_RemoteBlurEffect$stableprop_getter|androidx_compose_remote_creation_compose_modifier_RemoteBlurEffect$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.modifier/androidx_compose_remote_creation_compose_modifier_RemoteEnterTransition$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.modifier/androidx_compose_remote_creation_compose_modifier_RemoteEnterTransition$stableprop_getter|androidx_compose_remote_creation_compose_modifier_RemoteEnterTransition$stableprop_getter(){}[0]
@@ -3759,6 +3998,7 @@ final fun androidx.compose.remote.creation.compose.shapes/androidx_compose_remot
 final fun androidx.compose.remote.creation.compose.shapes/androidx_compose_remote_creation_compose_shapes_RemoteOutline_Rectangle$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.shapes/androidx_compose_remote_creation_compose_shapes_RemoteOutline_Rectangle$stableprop_getter|androidx_compose_remote_creation_compose_shapes_RemoteOutline_Rectangle$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.shapes/androidx_compose_remote_creation_compose_shapes_RemoteOutline_Rounded$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.shapes/androidx_compose_remote_creation_compose_shapes_RemoteOutline_Rounded$stableprop_getter|androidx_compose_remote_creation_compose_shapes_RemoteOutline_Rounded$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.shapes/androidx_compose_remote_creation_compose_shapes_RemoteRoundedCornerShape$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.shapes/androidx_compose_remote_creation_compose_shapes_RemoteRoundedCornerShape$stableprop_getter|androidx_compose_remote_creation_compose_shapes_RemoteRoundedCornerShape$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.state/Hoist(kotlin/Array<out androidx.compose.remote.creation.compose.state/RemoteState<*>>..., androidx.compose.runtime/Composer?, kotlin/Int) // androidx.compose.remote.creation.compose.state/Hoist|Hoist(kotlin.Array<out|androidx.compose.remote.creation.compose.state.RemoteState<*>>...;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 final fun androidx.compose.remote.creation.compose.state/MutableRemoteImageBitmap(androidx.compose.ui.graphics/ImageBitmap): androidx.compose.remote.creation.compose.state/MutableRemoteImageBitmap // androidx.compose.remote.creation.compose.state/MutableRemoteImageBitmap|MutableRemoteImageBitmap(androidx.compose.ui.graphics.ImageBitmap){}[0]
 final fun androidx.compose.remote.creation.compose.state/RemoteColor(androidx.compose.ui.graphics/Color): androidx.compose.remote.creation.compose.state/RemoteColor // androidx.compose.remote.creation.compose.state/RemoteColor|RemoteColor(androidx.compose.ui.graphics.Color){}[0]
 final fun androidx.compose.remote.creation.compose.state/RemoteDp(androidx.compose.ui.unit/Dp): androidx.compose.remote.creation.compose.state/RemoteDp // androidx.compose.remote.creation.compose.state/RemoteDp|RemoteDp(androidx.compose.ui.unit.Dp){}[0]
@@ -3936,6 +4176,14 @@ final fun androidx.compose.remote.creation.compose.text/androidx_compose_remote_
 final fun androidx.compose.remote.creation.compose.text/androidx_compose_remote_creation_compose_text_RemoteTypeface_SansSerif$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.text/androidx_compose_remote_creation_compose_text_RemoteTypeface_SansSerif$stableprop_getter|androidx_compose_remote_creation_compose_text_RemoteTypeface_SansSerif$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.text/androidx_compose_remote_creation_compose_text_RemoteTypeface_Serif$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.text/androidx_compose_remote_creation_compose_text_RemoteTypeface_Serif$stableprop_getter|androidx_compose_remote_creation_compose_text_RemoteTypeface_Serif$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.vector/RemotePathData(kotlin/Function1<androidx.compose.remote.creation.compose.vector/RemotePathScope, kotlin/Unit>): kotlin.collections/List<androidx.compose.remote.creation.compose.vector/RemotePathNode> // androidx.compose.remote.creation.compose.vector/RemotePathData|RemotePathData(kotlin.Function1<androidx.compose.remote.creation.compose.vector.RemotePathScope,kotlin.Unit>){}[0]
+final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVector$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVector$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemoteAnimatedVector$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorGroup$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorGroup$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorGroup$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorPath$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorPath$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorPath$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorTarget$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorTarget$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemoteAnimatedVectorTarget$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Accelerate$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Accelerate$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Accelerate$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_CubicBezier$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_CubicBezier$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemoteInterpolator_CubicBezier$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Decelerate$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Decelerate$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemoteInterpolator_Decelerate$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteKeyframe$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemoteKeyframe$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemoteKeyframe$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemotePathNode$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_AddArc$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_AddArc$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemotePathNode_AddArc$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_ArcTo$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_ArcTo$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemotePathNode_ArcTo$stableprop_getter(){}[0]
@@ -3960,7 +4208,11 @@ final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remot
 final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_RelativeVerticalTo$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_RelativeVerticalTo$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemotePathNode_RelativeVerticalTo$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_VerticalTo$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathNode_VerticalTo$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemotePathNode_VerticalTo$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathScope$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePathScope$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemotePathScope$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePropertyAnimator$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.vector/androidx_compose_remote_creation_compose_vector_RemotePropertyAnimator$stableprop_getter|androidx_compose_remote_creation_compose_vector_RemotePropertyAnimator$stableprop_getter(){}[0]
+final fun androidx.compose.remote.creation.compose.vector/defaultProgress(androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector): androidx.compose.remote.creation.compose.state/RemoteFloat // androidx.compose.remote.creation.compose.vector/defaultProgress|defaultProgress(androidx.compose.remote.creation.compose.vector.RemoteAnimatedVector){}[0]
+final fun androidx.compose.remote.creation.compose.vector/painterRemoteAnimatedVector(androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector, androidx.compose.remote.creation.compose.state/RemoteFloat = ...): androidx.compose.remote.creation.compose.painter/RemotePainter // androidx.compose.remote.creation.compose.vector/painterRemoteAnimatedVector|painterRemoteAnimatedVector(androidx.compose.remote.creation.compose.vector.RemoteAnimatedVector;androidx.compose.remote.creation.compose.state.RemoteFloat){}[0]
 final fun androidx.compose.remote.creation.compose.vector/painterRemoteVector(androidx.compose.remote.creation.compose.capture/RemoteImageVector, androidx.compose.remote.creation.compose.state/RemoteColor = ...): androidx.compose.remote.creation.compose.painter/RemotePainter // androidx.compose.remote.creation.compose.vector/painterRemoteVector|painterRemoteVector(androidx.compose.remote.creation.compose.capture.RemoteImageVector;androidx.compose.remote.creation.compose.state.RemoteColor){}[0]
+final fun androidx.compose.remote.creation.compose.vector/rememberRemoteAnimatedVectorPainter(androidx.compose.remote.creation.compose.vector/RemoteAnimatedVector, androidx.compose.remote.creation.compose.state/RemoteFloat?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): androidx.compose.remote.creation.compose.painter/RemotePainter // androidx.compose.remote.creation.compose.vector/rememberRemoteAnimatedVectorPainter|rememberRemoteAnimatedVectorPainter(androidx.compose.remote.creation.compose.vector.RemoteAnimatedVector;androidx.compose.remote.creation.compose.state.RemoteFloat?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 final fun androidx.compose.remote.creation.compose.widgets/androidx_compose_remote_creation_compose_widgets_WidgetInformation$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose.widgets/androidx_compose_remote_creation_compose_widgets_WidgetInformation$stableprop_getter|androidx_compose_remote_creation_compose_widgets_WidgetInformation$stableprop_getter(){}[0]
 final fun androidx.compose.remote.creation.compose/androidx_compose_remote_creation_compose_RemoteComposeCreationComposeFlags$stableprop_getter(): kotlin/Int // androidx.compose.remote.creation.compose/androidx_compose_remote_creation_compose_RemoteComposeCreationComposeFlags$stableprop_getter|androidx_compose_remote_creation_compose_RemoteComposeCreationComposeFlags$stableprop_getter(){}[0]
 final fun androidx.compose.remote.foundation.icon/RemoteBasicIcon(androidx.compose.remote.creation.compose.capture/RemoteImageVector, androidx.compose.remote.creation.compose.state/RemoteString?, androidx.compose.remote.creation.compose.modifier/RemoteModifier?, androidx.compose.remote.creation.compose.state/RemoteColor?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int) // androidx.compose.remote.foundation.icon/RemoteBasicIcon|RemoteBasicIcon(androidx.compose.remote.creation.compose.capture.RemoteImageVector;androidx.compose.remote.creation.compose.state.RemoteString?;androidx.compose.remote.creation.compose.modifier.RemoteModifier?;androidx.compose.remote.creation.compose.state.RemoteColor?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
