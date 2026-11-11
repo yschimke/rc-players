@@ -91,6 +91,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
@@ -4263,8 +4264,19 @@ private fun Modifier.applyGraphicsLayer(
   val shapeRadius = rcLayerFloat(float(RcGraphicsLayerModifier.SHAPE_RADIUS), 0f, state)
   val blurX = rcLayerFloat(float(RcGraphicsLayerModifier.BLUR_RADIUS_X), 0f, state)
   val blurY = rcLayerFloat(float(RcGraphicsLayerModifier.BLUR_RADIUS_Y), 0f, state)
-  // `COMPOSITING_STRATEGY` is accepted and ignored, as both AndroidX players ignore it (a
-  // RenderNode layer composites like Compose's `Auto`).
+  // The layer's compositing strategy, mapped onto Compose's as AndroidX's embedded player maps it
+  // (androidx-main `28fb38004`): `ModulateAlpha` applies the layer's alpha to each draw rather
+  // than to the composited layer, and `Offscreen` isolates the layer at full alpha, which is what
+  // lets a `BlendMode.Clear` cut-out stop at the layer instead of punching through what is behind
+  // it. An absent or unknown value is `Auto`. The View player still ignores the attribute (a
+  // RenderNode layer composites like `Auto`).
+  val compositingStrategy =
+    when (int(RcGraphicsLayerModifier.COMPOSITING_STRATEGY)) {
+      RcGraphicsLayerModifier.COMPOSITING_STRATEGY_OFFSCREEN -> CompositingStrategy.Offscreen
+      RcGraphicsLayerModifier.COMPOSITING_STRATEGY_MODULATE_ALPHA ->
+        CompositingStrategy.ModulateAlpha
+      else -> CompositingStrategy.Auto
+    }
   val shapeType = int(RcGraphicsLayerModifier.SHAPE)
   val blurTileMode =
     when (int(RcGraphicsLayerModifier.BLUR_TILE_MODE)) {
@@ -4288,6 +4300,7 @@ private fun Modifier.applyGraphicsLayer(
     // context sets; Compose has no translationZ, so the sum goes into shadowElevation.
     this.shadowElevation = shadowElevation() + translationZ()
     this.alpha = alpha()
+    this.compositingStrategy = compositingStrategy
     this.cameraDistance = cameraDistance()
     // The layer's outline. Compose uses it for the shadow; the layer is not clipped to it, since
     // the document has no clip attribute and neither AndroidX player clips there.
