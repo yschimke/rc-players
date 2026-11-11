@@ -10,6 +10,7 @@ import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.remote.creation.compose.layout.RemoteComposeApplier
 import androidx.compose.remote.creation.compose.layout.RemoteRootNode
 import androidx.compose.remote.creation.compose.layout.toRemoteLayoutDirection
+import androidx.compose.remote.creation.compose.text.platformUses24HourTime
 import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
@@ -87,7 +88,7 @@ public suspend fun captureCommonRemoteDocumentInto(
         val recomposer = Recomposer(coroutineContext)
         val composition = Composition(RemoteComposeApplier(rootNode), recomposer)
         val creationState =
-            RemoteComposeCreationState(
+            RemoteComposeCaptureState(
                 creationDisplayInfo = creationDisplayInfo,
                 writer = writer,
                 remoteDensity = remoteDensity,
@@ -101,6 +102,7 @@ public suspend fun captureCommonRemoteDocumentInto(
                 CompositionLocalProvider(
                     LocalRemoteComposeCreationState provides creationState,
                     LocalRemoteDensity provides remoteDensity,
+                    LocalIs24HourFormat provides platformUses24HourTime(),
                     LocalDensity provides
                         Density(creationDisplayInfo.density, creationDisplayInfo.fontScale),
                     LocalInspectionMode provides creationDisplayInfo.isInspectionMode,

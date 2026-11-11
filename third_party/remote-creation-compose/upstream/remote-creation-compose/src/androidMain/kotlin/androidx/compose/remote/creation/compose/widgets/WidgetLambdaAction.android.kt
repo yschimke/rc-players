@@ -26,6 +26,8 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
 internal class WidgetLambdaAction(public val widgetId: Int, public val content: () -> Unit) :
     RemoteAction {
 
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> {
         val actionId = widgetId * 1000 + counter
         map[actionId] = this@WidgetLambdaAction

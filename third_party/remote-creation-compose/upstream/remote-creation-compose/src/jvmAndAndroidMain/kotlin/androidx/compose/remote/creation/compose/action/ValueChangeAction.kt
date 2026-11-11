@@ -25,6 +25,7 @@ import androidx.compose.remote.creation.compose.state.RemoteInt
 import androidx.compose.remote.creation.compose.state.RemoteState
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.RemoteString
+import androidx.compose.remote.creation.compose.state.creationState
 import androidx.compose.remote.creation.compose.state.isLiteral
 
 /** Update a value on click. */
@@ -32,6 +33,8 @@ internal class ValueChangeAction<T>(
     public val remoteValue: MutableRemoteState<T>,
     public val updatedValue: RemoteState<T>,
 ) : RemoteAction {
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> {
         val actualMutable = remoteValue.asEncodedMutable
         val actualValue = updatedValue.asEncoded
@@ -39,7 +42,7 @@ internal class ValueChangeAction<T>(
             when (actualMutable) {
                 is MutableRemoteInt -> {
                     actualValue as RemoteInt
-                    val array = actualValue.arrayForCreationState(this)
+                    val array = actualValue.arrayForCreationState(creationState)
                     if (array.isLiteral()) {
                         RemoteActionData.IntegerChange(actualMutable.id, array[0].toInt())
                     } else {
@@ -67,6 +70,8 @@ internal class ValueFloatChangeAction(
     public val value: MutableRemoteFloat,
     public val updatedValue: Float,
 ) : RemoteAction {
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> =
         listOf(RemoteActionData.FloatChange(value.id, updatedValue))
 }

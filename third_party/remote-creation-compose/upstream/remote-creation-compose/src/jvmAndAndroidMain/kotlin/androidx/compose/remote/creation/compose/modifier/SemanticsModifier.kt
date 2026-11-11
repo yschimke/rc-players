@@ -120,20 +120,24 @@ public var RemoteSemanticsPropertyReceiver.enabled: Boolean
         set(RemoteSemanticsProperties.Enabled, value)
     }
 
-// Port: the merge mode is AndroidX's `AccessibleComponent.Mode` ordinal (SET 0, CLEAR_AND_SET 1,
+// KMP (rc-players): the merge mode is AndroidX's `AccessibleComponent.Mode` ordinal (SET 0,
+// CLEAR_AND_SET 1,
 // MERGE 2), written through the common `RemoteModifierOperation.Semantics`.
 internal data class SemanticsModifier(
     val mergeMode: Int,
     val properties: Map<RemoteSemanticsPropertyKey<*>, Any?>,
 ) : RemoteModifier.Element {
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.Semantics(
             contentDescriptionId =
                 (properties[RemoteSemanticsProperties.ContentDescription] as? RemoteString)?.id
                     ?: 0,
             role =
-                (properties[RemoteSemanticsProperties.Role] as? RemoteRole)?.toAccessibleRole()
-                    ?: -1,
+                (properties[RemoteSemanticsProperties.Role] as? RemoteRole)
+                    ?.toAccessibleRole()
+                    ?.ordinal ?: -1,
             textId = (properties[RemoteSemanticsProperties.Text] as? RemoteString)?.id ?: 0,
             stateDescriptionId =
                 (properties[RemoteSemanticsProperties.StateDescription] as? RemoteString)?.id ?: 0,

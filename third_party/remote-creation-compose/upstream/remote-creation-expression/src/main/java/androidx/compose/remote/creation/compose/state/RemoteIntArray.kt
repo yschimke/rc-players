@@ -18,14 +18,15 @@ package androidx.compose.remote.creation.compose.state
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.Utils
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 
 /** Represents an array of remote integers. */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class RemoteIntArray
-internal constructor(
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public constructor(
     public override val constantValueOrNull: List<RemoteInt>?,
-    internal override val cacheKey: RemoteStateCacheKey,
+    cacheKey: RemoteStateCacheKey,
 ) : BaseRemoteState<List<RemoteInt>>(cacheKey) {
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -66,7 +67,7 @@ internal constructor(
         },
     }
 
-    override fun writeToDocument(creationState: RemoteComposeCreationContext): Int {
+    override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
         // If this instance represents an existing allocated ID (e.g. a formal parameter in a
         // pattern definition), return that ID directly instead of writing to the document.
         if (cacheKey is RemoteStateIdKey) {
@@ -74,7 +75,7 @@ internal constructor(
         }
         val values =
             constantValueOrNull!!.fastMap { it.getIdForCreationState(creationState) }.toIntArray()
-        return Utils.idFromNan(creationState.writer.addIdList(values))
+        return Utils.idFromNan(creationState.document.addList(values))
     }
 
     /** Array access operator for [RemoteIntArray] with an [Int] index. */
@@ -96,7 +97,7 @@ internal constructor(
         ) { creationState ->
             val arrayId = getIdForCreationState(creationState)
             val resultId =
-                creationState.writer.idLookup(
+                creationState.document.idLookup(
                     Utils.asNan(arrayId),
                     v.getFloatIdForCreationState(creationState),
                 )
@@ -120,7 +121,7 @@ internal constructor(
         ) { creationState ->
             val arrayId = getIdForCreationState(creationState)
             val resultId =
-                creationState.writer.idLookup(
+                creationState.document.idLookup(
                     Utils.asNan(arrayId),
                     v.getFloatIdForCreationState(creationState),
                 )

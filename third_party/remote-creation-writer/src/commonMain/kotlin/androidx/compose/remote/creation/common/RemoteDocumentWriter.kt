@@ -324,7 +324,7 @@ public class RemoteDocumentWriter(
         buffer.writeFloat(modifier.maximum)
         buffer.writeFloat(modifier.notchMaximum)
 
-        touchExpression(
+        addTouchExpression(
           id = Utils.idFromNan(modifier.position),
           value = 0f,
           min = 0f,
@@ -395,7 +395,7 @@ public class RemoteDocumentWriter(
     }
   }
 
-  override fun startText(data: RemoteTextData) {
+  override fun startTextComponent(data: RemoteTextData) {
     require(data.fontAxisIds.size == data.fontAxisValues.size)
     operation(CoreText)
     buffer.writeInt(data.textId)
@@ -462,7 +462,7 @@ public class RemoteDocumentWriter(
     contentSection(data.modifier.contentComponentId)
   }
 
-  override fun endText(): Unit = endLayout()
+  override fun endTextComponent(): Unit = endLayout()
 
   override fun image(data: RemoteImageData) {
     operation(LayoutImage)
@@ -478,7 +478,7 @@ public class RemoteDocumentWriter(
   override fun startCustom(
     modifier: RemoteModifierData,
     configId: Int,
-    properties: List<RemoteCustomPropertyData>,
+    properties: List<Custom.CustomProperty>,
   ) {
     customComponentsUsed = true
     operation(LayoutCustom)
@@ -490,8 +490,8 @@ public class RemoteDocumentWriter(
       buffer.writeShort(property.id.toInt())
       buffer.writeShort(property.dataType.toInt())
       if (
-        property.dataType == RemoteCustomPropertyData.FloatProperty ||
-          property.dataType == RemoteCustomPropertyData.FloatReturn
+        property.dataType == Custom.CustomProperty.FLOAT_PROP ||
+          property.dataType == Custom.CustomProperty.FLOAT_RETURN
       ) {
         buffer.writeFloat(property.floatValue)
       } else {
@@ -510,7 +510,7 @@ public class RemoteDocumentWriter(
     containerEnd()
   }
 
-  override fun startPatternDefinition(id: Int, parameterIds: IntArray) {
+  override fun definePattern(id: Int, parameterIds: IntArray) {
     operation(PatternDefine)
     buffer.writeInt(id)
     buffer.writeInt(parameterIds.size)
@@ -519,13 +519,13 @@ public class RemoteDocumentWriter(
     buffer.writeInt(0)
   }
 
-  override fun endPatternDefinition() {
+  override fun endPatternDefine() {
     val offset = patternDefinitionOffsets.removeLast()
     buffer.overwriteInt(offset, buffer.size - offset - 4)
     containerEnd()
   }
 
-  override fun startPatternInflation(id: Int, argumentIds: IntArray) {
+  override fun inflatePattern(id: Int, argumentIds: IntArray) {
     operation(PatternInflation)
     buffer.writeInt(id)
     buffer.writeInt(argumentIds.size)
@@ -534,7 +534,7 @@ public class RemoteDocumentWriter(
 
   override fun endPatternInflation(): Unit = containerEnd()
 
-  override fun startPatternForEach(collectionId: Int, localItemId: Int) {
+  override fun addPatternForEach(collectionId: Int, localItemId: Int) {
     operation(PatternForEach)
     buffer.writeInt(collectionId)
     buffer.writeInt(localItemId)
@@ -542,14 +542,14 @@ public class RemoteDocumentWriter(
 
   override fun endPatternForEach(): Unit = containerEnd()
 
-  override fun startConditional(type: Int, first: Float, second: Float) {
+  override fun conditionalOperations(type: Int, first: Float, second: Float) {
     operation(ConditionalOperations)
     buffer.writeByte(type)
     buffer.writeFloat(first)
     buffer.writeFloat(second)
   }
 
-  override fun endConditional(): Unit = containerEnd()
+  override fun endConditionalOperations(): Unit = containerEnd()
 
   override fun drawOnBitmap(bitmapId: Int, mode: Int, color: Int) {
     drawToBitmapUsed = true
@@ -738,14 +738,14 @@ public class RemoteDocumentWriter(
 
   override fun addNamedInt(name: String, initialValue: Int): Long {
     val id = nextDataId++
-    writeNamedVariable(id, NamedVariableType.INT, name)
+    writeNamedVariable(id, androidx.compose.remote.creation.common.NamedVariable.INT_TYPE, name)
     writeInteger(id, initialValue)
     return id.toLong() + IntegerIdOffset
   }
 
   override fun addNamedFloat(name: String, initialValue: Float): Float {
     val id = nextDataId++
-    writeNamedVariable(id, NamedVariableType.FLOAT, name)
+    writeNamedVariable(id, androidx.compose.remote.creation.common.NamedVariable.FLOAT_TYPE, name)
     operation(DataFloat)
     buffer.writeInt(id)
     buffer.writeFloat(initialValue)
@@ -768,7 +768,7 @@ public class RemoteDocumentWriter(
     return Utils.asNan(id)
   }
 
-  override fun addIdList(ids: IntArray): Float {
+  override fun addList(ids: IntArray): Float {
     val id =
       idListIds.getOrPut(IntArrayKey(ids)) {
         val allocated = nextDataId++
@@ -859,7 +859,7 @@ public class RemoteDocumentWriter(
     return id
   }
 
-  override fun writeIdLookup(outputId: Int, arrayId: Float, index: Float) {
+  override fun idLookup(outputId: Int, arrayId: Float, index: Float) {
     operation(IdLookup)
     buffer.writeInt(outputId)
     buffer.writeInt(Utils.idFromNan(arrayId))
@@ -915,7 +915,7 @@ public class RemoteDocumentWriter(
     buffer.writeInt(rightId)
   }
 
-  override fun touchExpression(
+  override fun addTouchExpression(
     id: Int,
     value: Float,
     min: Float,
@@ -982,7 +982,7 @@ public class RemoteDocumentWriter(
     }
   }
 
-  override fun colorAttribute(colorId: Int, type: Short): Float {
+  override fun getColorAttribute(colorId: Int, type: Short): Float {
     val id = nextDataId++
     operation(AttributeColor)
     buffer.writeInt(id)
@@ -1059,13 +1059,13 @@ public class RemoteDocumentWriter(
   /** [addBitmapPng], bound to [name] the way [addNamedBitmapUrl] binds a URL bitmap. */
   public fun addNamedBitmapPng(name: String, png: ByteArray, width: Int, height: Int): Int {
     val id = addBitmapPng(png, width, height)
-    writeNamedVariable(id, NamedVariableType.IMAGE, name)
+    writeNamedVariable(id, androidx.compose.remote.creation.common.NamedVariable.IMAGE_TYPE, name)
     return id
   }
 
   override fun addNamedBitmapUrl(name: String, url: String): Int {
     val id = addBitmapUrl(url)
-    writeNamedVariable(id, NamedVariableType.IMAGE, name)
+    writeNamedVariable(id, androidx.compose.remote.creation.common.NamedVariable.IMAGE_TYPE, name)
     return id
   }
 
@@ -1153,7 +1153,7 @@ public class RemoteDocumentWriter(
 
   override fun addNamedColor(name: String, argb: Int): Int {
     val id = addColor(argb)
-    writeNamedVariable(id, NamedVariableType.COLOR, name)
+    writeNamedVariable(id, androidx.compose.remote.creation.common.NamedVariable.COLOR_TYPE, name)
     return id
   }
 
@@ -1214,7 +1214,7 @@ public class RemoteDocumentWriter(
 
   override fun addNamedString(name: String, initialValue: String): Int {
     val id = nextDataId++
-    writeNamedVariable(id, NamedVariableType.STRING, name)
+    writeNamedVariable(id, androidx.compose.remote.creation.common.NamedVariable.STRING_TYPE, name)
     writeText(id, initialValue)
     return id
   }
@@ -1227,7 +1227,7 @@ public class RemoteDocumentWriter(
 
   override fun addNamedLong(name: String, initialValue: Long): Int {
     val id = nextDataId++
-    writeNamedVariable(id, NamedVariableType.LONG, name)
+    writeNamedVariable(id, androidx.compose.remote.creation.common.NamedVariable.LONG_TYPE, name)
     writeLong(id, initialValue)
     return id
   }
@@ -1403,14 +1403,14 @@ public class RemoteDocumentWriter(
     buffer.writeInt(flags)
   }
 
-  override fun applyPaint(paint: PaintBundleData) {
+  override fun applyPaint(paint: PaintBundle) {
     val values = paint.toIntArray()
     operation(PaintValues)
     buffer.writeInt(values.size)
     values.forEach(buffer::writeInt)
   }
 
-  override fun consumePaintReset(): Boolean {
+  override fun checkAndClearForceSendingNewPaint(): Boolean {
     val result = paintResetPending
     paintResetPending = false
     return result
@@ -1493,7 +1493,7 @@ public class RemoteDocumentWriter(
 
   override fun drawComponentContent(): Unit = operation(DrawContent)
 
-  override fun clipPath(pathId: Int): Unit = intOperation(ClipPath, pathId)
+  override fun addClipPath(pathId: Int): Unit = intOperation(ClipPath, pathId)
 
   override fun drawTweenPath(
     path1Id: Int,

@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-@file:kotlin.jvm.JvmName("RemoteFloatOperations")
+@file:JvmName("RemoteFloatOperations")
 
 package androidx.compose.remote.creation.compose.state
 
@@ -22,6 +21,9 @@ import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.AnimatedFloatExpression
 import androidx.compose.remote.creation.common.CubicEasing
 import androidx.compose.remote.creation.common.MonotonicSpline
+import androidx.compose.remote.creation.common.RemoteComposeBuffer
+import kotlin.jvm.JvmName
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.acos
 import kotlin.math.asin
@@ -45,7 +47,7 @@ import kotlin.math.withSign
 
 private const val FP_TO_RAD = 57.29578f // 180/PI
 private const val FP_TO_DEG = 0.017453292f // 180/PI
-private val PI_RF = kotlin.math.PI.toFloat().rf
+private val PI_RF = PI.toFloat().rf
 
 private fun easeOutBounce(x: RemoteFloat): RemoteFloat {
     val n1 = 7.5625f.rf
@@ -649,7 +651,7 @@ public fun animateRemoteFloat(
     initialValue: Float = Float.NaN,
     wrap: Float = Float.NaN,
 ): RemoteFloat {
-    var anim = packAnimation(duration, type, spec, initialValue, wrap)
+    var anim = RemoteComposeBuffer.packAnimation(duration, type, spec, initialValue, wrap)
     if (anim.isEmpty()) {
         anim = floatArrayOf(duration)
     }

@@ -23,10 +23,11 @@ import androidx.compose.remote.creation.common.TextFromFloat.PAD_AFTER_NONE
 import androidx.compose.remote.creation.common.TextFromFloat.PAD_PRE_NONE
 import androidx.compose.remote.creation.common.TextFromFloat.SEPARATOR_COMMA_PERIOD
 import androidx.compose.remote.creation.common.Utils
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.state.RemoteInt.OperationKey
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.annotation.RememberInComposition
+import kotlin.jvm.JvmStatic
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -64,11 +65,13 @@ public abstract class RemoteInt
 internal constructor(
     @get:Suppress("AutoBoxing") public override val constantValueOrNull: Int?,
     cacheKey: RemoteStateCacheKey,
-    internal val arrayProvider: (creationState: RemoteComposeCreationContext) -> LongArray,
+    /** Provides the RPN [LongArray] expression for the given [RemoteComposeCreationState]. */
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public val arrayProvider: (creationState: RemoteComposeCreationState) -> LongArray,
 ) : BaseRemoteState<Int>(cacheKey) {
     internal enum class OperationKey(
         override val precedence: Int = 100,
-        public val symbol: String? = null,
+        internal val symbol: String? = null,
     ) : RemoteOperation {
         ToRemoteString,
         Add(3, "+"),
@@ -184,21 +187,26 @@ internal constructor(
     }
 
     /**
-     * Retrieves the [LongArray] representing this [RemoteInt]\'s expression using the provided
+     * Retrieves the [LongArray] representing this [RemoteInt]'s expression using the provided
      * [creationState]. It utilizes a cache within the [creationState] to avoid redundant
      * computations, improving performance.
      *
-     * @param stateScope The current [RemoteStateScope].
-     * @return The [LongArray] representing this remote integer\'s expression.
+     * @param creationState The current [RemoteComposeCreationState].
+     * @return The [LongArray] representing this remote integer's expression.
      */
-    internal fun arrayForCreationState(stateScope: RemoteStateScope): LongArray {
-        return stateScope.creationState.getOrPutLongArray(cacheKey) {
-            arrayProvider(stateScope.creationState)
-        }
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun arrayForCreationState(creationState: RemoteComposeCreationState): LongArray {
+        return creationState.getOrPutLongArray(cacheKey) { arrayProvider(creationState) }
     }
 
-    internal fun hasBeenWrittenToDoc(creationState: RemoteComposeCreationContext) =
-        creationState.hasVariableId(cacheKey)
+    /**
+     * Returns `true` if this [RemoteInt] already has a variable ID in [creationState].
+     *
+     * @param creationState state tracking written variable IDs
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun hasBeenWrittenToDoc(creationState: RemoteComposeCreationState): Boolean =
+        creationState.remoteVariableToId.contains(cacheKey)
 
     /**
      * Converts this [RemoteInt] to a [RemoteFloat]. If the [RemoteInt] is a literal, it\'s directly
@@ -246,7 +254,7 @@ internal constructor(
     /**
      * Converts this [RemoteInt] to a [RemoteString] using the default localized integer format.
      *
-     * @return A [RemoteString] representing the formatted integer.
+     * @return A [RemoteString] representing the formatted integer value.
      */
     public fun toRemoteString(): RemoteString =
         toRemoteFloat()
@@ -256,18 +264,15 @@ internal constructor(
                 flags = SEPARATOR_COMMA_PERIOD or GROUPING_BY3 or PAD_AFTER_NONE or PAD_PRE_NONE,
             )
 
+    // LOCAL PATCH (rc-players): upstream's `toRemoteString(DecimalFormat)` is an Android extension
+    // over Java's and ICU's DecimalFormat (`RemoteFormatting.android.kt`); this member takes the
+    // fork's common `DecimalFormat` (`RemoteDecimalFormat.kt`).
     /**
      * Converts this [RemoteInt] to a [RemoteString] using the specified [format].
-     *
-     * This method maps the localized [DecimalFormat] symbols (such as separators and grouping
-     * sizes) and configuration (such as padding and rounding) to a remote-compatible string
-     * representation.
      *
      * @param format The [DecimalFormat] to use for determining separators, grouping, and padding.
      * @return A [RemoteString] representing the formatted integer.
      */
-    // Port: upstream's `toRemoteString(DecimalFormat)` is an Android extension over Java's and
-    // ICU's DecimalFormat (`RemoteFormatting.android.kt`); the port's DecimalFormat is common.
     public fun toRemoteString(format: DecimalFormat): RemoteString =
         formatRemoteIntJvm(this, format)
 
@@ -491,6 +496,7 @@ internal constructor(
          * @param v The remote ID.
          * @return A [RemoteInt] referencing the ID.
          */
+        @JvmStatic
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
         public fun createForId(v: Long): RemoteInt {
             return RemoteIntExpression(
@@ -562,6 +568,7 @@ internal constructor(
          * @param domain The domain of the named integer (defaults to [RemoteState.Domain.User]).
          * @return A [RemoteInt] representing the named int.
          */
+        @JvmStatic
         public fun createNamedRemoteInt(
             name: String,
             defaultValue: Int,
@@ -571,7 +578,7 @@ internal constructor(
                 constantValueOrNull = null,
                 cacheKey = RemoteNamedCacheKey(domain, name),
             ) { creationState ->
-                longArrayOf(creationState.writer.addNamedInt(domain.prefixed(name), defaultValue))
+                longArrayOf(creationState.document.addNamedInt(domain.prefixed(name), defaultValue))
             }
         }
     }
@@ -732,14 +739,15 @@ internal constructor(
  * [extras]. Inlining is preferred as long as the resulting array length is less than
  * [MAX_SAFE_LONG_ARRAY].
  */
-internal fun combineToLongArray(
-    creationState: RemoteComposeCreationContext,
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public fun combineToLongArray(
+    creationState: RemoteComposeCreationState,
     remoteInts: Array<RemoteInt>,
     vararg extras: Long,
 ): LongArray {
     var totalSizeInline = extras.size
-    var totalSizeReference = extras.size + remoteInts.size
-    var arrays =
+    val totalSizeReference = extras.size + remoteInts.size
+    val arrays =
         Array<LongArray>(remoteInts.size) { i ->
             val remoteInt = remoteInts[i]
             // If remoteInt has already been written to the document then use a reference
@@ -748,7 +756,7 @@ internal fun combineToLongArray(
                 totalSizeInline += 1
                 longArrayOf(remoteInt.getLongIdForCreationState(creationState))
             } else {
-                var array = remoteInt.arrayForCreationState(creationState)
+                val array = remoteInt.arrayForCreationState(creationState)
                 totalSizeInline += array.size
                 array
             }
@@ -768,6 +776,7 @@ internal fun combineToLongArray(
         // Inline the RemoteInt arrays.
         combinedArray = LongArray(totalSizeInline)
         for (array in arrays) {
+            // KMP (rc-players): `System.arraycopy` is JVM-only.
             array.copyInto(combinedArray, idx)
             idx += array.size
         }
@@ -885,6 +894,7 @@ private inline fun LongArray.foldTrailingConstant(
 ): LongArray? {
     val idx = size - 2
     if (idx < 0 || get(idx) >= 0x100000000L) return null
+    // KMP (rc-players): `LongArray.clone()` is JVM-only.
     val copy = copyOf()
     copy[idx] = update(copy[idx]).toInt().toLong()
     return trim(copy)
@@ -1054,7 +1064,7 @@ public class MutableRemoteInt
 internal constructor(
     constantValueOrNull: Int? = null,
     cacheKey: RemoteStateCacheKey,
-    internal val idProvider: (creationState: RemoteComposeCreationContext) -> Long,
+    internal val idProvider: (creationState: RemoteComposeCreationState) -> Long,
 ) :
     RemoteInt(
         constantValueOrNull = constantValueOrNull,
@@ -1088,14 +1098,13 @@ internal constructor(
      *
      * @param initialValue The initial [Int] value.
      */
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     @RememberInComposition
     public constructor(
         initialValue: Int,
     ) : this(
         constantValueOrNull = null,
         cacheKey = RemoteStateInstanceKey(),
-        idProvider = { creationState -> creationState.writer.addInteger(initialValue) },
+        idProvider = { creationState -> creationState.document.addInteger(initialValue) },
     )
 
     public companion object {
@@ -1105,6 +1114,7 @@ internal constructor(
          * @param initialValue The initial value for the state.
          * @return A new [MutableRemoteInt] instance.
          */
+        @RememberInComposition
         public operator fun invoke(initialValue: Int): MutableRemoteInt {
             return MutableRemoteInt(initialValue)
         }
@@ -1115,16 +1125,17 @@ internal constructor(
          * @param id The existing mutable ID.
          * @return A [MutableRemoteInt] instance mapping to the ID.
          */
-        internal fun createMutableForId(id: Long): MutableRemoteInt =
+        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+        public fun createMutableForId(id: Long): MutableRemoteInt =
             MutableRemoteInt(
                 constantValueOrNull = null,
                 cacheKey = RemoteStateIdKey(id.toInt()),
-                idProvider = { creationState -> id },
+                idProvider = { _ -> id },
             )
     }
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationContext): Int =
+    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int =
         Utils.idFromLong(idProvider(creationState)).toInt()
 }
 
@@ -1289,14 +1300,15 @@ public fun selectIfGe(
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public open class RemoteIntExpression
 @RememberInComposition
-internal constructor(
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public constructor(
     public override val constantValueOrNull: Int?,
     cacheKey: RemoteStateCacheKey,
-    arrayProvider: (creationState: RemoteComposeCreationContext) -> LongArray,
+    arrayProvider: (creationState: RemoteComposeCreationState) -> LongArray,
 ) : RemoteInt(constantValueOrNull, cacheKey, arrayProvider) {
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationContext): Int {
+    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
         val array = arrayForCreationState(creationState)
 
         // in case we have a single element array, check if the element is an id or not;
@@ -1305,7 +1317,7 @@ internal constructor(
             return Utils.idFromLong(array[0]).toInt()
         }
         return creationState.getOrPutIntExpressionId(array) {
-            Utils.idFromLong(creationState.writer.integerExpression(*array)).toInt()
+            Utils.idFromLong(creationState.document.integerExpression(*array)).toInt()
         }
     }
 }
@@ -1331,7 +1343,7 @@ internal sealed class SelectIntCondition {
      * @return long array encoding the selection expression in RPN
      */
     abstract fun buildLongArray(
-        creationState: RemoteComposeCreationContext,
+        creationState: RemoteComposeCreationState,
         ifFalse: RemoteInt,
         ifTrue: RemoteInt,
     ): LongArray
@@ -1346,7 +1358,7 @@ internal sealed class SelectIntCondition {
     data class IntComparison(val a: RemoteInt, val b: RemoteInt, val op: IntComparisonOp) :
         SelectIntCondition() {
         override fun buildLongArray(
-            creationState: RemoteComposeCreationContext,
+            creationState: RemoteComposeCreationState,
             ifFalse: RemoteInt,
             ifTrue: RemoteInt,
         ): LongArray =
@@ -1405,7 +1417,7 @@ internal sealed class SelectIntCondition {
      */
     data class BooleanCondition(val bool: RemoteBoolean) : SelectIntCondition() {
         override fun buildLongArray(
-            creationState: RemoteComposeCreationContext,
+            creationState: RemoteComposeCreationState,
             ifFalse: RemoteInt,
             ifTrue: RemoteInt,
         ): LongArray =

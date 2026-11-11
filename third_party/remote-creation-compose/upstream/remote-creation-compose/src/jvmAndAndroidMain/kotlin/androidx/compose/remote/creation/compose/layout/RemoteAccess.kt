@@ -17,9 +17,9 @@
 package androidx.compose.remote.creation.compose.layout
 
 import androidx.annotation.RestrictTo
+import androidx.compose.remote.creation.common.RemoteComposeBuffer
 import androidx.compose.remote.creation.compose.state.AnimatedRemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteFloat
-import androidx.compose.remote.creation.compose.state.packAnimation
 import androidx.compose.remote.creation.compose.state.remoteSpring
 import androidx.compose.remote.creation.compose.state.rf
 
@@ -56,7 +56,7 @@ public class RemoteAccess(private val scope: RemoteDrawScope) {
         initialValue: Float = Float.NaN,
         wrap: Float = Float.NaN,
     ): RemoteFloat {
-        val anim = packAnimation(duration, type, spec, initialValue, wrap)
+        val anim = RemoteComposeBuffer.packAnimation(duration, type, spec, initialValue, wrap)
         return AnimatedRemoteFloat(rf, anim)
     }
 
@@ -128,6 +128,8 @@ public class RemoteAccess(private val scope: RemoteDrawScope) {
         step: Float = 1f,
         content: RemoteDrawScope.(RemoteFloat) -> Unit,
     ) {
+        // KMP (rc-players): the loop is recorded by the canvas (a `WriterOp`), where upstream
+        // writes it to `document` here.
         scope.remoteCanvas.loop(from.rf, until.rf, step.rf) { index ->
             content.invoke(scope, index)
         }

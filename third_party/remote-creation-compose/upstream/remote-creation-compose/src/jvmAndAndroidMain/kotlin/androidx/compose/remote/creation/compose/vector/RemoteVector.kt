@@ -271,6 +271,8 @@ internal class RemoteGroupComponent : RemoteVNode() {
                 scaleY.constantValue == 1f)
         val hasClip =
             clipPathData.isNotEmpty() &&
+                // KMP (rc-players): no `Profile`; `Operations.CLIP_PATH` (38) among the operations
+                // the host opted in to.
                 38 in this@draw.remoteCanvas.internalCanvas.creationState.supportedOperations
 
         if (hasTransform || hasClip) {
@@ -283,7 +285,7 @@ internal class RemoteGroupComponent : RemoteVNode() {
                         translate(-pivotX, -pivotY)
                     }
                     if (hasClip) {
-                        clipPathData.toRemotePath(clipPath, this@draw.remoteCanvas.creationState)
+                        clipPathData.toRemotePath(clipPath, this@draw.remoteCanvas)
                         clipPath(clipPath)
                     }
                 },

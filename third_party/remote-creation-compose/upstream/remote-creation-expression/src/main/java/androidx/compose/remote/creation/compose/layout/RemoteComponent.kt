@@ -17,8 +17,8 @@
 package androidx.compose.remote.creation.compose.layout
 
 import androidx.annotation.RestrictTo
+import androidx.compose.remote.creation.compose.capture.RemoteDocumentScope
 import androidx.compose.remote.creation.compose.state.RemoteFloat
-import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.runtime.Stable
 
 /** Dynamic layout measurements of a RemoteCompose component in pixels. */
@@ -27,10 +27,10 @@ public class RemoteComponent private constructor(private val context: RemoteFloa
     /**
      * Creates a [RemoteComponent] backed by [scope].
      *
-     * @param scope [RemoteStateScope] providing the active component or target document
+     * @param scope [RemoteDocumentScope] providing the active component or target document
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public constructor(scope: RemoteStateScope) : this(RemoteFloatContext(scope))
+    public constructor(scope: RemoteDocumentScope) : this(RemoteFloatContext(scope))
 
     /**
      * Creates a [RemoteComponent] bound to [token].

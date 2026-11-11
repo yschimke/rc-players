@@ -41,7 +41,7 @@ the plan, and the feedback for AndroidX are in
 | `upstream/remote-creation-compose/src/androidMain/kotlin` | `remote-creation-compose/src/androidMain/kotlin` |
 | `upstream/foundation/foundation/src/main/java` | `foundation/foundation/src/main/java` |
 | `src/` | nothing: files only the fork has |
-| `../remote-creation-writer` | write-side sources from `remote-core`, `remote-creation-core` and `remote-creation`, re-expressed as a common `RemoteWriter` |
+| `../remote-creation-writer` | write-side sources from `remote-core`, `remote-creation-core` and `remote-creation`, re-expressed as a common `RemoteWriter` (which the carried Kotlin names `RemoteComposeWriter`, a typealias) |
 
 ## Layout, and measuring the difference
 
@@ -54,31 +54,56 @@ among them, under their `*.android.kt` names: what the fork carries from there n
 UI, which Compose Multiplatform has on every target.
 
 `src/commonMain`, `src/androidMain` and `src/skikoMain` hold what has no upstream file: the local
-additions, the stand-ins for Java classes (`RemotePath`, `RemoteDimensionType`,
-`AnimationEncoding`, `RemoteDecimalFormat`), the port's own `RemoteComposeCreationContext`,
+additions, the stand-ins for Java classes (`RemotePath`, `RemoteDecimalFormat`), the port's own
 `RecordingCanvas` and `WriterOp`, and the platform `actual`s.
 
-`scripts/diff-upstream.sh <androidx checkout>` compares the two trees. It sorts imports, rewrites
-upstream's names for its Java classes to the fork's (`scripts/upstream-fqn.tsv`), and reports the
-upstream files not carried, the fork-only files, and the hunks of every carried file that differs;
-`--summary` prints the counts. `scripts/upstream-renames.tsv` lists carried files that are not at
-their upstream path, and is empty. At androidx-main `21a1a95e4`:
+`scripts/diff-upstream.sh <androidx checkout>` compares the two trees. It sorts imports, drops a
+comma that ends a line (this repository's ktfmt adds one after a lone argument it breaks onto its
+own line, AndroidX's does not), rewrites upstream's names for its Java classes to the fork's
+(`scripts/upstream-fqn.tsv`), and reports the upstream files not carried, the fork-only files, and
+the hunks of every carried file that differs; `--summary` prints the counts.
+`scripts/upstream-renames.tsv` lists carried files that are not at their upstream path, and is
+empty. At androidx-main `21a1a95e4`:
 
-| | Upstream files | Identical | Differing | Not carried | Under another name, split or merged | Fork-only | Differing hunks (unmarked) |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Before the layout change | 210 | 58 | 115 | 37 | 23 | 19 | 590 (575) |
-| After | 210 | 60 | 114 | 36 | 0 | 19 | 562 (548) |
+| | Upstream files | Identical | Differing | Not carried | Under another name, split or merged | Fork-only | Differing hunks | Marked | Import-only | Unmarked |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Before the layout change | 210 | 58 | 115 | 37 | 23 | 19 | 590 | 15 | | 575 |
+| After it (step 1) | 210 | 60 | 114 | 36 | 0 | 19 | 562 | 14 | | 548 |
+| The same tree, as the script counts now | 210 | 66 | 108 | 36 | 0 | 19 | 520 | 14 | 74 | 432 |
+| After step 2 | 210 | 95 | 79 | 36 | 0 | 17 | 226 | 120 | 54 | 52 |
 
-A hunk is marked when it contains `LOCAL PATCH (rc-players)` or `KMP (rc-players)`. Most hunks are
-not yet, and the script only counts them: they are the fork's older, unmarked differences (the
-writer's shape, visibility, the creation-state types), which the plan removes. Once they are gone
-the script should fail on an unmarked hunk.
+The third row is step 1's tree measured with the two things the script learned in step 2 (the
+trailing comma, and import-only hunks counted apart), so that the last two rows compare like with
+like. By source root, identical / differing after step 2: `remote-creation-expression` 21 / 10
+(6 / 25 before), `jvmAndAndroidMain` 64 / 61 (50 / 75), `androidMain` 6 / 8 (6 / 8),
+`foundation` 4 / 0 (4 / 0).
 
-Two carried files are partial, and say so at their top: `capture/RemoteComposeCaptureState.kt`
-holds `NoRemoteCompose` and `LocalRemoteComposeCreationState` but not the class, which the fork has
-not split out of `RemoteComposeCreationState` yet; and
-`capture/RemoteCreationDisplayInfo.android.kt` holds the `widthDp`/`heightDp` extensions but not
-`rememberRemoteCreationDisplayInfo`, which reads Android resources.
+A hunk that has to stay different carries one of two markers, with its reason, in a comment:
+
+- `// LOCAL PATCH (rc-players)`: something the fork adds, or does differently on purpose (the
+  table under "Local patches").
+- `// KMP (rc-players)`: a substitution forced by the non-JVM targets or by the Kotlin writer: a
+  JVM-only construct replaced, a `RemoteModifierOperation` or `RemoteActionData` built where
+  upstream builds `remote-creation-core`'s Java object, a layout recorded as a `WriterOp` where
+  upstream writes to `document`, an Android-only function not carried.
+
+A hunk that changes only `import` lines follows from its file's body and has no place for a
+comment; the script counts it apart. The 52 unmarked hunks are what is left for the later steps,
+and the script still only counts them:
+
+- 44 in `layout/RemoteCanvas.kt` (30) and `capture/CanvasOperationBuffer.kt` (14): the port's
+  `RecordingCanvas` seam and the `RemoteCanvas` API it lacks (step 4).
+- 1 in `state/RemoteStateComposables.kt`: `Hoist` is not carried yet (step 4).
+- 2 in `shapes/RemoteCornerBasedShape.kt`: upstream's single shared radius for a shape whose four
+  corners are equal is not carried. Taking it changes the documents written (one expression and a
+  `drawRoundRect` where the port writes four and a path), so it waits for a refresh.
+- 5 that are this repository's ktfmt against AndroidX's, not text: a lambda or a parameter list
+  one of the two breaks and the other does not (`state/RemoteFloatOperations.kt`,
+  `shaders/RemoteShader.kt`, `vector/RemoteVectorPainter.kt` twice,
+  `state/RemoteTextUnitCompose.android.kt`).
+
+`capture/RemoteCreationDisplayInfo.android.kt` is partial: it holds the `widthDp`/`heightDp`
+extensions but not `rememberRemoteCreationDisplayInfo`, which reads Android resources.
 
 ## The CMP port it starts from
 
@@ -127,7 +152,7 @@ Taken:
   `HostMetadata` / `HostNamed`.
 - `83b3b6737`, `7b5e7c3cc`: `RemoteDensity` and `RemoteDp` decoupled from Compose UI, with the Dp
   and TextUnit API in `RemoteDensityCompose.kt` / `RemoteDpCompose.kt`. `RemoteDp` is now a
-  `BaseRemoteState<Float>`. Its `cacheKey` stays `internal`, as `a07eab443` is not taken.
+  `BaseRemoteState<Float>`. (Its `cacheKey` stayed `internal` until realignment step 2.)
 - `d5c248a6d`: `RemoteTimeVariables` and `RemoteConfiguration` are public.
 - `ce05fb8a3`: `RemoteBoolean.select(RemoteBoolean, RemoteBoolean)` peepholes.
 - `09ca86e4d`: `GraphicsLayerModifier` takes a `RemoteShape` and writes a rounded corner's radius
@@ -159,7 +184,7 @@ Deliberately skipped:
   splits its own way: `a12e3c520`, `7554d3b46`, `59e506463`, `8a77cf6b3`.
 - The `RecordingCanvas` → `RemoteCanvas` inlining step `33de12812` (`skew`, `saveCount`), as before.
 - `a07eab443`: it exposes cache keys to the library group for `remote-creation-expression`, which
-  the fork does not carry.
+  the fork did not carry then. Taken in realignment step 2.
 - `c93e26675` (`currentProfileSupports*`): the port has no `Profile`. Its `supportedOperations`
   lists only opted-in operations, so the helpers would report false by default.
 - `4e646d52e`: KDoc only, and it names upstream's `RemotePath`.
@@ -299,7 +324,8 @@ Deliberately skipped:
   no public entry point to mirror, and built on JVM-only `WeakHashMap`/`synchronized`.
 - Visibility widened for `remote-creation-expression`: upstream makes `RemoteColor`'s cache-key
   constructors, `RemoteStateInstanceKey` and `RemoteColorConstantCacheKey` public for the library
-  group. Here they stay internal, as the port's cache keys are (`a07eab443`, skipped before).
+  group. Here they stayed internal, as the port's cache keys were (`a07eab443`), until
+  realignment step 2 took them.
 
 ## Refresh a0e84553095 → androidx-main 1448d6497
 
@@ -426,11 +452,11 @@ Deliberately skipped:
 - Visibility widened only for `remote-creation-expression` (restricted-public `arrayProvider`,
   `arrayForCreationState`, `createForId`/`createMutableForId`, state constructors taking cache
   keys, `combineToLongArray`, `RemoteEasing`'s constructor, `RemoteMatrix3x3.isIdentity`,
-  `nanIdContentEquals`, `RemoteState<*>.cacheKey`): they stay internal, as the port's cache keys are (`a07eab443`, skipped
-  before).
+  `nanIdContentEquals`, `RemoteState<*>.cacheKey`): they stayed internal, as the port's cache
+  keys were (`a07eab443`). Taken in realignment step 2.
 - `RemoteDocumentScope` and the `RemoteStateScope.resolveComponentToken()` member (`f1f51073e`
-  made the resolution a public member so the expression module can reach it): the fork resolves
-  tokens with `ab1b76a2f`'s internal walk of the scope chain.
+  made the resolution a public member so the expression module can reach it): the fork resolved
+  tokens with `ab1b76a2f`'s internal walk of the scope chain. Taken in realignment step 2.
 - The requested-property mask on `RemoteComponentToken` and the eager `ComponentValue` writes at
   the start of a component: they exist to place values inside the component body, which the port's
   explicit ids make unnecessary.
@@ -516,7 +542,8 @@ Not applicable:
 
 Deliberately skipped:
 
-- Nothing new. Visibility widened only for `remote-creation-expression` stays internal, as before.
+- Nothing new. Visibility widened only for `remote-creation-expression` stayed internal, as
+  before, until realignment step 2.
 
 ## alpha22 write side: component offscreen buffers and visibility functions
 
@@ -598,6 +625,90 @@ has: `CaptureRemoteDocument_commonKt` → `CaptureRemoteDocumentKt`, `RemoteOutl
 klib dump changes only in the Compose compiler's synthetic `$stableprop` entries for the three
 renamed internal classes.
 
+## Realignment step 2: upstream's visibility, scope types and writer names
+
+Not a refresh: no upstream change is taken and no document changes. 112 distinct documents (every
+one the JVM tests of `:rc-creation-bridge`, `:rc-player-embedded`, `:rc-player-edit` and
+`:third-party-remote-creation-writer` encode, with the round-trip samples and two documents
+exercising clips, borders, `drawWithContent`, a canvas, text, actions, named values, gradients,
+scrolling, a state layout and number formatting captured under both density behaviours) are
+byte-identical before and after. It undoes the "stays internal" and `RemoteDocumentScope` skips
+recorded in the refreshes above.
+
+- **The expression files are upstream's text.** Each of the 31 files of
+  `remote-creation-expression` was re-taken from `21a1a95e4` and the differences re-applied as
+  marked hunks: 21 are identical and the other 10 differ only in marked hunks, their imports, and
+  one formatter hunk. That takes upstream's visibility with it: the restricted-public cache keys
+  and their constructors, `RemoteStateInstanceKey`, `RemoteColorConstantCacheKey`, `arrayProvider`,
+  `arrayForCreationState`, `hasBeenWrittenToDoc`, `createForId`/`createMutableForId`,
+  `combineToLongArray`, `RemoteEasing`'s constructor, `RemoteMatrix3x3.isIdentity`,
+  `nanIdContentEquals`, `RemoteState<*>.cacheKey`, `toRemoteStringWithPadding`/`Options`, the
+  `@JvmStatic`/`@JvmOverloads` annotations, `@RememberInComposition` on the `Mutable*` `invoke`s,
+  `RemoteStateCacheKey.accept` as an extension, and `RemoteFloatReference` as a value class.
+- **Scope types.** `RemoteDocumentScope` (`document`, `resolveComponentToken()`) and
+  `RemoteComponentTokenProvider` are carried; `RemoteStateScope` extends `RemoteDocumentScope` and
+  resolves tokens through the member; `RemoteComposeCreationState` is upstream's base class
+  (caches, token state, the canvas-scope frames, which nothing here enters) and
+  `RemoteComposeCaptureState` is split from it in `remote-creation-compose` (display info, layout
+  direction, density behaviour, `time`), with the fork's `supportedOperations` and image encoder
+  where upstream has a `Profile`. `LocalRemoteComposeCreationState` holds a
+  `RemoteComposeCaptureState`. The port's `RemoteComposeCreationContext` interface is gone, and
+  with it `enqueueGlobalDeclaration`, `enterComponentScope` and `platformState`, which nothing
+  read. A layout node's scope is built over the canvas (`overriddenScope(remoteCanvas)`), as
+  upstream's, so a spaced arrangement resolves its spacing with the node's own density like every
+  other modifier value: the one thing here that could change a document, and only for content
+  under a `LocalRemoteDensity` other than the capture's.
+- **The mesh lowering** (local patch) was a `RemoteComposeCreationContext` delegate. It is now
+  `MeshExpressionLowering`, set on the creation state while a channel is lowered.
+- **Writer names** (`../remote-creation-writer`). `RemoteWriter`'s methods take
+  `RemoteComposeWriter`'s or `RemoteComposeBuffer`'s names where they are the same operation:
+  `startText`/`endText` → `startTextComponent`/`endTextComponent`, `startConditional`/
+  `endConditional` → `conditionalOperations`/`endConditionalOperations`, `addIdList` → `addList`,
+  `writeIdLookup` → `idLookup`, `colorAttribute` → `getColorAttribute`, `consumePaintReset` →
+  `checkAndClearForceSendingNewPaint`, `clipPath` → `addClipPath`, `startPatternDefinition`/
+  `endPatternDefinition`/`startPatternInflation`/`startPatternForEach` → `definePattern`/
+  `endPatternDefine`/`inflatePattern`/`addPatternForEach`, `touchExpression` →
+  `addTouchExpression`; and `setColorName`/`setStringName`/`setFloatName`, `addStringList` and
+  `textCreateId` are added over `setNamedVariable`, `addList` and `addText`, as they are upstream.
+  `RemoteComposeWriter` is a typealias of `RemoteWriter`, so the carried text names the type as
+  upstream does. More stand-ins take AndroidX's class names (and are in `upstream-fqn.tsv`):
+  `PaintBundleData` → `PaintBundle` (its constants in the companion; `setFontAxes` →
+  `setTextAxis`), `RemoteCustomPropertyData` → `Custom.CustomProperty`, `NamedVariableType` →
+  `NamedVariable` (`*_TYPE`), `RemoteDimensionType` → `DimensionModifierOperation.Type`,
+  `RemoteAnimation`/`RemoteAnimationSequence` → `AnimationSpec.ANIMATION`/`SEQUENCE`, the port's
+  `packAnimation` → `RemoteComposeBuffer.packAnimation` and `FloatAnimation.packToFloatArray`,
+  and new `ComponentValue`, `HostNamedActionOperation`, `AccessibleComponent.Role`,
+  `MultiClickModifier` and `CollapsiblePriority`. No package changes, `RemoteWriter` is still an
+  interface, and what it writes is unchanged.
+- **Signatures that differ in more than the name**, left as they are: `startBox`/`startRow`/… and
+  `startCanvas`/`startStateLayout`/`startCustom` take a `RemoteModifierData` (upstream a
+  `RecordingModifier`); `startTextComponent(RemoteTextData)` and `image(RemoteImageData)` take one
+  value (upstream a parameter list); `addComponent*Value(componentId)` and
+  `addComponentValue(type, componentId, valueId)` name the component (upstream's bind to the
+  buffer's last one); `applyPaint(PaintBundle)` is `buffer.addPaint` upstream;
+  `conditionalOperations` takes an `Int` type (upstream a `Byte`); `addBitmapFont` takes a list of
+  `BitmapFontGlyph` (upstream an array of `BitmapFontData.Glyph`); `drawMesh2D(meshId, imageId,
+  blend)` has upstream's last two the other way round; `addThemedColor`, `drawBitmap` and the
+  defaulted `addMesh2D*` differ in return or optional parameters; `writeModifier`, `addShader`
+  and `componentIdForCache` have no upstream counterpart.
+- **Other drift taken**: `RemoteTimeDefaults` reads `LocalIs24HourFormat`, which the fork's two
+  captures provide from the platform (`text/PlatformTimeFormat.kt`); `@JvmField` on
+  `isEnforceCleanRecompositionEnabled`; KDoc and declaration order in `RemoteImageVector.kt`,
+  `RemoteStateLayout.kt`, `RemoteCustomComponent.kt`, `DrawHelpers.android.kt` and others.
+
+The ABI: the dumps of both modules change (`api/`). Kotlin source that used the names above has
+to follow; everything else compiles as before.
+
+What step 3 still has to solve, found here: `layout/RemoteFloatContext.kt` reaches the creation
+state through `RemoteStateScope` (a `remote-creation-compose` type) for a size bound to no
+component token, and `state/RemoteStateVisitor.kt` rebuilds an image constant from a Compose
+`ImageBitmap`. Both are marked.
+
+### Known port issues
+
+- **Scroll orientation** was reversed (`verticalScroll` wrote 1, the wire's horizontal). Fixed on
+  its own, with `ScrollDirectionTest`.
+
 ## Local patches
 
 Every patched line sits under a `// LOCAL PATCH (rc-players)` comment. Each patch is generic enough
@@ -608,7 +719,7 @@ to offer upstream, and the list is meant to shrink. Paths are package-relative; 
 | --- | --- | --- |
 | `capture/CaptureRemoteDocument.kt` | `captureCommonRemoteDocumentInto(writer, …)`; the byte path calls it | Capture into any `RemoteWriter` |
 | `capture/RemoteDocumentSession.kt` (new) | A composition kept alive under a host `CompositionContext`, re-rendered into a fresh writer on demand; reports when a state its last render read changes (`onRenderInputsChanged`) | The live, in-process path. It mirrors upstream's Android `captureRemoteDocument` loop, including its `RenderInvalidationTracker`. |
-| `capture/RemoteComposeCreationState.kt` | `writer` settable (internal); `resetComponentIds()`, which also forgets the component tokens' ids | A session renders each frame into a fresh writer. Without the reset, every render renumbers every component (upstream has the same drift). |
+| `capture/RemoteComposeCreationState.kt` | `resetComponentIds()`, which also forgets the component tokens' ids (the session sets upstream's own `document` for each render) | A session renders each frame into a fresh writer. Without the reset, every render renumbers every component (upstream has the same drift). |
 | `layout/RemoteComposeApplier.kt` | `onChangesApplied` | Tells a session when to re-render |
 | `modifier/ComponentIdModifier.kt` (new), `layout/RemoteComposeNode.kt`, `capture/RemoteComposeCreationState.kt`, `modifier/RemoteModifier.kt` | `RemoteModifier.componentId(id)`: a node takes a requested component id (at most `MaxExplicitComponentId`, -2,000,000, below both ranges a document allocates) instead of a positional one, once per render | Lets a host name components: an editor maps the player's geometry back to its own nodes (`RcComponentIds` in `:rc-creation-bridge`) |
 | `capture/RemoteCreationDisplayInfo.kt` | `RemoteDensityBehavior.wireValue` | Lets a writer outside the module describe the same display |
@@ -616,8 +727,8 @@ to offer upstream, and the list is meant to shrink. Paths are package-relative; 
 | `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`encodeToByteArray`) | A document that draws to a bitmap declares `PROFILE_ANDROIDX` unless it declares the AndroidX or widgets profile already | remote-core reads `DrawToBitmap` under no other profile and stops at it ("Unknown operation encountered 190"), so the fork's default profile-0 documents with an offscreen buffer (`drawToOffscreenBitmap` included) did not load in AndroidX. Upstream's writer refuses the operation instead; the fork names the profile, as it does the experimental one for custom components. |
 | `modifier/DrawWithContentModifier.kt`, `layout/RemoteDrawScope.kt`, `layout/RemoteContentDrawScope.kt` | A `drawWithContent` after padding draws inside it: translated past the padding before it, its scope's `width`/`height` reduced by it, its content drawn back at the component's origin | **Port bug.** AndroidX writes it this way, and the player does not inset a draw modifier itself, so the fork drew a padded component's decoration over its padding |
 | `shaders/RemoteRuntimeShader.kt` (new), `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`addShader`) | `RemoteBrush.runtimeShader(source, floatUniforms, intUniforms, sizeUniform)`: AGSL written as `TextData` + `ShaderData` (`DATA_SHADER`) and set as the paint's shader; float uniforms are any `RemoteFloat` (resolved by the player every frame), and the painted size is passed as a `float2`. A document with a shader declares `PROFILE_ANDROIDX`, as one that draws to a bitmap does | The core format and both players run runtime shaders; the port had no way to write one. remote-core reads `ShaderData` only under the AndroidX profile. `ShaderDataWriteTest`, `RuntimeShaderBrushTest` (with AndroidX read-back) and `RcRuntimeShaderPlaybackTest` cover it. |
-| `layout/RemoteMesh2D.kt` (new), `capture/Mesh2DWriterOp.kt` (new), `state/MeshExpressionLowering.kt` (new), `state/RemoteFloat.kt` (`combineToFloatArray`), `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`addMesh2D`, `addMesh2DValues`, `drawMesh2D`, `matrixFromMesh2D`) + `ProtocolPrimitives.kt` (`Mesh2D`) | `RemoteCanvas.drawMesh2D` / `RemoteDrawScope.drawMesh2D(uCount, vCount, layout, image, paint, antialiasWidth) { ... }`: a parametric 2D mesh written as `AddMesh2D` (`TYPE_EXPRESSION`) plus `DrawMesh2D`, each channel (`x`, `y`, `texU`, `texV`, `alpha`, `red`, `green`, `blue`) the raw RPN of a `RemoteFloat` over `u`/`v` (`VAR1`/`VAR2`). Channels are lowered under `state/MeshExpressionLowering.kt`'s context, which `combineToFloatArray` (`state/RemoteFloat.kt`) defers to. Every operand that reads `u`/`v` stays inline. Every other operand becomes a reference to an ordinary float. The channels are not registered as roots either. So a `u`/`v` expression is never hoisted into a document float, which the player would evaluate without `u`/`v`. A document with a mesh declares `PROFILE_EXPERIMENTAL`, plus `PROFILE_ANDROIDX` unless it names AndroidX or widgets | The core format (alpha23, experimental) and rc-players' players draw meshes; the port had no way to write one. remote-core reads the mesh operations only in its experimental V7 maps. `Mesh2DWriteTest`, `Mesh2DAuthoringTest` (with AndroidX read-back) and `RcMesh2DPlaybackTest` cover it. |
-| `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`touchExpression`, `textMerge(outputId, …)`) + `ProtocolConstants.kt` (`TouchStop`) | A free-standing `TouchExpression` (opcode 157) into a reserved float, and a `TextMerge` into a reserved text id, as AndroidX's `RemoteComposeBuffer.addTouchExpression` / `textMerge(id, left, right)` write them; `Scroll`'s own touch expression is written through it, byte for byte as before | The fork wrote a touch expression only inside `Scroll`, so a drag control (a slider following `Touch.POSITION_X`, its value as a label) could be authored only against AndroidX's writer. `TouchExpressionWriteTest` (with AndroidX read-back) covers it. |
+| `layout/RemoteMesh2D.kt` (new), `capture/Mesh2DWriterOp.kt` (new), `state/MeshExpressionLowering.kt` (new), `state/RemoteFloat.kt` (`combineToFloatArray`), `capture/RemoteComposeCreationState.kt` (`meshExpressionLowering`, and `getOrPutFloatArray` bypassing the cache while it is set), `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`addMesh2D`, `addMesh2DValues`, `drawMesh2D`, `matrixFromMesh2D`) + `ProtocolPrimitives.kt` (`Mesh2D`) | `RemoteCanvas.drawMesh2D` / `RemoteDrawScope.drawMesh2D(uCount, vCount, layout, image, paint, antialiasWidth) { ... }`: a parametric 2D mesh written as `AddMesh2D` (`TYPE_EXPRESSION`) plus `DrawMesh2D`, each channel (`x`, `y`, `texU`, `texV`, `alpha`, `red`, `green`, `blue`) the raw RPN of a `RemoteFloat` over `u`/`v` (`VAR1`/`VAR2`). Channels are lowered while `state/MeshExpressionLowering.kt`'s lowering is set on the creation state, which `combineToFloatArray` (`state/RemoteFloat.kt`) defers to. Every operand that reads `u`/`v` stays inline. Every other operand becomes a reference to an ordinary float. The channels are not registered as roots either. So a `u`/`v` expression is never hoisted into a document float, which the player would evaluate without `u`/`v`. A document with a mesh declares `PROFILE_EXPERIMENTAL`, plus `PROFILE_ANDROIDX` unless it names AndroidX or widgets | The core format (alpha23, experimental) and rc-players' players draw meshes; the port had no way to write one. remote-core reads the mesh operations only in its experimental V7 maps. `Mesh2DWriteTest`, `Mesh2DAuthoringTest` (with AndroidX read-back) and `RcMesh2DPlaybackTest` cover it. |
+| `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`addTouchExpression`, `textMerge(outputId, …)`) + `ProtocolConstants.kt` (`TouchStop`) | A free-standing `TouchExpression` (opcode 157) into a reserved float, and a `TextMerge` into a reserved text id, as AndroidX's `RemoteComposeBuffer.addTouchExpression` / `textMerge(id, left, right)` write them; `Scroll`'s own touch expression is written through it, byte for byte as before | The fork wrote a touch expression only inside `Scroll`, so a drag control (a slider following `Touch.POSITION_X`, its value as a label) could be authored only against AndroidX's writer. `TouchExpressionWriteTest` (with AndroidX read-back) covers it. |
 | `layout/RemoteText.kt` (`textAlign`) | An alignment neither the argument nor the style specifies is written as `Start` | **Upstream bug.** Since `99f14adf8` upstream passes `RemoteTextAlign.Unspecified` (`Int.MIN_VALUE`) through to `startTextComponent`: AndroidX's `CoreText` reads its low bits as start and its high bits as flags, and rc-players' player rejects it. |
 | `layout/RemoteText.kt` (`dpDocumentFontSizeDp`) | In a `RemoteDensityBehavior.Dp` document a constant font size is written in dp, not the capture's pixels | **Upstream bug.** remote-core alpha22's `CoreText`/`TextLayout` multiply a literal font size by the host density in a DP document, as they do padding, so the pixels upstream writes drew text at density squared in the View player and the CMP player alike. A non-constant size stays the pixel expression, which the core reads unscaled. `DpDocumentFontSizeTest` covers it. |
 
@@ -651,5 +762,6 @@ Apply the upstream delta to the files this fork carries, as the port's earlier r
 than re-copying. Then re-apply the patches above. A file upstream adds, renames or moves between
 modules goes to the same path under `upstream/`. `:rc-player-embedded:jvmTest` is the check that the
 seams still hold, and `scripts/diff-upstream.sh --summary <androidx checkout>` should show no file
-under another name and no more differing hunks than before; update the table above with its
-numbers.
+under another name and no more unmarked hunks than before; update the table above with its
+numbers. A line that has to differ from upstream's gets a `KMP (rc-players)` or
+`LOCAL PATCH (rc-players)` comment saying why.

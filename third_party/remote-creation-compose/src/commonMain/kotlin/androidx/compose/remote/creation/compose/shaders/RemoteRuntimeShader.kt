@@ -20,8 +20,8 @@
 package androidx.compose.remote.creation.compose.shaders
 
 import androidx.annotation.RestrictTo
-import androidx.compose.remote.creation.common.PaintBundleData
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.common.PaintBundle
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.layout.RemoteSize
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
@@ -76,8 +76,8 @@ public class RemoteRuntimeShader(
     public val floatUniforms: Map<String, List<RemoteFloat>>,
     public val intUniforms: Map<String, List<Int>>,
 ) : RemoteShader() {
-    override fun apply(creationState: RemoteComposeCreationContext, paintBundle: PaintBundleData) {
-        val writer = creationState.writer
+    override fun apply(creationState: RemoteComposeCreationState, paintBundle: PaintBundle) {
+        val writer = creationState.document
         val shaderId =
             writer.addShader(
                 sourceId = writer.addText(source),

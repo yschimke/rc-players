@@ -33,6 +33,8 @@ import androidx.compose.runtime.Stable
 @Stable
 public sealed interface RemoteModifier {
 
+    // KMP (rc-players): no `toRecordingModifier()`: a modifier is resolved to the Kotlin
+    // writer's `RemoteModifierData` (`toRemoteModifierData`, below).
     /**
      * Accumulates a value starting with [initial] and applying [operation] to the current value and
      * each element from outside in.
@@ -102,6 +104,8 @@ public sealed interface RemoteModifier {
 
         override fun all(predicate: (Element) -> Boolean): Boolean = predicate(this)
 
+        // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+        // `remote-creation-core`'s `RecordingModifier.Element`.
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
         public fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
             error(
@@ -184,6 +188,8 @@ internal class CombinedRemoteModifier(
     private val inner: RemoteModifier,
 ) : RemoteModifier {
 
+    // KMP (rc-players): no `toRecordingModifier()` here either; `toRemoteModifierData` folds
+    // the chain, with the same duplicate and `DrawContent` rules.
     override fun <R> foldIn(initial: R, operation: (R, RemoteModifier.Element) -> R): R =
         inner.foldIn(outer.foldIn(initial, operation), operation)
 

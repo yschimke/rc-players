@@ -17,10 +17,11 @@
 package androidx.compose.remote.creation.compose.layout
 
 import androidx.annotation.FloatRange
+import androidx.compose.remote.creation.common.CollapsiblePriority
+import androidx.compose.remote.creation.common.DimensionModifierOperation.Type
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.WriterOp
 import androidx.compose.remote.creation.compose.modifier.CollapsiblePriorityModifier
-import androidx.compose.remote.creation.compose.modifier.RemoteDimensionType
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.modifier.WidthModifier
 import androidx.compose.remote.creation.compose.state.RemoteFloat
@@ -39,7 +40,7 @@ public class RemoteCollapsibleRowScope {
      * @return a [RemoteModifier] that assigns horizontal [weight] to the child
      */
     public fun RemoteModifier.weight(weight: RemoteFloat): RemoteModifier =
-        then(WidthModifier(RemoteDimensionType.WEIGHT, weight))
+        then(WidthModifier(Type.WEIGHT, weight))
 
     /**
      * Sets the horizontal weight of the child.
@@ -49,7 +50,7 @@ public class RemoteCollapsibleRowScope {
      */
     public fun RemoteModifier.weight(
         @FloatRange(from = 0.0, fromInclusive = false) weight: Float,
-    ): RemoteModifier = then(WidthModifier(RemoteDimensionType.WEIGHT, RemoteFloat(weight)))
+    ): RemoteModifier = then(WidthModifier(Type.WEIGHT, RemoteFloat(weight)))
 
     /**
      * Sets the collapsible priority of the child.
@@ -66,7 +67,7 @@ public class RemoteCollapsibleRowScope {
      * @return a [RemoteModifier] that assigns horizontal collapsible [priority] to the child
      */
     public fun RemoteModifier.collapsiblePriority(priority: Float): RemoteModifier =
-        then(CollapsiblePriorityModifier(0, RemoteFloat(priority)))
+        then(CollapsiblePriorityModifier(CollapsiblePriority.HORIZONTAL, RemoteFloat(priority)))
 }
 
 internal class RemoteCollapsibleRowNode : RemoteLayoutNode() {
@@ -74,10 +75,12 @@ internal class RemoteCollapsibleRowNode : RemoteLayoutNode() {
     var verticalAlignment: RemoteAlignment.Vertical = RemoteAlignment.Top
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
-        val scope = overriddenScope(creationState)
+        val scope = overriddenScope(remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         val remoteModifier = resolveModifier(scope, creationState)
         (horizontalArrangement as? RemoteSpaced)?.let {
-            remoteModifier.spacedBy = it.getSpacingFloatId(creationState)
+            remoteModifier.spacedBy = it.getSpacingFloatId(scope)
         }
         remoteCanvas.internalCanvas.recordRenderingOp(
             WriterOp.StartCollapsibleRow(
@@ -91,6 +94,8 @@ internal class RemoteCollapsibleRowNode : RemoteLayoutNode() {
             remoteCanvas,
             reversed = shouldReverse(horizontalArrangement, layoutDirection),
         )
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndCollapsibleRow)
     }
 }

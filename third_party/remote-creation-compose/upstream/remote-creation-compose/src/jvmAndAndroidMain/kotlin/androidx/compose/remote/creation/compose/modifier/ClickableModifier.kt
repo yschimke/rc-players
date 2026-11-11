@@ -16,6 +16,7 @@
 
 package androidx.compose.remote.creation.compose.modifier
 
+import androidx.compose.remote.creation.common.MultiClickModifier
 import androidx.compose.remote.creation.common.RemoteModifierOperation
 import androidx.compose.remote.creation.compose.action.CombinedAction
 import androidx.compose.remote.creation.compose.action.RemoteAction
@@ -24,8 +25,10 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
 
 internal class ClickableModifier(
     public val actions: List<RemoteAction>,
-    public val clickType: Int = 0,
+    public val clickType: Int = MultiClickModifier.CLICK_TYPE_SINGLE,
 ) : RemoteModifier.Element {
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.Click(clickType, actions.flatMap { resolveAction(it) })
 }

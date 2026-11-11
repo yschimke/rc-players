@@ -23,6 +23,7 @@ import androidx.compose.remote.creation.compose.state.MutableRemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.creationState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.annotation.RememberInComposition
 import androidx.compose.runtime.remember
 
@@ -38,6 +39,7 @@ import androidx.compose.runtime.remember
  *   greater than 0, the scroll position will snap to the nearest notch when the scroll gesture
  *   ends. If 0, scrolling is continuous.
  */
+@Stable
 public class RemoteScrollState
 @RememberInComposition
 constructor(
@@ -106,12 +108,14 @@ internal data class ScrollModifier(val direction: Int, val state: RemoteScrollSt
     RemoteModifier.Element {
 
     // Not used
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
         RemoteModifierOperation.Scroll(
             direction,
             state.positionState.floatId,
-            creationState.writer.reserveFloatVariable(),
-            creationState.writer.reserveFloatVariable(),
+            creationState.document.reserveFloatVariable(),
+            creationState.document.reserveFloatVariable(),
             state.notches,
         )
 }
@@ -129,6 +133,7 @@ internal data class ScrollModifier(val direction: Int, val state: RemoteScrollSt
  * @see rememberRemoteScrollState
  */
 public fun RemoteModifier.verticalScroll(state: RemoteScrollState): RemoteModifier {
+    // KMP (rc-players): the port's own constant; see `Vertical`, below.
     return this.then(ClipModifier()).then(ScrollModifier(Vertical, state))
 }
 
@@ -149,7 +154,8 @@ public fun RemoteModifier.horizontalScroll(state: RemoteScrollState): RemoteModi
     return this.then(ClipModifier()).then(ScrollModifier(Horizontal, state))
 }
 
-// `remote-creation-core`'s `ScrollModifier.VERTICAL` and `HORIZONTAL`: the wire's direction, which
-// `ScrollModifierOperation` reads as vertical when 0.
+// KMP (rc-players): there is no `remote-creation-core` `ScrollModifier` to read `VERTICAL` and
+// `HORIZONTAL` from, so the port has its own, with that class's values: the wire's direction,
+// which `ScrollModifierOperation` reads as vertical when 0.
 private const val Vertical = 0
 private const val Horizontal = 1

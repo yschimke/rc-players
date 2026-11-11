@@ -18,17 +18,19 @@ package androidx.compose.remote.creation.compose.state
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.AnimatedFloatExpression
-import androidx.compose.remote.creation.common.NamedVariableType
+import androidx.compose.remote.creation.common.NamedVariable
 import androidx.compose.remote.creation.common.Utils
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
+import kotlin.jvm.JvmStatic
 
 /** Represents an array of floats. */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class RemoteFloatArray
-internal constructor(
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public constructor(
     public override val constantValueOrNull: List<RemoteFloat>?,
-    internal override val cacheKey: RemoteStateCacheKey,
-    internal val idProvider: ((creationState: RemoteComposeCreationContext) -> Int)? = null,
+    cacheKey: RemoteStateCacheKey,
+    internal val idProvider: ((creationState: RemoteComposeCreationState) -> Int)? = null,
 ) : BaseRemoteState<List<RemoteFloat>>(cacheKey) {
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -82,7 +84,7 @@ internal constructor(
     private val idListCacheKey: RemoteStateCacheKey =
         RemoteOperationCacheKey.create(OperationKey.IdList, this)
 
-    override fun writeToDocument(creationState: RemoteComposeCreationContext): Int {
+    override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
         // If this instance represents an existing allocated ID (e.g. a formal parameter in a
         // pattern definition), return that ID directly instead of writing to the document.
         if (cacheKey is RemoteStateIdKey) {
@@ -92,8 +94,10 @@ internal constructor(
             return idProvider.invoke(creationState)
         }
         val asFloat =
-            with(creationState) { constantValueOrNull!!.fastMap { it.floatId }.toFloatArray() }
-        return Utils.idFromNan(creationState.writer.addFloatArray(asFloat))
+            constantValueOrNull!!
+                .fastMap { it.getFloatIdForCreationState(creationState) }
+                .toFloatArray()
+        return Utils.idFromNan(creationState.document.addFloatArray(asFloat))
     }
 
     /**
@@ -105,7 +109,8 @@ internal constructor(
      * @param creationState creation state associated with the document being written
      * @return document ID allocated for the ID list
      */
-    internal fun getIdListForCreationState(creationState: RemoteComposeCreationContext): Int {
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun getIdListForCreationState(creationState: RemoteComposeCreationState): Int {
         if (cacheKey is RemoteStateIdKey) {
             return (cacheKey as RemoteStateIdKey).id
         }
@@ -114,7 +119,7 @@ internal constructor(
                 constantValueOrNull!!
                     .fastMap { it.getIdForCreationState(creationState) }
                     .toIntArray()
-            Utils.idFromNan(creationState.writer.addIdList(ids))
+            Utils.idFromNan(creationState.document.addList(ids))
         }
     }
 
@@ -169,7 +174,7 @@ internal constructor(
         }
     }
 
-    private fun arrayForCreationState(creationState: RemoteComposeCreationContext): FloatArray {
+    private fun arrayForCreationState(creationState: RemoteComposeCreationState): FloatArray {
         return creationState.getOrPutFloatArray(cacheKey) {
             floatArrayOf(getFloatIdForCreationState(creationState))
         }
@@ -184,6 +189,7 @@ internal constructor(
          * @param domain The domain of the named array (defaults to [RemoteState.Domain.User]).
          * @return A [RemoteFloatArray] representing the named float array.
          */
+        @JvmStatic
         public fun createNamedRemoteFloatArray(
             name: String,
             defaultValue: FloatArray,
@@ -193,12 +199,12 @@ internal constructor(
                 constantValueOrNull = null,
                 cacheKey = RemoteNamedCacheKey(domain, name),
                 idProvider = { creationState ->
-                    val floatId = creationState.writer.addFloatArray(defaultValue)
+                    val floatId = creationState.document.addFloatArray(defaultValue)
                     val id = Utils.idFromNan(floatId)
-                    creationState.writer.setNamedVariable(
+                    creationState.document.setNamedVariable(
                         id,
                         domain.prefixed(name),
-                        NamedVariableType.FLOAT_ARRAY,
+                        NamedVariable.FLOAT_ARRAY_TYPE,
                     )
                     id
                 },

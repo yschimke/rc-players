@@ -88,35 +88,35 @@ public interface RemoteWriter {
 
   public fun writeModifier(operation: RemoteModifierOperation)
 
-  public fun startText(data: RemoteTextData)
+  public fun startTextComponent(data: RemoteTextData)
 
-  public fun endText()
+  public fun endTextComponent()
 
   public fun image(data: RemoteImageData)
 
   public fun startCustom(
     modifier: RemoteModifierData,
     configId: Int,
-    properties: List<RemoteCustomPropertyData>,
+    properties: List<Custom.CustomProperty>,
   )
 
   public fun endCustom()
 
-  public fun startPatternDefinition(id: Int, parameterIds: IntArray)
+  public fun definePattern(id: Int, parameterIds: IntArray)
 
-  public fun endPatternDefinition()
+  public fun endPatternDefine()
 
-  public fun startPatternInflation(id: Int, argumentIds: IntArray)
+  public fun inflatePattern(id: Int, argumentIds: IntArray)
 
   public fun endPatternInflation()
 
-  public fun startPatternForEach(collectionId: Int, localItemId: Int)
+  public fun addPatternForEach(collectionId: Int, localItemId: Int)
 
   public fun endPatternForEach()
 
-  public fun startConditional(type: Int, first: Float, second: Float)
+  public fun conditionalOperations(type: Int, first: Float, second: Float)
 
-  public fun endConditional()
+  public fun endConditionalOperations()
 
   public fun drawOnBitmap(bitmapId: Int, mode: Int, color: Int)
 
@@ -162,6 +162,21 @@ public interface RemoteWriter {
 
   public fun setNamedVariable(id: Int, name: String, type: Int)
 
+  /** [setNamedVariable] for a colour, under `RemoteComposeWriter`'s name. */
+  public fun setColorName(id: Int, name: String) {
+    setNamedVariable(id, name, NamedVariable.COLOR_TYPE)
+  }
+
+  /** [setNamedVariable] for a string, under `RemoteComposeWriter`'s name. */
+  public fun setStringName(id: Int, name: String) {
+    setNamedVariable(id, name, NamedVariable.STRING_TYPE)
+  }
+
+  /** [setNamedVariable] for a float, under `RemoteComposeWriter`'s name. */
+  public fun setFloatName(id: Int, name: String) {
+    setNamedVariable(id, name, NamedVariable.FLOAT_TYPE)
+  }
+
   public fun addInteger(value: Int): Long
 
   public fun addNamedInt(name: String, initialValue: Int): Long
@@ -172,7 +187,10 @@ public interface RemoteWriter {
 
   public fun addFloatArray(values: FloatArray): Float
 
-  public fun addIdList(ids: IntArray): Float
+  public fun addList(ids: IntArray): Float
+
+  /** [addList] of text ids, under `RemoteComposeWriter`'s name. */
+  public fun addStringList(vararg strIds: Int): Float = addList(strIds)
 
   public fun addDynamicFloatArray(size: Float): Float
 
@@ -188,7 +206,7 @@ public interface RemoteWriter {
 
   public fun idLookup(arrayId: Float, index: Float): Int
 
-  public fun writeIdLookup(outputId: Int, arrayId: Float, index: Float)
+  public fun idLookup(outputId: Int, arrayId: Float, index: Float)
 
   public fun textLookup(arrayId: Float, index: Float): Int
 
@@ -216,7 +234,7 @@ public interface RemoteWriter {
    * [velocityId] is a float the player writes the drag's velocity to, or 0 for none; [touchEffects]
    * the haptic and visual effects flags, 0 for none.
    */
-  public fun touchExpression(
+  public fun addTouchExpression(
     id: Int,
     value: Float,
     min: Float,
@@ -235,7 +253,7 @@ public interface RemoteWriter {
 
   public fun createTextFromFloat(value: Float, before: Int, after: Int, flags: Int): Int
 
-  public fun colorAttribute(colorId: Int, type: Short): Float
+  public fun getColorAttribute(colorId: Int, type: Short): Float
 
   public fun bitmapAttribute(bitmapId: Int, type: Short): Float
 
@@ -280,6 +298,9 @@ public interface RemoteWriter {
 
   public fun addText(value: String): Int
 
+  /** [addText], under the other name `RemoteComposeWriter` has for it. */
+  public fun textCreateId(text: String): Int = addText(text)
+
   public fun addThemedColor(
     group: String,
     lightId: Short,
@@ -298,7 +319,7 @@ public interface RemoteWriter {
 
   /**
    * LOCAL PATCH (rc-players): writes `ShaderData` (`DATA_SHADER`), an AGSL runtime shader compiled
-   * from the text [sourceId] (see [addText]), and returns the id [PaintBundleData.setShader] takes.
+   * from the text [sourceId] (see [addText]), and returns the id [PaintBundle.setShader] takes.
    *
    * Each float uniform value is a constant or a NaN-encoded variable id (an expression, a
    * component's size, `animationTime`), which the player resolves every frame. At most 255 uniforms
@@ -374,10 +395,10 @@ public interface RemoteWriter {
    */
   public fun matrixFromMesh2D(meshId: Int, u: Float, v: Float, flags: Int = Mesh2D.MATRIX_FULL)
 
-  public fun applyPaint(paint: PaintBundleData)
+  public fun applyPaint(paint: PaintBundle)
 
   /** Returns and clears whether the next paint must be emitted as a complete state. */
-  public fun consumePaintReset(): Boolean
+  public fun checkAndClearForceSendingNewPaint(): Boolean
 
   public fun save()
 
@@ -441,7 +462,7 @@ public interface RemoteWriter {
 
   public fun drawComponentContent()
 
-  public fun clipPath(pathId: Int)
+  public fun addClipPath(pathId: Int)
 
   public fun drawTweenPath(path1Id: Int, path2Id: Int, tween: Float, start: Float, stop: Float)
 
@@ -513,12 +534,31 @@ public data class BitmapFontGlyph(
   val height: Short,
 )
 
-public object NamedVariableType {
-  public const val STRING: Int = 0
-  public const val FLOAT: Int = 1
-  public const val COLOR: Int = 2
-  public const val IMAGE: Int = 3
-  public const val INT: Int = 4
-  public const val LONG: Int = 5
-  public const val FLOAT_ARRAY: Int = 6
+/** `NamedVariable`'s type constants, as AndroidX's `remote-core` names them. */
+public object NamedVariable {
+  public const val STRING_TYPE: Int = 0
+  public const val FLOAT_TYPE: Int = 1
+  public const val COLOR_TYPE: Int = 2
+  public const val IMAGE_TYPE: Int = 3
+  public const val INT_TYPE: Int = 4
+  public const val LONG_TYPE: Int = 5
+  public const val FLOAT_ARRAY_TYPE: Int = 6
 }
+
+/** `ComponentValue`'s type constants, as AndroidX's `remote-core` names them. */
+public object ComponentValue {
+  public const val WIDTH: Int = 0
+  public const val HEIGHT: Int = 1
+  public const val POS_X: Int = 2
+  public const val POS_Y: Int = 3
+  public const val POS_ROOT_X: Int = 4
+  public const val POS_ROOT_Y: Int = 5
+}
+
+/**
+ * AndroidX's name for the writer. The Kotlin carried from `remote-creation-expression` and
+ * `remote-creation-compose` is typed against
+ * `androidx.compose.remote.creation.RemoteComposeWriter`, a Java class; here that name is this
+ * interface, so the carried text can stand.
+ */
+public typealias RemoteComposeWriter = RemoteWriter

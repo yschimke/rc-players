@@ -40,6 +40,8 @@ internal class OffsetModifier(
         yDp = y,
     )
 
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
         val resolvedX =
             if (densityBehavior == RemoteDensityBehavior.Dp) {

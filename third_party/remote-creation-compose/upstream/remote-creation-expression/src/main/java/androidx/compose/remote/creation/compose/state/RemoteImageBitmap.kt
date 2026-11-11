@@ -19,8 +19,8 @@ package androidx.compose.remote.creation.compose.state
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.ImageAttribute.IMAGE_HEIGHT
 import androidx.compose.remote.creation.common.ImageAttribute.IMAGE_WIDTH
-import androidx.compose.remote.creation.common.NamedVariableType
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.common.NamedVariable
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.annotation.RememberInComposition
 import kotlin.jvm.JvmStatic
@@ -33,11 +33,23 @@ import kotlin.jvm.JvmStatic
  */
 @Stable
 public open class RemoteImageBitmap
-internal constructor(
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public constructor(
     public override val constantValueOrNull: Any?,
     cacheKey: RemoteStateCacheKey,
-    internal val idProvider: ((creationState: RemoteComposeCreationContext) -> Int)? = null,
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public val idProvider: ((creationState: RemoteComposeCreationState) -> Int)? = null,
 ) : BaseRemoteState<Any>(cacheKey) {
+
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public constructor(
+        constantValueOrNull: Any?,
+        cacheKey: RemoteStateCacheKey,
+    ) : this(
+        constantValueOrNull = constantValueOrNull,
+        cacheKey = cacheKey,
+        idProvider = null,
+    )
 
     /**
      * Creates a [RemoteImageBitmap] from a URL.
@@ -49,11 +61,11 @@ internal constructor(
     ) : this(
         constantValueOrNull = null,
         cacheKey = RemoteConstantCacheKey(url),
-        idProvider = { creationState -> creationState.writer.addBitmapUrl(url) },
+        idProvider = { creationState -> creationState.document.addBitmapUrl(url) },
     )
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationContext): Int =
+    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int =
         idProvider?.invoke(creationState)
             ?: error(
                 "RemoteImageBitmap subclass must implement writeToDocument or supply idProvider",
@@ -72,7 +84,7 @@ internal constructor(
                 cacheKey = RemoteOperationCacheKey.create(OperationKey.Width, this),
             ) { creationState ->
                 floatArrayOf(
-                    creationState.writer.bitmapAttribute(
+                    creationState.document.bitmapAttribute(
                         getIdForCreationState(creationState),
                         IMAGE_WIDTH,
                     ),
@@ -88,7 +100,7 @@ internal constructor(
                 cacheKey = RemoteOperationCacheKey.create(OperationKey.Height, this),
             ) { creationState ->
                 floatArrayOf(
-                    creationState.writer.bitmapAttribute(
+                    creationState.document.bitmapAttribute(
                         getIdForCreationState(creationState),
                         IMAGE_HEIGHT,
                     ),
@@ -103,7 +115,8 @@ internal constructor(
          * @param id The remote ID.
          * @return A [RemoteImageBitmap] referencing the ID.
          */
-        internal fun createForId(id: Int): RemoteImageBitmap =
+        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+        public fun createForId(id: Int): RemoteImageBitmap =
             RemoteImageBitmap(
                 constantValueOrNull = null,
                 cacheKey = RemoteStateIdKey(id),
@@ -155,11 +168,11 @@ internal constructor(
                 constantValueOrNull = null,
                 cacheKey = RemoteNamedCacheKey(domain, name),
                 idProvider = { creationState ->
-                    val id = creationState.writer.addBitmapUrl(url, width, height)
-                    creationState.writer.setNamedVariable(
+                    val id = creationState.document.addBitmapUrl(url, width, height)
+                    creationState.document.setNamedVariable(
                         id,
                         domain.prefixed(name),
-                        NamedVariableType.IMAGE,
+                        NamedVariable.IMAGE_TYPE,
                     )
                     id
                 },
@@ -177,7 +190,9 @@ internal constructor(
             RemoteImageBitmap(
                 constantValueOrNull = null,
                 cacheKey = RemoteStateInstanceKey(),
-                idProvider = { creationState -> creationState.writer.createBitmap(width, height) },
+                idProvider = { creationState ->
+                    creationState.document.createBitmap(width, height)
+                },
             )
     }
 }
@@ -188,10 +203,11 @@ internal constructor(
  */
 public class MutableRemoteImageBitmap
 @RememberInComposition
-internal constructor(
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public constructor(
     public override val constantValueOrNull: Any?,
     cacheKey: RemoteStateCacheKey?,
-    idProvider: (creationState: RemoteComposeCreationContext) -> Int,
+    idProvider: (creationState: RemoteComposeCreationState) -> Int,
 ) :
     RemoteImageBitmap(constantValueOrNull, cacheKey ?: RemoteStateInstanceKey(), idProvider),
     MutableRemoteState<Any> {
@@ -203,7 +219,8 @@ internal constructor(
          * @param id The existing mutable ID.
          * @return A [MutableRemoteImageBitmap] instance mapping to the ID.
          */
-        internal fun createMutableForId(id: Int): MutableRemoteImageBitmap =
+        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+        public fun createMutableForId(id: Int): MutableRemoteImageBitmap =
             MutableRemoteImageBitmap(constantValueOrNull = null, cacheKey = RemoteStateIdKey(id)) {
                 id
             }

@@ -25,11 +25,16 @@ internal constructor(
     private val content: RemoteDrawScope.() -> Unit = {
         remoteCanvas.internalCanvas.drawComponentContent()
     },
+    // LOCAL PATCH (rc-players): the padding a `drawWithContent` sits inside is the fork's
+    // `DrawInset`, which `RemoteDrawScope` applies; upstream passes the content size and the
+    // offset to this class (`1d18c52eb`). See `DrawWithContentModifier.kt`.
     inset: DrawInset? = null,
 ) : RemoteDrawScope(remoteCanvas, inset) {
 
     /** Draws the content of the component. */
     public fun drawContent() {
+        // LOCAL PATCH (rc-players): the content is drawn back at the component's origin by the
+        // lambda `DrawWithContentModifier` passes, not by translating here.
         content()
     }
 }

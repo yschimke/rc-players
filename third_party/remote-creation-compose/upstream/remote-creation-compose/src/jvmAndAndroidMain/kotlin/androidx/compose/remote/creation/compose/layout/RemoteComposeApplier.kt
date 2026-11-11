@@ -21,7 +21,8 @@ import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 
-// Port: kotlin.concurrent.atomics in place of upstream's java.util.concurrent.atomic.AtomicLong, so
+// KMP (rc-players): kotlin.concurrent.atomics in place of upstream's
+// java.util.concurrent.atomic.AtomicLong, so
 // the applier stays in commonMain.
 @OptIn(ExperimentalAtomicApi::class)
 internal class RemoteComposeApplier(root: RemoteComposeNode) :

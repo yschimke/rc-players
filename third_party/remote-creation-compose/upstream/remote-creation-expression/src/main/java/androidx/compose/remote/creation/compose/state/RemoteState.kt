@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package androidx.compose.remote.creation.compose.state
 
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.creation.common.Utils
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.runtime.Stable
 
 /**
@@ -29,7 +28,7 @@ import androidx.compose.runtime.Stable
  * engine.
  *
  * In Remote Compose recording mode, a type-specific ID is used to refer to this state within
- * [RemoteComposeCreationContext].
+ * [RemoteComposeCreationState].
  *
  * @param T The type of the value held by this state.
  */
@@ -197,9 +196,10 @@ public interface RemoteState<T> {
 
 /** Common base class for all Remote types. */
 public abstract class BaseRemoteState<T : Any>
-internal constructor(initialCacheKey: RemoteStateCacheKey) : RemoteState<T> {
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public constructor(initialCacheKey: RemoteStateCacheKey) : RemoteState<T> {
     @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    internal open val cacheKey: RemoteStateCacheKey = initialCacheKey
+    public open val cacheKey: RemoteStateCacheKey = initialCacheKey
 
     init {
         // Register with BaseRemoteStateCacheKey.
@@ -254,41 +254,44 @@ internal constructor(initialCacheKey: RemoteStateCacheKey) : RemoteState<T> {
     ): R = cacheKey.accept(visitor, memo)
 
     /**
-     * Returns a new or cached id for this [RemoteState] within the [RemoteComposeCreationContext].
+     * Returns a new or cached id for this [RemoteState] within the [RemoteComposeCreationState].
      *
-     * @param creationState The [RemoteComposeCreationContext] for which the ID will be generated.
+     * @param creationState The [RemoteComposeCreationState] for which the ID will be generated.
      * @return The ID of this remote value, for the given [creationState].
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public open fun getIdForCreationState(creationState: RemoteComposeCreationContext): Int {
+    public open fun getIdForCreationState(creationState: RemoteComposeCreationState): Int {
         return creationState.getOrPutVariableId(cacheKey) { writeToDocument(creationState) }
     }
 
     /**
-     * @param creationState The [RemoteComposeCreationContext] for which the ID will be generated.
+     * @param creationState The [RemoteComposeCreationState] for which the ID will be generated.
      * @return The ID of this remote value, for the given [creationState] as a long.
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public open fun getLongIdForCreationState(creationState: RemoteComposeCreationContext): Long {
+    public open fun getLongIdForCreationState(creationState: RemoteComposeCreationState): Long {
         return getIdForCreationState(creationState).toLong() + 0x100000000L
     }
 
     /**
-     * @param creationState The [RemoteComposeCreationContext] for which the ID will be generated.
+     * @param creationState The [RemoteComposeCreationState] for which the ID will be generated.
      * @return The ID of this remote value encoded in a Float NaN, for the given [creationState].
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public open fun getFloatIdForCreationState(creationState: RemoteComposeCreationContext): Float =
+    public open fun getFloatIdForCreationState(creationState: RemoteComposeCreationState): Float =
         Utils.asNan(getIdForCreationState(creationState))
 
     /**
      * Writes the Remote Value to the [creationState] and returns the allocated ID.
      *
-     * @param creationState The [RemoteComposeCreationContext] to write to.
-     * @return The ID allocated by the [RemoteComposeWriter].
+     * @param creationState The [RemoteComposeCreationState] to write to.
+     * @return The ID allocated by the
+     *   [androidx.compose.remote.creation.common.RemoteComposeWriter].
      */
+    // KMP (rc-players): the Kotlin writer's package is longer than `RemoteComposeWriter`'s, and
+    // ktfmt re-wraps the line above.
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public abstract fun writeToDocument(creationState: RemoteComposeCreationContext): Int
+    public abstract fun writeToDocument(creationState: RemoteComposeCreationState): Int
 }
 
 /**

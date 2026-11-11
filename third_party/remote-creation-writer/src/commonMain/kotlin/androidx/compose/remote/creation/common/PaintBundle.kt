@@ -1,64 +1,64 @@
 package androidx.compose.remote.creation.common
 
 /** Platform-neutral encoding of a Remote Compose paint delta. */
-public class PaintBundleData {
+public class PaintBundle {
   private val values = mutableListOf<Int>()
 
-  public fun setTextSize(value: Float): PaintBundleData = value(TextSize, value)
+  public fun setTextSize(value: Float): PaintBundle = value(TextSize, value)
 
-  public fun setColor(argb: Int): PaintBundleData = value(Color, argb)
+  public fun setColor(argb: Int): PaintBundle = value(Color, argb)
 
-  public fun setColorId(id: Int): PaintBundleData = value(ColorId, id)
+  public fun setColorId(id: Int): PaintBundle = value(ColorId, id)
 
-  public fun setStrokeWidth(value: Float): PaintBundleData = value(StrokeWidth, value)
+  public fun setStrokeWidth(value: Float): PaintBundle = value(StrokeWidth, value)
 
-  public fun setStrokeMiter(value: Float): PaintBundleData = value(StrokeMiter, value)
+  public fun setStrokeMiter(value: Float): PaintBundle = value(StrokeMiter, value)
 
-  public fun setStrokeCap(value: Int): PaintBundleData = command(StrokeCap, value)
+  public fun setStrokeCap(value: Int): PaintBundle = command(StrokeCap, value)
 
-  public fun setStrokeJoin(value: Int): PaintBundleData = command(StrokeJoin, value)
+  public fun setStrokeJoin(value: Int): PaintBundle = command(StrokeJoin, value)
 
-  public fun setStyle(value: Int): PaintBundleData = command(Style, value)
+  public fun setStyle(value: Int): PaintBundle = command(Style, value)
 
-  public fun setImageFilterQuality(value: Int): PaintBundleData = command(ImageFilterQuality, value)
+  public fun setImageFilterQuality(value: Int): PaintBundle = command(ImageFilterQuality, value)
 
-  public fun setBlendMode(value: Int): PaintBundleData = command(BlendMode, value)
+  public fun setBlendMode(value: Int): PaintBundle = command(BlendMode, value)
 
-  public fun setAntiAlias(value: Boolean): PaintBundleData = command(AntiAlias, if (value) 1 else 0)
+  public fun setAntiAlias(value: Boolean): PaintBundle = command(AntiAlias, if (value) 1 else 0)
 
-  public fun setFilterBitmap(value: Boolean): PaintBundleData =
+  public fun setFilterBitmap(value: Boolean): PaintBundle =
     command(FilterBitmap, if (value) 1 else 0)
 
-  public fun setAlpha(value: Float): PaintBundleData = value(Alpha, value)
+  public fun setAlpha(value: Float): PaintBundle = value(Alpha, value)
 
-  public fun setShader(shaderId: Int): PaintBundleData = value(Shader, shaderId)
+  public fun setShader(shaderId: Int): PaintBundle = value(Shader, shaderId)
 
-  public fun setShaderMatrix(matrixId: Float): PaintBundleData = value(ShaderMatrix, matrixId)
+  public fun setShaderMatrix(matrixId: Float): PaintBundle = value(ShaderMatrix, matrixId)
 
-  public fun setColorFilter(color: Int, mode: Int): PaintBundleData =
+  public fun setColorFilter(color: Int, mode: Int): PaintBundle =
     value(ColorFilter or (mode shl 16), color)
 
-  public fun setColorFilterId(colorId: Int, mode: Int): PaintBundleData =
+  public fun setColorFilterId(colorId: Int, mode: Int): PaintBundle =
     value(ColorFilterId or (mode shl 16), colorId)
 
-  public fun clearColorFilter(): PaintBundleData = appendCommand(ClearColorFilter)
+  public fun clearColorFilter(): PaintBundle = appendCommand(ClearColorFilter)
 
   public fun setTextStyle(
     fontType: Int,
     weight: Int,
     italic: Boolean,
     fontData: Boolean = false,
-  ): PaintBundleData {
+  ): PaintBundle {
     val style = (weight and 0x3ff) or (if (italic) 2048 else 0) or (if (fontData) 1024 else 0)
     return value(Typeface or (style shl 16), fontType)
   }
 
-  public fun setFallbackTypeface(fontType: Int, weight: Int, italic: Boolean): PaintBundleData {
+  public fun setFallbackTypeface(fontType: Int, weight: Int, italic: Boolean): PaintBundle {
     val style = (weight and 0x3ff) or (if (italic) 2048 else 0)
     return value(FallbackTypeface or (style shl 16), fontType)
   }
 
-  public fun setFontAxes(tags: IntArray, axisValues: FloatArray): PaintBundleData {
+  public fun setTextAxis(tags: IntArray, axisValues: FloatArray): PaintBundle {
     require(tags.size == axisValues.size)
     require(tags.size <= 8)
     append(FontAxis or (tags.size shl 16))
@@ -69,7 +69,7 @@ public class PaintBundleData {
     return this
   }
 
-  public fun setPathEffect(pathEffect: FloatArray?): PaintBundleData {
+  public fun setPathEffect(pathEffect: FloatArray?): PaintBundle {
     require((pathEffect?.size ?: 0) <= 2028)
     append(PathEffect or ((pathEffect?.size ?: 0) shl 16))
     pathEffect?.forEach { append(it.toRawBits()) }
@@ -85,7 +85,7 @@ public class PaintBundleData {
     endX: Float,
     endY: Float,
     tileMode: Int,
-  ): PaintBundleData =
+  ): PaintBundle =
     gradient(LinearGradient, colors, idMask, stops) {
       append(startX.toRawBits())
       append(startY.toRawBits())
@@ -102,7 +102,7 @@ public class PaintBundleData {
     centerY: Float,
     radius: Float,
     tileMode: Int,
-  ): PaintBundleData =
+  ): PaintBundle =
     gradient(RadialGradient, colors, idMask, stops) {
       append(centerX.toRawBits())
       append(centerY.toRawBits())
@@ -116,7 +116,7 @@ public class PaintBundleData {
     stops: FloatArray?,
     centerX: Float,
     centerY: Float,
-  ): PaintBundleData =
+  ): PaintBundle =
     gradient(SweepGradient, colors, idMask, stops) {
       append(centerX.toRawBits())
       append(centerY.toRawBits())
@@ -128,7 +128,7 @@ public class PaintBundleData {
     tileModeY: Short,
     filterMode: Short,
     maxAnisotropy: Short,
-  ): PaintBundleData {
+  ): PaintBundle {
     append(Texture)
     append(bitmapId)
     append((tileModeX.toInt() and 0xffff) or (tileModeY.toInt() shl 16))
@@ -138,18 +138,17 @@ public class PaintBundleData {
 
   public fun toIntArray(): IntArray = values.toIntArray()
 
-  private fun command(type: Int, value: Int): PaintBundleData =
-    appendCommand(type or (value shl 16))
+  private fun command(type: Int, value: Int): PaintBundle = appendCommand(type or (value shl 16))
 
-  private fun value(type: Int, value: Int): PaintBundleData {
+  private fun value(type: Int, value: Int): PaintBundle {
     append(type)
     append(value)
     return this
   }
 
-  private fun value(type: Int, value: Float): PaintBundleData = value(type, value.toRawBits())
+  private fun value(type: Int, value: Float): PaintBundle = value(type, value.toRawBits())
 
-  private fun appendCommand(command: Int): PaintBundleData {
+  private fun appendCommand(command: Int): PaintBundle {
     append(command)
     return this
   }
@@ -159,8 +158,8 @@ public class PaintBundleData {
     colors: IntArray,
     idMask: Int,
     stops: FloatArray?,
-    tail: PaintBundleData.() -> Unit,
-  ): PaintBundleData {
+    tail: PaintBundle.() -> Unit,
+  ): PaintBundle {
     require(colors.size <= 255)
     append(Gradient or (type shl 16))
     append((idMask shl 16) or colors.size)
@@ -176,6 +175,39 @@ public class PaintBundleData {
   }
 
   public companion object {
+    public const val BLEND_MODE_CLEAR: Int = 0
+    public const val BLEND_MODE_SRC: Int = 1
+    public const val BLEND_MODE_DST: Int = 2
+    public const val BLEND_MODE_SRC_OVER: Int = 3
+    public const val BLEND_MODE_DST_OVER: Int = 4
+    public const val BLEND_MODE_SRC_IN: Int = 5
+    public const val BLEND_MODE_DST_IN: Int = 6
+    public const val BLEND_MODE_SRC_OUT: Int = 7
+    public const val BLEND_MODE_DST_OUT: Int = 8
+    public const val BLEND_MODE_SRC_ATOP: Int = 9
+    public const val BLEND_MODE_DST_ATOP: Int = 10
+    public const val BLEND_MODE_XOR: Int = 11
+    public const val BLEND_MODE_PLUS: Int = 12
+    public const val BLEND_MODE_MODULATE: Int = 13
+    public const val BLEND_MODE_SCREEN: Int = 14
+    public const val BLEND_MODE_OVERLAY: Int = 15
+    public const val BLEND_MODE_DARKEN: Int = 16
+    public const val BLEND_MODE_LIGHTEN: Int = 17
+    public const val BLEND_MODE_COLOR_DODGE: Int = 18
+    public const val BLEND_MODE_COLOR_BURN: Int = 19
+    public const val BLEND_MODE_HARD_LIGHT: Int = 20
+    public const val BLEND_MODE_SOFT_LIGHT: Int = 21
+    public const val BLEND_MODE_DIFFERENCE: Int = 22
+    public const val BLEND_MODE_EXCLUSION: Int = 23
+    public const val BLEND_MODE_MULTIPLY: Int = 24
+    public const val BLEND_MODE_HUE: Int = 25
+    public const val BLEND_MODE_SATURATION: Int = 26
+    public const val BLEND_MODE_COLOR: Int = 27
+    public const val BLEND_MODE_LUMINOSITY: Int = 28
+    public const val STYLE_FILL: Int = 0
+    public const val STYLE_STROKE: Int = 1
+    public const val STYLE_FILL_AND_STROKE: Int = 2
+
     public const val FONT_TYPE_DEFAULT: Int = 0
     public const val FONT_TYPE_SANS_SERIF: Int = 1
     public const val FONT_TYPE_SERIF: Int = 2

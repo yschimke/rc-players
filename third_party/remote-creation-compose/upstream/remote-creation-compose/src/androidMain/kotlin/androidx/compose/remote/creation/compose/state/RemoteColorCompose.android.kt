@@ -29,6 +29,9 @@ import androidx.compose.ui.graphics.toArgb
  */
 public fun RemoteColor(color: Color): RemoteColor = color.asRemoteColor()
 
+// KMP (rc-players): `createThemedRemoteColor(@ColorRes …)` is not carried: it reads Android
+// resources.
+
 /** Extension property to convert a [Color] to a [RemoteColor]. */
 public val Color.rc: RemoteColor
     get() = asRemoteColor()

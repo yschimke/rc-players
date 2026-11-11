@@ -31,7 +31,7 @@ class TouchExpressionWriteTest {
     val valueId = Utils.idFromNan(writer.reserveFloatVariable())
     val labelId = Utils.idFromNan(writer.reserveFloatVariable())
     val unitsPerPx = writer.floatExpression(0.5f)
-    writer.touchExpression(
+    writer.addTouchExpression(
       id = valueId,
       value = 20f,
       min = 0f,
@@ -83,7 +83,7 @@ class TouchExpressionWriteTest {
   fun aStopSpecAndAnEasingAreWrittenAfterTheirCounts() {
     val writer = RemoteDocumentWriter(200, 100)
     val id = Utils.idFromNan(writer.reserveFloatVariable())
-    writer.touchExpression(
+    writer.addTouchExpression(
       id,
       0f,
       0f,
@@ -110,7 +110,7 @@ class TouchExpressionWriteTest {
   fun anOverlongExpressionIsRefused() {
     val writer = RemoteDocumentWriter(200, 100)
     assertFailsWith<IllegalArgumentException> {
-      writer.touchExpression(1, 0f, 0f, 1f, 0f, 0, FloatArray(33), TouchStop.GENTLY)
+      writer.addTouchExpression(1, 0f, 0f, 1f, 0f, 0, FloatArray(33), TouchStop.GENTLY)
     }
   }
 }

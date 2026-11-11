@@ -72,9 +72,6 @@ internal constructor(
 /**
  * Creates a [RemoteCreationDisplayInfo] instance from width, height, and density metrics.
  *
- * This function is used to capture the essential display properties required for remote rendering.
- * By default, it uses the system's current display metrics.
- *
  * @param width The width of the display in pixels.
  * @param height The height of the display in pixels.
  * @param densityDpi The logical densityDpi of the display.

@@ -26,6 +26,8 @@ internal class ScrollByAction(
     public val scrollState: RemoteScrollState,
     public val value: RemoteFloat,
 ) : RemoteAction {
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> {
         val positionState = scrollState.positionState
         return listOf(
@@ -38,6 +40,8 @@ internal class ScrollToAction(
     public val scrollState: RemoteScrollState,
     public val value: RemoteFloat,
 ) : RemoteAction {
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> =
         listOf(RemoteActionData.FloatExpressionChange(scrollState.positionState.id, value.id))
 }

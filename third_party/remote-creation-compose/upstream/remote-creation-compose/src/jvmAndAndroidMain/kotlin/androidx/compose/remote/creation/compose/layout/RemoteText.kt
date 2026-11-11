@@ -21,7 +21,6 @@ package androidx.compose.remote.creation.compose.layout
 import androidx.annotation.IntRange
 import androidx.compose.remote.creation.common.RemoteTextData
 import androidx.compose.remote.creation.compose.capture.LocalFontWeightAdjustment
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.RemoteDensity
 import androidx.compose.remote.creation.compose.capture.RemoteDensityBehavior
@@ -221,7 +220,7 @@ internal class RemoteTextNode : RemoteComposeNode() {
 
     private fun extractFontSettings(
         settings: List<RemoteFontVariation.Setting>?,
-        creationState: RemoteComposeCreationContext,
+        creationState: RemoteComposeCreationState,
     ): Pair<Array<String>?, FloatArray?> {
         val size = settings?.size ?: return Pair(null, null)
 
@@ -247,7 +246,7 @@ internal class RemoteTextNode : RemoteComposeNode() {
         val (fontAxisNames, fontAxisValues) =
             extractFontSettings(combinedSettings?.settings, creationState)
 
-        val scope = overriddenScope(creationState)
+        val scope = overriddenScope(remoteCanvas)
         // LOCAL PATCH (rc-players): a DP document's literal font size is written in dp.
         // remote-core's
         // `CoreText.updateVariables` (alpha22) scales a literal size by the host density in a DP
@@ -290,6 +289,8 @@ internal class RemoteTextNode : RemoteComposeNode() {
                     .coerceIn(FONT_WEIGHT_MIN, FONT_WEIGHT_MAX)
             }
 
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         remoteCanvas.internalCanvas.recordRenderingOp(
             WriterOp.StartText(
                 RemoteTextData(
@@ -302,7 +303,7 @@ internal class RemoteTextNode : RemoteComposeNode() {
                     maxFontSize = maxFontSize ?: -1f,
                     fontStyle = fontStyle.value,
                     fontWeight = adjustedFontWeight,
-                    fontFamilyId = fontFamily?.let { creationState.writer.addText(it) } ?: -1,
+                    fontFamilyId = fontFamily?.let { creationState.document.addText(it) } ?: -1,
                     textAlign = resolvedTextAlign.value,
                     overflow = overflow.value,
                     maxLines = maxLines,
@@ -314,12 +315,14 @@ internal class RemoteTextNode : RemoteComposeNode() {
                     underline = textDecoration.contains(RemoteTextDecoration.Underline),
                     strikethrough = textDecoration.contains(RemoteTextDecoration.LineThrough),
                     fontAxisIds =
-                        fontAxisNames?.map { creationState.writer.addText(it) }?.toIntArray()
+                        fontAxisNames?.map { creationState.document.addText(it) }?.toIntArray()
                             ?: intArrayOf(),
                     fontAxisValues = fontAxisValues ?: floatArrayOf(),
                 ),
             ),
         )
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndText)
     }
 }

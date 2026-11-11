@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 @file:kotlin.jvm.JvmName("RemoteImageKt")
-@file:Suppress("RestrictedApiAndroidX")
 
 package androidx.compose.remote.creation.compose.layout
 
 import androidx.compose.remote.creation.common.RemoteImageData
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.capture.WriterOp
+import androidx.compose.remote.creation.compose.capture.addBitmap
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
@@ -45,7 +45,9 @@ internal class RemoteImageNode : RemoteComposeNode() {
                     creationState.addBitmap(it)
                 }
                 ?: 0
-        val scope = overriddenScope(creationState)
+        val scope = overriddenScope(remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         remoteCanvas.internalCanvas.recordRenderingOp(
             WriterOp.Image(
                 RemoteImageData(

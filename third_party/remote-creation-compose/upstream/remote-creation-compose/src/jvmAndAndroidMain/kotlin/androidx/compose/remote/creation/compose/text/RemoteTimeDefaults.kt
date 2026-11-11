@@ -18,6 +18,7 @@ package androidx.compose.remote.creation.compose.text
 
 import androidx.compose.remote.creation.common.TextFromFloat.PAD_PRE_NONE
 import androidx.compose.remote.creation.common.TextFromFloat.PAD_PRE_ZERO
+import androidx.compose.remote.creation.compose.capture.LocalIs24HourFormat
 import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.remote.creation.compose.state.RemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteFloat
@@ -26,8 +27,12 @@ import androidx.compose.remote.creation.compose.state.RemoteTimeVariables
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.runtime.Composable
 
-/** Default time values backed by the player's clock variables. */
+/**
+ * Contains default values and helper methods for displaying time-related text in a remote context.
+ */
+// TODO(b/564951851): Move RemoteTimeDefaults to androidx.wear.compose.remote.material3.
 public object RemoteTimeDefaults {
+
     /**
      * Returns a [RemoteBoolean] indicating whether the time should be displayed in 24-hour format.
      * Currently captured at recording time.
@@ -36,7 +41,7 @@ public object RemoteTimeDefaults {
      */
     @RemoteComposable
     @Composable
-    public fun is24HourFormat(): RemoteBoolean = RemoteBoolean(platformUses24HourTime())
+    public fun is24HourFormat(): RemoteBoolean = RemoteBoolean(LocalIs24HourFormat.current)
 
     /**
      * Creates a [RemoteString] representing the current time in either 12-hour or 24-hour format.
@@ -58,13 +63,13 @@ public object RemoteTimeDefaults {
                 PAD_PRE_ZERO,
             )
         val currentHour = RemoteTimeVariables.hourOfDay.toRemoteFloat()
-        val hours24 = currentHour.toRemoteStringOptions(2, 0, PAD_PRE_ZERO)
-        val hour12 =
+        val hours24String: RemoteString = currentHour.toRemoteStringOptions(2, 0, PAD_PRE_ZERO)
+        val hour12: RemoteFloat =
             ((currentHour % 12f).isEqualTo(0.rf)).select(RemoteFloat(12f), currentHour % 12f)
-        // Upstream dropped the AM/PM suffix and the leading zero: 12-hour time reads "h:mm".
-        val hours12 = hour12.toRemoteStringOptions(2, 0, PAD_PRE_NONE)
-        return is24HourFormat.select(hours24 + ":" + mins, hours12 + ":" + mins)
+        val hours12String: RemoteString = hour12.toRemoteStringOptions(2, 0, PAD_PRE_NONE)
+
+        val time24 = hours24String + ":" + mins
+        val time12 = hours12String + ":" + mins
+        return is24HourFormat.select(time24, time12)
     }
 }
-
-@Composable internal expect fun platformUses24HourTime(): Boolean

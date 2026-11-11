@@ -7,6 +7,7 @@ import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.remote.creation.compose.layout.RemoteComposeApplier
 import androidx.compose.remote.creation.compose.layout.RemoteRootNode
 import androidx.compose.remote.creation.compose.layout.toRemoteLayoutDirection
+import androidx.compose.remote.creation.compose.text.platformUses24HourTime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionContext
@@ -49,7 +50,7 @@ public class RemoteDocumentSession(
     private val compositionWriter = RemoteDocumentWriter(1, 1)
     private val compositionWriterSize = compositionWriter.encodeToByteArray().size
     private val creationState =
-        RemoteComposeCreationState(
+        RemoteComposeCaptureState(
             creationDisplayInfo = creationDisplayInfo,
             writer = compositionWriter,
             remoteDensity = remoteDensity,
@@ -119,6 +120,7 @@ public class RemoteDocumentSession(
             CompositionLocalProvider(
                 LocalRemoteComposeCreationState provides creationState,
                 LocalRemoteDensity provides remoteDensity,
+                LocalIs24HourFormat provides platformUses24HourTime(),
                 LocalDensity provides
                     Density(creationDisplayInfo.density, creationDisplayInfo.fontScale),
                 LocalInspectionMode provides creationDisplayInfo.isInspectionMode,
@@ -139,7 +141,7 @@ public class RemoteDocumentSession(
             "The document was written to during composition"
         }
         val state = creationState
-        state.writer = writer
+        state.document = writer
         state.clearDocumentCaches()
         state.resetComponentIds()
         // Changes applied from here on are seen by this render or held for it.
@@ -173,7 +175,7 @@ public class RemoteDocumentSession(
         } finally {
             changedWhileRendering.store(null)
             snapshot.dispose()
-            creationState.writer = compositionWriter
+            creationState.document = compositionWriter
         }
         return writer
     }
@@ -201,7 +203,7 @@ public class RemoteDocumentSession(
             encoded.getOrPut(image) { encodePng(image) }
 
         private val writer: RemoteDocumentWriter?
-            get() = creationState.writer as? RemoteDocumentWriter
+            get() = creationState.document as? RemoteDocumentWriter
 
         override fun addBitmap(image: ImageBitmap): Int =
             png(image)?.let { writer?.addBitmapPng(it, image.width, image.height) } ?: -1

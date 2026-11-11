@@ -16,6 +16,8 @@
 
 package androidx.compose.remote.creation.compose
 
+import kotlin.jvm.JvmField
+
 /**
  * Collection of temporary flags used to guard against regressions in refactors or new feature
  * support added to this module. These flags are always "on" in the published artifact of this
@@ -57,5 +59,6 @@ public object RemoteComposeCreationComposeFlags {
      */
     // TODO: b/503644761
     @field:Suppress("MutableBareField")
+    @JvmField
     public var isEnforceCleanRecompositionEnabled: Boolean = true
 }

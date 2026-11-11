@@ -1,28 +1,30 @@
 package androidx.compose.remote.creation.common
 
-/** Resolved property passed to a platform custom component. */
-public data class RemoteCustomPropertyData(
-  val id: Short,
-  val dataType: Short,
-  val intValue: Int = 0,
-  val floatValue: Float = 0f,
-) {
-  public companion object {
-    public const val IntProperty: Short = 0
-    public const val FloatProperty: Short = 1
-    public const val StringProperty: Short = 2
-    public const val FloatReturn: Short = 3
-    public const val TextReturn: Short = 4
-    public const val IntReturn: Short = 5
-    public const val ColorReturn: Short = 6
-    public const val ColorIdProperty: Short = 7
-    public const val ColorProperty: Short = 8
-    public const val IntIdProperty: Short = 9
+/** `Custom`'s property type, as AndroidX's `remote-core` names it. */
+public object Custom {
+  /** Resolved property passed to a platform custom component. */
+  public class CustomProperty
+  private constructor(
+    public val id: Short,
+    public val dataType: Short,
+    public val intValue: Int,
+    public val floatValue: Float,
+  ) {
+    public constructor(id: Short, dataType: Short, value: Int) : this(id, dataType, value, 0f)
 
-    public fun int(id: Short, dataType: Short, value: Int): RemoteCustomPropertyData =
-      RemoteCustomPropertyData(id, dataType, intValue = value)
+    public constructor(id: Short, dataType: Short, value: Float) : this(id, dataType, 0, value)
 
-    public fun float(id: Short, dataType: Short, value: Float): RemoteCustomPropertyData =
-      RemoteCustomPropertyData(id, dataType, floatValue = value)
+    public companion object {
+      public const val INT_PROP: Short = 0
+      public const val FLOAT_PROP: Short = 1
+      public const val STRING_PROP: Short = 2
+      public const val FLOAT_RETURN: Short = 3
+      public const val TEXT_RETURN: Short = 4
+      public const val INT_RETURN: Short = 5
+      public const val COLOR_RETURN: Short = 6
+      public const val COLOR_ID_PROP: Short = 7
+      public const val COLOR_PROP: Short = 8
+      public const val INT_ID_PROP: Short = 9
+    }
   }
 }

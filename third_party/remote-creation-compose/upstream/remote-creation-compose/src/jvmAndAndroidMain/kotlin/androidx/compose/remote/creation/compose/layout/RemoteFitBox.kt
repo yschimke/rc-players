@@ -26,7 +26,9 @@ internal class RemoteFitBoxNode : RemoteLayoutNode() {
     var verticalArrangement: RemoteArrangement.Vertical = RemoteArrangement.Top
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
-        val scope = overriddenScope(creationState)
+        val scope = overriddenScope(remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         remoteCanvas.internalCanvas.recordRenderingOp(
             WriterOp.StartFitBox(
                 resolveModifier(scope, creationState),
@@ -35,6 +37,8 @@ internal class RemoteFitBoxNode : RemoteLayoutNode() {
             ),
         )
         renderChildren(creationState, remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndFitBox)
     }
 }

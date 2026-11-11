@@ -24,6 +24,8 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
 public interface RemoteAction {
     // The fork writes through the common `RemoteWriter`, so an action encodes to
     // `RemoteActionData` rather than upstream's `toRemoteAction(): CreationAction`.
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
     @Suppress("HiddenAbstractMethodInInterface")
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> =

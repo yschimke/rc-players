@@ -39,7 +39,9 @@ internal class RemoteStateLayoutNode : RemoteComposeNode() {
     lateinit var currentState: RemoteInt
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
-        val scope = overriddenScope(creationState)
+        val scope = overriddenScope(remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         remoteCanvas.internalCanvas.recordRenderingOp(
             WriterOp.StartStateLayout(
                 resolveModifier(scope, creationState),
@@ -48,6 +50,8 @@ internal class RemoteStateLayoutNode : RemoteComposeNode() {
         )
 
         renderChildren(creationState, remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
         remoteCanvas.internalCanvas.recordRenderingOp(WriterOp.EndStateLayout)
     }
 }
@@ -80,6 +84,8 @@ internal fun <T> StateLayout(
  * the underlying remote rendering system handles the visibility and transitions between them based
  * on the [currentState].
  *
+ * Interactive example cycling through enum states in a [RemoteStateLayout]:
+ *
  * @sample androidx.compose.remote.creation.compose.samples.RemoteStateLayoutEnumSample
  * @param currentState The [RemoteEnum] governing the available states and the current active state.
  * @param modifier The [RemoteModifier] to be applied to this layout.
@@ -93,7 +99,7 @@ public fun <T : Enum<T>> RemoteStateLayout(
     content: @RemoteComposable @Composable (T) -> Unit,
 ) {
     val stateMachine = remember {
-        RemoteStateMachine(currentState.intValue, currentState.enumEntries)
+        RemoteStateMachine(currentState.ordinal, currentState.enumEntries)
     }
     StateLayout(stateMachine, modifier, content)
 }
@@ -103,6 +109,8 @@ public fun <T : Enum<T>> RemoteStateLayout(
  *
  * This component ensures that both possible states are composed, while the underlying remote
  * rendering system handles the visibility and transitions between them based on the [currentState].
+ *
+ * Interactive example toggling between boolean states in a [RemoteStateLayout]:
  *
  * @sample androidx.compose.remote.creation.compose.samples.RemoteStateLayoutBooleanSample
  * @param currentState The [RemoteBoolean] governing the current active state.
@@ -126,6 +134,8 @@ public fun RemoteStateLayout(
  * This component ensures that all possible states defined in [states] are composed, while the
  * underlying remote rendering system handles the visibility and transitions between them based on
  * the [currentState].
+ *
+ * Interactive example cycling through integer states in a [RemoteStateLayout]:
  *
  * @sample androidx.compose.remote.creation.compose.samples.RemoteStateLayoutIntSample
  * @param currentState The [RemoteInt] governing the current active state.

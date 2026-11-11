@@ -17,7 +17,7 @@
 package androidx.compose.remote.creation.compose.layout
 
 import androidx.annotation.RestrictTo
-import androidx.compose.remote.creation.compose.modifier.RemoteDimensionType
+import androidx.compose.remote.creation.common.DimensionModifierOperation.Type
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import kotlin.jvm.JvmInline
@@ -27,7 +27,7 @@ import kotlin.jvm.JvmInline
 @Immutable
 @JvmInline
 public value class RemoteIntrinsicSize internal constructor(public val value: Int) {
-    internal constructor(type: RemoteDimensionType) : this(type.ordinal)
+    internal constructor(type: Type) : this(type.ordinal)
 
     override fun toString(): String =
         when (this) {
@@ -38,11 +38,9 @@ public value class RemoteIntrinsicSize internal constructor(public val value: In
 
     public companion object {
         /** The minimum intrinsic size. */
-        @Stable
-        public val Min: RemoteIntrinsicSize = RemoteIntrinsicSize(RemoteDimensionType.INTRINSIC_MIN)
+        @Stable public val Min: RemoteIntrinsicSize = RemoteIntrinsicSize(Type.INTRINSIC_MIN)
 
         /** The maximum intrinsic size. */
-        @Stable
-        public val Max: RemoteIntrinsicSize = RemoteIntrinsicSize(RemoteDimensionType.INTRINSIC_MAX)
+        @Stable public val Max: RemoteIntrinsicSize = RemoteIntrinsicSize(Type.INTRINSIC_MAX)
     }
 }

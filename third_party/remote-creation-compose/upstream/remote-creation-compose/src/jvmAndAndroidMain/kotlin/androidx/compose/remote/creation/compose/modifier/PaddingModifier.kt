@@ -64,6 +64,8 @@ internal class PaddingModifier(
         }
     }
 
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
     override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation {
         val resolvedStart =
             if (densityBehavior == RemoteDensityBehavior.Dp) {

@@ -17,6 +17,7 @@
 package androidx.compose.remote.creation.compose.modifier
 
 import androidx.annotation.RestrictTo
+import androidx.compose.remote.creation.common.DimensionModifierOperation.Type
 import androidx.compose.remote.creation.compose.state.RemoteDp
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.rf
@@ -68,7 +69,7 @@ public fun RemoteModifier.fillMaxSize(fraction: RemoteFloat = 1f.rf): RemoteModi
  * @return a [RemoteModifier] that wraps the content width
  */
 public fun RemoteModifier.wrapContentWidth(): RemoteModifier =
-    then(WidthModifier(RemoteDimensionType.WRAP, RemoteFloat(1f)))
+    then(WidthModifier(Type.WRAP, RemoteFloat(1f)))
 
 /**
  * Wraps the content height to its intrinsic dimensions.
@@ -76,7 +77,7 @@ public fun RemoteModifier.wrapContentWidth(): RemoteModifier =
  * @return a [RemoteModifier] that wraps the content height
  */
 public fun RemoteModifier.wrapContentHeight(): RemoteModifier =
-    then(HeightModifier(RemoteDimensionType.WRAP, RemoteFloat(1f)))
+    then(HeightModifier(Type.WRAP, RemoteFloat(1f)))
 
 /**
  * Wraps the content size to its intrinsic dimensions.

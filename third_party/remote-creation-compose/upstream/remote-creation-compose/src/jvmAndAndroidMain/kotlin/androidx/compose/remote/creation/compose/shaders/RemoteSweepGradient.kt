@@ -16,8 +16,8 @@
 package androidx.compose.remote.creation.compose.shaders
 
 import androidx.annotation.RestrictTo
-import androidx.compose.remote.creation.common.PaintBundleData
-import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationContext
+import androidx.compose.remote.creation.common.PaintBundle
+import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.layout.RemoteOffset
 import androidx.compose.remote.creation.compose.layout.RemoteSize
 import androidx.compose.remote.creation.compose.state.RemoteColor
@@ -111,7 +111,7 @@ internal class RemoteSweepShader(
     val positions: List<RemoteFloat>?,
 ) : RemoteShader() {
 
-    override fun apply(creationState: RemoteComposeCreationContext, paintBundle: PaintBundleData) {
+    override fun apply(creationState: RemoteComposeCreationState, paintBundle: PaintBundle) {
         var mask = 0
         val colorsArray =
             IntArray(colors.size) { i ->

@@ -128,7 +128,7 @@ private fun hasArgsChanged(
     original: List<RemoteStateCacheKey>,
     visited: List<BaseRemoteState<*>>,
 ): Boolean {
-    for (i in original.indices) {
+    for (i in 0 until original.size) {
         if (visited[i].cacheKey != original[i]) return true
     }
     return false
@@ -141,11 +141,14 @@ internal fun resolveConstantState(key: RemoteConstantCacheKey): BaseRemoteState<
         is Int -> RemoteInt(v)
         is Boolean -> RemoteBoolean(v)
         is String -> RemoteString(v)
+        // KMP (rc-players): a constant key holds no state here (no `WeakReference`), so an image
+        // constant is rebuilt from its bitmap too.
         is ImageBitmap -> RemoteImageBitmap(v)
         is Double -> RemoteFloat(v.toFloat())
         is Long -> RemoteLong(v)
         is Number -> RemoteFloat(v.toFloat())
         null -> RemoteString("null")
+        // KMP (rc-players): `.javaClass` is JVM-only.
         else -> throw IllegalArgumentException("Unsupported constant type: ${v::class}")
     }
 }

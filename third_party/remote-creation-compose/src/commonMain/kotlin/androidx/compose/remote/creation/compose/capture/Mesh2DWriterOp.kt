@@ -20,8 +20,8 @@
 package androidx.compose.remote.creation.compose.capture
 
 import androidx.compose.remote.creation.common.Mesh2D
-import androidx.compose.remote.creation.common.RemoteWriter
-import androidx.compose.remote.creation.compose.state.MeshExpressionContext
+import androidx.compose.remote.creation.common.RemoteComposeWriter
+import androidx.compose.remote.creation.compose.state.MeshExpressionLowering
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
 
@@ -29,7 +29,7 @@ import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
  * Writes one parametric mesh and draws it at once: `AddMesh2D` then `DrawMesh2D`, so the mesh id
  * the writer allocates never has to escape the recording.
  *
- * Each channel is lowered by [MeshExpressionContext]: whatever reads `u` / `v` stays inline in the
+ * Each channel is lowered by [MeshExpressionLowering]: whatever reads `u` / `v` stays inline in the
  * channel — never hoisted into a float of its own, which the player would evaluate without them —
  * and the rest becomes references to ordinary floats.
  */
@@ -44,8 +44,8 @@ internal data class DrawMesh2DWriterOp(
     val image: RemoteImageBitmap?,
     val antialiasWidth: RemoteFloat?,
 ) : WriterOp {
-    override fun write(writer: RemoteWriter, creationState: RemoteComposeCreationState) {
-        val lowering = MeshExpressionContext(creationState)
+    override fun write(writer: RemoteComposeWriter, creationState: RemoteComposeCaptureState) {
+        val lowering = MeshExpressionLowering(creationState)
         val arrays = channels.map { channel -> channel?.let { meshExpression(it, lowering) } }
         val meshId =
             writer.addMesh2D(
@@ -69,7 +69,7 @@ internal data class DrawMesh2DWriterOp(
         )
     }
 
-    private fun meshExpression(value: RemoteFloat, lowering: MeshExpressionContext): FloatArray {
+    private fun meshExpression(value: RemoteFloat, lowering: MeshExpressionLowering): FloatArray {
         val array = lowering.lower(value)
         require(array.size <= Mesh2D.MAX_EXPRESSION_SIZE) {
             "A mesh channel compiles to ${array.size} expression words; AddMesh2D allows " +
