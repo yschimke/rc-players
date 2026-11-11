@@ -6,9 +6,9 @@ modules under new coordinates. This is a breaking change for anything that compi
 helpers. It is made once: the packages and coordinates below are the ones that stay.
 
 Why: [`design/RC_CREATION_BRIDGE.md`](design/RC_CREATION_BRIDGE.md), "Why the fork is in
-rc-players' package". In short, AndroidX now publishes `androidx.compose.remote.creation.compose`
-for the JVM as well as Android, and a library that declares the same classes cannot be on a
-classpath with it.
+rc-players' package". In short, AndroidX's `androidx.compose.remote.creation.compose` is on
+Android today and, on androidx-main, builds for the JVM too (its published alphas are still
+Android-only), and a library that declares the same classes cannot be on a classpath with it.
 
 The API did not change: every class, function and parameter is where it was, under another package
 prefix. Documents written before and after are the same bytes.
