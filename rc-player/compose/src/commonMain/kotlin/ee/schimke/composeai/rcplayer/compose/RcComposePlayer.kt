@@ -91,6 +91,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
@@ -159,6 +160,7 @@ import androidx.compose.ui.node.invalidateSemantics
 import androidx.compose.ui.platform.InfiniteAnimationPolicy
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -1414,7 +1416,8 @@ private fun RenderLayoutNode(
         val alignedRow = rememberRcAlignedRow(node.content.children, state)
         val hasWeightedChildren =
           node.content.children.any { child ->
-            child.modifiers.width?.type == RcDimensionType.WEIGHT &&
+            rcChildWeight(child.modifiers.width?.type, child.modifiers.width?.value, state) !=
+              null &&
               child.modifiers.visibility?.let {
                 androidXVisibility(state.integer(it.visibilityId) ?: 0) != 0
               } != false
@@ -1732,7 +1735,7 @@ private fun RenderLayoutNode(
       is RcLayoutNode.Text -> {
         val density = androidx.compose.ui.platform.LocalDensity.current
         val operation = node.operation
-        val fontWeight = state.resolve(operation.fontWeight).roundToInt().coerceIn(1, 1000)
+        val fontWeight = rcFontWeight(state.resolve(operation.fontWeight))
         val italic = isWireItalic(operation.fontStyle)
         val lines = remember { RcTextLines() }
         BasicText(
@@ -1790,11 +1793,15 @@ private fun RenderLayoutNode(
         val density = androidx.compose.ui.platform.LocalDensity.current
         val properties = node.resolvedStyle
         val fontSize = state.textFontSizePixels(properties.floatProperty(5, 36f), density)
-        val lineHeightAdd = state.resolve(properties.floatProperty(13, 0f))
-        val lineHeightMultiplier = state.resolve(properties.floatProperty(14, 1f))
+        // Letter spacing and line height may be variables — `RemoteText` writes them as a ratio to
+        // the font size, a variable when the font size is — and a variable can fail to resolve to a
+        // number. AndroidX's embedded player reads such a value as unset (androidx-main
+        // `300a543b2`) rather than handing NaN to text layout, and so does this one.
+        val letterSpacing = state.resolve(properties.floatProperty(12, 0f)).finiteOr(0f)
+        val lineHeightAdd = state.resolve(properties.floatProperty(13, 0f)).finiteOr(0f)
+        val lineHeightMultiplier = state.resolve(properties.floatProperty(14, 1f)).finiteOr(1f)
         val italic = isWireItalic(properties.intProperty(6, 0))
-        val fontWeight =
-          state.resolve(properties.floatProperty(7, 400f)).roundToInt().coerceIn(1, 1000)
+        val fontWeight = rcFontWeight(state.resolve(properties.floatProperty(7, 400f)))
         val colorId = properties.intProperty(4, -1)
         val autosize = properties.booleanProperty(22, false)
         val minFontSize = properties.floatProperty(25, -1f).let(state::resolve)
@@ -1871,7 +1878,7 @@ private fun RenderLayoutNode(
               // em,
               // and `0.02857.toSp()` at density 2 is 0.014 sp. Text then measured about 5% narrow,
               // which is invisible on one line and re-breaks every paragraph that wraps.
-              letterSpacing = state.resolve(properties.floatProperty(12, 0f)).em,
+              letterSpacing = letterSpacing.em,
               lineHeight =
                 if (lineHeightAdd == 0f && lineHeightMultiplier == 1f) TextUnit.Unspecified
                 else if (autosize)
@@ -2269,7 +2276,9 @@ private fun RcCollapsibleLayout(
         } else {
           child.modifiers.height?.takeIf { it.type == RcDimensionType.WEIGHT }?.value
         }
-      weightWord?.let { state.resolve(it).coerceAtLeast(0f) } ?: 0f
+      // A weight that does not resolve to a number leaves the child unweighted (0 here), as in
+      // a row or column; see [rcChildWeight].
+      weightWord?.let { state.resolve(it).finiteOr(0f).coerceAtLeast(0f) } ?: 0f
     }
     // AndroidX measures an unweighted child before the fit test and leaves a weighted one
     // unmeasured — zero on the main axis — until the leftover space is distributed, so a weight
@@ -2751,6 +2760,15 @@ private fun Modifier.applyComponentModifiers(
   val rippleInteractions =
     if (modifiers.ordered.any { it is RcRippleModifier }) remember { MutableInteractionSource() }
     else null
+  // The press handlers sit outside the component's padding and inside its offsets (see
+  // `applyPressHandlers`), so their presses are in the drawn box's space; the ripple is inside
+  // whatever padding precedes it and outside whatever offset follows it.
+  val pressInteractions =
+    rcInsetPresses(
+      rippleInteractions,
+      if (rippleInteractions == null) Offset.Zero
+      else rcRippleInset(modifiers, state, density, LocalLayoutDirection.current),
+    )
   var result =
     if (modifiers.layoutComputes.isEmpty()) this
     else {
@@ -2819,6 +2837,48 @@ private fun Modifier.applyComponentModifiers(
       }
     }
   }
+  var pressHandlersApplied = false
+
+  /**
+   * Appends the component's click and touch-action handlers, once: before its first padding, or
+   * after its last modifier when it has none.
+   *
+   * `remote-core` hit-tests a gesture against the component's whole box and hands it to every
+   * handler in `ComponentModifiers`, in coordinates that leave out only the padding *preceding* the
+   * handler (androidx-main `412c1b7bb` made long press, double click and touch cancel follow click,
+   * touch down, up and drag in that). A Compose pointer node only sees what lands inside the
+   * modifiers before it, so appended after the padding, as these used to be, the handlers missed
+   * every press in the padding and reported the rest in the padded content's space: a ripple
+   * written before the padding started its wave short of the finger by the padding's width.
+   *
+   * The caller puts the graphics layer on first, and wraps the handlers in the offsets written
+   * after the padding (see below), so a transformed or offset component is still pressed where it
+   * is drawn. That is this player's stance rather than `remote-core`'s, which tests the layout box
+   * and leaves offsets out (`RC_CONFORMANCE_PUSHBACK.md` §9).
+   */
+  @Composable
+  fun applyPressHandlers(modifier: Modifier): Modifier {
+    if (pressHandlersApplied) return modifier
+    pressHandlersApplied = true
+    var handled = modifier
+    // No indication on the clickable itself: AndroidX draws no press feedback unless the document
+    // asks for a ripple, and Compose's default indication would wash the component on press, hover
+    // and focus. When it does ask, the clickable's presses reach the ripple's `Indication` through
+    // `pressInteractions`.
+    if (modifiers.clicks.any { it.type != RcClickActionType.CLICK }) {
+      handled = handled.applyAndroidXMultiClick(modifiers.clicks, state, pressInteractions)
+    } else if (modifiers.clicks.isNotEmpty()) {
+      handled =
+        handled.clickable(interactionSource = pressInteractions, indication = null) {
+          modifiers.clicks.forEach(state::executeClick)
+        }
+    }
+    if (modifiers.touchActions.isNotEmpty()) {
+      handled = handled.applyAndroidXTouchActions(modifiers, state, geometryComponentIds)
+    }
+    return handled
+  }
+
   var scrollApplied = false
   var operationIndex = 0
   while (operationIndex < modifiers.ordered.size) {
@@ -2834,6 +2894,20 @@ private fun Modifier.applyComponentModifiers(
     // when the wire DrawContent marker follows it.
     if (operation is RcPaddingModifier && !appliedCanvasOperations) {
       result = applyCanvasOperations(applyPendingGraphicsLayer(result))
+    }
+    if (operation is RcPaddingModifier && !pressHandlersApplied) {
+      // An offset written after this padding moves what the component draws from here on, and the
+      // handlers have to move with it while still covering the padding. So they go on inside the
+      // sum of those offsets, which is then undone for the rest of the chain; each offset still
+      // applies at its own place, and none of this changes a measured size.
+      val laterOffsets = modifiers.ordered.drop(operationIndex).filterIsInstance<RcOffsetModifier>()
+      result = applyPendingGraphicsLayer(result)
+      result =
+        if (laterOffsets.isEmpty()) applyPressHandlers(result)
+        else {
+          val shift: Density.() -> IntOffset = { rcOffsetPixels(laterOffsets, state, density) }
+          applyPressHandlers(result.offset(shift)).offset { -shift() }
+        }
     }
     result =
       when (operation) {
@@ -2867,13 +2941,7 @@ private fun Modifier.applyComponentModifiers(
           operationIndex = next - 1
           result.rcPaddingPixels(left = left, top = top, right = right, bottom = bottom, density)
         }
-        is RcOffsetModifier ->
-          result.offset {
-            IntOffset(
-              state.dpTypedPixels(state.resolve(operation.x), density).roundToInt(),
-              state.dpTypedPixels(state.resolve(operation.y), density).roundToInt(),
-            )
-          }
+        is RcOffsetModifier -> result.offset { rcOffsetPixels(listOf(operation), state, density) }
         is RcZIndexModifier -> result.zIndex(state.resolve(operation.value))
         is RcBackgroundModifier,
         is RcBorderModifier,
@@ -2910,21 +2978,7 @@ private fun Modifier.applyComponentModifiers(
     // stream leaves the drawing untransformed.
     result = applyCanvasOperations(applyPendingGraphicsLayer(result))
   }
-  // No indication on the clickable itself: AndroidX draws no press feedback unless the document
-  // asks for a ripple, and Compose's default indication would wash the component on press, hover
-  // and focus. When it does ask, the clickable's presses reach the ripple's `Indication` through
-  // `rippleInteractions`.
-  if (modifiers.clicks.any { it.type != RcClickActionType.CLICK }) {
-    result = result.applyAndroidXMultiClick(modifiers.clicks, state, rippleInteractions)
-  } else if (modifiers.clicks.isNotEmpty()) {
-    result =
-      result.clickable(interactionSource = rippleInteractions, indication = null) {
-        modifiers.clicks.forEach(state::executeClick)
-      }
-  }
-  if (modifiers.touchActions.isNotEmpty()) {
-    result = result.applyAndroidXTouchActions(modifiers, state, geometryComponentIds)
-  }
+  result = applyPressHandlers(result)
   modifiers.accessibility.forEach { semantics ->
     result =
       result.applyAccessibilitySemantics(
@@ -2934,6 +2988,111 @@ private fun Modifier.applyComponentModifiers(
       )
   }
   return result
+}
+
+/** The whole pixels [offsets] move a component by, each rounded as its own modifier rounds it. */
+private fun rcOffsetPixels(
+  offsets: List<RcOffsetModifier>,
+  state: RcPlayerState,
+  density: Density,
+): IntOffset {
+  var x = 0
+  var y = 0
+  for (offset in offsets) {
+    x += state.dpTypedPixels(state.resolve(offset.x), density).roundToInt()
+    y += state.dpTypedPixels(state.resolve(offset.y), density).roundToInt()
+  }
+  return IntOffset(x, y)
+}
+
+/**
+ * How far the component's ripple sits from its press handlers, which is what a press has to be
+ * moved by to land in the ripple's own space.
+ *
+ * The handlers are outside every padding and inside every offset ([applyComponentModifiers]'s
+ * `applyPressHandlers`); the ripple is at its wire position. So the ripple is in by the padding
+ * written before it and out by the offsets written after it. Sums each run of padding modifiers and
+ * each offset as the chain applies them, so the two cannot disagree by a rounding.
+ *
+ * A press is physical and the chain is not: it applies the wire's left and right padding as start
+ * and end, and `Modifier.offset` runs its x from the start edge. So under [LayoutDirection.Rtl] the
+ * padding on the ripple's left is each run's *end*, and a later offset moved the handlers the other
+ * way. (The offsets the handlers are wrapped in mirror with the ones they stand for, so the
+ * handlers stay on the drawn box in either direction.)
+ */
+private fun rcRippleInset(
+  modifiers: RcLayoutModifiers,
+  state: RcPlayerState,
+  density: Density,
+  layoutDirection: LayoutDirection,
+): Offset {
+  val rtl = layoutDirection == LayoutDirection.Rtl
+  val ripple = modifiers.ordered.indexOfFirst { it is RcRippleModifier }
+  if (ripple < 0) return Offset.Zero
+  var x = 0
+  var y = 0
+  var index = 0
+  while (index < ripple) {
+    var left = 0f
+    var top = 0f
+    var right = 0f
+    var run = false
+    while (index < ripple) {
+      if (run && modifiers.scrollPosition == index) break
+      val padding = modifiers.ordered[index] as? RcPaddingModifier ?: break
+      left += state.dpTypedPixels(state.resolve(padding.left), density)
+      top += state.dpTypedPixels(state.resolve(padding.top), density)
+      right += state.dpTypedPixels(state.resolve(padding.right), density)
+      run = true
+      index++
+    }
+    if (run) {
+      x += if (rtl) rcPaddingEndPixels(left, right) else rcPaddingStartPixels(left)
+      y += rcPaddingStartPixels(top)
+    } else {
+      index++
+    }
+  }
+  val after =
+    rcOffsetPixels(
+      modifiers.ordered.drop(ripple + 1).filterIsInstance<RcOffsetModifier>(),
+      state,
+      density,
+    )
+  return Offset((if (rtl) x + after.x else x - after.x).toFloat(), (y - after.y).toFloat())
+}
+
+/**
+ * An interaction source whose presses reach [target] moved by [inset]: the presses of a handler in
+ * the component's space, for an indication [inset] inside it. [target] itself when there is nothing
+ * to move.
+ */
+@Composable
+private fun rcInsetPresses(
+  target: MutableInteractionSource?,
+  inset: Offset,
+): MutableInteractionSource? {
+  if (target == null || inset == Offset.Zero) return target
+  val source = remember(target) { MutableInteractionSource() }
+  val currentInset by rememberUpdatedState(inset)
+  LaunchedEffect(source, target) {
+    val presses = mutableMapOf<PressInteraction.Press, PressInteraction.Press>()
+    source.interactions.collect { interaction ->
+      when (interaction) {
+        is PressInteraction.Press -> {
+          val moved = PressInteraction.Press(interaction.pressPosition - currentInset)
+          presses[interaction] = moved
+          target.emit(moved)
+        }
+        is PressInteraction.Release ->
+          presses.remove(interaction.press)?.let { target.emit(PressInteraction.Release(it)) }
+        is PressInteraction.Cancel ->
+          presses.remove(interaction.press)?.let { target.emit(PressInteraction.Cancel(it)) }
+        else -> target.emit(interaction)
+      }
+    }
+  }
+  return source
 }
 
 /**
@@ -2952,10 +3111,10 @@ private fun Modifier.rcPaddingPixels(
   bottom: Float,
   density: Density,
 ): Modifier {
-  val start = left.coerceAtLeast(0f).roundToInt()
-  val topEdge = top.coerceAtLeast(0f).roundToInt()
-  val end = rcCombinedPaddingPixels(left, right) - start
-  val bottomEdge = rcCombinedPaddingPixels(top, bottom) - topEdge
+  val start = rcPaddingStartPixels(left)
+  val topEdge = rcPaddingStartPixels(top)
+  val end = rcPaddingEndPixels(left, right)
+  val bottomEdge = rcPaddingEndPixels(top, bottom)
   return with(density) {
     this@rcPaddingPixels.padding(
       start = start.toDp(),
@@ -2965,6 +3124,13 @@ private fun Modifier.rcPaddingPixels(
     )
   }
 }
+
+/** The leading edge (start, or top) of a padding run, in the whole pixels the chain applies. */
+private fun rcPaddingStartPixels(first: Float): Int = first.coerceAtLeast(0f).roundToInt()
+
+/** The trailing edge (end, or bottom): what the rounded total leaves after the leading edge. */
+private fun rcPaddingEndPixels(first: Float, second: Float): Int =
+  rcCombinedPaddingPixels(first, second) - rcPaddingStartPixels(first)
 
 internal fun rcCombinedPaddingPixels(first: Float, second: Float): Int =
   (first.coerceAtLeast(0f) + second.coerceAtLeast(0f)).roundToInt()
@@ -4256,8 +4422,19 @@ private fun Modifier.applyGraphicsLayer(
   val shapeRadius = rcLayerFloat(float(RcGraphicsLayerModifier.SHAPE_RADIUS), 0f, state)
   val blurX = rcLayerFloat(float(RcGraphicsLayerModifier.BLUR_RADIUS_X), 0f, state)
   val blurY = rcLayerFloat(float(RcGraphicsLayerModifier.BLUR_RADIUS_Y), 0f, state)
-  // `COMPOSITING_STRATEGY` is accepted and ignored, as both AndroidX players ignore it (a
-  // RenderNode layer composites like Compose's `Auto`).
+  // The layer's compositing strategy, mapped onto Compose's as AndroidX's embedded player maps it
+  // (androidx-main `28fb38004`): `ModulateAlpha` applies the layer's alpha to each draw rather
+  // than to the composited layer, and `Offscreen` isolates the layer at full alpha, which is what
+  // lets a `BlendMode.Clear` cut-out stop at the layer instead of punching through what is behind
+  // it. An absent or unknown value is `Auto`. The View player still ignores the attribute (a
+  // RenderNode layer composites like `Auto`).
+  val compositingStrategy =
+    when (int(RcGraphicsLayerModifier.COMPOSITING_STRATEGY)) {
+      RcGraphicsLayerModifier.COMPOSITING_STRATEGY_OFFSCREEN -> CompositingStrategy.Offscreen
+      RcGraphicsLayerModifier.COMPOSITING_STRATEGY_MODULATE_ALPHA ->
+        CompositingStrategy.ModulateAlpha
+      else -> CompositingStrategy.Auto
+    }
   val shapeType = int(RcGraphicsLayerModifier.SHAPE)
   val blurTileMode =
     when (int(RcGraphicsLayerModifier.BLUR_TILE_MODE)) {
@@ -4281,6 +4458,7 @@ private fun Modifier.applyGraphicsLayer(
     // context sets; Compose has no translationZ, so the sum goes into shadowElevation.
     this.shadowElevation = shadowElevation() + translationZ()
     this.alpha = alpha()
+    this.compositingStrategy = compositingStrategy
     this.cameraDistance = cameraDistance()
     // The layer's outline. Compose uses it for the shadow; the layer is not clipped to it, since
     // the document has no clip attribute and neither AndroidX player clips there.
@@ -4664,14 +4842,37 @@ private fun Modifier.applyWidth(
     else -> this
   }
 
-private fun RowScope.rowWeightModifier(node: RcLayoutNode, state: RcPlayerState): Modifier {
-  val width = node.modifiers.width
-  return if (width?.type == RcDimensionType.WEIGHT) {
-    Modifier.weight(state.resolve(width.value).coerceAtLeast(Float.MIN_VALUE))
-  } else {
-    Modifier
-  }
+private fun RowScope.rowWeightModifier(node: RcLayoutNode, state: RcPlayerState): Modifier =
+  rcChildWeight(node.modifiers.width?.type, node.modifiers.width?.value, state)?.let {
+    Modifier.weight(it)
+  } ?: Modifier
+
+/**
+ * The weight a row or column gives a child whose main-axis dimension, of [type] and [value], is a
+ * `WEIGHT`, or null when the child is not weighted.
+ *
+ * The weight may be a variable, and a variable can fail to resolve to a number: an id nothing has
+ * written yet, or an expression that divides zero by zero. `Modifier.weight` throws on NaN, which
+ * took the whole document down. Such a child is left unweighted and sized by its content, as
+ * AndroidX's embedded player leaves it (androidx-main `300a543b2`). A zero or negative weight stays
+ * a weighted child with no share of the space, which is what `remote-core`'s row and column give
+ * it.
+ */
+private fun rcChildWeight(type: Int?, value: RcFloatWord?, state: RcPlayerState): Float? {
+  if (type != RcDimensionType.WEIGHT || value == null) return null
+  val weight = state.resolve(value)
+  return if (weight.isNaN()) null else weight.coerceAtLeast(Float.MIN_VALUE)
 }
+
+/**
+ * A text's font weight from its resolved wire value. `FontWeight` only takes 1..1000, and the wire
+ * value may be a variable: one that does not resolve to a number keeps the normal weight, where
+ * rounding NaN threw, as in AndroidX's embedded player (androidx-main `300a543b2`).
+ */
+internal fun rcFontWeight(resolved: Float): Int =
+  if (resolved.isNaN()) 400 else resolved.roundToInt().coerceIn(1, 1000)
+
+private fun Float.finiteOr(default: Float): Float = if (isFinite()) this else default
 
 /** A row child's `alignBy` anchor, as AndroidX's RowLayout resolves it. */
 private sealed interface RcRowAnchor {
@@ -4803,14 +5004,10 @@ private fun Modifier.rcAlignedRowPositioning(
   layout(placeable.width, height) { placeable.place(0, alignment.align(tallestChild, height)) }
 }
 
-private fun ColumnScope.columnWeightModifier(node: RcLayoutNode, state: RcPlayerState): Modifier {
-  val height = node.modifiers.height
-  return if (height?.type == RcDimensionType.WEIGHT) {
-    Modifier.weight(state.resolve(height.value).coerceAtLeast(Float.MIN_VALUE))
-  } else {
-    Modifier
-  }
-}
+private fun ColumnScope.columnWeightModifier(node: RcLayoutNode, state: RcPlayerState): Modifier =
+  rcChildWeight(node.modifiers.height?.type, node.modifiers.height?.value, state)?.let {
+    Modifier.weight(it)
+  } ?: Modifier
 
 private fun Modifier.applyHeight(
   height: RcHeightModifier,
@@ -7373,7 +7570,7 @@ private fun applyPaint(
           // The face is instanced at every axis below; wght/ital/slnt also pick the face when the
           // family is not a variable host face, as a static family's weights and styles do.
           when (tag) {
-            "wght" -> state.fontWeight = FontWeight(value.roundToInt().coerceIn(1, 1000))
+            "wght" -> state.fontWeight = FontWeight(rcFontWeight(value))
             "ital" -> state.fontStyle = if (value >= 0.5f) FontStyle.Italic else FontStyle.Normal
             "slnt" -> state.fontStyle = if (value != 0f) FontStyle.Italic else FontStyle.Normal
           }

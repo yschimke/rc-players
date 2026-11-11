@@ -15,7 +15,6 @@
  */
 
 @file:Suppress(
-    "RestrictedApiAndroidX",
     "PrimitiveInCollection",
     "RememberReturnType",
     "ModifierParameter",
@@ -25,7 +24,6 @@
 
 package ee.schimke.composeai.rcembedded.player
 
-import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.util.Log
 import android.view.ViewTreeObserver
@@ -44,7 +42,6 @@ import androidx.compose.remote.core.operations.Header
 import androidx.compose.remote.core.operations.RootContentBehavior
 import androidx.compose.remote.core.operations.Theme
 import androidx.compose.remote.creation.compose.action.LambdaAction
-import androidx.compose.remote.creation.compose.action.PendingIntentActionHandler
 import androidx.compose.remote.player.compose.ExperimentalRemotePlayerApi
 import androidx.compose.remote.player.core.state.StateUpdater
 import androidx.compose.remote.player.core.state.StateUpdaterImpl
@@ -102,7 +99,6 @@ import kotlinx.coroutines.delay
  */
 @OptIn(ExperimentalRemotePlayerApi::class)
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-@SuppressLint("RestrictedApiAndroidX")
 @Suppress("PrimitiveInCollection")
 @Composable
 public fun RcPlayer(
@@ -147,7 +143,6 @@ public fun RcPlayer(
  */
 @OptIn(ExperimentalRemotePlayerApi::class)
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-@SuppressLint("RestrictedApiAndroidX")
 @Suppress("PrimitiveInCollection")
 @Composable
 public fun RcPlayer(
@@ -181,7 +176,6 @@ public fun RcPlayer(
 }
 
 @OptIn(ExperimentalRemotePlayerApi::class)
-@SuppressLint("RestrictedApiAndroidX")
 @Suppress("PrimitiveInCollection")
 @Composable
 internal fun RcPlayerImpl(
@@ -594,7 +588,6 @@ internal fun RcPlayerImpl(
  */
 @OptIn(ExperimentalRemotePlayerApi::class)
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-@SuppressLint("RestrictedApiAndroidX")
 @Suppress("PrimitiveInCollection")
 @Composable
 public fun RcPlayer(
@@ -632,7 +625,6 @@ public fun RcPlayer(
  */
 @OptIn(ExperimentalRemotePlayerApi::class)
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-@SuppressLint("RestrictedApiAndroidX")
 @Suppress("PrimitiveInCollection")
 @Composable
 public fun RcPlayer(
@@ -674,7 +666,6 @@ public fun RcPlayer(
  */
 @OptIn(ExperimentalRemotePlayerApi::class)
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-@SuppressLint("RestrictedApiAndroidX")
 @Suppress("PrimitiveInCollection")
 @Composable
 public fun RcPlayer(

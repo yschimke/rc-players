@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-@file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection", "VisibleForTests")
+@file:Suppress("PrimitiveInCollection", "VisibleForTests")
 
 package ee.schimke.composeai.rcembedded.player.doc
 
