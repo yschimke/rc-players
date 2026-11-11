@@ -1728,6 +1728,14 @@ public data class RcGraphicsLayerModifier(val attributes: List<RcGraphicsLayerAt
     public const val SHAPE_ROUND_RECT: Int = 1
     public const val SHAPE_CIRCLE: Int = 2
 
+    /**
+     * [COMPOSITING_STRATEGY] values: `remote-creation-compose`'s `RemoteCompositingStrategy`, which
+     * mirrors Compose's `CompositingStrategy`. An absent attribute is [COMPOSITING_STRATEGY_AUTO].
+     */
+    public const val COMPOSITING_STRATEGY_AUTO: Int = 0
+    public const val COMPOSITING_STRATEGY_OFFSCREEN: Int = 1
+    public const val COMPOSITING_STRATEGY_MODULATE_ALPHA: Int = 2
+
     /** [BLUR_TILE_MODE] values. */
     public const val TILE_MODE_CLAMP: Int = 0
     public const val TILE_MODE_REPEATED: Int = 1

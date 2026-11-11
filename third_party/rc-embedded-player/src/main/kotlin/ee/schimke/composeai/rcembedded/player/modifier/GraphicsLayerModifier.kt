@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-@file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection")
+@file:Suppress("PrimitiveInCollection")
 
 package ee.schimke.composeai.rcembedded.player.modifier
 
@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import ee.schimke.composeai.rcembedded.player.LocalComponentValueStateMap
@@ -79,6 +80,13 @@ internal fun Modifier.graphicsLayer(op: GraphicsLayerModifierOperation): Modifie
         rememberGraphicsLayerFloatAsState(
             values[GraphicsLayerModifierOperation.TRANSFORM_ORIGIN_Y].source,
         )
+    val compositingStrategy =
+        when (values[GraphicsLayerModifierOperation.COMPOSITING_STRATEGY].intValue) {
+            COMPOSITING_STRATEGY_OFFSCREEN -> CompositingStrategy.Offscreen
+            COMPOSITING_STRATEGY_MODULATE_ALPHA -> CompositingStrategy.ModulateAlpha
+            COMPOSITING_STRATEGY_AUTO -> CompositingStrategy.Auto
+            else -> CompositingStrategy.Auto
+        }
 
     return this.graphicsLayer {
         this.scaleX = scaleX.value
@@ -92,8 +100,13 @@ internal fun Modifier.graphicsLayer(op: GraphicsLayerModifierOperation): Modifie
         this.rotationZ = rotationZ.value
         this.cameraDistance = cameraDistance.value
         this.transformOrigin = TransformOrigin(transformOriginX.value, transformOriginY.value)
+        this.compositingStrategy = compositingStrategy
     }
 }
+
+private const val COMPOSITING_STRATEGY_AUTO = 0
+private const val COMPOSITING_STRATEGY_OFFSCREEN = 1
+private const val COMPOSITING_STRATEGY_MODULATE_ALPHA = 2
 
 private val GraphicsLayerImplicitAnimationSpec =
     tween<Float>(

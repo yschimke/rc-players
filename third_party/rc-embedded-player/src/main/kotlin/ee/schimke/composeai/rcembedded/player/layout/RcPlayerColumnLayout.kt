@@ -14,12 +14,9 @@
  * limitations under the License.
  */
 
-@file:Suppress("RestrictedApiAndroidX")
-
 package ee.schimke.composeai.rcembedded.player.layout
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.remote.core.operations.layout.LayoutComponent
 import androidx.compose.remote.core.operations.layout.managers.CollapsibleColumnLayout
 import androidx.compose.remote.core.operations.layout.managers.ColumnLayout
 import androidx.compose.runtime.Composable
@@ -53,13 +50,8 @@ internal fun RcPlayerColumn(layout: ColumnLayout, modifier: Modifier) {
             horizontalAlignment = columnHorizontalAlignment(layout.horizontalPositioning),
         ) {
             RcPlayerChildren(layout) { child ->
-                val layoutChild = child as? LayoutComponent
-                val heightModifier = layoutChild?.heightModifier
-                if (heightModifier != null && heightModifier.hasWeight()) {
-                    Modifier.weight(heightModifier.value)
-                } else {
-                    Modifier
-                }
+                val weight = rememberChildWeight(child, vertical = true)
+                if (weight > 0f) Modifier.weight(weight) else Modifier
             }
         }
     }
