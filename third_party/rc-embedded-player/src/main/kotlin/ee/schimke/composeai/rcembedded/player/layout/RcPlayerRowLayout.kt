@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-@file:Suppress("RestrictedApiAndroidX")
-
 package ee.schimke.composeai.rcembedded.player.layout
 
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -26,8 +24,6 @@ import androidx.compose.remote.core.operations.layout.managers.CollapsibleRowLay
 import androidx.compose.remote.core.operations.layout.managers.FlowLayout
 import androidx.compose.remote.core.operations.layout.managers.RowLayout
 import androidx.compose.remote.core.operations.layout.modifiers.AlignByModifierOperation
-import androidx.compose.remote.core.operations.layout.modifiers.DimensionModifierOperation
-import androidx.compose.remote.core.operations.layout.modifiers.WidthModifierOperation
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -66,13 +62,9 @@ internal fun RcPlayerRow(layout: RowLayout, modifier: Modifier) {
                 val mods = (child as? LayoutComponent)?.componentModifiers?.getList()
                 var childModifier: Modifier = Modifier
 
-                val weightOp =
-                    mods?.fastFirstOrNull {
-                        it is WidthModifierOperation &&
-                            it.getType() == DimensionModifierOperation.Type.WEIGHT
-                    } as? WidthModifierOperation
-                if (weightOp != null) {
-                    childModifier = childModifier.weight(weightOp.getValue())
+                val weight = rememberChildWeight(child, vertical = false)
+                if (weight > 0f) {
+                    childModifier = childModifier.weight(weight)
                 }
 
                 val alignByOp =
@@ -128,13 +120,9 @@ internal fun RcPlayerFlowRow(layout: FlowLayout, modifier: Modifier) {
             val mods = (child as? LayoutComponent)?.componentModifiers?.getList()
             var childModifier: Modifier = Modifier
 
-            val weightOp =
-                mods?.fastFirstOrNull {
-                    it is WidthModifierOperation &&
-                        it.getType() == DimensionModifierOperation.Type.WEIGHT
-                } as? WidthModifierOperation
-            if (weightOp != null) {
-                childModifier = childModifier.weight(weightOp.getValue())
+            val weight = rememberChildWeight(child, vertical = false)
+            if (weight > 0f) {
+                childModifier = childModifier.weight(weight)
             }
 
             val alignByOp =

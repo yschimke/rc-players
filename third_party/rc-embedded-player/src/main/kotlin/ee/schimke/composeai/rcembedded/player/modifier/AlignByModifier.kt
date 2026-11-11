@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-@file:Suppress("RestrictedApiAndroidX")
-
 package ee.schimke.composeai.rcembedded.player.modifier
 
 import androidx.compose.foundation.layout.RowScope
