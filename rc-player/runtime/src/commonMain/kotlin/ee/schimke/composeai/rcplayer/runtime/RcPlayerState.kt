@@ -1256,6 +1256,11 @@ public class RcPlayerState(
       is RcColorTheme -> applyColorTheme(operation, requestedTheme)
       is RcColorExpression -> applyColorExpression(operation)
       is RcColorAttribute -> applyColorAttribute(operation)
+      // An image's width or height declared outside the canvas that draws it (a writer that puts
+      // declarations ahead of the layout does that) is read by that canvas's draws, whose own pass
+      // never reaches this operation: without it `drawBitmap(image, 0, 0, image.width, …)` drew a
+      // rectangle of no size. A bitmap that is not in the document is left alone, as before.
+      is RcImageAttribute -> if (operation.imageId in bitmaps) applyImageAttribute(operation)
       is RcIdLookup,
       is RcDataMapLookup -> applyDataOperation(operation)
       is RcTextMerge,

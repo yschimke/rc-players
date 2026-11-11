@@ -1,0 +1,45 @@
+package ee.schimke.composeai.rcplayer.embedded
+
+import androidx.compose.remote.creation.compose.layout.RemoteOffset
+import androidx.compose.remote.creation.compose.layout.RemoteSize
+import androidx.compose.remote.creation.compose.state.RemoteColor
+import androidx.compose.remote.creation.compose.state.RemotePaint
+import androidx.compose.remote.creation.compose.state.rb
+import androidx.compose.remote.creation.compose.state.rf
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
+import kotlin.test.Test
+
+/**
+ * A canvas that draws a bitmap at the bitmap's own size reads the image's width and height, which
+ * the creation writer declares ahead of the layout. The player evaluates them there.
+ */
+class RcCanvasBitmapSizePlaybackTest {
+  private val red: ImageBitmap by lazy {
+    ImageBitmap(8, 8).also { bitmap ->
+      Canvas(bitmap).drawRect(Rect(0f, 0f, 8f, 8f), Paint().apply { color = Color.Red })
+    }
+  }
+
+  @Test
+  fun aBitmapIsDrawnAtItsOwnSize() {
+    val pixels =
+      playCanvas(40, 40) {
+        drawRect(RemotePaint { color = RemoteColor(Color.Blue) })
+        drawImage(red.rb)
+        // The whole bitmap (its source rectangle is its width and height) into a 10 x 10 square.
+        drawScaledBitmap(
+          red.rb,
+          dstOffset = RemoteOffset(20f.rf, 20f.rf),
+          dstSize = RemoteSize(10f.rf, 10f.rf),
+        )
+      }
+    assertColor(Color.Red, pixels[4, 4], "the bitmap at the origin")
+    assertColor(Color.Blue, pixels[12, 12], "past the bitmap's 8 pixels")
+    assertColor(Color.Red, pixels[25, 25], "the scaled bitmap")
+    assertColor(Color.Blue, pixels[35, 35], "past the scaled bitmap")
+  }
+}
