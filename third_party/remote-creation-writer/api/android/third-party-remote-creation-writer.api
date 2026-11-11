@@ -824,6 +824,7 @@ public final class androidx/compose/remote/creation/common/RemoteDocumentWriter 
 	public fun drawTextOnCircle (IFFFFFLandroidx/compose/remote/creation/common/DrawTextOnCircle$Alignment;Landroidx/compose/remote/creation/common/DrawTextOnCircle$Placement;)V
 	public fun drawTextOnPath (IIFF)V
 	public fun drawTextRun (IIIIIFFZ)V
+	public fun drawTextRun (Ljava/lang/String;IIIIFFZ)V
 	public fun drawTweenPath (IIFFF)V
 	public final fun encodeToByteArray ()[B
 	public fun endBox ()V
@@ -1483,6 +1484,7 @@ public abstract interface class androidx/compose/remote/creation/common/RemoteWr
 	public abstract fun drawTextOnCircle (IFFFFFLandroidx/compose/remote/creation/common/DrawTextOnCircle$Alignment;Landroidx/compose/remote/creation/common/DrawTextOnCircle$Placement;)V
 	public abstract fun drawTextOnPath (IIFF)V
 	public abstract fun drawTextRun (IIIIIFFZ)V
+	public fun drawTextRun (Ljava/lang/String;IIIIFFZ)V
 	public abstract fun drawTweenPath (IIFFF)V
 	public abstract fun endBox ()V
 	public abstract fun endCanvas ()V
@@ -1575,6 +1577,7 @@ public final class androidx/compose/remote/creation/common/RemoteWriter$DefaultI
 	public static fun drawComponentToBitmap (Landroidx/compose/remote/creation/common/RemoteWriter;I)V
 	public static fun drawComponentToBitmap (Landroidx/compose/remote/creation/common/RemoteWriter;II)V
 	public static synthetic fun drawMesh2D$default (Landroidx/compose/remote/creation/common/RemoteWriter;IIIILjava/lang/Object;)V
+	public static fun drawTextRun (Landroidx/compose/remote/creation/common/RemoteWriter;Ljava/lang/String;IIIIFFZ)V
 	public static fun getBuffer (Landroidx/compose/remote/creation/common/RemoteWriter;)Landroidx/compose/remote/creation/common/RemoteWriter;
 	public static fun isRetired (Landroidx/compose/remote/creation/common/RemoteWriter;I)Z
 	public static fun loop (Landroidx/compose/remote/creation/common/RemoteWriter;IFFFLkotlin/jvm/functions/Function0;)V

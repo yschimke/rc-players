@@ -555,6 +555,20 @@ public interface RemoteWriter {
    */
   public fun textAttribute(textId: Int, attribute: Short): Float
 
+  /** As `RemoteComposeWriter.drawTextRun(String, …)`: [text] added as a text, then the run. */
+  public fun drawTextRun(
+    text: String,
+    start: Int,
+    end: Int,
+    contextStart: Int,
+    contextEnd: Int,
+    x: Float,
+    y: Float,
+    isRtl: Boolean,
+  ) {
+    drawTextRun(addText(text), start, end, contextStart, contextEnd, x, y, isRtl)
+  }
+
   public fun drawTextRun(
     textId: Int,
     start: Int,

@@ -50,8 +50,6 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.remote.creation.compose.state.RemoteStringArray
 import androidx.compose.remote.creation.compose.state.StandardRemotePaint
-import androidx.compose.remote.creation.compose.state.rf
-import androidx.compose.remote.creation.compose.state.rs
 
 /**
  * A remote canvas providing overloads for remote types and avoiding platform types in its public
@@ -122,11 +120,10 @@ public class RemoteCanvas(
 
     /** Processes a [RemotePaint] object and serializes its changes to the remote document. */
     public fun usePaint(paint: RemotePaint?) {
-        // LOCAL PATCH (rc-players): records nothing, as the port always has. Upstream writes the
-        // paint here (`recordRenderingOp { usePaintInternal(snapshotPaint(it)) }`); doing so
-        // changes the document of every painter and icon, so it waits for a refresh
-        // (PROVENANCE.md, "Known port issues").
-        paint?.let { recordRenderingOp {} }
+        paint?.let {
+            val paintSnapshot = snapshotPaint(it)
+            recordRenderingOp { usePaintInternal(paintSnapshot) }
+        }
     }
 
     internal fun snapshotPaint(paint: RemotePaint?): RemotePaint? = paint?.let {
@@ -150,11 +147,7 @@ public class RemoteCanvas(
 
         val paintBundle = PaintBundle()
 
-        // LOCAL PATCH (rc-players): `forceSendingPaint` is not read. The port never resent the
-        // whole paint after a conditional block or an offscreen bitmap, and doing so changes the
-        // documents that have one, so it waits for a refresh (PROVENANCE.md, "Known port issues").
-        // Upstream: `tracker.reset(forceSendingPaint || document.checkAndClear…())`.
-        tracker.reset(document.checkAndClearForceSendingNewPaint())
+        tracker.reset(forceSendingPaint || document.checkAndClearForceSendingNewPaint())
         tracker.updateWithPaint(paint, paintBundle, creationState)
 
         if (tracker.isChanged) {
@@ -257,12 +250,8 @@ public class RemoteCanvas(
 
     /** Scales the canvas by [sx] and [sy] around the pivot point ([px], [py]). */
     public fun scale(sx: RemoteFloat, sy: RemoteFloat, px: RemoteFloat, py: RemoteFloat) {
-        // LOCAL PATCH (rc-players): written as translate, scale, translate, as the port always
-        // has. Upstream writes one scale with its pivot (`PendingOp.Scale(sx, sy, px, py)`), which
-        // changes the documents written, so it waits for a refresh.
-        translate(px, py)
-        scale(sx, sy)
-        translate(-px, -py)
+        val op = buffer.recordRenderingOp(CanvasOp.Transform(PendingOp.Scale(sx, sy, px, py)))
+        buffer.addRoots(op, sx, sy, px, py)
     }
 
     /**
@@ -287,12 +276,8 @@ public class RemoteCanvas(
 
     /** Rotates the canvas by [degrees] around the pivot point ([px], [py]). */
     public fun rotate(degrees: RemoteFloat, px: RemoteFloat, py: RemoteFloat) {
-        // LOCAL PATCH (rc-players): written as translate, rotate, translate, as the port always
-        // has. Upstream writes one rotation with its pivot (`PendingOp.Rotate(degrees, px, py)`),
-        // which changes the documents written, so it waits for a refresh.
-        translate(px, py)
-        rotate(degrees)
-        translate(-px, -py)
+        val op = buffer.recordRenderingOp(CanvasOp.Transform(PendingOp.Rotate(degrees, px, py)))
+        buffer.addRoots(op, degrees, px, py)
     }
 
     /**
@@ -472,11 +457,20 @@ public class RemoteCanvas(
         y: RemoteFloat,
         paint: RemotePaint? = null,
     ) {
-        // LOCAL PATCH (rc-players): written as the `RemoteString` overload writes it (a text
-        // constant, and -1 for the ends), as the port always has. Upstream calls
-        // `document.drawTextRun(text, 0, text.length, …)`, which changes the documents written, so
-        // it waits for a refresh.
-        drawText(text.rs, x, y, paint)
+        val op =
+            recordRenderingOp(paint) {
+                document.drawTextRun(
+                    text,
+                    0,
+                    text.length,
+                    0,
+                    text.length,
+                    x.floatId,
+                    y.floatId,
+                    false,
+                )
+            }
+        buffer.addRoots(op, x, y)
     }
 
     /** Draws text from [text] at ([x], [y]) using the specified [paint]. */
@@ -504,20 +498,10 @@ public class RemoteCanvas(
         isRtl: Boolean,
         paint: RemotePaint? = null,
     ) {
-        // LOCAL PATCH (rc-players): through the `RemoteString` overload, as the port always has;
-        // upstream's `document.drawTextRun(textString, …)` allocates the text at another point of
-        // the document, so it waits for a refresh.
-        drawTextRun(
-            text.toString().rs,
-            start,
-            end,
-            contextStart,
-            contextEnd,
-            x.rf,
-            y.rf,
-            isRtl,
-            paint,
-        )
+        val textString = text.toString()
+        recordRenderingOp(paint) {
+            document.drawTextRun(textString, start, end, contextStart, contextEnd, x, y, isRtl)
+        }
     }
 
     public fun drawTextRun(
@@ -577,10 +561,13 @@ public class RemoteCanvas(
         vOffset: RemoteFloat,
         paint: RemotePaint? = null,
     ) {
-        // LOCAL PATCH (rc-players): through the `RemoteString` overload, as the port always has;
-        // upstream's `document.addText(text)` here allocates the text at another point of the
-        // document, so it waits for a refresh.
-        drawTextOnPath(text.rs, path, hOffset, vOffset, paint)
+        val pathId = snapshotPath(path)
+        val op =
+            recordRenderingOp(paint) {
+                val textId = document.addText(text)
+                document.drawTextOnPath(textId, pathId(), hOffset.floatId, vOffset.floatId)
+            }
+        buffer.addRoots(op, hOffset, vOffset)
     }
 
     public fun drawTextOnPath(
@@ -698,21 +685,25 @@ public class RemoteCanvas(
         top: RemoteFloat,
         paint: RemotePaint? = null,
     ) {
+        // LOCAL PATCH (rc-players): the rectangle is the bitmap's size from (left, top). Upstream's
+        // `document.drawBitmap(bitmap.id, left, top, "")` asks the platform for the size of an id,
+        // gets 0, and passes it as the rectangle's right and bottom; the port passed the width and
+        // height there, which is right only at the origin. The content description is none (id
+        // 0), where upstream writes the id of an empty text: see the overload below.
+        val right = left + bitmap.width
+        val bottom = top + bitmap.height
         val op =
             recordRenderingOp(paint) {
-                // KMP (rc-players): the Kotlin writer has no platform services to ask for the
-                // image's size, so the rectangle is the bitmap's own width and height, and the
-                // content description is none (id 0) where upstream writes the empty text's id.
                 document.drawBitmap(
                     bitmap.id,
                     left.floatId,
                     top.floatId,
-                    bitmap.width.floatId,
-                    bitmap.height.floatId,
+                    right.floatId,
+                    bottom.floatId,
                     0,
                 )
             }
-        buffer.addRoots(op, bitmap, left, top)
+        buffer.addRoots(op, bitmap, left, top, right, bottom)
     }
 
     /**
@@ -735,8 +726,10 @@ public class RemoteCanvas(
     ) {
         val op =
             recordRenderingOp(paint) {
-                // KMP (rc-players): the Kotlin writer takes the content description's text id; none
-                // (0) where upstream writes the empty text's id.
+                // LOCAL PATCH (rc-players): no content description (id 0), which is what the
+                // format and `RemoteComposeWriter.drawBitmap(…, null)` have for a bitmap without
+                // one. Upstream passes `""`, which declares an empty text and names it as the
+                // description: a reader that exposes descriptions then reports an empty one.
                 document.drawBitmap(
                     bitmap.id,
                     left.floatId,
@@ -943,19 +936,13 @@ public class RemoteCanvas(
         step: RemoteFloat,
         body: (index: RemoteFloat) -> Unit,
     ) {
-        // LOCAL PATCH (rc-players): the index's id is taken while recording and the body reads it
-        // through a float expression, as the port always has. Upstream's `MutableRemoteFloat()`
-        // reserves the id when the loop is written, which renumbers the document, so it waits
-        // for a refresh.
-        val loopVariableId = document.createFloatId()
-        val loopVariable = MutableRemoteFloat(loopVariableId)
+        val loopVariable = MutableRemoteFloat()
         val childSpan = buffer.recordInChildSpan { body(loopVariable) }
 
         val op =
             buffer.recordRenderingOp(
                 CanvasOp.Draw { writer ->
-                    val indexId = Utils.idFromNan(loopVariableId)
-                    writer.loop(indexId, from.floatId, step.floatId, until.floatId) {
+                    writer.loop(loopVariable.id, from.floatId, step.floatId, until.floatId) {
                         childSpan.record(writer, creationState)
                     }
                 },
@@ -974,8 +961,18 @@ public class RemoteCanvas(
      * @param body Code that generates draw calls to run in a loop.
      */
     public fun loop(from: Int, until: RemoteInt, body: (index: RemoteInt) -> Unit) {
-        // LOCAL PATCH (rc-players): through the float loop, as the port always has; see there.
-        loop(from.rf, until.toRemoteFloat(), 1.rf) { index -> body(index.toRemoteInt()) }
+        val loopVariable = MutableRemoteFloat()
+        val childSpan = buffer.recordInChildSpan { body(loopVariable.toRemoteInt()) }
+
+        val op =
+            buffer.recordRenderingOp(
+                CanvasOp.Draw { writer ->
+                    writer.loop(loopVariable.id, from.toFloat(), 1f, until.floatId) {
+                        childSpan.record(writer, creationState)
+                    }
+                },
+            )
+        buffer.addRoots(op, until)
     }
 
     private fun generateFormalArg(id: Int, actualArg: Any?): BaseRemoteState<*> {

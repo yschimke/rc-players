@@ -73,6 +73,7 @@ empty. At androidx-main `21a1a95e4`:
 | The same tree, as the script counts now | 210 | 66 | 108 | 36 | 0 | 19 | 520 | 14 | 74 | 432 |
 | After step 2 | 210 | 95 | 79 | 36 | 0 | 17 | 226 | 120 | 54 | 52 |
 | After step 4 | 214 | 97 | 86 | 31 | 0 | 17 | 215 | 147 | 58 | 10 |
+| After the canvas port fixes | 214 | 97 | 86 | 31 | 0 | 17 | 208 | 141 | 57 | 10 |
 
 The third row is step 1's tree measured with the two things the script learned in step 2 (the
 trailing comma, and import-only hunks counted apart), so that the last two rows compare like with
@@ -92,7 +93,7 @@ A hunk that has to stay different carries one of two markers, with its reason, i
   upstream writes to `document`, an Android-only function not carried.
 
 A hunk that changes only `import` lines follows from its file's body and has no place for a
-comment; the script counts it apart. The 10 unmarked hunks left after step 4 are none of them
+comment; the script counts it apart. The 10 unmarked hunks left are none of them
 text the fork could take as it is, and the script still only counts them:
 
 - 2 in `shapes/RemoteCornerBasedShape.kt`: upstream's single shared radius for a shape whose four
@@ -809,11 +810,11 @@ Skips recorded in the refreshes above that this step retires: the `RecordingCanv
 (`b75d2cb6a`). The path data upstream's `CanvasOperationBuffer` dedupes per span is carried with
 it; the port's writer still dedupes for the whole document, so the bytes are the same.
 
-Where the port's canvas wrote something other than upstream's text writes, the port's bytes are
-kept under a marked hunk, and the difference is under "Known port issues" below: `usePaint`, the
-paint after a conditional block or an offscreen bitmap, a scale or rotation about a pivot,
-`drawText`/`drawTextRun`/`drawTextOnPath` given a `String`, the loop index, and `drawBitmap`'s
-content description.
+Where the port's canvas wrote something other than upstream's text writes, the port's bytes were
+kept under a marked hunk in this step: `usePaint`, the paint after a conditional block or an
+offscreen bitmap, a scale or rotation about a pivot, `drawText`/`drawTextRun`/`drawTextOnPath`
+given a `String`, the loop index, and `drawBitmap`'s content description. They are settled under
+"Canvas port fixes" below.
 
 Still not carried (31 files), and why:
 
@@ -836,40 +837,75 @@ returns the save count. `RemoteWriter` gains five members an implementation has 
 (`nextId`, `rcPaint`, `drawBitmapFontTextRun`, `drawBitmapFontTextRunOnPath`, `textAttribute`);
 the rest of what is new there has a default.
 
+## Canvas port fixes
+
+The one change in the series that is meant to change what is written. Step 4 kept the port's bytes
+wherever its canvas wrote something other than upstream's text writes; each of those was then
+decided by reading both writers and both readers (AndroidX's `remote-core`, and this repository's
+CMP player), fixed, and proved in a player: captured with the fork, played by `RcComposePlayer`
+(`:rc-player-embedded`, the `RcCanvas*PlaybackTest`s), and read or painted by AndroidX's own
+`CoreDocument` (`:rc-creation-bridge`, the `Canvas*ReadBackTest`s; `AndroidxHeadlessPaint.kt`
+paints a frame into a context that records the calls AndroidX makes, with the values it resolved).
+
+- **`usePaint` writes its paint.** Upstream's line. It recorded an empty operation, so
+  `RemotePainter.draw(blendMode, alpha)` applied neither, a colour filter set through it tinted
+  nothing, and a draw with no paint of its own used the one before. `renders/creation-use-paint/`.
+- **The whole paint in and after a block that may not run.** Upstream's line: `forceSendingPaint`
+  is read. After a `drawConditionally` block that was skipped, a draw whose paint equalled the last
+  one written (in the block) sent nothing and was drawn with the paint before the block, in both
+  players. Around `drawToOffscreenBitmap` the reason is AndroidX's player, which sets the paint's
+  alpha when it switches to a bitmap (`AndroidPaintContext.drawToBitmap`); the CMP player keeps one
+  paint there and drew it right before. `renders/creation-paint-after-block/`.
+- **A pivot is in its operation.** Upstream's lines: `scale(sx, sy, px, py)` and
+  `rotate(degrees, px, py)` write one `MatrixScale` or `MatrixRotate`, not translate, operation,
+  translate. The same picture: a test compares the two forms' renders pixel for pixel.
+- **A `String` goes to the writer with its length.** Upstream's lines for `drawText(String, …)`,
+  `drawTextRun(CharSequence, …)` and `drawTextOnPath(String, …)`; `RemoteWriter` gains
+  `drawTextRun(String, …)` with a default. The run's ends are 0 and the length where they were -1,
+  which both readers draw alike.
+- **A loop computes in its body what it computes from its index.** `RemoteCanvas.loop` is
+  upstream's text (the index is a variable reserved when the loop is written; the integer overload
+  writes its own loop). That was not the bug. The bug was the writer's: the expressions of the index
+  were declared ahead of the layout with every other declaration, and AndroidX runs an expression
+  there once a frame (`LoopOperation.paint` applies only the loop's own operations for each value
+  of the index), so every iteration of a loop drew with one value. The CMP player re-evaluated
+  header float expressions that read a loop index, which hid it there for floats; an integer index
+  was wrong in both. The writer now writes a declaration that reads the index, directly or through
+  another, in the loop, and forgets it at the loop's end, as it does for a pattern's parameters;
+  everything else a loop body declares still goes ahead of the layout.
+- **`drawBitmap(bitmap, left, top)` draws a rectangle of the bitmap's size.** Not upstream's line,
+  which asks the platform for the size of an id and gets 0: the fork writes left + width and
+  top + height, where it wrote the width and height themselves, right only at the origin. Marked.
+- **A canvas bitmap has no content description: decided, not fixed.** The port's id 0 is what the
+  format has for none; upstream's `""` declares an empty text and names it. Kept, marked, and
+  written up for AndroidX.
+
+Found on the way and fixed with them: `save()` returned a count `restoreToCount` did nothing with;
+a pattern's body was written against the paint before it; a value a pattern's body was the first to
+read was declared in the template and undeclared after it (all three are upstream's behaviour too:
+see the local patches below and RC_CREATION_UPSTREAM.md); and in the CMP player, a pattern
+definition written with its body's length did not link, and an image's width and height declared
+ahead of the layout were never evaluated, so a canvas drew a bitmap at its own size as nothing.
+
+What changed in the documents written: of the 129 distinct documents the JVM tests of
+`:rc-creation-bridge`, `:rc-player-embedded`, `:rc-player-edit` and
+`:third-party-remote-creation-writer` encoded before (18 of them the documents captured for step
+4), 121 are encoded to the same bytes after. The 8 that changed are the four pattern and for-each
+documents of `LoomPatternsTest`, the canvas document of step 4's harness under both density
+behaviours (it calls every function above), and its decoration document under both (two
+`RemoteBasicIcon`s, each now writing its paint reset). The six round-trip samples of
+`toRemoteComposeKotlin` are unchanged, so nothing generated was regenerated.
+
 ## Known port issues
 
 - **Scroll orientation** was reversed (`verticalScroll` wrote 1, the wire's horizontal). Fixed on
   its own, with `ScrollDirectionTest`.
-
-Found in step 4, where `layout/RemoteCanvas.kt` became upstream's text. Each is what the port has
-always written, kept under a marked hunk because the step must not change a document; none was
-checked in a player. Taking upstream's line is the fix, at a refresh that accepts new bytes.
-
-- **`usePaint` writes nothing.** `RemoteCanvas.usePaint(paint)` records an empty operation where
-  upstream writes the paint, so what `RemotePainter.draw` sets through it (a painter's alpha, colour
-  filter and blend mode) and `RemoteBasicIcon`'s paint reset never reach the document.
-- **No full paint after a conditional block or an offscreen bitmap.** Upstream resends the whole
-  paint for the first draw inside and the first after `drawConditionally` (when its condition is not
-  a constant) and `drawToOffscreenBitmap`, because the player's paint there is not the one the
-  tracker last sent. The port sets the flag but reads it only while recording, when it is never set.
-- **A pivot is written as two translations.** `scale(sx, sy, px, py)` and `rotate(degrees, px, py)`
-  write translate, scale or rotate, translate, where the format has the pivot in the operation.
-  The result is the same picture in more operations.
-- **A `String` is written as a text constant.** `drawText(String, …)`, `drawTextRun(CharSequence, …)`
-  and `drawTextOnPath(String, …)` go through the `RemoteString` overloads (ends of -1, the text
-  written where the creation state first sees it), where upstream hands the string and its length
-  to the writer.
-- **The loop index is read through an expression.** `loop` takes the index's id while recording and
-  gives the body a float expression of it, where upstream reserves the variable when the loop is
-  written. The loop body's other expressions are written ahead of the layout, as every declaration
-  is; whether AndroidX's player re-evaluates those for each iteration was not checked.
-- **`drawBitmap` has no content description.** The port writes id 0 where upstream writes the id of
-  the empty text, and `drawBitmap(bitmap, left, top)` writes the bitmap's width and height as the
-  rectangle's right and bottom, as upstream's does (see the feedback note on that overload).
-- **Unbalanced `save`/`restore`.** As upstream now, a `restore` without a `save` throws, a child
-  block (`drawConditionally`, `loop`, `drawToOffscreenBitmap`, a pattern) has to restore what it
-  saves, and a `save` with nothing drawn inside a block does not keep the block alive. The port
-  wrote whatever sequence it was given. This is the one place the step is stricter than before.
+- **Unbalanced `save`/`restore`.** As upstream since step 4, a `restore` without a `save` throws,
+  a child block (`drawConditionally`, `loop`, `drawToOffscreenBitmap`, a pattern) has to restore
+  what it saves, and a `save` with nothing drawn inside a block does not keep the block alive. The
+  port wrote whatever sequence it was given. This is the one place step 4 is stricter than before.
+- **`RemoteCornerBasedShape`'s shared radius** is still not taken (two unmarked hunks): it changes
+  the documents of every shape whose four corners are equal and was left out of this change.
 
 ## Local patches
 
@@ -881,6 +917,9 @@ to offer upstream, and the list is meant to shrink. Paths are package-relative; 
 | --- | --- | --- |
 | `capture/CaptureRemoteDocument.kt` | `captureCommonRemoteDocumentInto(writer, …)`; the byte path calls it | Capture into any `RemoteWriter` |
 | `capture/CanvasOperationBuffer.kt` (`save`) | `save()` returns the save count before it, not after | **Upstream bug.** `RemoteCanvas.save` documents its result as what `restoreToCount` takes to balance it, as `android.graphics.Canvas.save` returns; upstream returns the incremented count, for which `restoreToCount` restores nothing, so the save stays open (and a child block throws for the unbalanced save). `RcSaveRestoreToCountPlaybackTest` and `CarriedCreationApiTest` cover it. |
+| `layout/RemoteCanvas.kt` (`drawBitmap(bitmap, left, top)`) | The rectangle is (left, top, left + width, top + height) | **Upstream bug.** Upstream's `document.drawBitmap(id, left, top, "")` asks the platform services for the size of an id, gets 0, and passes it as right and bottom. `RcCanvasBitmapSizePlaybackTest` and `CanvasBitmapReadBackTest` cover it. |
+| `layout/RemoteCanvas.kt` (both `drawBitmap`s) | No content description is id 0 | Upstream passes `""`, which declares an empty text and names it as the description; 0 is what the format and `RemoteComposeWriter.drawBitmap(…, null)` have for none. |
+| `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`bodyScopes`, `declaration`, `startLoop`/`endLoop`, `definePattern`/`endPatternDefine`, `addPatternForEach`/`endPatternForEach`) | A declaration that reads an id a loop, pattern or for-each body owns (its index, parameters or item, or anything declared from them) is written in the body and forgotten at its end; every other declaration goes ahead of the layout | Follows from the Kotlin writer declaring ahead of the layout, where upstream's writes in place: a player computes a header expression once a frame, and expands a template with its own ids replaced. `CanvasLoopReadBackTest`, `RcCanvasLoopPlaybackTest`, `LoomPatternsTest` and `RcPatternCapturedStatePlaybackTest` cover it. |
 | `capture/RemoteDocumentSession.kt` (new) | A composition kept alive under a host `CompositionContext`, re-rendered into a fresh writer on demand; reports when a state its last render read changes (`onRenderInputsChanged`) | The live, in-process path. It mirrors upstream's Android `captureRemoteDocument` loop, including its `RenderInvalidationTracker`. |
 | `capture/RemoteComposeCreationState.kt` (`getOrPutVariableId`, `getOrPutFloatArray`, `getOrPutLongArray`, `getOrPutFloatExpressionId`, `getOrPutIntExpressionId`, `readsRetiredId`), `../remote-creation-writer/.../RemoteWriter.kt` (`isRetired`) | A cached id, or a cached lowered expression that reads one, is not answered once the writer has retired it: it is asked for again | The caches are per document (upstream scopes some to a canvas), and what a pattern, for-each or loop body declares from its own ids exists only in that body. Without the check an expression first used in a nested body was answered with the nested body's id in the body around it. `BodyOwnedDeclarationsTest` covers the writer's side. |
 | `capture/RemoteComposeCreationState.kt` | `resetComponentIds()`, which also forgets the component tokens' ids (the session sets upstream's own `document` for each render) | A session renders each frame into a fresh writer. Without the reset, every render renumbers every component (upstream has the same drift). |

@@ -1,6 +1,6 @@
 # The creation fork and AndroidX: divergence, realignment, and feedback for upstream
 
-**Status: steps 0 to 2 and 4 of the realignment are done; steps 3, 5 and 6 are planned.** This note records
+**Status: steps 0 to 2 and 4 of the realignment are done, and the canvas differences step 4 kept are settled; steps 3, 5 and 6 are planned.** This note records
 three things about `third_party/remote-creation-compose` and `third_party/remote-creation-writer`,
 the Compose Multiplatform fork of AndroidX Remote Compose creation:
 
@@ -110,6 +110,7 @@ in another package).
 | After step 1, as the script counts now | 210 | 66 | 108 | 36 | 0 | 19 | 520 | 14 | 74 | 432 |
 | After step 2 | 210 | 95 | 79 | 36 | 0 | 17 | 226 | 120 | 54 | 52 |
 | After step 4 | 214 | 97 | 86 | 31 | 0 | 17 | 215 | 147 | 58 | 10 |
+| After the canvas port fixes | 214 | 97 | 86 | 31 | 0 | 17 | 208 | 141 | 57 | 10 |
 
 A marked hunk carries `LOCAL PATCH (rc-players)` (a fork addition or a deliberate difference) or
 `KMP (rc-players)` (a substitution forced by the non-JVM targets or by the Kotlin writer), with its
@@ -117,7 +118,11 @@ reason. An import-only hunk follows from its file's body. In step 2 the script a
 comma that ends a line, because this repository's ktfmt adds one where AndroidX's does not; the
 third row is step 1's tree counted that way. Step 4 added the four test files of
 `remote-creation-expression` to what the script compares (214 files; without them the last row is
-210 files, 97 identical, 82 differing). Of the 10 unmarked hunks left, 2 are an upstream change to
+210 files, 97 identical, 82 differing). The canvas port fixes that followed it are the one change
+meant to alter what is written: the hunks step 4 kept so that no document changed (`usePaint`, the
+paint around a block that may not run, pivots, `String` text, the loop index) became upstream's
+lines, and what replaced the rest is marked with its reason (PROVENANCE.md, "Canvas port fixes").
+Of the 10 unmarked hunks left, 2 are an upstream change to
 `RemoteCornerBasedShape` that alters the documents written and waits for a refresh, and 8 are the
 two formatters disagreeing about where to break a line. The 31 files not carried are the capture
 loop (`capture/headless/` and `CaptureUpdateThrottle`, step 5), `RemoteLog`, the two files over the
@@ -513,10 +518,26 @@ the JVM implementation returns 0 (`remote-creation/src/jvmMain/…/JvmRcPlatform
 (`remote-player-view/…/platform/AndroidRcPlatformServices.java:54-59`), and
 `RcPlatformServices.None` throws. So the bitmap is drawn into the rectangle (left, top, 0, 0).
 Separately, the width and height are passed as the rectangle's right and bottom, which is the
-bitmap's size only when `left` and `top` are 0. The fork writes the bitmap's own `width` and
-`height` expressions in the same two places.
+bitmap's size only when `left` and `top` are 0. The fork writes `left + bitmap.width` and
+`top + bitmap.height`, from the bitmap's own size expressions.
 
-*Verified by reading. No test here: the fork's writer has no platform services.*
+*Upstream's side verified by reading: the fork's writer has no platform services. The fork's
+rectangle is tested here: `RcCanvasBitmapSizePlaybackTest` in `:rc-player-embedded` plays a bitmap
+drawn at an offset, and `CanvasBitmapReadBackTest` in `:rc-creation-bridge` reads the rectangle
+with AndroidX's reader.*
+
+### A bitmap drawn on a canvas is given an empty content description
+
+Both `RemoteCanvas.drawBitmap` overloads (`common/layout/RemoteCanvas.kt:684,715`) pass `""` as the
+content description. `RemoteComposeWriter.drawBitmap` adds a text for any description that is not
+null (`remote-creation-core/…/RemoteComposeWriter.java:1405-1416`), so every document that draws a
+bitmap on a canvas declares an empty text and names it in `DrawBitmap`, where id 0 is what the
+operation has for no description (the same method writes 0 for `null`). Nothing in `remote-core`
+reads the id when it paints, so nothing is drawn differently; a reader that exposes descriptions
+(this repository's player builds semantics from them) reports an image with an empty one instead of
+an image with none. Suggested fix: pass `null`. The fork writes 0.
+
+*Verified by reading both sides; `CanvasBitmapReadBackTest` asserts what the fork writes.*
 
 ### A path string means different things on Android and on the JVM
 
@@ -661,6 +682,21 @@ vector yet.
   compile for JVM, Android and Wasm (compiled for this change) and for iOS and macOS (the fork's
   other targets, built on macOS hosts). For upstream files the fork does not carry
   (`capture/headless/` among them) it is a reading of their imports and constructs, not a build.
+- The canvas port fixes were each checked in two readers. Captured with the fork and played by
+  this repository's CMP player on the JVM, with pixels asserted (`:rc-player-embedded`:
+  `RcCanvasUsePaintPlaybackTest`, `RcCanvasPaintAfterBlockPlaybackTest`, `RcCanvasPivotPlaybackTest`,
+  `RcCanvasLoopPlaybackTest`, `RcCanvasBitmapSizePlaybackTest`, `RcPatternPaintPlaybackTest`,
+  `RcPatternCapturedStatePlaybackTest`, `RcSaveRestoreToCountPlaybackTest`). And read by AndroidX's
+  own reader, `remote-core` 1.0.0-alpha23, field by field, or painted by its `CoreDocument` into a
+  context that records the calls it makes with the values it resolved, which is how "AndroidX
+  draws every iteration of that loop at one place" and "AndroidX draws the shape after a skipped
+  block in the wrong colour" were established rather than read (`:rc-creation-bridge`:
+  `CanvasPaintReadBackTest`, `CanvasLoopReadBackTest`, `CanvasPivotReadBackTest`,
+  `CanvasTextReadBackTest`, `CanvasBitmapReadBackTest`, `LoomPatternsTest`). Each test failed
+  before its fix. The recording context draws nothing: what AndroidX's Android paint context does
+  with a call (`drawToBitmap` setting the paint's alpha, for one) is read, not run. The documents
+  were compared as in step 4: 129 distinct ones before, 121 of them byte for byte the same after,
+  and the 8 that changed all use what was fixed.
 - Step 4 was checked the way step 2 was (next item), on a worktree of the commit before it and on
   the result: the 107 distinct documents the four modules' JVM tests encoded before are all
   encoded to the same bytes after, and 18 captured for the purpose (the six round-trip samples and
