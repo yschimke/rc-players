@@ -3,8 +3,10 @@ package ee.schimke.composeai.rccreation.bridge
 import androidx.compose.remote.core.operations.DrawCircle
 import androidx.compose.remote.core.operations.DrawRect
 import androidx.compose.remote.core.operations.PaintData
+import androidx.compose.remote.creation.compose.layout.RemoteOffset
 import androidx.compose.remote.creation.compose.state.RemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteColor
+import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
 import androidx.compose.remote.creation.compose.state.RemotePaint
 import androidx.compose.remote.creation.compose.state.rf
@@ -82,6 +84,34 @@ class CanvasPaintReadBackTest {
     }
     // The second and the last differ from the paint before them, written just before: a colour.
     assertEquals(listOf(true, false, true, true, false), wholePaints(bytes))
+  }
+
+  /**
+   * A loop's body runs once per value of its index, each time with the paint AndroidX has then, and
+   * not at all when the range is empty: the first paint in the body and the first after the loop
+   * are whole paints, and AndroidX draws each rectangle in the colour it asks for.
+   */
+  @Test
+  fun drawsInAndAfterALoopHaveTheirPaints() {
+    fun bytes(times: Float) = captureCanvasBytes {
+      val count = RemoteFloat.createNamedRemoteFloat("count", times)
+      drawRect(paint(Color.Red))
+      loop(0f.rf, count, 1f.rf) { index ->
+        drawRect(paint(Color.Red), RemoteOffset(index * 20f, 0f.rf))
+        drawRect(paint(Color.Blue), RemoteOffset(index * 20f, 20f.rf))
+      }
+      drawRect(paint(Color.Blue))
+      drawRect(paint(Color.Red))
+    }
+    fun colours(times: Float) =
+      androidxPaints(bytes(times), 200, 100).filter { it.name == "rect" }.map { it.color }
+    val red = Color.Red.toArgb()
+    val blue = Color.Blue.toArgb()
+    assertEquals(listOf(red, red, blue, red, blue, red, blue, blue, red), colours(3f))
+    assertEquals(listOf(red, blue, red), colours(0f))
+    // Before the loop, the body's two, and the two after: the body's first and the first after are
+    // whole, the others differ from the paint before them in colour.
+    assertEquals(listOf(true, true, false, true, false), wholePaints(bytes(3f)))
   }
 
   /** For each paint written, whether it is as long as the document's first, which is whole. */

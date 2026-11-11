@@ -696,11 +696,19 @@ public class RemoteDocumentWriter(
     // runs an expression declared ahead of the layout once a frame, not once per index
     // (`LoopOperation.paint` applies only the loop's own operations for each value).
     openBody(mutableSetOf(indexId))
+    // LOCAL PATCH (rc-players): the body is drawn once per value of the index, each time with the
+    // paint the player has then: the body's last on every pass after the first, and after the loop
+    // the paint before it if the range was empty. So the first paint in the body and the first
+    // after the loop are written in full, as around a pattern. Upstream's canvas shares one
+    // `PaintTracker` with a loop's body and its writer forces a full paint only at a component's
+    // content start.
+    paintResetPending = true
   }
 
   override fun endLoop() {
     endBodyScope()
     containerEnd()
+    paintResetPending = true
   }
 
   public fun column(
