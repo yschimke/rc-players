@@ -1414,7 +1414,8 @@ private fun RenderLayoutNode(
         val alignedRow = rememberRcAlignedRow(node.content.children, state)
         val hasWeightedChildren =
           node.content.children.any { child ->
-            child.modifiers.width?.type == RcDimensionType.WEIGHT &&
+            rcChildWeight(child.modifiers.width?.type, child.modifiers.width?.value, state) !=
+              null &&
               child.modifiers.visibility?.let {
                 androidXVisibility(state.integer(it.visibilityId) ?: 0) != 0
               } != false
@@ -1732,7 +1733,7 @@ private fun RenderLayoutNode(
       is RcLayoutNode.Text -> {
         val density = androidx.compose.ui.platform.LocalDensity.current
         val operation = node.operation
-        val fontWeight = state.resolve(operation.fontWeight).roundToInt().coerceIn(1, 1000)
+        val fontWeight = rcFontWeight(state.resolve(operation.fontWeight))
         val italic = isWireItalic(operation.fontStyle)
         val lines = remember { RcTextLines() }
         BasicText(
@@ -1790,11 +1791,15 @@ private fun RenderLayoutNode(
         val density = androidx.compose.ui.platform.LocalDensity.current
         val properties = node.resolvedStyle
         val fontSize = state.textFontSizePixels(properties.floatProperty(5, 36f), density)
-        val lineHeightAdd = state.resolve(properties.floatProperty(13, 0f))
-        val lineHeightMultiplier = state.resolve(properties.floatProperty(14, 1f))
+        // Letter spacing and line height may be variables — `RemoteText` writes them as a ratio to
+        // the font size, a variable when the font size is — and a variable can fail to resolve to a
+        // number. AndroidX's embedded player reads such a value as unset (androidx-main
+        // `300a543b2`) rather than handing NaN to text layout, and so does this one.
+        val letterSpacing = state.resolve(properties.floatProperty(12, 0f)).finiteOr(0f)
+        val lineHeightAdd = state.resolve(properties.floatProperty(13, 0f)).finiteOr(0f)
+        val lineHeightMultiplier = state.resolve(properties.floatProperty(14, 1f)).finiteOr(1f)
         val italic = isWireItalic(properties.intProperty(6, 0))
-        val fontWeight =
-          state.resolve(properties.floatProperty(7, 400f)).roundToInt().coerceIn(1, 1000)
+        val fontWeight = rcFontWeight(state.resolve(properties.floatProperty(7, 400f)))
         val colorId = properties.intProperty(4, -1)
         val autosize = properties.booleanProperty(22, false)
         val minFontSize = properties.floatProperty(25, -1f).let(state::resolve)
@@ -1871,7 +1876,7 @@ private fun RenderLayoutNode(
               // em,
               // and `0.02857.toSp()` at density 2 is 0.014 sp. Text then measured about 5% narrow,
               // which is invisible on one line and re-breaks every paragraph that wraps.
-              letterSpacing = state.resolve(properties.floatProperty(12, 0f)).em,
+              letterSpacing = letterSpacing.em,
               lineHeight =
                 if (lineHeightAdd == 0f && lineHeightMultiplier == 1f) TextUnit.Unspecified
                 else if (autosize)
@@ -2269,7 +2274,9 @@ private fun RcCollapsibleLayout(
         } else {
           child.modifiers.height?.takeIf { it.type == RcDimensionType.WEIGHT }?.value
         }
-      weightWord?.let { state.resolve(it).coerceAtLeast(0f) } ?: 0f
+      // A weight that does not resolve to a number leaves the child unweighted (0 here), as in
+      // a row or column; see [rcChildWeight].
+      weightWord?.let { state.resolve(it).finiteOr(0f).coerceAtLeast(0f) } ?: 0f
     }
     // AndroidX measures an unweighted child before the fit test and leaves a weighted one
     // unmeasured — zero on the main axis — until the leftover space is distributed, so a weight
@@ -4664,14 +4671,37 @@ private fun Modifier.applyWidth(
     else -> this
   }
 
-private fun RowScope.rowWeightModifier(node: RcLayoutNode, state: RcPlayerState): Modifier {
-  val width = node.modifiers.width
-  return if (width?.type == RcDimensionType.WEIGHT) {
-    Modifier.weight(state.resolve(width.value).coerceAtLeast(Float.MIN_VALUE))
-  } else {
-    Modifier
-  }
+private fun RowScope.rowWeightModifier(node: RcLayoutNode, state: RcPlayerState): Modifier =
+  rcChildWeight(node.modifiers.width?.type, node.modifiers.width?.value, state)?.let {
+    Modifier.weight(it)
+  } ?: Modifier
+
+/**
+ * The weight a row or column gives a child whose main-axis dimension, of [type] and [value], is a
+ * `WEIGHT`, or null when the child is not weighted.
+ *
+ * The weight may be a variable, and a variable can fail to resolve to a number: an id nothing has
+ * written yet, or an expression that divides zero by zero. `Modifier.weight` throws on NaN, which
+ * took the whole document down. Such a child is left unweighted and sized by its content, as
+ * AndroidX's embedded player leaves it (androidx-main `300a543b2`). A zero or negative weight stays
+ * a weighted child with no share of the space, which is what `remote-core`'s row and column give
+ * it.
+ */
+private fun rcChildWeight(type: Int?, value: RcFloatWord?, state: RcPlayerState): Float? {
+  if (type != RcDimensionType.WEIGHT || value == null) return null
+  val weight = state.resolve(value)
+  return if (weight.isNaN()) null else weight.coerceAtLeast(Float.MIN_VALUE)
 }
+
+/**
+ * A text's font weight from its resolved wire value. `FontWeight` only takes 1..1000, and the wire
+ * value may be a variable: one that does not resolve to a number keeps the normal weight, where
+ * rounding NaN threw, as in AndroidX's embedded player (androidx-main `300a543b2`).
+ */
+internal fun rcFontWeight(resolved: Float): Int =
+  if (resolved.isNaN()) 400 else resolved.roundToInt().coerceIn(1, 1000)
+
+private fun Float.finiteOr(default: Float): Float = if (isFinite()) this else default
 
 /** A row child's `alignBy` anchor, as AndroidX's RowLayout resolves it. */
 private sealed interface RcRowAnchor {
@@ -4803,14 +4833,10 @@ private fun Modifier.rcAlignedRowPositioning(
   layout(placeable.width, height) { placeable.place(0, alignment.align(tallestChild, height)) }
 }
 
-private fun ColumnScope.columnWeightModifier(node: RcLayoutNode, state: RcPlayerState): Modifier {
-  val height = node.modifiers.height
-  return if (height?.type == RcDimensionType.WEIGHT) {
-    Modifier.weight(state.resolve(height.value).coerceAtLeast(Float.MIN_VALUE))
-  } else {
-    Modifier
-  }
-}
+private fun ColumnScope.columnWeightModifier(node: RcLayoutNode, state: RcPlayerState): Modifier =
+  rcChildWeight(node.modifiers.height?.type, node.modifiers.height?.value, state)?.let {
+    Modifier.weight(it)
+  } ?: Modifier
 
 private fun Modifier.applyHeight(
   height: RcHeightModifier,
@@ -7373,7 +7399,7 @@ private fun applyPaint(
           // The face is instanced at every axis below; wght/ital/slnt also pick the face when the
           // family is not a variable host face, as a static family's weights and styles do.
           when (tag) {
-            "wght" -> state.fontWeight = FontWeight(value.roundToInt().coerceIn(1, 1000))
+            "wght" -> state.fontWeight = FontWeight(rcFontWeight(value))
             "ital" -> state.fontStyle = if (value >= 0.5f) FontStyle.Italic else FontStyle.Normal
             "slnt" -> state.fontStyle = if (value != 0f) FontStyle.Italic else FontStyle.Normal
           }
