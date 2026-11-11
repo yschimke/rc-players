@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.desktop
 
+import ee.schimke.composeai.rcplayer.edit.RcKotlinCreationApi
 import ee.schimke.composeai.rcplayer.edit.RcKotlinOptions
 import ee.schimke.composeai.rcplayer.edit.RcUiBuilderOptions
 import ee.schimke.composeai.rcplayer.edit.toRemoteComposeKotlin
@@ -15,11 +16,15 @@ import java.io.File
  * `--to-uid <in.rc> [out.uid]`: the document as a Compose UI Builder design, with its images beside
  * it in `<out>.assets/`, or printed when there are none to write.
  *
- * Both take `--density <d>`, the density a pixel document was captured at. What the output could
- * not say goes to standard error, one line each; the exit status is 0 either way, since a partial
+ * Both take `--density <d>`, the density a pixel document was captured at. `--to-kotlin` also takes
+ * `--androidx`, to import AndroidX's creation API (`androidx.compose.remote.creation.compose`) in
+ * place of rc-players' (`ee.schimke.composeai.rccreation.compose`). What the output could not say
+ * goes to standard error, one line each; the exit status is 0 either way, since a partial
  * translation is still the useful result.
  */
-internal fun decompileCommand(args: List<String>, uid: Boolean): Int {
+internal fun decompileCommand(allArgs: List<String>, uid: Boolean): Int {
+  val androidx = !uid && "--androidx" in allArgs
+  val args = if (uid) allArgs else allArgs - "--androidx"
   val density = args.indexOf("--density").takeIf { it >= 0 }
   val densityValue = density?.let {
     args.getOrNull(it + 1)?.toFloatOrNull()
@@ -44,12 +49,25 @@ internal fun decompileCommand(args: List<String>, uid: Boolean): Int {
   val output = files.getOrNull(1)?.let(::File)
   val name = functionName(input)
   return if (uid) writeDesign(document, name, input, output, densityValue)
-  else writeKotlin(document, name, output, densityValue)
+  else writeKotlin(document, name, output, densityValue, androidx)
 }
 
-private fun writeKotlin(document: RcDocument, name: String, output: File?, density: Float?): Int {
+private fun writeKotlin(
+  document: RcDocument,
+  name: String,
+  output: File?,
+  density: Float?,
+  androidx: Boolean,
+): Int {
   val source =
-    document.toRemoteComposeKotlin(RcKotlinOptions(functionName = name, density = density))
+    document.toRemoteComposeKotlin(
+      RcKotlinOptions(
+        functionName = name,
+        density = density,
+        creationApi =
+          if (androidx) RcKotlinCreationApi.AndroidX else RcKotlinCreationApi.RcCreation,
+      ),
+    )
   emit(source.code, output)
   report(source.unsupported)
   return 0
@@ -114,5 +132,5 @@ internal fun functionName(file: File): String {
 }
 
 internal const val DECOMPILE_USAGE =
-  """       remote-compose-player --to-kotlin [--density d] <in.rc> [out.kt]
+  """       remote-compose-player --to-kotlin [--density d] [--androidx] <in.rc> [out.kt]
        remote-compose-player --to-uid [--density d] <in.rc> [out.uid]"""

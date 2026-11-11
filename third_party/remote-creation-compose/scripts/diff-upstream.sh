@@ -23,12 +23,17 @@
 # a comma that ends a line goes (this repository's ktfmt puts a trailing comma after a lone
 # argument that it breaks onto its own line, and AndroidX's does not).
 # Upstream's side also has the names in upstream-fqn.tsv rewritten, because the fork's writer
-# declares AndroidX's Java classes under the same simple names in another package.
+# declares AndroidX's Java classes under the same simple names in another package, and then the
+# packages in upstream-packages.tsv, because the fork declares AndroidX's Kotlin in its own package
+# (`ee.schimke.composeai.rccreation`). The same package map gives the fork path a file is carried
+# at. So a refresh is: copy upstream's file to the mapped path, rewrite its packages, re-apply the
+# marked hunks; this script shows whether that was done.
 #
 # The data beside this script:
 #   upstream-roots.tsv    upstream source root -> the fork directory that carries it
 #   upstream-renames.tsv  upstream files the fork carries at another path, each with its reason
 #   upstream-fqn.tsv      upstream name -> the fork's name for it
+#   upstream-packages.tsv upstream package -> the fork's package (text and paths)
 #
 # Unmarked hunks are counted, not failed on: the fork is not yet at the point where every
 # difference is a marked one. See docs/design/RC_CREATION_UPSTREAM.md for the plan.
@@ -72,6 +77,19 @@ rows upstream-fqn.tsv | awk -F'\t' '{
   printf "s/%s([^A-Za-z0-9_]|$)/%s\\1/g\n", from, $2
 }' >"$work/fqn.sed"
 
+# upstream-packages.tsv twice: as a sed script for a file's text (a package ends where an
+# identifier cannot continue, so `….creation.compose` does not rewrite `….creation.composeX`), and
+# as one for a path under a source root.
+rows upstream-packages.tsv | awk -F'\t' '{
+  from = $1; gsub(/\./, "\\.", from)
+  printf "s/(^|[^A-Za-z0-9_.])%s([^A-Za-z0-9_]|$)/\\1%s\\2/g\n", from, $2
+}' >>"$work/fqn.sed"
+rows upstream-packages.tsv | awk -F'\t' '{
+  from = $1; to = $2; gsub(/\./, "/", from); gsub(/\./, "/", to)
+  printf "s|^%s(/\|$)|%s\\1|\n", from, to
+}' >"$work/path.sed"
+fork_path() { printf '%s\n' "$1" | sed -E -f "$work/path.sed"; }
+
 # Trailing whitespace, a comma ending a line, `kotlin.jvm.` on annotations, blank-line runs, and the
 # import block (sorted, unique, where it started).
 normalise() {
@@ -103,8 +121,8 @@ rows upstream-roots.tsv | while IFS="$(printf '\t')" read -r root fork_dir; do
         awk -F'\t' -v key="$root/$path" '$1 == key { printf "%s%s", (n++ ? "," : ""), $2 }')"
       if [ -n "$renamed" ]; then
         printf '%s\t%s\t%s\trenamed\n' "$root" "$path" "$renamed"
-      elif [ -f "$module_dir/$fork_dir/$path" ]; then
-        printf '%s\t%s\t%s\tsame\n' "$root" "$path" "$fork_dir/$path"
+      elif [ -f "$module_dir/$fork_dir/$(fork_path "$path")" ]; then
+        printf '%s\t%s\t%s\tsame\n' "$root" "$path" "$fork_dir/$(fork_path "$path")"
       else
         printf '%s\t%s\t-\t-\n' "$root" "$path"
       fi

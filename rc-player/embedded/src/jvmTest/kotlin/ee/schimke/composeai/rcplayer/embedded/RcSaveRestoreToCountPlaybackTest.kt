@@ -1,17 +1,6 @@
 package ee.schimke.composeai.rcplayer.embedded
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
-import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocument
-import androidx.compose.remote.creation.compose.layout.RemoteCanvas
-import androidx.compose.remote.creation.compose.layout.RemoteDrawScope
-import androidx.compose.remote.creation.compose.layout.RemoteOffset
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.fillMaxSize
-import androidx.compose.remote.creation.compose.state.RemoteBoolean
-import androidx.compose.remote.creation.compose.state.RemoteColor
-import androidx.compose.remote.creation.compose.state.RemotePaint
-import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
@@ -23,6 +12,17 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.unit.Density
+import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
+import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocument
+import ee.schimke.composeai.rccreation.compose.layout.RemoteCanvas
+import ee.schimke.composeai.rccreation.compose.layout.RemoteDrawScope
+import ee.schimke.composeai.rccreation.compose.layout.RemoteOffset
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
+import ee.schimke.composeai.rccreation.compose.state.RemoteBoolean
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemotePaint
+import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import kotlin.test.Test

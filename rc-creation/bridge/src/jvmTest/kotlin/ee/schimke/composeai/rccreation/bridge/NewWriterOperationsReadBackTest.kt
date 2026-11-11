@@ -9,10 +9,10 @@ import androidx.compose.remote.core.operations.MatrixScale
 import androidx.compose.remote.core.operations.PaintData
 import androidx.compose.remote.core.operations.TextAttribute
 import androidx.compose.remote.core.operations.layout.LoopOperation
-import androidx.compose.remote.creation.common.PaintBundle
-import androidx.compose.remote.creation.common.RemoteDocumentWriter
-import androidx.compose.remote.creation.common.TextAttribute as TextAttributeType
-import androidx.compose.remote.creation.common.Utils
+import ee.schimke.composeai.rccreation.common.PaintBundle
+import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
+import ee.schimke.composeai.rccreation.common.TextAttribute as TextAttributeType
+import ee.schimke.composeai.rccreation.common.Utils
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals

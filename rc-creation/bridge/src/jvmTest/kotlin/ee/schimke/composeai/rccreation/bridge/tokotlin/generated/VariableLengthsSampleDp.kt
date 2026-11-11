@@ -3,22 +3,22 @@
 
 package ee.schimke.composeai.rccreation.bridge.tokotlin.generated
 
-import androidx.compose.remote.creation.compose.layout.RemoteArrangement
-import androidx.compose.remote.creation.compose.layout.RemoteBox
-import androidx.compose.remote.creation.compose.layout.RemoteColumn
-import androidx.compose.remote.creation.compose.layout.RemoteComposable
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.border
-import androidx.compose.remote.creation.compose.modifier.fillMaxSize
-import androidx.compose.remote.creation.compose.modifier.padding
-import androidx.compose.remote.creation.compose.modifier.size
-import androidx.compose.remote.creation.compose.state.RemoteColor
-import androidx.compose.remote.creation.compose.state.RemoteFloat
-import androidx.compose.remote.creation.compose.state.asRemoteDp
-import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import ee.schimke.composeai.rccreation.compose.layout.RemoteArrangement
+import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.layout.RemoteColumn
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.border
+import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
+import ee.schimke.composeai.rccreation.compose.modifier.padding
+import ee.schimke.composeai.rccreation.compose.modifier.size
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.asRemoteDp
+import ee.schimke.composeai.rccreation.compose.state.rdp
 
 @Composable
 @RemoteComposable

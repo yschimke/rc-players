@@ -1,7 +1,7 @@
 // The Compose Multiplatform creation fork: AndroidX `remote-creation-compose` and
-// `remote-foundation`
-// (commonMain), in AndroidX's own package, with marked local patches and nothing else. rc-players'
-// own creation API lives in `:rc-creation-bridge`. See PROVENANCE.md.
+// `remote-foundation` (commonMain), in rc-players' package `ee.schimke.composeai.rccreation`, with
+// marked local patches and nothing else. rc-players' own creation API lives in
+// `:rc-creation-bridge`. See PROVENANCE.md.
 plugins {
     id("composeai.base-conventions")
     id("composeai.jvm-conventions")
@@ -81,39 +81,8 @@ kotlin {
 // The same choice `third_party/rc-embedded-player` makes.
 ktfmt { kotlinLangStyle() }
 
-// The fork carries AndroidX's own class names. On Android a consumer could also resolve AndroidX's
-// `remote-creation-compose` (or `remote-foundation`, through it), and two jars defining the same
-// classes fail late and confusingly. Declaring AndroidX's capabilities makes Gradle refuse the pair
-// at resolution, naming both. `remote-creation-expression` is one of them: upstream moved the state
-// types (`RemoteFloat`, `RemoteColor`, `RemoteState`, …) into that module, so it can arrive without
-// `remote-creation-compose`. AndroidX's releases so far publish these only for Android, so only the
-// Android variants declare them.
-//
-// Declaring any capability replaces the implicit one, so the Android variants restate theirs: the
-// coordinates of the module they are published in, `…-android`, which is what a consumer resolving
-// through the root module's `available-at` asks for. Restating the root's coordinates instead
-// (2.13.0)
-// left no variant a consumer could select, on any platform.
-val androidxCapabilities =
-    listOf(
-        "androidx.compose.remote:remote-creation-compose",
-        "androidx.compose.remote:remote-creation-expression",
-        "androidx.compose.remote.foundation:foundation",
-    )
-
-configurations.configureEach {
-    // AGP publishes Android from separate `…Elements-published` copies that are not consumable
-    // within the build, so a name match, not `isCanBeConsumed`, is what reaches every variant.
-    if (
-        !isCanBeResolved &&
-            name.startsWith("android") &&
-            name.substringBefore("-published").endsWith("Elements")
-    ) {
-        outgoing.capability("${project.group}:${project.name}-android:${project.version}")
-        androidxCapabilities.forEach { outgoing.capability("$it:${project.version}") }
-    }
-}
-
+// The fork is in its own package (`ee.schimke.composeai.rccreation`), so it declares no capability
+// of AndroidX's: both can be on one classpath. What is still checked is Gradle's own rule.
 // Every published variant must offer the capability of the module it is published in, or no
 // consumer can select it. Checked against the Gradle module metadata the publications write.
 val verifyPublishedCapabilities by tasks.registering {
@@ -178,6 +147,6 @@ composeAiMavenPublishing {
         artifactId = "third-party-remote-creation-compose",
         displayName = "Remote Compose Creation — Compose Multiplatform (fork)",
         description =
-            "AndroidX remote-creation-compose and remote-foundation for Compose Multiplatform, in AndroidX's package with marked local patches. Declares AndroidX's capabilities, so it cannot sit beside them on Android.",
+            "AndroidX remote-creation-compose and remote-foundation for Compose Multiplatform, in the package ee.schimke.composeai.rccreation with marked local patches, so it can sit beside AndroidX's own artifacts.",
     )
 }

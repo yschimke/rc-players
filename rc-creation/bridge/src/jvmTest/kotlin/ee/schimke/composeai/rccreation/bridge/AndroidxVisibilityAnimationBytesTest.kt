@@ -2,12 +2,12 @@ package ee.schimke.composeai.rccreation.bridge
 
 import androidx.compose.remote.core.RcPlatformServices
 import androidx.compose.remote.creation.RemoteComposeWriter
-import androidx.compose.remote.creation.common.AnimatedFloatExpression
-import androidx.compose.remote.creation.common.RemoteDocumentWriter
-import androidx.compose.remote.creation.common.Utils
 import androidx.compose.remote.creation.dsl.RcProfile
 import androidx.compose.remote.creation.dsl.createRawRcBuffer
 import androidx.compose.remote.creation.profile.Profile
+import ee.schimke.composeai.rccreation.common.AnimatedFloatExpression
+import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
+import ee.schimke.composeai.rccreation.common.Utils
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals

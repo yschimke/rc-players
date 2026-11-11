@@ -1,13 +1,13 @@
 package ee.schimke.composeai.rccreation.bridge
 
-import androidx.compose.remote.creation.common.RemoteDocumentWriter
-import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
-import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocumentInto
-import androidx.compose.remote.creation.compose.capture.wireValue
-import androidx.compose.remote.creation.compose.layout.RemoteCanvas
-import androidx.compose.remote.creation.compose.layout.RemoteDrawScope
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.fillMaxSize
+import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
+import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
+import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocumentInto
+import ee.schimke.composeai.rccreation.compose.capture.wireValue
+import ee.schimke.composeai.rccreation.compose.layout.RemoteCanvas
+import ee.schimke.composeai.rccreation.compose.layout.RemoteDrawScope
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
 import kotlinx.coroutines.runBlocking
 
 /**

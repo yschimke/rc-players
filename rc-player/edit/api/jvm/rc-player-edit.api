@@ -218,6 +218,15 @@ public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text : ee
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi : java/lang/Enum {
+	public static final field AndroidX Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;
+	public static final field RcCreation Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;
+	public final fun getComposePackage ()Ljava/lang/String;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;
+	public static fun values ()[Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder : java/lang/Enum {
 	public static final field Android Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;
 	public static final field Skia Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;
@@ -228,15 +237,17 @@ public final class ee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder : jav
 
 public final class ee/schimke/composeai/rcplayer/edit/RcKotlinOptions {
 	public fun <init> ()V
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/Float;
 	public final fun component4 ()Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;)Lee/schimke/composeai/rcplayer/edit/RcKotlinOptions;
-	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcKotlinOptions;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcKotlinOptions;
+	public final fun component5 ()Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;)Lee/schimke/composeai/rcplayer/edit/RcKotlinOptions;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcKotlinOptions;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Float;Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcKotlinOptions;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCreationApi ()Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;
 	public final fun getDensity ()Ljava/lang/Float;
 	public final fun getFunctionName ()Ljava/lang/String;
 	public final fun getImageDecoder ()Lee/schimke/composeai/rcplayer/edit/RcKotlinImageDecoder;

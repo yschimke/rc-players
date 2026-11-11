@@ -1,15 +1,15 @@
 package ee.schimke.composeai.rccreation.bridge
 
-import androidx.compose.remote.creation.common.RemoteDocumentWriter
-import androidx.compose.remote.creation.compose.state.RemoteFloat
-import androidx.compose.remote.creation.compose.vector.RemoteAnimatedVector
-import androidx.compose.remote.creation.compose.vector.RemoteAnimatedVectorGroup
-import androidx.compose.remote.creation.compose.vector.RemoteAnimatedVectorPath
-import androidx.compose.remote.creation.compose.vector.RemoteAnimatedVectorTarget
-import androidx.compose.remote.creation.compose.vector.RemoteInterpolator
-import androidx.compose.remote.creation.compose.vector.RemoteKeyframe
-import androidx.compose.remote.creation.compose.vector.RemotePropertyAnimator
-import androidx.compose.remote.creation.compose.vector.painterRemoteAnimatedVector
+import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.vector.RemoteAnimatedVector
+import ee.schimke.composeai.rccreation.compose.vector.RemoteAnimatedVectorGroup
+import ee.schimke.composeai.rccreation.compose.vector.RemoteAnimatedVectorPath
+import ee.schimke.composeai.rccreation.compose.vector.RemoteAnimatedVectorTarget
+import ee.schimke.composeai.rccreation.compose.vector.RemoteInterpolator
+import ee.schimke.composeai.rccreation.compose.vector.RemoteKeyframe
+import ee.schimke.composeai.rccreation.compose.vector.RemotePropertyAnimator
+import ee.schimke.composeai.rccreation.compose.vector.painterRemoteAnimatedVector
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals

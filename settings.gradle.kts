@@ -203,6 +203,12 @@ include(":rc-widget-creation")
 
 project(":rc-widget-creation").projectDir = file("rc-widget/creation")
 
+// `:rc-widget-creation` against AndroidX's own creation API, generated from the same source, for
+// the Android modules below that compose with AndroidX-only libraries.
+include(":rc-widget-creation-androidx")
+
+project(":rc-widget-creation-androidx").projectDir = file("rc-widget/creation-androidx")
+
 include(":rc-widget-launcher")
 
 project(":rc-widget-launcher").projectDir = file("rc-widget/launcher")

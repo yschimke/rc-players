@@ -1,0 +1,39 @@
+/*
+ * Copyright 2026 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package ee.schimke.composeai.rccreation.compose.action
+
+import ee.schimke.composeai.rccreation.common.RemoteActionData
+import ee.schimke.composeai.rccreation.compose.state.RemoteStateScope
+
+/**
+ * Creates an action that's a composite of multiple actions.
+ *
+ * Example of updating local remote state and sending a host action from a single click:
+ *
+ * @sample ee.schimke.composeai.rccreation.compose.samples.CombinedActionSample
+ * @param actions The actions to combine.
+ * @return a [RemoteAction] that runs all [actions] in order
+ */
+public fun combinedAction(vararg actions: RemoteAction): RemoteAction = CombinedAction(*actions)
+
+internal class CombinedAction(public vararg val actions: RemoteAction) : RemoteAction {
+    // KMP (rc-players): `RemoteWriter` takes `RemoteActionData`, where upstream builds
+    // `remote-creation-core`'s `Action`.
+    override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> = actions.flatMap {
+        resolveAction(it)
+    }
+}

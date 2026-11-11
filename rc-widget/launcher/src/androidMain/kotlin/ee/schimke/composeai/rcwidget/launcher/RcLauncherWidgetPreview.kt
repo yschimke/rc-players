@@ -45,7 +45,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import ee.schimke.composeai.rcwidget.creation.RcWidgetCaptureSize
+import ee.schimke.composeai.rcwidget.creation.androidx.RcWidgetCaptureSize
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers

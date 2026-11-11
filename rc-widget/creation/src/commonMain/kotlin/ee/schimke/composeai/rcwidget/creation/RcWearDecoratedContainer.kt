@@ -2,33 +2,33 @@
 
 package ee.schimke.composeai.rcwidget.creation
 
-import androidx.compose.remote.creation.compose.layout.RemoteBox
-import androidx.compose.remote.creation.compose.layout.RemoteDrawScope
-import androidx.compose.remote.creation.compose.layout.RemoteOffset
-import androidx.compose.remote.creation.compose.layout.RemoteSize
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.drawWithContent
-import androidx.compose.remote.creation.compose.modifier.fillMaxSize
-import androidx.compose.remote.creation.compose.shaders.RemoteBrush
-import androidx.compose.remote.creation.compose.shaders.horizontalGradient
-import androidx.compose.remote.creation.compose.shaders.linearGradient
-import androidx.compose.remote.creation.compose.shaders.radialGradient
-import androidx.compose.remote.creation.compose.shaders.sweepGradient
-import androidx.compose.remote.creation.compose.shaders.verticalGradient
-import androidx.compose.remote.creation.compose.state.RemoteColor
-import androidx.compose.remote.creation.compose.state.RemoteDp
-import androidx.compose.remote.creation.compose.state.RemoteFloat
-import androidx.compose.remote.creation.compose.state.RemotePaint
-import androidx.compose.remote.creation.compose.state.clamp
-import androidx.compose.remote.creation.compose.state.max
-import androidx.compose.remote.creation.compose.state.min
-import androidx.compose.remote.creation.compose.state.rc
-import androidx.compose.remote.creation.compose.state.rdp
-import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.layout.RemoteDrawScope
+import ee.schimke.composeai.rccreation.compose.layout.RemoteOffset
+import ee.schimke.composeai.rccreation.compose.layout.RemoteSize
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.drawWithContent
+import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
+import ee.schimke.composeai.rccreation.compose.shaders.RemoteBrush
+import ee.schimke.composeai.rccreation.compose.shaders.horizontalGradient
+import ee.schimke.composeai.rccreation.compose.shaders.linearGradient
+import ee.schimke.composeai.rccreation.compose.shaders.radialGradient
+import ee.schimke.composeai.rccreation.compose.shaders.sweepGradient
+import ee.schimke.composeai.rccreation.compose.shaders.verticalGradient
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemoteDp
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.RemotePaint
+import ee.schimke.composeai.rccreation.compose.state.clamp
+import ee.schimke.composeai.rccreation.compose.state.max
+import ee.schimke.composeai.rccreation.compose.state.min
+import ee.schimke.composeai.rccreation.compose.state.rc
+import ee.schimke.composeai.rccreation.compose.state.rdp
+import ee.schimke.composeai.rccreation.compose.state.rf
 
 /**
  * What a Wear widget container is painted with: a [base] fill, [layers] painted over it in order,
@@ -511,9 +511,3 @@ private const val QUARTER_TURN = (kotlin.math.PI / 2).toFloat()
 
 /** The length a piece of no length is divided by, so its share is never NaN. */
 private const val MIN_PIECE = 0.001f
-
-/**
- * Paints strokes rather than fills. AndroidX's `RemotePaint.style` is Compose's `PaintingStyle`
- * until androidx-main `db6a60d2e` and a `RemotePaintingStyle` after it, as in the fork.
- */
-internal expect fun RemotePaint.stroke()

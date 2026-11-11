@@ -1,10 +1,5 @@
 package ee.schimke.composeai.rcplayer.embedded
 
-import androidx.compose.remote.creation.common.RemoteDocumentWriter
-import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
-import androidx.compose.remote.creation.compose.capture.RemoteDocumentSession
-import androidx.compose.remote.creation.compose.capture.wireValue
-import androidx.compose.remote.creation.compose.layout.RemoteComposable
 import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -22,6 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import ee.schimke.composeai.rccreation.bridge.ExperimentalRcCreationApi
 import ee.schimke.composeai.rccreation.bridge.LocalRcHostBridge
+import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
+import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
+import ee.schimke.composeai.rccreation.compose.capture.RemoteDocumentSession
+import ee.schimke.composeai.rccreation.compose.capture.wireValue
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader

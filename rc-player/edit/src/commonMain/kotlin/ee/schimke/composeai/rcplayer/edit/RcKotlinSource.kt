@@ -57,13 +57,38 @@ import kotlin.io.encoding.ExperimentalEncodingApi
  *   records it, and otherwise assumes 1.
  * @property imageDecoder how an image embedded in the document is decoded back into an
  *   `ImageBitmap` at creation time.
+ * @property creationApi which creation library the generated source imports from.
  */
 public data class RcKotlinOptions(
   val packageName: String = "",
   val functionName: String = "RemoteDocument",
   val density: Float? = null,
   val imageDecoder: RcKotlinImageDecoder = RcKotlinImageDecoder.Skia,
+  val creationApi: RcKotlinCreationApi = RcKotlinCreationApi.RcCreation,
 )
+
+/**
+ * Which Remote Compose creation library the generated source is written against. The two declare
+ * the same API in different packages, so the choice changes the generated file's imports and
+ * nothing else.
+ *
+ * @property composePackage the package the library declares `remote-creation-compose`'s API in.
+ */
+public enum class RcKotlinCreationApi(public val composePackage: String) {
+  /**
+   * rc-players' Compose Multiplatform creation modules (`rc-creation-compose`), which compile for
+   * the JVM, Android, iOS, macOS and Wasm. The default.
+   */
+  RcCreation("ee.schimke.composeai.rccreation.compose"),
+
+  /**
+   * AndroidX's own `androidx.compose.remote:remote-creation-compose`. The generator writes the API
+   * as androidx-main has it, which `rc-creation-compose` tracks: a released AndroidX artifact can
+   * be behind it, and `RemoteModifier.componentId`, which the source uses for a component whose id
+   * the document names, is an rc-players addition AndroidX does not have.
+   */
+  AndroidX("androidx.compose.remote.creation.compose"),
+}
 
 /** Which platform API the generated source decodes an embedded image with. */
 public enum class RcKotlinImageDecoder {
@@ -75,7 +100,7 @@ public enum class RcKotlinImageDecoder {
 }
 
 /**
- * A Kotlin source file that re-creates a document through the AndroidX Remote Compose creation API.
+ * A Kotlin source file that re-creates a document through the Remote Compose creation API.
  *
  * @property code the source, one `@Composable @RemoteComposable` function and what it needs.
  * @property unsupported what the source could not say, one line each, in document order. Every
@@ -112,6 +137,8 @@ public fun RcDocument.toRemoteComposeKotlin(
   options: RcKotlinOptions = RcKotlinOptions(),
 ): RcKotlinSource = RcKotlinWriter(this, options).write()
 
+private val DEFAULT_COMPOSE_PACKAGE = RcKotlinCreationApi.RcCreation.composePackage
+
 private class RcKotlinWriter(
   private val document: RcDocument,
   private val options: RcKotlinOptions,
@@ -140,7 +167,7 @@ private class RcKotlinWriter(
 
   fun write(): RcKotlinSource {
     imports += "androidx.compose.runtime.Composable"
-    imports += "androidx.compose.remote.creation.compose.layout.RemoteComposable"
+    imports += "ee.schimke.composeai.rccreation.compose.layout.RemoteComposable"
     val tree = operationTree(document.operations)
     if (tree == null) {
       todo("the document's containers do not balance; nothing was generated")
@@ -177,7 +204,16 @@ private class RcKotlinWriter(
       appendLine("package ${options.packageName}")
     }
     appendLine()
-    imports.sorted().forEach { name -> appendLine("import $name") }
+    imports
+      .map { name ->
+        // Every creation import is collected under rc-players' package and named for the chosen
+        // library here, so the two outputs cannot drift apart.
+        if (name.startsWith("$DEFAULT_COMPOSE_PACKAGE.")) {
+          options.creationApi.composePackage + name.removePrefix(DEFAULT_COMPOSE_PACKAGE)
+        } else name
+      }
+      .sorted()
+      .forEach { name -> appendLine("import $name") }
     fileLevel.forEach {
       appendLine()
       appendLine(it)
@@ -282,7 +318,7 @@ private class RcKotlinWriter(
   }
 
   private fun canvas(node: RcOperationNode, layout: RcCanvasLayout, parent: Parent) {
-    import("androidx.compose.remote.creation.compose.layout.RemoteCanvas")
+    import("ee.schimke.composeai.rccreation.compose.layout.RemoteCanvas")
     val arguments = mutableListOf<String>()
     modifier(node, parent, layout.componentId)?.let { arguments += "modifier = $it" }
     flushComments()
@@ -317,7 +353,7 @@ private class RcKotlinWriter(
   private fun RcOperation.isSilent(): Boolean = index.isDefinition(this)
 
   private fun box(node: RcOperationNode, layout: RcBoxLayout, parent: Parent) {
-    import("androidx.compose.remote.creation.compose.layout.RemoteBox")
+    import("ee.schimke.composeai.rccreation.compose.layout.RemoteBox")
     val arguments = mutableListOf<String>()
     modifier(node, parent, layout.componentId)?.let { arguments += "modifier = $it" }
     boxAlignment(layout.horizontalPositioning, layout.verticalPositioning)?.let {
@@ -327,7 +363,7 @@ private class RcKotlinWriter(
   }
 
   private fun row(node: RcOperationNode, layout: RcRowLayout, parent: Parent) {
-    import("androidx.compose.remote.creation.compose.layout.RemoteRow")
+    import("ee.schimke.composeai.rccreation.compose.layout.RemoteRow")
     val arguments = mutableListOf<String>()
     modifier(node, parent, layout.componentId)?.let { arguments += "modifier = $it" }
     horizontalArrangement(layout.horizontalPositioning, layout.spacedBy)?.let {
@@ -340,7 +376,7 @@ private class RcKotlinWriter(
   }
 
   private fun column(node: RcOperationNode, layout: RcColumnLayout, parent: Parent) {
-    import("androidx.compose.remote.creation.compose.layout.RemoteColumn")
+    import("ee.schimke.composeai.rccreation.compose.layout.RemoteColumn")
     val arguments = mutableListOf<String>()
     modifier(node, parent, layout.componentId)?.let { arguments += "modifier = $it" }
     verticalArrangement(layout.verticalPositioning, layout.spacedBy, default = TOP)?.let {
@@ -353,7 +389,7 @@ private class RcKotlinWriter(
   }
 
   private fun flowRow(node: RcOperationNode, layout: RcFlowLayout, parent: Parent) {
-    import("androidx.compose.remote.creation.compose.layout.RemoteFlowRow")
+    import("ee.schimke.composeai.rccreation.compose.layout.RemoteFlowRow")
     val arguments = mutableListOf<String>()
     modifier(node, parent, layout.componentId)?.let { arguments += "modifier = $it" }
     horizontalArrangement(layout.horizontalPositioning, layout.spacedBy)?.let {
@@ -370,7 +406,7 @@ private class RcKotlinWriter(
   }
 
   private fun fitBox(node: RcOperationNode, layout: RcFitBoxLayout, parent: Parent) {
-    import("androidx.compose.remote.creation.compose.layout.RemoteFitBox")
+    import("ee.schimke.composeai.rccreation.compose.layout.RemoteFitBox")
     val arguments = mutableListOf<String>()
     modifier(node, parent, layout.componentId)?.let { arguments += "modifier = $it" }
     horizontalAlignment(layout.horizontalPositioning, default = CENTER)?.let {
@@ -386,7 +422,7 @@ private class RcKotlinWriter(
     layout: RcCollapsibleRowLayout,
     parent: Parent,
   ) {
-    import("androidx.compose.remote.creation.compose.layout.RemoteCollapsibleRow")
+    import("ee.schimke.composeai.rccreation.compose.layout.RemoteCollapsibleRow")
     val arguments = mutableListOf<String>()
     modifier(node, parent, layout.componentId)?.let { arguments += "modifier = $it" }
     horizontalArrangement(layout.horizontalPositioning, layout.spacedBy)?.let {
@@ -403,7 +439,7 @@ private class RcKotlinWriter(
     layout: RcCollapsibleColumnLayout,
     parent: Parent,
   ) {
-    import("androidx.compose.remote.creation.compose.layout.RemoteCollapsibleColumn")
+    import("ee.schimke.composeai.rccreation.compose.layout.RemoteCollapsibleColumn")
     val arguments = mutableListOf<String>()
     modifier(node, parent, layout.componentId)?.let { arguments += "modifier = $it" }
     verticalArrangement(layout.verticalPositioning, layout.spacedBy, default = TOP)?.let {
@@ -462,8 +498,8 @@ private class RcKotlinWriter(
 
   private fun coreText(node: RcOperationNode, text: RcCoreText, parent: Parent) {
     import(
-      "androidx.compose.remote.creation.compose.layout.RemoteText",
-      "androidx.compose.remote.creation.compose.text.RemoteTextOverflow",
+      "ee.schimke.composeai.rccreation.compose.layout.RemoteText",
+      "ee.schimke.composeai.rccreation.compose.text.RemoteTextOverflow",
     )
     val properties = text.properties.associateBy { it.id }
 
@@ -553,7 +589,7 @@ private class RcKotlinWriter(
         return
       }
       import(
-        "androidx.compose.remote.creation.compose.state.asRemoteTextUnit",
+        "ee.schimke.composeai.rccreation.compose.state.asRemoteTextUnit",
         "androidx.compose.ui.unit.sp",
       )
       fields += "$field = ${float(word.value * sizeSp)}.sp.asRemoteTextUnit()"
@@ -572,11 +608,11 @@ private class RcKotlinWriter(
           },
       )
     if (decorations.isNotEmpty()) {
-      import("androidx.compose.remote.creation.compose.text.RemoteTextDecoration")
+      import("ee.schimke.composeai.rccreation.compose.text.RemoteTextDecoration")
       fields += "textDecoration = " + decorations.joinToString(" + ") { "RemoteTextDecoration.$it" }
     }
     if (fields.isEmpty()) return null
-    import("androidx.compose.remote.creation.compose.text.RemoteTextStyle")
+    import("ee.schimke.composeai.rccreation.compose.text.RemoteTextStyle")
     return "RemoteTextStyle(${fields.joinToString(", ")})"
   }
 
@@ -588,7 +624,7 @@ private class RcKotlinWriter(
       gap("font axes read from variables are not generated")
       return null
     }
-    import("androidx.compose.remote.creation.compose.text.RemoteFontVariation")
+    import("ee.schimke.composeai.rccreation.compose.text.RemoteFontVariation")
     val settings =
       axes.indices.joinToString(", ") { index ->
         "RemoteFontVariation.Setting(${quote(texts.getValue(axes[index]))}, " +
@@ -599,8 +635,8 @@ private class RcKotlinWriter(
 
   private fun textLayout(node: RcOperationNode, text: RcTextLayout, parent: Parent) {
     import(
-      "androidx.compose.remote.creation.compose.layout.RemoteText",
-      "androidx.compose.remote.creation.compose.text.RemoteTextOverflow",
+      "ee.schimke.composeai.rccreation.compose.layout.RemoteText",
+      "ee.schimke.composeai.rccreation.compose.text.RemoteTextOverflow",
     )
     val arguments = mutableListOf(string(text.textId))
     modifier(node, parent, text.componentId)?.let { arguments += "modifier = $it" }
@@ -622,17 +658,17 @@ private class RcKotlinWriter(
   private fun fontSize(word: RcFloatWord): String {
     if (word.isNaNEncoded) {
       gap("a font size reads ${describeId(word.referencedId!!)}; 14.sp is used instead")
-      import("androidx.compose.remote.creation.compose.state.rsp")
+      import("ee.schimke.composeai.rccreation.compose.state.rsp")
       return "14.rsp"
     }
     val sp =
       if (densityBehavior == RcHeader.DENSITY_BEHAVIOR_DP) word.value else word.value / density
     return if (sp == sp.toInt().toFloat()) {
-      import("androidx.compose.remote.creation.compose.state.rsp")
+      import("ee.schimke.composeai.rccreation.compose.state.rsp")
       "${sp.toInt()}.rsp"
     } else {
       import(
-        "androidx.compose.remote.creation.compose.state.asRemoteTextUnit",
+        "ee.schimke.composeai.rccreation.compose.state.asRemoteTextUnit",
         "androidx.compose.ui.unit.sp",
       )
       "${float(sp)}.sp.asRemoteTextUnit()"
@@ -648,7 +684,7 @@ private class RcKotlinWriter(
     when (style) {
       0 -> null
       1 -> {
-        import("androidx.compose.remote.creation.compose.text.RemoteFontStyle")
+        import("ee.schimke.composeai.rccreation.compose.text.RemoteFontStyle")
         "RemoteFontStyle.Italic"
       }
       else -> {
@@ -658,7 +694,7 @@ private class RcKotlinWriter(
     }
 
   private fun fontWeight(word: RcFloatWord): String {
-    import("androidx.compose.remote.creation.compose.text.RemoteFontWeight")
+    import("ee.schimke.composeai.rccreation.compose.text.RemoteFontWeight")
     if (word.isNaNEncoded) {
       gap("a font weight reads ${describeId(word.referencedId!!)}; Normal is used instead")
       return "RemoteFontWeight.Normal"
@@ -668,7 +704,7 @@ private class RcKotlinWriter(
   }
 
   private fun fontFamily(textId: Int): String {
-    import("androidx.compose.remote.creation.compose.text.RemoteFontFamily")
+    import("ee.schimke.composeai.rccreation.compose.text.RemoteFontFamily")
     return when (val name = texts[textId]) {
       "default" -> "RemoteFontFamily.Default"
       "serif" -> "RemoteFontFamily.Serif"
@@ -694,7 +730,7 @@ private class RcKotlinWriter(
         RcTextLayout.ALIGN_END -> "RemoteTextAlign.End"
         else -> null
       }
-    if (name != null) import("androidx.compose.remote.creation.compose.text.RemoteTextAlign")
+    if (name != null) import("ee.schimke.composeai.rccreation.compose.text.RemoteTextAlign")
     return name
   }
 
@@ -711,8 +747,8 @@ private class RcKotlinWriter(
 
   private fun image(node: RcOperationNode, layout: RcImageLayout, parent: Parent) {
     import(
-      "androidx.compose.remote.creation.compose.layout.RemoteImage",
-      "androidx.compose.remote.creation.compose.layout.RemoteContentScale",
+      "ee.schimke.composeai.rccreation.compose.layout.RemoteImage",
+      "ee.schimke.composeai.rccreation.compose.layout.RemoteContentScale",
     )
     val arguments = mutableListOf<String>()
     arguments += bitmap(layout.bitmapId)
@@ -731,7 +767,7 @@ private class RcKotlinWriter(
       ?.let { variable ->
         val url = bitmaps[id]?.takeIf { it.encoding == RcBitmapData.ENCODING_URL }
         if (url != null) {
-          import("androidx.compose.remote.creation.compose.state.rememberNamedRemoteImageBitmap")
+          import("ee.schimke.composeai.rccreation.compose.state.rememberNamedRemoteImageBitmap")
           reportComputed(id, variable.name)
           val (name, domain) = domainOf(variable.name)
           return hoist(
@@ -747,7 +783,7 @@ private class RcKotlinWriter(
         placeholderBitmap(id)
       }
       data.encoding == RcBitmapData.ENCODING_URL -> {
-        import("androidx.compose.remote.creation.compose.state.rememberRemoteImageBitmap")
+        import("ee.schimke.composeai.rccreation.compose.state.rememberRemoteImageBitmap")
         hoist("image$id", "rememberRemoteImageBitmap(${quote(data.data.decodeToString())})")
       }
       data.encoding == RcBitmapData.ENCODING_INLINE &&
@@ -783,14 +819,14 @@ private class RcKotlinWriter(
         val variable = named[id]?.takeIf { it.type == RcNamedVariable.IMAGE_TYPE }
         if (variable != null) {
           // A named image keeps its name, so the host can still replace it.
-          import("androidx.compose.remote.creation.compose.state.rememberNamedRemoteImageBitmap")
+          import("ee.schimke.composeai.rccreation.compose.state.rememberNamedRemoteImageBitmap")
           reportComputed(id, variable.name)
           val (name, domain) = domainOf(variable.name)
           hoist("image$id", "rememberNamedRemoteImageBitmap(${quote(name)}$domain) { $decode }")
         } else {
           import(
             "androidx.compose.runtime.remember",
-            "androidx.compose.remote.creation.compose.state.rb",
+            "ee.schimke.composeai.rccreation.compose.state.rb",
           )
           hoist("image$id", "remember { $decode.rb }")
         }
@@ -805,7 +841,7 @@ private class RcKotlinWriter(
   private fun placeholderBitmap(id: Int): String {
     import(
       "androidx.compose.runtime.remember",
-      "androidx.compose.remote.creation.compose.state.rb",
+      "ee.schimke.composeai.rccreation.compose.state.rb",
       "androidx.compose.ui.graphics.ImageBitmap",
     )
     return hoist("image$id", "remember { ImageBitmap(1, 1).rb }")
@@ -872,11 +908,11 @@ private class RcKotlinWriter(
       index++
     }
     if (componentId > 0) {
-      import("androidx.compose.remote.creation.compose.modifier.componentId")
+      import("ee.schimke.composeai.rccreation.compose.modifier.componentId")
       chain += "componentId($componentId)"
     }
     if (chain.isEmpty()) return null
-    import("androidx.compose.remote.creation.compose.modifier.RemoteModifier")
+    import("ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier")
     return "RemoteModifier." + chain.joinToString(".")
   }
 
@@ -886,18 +922,18 @@ private class RcKotlinWriter(
       RcDimensionType.EXACT_DP -> {
         if (width.value.isNaNEncoded) return null
         import(
-          "androidx.compose.remote.creation.compose.modifier.size",
-          "androidx.compose.remote.creation.compose.state.rdp",
+          "ee.schimke.composeai.rccreation.compose.modifier.size",
+          "ee.schimke.composeai.rccreation.compose.state.rdp",
         )
         "size(${dp(width.value.value)})"
       }
       RcDimensionType.FILL -> {
-        import("androidx.compose.remote.creation.compose.modifier.fillMaxSize")
+        import("ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize")
         if (width.value.isLiteral(1f)) "fillMaxSize()"
         else "fillMaxSize(${floatValue(width.value)})"
       }
       RcDimensionType.WRAP -> {
-        import("androidx.compose.remote.creation.compose.modifier.wrapContentSize")
+        import("ee.schimke.composeai.rccreation.compose.modifier.wrapContentSize")
         "wrapContentSize()"
       }
       else -> null
@@ -913,26 +949,26 @@ private class RcKotlinWriter(
       is RcBorderModifier -> border(operation)
       is RcRoundedClipRectModifier -> roundedClip(operation)
       is RcClipRectModifier -> {
-        import("androidx.compose.remote.creation.compose.modifier.clip")
+        import("ee.schimke.composeai.rccreation.compose.modifier.clip")
         "clip()"
       }
       is RcOffsetModifier -> {
-        import("androidx.compose.remote.creation.compose.modifier.offset")
+        import("ee.schimke.composeai.rccreation.compose.modifier.offset")
         // `offset` takes only dp, so a pixel or variable length is converted rather than kept.
         "offset(${lengthDp(operation.x)}, ${lengthDp(operation.y)})"
       }
       is RcZIndexModifier -> {
-        import("androidx.compose.remote.creation.compose.modifier.zIndex")
+        import("ee.schimke.composeai.rccreation.compose.modifier.zIndex")
         "zIndex(${floatValue(operation.value)})"
       }
       is RcWidthInModifier -> sizeIn("widthIn", operation.minimum, operation.maximum)
       is RcHeightInModifier -> sizeIn("heightIn", operation.minimum, operation.maximum)
       is RcVisibilityModifier -> {
-        import("androidx.compose.remote.creation.compose.modifier.visibility")
+        import("ee.schimke.composeai.rccreation.compose.modifier.visibility")
         "visibility(${intById(operation.visibilityId)})"
       }
       is RcRippleModifier -> {
-        import("androidx.compose.remote.creation.compose.modifier.rippleEffect")
+        import("ee.schimke.composeai.rccreation.compose.modifier.rippleEffect")
         "rippleEffect()"
       }
       is RcAccessibilitySemantics -> semantics(operation)
@@ -960,26 +996,26 @@ private class RcKotlinWriter(
     val lower = axis.lowercase()
     return when (type) {
       RcDimensionType.EXACT_DP -> {
-        import("androidx.compose.remote.creation.compose.modifier.$lower")
+        import("ee.schimke.composeai.rccreation.compose.modifier.$lower")
         // A RemoteFloat would write EXACT, in pixels; keep the dp type.
         if (value.isNaNEncoded) {
-          import("androidx.compose.remote.creation.compose.state.asRemoteDp")
+          import("ee.schimke.composeai.rccreation.compose.state.asRemoteDp")
           "$lower(${floatValue(value)}.asRemoteDp())"
         } else {
-          import("androidx.compose.remote.creation.compose.state.rdp")
+          import("ee.schimke.composeai.rccreation.compose.state.rdp")
           "$lower(${dp(value.value)})"
         }
       }
       RcDimensionType.EXACT -> {
-        import("androidx.compose.remote.creation.compose.modifier.$lower")
+        import("ee.schimke.composeai.rccreation.compose.modifier.$lower")
         "$lower(${floatValue(value)})"
       }
       RcDimensionType.FILL -> {
-        import("androidx.compose.remote.creation.compose.modifier.fillMax$axis")
+        import("ee.schimke.composeai.rccreation.compose.modifier.fillMax$axis")
         if (value.isLiteral(1f)) "fillMax$axis()" else "fillMax$axis(${floatValue(value)})"
       }
       RcDimensionType.WRAP -> {
-        import("androidx.compose.remote.creation.compose.modifier.wrapContent$axis")
+        import("ee.schimke.composeai.rccreation.compose.modifier.wrapContent$axis")
         "wrapContent$axis()"
       }
       RcDimensionType.WEIGHT -> {
@@ -995,14 +1031,14 @@ private class RcKotlinWriter(
       RcDimensionType.INTRINSIC_MIN,
       RcDimensionType.INTRINSIC_MAX -> {
         import(
-          "androidx.compose.remote.creation.compose.modifier.$lower",
-          "androidx.compose.remote.creation.compose.layout.RemoteIntrinsicSize",
+          "ee.schimke.composeai.rccreation.compose.modifier.$lower",
+          "ee.schimke.composeai.rccreation.compose.layout.RemoteIntrinsicSize",
         )
         "$lower(RemoteIntrinsicSize.${if (type == RcDimensionType.INTRINSIC_MIN) "Min" else "Max"})"
       }
       RcDimensionType.FILL_PARENT_MAX_WIDTH,
       RcDimensionType.FILL_PARENT_MAX_HEIGHT -> {
-        import("androidx.compose.remote.creation.compose.modifier.fillParentMax$axis")
+        import("ee.schimke.composeai.rccreation.compose.modifier.fillParentMax$axis")
         "fillParentMax$axis(${floatValue(value)})"
       }
       else -> {
@@ -1013,7 +1049,7 @@ private class RcKotlinWriter(
   }
 
   private fun padding(padding: RcPaddingModifier): String {
-    import("androidx.compose.remote.creation.compose.modifier.padding")
+    import("ee.schimke.composeai.rccreation.compose.modifier.padding")
     val sides = listOf(padding.left, padding.top, padding.right, padding.bottom)
     val written =
       if (densityBehavior == RcHeader.DENSITY_BEHAVIOR_DP) {
@@ -1037,8 +1073,8 @@ private class RcKotlinWriter(
 
   private fun sizeIn(name: String, minimum: RcFloatWord, maximum: RcFloatWord): String {
     import(
-      "androidx.compose.remote.creation.compose.modifier.$name",
-      "androidx.compose.remote.creation.compose.state.rdp",
+      "ee.schimke.composeai.rccreation.compose.modifier.$name",
+      "ee.schimke.composeai.rccreation.compose.state.rdp",
     )
     val arguments = mutableListOf<String>()
     fun bound(word: RcFloatWord): String =
@@ -1052,7 +1088,7 @@ private class RcKotlinWriter(
                 "as dp, which the creation API scales by the density again",
             )
           }
-          import("androidx.compose.remote.creation.compose.state.asRemoteDp")
+          import("ee.schimke.composeai.rccreation.compose.state.asRemoteDp")
           "${floatValue(word)}.asRemoteDp()"
         }
         densityBehavior == RcHeader.DENSITY_BEHAVIOR_PIXELS -> dp(word.value / density)
@@ -1064,7 +1100,7 @@ private class RcKotlinWriter(
   }
 
   private fun background(background: RcBackgroundModifier): String {
-    import("androidx.compose.remote.creation.compose.modifier.background")
+    import("ee.schimke.composeai.rccreation.compose.modifier.background")
     val color =
       if (background.usesColorId) colorById(background.colorId)
       else rgbaColor(background.red, background.green, background.blue, background.alpha)
@@ -1083,8 +1119,8 @@ private class RcKotlinWriter(
       )
     }
     import(
-      "androidx.compose.remote.creation.compose.modifier.border",
-      "androidx.compose.remote.creation.compose.state.rdp",
+      "ee.schimke.composeai.rccreation.compose.modifier.border",
+      "ee.schimke.composeai.rccreation.compose.state.rdp",
     )
     val color =
       if (border.usesColorId) colorById(border.colorId)
@@ -1092,7 +1128,7 @@ private class RcKotlinWriter(
     // A pre-1.1 legacy document already holds its border width in dp.
     val width =
       if (!border.borderWidth.isNaNEncoded && RcDocumentIndex.bordersInDp(header)) {
-        import("androidx.compose.remote.creation.compose.state.rdp")
+        import("ee.schimke.composeai.rccreation.compose.state.rdp")
         dp(border.borderWidth.value)
       } else {
         lengthDp(border.borderWidth)
@@ -1100,11 +1136,11 @@ private class RcKotlinWriter(
     val shape =
       when {
         border.shapeType == RcBackgroundModifier.SHAPE_CIRCLE -> {
-          import("androidx.compose.remote.creation.compose.shapes.RemoteCircleShape")
+          import("ee.schimke.composeai.rccreation.compose.shapes.RemoteCircleShape")
           ", RemoteCircleShape"
         }
         !border.roundedCorner.isLiteral(0f) -> {
-          import("androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape")
+          import("ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape")
           ", RemoteRoundedCornerShape(${lengthDp(border.roundedCorner)})"
         }
         else -> ""
@@ -1114,8 +1150,8 @@ private class RcKotlinWriter(
 
   private fun roundedClip(clip: RcRoundedClipRectModifier): String {
     import(
-      "androidx.compose.remote.creation.compose.modifier.clip",
-      "androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape",
+      "ee.schimke.composeai.rccreation.compose.modifier.clip",
+      "ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape",
     )
     val corners = listOf(clip.topStart, clip.topEnd, clip.bottomEnd, clip.bottomStart)
     val values = corners.map { lengthDp(it) }
@@ -1126,36 +1162,36 @@ private class RcKotlinWriter(
   }
 
   private fun semantics(semantics: RcAccessibilitySemantics): String {
-    import("androidx.compose.remote.creation.compose.modifier.semantics")
+    import("ee.schimke.composeai.rccreation.compose.modifier.semantics")
     val properties = mutableListOf<String>()
     if (semantics.contentDescriptionId != 0) {
-      import("androidx.compose.remote.creation.compose.modifier.contentDescription")
+      import("ee.schimke.composeai.rccreation.compose.modifier.contentDescription")
       properties += "contentDescription = ${string(semantics.contentDescriptionId)}"
     }
     if (semantics.textId != 0) {
-      import("androidx.compose.remote.creation.compose.modifier.text")
+      import("ee.schimke.composeai.rccreation.compose.modifier.text")
       properties += "text = ${string(semantics.textId)}"
     }
     if (semantics.stateDescriptionId != 0) {
-      import("androidx.compose.remote.creation.compose.modifier.stateDescription")
+      import("ee.schimke.composeai.rccreation.compose.modifier.stateDescription")
       properties += "stateDescription = ${string(semantics.stateDescriptionId)}"
     }
     ROLES[semantics.role]?.takeIf { semantics.role != RcAccessibilitySemantics.ROLE_UNKNOWN }
       ?.let {
         import(
-          "androidx.compose.remote.creation.compose.modifier.role",
-          "androidx.compose.remote.creation.compose.modifier.RemoteRole",
+          "ee.schimke.composeai.rccreation.compose.modifier.role",
+          "ee.schimke.composeai.rccreation.compose.modifier.RemoteRole",
         )
         properties += "role = RemoteRole.$it"
       }
     if (!semantics.enabled) {
-      import("androidx.compose.remote.creation.compose.modifier.enabled")
+      import("ee.schimke.composeai.rccreation.compose.modifier.enabled")
       properties += "enabled = false"
     }
     val block = if (properties.isEmpty()) "{}" else "{ ${properties.joinToString("; ")} }"
     return when (semantics.mode) {
       RcAccessibilitySemantics.MODE_CLEAR_AND_SET -> {
-        import("androidx.compose.remote.creation.compose.modifier.clearAndSetSemantics")
+        import("ee.schimke.composeai.rccreation.compose.modifier.clearAndSetSemantics")
         "clearAndSetSemantics $block"
       }
       RcAccessibilitySemantics.MODE_MERGE -> "semantics(mergeDescendants = true) $block"
@@ -1173,7 +1209,7 @@ private class RcKotlinWriter(
       role in ROLES.keys
 
   private fun clickable(click: RcOperationNode, semantics: RcAccessibilitySemantics?): String {
-    import("androidx.compose.remote.creation.compose.modifier.clickable")
+    import("ee.schimke.composeai.rccreation.compose.modifier.clickable")
     val written = click.children.filterNot { it.operation.isSilent() }
     val actions = written.mapNotNull { action(it.operation) }
     val action =
@@ -1181,12 +1217,12 @@ private class RcKotlinWriter(
         0 -> {
           // An action that could not be written has already said so.
           if (written.isEmpty()) gap("a click handler with no action; it does nothing")
-          import("androidx.compose.remote.creation.compose.action.combinedAction")
+          import("ee.schimke.composeai.rccreation.compose.action.combinedAction")
           "combinedAction()"
         }
         1 -> actions.single()
         else -> {
-          import("androidx.compose.remote.creation.compose.action.combinedAction")
+          import("ee.schimke.composeai.rccreation.compose.action.combinedAction")
           "combinedAction(${actions.joinToString(", ")})"
         }
       }
@@ -1195,7 +1231,7 @@ private class RcKotlinWriter(
       when (semantics) {
         null -> ""
         else -> {
-          import("androidx.compose.remote.creation.compose.modifier.RemoteRole")
+          import("ee.schimke.composeai.rccreation.compose.modifier.RemoteRole")
           ", role = RemoteRole.${ROLES.getValue(semantics.role)}"
         }
       }
@@ -1205,15 +1241,15 @@ private class RcKotlinWriter(
   private fun action(operation: RcOperation): String? =
     when (operation) {
       is RcHostAction -> {
-        import("androidx.compose.remote.creation.compose.action.hostAction")
+        import("ee.schimke.composeai.rccreation.compose.action.hostAction")
         "hostAction(${operation.actionId})"
       }
       is RcHostMetadataAction -> {
-        import("androidx.compose.remote.creation.compose.action.hostAction")
+        import("ee.schimke.composeai.rccreation.compose.action.hostAction")
         "hostAction(${operation.actionId}, ${string(operation.metadataTextId)})"
       }
       is RcHostNamedAction -> {
-        import("androidx.compose.remote.creation.compose.action.hostAction")
+        import("ee.schimke.composeai.rccreation.compose.action.hostAction")
         val name = string(operation.nameTextId)
         when (val value = operation.value) {
           RcHostNamedActionValue.None -> "hostAction($name)"
@@ -1254,7 +1290,7 @@ private class RcKotlinWriter(
       ?.let { variable ->
         import(
           "androidx.compose.runtime.remember",
-          "androidx.compose.remote.creation.compose.state.RemoteString",
+          "ee.schimke.composeai.rccreation.compose.state.RemoteString",
         )
         reportComputed(id, variable.name)
         val (name, domain) = domainOf(variable.name)
@@ -1264,11 +1300,11 @@ private class RcKotlinWriter(
         )
       }
     texts[id]?.let {
-      import("androidx.compose.remote.creation.compose.state.rs")
+      import("ee.schimke.composeai.rccreation.compose.state.rs")
       return "${quote(it)}.rs"
     }
     gap("text reads ${describeId(id)}; its value is not generated")
-    import("androidx.compose.remote.creation.compose.state.rs")
+    import("ee.schimke.composeai.rccreation.compose.state.rs")
     return "\"\".rs"
   }
 
@@ -1276,7 +1312,7 @@ private class RcKotlinWriter(
     named[id]
       ?.takeIf { it.type == RcNamedVariable.INT_TYPE }
       ?.let { variable ->
-        import("androidx.compose.remote.creation.compose.state.rememberNamedRemoteInt")
+        import("ee.schimke.composeai.rccreation.compose.state.rememberNamedRemoteInt")
         reportComputed(id, variable.name)
         val (name, domain) = domainOf(variable.name)
         return hoist(
@@ -1284,7 +1320,7 @@ private class RcKotlinWriter(
           "rememberNamedRemoteInt(${quote(name)}, ${ints[id] ?: 0}$domain)",
         )
       }
-    import("androidx.compose.remote.creation.compose.state.ri")
+    import("ee.schimke.composeai.rccreation.compose.state.ri")
     ints[id]?.let {
       return "$it.ri"
     }
@@ -1308,7 +1344,7 @@ private class RcKotlinWriter(
       ?.let { variable ->
         import(
           "androidx.compose.runtime.remember",
-          "androidx.compose.remote.creation.compose.state.RemoteFloat",
+          "ee.schimke.composeai.rccreation.compose.state.RemoteFloat",
         )
         reportComputed(id, variable.name)
         val (name, domain) = domainOf(variable.name)
@@ -1328,7 +1364,7 @@ private class RcKotlinWriter(
   }
 
   private fun literalFloat(value: Float): String {
-    import("androidx.compose.remote.creation.compose.state.rf")
+    import("ee.schimke.composeai.rccreation.compose.state.rf")
     return "${float(value)}.rf"
   }
 
@@ -1337,7 +1373,7 @@ private class RcKotlinWriter(
     named[id]
       ?.takeIf { it.type == RcNamedVariable.COLOR_TYPE }
       ?.let { variable ->
-        import("androidx.compose.remote.creation.compose.state.rememberNamedRemoteColor")
+        import("ee.schimke.composeai.rccreation.compose.state.rememberNamedRemoteColor")
         reportComputed(id, variable.name)
         val (name, domain) = domainOf(variable.name)
         return hoist(
@@ -1354,7 +1390,7 @@ private class RcKotlinWriter(
 
   private fun literalColor(argb: Int): String {
     import(
-      "androidx.compose.remote.creation.compose.state.RemoteColor",
+      "ee.schimke.composeai.rccreation.compose.state.RemoteColor",
       "androidx.compose.ui.graphics.Color",
     )
     return "RemoteColor(${colorLiteral(argb)})"
@@ -1374,7 +1410,7 @@ private class RcKotlinWriter(
     val exact = channels.all { (it.value * 255f).let { v -> v == kotlin.math.round(v) } }
     if (!exact) {
       import(
-        "androidx.compose.remote.creation.compose.state.RemoteColor",
+        "ee.schimke.composeai.rccreation.compose.state.RemoteColor",
         "androidx.compose.ui.graphics.Color",
       )
       return "RemoteColor(Color(red = ${float(red.value)}, green = ${float(green.value)}, " +
@@ -1395,12 +1431,12 @@ private class RcKotlinWriter(
   private fun length(word: RcFloatWord): String {
     if (word.isNaNEncoded) return floatValue(word)
     if (densityBehavior == RcHeader.DENSITY_BEHAVIOR_DP) {
-      import("androidx.compose.remote.creation.compose.state.rdp")
+      import("ee.schimke.composeai.rccreation.compose.state.rdp")
       return dp(word.value)
     }
     val dp = word.value / density
     if (dp * density == word.value) {
-      import("androidx.compose.remote.creation.compose.state.rdp")
+      import("ee.schimke.composeai.rccreation.compose.state.rdp")
       return dp(dp)
     }
     return floatValue(word)
@@ -1415,10 +1451,10 @@ private class RcKotlinWriter(
             "which the creation API scales by the density again",
         )
       }
-      import("androidx.compose.remote.creation.compose.state.asRemoteDp")
+      import("ee.schimke.composeai.rccreation.compose.state.asRemoteDp")
       return "${floatValue(word)}.asRemoteDp()"
     }
-    import("androidx.compose.remote.creation.compose.state.rdp")
+    import("ee.schimke.composeai.rccreation.compose.state.rdp")
     val dp =
       if (densityBehavior == RcHeader.DENSITY_BEHAVIOR_DP) word.value else word.value / density
     return dp(dp)
@@ -1450,7 +1486,7 @@ private class RcKotlinWriter(
 
   private fun arrangementOf(arrangement: String?): String? {
     if (arrangement != null)
-      import("androidx.compose.remote.creation.compose.layout.RemoteArrangement")
+      import("ee.schimke.composeai.rccreation.compose.layout.RemoteArrangement")
     return arrangement
   }
 
@@ -1515,7 +1551,7 @@ private class RcKotlinWriter(
         }
       }
     if (alignment.isNotEmpty())
-      import("androidx.compose.remote.creation.compose.layout.RemoteAlignment")
+      import("ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment")
     return alignment
   }
 
@@ -1528,7 +1564,7 @@ private class RcKotlinWriter(
 
   private fun horizontalAlignment(positioning: Int, default: Int): String? {
     if (positioning == default) return null
-    import("androidx.compose.remote.creation.compose.layout.RemoteAlignment")
+    import("ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment")
     return when (positioning) {
       START -> "RemoteAlignment.Start"
       CENTER -> "RemoteAlignment.CenterHorizontally"
@@ -1542,7 +1578,7 @@ private class RcKotlinWriter(
 
   private fun verticalAlignment(positioning: Int, default: Int): String? {
     if (positioning == default) return null
-    import("androidx.compose.remote.creation.compose.layout.RemoteAlignment")
+    import("ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment")
     return when (positioning) {
       TOP -> "RemoteAlignment.Top"
       CENTER -> "RemoteAlignment.CenterVertically"
@@ -1574,7 +1610,7 @@ private class RcKotlinWriter(
       gap("box alignment ($horizontal, $vertical) is not generated")
       return null
     }
-    import("androidx.compose.remote.creation.compose.layout.RemoteAlignment")
+    import("ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment")
     return "RemoteAlignment." + if (h == "Center" && v == "Center") "Center" else "$v$h"
   }
 
@@ -1602,7 +1638,7 @@ private class RcKotlinWriter(
     return when (full.substring(0, separator)) {
       "USER" -> name to ""
       "SYSTEM" -> {
-        import("androidx.compose.remote.creation.compose.state.RemoteState")
+        import("ee.schimke.composeai.rccreation.compose.state.RemoteState")
         name to ", domain = RemoteState.Domain.System"
       }
       else -> {

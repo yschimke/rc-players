@@ -1,0 +1,161 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package ee.schimke.composeai.rccreation.compose.modifier
+
+import androidx.annotation.IntRange
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.annotation.RememberInComposition
+import androidx.compose.runtime.remember
+import ee.schimke.composeai.rccreation.common.RemoteModifierOperation
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
+import ee.schimke.composeai.rccreation.compose.state.MutableRemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.RemoteStateScope
+import ee.schimke.composeai.rccreation.compose.state.creationState
+
+/**
+ * State object for controlling and observing scroll position in Remote Compose layouts.
+ *
+ * Note: [RemoteScrollState] uses `@RememberInComposition` because it holds mutable scroll position
+ * state ([positionState]) that must be remembered across recompositions to avoid resetting scroll
+ * position.
+ *
+ * @property positionState Remote float state tracking scroll position.
+ * @property notches The number of equally spaced snap points (notches) along the scroll range. If
+ *   greater than 0, the scroll position will snap to the nearest notch when the scroll gesture
+ *   ends. If 0, scrolling is continuous.
+ */
+@Stable
+public class RemoteScrollState
+@RememberInComposition
+constructor(
+    public val positionState: MutableRemoteFloat,
+    @IntRange(from = 0) public val notches: Int,
+) {
+    /**
+     * Creates a [RemoteScrollState] with an initial [position] and number of [notches].
+     *
+     * @param position Initial scroll position in pixels.
+     * @param notches The number of equally spaced snap points along the scroll range, or 0 for
+     *   continuous scrolling.
+     */
+    @RememberInComposition
+    public constructor(
+        position: Float,
+        @IntRange(from = 0) notches: Int,
+    ) : this(MutableRemoteFloat(position), notches)
+
+    /**
+     * Creates a [RemoteScrollState] with an optional number of [notches].
+     *
+     * @param notches The number of equally spaced snap points along the scroll range, or 0 for
+     *   continuous scrolling.
+     */
+    @RememberInComposition
+    public constructor(@IntRange(from = 0) notches: Int = 0) : this(MutableRemoteFloat(), notches)
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RemoteScrollState) return false
+        if (positionState != other.positionState) return false
+        if (notches != other.notches) return false
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = positionState.hashCode()
+        result = 31 * result + notches
+        return result
+    }
+
+    override fun toString(): String {
+        return "RemoteScrollState(positionState=$positionState, notches=$notches)"
+    }
+}
+
+/**
+ * Creates and remembers a [RemoteScrollState].
+ *
+ * Example of remembering scroll state for a vertically scrollable column:
+ *
+ * @sample ee.schimke.composeai.rccreation.compose.samples.VerticalScrollSample
+ * @param notches The number of equally spaced snap points (notches) along the scroll range. If
+ *   greater than 0, the scroll position will snap to the nearest notch when the scroll gesture
+ *   ends. If 0, scrolling is continuous.
+ * @return remembered [RemoteScrollState]
+ */
+@RemoteComposable
+@Composable
+public fun rememberRemoteScrollState(@IntRange(from = 0) notches: Int = 0): RemoteScrollState {
+    return remember(notches) { RemoteScrollState(notches) }
+}
+
+internal data class ScrollModifier(val direction: Int, val state: RemoteScrollState) :
+    RemoteModifier.Element {
+
+    // Not used
+    // KMP (rc-players): `RemoteWriter` takes a `RemoteModifierOperation`, where upstream builds
+    // `remote-creation-core`'s `RecordingModifier.Element`.
+    override fun RemoteStateScope.toRemoteModifierOperation(): RemoteModifierOperation =
+        RemoteModifierOperation.Scroll(
+            direction,
+            state.positionState.floatId,
+            creationState.document.reserveFloatVariable(),
+            creationState.document.reserveFloatVariable(),
+            state.notches,
+        )
+}
+
+/**
+ * Modify element to allow it to scroll vertically when its content is larger than its constraints.
+ *
+ * Example of enabling vertical scrolling on a
+ * [ee.schimke.composeai.rccreation.compose.layout.RemoteColumn]:
+ *
+ * @sample ee.schimke.composeai.rccreation.compose.samples.VerticalScrollSample
+ * @param state The [RemoteScrollState] that tracks and controls the scroll position. It can be
+ *   created and remembered using [rememberRemoteScrollState].
+ * @return The modified [RemoteModifier].
+ * @see rememberRemoteScrollState
+ */
+public fun RemoteModifier.verticalScroll(state: RemoteScrollState): RemoteModifier {
+    // KMP (rc-players): the port's own constant; see `Vertical`, below.
+    return this.then(ClipModifier()).then(ScrollModifier(Vertical, state))
+}
+
+/**
+ * Modify element to allow it to scroll horizontally when its content is larger than its
+ * constraints.
+ *
+ * Example of enabling horizontal scrolling on a
+ * [ee.schimke.composeai.rccreation.compose.layout.RemoteRow]:
+ *
+ * @sample ee.schimke.composeai.rccreation.compose.samples.HorizontalScrollSample
+ * @param state The [RemoteScrollState] that tracks and controls the scroll position. It can be
+ *   created and remembered using [rememberRemoteScrollState].
+ * @return The modified [RemoteModifier].
+ * @see rememberRemoteScrollState
+ */
+public fun RemoteModifier.horizontalScroll(state: RemoteScrollState): RemoteModifier {
+    return this.then(ClipModifier()).then(ScrollModifier(Horizontal, state))
+}
+
+// KMP (rc-players): there is no `remote-creation-core` `ScrollModifier` to read `VERTICAL` and
+// `HORIZONTAL` from, so the port has its own, with that class's values: the wire's direction,
+// which `ScrollModifierOperation` reads as vertical when 0.
+private const val Vertical = 0
+private const val Horizontal = 1

@@ -1,0 +1,86 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package ee.schimke.composeai.rccreation.compose.layout
+
+import androidx.compose.runtime.Composable
+import ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState
+import ee.schimke.composeai.rccreation.compose.capture.WriterOp
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+
+internal class RemoteFitBoxNode : RemoteLayoutNode() {
+    var horizontalAlignment: RemoteAlignment.Horizontal = RemoteAlignment.Start
+    var verticalArrangement: RemoteArrangement.Vertical = RemoteArrangement.Top
+
+    override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
+        val scope = overriddenScope(remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
+        remoteCanvas.recordRenderingOp(
+            WriterOp.StartFitBox(
+                resolveModifier(scope, creationState),
+                horizontalAlignment.toRemote(layoutDirection),
+                verticalArrangement.toRemote(),
+            ),
+        )
+        renderChildren(creationState, remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
+        remoteCanvas.recordRenderingOp(WriterOp.EndFitBox)
+    }
+}
+
+/**
+ * Layout container that renders the first child that fits within available constraints.
+ *
+ * Functions as a [RemoteBox] and acts as an alternative-selector container during playback.
+ *
+ * Selection behavior:
+ * - Measures children sequentially and renders only the first child whose width and height fit
+ *   within available constraints.
+ * - Matches container dimensions to the measured size of the selected child.
+ * - Hides completely (`GONE`) if no child fits within the constraints.
+ *
+ * Interactive example switching container constraints so [RemoteFitBox] selects the fitting child:
+ *
+ * @sample ee.schimke.composeai.rccreation.compose.samples.RemoteFitBoxSample
+ * @param modifier modifier applied to this layout
+ * @param horizontalAlignment horizontal alignment for children
+ * @param verticalArrangement vertical arrangement for children
+ * @param content composable children to lay out inside this [RemoteFitBox]
+ */
+@RemoteComposable
+@Composable
+public fun RemoteFitBox(
+    modifier: RemoteModifier = RemoteModifier,
+    horizontalAlignment: RemoteAlignment.Horizontal = RemoteAlignment.CenterHorizontally,
+    verticalArrangement: RemoteArrangement.Vertical = RemoteArrangement.Center,
+    content: @RemoteComposable @Composable () -> Unit = {},
+) {
+    RemoteLayoutNode(
+        factory = ::RemoteFitBoxNode,
+        update = {
+            set(modifier) { nodeModifier -> this.modifier = nodeModifier }
+            set(horizontalAlignment) { nodeHorizontalAlignment ->
+                this.horizontalAlignment = nodeHorizontalAlignment
+            }
+            set(verticalArrangement) { nodeVerticalArrangement ->
+                this.verticalArrangement = nodeVerticalArrangement
+            }
+        },
+        content = content,
+    )
+}

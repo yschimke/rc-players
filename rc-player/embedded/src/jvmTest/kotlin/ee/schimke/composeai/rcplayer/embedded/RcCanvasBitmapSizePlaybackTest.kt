@@ -1,16 +1,16 @@
 package ee.schimke.composeai.rcplayer.embedded
 
-import androidx.compose.remote.creation.compose.layout.RemoteOffset
-import androidx.compose.remote.creation.compose.layout.RemoteSize
-import androidx.compose.remote.creation.compose.state.RemoteColor
-import androidx.compose.remote.creation.compose.state.RemotePaint
-import androidx.compose.remote.creation.compose.state.rb
-import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
+import ee.schimke.composeai.rccreation.compose.layout.RemoteOffset
+import ee.schimke.composeai.rccreation.compose.layout.RemoteSize
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemotePaint
+import ee.schimke.composeai.rccreation.compose.state.rb
+import ee.schimke.composeai.rccreation.compose.state.rf
 import kotlin.test.Test
 
 /**

@@ -2,14 +2,14 @@
 
 package ee.schimke.composeai.rccreation.bridge
 
-import androidx.compose.remote.creation.compose.capture.LocalRemoteComposeCreationState
-import androidx.compose.remote.creation.compose.layout.RemoteComposable
-import androidx.compose.remote.creation.compose.layout.RemoteCustomComponent
-import androidx.compose.remote.creation.compose.layout.RemoteText
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.state.RemoteString
-import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
+import ee.schimke.composeai.rccreation.compose.capture.LocalRemoteComposeCreationState
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
+import ee.schimke.composeai.rccreation.compose.layout.RemoteCustomComponent
+import ee.schimke.composeai.rccreation.compose.layout.RemoteText
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.state.RemoteString
+import ee.schimke.composeai.rccreation.compose.state.rs
 import ee.schimke.composeai.rcplayer.protocol.*
 
 /**

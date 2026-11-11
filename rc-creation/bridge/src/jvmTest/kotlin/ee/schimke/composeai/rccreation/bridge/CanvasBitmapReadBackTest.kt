@@ -3,9 +3,9 @@ package ee.schimke.composeai.rccreation.bridge
 import androidx.compose.remote.core.operations.DrawBitmap
 import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.TextData
-import androidx.compose.remote.creation.compose.layout.RemoteOffset
-import androidx.compose.remote.creation.compose.state.RemoteImageBitmap
-import androidx.compose.remote.creation.compose.state.rf
+import ee.schimke.composeai.rccreation.compose.layout.RemoteOffset
+import ee.schimke.composeai.rccreation.compose.state.RemoteImageBitmap
+import ee.schimke.composeai.rccreation.compose.state.rf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

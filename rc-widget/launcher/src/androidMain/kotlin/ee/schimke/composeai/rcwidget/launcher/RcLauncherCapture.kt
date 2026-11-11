@@ -13,10 +13,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcwidget.RcWidgetActionIds
 import ee.schimke.composeai.rcwidget.RcWidgetDocuments
-import ee.schimke.composeai.rcwidget.creation.ProvideRcExpressionNames
-import ee.schimke.composeai.rcwidget.creation.ProvideRcWidgetActions
-import ee.schimke.composeai.rcwidget.creation.ProvideRcWidgetCaptureSize
-import ee.schimke.composeai.rcwidget.creation.RcWidgetCaptureSize
+import ee.schimke.composeai.rcwidget.creation.androidx.ProvideRcExpressionNames
+import ee.schimke.composeai.rcwidget.creation.androidx.ProvideRcWidgetActions
+import ee.schimke.composeai.rcwidget.creation.androidx.ProvideRcWidgetCaptureSize
+import ee.schimke.composeai.rcwidget.creation.androidx.RcWidgetCaptureSize
 
 /** A launcher widget captured on the device: its document, and its taps' payloads by action id. */
 public class RcLauncherWidgetCapture(public val bytes: ByteArray, public val actions: Map<Int, String>)

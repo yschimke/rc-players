@@ -1,0 +1,145 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package ee.schimke.composeai.rccreation.compose.layout
+
+import androidx.annotation.FloatRange
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
+import ee.schimke.composeai.rccreation.common.CollapsiblePriority
+import ee.schimke.composeai.rccreation.common.DimensionModifierOperation.Type
+import ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState
+import ee.schimke.composeai.rccreation.compose.capture.WriterOp
+import ee.schimke.composeai.rccreation.compose.modifier.CollapsiblePriorityModifier
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.WidthModifier
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+
+/** Scope for the children of [RemoteCollapsibleRow]. */
+@RemoteLayoutScopeMarker
+@Immutable
+public class RemoteCollapsibleRowScope {
+    /**
+     * Sets the horizontal weight of the child.
+     *
+     * @param weight The weight of the child.
+     * @return a [RemoteModifier] that assigns horizontal [weight] to the child
+     */
+    public fun RemoteModifier.weight(weight: RemoteFloat): RemoteModifier =
+        then(WidthModifier(Type.WEIGHT, weight))
+
+    /**
+     * Sets the horizontal weight of the child.
+     *
+     * @param weight The weight of the child.
+     * @return a [RemoteModifier] that assigns horizontal [weight] to the child
+     */
+    public fun RemoteModifier.weight(
+        @FloatRange(from = 0.0, fromInclusive = false) weight: Float,
+    ): RemoteModifier = then(WidthModifier(Type.WEIGHT, RemoteFloat(weight)))
+
+    /**
+     * Sets the collapsible priority of the child.
+     *
+     * Priority determines the order in which children are hidden when space is limited. Higher
+     * priority items remain visible longer. Items with the same priority are hidden sequentially in
+     * reverse layout order (last child with same priority is hidden first).
+     *
+     * Example of assigning collapsible priorities to children in a [RemoteCollapsibleRow]:
+     *
+     * @sample ee.schimke.composeai.rccreation.compose.samples.RemoteCollapsibleRowSample
+     * @param priority The priority of the child. Can be any float value; higher values are
+     *   prioritized to remain visible longer.
+     * @return a [RemoteModifier] that assigns horizontal collapsible [priority] to the child
+     */
+    public fun RemoteModifier.collapsiblePriority(priority: Float): RemoteModifier =
+        then(CollapsiblePriorityModifier(CollapsiblePriority.HORIZONTAL, RemoteFloat(priority)))
+}
+
+internal class RemoteCollapsibleRowNode : RemoteLayoutNode() {
+    var horizontalArrangement: RemoteArrangement.Horizontal = RemoteArrangement.Start
+    var verticalAlignment: RemoteAlignment.Vertical = RemoteAlignment.Top
+
+    override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
+        val scope = overriddenScope(remoteCanvas)
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
+        val remoteModifier = resolveModifier(scope, creationState)
+        (horizontalArrangement as? RemoteSpaced)?.let {
+            remoteModifier.spacedBy = it.getSpacingFloatId(scope)
+        }
+        remoteCanvas.recordRenderingOp(
+            WriterOp.StartCollapsibleRow(
+                remoteModifier,
+                horizontalArrangement.toRemote(layoutDirection),
+                verticalAlignment.toRemote(),
+            ),
+        )
+        renderChildren(
+            creationState,
+            remoteCanvas,
+            reversed = shouldReverse(horizontalArrangement, layoutDirection),
+        )
+        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
+        // upstream writes to `document` here.
+        remoteCanvas.recordRenderingOp(WriterOp.EndCollapsibleRow)
+    }
+}
+
+/**
+ * A collapsible row layout that organizes its children horizontally.
+ *
+ * When available horizontal space is insufficient, children are hidden (collapsed) rather than
+ * shrunk or wrapped. Children are hidden based on their
+ * [RemoteCollapsibleRowScope.collapsiblePriority], with lower priority items being hidden first.
+ * Children without priority set have the highest priority.
+ *
+ * Children can be configured with [RemoteCollapsibleRowScope.weight] and
+ * [RemoteCollapsibleRowScope.collapsiblePriority] to control how they behave when the row is
+ * collapsed.
+ *
+ * Example of hiding lower-priority children when horizontal space is constrained:
+ *
+ * @sample ee.schimke.composeai.rccreation.compose.samples.RemoteCollapsibleRowSample
+ * @param modifier The modifier to apply to this layout.
+ * @param horizontalArrangement The horizontal arrangement of the children.
+ * @param verticalAlignment The vertical alignment of the children.
+ * @param content The children of the row.
+ */
+@RemoteComposable
+@Composable
+public fun RemoteCollapsibleRow(
+    modifier: RemoteModifier = RemoteModifier,
+    horizontalArrangement: RemoteArrangement.Horizontal = RemoteArrangement.Start,
+    verticalAlignment: RemoteAlignment.Vertical = RemoteAlignment.Top,
+    content: @RemoteComposable @Composable RemoteCollapsibleRowScope.() -> Unit,
+) {
+    val scope = remember { RemoteCollapsibleRowScope() }
+    RemoteLayoutNode(
+        factory = ::RemoteCollapsibleRowNode,
+        update = {
+            set(modifier) { nodeModifier -> this.modifier = nodeModifier }
+            set(horizontalArrangement) { nodeHorizontalArrangement ->
+                this.horizontalArrangement = nodeHorizontalArrangement
+            }
+            set(verticalAlignment) { nodeVerticalAlignment ->
+                this.verticalAlignment = nodeVerticalAlignment
+            }
+        },
+        content = { scope.content() },
+    )
+}

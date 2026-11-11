@@ -27,6 +27,7 @@ object PublishedArtifactIds {
       ":rc-creation-bridge" to "rc-creation-bridge",
       ":rc-widget-core" to "rc-widget-core",
       ":rc-widget-creation" to "rc-widget-creation",
+      ":rc-widget-creation-androidx" to "rc-widget-creation-androidx",
       ":rc-widget-launcher" to "rc-widget-launcher",
       ":rc-widget-wear" to "rc-widget-wear",
       ":third-party-remote-creation-writer" to "third-party-remote-creation-writer",

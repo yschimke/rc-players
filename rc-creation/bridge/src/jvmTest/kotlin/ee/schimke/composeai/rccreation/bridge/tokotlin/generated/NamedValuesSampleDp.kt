@@ -3,27 +3,27 @@
 
 package ee.schimke.composeai.rccreation.bridge.tokotlin.generated
 
-import androidx.compose.remote.creation.compose.action.hostAction
-import androidx.compose.remote.creation.compose.layout.RemoteAlignment
-import androidx.compose.remote.creation.compose.layout.RemoteBox
-import androidx.compose.remote.creation.compose.layout.RemoteComposable
-import androidx.compose.remote.creation.compose.layout.RemoteText
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.background
-import androidx.compose.remote.creation.compose.modifier.clickable
-import androidx.compose.remote.creation.compose.modifier.contentDescription
-import androidx.compose.remote.creation.compose.modifier.fillMaxSize
-import androidx.compose.remote.creation.compose.modifier.semantics
-import androidx.compose.remote.creation.compose.state.RemoteColor
-import androidx.compose.remote.creation.compose.state.RemoteString
-import androidx.compose.remote.creation.compose.state.rememberNamedRemoteColor
-import androidx.compose.remote.creation.compose.state.rs
-import androidx.compose.remote.creation.compose.state.rsp
-import androidx.compose.remote.creation.compose.text.RemoteTextAlign
-import androidx.compose.remote.creation.compose.text.RemoteTextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import ee.schimke.composeai.rccreation.compose.action.hostAction
+import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
+import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
+import ee.schimke.composeai.rccreation.compose.layout.RemoteText
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.background
+import ee.schimke.composeai.rccreation.compose.modifier.clickable
+import ee.schimke.composeai.rccreation.compose.modifier.contentDescription
+import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
+import ee.schimke.composeai.rccreation.compose.modifier.semantics
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemoteString
+import ee.schimke.composeai.rccreation.compose.state.rememberNamedRemoteColor
+import ee.schimke.composeai.rccreation.compose.state.rs
+import ee.schimke.composeai.rccreation.compose.state.rsp
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextAlign
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextOverflow
 
 @Composable
 @RemoteComposable

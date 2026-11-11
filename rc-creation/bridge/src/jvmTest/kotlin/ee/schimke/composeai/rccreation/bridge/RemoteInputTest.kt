@@ -2,12 +2,12 @@
 
 package ee.schimke.composeai.rccreation.bridge
 
-import androidx.compose.remote.creation.compose.capture.*
-import androidx.compose.remote.creation.compose.layout.RemoteColumn
-import androidx.compose.remote.creation.compose.modifier.RemoteModifier
-import androidx.compose.remote.creation.compose.modifier.size
-import androidx.compose.remote.creation.compose.state.*
 import androidx.compose.ui.unit.*
+import ee.schimke.composeai.rccreation.compose.capture.*
+import ee.schimke.composeai.rccreation.compose.layout.RemoteColumn
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.size
+import ee.schimke.composeai.rccreation.compose.state.*
 import ee.schimke.composeai.rcplayer.protocol.*
 import kotlin.test.*
 import kotlinx.coroutines.runBlocking
