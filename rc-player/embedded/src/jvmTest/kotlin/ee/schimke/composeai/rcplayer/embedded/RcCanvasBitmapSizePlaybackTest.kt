@@ -42,4 +42,19 @@ class RcCanvasBitmapSizePlaybackTest {
     assertColor(Color.Red, pixels[25, 25], "the scaled bitmap")
     assertColor(Color.Blue, pixels[35, 35], "past the scaled bitmap")
   }
+
+  /** `drawImage(bitmap, topLeft)` draws the bitmap at its size from there, not into (0, 0). */
+  @Test
+  fun aBitmapDrawnAtAnOffsetKeepsItsSize() {
+    val pixels =
+      playCanvas(40, 40) {
+        drawRect(RemotePaint { color = RemoteColor(Color.Blue) })
+        drawImage(red.rb, RemoteOffset(20f.rf, 10f.rf))
+      }
+    assertColor(Color.Red, pixels[21, 11], "the bitmap's first pixel")
+    assertColor(Color.Red, pixels[27, 17], "the bitmap's last pixel")
+    assertColor(Color.Blue, pixels[29, 14], "past its width")
+    assertColor(Color.Blue, pixels[24, 19], "past its height")
+    assertColor(Color.Blue, pixels[4, 4], "nothing at the origin")
+  }
 }

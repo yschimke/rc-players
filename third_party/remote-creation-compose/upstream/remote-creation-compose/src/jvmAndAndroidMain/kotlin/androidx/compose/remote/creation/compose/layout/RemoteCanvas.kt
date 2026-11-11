@@ -685,21 +685,25 @@ public class RemoteCanvas(
         top: RemoteFloat,
         paint: RemotePaint? = null,
     ) {
+        // LOCAL PATCH (rc-players): the rectangle is the bitmap's size from (left, top). Upstream's
+        // `document.drawBitmap(bitmap.id, left, top, "")` asks the platform for the size of an id,
+        // gets 0, and passes it as the rectangle's right and bottom; the port passed the width and
+        // height there, which is right only at the origin. The content description is none (id
+        // 0), where upstream writes the id of an empty text: see the overload below.
+        val right = left + bitmap.width
+        val bottom = top + bitmap.height
         val op =
             recordRenderingOp(paint) {
-                // KMP (rc-players): the Kotlin writer has no platform services to ask for the
-                // image's size, so the rectangle is the bitmap's own width and height, and the
-                // content description is none (id 0) where upstream writes the empty text's id.
                 document.drawBitmap(
                     bitmap.id,
                     left.floatId,
                     top.floatId,
-                    bitmap.width.floatId,
-                    bitmap.height.floatId,
+                    right.floatId,
+                    bottom.floatId,
                     0,
                 )
             }
-        buffer.addRoots(op, bitmap, left, top)
+        buffer.addRoots(op, bitmap, left, top, right, bottom)
     }
 
     /**
@@ -722,8 +726,10 @@ public class RemoteCanvas(
     ) {
         val op =
             recordRenderingOp(paint) {
-                // KMP (rc-players): the Kotlin writer takes the content description's text id; none
-                // (0) where upstream writes the empty text's id.
+                // LOCAL PATCH (rc-players): no content description (id 0), which is what the
+                // format and `RemoteComposeWriter.drawBitmap(…, null)` have for a bitmap without
+                // one. Upstream passes `""`, which declares an empty text and names it as the
+                // description: a reader that exposes descriptions then reports an empty one.
                 document.drawBitmap(
                     bitmap.id,
                     left.floatId,
