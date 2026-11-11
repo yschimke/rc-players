@@ -149,11 +149,7 @@ public class RemoteCanvas(
 
         val paintBundle = PaintBundle()
 
-        // LOCAL PATCH (rc-players): `forceSendingPaint` is not read. The port never resent the
-        // whole paint after a conditional block or an offscreen bitmap, and doing so changes the
-        // documents that have one, so it waits for a refresh (PROVENANCE.md, "Known port issues").
-        // Upstream: `tracker.reset(forceSendingPaint || document.checkAndClear…())`.
-        tracker.reset(document.checkAndClearForceSendingNewPaint())
+        tracker.reset(forceSendingPaint || document.checkAndClearForceSendingNewPaint())
         tracker.updateWithPaint(paint, paintBundle, creationState)
 
         if (tracker.isChanged) {
