@@ -146,6 +146,10 @@ public data class RcBitmapFontTexts(
  * ink outside a glyph's line box. It suits a display face — an LCD clock, a heading, a bezel —
  * rather than running text in a script.
  *
+ * With [masks], a `CoreText` in a constant colour is drawn as a white mask too, its canvas tinting
+ * it with that colour, as a live colour's is: texts that differ only in colour then share one font,
+ * where each colour otherwise draws its own. Text on a path keeps its colour in its glyphs.
+ *
  * The glyphs are drawn at [display]'s density; at API level 7 the canvas scales them with the
  * device's, as [coreTextAsImages] does its images. Text on a path is drawn at its paint's size in
  * the canvas's pixels. Check [sizeReport] against the target's limits.
@@ -159,12 +163,23 @@ public fun RcDocument.coreTextAsBitmapFonts(
   sequences: Set<String> = emptySet(),
   wrapWidth: (componentId: Int) -> Float? = { null },
   glyphs: (componentId: Int) -> RcBitmapFontGlyphs? = { null },
+  masks: Boolean = false,
 ): RcBitmapFontTexts {
   // The Android 16 launcher lays its text out with the older `TextLayout`: each in a requested
   // family is read as the `CoreText` it says exactly, and any left as text goes back as it was.
   val layouts = textLayoutsIn(families)
   if (layouts.isEmpty()) {
-    return bitmapFonts(target, families, rasterizer, display, kerning, sequences, wrapWidth, glyphs)
+    return bitmapFonts(
+      target,
+      families,
+      rasterizer,
+      display,
+      kerning,
+      sequences,
+      wrapWidth,
+      glyphs,
+      masks,
+    )
   }
   val lifted =
     copy(
@@ -175,7 +190,17 @@ public fun RcDocument.coreTextAsBitmapFonts(
         },
     )
   val result =
-    lifted.bitmapFonts(target, families, rasterizer, display, kerning, sequences, wrapWidth, glyphs)
+    lifted.bitmapFonts(
+      target,
+      families,
+      rasterizer,
+      display,
+      kerning,
+      sequences,
+      wrapWidth,
+      glyphs,
+      masks,
+    )
   if (result.texts.isEmpty()) {
     return RcBitmapFontTexts(this, emptyList(), result.skipped, result.skippedOnPath)
   }
@@ -230,6 +255,7 @@ private fun RcDocument.bitmapFonts(
   sequences: Set<String>,
   wrapWidth: (componentId: Int) -> Float?,
   glyphs: (componentId: Int) -> RcBitmapFontGlyphs?,
+  masks: Boolean,
 ): RcBitmapFontTexts {
   val unchanged = RcBitmapFontTexts(this, emptyList(), emptyList())
   val wanted = families.map { it.lowercase() }.toSet()
@@ -281,6 +307,7 @@ private fun RcDocument.bitmapFonts(
             RcOpcodes.DRAW_BITMAP_TEXT_ANCHORED in target.supportedOpcodes,
             display,
             glyphs,
+            masks,
           )
         if (plan == null) skipped += text.componentId else plans += plan
       }
@@ -529,7 +556,7 @@ private fun RcDocument.bitmapFonts(
           add(RcWidthModifier(RcDimensionType.EXACT, widthWord))
           add(RcHeightModifier(RcDimensionType.EXACT, heightWord))
           add(RcNoArg(RcOpcodes.CANVAS_OPERATIONS))
-          plan.face.tintId?.let { add(tint(it)) }
+          plan.face.tint()?.let { add(it) }
           if (scale != null) {
             add(RcNoArg(RcOpcodes.MATRIX_SAVE))
             add(
@@ -696,6 +723,11 @@ private fun pathPlan(
   return PathPlan(operation, index, face, text, line, horizontal, vertical)
 }
 
+/** What tints this face's white mask on a text's canvas, or null if its glyphs are coloured. */
+private fun Face.tint(): RcPaintData? =
+  tintId?.let(::tint)
+    ?: tintColor?.let { RcPaintData(listOf(COLOR_FILTER or (BLEND_SRC_IN shl 16), it)) }
+
 /** A [RcPaintData] tinting what follows with colour id [colorId]: a white mask in its colour. */
 private fun tint(colorId: Int) =
   RcPaintData(listOf(COLOR_FILTER_ID or (BLEND_SRC_IN shl 16), colorId))
@@ -735,6 +767,7 @@ private fun plan(
   anchorable: Boolean,
   display: RcDisplay,
   glyphs: (Int) -> RcBitmapFontGlyphs?,
+  masks: Boolean,
 ): CorePlan? {
   val content = node.children.lastOrNull()
   if (content?.operation !is RcLayoutContent || content.children.isNotEmpty()) return null
@@ -787,8 +820,10 @@ private fun plan(
       // The wire's style is an enum, not a typeface bitmask: italic is 1, and weight is its own.
       weight = round(weight).toInt().coerceIn(1, 1000),
       italic = style == FONT_STYLE_ITALIC,
-      color = constantColor ?: WHITE,
+      // A constant colour, with masks: a white mask its canvas tints, as a live colour's is.
+      color = if (masks && tintable) WHITE else constantColor ?: WHITE,
       tintId = if (constantColor == null) colorId else null,
+      tintColor = if (masks && tintable) constantColor else null,
       fontAxes = tags.zip(axisValues),
       lineHeightAdd = lineHeightAdd,
       lineHeightMultiplier = lineHeightMultiplier,
@@ -829,9 +864,11 @@ private class Face(
   val fontSize: Float,
   val weight: Int,
   val italic: Boolean,
-  /** The glyphs' colour: the text's, or white for a mask [tintId] tints. */
+  /** The glyphs' colour: the text's, or white for a mask [tintId] or [tintColor] tints. */
   val color: Int,
   val tintId: Int?,
+  /** A constant colour a white mask is tinted with ([coreTextAsBitmapFonts]' masks). */
+  val tintColor: Int? = null,
   /** Font-variation axes and OpenType features, drawn into every glyph. */
   val fontAxes: List<Pair<String, Float>>,
   /** The line's height, which every glyph's cell shares. */
@@ -864,8 +901,9 @@ private class Face(
         fontSize,
         weight,
         italic,
+        // Not the tint: a canvas tints a mask as it draws, so faces that differ only in their
+        // tint draw the same glyphs, one font for them all.
         color,
-        tintId,
         fontAxes,
         lineHeightAdd,
         lineHeightMultiplier,
@@ -995,6 +1033,9 @@ private val PATH_OPCODES: Set<Int> =
 private const val WHITE = 0xffffffff.toInt()
 
 private const val BLACK = 0xff000000.toInt()
+
+/** AndroidX `PaintBundle.COLOR_FILTER`, with the blend mode in its high half: a literal colour. */
+private const val COLOR_FILTER = 13
 
 /** AndroidX `PaintBundle.COLOR_FILTER_ID`, with the blend mode in its high half. */
 private const val COLOR_FILTER_ID = 20
