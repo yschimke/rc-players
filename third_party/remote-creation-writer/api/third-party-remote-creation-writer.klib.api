@@ -148,6 +148,7 @@ abstract interface androidx.compose.remote.creation.common/RemoteWriter { // and
     open fun conditionalOperations(kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Function0<kotlin/Unit>) // androidx.compose.remote.creation.common/RemoteWriter.conditionalOperations|conditionalOperations(kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Function0<kotlin.Unit>){}[0]
     open fun drawComponentToBitmap(kotlin/Int) // androidx.compose.remote.creation.common/RemoteWriter.drawComponentToBitmap|drawComponentToBitmap(kotlin.Int){}[0]
     open fun drawComponentToBitmap(kotlin/Int, kotlin/Int) // androidx.compose.remote.creation.common/RemoteWriter.drawComponentToBitmap|drawComponentToBitmap(kotlin.Int;kotlin.Int){}[0]
+    open fun drawTextRun(kotlin/String, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Boolean) // androidx.compose.remote.creation.common/RemoteWriter.drawTextRun|drawTextRun(kotlin.String;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Boolean){}[0]
     open fun loop(kotlin/Int, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Function0<kotlin/Unit>) // androidx.compose.remote.creation.common/RemoteWriter.loop|loop(kotlin.Int;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Function0<kotlin.Unit>){}[0]
     open fun rotate(kotlin/Float) // androidx.compose.remote.creation.common/RemoteWriter.rotate|rotate(kotlin.Float){}[0]
     open fun scale(kotlin/Float, kotlin/Float) // androidx.compose.remote.creation.common/RemoteWriter.scale|scale(kotlin.Float;kotlin.Float){}[0]

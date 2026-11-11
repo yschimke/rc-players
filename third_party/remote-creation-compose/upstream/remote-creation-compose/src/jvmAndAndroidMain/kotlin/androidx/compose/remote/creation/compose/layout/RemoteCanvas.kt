@@ -50,8 +50,6 @@ import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.remote.creation.compose.state.RemoteStringArray
 import androidx.compose.remote.creation.compose.state.StandardRemotePaint
-import androidx.compose.remote.creation.compose.state.rf
-import androidx.compose.remote.creation.compose.state.rs
 
 /**
  * A remote canvas providing overloads for remote types and avoiding platform types in its public
@@ -459,11 +457,20 @@ public class RemoteCanvas(
         y: RemoteFloat,
         paint: RemotePaint? = null,
     ) {
-        // LOCAL PATCH (rc-players): written as the `RemoteString` overload writes it (a text
-        // constant, and -1 for the ends), as the port always has. Upstream calls
-        // `document.drawTextRun(text, 0, text.length, …)`, which changes the documents written, so
-        // it waits for a refresh.
-        drawText(text.rs, x, y, paint)
+        val op =
+            recordRenderingOp(paint) {
+                document.drawTextRun(
+                    text,
+                    0,
+                    text.length,
+                    0,
+                    text.length,
+                    x.floatId,
+                    y.floatId,
+                    false,
+                )
+            }
+        buffer.addRoots(op, x, y)
     }
 
     /** Draws text from [text] at ([x], [y]) using the specified [paint]. */
@@ -491,20 +498,10 @@ public class RemoteCanvas(
         isRtl: Boolean,
         paint: RemotePaint? = null,
     ) {
-        // LOCAL PATCH (rc-players): through the `RemoteString` overload, as the port always has;
-        // upstream's `document.drawTextRun(textString, …)` allocates the text at another point of
-        // the document, so it waits for a refresh.
-        drawTextRun(
-            text.toString().rs,
-            start,
-            end,
-            contextStart,
-            contextEnd,
-            x.rf,
-            y.rf,
-            isRtl,
-            paint,
-        )
+        val textString = text.toString()
+        recordRenderingOp(paint) {
+            document.drawTextRun(textString, start, end, contextStart, contextEnd, x, y, isRtl)
+        }
     }
 
     public fun drawTextRun(
@@ -564,10 +561,13 @@ public class RemoteCanvas(
         vOffset: RemoteFloat,
         paint: RemotePaint? = null,
     ) {
-        // LOCAL PATCH (rc-players): through the `RemoteString` overload, as the port always has;
-        // upstream's `document.addText(text)` here allocates the text at another point of the
-        // document, so it waits for a refresh.
-        drawTextOnPath(text.rs, path, hOffset, vOffset, paint)
+        val pathId = snapshotPath(path)
+        val op =
+            recordRenderingOp(paint) {
+                val textId = document.addText(text)
+                document.drawTextOnPath(textId, pathId(), hOffset.floatId, vOffset.floatId)
+            }
+        buffer.addRoots(op, hOffset, vOffset)
     }
 
     public fun drawTextOnPath(
