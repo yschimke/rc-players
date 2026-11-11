@@ -1,5 +1,28 @@
 # Changelog
 
+## [3.0.0](https://github.com/yschimke/rc-players/compare/v2.33.0...v3.0.0) (2026-11-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **creation:** move the creation API to its own package and split it into modules ([#862](https://github.com/yschimke/rc-players/issues/862))
+
+### Features
+
+* **creation:** carry the creation API AndroidX no longer keeps Android-only ([#856](https://github.com/yschimke/rc-players/issues/856)) ([55c53d8](https://github.com/yschimke/rc-players/commit/55c53d812cbb32478053fc91645a890f1393370f))
+* **creation:** move the creation API to its own package and split it into modules ([#862](https://github.com/yschimke/rc-players/issues/862)) ([9ceca16](https://github.com/yschimke/rc-players/commit/9ceca16a8644610afb781207c3952d2d453dfda8))
+* **creation:** refresh the fork to androidx-main 21a1a95e4 ([#851](https://github.com/yschimke/rc-players/issues/851)) ([5a620c8](https://github.com/yschimke/rc-players/commit/5a620c84f8611640726672e2d1629e174426dbe7))
+
+
+### Bug Fixes
+
+* **creation:** patch the bugs carried in from upstream's text ([#860](https://github.com/yschimke/rc-players/issues/860)) ([b482194](https://github.com/yschimke/rc-players/commit/b482194e56d6418a78329243ee4160f67abb517a))
+* **creation:** write verticalScroll as vertical and horizontalScroll as horizontal ([#854](https://github.com/yschimke/rc-players/issues/854)) ([aa1a014](https://github.com/yschimke/rc-players/commit/aa1a01406f3cf99e1468c6365a8c6d99087174d8))
+* **creation:** write what the canvas is asked to draw ([#857](https://github.com/yschimke/rc-players/issues/857)) ([6368c6a](https://github.com/yschimke/rc-players/commit/6368c6a1fea0e5df4bc3f20880017b59c8a10c27))
+* **deps:** update dependency com.google.testparameterinjector:test-parameter-injector to v1.25 ([#859](https://github.com/yschimke/rc-players/issues/859)) ([b1c4377](https://github.com/yschimke/rc-players/commit/b1c437708c36ff34790dcca2802b9fa3678c335b))
+* **deps:** update dependency org.jetbrains.kotlinx:kotlinx-serialization-json to v1.13.0 ([#861](https://github.com/yschimke/rc-players/issues/861)) ([cbfb190](https://github.com/yschimke/rc-players/commit/cbfb190238389b92749a7eda97de3f3d3893b044))
+* **player:** import the AndroidX player fixes to androidx-main 21a1a95e4 ([#852](https://github.com/yschimke/rc-players/issues/852)) ([77c41d6](https://github.com/yschimke/rc-players/commit/77c41d6e38200f80cafd4010b921692cbe7a8c2a))
+
 ## [2.33.0](https://github.com/yschimke/rc-players/compare/v2.32.1...v2.33.0) (2026-11-11)
 
 
