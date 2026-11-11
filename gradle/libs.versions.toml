@@ -287,7 +287,7 @@ androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", 
 junit = { module = "junit:junit", version.ref = "junit" }
 truth = { module = "com.google.truth:truth", version.ref = "truth" }
 # AndroidX's own tests of `remote-creation-expression`, carried in `third_party/remote-creation-compose`.
-test-parameter-injector = { module = "com.google.testparameterinjector:test-parameter-injector", version = "1.18" }
+test-parameter-injector = { module = "com.google.testparameterinjector:test-parameter-injector", version = "1.25" }
 # ASM — used by `:daemon:harness`'s `S3_5RecompileSaveLoopRealModeTest` to mint two
 # `.class` files with the same FQN (`ee.schimke.composeai.daemon.MutableSquare`) but different
 # bytecode at test time. The B2.0 disposable user-classloader test asserts that the daemon
