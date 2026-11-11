@@ -548,6 +548,28 @@ equals the one the tracker last sent, therefore draws with the measurement's siz
 *Verified by reading both sides. The fork carries the file unchanged and has the same behaviour;
 `CarriedCreationApiTest` asserts only that a paint precedes each measurement.*
 
+### A pattern's body is written against the paint before it
+
+`RemoteCanvas` has one `PaintTracker` (`common/layout/RemoteCanvas.kt:68`), and a paint is written
+as its difference from the last one the tracker saw (`usePaintInternal`, `:149`). A pattern's body
+is recorded through the same tracker (`patternBodySpan.record`, `:1015` and the six parameterized
+overloads; the `forEach` bodies from `:1390`), but it is a template: the player draws it where the
+pattern is called, with whatever paint it has there. So `drawCircle(red)`, then a pattern that
+draws a red circle, leaves the template with no paint operation at all; call it, draw something
+blue, call it again, and the second call draws blue. The other direction fails too: after a call
+the player's paint is the template's last, the tracker's is the one before the call, and a draw
+whose paint equals the tracker's sends nothing. The writer's force flag does not cover it:
+`mHasForceSendingNewPaint` is set only at a component's content start
+(`remote-creation-core/…/RemoteComposeWriter.java:3700`). Suggested fix: force a full paint for
+the first draw in a pattern or for-each body, and for the first after a definition, a call and a
+for-each, as `drawConditionally` and `drawToOffscreenBitmap` already do with `forceSendingPaint`.
+The fork's writer sets its force flag at those five points.
+
+*Verified by reading, and by tests here: `RcPatternPaintPlaybackTest` in `:rc-player-embedded`
+plays the sequence above (the second call was blue before the fix), and `LoomPatternsTest` in
+`:rc-creation-bridge` has AndroidX's reader (`remote-core` 1.0.0-alpha23) expand it: a paint now
+precedes every circle.*
+
 ### `RemoteLog.kt` has no caller
 
 `common/capture/RemoteLog.kt` declares `RemoteLog` and `LogTodo`, both `internal`. Nothing in

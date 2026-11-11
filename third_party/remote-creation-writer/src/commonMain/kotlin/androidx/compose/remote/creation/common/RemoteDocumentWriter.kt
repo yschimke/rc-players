@@ -530,6 +530,12 @@ public class RemoteDocumentWriter(
     patternDefinitions += wire to wire.size
     wire.writeInt(0)
     patternScopes += snapshotCaches()
+    // LOCAL PATCH (rc-players): the body is a template, drawn where the pattern is called with
+    // whatever paint the player has there, so the first paint in it is written in full, and so is
+    // the first after the definition, after each call and after a for-each, where the player's
+    // paint is the template's last. Upstream's canvas shares one `PaintTracker` across all of them
+    // and its writer forces a full paint only at a component's content start.
+    paintResetPending = true
   }
 
   override fun endPatternDefine() {
@@ -539,6 +545,7 @@ public class RemoteDocumentWriter(
     val (definedIn, offset) = patternDefinitions.removeLast()
     definedIn.overwriteInt(offset, definedIn.size - offset - 4)
     containerEnd()
+    paintResetPending = true
   }
 
   override fun inflatePattern(id: Int, argumentIds: IntArray) {
@@ -548,18 +555,23 @@ public class RemoteDocumentWriter(
     argumentIds.forEach(wire::writeInt)
   }
 
-  override fun endPatternInflation(): Unit = containerEnd()
+  override fun endPatternInflation() {
+    containerEnd()
+    paintResetPending = true
+  }
 
   override fun addPatternForEach(collectionId: Int, localItemId: Int) {
     operation(PatternForEach)
     wire.writeInt(collectionId)
     wire.writeInt(localItemId)
     patternScopes += snapshotCaches()
+    paintResetPending = true
   }
 
   override fun endPatternForEach() {
     patternScopes.removeLast()()
     containerEnd()
+    paintResetPending = true
   }
 
   override fun conditionalOperations(type: Int, first: Float, second: Float) {

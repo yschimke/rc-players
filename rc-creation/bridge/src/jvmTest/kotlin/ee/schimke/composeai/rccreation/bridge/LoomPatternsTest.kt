@@ -2,6 +2,7 @@ package ee.schimke.composeai.rccreation.bridge
 
 import androidx.compose.remote.core.operations.DrawCircle
 import androidx.compose.remote.core.operations.FloatExpression
+import androidx.compose.remote.core.operations.PaintData
 import androidx.compose.remote.creation.common.RemoteDocumentWriter
 import androidx.compose.remote.creation.compose.capture.RemoteCreationDisplayInfo
 import androidx.compose.remote.creation.compose.capture.captureCommonRemoteDocumentInto
@@ -139,6 +140,33 @@ class LoomPatternsTest {
     assertEquals(2, calls.map { it.argumentIds.single() }.toSet().size)
     // AndroidX expands each call to the body with the parameter replaced by its argument.
     assertEquals(calls.map { it.argumentIds.toSet() }, radiusInputs(doc))
+  }
+
+  /**
+   * A pattern's body carries its own paint, and what is drawn after a call sends its paint again:
+   * as AndroidX expands it, every circle is preceded by a paint, where the canvas's one paint
+   * tracker left the pattern's body without one when the paint before it was the same.
+   */
+  @Test
+  fun aPatternBodyCarriesItsPaint() {
+    val blue = RemotePaint { color = RemoteColor(Color.Blue) }
+    val doc = bytes {
+      drawCircle(paint, level)
+      val dot = remoteCanvas.definePattern { drawCircle(paint, level + 1f) }
+      dot()
+      drawCircle(blue, level)
+      dot()
+      drawCircle(blue, level)
+    }
+    val order =
+      androidxOperations(doc).flattened().mapNotNull {
+        when (it) {
+          is PaintData -> "paint"
+          is DrawCircle -> "circle"
+          else -> null
+        }
+      }
+    assertEquals(List(5) { listOf("paint", "circle") }.flatten(), order)
   }
 
   private companion object {
