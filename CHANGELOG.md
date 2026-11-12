@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.1.1](https://github.com/yschimke/rc-players/compare/v3.1.0...v3.1.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.43.0 ([#872](https://github.com/yschimke/rc-players/issues/872)) ([bf071cf](https://github.com/yschimke/rc-players/commit/bf071cfdcec3ba27a52b4a6815d92e57c1b29dd8))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.27.5 ([#866](https://github.com/yschimke/rc-players/issues/866)) ([0e67877](https://github.com/yschimke/rc-players/commit/0e67877598da63bf8e434a4ffd042ce679ccaae3))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.27.7 ([#871](https://github.com/yschimke/rc-players/issues/871)) ([2e289ec](https://github.com/yschimke/rc-players/commit/2e289ec9bd3bb9c3532e03dc2f3689dd5aa0f3d3))
+* **edit:** a text's length is not a read of an id when folding constants ([#868](https://github.com/yschimke/rc-players/issues/868)) ([e2031ec](https://github.com/yschimke/rc-players/commit/e2031ecc55d28cc7e492efae465b94fdf9f5f096))
+
 ## [3.1.0](https://github.com/yschimke/rc-players/compare/v3.0.0...v3.1.0) (2026-11-12)
 
 
