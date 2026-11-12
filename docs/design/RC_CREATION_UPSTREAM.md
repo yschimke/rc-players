@@ -923,6 +923,46 @@ tests failed before the patches.*
 
 *Verified with `grep -rn "RemoteLog(\|LogTodo("` over `remote-creation-compose/src` at `21a1a95e4`.*
 
+### `RemoteImage` never writes its `contentDescription`
+
+`RemoteImage` takes a `contentDescription: RemoteString?` and stores it on the node
+(`common/layout/RemoteImage.kt`, `var contentDescription`, set by the composable), but the node's
+`render` writes the image through `document.image(modifier, bitmapId, contentScale, alpha)`, which
+has no description, and nothing else reads the field. A loaded picture therefore has no accessible
+name, whatever the caller passed. The fork's `RemoteImage` is the same. Suggested fix: write the
+description as `AccessibilitySemantics` among the image's modifiers, as `semantics { }` does.
+
+*Verified by reading: rc-players' `RemoteImage.kt` and androidx-main (`cb8e6388`, read 2026-11-12)
+`RemoteImage.kt` both have the one write of the field, in the node's declaration and the composable
+that sets it, and neither reads it.*
+
+### `remoteComponent()` called at the document root throws
+
+`remoteComponent()` is `checkNotNull(LocalRemoteComponentToken.current) { "remoteComponent() must be
+called inside a RemoteCompose layout component." }` (`common/layout/RemoteComponentCompose.kt`; the
+fork's is identical, and so is androidx-main at `cb8e6388`). The root is not a layout component, so
+a `@RemoteComposable` that asks for its component's size before any layout was composed throws an
+`IllegalStateException`. A capture wrapper that catches exceptions then plays an empty document,
+which a consumer sees as a blank card and not as this message. alpha23's
+`RemoteFloat.createNamedRemoteFloatExpression("m", User) { componentWidth() }` did not need a
+layout: it wrote a `ComponentValue` at the root and the text that reads it.
+
+*Verified here by running alpha23: `createNamedRemoteFloatExpression` with `componentWidth()` in a
+`RemoteText` at the root captures (a `ComponentValue`, the expression, a `NamedVariable`, the text).
+The throw is verified by reading the three sources; not run against androidx-main.*
+
+### alpha23's `clickable` wrote a Button role; androidx-main and the fork write none
+
+alpha23's `RemoteModifier.clickable(onClick)` wrote
+`AccessibilitySemantics(role=BUTTON)` for every click (verified by capturing a clickable box with
+alpha23: `AccessibilitySemantics(contentDescriptionId=0, role=0, ..., enabled=true)`, role 0 being
+`ROLE_BUTTON`). androidx-main's `clickable` has `role: RemoteRole? = null`, documented "By default,
+no role is set", and writes the semantics only for a non-null role (`common/modifier/ClickableModifier.kt`);
+the fork's is the same. A click with no semantics is an unlabelled clickable node to an accessibility
+check, so a consumer moving between them has to pass `role` (and a description) explicitly.
+
+*alpha23 run here; androidx-main and the fork's defaults read.*
+
 ## How this was checked
 
 - Step 5a and the profile were checked against AndroidX itself, where the earlier steps were
