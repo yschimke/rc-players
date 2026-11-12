@@ -166,6 +166,23 @@ class RcOptimizeTest {
   }
 
   @Test
+  fun aTextAsLongAsAProducersIdDoesNotKeepItFromFolding() {
+    // The text is 132 bytes and the colour's id is 132: the text's length is not a read of it.
+    val source =
+      document(
+        RcTextData(42, "x".repeat(132)),
+        RcColorConstant(110, 0xFFFF0000.toInt()),
+        RcColorConstant(112, 0xFF0000FF.toInt()),
+        RcFloatConstant(131, f(0f)),
+        RcColorExpression(132, RcColorExpression.ID_ID_INTERPOLATE, 110, 112, ref(131).bits),
+      )
+    assertEquals(
+      RcColorConstant(132, 0xFFFF0000.toInt()),
+      source.foldConstantExpressions().operations.last(),
+    )
+  }
+
+  @Test
   fun aProducerInDrawnContentFolds() {
     val result =
       document(
