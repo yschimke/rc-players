@@ -365,9 +365,13 @@ internal class RcValueAnalysis(private val operations: List<RcOperation>) {
  * Not just whole words, because not every reference is one: `ColorExpression` packs its alpha id
  * into the top half of its mode word, and other operations pack ids beside flags the same way. The
  * narrower windows over-report far more — any small number counts — which only ever makes an
- * analysis built on this more cautious.
+ * analysis built on this more cautious. A text is the exception: only its own id is one.
  */
 internal fun RcOperation.mentionedValues(): Set<Int>? {
+  // A text's length and bytes name no id. Scanned, a text of 132 bytes "mentions" id 132, and as
+  // it is written ahead of the layout, whatever produces that id looks read before it runs and is
+  // never folded.
+  if (this is RcTextData) return setOf(id)
   val bytes =
     runCatching { RcWireWriter().also { RcDocumentCodec.encodeOperation(it, this) }.toByteArray() }
       .getOrNull() ?: return null
