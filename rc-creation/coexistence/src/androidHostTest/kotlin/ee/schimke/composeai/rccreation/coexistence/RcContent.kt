@@ -16,6 +16,7 @@ import ee.schimke.composeai.rccreation.compose.layout.RemoteOffset
 import ee.schimke.composeai.rccreation.compose.layout.RemoteSize
 import ee.schimke.composeai.rccreation.compose.layout.RemoteStateLayout
 import ee.schimke.composeai.rccreation.compose.layout.RemoteText
+import ee.schimke.composeai.rccreation.compose.layout.remoteComponent
 import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
 import ee.schimke.composeai.rccreation.compose.modifier.clickable
 import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
@@ -173,6 +174,22 @@ internal object RcContent {
       }
       RemoteCanvas(modifier = RemoteModifier.fillMaxWidth().height(20.rdp)) {
         drawRect(RemotePaint(), RemoteOffset(0f.rf, 0f.rf), RemoteSize(level * 3f, 20f.rf))
+      }
+    }
+  }
+
+  /**
+   * A named float that starts as its component's measured width, read by text and by a state
+   * layout: how a consumer sizes or switches content by the space it is given. It is asked for in
+   * a layout, as `remoteComponent()` has to be: the root is not a component it can name.
+   */
+  @Composable
+  fun NamedMeasuredWidth() {
+    RemoteColumn(modifier = RemoteModifier.fillMaxSize()) {
+      val width = RemoteFloat.createNamedRemoteFloat("measured", remoteComponent().width)
+      RemoteText(width.toRemoteStringWithPadding(4, 0, 0))
+      RemoteStateLayout(width.isGreaterThanOrEqualTo(200f.rf)) { wide ->
+        RemoteText(if (wide) "WIDE".rs else "NARROW".rs)
       }
     }
   }
