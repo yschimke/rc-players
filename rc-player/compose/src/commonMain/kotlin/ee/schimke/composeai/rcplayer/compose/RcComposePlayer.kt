@@ -1169,15 +1169,28 @@ private fun RenderLayoutNode(
   val contentInset =
     if (inspecting) rcContentInsetPixels(layoutModifiers, state, density) else Offset.Zero
   val goneReport: @Composable () -> Unit = {
-    if (geometryIds.any(state::hasComponentValues) || inspecting) {
+    if (inspecting) {
       // A gone component still reports, at zero size. Dropping it would make "laid out at nothing"
       // and "not in the tree" the same observation, and they are not: the corpus asserts `isGone`
-      // on nodes it still expects to find.
+      // on nodes it still expects to find. The node is a child of its parent like any other, so
+      // under inspection a spaced `Column` or `Row` counts it; production does not report this way.
       Layout(
         Modifier.trackComponentGeometry(geometryIds, state, geometryProbe, playerRoot)
           .inspectComponent(node, visibility, inspecting, contentInset),
       ) { _, _ ->
         layout(0, 0) {}
+      }
+    } else if (geometryIds.any(state::hasComponentValues)) {
+      // What the document reads of a gone component (a `ComponentValue` its own clip, size or
+      // text asks of it) is zero, as it is in AndroidX, where a GONE component measures nothing.
+      // It is published, not laid out: a zero-size child of the parent is still a child, and a
+      // parent that spaces its children (`spacedBy`) would leave a gap for it. AndroidX's layouts
+      // skip a GONE child altogether. A document gets a `ComponentValue` in every component that
+      // has a rounded clip, so this is not rare.
+      SideEffect {
+        geometryIds.distinct().filter(state::hasComponentValues).forEach {
+          state.publishComponentGeometry(it, RcComponentGeometry(0f, 0f, 0f, 0f, 0f, 0f))
+        }
       }
     }
   }

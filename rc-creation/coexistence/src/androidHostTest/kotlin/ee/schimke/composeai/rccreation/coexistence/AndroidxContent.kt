@@ -9,6 +9,15 @@ import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.creation.compose.action.hostAction
 import androidx.compose.remote.creation.compose.capture.RemoteComposeCreationState
 import androidx.compose.remote.creation.compose.layout.RemoteBox
+import androidx.compose.remote.creation.compose.layout.RemoteArrangement
+import androidx.compose.remote.creation.compose.modifier.background
+import androidx.compose.remote.creation.compose.modifier.clip
+import androidx.compose.remote.creation.compose.modifier.size
+import androidx.compose.remote.creation.compose.modifier.visibility
+import androidx.compose.remote.creation.compose.shapes.RemoteCircleShape
+import androidx.compose.remote.creation.compose.shapes.RemoteRoundedCornerShape
+import androidx.compose.remote.creation.compose.state.rc
+import androidx.compose.remote.creation.compose.state.ri
 import androidx.compose.remote.creation.compose.layout.RemoteCanvas
 import androidx.compose.remote.creation.compose.layout.RemoteColumn
 import androidx.compose.remote.creation.compose.layout.RemoteFlowRow
@@ -192,6 +201,43 @@ internal object AndroidxContent {
       RemoteStateLayout(width.isGreaterThanOrEqualTo(200f.rf)) { wide ->
         RemoteText(if (wide) "WIDE".rs else "NARROW".rs)
       }
+    }
+  }
+
+  /**
+   * A column of three texts whose middle child, a clipped box of a named integer's visibility, is
+   * hidden: it takes no room and no spacing. [clipped] is whether that child has a rounded clip.
+   * [shown] is the named integer's start, above 3 shows the child.
+   */
+  @Composable
+  fun HiddenClipped(clipped: Boolean, shown: Int) {
+    RemoteColumn(
+      modifier = RemoteModifier.fillMaxSize(),
+      verticalArrangement = RemoteArrangement.spacedBy(10.rdp),
+    ) {
+      val state = RemoteInt.createNamedRemoteInt("poll_state", shown)
+      RemoteText("HEAD".rs)
+      val visible = state.isGreaterThan(3.ri).toRemoteInt()
+      var box = RemoteModifier.fillMaxWidth().visibility(visible)
+      if (clipped) box = box.clip(RemoteRoundedCornerShape(12.rdp))
+      RemoteColumn(modifier = box.background(0xFF3366FF.toInt().rc)) { RemoteText("MIDDLE".rs) }
+      RemoteText("FOOT".rs)
+    }
+  }
+
+  /** A 40 px box clipped to a circle, with a named integer's visibility on it (1) or on its parent (2). */
+  @Composable
+  fun CircleClipUnderVisibility(where: Int) {
+    val shown = RemoteInt.createNamedRemoteInt("poll_state", 5).isGreaterThan(3.ri).toRemoteInt()
+    RemoteBox(
+      (if (where == 2) RemoteModifier.visibility(shown) else RemoteModifier).fillMaxSize()
+    ) {
+      RemoteBox(
+        (if (where == 1) RemoteModifier.visibility(shown) else RemoteModifier)
+          .size(40.rdp)
+          .clip(RemoteCircleShape)
+          .background(0xFF3366FF.toInt().rc)
+      ) {}
     }
   }
 }
