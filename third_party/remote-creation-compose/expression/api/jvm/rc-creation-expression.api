@@ -42,6 +42,7 @@ public class ee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreati
 	public final fun setReady (Z)V
 	public fun setRemoteDensity (Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;)V
 	public final fun withCanvasOperationsScope (Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
+	public final fun writeLateComponentValues ()V
 }
 
 public final class ee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationStateKt {

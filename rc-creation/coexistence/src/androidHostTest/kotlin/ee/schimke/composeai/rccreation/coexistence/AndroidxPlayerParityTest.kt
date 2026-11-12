@@ -2,9 +2,21 @@
 
 package ee.schimke.composeai.rccreation.coexistence
 
+import android.graphics.Bitmap
 import android.os.SystemClock
 import androidx.compose.remote.creation.profile.RcPlatformProfiles
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
+import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocument
+import ee.schimke.composeai.rccreation.compose.layout.RemoteContentScale
+import ee.schimke.composeai.rccreation.compose.layout.RemoteImage
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
+import ee.schimke.composeai.rccreation.compose.state.rb
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
@@ -16,9 +28,11 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
 import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
+import java.io.ByteArrayOutputStream
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -141,6 +155,70 @@ class AndroidxPlayerParityTest {
     assertEquals(wireText(theirs, without = semantics), wireText(ours))
     val click = wireOperations(ours).indexOfFirst { it is RcClickModifier }
     assertEquals("tap", (wireOperations(ours)[click + 1] as RcTextData).text)
+  }
+
+  /**
+   * A named value two canvases read is one variable, as AndroidX 1.0.0-alpha23 writes it, and both
+   * bars follow it when the host sets it. This library declares it ahead of the root, alpha23 in
+   * the first canvas. (androidx-main, whose creation state forgets what a canvas declared when the
+   * canvas ends, declares it again in the second: two variables of one name.)
+   */
+  @Test
+  fun aNamedValueReadByTwoCanvasesIsOneVariable() {
+    val theirs = androidx { AndroidxContent.NamedInTwoCanvases() }
+    val ours = rcDocument { RcContent.NamedInTwoCanvases() }
+    val named = setOf("RcNamedVariable", "RcFloatConstant")
+    assertEquals(wireText(theirs, without = named), wireText(ours, without = named))
+    val operations = wireOperations(ours)
+    assertEquals(1, operations.count { it is RcNamedVariable })
+    assertTrue(
+      operations.indexOfFirst { it is RcNamedVariable } <
+        operations.indexOfFirst { it is RcRootLayout }
+    )
+
+    for ((writer, bytes) in listOf("AndroidX" to theirs, "rc-players" to ours)) {
+      val played = Played(context, bytes)
+      fun bars(): List<Int> {
+        val image = played.frame()
+        return listOf(10, 30).map { y -> (0 until Width).count { image.getPixel(it, y) != 0 } }
+      }
+      assertEquals(listOf(20, 30), bars(), writer)
+      played.player.setUserLocalFloat("level", 40f)
+      repeat(3) { played.frame() }
+      assertEquals(listOf(80, 120), bars(), "$writer, after the host set the value")
+    }
+  }
+
+  /**
+   * A bitmap carried inline is `TYPE_PNG_8888`, as AndroidX's writer stores an encoded image, and
+   * AndroidX's player draws it. (This library wrote `TYPE_PNG`, the type of a URL's or a file's
+   * image, which AndroidX's decoder refuses inline.)
+   */
+  @Test
+  fun anInlineBitmapDrawsInAndroidxsPlayer() {
+    val colour = android.graphics.Color.rgb(183, 28, 28)
+    val image =
+      Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).apply { eraseColor(colour) }.asImageBitmap()
+    val bytes = runBlocking {
+      captureCommonRemoteDocument(
+        RemoteCreationDisplayInfo(Width, Height, 160),
+        encodePng = { bitmap ->
+          ByteArrayOutputStream()
+            .also { bitmap.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+            .toByteArray()
+        },
+      ) {
+        RemoteImage(
+          remember { image.rb },
+          contentDescription = null,
+          modifier = RemoteModifier.fillMaxSize(),
+          contentScale = RemoteContentScale.FillBounds,
+        )
+      }
+    }
+    val data = wireOperations(bytes).filterIsInstance<RcBitmapData>().single()
+    assertEquals(RcBitmapData.TYPE_PNG_8888, data.type)
+    assertEquals(colour, Played(context, bytes).frame().getPixel(Width / 2, Height / 2))
   }
 
   /**

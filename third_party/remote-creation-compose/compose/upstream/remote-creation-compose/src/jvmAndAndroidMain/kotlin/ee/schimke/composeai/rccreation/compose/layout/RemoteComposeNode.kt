@@ -174,6 +174,9 @@ internal class RemoteRootNode : RemoteComposeNode() {
             remoteCanvas.writeLayout(WriterOp.StartRoot)
             renderChildren(creationState, remoteCanvas)
             remoteCanvas.writeLayout(WriterOp.EndRoot)
+            // LOCAL PATCH (rc-players): after the root, the sizes asked of a component after it
+            // was written; see `RemoteComposeCreationState.getComponentValue`.
+            creationState.writeLateComponentValues()
         } finally {
             forEachNode { node ->
                 node.componentToken?.let { it.restoreRequested(requested[it] ?: 0) }

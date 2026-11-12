@@ -226,21 +226,41 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
             } else if (state.componentId != TokenComponentState.NO_COMPONENT_ID && !state.inside) {
                 // LOCAL PATCH (rc-players): asked for after the component has been written (a later
                 // sibling sized from it). Nothing more can be written in it, and written where it
-                // is asked for it would be another component's, so it is written ahead of the root,
-                // where a player finds its component by the id it names. Upstream reserves a
-                // variable no `ComponentValue` ever binds.
+                // is asked for it would be another component's. It is written after the root
+                // ([writeLateComponentValues]), where a player finds its component by the id it
+                // names. Upstream reserves a variable no `ComponentValue` ever binds.
                 state.emittedMask = state.emittedMask or (1 shl propIndex)
-                document.beginGlobal()
-                try {
-                    Utils.idFromNan(componentValue(state.componentId, propIndex))
-                } finally {
-                    document.endGlobal()
-                }
+                val reserved = Utils.idFromNan(document.reserveFloatVariable())
+                lateComponentValues.add(LateComponentValue(state.componentId, propIndex, reserved))
+                reserved
             } else {
                 Utils.idFromNan(document.reserveFloatVariable())
             }
         state.variableIds[propIndex] = allocatedId
         return Utils.asNan(allocatedId)
+    }
+
+    // LOCAL PATCH (rc-players): see [getComponentValue].
+    private class LateComponentValue(val componentId: Int, val propIndex: Int, val variableId: Int)
+
+    private val lateComponentValues = ArrayList<LateComponentValue>()
+
+    /**
+     * LOCAL PATCH (rc-players): writes the `ComponentValue`s asked for after their components were
+     * written. Called once the root has ended: AndroidX's `CoreDocument.registerVariables` binds a
+     * value outside every component to the component it names, if that component comes before it in
+     * the document; one ahead of the root finds no component.
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun writeLateComponentValues() {
+        for (value in lateComponentValues) {
+            document.addComponentValue(
+                RemoteComponentToken.toComponentValueType(value.propIndex),
+                value.componentId,
+                Utils.asNan(value.variableId),
+            )
+        }
+        lateComponentValues.clear()
     }
 
     /** Writes (once) the `ComponentValue` [propIndex] of [componentId] and returns its variable. */
@@ -291,6 +311,7 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
         lastComponentId = -1
         claimedComponentIds.clear()
         tokenComponentStates.clear()
+        lateComponentValues.clear()
         currentRenderingNode = null
     }
 

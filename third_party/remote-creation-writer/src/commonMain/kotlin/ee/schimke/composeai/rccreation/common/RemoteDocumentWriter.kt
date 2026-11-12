@@ -110,10 +110,11 @@ private constructor(
   private var headerSize = 0
   private var nextComponentId = -1
   private var lastComponentId = -1
-  private var nextDataId = 42
+  private var nextDataId = FirstDataId
   private var paintResetPending = true
   private val textIds = mutableMapOf<String, Int>()
   private val pathIds = mutableMapOf<PathKey, Int>()
+  private val namedIds = mutableMapOf<NamedKey, Int>()
   private val textFromFloatIds = mutableMapOf<TextFromFloatKey, Int>()
   private val bitmapUrlIds = mutableMapOf<String, Int>()
   private val inlineBitmapIds = mutableMapOf<List<Byte>, Int>()
@@ -171,6 +172,18 @@ private constructor(
 
   /** The id [newId] gave out last, until the operation that defines it is written. */
   private var undefinedId = NoId
+
+  /**
+   * The ids declared with the document, not in a component: ahead of the root, or in a global
+   * section. Every other id is a component's, defined where its component is written.
+   */
+  private val documentIds = mutableSetOf<Int>()
+
+  /**
+   * Whether an id asked about ([inBody]) since the last operation was started is a component's:
+   * what the declaration about to be written reads is then not all the document's.
+   */
+  private var readsComponentId = false
 
   init {
     writeHeader(headerTags)
@@ -941,12 +954,44 @@ private constructor(
    * list, a time, image or text attribute, a text transform, a bitmap font and the rest are
    * dropped, and what reads them reads nothing. AndroidX's writer writes them there all the same (a
    * named state first read by a component's modifier is then one its host cannot set). Such a
-   * declaration made in a layout is written ahead of the root instead, where every player keeps it;
-   * [declaration] does that. A named value's name goes there and its value, if it is of a kind a
-   * layout keeps, stays where it is declared: a name binds an id wherever the id is defined.
+   * declaration made in a layout is written ahead of the root instead, where every player keeps it,
+   * provided everything it reads is declared there too ([documentIds]): one that reads what a
+   * component declares (a text cut at a position a component's expression gives) stays where
+   * AndroidX's writer puts it, as the document cannot read a value before its component has it.
+   * [declaration] does that.
    */
   private fun inLayoutContent(): Boolean =
     rootOpen && canvasDepth == 0 && targets.isEmpty() && functionScopes.isEmpty()
+
+  /**
+   * Declares the value named [name], of the `NamedVariable` type [type], once for the document and
+   * ahead of the root, and returns its id; [writeValue] writes the value the name starts with.
+   *
+   * LOCAL PATCH (rc-players): a named value is the host's, not a component's: the host sets it by
+   * name, whatever is drawn. AndroidX's writer declares one where it is first read, and its
+   * creation state, which forgets what a canvas declared when the canvas ends
+   * (`withCanvasOperationsScope`), asks again in the next canvas: a name read by two canvases is
+   * then two variables, each with the name. AndroidX's player sets every variable of a name; a
+   * player or a tool that keeps one variable a name sets one of them. Here a name is one variable,
+   * declared with the document like any other constant the host owns, wherever it is first read.
+   */
+  private fun named(type: Int, name: String, writeValue: (Int) -> Unit): Int =
+    namedIds.getOrPut(NamedKey(type, name)) {
+      val id = newId()
+      // Ahead of the root, unless that is where this already is.
+      val aheadOfRoot = rootOpen || targets.isNotEmpty()
+      if (aheadOfRoot) {
+        if (globalInsertPoint == -1) globalInsertPoint = bodyBuffer.size
+        targets += Target(globalBuffer, template = false)
+      }
+      try {
+        writeNamedVariable(id, type, name)
+        writeValue(id)
+      } finally {
+        if (aheadOfRoot) targets.removeAt(targets.lastIndex)
+      }
+      id
+    }
 
   /** Ends the innermost template: what was written for it goes where it was begun. */
   private fun endTemplate() {
@@ -1058,7 +1103,7 @@ private constructor(
   override fun addComponentValue(type: Int, componentId: Int, valueId: Float) {
     val id = Utils.idFromNan(valueId)
     componentValueIds.getOrPut(pairKey(componentId, type)) { id }
-    declaration(ComponentValue, id, inBody(id))
+    declaration(ComponentValue, id, isBodys(id))
     wire.writeInt(type)
     wire.writeInt(componentId)
     wire.writeInt(id)
@@ -1078,21 +1123,20 @@ private constructor(
     return id.toLong() + IntegerIdOffset
   }
 
-  override fun addNamedInt(name: String, initialValue: Int): Long {
-    val id = newId()
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.INT_TYPE, name)
-    writeInteger(id, initialValue)
-    return id.toLong() + IntegerIdOffset
-  }
+  override fun addNamedInt(name: String, initialValue: Int): Long =
+    named(ee.schimke.composeai.rccreation.common.NamedVariable.INT_TYPE, name) { id ->
+        writeInteger(id, initialValue)
+      }
+      .toLong() + IntegerIdOffset
 
-  override fun addNamedFloat(name: String, initialValue: Float): Float {
-    val id = newId()
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.FLOAT_TYPE, name)
-    declaration(DataFloat, id, readsBody = false)
-    wire.writeInt(id)
-    wire.writeFloat(initialValue)
-    return Utils.asNan(id)
-  }
+  override fun addNamedFloat(name: String, initialValue: Float): Float =
+    Utils.asNan(
+      named(ee.schimke.composeai.rccreation.common.NamedVariable.FLOAT_TYPE, name) { id ->
+        declaration(DataFloat, id, readsBody = false)
+        wire.writeInt(id)
+        wire.writeFloat(initialValue)
+      },
+    )
 
   override fun reserveFloatVariable(): Float = Utils.asNan(reservedId())
 
@@ -1184,7 +1228,7 @@ private constructor(
   }
 
   override fun idLookup(outputId: Int, arrayId: Float, index: Float) {
-    declaration(IdLookup, outputId, inBody(outputId) || inBody(arrayId) || inBody(index))
+    declaration(IdLookup, outputId, isBodys(outputId) || inBody(arrayId) || inBody(index))
     wire.writeInt(outputId)
     wire.writeInt(Utils.idFromNan(arrayId))
     wire.writeFloat(index)
@@ -1223,7 +1267,7 @@ private constructor(
   }
 
   override fun textMerge(outputId: Int, leftId: Int, rightId: Int) {
-    declaration(TextMerge, outputId, inBody(outputId) || inBody(leftId) || inBody(rightId))
+    declaration(TextMerge, outputId, isBodys(outputId) || inBody(leftId) || inBody(rightId))
     wire.writeInt(outputId)
     wire.writeInt(leftId)
     wire.writeInt(rightId)
@@ -1367,7 +1411,10 @@ private constructor(
       val id = newId()
       writeBitmapData(
         id = id,
-        type = BitmapTypePng,
+        // As `RemoteComposeBuffer.storeBitmap`: an encoded image carried inline is `TYPE_PNG_8888`.
+        // `TYPE_PNG` is for a URL or a file; AndroidX's `RemoteBitmapDecoder` refuses it inline
+        // ("TYPE_PNG is not allowed for ENCODING_INLINE"), and its View player draws nothing of it.
+        type = BitmapTypePng8888,
         width = width,
         encoding = BitmapEncodingInline,
         height = height,
@@ -1377,15 +1424,19 @@ private constructor(
     }
 
   /** [addBitmapPng], bound to [name] the way [addNamedBitmapUrl] binds a URL bitmap. */
-  public fun addNamedBitmapPng(name: String, png: ByteArray, width: Int, height: Int): Int {
-    val id = addBitmapPng(png, width, height)
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.IMAGE_TYPE, name)
-    return id
-  }
+  public fun addNamedBitmapPng(name: String, png: ByteArray, width: Int, height: Int): Int =
+    nameBitmap(name, addBitmapPng(png, width, height))
 
-  override fun addNamedBitmapUrl(name: String, url: String): Int {
-    val id = addBitmapUrl(url)
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.IMAGE_TYPE, name)
+  override fun addNamedBitmapUrl(name: String, url: String): Int =
+    nameBitmap(name, addBitmapUrl(url))
+
+  /** Names the bitmap [id], once: the bitmap is shared by its content, and so is its name. */
+  private fun nameBitmap(name: String, id: Int): Int {
+    val key = NamedKey(ee.schimke.composeai.rccreation.common.NamedVariable.IMAGE_TYPE, name)
+    if (namedIds[key] != id) {
+      namedIds[key] = id
+      writeNamedVariable(id, key.type, name)
+    }
     return id
   }
 
@@ -1471,11 +1522,12 @@ private constructor(
     return id
   }
 
-  override fun addNamedColor(name: String, argb: Int): Int {
-    val id = addColor(argb)
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.COLOR_TYPE, name)
-    return id
-  }
+  override fun addNamedColor(name: String, argb: Int): Int =
+    named(ee.schimke.composeai.rccreation.common.NamedVariable.COLOR_TYPE, name) { id ->
+      declaration(ColorConstant, id, readsBody = false)
+      wire.writeInt(id)
+      wire.writeInt(argb)
+    }
 
   override fun addColorExpression(color1: Int, color2: Int, tween: Float): Short =
     writeColorExpression(mode = 0, color1 = color1, color2 = color2, fourth = tween.toRawBits())
@@ -1538,12 +1590,10 @@ private constructor(
     return id
   }
 
-  override fun addNamedString(name: String, initialValue: String): Int {
-    val id = newId()
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.STRING_TYPE, name)
-    writeText(id, initialValue)
-    return id
-  }
+  override fun addNamedString(name: String, initialValue: String): Int =
+    named(ee.schimke.composeai.rccreation.common.NamedVariable.STRING_TYPE, name) { id ->
+      writeText(id, initialValue)
+    }
 
   override fun addLong(value: Long): Int {
     val id = newId()
@@ -1551,12 +1601,10 @@ private constructor(
     return id
   }
 
-  override fun addNamedLong(name: String, initialValue: Long): Int {
-    val id = newId()
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.LONG_TYPE, name)
-    writeLong(id, initialValue)
-    return id
-  }
+  override fun addNamedLong(name: String, initialValue: Long): Int =
+    named(ee.schimke.composeai.rccreation.common.NamedVariable.LONG_TYPE, name) { id ->
+      writeLong(id, initialValue)
+    }
 
   override fun addPathData(pathData: FloatArray, winding: Int): Int =
     pathIds.getOrPut(PathKey(pathData, winding)) {
@@ -2126,6 +2174,7 @@ private constructor(
       bodyScopes.lastOrNull()?.add(undefinedId)
       undefinedId = NoId
     }
+    readsComponentId = false
     checkSupported(opcode)
     wire = target()
     wire.writeByte(opcode)
@@ -2147,21 +2196,41 @@ private constructor(
     check(!readsBody || innermost?.buffer !== globalBuffer) {
       "A declaration in a global section reads what a loop, pattern or for-each body owns"
     }
-    val owned = bodyScopes.isNotEmpty() && (readsBody || functionScopes.isNotEmpty())
+    // What a global section declares is the document's, not a body's.
+    val owned =
+      innermost?.buffer !== globalBuffer &&
+        bodyScopes.isNotEmpty() &&
+        (readsBody || functionScopes.isNotEmpty())
     if (owned) bodyScopes.last() += id
     wire =
       when {
         innermost?.template == true && !owned ->
           targets.lastOrNull { !it.template }?.buffer ?: bodyBuffer
-        // Not one a player keeps among a layout's operations: ahead of the root.
-        opcode !in KeptInLayoutContent && !owned && inLayoutContent() -> globalBuffer
+        // Not one a player keeps among a layout's operations: ahead of the root, unless it reads
+        // what a component declares, which the document cannot read before the component has.
+        opcode !in KeptInLayoutContent && !owned && !readsComponentId && inLayoutContent() ->
+          globalBuffer
         else -> target()
       }
+    if (wire === globalBuffer || !rootOpen) documentIds += id
+    readsComponentId = false
     wire.writeByte(opcode)
   }
 
+  /**
+   * Whether [id], which the declaration about to be written defines, is an open body's already (an
+   * id its caller reserved there).
+   */
+  private fun isBodys(id: Int): Boolean {
+    readIds += id
+    return bodyScopes.any { id in it }
+  }
+
+  /** Whether [id], which the declaration about to be written reads, belongs to an open body. */
   private fun inBody(id: Int): Boolean {
     readIds += id
+    // Below the first id a writer gives out are the player's own variables (time, the window).
+    if (id >= FirstDataId && id !in documentIds) readsComponentId = true
     return bodyScopes.any { id in it }
   }
 
@@ -2238,25 +2307,25 @@ private constructor(
     }
 
   private fun writeText(id: Int, value: String) {
-    declaration(DataText, id, inBody(id))
+    declaration(DataText, id, isBodys(id))
     wire.writeInt(id)
     wire.writeUtf8(value)
   }
 
   private fun writeLong(id: Int, value: Long) {
-    declaration(DataLong, id, inBody(id))
+    declaration(DataLong, id, isBodys(id))
     wire.writeInt(id)
     wire.writeLong(value)
   }
 
   private fun writeInteger(id: Int, value: Int) {
-    declaration(DataInt, id, inBody(id))
+    declaration(DataInt, id, isBodys(id))
     wire.writeInt(id)
     wire.writeInt(value)
   }
 
   private fun writeNamedVariable(id: Int, type: Int, name: String) {
-    declaration(NamedVariable, id, inBody(id))
+    declaration(NamedVariable, id, isBodys(id))
     wire.writeInt(id)
     wire.writeInt(type)
     wire.writeUtf8(name)
@@ -2270,7 +2339,7 @@ private constructor(
     height: Int,
     data: ByteArray,
   ) {
-    declaration(DataBitmap, id, inBody(id))
+    declaration(DataBitmap, id, isBodys(id))
     wire.writeInt(id)
     wire.writeInt((type shl 16) or (width and 0xffff))
     wire.writeInt((encoding shl 16) or (height and 0xffff))
@@ -2359,6 +2428,9 @@ private constructor(
     public const val VerticalTop: Int = 4
 
     private const val NoId = -1
+
+    /** The first id a writer gives out, as `RemoteComposeState.START_ID`. */
+    private const val FirstDataId = 42
     private const val Header = 0
     private const val PaintValues = 40
     private const val DataBitmap = 101
@@ -2555,6 +2627,7 @@ private constructor(
         AttributeColor,
       )
 
+    private const val BitmapTypePng8888 = 0
     private const val BitmapTypePng = 1
     private const val BitmapTypeRaw8888 = 3
     private const val BitmapEncodingInline = 0
@@ -2605,6 +2678,8 @@ private class PathKey(pathData: FloatArray, private val winding: Int) {
 
   override fun hashCode(): Int = 31 * bits.contentHashCode() + winding
 }
+
+private data class NamedKey(val type: Int, val name: String)
 
 private data class TextFromFloatKey(
   val valueBits: Int,

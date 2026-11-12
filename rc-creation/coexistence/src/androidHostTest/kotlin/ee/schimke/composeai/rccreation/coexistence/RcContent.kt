@@ -26,6 +26,7 @@ import ee.schimke.composeai.rccreation.compose.modifier.onTouchUp
 import ee.schimke.composeai.rccreation.compose.state.LazyRemoteString
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteFloat
 import ee.schimke.composeai.rccreation.compose.state.MutableRemoteString
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
 import ee.schimke.composeai.rccreation.compose.state.RemoteInt
 import ee.schimke.composeai.rccreation.compose.state.RemotePaint
 import ee.schimke.composeai.rccreation.compose.state.RemoteStateInstanceKey
@@ -159,6 +160,20 @@ internal object RcContent {
         modifier =
           RemoteModifier.fillMaxWidth().height(40.rdp).clickable(hostAction("tap".rs))
       )
+    }
+  }
+
+  /** A named float two canvases and a box's width read. */
+  @Composable
+  fun NamedInTwoCanvases() {
+    val level = RemoteFloat.createNamedRemoteFloat("level", 10f)
+    RemoteColumn(modifier = RemoteModifier.fillMaxSize()) {
+      RemoteCanvas(modifier = RemoteModifier.fillMaxWidth().height(20.rdp)) {
+        drawRect(RemotePaint(), RemoteOffset(0f.rf, 0f.rf), RemoteSize(level * 2f, 20f.rf))
+      }
+      RemoteCanvas(modifier = RemoteModifier.fillMaxWidth().height(20.rdp)) {
+        drawRect(RemotePaint(), RemoteOffset(0f.rf, 0f.rf), RemoteSize(level * 3f, 20f.rf))
+      }
     }
   }
 }

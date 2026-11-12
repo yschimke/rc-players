@@ -26,6 +26,7 @@ import androidx.compose.remote.creation.compose.modifier.onTouchUp
 import androidx.compose.remote.creation.compose.state.LazyRemoteString
 import androidx.compose.remote.creation.compose.state.MutableRemoteFloat
 import androidx.compose.remote.creation.compose.state.MutableRemoteString
+import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteInt
 import androidx.compose.remote.creation.compose.state.RemotePaint
 import androidx.compose.remote.creation.compose.state.RemoteStateInstanceKey
@@ -159,6 +160,20 @@ internal object AndroidxContent {
         modifier =
           RemoteModifier.fillMaxWidth().height(40.rdp).clickable(hostAction("tap".rs))
       )
+    }
+  }
+
+  /** A named float two canvases and a box's width read. */
+  @Composable
+  fun NamedInTwoCanvases() {
+    val level = RemoteFloat.createNamedRemoteFloat("level", 10f)
+    RemoteColumn(modifier = RemoteModifier.fillMaxSize()) {
+      RemoteCanvas(modifier = RemoteModifier.fillMaxWidth().height(20.rdp)) {
+        drawRect(RemotePaint(), RemoteOffset(0f.rf, 0f.rf), RemoteSize(level * 2f, 20f.rf))
+      }
+      RemoteCanvas(modifier = RemoteModifier.fillMaxWidth().height(20.rdp)) {
+        drawRect(RemotePaint(), RemoteOffset(0f.rf, 0f.rf), RemoteSize(level * 3f, 20f.rf))
+      }
     }
   }
 }
