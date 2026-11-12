@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.2](https://github.com/yschimke/rc-players/compare/v3.1.1...v3.1.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* **player:** a gone component with a ComponentValue takes no room in its parent ([#873](https://github.com/yschimke/rc-players/issues/873)) ([428cfef](https://github.com/yschimke/rc-players/commit/428cfef75e20e4887492f2dd03694369956b4420))
+
 ## [3.1.1](https://github.com/yschimke/rc-players/compare/v3.1.0...v3.1.1) (2026-11-12)
 
 
