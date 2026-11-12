@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.0](https://github.com/yschimke/rc-players/compare/v3.0.0...v3.1.0) (2026-11-12)
+
+
+### Features
+
+* coreTextAsBitmapFonts draws constant colours as tinted white masks ([#863](https://github.com/yschimke/rc-players/issues/863)) ([07a8a30](https://github.com/yschimke/rc-players/commit/07a8a305a9b15d1eaf1051820196c7bb7f837432))
+* **creation:** a capture Profile, and declarations written where AndroidX's writer writes them ([#865](https://github.com/yschimke/rc-players/issues/865)) ([0c1eecb](https://github.com/yschimke/rc-players/commit/0c1eecbbac932b578877c15f368e51ae608a1e2b))
+
 ## [3.0.0](https://github.com/yschimke/rc-players/compare/v2.33.0...v3.0.0) (2026-11-11)
 
 
