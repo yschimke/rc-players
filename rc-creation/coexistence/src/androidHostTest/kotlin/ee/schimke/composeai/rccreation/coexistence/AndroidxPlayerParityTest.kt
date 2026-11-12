@@ -252,4 +252,38 @@ class AndroidxPlayerParityTest {
     repeat(3) { theirs.frame() }
     assertEquals(Width / 4, theirs.bar(), "AndroidX's document now follows the named state")
   }
+
+  /**
+   * A named float whose default is its component's measured width is that width when played, in a
+   * document from either writer: the text made from it and the branch chosen by it are drawn the
+   * same. This library names it ahead of the root and writes its expression in the component, after
+   * the `ComponentValue` it reads; the host can then set it by name, which it cannot in AndroidX's
+   * document (see [aNamedStateFirstReadInALayoutCanBeSetByTheHost]).
+   */
+  @Test
+  fun aNamedFloatThatStartsAsItsComponentsWidthIsThatWidth() {
+    val theirs = androidx { AndroidxContent.NamedMeasuredWidth() }
+    val ours = rcDocument { RcContent.NamedMeasuredWidth() }
+    val operations = wireOperations(ours)
+    val named = operations.filterIsInstance<RcNamedVariable>().single()
+    val expression = operations.indexOfFirst { it is RcFloatExpression && it.id == named.id }
+    assertTrue(operations.indexOf(named) < operations.indexOfFirst { it is RcRootLayout })
+    assertTrue(operations.indexOfFirst { it is RcComponentValue } in 0 until expression)
+
+    fun Played.drawn(): List<Int> {
+      val image = frame()
+      val pixels = IntArray(Width * Height)
+      image.getPixels(pixels, 0, Width, 0, 0, Width, Height)
+      return pixels.toList()
+    }
+    val wide = Played(context, theirs).also { repeat(3) { _ -> it.frame() } }.drawn()
+    assertTrue(wide.any { it != 0 }, "AndroidX's document draws nothing")
+    val played = Played(context, ours)
+    repeat(3) { played.frame() }
+    assertEquals(wide, played.drawn(), "the width and the wide branch, as AndroidX's document")
+    // Below the threshold the other branch is drawn: the state layout follows the named value.
+    played.player.setUserLocalFloat("measured", 100f)
+    repeat(3) { played.frame() }
+    assertTrue(played.drawn() != wide, "the host's value changed nothing")
+  }
 }
