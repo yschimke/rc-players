@@ -6,11 +6,13 @@ import android.os.SystemClock
 import androidx.compose.remote.creation.profile.RcPlatformProfiles
 import androidx.compose.runtime.Composable
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
+import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
 import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
@@ -124,6 +126,21 @@ class AndroidxPlayerParityTest {
       played.settle()
       assertEquals(Width / 4, played.bar(), writer)
     }
+  }
+
+  /**
+   * The click and its action's name, inside the click modifier. AndroidX 1.0.0-alpha23 follows a
+   * click with an `AccessibilitySemantics` that says nothing (no role, not clickable); androidx-main
+   * writes one only for a `role`, and so does this library.
+   */
+  @Test
+  fun aClickableIsWrittenAsAndroidxWritesIt() {
+    val theirs = androidx { AndroidxContent.Clickable() }
+    val ours = rcDocument { RcContent.Clickable() }
+    val semantics = setOf("RcAccessibilitySemantics")
+    assertEquals(wireText(theirs, without = semantics), wireText(ours))
+    val click = wireOperations(ours).indexOfFirst { it is RcClickModifier }
+    assertEquals("tap", (wireOperations(ours)[click + 1] as RcTextData).text)
   }
 
   /**

@@ -1,14 +1,80 @@
-package ee.schimke.composeai.rcplayer.edit
-
-import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+package ee.schimke.composeai.rcplayer.protocol
 
 // Transcribed from AndroidX remote-core `Operations.java` (the per-API-level and per-profile
 // operation sets) at androidx-main `21a1a95e41d` (2026-11-10), which 1.0.0-alpha23 already matches,
 // and remote-creation-android 1.0.0-alpha19 `RcPlatformProfiles.java` (the Wear widgets
 // allow-list). Same order as the source so a diff against a newer release is a line-for-line read.
-// `RcTargetProfile.of` combines them exactly as `Operations.getOperations(apiLevel, profiles)`
-// does, and `RcAndroidxProfileTablesTest` pins the result for every combination AndroidX's own
-// `OperationsProfilesTest` pins.
+// [RcProfileOperations.of] combines them exactly as `Operations.getOperations(apiLevel, profiles)`
+// does, and `:rc-player-edit`'s `RcAndroidxProfileTablesTest` pins the result for every
+// combination AndroidX's own `OperationsProfilesTest` pins.
+
+/**
+ * The operations a player built from AndroidX's own tables decodes: `remote-core`'s
+ * `Operations.getOperations`. A document's reader (`:rc-player-edit`'s `RcTargetProfile`) and its
+ * writer (`:rc-creation-writer`'s `Profile`) both take their sets from here, so a capture for a
+ * player writes what a check for that player accepts.
+ */
+public object RcProfileOperations {
+  /** `RcProfiles.PROFILE_EXPERIMENTAL`. */
+  private const val EXPERIMENTAL: Int = 0x1
+
+  /** `RcProfiles.PROFILE_DEPRECATED`. */
+  private const val DEPRECATED: Int = 0x2
+
+  /** `RcProfiles.PROFILE_WIDGETS`. */
+  private const val WIDGETS: Int = 0x100
+
+  /** `RcProfiles.PROFILE_ANDROIDX`. */
+  private const val ANDROIDX: Int = 0x200
+
+  /**
+   * `Operations.getOperations(apiLevel, profiles)`: the opcodes a document declaring [apiLevel] and
+   * the `RcProfiles` bits [profiles] may hold. Several intersected profiles (`ANDROIDX or WIDGETS`)
+   * give the operations every one of them supports.
+   */
+  public fun of(apiLevel: Int, profiles: Int): Set<Int> {
+    if (apiLevel <= 6) return BASE_OPERATIONS + V6_OPERATIONS
+    val sets = buildList {
+      if (profiles and ANDROIDX != 0) {
+        add(
+          profileOperations(
+            profiles,
+            V7_ANDROIDX_OPERATIONS,
+            V7_ANDROIDX_EXPERIMENTAL_OPERATIONS,
+            V7_ANDROIDX_DEPRECATED_OPERATIONS,
+          ),
+        )
+      }
+      if (profiles and WIDGETS != 0) {
+        add(
+          profileOperations(
+            profiles,
+            V7_WIDGETS_OPERATIONS,
+            V7_WIDGETS_EXPERIMENTAL_OPERATIONS,
+            V7_WIDGETS_DEPRECATED_OPERATIONS,
+          ),
+        )
+      }
+    }
+    val shared = sets.reduceOrNull { left, right -> left intersect right }.orEmpty()
+    return BASE_OPERATIONS + shared + V7_BASELINE_OPERATIONS
+  }
+
+  /** The Wear widgets (Tiles) allow-list; see [WEAR_WIDGETS_OPERATIONS]. */
+  public val WEAR_WIDGETS: Set<Int>
+    get() = WEAR_WIDGETS_OPERATIONS
+
+  private fun profileOperations(
+    profiles: Int,
+    operations: Set<Int>,
+    experimental: Set<Int>,
+    deprecated: Set<Int>,
+  ): Set<Int> = buildSet {
+    addAll(operations)
+    if (profiles and EXPERIMENTAL != 0) addAll(experimental)
+    if (profiles and DEPRECATED != 0) addAll(deprecated)
+  }
+}
 
 /**
  * AndroidX `Operations.EVENT_ACTION`, which its experimental AndroidX profile decodes. This library

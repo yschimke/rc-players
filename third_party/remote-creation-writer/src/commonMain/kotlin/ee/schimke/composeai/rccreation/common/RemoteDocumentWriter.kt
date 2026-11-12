@@ -1,21 +1,76 @@
 package ee.schimke.composeai.rccreation.common
 
+import ee.schimke.composeai.rccreation.common.Header as HeaderTags
+
 /**
  * Common Kotlin write side for Remote Compose documents.
  *
  * This starts with the layout/text surface used by the cross-platform smoke client. Additional
  * operations are added here as Creation Compose moves off the legacy Java writer.
  */
-public class RemoteDocumentWriter(
-  width: Int,
-  height: Int,
-  densityBehavior: Int = DensityBehaviorDp,
-  profiles: Int = 0,
+public class RemoteDocumentWriter
+private constructor(
+  /** Who the document is written for; null for a writer made from a size alone. */
+  private val profile: Profile?,
+  tags: Array<out HTag>,
+  @Suppress("UNUSED_PARAMETER") primary: Unit,
 ) : RemoteWriter {
-  private val documentWidth = width
-  private val documentHeight = height
-  private val documentDensityBehavior = densityBehavior
-  private val documentProfiles = profiles
+  /**
+   * A writer for no profile in particular: it writes any operation, and names in the header the
+   * [RcProfiles] bits it is given.
+   *
+   * LOCAL PATCH (rc-players): such a writer adds to those bits what the operations it was asked to
+   * write need (the experimental profile for a custom component, a mesh or a pattern, AndroidX's
+   * for an offscreen bitmap or a shader), where a writer made for a [Profile] refuses them.
+   */
+  public constructor(
+    width: Int,
+    height: Int,
+    densityBehavior: Int = DensityBehaviorDp,
+    profiles: Int = 0,
+  ) : this(null, standardTags(width, height, "", profiles, densityBehavior), Unit)
+
+  /**
+   * A writer for [profile], with [tags] as the header's properties, in that order, as
+   * `RemoteComposeWriter(Profile, HTag...)`. The profile's bits are added as `DOC_PROFILES` unless
+   * a tag gives them. The writer refuses an operation the profile does not support.
+   */
+  public constructor(profile: Profile, vararg tags: HTag) : this(profile, tags, Unit)
+
+  /**
+   * A writer for a document of [creationDisplayInfo] under [profile], with the header
+   * `RemoteComposeWriter(CreationDisplayInfo, String, Profile)` writes: width, height, content
+   * description, profiles and density behavior.
+   */
+  public constructor(
+    creationDisplayInfo: CreationDisplayInfo,
+    contentDescription: String?,
+    profile: Profile,
+  ) : this(
+    profile,
+    standardTags(
+      creationDisplayInfo.width,
+      creationDisplayInfo.height,
+      contentDescription ?: "",
+      profile.operationsProfiles,
+      creationDisplayInfo.densityBehavior,
+    ),
+    Unit,
+  )
+
+  /** The document API level: [profile]'s, or the current one. */
+  private val apiLevel: Int = profile?.apiLevel ?: CoreDocument.DOCUMENT_API_LEVEL
+
+  /** The header's properties, as they are written. */
+  private val headerTags: List<HTag> = filterAndValidateTags(apiLevel, profile, tags)
+
+  /** Whether each opcode may be written; null when there is no [profile] to say. */
+  private val validOperations: BooleanArray? = profile?.let {
+    BooleanArray(256).also { valid ->
+      it.supportedOperations.forEach { opcode -> if (opcode in valid.indices) valid[opcode] = true }
+    }
+  }
+  private val documentProfiles = headerTags.intValue(HeaderTags.DOC_PROFILES) ?: 0
   private var customComponentsUsed = false
   private var drawToBitmapUsed = false
   private var shaderUsed = false
@@ -118,8 +173,19 @@ public class RemoteDocumentWriter(
   private var undefinedId = NoId
 
   init {
-    writeHeader(width, height, profiles, densityBehavior)
+    writeHeader(headerTags)
     headerSize = wire.toByteArray().size
+  }
+
+  /** The API level of the document being written, as `RemoteComposeWriter.getApiLevel`. */
+  public val documentApiLevel: Int
+    get() = apiLevel
+
+  /** As `WireBuffer.start`: an operation outside the profile is not written. */
+  private fun checkSupported(opcode: Int) {
+    if (validOperations != null && !validOperations[opcode]) {
+      throw RuntimeException("Operation $opcode is not supported for this version")
+    }
   }
 
   override fun createFloatId(): Float = Utils.asNan(reservedId())
@@ -202,11 +268,17 @@ public class RemoteDocumentWriter(
     wire.writeInt(-1)
     modifier.writeTo(this)
     contentSection(modifier.contentComponentId)
+    // As `RemoteComposeWriter.startCanvas`: up to API level 7 the drawing is in a `CanvasContent`.
+    if (apiLevel <= 7) {
+      operation(LayoutCanvasContent)
+      wire.writeInt(resolveComponentId(-1))
+    }
     canvasDepth++
   }
 
   override fun endCanvas() {
     canvasDepth--
+    if (apiLevel <= 7) containerEnd()
     endLayout()
   }
 
@@ -364,7 +436,8 @@ public class RemoteDocumentWriter(
         wire.writeInt(if (modifier.dynamicColor) modifier.color else 0)
         // Wire version 1, as AndroidX's `BorderModifierOperation` writes: players draw the stroke
         // inside the bounds. Version 0 is the legacy centred stroke, half of it clipped away.
-        wire.writeInt(BorderWireVersion)
+        // As `RemoteComposeWriter.addModifierBorder`: the legacy form up to API level 7.
+        wire.writeInt(if (apiLevel <= 7) 0 else BorderWireVersion)
         wire.writeInt(0)
         wire.writeFloat(modifier.width)
         wire.writeFloat(modifier.roundedCorner)
@@ -515,6 +588,32 @@ public class RemoteDocumentWriter(
 
   override fun startTextComponent(data: RemoteTextData) {
     require(data.fontAxisIds.size == data.fontAxisValues.size)
+    if (validOperations != null && !validOperations[CoreText]) {
+      // As `RemoteComposeBuffer.addTextComponentStart`: `TextLayout` is the backstop where the
+      // profile has no `CoreText`. It carries the text, its colour (or colour id), size, style,
+      // weight, family, alignment, overflow and line count, and none of the rest.
+      operation(LayoutText)
+      wire.writeInt(resolveComponentId(data.modifier.componentId))
+      wire.writeInt(-1)
+      wire.writeInt(data.textId)
+      wire.writeInt(if (data.colorId != -1) data.colorId else data.color)
+      wire.writeFloat(data.fontSize)
+      wire.writeInt(data.fontStyle)
+      wire.writeFloat(data.fontWeight)
+      wire.writeInt(data.fontFamilyId)
+      wire.writeInt(
+        if (data.colorId != -1) {
+          (TextLayoutFlagDynamicColor shl 16) or (data.textAlign and 0xffff)
+        } else {
+          data.textAlign
+        },
+      )
+      wire.writeInt(data.overflow)
+      wire.writeInt(data.maxLines)
+      data.modifier.writeTo(this)
+      contentSection(data.modifier.contentComponentId)
+      return
+    }
     operation(CoreText)
     wire.writeInt(data.textId)
     val parameters = mutableListOf<() -> Unit>()
@@ -721,6 +820,7 @@ public class RemoteDocumentWriter(
     val parameterIds = IntArray(args.size) { reservedId() }
     parameterIds.forEachIndexed { index, parameterId -> args[index] = Utils.asNan(parameterId) }
     functionScopes += FunctionScope(snapshotCaches())
+    checkSupported(FunctionDefine)
     wire = target()
     wire.writeByte(FunctionDefine)
     wire.writeInt(id)
@@ -862,25 +962,28 @@ public class RemoteDocumentWriter(
     // Custom inputs/components require the experimental profile even when the caller uses the
     // general-purpose common capture API. Keep that requirement in the writer, not a host shim.
     var profiles = documentProfiles
-    if (customComponentsUsed) profiles = profiles or ProfileAndroidxExperimental
+    // A writer made for a profile wrote the header its profile asked for, and refused what the
+    // profile has no operation for. What follows is for a writer made from a size alone.
+    val upgrade = profile == null
+    if (upgrade && customComponentsUsed) profiles = profiles or ProfileAndroidxExperimental
     // LOCAL PATCH (rc-players): remote-core reads `DrawToBitmap` only under the AndroidX or widgets
     // profile (`Operations.createMapV7_Androidx`/`_Widgets`); under neither, AndroidX stops at the
     // first one with "Unknown operation". Upstream's writer refuses the operation under such a
     // profile; this one names AndroidX's in the header, as it names the experimental profile for
     // custom components.
-    if (drawToBitmapUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
+    if (upgrade && drawToBitmapUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
       profiles = profiles or ProfileAndroidx
     }
     // LOCAL PATCH (rc-players): likewise `ShaderData`, which remote-core reads only under the
     // AndroidX profile (`createMapV7_Androidx`; the widgets maps have no runtime shaders).
     // (A widgets-profile document can't hold one: `addShader` refuses it there.)
-    if (shaderUsed && (profiles and ProfileAndroidx) == 0) {
+    if (upgrade && shaderUsed && (profiles and ProfileAndroidx) == 0) {
       profiles = profiles or ProfileAndroidx
     }
     // LOCAL PATCH (rc-players): the 2D mesh operations are read only by remote-core's experimental
     // V7 maps (`createMapV7_Androidx_Experimental` / `_Widgets_Experimental`), so a document that
     // carries one names the experimental profile, and AndroidX's when it names neither base.
-    if (mesh2DUsed) {
+    if (upgrade && mesh2DUsed) {
       if ((profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
         profiles = profiles or ProfileAndroidx
       }
@@ -888,10 +991,8 @@ public class RemoteDocumentWriter(
     }
     // LOCAL PATCH (rc-players): likewise the pattern operations (`MACRO_DEFINE`, `MACRO_CALL`,
     // `MACRO_FOR_EACH`), which remote-core reads only under the AndroidX experimental map
-    // (`createMapV7_Androidx_Experimental`; the widgets maps have none). The capture functions take
-    // no profile, so without this a document from `RemoteCanvas.definePattern` or `forEach` would
-    // be refused as holding unknown operations.
-    if (patternUsed) {
+    // (`createMapV7_Androidx_Experimental`; the widgets maps have none).
+    if (upgrade && patternUsed) {
       if ((profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
         profiles = profiles or ProfileAndroidx
       }
@@ -899,20 +1000,27 @@ public class RemoteDocumentWriter(
     }
     // LOCAL PATCH (rc-players): and a bitmap-font text run on a path, read under the AndroidX or
     // widgets profile (`createMapV7_Androidx` / `_Widgets`), as `DrawToBitmap` is.
-    if (bitmapFontOnPathUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
+    if (
+      upgrade && bitmapFontOnPathUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0
+    ) {
       profiles = profiles or ProfileAndroidx
     }
     val header =
-      if (profiles != documentProfiles || customComponentsUsed) {
+      // LOCAL PATCH (rc-players): a document with a custom component is version 1.2, whoever it
+      // is written for; rc-players' players read a custom component's properties by it.
+      if ((upgrade && profiles != documentProfiles) || customComponentsUsed) {
         val previous = wire
         val output = RemoteWireBuffer()
         wire = output
         try {
           writeHeader(
-            documentWidth,
-            documentHeight,
-            profiles,
-            documentDensityBehavior,
+            headerTags.map {
+              if (it.tag == HeaderTags.DOC_PROFILES) {
+                HTag(it.tag, profiles)
+              } else {
+                it
+              }
+            },
             if (customComponentsUsed) CustomMinorVersion else MinorVersion,
           )
           output.toByteArray()
@@ -1884,38 +1992,55 @@ public class RemoteDocumentWriter(
     wire.writeInt(descriptionId)
   }
 
-  private fun writeHeader(
-    width: Int,
-    height: Int,
-    profiles: Int,
-    densityBehavior: Int,
-    minorVersion: Int = MinorVersion,
-  ) {
+  /**
+   * As `Header.apply`: from API level 7 the version, with the magic number, and the properties; at
+   * API level 6 the legacy header, which is version 1.0.0, the size and no capabilities.
+   */
+  private fun writeHeader(tags: List<HTag>, minorVersion: Int = MinorVersion) {
     // Header may be encoded into a separate buffer at export; do not switch back to the body.
+    checkSupported(Header)
     wire.writeByte(Header)
+    if (apiLevel == 6) {
+      wire.writeInt(MajorVersion)
+      wire.writeInt(0)
+      wire.writeInt(0)
+      wire.writeInt(tags.intValue(HeaderTags.DOC_WIDTH) ?: 0)
+      wire.writeInt(tags.intValue(HeaderTags.DOC_HEIGHT) ?: 0)
+      wire.writeLong(0L)
+      return
+    }
     wire.writeInt(MagicNumber or MajorVersion)
     wire.writeInt(minorVersion)
     wire.writeInt(PatchVersion)
-    wire.writeInt(5)
-    headerInt(HeaderWidth, width)
-    headerInt(HeaderHeight, height)
-    headerString(HeaderContentDescription, "")
-    headerInt(HeaderProfiles, profiles)
-    headerInt(HeaderDensityBehavior, densityBehavior)
-  }
-
-  private fun headerInt(tag: Int, value: Int) {
-    wire.writeShort(tag)
-    wire.writeShort(IntSize)
-    wire.writeInt(value)
-  }
-
-  private fun headerString(tag: Int, value: String) {
-    val encoded = value.encodeToByteArray()
-    wire.writeShort(tag or HeaderStringType)
-    wire.writeShort(encoded.size + IntSize)
-    wire.writeInt(encoded.size)
-    wire.writeBytes(encoded)
+    wire.writeInt(tags.size)
+    tags.forEach { tag ->
+      val key = tag.tag.toInt()
+      when (val value = tag.value) {
+        is String -> {
+          val encoded = value.encodeToByteArray()
+          wire.writeShort(key or (HeaderTypeString shl 10))
+          wire.writeShort(encoded.size + IntSize)
+          wire.writeInt(encoded.size)
+          wire.writeBytes(encoded)
+        }
+        is Int -> {
+          wire.writeShort(key or (HeaderTypeInt shl 10))
+          wire.writeShort(IntSize)
+          wire.writeInt(value)
+        }
+        is Float -> {
+          wire.writeShort(key or (HeaderTypeFloat shl 10))
+          wire.writeShort(IntSize)
+          wire.writeFloat(value)
+        }
+        is Long -> {
+          wire.writeShort(key or (HeaderTypeLong shl 10))
+          wire.writeShort(LongSize)
+          wire.writeLong(value)
+        }
+        else -> throw IllegalArgumentException("Unsupported property type: $value")
+      }
+    }
   }
 
   private fun contentSection(requested: Int = -1) {
@@ -2001,6 +2126,7 @@ public class RemoteDocumentWriter(
       bodyScopes.lastOrNull()?.add(undefinedId)
       undefinedId = NoId
     }
+    checkSupported(opcode)
     wire = target()
     wire.writeByte(opcode)
   }
@@ -2015,6 +2141,7 @@ public class RemoteDocumentWriter(
    */
   private fun declaration(opcode: Int, id: Int, readsBody: Boolean) {
     check(opcode in DeclarationOpcodes) { "Operation $opcode is not a declaration" }
+    checkSupported(opcode)
     undefinedId = NoId
     val innermost = targets.lastOrNull()
     check(!readsBody || innermost?.buffer !== globalBuffer) {
@@ -2173,6 +2300,60 @@ public class RemoteDocumentWriter(
   }
 
   public companion object {
+    /** A header property, as `RemoteComposeWriter.hTag`. */
+    public fun hTag(tag: Short, value: Any): HTag = HTag(tag, value)
+
+    /** The properties `RemoteComposeWriter(CreationDisplayInfo, String, Profile)` writes. */
+    private fun standardTags(
+      width: Int,
+      height: Int,
+      contentDescription: String,
+      profiles: Int,
+      densityBehavior: Int,
+    ): Array<HTag> =
+      arrayOf(
+        HTag(HeaderTags.DOC_WIDTH, width),
+        HTag(HeaderTags.DOC_HEIGHT, height),
+        HTag(HeaderTags.DOC_CONTENT_DESCRIPTION, contentDescription),
+        HTag(HeaderTags.DOC_PROFILES, profiles),
+        HTag(HeaderTags.DOC_DENSITY_BEHAVIOR, densityBehavior),
+      )
+
+    /**
+     * As `RemoteComposeWriter.filterAndValidateTags`, and its constructor's `DOC_PROFILES`: no
+     * `COMPRESS` (this writer does not compress); before API level 8 no density behavior, which has
+     * to be the legacy one; and the profile's bits unless a tag gives them.
+     */
+    private fun filterAndValidateTags(
+      apiLevel: Int,
+      profile: Profile?,
+      tags: Array<out HTag>,
+    ): List<HTag> {
+      var result = tags.filter { it.tag != HeaderTags.COMPRESS }
+      if (profile == null) return result
+      require(apiLevel >= 6) { "Unsupported API level $apiLevel" }
+      require(
+        apiLevel >= 7 || result.none { it.tag == HeaderTags.DOC_SCROLL },
+      ) {
+        "DOC_SCROLL is only supported in API level 7 or higher"
+      }
+      if (apiLevel < 8) {
+        val densityBehavior = result.intValue(HeaderTags.DOC_DENSITY_BEHAVIOR)
+        require(
+          densityBehavior == null || densityBehavior == CoreDocument.DENSITY_BEHAVIOR_LEGACY,
+        ) {
+          "densityBehavior is only supported in API level 8 or higher"
+        }
+        result = result.filter { it.tag != HeaderTags.DOC_DENSITY_BEHAVIOR }
+      }
+      if (result.none { it.tag == HeaderTags.DOC_PROFILES }) {
+        result = result + HTag(HeaderTags.DOC_PROFILES, profile.operationsProfiles)
+      }
+      return result
+    }
+
+    private fun List<HTag>.intValue(tag: Short): Int? = firstOrNull { it.tag == tag }?.value as? Int
+
     public const val DensityBehaviorDp: Int = 2
     public const val HorizontalStart: Int = 1
     public const val VerticalTop: Int = 4
@@ -2247,6 +2428,8 @@ public class RemoteDocumentWriter(
     private const val LoopStart = 215
     private const val ContainerEnd = 214
     private const val CoreText = 239
+    private const val LayoutText = 208
+    private const val LayoutCanvasContent = 207
     private const val ClipRect = 39
     private const val ClipPath = 38
     private const val DrawRect = 42
@@ -2398,12 +2581,16 @@ public class RemoteDocumentWriter(
     private const val ProfileWidgets = 0x100
     private const val PatchVersion = 0
     private const val IntSize = 4
-    private const val HeaderWidth = 5
-    private const val HeaderHeight = 6
-    private const val HeaderContentDescription = 9
-    private const val HeaderProfiles = 14
-    private const val HeaderDensityBehavior = 27
-    private const val HeaderStringType = 3 shl 10
+    private const val LongSize = 8
+
+    /** `Header.DATA_TYPE_`: a property's type, in the bits above its tag. */
+    private const val HeaderTypeInt = 0
+    private const val HeaderTypeFloat = 1
+    private const val HeaderTypeLong = 2
+    private const val HeaderTypeString = 3
+
+    /** `TextLayout.FLAG_IS_DYNAMIC_COLOR`. */
+    private const val TextLayoutFlagDynamicColor = 1
     private const val TextParameterId = 1
     private const val TextParameterFontSize = 5
     private const val IntegerIdOffset = 0x100000000L

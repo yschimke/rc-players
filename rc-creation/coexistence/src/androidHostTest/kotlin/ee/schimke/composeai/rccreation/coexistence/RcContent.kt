@@ -10,10 +10,14 @@ import ee.schimke.composeai.rccreation.compose.action.hostAction
 import ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState
 import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
 import ee.schimke.composeai.rccreation.compose.layout.RemoteCanvas
+import ee.schimke.composeai.rccreation.compose.layout.RemoteColumn
+import ee.schimke.composeai.rccreation.compose.layout.RemoteFlowRow
 import ee.schimke.composeai.rccreation.compose.layout.RemoteOffset
 import ee.schimke.composeai.rccreation.compose.layout.RemoteSize
 import ee.schimke.composeai.rccreation.compose.layout.RemoteStateLayout
+import ee.schimke.composeai.rccreation.compose.layout.RemoteText
 import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.clickable
 import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
 import ee.schimke.composeai.rccreation.compose.modifier.fillMaxWidth
 import ee.schimke.composeai.rccreation.compose.modifier.height
@@ -30,6 +34,7 @@ import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rccreation.compose.state.remoteTween
 import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rccreation.compose.state.rs
+import ee.schimke.composeai.rccreation.compose.state.rsp
 
 /** The parity content, on rc-players' creation API. [AndroidxContent] is the same text. */
 internal object RcContent {
@@ -125,6 +130,35 @@ internal object RcContent {
           RemoteBox(modifier = RemoteModifier.fillMaxWidth().height(20.rdp))
         }
       }
+    }
+  }
+
+  /** Two texts and a canvas: what a restricted profile writes otherwise (text) and as it is. */
+  @Composable
+  fun Labelled() {
+    RemoteColumn(modifier = RemoteModifier.fillMaxSize()) {
+      RemoteText("Title".rs, fontSize = 20.rsp)
+      RemoteText("Body".rs)
+      RemoteCanvas(modifier = RemoteModifier.fillMaxWidth().height(20.rdp)) {
+        drawRect(RemotePaint(), RemoteOffset(0f.rf, 0f.rf), RemoteSize(width, height))
+      }
+    }
+  }
+
+  /** A flow row, which only AndroidX's experimental profile has an operation for. */
+  @Composable
+  fun Flowing() {
+    RemoteFlowRow(modifier = RemoteModifier.fillMaxSize()) { RemoteText("Body".rs) }
+  }
+
+  /** A box that runs a host action when clicked. */
+  @Composable
+  fun Clickable() {
+    RemoteBox(modifier = RemoteModifier.fillMaxSize()) {
+      RemoteBox(
+        modifier =
+          RemoteModifier.fillMaxWidth().height(40.rdp).clickable(hostAction("tap".rs))
+      )
     }
   }
 }

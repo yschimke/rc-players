@@ -328,11 +328,24 @@ public object CollapsiblePriority {
 
 /** The opcodes of `Operations` the carried Kotlin names, as AndroidX's `remote-core` has them. */
 public object Operations {
+  public const val HEADER: Int = 0
   public const val CLIP_PATH: Int = 38
   public const val COLOR_THEME: Int = 196
+  public const val LAYOUT_CANVAS_CONTENT: Int = 207
+  public const val LAYOUT_TEXT: Int = 208
   public const val MODIFIER_TOUCH_DOWN: Int = 219
   public const val MODIFIER_TOUCH_UP: Int = 220
   public const val MODIFIER_TOUCH_CANCEL: Int = 225
+  public const val CORE_TEXT: Int = 239
+  public const val LAYOUT_FLOW: Int = 240
+  public const val TEXT_STYLE: Int = 242
+
+  /**
+   * The operations a document of [apiLevel] under the [RcProfiles] bits [profiles] may hold, as
+   * `Operations.getOperations`; null for an API level before 6, which has none.
+   */
+  public fun getOperations(apiLevel: Int, profiles: Int): Set<Int>? =
+    if (apiLevel < 6) null else operationsOf(apiLevel, profiles)
 }
 
 /**

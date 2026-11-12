@@ -43,7 +43,10 @@ class RcMesh2DPlaybackTest {
     runSkikoComposeUiTest(Size(100f, 100f), Density(1f), block = block)
 
   private fun author(): ByteArray = runBlocking {
-    captureCommonRemoteDocument(RemoteCreationDisplayInfo(100, 100, 160)) {
+    captureCommonRemoteDocument(
+      RemoteCreationDisplayInfo(100, 100, 160),
+      profile = RcEmbeddedPlayerProfile,
+    ) {
       RemoteCanvas(RemoteModifier.fillMaxSize()) {
         drawMesh2D(uCount = 2, vCount = 2) {
           xy(u * width, v * height)
@@ -89,7 +92,10 @@ class RcMesh2DPlaybackTest {
   @Test
   fun aSharedSubExpressionMeshPlaysSmoothly() = run {
     val bytes = runBlocking {
-      captureCommonRemoteDocument(RemoteCreationDisplayInfo(100, 100, 160)) {
+      captureCommonRemoteDocument(
+        RemoteCreationDisplayInfo(100, 100, 160),
+        profile = RcEmbeddedPlayerProfile,
+      ) {
         RemoteCanvas(RemoteModifier.fillMaxSize()) {
           drawMesh2D(uCount = 6, vCount = 4) {
             val t = RemoteTimeVariables.animationTime * 0.6f
@@ -126,7 +132,10 @@ class RcMesh2DPlaybackTest {
     val directory = System.getenv("RC_LAYOUT_EVIDENCE_DIR")?.let(::File) ?: return
     directory.mkdirs()
     val bytes = runBlocking {
-      captureCommonRemoteDocument(RemoteCreationDisplayInfo(360, 200, 160)) {
+      captureCommonRemoteDocument(
+        RemoteCreationDisplayInfo(360, 200, 160),
+        profile = RcEmbeddedPlayerProfile,
+      ) {
         RemoteCanvas(RemoteModifier.fillMaxSize()) {
           drawMesh2D(uCount = 6, vCount = 4) {
             val t = RemoteTimeVariables.animationTime * 0.6f

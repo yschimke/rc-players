@@ -208,6 +208,16 @@ public final class ee/schimke/composeai/rccreation/common/CoreText {
 	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/CoreText;
 }
 
+public final class ee/schimke/composeai/rccreation/common/CreationDisplayInfo {
+	public fun <init> (IIII)V
+	public synthetic fun <init> (IIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getDensity ()F
+	public final fun getDensityBehavior ()I
+	public final fun getDensityDpi ()I
+	public final fun getHeight ()I
+	public final fun getWidth ()I
+}
+
 public final class ee/schimke/composeai/rccreation/common/CubicEasing {
 	public fun <init> ()V
 	public final fun get (F)F
@@ -294,6 +304,50 @@ public final class ee/schimke/composeai/rccreation/common/FloatAnimation {
 public final class ee/schimke/composeai/rccreation/common/GeneralEasing {
 	public static final field CUBIC_STANDARD I
 	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/GeneralEasing;
+}
+
+public final class ee/schimke/composeai/rccreation/common/HTag {
+	public fun <init> (SLjava/lang/Object;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getTag ()S
+	public final fun getValue ()Ljava/lang/Object;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/common/Header {
+	public static final field COMPRESS S
+	public static final field COMPRESSION_DEFLATE I
+	public static final field COMPRESSION_NONE I
+	public static final field DEBUG S
+	public static final field DOC_CONTENT_DESCRIPTION S
+	public static final field DOC_DATA_UPDATE S
+	public static final field DOC_DENSITY_AT_GENERATION S
+	public static final field DOC_DENSITY_BEHAVIOR S
+	public static final field DOC_DESIRED_FPS S
+	public static final field DOC_HEIGHT S
+	public static final field DOC_PROFILES S
+	public static final field DOC_SCROLL S
+	public static final field DOC_SOURCE S
+	public static final field DOC_WIDTH S
+	public static final field FEATURE_ARRAY_LISTENERS S
+	public static final field FEATURE_CLICK_VERSION S
+	public static final field FEATURE_DATA_PASS_CANVAS_OPS S
+	public static final field FEATURE_DISALLOW_INTERCEPT_TOUCH S
+	public static final field FEATURE_LT_RESIZE S
+	public static final field FEATURE_MEASURE_VERSION S
+	public static final field FEATURE_OPTIMIZATION_LEVEL S
+	public static final field FEATURE_PAINT_MEASURE S
+	public static final field FEATURE_PRIORITY_FIX S
+	public static final field FEATURE_TOUCH_VERSION S
+	public static final field HOST_EXCEPTION_HANDLER S
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/Header;
+	public static final field SCROLL_HORIZONTAL I
+	public static final field SCROLL_VERTICAL I
+	public static final field TEST_ACTIONS S
+	public static final field TEST_AFTER S
+	public static final field TEST_COLOR_THEME S
+	public static final field TEST_TIME S
 }
 
 public final class ee/schimke/composeai/rccreation/common/HostNamedActionOperation {
@@ -417,10 +471,17 @@ public final class ee/schimke/composeai/rccreation/common/NamedVariable {
 public final class ee/schimke/composeai/rccreation/common/Operations {
 	public static final field CLIP_PATH I
 	public static final field COLOR_THEME I
+	public static final field CORE_TEXT I
+	public static final field HEADER I
 	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/Operations;
+	public static final field LAYOUT_CANVAS_CONTENT I
+	public static final field LAYOUT_FLOW I
+	public static final field LAYOUT_TEXT I
 	public static final field MODIFIER_TOUCH_CANCEL I
 	public static final field MODIFIER_TOUCH_DOWN I
 	public static final field MODIFIER_TOUCH_UP I
+	public static final field TEXT_STYLE I
+	public final fun getOperations (II)Ljava/util/Set;
 }
 
 public final class ee/schimke/composeai/rccreation/common/PaintBundle {
@@ -531,6 +592,21 @@ public final class ee/schimke/composeai/rccreation/common/PaintContext {
 	public static final field TEXT_MEASURE_SPACES I
 }
 
+public final class ee/schimke/composeai/rccreation/common/Profile {
+	public fun <init> (IILee/schimke/composeai/rccreation/common/Profile$SupportedOperationsProvider;Lee/schimke/composeai/rccreation/common/RemoteComposeWriterFactory;)V
+	public fun <init> (IILee/schimke/composeai/rccreation/common/RemoteComposeWriterFactory;)V
+	public final fun create (Lee/schimke/composeai/rccreation/common/CreationDisplayInfo;Ljava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteWriter;
+	public final fun getApiLevel ()I
+	public final fun getOperationsProfiles ()I
+	public final fun getProfileFactory ()Lee/schimke/composeai/rccreation/common/RemoteComposeWriterFactory;
+	public final fun getSupportedOperations ()Ljava/util/Set;
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class ee/schimke/composeai/rccreation/common/Profile$SupportedOperationsProvider {
+	public abstract fun getSupportedOperations ()Ljava/util/Set;
+}
+
 public final class ee/schimke/composeai/rccreation/common/Rc {
 	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/Rc;
 }
@@ -555,6 +631,29 @@ public final class ee/schimke/composeai/rccreation/common/RcPaint {
 	public final fun setStyle (I)Lee/schimke/composeai/rccreation/common/RcPaint;
 	public final fun setTextSize (F)Lee/schimke/composeai/rccreation/common/RcPaint;
 	public final fun setTypeface (IIZ)Lee/schimke/composeai/rccreation/common/RcPaint;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RcPlatformProfiles {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/RcPlatformProfiles;
+	public final fun getANDROIDX ()Lee/schimke/composeai/rccreation/common/Profile;
+	public final fun getANDROIDX7 ()Lee/schimke/composeai/rccreation/common/Profile;
+	public final fun getANDROIDX8 ()Lee/schimke/composeai/rccreation/common/Profile;
+	public final fun getANDROIDX9 ()Lee/schimke/composeai/rccreation/common/Profile;
+	public final fun getWIDGETS_V6 ()Lee/schimke/composeai/rccreation/common/Profile;
+	public final fun getWIDGETS_V7 ()Lee/schimke/composeai/rccreation/common/Profile;
+}
+
+public final class ee/schimke/composeai/rccreation/common/RcProfiles {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/common/RcProfiles;
+	public static final field PROFILE_ANDROIDX I
+	public static final field PROFILE_ANDROID_NATIVE I
+	public static final field PROFILE_BASELINE I
+	public static final field PROFILE_DEPRECATED I
+	public static final field PROFILE_EXPERIMENTAL I
+	public static final field PROFILE_LOW_POWER I
+	public static final field PROFILE_OEM I
+	public static final field PROFILE_WEAR_WIDGETS I
+	public static final field PROFILE_WIDGETS I
 }
 
 public abstract interface class ee/schimke/composeai/rccreation/common/RemoteActionData {
@@ -697,6 +796,10 @@ public final class ee/schimke/composeai/rccreation/common/RemoteComposeBuffer {
 	public final fun packAnimation (FI[FFF)[F
 }
 
+public abstract interface class ee/schimke/composeai/rccreation/common/RemoteComposeWriterFactory {
+	public abstract fun create (Lee/schimke/composeai/rccreation/common/CreationDisplayInfo;Lee/schimke/composeai/rccreation/common/Profile;Ljava/lang/Object;)Lee/schimke/composeai/rccreation/common/RemoteWriter;
+}
+
 public final class ee/schimke/composeai/rccreation/common/RemoteContext {
 	public static final field ID_ACCELERATION_X I
 	public static final field ID_ACCELERATION_Y I
@@ -778,6 +881,8 @@ public final class ee/schimke/composeai/rccreation/common/RemoteDocumentWriter :
 	public static final field VerticalTop I
 	public fun <init> (IIII)V
 	public synthetic fun <init> (IIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lee/schimke/composeai/rccreation/common/CreationDisplayInfo;Ljava/lang/String;Lee/schimke/composeai/rccreation/common/Profile;)V
+	public fun <init> (Lee/schimke/composeai/rccreation/common/Profile;[Lee/schimke/composeai/rccreation/common/HTag;)V
 	public fun addBitmapFont (Ljava/util/List;Ljava/util/Map;)I
 	public final fun addBitmapPng ([BII)I
 	public fun addBitmapUrl (Ljava/lang/String;II)I
@@ -881,6 +986,7 @@ public final class ee/schimke/composeai/rccreation/common/RemoteDocumentWriter :
 	public fun getBuffer ()Lee/schimke/composeai/rccreation/common/RemoteWriter;
 	public fun getColorAttribute (IS)F
 	public fun getComponentIdForCache ()I
+	public final fun getDocumentApiLevel ()I
 	public fun getRcPaint ()Lee/schimke/composeai/rccreation/common/RcPaint;
 	public fun idLookup (FF)I
 	public fun idLookup (IFF)V
@@ -937,6 +1043,7 @@ public final class ee/schimke/composeai/rccreation/common/RemoteDocumentWriter :
 }
 
 public final class ee/schimke/composeai/rccreation/common/RemoteDocumentWriter$Companion {
+	public final fun hTag (SLjava/lang/Object;)Lee/schimke/composeai/rccreation/common/HTag;
 }
 
 public final class ee/schimke/composeai/rccreation/common/RemoteImageData {
@@ -1437,6 +1544,7 @@ public final class ee/schimke/composeai/rccreation/common/RemoteWireBuffer {
 }
 
 public abstract interface class ee/schimke/composeai/rccreation/common/RemoteWriter {
+	public static final field Companion Lee/schimke/composeai/rccreation/common/RemoteWriter$Companion;
 	public abstract fun addBitmapFont (Ljava/util/List;Ljava/util/Map;)I
 	public static synthetic fun addBitmapFont$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;Ljava/util/List;Ljava/util/Map;ILjava/lang/Object;)I
 	public abstract fun addBitmapUrl (Ljava/lang/String;II)I
@@ -1595,6 +1703,10 @@ public abstract interface class ee/schimke/composeai/rccreation/common/RemoteWri
 	public abstract fun timeAttribute (IS[I)F
 	public abstract fun translate (FF)V
 	public abstract fun writeModifier (Lee/schimke/composeai/rccreation/common/RemoteModifierOperation;)V
+}
+
+public final class ee/schimke/composeai/rccreation/common/RemoteWriter$Companion {
+	public final fun hTag (SLjava/lang/Object;)Lee/schimke/composeai/rccreation/common/HTag;
 }
 
 public final class ee/schimke/composeai/rccreation/common/RemoteWriter$DefaultImpls {

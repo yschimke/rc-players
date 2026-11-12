@@ -76,6 +76,9 @@ val generateAndroidxBinding by
       commonSources.asFileTree.matching {
         include("**/*.kt")
         exclude("**/RcCreationCompat.kt")
+        // rc-players' capture profiles; this module has AndroidX's own (`androidXExperimental`,
+        // `androidXExperimentalWrap`) under `src/androidMain`.
+        exclude("**/RcCaptureProfiles.kt")
       },
     )
     packages.put(

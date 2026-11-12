@@ -35,7 +35,10 @@ class RcTextMeasurePaintPlaybackTest {
 
   private fun play(onDraw: RemoteDrawScope.(RemoteTextMeasurer) -> Unit): ImageBitmap {
     val bytes = runBlocking {
-      captureCommonRemoteDocument(RemoteCreationDisplayInfo(WIDTH, HEIGHT, 160)) {
+      captureCommonRemoteDocument(
+        RemoteCreationDisplayInfo(WIDTH, HEIGHT, 160),
+        profile = RcEmbeddedPlayerProfile,
+      ) {
         val measurer = rememberRemoteTextMeasurer()
         RemoteCanvas(RemoteModifier.fillMaxSize()) { onDraw(measurer) }
       }

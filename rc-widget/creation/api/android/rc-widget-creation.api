@@ -6,6 +6,22 @@ public final class ee/schimke/composeai/rcwidget/creation/RcBreakpointAxis : jav
 	public static fun values ()[Lee/schimke/composeai/rcwidget/creation/RcBreakpointAxis;
 }
 
+public final class ee/schimke/composeai/rcwidget/creation/RcCaptureProfiles {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcwidget/creation/RcCaptureProfiles;
+	public final fun forTarget (Lee/schimke/composeai/rcwidget/RcWidgetTarget;)Lee/schimke/composeai/rccreation/common/Profile;
+	public final fun getAndroidXExperimental ()Lee/schimke/composeai/rccreation/common/Profile;
+	public final fun getAndroidXExperimentalWrap ()Lee/schimke/composeai/rccreation/common/Profile;
+	public final fun getLauncherWidgets ()Lee/schimke/composeai/rccreation/common/Profile;
+	public final fun getSystemThemedLauncherWidgets ()Lee/schimke/composeai/rccreation/common/Profile;
+	public final fun getWearWidgets ()Lee/schimke/composeai/rccreation/common/Profile;
+}
+
+public final class ee/schimke/composeai/rcwidget/creation/RcCaptureProfilesKt {
+	public static final fun toCaptureProfile (Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;IILjava/util/Set;Ljava/util/List;)Lee/schimke/composeai/rccreation/common/Profile;
+	public static synthetic fun toCaptureProfile$default (Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;IILjava/util/Set;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/Profile;
+}
+
 public final class ee/schimke/composeai/rcwidget/creation/RcExpressionNames {
 	public static final field $stable I
 	public fun <init> ()V

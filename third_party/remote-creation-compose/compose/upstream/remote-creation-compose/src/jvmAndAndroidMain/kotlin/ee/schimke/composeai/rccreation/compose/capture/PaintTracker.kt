@@ -15,6 +15,7 @@
  */
 package ee.schimke.composeai.rccreation.compose.capture
 
+import ee.schimke.composeai.rccreation.common.Operations
 import ee.schimke.composeai.rccreation.common.PaintBundle
 import ee.schimke.composeai.rccreation.compose.shaders.RemoteShader
 import ee.schimke.composeai.rccreation.compose.state.RemoteBlendMode
@@ -22,6 +23,7 @@ import ee.schimke.composeai.rccreation.compose.state.RemoteColor
 import ee.schimke.composeai.rccreation.compose.state.RemoteColorFilter
 import ee.schimke.composeai.rccreation.compose.state.RemoteFilterQuality
 import ee.schimke.composeai.rccreation.compose.state.RemotePaint
+import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rccreation.compose.text.RemoteFontVariation
 import ee.schimke.composeai.rccreation.compose.text.RemoteTypeface
 import ee.schimke.composeai.rccreation.compose.text.combineFontSettings
@@ -167,9 +169,15 @@ internal class PaintTracker {
 
         val targetFontVariationSettings =
             combineFontSettings(newPaint.fontFeatureSettings, newPaint.fontVariationSettings)
-        // KMP (rc-players): no `Profile`: the settings are sent as they are, as upstream does for a
-        // profile with `CORE_TEXT` and as the removed `allowSendingEmptyFontAxis` did by default.
-        val settingsToUse = targetFontVariationSettings
+        val allowEmptyFontAxis =
+            creationState.profile.supportedOperations.contains(Operations.CORE_TEXT)
+        val settingsToUse =
+            if (allowEmptyFontAxis) {
+                targetFontVariationSettings
+            } else {
+                targetFontVariationSettings
+                    ?: RemoteFontVariation.Settings(RemoteFontVariation.weight(targetWeight.rf))
+            }
         updateIfChanged(settingsToUse, fontVariationSettings) {
             fontVariationSettings = settingsToUse
             if (settingsToUse != null) {

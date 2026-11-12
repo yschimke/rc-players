@@ -24,6 +24,9 @@ import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.graphics.ImageBitmap
+import ee.schimke.composeai.rccreation.common.CoreDocument
+import ee.schimke.composeai.rccreation.common.Profile
+import ee.schimke.composeai.rccreation.common.RcProfiles
 import ee.schimke.composeai.rccreation.common.RemoteComposeWriter
 import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
 import ee.schimke.composeai.rccreation.compose.layout.RemoteComponentToken
@@ -56,11 +59,21 @@ public open class RemoteComposeCaptureState : RemoteComposeCreationState, Remote
 
     public val creationDisplayInfo: RemoteCreationDisplayInfo
 
-    // KMP (rc-players): no `Profile` (it is `remote-creation-core`'s, with `RcPlatformServices`).
-    // The operations a host opted in to and its image encoder stand in for it, and the one
-    // constructor takes the writer, which upstream's `profile.create(…)` makes.
-    public val supportedOperations: Set<Int>
+    public val profile: Profile
+
+    // KMP (rc-players): the host's image encoder, where upstream's profile carries
+    // `RcPlatformServices`.
     private val platformImageProvider: PlatformImageProvider
+
+    // LOCAL PATCH (rc-players): what stood in for the profile's operations before the fork had
+    // `Profile`.
+    @Deprecated(
+        "Read the profile's operations.",
+        ReplaceWith("profile.supportedOperations"),
+    )
+    public val supportedOperations: Set<Int>
+        get() = profile.supportedOperations
+
     public final override var layoutDirection: RemoteLayoutDirection
 
     public final override val densityBehavior: RemoteDensityBehavior
@@ -72,7 +85,61 @@ public open class RemoteComposeCaptureState : RemoteComposeCreationState, Remote
     // `RemoteCanvas.flush`.
     internal var onPaintWrittenOutsideCanvas: (() -> Unit)? = null
 
-    // KMP (rc-players): see above; upstream's three constructors each take a `Profile`.
+    // KMP (rc-players): the image encoder is a parameter of each constructor, where upstream's
+    // profile carries the platform's services.
+    public constructor(
+        creationDisplayInfo: RemoteCreationDisplayInfo,
+        profile: Profile,
+        writerCallback: Any?,
+        remoteDensity: RemoteDensity = RemoteDensity.from(creationDisplayInfo),
+        layoutDirection: RemoteLayoutDirection = RemoteLayoutDirection.Ltr,
+        platformImageProvider: PlatformImageProvider = NoOpPlatformImageProvider,
+    ) : super() {
+        this.creationDisplayInfo = creationDisplayInfo
+        this.profile = profile
+        this.platformImageProvider = platformImageProvider
+        document = profile.create(creationDisplayInfo.toCreationDisplayInfo(), writerCallback)
+        this.remoteDensity = remoteDensity
+        this.layoutDirection = layoutDirection
+        this.densityBehavior = creationDisplayInfo.densityBehavior
+    }
+
+    public constructor(
+        creationDisplayInfo: RemoteCreationDisplayInfo,
+        contentDescription: String?,
+        profile: Profile,
+    ) : super() {
+        this.creationDisplayInfo = creationDisplayInfo
+        this.profile = profile
+        this.platformImageProvider = NoOpPlatformImageProvider
+        document = profile.create(creationDisplayInfo.toCreationDisplayInfo(), null)
+        this.remoteDensity = RemoteDensity.from(creationDisplayInfo)
+        this.layoutDirection = RemoteLayoutDirection.Ltr
+        this.densityBehavior = creationDisplayInfo.densityBehavior
+    }
+
+    // KMP (rc-players): takes the density, the direction and the image encoder too, for a capture
+    // into a writer its caller made (`captureCommonRemoteDocumentInto`, `RemoteDocumentSession`).
+    public constructor(
+        creationDisplayInfo: RemoteCreationDisplayInfo,
+        profile: Profile,
+        writer: RemoteComposeWriter,
+        remoteDensity: RemoteDensity = RemoteDensity.from(creationDisplayInfo),
+        layoutDirection: RemoteLayoutDirection = RemoteLayoutDirection.Ltr,
+        platformImageProvider: PlatformImageProvider = NoOpPlatformImageProvider,
+    ) : super() {
+        this.creationDisplayInfo = creationDisplayInfo
+        this.profile = profile
+        this.platformImageProvider = platformImageProvider
+        this.document = writer
+        this.remoteDensity = remoteDensity
+        this.layoutDirection = layoutDirection
+        this.densityBehavior = creationDisplayInfo.densityBehavior
+    }
+
+    // LOCAL PATCH (rc-players): the constructor of rc-creation-compose 3.0.0, from before the fork
+    // had `Profile`: the operations given answer what a component asks, under AndroidX's profile.
+    @Deprecated("Pass a Profile.")
     public constructor(
         creationDisplayInfo: RemoteCreationDisplayInfo,
         writer: RemoteComposeWriter,
@@ -80,15 +147,14 @@ public open class RemoteComposeCaptureState : RemoteComposeCreationState, Remote
         layoutDirection: RemoteLayoutDirection = RemoteLayoutDirection.Ltr,
         supportedOperations: Set<Int> = emptySet(),
         platformImageProvider: PlatformImageProvider = NoOpPlatformImageProvider,
-    ) : super() {
-        this.creationDisplayInfo = creationDisplayInfo
-        this.supportedOperations = supportedOperations
-        this.platformImageProvider = platformImageProvider
-        this.document = writer
-        this.remoteDensity = remoteDensity
-        this.layoutDirection = layoutDirection
-        this.densityBehavior = creationDisplayInfo.densityBehavior
-    }
+    ) : this(
+        creationDisplayInfo,
+        legacyProfile(supportedOperations),
+        writer,
+        remoteDensity,
+        layoutDirection,
+        platformImageProvider,
+    )
 
     /** Writes [image] to the document through the host's encoder; -1 if it has none. */
     public fun addBitmap(image: ImageBitmap): Int = platformImageProvider.addBitmap(image)
@@ -102,8 +168,12 @@ public open class RemoteComposeCaptureState : RemoteComposeCreationState, Remote
 public val RemoteComposeCreationState.creationDisplayInfo: RemoteCreationDisplayInfo
     get() = (this as RemoteComposeCaptureState).creationDisplayInfo
 
-// KMP (rc-players): no `profile` / `platform` extensions and no `RemoteComposeCreationState(…)`
-// factories, which all take or return a `Profile`. The image encoder is reached the same way.
+@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public val RemoteComposeCreationState.profile: Profile
+    get() = (this as RemoteComposeCaptureState).profile
+
+// KMP (rc-players): no `platform` extension (`RcPlatformServices`); the image encoder is reached
+// the same way.
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteComposeCreationState.addBitmap(image: ImageBitmap): Int =
     (this as RemoteComposeCaptureState).addBitmap(image)
@@ -111,6 +181,61 @@ public fun RemoteComposeCreationState.addBitmap(image: ImageBitmap): Int =
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun RemoteComposeCreationState.addNamedBitmap(name: String, image: ImageBitmap): Int =
     (this as RemoteComposeCaptureState).addNamedBitmap(name, image)
+
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public fun RemoteComposeCreationState(
+    creationDisplayInfo: RemoteCreationDisplayInfo,
+    profile: Profile,
+    writerCallback: Any?,
+    remoteDensity: RemoteDensity = RemoteDensity.from(creationDisplayInfo),
+    layoutDirection: RemoteLayoutDirection = RemoteLayoutDirection.Ltr,
+): RemoteComposeCaptureState =
+    RemoteComposeCaptureState(
+        creationDisplayInfo,
+        profile,
+        writerCallback,
+        remoteDensity,
+        layoutDirection,
+    )
+
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public fun RemoteComposeCreationState(
+    creationDisplayInfo: RemoteCreationDisplayInfo,
+    contentDescription: String?,
+    profile: Profile,
+): RemoteComposeCaptureState =
+    RemoteComposeCaptureState(
+        creationDisplayInfo,
+        contentDescription,
+        profile,
+    )
+
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public fun RemoteComposeCreationState(
+    creationDisplayInfo: RemoteCreationDisplayInfo,
+    profile: Profile,
+    writer: RemoteComposeWriter,
+): RemoteComposeCaptureState = RemoteComposeCaptureState(creationDisplayInfo, profile, writer)
+
+/**
+ * LOCAL PATCH (rc-players): the profile of a capture that names the operations its reader takes and
+ * no profile, as rc-creation-compose 3.0.0's captures did: AndroidX's level and bits, and
+ * [supportedOperations] for what a component asks (`currentProfileSupports…`). Its writer is not
+ * made by it; the caller's own writes what it is asked to.
+ */
+internal fun legacyProfile(supportedOperations: Set<Int>): Profile =
+    Profile(
+        CoreDocument.DOCUMENT_API_LEVEL,
+        RcProfiles.PROFILE_ANDROIDX,
+        { supportedOperations },
+        { creationDisplayInfo, _, _ ->
+            RemoteDocumentWriter(
+                creationDisplayInfo.width,
+                creationDisplayInfo.height,
+                creationDisplayInfo.densityBehavior,
+            )
+        },
+    )
 
 internal object NoOpPlatformImageProvider : PlatformImageProvider {
     override fun addBitmap(image: ImageBitmap): Int = -1
@@ -129,8 +254,15 @@ public interface PlatformImageProvider {
 internal class NoRemoteCompose :
     RemoteComposeCaptureState(
         creationDisplayInfo = RemoteCreationDisplayInfo(1, 1, 160, 1.0f),
-        // KMP (rc-players): the Kotlin writer, where upstream builds a `Profile` for one.
-        writer = RemoteDocumentWriter(1, 1),
+        contentDescription = null,
+        profile =
+            Profile(
+                CoreDocument.DOCUMENT_API_LEVEL,
+                0,
+                { creationDisplayInfo, profile, _ ->
+                    RemoteDocumentWriter(creationDisplayInfo, null, profile)
+                },
+            ),
     )
 
 @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)

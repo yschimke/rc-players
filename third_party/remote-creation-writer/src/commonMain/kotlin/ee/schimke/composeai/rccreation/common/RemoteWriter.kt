@@ -9,6 +9,11 @@ package ee.schimke.composeai.rccreation.common
  * common encoder will implement the same surface directly.
  */
 public interface RemoteWriter {
+  public companion object {
+    /** A header property, as `RemoteComposeWriter.hTag`. */
+    public fun hTag(tag: Short, value: Any): HTag = HTag(tag, value)
+  }
+
   /**
    * The writer itself. AndroidX's Kotlin reaches some operations through
    * `RemoteComposeWriter.getBuffer()` (`writer.buffer.definePattern(…)`), a `RemoteComposeBuffer`

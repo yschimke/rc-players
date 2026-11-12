@@ -1628,14 +1628,41 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcHapticType$Companion
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcHeader : ee/schimke/composeai/rcplayer/protocol/RcOperation {
+	public static final field COMPRESS I
+	public static final field COMPRESSION_DEFLATE I
+	public static final field COMPRESSION_NONE I
 	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcHeader$Companion;
+	public static final field DEBUG I
 	public static final field DENSITY_BEHAVIOR_DP I
 	public static final field DENSITY_BEHAVIOR_LEGACY I
 	public static final field DENSITY_BEHAVIOR_PIXELS I
+	public static final field DOC_CONTENT_DESCRIPTION I
+	public static final field DOC_DATA_UPDATE I
 	public static final field DOC_DENSITY_AT_GENERATION I
 	public static final field DOC_DENSITY_BEHAVIOR I
+	public static final field DOC_DESIRED_FPS I
 	public static final field DOC_HEIGHT I
+	public static final field DOC_PROFILES I
+	public static final field DOC_SCROLL I
+	public static final field DOC_SOURCE I
 	public static final field DOC_WIDTH I
+	public static final field FEATURE_ARRAY_LISTENERS I
+	public static final field FEATURE_CLICK_VERSION I
+	public static final field FEATURE_DATA_PASS_CANVAS_OPS I
+	public static final field FEATURE_DISALLOW_INTERCEPT_TOUCH I
+	public static final field FEATURE_LT_RESIZE I
+	public static final field FEATURE_MEASURE_VERSION I
+	public static final field FEATURE_OPTIMIZATION_LEVEL I
+	public static final field FEATURE_PAINT_MEASURE I
+	public static final field FEATURE_PRIORITY_FIX I
+	public static final field FEATURE_TOUCH_VERSION I
+	public static final field HOST_EXCEPTION_HANDLER I
+	public static final field SCROLL_HORIZONTAL I
+	public static final field SCROLL_VERTICAL I
+	public static final field TEST_ACTIONS I
+	public static final field TEST_AFTER I
+	public static final field TEST_COLOR_THEME I
+	public static final field TEST_TIME I
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcVersion;Ljava/util/List;IIJZ)V
 	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcVersion;Ljava/util/List;IIJZILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lee/schimke/composeai/rcplayer/protocol/RcVersion;
@@ -3083,6 +3110,12 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcPlaySound : ee/schim
 	public final fun getSoundId ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcProfileOperations {
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/protocol/RcProfileOperations;
+	public final fun getWEAR_WIDGETS ()Ljava/util/Set;
+	public final fun of (II)Ljava/util/Set;
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcReferencedOperations : ee/schimke/composeai/rcplayer/protocol/RcOperation {

@@ -15,6 +15,8 @@ import androidx.compose.remote.creation.profile.Profile
 import androidx.compose.remote.player.core.RemoteDocument
 import androidx.compose.remote.player.view.RemoteComposePlayer
 import androidx.compose.runtime.Composable
+import ee.schimke.composeai.rccreation.common.Profile as RcProfile
+import ee.schimke.composeai.rccreation.common.RcPlatformProfiles
 import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo as RcDisplayInfo
 import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocument
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
@@ -48,12 +50,16 @@ internal fun wireOperations(bytes: ByteArray): List<RcOperation> =
  * The operations of [bytes] as text, one a line, in wire order, with every field but a component's
  * id: rc-players' creation numbers components from -1000000 (so that a retained composition keeps
  * them across renders) and AndroidX's from -2, so each is written as the order it first appears in.
- * Operations whose class is named in [without] are left out.
+ * Operations whose class is named in [without], or that [skip] takes, are left out.
  */
-internal fun wireText(bytes: ByteArray, without: Set<String> = emptySet()): String {
+internal fun wireText(
+  bytes: ByteArray,
+  without: Set<String> = emptySet(),
+  skip: (RcOperation) -> Boolean = { false },
+): String {
   val components = HashMap<String, Int>()
   return wireOperations(bytes)
-    .filter { it::class.simpleName !in without }
+    .filter { it::class.simpleName !in without && !skip(it) }
     .joinToString("\n") { operation ->
       val text =
         ComponentId.replace(operation.toString()) { match ->
@@ -66,7 +72,8 @@ internal fun wireText(bytes: ByteArray, without: Set<String> = emptySet()): Stri
     }
 }
 
-private val ComponentId = Regex("omponentId=(-\\d+)")
+// A component's id as an operation's field, or as a `CoreText`'s first property.
+private val ComponentId = Regex("(?:omponentId=|IntValue\\(id=1, value=)(-\\d+)")
 private val OrderedComponentId = Regex("omponentId=#\\d+")
 
 /** AndroidX's View player on [bytes], laid out at the document's size. */
@@ -115,6 +122,17 @@ internal class Played(context: Context, bytes: ByteArray) {
   }
 }
 
-internal fun rcDocument(content: @Composable () -> Unit): ByteArray = runBlocking {
-  captureCommonRemoteDocument(RcDisplayInfo(Width, Height, 160), content = content)
+internal fun rcDocument(
+  profile: RcProfile = RcPlatformProfiles.ANDROIDX,
+  content: @Composable () -> Unit,
+): ByteArray = runBlocking {
+  captureCommonRemoteDocument(RcDisplayInfo(Width, Height, 160), profile = profile, content = content)
+}
+
+/** The header of [bytes], as written: everything before the first operation after it. */
+internal fun headerBytes(bytes: ByteArray): List<Byte> {
+  val document = RcDocumentCodec.decode(bytes)
+  val operations = RcDocumentCodec.encode(document.copy(operations = emptyList()))
+  check(bytes.take(operations.size) == operations.toList()) { "the header does not round-trip" }
+  return operations.toList()
 }

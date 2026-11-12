@@ -27,6 +27,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcwidget.RcWidgetActionMetadata
+import ee.schimke.composeai.rcwidget.creation.RcCaptureProfiles
 import ee.schimke.composeai.rcwidget.creation.androidx.RcSizeBreakpoint
 import ee.schimke.composeai.rcwidget.creation.androidx.RcWidgetCaptureSize
 import ee.schimke.composeai.rcwidget.creation.androidx.rcWidgetHostAction
@@ -57,6 +58,24 @@ class RcLauncherWidgetTest {
           )
         }
       assertTrue(document.canBeDisplayed(1, 0, 0L))
+    }
+  }
+
+  /**
+   * `rc-widget-creation`'s capture profiles for rc-players' own creation API are these AndroidX
+   * ones: the same level, bits and operations, and so the same fallbacks.
+   */
+  @Test
+  fun theCmpCaptureProfilesAreTheAndroidxOnes() {
+    val pairs =
+      listOf(
+        widgetsProfile to RcCaptureProfiles.launcherWidgets,
+        systemThemedWidgetsProfile to RcCaptureProfiles.systemThemedLauncherWidgets,
+      )
+    for ((androidx, cmp) in pairs) {
+      assertEquals(androidx.apiLevel, cmp.apiLevel)
+      assertEquals(androidx.operationsProfiles, cmp.operationsProfiles)
+      assertEquals(androidx.supportedOperations.toSet(), cmp.supportedOperations)
     }
   }
 

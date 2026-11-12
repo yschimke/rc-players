@@ -90,12 +90,6 @@ public fun currentProfileSupportsPathClip(): Boolean = currentProfileSupports(Op
 @Composable
 @RemoteComposable
 public fun currentProfileSupports(vararg operations: Int): Boolean {
-    // KMP (rc-players): the fork has no `Profile`. What stands in for its operation table is the
-    // set the host gave the capture (`supportedOperations` of `captureCommonRemoteDocument` and
-    // `RemoteDocumentSession`): the operations it says the document's reader takes. It is empty
-    // unless the host names some, so each of these answers `false` and a component takes its
-    // fallback, as it does under upstream's most restricted profile. The fork's writer can write
-    // every operation asked about here; the answer is about the reader, not the writer.
-    val supportedOperations = LocalRemoteComposeCreationState.current.supportedOperations
+    val supportedOperations = LocalRemoteComposeCreationState.current.profile.supportedOperations
     return operations.all { it in supportedOperations }
 }

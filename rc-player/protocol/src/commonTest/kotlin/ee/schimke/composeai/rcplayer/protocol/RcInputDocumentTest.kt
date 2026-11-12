@@ -23,7 +23,7 @@ class RcInputDocumentTest {
     assertEquals(RcVersion(1, 2, 0), document.header.version)
     assertEquals(
       RcHeaderValue.IntValue(RcWireProfiles.ANDROIDX_EXPERIMENTAL),
-      document.header.properties.single { it.key == 14 /* Header.DOC_PROFILES */ }.value,
+      document.header.properties.single { it.key == RcHeader.DOC_PROFILES }.value,
     )
     val components = document.operations.filterIsInstance<RcCustomLayout>()
     assertEquals(2, components.size)

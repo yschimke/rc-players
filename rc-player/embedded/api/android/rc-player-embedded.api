@@ -1,5 +1,6 @@
 public final class ee/schimke/composeai/rcplayer/embedded/RcEmbeddedPlayerKt {
 	public static final fun RcEmbeddedPlayer (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Landroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Ljava/lang/Object;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;III)V
+	public static final fun getRcEmbeddedPlayerProfile ()Lee/schimke/composeai/rccreation/common/Profile;
 }
 
 public final class ee/schimke/composeai/rcplayer/embedded/RcLiveBridge : ee/schimke/composeai/rccreation/bridge/RcHostBridge {

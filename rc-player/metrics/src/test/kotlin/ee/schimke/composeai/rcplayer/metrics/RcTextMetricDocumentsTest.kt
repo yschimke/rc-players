@@ -6,6 +6,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcDrawText
+import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
@@ -234,7 +235,7 @@ class RcTextMetricDocumentsTest {
       // reader reports — it renders, at the wrong density or without `CoreText`. Pin the values.
       assertEquals(
         RcHeaderValue.IntValue(512),
-        header.properties.firstOrNull { it.key == 14 }?.value,
+        header.properties.firstOrNull { it.key == RcHeader.DOC_PROFILES }?.value,
         "${fixture.id} DOC_PROFILES must carry RcProfiles.PROFILE_ANDROIDX",
       )
       assertEquals(

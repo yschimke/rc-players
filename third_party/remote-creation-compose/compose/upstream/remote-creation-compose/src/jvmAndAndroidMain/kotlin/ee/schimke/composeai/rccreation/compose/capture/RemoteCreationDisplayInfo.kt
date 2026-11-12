@@ -23,6 +23,7 @@ import androidx.annotation.FloatRange
 import androidx.annotation.IntRange
 import androidx.compose.runtime.Immutable
 import ee.schimke.composeai.rccreation.common.CoreDocument
+import ee.schimke.composeai.rccreation.common.CreationDisplayInfo
 import ee.schimke.composeai.rccreation.compose.state.rf
 
 private const val baseDensity = 160f
@@ -101,6 +102,15 @@ public fun RemoteCreationDisplayInfo(
     )
 }
 
+// KMP (rc-players): the Kotlin writer's `CreationDisplayInfo`.
+internal fun RemoteCreationDisplayInfo.toCreationDisplayInfo() =
+    CreationDisplayInfo(
+        width = this.width,
+        height = this.height,
+        densityDpi = (this.density * baseDensity).toInt(),
+        densityBehavior = this.densityBehavior.value,
+    )
+
 /**
  * LOCAL PATCH (rc-players): the header's density-behavior word, so a writer other than the byte
  * encoder can describe the same display.
@@ -108,6 +118,9 @@ public fun RemoteCreationDisplayInfo(
 public val RemoteDensityBehavior.wireValue: Int
     get() = value
 
-internal fun RemoteDensity.Companion.from(
+// LOCAL PATCH (rc-players): public, where upstream's is internal: a host that makes its own
+// `RemoteDocumentSession` or capture state names the density a display captures at.
+/** The constant density and font scale of [creationDisplayInfo]. */
+public fun RemoteDensity.Companion.from(
     creationDisplayInfo: RemoteCreationDisplayInfo,
 ): RemoteDensity = RemoteDensity(creationDisplayInfo.density.rf, creationDisplayInfo.fontScale.rf)

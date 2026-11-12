@@ -6,6 +6,10 @@
 // - Show declarations: true
 
 // Library unique name: <ee.schimke.composeai:rc-creation-writer>
+abstract fun interface ee.schimke.composeai.rccreation.common/RemoteComposeWriterFactory { // ee.schimke.composeai.rccreation.common/RemoteComposeWriterFactory|null[0]
+    abstract fun create(ee.schimke.composeai.rccreation.common/CreationDisplayInfo, ee.schimke.composeai.rccreation.common/Profile, kotlin/Any?): ee.schimke.composeai.rccreation.common/RemoteWriter // ee.schimke.composeai.rccreation.common/RemoteComposeWriterFactory.create|create(ee.schimke.composeai.rccreation.common.CreationDisplayInfo;ee.schimke.composeai.rccreation.common.Profile;kotlin.Any?){}[0]
+}
+
 abstract interface ee.schimke.composeai.rccreation.common/RemoteWriter { // ee.schimke.composeai.rccreation.common/RemoteWriter|null[0]
     abstract val componentIdForCache // ee.schimke.composeai.rccreation.common/RemoteWriter.componentIdForCache|{}componentIdForCache[0]
         abstract fun <get-componentIdForCache>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteWriter.componentIdForCache.<get-componentIdForCache>|<get-componentIdForCache>(){}[0]
@@ -159,6 +163,10 @@ abstract interface ee.schimke.composeai.rccreation.common/RemoteWriter { // ee.s
     open fun setFloatName(kotlin/Int, kotlin/String) // ee.schimke.composeai.rccreation.common/RemoteWriter.setFloatName|setFloatName(kotlin.Int;kotlin.String){}[0]
     open fun setStringName(kotlin/Int, kotlin/String) // ee.schimke.composeai.rccreation.common/RemoteWriter.setStringName|setStringName(kotlin.Int;kotlin.String){}[0]
     open fun textCreateId(kotlin/String): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteWriter.textCreateId|textCreateId(kotlin.String){}[0]
+
+    final object Companion { // ee.schimke.composeai.rccreation.common/RemoteWriter.Companion|null[0]
+        final fun hTag(kotlin/Short, kotlin/Any): ee.schimke.composeai.rccreation.common/HTag // ee.schimke.composeai.rccreation.common/RemoteWriter.Companion.hTag|hTag(kotlin.Short;kotlin.Any){}[0]
+    }
 }
 
 sealed interface ee.schimke.composeai.rccreation.common/RemoteActionData { // ee.schimke.composeai.rccreation.common/RemoteActionData|null[0]
@@ -952,11 +960,39 @@ final class ee.schimke.composeai.rccreation.common/BitmapFontGlyph { // ee.schim
     final fun toString(): kotlin/String // ee.schimke.composeai.rccreation.common/BitmapFontGlyph.toString|toString(){}[0]
 }
 
+final class ee.schimke.composeai.rccreation.common/CreationDisplayInfo { // ee.schimke.composeai.rccreation.common/CreationDisplayInfo|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int = ...) // ee.schimke.composeai.rccreation.common/CreationDisplayInfo.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+
+    final val density // ee.schimke.composeai.rccreation.common/CreationDisplayInfo.density|{}density[0]
+        final fun <get-density>(): kotlin/Float // ee.schimke.composeai.rccreation.common/CreationDisplayInfo.density.<get-density>|<get-density>(){}[0]
+    final val densityBehavior // ee.schimke.composeai.rccreation.common/CreationDisplayInfo.densityBehavior|{}densityBehavior[0]
+        final fun <get-densityBehavior>(): kotlin/Int // ee.schimke.composeai.rccreation.common/CreationDisplayInfo.densityBehavior.<get-densityBehavior>|<get-densityBehavior>(){}[0]
+    final val densityDpi // ee.schimke.composeai.rccreation.common/CreationDisplayInfo.densityDpi|{}densityDpi[0]
+        final fun <get-densityDpi>(): kotlin/Int // ee.schimke.composeai.rccreation.common/CreationDisplayInfo.densityDpi.<get-densityDpi>|<get-densityDpi>(){}[0]
+    final val height // ee.schimke.composeai.rccreation.common/CreationDisplayInfo.height|{}height[0]
+        final fun <get-height>(): kotlin/Int // ee.schimke.composeai.rccreation.common/CreationDisplayInfo.height.<get-height>|<get-height>(){}[0]
+    final val width // ee.schimke.composeai.rccreation.common/CreationDisplayInfo.width|{}width[0]
+        final fun <get-width>(): kotlin/Int // ee.schimke.composeai.rccreation.common/CreationDisplayInfo.width.<get-width>|<get-width>(){}[0]
+}
+
 final class ee.schimke.composeai.rccreation.common/CubicEasing { // ee.schimke.composeai.rccreation.common/CubicEasing|null[0]
     constructor <init>() // ee.schimke.composeai.rccreation.common/CubicEasing.<init>|<init>(){}[0]
 
     final fun get(kotlin/Float): kotlin/Float // ee.schimke.composeai.rccreation.common/CubicEasing.get|get(kotlin.Float){}[0]
     final fun setup(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float) // ee.schimke.composeai.rccreation.common/CubicEasing.setup|setup(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
+}
+
+final class ee.schimke.composeai.rccreation.common/HTag { // ee.schimke.composeai.rccreation.common/HTag|null[0]
+    constructor <init>(kotlin/Short, kotlin/Any) // ee.schimke.composeai.rccreation.common/HTag.<init>|<init>(kotlin.Short;kotlin.Any){}[0]
+
+    final val tag // ee.schimke.composeai.rccreation.common/HTag.tag|{}tag[0]
+        final fun <get-tag>(): kotlin/Short // ee.schimke.composeai.rccreation.common/HTag.tag.<get-tag>|<get-tag>(){}[0]
+    final val value // ee.schimke.composeai.rccreation.common/HTag.value|{}value[0]
+        final fun <get-value>(): kotlin/Any // ee.schimke.composeai.rccreation.common/HTag.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rccreation.common/HTag.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rccreation.common/HTag.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rccreation.common/HTag.toString|toString(){}[0]
 }
 
 final class ee.schimke.composeai.rccreation.common/MonotonicSpline { // ee.schimke.composeai.rccreation.common/MonotonicSpline|null[0]
@@ -1127,6 +1163,27 @@ final class ee.schimke.composeai.rccreation.common/PaintBundle { // ee.schimke.c
     }
 }
 
+final class ee.schimke.composeai.rccreation.common/Profile { // ee.schimke.composeai.rccreation.common/Profile|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int, ee.schimke.composeai.rccreation.common/Profile.SupportedOperationsProvider?, ee.schimke.composeai.rccreation.common/RemoteComposeWriterFactory) // ee.schimke.composeai.rccreation.common/Profile.<init>|<init>(kotlin.Int;kotlin.Int;ee.schimke.composeai.rccreation.common.Profile.SupportedOperationsProvider?;ee.schimke.composeai.rccreation.common.RemoteComposeWriterFactory){}[0]
+    constructor <init>(kotlin/Int, kotlin/Int, ee.schimke.composeai.rccreation.common/RemoteComposeWriterFactory) // ee.schimke.composeai.rccreation.common/Profile.<init>|<init>(kotlin.Int;kotlin.Int;ee.schimke.composeai.rccreation.common.RemoteComposeWriterFactory){}[0]
+
+    final val apiLevel // ee.schimke.composeai.rccreation.common/Profile.apiLevel|{}apiLevel[0]
+        final fun <get-apiLevel>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Profile.apiLevel.<get-apiLevel>|<get-apiLevel>(){}[0]
+    final val operationsProfiles // ee.schimke.composeai.rccreation.common/Profile.operationsProfiles|{}operationsProfiles[0]
+        final fun <get-operationsProfiles>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Profile.operationsProfiles.<get-operationsProfiles>|<get-operationsProfiles>(){}[0]
+    final val profileFactory // ee.schimke.composeai.rccreation.common/Profile.profileFactory|{}profileFactory[0]
+        final fun <get-profileFactory>(): ee.schimke.composeai.rccreation.common/RemoteComposeWriterFactory // ee.schimke.composeai.rccreation.common/Profile.profileFactory.<get-profileFactory>|<get-profileFactory>(){}[0]
+    final val supportedOperations // ee.schimke.composeai.rccreation.common/Profile.supportedOperations|{}supportedOperations[0]
+        final fun <get-supportedOperations>(): kotlin.collections/Set<kotlin/Int> // ee.schimke.composeai.rccreation.common/Profile.supportedOperations.<get-supportedOperations>|<get-supportedOperations>(){}[0]
+
+    final fun create(ee.schimke.composeai.rccreation.common/CreationDisplayInfo, kotlin/Any?): ee.schimke.composeai.rccreation.common/RemoteWriter // ee.schimke.composeai.rccreation.common/Profile.create|create(ee.schimke.composeai.rccreation.common.CreationDisplayInfo;kotlin.Any?){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rccreation.common/Profile.toString|toString(){}[0]
+
+    abstract fun interface SupportedOperationsProvider { // ee.schimke.composeai.rccreation.common/Profile.SupportedOperationsProvider|null[0]
+        abstract fun getSupportedOperations(): kotlin.collections/Set<kotlin/Int> // ee.schimke.composeai.rccreation.common/Profile.SupportedOperationsProvider.getSupportedOperations|getSupportedOperations(){}[0]
+    }
+}
+
 final class ee.schimke.composeai.rccreation.common/RcPaint { // ee.schimke.composeai.rccreation.common/RcPaint|null[0]
     constructor <init>(ee.schimke.composeai.rccreation.common/RemoteWriter) // ee.schimke.composeai.rccreation.common/RcPaint.<init>|<init>(ee.schimke.composeai.rccreation.common.RemoteWriter){}[0]
 
@@ -1141,10 +1198,14 @@ final class ee.schimke.composeai.rccreation.common/RcPaint { // ee.schimke.compo
 }
 
 final class ee.schimke.composeai.rccreation.common/RemoteDocumentWriter : ee.schimke.composeai.rccreation.common/RemoteWriter { // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter|null[0]
+    constructor <init>(ee.schimke.composeai.rccreation.common/CreationDisplayInfo, kotlin/String?, ee.schimke.composeai.rccreation.common/Profile) // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.<init>|<init>(ee.schimke.composeai.rccreation.common.CreationDisplayInfo;kotlin.String?;ee.schimke.composeai.rccreation.common.Profile){}[0]
+    constructor <init>(ee.schimke.composeai.rccreation.common/Profile, kotlin/Array<out ee.schimke.composeai.rccreation.common/HTag>...) // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.<init>|<init>(ee.schimke.composeai.rccreation.common.Profile;kotlin.Array<out|ee.schimke.composeai.rccreation.common.HTag>...){}[0]
     constructor <init>(kotlin/Int, kotlin/Int, kotlin/Int = ..., kotlin/Int = ...) // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
 
     final val componentIdForCache // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.componentIdForCache|{}componentIdForCache[0]
         final fun <get-componentIdForCache>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.componentIdForCache.<get-componentIdForCache>|<get-componentIdForCache>(){}[0]
+    final val documentApiLevel // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.documentApiLevel|{}documentApiLevel[0]
+        final fun <get-documentApiLevel>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.documentApiLevel.<get-documentApiLevel>|<get-documentApiLevel>(){}[0]
     final val rcPaint // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.rcPaint|{}rcPaint[0]
         final fun <get-rcPaint>(): ee.schimke.composeai.rccreation.common/RcPaint // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.rcPaint.<get-rcPaint>|<get-rcPaint>(){}[0]
 
@@ -1295,6 +1356,8 @@ final class ee.schimke.composeai.rccreation.common/RemoteDocumentWriter : ee.sch
             final fun <get-HorizontalStart>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.Companion.HorizontalStart.<get-HorizontalStart>|<get-HorizontalStart>(){}[0]
         final const val VerticalTop // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.Companion.VerticalTop|{}VerticalTop[0]
             final fun <get-VerticalTop>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.Companion.VerticalTop.<get-VerticalTop>|<get-VerticalTop>(){}[0]
+
+        final fun hTag(kotlin/Short, kotlin/Any): ee.schimke.composeai.rccreation.common/HTag // ee.schimke.composeai.rccreation.common/RemoteDocumentWriter.Companion.hTag|hTag(kotlin.Short;kotlin.Any){}[0]
     }
 }
 
@@ -1708,6 +1771,71 @@ final object ee.schimke.composeai.rccreation.common/GeneralEasing { // ee.schimk
         final fun <get-CUBIC_STANDARD>(): kotlin/Int // ee.schimke.composeai.rccreation.common/GeneralEasing.CUBIC_STANDARD.<get-CUBIC_STANDARD>|<get-CUBIC_STANDARD>(){}[0]
 }
 
+final object ee.schimke.composeai.rccreation.common/Header { // ee.schimke.composeai.rccreation.common/Header|null[0]
+    final const val COMPRESS // ee.schimke.composeai.rccreation.common/Header.COMPRESS|{}COMPRESS[0]
+        final fun <get-COMPRESS>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.COMPRESS.<get-COMPRESS>|<get-COMPRESS>(){}[0]
+    final const val COMPRESSION_DEFLATE // ee.schimke.composeai.rccreation.common/Header.COMPRESSION_DEFLATE|{}COMPRESSION_DEFLATE[0]
+        final fun <get-COMPRESSION_DEFLATE>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Header.COMPRESSION_DEFLATE.<get-COMPRESSION_DEFLATE>|<get-COMPRESSION_DEFLATE>(){}[0]
+    final const val COMPRESSION_NONE // ee.schimke.composeai.rccreation.common/Header.COMPRESSION_NONE|{}COMPRESSION_NONE[0]
+        final fun <get-COMPRESSION_NONE>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Header.COMPRESSION_NONE.<get-COMPRESSION_NONE>|<get-COMPRESSION_NONE>(){}[0]
+    final const val DEBUG // ee.schimke.composeai.rccreation.common/Header.DEBUG|{}DEBUG[0]
+        final fun <get-DEBUG>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.DEBUG.<get-DEBUG>|<get-DEBUG>(){}[0]
+    final const val DOC_CONTENT_DESCRIPTION // ee.schimke.composeai.rccreation.common/Header.DOC_CONTENT_DESCRIPTION|{}DOC_CONTENT_DESCRIPTION[0]
+        final fun <get-DOC_CONTENT_DESCRIPTION>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.DOC_CONTENT_DESCRIPTION.<get-DOC_CONTENT_DESCRIPTION>|<get-DOC_CONTENT_DESCRIPTION>(){}[0]
+    final const val DOC_DATA_UPDATE // ee.schimke.composeai.rccreation.common/Header.DOC_DATA_UPDATE|{}DOC_DATA_UPDATE[0]
+        final fun <get-DOC_DATA_UPDATE>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.DOC_DATA_UPDATE.<get-DOC_DATA_UPDATE>|<get-DOC_DATA_UPDATE>(){}[0]
+    final const val DOC_DENSITY_AT_GENERATION // ee.schimke.composeai.rccreation.common/Header.DOC_DENSITY_AT_GENERATION|{}DOC_DENSITY_AT_GENERATION[0]
+        final fun <get-DOC_DENSITY_AT_GENERATION>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.DOC_DENSITY_AT_GENERATION.<get-DOC_DENSITY_AT_GENERATION>|<get-DOC_DENSITY_AT_GENERATION>(){}[0]
+    final const val DOC_DENSITY_BEHAVIOR // ee.schimke.composeai.rccreation.common/Header.DOC_DENSITY_BEHAVIOR|{}DOC_DENSITY_BEHAVIOR[0]
+        final fun <get-DOC_DENSITY_BEHAVIOR>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.DOC_DENSITY_BEHAVIOR.<get-DOC_DENSITY_BEHAVIOR>|<get-DOC_DENSITY_BEHAVIOR>(){}[0]
+    final const val DOC_DESIRED_FPS // ee.schimke.composeai.rccreation.common/Header.DOC_DESIRED_FPS|{}DOC_DESIRED_FPS[0]
+        final fun <get-DOC_DESIRED_FPS>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.DOC_DESIRED_FPS.<get-DOC_DESIRED_FPS>|<get-DOC_DESIRED_FPS>(){}[0]
+    final const val DOC_HEIGHT // ee.schimke.composeai.rccreation.common/Header.DOC_HEIGHT|{}DOC_HEIGHT[0]
+        final fun <get-DOC_HEIGHT>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.DOC_HEIGHT.<get-DOC_HEIGHT>|<get-DOC_HEIGHT>(){}[0]
+    final const val DOC_PROFILES // ee.schimke.composeai.rccreation.common/Header.DOC_PROFILES|{}DOC_PROFILES[0]
+        final fun <get-DOC_PROFILES>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.DOC_PROFILES.<get-DOC_PROFILES>|<get-DOC_PROFILES>(){}[0]
+    final const val DOC_SCROLL // ee.schimke.composeai.rccreation.common/Header.DOC_SCROLL|{}DOC_SCROLL[0]
+        final fun <get-DOC_SCROLL>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.DOC_SCROLL.<get-DOC_SCROLL>|<get-DOC_SCROLL>(){}[0]
+    final const val DOC_SOURCE // ee.schimke.composeai.rccreation.common/Header.DOC_SOURCE|{}DOC_SOURCE[0]
+        final fun <get-DOC_SOURCE>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.DOC_SOURCE.<get-DOC_SOURCE>|<get-DOC_SOURCE>(){}[0]
+    final const val DOC_WIDTH // ee.schimke.composeai.rccreation.common/Header.DOC_WIDTH|{}DOC_WIDTH[0]
+        final fun <get-DOC_WIDTH>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.DOC_WIDTH.<get-DOC_WIDTH>|<get-DOC_WIDTH>(){}[0]
+    final const val FEATURE_ARRAY_LISTENERS // ee.schimke.composeai.rccreation.common/Header.FEATURE_ARRAY_LISTENERS|{}FEATURE_ARRAY_LISTENERS[0]
+        final fun <get-FEATURE_ARRAY_LISTENERS>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.FEATURE_ARRAY_LISTENERS.<get-FEATURE_ARRAY_LISTENERS>|<get-FEATURE_ARRAY_LISTENERS>(){}[0]
+    final const val FEATURE_CLICK_VERSION // ee.schimke.composeai.rccreation.common/Header.FEATURE_CLICK_VERSION|{}FEATURE_CLICK_VERSION[0]
+        final fun <get-FEATURE_CLICK_VERSION>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.FEATURE_CLICK_VERSION.<get-FEATURE_CLICK_VERSION>|<get-FEATURE_CLICK_VERSION>(){}[0]
+    final const val FEATURE_DATA_PASS_CANVAS_OPS // ee.schimke.composeai.rccreation.common/Header.FEATURE_DATA_PASS_CANVAS_OPS|{}FEATURE_DATA_PASS_CANVAS_OPS[0]
+        final fun <get-FEATURE_DATA_PASS_CANVAS_OPS>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.FEATURE_DATA_PASS_CANVAS_OPS.<get-FEATURE_DATA_PASS_CANVAS_OPS>|<get-FEATURE_DATA_PASS_CANVAS_OPS>(){}[0]
+    final const val FEATURE_DISALLOW_INTERCEPT_TOUCH // ee.schimke.composeai.rccreation.common/Header.FEATURE_DISALLOW_INTERCEPT_TOUCH|{}FEATURE_DISALLOW_INTERCEPT_TOUCH[0]
+        final fun <get-FEATURE_DISALLOW_INTERCEPT_TOUCH>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.FEATURE_DISALLOW_INTERCEPT_TOUCH.<get-FEATURE_DISALLOW_INTERCEPT_TOUCH>|<get-FEATURE_DISALLOW_INTERCEPT_TOUCH>(){}[0]
+    final const val FEATURE_LT_RESIZE // ee.schimke.composeai.rccreation.common/Header.FEATURE_LT_RESIZE|{}FEATURE_LT_RESIZE[0]
+        final fun <get-FEATURE_LT_RESIZE>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.FEATURE_LT_RESIZE.<get-FEATURE_LT_RESIZE>|<get-FEATURE_LT_RESIZE>(){}[0]
+    final const val FEATURE_MEASURE_VERSION // ee.schimke.composeai.rccreation.common/Header.FEATURE_MEASURE_VERSION|{}FEATURE_MEASURE_VERSION[0]
+        final fun <get-FEATURE_MEASURE_VERSION>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.FEATURE_MEASURE_VERSION.<get-FEATURE_MEASURE_VERSION>|<get-FEATURE_MEASURE_VERSION>(){}[0]
+    final const val FEATURE_OPTIMIZATION_LEVEL // ee.schimke.composeai.rccreation.common/Header.FEATURE_OPTIMIZATION_LEVEL|{}FEATURE_OPTIMIZATION_LEVEL[0]
+        final fun <get-FEATURE_OPTIMIZATION_LEVEL>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.FEATURE_OPTIMIZATION_LEVEL.<get-FEATURE_OPTIMIZATION_LEVEL>|<get-FEATURE_OPTIMIZATION_LEVEL>(){}[0]
+    final const val FEATURE_PAINT_MEASURE // ee.schimke.composeai.rccreation.common/Header.FEATURE_PAINT_MEASURE|{}FEATURE_PAINT_MEASURE[0]
+        final fun <get-FEATURE_PAINT_MEASURE>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.FEATURE_PAINT_MEASURE.<get-FEATURE_PAINT_MEASURE>|<get-FEATURE_PAINT_MEASURE>(){}[0]
+    final const val FEATURE_PRIORITY_FIX // ee.schimke.composeai.rccreation.common/Header.FEATURE_PRIORITY_FIX|{}FEATURE_PRIORITY_FIX[0]
+        final fun <get-FEATURE_PRIORITY_FIX>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.FEATURE_PRIORITY_FIX.<get-FEATURE_PRIORITY_FIX>|<get-FEATURE_PRIORITY_FIX>(){}[0]
+    final const val FEATURE_TOUCH_VERSION // ee.schimke.composeai.rccreation.common/Header.FEATURE_TOUCH_VERSION|{}FEATURE_TOUCH_VERSION[0]
+        final fun <get-FEATURE_TOUCH_VERSION>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.FEATURE_TOUCH_VERSION.<get-FEATURE_TOUCH_VERSION>|<get-FEATURE_TOUCH_VERSION>(){}[0]
+    final const val HOST_EXCEPTION_HANDLER // ee.schimke.composeai.rccreation.common/Header.HOST_EXCEPTION_HANDLER|{}HOST_EXCEPTION_HANDLER[0]
+        final fun <get-HOST_EXCEPTION_HANDLER>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.HOST_EXCEPTION_HANDLER.<get-HOST_EXCEPTION_HANDLER>|<get-HOST_EXCEPTION_HANDLER>(){}[0]
+    final const val SCROLL_HORIZONTAL // ee.schimke.composeai.rccreation.common/Header.SCROLL_HORIZONTAL|{}SCROLL_HORIZONTAL[0]
+        final fun <get-SCROLL_HORIZONTAL>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Header.SCROLL_HORIZONTAL.<get-SCROLL_HORIZONTAL>|<get-SCROLL_HORIZONTAL>(){}[0]
+    final const val SCROLL_VERTICAL // ee.schimke.composeai.rccreation.common/Header.SCROLL_VERTICAL|{}SCROLL_VERTICAL[0]
+        final fun <get-SCROLL_VERTICAL>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Header.SCROLL_VERTICAL.<get-SCROLL_VERTICAL>|<get-SCROLL_VERTICAL>(){}[0]
+    final const val TEST_ACTIONS // ee.schimke.composeai.rccreation.common/Header.TEST_ACTIONS|{}TEST_ACTIONS[0]
+        final fun <get-TEST_ACTIONS>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.TEST_ACTIONS.<get-TEST_ACTIONS>|<get-TEST_ACTIONS>(){}[0]
+    final const val TEST_AFTER // ee.schimke.composeai.rccreation.common/Header.TEST_AFTER|{}TEST_AFTER[0]
+        final fun <get-TEST_AFTER>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.TEST_AFTER.<get-TEST_AFTER>|<get-TEST_AFTER>(){}[0]
+    final const val TEST_COLOR_THEME // ee.schimke.composeai.rccreation.common/Header.TEST_COLOR_THEME|{}TEST_COLOR_THEME[0]
+        final fun <get-TEST_COLOR_THEME>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.TEST_COLOR_THEME.<get-TEST_COLOR_THEME>|<get-TEST_COLOR_THEME>(){}[0]
+    final const val TEST_TIME // ee.schimke.composeai.rccreation.common/Header.TEST_TIME|{}TEST_TIME[0]
+        final fun <get-TEST_TIME>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Header.TEST_TIME.<get-TEST_TIME>|<get-TEST_TIME>(){}[0]
+}
+
 final object ee.schimke.composeai.rccreation.common/HostNamedActionOperation { // ee.schimke.composeai.rccreation.common/HostNamedActionOperation|null[0]
     final const val FLOAT_ARRAY_TYPE // ee.schimke.composeai.rccreation.common/HostNamedActionOperation.FLOAT_ARRAY_TYPE|{}FLOAT_ARRAY_TYPE[0]
         final fun <get-FLOAT_ARRAY_TYPE>(): kotlin/Int // ee.schimke.composeai.rccreation.common/HostNamedActionOperation.FLOAT_ARRAY_TYPE.<get-FLOAT_ARRAY_TYPE>|<get-FLOAT_ARRAY_TYPE>(){}[0]
@@ -1900,12 +2028,26 @@ final object ee.schimke.composeai.rccreation.common/Operations { // ee.schimke.c
         final fun <get-CLIP_PATH>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Operations.CLIP_PATH.<get-CLIP_PATH>|<get-CLIP_PATH>(){}[0]
     final const val COLOR_THEME // ee.schimke.composeai.rccreation.common/Operations.COLOR_THEME|{}COLOR_THEME[0]
         final fun <get-COLOR_THEME>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Operations.COLOR_THEME.<get-COLOR_THEME>|<get-COLOR_THEME>(){}[0]
+    final const val CORE_TEXT // ee.schimke.composeai.rccreation.common/Operations.CORE_TEXT|{}CORE_TEXT[0]
+        final fun <get-CORE_TEXT>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Operations.CORE_TEXT.<get-CORE_TEXT>|<get-CORE_TEXT>(){}[0]
+    final const val HEADER // ee.schimke.composeai.rccreation.common/Operations.HEADER|{}HEADER[0]
+        final fun <get-HEADER>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Operations.HEADER.<get-HEADER>|<get-HEADER>(){}[0]
+    final const val LAYOUT_CANVAS_CONTENT // ee.schimke.composeai.rccreation.common/Operations.LAYOUT_CANVAS_CONTENT|{}LAYOUT_CANVAS_CONTENT[0]
+        final fun <get-LAYOUT_CANVAS_CONTENT>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Operations.LAYOUT_CANVAS_CONTENT.<get-LAYOUT_CANVAS_CONTENT>|<get-LAYOUT_CANVAS_CONTENT>(){}[0]
+    final const val LAYOUT_FLOW // ee.schimke.composeai.rccreation.common/Operations.LAYOUT_FLOW|{}LAYOUT_FLOW[0]
+        final fun <get-LAYOUT_FLOW>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Operations.LAYOUT_FLOW.<get-LAYOUT_FLOW>|<get-LAYOUT_FLOW>(){}[0]
+    final const val LAYOUT_TEXT // ee.schimke.composeai.rccreation.common/Operations.LAYOUT_TEXT|{}LAYOUT_TEXT[0]
+        final fun <get-LAYOUT_TEXT>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Operations.LAYOUT_TEXT.<get-LAYOUT_TEXT>|<get-LAYOUT_TEXT>(){}[0]
     final const val MODIFIER_TOUCH_CANCEL // ee.schimke.composeai.rccreation.common/Operations.MODIFIER_TOUCH_CANCEL|{}MODIFIER_TOUCH_CANCEL[0]
         final fun <get-MODIFIER_TOUCH_CANCEL>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Operations.MODIFIER_TOUCH_CANCEL.<get-MODIFIER_TOUCH_CANCEL>|<get-MODIFIER_TOUCH_CANCEL>(){}[0]
     final const val MODIFIER_TOUCH_DOWN // ee.schimke.composeai.rccreation.common/Operations.MODIFIER_TOUCH_DOWN|{}MODIFIER_TOUCH_DOWN[0]
         final fun <get-MODIFIER_TOUCH_DOWN>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Operations.MODIFIER_TOUCH_DOWN.<get-MODIFIER_TOUCH_DOWN>|<get-MODIFIER_TOUCH_DOWN>(){}[0]
     final const val MODIFIER_TOUCH_UP // ee.schimke.composeai.rccreation.common/Operations.MODIFIER_TOUCH_UP|{}MODIFIER_TOUCH_UP[0]
         final fun <get-MODIFIER_TOUCH_UP>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Operations.MODIFIER_TOUCH_UP.<get-MODIFIER_TOUCH_UP>|<get-MODIFIER_TOUCH_UP>(){}[0]
+    final const val TEXT_STYLE // ee.schimke.composeai.rccreation.common/Operations.TEXT_STYLE|{}TEXT_STYLE[0]
+        final fun <get-TEXT_STYLE>(): kotlin/Int // ee.schimke.composeai.rccreation.common/Operations.TEXT_STYLE.<get-TEXT_STYLE>|<get-TEXT_STYLE>(){}[0]
+
+    final fun getOperations(kotlin/Int, kotlin/Int): kotlin.collections/Set<kotlin/Int>? // ee.schimke.composeai.rccreation.common/Operations.getOperations|getOperations(kotlin.Int;kotlin.Int){}[0]
 }
 
 final object ee.schimke.composeai.rccreation.common/PaintContext { // ee.schimke.composeai.rccreation.common/PaintContext|null[0]
@@ -1929,6 +2071,42 @@ final object ee.schimke.composeai.rccreation.common/Rc { // ee.schimke.composeai
         final const val FILTER_DEFAULT // ee.schimke.composeai.rccreation.common/Rc.Texture.FILTER_DEFAULT|{}FILTER_DEFAULT[0]
             final fun <get-FILTER_DEFAULT>(): kotlin/Short // ee.schimke.composeai.rccreation.common/Rc.Texture.FILTER_DEFAULT.<get-FILTER_DEFAULT>|<get-FILTER_DEFAULT>(){}[0]
     }
+}
+
+final object ee.schimke.composeai.rccreation.common/RcPlatformProfiles { // ee.schimke.composeai.rccreation.common/RcPlatformProfiles|null[0]
+    final val ANDROIDX // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.ANDROIDX|{}ANDROIDX[0]
+        final fun <get-ANDROIDX>(): ee.schimke.composeai.rccreation.common/Profile // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.ANDROIDX.<get-ANDROIDX>|<get-ANDROIDX>(){}[0]
+    final val ANDROIDX7 // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.ANDROIDX7|{}ANDROIDX7[0]
+        final fun <get-ANDROIDX7>(): ee.schimke.composeai.rccreation.common/Profile // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.ANDROIDX7.<get-ANDROIDX7>|<get-ANDROIDX7>(){}[0]
+    final val ANDROIDX8 // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.ANDROIDX8|{}ANDROIDX8[0]
+        final fun <get-ANDROIDX8>(): ee.schimke.composeai.rccreation.common/Profile // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.ANDROIDX8.<get-ANDROIDX8>|<get-ANDROIDX8>(){}[0]
+    final val ANDROIDX9 // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.ANDROIDX9|{}ANDROIDX9[0]
+        final fun <get-ANDROIDX9>(): ee.schimke.composeai.rccreation.common/Profile // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.ANDROIDX9.<get-ANDROIDX9>|<get-ANDROIDX9>(){}[0]
+    final val WIDGETS_V6 // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.WIDGETS_V6|{}WIDGETS_V6[0]
+        final fun <get-WIDGETS_V6>(): ee.schimke.composeai.rccreation.common/Profile // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.WIDGETS_V6.<get-WIDGETS_V6>|<get-WIDGETS_V6>(){}[0]
+    final val WIDGETS_V7 // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.WIDGETS_V7|{}WIDGETS_V7[0]
+        final fun <get-WIDGETS_V7>(): ee.schimke.composeai.rccreation.common/Profile // ee.schimke.composeai.rccreation.common/RcPlatformProfiles.WIDGETS_V7.<get-WIDGETS_V7>|<get-WIDGETS_V7>(){}[0]
+}
+
+final object ee.schimke.composeai.rccreation.common/RcProfiles { // ee.schimke.composeai.rccreation.common/RcProfiles|null[0]
+    final const val PROFILE_ANDROIDX // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_ANDROIDX|{}PROFILE_ANDROIDX[0]
+        final fun <get-PROFILE_ANDROIDX>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_ANDROIDX.<get-PROFILE_ANDROIDX>|<get-PROFILE_ANDROIDX>(){}[0]
+    final const val PROFILE_ANDROID_NATIVE // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_ANDROID_NATIVE|{}PROFILE_ANDROID_NATIVE[0]
+        final fun <get-PROFILE_ANDROID_NATIVE>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_ANDROID_NATIVE.<get-PROFILE_ANDROID_NATIVE>|<get-PROFILE_ANDROID_NATIVE>(){}[0]
+    final const val PROFILE_BASELINE // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_BASELINE|{}PROFILE_BASELINE[0]
+        final fun <get-PROFILE_BASELINE>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_BASELINE.<get-PROFILE_BASELINE>|<get-PROFILE_BASELINE>(){}[0]
+    final const val PROFILE_DEPRECATED // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_DEPRECATED|{}PROFILE_DEPRECATED[0]
+        final fun <get-PROFILE_DEPRECATED>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_DEPRECATED.<get-PROFILE_DEPRECATED>|<get-PROFILE_DEPRECATED>(){}[0]
+    final const val PROFILE_EXPERIMENTAL // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_EXPERIMENTAL|{}PROFILE_EXPERIMENTAL[0]
+        final fun <get-PROFILE_EXPERIMENTAL>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_EXPERIMENTAL.<get-PROFILE_EXPERIMENTAL>|<get-PROFILE_EXPERIMENTAL>(){}[0]
+    final const val PROFILE_LOW_POWER // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_LOW_POWER|{}PROFILE_LOW_POWER[0]
+        final fun <get-PROFILE_LOW_POWER>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_LOW_POWER.<get-PROFILE_LOW_POWER>|<get-PROFILE_LOW_POWER>(){}[0]
+    final const val PROFILE_OEM // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_OEM|{}PROFILE_OEM[0]
+        final fun <get-PROFILE_OEM>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_OEM.<get-PROFILE_OEM>|<get-PROFILE_OEM>(){}[0]
+    final const val PROFILE_WEAR_WIDGETS // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_WEAR_WIDGETS|{}PROFILE_WEAR_WIDGETS[0]
+        final fun <get-PROFILE_WEAR_WIDGETS>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_WEAR_WIDGETS.<get-PROFILE_WEAR_WIDGETS>|<get-PROFILE_WEAR_WIDGETS>(){}[0]
+    final const val PROFILE_WIDGETS // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_WIDGETS|{}PROFILE_WIDGETS[0]
+        final fun <get-PROFILE_WIDGETS>(): kotlin/Int // ee.schimke.composeai.rccreation.common/RcProfiles.PROFILE_WIDGETS.<get-PROFILE_WIDGETS>|<get-PROFILE_WIDGETS>(){}[0]
 }
 
 final object ee.schimke.composeai.rccreation.common/RemoteComposeBuffer { // ee.schimke.composeai.rccreation.common/RemoteComposeBuffer|null[0]

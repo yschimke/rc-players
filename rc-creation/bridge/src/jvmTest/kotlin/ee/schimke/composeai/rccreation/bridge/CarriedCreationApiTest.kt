@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rccreation.bridge
 
+import androidx.collection.intSetOf
 import androidx.compose.remote.core.Operation
 import androidx.compose.remote.core.operations.DrawBitmapFontText
 import androidx.compose.remote.core.operations.DrawBitmapFontTextOnPath
@@ -22,8 +23,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import ee.schimke.composeai.rccreation.common.Operations
+import ee.schimke.composeai.rccreation.common.Profile
+import ee.schimke.composeai.rccreation.common.RcPlatformProfiles
 import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
 import ee.schimke.composeai.rccreation.common.RemoteModifierData
+import ee.schimke.composeai.rccreation.compose.capture.Profile
 import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
 import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocumentInto
 import ee.schimke.composeai.rccreation.compose.capture.currentProfileSupports
@@ -78,7 +82,7 @@ class CarriedCreationApiTest {
    * takes text, id lookups, bitmap fonts on a path and the pattern operations under no other.
    */
   private fun captureBytes(
-    supportedOperations: Set<Int> = emptySet(),
+    profile: Profile = ExperimentalProfile,
     content: @Composable @RemoteComposable () -> Unit,
   ): ByteArray = runBlocking {
     val display = RemoteCreationDisplayInfo(200, 100, 160)
@@ -92,7 +96,7 @@ class CarriedCreationApiTest {
     captureCommonRemoteDocumentInto(
       writer,
       display,
-      supportedOperations = supportedOperations,
+      profile = profile,
       content = content,
     )
     writer.encodeToByteArray()
@@ -352,15 +356,12 @@ class CarriedCreationApiTest {
     assertFailsWith<IllegalArgumentException> { RemotePath("M0,0 l1,1") }
   }
 
-  /**
-   * The fork has no `Profile`: the answer is whether the host named the operations among those its
-   * reader takes, and nothing is named by default.
-   */
+  /** The answer is whether the capture's profile supports the operations. */
   @Test
-  fun profileCapabilitiesAnswerFromTheOperationsTheHostNamed() {
-    fun answers(supported: Set<Int>): List<Boolean> {
+  fun profileCapabilitiesAnswerFromTheProfile() {
+    fun answers(profile: Profile): List<Boolean> {
       var answers = emptyList<Boolean>()
-      captureBytes(supported) {
+      captureBytes(profile) {
         answers =
           listOf(
             currentProfileSupportsThemedColors(),
@@ -371,15 +372,20 @@ class CarriedCreationApiTest {
       }
       return answers
     }
-    assertEquals(listOf(false, false, false, false), answers(emptySet()))
+    fun supporting(vararg operations: Int) = Profile(supportedOperations = intSetOf(*operations))
+    // AndroidX's player takes them all; an Android 16 launcher has no themed colour.
+    assertEquals(listOf(true, true, true, true), answers(RcPlatformProfiles.ANDROIDX))
+    assertEquals(listOf(false, true, true, false), answers(RcPlatformProfiles.WIDGETS_V6))
     assertEquals(
       listOf(true, false, true, true),
-      answers(setOf(Operations.COLOR_THEME, Operations.CLIP_PATH, Operations.MODIFIER_TOUCH_DOWN)),
+      answers(
+        supporting(Operations.COLOR_THEME, Operations.CLIP_PATH, Operations.MODIFIER_TOUCH_DOWN),
+      ),
     )
     assertEquals(
       listOf(false, true, false, false),
       answers(
-        setOf(
+        supporting(
           Operations.MODIFIER_TOUCH_DOWN,
           Operations.MODIFIER_TOUCH_UP,
           Operations.MODIFIER_TOUCH_CANCEL,

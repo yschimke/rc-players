@@ -5,6 +5,8 @@ import androidx.compose.remote.core.operations.FloatConstant
 import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.PaintData
 import androidx.compose.ui.graphics.Color
+import ee.schimke.composeai.rccreation.common.Profile
+import ee.schimke.composeai.rccreation.common.RcPlatformProfiles
 import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
 import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
 import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocument
@@ -28,6 +30,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 
@@ -52,15 +55,15 @@ class LoomPatternsTest {
     get() = RemotePaint { color = RemoteColor(Color.Red) }
 
   /**
-   * The capture functions take no profile, and AndroidX reads the pattern operations only under its
-   * experimental one, so the writer names it in the header when a document holds a pattern: what
-   * `captureCommonRemoteDocument` returns loads in AndroidX's reader, where it was refused as
-   * holding unknown operations.
+   * AndroidX reads the pattern operations only under its experimental profile. A capture for that
+   * profile declares it in the header and loads in AndroidX's reader; a capture for the default
+   * profile, AndroidX's without the experimental operations, is refused the operation, as
+   * AndroidX's own writer refuses it.
    */
   @Test
-  fun theDefaultCaptureDeclaresTheProfileAPatternNeeds() {
-    val doc = runBlocking {
-      captureCommonRemoteDocument(RemoteCreationDisplayInfo(200, 100, 160)) {
+  fun aPatternNeedsTheExperimentalProfile() {
+    fun capture(profile: Profile) = runBlocking {
+      captureCommonRemoteDocument(RemoteCreationDisplayInfo(200, 100, 160), profile = profile) {
         RemoteCanvas(RemoteModifier.fillMaxSize()) {
           remoteCanvas.forEach(RemoteFloatArray(1f, 2f, 3f)) { item ->
             drawCircle(paint, item + 1f)
@@ -68,7 +71,9 @@ class LoomPatternsTest {
         }
       }
     }
-    assertEquals(3, radiusInputs(doc).size)
+    assertEquals(3, radiusInputs(capture(ExperimentalProfile)).size)
+    val refused = assertFailsWith<RuntimeException> { capture(RcPlatformProfiles.ANDROIDX) }
+    assertEquals("Operation 244 is not supported for this version", refused.message)
   }
 
   private val level = RemoteFloat.createNamedRemoteFloat("level", 2f)

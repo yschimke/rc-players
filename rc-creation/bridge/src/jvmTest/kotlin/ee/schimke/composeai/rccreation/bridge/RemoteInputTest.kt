@@ -3,6 +3,7 @@
 package ee.schimke.composeai.rccreation.bridge
 
 import androidx.compose.ui.unit.*
+import ee.schimke.composeai.rccreation.common.RcPlatformProfiles
 import ee.schimke.composeai.rccreation.compose.capture.*
 import ee.schimke.composeai.rccreation.compose.layout.RemoteColumn
 import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
@@ -26,7 +27,7 @@ class RemoteInputTest {
         RcInputs.range("brightness", "Brightness", 50.0),
       )
     val bytes =
-      captureCommonRemoteDocument(display) {
+      captureCommonRemoteDocument(display, profile = ExperimentalProfile) {
         RemoteColumn {
           fields.forEach { field ->
             RemoteInput(field, field.value.rs, RemoteModifier.size(80.rdp))
@@ -37,7 +38,7 @@ class RemoteInputTest {
     assertEquals(RcVersion(1, 2, 0), doc.header.version)
     assertEquals(
       RcHeaderValue.IntValue(RcWireProfiles.ANDROIDX_EXPERIMENTAL),
-      doc.header.properties.single { it.key == 14 }.value,
+      doc.header.properties.single { it.key == RcHeader.DOC_PROFILES }.value,
     )
     val controls = doc.operations.filterIsInstance<RcCustomLayout>()
     assertEquals(5, controls.size)
@@ -58,7 +59,8 @@ class RemoteInputTest {
   fun unsupportedWriterCallsFallbackWithoutCreatingDeadControls() = runBlocking {
     var fallback = false
     val bytes =
-      captureCommonRemoteDocument(display, supportedOperations = setOf(RcOpcodes.DATA_TEXT)) {
+      // AndroidX's profile has no custom component: that is an experimental operation.
+      captureCommonRemoteDocument(display, profile = RcPlatformProfiles.ANDROIDX) {
         RemoteInput(
           RcInputs.text("message", "Message").copy(chrome = RcInputChrome.NONE),
           "".rs,

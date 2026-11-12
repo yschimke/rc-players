@@ -3,6 +3,7 @@ package ee.schimke.composeai.rccreation.bridge.tokotlin
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
+import ee.schimke.composeai.rccreation.bridge.ExperimentalProfile
 import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.CorpusButtonFilled
 import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.CorpusTextBody
 import ee.schimke.composeai.rccreation.bridge.tokotlin.generated.CorpusTitleCard
@@ -127,6 +128,8 @@ class RcToKotlinRoundTripTest {
     RcDocumentCodec.decode(
       captureCommonRemoteDocument(
         RemoteCreationDisplayInfo(360, 480, dpi, densityBehavior = behavior),
+        // The samples use a flow row, which is one of AndroidX's experimental operations.
+        profile = ExperimentalProfile,
         encodePng = ::encodePng,
         content = content,
       ),

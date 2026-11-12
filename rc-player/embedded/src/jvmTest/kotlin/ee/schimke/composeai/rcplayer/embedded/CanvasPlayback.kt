@@ -41,6 +41,7 @@ internal fun captureCanvas(width: Int, height: Int, onDraw: RemoteDrawScope.() -
   runBlocking {
     captureCommonRemoteDocument(
       RemoteCreationDisplayInfo(width, height, 160),
+      profile = RcEmbeddedPlayerProfile,
       encodePng = { bitmap ->
         Image.makeFromBitmap(bitmap.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)?.bytes
       },
