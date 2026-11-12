@@ -1,6 +1,6 @@
 # The creation fork and AndroidX: divergence, realignment, and feedback for upstream
 
-**Status: steps 0 to 4 of the realignment are done, the canvas differences step 4 kept are settled, and the fork is in rc-players' own package; steps 5 and 6 are planned.** This note records
+**Status: steps 0 to 4 of the realignment are done, the canvas differences step 4 kept are settled, the fork is in rc-players' own package, and the fork writes where and for whom AndroidX's writer does (declarations in place, and a capture `Profile`: part of steps 5 and 6); the rest of steps 5 and 6 is planned.** This note records
 three things about `third_party/remote-creation-compose` and `third_party/remote-creation-writer`,
 the Compose Multiplatform fork of AndroidX Remote Compose creation:
 
@@ -84,15 +84,15 @@ forces it.
 | A Kotlin write side, `third_party/remote-creation-writer` (11 files, 3,938 lines): the `RemoteWriter` interface, which the carried Kotlin names `RemoteComposeWriter` through a typealias, and `RemoteDocumentWriter`, which encodes the wire format | The only writer is `remote-creation-core`'s `RemoteComposeWriter.java` on top of `remote-core`'s `RemoteComposeBuffer.java`, and the Kotlin is typed against the class: `RemoteDocumentScope.document: RemoteComposeWriter` (`expression/capture/RemoteComposeCreationState.kt:44`). Java does not compile for Wasm or native. |
 | Constants and pure helpers re-declared in Kotlin under AndroidX's class names (`Utils`, `RemoteContext`, `AnimatedFloatExpression`, `TextFromFloat`, `CoreText`, `StringUtils`, `CubicEasing`, `MonotonicSpline`, `PaintBundle`, `NamedVariable`, `ComponentValue`, `DimensionModifierOperation.Type`, `AnimationSpec.ANIMATION`, `Custom.CustomProperty`, …) | They are static members of `remote-core`'s Java player classes. 21 of the 31 expression files and 53 of the 143 `jvmAndAndroidMain` files import `remote-core`, most of them for constants. |
 | A few lines changed in carried files, each under a `KMP (rc-players)` comment: no `WeakReference` in `RemoteConstantCacheKey`, a stored hash in place of `System.identityHashCode`, `value::class.simpleName` in place of `Enum.declaringJavaClass.name`, `copyOf`/`copyInto` in place of `clone()`/`System.arraycopy`, a surrogate-pair loop in place of `String.codePoints()`, `kotlin.concurrent.atomics` in place of `java.util.concurrent.atomic` | JVM-only constructs in the Kotlin itself; the full list is under items 3, 5 and 6 of the feedback below. |
-| Modifiers, actions and layouts handed to the writer as Kotlin values (`RemoteModifierOperation`, `RemoteActionData`, `WriterOp`), and a `ComponentValue` written with its component's id | The Kotlin builds `remote-creation-core`'s Java objects (`RecordingModifier.Element` in 26 files, `actions.Action` in 5) and writes each component's values inside its body through `document.buffer`; items 8 and 11 below. |
-| `RemoteComposeCaptureState` built from a writer, a set of opted-in operations and an image encoder | Upstream's three constructors each take a `Profile` (`remote-creation-core/…/profile/Profile.java`), which carries `RcPlatformServices`. |
+| Modifiers, actions and layouts handed to the writer as Kotlin values (`RemoteModifierOperation`, `RemoteActionData`, `WriterOp`), and a `ComponentValue` that names its component's own id (written in the component, as upstream's) | The Kotlin builds `remote-creation-core`'s Java objects (`RecordingModifier.Element` in 26 files, `actions.Action` in 5) and writes each component's values inside its body through `document.buffer`; items 8 and 11 below. |
+| `Profile`, `RcPlatformProfiles`, `RcProfiles`, `Header`, `HTag`, `CreationDisplayInfo` and `RemoteComposeWriterFactory` declared in Kotlin in the writer module, without `RcPlatformServices`; `RemoteComposeCaptureState`'s constructors each take an image encoder too; `Profile.android.kt` carried as common `capture/Profile.kt` | Upstream's are Java in `remote-core`, `remote-creation-core` and `remote-creation`'s `androidMain` (`profile/Profile.java`, `RcPlatformProfiles.java`), the profile carries `RcPlatformServices`, and `Profile.android.kt` builds one around `AndroidxRcPlatformServices` and `RemoteComposeWriterAndroid`. |
 | Its own capture entry point, `captureCommonRemoteDocument`, that takes no `android.content.Context` | Upstream's non-Android capture functions are `internal` (`common/capture/CaptureRemoteDocument.kt:63,84,126,151`); the public ones are in `android/capture/CaptureRemoteDocument.android.kt` and take a `Context`. |
 | The Compose UI conversions (`RemoteColor(Color)`, `Dp.asRdp()`, `RemoteTextStyle.fromTextStyle`, `ImageVector.toRemoteImageVector()`, …) compiled for every target | Upstream has them only in `androidMain`, so they exist only in the Android artifact. |
 | `Font.variationSettings` through an `expect`/`actual` with reflection on Android | `android/text/RemoteTextStyle.android.kt:103-104` reads `AndroidFont.variationSettings` and `ResourceFont.variationSettings`; neither type is in Compose Multiplatform's common `ui-text`. |
 | A pure-Kotlin `RemotePath` | `remote-creation`'s `RemotePath` is an `expect class` whose API names `expect class Path`, `RectF` and `MatrixTransform`, with actuals only for `android.graphics` and `java.awt.geom`, and `RemotePathBase` wraps `remote-core`'s Java class. |
 | 17 `androidMain` files not carried: `PendingIntentAction`, `LambdaAction`, `RemoteColor.android.kt`, `CompatAndroidRemotePaint`, `RemoteFormatting.android.kt`, the animated-vector resource parser and its `Context` painter, `Profile.android.kt`, the capture and widget classes | They use `android.*`, `androidx.lifecycle`, `androidx.savedstate`, ICU or `XmlPullParser`. |
 | `util/DocumentStats.kt` and `capture/CustomComponentFactory.kt` not carried | They are over `remote-core`'s Java classes for a document that has been read (`CoreDocument`, `operations.layout.Component`). |
-| `capture/RemoteLog.kt` not carried, and `currentProfileSupports*` answered from the operations a host names | Both read the capture state's `Profile`: `RemoteLog` its `RcPlatformServices`, the capability functions its operation table. |
+| `capture/RemoteLog.kt` not carried | It logs through the capture state's `Profile`'s `RcPlatformServices`. |
 | `RemotePath(pathData: String)` ported from `remote-core`'s `RemotePathBase`, and `addPathString` as an extension over it | `RemoteComposeWriter.addPathString` asks `RcPlatformServices.parsePath` (`remote-creation-core/…/RemoteComposeWriter.java:2253`), and `vector/RemoteAnimatedVector.kt` draws with it. |
 | Its own package, `ee.schimke.composeai.rccreation`, and its own coordinates | AndroidX's artifacts are multiplatform for the JVM and Android in `androidx.compose.remote.creation.compose`. A fork that kept that package could not be on a classpath with them, on the two targets where it is used most; see [RC_CREATION_BRIDGE.md](RC_CREATION_BRIDGE.md). This is the one difference every carried file has, and `diff-upstream.sh` removes it before it compares. |
 
@@ -166,8 +166,10 @@ Java reader, and 17 Android-only files.
 | 3 | Split the one Gradle module into three that mirror upstream, each published under its own coordinates: `rc-creation-expression`, `rc-creation-compose`, `rc-creation-foundation`, over `rc-creation-writer`, with upstream's dependencies between them (`foundation` → `compose` → `expression` → the writer). The two marked hunks in the expression files that reached into the compose side went first. `RemoteFloatContext` asks its scope for the last component (`RemoteDocumentScope.lastComponentId`, a marked member beside `document`, where upstream reads `document.buffer.lastComponentId`); the creation state answers and `RemoteStateScope` passes the question to its parent. `RemoteStateVisitor.resolveConstantState` is upstream's text again: a constant key keeps the state of a value that cannot be rebuilt from the value alone (an image), where upstream keeps a weak reference to every state, so the expression module no longer needs Compose UI's `ImageBitmap`. Two fork-only pieces cross the new boundary as restricted API: `MeshExpressionLowering`, and `RemoteTextUnit.toDp`, which `RemoteText`'s DP font size patch calls where it used the expression module's internal `RemoteFontScaleConverter`. No document changes. | Done |
 | 3a | Relocate the fork out of AndroidX's packages, to `ee.schimke.composeai.rccreation`, and stop declaring AndroidX's Gradle capabilities. Not a step towards upstream's text but the condition for being used beside it; `diff-upstream.sh` learned the package map, so every count is what it was. `:rc-creation-coexistence-check` compiles one source set against the fork and AndroidX's `remote-creation-compose` on Android and on the JVM and checks that the two share no class. No document changes. | Done |
 | 4 | Carry what is no longer Android-only upstream: `RemoteTextMeasure.kt`, `RemoteProfileCapabilities.kt`, `Hoist`, `RemoteAnimatedVector.kt` and its painter, `CaptureTracer.kt`, the `RemoteCanvas` API the fork lacked (`skew`, `saveCount`/`restoreToCount`, `custom`, the bitmap-font text runs, `startStateLayout`, the Loom patterns and `forEach`), with the writer operations under them, and the four JVM tests of `remote-creation-expression`. The fork's `RecordingCanvas` is folded into `RemoteCanvas`, as upstream did, so `RemoteCanvas.kt` and `CanvasOperationBuffer.kt` are upstream's text with marked hunks. No document that could be captured before changes; where the port's canvas wrote something other than upstream's text does, the port's bytes are kept under a marked hunk and listed in PROVENANCE.md ("Known port issues"). `CaptureUpdateThrottle.kt` moved to step 5 (it is built on `headless/UpdateRateLimiter`), and `RemoteLog.kt` to step 6 (it logs through the `Profile`). | Done |
-| 5 | Carry upstream's capture loop, `capture/headless/`, `capture/CaptureUpdateThrottle.kt` and `capture/CaptureRemoteDocument.kt`, with the JVM-only constructs replaced, in place of the fork's own. Layout nodes then write as they render, as upstream's do, which retires `WriterOp`. | Planned |
-| 6 | The writer under upstream's names, so that the modifier, action and canvas files become upstream's text. Its design depends on AndroidX's answer to items 1, 2 and 8 below. | Planned, not designed |
+| 5a | Write as upstream writes: layout nodes write as they render, a canvas flushes before it ends inside a `withCanvasOperationsScope`, a component's values are written in the component (upstream's token emission), and the writer writes every declaration where it is made (`beginGlobal`/`endGlobal` for what has to be ahead of the root). This is the one step since the canvas port fixes that changes the documents written, and it is what makes them play in AndroidX's players as AndroidX's own do. `WriterOp` remains, as the value a node hands the Kotlin writer. PROVENANCE.md, "Declarations in place, and a capture profile". | Done |
+| 5 | Carry upstream's capture loop, `capture/headless/`, `capture/CaptureUpdateThrottle.kt` and `capture/CaptureRemoteDocument.kt`, with the JVM-only constructs replaced, in place of the fork's own. | Planned |
+| 6a | The capture profile under upstream's names: `Profile`, `RcPlatformProfiles`, `RcProfiles`, `Header`, `HTag` in the writer module, honoured by `RemoteDocumentWriter` as `RemoteComposeWriter` honours it (refusal, the `TextLayout` backstop, the API level's forms, the header), `profile` on the capture state and entry points, and `currentProfileSupports*`, `PaintTracker` and `RemoteVector` reading it as upstream's text does. | Done |
+| 6 | The rest of the writer under upstream's names, so that the modifier, action and canvas files become upstream's text. Its design depends on AndroidX's answer to items 1, 2 and 8 below. | Planned, not designed |
 
 After step 6 the only differences left should be the replacements for the JVM-only constructs
 listed in items 3, 5 and 6, and the additions listed under "Candidate contributions".
@@ -554,6 +556,75 @@ cases. Two lines further on, the final `else` is
 
 *Verified by reading. No test here.*
 
+### What a layout's content declares, the player drops unless it is `ComponentData`
+
+`LayoutComponent.inflate` (`remote-core/…/operations/layout/LayoutComponent.java`) rebuilds a
+layout component from its modifiers, its child components and, of everything else its content
+holds, `Component.getData`'s selection: `TextData`, `BitmapData` and the operations that implement
+`ComponentData`. The rest is not kept, and is never applied. `NamedVariable`, `IntegerConstant`,
+`LongConstant`, `PathData`, `DataListFloat`, `TimeAttribute`, `ImageAttribute`, `TextAttribute`,
+`TextSubtext`, `TextTransform`, `IdLookup`, `BitmapFontData`, `FloatFunctionDefine` and
+`MatrixExpression` are none of the three (alpha23 and `21a1a95e4` alike).
+
+The creation library writes a declaration where its value is first resolved, and a component's
+modifiers are resolved just before the component starts, which is inside its parent's content. So
+a named state first read by a modifier, or as a state layout's index, is declared in a box's
+content: `RemoteStateLayout(RemoteInt.createNamedRemoteInt("mode", 0), 0, 1) { … }` inside a
+`RemoteBox` writes `NamedVariable` and `IntegerConstant` after the box's `LayoutContent`. The
+player then has no name `USER:mode`, and `RemoteComposePlayer.setUserLocalInt("mode", 1)` does
+nothing. A path first used by a clip or border modifier, a float list and a time attribute go the
+same way. (Android 16's platform player, whose `ComponentData` set is smaller, also loses
+`TextFromFloat`; `rc-widget-launcher`'s `platformWidgetDocument` lifts those for it.)
+
+Suggested fix: either keep every data operation `inflate` finds in a content (all of them are
+harmless to apply), or have the writer write what is not `ComponentData` ahead of the root. The
+fork's writer does the second, for a declaration made among a layout's operations and not in a
+canvas, whose drawing the player keeps whole. It cannot do it for one that reads a value declared
+in place among the components (a `TextSubtext` of a text made from a touch expression's value):
+that one stays, and AndroidX's player drops it.
+
+*Verified by playing: `AndroidxPlayerParityTest.aNamedStateFirstReadInALayoutCanBeSetByTheHost`
+(`:rc-creation-coexistence-check`, Robolectric) captures that state layout with AndroidX
+1.0.0-alpha23's own `captureSingleRemoteDocument` and plays it in `RemoteComposePlayer`: the branch
+does not change when the host sets the name, and does for the fork's document. The `ComponentData`
+sets were read from alpha23's classes and from `21a1a95e4`.*
+
+### A component's size asked for after the component is never bound
+
+`RemoteComposeCreationState.getComponentValue` writes a `ComponentValue` directly while the writer
+is in the component, and otherwise reserves a variable that `beginComponentContent` or
+`endComponentContent` binds (`expression/capture/RemoteComposeCreationState.kt:193-218`). A request
+that arrives after the component's `endComponentContent` (a later sibling sized from an earlier
+one's `remoteComponent()`, resolved for the first time there) reserves a variable that nothing
+binds in that capture: the token remembers the request (`markRequested`), so a second capture of
+the same nodes would write it, but a capture is one pass. The reader of that variable reads
+nothing. The fork writes such a value after the root, naming the component's id:
+`CoreDocument.registerVariables` gives a value outside every component to the component it names,
+provided the component comes before it in the document (ahead of the root it prints "Component not
+found for id" and binds nothing, which is why no measured size of a 3.0.0 document, whose values
+were all ahead of the root, reached AndroidX's player).
+
+*Read in upstream, not run against AndroidX's own writer. The fork's branch is tested in
+`:rc-creation-bridge`: `DeclarationPlacementTest.aSizeAskedForAfterItsComponentIsWrittenAfterTheRootForIt`
+has AndroidX's `CoreDocument` (alpha23) resolve the value to the earlier box's width.*
+
+### A named state read in two canvases is two variables
+
+`withCanvasOperationsScope` (`expression/capture/RemoteComposeCreationState.kt`, `21a1a95e4`)
+saves the variable cache when a canvas starts and restores it when it ends, so that an expression
+declared in one canvas is declared again in the next. A named state is in that cache too:
+`createNamedRemoteFloat("level", 0.5f)` first read in one canvas's draw and read again in another's
+writes two `NamedVariable`s for `USER:level`, with two ids. A player keeps one id for a name, the
+last, so `setUserLocalFloat("level", …)` moves the second canvas and not the first. alpha23, which
+has no such scopes, wrote one. Suggested fix: keep named states (and anything else a player loads
+with the document) out of the saved frame. The fork's writer answers one id for a name and type
+and declares it ahead of the root.
+
+*Verified here: `AndroidxPlayerParityTest.aNamedValueReadByTwoCanvasesIsOneVariable`
+(`:rc-creation-coexistence-check`) compares the fork's document with alpha23's. The two variables
+were seen in the fork's own documents before the writer kept one, in Home Assistant's
+`CardDesignParityTest`; androidx-main's writer was read, not run.*
+
 ### An operation outside the declared profile fails without saying which profile is missing
 
 At document API level 7, `DRAW_TO_BITMAP` (190) is in the AndroidX and widgets operation tables
@@ -563,8 +634,9 @@ experimental tables only (`remote-core/…/core/Operations.java:459-552`). Writi
 reading one fails with "Unknown operation encountered 190"
 (`remote-core/…/core/RemoteComposeBuffer.java:1082`). Neither message names a profile, so the
 author of a baseline document that draws to an offscreen bitmap is not told that the fix is to
-declare `PROFILE_ANDROIDX`. The fork's writer raises the declared profile itself when a document
-uses one of these operations.
+declare `PROFILE_ANDROIDX`. The fork's writer gives the same message under a `Profile`, to be
+AndroidX's; a writer made without one raises the declared profile itself when a document uses one
+of these operations.
 
 *The tables and both messages verified by reading. That a document declaring the profile loads in
 AndroidX's `CoreDocument` is tested here by the read-back tests in `:rc-creation-bridge`
@@ -633,7 +705,8 @@ those caches to a canvas, not to a pattern, for-each or loop body, and the canva
 sub-expression pass hoists only an operation used twice, not a named value. Suggested fix: declare
 in the body only what is computed from the pattern's parameters (or the for-each's item), and
 everything else before the definition; or scope the caches to the body. The fork's writer does the
-first: it tracks the ids a body owns and writes a declaration in the body only when it reads one.
+first: it tracks the ids a body owns, writes a declaration in the body only when it reads one, and
+writes what a template's body declares otherwise just ahead of the template.
 
 Two more forms of the same exposure, read in upstream and not run against it. A body nested in a
 body: an expression of the outer pattern's parameter first used inside a `forEach` in it is
@@ -852,6 +925,18 @@ tests failed before the patches.*
 
 ## How this was checked
 
+- Step 5a and the profile were checked against AndroidX itself, where the earlier steps were
+  checked against the fork's own previous bytes (these two change them). `:rc-creation-coexistence-check`'s
+  Robolectric tests capture one content with the fork and with AndroidX 1.0.0-alpha23's
+  `captureSingleRemoteDocument`, compare the two documents field for field (component numbering
+  aside) and play both in AndroidX's `RemoteComposePlayer`, with real `MotionEvent`s for the slider:
+  `AndroidxPlayerParityTest` for where things are written, `AndroidxProfileParityTest` for the
+  header, the operations, the fallbacks and the refusal under AndroidX's profile and under a
+  launcher's. `rc-widget-launcher`'s `RcLauncherWidgetTest` holds `rc-widget-creation`'s
+  `RcCaptureProfiles` to its own AndroidX profiles. Not checked: Android 16's platform player (no
+  such player runs here; `validateFor(RcTargetProfiles.WIDGETS_V6)` is the nearest thing), and the
+  iOS, macOS and browser targets, which this change compiles for (Kotlin metadata and klibs) but
+  does not run on a Linux host.
 - The relocation and step 3 were checked the way step 2 was. `RemoteDocumentWriter` dumped every
   document it encoded while the JVM tests of the writer, the creation modules, `:rc-creation-bridge`,
   `:rc-player-embedded` and `:rc-player-edit` ran, on a worktree of the commit before and on the

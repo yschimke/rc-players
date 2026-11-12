@@ -465,8 +465,9 @@ Taken:
 
 Already in the port: `37cc3c75b` (paths are snapshotted at record time, and the writer dedupes path
 data, `7ce0408b0`); `6f22a9fd0` (the fork's Android-named files already carry `@JvmName`s); the
-`withCanvasOperationsScope` cache frames of `09c269541`, whose bug cannot occur here: the writer
-hoists every expression into the document's declarations, so none is paint-only.
+`withCanvasOperationsScope` cache frames of `09c269541` (unused while the writer hoisted every
+expression into the document's declarations, so that none was paint-only; the nodes enter them
+since "Declarations in place, and a capture profile", below).
 
 Not applicable:
 
@@ -609,10 +610,11 @@ The fork's Compose layer takes nothing, as AndroidX has nothing there to mirror.
 `RcScope.defineVisibilityAnimation`'s equivalent, and helpers naming a function as a transition,
 are rc-players' own, in `:rc-creation-bridge` (`RcVisibilityAnimations.kt`).
 
-The writer hoists declarations ahead of the layout, which upstream's does not, so a function is
-written whole into the declarations: its body, declarations included, stays inline and in order,
-because a player evaluates it only when it runs the function, and the dedup caches forget what the
-body declared once it ends. The first paint inside a function, and the first after it, are written
+A function is written where it is defined, as upstream's (the writer hoisted declarations ahead of
+the layout until "Declarations in place, and a capture profile", below, and a function with them):
+its body, declarations included, stays inline and in order, because a player evaluates it only when
+it runs the function, and the dedup caches forget what the body declared once it ends.
+`defineVisibilityAnimation` asks for a global section, so its functions are still ahead of the root. The first paint inside a function, and the first after it, are written
 in full. Byte equality with alpha22's `RemoteComposeWriter` and DSL, and alpha22's `CoreDocument`
 reading the result, are tested in `:rc-creation-bridge`'s jvmTest.
 
@@ -786,10 +788,9 @@ bytes after it.
   function answers `false` by default and a component takes its fallback, as under upstream's most
   restricted profile, and as `RemoteVectorPainter`'s path clip already did. The answer is about the
   reader: the fork's writer can write every operation these functions ask about.
-- **`Hoist`** records its states and writes them when the canvas flushes. The Kotlin writer puts
-  every declaration ahead of the layout, so a hoisted state ends there, not at the container
-  `Hoist` is called in. It is evaluated whatever is hidden, which is what a caller hoists for; what
-  `Hoist` adds here is that a state nothing else reads is written at all.
+- **`Hoist`** records its states and writes them when the canvas flushes, at the container
+  `Hoist` is called in, as upstream's (until the writer wrote declarations in place they ended
+  ahead of the layout instead).
 - **`RemotePath(pathData: String)`**, `arcTo` and `createFloatArray()` on the fork's `RemotePath`
   (fork-only), ported from `remote-core`'s `RemotePathBase` as AndroidX's JVM artifact parses a
   path string (`JvmRcPlatformServices.parsePath`): `M L H C S Q Z` and the arcs `A a`, anything
@@ -1039,6 +1040,113 @@ The script's counts after the split: 233 hunks, 166 marked (three more: the memb
 longer imports the creation state, `RemoteStateVisitor` no longer imports `ImageBitmap`), 10
 unmarked, and 18 fork-only files (`RemoteTextUnitDp.kt`).
 
+## Declarations in place, and a capture profile
+
+Two consumers moved real content from AndroidX's `remote-creation-compose` to this fork and found
+the documents did not play the same in AndroidX's own players (the View player, and Android 16's
+platform player): a slider snapped back on release, a launcher's canvas expressions were no longer
+in their canvas, an animated float of a measured size inside a state layout's branch vanished. The
+CMP player played all of it. Two differences from AndroidX were behind it, and both are gone.
+
+### Where an operation is written
+
+The port wrote every declaration ahead of the layout, and its layout nodes recorded their writer
+calls (`WriterOp`) to be written when the canvas flushed, once, at the end. AndroidX writes
+everything where it is made, and its players read meaning from the place:
+
+- `LayoutComponent.inflate` gives a `TouchExpression` to the component whose list it is in, and the
+  expression moves only for touches on it;
+- it gives a `ComponentValue` to the component it finds it in, whatever id the value names;
+- an expression in a canvas's operations is evaluated when the canvas paints, after the touch
+  expression before it; one ahead of the root is evaluated with the document, once, before any
+  canvas is measured.
+
+Now:
+
+- **`RemoteDocumentWriter` writes a declaration where it is asked for.** `declaration(opcode, id,
+  readsBody)` is still the one door. `beginGlobal()`/`endGlobal()`, as `RemoteComposeWriter`'s, move
+  a section ahead of the root (they nest, where upstream refuses a second begin).
+- **The writer shares by value only what a player loads with the document**: text, bitmaps, paths,
+  text from a float, as `RemoteComposeWriter` does. It no longer shares float and integer
+  expressions, integers, float arrays, id lists, text lengths or text lookups: an expression
+  declared in one canvas is evaluated with that canvas, and upstream's creation state, with its
+  `withCanvasOperationsScope` frames, decides what to reuse.
+- **Layout nodes write as they render** (`RemoteCanvas.writeLayout`, which flushes what the canvas
+  has recorded first), a canvas flushes before it ends, and both run in a
+  `withCanvasOperationsScope`, as upstream's text has it. `WriterOp` remains as the value a node
+  hands the Kotlin writer.
+- **A component's values are written in the component.** Upstream's token emission is restored
+  (`beginComponentContent`, `disableDirectComponentEmission`, `endComponentContent`, the emitted
+  mask), with the modifier data's `afterOperations` standing where upstream's
+  `RecordingModifier.then { }` element does. The Kotlin writer still names the component's own id
+  in each value, where upstream's names the last component started.
+- **A host action's constant name and a string change's constant value** are declared inside the
+  click or touch modifier (`RemoteActionData.HostNamedText`, `StringChangeText`), as
+  `remote-creation-core`'s `HostAction` and `ValueStringChange` do.
+
+What is still moved, each marked `LOCAL PATCH (rc-players)` where it is done:
+
+| What | Where it goes | Why |
+| --- | --- | --- |
+| A declaration made in a pattern or for-each body that reads nothing of a body's | Just ahead of the template | Upstream leaves it in the template and answers its id afterwards; see "What a pattern's body declares first…" in RC_CREATION_UPSTREAM.md. |
+| A declaration made among a layout's operations of a kind AndroidX's `LayoutComponent.inflate` drops there (anything but `TextData`, `BitmapData` and the `ComponentData` operations: a named variable, an integer or long constant, path data, a float list, a time, image or text attribute, a text transform, a bitmap font, …), unless it reads an id a component's content declared in place | Ahead of the root | A named state first read by a component's modifier is otherwise one its host cannot set (`AndroidxPlayerParityTest.aNamedStateFirstReadInALayoutCanBeSetByTheHost` plays both writers' documents). In a canvas, whose drawing a player keeps whole, it stays in place; so does one that reads an expression written among the components (a `TextSubtext` of a text made from a touch value), which ahead of the root would name ids not declared yet (`DeclarationPlacementTest.whatReadsAComponentsValueIsNotMovedAheadOfIt`). |
+| A named value (`addNamedInt`/`Float`/`String`/`Long`, a named colour) | Ahead of the root, once per name and type | A document has one variable for a name. Upstream's canvas scopes (`withCanvasOperationsScope`) forget a named state at each canvas's end and declare it again in the next, two ids for one name: a host that sets the name reaches the last, and AndroidX's alpha23 writer, with no such scopes, declared one (`AndroidxPlayerParityTest.aNamedValueReadByTwoCanvasesIsOneVariable`). |
+| A `RemoteTextMeasurer` measurement first read outside a canvas, with its paint | Ahead of the root (`beginGlobal`) | `TextAttribute` is one of those kinds, and its paint has to precede it. |
+| A component's value asked for after the component has been written (a later sibling sized from it) | After the root | Nothing more can be written in the component, and in another a player gives it to that one. Outside every component a player binds it by the id it names, if the component precedes it (`CoreDocument.registerVariables`): after the root, not ahead of it. Upstream reserves a variable no `ComponentValue` binds. |
+| What a render requests of a component token | Forgotten when the render ends | A retained composition's second render is then its first; upstream's tokens keep the request and write those values earlier next time. |
+
+### `Profile`
+
+`:rc-creation-writer` declares AndroidX's capture profile under AndroidX's names, in
+`ee.schimke.composeai.rccreation.common`: `Profile`, `RemoteComposeWriterFactory`,
+`CreationDisplayInfo`, `HTag` (`remote-creation-core`), `RcProfiles`, `Header`,
+`Operations.getOperations` (`remote-core`) and `RcPlatformProfiles` (`remote-creation`'s
+`androidMain`). `scripts/upstream-fqn.tsv` maps them. Not carried: `RcPlatformServices`, which
+upstream's profile also holds (the fork's capture takes an image encoder, and its path is pure
+Kotlin), and `WidgetsProfileWriterV6`'s checks of a level 6 operation's fields.
+
+`RemoteDocumentWriter` honours a profile as `RemoteComposeWriter` and `RemoteComposeBuffer` do:
+`WireBuffer.start`'s refusal and message, `addTextComponentStart`'s `TextLayout` backstop,
+`startCanvas`'s `CanvasContent` and `addModifierBorder`'s legacy form up to API level 7,
+`filterAndValidateTags`, and `Header.apply`'s two headers. A writer made from a size alone
+(`RemoteDocumentWriter(width, height, …)`) is as it was: it writes anything, and raises the profile
+it declares to what its operations need.
+
+In the Compose module, `RemoteComposeCaptureState` has upstream's `profile` and constructors again
+(each with the image encoder the fork adds), `capture/RemoteProfileCapabilities.kt`,
+`capture/PaintTracker.kt` and `vector/RemoteVector.kt` read it as upstream's text does, and
+`capture/Profile.kt` is upstream's `Profile.android.kt` in common code, with a `headerTags`
+parameter for what a consumer of AndroidX's API passes its own writer factory. The capture entry
+points and `RemoteDocumentSession` take `profile` (default `RcPlatformProfiles.ANDROIDX`); the
+`supportedOperations` forms of 3.0.0 are deprecated and behave as they did.
+
+The operation tables were `:rc-player-edit`'s; they are in `:rc-player-protocol` now
+(`RcProfileOperations`), and the writer depends on that module, so what a capture for a player may
+write is what `validateFor` accepts for it.
+
+### How it was checked
+
+`:rc-creation-coexistence-check`'s `androidHostTest` (Robolectric) captures one content with this
+fork and with AndroidX 1.0.0-alpha23, compares the documents field for field (but for component
+numbering), and plays both in AndroidX's `RemoteComposePlayer`:
+
+- `AndroidxPlayerParityTest`: a slider (a touch expression, text made from its value, a release
+  that sends the text) sends 60 after a 60 px drag from both; before the change the fork's sent the
+  resting value. A named value read by two canvases is one variable. An inline bitmap draws. A canvas's expression of its own measured width, and the same inside a state
+  layout's branch, are in the canvas and draw the same bar. A click.
+- `AndroidxProfileParityTest`: under `RcPlatformProfiles.ANDROIDX`, and under a launcher's profile
+  as `rc-widget-launcher` builds it (API level 7, the widget and experimental operations less
+  `CoreText`, `TextStyle` and the flow layout, `FEATURE_PAINT_MEASURE = 0`), the header is the same
+  bytes and the operations the same, text a `TextLayout` and the canvas's drawing in a
+  `CanvasContent`; the named profiles hold AndroidX's levels, bits and operation sets; a flow row
+  under AndroidX's profile is refused with AndroidX's message.
+
+Two differences remain between the fork (androidx-main) and alpha23 in those comparisons, both
+upstream's own changes since: a text that names no alignment (the fork's `Start`, a local patch
+over main's `Unspecified`, against alpha23's `Left`), and a paint's `wght` axis under a profile
+without `CoreText`. alpha23's `clickable` also writes an empty `AccessibilitySemantics` that main's
+writes only for a role.
+
 ## Known port issues
 
 - **Scroll orientation** was reversed (`verticalScroll` wrote 1, the wire's horizontal). Fixed on
@@ -1063,20 +1171,23 @@ to offer upstream, and the list is meant to shrink. Paths are package-relative (
 | `capture/CanvasOperationBuffer.kt` (`save`) | `save()` returns the save count before it, not after | **Upstream bug.** `RemoteCanvas.save` documents its result as what `restoreToCount` takes to balance it, as `android.graphics.Canvas.save` returns; upstream returns the incremented count, for which `restoreToCount` restores nothing, so the save stays open (and a child block throws for the unbalanced save). `RcSaveRestoreToCountPlaybackTest` and `CarriedCreationApiTest` cover it. |
 | `layout/RemoteCanvas.kt` (`drawBitmap(bitmap, left, top)`) | The rectangle is (left, top, left + width, top + height) | **Upstream bug.** Upstream's `document.drawBitmap(id, left, top, "")` asks the platform services for the size of an id, gets 0, and passes it as right and bottom. `RcCanvasBitmapSizePlaybackTest` and `CanvasBitmapReadBackTest` cover it. |
 | `layout/RemoteCanvas.kt` (both `drawBitmap`s) | No content description is id 0 | Upstream passes `""`, which declares an empty text and names it as the description; 0 is what the format and `RemoteComposeWriter.drawBitmap(…, null)` have for none. |
-| `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`bodyScopes`, `declaration`, `startLoop`/`endLoop`, `definePattern`/`endPatternDefine`, `addPatternForEach`/`endPatternForEach`) | A declaration that reads an id a loop, pattern or for-each body owns (its index, parameters or item, or anything declared from them) is written in the body and forgotten at its end; every other declaration goes ahead of the layout | Follows from the Kotlin writer declaring ahead of the layout, where upstream's writes in place: a player computes a header expression once a frame, and expands a template with its own ids replaced. `CanvasLoopReadBackTest`, `RcCanvasLoopPlaybackTest`, `LoomPatternsTest` and `RcPatternCapturedStatePlaybackTest` cover it. |
+| `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`bodyScopes`, `declaration`, `startLoop`/`endLoop`, `definePattern`/`endPatternDefine`, `addPatternForEach`/`endPatternForEach`) | A declaration that reads an id a loop, pattern or for-each body owns (its index, parameters or item, or anything declared from them) is the body's, and is forgotten at its end; what a pattern or for-each body declares without reading one goes just ahead of the template | A player expands a template with its own ids replaced, and runs a loop's body once per value of its index; upstream leaves everything a template declares in it and answers the ids afterwards. `CanvasLoopReadBackTest`, `RcCanvasLoopPlaybackTest`, `LoomPatternsTest` and `RcPatternCapturedStatePlaybackTest` cover it. |
 | `capture/RemoteDocumentSession.kt` (new) | A composition kept alive under a host `CompositionContext`, re-rendered into a fresh writer on demand; reports when a state its last render read changes (`onRenderInputsChanged`) | The live, in-process path. It mirrors upstream's Android `captureRemoteDocument` loop, including its `RenderInvalidationTracker`. |
 | `capture/RemoteComposeCreationState.kt` (`getOrPutVariableId`, `getOrPutFloatArray`, `getOrPutLongArray`, `getOrPutFloatExpressionId`, `getOrPutIntExpressionId`, `readsRetiredId`), `../remote-creation-writer/.../RemoteWriter.kt` (`isRetired`) | A cached id, or a cached lowered expression that reads one, is not answered once the writer has retired it: it is asked for again | The caches are per document (upstream scopes some to a canvas), and what a pattern, for-each or loop body declares from its own ids exists only in that body. Without the check an expression first used in a nested body was answered with the nested body's id in the body around it. `BodyOwnedDeclarationsTest` covers the writer's side. |
 | `capture/RemoteComposeCreationState.kt` | `resetComponentIds()`, which also forgets the component tokens' ids (the session sets upstream's own `document` for each render) | A session renders each frame into a fresh writer. Without the reset, every render renumbers every component (upstream has the same drift). |
 | `layout/RemoteComposeApplier.kt` | `onChangesApplied` | Tells a session when to re-render |
 | `modifier/ComponentIdModifier.kt` (new), `layout/RemoteComposeNode.kt`, `capture/RemoteComposeCreationState.kt`, `modifier/RemoteModifier.kt` | `RemoteModifier.componentId(id)`: a node takes a requested component id (at most `MaxExplicitComponentId`, -2,000,000, below both ranges a document allocates) instead of a positional one, once per render | Lets a host name components: an editor maps the player's geometry back to its own nodes (`RcComponentIds` in `:rc-creation-bridge`) |
-| `capture/RemoteCreationDisplayInfo.kt` | `RemoteDensityBehavior.wireValue` | Lets a writer outside the module describe the same display |
+| `capture/RemoteCreationDisplayInfo.kt` | `RemoteDensityBehavior.wireValue`; `RemoteDensity.from(creationDisplayInfo)` is public | Lets a writer outside the module describe the same display, and a host that makes its own session name the density a display captures at |
+| `capture/Profile.kt` (`headerTags`), `capture/RemoteComposeCaptureState.kt` (`legacyProfile`, the deprecated `supportedOperations`), `capture/CaptureRemoteDocument.kt` and `capture/RemoteDocumentSession.kt` (the deprecated `supportedOperations` forms) | Header tags on the common `Profile(…)`; 3.0.0's capture forms kept | A consumer of AndroidX's API writes feature tags through a writer factory of its own; 3.0.0 callers keep compiling and capturing what they did |
+| `capture/RemoteComposeCreationState.kt` (`getComponentValue`, `isInCanvasOperationsScope`), `layout/RemoteComponentToken.kt` (`saveRequested`, `restoreRequested`), `layout/RemoteComposeNode.kt` (`RemoteRootNode.render`), `layout/RemoteTextMeasure.kt` | See "Declarations in place, and a capture profile": a value asked for after its component, a render's token requests, a measurement outside a canvas | AndroidX's player drops or misassigns them where upstream writes them |
+| `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`addBitmapPng`) | An encoded image carried in the document is `TYPE_PNG_8888` (0), not `TYPE_PNG` (1) | **Port bug.** `RemoteComposeWriter.storeBitmap` writes the plain width and height for an inline image; `TYPE_PNG` is the type of a URL's or a file's, and AndroidX's `RemoteBitmapDecoder` refuses it inline ("TYPE_PNG is not allowed for ENCODING_INLINE"), so the image did not draw in AndroidX's players. rc-players' player reads both. `AndroidxPlayerParityTest.anInlineBitmapDrawsInAndroidxsPlayer`. |
 | `../remote-creation-writer/.../RemoteDocumentWriter.kt` | `startCustom` content section takes a fresh component id | **Port bug.** Upstream's `addContentStart` allocates one; the port reused the layout's own id, and rc-players' player rejects the duplicate. The same fix is in yschimke/remote-m3-catalog's vendor copy (yschimke/remote-m3-catalog#133); this patch retires when that lands and the fork is re-taken from it. |
 | `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`definePattern`, `endPatternDefine`, `endPatternInflation`, `addPatternForEach`, `endPatternForEach`) | The first paint in a pattern or for-each body is written in full, and so is the first after a definition, a call and a for-each | **Upstream bug.** The body is a template the player draws where the pattern is called, with the paint it has there, but upstream's canvas records it through its one `PaintTracker`: a body whose paint equals the one before it has no paint operation, and a draw after a call sends none when its paint equals the one before the call. `RcPatternPaintPlaybackTest` and `LoomPatternsTest` cover it. |
 | `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`startLoop`, `endLoop`) | The first paint in a loop's body is written in full, and so is the first after the loop | **Upstream bug.** The body is drawn once per value of the index with the paint the player has then (the body's last from the second pass on) and not at all for an empty range, but upstream's `RemoteCanvas.loop` records it through the canvas's one `PaintTracker` with no forced paint: a body's first draw with the paint before the loop has no paint operation, and neither has a draw after the loop with the body's last. `RcCanvasLoopPaintPlaybackTest` and `CanvasPaintReadBackTest` cover it. |
 | `layout/RemoteTextMeasure.kt` (`measureAttribute`), `layout/RemoteCanvas.kt` (`flush`, `paintWrittenOutsideTracker`, `usePaintInternal`, `recordRenderingOp`), `capture/RemoteComposeCaptureState.kt` (`onPaintWrittenOutsideCanvas`) | The canvas being written is told when a measurement has written its paint. Its next paint is whole in any case. If one of its draws is being written it sends the paint it last applied again, in full, there; if the measurement is a property of the paint being worked out (`RemotePaint { textSize = measured.size.width }`), that paint is worked out again and sent whole, once; if it is outside a draw (a transform, an expression shared by two draws, a layout modifier), the paint is sent again before the next draw that inherits it in the same component | **Upstream bug.** A measurement writes `rcPaint…commit()` and a `TextAttribute` where its value is first read, behind the canvas's `PaintTracker`. In `drawText(text, measured.size.width, y, paint)` that is after the draw's paint and before the draw, so text with a 12 px paint was drawn at the 20 px it was measured at, and later draws whose paint the tracker took to be unchanged inherited it. `RcTextMeasurePaintPlaybackTest` and `CanvasTextMeasureReadBackTest` cover it, the second case by case: a draw's argument, a paint's text size, stroke width and colour, `usePaint`, a transform, a shared expression, a measurement of a measurement, a conditional block, a loop's body, a pattern's body, a layout modifier. |
 | `vector/RemoteAnimatedVectorPainter.android.kt` (`computeAnimatorLocalProgress`, `evaluateDynamicFloat`, `evaluateDynamicColor`) | An animator with a non-zero `repeatCount` restarts, or runs back under `REPEAT_MODE_REVERSE`, after each iteration, and ends after its last; an animator that does not repeat writes the expression it wrote before. Of several animators on one property, the next by start delay takes over when its start delay is reached, as `RemoteAnimatedVector.evaluate` chooses; two that are end to end write the expression they wrote before | **Upstream bug.** Upstream clamps the animator's progress to its first iteration, so it holds its end value for the rest of a timeline that `totalDuration` made long enough for all of them (100 ms, 0 to 1, repeated once in reverse: 1 at three quarters, not 0.5). And it switches from one animator to the next at the end of the first one's first iteration, so the painter and `evaluate` differ wherever two animators overlap or leave a gap. `AnimatedVectorEvaluationTest` covers it. |
 | `vector/RemoteAnimatedVector.kt` (`RemotePropertyAnimator.evaluateAt`; `RemoteInterpolator.Accelerate.factor`, `Decelerate.factor`), `vector/RemoteAnimatedVectorPainter.android.kt` (`transformInterpolator`, `evaluateAnimatorFloat`, `evaluateAnimatorColor`) | One definition of an animator's value in both evaluations: the iteration and its direction, then the animator's interpolator, then the segment's end keyframe's. `evaluateAt` applies the animator's; the painter applies the keyframes', and an `Accelerate` or `Decelerate` with its factor (which becomes `internal` to be read) | **Upstream bug.** `evaluateAt` applied only the keyframe's interpolator (0 to 1 with `Accelerate` on the animator was 0.5 half way, not 0.25), and the painter only the animator's, as the factor-1 curve whatever the factor. `AnimatedVectorEvaluationTest` draws the same animators both ways and compares what AndroidX draws. |
-| `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`encodeToByteArray`) | A document that draws to a bitmap declares `PROFILE_ANDROIDX` unless it declares the AndroidX or widgets profile already | remote-core reads `DrawToBitmap` under no other profile and stops at it ("Unknown operation encountered 190"), so the fork's default profile-0 documents with an offscreen buffer (`drawToOffscreenBitmap` included) did not load in AndroidX. Upstream's writer refuses the operation instead; the fork names the profile, as it does the experimental one for custom components. |
+| `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`encodeToByteArray`) | A document that draws to a bitmap declares `PROFILE_ANDROIDX` unless it declares the AndroidX or widgets profile already | remote-core reads `DrawToBitmap` under no other profile and stops at it ("Unknown operation encountered 190"), so a profile-0 document with an offscreen buffer (`drawToOffscreenBitmap` included) did not load in AndroidX. Only for a writer made from a size alone (`RemoteDocumentWriter(width, height, …)`); one made for a `Profile` refuses the operation, as upstream's does. |
 | `modifier/DrawWithContentModifier.kt`, `layout/RemoteDrawScope.kt`, `layout/RemoteContentDrawScope.kt` | A `drawWithContent` after padding draws inside it: translated past the padding before it, its scope's `width`/`height` reduced by it, its content drawn back at the component's origin | **Port bug.** AndroidX writes it this way, and the player does not inset a draw modifier itself, so the fork drew a padded component's decoration over its padding |
 | `shaders/RemoteRuntimeShader.kt` (new), `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`addShader`) | `RemoteBrush.runtimeShader(source, floatUniforms, intUniforms, sizeUniform)`: AGSL written as `TextData` + `ShaderData` (`DATA_SHADER`) and set as the paint's shader; float uniforms are any `RemoteFloat` (resolved by the player every frame), and the painted size is passed as a `float2`. A document with a shader declares `PROFILE_ANDROIDX`, as one that draws to a bitmap does | The core format and both players run runtime shaders; the port had no way to write one. remote-core reads `ShaderData` only under the AndroidX profile. `ShaderDataWriteTest`, `RuntimeShaderBrushTest` (with AndroidX read-back) and `RcRuntimeShaderPlaybackTest` cover it. |
 | `layout/RemoteMesh2D.kt` (new), `capture/Mesh2DWriterOp.kt` (new), `state/MeshExpressionLowering.kt` (new), `state/RemoteFloat.kt` (`combineToFloatArray`), `capture/RemoteComposeCreationState.kt` (`meshExpressionLowering`, and `getOrPutFloatArray` bypassing the cache while it is set), `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`addMesh2D`, `addMesh2DValues`, `drawMesh2D`, `matrixFromMesh2D`) + `ProtocolPrimitives.kt` (`Mesh2D`) | `RemoteCanvas.drawMesh2D` / `RemoteDrawScope.drawMesh2D(uCount, vCount, layout, image, paint, antialiasWidth) { ... }`: a parametric 2D mesh written as `AddMesh2D` (`TYPE_EXPRESSION`) plus `DrawMesh2D`, each channel (`x`, `y`, `texU`, `texV`, `alpha`, `red`, `green`, `blue`) the raw RPN of a `RemoteFloat` over `u`/`v` (`VAR1`/`VAR2`). Channels are lowered while `state/MeshExpressionLowering.kt`'s lowering is set on the creation state, which `combineToFloatArray` (`state/RemoteFloat.kt`) defers to. Every operand that reads `u`/`v` stays inline. Every other operand becomes a reference to an ordinary float. The channels are not registered as roots either. So a `u`/`v` expression is never hoisted into a document float, which the player would evaluate without `u`/`v`. A document with a mesh declares `PROFILE_EXPERIMENTAL`, plus `PROFILE_ANDROIDX` unless it names AndroidX or widgets | The core format (alpha23, experimental) and rc-players' players draw meshes; the port had no way to write one. remote-core reads the mesh operations only in its experimental V7 maps. `Mesh2DWriteTest`, `Mesh2DAuthoringTest` (with AndroidX read-back) and `RcMesh2DPlaybackTest` cover it. |
@@ -1102,6 +1213,13 @@ the structural feedback, in
   literal when the density is constant, while `CoreText.updateVariables` scales a literal font size
   by the host density in a DP document. The fork writes dp there (local patch above); upstream
   should do the same, or the core should stop scaling. Upstream: `layout/RemoteText.kt`.
+
+- **A named state is declared once per canvas.** `withCanvasOperationsScope` restores the
+  variable cache at a canvas's end, named states included, so a name read in two canvases is two
+  variables with one name, and `setUserLocal*` reaches one. The fork's writer keeps one id per name
+  and type. Upstream: `capture/RemoteComposeCreationState.kt`.
+- **What a layout's content declares, AndroidX's player drops**, and **a component's size asked
+  for after the component is never bound**: both in RC_CREATION_UPSTREAM.md.
 
 - **Unspecified text alignment.** `RemoteText` writes `RemoteTextAlign.Unspecified`
   (`Int.MIN_VALUE`) when neither its argument nor its style sets an alignment (`99f14adf8`), where

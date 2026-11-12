@@ -286,18 +286,21 @@ A host defines its animations on the writer, then captures content into the same
 `RemoteDocumentSession` renders each frame into a fresh writer: define the same animations first on
 each, and they get the same ids each time.
 
-Two things differ from a plain AndroidX writer, both because the fork hoists declarations ahead of
-the layout:
+Two things differ from a plain AndroidX writer:
 
-- **The definition goes ahead of the layout whole, its body not hoisted further.** A player
-  evaluates a function body's expressions and data only when it runs the function, with its
-  parameters bound, so they stay inside it, in order, as AndroidX writes them. Nothing the body
-  declares is reused after it: the writer's dedup caches go back to what they held before.
+- **The definition goes ahead of the root whole.** `defineVisibilityAnimation` writes it in a
+  global section (`RemoteWriter.beginGlobal`), wherever it is called from: a function defined among
+  a component's operations is not one a player keeps. A player evaluates a function body's
+  expressions and data only when it runs the function, with its parameters bound, so they stay
+  inside it, in order, as AndroidX writes them. Nothing the body declares is reused after it: the
+  writer's dedup caches go back to what they held before.
 - **A document that draws to a bitmap declares AndroidX's profile.** remote-core reads
   `DrawToBitmap` only under the AndroidX or widgets profile, and stops at it under any other
   ("Unknown operation encountered 190"). Upstream's writer refuses the operation under such a
-  profile; the fork's writer adds `PROFILE_ANDROIDX` to the header itself, as it adds the
-  experimental profile for custom components. This also fixes `RemoteCanvas.drawToOffscreenBitmap`,
+  profile, and so does the fork's when it is made for a `Profile`; one made from a size alone
+  (`RemoteDocumentWriter(width, height, …)`, which is how a host that defines its animations on
+  the writer makes it) adds `PROFILE_ANDROIDX` to the header itself, as it adds the experimental
+  profile for custom components. This also fixes `RemoteCanvas.drawToOffscreenBitmap`,
   whose documents AndroidX could not read before.
 
 ## Bugs found on the way
