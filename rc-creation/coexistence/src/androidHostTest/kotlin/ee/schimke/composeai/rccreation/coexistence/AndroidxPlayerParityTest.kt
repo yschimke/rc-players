@@ -286,4 +286,40 @@ class AndroidxPlayerParityTest {
     repeat(3) { played.frame() }
     assertTrue(played.drawn() != wide, "the host's value changed nothing")
   }
+
+  /** The rows of [Played]'s frame that have a pixel drawn, as ranges. */
+  private fun Played.drawnRows(): List<IntRange> {
+    val image = frame()
+    val rows = (0 until Height).filter { y -> (0 until Width).any { image.getPixel(it, y) != 0 } }
+    return rows.fold(mutableListOf<IntRange>()) { runs, y ->
+      if (runs.isNotEmpty() && runs.last().last == y - 1) runs[runs.lastIndex] = runs.last().first..y
+      else runs.add(y..y)
+      runs
+    }
+  }
+
+  @Test
+  fun aHiddenClippedChildTakesNoRoomAsAndroidxPlaysIt() {
+    for (clipped in listOf(false, true)) {
+      val theirs = androidx { AndroidxContent.HiddenClipped(clipped, 0) }
+      val ours = rcDocument { RcContent.HiddenClipped(clipped, 0) }
+      val rows = Played(context, theirs).drawnRows()
+      assertEquals(2, rows.size, "AndroidX draws the two texts only: $rows")
+      assertEquals(rows, Played(context, ours).drawnRows(), "clipped=$clipped")
+    }
+  }
+
+  @Test
+  fun aCircleClipUnderVisibilityIsKeptAsAndroidxPlaysIt() {
+    for (where in 0..2) {
+      val theirs = androidx { AndroidxContent.CircleClipUnderVisibility(where) }
+      val ours = rcDocument { RcContent.CircleClipUnderVisibility(where) }
+      val drawn = Played(context, theirs).frame()
+      assertTrue(drawn.getPixel(20, 20) != 0, "AndroidX draws the box, where=$where")
+      assertEquals(0, drawn.getPixel(1, 1), "AndroidX cuts the corner, where=$where")
+      val played = Played(context, ours).frame()
+      assertTrue(played.getPixel(20, 20) != 0, "the box is drawn, where=$where")
+      assertEquals(0, played.getPixel(1, 1), "the corner is cut, where=$where")
+    }
+  }
 }
