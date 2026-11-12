@@ -59,8 +59,26 @@ internal abstract class RemoteComposeNode : RemoteComponentTokenProvider {
             null
         }
 
-    // KMP (rc-players): no `attachComponentTokenFlush`: the Kotlin writer names a component's
-    // id in each `ComponentValue`, so nothing has to be flushed inside the component's body.
+    // KMP (rc-players): as upstream's `attachComponentTokenFlush`, on the Kotlin writer's modifier
+    // data: once the component's modifiers are written, the `ComponentValue`s already asked of it
+    // are written, in the component.
+    private fun attachComponentTokenFlush(
+        creationState: RemoteComposeCreationState,
+        data: RemoteModifierData,
+    ): RemoteModifierData {
+        if (!supportsComponentToken || (modifier === RemoteModifier && componentToken == null)) {
+            return data
+        }
+        val componentId = renderedComponentId
+        data.afterOperations = {
+            componentToken?.let { token ->
+                creationState.beginComponentContent(token, componentId)
+                creationState.endComponentContent(token)
+            }
+        }
+        return data
+    }
+
     fun overriddenScope(scope: RemoteStateScope): RemoteStateScope {
         return OverriddenScope(
             parentScope = scope,
@@ -86,18 +104,16 @@ internal abstract class RemoteComposeNode : RemoteComponentTokenProvider {
         // section (an image) is itself the last one.
         val contentId = if (writesContentSection) creationState.allocateComponentId() else -1
         creationState.lastComponentId = if (writesContentSection) contentId else renderedComponentId
-        // A size this component's modifiers, content or drawing read refers to this component
-        // (its token), however late it is consumed. The id is known before the modifiers convert,
-        // where upstream instead writes the requested `ComponentValue`s inside the component.
-        getOrCreateComponentToken()?.let {
-            creationState.beginComponentContent(it, renderedComponentId)
-        }
         val data = scope.toRemoteModifierData(modifier)
-        return data.apply {
-            componentId = renderedComponentId
-            contentComponentId = contentId
-        }
+        data.componentId = renderedComponentId
+        data.contentComponentId = contentId
+        return attachComponentTokenFlush(creationState, data)
     }
+
+    // KMP (rc-players): the id this node's component has in this render, for
+    // `beginComponentContent`, where upstream's reads the writer's `lastComponentId`.
+    internal val componentIdForToken: Int
+        get() = renderedComponentId
 
     fun renderChildren(
         creationState: RemoteComposeCreationState,
@@ -108,17 +124,26 @@ internal abstract class RemoteComposeNode : RemoteComponentTokenProvider {
         if (supportsComponentToken) {
             creationState.currentRenderingNode = this
         }
+        componentToken?.let { creationState.beginComponentContent(it, renderedComponentId) }
         try {
             if (modifier.hasDrawWithContent()) {
-                // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes,
-                // where
-                // upstream writes to `document` here.
-                remoteCanvas.recordRenderingOp(WriterOp.StartCanvasOperations)
-                modifier.drawWithContent(overriddenScope(remoteCanvas), remoteCanvas) {
-                    remoteCanvas.drawComponentContent()
+                creationState.withCanvasOperationsScope {
+                    // KMP (rc-players): written through a `WriterOp`, where upstream calls
+                    // `document` here.
+                    remoteCanvas.writeLayout(WriterOp.StartCanvasOperations)
+                    modifier.drawWithContent(overriddenScope(remoteCanvas), remoteCanvas) {
+                        remoteCanvas.drawComponentContent()
+                    }
+                    componentToken?.let {
+                        creationState.beginComponentContent(it, renderedComponentId)
+                        creationState.disableDirectComponentEmission(it)
+                    }
+                    remoteCanvas.flush()
+                    remoteCanvas.writeLayout(WriterOp.EndCanvasOperations)
                 }
-                remoteCanvas.recordRenderingOp(WriterOp.EndCanvasOperations)
             }
+
+            componentToken?.let { creationState.disableDirectComponentEmission(it) }
 
             if (!reversed) {
                 children.fastForEach { it.render(creationState, remoteCanvas) }
@@ -126,6 +151,7 @@ internal abstract class RemoteComposeNode : RemoteComponentTokenProvider {
                 children.fastForEachReversed { it.render(creationState, remoteCanvas) }
             }
         } finally {
+            componentToken?.let { creationState.endComponentContent(it) }
             creationState.currentRenderingNode = previousNode
         }
     }
@@ -136,11 +162,36 @@ internal class RemoteRootNode : RemoteComposeNode() {
         get() = false
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
-        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
-        // upstream writes to `document` here.
-        remoteCanvas.recordRenderingOp(WriterOp.StartRoot)
-        renderChildren(creationState, remoteCanvas)
-        remoteCanvas.recordRenderingOp(WriterOp.EndRoot)
+        // LOCAL PATCH (rc-players): what a render requests of a component (`markRequested`) is
+        // forgotten when it ends, so that a retained composition's next render writes what its
+        // first did: upstream's tokens keep it, and a later render writes those values earlier in
+        // their component. What composition requested is kept.
+        val requested = HashMap<RemoteComponentToken, Int>()
+        forEachNode { node -> node.componentToken?.let { requested[it] = it.saveRequested() } }
+        try {
+            // KMP (rc-players): written through a `WriterOp`, where upstream calls `document`
+            // here.
+            remoteCanvas.writeLayout(WriterOp.StartRoot)
+            renderChildren(creationState, remoteCanvas)
+            remoteCanvas.writeLayout(WriterOp.EndRoot)
+            // LOCAL PATCH (rc-players): after the root, the sizes asked of a component after it
+            // was written; see `RemoteComposeCreationState.getComponentValue`.
+            creationState.writeLateComponentValues()
+        } finally {
+            forEachNode { node ->
+                node.componentToken?.let { it.restoreRequested(requested[it] ?: 0) }
+            }
+        }
+    }
+
+    private fun forEachNode(action: (RemoteComposeNode) -> Unit) {
+        val pending = ArrayDeque<RemoteComposeNode>()
+        pending.add(this)
+        while (pending.isNotEmpty()) {
+            val node = pending.removeFirst()
+            action(node)
+            pending.addAll(node.children)
+        }
     }
 }
 

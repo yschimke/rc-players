@@ -46,9 +46,8 @@ internal class RemoteImageNode : RemoteComposeNode() {
                 }
                 ?: 0
         val scope = overriddenScope(remoteCanvas)
-        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
-        // upstream writes to `document` here.
-        remoteCanvas.recordRenderingOp(
+        // KMP (rc-players): written through a `WriterOp`, where upstream calls `document` here.
+        remoteCanvas.writeLayout(
             WriterOp.Image(
                 RemoteImageData(
                     resolveModifier(scope, creationState),

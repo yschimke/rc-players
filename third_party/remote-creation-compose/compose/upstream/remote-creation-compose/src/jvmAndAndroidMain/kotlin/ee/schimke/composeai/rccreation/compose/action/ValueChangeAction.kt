@@ -58,7 +58,14 @@ internal class ValueChangeAction<T>(
                 }
                 is RemoteString -> {
                     actualValue as RemoteString
-                    RemoteActionData.StringChange(actualMutable.id, actualValue.id)
+                    // KMP (rc-players): a value that is not constant is named by its id, where
+                    // upstream takes `constantValue` and fails without one.
+                    val constantValue = actualValue.constantValueOrNull
+                    if (constantValue != null) {
+                        RemoteActionData.StringChangeText(actualMutable.id, constantValue)
+                    } else {
+                        RemoteActionData.StringChange(actualMutable.id, actualValue.id)
+                    }
                 }
                 else -> error("Unsupported value change type $actualMutable")
             }

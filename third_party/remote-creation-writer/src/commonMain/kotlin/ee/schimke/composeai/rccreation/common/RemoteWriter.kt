@@ -9,6 +9,11 @@ package ee.schimke.composeai.rccreation.common
  * common encoder will implement the same surface directly.
  */
 public interface RemoteWriter {
+  public companion object {
+    /** A header property, as `RemoteComposeWriter.hTag`. */
+    public fun hTag(tag: Short, value: Any): HTag = HTag(tag, value)
+  }
+
   /**
    * The writer itself. AndroidX's Kotlin reaches some operations through
    * `RemoteComposeWriter.getBuffer()` (`writer.buffer.definePattern(…)`), a `RemoteComposeBuffer`
@@ -432,6 +437,16 @@ public interface RemoteWriter {
    * it was given has to ask again for one that is retired.
    */
   public fun isRetired(id: Int): Boolean = false
+
+  /**
+   * Begins a section of global operations, as `RemoteComposeWriter.beginGlobal`: what is written
+   * until [endGlobal] is moved ahead of the root, wherever it is written from. Every other
+   * operation, a declaration included, is written where it is made.
+   */
+  public fun beginGlobal() {}
+
+  /** Ends the section [beginGlobal] began. */
+  public fun endGlobal() {}
 
   /** Returns and clears whether the next paint must be emitted as a complete state. */
   public fun checkAndClearForceSendingNewPaint(): Boolean

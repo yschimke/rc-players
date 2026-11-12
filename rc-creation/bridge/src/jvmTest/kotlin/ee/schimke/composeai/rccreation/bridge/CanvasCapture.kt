@@ -1,6 +1,9 @@
 package ee.schimke.composeai.rccreation.bridge
 
+import ee.schimke.composeai.rccreation.common.Profile
+import ee.schimke.composeai.rccreation.common.RcProfiles
 import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
+import ee.schimke.composeai.rccreation.compose.capture.Profile
 import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
 import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocumentInto
 import ee.schimke.composeai.rccreation.compose.capture.wireValue
@@ -33,3 +36,11 @@ internal fun captureCanvasBytes(
   }
   writer.encodeToByteArray()
 }
+
+/**
+ * AndroidX's profile with its experimental operations: what a capture of a pattern, a 2D mesh, a
+ * flow row or a custom component needs, as the default profile ([RcPlatformProfiles.ANDROIDX]) has
+ * none of them.
+ */
+internal val ExperimentalProfile: Profile =
+  Profile(profileFlags = RcProfiles.PROFILE_ANDROIDX or RcProfiles.PROFILE_EXPERIMENTAL)

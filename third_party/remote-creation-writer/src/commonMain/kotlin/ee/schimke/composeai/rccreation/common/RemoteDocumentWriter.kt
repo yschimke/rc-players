@@ -1,21 +1,76 @@
 package ee.schimke.composeai.rccreation.common
 
+import ee.schimke.composeai.rccreation.common.Header as HeaderTags
+
 /**
  * Common Kotlin write side for Remote Compose documents.
  *
  * This starts with the layout/text surface used by the cross-platform smoke client. Additional
  * operations are added here as Creation Compose moves off the legacy Java writer.
  */
-public class RemoteDocumentWriter(
-  width: Int,
-  height: Int,
-  densityBehavior: Int = DensityBehaviorDp,
-  profiles: Int = 0,
+public class RemoteDocumentWriter
+private constructor(
+  /** Who the document is written for; null for a writer made from a size alone. */
+  private val profile: Profile?,
+  tags: Array<out HTag>,
+  @Suppress("UNUSED_PARAMETER") primary: Unit,
 ) : RemoteWriter {
-  private val documentWidth = width
-  private val documentHeight = height
-  private val documentDensityBehavior = densityBehavior
-  private val documentProfiles = profiles
+  /**
+   * A writer for no profile in particular: it writes any operation, and names in the header the
+   * [RcProfiles] bits it is given.
+   *
+   * LOCAL PATCH (rc-players): such a writer adds to those bits what the operations it was asked to
+   * write need (the experimental profile for a custom component, a mesh or a pattern, AndroidX's
+   * for an offscreen bitmap or a shader), where a writer made for a [Profile] refuses them.
+   */
+  public constructor(
+    width: Int,
+    height: Int,
+    densityBehavior: Int = DensityBehaviorDp,
+    profiles: Int = 0,
+  ) : this(null, standardTags(width, height, "", profiles, densityBehavior), Unit)
+
+  /**
+   * A writer for [profile], with [tags] as the header's properties, in that order, as
+   * `RemoteComposeWriter(Profile, HTag...)`. The profile's bits are added as `DOC_PROFILES` unless
+   * a tag gives them. The writer refuses an operation the profile does not support.
+   */
+  public constructor(profile: Profile, vararg tags: HTag) : this(profile, tags, Unit)
+
+  /**
+   * A writer for a document of [creationDisplayInfo] under [profile], with the header
+   * `RemoteComposeWriter(CreationDisplayInfo, String, Profile)` writes: width, height, content
+   * description, profiles and density behavior.
+   */
+  public constructor(
+    creationDisplayInfo: CreationDisplayInfo,
+    contentDescription: String?,
+    profile: Profile,
+  ) : this(
+    profile,
+    standardTags(
+      creationDisplayInfo.width,
+      creationDisplayInfo.height,
+      contentDescription ?: "",
+      profile.operationsProfiles,
+      creationDisplayInfo.densityBehavior,
+    ),
+    Unit,
+  )
+
+  /** The document API level: [profile]'s, or the current one. */
+  private val apiLevel: Int = profile?.apiLevel ?: CoreDocument.DOCUMENT_API_LEVEL
+
+  /** The header's properties, as they are written. */
+  private val headerTags: List<HTag> = filterAndValidateTags(apiLevel, profile, tags)
+
+  /** Whether each opcode may be written; null when there is no [profile] to say. */
+  private val validOperations: BooleanArray? = profile?.let {
+    BooleanArray(256).also { valid ->
+      it.supportedOperations.forEach { opcode -> if (opcode in valid.indices) valid[opcode] = true }
+    }
+  }
+  private val documentProfiles = headerTags.intValue(HeaderTags.DOC_PROFILES) ?: 0
   private var customComponentsUsed = false
   private var drawToBitmapUsed = false
   private var shaderUsed = false
@@ -24,22 +79,42 @@ public class RemoteDocumentWriter(
   private var bitmapFontOnPathUsed = false
   private val bodyBuffer = RemoteWireBuffer()
   private var wire = bodyBuffer
-  private val declarationBuffer = RemoteWireBuffer()
+
+  /** What was written between [beginGlobal] and [endGlobal]: it goes ahead of the root. */
+  private val globalBuffer = RemoteWireBuffer()
+
+  /**
+   * Where operations are written other than the body: one entry per open global section
+   * ([beginGlobal]) and per open template body ([definePattern], [addPatternForEach]), innermost
+   * last. A template is written into a buffer of its own until it ends, so that what its body
+   * declares without reading anything of the body's can be written ahead of it; see [bodyScopes].
+   */
+  private val targets = mutableListOf<Target>()
+
+  /** Whether the root is open: what is written is in a component, not beside the root. */
+  private var rootOpen = false
+
+  /**
+   * How many canvases ([startCanvas]) and canvas operation lists ([startCanvasOperations]) are
+   * open: above 0, what is written is drawing, which a player keeps whole and runs in order.
+   */
+  private var canvasDepth = 0
+
+  private class Target(val buffer: RemoteWireBuffer, val template: Boolean)
+
+  /**
+   * Where [globalBuffer] goes in the body: where the root starts, or where the first global section
+   * began if that was earlier, as `RemoteComposeWriter.mInsertPoint`. -1 until one of them happens.
+   */
+  private var globalInsertPoint = -1
   private var headerSize = 0
   private var nextComponentId = -1
   private var lastComponentId = -1
-  private var nextDataId = 42
+  private var nextDataId = FirstDataId
   private var paintResetPending = true
   private val textIds = mutableMapOf<String, Int>()
   private val pathIds = mutableMapOf<PathKey, Int>()
-  private val integerIds = mutableMapOf<Int, Int>()
-  private val floatArrayIds = mutableMapOf<IntArrayKey, Int>()
-  private val idListIds = mutableMapOf<IntArrayKey, Int>()
-  private val floatExpressionIds = mutableMapOf<IntArrayKey, Int>()
-  private val integerExpressionIds = mutableMapOf<LongArrayKey, Int>()
-  private val textLengthIds = mutableMapOf<Int, Int>()
-  private val textLookupIds = mutableMapOf<Long, Int>()
-  private val textLookupIntIds = mutableMapOf<Long, Int>()
+  private val namedIds = mutableMapOf<NamedKey, Int>()
   private val textFromFloatIds = mutableMapOf<TextFromFloatKey, Int>()
   private val bitmapUrlIds = mutableMapOf<String, Int>()
   private val inlineBitmapIds = mutableMapOf<List<Byte>, Int>()
@@ -48,32 +123,44 @@ public class RemoteDocumentWriter(
 
   /**
    * One entry per open [createFloatFunction]: what restores the dedup caches to their state before
-   * it, and the buffer the function is written into, whole.
+   * it.
    */
   private val functionScopes = mutableListOf<FunctionScope>()
 
-  private class FunctionScope(val restoreCaches: () -> Unit, val buffer: RemoteWireBuffer)
+  private class FunctionScope(val restoreCaches: () -> Unit)
 
   /**
    * One entry per open [definePattern], [addPatternForEach] or [startLoop]: the ids that belong to
-   * its body. They are the body's own variables (a pattern's parameters, a for-each's item, a
-   * loop's index) and every declaration that reads one of them, directly or through another.
+   * its body, which are forgotten when it ends ([endBodyScope]) so that nothing after it reads one.
    *
-   * Such a declaration is written where it is made, in the body, not ahead of the layout: a pattern
-   * or for-each body is a template the player expands with those ids replaced, and a loop body is
-   * run once per value of its index, so what is computed from them has to be computed there. It is
-   * forgotten when the body ends. Every other declaration made in a body goes ahead of the layout
-   * like any other, so what is declared for the body and read again after it is one id, declared
-   * once, outside the template.
+   * Every operation, a declaration included, is written where it is made, as AndroidX's
+   * `RemoteComposeWriter` writes it: a player evaluates what a component, a canvas or a body holds
+   * with that component, canvas or body (a touch expression moves only for touches on the component
+   * it is written in, and text made from its value follows it only when written after it there), so
+   * where a declaration is written is part of what it means. Two things are moved, both asked for:
+   * a global section ([beginGlobal]), and what a template declares for itself, below.
+   *
+   * A body owns its own variables (a pattern's parameters, a for-each's item, a loop's index) and
+   * every declaration that reads one of them, directly or through another: a pattern or for-each
+   * body is a template the player expands with those ids replaced, and a loop body is run once per
+   * value of its index, so what is computed from them is computed there, and is the body's.
+   *
+   * LOCAL PATCH (rc-players): what a pattern or for-each body declares without reading anything of
+   * a body's is written just ahead of the template (ahead of the outermost one, when they nest),
+   * not in it, and stays declared after it: what is declared for the body and read again after it
+   * is one id, declared once, outside the template. AndroidX's writer leaves it in the template,
+   * where a player gives it a new id each time it expands it, and answers the old id afterwards.
+   * What a loop body declares without reading its index is written in the loop, as AndroidX's is,
+   * and stays declared after it.
    *
    * A body also owns what is defined in it without being a declaration: an id reserved while it is
-   * open ([nextId], [createFloatId], [reserveFloatVariable]) and the id an operation written in
-   * place defines (a text attribute, a mesh, a themed colour, a function). Whatever reads those is
-   * then a declaration of the body's too.
+   * open ([nextId], [createFloatId], [reserveFloatVariable]) and the id an operation defines (a
+   * text attribute, a mesh, a themed colour, a function). Whatever reads those is then a
+   * declaration of the body's too.
    *
    * Every declaration is written through [declaration], which has to be told what it reads;
-   * [operation] refuses a declaration's opcode. So no kind of declaration can go ahead of the
-   * layout without that question having been answered for it.
+   * [operation] refuses a declaration's opcode. So no kind of declaration can be placed without
+   * that question having been answered for it.
    */
   private val bodyScopes = mutableListOf<MutableSet<Int>>()
 
@@ -86,9 +173,32 @@ public class RemoteDocumentWriter(
   /** The id [newId] gave out last, until the operation that defines it is written. */
   private var undefinedId = NoId
 
+  /**
+   * The ids declared with the document, not in a component: ahead of the root, or in a global
+   * section. Every other id is a component's, defined where its component is written.
+   */
+  private val documentIds = mutableSetOf<Int>()
+
+  /**
+   * Whether an id asked about ([inBody]) since the last operation was started is a component's:
+   * what the declaration about to be written reads is then not all the document's.
+   */
+  private var readsComponentId = false
+
   init {
-    writeHeader(width, height, profiles, densityBehavior)
+    writeHeader(headerTags)
     headerSize = wire.toByteArray().size
+  }
+
+  /** The API level of the document being written, as `RemoteComposeWriter.getApiLevel`. */
+  public val documentApiLevel: Int
+    get() = apiLevel
+
+  /** As `WireBuffer.start`: an operation outside the profile is not written. */
+  private fun checkSupported(opcode: Int) {
+    if (validOperations != null && !validOperations[opcode]) {
+      throw RuntimeException("Operation $opcode is not supported for this version")
+    }
   }
 
   override fun createFloatId(): Float = Utils.asNan(reservedId())
@@ -123,11 +233,16 @@ public class RemoteDocumentWriter(
   }
 
   override fun startRoot() {
+    if (globalInsertPoint == -1) globalInsertPoint = bodyBuffer.size
     operation(LayoutRoot)
     wire.writeInt(componentId())
+    rootOpen = true
   }
 
-  override fun endRoot(): Unit = containerEnd()
+  override fun endRoot() {
+    rootOpen = false
+    containerEnd()
+  }
 
   override fun startBox(modifier: RemoteModifierData, horizontal: Int, vertical: Int): Unit =
     startLayout(LayoutBox, modifier, horizontal, vertical)
@@ -166,13 +281,29 @@ public class RemoteDocumentWriter(
     wire.writeInt(-1)
     modifier.writeTo(this)
     contentSection(modifier.contentComponentId)
+    // As `RemoteComposeWriter.startCanvas`: up to API level 7 the drawing is in a `CanvasContent`.
+    if (apiLevel <= 7) {
+      operation(LayoutCanvasContent)
+      wire.writeInt(resolveComponentId(-1))
+    }
+    canvasDepth++
   }
 
-  override fun endCanvas(): Unit = endLayout()
+  override fun endCanvas() {
+    canvasDepth--
+    if (apiLevel <= 7) containerEnd()
+    endLayout()
+  }
 
-  override fun startCanvasOperations(): Unit = operation(CanvasOperations)
+  override fun startCanvasOperations() {
+    operation(CanvasOperations)
+    canvasDepth++
+  }
 
-  override fun endCanvasOperations(): Unit = containerEnd()
+  override fun endCanvasOperations() {
+    canvasDepth--
+    containerEnd()
+  }
 
   override fun startFitBox(modifier: RemoteModifierData, horizontal: Int, vertical: Int): Unit =
     startLayout(LayoutFitBox, modifier, horizontal, vertical)
@@ -318,7 +449,8 @@ public class RemoteDocumentWriter(
         wire.writeInt(if (modifier.dynamicColor) modifier.color else 0)
         // Wire version 1, as AndroidX's `BorderModifierOperation` writes: players draw the stroke
         // inside the bounds. Version 0 is the legacy centred stroke, half of it clipped away.
-        wire.writeInt(BorderWireVersion)
+        // As `RemoteComposeWriter.addModifierBorder`: the legacy form up to API level 7.
+        wire.writeInt(if (apiLevel <= 7) 0 else BorderWireVersion)
         wire.writeInt(0)
         wire.writeFloat(modifier.width)
         wire.writeFloat(modifier.roundedCorner)
@@ -426,6 +558,13 @@ public class RemoteDocumentWriter(
         wire.writeInt(action.type)
         wire.writeInt(action.valueId)
       }
+      is RemoteActionData.HostNamedText -> {
+        val nameId = textId(action.name)
+        operation(HostNamedAction)
+        wire.writeInt(nameId)
+        wire.writeInt(action.type)
+        wire.writeInt(action.valueId)
+      }
       is RemoteActionData.IntegerChange -> {
         operation(ValueIntegerChange)
         wire.writeInt(action.targetId)
@@ -451,11 +590,43 @@ public class RemoteDocumentWriter(
         wire.writeInt(action.targetId)
         wire.writeInt(action.valueId)
       }
+      is RemoteActionData.StringChangeText -> {
+        val valueId = textId(action.value)
+        operation(ValueStringChange)
+        wire.writeInt(action.targetId)
+        wire.writeInt(valueId)
+      }
     }
   }
 
   override fun startTextComponent(data: RemoteTextData) {
     require(data.fontAxisIds.size == data.fontAxisValues.size)
+    if (validOperations != null && !validOperations[CoreText]) {
+      // As `RemoteComposeBuffer.addTextComponentStart`: `TextLayout` is the backstop where the
+      // profile has no `CoreText`. It carries the text, its colour (or colour id), size, style,
+      // weight, family, alignment, overflow and line count, and none of the rest.
+      operation(LayoutText)
+      wire.writeInt(resolveComponentId(data.modifier.componentId))
+      wire.writeInt(-1)
+      wire.writeInt(data.textId)
+      wire.writeInt(if (data.colorId != -1) data.colorId else data.color)
+      wire.writeFloat(data.fontSize)
+      wire.writeInt(data.fontStyle)
+      wire.writeFloat(data.fontWeight)
+      wire.writeInt(data.fontFamilyId)
+      wire.writeInt(
+        if (data.colorId != -1) {
+          (TextLayoutFlagDynamicColor shl 16) or (data.textAlign and 0xffff)
+        } else {
+          data.textAlign
+        },
+      )
+      wire.writeInt(data.overflow)
+      wire.writeInt(data.maxLines)
+      data.modifier.writeTo(this)
+      contentSection(data.modifier.contentComponentId)
+      return
+    }
     operation(CoreText)
     wire.writeInt(data.textId)
     val parameters = mutableListOf<() -> Unit>()
@@ -571,6 +742,7 @@ public class RemoteDocumentWriter(
 
   override fun definePattern(id: Int, parameterIds: IntArray) {
     patternUsed = true
+    targets += Target(RemoteWireBuffer(), template = true)
     operation(PatternDefine)
     wire.writeInt(id)
     wire.writeInt(parameterIds.size)
@@ -590,9 +762,10 @@ public class RemoteDocumentWriter(
     endBodyScope()
     // The body's length, as `PatternDefine.applyEnd`, in the buffer the definition began in,
     // whichever buffer the body's last operation went to.
-    val (definedIn, offset) = patternDefinitions.removeLast()
+    val (definedIn, offset) = patternDefinitions.removeAt(patternDefinitions.lastIndex)
     definedIn.overwriteInt(offset, definedIn.size - offset - 4)
     containerEnd()
+    endTemplate()
     paintResetPending = true
   }
 
@@ -611,6 +784,7 @@ public class RemoteDocumentWriter(
 
   override fun addPatternForEach(collectionId: Int, localItemId: Int) {
     patternUsed = true
+    targets += Target(RemoteWireBuffer(), template = true)
     operation(PatternForEach)
     wire.writeInt(collectionId)
     wire.writeInt(localItemId)
@@ -621,6 +795,7 @@ public class RemoteDocumentWriter(
   override fun endPatternForEach() {
     endBodyScope()
     containerEnd()
+    endTemplate()
     paintResetPending = true
   }
 
@@ -642,28 +817,24 @@ public class RemoteDocumentWriter(
   }
 
   /**
-   * As `RemoteComposeWriter.createFloatFunction`, with one difference in where the function lands.
+   * As `RemoteComposeWriter.createFloatFunction`: the definition is written where it is made, and
+   * every operation in it, declarations included, stays inside it in order, because a player
+   * evaluates a function body's expressions and data only when it runs the function, with the
+   * parameters bound. A caller that needs the function ahead of the root (one defined while a
+   * component's modifiers are worked out, say, where a player would not keep it) defines it in a
+   * global section ([beginGlobal]).
    *
-   * The definition, `FunctionDefine` through its `ContainerEnd`, is written whole into the
-   * declarations, ahead of the layout, wherever it is called from. Its body is not hoisted further:
-   * every operation in it, declarations included, stays inside it in order, as upstream writes it,
-   * because a player evaluates a function body's expressions and data only when it runs the
-   * function, with the parameters bound. For the same reason nothing the body declares is reused
-   * after it: the dedup caches go back to what they held before [createFloatFunction]. The first
-   * paint in the body, and the first after it, are written in full (a player resets the paint
-   * before it runs a visibility function).
+   * LOCAL PATCH (rc-players): nothing the body declares is reused after it: the dedup caches go
+   * back to what they held before [createFloatFunction]. The first paint in the body, and the first
+   * after it, are written in full (a player resets the paint before it runs a visibility function).
    */
   override fun createFloatFunction(args: FloatArray): Int {
     val id = reservedId()
     val parameterIds = IntArray(args.size) { reservedId() }
     parameterIds.forEachIndexed { index, parameterId -> args[index] = Utils.asNan(parameterId) }
-    // Inside another function, in it. Inside a loop, pattern or for-each body, in that body, which
-    // owns it: the function may read what the body owns, and nothing says so before it is written.
-    val buffer =
-      functionScopes.lastOrNull()?.buffer
-        ?: if (bodyScopes.isEmpty()) declarationBuffer else bodyBuffer
-    functionScopes += FunctionScope(snapshotCaches(), buffer)
-    wire = buffer
+    functionScopes += FunctionScope(snapshotCaches())
+    checkSupported(FunctionDefine)
+    wire = target()
     wire.writeByte(FunctionDefine)
     wire.writeInt(id)
     wire.writeInt(parameterIds.size)
@@ -675,7 +846,7 @@ public class RemoteDocumentWriter(
   override fun endFloatFunction() {
     check(functionScopes.isNotEmpty()) { "endFloatFunction without createFloatFunction" }
     containerEnd()
-    functionScopes.removeLast().restoreCaches()
+    functionScopes.removeAt(functionScopes.lastIndex).restoreCaches()
     paintResetPending = true
   }
 
@@ -745,31 +916,119 @@ public class RemoteDocumentWriter(
     containerEnd()
   }
 
+  /**
+   * As `RemoteComposeWriter.beginGlobal`: what is written until the matching [endGlobal] goes ahead
+   * of the root, after any earlier global section, whatever component, canvas or body is open. A
+   * player evaluates it with the document, not with a component.
+   *
+   * LOCAL PATCH (rc-players): sections nest (the inner one is part of the outer), where upstream
+   * refuses a second `beginGlobal`, so that a helper can ask for one without knowing its caller
+   * has. A global section cannot read what a loop, pattern or for-each body owns.
+   */
+  override fun beginGlobal() {
+    if (globalInsertPoint == -1) globalInsertPoint = bodyBuffer.size
+    targets += Target(globalBuffer, template = false)
+    // The section's paint, if any, is not the body's, and the body's is not the section's.
+    paintResetPending = true
+  }
+
+  override fun endGlobal() {
+    check(targets.lastOrNull()?.buffer === globalBuffer) {
+      "endGlobal without beginGlobal, or with a pattern or for-each begun in the section still open"
+    }
+    targets.removeAt(targets.lastIndex)
+    paintResetPending = true
+  }
+
+  /** Where an operation written now goes. */
+  private fun target(): RemoteWireBuffer = targets.lastOrNull()?.buffer ?: bodyBuffer
+
+  /**
+   * Whether what is written now lands among a layout component's own operations: in the root, not
+   * in a canvas's drawing, a global section, a template or a function.
+   *
+   * LOCAL PATCH (rc-players): there a player keeps only some kinds of operation. AndroidX's
+   * `LayoutComponent.inflate` rebuilds a component from its modifiers, its children and, of what
+   * else its content holds, the text, the bitmaps and the `ComponentData` operations
+   * ([KeptInLayoutContent]); a named variable, an integer or long constant, path data, a float
+   * list, a time, image or text attribute, a text transform, a bitmap font and the rest are
+   * dropped, and what reads them reads nothing. AndroidX's writer writes them there all the same (a
+   * named state first read by a component's modifier is then one its host cannot set). Such a
+   * declaration made in a layout is written ahead of the root instead, where every player keeps it,
+   * provided everything it reads is declared there too ([documentIds]): one that reads what a
+   * component declares (a text cut at a position a component's expression gives) stays where
+   * AndroidX's writer puts it, as the document cannot read a value before its component has it.
+   * [declaration] does that.
+   */
+  private fun inLayoutContent(): Boolean =
+    rootOpen && canvasDepth == 0 && targets.isEmpty() && functionScopes.isEmpty()
+
+  /**
+   * Declares the value named [name], of the `NamedVariable` type [type], once for the document and
+   * ahead of the root, and returns its id; [writeValue] writes the value the name starts with.
+   *
+   * LOCAL PATCH (rc-players): a named value is the host's, not a component's: the host sets it by
+   * name, whatever is drawn. AndroidX's writer declares one where it is first read, and its
+   * creation state, which forgets what a canvas declared when the canvas ends
+   * (`withCanvasOperationsScope`), asks again in the next canvas: a name read by two canvases is
+   * then two variables, each with the name. AndroidX's player sets every variable of a name; a
+   * player or a tool that keeps one variable a name sets one of them. Here a name is one variable,
+   * declared with the document like any other constant the host owns, wherever it is first read.
+   */
+  private fun named(type: Int, name: String, writeValue: (Int) -> Unit): Int =
+    namedIds.getOrPut(NamedKey(type, name)) {
+      val id = newId()
+      // Ahead of the root, unless that is where this already is.
+      val aheadOfRoot = rootOpen || targets.isNotEmpty()
+      if (aheadOfRoot) {
+        if (globalInsertPoint == -1) globalInsertPoint = bodyBuffer.size
+        targets += Target(globalBuffer, template = false)
+      }
+      try {
+        writeNamedVariable(id, type, name)
+        writeValue(id)
+      } finally {
+        if (aheadOfRoot) targets.removeAt(targets.lastIndex)
+      }
+      id
+    }
+
+  /** Ends the innermost template: what was written for it goes where it was begun. */
+  private fun endTemplate() {
+    val template = targets.removeAt(targets.lastIndex)
+    check(template.template) { "A global section begun in a pattern or for-each is still open" }
+    target().writeBytes(template.buffer.toByteArray())
+  }
+
   public fun encodeToByteArray(): ByteArray {
+    check(targets.isEmpty()) { "A global section, pattern or for-each is still open" }
     val body = bodyBuffer.toByteArray()
-    val declarations = declarationBuffer.toByteArray()
+    val insertPoint = if (globalInsertPoint == -1) body.size else globalInsertPoint
     // Custom inputs/components require the experimental profile even when the caller uses the
     // general-purpose common capture API. Keep that requirement in the writer, not a host shim.
     var profiles = documentProfiles
-    if (customComponentsUsed) profiles = profiles or ProfileAndroidxExperimental
+    // A writer made for a profile wrote the header its profile asked for, and refused what the
+    // profile has no operation for. What follows is for a writer made from a size alone.
+    val upgrade = profile == null
+    if (upgrade && customComponentsUsed) profiles = profiles or ProfileAndroidxExperimental
     // LOCAL PATCH (rc-players): remote-core reads `DrawToBitmap` only under the AndroidX or widgets
     // profile (`Operations.createMapV7_Androidx`/`_Widgets`); under neither, AndroidX stops at the
     // first one with "Unknown operation". Upstream's writer refuses the operation under such a
     // profile; this one names AndroidX's in the header, as it names the experimental profile for
     // custom components.
-    if (drawToBitmapUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
+    if (upgrade && drawToBitmapUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
       profiles = profiles or ProfileAndroidx
     }
     // LOCAL PATCH (rc-players): likewise `ShaderData`, which remote-core reads only under the
     // AndroidX profile (`createMapV7_Androidx`; the widgets maps have no runtime shaders).
     // (A widgets-profile document can't hold one: `addShader` refuses it there.)
-    if (shaderUsed && (profiles and ProfileAndroidx) == 0) {
+    if (upgrade && shaderUsed && (profiles and ProfileAndroidx) == 0) {
       profiles = profiles or ProfileAndroidx
     }
     // LOCAL PATCH (rc-players): the 2D mesh operations are read only by remote-core's experimental
     // V7 maps (`createMapV7_Androidx_Experimental` / `_Widgets_Experimental`), so a document that
     // carries one names the experimental profile, and AndroidX's when it names neither base.
-    if (mesh2DUsed) {
+    if (upgrade && mesh2DUsed) {
       if ((profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
         profiles = profiles or ProfileAndroidx
       }
@@ -777,10 +1036,8 @@ public class RemoteDocumentWriter(
     }
     // LOCAL PATCH (rc-players): likewise the pattern operations (`MACRO_DEFINE`, `MACRO_CALL`,
     // `MACRO_FOR_EACH`), which remote-core reads only under the AndroidX experimental map
-    // (`createMapV7_Androidx_Experimental`; the widgets maps have none). The capture functions take
-    // no profile, so without this a document from `RemoteCanvas.definePattern` or `forEach` would
-    // be refused as holding unknown operations.
-    if (patternUsed) {
+    // (`createMapV7_Androidx_Experimental`; the widgets maps have none).
+    if (upgrade && patternUsed) {
       if ((profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
         profiles = profiles or ProfileAndroidx
       }
@@ -788,20 +1045,27 @@ public class RemoteDocumentWriter(
     }
     // LOCAL PATCH (rc-players): and a bitmap-font text run on a path, read under the AndroidX or
     // widgets profile (`createMapV7_Androidx` / `_Widgets`), as `DrawToBitmap` is.
-    if (bitmapFontOnPathUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0) {
+    if (
+      upgrade && bitmapFontOnPathUsed && (profiles and (ProfileAndroidx or ProfileWidgets)) == 0
+    ) {
       profiles = profiles or ProfileAndroidx
     }
     val header =
-      if (profiles != documentProfiles || customComponentsUsed) {
+      // LOCAL PATCH (rc-players): a document with a custom component is version 1.2, whoever it
+      // is written for; rc-players' players read a custom component's properties by it.
+      if ((upgrade && profiles != documentProfiles) || customComponentsUsed) {
         val previous = wire
         val output = RemoteWireBuffer()
         wire = output
         try {
           writeHeader(
-            documentWidth,
-            documentHeight,
-            profiles,
-            documentDensityBehavior,
+            headerTags.map {
+              if (it.tag == HeaderTags.DOC_PROFILES) {
+                HTag(it.tag, profiles)
+              } else {
+                it
+              }
+            },
             if (customComponentsUsed) CustomMinorVersion else MinorVersion,
           )
           output.toByteArray()
@@ -809,7 +1073,10 @@ public class RemoteDocumentWriter(
           wire = previous
         }
       } else body.copyOfRange(0, headerSize)
-    return header + declarations + body.copyOfRange(headerSize, body.size)
+    return header +
+      body.copyOfRange(headerSize, insertPoint) +
+      globalBuffer.toByteArray() +
+      body.copyOfRange(insertPoint, body.size)
   }
 
   override val componentIdForCache: Int
@@ -836,7 +1103,7 @@ public class RemoteDocumentWriter(
   override fun addComponentValue(type: Int, componentId: Int, valueId: Float) {
     val id = Utils.idFromNan(valueId)
     componentValueIds.getOrPut(pairKey(componentId, type)) { id }
-    declaration(ComponentValue, id, inBody(id))
+    declaration(ComponentValue, id, isBodys(id))
     wire.writeInt(type)
     wire.writeInt(componentId)
     wire.writeInt(id)
@@ -845,58 +1112,49 @@ public class RemoteDocumentWriter(
   override fun setNamedVariable(id: Int, name: String, type: Int): Unit =
     writeNamedVariable(id, type, name)
 
+  // As `RemoteComposeWriter`: an integer, a float or integer expression, a float array, an id
+  // list, a text length and a text lookup are declared each time they are asked for. Only what a
+  // player loads with the document wherever it is written (text, bitmaps, paths) is shared by
+  // value; an expression declared in one canvas is evaluated with that canvas, and is not the same
+  // as one declared among a component's modifiers. The creation state above decides what to reuse.
   override fun addInteger(value: Int): Long {
-    val id =
-      integerIds.getOrPut(value) {
-        val allocated = newId()
-        writeInteger(allocated, value)
-        allocated
+    val id = newId()
+    writeInteger(id, value)
+    return id.toLong() + IntegerIdOffset
+  }
+
+  override fun addNamedInt(name: String, initialValue: Int): Long =
+    named(ee.schimke.composeai.rccreation.common.NamedVariable.INT_TYPE, name) { id ->
+        writeInteger(id, initialValue)
       }
-    return id.toLong() + IntegerIdOffset
-  }
+      .toLong() + IntegerIdOffset
 
-  override fun addNamedInt(name: String, initialValue: Int): Long {
-    val id = newId()
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.INT_TYPE, name)
-    writeInteger(id, initialValue)
-    return id.toLong() + IntegerIdOffset
-  }
-
-  override fun addNamedFloat(name: String, initialValue: Float): Float {
-    val id = newId()
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.FLOAT_TYPE, name)
-    declaration(DataFloat, id, readsBody = false)
-    wire.writeInt(id)
-    wire.writeFloat(initialValue)
-    return Utils.asNan(id)
-  }
+  override fun addNamedFloat(name: String, initialValue: Float): Float =
+    Utils.asNan(
+      named(ee.schimke.composeai.rccreation.common.NamedVariable.FLOAT_TYPE, name) { id ->
+        declaration(DataFloat, id, readsBody = false)
+        wire.writeInt(id)
+        wire.writeFloat(initialValue)
+      },
+    )
 
   override fun reserveFloatVariable(): Float = Utils.asNan(reservedId())
 
   override fun addFloatArray(values: FloatArray): Float {
-    val key = IntArrayKey(IntArray(values.size) { values[it].toRawBits() })
-    val id =
-      floatArrayIds.getOrPut(key) {
-        val allocated = newId()
-        declaration(FloatList, allocated, inBody(values))
-        wire.writeInt(allocated)
-        wire.writeInt(values.size)
-        values.forEach(wire::writeFloat)
-        allocated
-      }
+    val id = newId()
+    declaration(FloatList, id, inBody(values))
+    wire.writeInt(id)
+    wire.writeInt(values.size)
+    values.forEach(wire::writeFloat)
     return Utils.asNan(id)
   }
 
   override fun addList(ids: IntArray): Float {
-    val id =
-      idListIds.getOrPut(IntArrayKey(ids)) {
-        val allocated = newId()
-        declaration(IdList, allocated, ids.any(::inBody))
-        wire.writeInt(allocated)
-        wire.writeInt(ids.size)
-        ids.forEach(wire::writeInt)
-        allocated
-      }
+    val id = newId()
+    declaration(IdList, id, ids.any(::inBody))
+    wire.writeInt(id)
+    wire.writeInt(ids.size)
+    ids.forEach(wire::writeInt)
     return Utils.asNan(id)
   }
 
@@ -918,17 +1176,12 @@ public class RemoteDocumentWriter(
   override fun floatExpression(vararg values: Float): Float = floatExpression(values, null)
 
   override fun floatExpression(values: FloatArray, animation: FloatArray?): Float {
-    val key = IntArrayKey(values.toRawBits())
-    val id =
-      floatExpressionIds.getOrPut(key) {
-        val allocated = newId()
-        declaration(AnimatedFloat, allocated, inBody(values) || inBody(animation))
-        wire.writeInt(allocated)
-        wire.writeInt(values.size or ((animation?.size ?: 0) shl 16))
-        values.forEach(wire::writeFloat)
-        animation?.forEach(wire::writeFloat)
-        allocated
-      }
+    val id = newId()
+    declaration(AnimatedFloat, id, inBody(values) || inBody(animation))
+    wire.writeInt(id)
+    wire.writeInt(values.size or ((animation?.size ?: 0) shl 16))
+    values.forEach(wire::writeFloat)
+    animation?.forEach(wire::writeFloat)
     return Utils.asNan(id)
   }
 
@@ -944,18 +1197,13 @@ public class RemoteDocumentWriter(
           value.toInt()
         }
       }
-    val key = LongArrayKey(longArrayOf(mask.toLong(), *values))
-    val id =
-      integerExpressionIds.getOrPut(key) {
-        val allocated = newId()
-        val reads = values.any { it >= IntegerIdOffset && inBody((it - IntegerIdOffset).toInt()) }
-        declaration(IntegerExpression, allocated, reads)
-        wire.writeInt(allocated)
-        wire.writeInt(mask)
-        wire.writeInt(encoded.size)
-        encoded.forEach(wire::writeInt)
-        allocated
-      }
+    val id = newId()
+    val reads = values.any { it >= IntegerIdOffset && inBody((it - IntegerIdOffset).toInt()) }
+    declaration(IntegerExpression, id, reads)
+    wire.writeInt(id)
+    wire.writeInt(mask)
+    wire.writeInt(encoded.size)
+    encoded.forEach(wire::writeInt)
     return id.toLong() + IntegerIdOffset
   }
 
@@ -980,45 +1228,35 @@ public class RemoteDocumentWriter(
   }
 
   override fun idLookup(outputId: Int, arrayId: Float, index: Float) {
-    declaration(IdLookup, outputId, inBody(outputId) || inBody(arrayId) || inBody(index))
+    declaration(IdLookup, outputId, isBodys(outputId) || inBody(arrayId) || inBody(index))
     wire.writeInt(outputId)
     wire.writeInt(Utils.idFromNan(arrayId))
     wire.writeFloat(index)
   }
 
   override fun textLookup(arrayId: Float, index: Float): Int {
-    val key = pairKey(arrayId.toRawBits(), index.toRawBits())
-    return textLookupIds.getOrPut(key) {
-      val id = newId()
-      declaration(TextLookup, id, inBody(arrayId) || inBody(index))
-      wire.writeInt(id)
-      wire.writeInt(Utils.idFromNan(arrayId))
-      wire.writeFloat(index)
-      id
-    }
+    val id = newId()
+    declaration(TextLookup, id, inBody(arrayId) || inBody(index))
+    wire.writeInt(id)
+    wire.writeInt(Utils.idFromNan(arrayId))
+    wire.writeFloat(index)
+    return id
   }
 
   override fun textLookup(arrayId: Float, indexId: Int): Int {
-    val key = pairKey(arrayId.toRawBits(), indexId)
-    return textLookupIntIds.getOrPut(key) {
-      val id = newId()
-      declaration(TextLookupInt, id, inBody(arrayId) || inBody(indexId))
-      wire.writeInt(id)
-      wire.writeInt(Utils.idFromNan(arrayId))
-      wire.writeInt(indexId)
-      id
-    }
+    val id = newId()
+    declaration(TextLookupInt, id, inBody(arrayId) || inBody(indexId))
+    wire.writeInt(id)
+    wire.writeInt(Utils.idFromNan(arrayId))
+    wire.writeInt(indexId)
+    return id
   }
 
   override fun textLength(textId: Int): Float {
-    val id =
-      textLengthIds.getOrPut(textId) {
-        val allocated = newId()
-        declaration(TextLength, allocated, inBody(textId))
-        wire.writeInt(allocated)
-        wire.writeInt(textId)
-        allocated
-      }
+    val id = newId()
+    declaration(TextLength, id, inBody(textId))
+    wire.writeInt(id)
+    wire.writeInt(textId)
     return Utils.asNan(id)
   }
 
@@ -1029,7 +1267,7 @@ public class RemoteDocumentWriter(
   }
 
   override fun textMerge(outputId: Int, leftId: Int, rightId: Int) {
-    declaration(TextMerge, outputId, inBody(outputId) || inBody(leftId) || inBody(rightId))
+    declaration(TextMerge, outputId, isBodys(outputId) || inBody(leftId) || inBody(rightId))
     wire.writeInt(outputId)
     wire.writeInt(leftId)
     wire.writeInt(rightId)
@@ -1053,7 +1291,7 @@ public class RemoteDocumentWriter(
     val easing = easingSpec ?: FloatArray(0)
     require(stops.size <= 200) { "a stop spec is at most 200 words: ${stops.size}" }
     require(easing.size <= 200) { "an easing spec is at most 200 words: ${easing.size}" }
-    // Written in place into an id its caller reserved: in a body, the body's.
+    // Written into an id its caller reserved: in a body, the body's.
     bodyScopes.lastOrNull()?.add(id)
     operation(TouchExpression)
     wire.writeInt(id)
@@ -1173,7 +1411,10 @@ public class RemoteDocumentWriter(
       val id = newId()
       writeBitmapData(
         id = id,
-        type = BitmapTypePng,
+        // As `RemoteComposeBuffer.storeBitmap`: an encoded image carried inline is `TYPE_PNG_8888`.
+        // `TYPE_PNG` is for a URL or a file; AndroidX's `RemoteBitmapDecoder` refuses it inline
+        // ("TYPE_PNG is not allowed for ENCODING_INLINE"), and its View player draws nothing of it.
+        type = BitmapTypePng8888,
         width = width,
         encoding = BitmapEncodingInline,
         height = height,
@@ -1183,15 +1424,19 @@ public class RemoteDocumentWriter(
     }
 
   /** [addBitmapPng], bound to [name] the way [addNamedBitmapUrl] binds a URL bitmap. */
-  public fun addNamedBitmapPng(name: String, png: ByteArray, width: Int, height: Int): Int {
-    val id = addBitmapPng(png, width, height)
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.IMAGE_TYPE, name)
-    return id
-  }
+  public fun addNamedBitmapPng(name: String, png: ByteArray, width: Int, height: Int): Int =
+    nameBitmap(name, addBitmapPng(png, width, height))
 
-  override fun addNamedBitmapUrl(name: String, url: String): Int {
-    val id = addBitmapUrl(url)
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.IMAGE_TYPE, name)
+  override fun addNamedBitmapUrl(name: String, url: String): Int =
+    nameBitmap(name, addBitmapUrl(url))
+
+  /** Names the bitmap [id], once: the bitmap is shared by its content, and so is its name. */
+  private fun nameBitmap(name: String, id: Int): Int {
+    val key = NamedKey(ee.schimke.composeai.rccreation.common.NamedVariable.IMAGE_TYPE, name)
+    if (namedIds[key] != id) {
+      namedIds[key] = id
+      writeNamedVariable(id, key.type, name)
+    }
     return id
   }
 
@@ -1277,11 +1522,12 @@ public class RemoteDocumentWriter(
     return id
   }
 
-  override fun addNamedColor(name: String, argb: Int): Int {
-    val id = addColor(argb)
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.COLOR_TYPE, name)
-    return id
-  }
+  override fun addNamedColor(name: String, argb: Int): Int =
+    named(ee.schimke.composeai.rccreation.common.NamedVariable.COLOR_TYPE, name) { id ->
+      declaration(ColorConstant, id, readsBody = false)
+      wire.writeInt(id)
+      wire.writeInt(argb)
+    }
 
   override fun addColorExpression(color1: Int, color2: Int, tween: Float): Short =
     writeColorExpression(mode = 0, color1 = color1, color2 = color2, fourth = tween.toRawBits())
@@ -1344,12 +1590,10 @@ public class RemoteDocumentWriter(
     return id
   }
 
-  override fun addNamedString(name: String, initialValue: String): Int {
-    val id = newId()
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.STRING_TYPE, name)
-    writeText(id, initialValue)
-    return id
-  }
+  override fun addNamedString(name: String, initialValue: String): Int =
+    named(ee.schimke.composeai.rccreation.common.NamedVariable.STRING_TYPE, name) { id ->
+      writeText(id, initialValue)
+    }
 
   override fun addLong(value: Long): Int {
     val id = newId()
@@ -1357,12 +1601,10 @@ public class RemoteDocumentWriter(
     return id
   }
 
-  override fun addNamedLong(name: String, initialValue: Long): Int {
-    val id = newId()
-    writeNamedVariable(id, ee.schimke.composeai.rccreation.common.NamedVariable.LONG_TYPE, name)
-    writeLong(id, initialValue)
-    return id
-  }
+  override fun addNamedLong(name: String, initialValue: Long): Int =
+    named(ee.schimke.composeai.rccreation.common.NamedVariable.LONG_TYPE, name) { id ->
+      writeLong(id, initialValue)
+    }
 
   override fun addPathData(pathData: FloatArray, winding: Int): Int =
     pathIds.getOrPut(PathKey(pathData, winding)) {
@@ -1798,38 +2040,55 @@ public class RemoteDocumentWriter(
     wire.writeInt(descriptionId)
   }
 
-  private fun writeHeader(
-    width: Int,
-    height: Int,
-    profiles: Int,
-    densityBehavior: Int,
-    minorVersion: Int = MinorVersion,
-  ) {
+  /**
+   * As `Header.apply`: from API level 7 the version, with the magic number, and the properties; at
+   * API level 6 the legacy header, which is version 1.0.0, the size and no capabilities.
+   */
+  private fun writeHeader(tags: List<HTag>, minorVersion: Int = MinorVersion) {
     // Header may be encoded into a separate buffer at export; do not switch back to the body.
+    checkSupported(Header)
     wire.writeByte(Header)
+    if (apiLevel == 6) {
+      wire.writeInt(MajorVersion)
+      wire.writeInt(0)
+      wire.writeInt(0)
+      wire.writeInt(tags.intValue(HeaderTags.DOC_WIDTH) ?: 0)
+      wire.writeInt(tags.intValue(HeaderTags.DOC_HEIGHT) ?: 0)
+      wire.writeLong(0L)
+      return
+    }
     wire.writeInt(MagicNumber or MajorVersion)
     wire.writeInt(minorVersion)
     wire.writeInt(PatchVersion)
-    wire.writeInt(5)
-    headerInt(HeaderWidth, width)
-    headerInt(HeaderHeight, height)
-    headerString(HeaderContentDescription, "")
-    headerInt(HeaderProfiles, profiles)
-    headerInt(HeaderDensityBehavior, densityBehavior)
-  }
-
-  private fun headerInt(tag: Int, value: Int) {
-    wire.writeShort(tag)
-    wire.writeShort(IntSize)
-    wire.writeInt(value)
-  }
-
-  private fun headerString(tag: Int, value: String) {
-    val encoded = value.encodeToByteArray()
-    wire.writeShort(tag or HeaderStringType)
-    wire.writeShort(encoded.size + IntSize)
-    wire.writeInt(encoded.size)
-    wire.writeBytes(encoded)
+    wire.writeInt(tags.size)
+    tags.forEach { tag ->
+      val key = tag.tag.toInt()
+      when (val value = tag.value) {
+        is String -> {
+          val encoded = value.encodeToByteArray()
+          wire.writeShort(key or (HeaderTypeString shl 10))
+          wire.writeShort(encoded.size + IntSize)
+          wire.writeInt(encoded.size)
+          wire.writeBytes(encoded)
+        }
+        is Int -> {
+          wire.writeShort(key or (HeaderTypeInt shl 10))
+          wire.writeShort(IntSize)
+          wire.writeInt(value)
+        }
+        is Float -> {
+          wire.writeShort(key or (HeaderTypeFloat shl 10))
+          wire.writeShort(IntSize)
+          wire.writeFloat(value)
+        }
+        is Long -> {
+          wire.writeShort(key or (HeaderTypeLong shl 10))
+          wire.writeShort(LongSize)
+          wire.writeLong(value)
+        }
+        else -> throw IllegalArgumentException("Unsupported property type: $value")
+      }
+    }
   }
 
   private fun contentSection(requested: Int = -1) {
@@ -1904,9 +2163,8 @@ public class RemoteDocumentWriter(
   }
 
   /**
-   * Starts an operation that is not a declaration: it is written where it is called, in the body.
-   * If it defines an id ([newId]) while a loop, pattern or for-each body is open, the id is that
-   * body's.
+   * Starts an operation that is not a declaration, where it is called. If it defines an id
+   * ([newId]) while a loop, pattern or for-each body is open, the id is that body's.
    */
   private fun operation(opcode: Int) {
     check(opcode !in DeclarationOpcodes) {
@@ -1916,38 +2174,63 @@ public class RemoteDocumentWriter(
       bodyScopes.lastOrNull()?.add(undefinedId)
       undefinedId = NoId
     }
-    wire = functionScopes.lastOrNull()?.buffer ?: bodyBuffer
+    readsComponentId = false
+    checkSupported(opcode)
+    wire = target()
     wire.writeByte(opcode)
   }
 
   /**
    * Starts a declaration of [id]: the one way a declaration is written. [readsBody] is whether
    * anything it reads belongs to an open loop, pattern or for-each body ([inBody] of each id and
-   * float it takes; `false` only for a declaration that takes none). If so it is written in the
-   * body and [id] is the body's too. Otherwise it goes ahead of the layout. In a function, it stays
-   * in the function either way.
+   * float it takes; `false` only for a declaration that takes none). It is written where it is
+   * called, with one exception: in a pattern or for-each body, a declaration that reads nothing of
+   * a body's is written ahead of the template (see [bodyScopes]). A declaration that reads a body's
+   * id, or is made in a function defined in a body, is the body's too, and is forgotten with it.
    */
   private fun declaration(opcode: Int, id: Int, readsBody: Boolean) {
     check(opcode in DeclarationOpcodes) { "Operation $opcode is not a declaration" }
+    checkSupported(opcode)
     undefinedId = NoId
-    val function = functionScopes.lastOrNull()
+    val innermost = targets.lastOrNull()
+    check(!readsBody || innermost?.buffer !== globalBuffer) {
+      "A declaration in a global section reads what a loop, pattern or for-each body owns"
+    }
+    // What a global section declares is the document's, not a body's.
+    val owned =
+      innermost?.buffer !== globalBuffer &&
+        bodyScopes.isNotEmpty() &&
+        (readsBody || functionScopes.isNotEmpty())
+    if (owned) bodyScopes.last() += id
     wire =
       when {
-        function != null -> {
-          bodyScopes.lastOrNull()?.add(id)
-          function.buffer
-        }
-        readsBody -> {
-          bodyScopes.last() += id
-          bodyBuffer
-        }
-        else -> declarationBuffer
+        innermost?.template == true && !owned ->
+          targets.lastOrNull { !it.template }?.buffer ?: bodyBuffer
+        // Not one a player keeps among a layout's operations: ahead of the root, unless it reads
+        // what a component declares, which the document cannot read before the component has.
+        opcode !in KeptInLayoutContent && !owned && !readsComponentId && inLayoutContent() ->
+          globalBuffer
+        else -> target()
       }
+    if (wire === globalBuffer || !rootOpen) documentIds += id
+    readsComponentId = false
     wire.writeByte(opcode)
   }
 
+  /**
+   * Whether [id], which the declaration about to be written defines, is an open body's already (an
+   * id its caller reserved there).
+   */
+  private fun isBodys(id: Int): Boolean {
+    readIds += id
+    return bodyScopes.any { id in it }
+  }
+
+  /** Whether [id], which the declaration about to be written reads, belongs to an open body. */
   private fun inBody(id: Int): Boolean {
     readIds += id
+    // Below the first id a writer gives out are the player's own variables (time, the window).
+    if (id >= FirstDataId && id !in documentIds) readsComponentId = true
     return bodyScopes.any { id in it }
   }
 
@@ -1974,7 +2257,7 @@ public class RemoteDocumentWriter(
 
   /** Forgets what the innermost body declared, so nothing after it reads an id it owned. */
   private fun endBodyScope() {
-    val owned = bodyScopes.removeLast()
+    val owned = bodyScopes.removeAt(bodyScopes.lastIndex)
     retiredIds += owned
     dedupCaches().forEach { cache -> cache.values.removeAll { it in owned } }
   }
@@ -1983,14 +2266,6 @@ public class RemoteDocumentWriter(
     listOf(
       textIds,
       pathIds,
-      integerIds,
-      floatArrayIds,
-      idListIds,
-      floatExpressionIds,
-      integerExpressionIds,
-      textLengthIds,
-      textLookupIds,
-      textLookupIntIds,
       textFromFloatIds,
       bitmapUrlIds,
       inlineBitmapIds,
@@ -2021,8 +2296,6 @@ public class RemoteDocumentWriter(
 
   private fun floatsWithoutOpcode(vararg values: Float) = values.forEach(wire::writeFloat)
 
-  private fun FloatArray.toRawBits(): IntArray = IntArray(size) { this[it].toRawBits() }
-
   private fun pairKey(first: Int, second: Int): Long =
     (first.toLong() shl 32) or (second.toLong() and 0xffffffffL)
 
@@ -2034,25 +2307,25 @@ public class RemoteDocumentWriter(
     }
 
   private fun writeText(id: Int, value: String) {
-    declaration(DataText, id, inBody(id))
+    declaration(DataText, id, isBodys(id))
     wire.writeInt(id)
     wire.writeUtf8(value)
   }
 
   private fun writeLong(id: Int, value: Long) {
-    declaration(DataLong, id, inBody(id))
+    declaration(DataLong, id, isBodys(id))
     wire.writeInt(id)
     wire.writeLong(value)
   }
 
   private fun writeInteger(id: Int, value: Int) {
-    declaration(DataInt, id, inBody(id))
+    declaration(DataInt, id, isBodys(id))
     wire.writeInt(id)
     wire.writeInt(value)
   }
 
   private fun writeNamedVariable(id: Int, type: Int, name: String) {
-    declaration(NamedVariable, id, inBody(id))
+    declaration(NamedVariable, id, isBodys(id))
     wire.writeInt(id)
     wire.writeInt(type)
     wire.writeUtf8(name)
@@ -2066,7 +2339,7 @@ public class RemoteDocumentWriter(
     height: Int,
     data: ByteArray,
   ) {
-    declaration(DataBitmap, id, inBody(id))
+    declaration(DataBitmap, id, isBodys(id))
     wire.writeInt(id)
     wire.writeInt((type shl 16) or (width and 0xffff))
     wire.writeInt((encoding shl 16) or (height and 0xffff))
@@ -2096,11 +2369,68 @@ public class RemoteDocumentWriter(
   }
 
   public companion object {
+    /** A header property, as `RemoteComposeWriter.hTag`. */
+    public fun hTag(tag: Short, value: Any): HTag = HTag(tag, value)
+
+    /** The properties `RemoteComposeWriter(CreationDisplayInfo, String, Profile)` writes. */
+    private fun standardTags(
+      width: Int,
+      height: Int,
+      contentDescription: String,
+      profiles: Int,
+      densityBehavior: Int,
+    ): Array<HTag> =
+      arrayOf(
+        HTag(HeaderTags.DOC_WIDTH, width),
+        HTag(HeaderTags.DOC_HEIGHT, height),
+        HTag(HeaderTags.DOC_CONTENT_DESCRIPTION, contentDescription),
+        HTag(HeaderTags.DOC_PROFILES, profiles),
+        HTag(HeaderTags.DOC_DENSITY_BEHAVIOR, densityBehavior),
+      )
+
+    /**
+     * As `RemoteComposeWriter.filterAndValidateTags`, and its constructor's `DOC_PROFILES`: no
+     * `COMPRESS` (this writer does not compress); before API level 8 no density behavior, which has
+     * to be the legacy one; and the profile's bits unless a tag gives them.
+     */
+    private fun filterAndValidateTags(
+      apiLevel: Int,
+      profile: Profile?,
+      tags: Array<out HTag>,
+    ): List<HTag> {
+      var result = tags.filter { it.tag != HeaderTags.COMPRESS }
+      if (profile == null) return result
+      require(apiLevel >= 6) { "Unsupported API level $apiLevel" }
+      require(
+        apiLevel >= 7 || result.none { it.tag == HeaderTags.DOC_SCROLL },
+      ) {
+        "DOC_SCROLL is only supported in API level 7 or higher"
+      }
+      if (apiLevel < 8) {
+        val densityBehavior = result.intValue(HeaderTags.DOC_DENSITY_BEHAVIOR)
+        require(
+          densityBehavior == null || densityBehavior == CoreDocument.DENSITY_BEHAVIOR_LEGACY,
+        ) {
+          "densityBehavior is only supported in API level 8 or higher"
+        }
+        result = result.filter { it.tag != HeaderTags.DOC_DENSITY_BEHAVIOR }
+      }
+      if (result.none { it.tag == HeaderTags.DOC_PROFILES }) {
+        result = result + HTag(HeaderTags.DOC_PROFILES, profile.operationsProfiles)
+      }
+      return result
+    }
+
+    private fun List<HTag>.intValue(tag: Short): Int? = firstOrNull { it.tag == tag }?.value as? Int
+
     public const val DensityBehaviorDp: Int = 2
     public const val HorizontalStart: Int = 1
     public const val VerticalTop: Int = 4
 
     private const val NoId = -1
+
+    /** The first id a writer gives out, as `RemoteComposeState.START_ID`. */
+    private const val FirstDataId = 42
     private const val Header = 0
     private const val PaintValues = 40
     private const val DataBitmap = 101
@@ -2170,6 +2500,8 @@ public class RemoteDocumentWriter(
     private const val LoopStart = 215
     private const val ContainerEnd = 214
     private const val CoreText = 239
+    private const val LayoutText = 208
+    private const val LayoutCanvasContent = 207
     private const val ClipRect = 39
     private const val ClipPath = 38
     private const val DrawRect = 42
@@ -2255,7 +2587,7 @@ public class RemoteDocumentWriter(
         TextLookupInt,
         TextLength,
         DataBitmapFont,
-        // A function is defined ahead of the layout; see createFloatFunction.
+        // Written by createFloatFunction itself, which owns its id.
         FunctionDefine,
         AttributeImage,
         AttributeTime,
@@ -2269,6 +2601,33 @@ public class RemoteDocumentWriter(
         TextTransform,
       )
 
+    /**
+     * The declarations AndroidX's `LayoutComponent.inflate` keeps when it finds them in a layout
+     * component's content: `TextData`, `BitmapData` and the operations that are `ComponentData`
+     * (`remote-core`, the same set in 1.0.0-alpha23 and on androidx-main `21a1a95e4`). See
+     * [inLayoutContent].
+     */
+    private val KeptInLayoutContent =
+      setOf(
+        DataBitmap,
+        DataText,
+        DataFloat,
+        AnimatedFloat,
+        DataShader,
+        ColorExpression,
+        TextFromFloat,
+        TextMerge,
+        ColorConstant,
+        IntegerExpression,
+        IdList,
+        ComponentValue,
+        TextLookup,
+        TextLookupInt,
+        TextLength,
+        AttributeColor,
+      )
+
+    private const val BitmapTypePng8888 = 0
     private const val BitmapTypePng = 1
     private const val BitmapTypeRaw8888 = 3
     private const val BitmapEncodingInline = 0
@@ -2295,12 +2654,16 @@ public class RemoteDocumentWriter(
     private const val ProfileWidgets = 0x100
     private const val PatchVersion = 0
     private const val IntSize = 4
-    private const val HeaderWidth = 5
-    private const val HeaderHeight = 6
-    private const val HeaderContentDescription = 9
-    private const val HeaderProfiles = 14
-    private const val HeaderDensityBehavior = 27
-    private const val HeaderStringType = 3 shl 10
+    private const val LongSize = 8
+
+    /** `Header.DATA_TYPE_`: a property's type, in the bits above its tag. */
+    private const val HeaderTypeInt = 0
+    private const val HeaderTypeFloat = 1
+    private const val HeaderTypeLong = 2
+    private const val HeaderTypeString = 3
+
+    /** `TextLayout.FLAG_IS_DYNAMIC_COLOR`. */
+    private const val TextLayoutFlagDynamicColor = 1
     private const val TextParameterId = 1
     private const val TextParameterFontSize = 5
     private const val IntegerIdOffset = 0x100000000L
@@ -2316,23 +2679,7 @@ private class PathKey(pathData: FloatArray, private val winding: Int) {
   override fun hashCode(): Int = 31 * bits.contentHashCode() + winding
 }
 
-private class IntArrayKey(values: IntArray) {
-  private val values = values.copyOf()
-
-  override fun equals(other: Any?): Boolean =
-    other is IntArrayKey && values.contentEquals(other.values)
-
-  override fun hashCode(): Int = values.contentHashCode()
-}
-
-private class LongArrayKey(values: LongArray) {
-  private val values = values.copyOf()
-
-  override fun equals(other: Any?): Boolean =
-    other is LongArrayKey && values.contentEquals(other.values)
-
-  override fun hashCode(): Int = values.contentHashCode()
-}
+private data class NamedKey(val type: Int, val name: String)
 
 private data class TextFromFloatKey(
   val valueBits: Int,

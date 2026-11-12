@@ -79,16 +79,44 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
     public val floatArrayCache: HashMap<RemoteStateCacheKey, FloatArray> = HashMap()
     public val longArrayCache: HashMap<RemoteStateCacheKey, LongArray> = HashMap()
 
-    // KMP (rc-players): the Kotlin writer writes a `ComponentValue` as a declaration that names its
-    // component's id, where `RemoteComposeWriter` writes it inside the component's body. So this
-    // state holds the id a token's component was given in this render, and no emitted mask.
     /**
-     * Per-render state of a [RemoteComponentToken]: the component id its node was given in this
-     * render, and the float variables reserved for values requested before that id was known.
+     * Per-document emission state for a [RemoteComponentToken] during a single render pass.
+     *
+     * Cleared by [clearDocumentCaches] when starting a new document capture.
      */
     private class TokenComponentState {
+        /**
+         * Allocated variable IDs indexed by `RemoteComponentToken.PROP_*`.
+         *
+         * [NO_VARIABLE_ID] (`-1`) means no variable has been allocated for that property in the
+         * current [document] yet; otherwise holds the integer variable ID reserved or emitted for
+         * that component property.
+         */
         val variableIds: IntArray = IntArray(RemoteComponentToken.PROP_COUNT) { NO_VARIABLE_ID }
+
+        /**
+         * Bitmask indexed by `RemoteComponentToken.PROP_*` (`1 shl propIndex`) tracking which
+         * `ComponentValue` operations have already been written into the owning component's body in
+         * [document].
+         */
+        var emittedMask: Int = 0
+
+        /**
+         * `true` while the [document] writer cursor is directly inside the owning component's body
+         * (before any child components are emitted). Set back to `false` by
+         * [disableDirectComponentEmission] before child nodes render and by [endComponentContent].
+         */
+        var canEmitDirectly: Boolean = false
+
+        // KMP (rc-players): the Kotlin writer takes the component's id for each `ComponentValue`,
+        // where `RemoteComposeBuffer` writes its own `lastComponentId`; so this is always the
+        // owning component's id once it has begun, and never -1.
+        /** The owning component's wire id, or [NO_COMPONENT_ID] before it has begun. */
         var componentId: Int = NO_COMPONENT_ID
+
+        // LOCAL PATCH (rc-players): whether the writer is in the owning component, between a
+        // [beginComponentContent] and its [endComponentContent]; see [getComponentValue].
+        var inside: Boolean = false
 
         companion object {
             const val NO_VARIABLE_ID: Int = -1
@@ -107,46 +135,132 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
     public override fun resolveComponentToken(): RemoteComponentToken? =
         currentRenderingNode?.getOrCreateComponentToken()
 
-    // KMP (rc-players): as above, a token's values are written for its component's explicit id.
-    // A value requested before the component is recorded reserves a variable that
-    // [beginComponentContent] binds; nothing is deferred to the end of the component, so there is
-    // no `disableDirectComponentEmission` or `endComponentContent`.
+    // KMP (rc-players): [componentId] is required: the Kotlin writer has no `lastComponentId` that
+    // names the component being written, so the node says which one it is.
     /**
-     * Marks [token]'s component as recorded with [componentId] in this render, and binds any value
-     * of it requested before that to the component.
+     * Marks the start of [token]'s component body in [document] and emits `ComponentValue`
+     * operations for any properties already requested on [token] (either from an earlier expression
+     * evaluation in this render pass or recorded on [token] during a prior pass).
      */
     public fun beginComponentContent(token: RemoteComponentToken, componentId: Int) {
         val state = tokenComponentStates.getOrPut(token) { TokenComponentState() }
         state.componentId = componentId
+        state.canEmitDirectly = true
+        state.inside = true
         for (propIndex in 0 until RemoteComponentToken.PROP_COUNT) {
-            val reservedId = state.variableIds[propIndex]
-            if (reservedId != TokenComponentState.NO_VARIABLE_ID) {
+            val bit = 1 shl propIndex
+            if ((state.emittedMask and bit) != 0) continue
+            val existingId = state.variableIds[propIndex]
+            if (existingId != TokenComponentState.NO_VARIABLE_ID) {
                 document.addComponentValue(
                     RemoteComponentToken.toComponentValueType(propIndex),
                     componentId,
-                    Utils.asNan(reservedId),
+                    Utils.asNan(existingId),
                 )
+                state.emittedMask = state.emittedMask or bit
+            } else if (token.isRequested(propIndex)) {
+                state.variableIds[propIndex] =
+                    Utils.idFromNan(componentValue(componentId, propIndex))
+                state.emittedMask = state.emittedMask or bit
             }
         }
     }
 
     /**
-     * Returns the NaN-encoded float variable holding [propIndex] (`RemoteComponentToken.PROP_*`) of
-     * the component identified by [token]: written for its component id once it is recorded in this
-     * render, otherwise reserved for [beginComponentContent] to bind.
+     * Disables direct `ComponentValue` emission for [token] before child components are rendered.
+     *
+     * A value written while a descendant is being written would be that descendant's to a player
+     * (`LayoutComponent.inflate` gives a `ComponentValue` to the component it is written in), so
+     * any [getComponentValue] call for [token] triggered lazily while rendering descendants must
+     * reserve a float variable ID instead of emitting directly, leaving the `ComponentValue`
+     * operation to be emitted in [endComponentContent] inside [token]'s own container body.
+     */
+    public fun disableDirectComponentEmission(token: RemoteComponentToken) {
+        tokenComponentStates[token]?.canEmitDirectly = false
+    }
+
+    /**
+     * Flushes any deferred `ComponentValue` operations reserved for [token] while rendering its
+     * children, writing them into [token]'s component body before the container closes.
+     */
+    public fun endComponentContent(token: RemoteComponentToken) {
+        val state = tokenComponentStates[token] ?: return
+        state.canEmitDirectly = false
+        state.inside = false
+        for (propIndex in 0 until RemoteComponentToken.PROP_COUNT) {
+            val bit = 1 shl propIndex
+            if ((state.emittedMask and bit) != 0) continue
+            val reservedId = state.variableIds[propIndex]
+            if (reservedId != TokenComponentState.NO_VARIABLE_ID) {
+                document.addComponentValue(
+                    RemoteComponentToken.toComponentValueType(propIndex),
+                    state.componentId,
+                    Utils.asNan(reservedId),
+                )
+                state.emittedMask = state.emittedMask or bit
+            }
+        }
+    }
+
+    /**
+     * Returns the NaN-encoded float variable value representing [propIndex] (`PROP_WIDTH`,
+     * `PROP_HEIGHT`, etc.) for the layout component identified by [token].
+     *
+     * Reuses the existing variable ID if already allocated in this [document]. Otherwise, if the
+     * writer is currently directly inside [token]'s body ([TokenComponentState.canEmitDirectly]),
+     * emits the `ComponentValue` operation immediately; if called before [beginComponentContent] or
+     * while rendering descendants, reserves a float variable via `reserveFloatVariable()` so
+     * [beginComponentContent] or [endComponentContent] binds it to [token]'s component body.
      */
     internal fun getComponentValue(token: RemoteComponentToken, propIndex: Int): Float {
+        token.markRequested(propIndex)
         val state = tokenComponentStates.getOrPut(token) { TokenComponentState() }
-        if (state.componentId != TokenComponentState.NO_COMPONENT_ID) {
-            return componentValue(state.componentId, propIndex)
-        }
         val existingId = state.variableIds[propIndex]
         if (existingId != TokenComponentState.NO_VARIABLE_ID) {
             return Utils.asNan(existingId)
         }
-        val reserved = document.reserveFloatVariable()
-        state.variableIds[propIndex] = Utils.idFromNan(reserved)
-        return reserved
+        val allocatedId =
+            if (state.canEmitDirectly) {
+                state.emittedMask = state.emittedMask or (1 shl propIndex)
+                Utils.idFromNan(componentValue(state.componentId, propIndex))
+            } else if (state.componentId != TokenComponentState.NO_COMPONENT_ID && !state.inside) {
+                // LOCAL PATCH (rc-players): asked for after the component has been written (a later
+                // sibling sized from it). Nothing more can be written in it, and written where it
+                // is asked for it would be another component's. It is written after the root
+                // ([writeLateComponentValues]), where a player finds its component by the id it
+                // names. Upstream reserves a variable no `ComponentValue` ever binds.
+                state.emittedMask = state.emittedMask or (1 shl propIndex)
+                val reserved = Utils.idFromNan(document.reserveFloatVariable())
+                lateComponentValues.add(LateComponentValue(state.componentId, propIndex, reserved))
+                reserved
+            } else {
+                Utils.idFromNan(document.reserveFloatVariable())
+            }
+        state.variableIds[propIndex] = allocatedId
+        return Utils.asNan(allocatedId)
+    }
+
+    // LOCAL PATCH (rc-players): see [getComponentValue].
+    private class LateComponentValue(val componentId: Int, val propIndex: Int, val variableId: Int)
+
+    private val lateComponentValues = ArrayList<LateComponentValue>()
+
+    /**
+     * LOCAL PATCH (rc-players): writes the `ComponentValue`s asked for after their components were
+     * written. Called once the root has ended: AndroidX's `CoreDocument.registerVariables` binds a
+     * value outside every component to the component it names, if that component comes before it in
+     * the document; one ahead of the root finds no component.
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun writeLateComponentValues() {
+        for (value in lateComponentValues) {
+            document.addComponentValue(
+                RemoteComponentToken.toComponentValueType(value.propIndex),
+                value.componentId,
+                Utils.asNan(value.variableId),
+            )
+        }
+        lateComponentValues.clear()
     }
 
     /** Writes (once) the `ComponentValue` [propIndex] of [componentId] and returns its variable. */
@@ -197,6 +311,7 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
         lastComponentId = -1
         claimedComponentIds.clear()
         tokenComponentStates.clear()
+        lateComponentValues.clear()
         currentRenderingNode = null
     }
 
@@ -213,6 +328,13 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
     }
 
     private val canvasOperationsScopes: ArrayList<CanvasOperationsScopeFrame> = ArrayList()
+
+    // LOCAL PATCH (rc-players): for what has to know whether it is written as drawing or among a
+    // layout's operations (`RemoteTextMeasurer`).
+    /** Whether a canvas's drawing (`CanvasOperations` or `CanvasContent`) is being written. */
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public val isInCanvasOperationsScope: Boolean
+        get() = canvasOperationsScopes.isNotEmpty()
 
     /**
      * Enters a paint-scoped canvas block (`CanvasOperations` or `CanvasContent`).

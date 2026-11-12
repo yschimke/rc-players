@@ -17,7 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import ee.schimke.composeai.rccreation.bridge.ExperimentalRcCreationApi
 import ee.schimke.composeai.rccreation.bridge.LocalRcHostBridge
+import ee.schimke.composeai.rccreation.common.CreationDisplayInfo
+import ee.schimke.composeai.rccreation.common.Profile
+import ee.schimke.composeai.rccreation.common.RcProfiles
 import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
+import ee.schimke.composeai.rccreation.compose.capture.Profile
 import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
 import ee.schimke.composeai.rccreation.compose.capture.RemoteDocumentSession
 import ee.schimke.composeai.rccreation.compose.capture.wireValue
@@ -133,7 +137,15 @@ public fun RcEmbeddedPlayer(
         }
       }
       val recomposer = Recomposer(coroutineContext + clock)
-      val session = RemoteDocumentSession(display, recomposer, encodePng = encodePng)
+      // The player in this process is rc-players' own, which reads AndroidX's operations and the
+      // experimental ones (a custom component for an input, a mesh, a pattern).
+      val session =
+        RemoteDocumentSession(
+          display,
+          recomposer,
+          profile = RcEmbeddedPlayerProfile,
+          encodePng = encodePng,
+        )
       var last: RcDocument? = null
       // The key the session last composed, on the session's own thread. A failure belongs to it,
       // not to whatever key the host holds by the time the report reaches it: if the host has
@@ -283,7 +295,22 @@ private class Input(val key: Any?, val content: @Composable @RemoteComposable ()
 // fork's PROVENANCE.md, "Upstream follow-ups".
 private fun writerFor(display: RemoteCreationDisplayInfo): RemoteDocumentWriter =
   RemoteDocumentWriter(
-    display.width,
-    display.height,
-    display.densityBehavior.wireValue,
+    CreationDisplayInfo(
+      display.width,
+      display.height,
+      (display.density * 160f).toInt(),
+      display.densityBehavior.wireValue,
+    ),
+    null,
+    RcEmbeddedPlayerProfile,
   )
+
+/**
+ * The profile [RcEmbeddedPlayer] captures its content under: what the player in this process, which
+ * is rc-players' own, reads. AndroidX's profile with its experimental operations (a custom
+ * component for an input, a 2D mesh, a pattern, a flow row). A one-shot capture of the same content
+ * under this profile is the document the embedded player plays.
+ */
+@ExperimentalRcCreationApi
+public val RcEmbeddedPlayerProfile: Profile =
+  Profile(profileFlags = RcProfiles.PROFILE_ANDROIDX or RcProfiles.PROFILE_EXPERIMENTAL)

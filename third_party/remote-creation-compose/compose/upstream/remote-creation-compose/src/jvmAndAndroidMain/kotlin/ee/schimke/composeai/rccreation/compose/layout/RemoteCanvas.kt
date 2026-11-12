@@ -238,10 +238,20 @@ public class RemoteCanvas(
         }
     }
 
-    // KMP (rc-players): the layout nodes record their writer calls here as `WriterOp`s, written
-    // when the canvas flushes, where upstream's write to `document` as they render.
+    // KMP (rc-players): a writer call the fork keeps as a `WriterOp` value (a mesh), recorded with
+    // the drawing around it.
     internal fun recordRenderingOp(operation: WriterOp): CanvasOperationBuffer.SpanOp {
         return buffer.recordRenderingOp(CanvasOp.Draw { operation.write(it, creationState) })
+    }
+
+    // KMP (rc-players): a layout node's writer call, written now, as upstream's nodes write to
+    // `document` as they render: after what the canvas has recorded so far, so that the document
+    // keeps the order things were made in. Where an operation is written is part of what it means
+    // to a player (a component's values, a canvas's expressions, a touch expression), so nothing is
+    // held back to be written later.
+    internal fun writeLayout(operation: WriterOp) {
+        flush()
+        operation.write(document, creationState)
     }
 
     internal inline fun recordInOffscreenChildSpan(

@@ -43,6 +43,8 @@ kotlin {
       implementation(libs.kotlinx.coroutines.core)
     }
     getByName("androidHostTest").dependencies {
+      // rc-players' own capture profiles, to hold them to this module's AndroidX ones.
+      implementation(project(":rc-widget-creation"))
       implementation(kotlin("test"))
       implementation(libs.junit)
       implementation(libs.robolectric)

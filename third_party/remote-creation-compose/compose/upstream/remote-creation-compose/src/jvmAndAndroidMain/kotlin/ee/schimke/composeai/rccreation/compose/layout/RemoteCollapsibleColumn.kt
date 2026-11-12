@@ -76,13 +76,12 @@ internal class RemoteCollapsibleColumnNode : RemoteLayoutNode() {
 
     override fun render(creationState: RemoteComposeCreationState, remoteCanvas: RemoteCanvas) {
         val scope = overriddenScope(remoteCanvas)
-        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
-        // upstream writes to `document` here.
+        // KMP (rc-players): written through a `WriterOp`, where upstream calls `document` here.
         val remoteModifier = resolveModifier(scope, creationState)
         (verticalArrangement as? RemoteSpaced)?.let {
             remoteModifier.spacedBy = it.getSpacingFloatId(scope)
         }
-        remoteCanvas.recordRenderingOp(
+        remoteCanvas.writeLayout(
             WriterOp.StartCollapsibleColumn(
                 remoteModifier,
                 horizontalAlignment.toRemote(layoutDirection),
@@ -90,9 +89,8 @@ internal class RemoteCollapsibleColumnNode : RemoteLayoutNode() {
             ),
         )
         renderChildren(creationState, remoteCanvas)
-        // KMP (rc-players): recorded as a `WriterOp` and written when the canvas flushes, where
-        // upstream writes to `document` here.
-        remoteCanvas.recordRenderingOp(WriterOp.EndCollapsibleColumn)
+        // KMP (rc-players): written through a `WriterOp`, where upstream calls `document` here.
+        remoteCanvas.writeLayout(WriterOp.EndCollapsibleColumn)
     }
 }
 

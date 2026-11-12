@@ -27,7 +27,12 @@ kotlin {
     minSdk = libs.versions.rc.player.minSdk.get().toInt()
   }
 
-  sourceSets { commonTest.dependencies { implementation(kotlin("test")) } }
+  sourceSets {
+    // AndroidX's operation tables, by API level and profile (`RcProfileOperations`): what a
+    // `Profile` lets its writer write is what `:rc-player-edit` checks a document against.
+    commonMain.dependencies { implementation(project(":rc-player-protocol")) }
+    commonTest.dependencies { implementation(kotlin("test")) }
+  }
 }
 
 // The ABI gate, as the player modules have it: a change to the published surface shows up as a

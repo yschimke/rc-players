@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rccreation.bridge
 
 import androidx.compose.remote.core.CoreDocument
+import androidx.compose.remote.core.Operation
 import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.core.operations.ShaderData
 import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
@@ -75,9 +76,12 @@ class RuntimeShaderBrushTest {
 
   @Test
   fun androidxRemoteCoreReadsTheShader() {
-    val document = CoreDocument()
-    document.initFromBuffer(RemoteComposeBuffer.fromInputStream(ByteArrayInputStream(capture())))
-    assertNotNull(document.operations.filterIsInstance<ShaderData>().singleOrNull())
+    // Written with the background's drawing, where the brush is first used: a component holds that
+    // drawing itself, not in its list, so the operations are read as they are written.
+    val operations = ArrayList<Operation>()
+    RemoteComposeBuffer.fromInputStream(ByteArrayInputStream(capture()))
+      .inflateFromBuffer(operations)
+    assertNotNull(operations.filterIsInstance<ShaderData>().singleOrNull())
   }
 
   /** An AndroidX-profile document keeps its profile and reads back the same way. */

@@ -62,6 +62,8 @@ public fun RemoteInput(
 @ExperimentalRcCreationApi
 @Composable
 public fun canCreateRcInputs(): Boolean {
-  val operations = LocalRemoteComposeCreationState.current.supportedOperations
+  // An empty set is a capture that named no operations and no profile (the deprecated
+  // `supportedOperations` captures): its writer writes anything.
+  val operations = LocalRemoteComposeCreationState.current.profile.supportedOperations
   return operations.isEmpty() || RcOpcodes.LAYOUT_CUSTOM in operations
 }

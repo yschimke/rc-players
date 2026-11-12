@@ -36,6 +36,15 @@ public class RemoteComponentToken public constructor() {
 
     internal fun isRequested(propIndex: Int): Boolean = (requestedMask and (1 shl propIndex)) != 0
 
+    // LOCAL PATCH (rc-players): what was requested of this token, to be put back after a render;
+    // see `RemoteRootNode.render`.
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public fun saveRequested(): Int = requestedMask
+
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun restoreRequested(saved: Int) {
+        requestedMask = saved
+    }
+
     internal companion object {
         internal const val PROP_WIDTH: Int = 0
         internal const val PROP_HEIGHT: Int = 1

@@ -32,8 +32,9 @@ import ee.schimke.composeai.rccreation.compose.modifier.RemoteExitTransition
  * }
  * ```
  *
- * `RemoteDocumentWriter` writes the definition ahead of the layout whenever it is called, with its
- * body inline; see its `createFloatFunction`.
+ * The definition is written ahead of the layout whenever this is called, in a global section
+ * (`RemoteWriter.beginGlobal`), with its body inline: a function defined among a component's
+ * operations is not one a player keeps.
  */
 @ExperimentalRcCreationApi
 public fun RemoteWriter.defineVisibilityAnimation(
@@ -48,10 +49,15 @@ public fun RemoteWriter.defineVisibilityAnimation(
     ) -> Unit,
 ): Int {
   val args = FloatArray(VisibilityFunctionParameters)
-  val id = createFloatFunction(args)
-  block(Utils.idFromNan(args[5]), args[0], args[1], args[2], args[3], args[4])
-  endFloatFunction()
-  return id
+  beginGlobal()
+  try {
+    val id = createFloatFunction(args)
+    block(Utils.idFromNan(args[5]), args[0], args[1], args[2], args[3], args[4])
+    endFloatFunction()
+    return id
+  } finally {
+    endGlobal()
+  }
 }
 
 /** An enter transition drawn by the visibility animation [functionId] defines. */

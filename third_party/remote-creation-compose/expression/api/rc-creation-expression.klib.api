@@ -292,6 +292,9 @@ final class ee.schimke.composeai.rccreation.compose.layout/RemoteComponent { // 
 
 final class ee.schimke.composeai.rccreation.compose.layout/RemoteComponentToken { // ee.schimke.composeai.rccreation.compose.layout/RemoteComponentToken|null[0]
     constructor <init>() // ee.schimke.composeai.rccreation.compose.layout/RemoteComponentToken.<init>|<init>(){}[0]
+
+    final fun restoreRequested(kotlin/Int) // ee.schimke.composeai.rccreation.compose.layout/RemoteComponentToken.restoreRequested|restoreRequested(kotlin.Int){}[0]
+    final fun saveRequested(): kotlin/Int // ee.schimke.composeai.rccreation.compose.layout/RemoteComponentToken.saveRequested|saveRequested(){}[0]
 }
 
 final class ee.schimke.composeai.rccreation.compose.layout/RemoteOffset { // ee.schimke.composeai.rccreation.compose.layout/RemoteOffset|null[0]
@@ -790,6 +793,8 @@ open class ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreation
 
     final val floatArrayCache // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.floatArrayCache|{}floatArrayCache[0]
         final fun <get-floatArrayCache>(): kotlin.collections/HashMap<ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey, kotlin/FloatArray> // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.floatArrayCache.<get-floatArrayCache>|<get-floatArrayCache>(){}[0]
+    final val isInCanvasOperationsScope // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.isInCanvasOperationsScope|{}isInCanvasOperationsScope[0]
+        final fun <get-isInCanvasOperationsScope>(): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.isInCanvasOperationsScope.<get-isInCanvasOperationsScope>|<get-isInCanvasOperationsScope>(){}[0]
     final val longArrayCache // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.longArrayCache|{}longArrayCache[0]
         final fun <get-longArrayCache>(): kotlin.collections/HashMap<ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey, kotlin/LongArray> // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.longArrayCache.<get-longArrayCache>|<get-longArrayCache>(){}[0]
     final val remoteVariableToId // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.remoteVariableToId|{}remoteVariableToId[0]
@@ -818,6 +823,8 @@ open class ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreation
     final fun beginComponentContent(ee.schimke.composeai.rccreation.compose.layout/RemoteComponentToken, kotlin/Int) // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.beginComponentContent|beginComponentContent(ee.schimke.composeai.rccreation.compose.layout.RemoteComponentToken;kotlin.Int){}[0]
     final fun claimComponentId(kotlin/Int): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.claimComponentId|claimComponentId(kotlin.Int){}[0]
     final fun clearDocumentCaches() // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.clearDocumentCaches|clearDocumentCaches(){}[0]
+    final fun disableDirectComponentEmission(ee.schimke.composeai.rccreation.compose.layout/RemoteComponentToken) // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.disableDirectComponentEmission|disableDirectComponentEmission(ee.schimke.composeai.rccreation.compose.layout.RemoteComponentToken){}[0]
+    final fun endComponentContent(ee.schimke.composeai.rccreation.compose.layout/RemoteComponentToken) // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.endComponentContent|endComponentContent(ee.schimke.composeai.rccreation.compose.layout.RemoteComponentToken){}[0]
     final fun enterCanvasOperationsScope() // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.enterCanvasOperationsScope|enterCanvasOperationsScope(){}[0]
     final fun exitCanvasOperationsScope() // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.exitCanvasOperationsScope|exitCanvasOperationsScope(){}[0]
     final fun readsRetiredId(kotlin/FloatArray): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.readsRetiredId|readsRetiredId(kotlin.FloatArray){}[0]
@@ -826,6 +833,7 @@ open class ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreation
     final fun recordScopedLongArrayKey(ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey) // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.recordScopedLongArrayKey|recordScopedLongArrayKey(ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey){}[0]
     final fun recordScopedVariableKey(ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey) // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.recordScopedVariableKey|recordScopedVariableKey(ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey){}[0]
     final fun resetComponentIds() // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.resetComponentIds|resetComponentIds(){}[0]
+    final fun writeLateComponentValues() // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.writeLateComponentValues|writeLateComponentValues(){}[0]
     final inline fun <#A1: kotlin/Any?> withCanvasOperationsScope(kotlin/Function0<#A1>): #A1 // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.withCanvasOperationsScope|withCanvasOperationsScope(kotlin.Function0<0:0>){0§<kotlin.Any?>}[0]
     final inline fun getOrPutFloatArray(ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey, crossinline kotlin/Function0<kotlin/FloatArray>): kotlin/FloatArray // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.getOrPutFloatArray|getOrPutFloatArray(ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey;kotlin.Function0<kotlin.FloatArray>){}[0]
     final inline fun getOrPutLongArray(ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey, crossinline kotlin/Function0<kotlin/LongArray>): kotlin/LongArray // ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState.getOrPutLongArray|getOrPutLongArray(ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey;kotlin.Function0<kotlin.LongArray>){}[0]

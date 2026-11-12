@@ -217,6 +217,12 @@ public class RemoteTextMeasurer(internal val density: RemoteDensity) {
         ) { creationState ->
             val doc = creationState.document
             val textSizePxId = textSize.getFloatIdForCreationState(creationState)
+            // LOCAL PATCH (rc-players): a measurement first read outside a canvas's drawing (by a
+            // layout modifier) is written ahead of the root, with its paint: among a layout's
+            // operations a player keeps the paint and drops the measurement
+            // (`LayoutComponent.inflate` keeps `ComponentData` only, which `TextAttribute` is not).
+            val global = !creationState.isInCanvasOperationsScope
+            if (global) doc.beginGlobal()
             doc.rcPaint
                 .setTextSize(textSizePxId)
                 .setTypeface(
@@ -235,6 +241,7 @@ public class RemoteTextMeasurer(internal val density: RemoteDensity) {
             // told once the measurement is written, and sends its own paint again.
             val attribute =
                 doc.textAttribute(text.getIdForCreationState(creationState), attributeType)
+            if (global) doc.endGlobal()
             (creationState as? RemoteComposeCaptureState)?.onPaintWrittenOutsideCanvas?.invoke()
             floatArrayOf(attribute)
         }

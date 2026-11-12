@@ -79,10 +79,10 @@ class OffscreenBitmapAndFunctionWriteTest {
 
   /**
    * A function's body is evaluated only when the player runs it, so it keeps its own declarations
-   * in order, and is written ahead of the layout as one definition.
+   * in order. The definition is written where it is made, as AndroidX's writer writes it.
    */
   @Test
-  fun aFunctionBodyKeepsItsDeclarationsInlineAheadOfTheLayout() {
+  fun aFunctionBodyKeepsItsDeclarationsInlineWhereItIsDefined() {
     val args = FloatArray(6)
     var bitmap = 0
     var half = 0f
@@ -95,41 +95,54 @@ class OffscreenBitmapAndFunctionWriteTest {
         endFloatFunction()
       }
     }
-    val opcodes = opcodes(bytes)
     assertEquals(
       listOf(
-        168, // FunctionDefine, ahead of the root
+        200, // LayoutRoot
+        168, // FunctionDefine, in the root
         101, // its offscreen buffer
         81, // its expression
         190,
         139,
         190,
         214, // end of the function
-        200, // LayoutRoot
         214,
       ),
-      opcodes,
+      opcodes(bytes),
     )
     assertEquals(49, bitmap)
     assertEquals(50, Utils.idFromNan(half))
+  }
+
+  /** In a global section the same definition goes ahead of the root, whole. */
+  @Test
+  fun aFunctionDefinedInAGlobalSectionGoesAheadOfTheRoot() {
+    val args = FloatArray(6)
+    val bytes = write {
+      root {
+        beginGlobal()
+        createFloatFunction(args)
+        floatExpression(args[0], 0.5f, AnimatedFloatExpression.MUL)
+        endFloatFunction()
+        endGlobal()
+      }
+    }
+    assertEquals(listOf(168, 81, 214, 200, 214), opcodes(bytes))
   }
 
   @Test
   fun nothingDeclaredInAFunctionBodyIsReusedAfterIt() {
     val inside = FloatArray(1)
     val bytes = write {
-      val before = floatExpression(1f, 2f, AnimatedFloatExpression.ADD)
+      val before = addText("out")
       createFloatFunction(inside)
       // Declared before the function, so reused inside it.
-      assertEquals(id(before), id(floatExpression(1f, 2f, AnimatedFloatExpression.ADD)))
-      val local = floatExpression(inside[0], 2f, AnimatedFloatExpression.ADD)
+      assertEquals(before, addText("out"))
       val text = addText("in")
       endFloatFunction()
-      assertNotEquals(id(local), id(floatExpression(inside[0], 2f, AnimatedFloatExpression.ADD)))
       assertNotEquals(text, addText("in"))
     }
-    // The first expression, the function and its body, then the two re-declared after it.
-    assertEquals(listOf(81, 168, 81, 102, 214, 81, 102), opcodes(bytes))
+    // The first text, the function and its body, then the text re-declared after it.
+    assertEquals(listOf(102, 168, 102, 214, 102), opcodes(bytes))
   }
 
   @Test

@@ -11,6 +11,8 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import ee.schimke.composeai.rccreation.common.Profile
+import ee.schimke.composeai.rccreation.common.RcPlatformProfiles
 import ee.schimke.composeai.rccreation.common.RemoteDocumentWriter
 import ee.schimke.composeai.rccreation.common.RemoteWriter
 import ee.schimke.composeai.rccreation.compose.layout.RemoteCanvas
@@ -39,9 +41,32 @@ public class RemoteDocumentSession(
     parent: CompositionContext,
     private val remoteDensity: RemoteDensity = RemoteDensity.from(creationDisplayInfo),
     private val layoutDirection: LayoutDirection = LayoutDirection.Ltr,
-    supportedOperations: Set<Int> = emptySet(),
+    /**
+     * Who the documents are for: it answers what a component asks (`currentProfileSupports…`).
+     * [render] writes into the writer it is handed; make that one with `profile.create` for a
+     * writer that keeps to the profile.
+     */
+    public val profile: Profile = RcPlatformProfiles.ANDROIDX,
     encodePng: ((ImageBitmap) -> ByteArray?)? = null,
 ) {
+    /** The session of rc-creation-compose 3.0.0: [supportedOperations] stood in for a profile. */
+    @Deprecated("Pass a Profile.")
+    public constructor(
+        creationDisplayInfo: RemoteCreationDisplayInfo,
+        parent: CompositionContext,
+        remoteDensity: RemoteDensity = RemoteDensity.from(creationDisplayInfo),
+        layoutDirection: LayoutDirection = LayoutDirection.Ltr,
+        supportedOperations: Set<Int>,
+        encodePng: ((ImageBitmap) -> ByteArray?)? = null,
+    ) : this(
+        creationDisplayInfo,
+        parent,
+        remoteDensity,
+        layoutDirection,
+        legacyProfile(supportedOperations),
+        encodePng,
+    )
+
     private val rootNode = RemoteRootNode()
     private val applier = RemoteComposeApplier(rootNode)
     private val composition = Composition(applier, parent)
@@ -52,10 +77,10 @@ public class RemoteDocumentSession(
     private val creationState =
         RemoteComposeCaptureState(
             creationDisplayInfo = creationDisplayInfo,
+            profile = profile,
             writer = compositionWriter,
             remoteDensity = remoteDensity,
             layoutDirection = layoutDirection.toRemoteLayoutDirection(),
-            supportedOperations = supportedOperations,
             platformImageProvider =
                 encodePng?.let { SessionPngImageProvider(it) } ?: NoOpPlatformImageProvider,
         )

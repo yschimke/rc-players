@@ -138,6 +138,10 @@ internal class HostAction(
     // `remote-creation-core`'s `Action`.
     override fun RemoteStateScope.toRemoteActionData(): List<RemoteActionData> {
         val valueId = value?.id ?: -1
+        val constantName = name.constantValueOrNull
+        if (constantName != null) {
+            return listOf(RemoteActionData.HostNamedText(constantName, type.value, valueId))
+        }
         // A dynamic name is referenced by its text id, which players resolve to the current value
         // when the action runs. This keeps the action a named action (with its typed value)
         // rather than an id action keyed on an unstable, writer-allocated variable id.

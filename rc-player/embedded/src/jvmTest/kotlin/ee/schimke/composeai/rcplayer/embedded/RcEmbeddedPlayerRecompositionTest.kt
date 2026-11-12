@@ -80,7 +80,15 @@ class RcEmbeddedPlayerRecompositionTest {
   private fun SkikoComposeUiTest.centre(): Color = onRoot().captureToImage().toPixelMap()[50, 50]
 
   private fun fresh(content: @Composable @RemoteComposable () -> Unit): RcDocument =
-    RcDocumentCodec.decode(runBlocking { captureCommonRemoteDocument(display, content = content) })
+    RcDocumentCodec.decode(
+      runBlocking {
+        captureCommonRemoteDocument(
+          display,
+          profile = RcEmbeddedPlayerProfile,
+          content = content,
+        )
+      },
+    )
 
   /** A full-size rectangle, drawn at render time, counting the renders it is drawn in. */
   @Composable

@@ -59,7 +59,7 @@ public fun rcInputDocument(fields: List<RcInputField>, width: Int = 360): RcDocu
             RcHeaderValue.IntValue(fields.sumOf { height(it) + 4 }),
           ),
           RcHeaderProperty(
-            14 /* Header.DOC_PROFILES */,
+            RcHeader.DOC_PROFILES,
             RcHeaderValue.IntValue(RcWireProfiles.ANDROIDX_EXPERIMENTAL),
           ),
         ),

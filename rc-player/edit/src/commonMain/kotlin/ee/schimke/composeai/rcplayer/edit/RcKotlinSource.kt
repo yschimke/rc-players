@@ -13,6 +13,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCollapsiblePriorityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
+import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -986,6 +987,9 @@ private class RcKotlinWriter(
           null
         }
       }
+      // A measured value the component declares for whatever reads it: it is written among the
+      // component's modifiers, in the component, and is generated where it is read.
+      is RcComponentValue -> null
       else -> {
         gap("modifier ${describe(operation)} is not generated")
         null

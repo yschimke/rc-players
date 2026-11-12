@@ -43,7 +43,10 @@ class RcSaveRestoreToCountPlaybackTest {
 
   private fun play(onDraw: RemoteDrawScope.() -> Unit): PixelMap {
     val bytes = runBlocking {
-      captureCommonRemoteDocument(RemoteCreationDisplayInfo(120, 40, 160)) {
+      captureCommonRemoteDocument(
+        RemoteCreationDisplayInfo(120, 40, 160),
+        profile = RcEmbeddedPlayerProfile,
+      ) {
         RemoteCanvas(RemoteModifier.fillMaxSize(), onDraw)
       }
     }

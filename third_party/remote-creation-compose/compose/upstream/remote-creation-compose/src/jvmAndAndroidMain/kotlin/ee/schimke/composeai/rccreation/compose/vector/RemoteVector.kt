@@ -272,8 +272,8 @@ internal class RemoteGroupComponent : RemoteVNode() {
                 scaleY.constantValue == 1f)
         val hasClip =
             clipPathData.isNotEmpty() &&
-                // KMP (rc-players): no `Profile`; the operations the host opted in to.
-                Operations.CLIP_PATH in this@draw.remoteCanvas.creationState.supportedOperations
+                Operations.CLIP_PATH in
+                    this@draw.remoteCanvas.creationState.profile.supportedOperations
 
         if (hasTransform || hasClip) {
             withTransform(

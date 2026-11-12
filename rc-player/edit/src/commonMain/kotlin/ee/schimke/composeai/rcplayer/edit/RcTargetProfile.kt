@@ -4,6 +4,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
+import ee.schimke.composeai.rcplayer.protocol.RcProfileOperations
 import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 
 /**
@@ -144,47 +145,8 @@ internal constructor(
         name = "api $apiLevel, profiles 0x${profiles.toString(16)}",
         apiLevel = apiLevel,
         profiles = profiles,
-        supportedOpcodes = operationsFor(apiLevel, profiles),
+        supportedOpcodes = RcProfileOperations.of(apiLevel, profiles),
       )
-
-    private fun operationsFor(apiLevel: Int, profiles: Int): Set<Int> {
-      if (apiLevel <= 6) return BASE_OPERATIONS + V6_OPERATIONS
-      val sets = buildList {
-        if (profiles and RcProfiles.ANDROIDX != 0) {
-          add(
-            profileOperations(
-              profiles,
-              V7_ANDROIDX_OPERATIONS,
-              V7_ANDROIDX_EXPERIMENTAL_OPERATIONS,
-              V7_ANDROIDX_DEPRECATED_OPERATIONS,
-            ),
-          )
-        }
-        if (profiles and RcProfiles.WIDGETS != 0) {
-          add(
-            profileOperations(
-              profiles,
-              V7_WIDGETS_OPERATIONS,
-              V7_WIDGETS_EXPERIMENTAL_OPERATIONS,
-              V7_WIDGETS_DEPRECATED_OPERATIONS,
-            ),
-          )
-        }
-      }
-      val shared = sets.reduceOrNull { left, right -> left intersect right }.orEmpty()
-      return BASE_OPERATIONS + shared + V7_BASELINE_OPERATIONS
-    }
-
-    private fun profileOperations(
-      profiles: Int,
-      operations: Set<Int>,
-      experimental: Set<Int>,
-      deprecated: Set<Int>,
-    ): Set<Int> = buildSet {
-      addAll(operations)
-      if (profiles and RcProfiles.EXPERIMENTAL != 0) addAll(experimental)
-      if (profiles and RcProfiles.DEPRECATED != 0) addAll(deprecated)
-    }
   }
 }
 
@@ -225,7 +187,7 @@ public object RcTargetProfiles {
       name = "Wear widgets",
       apiLevel = 8,
       profiles = RcProfiles.WEAR_WIDGETS,
-      supportedOpcodes = WEAR_WIDGETS_OPERATIONS,
+      supportedOpcodes = RcProfileOperations.WEAR_WIDGETS,
       fixedOperations = true,
     )
 

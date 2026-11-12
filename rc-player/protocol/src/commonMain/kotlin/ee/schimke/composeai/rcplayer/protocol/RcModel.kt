@@ -71,10 +71,103 @@ public data class RcHeader(
     (property(key) as? RcHeaderValue.FloatValue)?.value?.value
 
   public companion object {
+    // Every header property key of AndroidX's `Header` (`remote-core`, androidx-main
+    // `21a1a95e4`), in its order and under its names.
+    /** The document's width, an int. */
     public const val DOC_WIDTH: Int = 5
+
+    /** The document's height, an int. */
     public const val DOC_HEIGHT: Int = 6
+
+    /** The density the document was generated at, a float. */
     public const val DOC_DENSITY_AT_GENERATION: Int = 7
+
+    /** The frame rate the document asks for, a float. */
+    public const val DOC_DESIRED_FPS: Int = 8
+
+    /** The document's content description, a string. */
+    public const val DOC_CONTENT_DESCRIPTION: Int = 9
+
+    /** The document's source, a string. */
+    public const val DOC_SOURCE: Int = 11
+
+    /** Whether the document is a data update, an int. */
+    public const val DOC_DATA_UPDATE: Int = 12
+
+    /** The host's exception handler, an int. */
+    public const val HOST_EXCEPTION_HANDLER: Int = 13
+
+    /** The `RcProfiles` bits the document's operations are read under, an int. */
+    public const val DOC_PROFILES: Int = 14
+
+    /** Whether paint measures text (1, the default) or the layout does (0), an int. */
+    public const val FEATURE_PAINT_MEASURE: Int = 15
+
+    /** A debug flag, an int. */
+    public const val DEBUG: Int = 16
+
+    /** The measure pass version, an int. */
+    public const val FEATURE_MEASURE_VERSION: Int = 17
+
+    /** The touch handling version, an int. */
+    public const val FEATURE_TOUCH_VERSION: Int = 18
+
+    /** A fixed time for tests, a long. */
+    public const val TEST_TIME: Int = 19
+
+    /** What a test does after loading, an int. */
+    public const val TEST_AFTER: Int = 20
+
+    /** The colour theme a test plays under, an int. */
+    public const val TEST_COLOR_THEME: Int = 21
+
+    /** The actions a test runs, a string. */
+    public const val TEST_ACTIONS: Int = 22
+
+    /** Whether the collapsible priority fix applies, an int. */
+    public const val FEATURE_PRIORITY_FIX: Int = 23
+
+    /** Whether the layout resizes on a smaller measure, an int. */
+    public const val FEATURE_LT_RESIZE: Int = 24
+
+    /** Whether arrays notify their listeners, an int. */
+    public const val FEATURE_ARRAY_LISTENERS: Int = 25
+
+    /** The click handling version, an int. */
+    public const val FEATURE_CLICK_VERSION: Int = 26
+
+    /** How density-sensitive fields are read; one of the `DENSITY_BEHAVIOR_` values, an int. */
     public const val DOC_DENSITY_BEHAVIOR: Int = 27
+
+    /** The player's optimization level, an int. */
+    public const val FEATURE_OPTIMIZATION_LEVEL: Int = 28
+
+    /**
+     * Whether a player with a touch expression keeps its parent from intercepting touches (1, the
+     * default) or leaves them to it (0), an int.
+     */
+    public const val FEATURE_DISALLOW_INTERCEPT_TOUCH: Int = 29
+
+    /** Whether the data pass runs a canvas's operations, an int. */
+    public const val FEATURE_DATA_PASS_CANVAS_OPS: Int = 30
+
+    /** How the operations after the header are compressed; one of `COMPRESSION_`, an int. */
+    public const val COMPRESS: Int = 31
+
+    /** The directions the root scrolls in; `SCROLL_` bits, an int. */
+    public const val DOC_SCROLL: Int = 32
+
+    /** [COMPRESS]: not compressed. */
+    public const val COMPRESSION_NONE: Int = 0
+
+    /** [COMPRESS]: deflate. */
+    public const val COMPRESSION_DEFLATE: Int = 1
+
+    /** [DOC_SCROLL]: horizontally. */
+    public const val SCROLL_HORIZONTAL: Int = 1
+
+    /** [DOC_SCROLL]: vertically. */
+    public const val SCROLL_VERTICAL: Int = 2
 
     public const val DENSITY_BEHAVIOR_LEGACY: Int = 0
     public const val DENSITY_BEHAVIOR_PIXELS: Int = 1

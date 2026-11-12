@@ -44,9 +44,13 @@ public final class ee/schimke/composeai/rccreation/compose/action/ValueChangeAct
 }
 
 public final class ee/schimke/composeai/rccreation/compose/capture/CaptureRemoteDocumentKt {
+	public static final fun captureCommonRemoteDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Lee/schimke/composeai/rccreation/common/Profile;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun captureCommonRemoteDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Ljava/util/Set;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun captureCommonRemoteDocument$default (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Lee/schimke/composeai/rccreation/common/Profile;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public static synthetic fun captureCommonRemoteDocument$default (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Ljava/util/Set;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public static final fun captureCommonRemoteDocumentInto (Lee/schimke/composeai/rccreation/common/RemoteWriter;Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Lee/schimke/composeai/rccreation/common/Profile;Lee/schimke/composeai/rccreation/compose/capture/PlatformImageProvider;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun captureCommonRemoteDocumentInto (Lee/schimke/composeai/rccreation/common/RemoteWriter;Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Ljava/util/Set;Lee/schimke/composeai/rccreation/compose/capture/PlatformImageProvider;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun captureCommonRemoteDocumentInto$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Lee/schimke/composeai/rccreation/common/Profile;Lee/schimke/composeai/rccreation/compose/capture/PlatformImageProvider;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public static synthetic fun captureCommonRemoteDocumentInto$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Ljava/util/Set;Lee/schimke/composeai/rccreation/compose/capture/PlatformImageProvider;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
@@ -55,10 +59,22 @@ public abstract interface class ee/schimke/composeai/rccreation/compose/capture/
 	public abstract fun addNamedBitmap (Ljava/lang/String;Landroidx/compose/ui/graphics/ImageBitmap;)I
 }
 
+public final class ee/schimke/composeai/rccreation/compose/capture/ProfileKt {
+	public static final fun Profile (IILandroidx/collection/IntSet;Ljava/util/List;)Lee/schimke/composeai/rccreation/common/Profile;
+	public static synthetic fun Profile$default (IILandroidx/collection/IntSet;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/Profile;
+	public static final fun createProfile (IILandroidx/collection/IntSet;)Lee/schimke/composeai/rccreation/common/Profile;
+	public static synthetic fun createProfile$default (IILandroidx/collection/IntSet;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/common/Profile;
+}
+
 public class ee/schimke/composeai/rccreation/compose/capture/RemoteComposeCaptureState : ee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState, ee/schimke/composeai/rccreation/compose/state/RemoteStateScope {
 	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/common/Profile;Lee/schimke/composeai/rccreation/common/RemoteWriter;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Lee/schimke/composeai/rccreation/compose/layout/RemoteLayoutDirection;Lee/schimke/composeai/rccreation/compose/capture/PlatformImageProvider;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/common/Profile;Lee/schimke/composeai/rccreation/common/RemoteWriter;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Lee/schimke/composeai/rccreation/compose/layout/RemoteLayoutDirection;Lee/schimke/composeai/rccreation/compose/capture/PlatformImageProvider;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/common/Profile;Ljava/lang/Object;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Lee/schimke/composeai/rccreation/compose/layout/RemoteLayoutDirection;Lee/schimke/composeai/rccreation/compose/capture/PlatformImageProvider;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/common/Profile;Ljava/lang/Object;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Lee/schimke/composeai/rccreation/compose/layout/RemoteLayoutDirection;Lee/schimke/composeai/rccreation/compose/capture/PlatformImageProvider;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/common/RemoteWriter;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Lee/schimke/composeai/rccreation/compose/layout/RemoteLayoutDirection;Ljava/util/Set;Lee/schimke/composeai/rccreation/compose/capture/PlatformImageProvider;)V
 	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/common/RemoteWriter;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Lee/schimke/composeai/rccreation/compose/layout/RemoteLayoutDirection;Ljava/util/Set;Lee/schimke/composeai/rccreation/compose/capture/PlatformImageProvider;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Ljava/lang/String;Lee/schimke/composeai/rccreation/common/Profile;)V
 	public final fun addBitmap (Landroidx/compose/ui/graphics/ImageBitmap;)I
 	public final fun addNamedBitmap (Ljava/lang/String;Landroidx/compose/ui/graphics/ImageBitmap;)I
 	public final fun getCreationDisplayInfo ()Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;
@@ -71,6 +87,7 @@ public class ee/schimke/composeai/rccreation/compose/capture/RemoteComposeCaptur
 	public fun getLongId (Lee/schimke/composeai/rccreation/compose/state/RemoteState;)J
 	public fun getParentScope ()Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCaptureState;
 	public synthetic fun getParentScope ()Lee/schimke/composeai/rccreation/compose/state/RemoteStateScope;
+	public final fun getProfile ()Lee/schimke/composeai/rccreation/common/Profile;
 	public final fun getSupportedOperations ()Ljava/util/Set;
 	public final fun getTime ()Landroidx/compose/runtime/MutableState;
 	public fun resolveComponentToken ()Lee/schimke/composeai/rccreation/compose/layout/RemoteComponentToken;
@@ -80,10 +97,15 @@ public class ee/schimke/composeai/rccreation/compose/capture/RemoteComposeCaptur
 }
 
 public final class ee/schimke/composeai/rccreation/compose/capture/RemoteComposeCaptureStateKt {
+	public static final fun RemoteComposeCreationState (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/common/Profile;Lee/schimke/composeai/rccreation/common/RemoteWriter;)Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCaptureState;
+	public static final fun RemoteComposeCreationState (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/common/Profile;Ljava/lang/Object;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Lee/schimke/composeai/rccreation/compose/layout/RemoteLayoutDirection;)Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCaptureState;
+	public static final fun RemoteComposeCreationState (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Ljava/lang/String;Lee/schimke/composeai/rccreation/common/Profile;)Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCaptureState;
+	public static synthetic fun RemoteComposeCreationState$default (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Lee/schimke/composeai/rccreation/common/Profile;Ljava/lang/Object;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Lee/schimke/composeai/rccreation/compose/layout/RemoteLayoutDirection;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCaptureState;
 	public static final fun addBitmap (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;Landroidx/compose/ui/graphics/ImageBitmap;)I
 	public static final fun addNamedBitmap (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;Ljava/lang/String;Landroidx/compose/ui/graphics/ImageBitmap;)I
 	public static final fun getCreationDisplayInfo (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;
 	public static final fun getLocalRemoteComposeCreationState ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+	public static final fun getProfile (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)Lee/schimke/composeai/rccreation/common/Profile;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/capture/RemoteCompositionLocalsKt {
@@ -104,6 +126,7 @@ public final class ee/schimke/composeai/rccreation/compose/capture/RemoteCreatio
 public final class ee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfoKt {
 	public static final fun RemoteCreationDisplayInfo (IIIFZLee/schimke/composeai/rccreation/compose/capture/RemoteDensityBehavior;)Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;
 	public static synthetic fun RemoteCreationDisplayInfo$default (IIIFZLee/schimke/composeai/rccreation/compose/capture/RemoteDensityBehavior;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;
+	public static final fun from (Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity$Companion;Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;)Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;
 	public static final fun getHeightDp (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;)F
 	public static final fun getWidthDp (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;)F
 	public static final fun getWireValue (Lee/schimke/composeai/rccreation/compose/capture/RemoteDensityBehavior;)I
@@ -120,12 +143,15 @@ public final class ee/schimke/composeai/rccreation/compose/capture/RemoteDensity
 
 public final class ee/schimke/composeai/rccreation/compose/capture/RemoteDocumentSession {
 	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Landroidx/compose/runtime/CompositionContext;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Lee/schimke/composeai/rccreation/common/Profile;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Landroidx/compose/runtime/CompositionContext;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Lee/schimke/composeai/rccreation/common/Profile;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Landroidx/compose/runtime/CompositionContext;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Ljava/util/Set;Lkotlin/jvm/functions/Function1;)V
 	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteCreationDisplayInfo;Landroidx/compose/runtime/CompositionContext;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Landroidx/compose/ui/unit/LayoutDirection;Ljava/util/Set;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun dispose ()V
 	public final fun getChangeCount ()J
 	public final fun getOnChangesApplied ()Lkotlin/jvm/functions/Function0;
 	public final fun getOnRenderInputsChanged ()Lkotlin/jvm/functions/Function0;
+	public final fun getProfile ()Lee/schimke/composeai/rccreation/common/Profile;
 	public final fun getRenderInputsChanged ()Z
 	public final fun render (Lee/schimke/composeai/rccreation/common/RemoteWriter;)Lee/schimke/composeai/rccreation/common/RemoteWriter;
 	public final fun setContent (Lkotlin/jvm/functions/Function2;)V

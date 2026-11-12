@@ -207,7 +207,7 @@ class RcEmbeddedPlayerTest {
     awaitDocuments(documents, 2)
     // Re-rendering the retained tree gives the same document a fresh capture would.
     val fresh = runBlocking {
-      captureCommonRemoteDocument(display) {
+      captureCommonRemoteDocument(display, profile = RcEmbeddedPlayerProfile) {
         RemoteColumn(RemoteModifier.fillMaxSize()) {
           repeat(3) { RemoteBox(RemoteModifier.fillMaxWidth().size(10.rdp)) }
         }
@@ -228,7 +228,9 @@ class RcEmbeddedPlayerTest {
 
     // The default bridge is RcDocumentBridge: the self-contained document another process plays.
     val documentMode = runBlocking {
-      captureCommonRemoteDocument(display) { Swatch { Color.Green } }
+      captureCommonRemoteDocument(display, profile = RcEmbeddedPlayerProfile) {
+        Swatch { Color.Green }
+      }
     }
 
     assertEquals(RcDocumentCodec.decode(documentMode), documents.single())

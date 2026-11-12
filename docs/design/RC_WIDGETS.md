@@ -58,8 +58,10 @@ module's committed ABI dump is what review sees of it. Three files are written b
   a component's size is read (`remoteComponent()` on androidx-main, a `RemoteFloatContext` lambda in
   the release) and the type of `RemotePaint.style`. Each binding has its own `RcCreationCompat.kt`
   with the same two internal functions, and the generated files call them.
-- `AndroidxExperimentalProfile.kt` and `WrapModeProfile.kt`, the AndroidX capture profiles, which
-  have no counterpart on the CMP side (its capture takes no `Profile`).
+- `AndroidxExperimentalProfile.kt` and `WrapModeProfile.kt`, the AndroidX capture profiles. The
+  CMP binding's counterparts are in `RcCaptureProfiles.kt`, which is left out of the generation:
+  the two APIs build a `Profile` differently (a writer factory and platform services on AndroidX's,
+  operations and header tags on rc-players').
 
 A helper added to `rc-widget-creation` appears in both bindings. If it uses something the pinned
 AndroidX release lacks, `rc-widget-creation-androidx` stops compiling, and the difference goes
@@ -134,6 +136,13 @@ behind another function in `RcCreationCompat.kt`.
   - Everything is drawn to fit the host's rounded rect at the host's own radius, so one style fits
     a pill, a 26 dp corner and a 4 dp one.
   - `rcReadableAlpha` caps a fill under text at the alpha that keeps WCAG contrast.
+
+- **`rc-widget-creation` only: `RcCaptureProfiles`**, the capture profiles on rc-players' creation
+  API: `androidXExperimental`, `androidXExperimentalWrap`, `launcherWidgets` (the launcher module's
+  `widgetsProfile`), `systemThemedLauncherWidgets`, `wearWidgets`, `forTarget(RcWidgetTarget)`, and
+  `RcTargetProfile.toCaptureProfile()` for any player `rc-player-edit` describes. A capture under
+  one holds what that player reads (text as `TextLayout` for a launcher), so it is not rewritten
+  with `adaptTo` afterwards. `RcLauncherWidgetTest` holds the launcher ones to the AndroidX ones.
 
 ### `rc-widget-creation-androidx`
 

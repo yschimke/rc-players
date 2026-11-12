@@ -26,6 +26,7 @@ plugins {
   id("composeai.jvm-conventions")
   id("org.jetbrains.kotlin.multiplatform")
   id("com.android.kotlin.multiplatform.library")
+  id("org.jetbrains.kotlin.plugin.compose")
 }
 
 // AndroidX's Android-only creation artifacts, as files, for the JVM half and the class comparison.
@@ -175,6 +176,9 @@ kotlin {
     namespace = "ee.schimke.composeai.rccreation.coexistence"
     compileSdk = libs.versions.rc.player.compileSdk.get().toInt()
     minSdk = libs.versions.rc.player.minSdk.get().toInt()
+    // The parity tests: one content written by both libraries, compared and played by AndroidX's
+    // View player under Robolectric.
+    withHostTest { isIncludeAndroidResources = true }
   }
 
   sourceSets {
@@ -190,6 +194,19 @@ kotlin {
     jvmMain.dependencies {
       compileOnly(androidxCreationClasses)
       compileOnly(libs.compose.remote.creation.core)
+    }
+    getByName("androidHostTest").dependencies {
+      implementation(kotlin("test"))
+      implementation(libs.junit)
+      implementation(libs.robolectric)
+      implementation(libs.kotlinx.coroutines.core)
+      implementation(libs.compose.runtime)
+      implementation(libs.compose.remote.core)
+      implementation(libs.compose.remote.creation.core)
+      implementation(libs.compose.remote.player.core)
+      implementation(libs.compose.remote.player.view)
+      implementation(project(":rc-creation-writer"))
+      implementation(project(":rc-player-protocol"))
     }
   }
 }

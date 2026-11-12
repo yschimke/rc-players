@@ -37,7 +37,10 @@ import kotlinx.coroutines.runBlocking
  */
 class Mesh2DAuthoringTest {
   private fun capture(): ByteArray = runBlocking {
-    captureCommonRemoteDocument(RemoteCreationDisplayInfo(200, 100, 160)) {
+    captureCommonRemoteDocument(
+      RemoteCreationDisplayInfo(200, 100, 160),
+      profile = ExperimentalProfile,
+    ) {
       RemoteCanvas(RemoteModifier.size(200.rdp, 100.rdp)) {
         drawMesh2D(uCount = 3, vCount = 2) {
           xy(u * width, v * height)
@@ -82,7 +85,10 @@ class Mesh2DAuthoringTest {
    * own. Every `u`/`v` read stays inside the mesh; the clock-only parts become references.
    */
   private fun captureShared(): ByteArray = runBlocking {
-    captureCommonRemoteDocument(RemoteCreationDisplayInfo(360, 200, 160)) {
+    captureCommonRemoteDocument(
+      RemoteCreationDisplayInfo(360, 200, 160),
+      profile = ExperimentalProfile,
+    ) {
       RemoteCanvas(RemoteModifier.size(360.rdp, 200.rdp)) {
         drawMesh2D(uCount = 6, vCount = 4) {
           val t = RemoteTimeVariables.animationTime * 0.6f
