@@ -24,6 +24,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.Bitmap
 
@@ -91,6 +93,17 @@ class RcPreparationTest {
     assertSame(first, runBlocking { cache.prepare(bytes.copyOf()) })
     assertSame(first, cache.peek(bytes.copyOf()))
     assertEquals(1, cache.prepared)
+  }
+
+  @Test
+  fun concurrentPreparationsOfOneDocumentShareOne() {
+    val cache = RcPreparedDocumentCache()
+    val bytes = greenSquare()
+    val all = runBlocking {
+      List(8) { async(Dispatchers.Default) { cache.prepare(bytes.copyOf()) } }.awaitAll()
+    }
+    assertEquals(1, cache.prepared)
+    all.forEach { assertSame(all.first(), it) }
   }
 
   private fun org.jetbrains.skia.Image.greenPixels(): Int {

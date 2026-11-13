@@ -14,7 +14,10 @@ import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -62,6 +65,8 @@ public class RcPreparedDocumentCache(private val maxDocuments: Int = 32) {
   private val documents = AtomicReference<Map<RcContentKey, RcPreparedDocument>>(emptyMap())
   private val preparedCount = AtomicInt(0)
   private val missCount = AtomicInt(0)
+  private val pending = Mutex()
+  private val pendingByKey = mutableMapOf<RcContentKey, CompletableDeferred<RcPreparedDocument>>()
 
   /** [bytes]' prepared document if it is in memory, else null. Never prepares. */
   public fun peek(bytes: ByteArray): RcPreparedDocument? = peek(bytes, RcPlayerExtensions.None)
@@ -72,9 +77,9 @@ public class RcPreparedDocumentCache(private val maxDocuments: Int = 32) {
     documents.load()[RcContentKey(bytes, extensions)]
 
   /**
-   * [bytes]' prepared document: from memory, or decoded and prepared on [context] and kept. Two
-   * concurrent calls for the same bytes may both prepare; either result is kept, and both are
-   * equivalent.
+   * [bytes]' prepared document: from memory, or decoded and prepared on [context] and kept.
+   * Concurrent calls for the same bytes (a screen of cards of one template arriving together) share
+   * one preparation.
    */
   public suspend fun prepare(
     bytes: ByteArray,
@@ -88,10 +93,24 @@ public class RcPreparedDocumentCache(private val maxDocuments: Int = 32) {
     extensions: RcPlayerExtensions,
     context: CoroutineContext = Dispatchers.Default,
   ): RcPreparedDocument {
-    peek(bytes, extensions)?.let {
+    val key = RcContentKey(bytes, extensions)
+    documents.load()[key]?.let {
       return it
     }
-    return withContext(context) { prepareNow(bytes, extensions) }
+    val mine = CompletableDeferred<RcPreparedDocument>()
+    val shared = pending.withLock { pendingByKey.getOrPut(key) { mine } }
+    if (shared !== mine) return shared.await()
+    try {
+      val prepared = withContext(context) { prepareNow(bytes, extensions) }
+      mine.complete(prepared)
+      return prepared
+    } catch (e: Throwable) {
+      // A cancelled or failed preparation fails the callers waiting on it; the next call retries.
+      mine.completeExceptionally(e)
+      throw e
+    } finally {
+      pending.withLock { pendingByKey.remove(key) }
+    }
   }
 
   /**
