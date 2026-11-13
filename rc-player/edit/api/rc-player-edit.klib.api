@@ -385,6 +385,7 @@ final class ee.schimke.composeai.rcplayer.edit/RcProfileViolation { // ee.schimk
         enum entry MEASURED_IN_HIDDEN_BRANCH // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.MEASURED_IN_HIDDEN_BRANCH|null[0]
         enum entry RECURSIVE_DRAW_CONTENT // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.RECURSIVE_DRAW_CONTENT|null[0]
         enum entry UNDECLARED_OPERATION // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.UNDECLARED_OPERATION|null[0]
+        enum entry UNSUPPORTED_FEATURE // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.UNSUPPORTED_FEATURE|null[0]
         enum entry UNSUPPORTED_OPERATION // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.UNSUPPORTED_OPERATION|null[0]
 
         final val entries // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.entries|#static{}entries[0]

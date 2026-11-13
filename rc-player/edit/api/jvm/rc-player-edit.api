@@ -353,6 +353,7 @@ public final class ee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind : 
 	public static final field MEASURED_IN_HIDDEN_BRANCH Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
 	public static final field RECURSIVE_DRAW_CONTENT Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
 	public static final field UNDECLARED_OPERATION Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+	public static final field UNSUPPORTED_FEATURE Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
 	public static final field UNSUPPORTED_OPERATION Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;

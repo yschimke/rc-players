@@ -1378,6 +1378,7 @@ private constructor(
     type: Int,
     glyphSpacing: Float,
   ): Float {
+    checkGlyphSpacing(glyphSpacing)
     val id = newId()
     declaration(
       BitmapTextMeasure,
@@ -1617,8 +1618,26 @@ private constructor(
       writeLong(id, initialValue)
     }
 
-  override fun addPathData(pathData: FloatArray, winding: Int): Int =
-    pathIds.getOrPut(PathKey(pathData, winding)) {
+  /**
+   * As `RemoteComposeBuffer.addPathData`: a winding rule is not written before API level 7, where
+   * its bits would be read as part of the path's id.
+   */
+  private fun checkWinding(winding: Int) {
+    if (apiLevel < 7 && winding != 0) {
+      throw RuntimeException("winding not supported in API level < 7")
+    }
+  }
+
+  /** As `RemoteComposeBuffer.addDrawBitmapFontTextRun`: no glyph spacing before API level 8. */
+  private fun checkGlyphSpacing(glyphSpacing: Float) {
+    if (apiLevel < 8 && glyphSpacing != 0f) {
+      throw RuntimeException("glyphSpacing not supported in API level < 8")
+    }
+  }
+
+  override fun addPathData(pathData: FloatArray, winding: Int): Int {
+    checkWinding(winding)
+    return pathIds.getOrPut(PathKey(pathData, winding)) {
       val id = newId()
       declaration(DataPath, id, inBody(pathData))
       wire.writeInt(id or (winding shl 24))
@@ -1626,6 +1645,7 @@ private constructor(
       pathData.forEach(wire::writeFloat)
       id
     }
+  }
 
   override fun addShader(
     sourceId: Int,
@@ -1920,6 +1940,7 @@ private constructor(
     y: Float,
     glyphSpacing: Float,
   ) {
+    checkGlyphSpacing(glyphSpacing)
     operation(DrawBitmapFontTextRun)
     writeTextIdWithGlyphSpacing(textId, glyphSpacing)
     wire.writeInt(bitmapFontId)
@@ -1938,6 +1959,7 @@ private constructor(
     yAdj: Float,
     glyphSpacing: Float,
   ) {
+    checkGlyphSpacing(glyphSpacing)
     bitmapFontOnPathUsed = true
     operation(DrawBitmapFontTextRunOnPath)
     writeTextIdWithGlyphSpacing(textId, glyphSpacing)
