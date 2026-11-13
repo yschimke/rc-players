@@ -1025,6 +1025,8 @@ private constructor(
         val entry =
           requireNotNull(idMaps[operation.mapId]).entries.firstOrNull { it.name == key }
             ?: error("Missing AndroidX data-map key '$key'")
+        // The output reads what this entry was computed from, and nothing an earlier lookup copied.
+        expressionReservedReads.remove(operation.outId)
         when (entry.type) {
           RcIdMap.TYPE_STRING -> texts[operation.outId] = requireNotNull(texts[entry.id])
           RcIdMap.TYPE_INT ->
