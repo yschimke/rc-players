@@ -10,7 +10,9 @@ import android.os.Build
 import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
+import androidx.compose.ui.graphics.asImageBitmap
 import ee.schimke.composeai.rcplayer.edit.RcHardcodedValue
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
@@ -70,6 +72,21 @@ class EitherApiParityTest {
     }
   }
 
+  private val image =
+    Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888)
+      .apply { eraseColor(Color.rgb(183, 28, 28)) }
+      .asImageBitmap()
+
+  private fun cmpImage() = runBlocking {
+    captureThroughCmp(RcWidgetCaptureSize(WIDTH, HEIGHT), densityDpi = 160) { CmpImageContent(image) }
+  }
+
+  private fun androidxImage() = runBlocking {
+    captureLauncherWidget(context, RcWidgetCaptureSize(WIDTH, HEIGHT), densityDpi = 160) {
+      AndroidxImageContent(image)
+    }
+  }
+
   private fun operations(bytes: ByteArray) =
     RcDocumentCodec.decode(bytes, RcWireLimits()).operations
 
@@ -113,6 +130,19 @@ class EitherApiParityTest {
     // And the slot picks the other layout alike.
     fun narrow(capture: RcLauncherWidgetCapture) = texts(capture.bytes)
     assertTrue("Compact" in narrow(cmp(100)) && "Compact" in narrow(androidx(100)))
+  }
+
+  /** An inline bitmap is carried in the document by either entry point, and drawn alike. */
+  @Test
+  fun anInlineBitmapIsEmbeddedByBothAndDrawnTheSame() {
+    val red = Color.rgb(183, 28, 28)
+    val pixels =
+      listOf(cmpImage(), androidxImage()).map { capture ->
+        val data = operations(capture.bytes).filterIsInstance<RcBitmapData>()
+        assertTrue(data.isNotEmpty() && data.all { it.data.isNotEmpty() }, "bitmap data embedded")
+        play(capture.bytes, "image").also { assertTrue(it.count { p -> p == red } > WIDTH * HEIGHT / 2) }
+      }
+    assertTrue(pixels[0].contentEquals(pixels[1]), "pixels on API ${Build.VERSION.SDK_INT}")
   }
 
   @Test

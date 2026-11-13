@@ -2,7 +2,12 @@
 
 package ee.schimke.composeai.rcwidget.launcher.cmp
 
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.asImageBitmap
 import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.layout.RemoteImage
+import ee.schimke.composeai.rccreation.compose.state.rb
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rccreation.compose.layout.RemoteText
 import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
 import ee.schimke.composeai.rccreation.compose.modifier.clickable
@@ -87,5 +92,27 @@ class RcLauncherCmpCaptureTest {
   fun theLauncherProfileIsTheCmpOneForEachLauncher() {
     assertSame(RcCaptureProfiles.launcherWidgets, launcherCaptureProfile(36))
     assertSame(RcCaptureProfiles.systemThemedLauncherWidgets, launcherCaptureProfile(37))
+  }
+
+  @Test
+  fun anInlineBitmapIsEmbeddedByDefaultAndDroppedWithoutAnEncoder() {
+    val image =
+      android.graphics.Bitmap.createBitmap(8, 8, android.graphics.Bitmap.Config.ARGB_8888)
+        .asImageBitmap()
+    fun bitmaps(encodePng: ((androidx.compose.ui.graphics.ImageBitmap) -> ByteArray?)?) =
+      RcDocumentCodec.decode(
+          runBlocking {
+              captureLauncherWidget(RcWidgetCaptureSize(100, 100), densityDpi = 160, encodePng = encodePng) {
+                RemoteImage(remember { image.rb }, contentDescription = null)
+              }
+            }
+            .bytes,
+          RcWireLimits(),
+        )
+        .operations
+        .filterIsInstance<RcBitmapData>()
+    assertTrue(bitmaps(AndroidPngEncoder).single().data.isNotEmpty())
+    assertEquals(1, bitmaps(AndroidPngEncoder).size)
+    assertTrue(bitmaps(null).isEmpty(), "no encoder, no bitmap")
   }
 }

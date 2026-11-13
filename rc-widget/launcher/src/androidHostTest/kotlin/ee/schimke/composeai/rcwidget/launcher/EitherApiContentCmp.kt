@@ -3,7 +3,11 @@
 package ee.schimke.composeai.rcwidget.launcher
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.ImageBitmap
 import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.layout.RemoteContentScale
+import ee.schimke.composeai.rccreation.compose.layout.RemoteImage
 import ee.schimke.composeai.rccreation.compose.layout.RemoteCanvas
 import ee.schimke.composeai.rccreation.compose.layout.RemoteColumn
 import ee.schimke.composeai.rccreation.compose.layout.RemoteOffset
@@ -21,6 +25,7 @@ import ee.schimke.composeai.rccreation.compose.modifier.size
 import ee.schimke.composeai.rccreation.compose.state.RemoteBoolean
 import ee.schimke.composeai.rccreation.compose.state.RemoteColor
 import ee.schimke.composeai.rccreation.compose.state.RemotePaint
+import ee.schimke.composeai.rccreation.compose.state.rb
 import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rccreation.compose.state.rs
@@ -80,4 +85,15 @@ internal fun CmpContent() {
       }
     }
   }
+}
+
+/** A widget that is one inline bitmap, which the capture has to carry in the document. */
+@Composable
+internal fun CmpImageContent(image: ImageBitmap) {
+  RemoteImage(
+    remember { image.rb },
+    contentDescription = null,
+    modifier = RemoteModifier.fillMaxSize(),
+    contentScale = RemoteContentScale.FillBounds,
+  )
 }
