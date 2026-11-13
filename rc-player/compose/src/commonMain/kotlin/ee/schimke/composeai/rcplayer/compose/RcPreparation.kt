@@ -64,10 +64,12 @@ public class RcPreparedDocumentCache(private val maxDocuments: Int = 32) {
   private val missCount = AtomicInt(0)
 
   /** [bytes]' prepared document if it is in memory, else null. Never prepares. */
-  public fun peek(
-    bytes: ByteArray,
-    extensions: RcPlayerExtensions = RcPlayerExtensions.None,
-  ): RcPreparedDocument? = documents.load()[RcContentKey(bytes, extensions)]
+  public fun peek(bytes: ByteArray): RcPreparedDocument? = peek(bytes, RcPlayerExtensions.None)
+
+  /** As [peek], for bytes decoded with [extensions]' operations. */
+  @ExperimentalRcPlayerApi
+  public fun peek(bytes: ByteArray, extensions: RcPlayerExtensions): RcPreparedDocument? =
+    documents.load()[RcContentKey(bytes, extensions)]
 
   /**
    * [bytes]' prepared document: from memory, or decoded and prepared on [context] and kept. Two
@@ -76,7 +78,14 @@ public class RcPreparedDocumentCache(private val maxDocuments: Int = 32) {
    */
   public suspend fun prepare(
     bytes: ByteArray,
-    extensions: RcPlayerExtensions = RcPlayerExtensions.None,
+    context: CoroutineContext = Dispatchers.Default,
+  ): RcPreparedDocument = prepare(bytes, RcPlayerExtensions.None, context)
+
+  /** As [prepare], for bytes decoded with [extensions]' operations. */
+  @ExperimentalRcPlayerApi
+  public suspend fun prepare(
+    bytes: ByteArray,
+    extensions: RcPlayerExtensions,
     context: CoroutineContext = Dispatchers.Default,
   ): RcPreparedDocument {
     peek(bytes, extensions)?.let {
@@ -90,10 +99,12 @@ public class RcPreparedDocumentCache(private val maxDocuments: Int = 32) {
    * that is already off the main thread, or that has chosen [RcPreparation.InComposition]; a player
    * under [RcPreparation.Background] never calls it.
    */
-  public fun prepareNow(
-    bytes: ByteArray,
-    extensions: RcPlayerExtensions = RcPlayerExtensions.None,
-  ): RcPreparedDocument {
+  public fun prepareNow(bytes: ByteArray): RcPreparedDocument =
+    prepareNow(bytes, RcPlayerExtensions.None)
+
+  /** As [prepareNow], for bytes decoded with [extensions]' operations. */
+  @ExperimentalRcPlayerApi
+  public fun prepareNow(bytes: ByteArray, extensions: RcPlayerExtensions): RcPreparedDocument {
     val key = RcContentKey(bytes, extensions)
     documents.load()[key]?.let {
       return it

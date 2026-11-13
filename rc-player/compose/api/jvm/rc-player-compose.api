@@ -974,12 +974,14 @@ public final class ee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache
 	public final fun getMisses ()I
 	public final fun getPrepared ()I
 	public final fun getSize ()I
+	public final fun peek ([B)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
 	public final fun peek ([BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
-	public static synthetic fun peek$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
 	public final fun prepare ([BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun prepare ([BLkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun prepare$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public static synthetic fun prepare$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun prepareNow ([B)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
 	public final fun prepareNow ([BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
-	public static synthetic fun prepareNow$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcSoundHost {
