@@ -50,7 +50,7 @@ tapmoc = "0.5.0"
 # not just a green build.
 robolectric = "4.17"
 # Robolectric's Android 15, 16 and 17 platforms: the launcher tests play on the platform's own player.
-robolectric-sdk35 = "15-robolectric-13954326-i7"
+robolectric-sdk35 = "17-robolectric-15733970-i7"
 robolectric-sdk36 = "16-robolectric-13921718-i7"
 robolectric-sdk37 = "17-robolectric-15733970-i7"
 # Jetpack XR SceneCore, for the Android XR sample (`rc-player/xr-sample`) that hands the 3D
