@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import ee.schimke.composeai.rccreation.common.RcPlatformProfiles as RcRcPlatformProfiles
 import ee.schimke.composeai.rccreation.compose.capture.RemoteCreationDisplayInfo
 import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocument
 import ee.schimke.composeai.rccreation.compose.layout.RemoteContentScale
@@ -17,6 +18,7 @@ import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
 import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
 import ee.schimke.composeai.rccreation.compose.state.rb
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
@@ -117,6 +119,30 @@ class AndroidxPlayerParityTest {
     val played = Played(context, ours)
     played.settle()
     assertEquals(Width / 2, played.bar())
+  }
+
+  /**
+   * Up to API level 7, the documents of Android's platform players, a canvas's drawing is in a
+   * `CanvasContent`, and the `ComponentValue` of the canvas's size names it, as AndroidX's writer
+   * writes it. Android 16's platform player draws a canvas as nothing when it names the canvas
+   * instead (`:rc-widget-launcher`'s `PlatformPlayerComponentValueTest`).
+   */
+  @Test
+  fun aCanvasSizeInALevel7DocumentNamesTheCanvasContent() {
+    val theirs =
+      androidxDocument(context, RcPlatformProfiles.WIDGETS_V7) { AndroidxContent.MeasuredCanvas() }
+    val ours = rcDocument(RcRcPlatformProfiles.WIDGETS_V7) { RcContent.MeasuredCanvas() }
+    for ((writer, bytes) in listOf("AndroidX" to theirs, "rc-players" to ours)) {
+      val operations = wireOperations(bytes)
+      val canvas = operations.indexOfFirst { it is RcCanvasLayout }
+      val content = operations.drop(canvas).filterIsInstance<RcCanvasContent>().first()
+      val values = operations.drop(canvas).filterIsInstance<RcComponentValue>()
+      assertTrue(values.isNotEmpty(), writer)
+      assertEquals(setOf(content.componentId), values.map { it.componentId }.toSet(), writer)
+      val played = Played(context, bytes)
+      played.settle()
+      assertEquals(Width / 2, played.bar(), writer)
+    }
   }
 
   @Test

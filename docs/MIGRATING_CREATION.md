@@ -232,6 +232,12 @@ follows it only when written after it there, a measured size belongs to the comp
 holds it. A document the CMP player played could behave differently in AndroidX's (a slider that
 snapped back on release).
 
+Position is not all of it, at the other end: Android 16's platform player, which a launcher widget
+and a notification play, binds a `ComponentValue` by the id it names as well. A canvas that reads its
+own measured size draws nothing there if the value names the canvas rather than the `CanvasContent`
+AndroidX's writer names (3.1.0 to 3.1.2 wrote the canvas). Documents up to API level 7 (the widget
+profiles) name the content again; recapture a template that was authored with those releases.
+
 From the release after 3.0.0 the writer writes as AndroidX's does, and the capture takes a profile.
 The documents change; the API changes as follows.
 

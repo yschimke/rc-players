@@ -608,6 +608,31 @@ were all ahead of the root, reached AndroidX's player).
 `:rc-creation-bridge`: `DeclarationPlacementTest.aSizeAskedForAfterItsComponentIsWrittenAfterTheRootForIt`
 has AndroidX's `CoreDocument` (alpha23) resolve the value to the earlier box's width.*
 
+### A canvas's size is written for the canvas, and Android 16's player draws nothing from it
+
+Up to API level 7 AndroidX's writer puts a canvas's drawing in a `CanvasContent` and writes the
+`ComponentValue` of the canvas's size with `lastComponentId`, which after `startCanvas` is that
+content's. The fork's node passed the canvas's own id instead ("KMP (rc-players): the node's own id,
+where upstream reads the writer's `lastComponentId`"), so a level 6 or 7 document (a launcher widget,
+a notification) named the canvas from inside its content. Android 16's platform player, which is
+older than alpha23, draws a canvas that reads its measured width (`width * 0.5f`, an animated float
+of it) as nothing when the value names the canvas, and draws it when it names the content; Android
+17's player, AndroidX's View player and rc-players' player draw it either way. The cause below is
+read from API 36's `CoreDocument.registerVariables`, which binds a `ComponentValue` to the component
+it sits in and, through the components seen so far, to the one it names. Verified by replaying one
+Cadence notification with only that id changed (the id alone took the progress bar from 0 pixels to
+the same pixels as the AndroidX-written document, and changing it the other way in the AndroidX
+document removed the bar), and by `:rc-widget-launcher`'s `PlatformPlayerComponentValueTest`.
+Neither where the value sits (in the box, as 3.1.0 writes it, or ahead of it, as alpha23 does) nor
+the ids, nor where named variables are declared, mattered. The writer now names the content, for
+the documents that have one; see PROVENANCE.md, "Local patches". Not AndroidX's to fix: the
+platform's player is what it is. A late value for a canvas (asked for after the canvas) still names
+the canvas, and what API 36 does with it is not checked.
+
+*Run against Android 16 and 17's platform players under Robolectric (`@Config(sdk = [36, 37])`), and
+AndroidX's View player in `AndroidxPlayerParityTest.aCanvasSizeInALevel7DocumentNamesTheCanvasContent`.
+The mechanism is inferred from API 36's bytecode, not observed.*
+
 ### A named state read in two canvases is two variables
 
 `withCanvasOperationsScope` (`expression/capture/RemoteComposeCreationState.kt`, `21a1a95e4`)
