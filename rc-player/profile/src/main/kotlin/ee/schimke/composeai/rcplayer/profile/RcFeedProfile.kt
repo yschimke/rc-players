@@ -31,6 +31,11 @@ public enum class RcFeedMode(public val description: String) {
   Document("shared RcDocument (link + layout + state)"),
   /** One prepared document shared by every card: only the state per card. */
   Prepared("shared RcPreparedDocument (state only)"),
+  /**
+   * No player at all: [RcReferenceCard], a session-shaped card written directly in Compose UI
+   * (foundation), as the bar a player card has to beat.
+   */
+  ComposeUi("Compose UI reference card (no player)"),
 }
 
 /** One mode's frame times over a simulated fling. */
@@ -68,17 +73,20 @@ public class RcFeedProfile(
   private val arrivalsPerFrame: Int = 2,
   private val frames: Int = 300,
   private val warmupFrames: Int = 60,
+  /** The modes to run; all by default (`-Prc.feed.modes=Prepared,ComposeUi` narrows it). */
+  private val modes: List<RcFeedMode> =
+    System.getProperty("rc.feed.modes")?.split(',')?.map { RcFeedMode.valueOf(it.trim()) }
+      ?: RcFeedMode.entries,
 ) {
   /**
    * Every mode over every template. All of them are warmed first and the modes then interleave over
    * [rounds], rotating their order, so no mode pays for JIT or a busy moment on the others' behalf.
    */
   public fun run(templates: List<Pair<String, ByteArray>>, rounds: Int = 5): List<RcFeedResult> {
-    for ((_, bytes) in templates) RcFeedMode.entries.forEach { play(bytes, it, warmupFrames) }
+    for ((_, bytes) in templates) modes.forEach { play(bytes, it, warmupFrames) }
     val samples = mutableMapOf<Pair<String, RcFeedMode>, MutableList<Long>>()
     repeat(rounds) { round ->
       for ((name, bytes) in templates) {
-        val modes = RcFeedMode.entries
         modes.indices.forEach { i ->
           val mode = modes[(i + round) % modes.size]
           samples.getOrPut(name to mode) { mutableListOf() } += play(bytes, mode, frames / rounds)
@@ -86,9 +94,7 @@ public class RcFeedProfile(
       }
     }
     return templates.flatMap { (name, _) ->
-      RcFeedMode.entries.map {
-        RcFeedResult(name, it, samples.getValue(name to it), arrivalsPerFrame)
-      }
+      modes.map { RcFeedResult(name, it, samples.getValue(name to it), arrivalsPerFrame) }
     }
   }
 
@@ -109,6 +115,10 @@ public class RcFeedProfile(
                 mutableStateMapOf<String, RcNamedValue>(
                   "USER:title" to RcNamedValue.Text("Item $item"),
                   "USER:index" to RcNamedValue.Integer(item),
+                  // A Livery session card's inputs, by their contract names.
+                  "title" to
+                    RcNamedValue.Text("Session $item: building adaptive apps with Compose"),
+                  "speakers" to RcNamedValue.Text("Jane Doe, John Smith"),
                 )
               }
               val modifier = Modifier.size(CARD_WIDTH.dp, CARD_HEIGHT.dp)
@@ -116,6 +126,7 @@ public class RcFeedProfile(
                 RcFeedMode.Bytes -> RcComposePlayer(bytes, modifier, namedValues = values)
                 RcFeedMode.Document -> RcComposePlayer(document, modifier, namedValues = values)
                 RcFeedMode.Prepared -> RcComposePlayer(prepared, modifier, namedValues = values)
+                RcFeedMode.ComposeUi -> RcReferenceCard(item, modifier)
               }
             }
           }
@@ -152,14 +163,16 @@ public class RcFeedProfile(
       results
         .groupBy { it.template }
         .forEach { (template, rows) ->
-          val baseline = rows.first { it.mode == RcFeedMode.Bytes }.meanMicros
+          val baseline = rows.first().meanMicros
           appendLine("## `$template`")
           appendLine()
           appendLine(
             "${rows.first().frameNanos.size} frames, ${rows.first().arrivalsPerFrame} new cards each.",
           )
           appendLine()
-          appendLine("| Mode | Frame mean | p50 | p95 | Per new card | vs bytes |")
+          appendLine(
+            "| Mode | Frame mean | p50 | p95 | Per new card | vs ${rows.first().mode.name} |",
+          )
           appendLine("| --- | ---: | ---: | ---: | ---: | ---: |")
           rows.forEach { r ->
             appendLine(

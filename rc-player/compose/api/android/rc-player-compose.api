@@ -942,15 +942,57 @@ public final class ee/schimke/composeai/rcplayer/compose/RcPlayerTheme : java/la
 	public static fun values ()[Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;
 }
 
+public abstract interface class ee/schimke/composeai/rcplayer/compose/RcPreparation {
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcPreparation$Background : ee/schimke/composeai/rcplayer/compose/RcPreparation {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;Lkotlin/coroutines/CoroutineContext;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;Lkotlin/coroutines/CoroutineContext;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getCache ()Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;
+	public final fun getContext ()Lkotlin/coroutines/CoroutineContext;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcPreparation$InComposition : ee/schimke/composeai/rcplayer/compose/RcPreparation {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/compose/RcPreparation$InComposition;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcPreparationKt {
+	public static final fun getLocalRcPreparation ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+	public static final fun rememberRcPreparedDocument ([BLee/schimke/composeai/rcplayer/compose/RcPreparation;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcPreparedDocument {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument$Companion;
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)V
 	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun getStateSeed ()Lee/schimke/composeai/rcplayer/runtime/RcPlayerStateSeed;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcPreparedDocument$Companion {
 	public final fun decode ([B)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (I)V
+	public synthetic fun <init> (IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getMisses ()I
+	public final fun getPrepared ()I
+	public final fun getSize ()I
+	public final fun peek ([BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+	public static synthetic fun peek$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+	public final fun prepare ([BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun prepare$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun prepareNow ([BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+	public static synthetic fun prepareNow$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcSoundHost {

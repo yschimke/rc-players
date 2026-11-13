@@ -3,12 +3,14 @@ package ee.schimke.composeai.rcplayer.compose
 import androidx.compose.ui.graphics.ImageBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutTree
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedDocument
+import ee.schimke.composeai.rcplayer.runtime.RcPlayerStateSeed
 
 /**
  * A decoded [document] with the work every player of it would otherwise repeat done once: linking,
@@ -35,6 +37,30 @@ public class RcPreparedDocument(public val document: RcDocument) {
   internal val declaresFloatAnimation: Boolean =
     document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null }
   internal val fonts: RcDocumentFonts = decodeInlineFonts(document)
+
+  /**
+   * What each player's [RcPlayerState] starts from, scanned once: a card's state copies it rather
+   * than walking the document's operations again (see [RcPlayerStateSeed]).
+   */
+  public val stateSeed: RcPlayerStateSeed = RcPlayerStateSeed(document)
+  /** The URL and file images the document loads through the host, found once. */
+  internal val externalBitmaps: List<RcBitmapData> = rcExternalBitmaps(document, linked)
+  /** The document's component offscreen buffers by bitmap id, found once. */
+  internal val componentOffscreenBuffers: Map<Int, RcBitmapData> =
+    rcComponentOffscreenBuffers(document)
+  /** Whether a player needs [RcComponentCaptures]: false for almost every document. */
+  internal val capturesComponents: Boolean =
+    componentOffscreenBuffers.isNotEmpty() ||
+      document.operations.any {
+        it is RcDrawToBitmap && it.mode and RcDrawToBitmap.MODE_COMPONENT_ID != 0
+      }
+  /**
+   * Whether a player's first layout settles its `ComponentValue`s by composing throwaway passes
+   * first ([RcSettledLayout]). False when the document reads none of its own geometry, or reads it
+   * only at paint time (a rounded clip's corners), where a size published from the measure pass is
+   * enough: see [rcGeometryReachesLayout].
+   */
+  internal val settlesFirstLayout: Boolean = rcGeometryReachesLayout(document.operations)
   private val emptyBitmaps: List<RcBitmapData> =
     document.operations.filterIsInstance<RcBitmapData>().filter {
       it.encoding == RcBitmapData.ENCODING_EMPTY

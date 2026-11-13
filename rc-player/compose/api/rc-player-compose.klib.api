@@ -117,6 +117,23 @@ abstract interface ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader { // e
     }
 }
 
+sealed interface ee.schimke.composeai.rcplayer.compose/RcPreparation { // ee.schimke.composeai.rcplayer.compose/RcPreparation|null[0]
+    final class Background : ee.schimke.composeai.rcplayer.compose/RcPreparation { // ee.schimke.composeai.rcplayer.compose/RcPreparation.Background|null[0]
+        constructor <init>(ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache = ..., kotlin.coroutines/CoroutineContext = ...) // ee.schimke.composeai.rcplayer.compose/RcPreparation.Background.<init>|<init>(ee.schimke.composeai.rcplayer.compose.RcPreparedDocumentCache;kotlin.coroutines.CoroutineContext){}[0]
+
+        final val cache // ee.schimke.composeai.rcplayer.compose/RcPreparation.Background.cache|{}cache[0]
+            final fun <get-cache>(): ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache // ee.schimke.composeai.rcplayer.compose/RcPreparation.Background.cache.<get-cache>|<get-cache>(){}[0]
+        final val context // ee.schimke.composeai.rcplayer.compose/RcPreparation.Background.context|{}context[0]
+            final fun <get-context>(): kotlin.coroutines/CoroutineContext // ee.schimke.composeai.rcplayer.compose/RcPreparation.Background.context.<get-context>|<get-context>(){}[0]
+    }
+
+    final object InComposition : ee.schimke.composeai.rcplayer.compose/RcPreparation { // ee.schimke.composeai.rcplayer.compose/RcPreparation.InComposition|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcPreparation.InComposition.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcPreparation.InComposition.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcPreparation.InComposition.toString|toString(){}[0]
+    }
+}
+
 final class ee.schimke.composeai.rcplayer.compose/RcBranch { // ee.schimke.composeai.rcplayer.compose/RcBranch|null[0]
     constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcConditionalOperations, kotlin/Float, kotlin/Float, kotlin/Boolean) // ee.schimke.composeai.rcplayer.compose/RcBranch.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations;kotlin.Float;kotlin.Float;kotlin.Boolean){}[0]
 
@@ -1045,10 +1062,27 @@ final class ee.schimke.composeai.rcplayer.compose/RcPreparedDocument { // ee.sch
 
     final val document // ee.schimke.composeai.rcplayer.compose/RcPreparedDocument.document|{}document[0]
         final fun <get-document>(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocument.document.<get-document>|<get-document>(){}[0]
+    final val stateSeed // ee.schimke.composeai.rcplayer.compose/RcPreparedDocument.stateSeed|{}stateSeed[0]
+        final fun <get-stateSeed>(): ee.schimke.composeai.rcplayer.runtime/RcPlayerStateSeed // ee.schimke.composeai.rcplayer.compose/RcPreparedDocument.stateSeed.<get-stateSeed>|<get-stateSeed>(){}[0]
 
     final object Companion { // ee.schimke.composeai.rcplayer.compose/RcPreparedDocument.Companion|null[0]
         final fun decode(kotlin/ByteArray): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocument.Companion.decode|decode(kotlin.ByteArray){}[0]
     }
+}
+
+final class ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache { // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache|null[0]
+    constructor <init>(kotlin/Int = ...) // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.<init>|<init>(kotlin.Int){}[0]
+
+    final val misses // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.misses|{}misses[0]
+        final fun <get-misses>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.misses.<get-misses>|<get-misses>(){}[0]
+    final val prepared // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepared|{}prepared[0]
+        final fun <get-prepared>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepared.<get-prepared>|<get-prepared>(){}[0]
+    final val size // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.size|{}size[0]
+        final fun <get-size>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.size.<get-size>|<get-size>(){}[0]
+
+    final fun peek(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerExtensions = ...): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument? // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.peek|peek(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions){}[0]
+    final fun prepareNow(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerExtensions = ...): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepareNow|prepareNow(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions){}[0]
+    final suspend fun prepare(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerExtensions = ..., kotlin.coroutines/CoroutineContext = ...): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepare|prepare(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions;kotlin.coroutines.CoroutineContext){}[0]
 }
 
 final class ee.schimke.composeai.rcplayer.compose/RcTextRun { // ee.schimke.composeai.rcplayer.compose/RcTextRun|null[0]
@@ -1125,6 +1159,8 @@ final val ee.schimke.composeai.rcplayer.compose/LocalRcLayoutAnimations // ee.sc
     final fun <get-LocalRcLayoutAnimations>(): androidx.compose.runtime/ProvidableCompositionLocal<kotlin/Boolean> // ee.schimke.composeai.rcplayer.compose/LocalRcLayoutAnimations.<get-LocalRcLayoutAnimations>|<get-LocalRcLayoutAnimations>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcPlayerExtensions // ee.schimke.composeai.rcplayer.compose/LocalRcPlayerExtensions|{}LocalRcPlayerExtensions[0]
     final fun <get-LocalRcPlayerExtensions>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcPlayerExtensions> // ee.schimke.composeai.rcplayer.compose/LocalRcPlayerExtensions.<get-LocalRcPlayerExtensions>|<get-LocalRcPlayerExtensions>(){}[0]
+final val ee.schimke.composeai.rcplayer.compose/LocalRcPreparation // ee.schimke.composeai.rcplayer.compose/LocalRcPreparation|{}LocalRcPreparation[0]
+    final fun <get-LocalRcPreparation>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcPreparation> // ee.schimke.composeai.rcplayer.compose/LocalRcPreparation.<get-LocalRcPreparation>|<get-LocalRcPreparation>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost // ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost|{}LocalRcSoundHost[0]
     final fun <get-LocalRcSoundHost>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcSoundHost> // ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost.<get-LocalRcSoundHost>|<get-LocalRcSoundHost>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcTimeSource // ee.schimke.composeai.rcplayer.compose/LocalRcTimeSource|{}LocalRcTimeSource[0]
@@ -1184,7 +1220,10 @@ final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcNativeTextStyle$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcNativeTextStyle$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcNativeTextStyle$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcOffscreenTargetPool_Target$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcOffscreenTargetPool_Target$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcOffscreenTargetPool_Target$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPlayerExtensions$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPlayerExtensions$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcPlayerExtensions$stableprop[0]
+final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparation_Background$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparation_Background$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcPreparation_Background$stableprop[0]
+final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparation_InComposition$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparation_InComposition$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcPreparation_InComposition$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparedDocument$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparedDocument$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcPreparedDocument$stableprop[0]
+final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparedDocumentCache$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparedDocumentCache$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcPreparedDocumentCache$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Baseline$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Baseline$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Baseline$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Fixed$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Fixed$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Fixed$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcSettleSlot_Content$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcSettleSlot_Content$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcSettleSlot_Content$stableprop[0]
@@ -1265,7 +1304,10 @@ final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcNativeTextStyle$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcNativeTextStyle$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcNativeTextStyle$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcOffscreenTargetPool_Target$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcOffscreenTargetPool_Target$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcOffscreenTargetPool_Target$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPlayerExtensions$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPlayerExtensions$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcPlayerExtensions$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparation_Background$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparation_Background$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcPreparation_Background$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparation_InComposition$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparation_InComposition$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcPreparation_InComposition$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparedDocument$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparedDocument$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcPreparedDocument$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparedDocumentCache$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcPreparedDocumentCache$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcPreparedDocumentCache$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Baseline$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Baseline$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Baseline$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Fixed$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Fixed$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcRowAnchor_Fixed$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcSettleSlot_Content$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcSettleSlot_Content$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcSettleSlot_Content$stableprop_getter(){}[0]
@@ -1283,6 +1325,7 @@ final fun ee.schimke.composeai.rcplayer.compose/rememberCoilRcImageLoader(androi
 final fun ee.schimke.composeai.rcplayer.compose/rememberCoilRcImageLoader(coil3/ImageLoader, androidx.compose.runtime/Composer?, kotlin/Int): ee.schimke.composeai.rcplayer.compose/RcImageLoader // ee.schimke.composeai.rcplayer.compose/rememberCoilRcImageLoader|rememberCoilRcImageLoader(coil3.ImageLoader;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/rememberCoilRcImageLoader(io.ktor.client/HttpClient, androidx.compose.runtime/Composer?, kotlin/Int): ee.schimke.composeai.rcplayer.compose/RcImageLoader // ee.schimke.composeai.rcplayer.compose/rememberCoilRcImageLoader|rememberCoilRcImageLoader(io.ktor.client.HttpClient;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/rememberRcNamedValues(kotlin/Array<out kotlin/Pair<kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue>>..., androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.runtime.snapshots/SnapshotStateMap<kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue> // ee.schimke.composeai.rcplayer.compose/rememberRcNamedValues|rememberRcNamedValues(kotlin.Array<out|kotlin.Pair<kotlin.String,ee.schimke.composeai.rcplayer.runtime.RcNamedValue>>...;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/rememberRcPreparedDocument(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPreparation?, androidx.compose.runtime/Composer?, kotlin/Int, kotlin/Int): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument? // ee.schimke.composeai.rcplayer.compose/rememberRcPreparedDocument|rememberRcPreparedDocument(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPreparation?;androidx.compose.runtime.Composer?;kotlin.Int;kotlin.Int){}[0]
 
 // Targets: [apple]
 final class ee.schimke.composeai.rcplayer.compose/RcAppleSoundHost : ee.schimke.composeai.rcplayer.compose/RcSoundHost { // ee.schimke.composeai.rcplayer.compose/RcAppleSoundHost|null[0]

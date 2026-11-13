@@ -62,15 +62,44 @@ tasks.register<JavaExec>("rcPlayerFeedProfile") {
   group = "verification"
   classpath = sourceSets.main.get().runtimeClasspath
   mainClass.set("ee.schimke.composeai.rcplayer.profile.RcFeedProfileMain")
+  // -Prc.jvmArgs="-XX:StartFlightRecording=..." to sample where a card's time goes.
+  (findProperty("rc.jvmArgs") as String?)?.let { jvmArgs(it.split(' ')) }
+  (findProperty("rc.feed.modes") as String?)?.let { systemProperty("rc.feed.modes", it) }
   // Card-shaped documents from the catalog corpus: what a feed of one template plays.
   val corpus = rootProject.file("scripts/rc-catalog-corpus/corpus")
+  // -Prc.feed.templates=a.rc,b.rc profiles those instead (a catalog's own card templates).
+  val named =
+    (findProperty("rc.feed.templates") as String?)?.split(',').orEmpty().filter { it.isNotBlank() }
   args(
     listOf(layout.buildDirectory.dir("profile").get().asFile.absolutePath) +
-      listOf(
-          "appcard__ideal__default__compact.rc",
-          "appcard__ideal__icon-content-image__compact.rc",
-          "titlecard__ideal__default__compact.rc",
-        )
-        .map { corpus.resolve(it).absolutePath },
+      named.ifEmpty {
+        listOf(
+            "appcard__ideal__default__compact.rc",
+            "appcard__ideal__icon-content-image__compact.rc",
+            "titlecard__ideal__default__compact.rc",
+          )
+          .map { corpus.resolve(it).absolutePath }
+      },
+  )
+}
+
+tasks.register<JavaExec>("rcPlayerCardPhases") {
+  description = "Time the document work a new card can cost: decode, prepare, state, seeded state."
+  group = "verification"
+  classpath = sourceSets.main.get().runtimeClasspath
+  mainClass.set("ee.schimke.composeai.rcplayer.profile.RcCardPhaseProfileMain")
+  val corpus = rootProject.file("scripts/rc-catalog-corpus/corpus")
+  // -Prc.cardPhases.templates=a.rc,b.rc times those instead.
+  val named =
+    (findProperty("rc.cardPhases.templates") as String?)?.split(',').orEmpty().filter {
+      it.isNotBlank()
+    }
+  args(
+    listOf(layout.buildDirectory.dir("profile").get().asFile.absolutePath) +
+      named.ifEmpty {
+        listOf("appcard__ideal__default__compact.rc", "titlecard__ideal__default__compact.rc").map {
+          corpus.resolve(it).absolutePath
+        }
+      },
   )
 }

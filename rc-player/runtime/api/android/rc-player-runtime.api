@@ -882,6 +882,8 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;JLee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits;)V
 	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;JLee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lee/schimke/composeai/rcplayer/runtime/RcPlayerStateSeed;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;JLee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/runtime/RcPlayerStateSeed;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;JLee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun applyAddMesh2D (Lee/schimke/composeai/rcplayer/protocol/RcAddMesh2D;)Lee/schimke/composeai/rcplayer/runtime/RcMesh2DGeometry;
 	public final fun applyColorAttribute (Lee/schimke/composeai/rcplayer/protocol/RcColorAttribute;)V
 	public final fun applyColorExpression (Lee/schimke/composeai/rcplayer/protocol/RcColorExpression;)V
@@ -971,6 +973,11 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 
 public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerStateKt {
 	public static final fun isLayoutComputeExecutable (Lee/schimke/composeai/rcplayer/protocol/RcOperation;)Z
+}
+
+public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerStateSeed {
+	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)V
+	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 }
 
 public final class ee/schimke/composeai/rcplayer/runtime/RcRasterizedText {

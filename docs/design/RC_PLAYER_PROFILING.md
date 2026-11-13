@@ -244,7 +244,7 @@ composes for the first time. `./gradlew :rc-player-profile:rcPlayerFeedProfile`
 ([`RcFeedProfile`](../../rc-player/profile/src/main/kotlin/ee/schimke/composeai/rcplayer/profile/RcFeedProfile.kt))
 scrolls a window of four 360×160 cards on by two new cards a frame, over card documents from the
 catalog corpus, and times each frame (composition, layout and a software draw of the window) for
-three ways of handing the template to the player:
+the ways of handing the template to the player:
 
 - **bytes** — each card decodes the bytes: decode, link, layout tree and state per card;
 - **shared `RcDocument`** — one decoded document: link, layout tree and state per card;
@@ -268,6 +268,59 @@ card's own Compose tree, which no sharing removes, and the software raster used 
 larger share than a device's GPU would. Reusing one card's player state for the next was considered
 and rejected: it would save state construction only, and a reset that missed any piece of document
 state would leak one item into another.
+
+### Against Compose UI, on real card templates
+
+`-Prc.feed.templates=a.rc,b.rc` profiles a catalog's own templates instead of the corpus, and the
+**Compose UI** lane (`RcReferenceCard`) plays no document at all: a session-shaped card (time, a live
+badge, a room, a title, speakers, a tag, a bookmark) written directly with foundation's `Row`,
+`Column` and `BasicText`, the bar a player card has to clear. Over a conference app's session and
+break templates (Confetti's published catalogs, 4-CPU Linux JVM, per new card):
+
+| Template | Compose UI card | Player, before | Player, after |
+| --- | ---: | ---: | ---: |
+| confetti session | 1.00 ms | 2.15 ms | 1.99 ms |
+| confetti break | 1.14 ms | 2.96 ms | 1.54 ms |
+| droidcon session | 0.99 ms | 2.13 ms | 1.88 ms |
+| kotlinconf session | 1.13 ms | 4.27 ms | 2.31 ms |
+| kotlinconf break | 1.05 ms | 1.80 ms | 1.69 ms |
+| kotlinconf lightning | 1.03 ms | 4.15 ms | 2.49 ms |
+
+*Before* is the player when this table was added; *after* is the two changes below. A JFR profile of
+the before lane (`-Prc.jvmArgs=-XX:StartFlightRecording=…`) put a fifth of every arriving card in
+disposing compositions it had made and thrown away on the same frame:
+
+- **Settling for a clip.** The creation library gives every component with a circle or a rounded
+  clip a `ComponentValue` for its width and height, which the clip's corner radius reads. Any
+  `ComponentValue` sent the document through `RcSettledLayout`, which composes and measures the whole
+  tree up to three extra times before the kept one. A clip, a background and a border read their
+  values at paint time, after measure, so `RcPreparedDocument` now works out (once, off the main
+  thread) whether a document's geometry reaches anything composition or measurement reads; when it
+  does not, sizes are published from the kept tree's measure pass and nothing settles. That is the
+  kotlinconf rows.
+- **Per-card scans of the document.** Each card's `RcPlayerState` walked every operation to collect
+  the document's constants and indexes, and each card collected its URL images, offscreen buffers and
+  captures again. A prepared document now does those once; a card's state copies an
+  `RcPlayerStateSeed` (about half the time of the scan).
+
+What is left of the gap is the Compose tree a player builds for a card — a node per component, a
+lookahead pass for AndroidX's default bounds animation, and the modifiers each component carries —
+against a hand-written card's leaner one. The foundation card is a lower bound: an app's own row
+(Material's `ListItem`, `Surface` chips, an icon button) does more.
+
+`./gradlew :rc-player-profile:rcPlayerCardPhases` times the document work on its own, which is what
+`RcPreparation.Background` moves off the main thread (median, same JVM):
+
+| Template | decode | prepare | state (scanned) | state (seeded) |
+| --- | ---: | ---: | ---: | ---: |
+| confetti session | 16.7 µs | 87.1 µs | 9.2 µs | 5.3 µs |
+| droidcon session | 17.3 µs | 77.6 µs | 9.5 µs | 6.0 µs |
+| kotlinconf session | 16.2 µs | 380.8 µs | 9.9 µs | 6.0 µs |
+
+Warm, decoding and preparing are a small share of a 1–2 ms card, so preparing in the background is
+not where a fling gets faster on a desktop JVM. It is what guarantees a list never does it on its main
+thread: on a device a template's first card meets cold code, and a prepare that is cheap here is not
+there.
 
 ## One thing this profile found by accident
 

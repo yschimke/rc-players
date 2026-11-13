@@ -132,12 +132,17 @@ internal fun rememberRcImages(
   document: RcDocument,
   linked: RcLinkedDocument,
   inlineImages: Map<Int, ImageBitmap>,
+  /** [rcExternalBitmaps] of the document, when the caller has it already. */
+  externalBitmaps: List<RcBitmapData>? = null,
   onLoaded: () -> Unit,
 ): MutableMap<Int, ImageBitmap> {
   val configured = LocalRcImageLoader.current
   val loader = if (configured === RcImageLoader.Default) rememberCoilRcImageLoader() else configured
   val notifyLoaded by rememberUpdatedState(onLoaded)
-  val external = remember(document, linked) { externalBitmaps(document, linked) }
+  val external =
+    remember(document, linked, externalBitmaps) {
+      externalBitmaps ?: rcExternalBitmaps(document, linked)
+    }
   // The images the last document drew, so a replacement keeps them while its own load.
   val previous = remember { arrayOf<Map<Int, ImageBitmap>>(emptyMap()) }
   val seeded =
@@ -180,7 +185,7 @@ private class SeededImages(val images: MutableMap<Int, ImageBitmap>, val fromHos
  * referenced definitions, and expanded macro bodies. Linked operations carry the remapped ids the
  * renderer uses.
  */
-private fun externalBitmaps(document: RcDocument, linked: RcLinkedDocument): List<RcBitmapData> {
+internal fun rcExternalBitmaps(document: RcDocument, linked: RcLinkedDocument): List<RcBitmapData> {
   val bitmaps = document.operations.filterIsInstance<RcBitmapData>().toMutableList()
   fun visit(node: RcLinkedNode) {
     when (node) {
