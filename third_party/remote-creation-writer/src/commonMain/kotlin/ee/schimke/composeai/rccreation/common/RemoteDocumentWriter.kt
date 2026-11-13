@@ -100,6 +100,12 @@ private constructor(
    */
   private var canvasDepth = 0
 
+  /**
+   * LOCAL PATCH (rc-players): the open canvases that wrote a `CanvasContent`: each canvas's own id
+   * and its content's. See [valueComponentId].
+   */
+  private val canvasContents = ArrayDeque<Pair<Int, Int>>()
+
   private class Target(val buffer: RemoteWireBuffer, val template: Boolean)
 
   /**
@@ -277,21 +283,26 @@ private constructor(
 
   override fun startCanvas(modifier: RemoteModifierData) {
     operation(LayoutCanvas)
-    wire.writeInt(resolveComponentId(modifier.componentId))
+    val canvasId = resolveComponentId(modifier.componentId)
+    wire.writeInt(canvasId)
     wire.writeInt(-1)
     modifier.writeTo(this)
     contentSection(modifier.contentComponentId)
     // As `RemoteComposeWriter.startCanvas`: up to API level 7 the drawing is in a `CanvasContent`.
     if (apiLevel <= 7) {
       operation(LayoutCanvasContent)
-      wire.writeInt(resolveComponentId(-1))
+      canvasContents.addLast(canvasId to resolveComponentId(-1))
+      wire.writeInt(lastComponentId)
     }
     canvasDepth++
   }
 
   override fun endCanvas() {
     canvasDepth--
-    if (apiLevel <= 7) containerEnd()
+    if (apiLevel <= 7) {
+      canvasContents.removeLast()
+      containerEnd()
+    }
     endLayout()
   }
 
@@ -1105,7 +1116,7 @@ private constructor(
     componentValueIds.getOrPut(pairKey(componentId, type)) { id }
     declaration(ComponentValue, id, isBodys(id))
     wire.writeInt(type)
-    wire.writeInt(componentId)
+    wire.writeInt(valueComponentId(componentId))
     wire.writeInt(id)
   }
 
@@ -2148,6 +2159,24 @@ private constructor(
     containerEnd()
   }
 
+  /**
+   * LOCAL PATCH (rc-players): the component id a `ComponentValue` written now names for
+   * [componentId]. Written directly in a canvas's `CanvasContent` (so only up to API level 7, the
+   * documents of Android's platform players: see [startCanvas]), a value for the canvas names that
+   * content, as AndroidX's writer does, which writes the id of the last component started.
+   *
+   * Android 16's platform player draws a canvas that reads its measured width as nothing when the
+   * value names the canvas, and draws it when it names the content (checked by replaying one
+   * document with each id; `PlatformPlayerComponentValueTest`). Its `CoreDocument` binds a
+   * `ComponentValue` both to the component it is written in and, by id, to the one it names, which
+   * is a different component for a canvas. Android 17's player, AndroidX's and this repository's
+   * read either.
+   */
+  private fun valueComponentId(componentId: Int): Int {
+    val (canvas, content) = canvasContents.lastOrNull() ?: return componentId
+    return if (componentId == canvas) content else componentId
+  }
+
   private fun componentValue(type: Int, componentId: Int): Float {
     val key = pairKey(componentId, type)
     val id =
@@ -2155,7 +2184,7 @@ private constructor(
         val allocated = newId()
         declaration(ComponentValue, allocated, readsBody = false)
         wire.writeInt(type)
-        wire.writeInt(componentId)
+        wire.writeInt(valueComponentId(componentId))
         wire.writeInt(allocated)
         allocated
       }

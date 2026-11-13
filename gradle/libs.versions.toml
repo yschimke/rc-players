@@ -49,6 +49,10 @@ tapmoc = "0.5.0"
 # behaviour inside the daemon sandbox; those two tests are the acceptance check for any bump here,
 # not just a green build.
 robolectric = "4.17"
+# Robolectric's Android 15, 16 and 17 platforms: the launcher tests play on the platform's own player.
+robolectric-sdk35 = "15-robolectric-13954326-i7"
+robolectric-sdk36 = "16-robolectric-13921718-i7"
+robolectric-sdk37 = "17-robolectric-15733970-i7"
 # Jetpack XR SceneCore, for the Android XR sample (`rc-player/xr-sample`) that hands the 3D
 # extension's meshes to the XR runtime. Sample-only: nothing published depends on it.
 xr-scenecore = "1.0.0"
@@ -220,6 +224,9 @@ composeai-data-fonts-google = { module = "ee.schimke.composeai:data-fonts-google
 composeai-data-layoutinspector-connector = { module = "ee.schimke.composeai:data-layoutinspector-connector" }
 
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+robolectric-sdk35 = { module = "org.robolectric:android-all-instrumented", version.ref = "robolectric-sdk35" }
+robolectric-sdk36 = { module = "org.robolectric:android-all-instrumented", version.ref = "robolectric-sdk36" }
+robolectric-sdk37 = { module = "org.robolectric:android-all-instrumented", version.ref = "robolectric-sdk37" }
 xr-scenecore = { module = "androidx.xr.scenecore:scenecore", version.ref = "xr-scenecore" }
 xr-arcore = { module = "androidx.xr.arcore:arcore", version.ref = "xr-arcore" }
 compose-bom-compat = { module = "androidx.compose:compose-bom", version.ref = "compose-bom-compat" }
