@@ -14,7 +14,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
@@ -22,6 +25,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
+import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
@@ -56,6 +60,35 @@ class RcDeferredLayoutAnimationsTest {
   @Test
   fun aStaticDocumentDoesNotChangeItsLayoutOnItsOwn() {
     assertFalse(RcPreparedDocument(document).changesLayoutOnItsOwn)
+  }
+
+  @Test
+  fun aClockReadThatOnlyPaintsALayerDoesNotChangeTheLayout() {
+    val pulse =
+      RcFloatExpression(
+        PULSE,
+        listOf(
+          RcFloatWord(0x7f800000 or RcSystemVariables.ANIMATION_TIME),
+          RcFloatWord.literal(4f),
+          RcFloatWord(MUL),
+        ),
+        animation = null,
+      )
+    val layer =
+      RcGraphicsLayerModifier(
+        listOf(
+          RcGraphicsLayerAttribute.FloatValue(
+            RcGraphicsLayerModifier.ALPHA,
+            RcFloatWord(0x7fc00000 or PULSE),
+          ),
+        ),
+      )
+    assertFalse(rcChangesLayoutOnItsOwn(listOf(pulse, layer)), "a layer's pulse moved the layout")
+    val height = RcHeightModifier(RcDimensionType.EXACT, RcFloatWord(0x7fc00000 or PULSE))
+    assertTrue(
+      rcChangesLayoutOnItsOwn(listOf(pulse, height)),
+      "a height that pulses must keep the pass",
+    )
   }
 
   /** The green box's height on each frame after the host grows `USER:h` from SHORT to TALL. */
@@ -125,5 +158,8 @@ class RcDeferredLayoutAnimationsTest {
     const val SHORT = 10
     const val TALL = 30
     const val FRAME_NANOS = 16_000_000L
+    const val PULSE = 43
+    // `RcFloatWord` operator words: 0xffb10000 + opcode; 3 multiplies.
+    const val MUL = 0xffb10003.toInt()
   }
 }

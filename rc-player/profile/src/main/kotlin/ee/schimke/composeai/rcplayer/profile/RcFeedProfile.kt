@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.profile
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -12,6 +13,7 @@ import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import ee.schimke.composeai.rcplayer.compose.LocalRcDeferLayoutAnimations
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPreparedDocument
 import ee.schimke.composeai.rcplayer.edit.forDisplay
@@ -34,6 +36,11 @@ public enum class RcFeedMode(public val description: String) {
   Document("shared RcDocument (link + layout + state)"),
   /** One prepared document shared by every card: only the state per card. */
   Prepared("shared RcPreparedDocument (state only)"),
+  /**
+   * [Prepared], under a host that lets players defer the lookahead pass behind layout animations
+   * until a card's layout can first change (`LocalRcDeferLayoutAnimations`), as a feed does.
+   */
+  Deferred("shared RcPreparedDocument, layout animations deferred"),
   /**
    * No player at all: [RcReferenceCard], a session-shaped card written directly in Compose UI
    * (foundation), as the bar a player card has to beat.
@@ -143,6 +150,10 @@ public class RcFeedProfile(
                 RcFeedMode.Bytes -> RcComposePlayer(bytes, modifier, namedValues = values)
                 RcFeedMode.Document -> RcComposePlayer(document, modifier, namedValues = values)
                 RcFeedMode.Prepared -> RcComposePlayer(prepared, modifier, namedValues = values)
+                RcFeedMode.Deferred ->
+                  CompositionLocalProvider(LocalRcDeferLayoutAnimations provides true) {
+                    RcComposePlayer(prepared, modifier, namedValues = values)
+                  }
                 RcFeedMode.ComposeUi -> RcReferenceCard(item, modifier)
                 RcFeedMode.Edited,
                 RcFeedMode.EditedTheme -> RcComposePlayer(edited, modifier, namedValues = values)

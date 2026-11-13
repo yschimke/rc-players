@@ -2142,7 +2142,15 @@ private fun RenderLayoutNode(
   // document variable. Without one (or at a call site that fixes it) the component is shown, or
   // gone, for good: an `AnimatedVisibility` around it would never animate, but its transition still
   // updates its state on every recomposition, for every component of every document on screen.
-  val visibilityFixed = forceGone || ignoreOwnVisibility || node.modifiers.visibility == null
+  //
+  // The same holds for every component while its document has deferred the lookahead pass
+  // ([LocalRcDeferLayoutAnimations]): only a document that cannot change on its own defers it, and
+  // a
+  // host value reaches it only after the pass has switched on, which rebuilds this tree with the
+  // wrappers. A wrapper starts at the visibility it is composed with, so nothing is drawn
+  // differently: the tree is just one `AnimatedVisibility` per conditional component lighter.
+  val visibilityFixed =
+    forceGone || ignoreOwnVisibility || node.modifiers.visibility == null || lookaheadScope == null
   if (node is RcLayoutNode.Content) {
     if (visibility == 0) goneReport()
     else body(if (visibility == 2) modifier.alpha(0f) else modifier)

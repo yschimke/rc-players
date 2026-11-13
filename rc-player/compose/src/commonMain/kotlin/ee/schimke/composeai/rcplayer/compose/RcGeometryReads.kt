@@ -8,6 +8,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
+import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcImpulseStart
 import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcMarqueeModifier
@@ -143,12 +144,35 @@ internal fun rcChangesLayoutOnItsOwn(operations: List<RcOperation>): Boolean {
       else -> Unit
     }
   }
-  // A clock read anywhere: an expression, a modifier or a draw operation naming a moving id.
+  // A clock read that can reach layout. A moving value is followed through the float expressions
+  // that read it; a reader that only paints (a graphics layer, a background, a border, a clip, all
+  // applied after measure) moves pixels, never bounds, so it needs no lookahead pass. A pulse on a
+  // "live" badge's layer is the common case. Anything else naming a moving id counts.
+  val moving = RcSystemVariables.MOVING.toMutableSet()
+  val expressions = operations.filterIsInstance<RcFloatExpression>()
+  var growing = true
+  while (growing) {
+    growing = false
+    for (expression in expressions) {
+      if (expression.id in moving) continue
+      if (expression.expression.any { word -> word.referencedId?.let { it in moving } == true }) {
+        moving += expression.id
+        growing = true
+      }
+    }
+  }
   return operations.any { operation ->
-    operation !is RcTextData &&
-      operation !is RcBitmapData &&
-      operation !is RcFontData &&
-      operation.referencedFloatIds()?.any { it in RcSystemVariables.MOVING } != false
+    when (operation) {
+      is RcTextData,
+      is RcBitmapData,
+      is RcFontData,
+      is RcGraphicsLayerModifier,
+      is RcRoundedClipRectModifier,
+      is RcBackgroundModifier,
+      is RcBorderModifier -> false
+      is RcFloatExpression -> false // followed above; what reads it is checked in its place
+      else -> operation.referencedFloatIds()?.any { it in moving } != false
+    }
   }
 }
 
