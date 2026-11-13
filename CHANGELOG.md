@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.3](https://github.com/yschimke/rc-players/compare/v3.1.2...v3.1.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* **creation:** a canvas's measured size names its CanvasContent in documents up to API level 7 ([#875](https://github.com/yschimke/rc-players/issues/875)) ([541e99b](https://github.com/yschimke/rc-players/commit/541e99bf90e4fb8876241d7223e2056df1eb3296))
+* **edit:** adaptTo writes the forms the writer writes for levels up to 7, and refuses what it cannot ([#876](https://github.com/yschimke/rc-players/issues/876)) ([d4e8e73](https://github.com/yschimke/rc-players/commit/d4e8e731521bf943ecdb385281af9176efe533c3))
+
 ## [3.1.2](https://github.com/yschimke/rc-players/compare/v3.1.1...v3.1.2) (2026-11-12)
 
 
