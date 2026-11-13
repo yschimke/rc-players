@@ -4,12 +4,14 @@ import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
+import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcImpulseStart
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcMarqueeModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
@@ -132,6 +134,9 @@ internal fun rcChangesLayoutOnItsOwn(operations: List<RcOperation>): Boolean {
       is RcMarqueeModifier,
       is RcStateLayout,
       is RcTouchExpression,
+      // A host-rendered component (a text field, say) holds state of its own, which rebuilding the
+      // tree when the pass switches on would lose: focus, selection, an IME composition.
+      is RcCustomLayout,
       is RcLoopOperation,
       // A tap that writes the document's own state changes it there and then; one that only tells
       // the host (Livery's actions) changes it through a host value, which the player sees coming.
@@ -171,6 +176,13 @@ internal fun rcChangesLayoutOnItsOwn(operations: List<RcOperation>): Boolean {
       is RcBackgroundModifier,
       is RcBorderModifier -> false
       is RcFloatExpression -> false // followed above; what reads it is checked in its place
+      // An integer expression names ids as marked values, not NaN boxes: a clock (or an expression
+      // over one) read there feeds whatever reads its result.
+      is RcIntegerExpression ->
+        operation.values.indices.any { index ->
+          val value = operation.values[index]
+          operation.isMarked(index) && value < RcIntegerExpression.OFFSET && value in moving
+        }
       else -> operation.referencedFloatIds()?.any { it in moving } != false
     }
   }

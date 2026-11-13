@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
@@ -20,6 +21,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
@@ -89,6 +91,24 @@ class RcDeferredLayoutAnimationsTest {
       rcChangesLayoutOnItsOwn(listOf(pulse, height)),
       "a height that pulses must keep the pass",
     )
+  }
+
+  @Test
+  fun aClockAnIntegerExpressionReadsChangesTheLayout() {
+    // `TIME_IN_SEC % 60`: an integer expression names the clock as a marked value, not a NaN box.
+    val seconds =
+      RcIntegerExpression(
+        outId = PULSE,
+        mask = 0b001,
+        values = listOf(RcSystemVariables.TIME_IN_SEC, 60, RcIntegerExpression.MOD),
+      )
+    assertTrue(rcChangesLayoutOnItsOwn(listOf(seconds)))
+  }
+
+  @Test
+  fun aHostRenderedComponentKeepsTheLookaheadPass() {
+    // Rebuilding the tree when the pass switched on would lose a text field's focus and selection.
+    assertTrue(rcChangesLayoutOnItsOwn(listOf(RcCustomLayout(7, -1, 8, emptyList()))))
   }
 
   /** The green box's height on each frame after the host grows `USER:h` from SHORT to TALL. */
