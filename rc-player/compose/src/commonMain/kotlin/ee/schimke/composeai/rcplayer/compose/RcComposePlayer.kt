@@ -671,10 +671,26 @@ private fun RcComposePlayerResolved(
   //    outlives the restart, the new holder is diffed against what the state really has, so
   //    entries the old holder had and the new one does not are cleared rather than left applied.
   val appliedNamedValues = remember(state) { seededNamedValues.toMutableMap() }
+  // AndroidX animates every component to its new bounds, which takes a lookahead pass over the
+  // whole tree on every frame the player is placed: in a scrolling list, every frame. Where the
+  // host
+  // allows it ([LocalRcDeferLayoutAnimations]), a document whose layout only changes when its host
+  // hands it a value defers that pass until the first one, and plays that change a frame later, so
+  // it still animates.
+  val deferLayoutAnimations = LocalRcDeferLayoutAnimations.current
+  var lookahead by
+    remember(state) { mutableStateOf(!deferLayoutAnimations || prepared.changesLayoutOnItsOwn) }
   LaunchedEffect(state, namedValues) {
     snapshotFlow { namedValues.toMap() }
       .collect { current ->
         if (current == appliedNamedValues) return@collect
+        if (!lookahead) {
+          // Lay the tree out under the lookahead pass at the old values first, so the change has
+          // bounds to animate from.
+          lookahead = true
+          withFrameNanos {}
+          withFrameNanos {}
+        }
         (appliedNamedValues.keys - current.keys).forEach(state::clearNamedValue)
         current.forEach { (name, value) ->
           if (appliedNamedValues[name] != value) state.setNamedValue(name, value)
@@ -971,10 +987,11 @@ private fun RcComposePlayerResolved(
           extensionSessions,
         )
       }
-    val tree: @Composable (probe: RcGeometryProbe?) -> Unit = { probe ->
-      LookaheadScope {
+    val invalidate: () -> Unit = remember(state) { { invalidationVersion += 1 } }
+    val content: @Composable (scope: LookaheadScope?, probe: RcGeometryProbe?) -> Unit =
+      { scope, probe ->
         CompositionLocalProvider(
-          LocalRcLookaheadScope provides this,
+          LocalRcLookaheadScope provides scope,
           LocalRcLayoutVersion provides version,
           LocalRcFrameTime provides frameTime,
           LocalRcPaintVersion provides paintVersion,
@@ -984,7 +1001,7 @@ private fun RcComposePlayerResolved(
           LocalRcFonts provides fonts,
           LocalRcTypefaces provides typefaces,
           LocalRcCustomComponents provides customComponents,
-          LocalRcInvalidate provides { invalidationVersion += 1 },
+          LocalRcInvalidate provides invalidate,
           LocalRcOffscreenTargets provides offscreenTargets,
           LocalRcTouchExpressions provides touchExpressions,
           LocalRcVisibilityFunctions provides visibilityFunctions,
@@ -1009,6 +1026,12 @@ private fun RcComposePlayerResolved(
             )
           }
         }
+      }
+    val tree: @Composable (probe: RcGeometryProbe?) -> Unit = { probe ->
+      // A new tree when the pass switches on: what the old one held of its own (nothing a document
+      // that defers the pass keeps; see [RcPreparedDocument.changesLayoutOnItsOwn]) is rebuilt.
+      key(lookahead) {
+        if (lookahead) LookaheadScope { content(this, probe) } else content(null, probe)
       }
     }
     if (settles) {
@@ -1230,7 +1253,14 @@ private fun RenderLayoutNode(
           invalidate,
           owner = node.componentId,
         )
-        .trackComponentGeometry(geometryIds, state, geometryProbe, playerRoot, publishSizeOnMeasure)
+        .trackComponentGeometry(
+          geometryIds,
+          state,
+          geometryProbe,
+          playerRoot,
+          publishSizeOnMeasure,
+          invalidate,
+        )
         .inspectComponent(
           node,
           if (collapse?.collapsed == true) 0 else visibility,
@@ -1645,6 +1675,7 @@ private fun RenderLayoutNode(
                 geometryProbe,
                 playerRoot,
                 publishSizeOnMeasure,
+                invalidate,
               ),
             ) { _, _ ->
               layout(0, 0) {}
@@ -1658,6 +1689,7 @@ private fun RenderLayoutNode(
                 geometryProbe,
                 playerRoot,
                 publishSizeOnMeasure,
+                invalidate,
               ),
             ) {
               renderChildren()
@@ -2146,6 +2178,22 @@ private enum class RcFitBoxSlot {
 }
 
 private val LocalRcLookaheadScope = compositionLocalOf<LookaheadScope?> { null }
+
+/**
+ * Whether players below may defer the lookahead pass behind AndroidX's bounds animations until a
+ * document's layout can first change. False by default: the player then animates exactly as
+ * AndroidX does from its first frame.
+ *
+ * True suits a feed: cards whose data rarely changes after they arrive, scrolled past by the dozen,
+ * where that pass runs over every card on every frame of a scroll. A document that can change its
+ * layout on its own (it animates, reads the clock, scrolls, takes input, writes its own state)
+ * keeps the pass from its first frame. Any other document lays out without it until its host first
+ * hands it a changed value; that change then lands one frame later than it otherwise would, and
+ * animates as before.
+ */
+public val LocalRcDeferLayoutAnimations:
+  androidx.compose.runtime.ProvidableCompositionLocal<Boolean> =
+  androidx.compose.runtime.staticCompositionLocalOf { false }
 
 /** Whether components publish their size from the measure pass; see `trackComponentGeometry`. */
 private val LocalRcPublishSizeOnMeasure = compositionLocalOf { false }
@@ -3912,9 +3960,31 @@ private fun Modifier.trackComponentGeometry(
    * circle clip's radius in place for the first frame. See [RcPreparedDocument.settlesFirstLayout].
    */
   publishSizeOnMeasure: Boolean = false,
+  /** Asks the player to recompose and redraw, for a size that changes after the first layout. */
+  invalidate: () -> Unit = {},
 ): Modifier {
   val tracked = componentIds.distinct().filter(state::hasComponentValues)
   if (tracked.isEmpty()) return this
+  // A component whose size alone the document reads, at paint time (the creation library's rounded
+  // and circle clips): its size from the measure pass is all it needs. No positioning callback,
+  // which
+  // a scrolling list would otherwise run for every such component on every frame. A later resize
+  // invalidates, as the positioning callback's publish would have.
+  if (probe == null && publishSizeOnMeasure && tracked.all(state::readsComponentSizeOnly)) {
+    val published = booleanArrayOf(false)
+    return layout { measurable, constraints ->
+      val placeable = measurable.measure(constraints)
+      var changed = false
+      tracked.forEach { id ->
+        if (state.publishComponentSize(id, placeable.width.toFloat(), placeable.height.toFloat())) {
+          changed = true
+        }
+      }
+      if (changed && published[0]) invalidate()
+      published[0] = true
+      layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    }
+  }
   // A settling pass is measured and thrown away, never placed, so it publishes the one thing a
   // measure pass knows. The size is the node's own from this point of the chain inward — the same
   // size `coordinates.size` reports below — so the pass the player keeps measures against it.

@@ -61,6 +61,14 @@ public class RcPreparedDocument(public val document: RcDocument) {
    * enough: see [rcGeometryReachesLayout].
    */
   internal val settlesFirstLayout: Boolean = rcGeometryReachesLayout(document.operations)
+
+  /**
+   * Whether the document can change its layout on its own, and so needs the lookahead pass behind
+   * its bounds animations from its first frame; otherwise a player defers that pass until a host
+   * value changes or someone touches the document. See [rcChangesLayoutOnItsOwn].
+   */
+  internal val changesLayoutOnItsOwn: Boolean =
+    rcChangesLayoutOnItsOwn(document.operations) || touchExpressions.isNotEmpty()
   private val emptyBitmaps: List<RcBitmapData> =
     document.operations.filterIsInstance<RcBitmapData>().filter {
       it.encoding == RcBitmapData.ENCODING_EMPTY

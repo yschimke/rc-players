@@ -60,6 +60,7 @@ public final class ee/schimke/composeai/rcplayer/compose/RcComposePlayerKt {
 	public static final fun RcComposePlayer ([BLandroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Landroidx/compose/runtime/snapshots/SnapshotStateMap;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
 	public static final fun RcComposePlayer ([BLandroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Landroidx/compose/runtime/snapshots/SnapshotStateMap;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcCustomComponentRegistry;Landroidx/compose/runtime/Composer;II)V
 	public static final fun RcComposePlayer ([BLee/schimke/composeai/rcplayer/compose/RcImageLoader;Landroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Landroidx/compose/runtime/snapshots/SnapshotStateMap;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcCustomComponentRegistry;Landroidx/compose/runtime/Composer;II)V
+	public static final fun getLocalRcDeferLayoutAnimations ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcComposeSupportIssue {

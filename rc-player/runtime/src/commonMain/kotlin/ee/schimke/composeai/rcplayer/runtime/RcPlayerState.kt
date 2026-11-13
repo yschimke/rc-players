@@ -1872,6 +1872,16 @@ private constructor(
 
   public fun hasComponentValues(componentId: Int): Boolean = componentId in componentValues
 
+  /**
+   * Whether the document reads only [componentId]'s width and height, never where it is: then a
+   * player can publish the size from the measure pass and needs no callback each time the component
+   * moves (in a scrolling list, every frame).
+   */
+  public fun readsComponentSizeOnly(componentId: Int): Boolean =
+    componentValues[componentId]?.all {
+      it.type == RcComponentValue.WIDTH || it.type == RcComponentValue.HEIGHT
+    } == true
+
   /** Whether any component's geometry is read back by the document through a `ComponentValue`. */
   public val hasAnyComponentValues: Boolean
     get() = componentValues.isNotEmpty()

@@ -8,9 +8,24 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
+import ee.schimke.composeai.rcplayer.protocol.RcImpulseStart
+import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
+import ee.schimke.composeai.rcplayer.protocol.RcMarqueeModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
+import ee.schimke.composeai.rcplayer.protocol.RcScrollModifier
+import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
+import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTimeAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatExpressionChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueStringChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
 import ee.schimke.composeai.rcplayer.protocol.RcWireWriter
 
 /**
@@ -93,6 +108,62 @@ private fun RcOperation.mentionedIds(): Set<Int>? {
         add(word)
         RcFloatWord(word).referencedId?.let(::add)
       }
+    }
+  }
+}
+
+/**
+ * Whether a document can change its layout without a host value changing: it animates, reads the
+ * clock, scrolls, takes input, runs touch expressions, impulses, particles or a marquee, switches
+ * state layouts, or has actions that write its own state. Such a document keeps the lookahead pass
+ * its bounds animations need from its first frame. Any other document's layout changes only when
+ * its host hands it a value or someone touches it, and a player defers that pass until then (see
+ * `RcComposePlayerResolved`). Conservative: an operation it cannot account for counts as moving.
+ */
+internal fun rcChangesLayoutOnItsOwn(operations: List<RcOperation>): Boolean {
+  for (operation in operations) {
+    when (operation) {
+      is RcImpulseStart,
+      is RcParticleDefine,
+      is RcTimeAttribute,
+      is RcWakeIn,
+      is RcScrollModifier,
+      is RcMarqueeModifier,
+      is RcStateLayout,
+      is RcTouchExpression,
+      is RcLoopOperation,
+      // A tap that writes the document's own state changes it there and then; one that only tells
+      // the host (Livery's actions) changes it through a host value, which the player sees coming.
+      is RcValueFloatChangeAction,
+      is RcValueFloatExpressionChangeAction,
+      is RcValueIntegerChangeAction,
+      is RcValueIntegerExpressionChangeAction,
+      is RcValueStringChangeAction -> return true
+      is RcFloatExpression -> if (operation.animation != null) return true
+      else -> Unit
+    }
+  }
+  // A clock read anywhere: an expression, a modifier or a draw operation naming a moving id.
+  return operations.any { operation ->
+    operation !is RcTextData &&
+      operation !is RcBitmapData &&
+      operation !is RcFontData &&
+      operation.referencedFloatIds()?.any { it in RcSystemVariables.MOVING } != false
+  }
+}
+
+/**
+ * The ids the NaN-boxed float words of this operation's encoding name; null if it does not encode.
+ */
+private fun RcOperation.referencedFloatIds(): Set<Int>? {
+  val bytes =
+    runCatching { RcWireWriter().also { RcDocumentCodec.encodeOperation(it, this) }.toByteArray() }
+      .getOrNull() ?: return null
+  return buildSet {
+    for (offset in 0..bytes.size - 4) {
+      var bits = 0
+      for (i in 0 until 4) bits = (bits shl 8) or (bytes[offset + i].toInt() and 0xff)
+      RcFloatWord(bits).referencedId?.let(::add)
     }
   }
 }
