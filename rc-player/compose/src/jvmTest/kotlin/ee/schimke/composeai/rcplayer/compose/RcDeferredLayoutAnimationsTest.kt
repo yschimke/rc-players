@@ -29,6 +29,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import kotlin.test.Test
@@ -103,6 +104,17 @@ class RcDeferredLayoutAnimationsTest {
         values = listOf(RcSystemVariables.TIME_IN_SEC, 60, RcIntegerExpression.MOD),
       )
     assertTrue(rcChangesLayoutOnItsOwn(listOf(seconds)))
+  }
+
+  @Test
+  fun aComponentTheClockShowsAndHidesKeepsTheLookaheadPass() {
+    val blink =
+      RcFloatExpression(
+        PULSE,
+        listOf(RcFloatWord(0x7f800000 or RcSystemVariables.ANIMATION_TIME)),
+        animation = null,
+      )
+    assertTrue(rcChangesLayoutOnItsOwn(listOf(blink, RcVisibilityModifier(PULSE))))
   }
 
   @Test

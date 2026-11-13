@@ -277,6 +277,24 @@ class RcSystemVariableTest {
   }
 
   @Test
+  fun aClockAnExpressionReadsIsReadWhenItsValueIsReadAsAnInteger() {
+    // A component's visibility reads its id as an integer.
+    val pulse =
+      RcFloatExpression(
+        PULSE,
+        listOf(RcFloatWord(0x7fc00000 or RcSystemVariables.CONTINUOUS_SEC)),
+        animation = null,
+      )
+    val state =
+      RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(pulse)), timeSource = clock)
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    state.applyFloatExpression(pulse)
+    assertFalse(state.readsContinuousClock)
+    state.integer(PULSE)
+    assertTrue(state.readsContinuousClock)
+  }
+
+  @Test
   fun aPathsCommandsAreNotReads() {
     // AndroidX marks path commands with NaN-boxed words: MOVE is 10 and LINE 11, the ids of
     // OFFSET_TO_UTC and WEEK_DAY, and CUBIC is 14, the touch position's Y. An icon is not a clock.

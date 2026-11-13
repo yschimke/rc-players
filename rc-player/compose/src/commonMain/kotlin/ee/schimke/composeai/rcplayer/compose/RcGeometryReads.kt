@@ -28,6 +28,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcValueFloatExpressionChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueStringChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
 import ee.schimke.composeai.rcplayer.protocol.RcWireWriter
 
@@ -183,6 +184,8 @@ internal fun rcChangesLayoutOnItsOwn(operations: List<RcOperation>): Boolean {
           val value = operation.values[index]
           operation.isMarked(index) && value < RcIntegerExpression.OFFSET && value in moving
         }
+      // Names its value as a plain id, not a NaN box: a component a clock shows and hides.
+      is RcVisibilityModifier -> operation.visibilityId in moving
       else -> operation.referencedFloatIds()?.any { it in moving } != false
     }
   }

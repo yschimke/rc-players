@@ -320,13 +320,13 @@ private constructor(
   private var recentTimeAttributeReadContinuousClock = false
 
   private fun noteRead(id: Int) {
-    var bits = if (id in 0 until Long.SIZE_BITS) 1L shl id else 0L
-    if (expressionReservedReads.isNotEmpty()) expressionReservedReads[id]?.let { bits = bits or it }
-    if (bits != 0L) {
-      reservedIdsRead = reservedIdsRead or bits
-      recentReservedIdsRead = recentReservedIdsRead or bits
-    }
+    if (id in 0 until Long.SIZE_BITS) noteReservedReads(1L shl id)
     noteValueRead(id)
+  }
+
+  private fun noteReservedReads(bits: Long) {
+    reservedIdsRead = reservedIdsRead or bits
+    recentReservedIdsRead = recentReservedIdsRead or bits
   }
 
   /**
@@ -341,6 +341,9 @@ private constructor(
   /** Records a read for [layoutReads] alone: not the reserved-id reads [noteRead] also tracks. */
   private fun noteValueRead(id: Int) {
     if (id < 0) return
+    // Reading an expression's value, as a float or as an integer (a visibility, a data-map
+    // copy), reads what it was computed from.
+    if (expressionReservedReads.isNotEmpty()) expressionReservedReads[id]?.let(::noteReservedReads)
     when {
       evaluatingFloatExpression -> recordExpressionInput(id)
       paintDepth == 0 -> layoutReads.add(id)
