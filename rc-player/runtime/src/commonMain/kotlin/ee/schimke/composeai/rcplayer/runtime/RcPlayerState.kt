@@ -312,8 +312,20 @@ private constructor(
 
   private fun noteRead(id: Int) {
     if (id in 0 until Long.SIZE_BITS) reservedIdsRead = reservedIdsRead or (1L shl id)
+    if (expressionReservedReads.isNotEmpty()) {
+      expressionReservedReads[id]?.let { reservedIdsRead = reservedIdsRead or it }
+    }
     noteValueRead(id)
   }
+
+  /**
+   * The reserved ids (the clock, the pointer, …) each float expression read to compute its value,
+   * as [reservedIdsRead] bits. Evaluating an expression is not a use of what it read: the player
+   * evaluates every one of a layout's expressions each composition, including one only a component
+   * that is gone reads. Reading the expression's value is ([noteRead]), and carries these with it.
+   * A card's pulsing "live" badge then asks for a frame every vsync only while it is shown.
+   */
+  private val expressionReservedReads = HashMap<Int, Long>()
 
   /** Records a read for [layoutReads] alone: not the reserved-id reads [noteRead] also tracks. */
   private fun noteValueRead(id: Int) {
@@ -977,8 +989,10 @@ private constructor(
           RcIdMap.TYPE_STRING -> texts[operation.outId] = requireNotNull(texts[entry.id])
           RcIdMap.TYPE_INT ->
             setInteger(operation.outId, requireNotNull(integers[entry.id.also(::noteValueRead)]))
-          RcIdMap.TYPE_FLOAT ->
+          RcIdMap.TYPE_FLOAT -> {
             storeFloat(operation.outId, requireNotNull(floats[entry.id.also(::noteValueRead)]))
+            expressionReservedReads[entry.id]?.let { expressionReservedReads[operation.outId] = it }
+          }
           RcIdMap.TYPE_LONG -> setInteger(operation.outId, requireNotNull(longs[entry.id]).toInt())
           RcIdMap.TYPE_BOOLEAN ->
             setInteger(operation.outId, if (requireNotNull(booleans[entry.id])) 1 else 0)
@@ -1430,11 +1444,18 @@ private constructor(
     val nested = evaluatingFloatExpression
     evaluatingFloatExpression = true
     if (!nested) expressionReadCount = 0
+    val readBefore = reservedIdsRead
+    reservedIdsRead = 0L
     val value =
       try {
         runtime.evaluate(frameTimeSeconds, ::resolve)
       } finally {
         evaluatingFloatExpression = nested
+        val read = reservedIdsRead
+        if (read != 0L) expressionReservedReads[operation.id] = read
+        else expressionReservedReads.remove(operation.id)
+        // An expression evaluated inside another's evaluation is part of computing that one.
+        reservedIdsRead = if (nested) readBefore or read else readBefore
       }
     if (!nested) recordExpressionInputs(operation.id)
     setFloat(operation.id, value)
