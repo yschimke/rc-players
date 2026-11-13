@@ -1,16 +1,24 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapTextMeasure
 import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRun
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRunOnPath
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
+import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
+import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 
@@ -72,6 +80,16 @@ public data class RcProfileViolation(
      * measuring it.
      */
     MEASURED_IN_HIDDEN_BRANCH,
+
+    /**
+     * A form the target's API level has no reading for: a density behaviour other than the legacy
+     * one in a header below level 8, scroll directions in a header below level 7, a path's winding
+     * rule below level 7, a bitmap font's glyph spacing below level 8, a canvas the platform's
+     * launcher player draws as nothing because its drawing is not in a `CanvasContent`. The
+     * creation writer refuses the first three at those levels. [adaptTo] rewrites the last one and
+     * leaves the others, which no rewrite keeps the meaning of.
+     */
+    UNSUPPORTED_FEATURE,
   }
 }
 
@@ -113,6 +131,25 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
           ),
         )
     }
+    if (target.apiLevel < 8 && header.densityBehavior != RcHeader.DENSITY_BEHAVIOR_LEGACY) {
+      add(
+        headerViolation(
+          RcProfileViolation.Kind.UNSUPPORTED_FEATURE,
+          "Header declares density behaviour ${header.densityBehavior} (dp or pixels), which " +
+            "${target.name} does not read below API level 8: it reads the legacy one, so each " +
+            "size the document has in dp would draw in pixels",
+        ),
+      )
+    }
+    if (target.apiLevel < 7 && header.properties.any { it.key == RcHeader.DOC_SCROLL }) {
+      add(
+        headerViolation(
+          RcProfileViolation.Kind.UNSUPPORTED_FEATURE,
+          "Header declares the root's scroll directions, which ${target.name} does not read " +
+            "below API level 7: its fixed header has no properties to carry them",
+        ),
+      )
+    }
     // Android 16's platform `Header.read` takes a major version carrying the property-header magic
     // as a property map, so from level 6 either form plays.
     if (target.apiLevel < 6 && header.modern) {
@@ -153,6 +190,7 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
           )
       }
       addAll(literalFieldViolations(index, operation, target))
+      addAll(levelFeatureViolations(index, operation, target))
       if (target.apiLevel <= 6) addAll(levelSixOperatorViolations(index, operation))
       if (
         RcPlayerFeature.DYNAMIC_TEXT_COLOR in target.missingFeatures &&
@@ -181,8 +219,70 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
         )
       }
     }
+    if (target.isLauncherWidget && target.apiLevel <= 7) addAll(canvasesWithoutContent(target))
     if (target.apiLevel <= 6) addAll(recursiveDrawContent(target))
     if (target.apiLevel <= 6) addAll(measuredInHiddenBranches(target))
+  }
+
+/** What the writer refuses below the API level that added it, found in one operation. */
+private fun levelFeatureViolations(
+  index: Int,
+  operation: RcOperation,
+  target: RcTargetProfile,
+): List<RcProfileViolation> = buildList {
+  fun unsupported(message: String) =
+    add(
+      RcProfileViolation(
+        RcProfileViolation.Kind.UNSUPPORTED_FEATURE,
+        index,
+        operation.opcode,
+        "${operationName(operation.opcode)} $message on ${target.name}",
+      ),
+    )
+  if (target.apiLevel < 7 && operation is RcPathData && operation.winding != 0) {
+    unsupported("has a winding rule, which is not read before API level 7")
+  }
+  if (target.apiLevel < 8) {
+    val spacing =
+      when (operation) {
+        is RcDrawBitmapFontTextRun -> operation.glyphSpacing
+        is RcDrawBitmapFontTextRunOnPath -> operation.glyphSpacing
+        is RcBitmapTextMeasure -> operation.glyphSpacing
+        else -> null
+      }
+    if (spacing != null && spacing.bits != 0) {
+      unsupported("has a glyph spacing, which is not read before API level 8")
+    }
+  }
+}
+
+/**
+ * Every canvas whose drawing is not in a `CanvasContent`, on a launcher player up to API level 7:
+ * Android 16's and 17's platform players draw such a canvas as nothing.
+ */
+private fun RcDocument.canvasesWithoutContent(target: RcTargetProfile): List<RcProfileViolation> =
+  buildList {
+    val tree = operationTree(operations) ?: return@buildList
+    tree.forEach { root ->
+      root.walk { node ->
+        if (node.operation !is RcCanvasLayout) return@walk
+        val layout =
+          node.children.firstOrNull { it.operation is RcLayoutContent && it.isContainer }
+            ?: return@walk
+        if (layout.children.isEmpty() || layout.children.first().operation is RcCanvasContent) {
+          return@walk
+        }
+        add(
+          RcProfileViolation(
+            RcProfileViolation.Kind.UNSUPPORTED_FEATURE,
+            node.start,
+            node.operation.opcode,
+            "${operationName(node.operation.opcode)} draws outside a CanvasContent, which " +
+              "${target.name} draws as nothing",
+          ),
+        )
+      }
+    }
   }
 
 /**

@@ -91,6 +91,9 @@ public data class RcProfileAdaptation(
  *   [RcApproximation.WALL_CLOCK_ANIMATION]: Android 16's player never redraws a document for
  *   `ANIMATION_TIME` alone, so such a widget draws once and freezes — see
  *   [animationTimeAsWallClock].
+ * - **A canvas's drawing is put in a `CanvasContent`**, and the `ComponentValue`s of the canvas's
+ *   size made to name it, for a target up to API level 7, as the creation writer writes a canvas
+ *   there; a border is written in the legacy form there too. See `docs/design/VERSION_QUIRKS.md`.
  * - **Remarks are dropped** where the target does not decode them; they draw nothing.
  * - **A variable image alpha, text size, padding, or background or border colour or size is
  *   replaced by its value** below API level 7, where those fields must be literals, when the
@@ -130,7 +133,8 @@ public fun RcDocument.adaptTo(
  * into the literals that player needs. [display] also lets a level 7 header with legacy density
  * behaviour be rewritten to the level 6 form: that form makes Android 16 multiply border widths and
  * offsets by the density, which the level 7 form reads as pixels, so each is divided by [display]'s
- * density. A variable one cannot be, and leaves the header as it is, reported.
+ * density; going the other way, when a level 6 header is rewritten to level 7's, each is multiplied
+ * by it. A variable one cannot be, and leaves the header as it is, reported.
  *
  * The result is right only on [display]: serve it to that client, not to others.
  */
@@ -160,6 +164,8 @@ public fun RcDocument.adaptTo(
       .wallClockAnimation(target, RcApproximation.WALL_CLOCK_ANIMATION in approximations)
       .dropRemarks(target)
       .rewriteUnsupported(target, unsupported)
+      .canvasContentFor(target)
+      .legacyBorders(target)
       .bakeDensity(target, display)
       .let {
         // The platform's widget player lays a layout with a variable spacing out as nothing.
@@ -209,8 +215,10 @@ public fun RcDocument.needsDisplay(target: RcTargetProfile): Boolean {
       operation.expression.any { it.referencedId in DISPLAY_VARIABLES }
   }
   if (target.readsLiteralFloatFieldsOnly && readsDensity) return true
-  if (target.apiLevel >= 7) return false
-  if (legacyHeader(header) == header) return false
+  val converted =
+    if (target.apiLevel >= 7) !header.modern && modernHeader(header, target, operations).modern
+    else legacyHeader(header) != header
+  if (!converted) return false
   return operations.any { operation ->
     when (operation) {
       is RcBorderModifier -> operation.borderWidth.bits != 0
@@ -394,13 +402,82 @@ private fun RcDocument.headerFor(
   violations: MutableList<RcProfileViolation>,
 ): RcDocument {
   if (target.apiLevel >= 7) {
-    val rewritten = modernHeader(header, target, operations)
-    return if (rewritten == header) this else copy(header = rewritten)
+    val rewritten = modernHeader(header, target, operations).launcherFeatures(target)
+    if (rewritten == header) return this
+    // A level 6 header read as level 7's: its border widths and offsets, in dp, become pixels.
+    if (!header.modern && rewritten.modern) {
+      val scaled = densityScaledAsModern(display, violations) ?: return this
+      return scaled.copy(header = rewritten)
+    }
+    return copy(header = rewritten)
   }
   val rewritten = legacyHeader(header)
-  if (rewritten == header) return this
+  if (rewritten == header) return copy(header = header.launcherFeatures(target))
   val scaled = densityScaledAsLegacy(display, violations) ?: return this
   return scaled.copy(header = rewritten)
+}
+
+/**
+ * [this] for a launcher player of [target]: paint measuring off. AndroidX's default measures during
+ * paint, so a launcher's view, resized to a new cell and played again, paints blank; every launcher
+ * capture profile writes `FEATURE_PAINT_MEASURE = 0` for it (`RcCaptureProfiles`), and a header
+ * that has a say keeps it. A level 6 header has no properties to carry it.
+ */
+private fun RcHeader.launcherFeatures(target: RcTargetProfile): RcHeader {
+  if (!target.isLauncherWidget || !modern) return this
+  if (properties.any { it.key == RcHeader.FEATURE_PAINT_MEASURE }) return this
+  return copy(
+    properties =
+      properties + RcHeaderProperty(RcHeader.FEATURE_PAINT_MEASURE, RcHeaderValue.IntValue(0)),
+  )
+}
+
+/**
+ * This document's border widths and offsets as the level 7 header form reads them: pixels, where a
+ * level 6 header has them in dp and its players multiply them by the density. Each literal is
+ * multiplied by [display]'s density; null, with the reason in [violations], when one is a variable.
+ */
+private fun RcDocument.densityScaledAsModern(
+  display: RcDisplay,
+  violations: MutableList<RcProfileViolation>,
+): RcDocument? {
+  val scaled = mutableListOf<RcOperation>()
+  operations.forEachIndexed { index, operation ->
+    val fields =
+      when (operation) {
+        is RcBorderModifier -> listOf("borderWidth" to operation.borderWidth)
+        is RcOffsetModifier -> listOf("x" to operation.x, "y" to operation.y)
+        else -> {
+          scaled += operation
+          return@forEachIndexed
+        }
+      }
+    val unscalable = fields.filter { (_, word) -> word.bits != 0 && word.isNaNEncoded }
+    unscalable.forEach { (field, _) ->
+      violations +=
+        RcProfileViolation(
+          RcProfileViolation.Kind.DENSITY_SCALED,
+          index,
+          operation.opcode,
+          "${operationName(operation.opcode)}.$field is in dp here and in pixels at API level 7, " +
+            "so it must be a literal",
+        )
+    }
+    if (unscalable.isNotEmpty()) {
+      scaled += operation
+      return@forEachIndexed
+    }
+    fun RcFloatWord.inPixels() =
+      if (bits == 0) this else RcFloatWord.literal(value * display.density)
+    scaled +=
+      when (operation) {
+        is RcBorderModifier -> operation.copy(borderWidth = operation.borderWidth.inPixels())
+        is RcOffsetModifier ->
+          operation.copy(x = operation.x.inPixels(), y = operation.y.inPixels())
+        else -> operation
+      }
+  }
+  return if (violations.isEmpty()) copy(operations = scaled) else null
 }
 
 /**
@@ -454,6 +531,9 @@ private fun RcDocument.densityScaledAsLegacy(
 private fun legacyHeader(header: RcHeader): RcHeader {
   if (!header.modern) return header
   if (header.densityBehavior != RcHeader.DENSITY_BEHAVIOR_LEGACY) return header
+  // The fixed form has no properties to carry the root's scroll directions: keep the header that
+  // does, reported by [validateFor], rather than drop them.
+  if (header.properties.any { it.key == RcHeader.DOC_SCROLL }) return header
   return RcHeader(
     version = RcVersion(1, 0, 0),
     legacyWidth = header.width,
@@ -465,9 +545,10 @@ private fun legacyHeader(header: RcHeader): RcHeader {
 
 /**
  * [header], re-declared only where a player reading it would decode the document wrongly: when it
- * names an API level newer than [target] reads, or selects an operation set missing operations the
- * document uses and [target] has. The re-declaration names [target]'s profile bits, at the
- * document's own level where that is at least 7 and no newer than [target]'s.
+ * names an API level newer than [target] reads, selects an operation set missing operations the
+ * document uses and [target] has, or names another player's profile than [target]'s. The
+ * re-declaration names [target]'s profile bits, at the document's own level where that is at least
+ * 7 and no newer than [target]'s.
  */
 private fun modernHeader(
   header: RcHeader,
@@ -482,7 +563,11 @@ private fun modernHeader(
       operations.any {
         it.opcode in target.supportedOpcodes && it.opcode !in declared.supportedOpcodes
       }
-  if (!tooNew && !undeclared) return header
+  // A header naming another player's profile (AndroidX's, over a launcher target) is read by the
+  // target under bits it may not know: the writer declares the target's own.
+  val declaredPlayer = header.profiles and PLAYER_PROFILES
+  val foreign = declaredPlayer != 0 && declaredPlayer != target.profiles and PLAYER_PROFILES
+  if (!tooNew && !undeclared && !foreign) return header
   val level =
     if (declaredLevel == null || declaredLevel < 7) target.apiLevel
     else minOf(declaredLevel, target.apiLevel)
@@ -497,5 +582,9 @@ private fun modernHeader(
       )
   return RcHeader(version = versionFor(level), properties = properties, modern = true)
 }
+
+/** The [RcProfiles] bits that name a player, as against those that add operations to one. */
+private const val PLAYER_PROFILES: Int =
+  RcProfiles.WIDGETS or RcProfiles.ANDROIDX or RcProfiles.ANDROID_NATIVE or RcProfiles.WEAR_WIDGETS
 
 private fun versionFor(apiLevel: Int): RcVersion = RcVersion(1, apiLevel - 6, 0)
