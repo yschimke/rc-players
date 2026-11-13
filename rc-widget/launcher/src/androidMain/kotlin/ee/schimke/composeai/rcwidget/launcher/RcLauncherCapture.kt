@@ -8,22 +8,15 @@ import androidx.compose.remote.creation.compose.capture.captureSingleRemoteDocum
 import androidx.compose.remote.creation.profile.Profile
 import androidx.compose.runtime.Composable
 import ee.schimke.composeai.rcplayer.edit.RcHardcodedValue
-import ee.schimke.composeai.rcplayer.edit.embedBitmapUrls
-import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
-import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcwidget.RcWidgetActionIds
-import ee.schimke.composeai.rcwidget.RcWidgetDocuments
+import ee.schimke.composeai.rcwidget.RcWidgetCaptureSize
 import ee.schimke.composeai.rcwidget.creation.androidx.ProvideRcExpressionNames
 import ee.schimke.composeai.rcwidget.creation.androidx.ProvideRcWidgetActions
 import ee.schimke.composeai.rcwidget.creation.androidx.ProvideRcWidgetCaptureSize
-import ee.schimke.composeai.rcwidget.creation.androidx.RcWidgetCaptureSize
-
-/** A launcher widget captured on the device: its document, and its taps' payloads by action id. */
-public class RcLauncherWidgetCapture(public val bytes: ByteArray, public val actions: Map<Int, String>)
 
 /**
  * Captures [content] as the document for a launcher widget of [size] on this device — the local
- * path, no server involved.
+ * path, no server involved — through AndroidX's creation API.
  *
  * [content] is composed for a launcher: its size breakpoints pick the layout for [size] now
  * ([ProvideRcWidgetCaptureSize]), its `rcWidgetHostAction`s become numeric host actions, and its
@@ -35,6 +28,10 @@ public class RcLauncherWidgetCapture(public val bytes: ByteArray, public val act
  *
  * Captures run [content] on the calling thread; call this off the main thread, as an
  * `AppWidgetProvider` does from `goAsync`.
+ *
+ * Content written against rc-players' own creation API (`ee.schimke.composeai.rccreation.*`) is
+ * captured by `rc-widget-launcher-cmp`'s function of the same name; the document that comes out,
+ * and everything after it ([finishLauncherCapture], [RcLauncherWidgets.remoteViews]), is the same.
  */
 public suspend fun captureLauncherWidget(
   context: Context,
@@ -51,8 +48,8 @@ public suspend fun captureLauncherWidget(
       context = context,
       creationDisplayInfo =
         RemoteCreationDisplayInfo(
-          dpToPx(size.widthDp, densityDpi),
-          dpToPx(size.heightDp, densityDpi),
+          RcWidgetSizing.dpToPx(size.widthDp, densityDpi),
+          RcWidgetSizing.dpToPx(size.heightDp, densityDpi),
           densityDpi,
         ),
       profile = profile,
@@ -61,9 +58,5 @@ public suspend fun captureLauncherWidget(
         ProvideRcWidgetActions(ids) { ProvideRcExpressionNames(content) }
       }
     }
-  val document = RcDocumentCodec.decode(captured.bytes, RcWireLimits())
-  val baked = RcWidgetDocuments.bake(document.embedBitmapUrls(fetchImage), values)
-  return RcLauncherWidgetCapture(RcDocumentCodec.encode(baked), ids.entries)
+  return finishLauncherCapture(captured.bytes, ids, values, fetchImage)
 }
-
-internal fun dpToPx(dp: Int, densityDpi: Int): Int = (dp * densityDpi / 160f).toInt()

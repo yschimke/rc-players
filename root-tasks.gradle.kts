@@ -61,6 +61,8 @@ val publishedProjects =
     ":rc-widget-core" to "rc-widget-core",
     ":rc-widget-creation" to "rc-widget-creation",
     ":rc-widget-creation-androidx" to "rc-widget-creation-androidx",
+    ":rc-widget-launcher-core" to "rc-widget-launcher-core",
+    ":rc-widget-launcher-cmp" to "rc-widget-launcher-cmp",
     ":rc-widget-launcher" to "rc-widget-launcher",
     ":rc-widget-wear" to "rc-widget-wear",
     ":third-party-rc-embedded-player" to "third-party-rc-embedded-player",

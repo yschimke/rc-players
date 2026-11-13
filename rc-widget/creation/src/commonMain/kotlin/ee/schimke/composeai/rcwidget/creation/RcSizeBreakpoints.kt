@@ -15,12 +15,11 @@ import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rccreation.compose.state.rf
 
 /**
- * The size a launcher widget is captured for, in dp. A launcher host recaptures on every resize
- * (`onAppWidgetOptionsChanged`), and Android 16's widget player does not reliably re-evaluate state
- * layouts driven by component dimensions, so inside a launcher capture the breakpoints here pick
- * their layout from this size at capture time instead of recording a ladder.
+ * The size a launcher widget is captured for, in dp; see
+ * [ee.schimke.composeai.rcwidget.RcWidgetCaptureSize], which this names so that the same slot can
+ * be captured through either creation binding (this one, or `rc-widget-creation-androidx`'s).
  */
-public data class RcWidgetCaptureSize(val widthDp: Int, val heightDp: Int)
+public typealias RcWidgetCaptureSize = ee.schimke.composeai.rcwidget.RcWidgetCaptureSize
 
 /** The launcher capture size, or null outside a launcher capture. */
 public val LocalRcWidgetCaptureSize:

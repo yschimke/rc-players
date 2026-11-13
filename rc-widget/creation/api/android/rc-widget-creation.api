@@ -34,7 +34,7 @@ public final class ee/schimke/composeai/rcwidget/creation/RcExpressionNamesKt {
 
 public final class ee/schimke/composeai/rcwidget/creation/RcSizeBreakpointsKt {
 	public static final fun ProvideRcChildCaptureShare (IIILkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
-	public static final fun ProvideRcWidgetCaptureSize (Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;I)V
+	public static final fun ProvideRcWidgetCaptureSize (Lee/schimke/composeai/rcwidget/RcWidgetCaptureSize;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;I)V
 	public static final fun RcMinSizeGate (IILee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
 	public static final fun RcSizeBreakpoint ([ILee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rcwidget/creation/RcBreakpointAxis;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
 	public static final fun getLocalRcWidgetCaptureSize ()Landroidx/compose/runtime/ProvidableCompositionLocal;
@@ -209,20 +209,6 @@ public final class ee/schimke/composeai/rcwidget/creation/RcWearLevelLook {
 	public final fun getSegments ()I
 	public final fun getSweep ()Ljava/util/List;
 	public final fun getTrack ()Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class ee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize {
-	public static final field $stable I
-	public fun <init> (II)V
-	public final fun component1 ()I
-	public final fun component2 ()I
-	public final fun copy (II)Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;
-	public static synthetic fun copy$default (Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;IIILjava/lang/Object;)Lee/schimke/composeai/rcwidget/creation/RcWidgetCaptureSize;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getHeightDp ()I
-	public final fun getWidthDp ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
