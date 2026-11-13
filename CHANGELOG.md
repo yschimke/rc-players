@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/yschimke/rc-players/compare/v3.1.3...v3.2.0) (2026-11-13)
+
+
+### Features
+
+* **compose:** prepare documents off the main thread and stop re-doing per-document work per card ([#885](https://github.com/yschimke/rc-players/issues/885)) ([a01d33f](https://github.com/yschimke/rc-players/commit/a01d33f1b07ddb68553e3d41733206dcf8ccf9f1))
+
 ## [3.1.3](https://github.com/yschimke/rc-players/compare/v3.1.2...v3.1.3) (2026-11-13)
 
 
