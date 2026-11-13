@@ -5,11 +5,15 @@ import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
+import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
+import ee.schimke.composeai.rcplayer.protocol.RcIdList
+import ee.schimke.composeai.rcplayer.protocol.RcIdLookup
+import ee.schimke.composeai.rcplayer.protocol.RcIdMap
 import ee.schimke.composeai.rcplayer.protocol.RcImpulseStart
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
@@ -155,14 +159,26 @@ internal fun rcChangesLayoutOnItsOwn(operations: List<RcOperation>): Boolean {
   // applied after measure) moves pixels, never bounds, so it needs no lookahead pass. A pulse on a
   // "live" badge's layer is the common case. Anything else naming a moving id counts.
   val moving = RcSystemVariables.MOVING.toMutableSet()
-  val expressions = operations.filterIsInstance<RcFloatExpression>()
+  // What a moving value flows into, by id: an expression over it, a map or list holding it, and a
+  // lookup that can select it. Each pass adds at least one id to a finite set, so this ends.
+  val flows = operations.mapNotNull { operation ->
+    when (operation) {
+      is RcFloatExpression ->
+        operation.id to operation.expression.mapNotNull { it.referencedId }.toSet()
+      is RcIdMap -> operation.id to operation.entries.mapTo(mutableSetOf()) { it.id }
+      is RcIdList -> operation.id to operation.ids.toSet()
+      is RcDataMapLookup -> operation.outId to setOf(operation.mapId)
+      is RcIdLookup ->
+        operation.outId to setOfNotNull(operation.listId, operation.index.referencedId)
+      else -> null
+    }
+  }
   var growing = true
   while (growing) {
     growing = false
-    for (expression in expressions) {
-      if (expression.id in moving) continue
-      if (expression.expression.any { word -> word.referencedId?.let { it in moving } == true }) {
-        moving += expression.id
+    for ((id, inputs) in flows) {
+      if (id !in moving && inputs.any { it in moving }) {
+        moving += id
         growing = true
       }
     }

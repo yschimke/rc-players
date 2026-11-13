@@ -12,6 +12,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
+import ee.schimke.composeai.rcplayer.protocol.RcDataMapEntry
+import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
@@ -21,6 +23,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
+import ee.schimke.composeai.rcplayer.protocol.RcIdMap
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
@@ -115,6 +118,22 @@ class RcDeferredLayoutAnimationsTest {
         animation = null,
       )
     assertTrue(rcChangesLayoutOnItsOwn(listOf(blink, RcVisibilityModifier(PULSE))))
+  }
+
+  @Test
+  fun aComponentTheClockShowsThroughALookupKeepsTheLookaheadPass() {
+    val blink =
+      RcFloatExpression(
+        PULSE,
+        listOf(RcFloatWord(0x7f800000 or RcSystemVariables.TIME_IN_SEC)),
+        animation = null,
+      )
+    val map = RcIdMap(50, listOf(RcDataMapEntry("shown", RcIdMap.TYPE_FLOAT, PULSE)))
+    val lookup = RcDataMapLookup(outId = 51, mapId = 50, keyTextId = 52)
+    assertTrue(rcChangesLayoutOnItsOwn(listOf(blink, map, lookup, RcVisibilityModifier(51))))
+    // The same lookup over a constant does not.
+    val still = RcIdMap(50, listOf(RcDataMapEntry("shown", RcIdMap.TYPE_FLOAT, 60)))
+    assertFalse(rcChangesLayoutOnItsOwn(listOf(still, lookup, RcVisibilityModifier(51))))
   }
 
   @Test
