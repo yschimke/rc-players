@@ -313,6 +313,59 @@ What changes for a caller of 3.0.0:
 | `LocalRemoteComposeCreationState.current.supportedOperations` | `.profile.supportedOperations` |
 | `RemoteDocumentWriter(width, height, densityBehavior, profiles)` | Unchanged: a writer for no profile, which writes anything. `RemoteDocumentWriter(creationDisplayInfo, null, profile)` and `RemoteDocumentWriter(profile, vararg tags)` are AndroidX's constructors, and `profile.create(…)` calls the profile's factory. |
 
+### Launcher widgets from either API
+
+`rc-widget-launcher` is the AndroidX-flavoured entry point and is unchanged: same artifact, package
+and names. A launcher widget authored through rc-players' API takes `rc-widget-launcher-cmp`
+instead, and the two share `rc-widget-launcher-core` for everything after the capture, so the same
+widget draws the same on the platform's player whichever wrote it
+([LAUNCHER_EITHER_API.md](design/LAUNCHER_EITHER_API.md)). Neither brings the other's creation
+libraries.
+
+What changes for an app that moves a launcher widget's authoring to the CMP API (Cadence's podcast
+and cloud-sync widgets, which kept a build-time AndroidX copy of their swim drawing for this):
+
+```kotlin
+// before: rc-widget-launcher, AndroidX content
+import ee.schimke.composeai.rcwidget.creation.androidx.rcWidgetHostAction
+import ee.schimke.composeai.rcwidget.launcher.RcLauncherWidgets
+import ee.schimke.composeai.rcwidget.launcher.RcWidgetSizing
+import ee.schimke.composeai.rcwidget.launcher.captureLauncherWidget
+import ee.schimke.cadence.swim.androidx.SwimmingPool          // the generated copy
+
+val slot = RcWidgetSizing.slotOf(manager, id)
+val capture = captureLauncherWidget(context, slot) { Content(onTap = rcWidgetHostAction("open", "open")) }
+manager.updateAppWidget(id, RcLauncherWidgets.remoteViews(capture.bytes, taps))
+
+// after: rc-widget-launcher-cmp, rc-players content
+import ee.schimke.composeai.rcwidget.creation.rcWidgetHostAction
+import ee.schimke.composeai.rcwidget.launcher.RcPlatformWidgets   // or this, from rc-widget-launcher-core
+import ee.schimke.composeai.rcwidget.launcher.RcWidgetSizing      // unchanged (now in the core)
+import ee.schimke.composeai.rcwidget.launcher.cmp.captureLauncherWidget
+import ee.schimke.cadence.swim.SwimmingPool                   // the CMP drawing, no copy
+
+val slot = RcWidgetSizing.slotOf(manager, id)
+val capture = captureLauncherWidget(context, slot) { Content(onTap = rcWidgetHostAction("open", "open")) }
+manager.updateAppWidget(id, RcPlatformWidgets.remoteViews(capture.bytes, taps))
+```
+
+- **Dependency:** `rc-widget-launcher` → `rc-widget-launcher-cmp` (version from `rc-players-bom`).
+  An app on the CMP entry point has no `RcLauncherWidgets`: its members are `RcPlatformWidgets`'s
+  under the same names (`MIN_HOST_API`, `remoteViews`, `forDisplay`, `notificationRemoteViews`,
+  `actionBroadcast`, `actionActivity`, `tapOf`, `targetFor`, `violations`). `captureLauncherWidget`,
+  `RcLauncherWidgetCapture`, `RcWidgetSizing`, `platformWidgetDocument`, `RcAdaptiveRemoteDocumentPlayer`
+  and the preview keep their names.
+- **Capture:** `captureLauncherWidget(context, slot) { … }` reads as before; `context` is optional
+  (`captureLauncherWidget(slot, densityDpi = …)`), because rc-players' capture needs none.
+- **Profile:** `RcLauncherWidgets.profileFor()` (an AndroidX `Profile`) becomes `launcherCaptureProfile()`
+  (`RcCaptureProfiles.launcherWidgets` or `systemThemedLauncherWidgets`: the same level, bits and
+  operations; `theCmpCaptureProfilesAreTheAndroidxOnes` holds them to it).
+- **Content:** `RemoteComposable` building blocks and `rcWidgetHostAction`, `RcSizeBreakpoint`, … come
+  from `ee.schimke.composeai.rccreation.compose.*` and `ee.schimke.composeai.rcwidget.creation`;
+  `RcWidgetCaptureSize` is the same class in both packages.
+- **Still AndroidX:** `rc-widget-wear` (Glance Wear takes AndroidX types), so an app with Wear widgets
+  keeps its generated AndroidX copy for them until that has a CMP entry point.
+
 For widgets, `rc-widget-creation` has the profiles `rc-widget-launcher` and
 `rc-widget-creation-androidx` have for AndroidX's API, on rc-players':
 
