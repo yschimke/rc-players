@@ -328,3 +328,10 @@ A capture under `launcherWidgets` holds what a launcher reads, text as `TextLayo
 needs no `adaptTo(…)` to rewrite it and no header fixed up afterwards. Android 16 still wants
 `rc-widget-launcher`'s `platformWidgetDocument` over the bytes (its header version, and where it
 keeps resources and measured sizes), and `validateFor` remains the check that a document plays.
+
+A document written for a higher level and rewritten with `adaptTo(…)` for a lower one gets the forms
+the writer writes there: text as `TextLayout`, a canvas's drawing in a `CanvasContent` with its
+size values naming it, the legacy border, the level 6 header, and for a launcher paint measuring off.
+A density behaviour, scroll directions, a path winding rule or a glyph spacing below the level that
+reads it are refused in `violations`, as the writer refuses them. The list, with where each is
+written and checked, is `docs/design/VERSION_QUIRKS.md`.
