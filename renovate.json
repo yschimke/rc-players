@@ -51,6 +51,12 @@
       "enabled": false
     },
     {
+      "description": "Robolectric's Android platforms are pinned one per API level on purpose (robolectric-sdk35, -sdk36 and -sdk37 in gradle/libs.versions.toml): the launcher tests play Android 15, 16 and 17's own remote-compose players, and a bump of one key to a newer platform silently turns that lane into another API level (Renovate proposed moving the Android 16 key to the Android 17 build). Move each pin by hand, with the lane's tests and render, when Robolectric publishes a rebuild of that same platform.",
+      "matchManagers": ["gradle"],
+      "matchPackageNames": ["org.robolectric:android-all-instrumented"],
+      "enabled": false
+    },
+    {
       "description": "One PR a week for the workflow pins rather than one per action: these land as a workflow-only change that the same required checks gate, and reviewing them together is how a bad action bump is spotted.",
       "matchManagers": ["github-actions"],
       "groupName": "github-actions"
