@@ -135,6 +135,11 @@ public final class ee/schimke/composeai/rcplayer/edit/RcEmbedBitmapsKt {
 	public static final fun getBitmapUrls (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Ljava/util/List;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcForDisplayKt {
+	public static final fun forDisplay (Lee/schimke/composeai/rcplayer/protocol/RcDocument;FFLjava/util/Set;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static synthetic fun forDisplay$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;FFLjava/util/Set;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcHardcodeDensityKt {
 	public static final fun hardcodeDensity (Lee/schimke/composeai/rcplayer/protocol/RcDocument;FF)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public static synthetic fun hardcodeDensity$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;FFILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;

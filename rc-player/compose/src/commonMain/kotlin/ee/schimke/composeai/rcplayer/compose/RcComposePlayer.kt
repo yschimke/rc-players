@@ -374,10 +374,11 @@ public fun RcComposePlayer(
   systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
   customComponents: RcCustomComponentRegistry,
 ) {
-  val extensions = LocalRcPlayerExtensions.current
-  val document = remember(bytes, extensions) { decodeCmpDocument(bytes, extensions) }
+  // As [LocalRcPreparation] says: here, or in the background with an empty frame until it is ready.
+  val prepared =
+    rememberRcPreparedDocument(bytes) ?: return androidx.compose.foundation.layout.Spacer(modifier)
   RcComposePlayer(
-    document,
+    prepared,
     modifier,
     theme,
     namedValues,
@@ -401,10 +402,10 @@ public fun RcComposePlayer(
   systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
   customComponents: RcCustomComponentRegistry = RcCustomComponentRegistry.Empty,
 ) {
-  val extensions = LocalRcPlayerExtensions.current
-  val document = remember(bytes, extensions) { decodeCmpDocument(bytes, extensions) }
+  val prepared =
+    rememberRcPreparedDocument(bytes) ?: return androidx.compose.foundation.layout.Spacer(modifier)
   RcComposePlayer(
-    document,
+    prepared,
     imageLoader,
     modifier,
     theme,
@@ -591,7 +592,8 @@ private fun RcComposePlayerResolved(
   val state =
     remember(document) {
       RcPlayerState(
-        document,
+        // Copied from what the prepared document scanned once, rather than scanned per player.
+        prepared.stateSeed,
         // Seeded once, from whatever the map holds when this document is first composed.
         seededNamedValues,
         eventSink = { latestEventSink(it) },
@@ -835,11 +837,14 @@ private fun RcComposePlayerResolved(
     }
   }
   val inlineImages = remember(prepared) { prepared.inlineImagesForPlayer() }
-  val images = rememberRcImages(document, linkedDocument, inlineImages) { invalidationVersion += 1 }
+  val images =
+    rememberRcImages(document, linkedDocument, inlineImages, prepared.externalBitmaps) {
+      invalidationVersion += 1
+    }
   val touchExpressions = prepared.touchExpressions
   val offscreenTargets =
     remember(document) {
-      RcOffscreenTargetPool(componentBuffers = rcComponentOffscreenBuffers(document))
+      RcOffscreenTargetPool(componentBuffers = prepared.componentOffscreenBuffers)
     }
   DisposableEffect(offscreenTargets) { onDispose { offscreenTargets.dispose() } }
   val playerExtensions = LocalRcPlayerExtensions.current
@@ -929,10 +934,15 @@ private fun RcComposePlayerResolved(
     // operations publish must be recomputed before this same composition measures and draws.
     state.applyLayoutContentStateOperations(linkedDocument.operations, theme)
     val version = invalidationVersion
-    val settles = state.hasAnyComponentValues
+    // Only a document whose own geometry reaches layout pays for settling; one that reads it only
+    // at paint time publishes sizes from the kept tree's measure pass instead (see
+    // [RcPreparedDocument.settlesFirstLayout]).
+    val settles = prepared.settlesFirstLayout
     val captures =
       remember(document, linkedDocument, layout) {
-        RcComponentCaptures.of(document, linkedDocument.operations, layout)
+        if (prepared.capturesComponents) {
+          RcComponentCaptures.of(document, linkedDocument.operations, layout)
+        } else null
       }
     val visibilityFunctions =
       remember(
@@ -969,6 +979,7 @@ private fun RcComposePlayerResolved(
           LocalRcFrameTime provides frameTime,
           LocalRcPaintVersion provides paintVersion,
           LocalRcGeometryProbe provides probe,
+          LocalRcPublishSizeOnMeasure provides !settles,
           LocalRcPlayerRoot provides playerRoot,
           LocalRcFonts provides fonts,
           LocalRcTypefaces provides typefaces,
@@ -1101,6 +1112,7 @@ private fun RenderLayoutNode(
   val paintVersion = LocalRcPaintVersion.current
   val lookaheadScope = LocalRcLookaheadScope.current
   val geometryProbe = LocalRcGeometryProbe.current
+  val publishSizeOnMeasure = LocalRcPublishSizeOnMeasure.current
   val playerRoot = LocalRcPlayerRoot.current
   val fontFamilies = LocalRcFonts.current
   val typefaces = LocalRcTypefaces.current
@@ -1175,7 +1187,13 @@ private fun RenderLayoutNode(
       // on nodes it still expects to find. The node is a child of its parent like any other, so
       // under inspection a spaced `Column` or `Row` counts it; production does not report this way.
       Layout(
-        Modifier.trackComponentGeometry(geometryIds, state, geometryProbe, playerRoot)
+        Modifier.trackComponentGeometry(
+            geometryIds,
+            state,
+            geometryProbe,
+            playerRoot,
+            publishSizeOnMeasure,
+          )
           .inspectComponent(node, visibility, inspecting, contentInset),
       ) { _, _ ->
         layout(0, 0) {}
@@ -1212,7 +1230,7 @@ private fun RenderLayoutNode(
           invalidate,
           owner = node.componentId,
         )
-        .trackComponentGeometry(geometryIds, state, geometryProbe, playerRoot)
+        .trackComponentGeometry(geometryIds, state, geometryProbe, playerRoot, publishSizeOnMeasure)
         .inspectComponent(
           node,
           if (collapse?.collapsed == true) 0 else visibility,
@@ -1626,6 +1644,7 @@ private fun RenderLayoutNode(
                 state,
                 geometryProbe,
                 playerRoot,
+                publishSizeOnMeasure,
               ),
             ) { _, _ ->
               layout(0, 0) {}
@@ -1638,6 +1657,7 @@ private fun RenderLayoutNode(
                 state,
                 geometryProbe,
                 playerRoot,
+                publishSizeOnMeasure,
               ),
             ) {
               renderChildren()
@@ -2126,6 +2146,9 @@ private enum class RcFitBoxSlot {
 }
 
 private val LocalRcLookaheadScope = compositionLocalOf<LookaheadScope?> { null }
+
+/** Whether components publish their size from the measure pass; see `trackComponentGeometry`. */
+private val LocalRcPublishSizeOnMeasure = compositionLocalOf { false }
 private val LocalRcLayoutVersion = compositionLocalOf { 0 }
 
 /**
@@ -3883,6 +3906,12 @@ private fun Modifier.trackComponentGeometry(
   state: RcPlayerState,
   probe: RcGeometryProbe?,
   playerRoot: RcPlayerRoot?,
+  /**
+   * Publish each measured size from the measure pass too, before anything is placed or drawn: for a
+   * document that reads its geometry only at paint time and so does not settle, this is what puts a
+   * circle clip's radius in place for the first frame. See [RcPreparedDocument.settlesFirstLayout].
+   */
+  publishSizeOnMeasure: Boolean = false,
 ): Modifier {
   val tracked = componentIds.distinct().filter(state::hasComponentValues)
   if (tracked.isEmpty()) return this
@@ -3900,7 +3929,17 @@ private fun Modifier.trackComponentGeometry(
       layout(placeable.width, placeable.height) { placeable.place(0, 0) }
     }
   }
-  return onGloballyPositioned { coordinates ->
+  val measured =
+    if (probe == null && publishSizeOnMeasure) {
+      layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        tracked.forEach { id ->
+          state.publishComponentSize(id, placeable.width.toFloat(), placeable.height.toFloat())
+        }
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+      }
+    } else this
+  return measured.onGloballyPositioned { coordinates ->
     val local = coordinates.positionInParent()
     // The document's root, as AndroidX measures ROOT_X / ROOT_Y, not the host window's: a player in
     // a scrolling list would otherwise publish a new position on every frame of the scroll, and a

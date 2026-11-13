@@ -14,6 +14,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPreparedDocument
+import ee.schimke.composeai.rcplayer.edit.forDisplay
+import ee.schimke.composeai.rcplayer.edit.namedVariables
+import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import java.io.File
@@ -31,6 +34,19 @@ public enum class RcFeedMode(public val description: String) {
   Document("shared RcDocument (link + layout + state)"),
   /** One prepared document shared by every card: only the state per card. */
   Prepared("shared RcPreparedDocument (state only)"),
+  /**
+   * No player at all: [RcReferenceCard], a session-shaped card written directly in Compose UI
+   * (foundation), as the bar a player card has to beat.
+   */
+  ComposeUi("Compose UI reference card (no player)"),
+  /**
+   * One prepared document, edited first as a host serving one display would (`rc-player-edit`):
+   * density and font scale hardcoded, named values no card binds frozen, constant state layouts
+   * collapsed and the result optimized. Every `USER:` value stays bound.
+   */
+  Edited("shared, edited for this display (density baked, optimized)"),
+  /** As [Edited], with the theme (`theme.*`, the same for every card of a screen) frozen too. */
+  EditedTheme("shared, edited, theme baked too"),
 }
 
 /** One mode's frame times over a simulated fling. */
@@ -68,17 +84,20 @@ public class RcFeedProfile(
   private val arrivalsPerFrame: Int = 2,
   private val frames: Int = 300,
   private val warmupFrames: Int = 60,
+  /** The modes to run; all by default (`-Prc.feed.modes=Prepared,ComposeUi` narrows it). */
+  private val modes: List<RcFeedMode> =
+    System.getProperty("rc.feed.modes")?.split(',')?.map { RcFeedMode.valueOf(it.trim()) }
+      ?: RcFeedMode.entries,
 ) {
   /**
    * Every mode over every template. All of them are warmed first and the modes then interleave over
    * [rounds], rotating their order, so no mode pays for JIT or a busy moment on the others' behalf.
    */
   public fun run(templates: List<Pair<String, ByteArray>>, rounds: Int = 5): List<RcFeedResult> {
-    for ((_, bytes) in templates) RcFeedMode.entries.forEach { play(bytes, it, warmupFrames) }
+    for ((_, bytes) in templates) modes.forEach { play(bytes, it, warmupFrames) }
     val samples = mutableMapOf<Pair<String, RcFeedMode>, MutableList<Long>>()
     repeat(rounds) { round ->
       for ((name, bytes) in templates) {
-        val modes = RcFeedMode.entries
         modes.indices.forEach { i ->
           val mode = modes[(i + round) % modes.size]
           samples.getOrPut(name to mode) { mutableListOf() } += play(bytes, mode, frames / rounds)
@@ -86,9 +105,7 @@ public class RcFeedProfile(
       }
     }
     return templates.flatMap { (name, _) ->
-      RcFeedMode.entries.map {
-        RcFeedResult(name, it, samples.getValue(name to it), arrivalsPerFrame)
-      }
+      modes.map { RcFeedResult(name, it, samples.getValue(name to it), arrivalsPerFrame) }
     }
   }
 
@@ -97,6 +114,12 @@ public class RcFeedProfile(
     // point.
     val document = RcDocumentCodec.decode(bytes)
     val prepared = RcPreparedDocument(document)
+    val edited =
+      when (mode) {
+        RcFeedMode.Edited -> RcPreparedDocument(document.editedFor(bindTheme = true))
+        RcFeedMode.EditedTheme -> RcPreparedDocument(document.editedFor(bindTheme = false))
+        else -> prepared
+      }
     var first by mutableIntStateOf(0)
     val scene =
       ImageComposeScene(width = CARD_WIDTH, height = CARD_HEIGHT * visible, density = Density(1f)) {
@@ -109,6 +132,10 @@ public class RcFeedProfile(
                 mutableStateMapOf<String, RcNamedValue>(
                   "USER:title" to RcNamedValue.Text("Item $item"),
                   "USER:index" to RcNamedValue.Integer(item),
+                  // A Livery session card's inputs, by their contract names.
+                  "title" to
+                    RcNamedValue.Text("Session $item: building adaptive apps with Compose"),
+                  "speakers" to RcNamedValue.Text("Jane Doe, John Smith"),
                 )
               }
               val modifier = Modifier.size(CARD_WIDTH.dp, CARD_HEIGHT.dp)
@@ -116,6 +143,9 @@ public class RcFeedProfile(
                 RcFeedMode.Bytes -> RcComposePlayer(bytes, modifier, namedValues = values)
                 RcFeedMode.Document -> RcComposePlayer(document, modifier, namedValues = values)
                 RcFeedMode.Prepared -> RcComposePlayer(prepared, modifier, namedValues = values)
+                RcFeedMode.ComposeUi -> RcReferenceCard(item, modifier)
+                RcFeedMode.Edited,
+                RcFeedMode.EditedTheme -> RcComposePlayer(edited, modifier, namedValues = values)
               }
             }
           }
@@ -152,14 +182,16 @@ public class RcFeedProfile(
       results
         .groupBy { it.template }
         .forEach { (template, rows) ->
-          val baseline = rows.first { it.mode == RcFeedMode.Bytes }.meanMicros
+          val baseline = rows.first().meanMicros
           appendLine("## `$template`")
           appendLine()
           appendLine(
             "${rows.first().frameNanos.size} frames, ${rows.first().arrivalsPerFrame} new cards each.",
           )
           appendLine()
-          appendLine("| Mode | Frame mean | p50 | p95 | Per new card | vs bytes |")
+          appendLine(
+            "| Mode | Frame mean | p50 | p95 | Per new card | vs ${rows.first().mode.name} |",
+          )
           appendLine("| --- | ---: | ---: | ---: | ---: | ---: |")
           rows.forEach { r ->
             appendLine(
@@ -201,3 +233,20 @@ public object RcFeedProfileMain {
     println(report)
   }
 }
+
+/**
+ * This document as a host serving one display at density 1 plays it: see [RcFeedMode.Edited]. With
+ * [bindTheme] false the `theme.*` values are frozen at their recorded values, as a host that bakes
+ * the screen's theme in would freeze them at its own.
+ */
+internal fun RcDocument.editedFor(bindTheme: Boolean): RcDocument =
+  if (bindTheme) forDisplay(density = 1f)
+  else
+    forDisplay(
+      density = 1f,
+      bound =
+        namedVariables
+          .map { it.name }
+          .filter { it.startsWith("USER:") && !it.startsWith("USER:theme.") }
+          .toSet(),
+    )

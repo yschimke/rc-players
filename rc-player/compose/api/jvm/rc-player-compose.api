@@ -164,6 +164,21 @@ public final class ee/schimke/composeai/rcplayer/compose/RcCustomComponentRegist
 	public final fun getEmpty ()Lee/schimke/composeai/rcplayer/compose/RcCustomComponentRegistry;
 }
 
+public final class ee/schimke/composeai/rcplayer/compose/RcDisplay {
+	public static final field $stable I
+	public fun <init> (FF)V
+	public synthetic fun <init> (FFILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()F
+	public final fun component2 ()F
+	public final fun copy (FF)Lee/schimke/composeai/rcplayer/compose/RcDisplay;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcDisplay;FFILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcDisplay;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDensity ()F
+	public final fun getFontScale ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcDownloadableFontRequest {
 	public static final field $stable I
 	public fun <init> (Ljava/lang/String;)V
@@ -929,15 +944,68 @@ public final class ee/schimke/composeai/rcplayer/compose/RcPlayerTheme : java/la
 	public static fun values ()[Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;
 }
 
+public abstract interface class ee/schimke/composeai/rcplayer/compose/RcPreparation {
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcPreparation$Background : ee/schimke/composeai/rcplayer/compose/RcPreparation {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;Lkotlin/coroutines/CoroutineContext;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;Lkotlin/coroutines/CoroutineContext;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getCache ()Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;
+	public final fun getContext ()Lkotlin/coroutines/CoroutineContext;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcPreparation$InComposition : ee/schimke/composeai/rcplayer/compose/RcPreparation {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/compose/RcPreparation$InComposition;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcPreparationKt {
+	public static final fun getLocalRcPreparation ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+	public static final fun rememberRcPreparedDocument ([BLee/schimke/composeai/rcplayer/compose/RcPreparation;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcPreparedDocument {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument$Companion;
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)V
 	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun getStateSeed ()Lee/schimke/composeai/rcplayer/runtime/RcPlayerStateSeed;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcPreparedDocument$Companion {
 	public final fun decode ([B)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (ILee/schimke/composeai/rcplayer/compose/RcPreprocessor;)V
+	public synthetic fun <init> (ILee/schimke/composeai/rcplayer/compose/RcPreprocessor;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getMisses ()I
+	public final fun getPrepared ()I
+	public final fun getPreprocessor ()Lee/schimke/composeai/rcplayer/compose/RcPreprocessor;
+	public final fun getSize ()I
+	public final fun peek ([BLee/schimke/composeai/rcplayer/compose/RcDisplay;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+	public final fun peek ([BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lee/schimke/composeai/rcplayer/compose/RcDisplay;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+	public static synthetic fun peek$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcDisplay;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+	public static synthetic fun peek$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lee/schimke/composeai/rcplayer/compose/RcDisplay;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+	public final fun prepare ([BLee/schimke/composeai/rcplayer/compose/RcDisplay;Lkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun prepare ([BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lee/schimke/composeai/rcplayer/compose/RcDisplay;Lkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun prepare$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcDisplay;Lkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public static synthetic fun prepare$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lee/schimke/composeai/rcplayer/compose/RcDisplay;Lkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun prepareNow ([BLee/schimke/composeai/rcplayer/compose/RcDisplay;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+	public final fun prepareNow ([BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lee/schimke/composeai/rcplayer/compose/RcDisplay;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+	public static synthetic fun prepareNow$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcDisplay;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+	public static synthetic fun prepareNow$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lee/schimke/composeai/rcplayer/compose/RcDisplay;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/compose/RcPreprocessor {
+	public abstract fun preprocess (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/compose/RcDisplay;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcSoundHost {

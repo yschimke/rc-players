@@ -439,8 +439,43 @@ items(feed) { item ->
 }
 ```
 
+A prepared document also carries each card's `RcPlayerStateSeed`, so a card's state copies what the
+document declares instead of scanning it again, and knows whether its first layout has to settle the
+sizes the document reads of itself: a document that reads them only to round a clip (what every
+circle or rounded clip the creation library writes does) is laid out once, not composed again for
+each settling pass.
+
 `./gradlew :rc-player-profile:rcPlayerFeedProfile` measures what a card arriving costs each way
 ([`RC_PLAYER_PROFILING.md`](docs/design/RC_PLAYER_PROFILING.md#feeds-the-cost-of-a-card-arriving)).
+
+### Preparing off the main thread
+
+The player overloads that take bytes prepare them as `LocalRcPreparation` says. The default,
+`RcPreparation.InComposition`, prepares during the composition that first shows them, as the player
+always has. `RcPreparation.Background` never prepares in composition: composition only looks the
+bytes up in an `RcPreparedDocumentCache` (by content), and bytes that are not there yet are prepared on
+a background dispatcher while the player draws nothing. Prepare what is coming ahead of time and a
+list that scrolls neither decodes on its main thread nor shows an empty frame:
+
+```kotlin
+val documents = RcPreparedDocumentCache()
+
+LaunchedEffect(feed) { feed.templates().forEach { documents.prepare(it) } } // Dispatchers.Default
+
+CompositionLocalProvider(LocalRcPreparation provides RcPreparation.Background(documents)) {
+  LazyColumn { items(feed) { item -> RcComposePlayer(item.templateBytes, Modifier.fillMaxWidth()) } }
+}
+```
+
+`rememberRcPreparedDocument(bytes)` gives the same answer to a host that plays prepared documents
+itself, and `RcPreparedDocumentCache.misses` counts the players that had to wait for one.
+
+A cache can also rewrite each document for the display it plays on, as part of that background work:
+`RcPreparedDocumentCache(preprocessor = { doc, display -> doc.forDisplay(display.density, display.fontScale) })`
+hardcodes the density and font scale, freezes the values no card binds and folds the expressions that
+leaves (`rc-player-edit`'s `forDisplay`), once per document and display. Only the document is
+prepared off the main thread: every card is still ordinary Compose nodes, laid out, drawn and
+exposed to accessibility on the composition's thread.
 
 An override returns a Compose `ImageBitmap`, or null for an unavailable image. It owns its access
 policy and recoverable errors; it must not block the composition dispatcher. Use

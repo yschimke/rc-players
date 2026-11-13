@@ -95,24 +95,82 @@ public data class RcComponentGeometry(
 )
 
 /** Typed runtime values for the CMP player; independent from AndroidX `RemoteContext`. */
-public class RcPlayerState(
+public class RcPlayerState
+private constructor(
   public val document: RcDocument,
-  namedValues: Map<String, RcNamedValue> = emptyMap(),
-  private val eventSink: (RcPlayerEvent) -> Unit = {},
-  private val onInvalidated: () -> Unit = {},
-  private val effectSink: (RcPlayerEffect) -> Unit = {},
-  private val timeSource: RcTimeSource = RcTimeSource.System,
+  namedValues: Map<String, RcNamedValue>,
+  private val eventSink: (RcPlayerEvent) -> Unit,
+  private val onInvalidated: () -> Unit,
+  private val effectSink: (RcPlayerEffect) -> Unit,
+  private val timeSource: RcTimeSource,
   /**
    * Host resolution for a `ColorTheme`'s recorded resource indices — see [applyColorTheme]. The
    * default resolves nothing, which is correct for a host with no system palette to offer (a
    * desktop JVM, a browser): every themed colour then renders as its captured fallback, exactly as
    * it did before this parameter existed.
    */
-  private val systemColorLookup: (name: String) -> Int? = { null },
-  private val soundSink: (RcSoundEffect) -> Unit = {},
-  particleRandomSeed: Long = RcFloatExpressionEvaluator.DEFAULT_RANDOM_SEED,
-  particleLimits: RcParticleExecutionLimits = RcParticleExecutionLimits(),
+  private val systemColorLookup: (name: String) -> Int?,
+  private val soundSink: (RcSoundEffect) -> Unit,
+  particleRandomSeed: Long,
+  particleLimits: RcParticleExecutionLimits,
+  /** What every state of [document] starts from, scanned once; null scans [document] here. */
+  seed: RcPlayerStateSeed?,
 ) {
+  public constructor(
+    document: RcDocument,
+    namedValues: Map<String, RcNamedValue> = emptyMap(),
+    eventSink: (RcPlayerEvent) -> Unit = {},
+    onInvalidated: () -> Unit = {},
+    effectSink: (RcPlayerEffect) -> Unit = {},
+    timeSource: RcTimeSource = RcTimeSource.System,
+    systemColorLookup: (name: String) -> Int? = { null },
+    soundSink: (RcSoundEffect) -> Unit = {},
+    particleRandomSeed: Long = RcFloatExpressionEvaluator.DEFAULT_RANDOM_SEED,
+    particleLimits: RcParticleExecutionLimits = RcParticleExecutionLimits(),
+  ) : this(
+    document,
+    namedValues,
+    eventSink,
+    onInvalidated,
+    effectSink,
+    timeSource,
+    systemColorLookup,
+    soundSink,
+    particleRandomSeed,
+    particleLimits,
+    seed = null,
+  )
+
+  /**
+   * A state of [seed]'s document that copies what [seed] scanned instead of scanning the document
+   * again: for a host that plays many cards of one template, where each card needs a state of its
+   * own but every state starts from the same document. Equivalent to the document constructor.
+   */
+  public constructor(
+    seed: RcPlayerStateSeed,
+    namedValues: Map<String, RcNamedValue> = emptyMap(),
+    eventSink: (RcPlayerEvent) -> Unit = {},
+    onInvalidated: () -> Unit = {},
+    effectSink: (RcPlayerEffect) -> Unit = {},
+    timeSource: RcTimeSource = RcTimeSource.System,
+    systemColorLookup: (name: String) -> Int? = { null },
+    soundSink: (RcSoundEffect) -> Unit = {},
+    particleRandomSeed: Long = RcFloatExpressionEvaluator.DEFAULT_RANDOM_SEED,
+    particleLimits: RcParticleExecutionLimits = RcParticleExecutionLimits(),
+  ) : this(
+    seed.document,
+    namedValues,
+    eventSink,
+    onInvalidated,
+    effectSink,
+    timeSource,
+    systemColorLookup,
+    soundSink,
+    particleRandomSeed,
+    particleLimits,
+    seed,
+  )
+
   /** Binary-compatible JVM constructor for clients compiled before sound and particle support. */
   public constructor(
     document: RcDocument,
@@ -136,8 +194,8 @@ public class RcPlayerState(
   )
 
   private val floats = mutableMapOf<Int, Float>()
-  private val componentValues =
-    document.operations.filterIsInstance<RcComponentValue>().distinct().groupBy { it.componentId }
+  private val componentValues: Map<Int, List<RcComponentValue>> =
+    seed?.componentValues ?: rcComponentValuesOf(document)
   private val componentGeometries = mutableMapOf<Int, RcComponentGeometry>()
   private val componentContentWidths = mutableMapOf<Int, Float>()
   private val componentContentHeights = mutableMapOf<Int, Float>()
@@ -199,10 +257,12 @@ public class RcPlayerState(
    */
   private val overriddenFloats = mutableSetOf<Int>()
   private val overriddenIntegers = mutableSetOf<Int>()
-  private val floatExpressions =
-    document.operations.filterIsInstance<RcFloatExpression>().associateBy { it.id }
-  private val integerExpressions =
-    document.operations.filterIsInstance<RcIntegerExpression>().associateBy { it.outId }
+  private val floatExpressions: Map<Int, RcFloatExpression> =
+    seed?.floatExpressions
+      ?: document.operations.filterIsInstance<RcFloatExpression>().associateBy { it.id }
+  private val integerExpressions: Map<Int, RcIntegerExpression> =
+    seed?.integerExpressions
+      ?: document.operations.filterIsInstance<RcIntegerExpression>().associateBy { it.outId }
   private val impulseTimelines = mutableListOf<Pair<RcImpulseStart, RcImpulseTimeline>>()
   private val conditionalPreviousValues =
     mutableListOf<Pair<RcConditionalOperations, Pair<Float, Float>>>()
@@ -225,19 +285,8 @@ public class RcPlayerState(
    * document exposes `year` or `dayOfMonth` to its host, and counting that as a claim stopped the
    * player loading the very value being named — a calendar that names its fields drew them as 0.
    */
-  private val claimedSystemIds: MutableSet<Int> = buildSet {
-    document.operations.forEach { operation ->
-      when (operation) {
-        is RcFloatConstant -> add(operation.id)
-        is RcIntegerConstant -> add(operation.id)
-        is RcTouchExpression -> add(operation.id)
-        is RcComponentValue -> add(operation.valueId)
-        else -> Unit
-      }
-    }
-  }
-    .intersect(RcSystemVariables.ALL)
-    .toMutableSet()
+  private val claimedSystemIds: MutableSet<Int> =
+    (seed?.claimedSystemIds ?: rcClaimedSystemIdsOf(document)).toMutableSet()
 
   /**
    * The claims the document made for itself, which clearing a host override must leave standing.
@@ -454,7 +503,8 @@ public class RcPlayerState(
   public fun isContinuouslyDriven(id: Int): Boolean = id in continuouslyDrivenIds
 
   public val rootContentBehavior: RcRootContentBehavior? =
-    document.operations.filterIsInstance<RcRootContentBehavior>().lastOrNull()
+    if (seed != null) seed.rootContentBehavior
+    else document.operations.filterIsInstance<RcRootContentBehavior>().lastOrNull()
 
   public val rootContentDescription: String?
     get() =
@@ -479,24 +529,23 @@ public class RcPlayerState(
     }
 
   init {
-    for (operation in document.operations) {
-      when (operation) {
-        is RcFloatConstant -> storeFloat(operation.id, operation.value.value)
-        is RcColorConstant -> colors[operation.id] = operation.argb
-        is RcTextData -> baseTexts[operation.id] = operation.text
-        is RcIntegerConstant -> setInteger(operation.id, operation.value)
-        is RcBooleanConstant -> booleans[operation.id] = operation.value
-        is RcLongConstant -> longs[operation.id] = operation.value
-        is RcPathData -> basePaths[operation.id] = operation
-        is RcMatrixConstant -> matrices[operation.id] = operation
-        is RcIdList -> idLists[operation.id] = operation
-        is RcFloatList -> floatLists[operation.id] = operation
-        is RcIdMap -> idMaps[operation.id] = operation
-        is RcBitmapData -> bitmaps[operation.imageId] = operation
-        is RcNamedVariable -> variableNames[operation.name] = operation
-        else -> Unit
-      }
-    }
+    val values =
+      RcSeedValues(
+        floats,
+        integers,
+        colors,
+        baseTexts,
+        booleans,
+        longs,
+        basePaths,
+        matrices,
+        idLists,
+        floatLists,
+        idMaps,
+        bitmaps,
+        variableNames,
+      )
+    if (seed != null) seed.copyInto(values) else values.load(document)
     componentValues.values.flatten().forEach {
       if (it.valueId !in floats) storeFloat(it.valueId, 0f)
     }
