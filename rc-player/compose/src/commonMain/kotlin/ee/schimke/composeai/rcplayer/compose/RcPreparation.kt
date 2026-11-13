@@ -19,6 +19,8 @@ import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -136,7 +138,17 @@ public class RcPreparedDocumentCache(
     }
     val mine = CompletableDeferred<RcPreparedDocument>()
     val shared = pending.withLock { pendingByKey.getOrPut(key) { mine } }
-    if (shared !== mine) return shared.await()
+    if (shared !== mine) {
+      try {
+        return shared.await()
+      } catch (e: CancellationException) {
+        // The caller that owned the preparation went away (its card scrolled off) before it
+        // finished. Unless this caller was cancelled too, prepare again: from memory if the owner
+        // got that far, or as the new owner.
+        currentCoroutineContext().ensureActive()
+        return prepare(bytes, extensions, display, context)
+      }
+    }
     try {
       val prepared = withContext(context) { prepareNow(bytes, extensions, display) }
       mine.complete(prepared)

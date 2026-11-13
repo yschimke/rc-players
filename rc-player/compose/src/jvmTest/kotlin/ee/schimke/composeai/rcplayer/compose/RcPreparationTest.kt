@@ -29,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.Bitmap
 
@@ -115,6 +116,33 @@ class RcPreparationTest {
     }
     assertEquals(1, cache.prepared)
     all.forEach { assertSame(all.first(), it) }
+  }
+
+  @Test
+  fun aWaiterOutlivesTheCallerThatOwnedThePreparation() {
+    val started = CountDownLatch(1)
+    val release = CountDownLatch(1)
+    val cache =
+      RcPreparedDocumentCache(
+        preprocessor = { document, _ ->
+          started.countDown()
+          release.await()
+          document
+        },
+      )
+    val bytes = greenSquare()
+    val display = RcDisplay(density = 1f)
+    val prepared = runBlocking {
+      val owner = launch(Dispatchers.Default) { cache.prepare(bytes, display) }
+      started.await()
+      val waiter = async(Dispatchers.Default) { cache.prepare(bytes, display) }
+      // Let the waiter join the owner's preparation, then take the owner away.
+      Thread.sleep(50)
+      owner.cancel()
+      release.countDown()
+      waiter.await()
+    }
+    assertSame(prepared, cache.peek(bytes, display))
   }
 
   @Test

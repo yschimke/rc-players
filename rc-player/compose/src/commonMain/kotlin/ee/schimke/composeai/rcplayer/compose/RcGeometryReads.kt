@@ -1,11 +1,13 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
@@ -54,6 +56,10 @@ internal fun rcGeometryReachesLayout(operations: List<RcOperation>): Boolean {
       is RcRoundedClipRectModifier,
       is RcBackgroundModifier,
       is RcBorderModifier -> continue
+      // An image or a font is its own encoded payload, which names no id; scanning it would only
+      // allocate a window per byte of a possibly large asset.
+      is RcBitmapData,
+      is RcFontData -> continue
       else -> Unit
     }
     val mentioned = operation.mentionedIds() ?: return true
