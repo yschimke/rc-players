@@ -20,10 +20,13 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
@@ -61,10 +64,16 @@ class RcPreparationTest {
   fun aDocumentNotYetPreparedIsPreparedOffTheCompositionAndThenDrawn() {
     val cache = RcPreparedDocumentCache()
     val bytes = greenSquare()
+    // The background thread is held until the first frame has been checked, so the preparation
+    // cannot finish inside that frame's render on a fast machine.
+    val held = CountDownLatch(1)
+    val executor = Executors.newSingleThreadExecutor()
+    executor.execute { held.await() }
+    val background = executor.asCoroutineDispatcher()
     val scene =
       ImageComposeScene(width = 20, height = 20, density = Density(1f)) {
         CompositionLocalProvider(
-          LocalRcPreparation provides RcPreparation.Background(cache, Dispatchers.Default),
+          LocalRcPreparation provides RcPreparation.Background(cache, background),
         ) {
           RcComposePlayer(bytes, Modifier.size(20.dp))
         }
@@ -72,6 +81,7 @@ class RcPreparationTest {
     try {
       assertEquals(0, scene.render(0L).greenPixels(), "drawn before it was prepared")
       assertEquals(1, cache.misses)
+      held.countDown()
       var frame = 1L
       var green = 0
       while (green == 0 && frame < 200) {
@@ -82,6 +92,7 @@ class RcPreparationTest {
       assertEquals(1, cache.prepared)
     } finally {
       scene.close()
+      executor.shutdown()
     }
   }
 
