@@ -924,6 +924,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun floatValues (I)[F
 	public final fun forEachLoopValue (Lee/schimke/composeai/rcplayer/protocol/RcLoopOperation;Lkotlin/jvm/functions/Function1;)V
 	public final fun forEachParticle (Lee/schimke/composeai/rcplayer/protocol/RcParticleLoop;Lkotlin/jvm/functions/Function0;)V
+	public final fun forgetRecentClockReads ()V
 	public final fun getAnimationTimeSeconds ()F
 	public final fun getClickAreas ()Ljava/util/List;
 	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
@@ -931,6 +932,8 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun getHasActiveFloatAnimations ()Z
 	public final fun getHasAnyComponentValues ()Z
 	public final fun getOnRepaint ()Lkotlin/jvm/functions/Function0;
+	public final fun getReadClockRecently ()Z
+	public final fun getReadContinuousClockRecently ()Z
 	public final fun getReadsClock ()Z
 	public final fun getReadsContinuousClock ()Z
 	public final fun getRootContentBehavior ()Lee/schimke/composeai/rcplayer/protocol/RcRootContentBehavior;

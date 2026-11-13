@@ -709,14 +709,18 @@ private fun RcComposePlayerResolved(
   // evaluates the document, so this is what the document does rather than what it might: a
   // `remote-m3` indeterminate progress sweeps over `CONTINUOUS_SEC` with no animation attached
   // (#4264), and a digital watch face reads only whole seconds, which AndroidX sleeps to the next
-  // second and so does this. It only ever rises: a read in a branch that is not showing now will be
-  // again.
+  // second and so does this.
+  //
+  // It rises with any read, and falls once the document stops reading: the loops below lower it
+  // after [QUIET_FRAMES_BEFORE_IDLE] frames, or [QUIET_TICKS_BEFORE_IDLE] seconds, in which nothing
+  // drawn read the clock. An animation that has ended (a "live" badge that is gone) then stops
+  // asking for frames, and a branch that shows again reads the clock again and raises it.
   var clockReads by remember(document) { mutableIntStateOf(CLOCK_READS_NONE) }
   val noteClockReads: () -> Unit = {
     val reads =
       when {
-        state.readsContinuousClock -> CLOCK_READS_CONTINUOUS
-        state.readsClock -> CLOCK_READS_EVERY_SECOND
+        state.readContinuousClockRecently -> CLOCK_READS_CONTINUOUS
+        state.readClockRecently -> CLOCK_READS_EVERY_SECOND
         else -> CLOCK_READS_NONE
       }
     if (reads > clockReads) clockReads = reads
@@ -759,7 +763,23 @@ private fun RcComposePlayerResolved(
   val infiniteAnimationContext = infiniteAnimationPolicy ?: EmptyCoroutineContext
   LaunchedEffect(needsContinuousFrames, infiniteAnimationPolicy) {
     if (needsContinuousFrames) {
-      withContext(infiniteAnimationContext) { while (true) withInfiniteFrameNanos(recordFrame) }
+      withContext(infiniteAnimationContext) {
+        state.forgetRecentClockReads()
+        var quietFrames = 0
+        while (true) {
+          withInfiniteFrameNanos(recordFrame)
+          // A host that drives the clock keeps every frame; see `needsContinuousFrames`.
+          if (animationClock != null || !documentReadsContinuousClock) continue
+          // Between two frame callbacks the player composed, laid out and drew a whole frame.
+          if (state.readContinuousClockRecently) {
+            quietFrames = 0
+            state.forgetRecentClockReads()
+          } else if (++quietFrames >= QUIET_FRAMES_BEFORE_IDLE) {
+            clockReads = if (state.readClockRecently) CLOCK_READS_EVERY_SECOND else CLOCK_READS_NONE
+            state.forgetRecentClockReads()
+          }
+        }
+      }
     }
   }
   // Float tweens and springs get frames only while one is moving, as AndroidX's `FloatExpression`
@@ -814,8 +834,18 @@ private fun RcComposePlayerResolved(
   LaunchedEffect(ticksEverySecond, needsContinuousFrames, infiniteAnimationPolicy) {
     if (ticksEverySecond && !needsContinuousFrames) {
       withContext(infiniteAnimationContext) {
+        state.forgetRecentClockReads()
+        var quietTicks = 0
         while (true) {
           delay(MILLIS_PER_SECOND - latestTimeSource.currentTimeMillis().mod(MILLIS_PER_SECOND))
+          // What the last tick drew: a clock nothing shown reads any more needs no more ticks.
+          if (state.readClockRecently) {
+            quietTicks = 0
+            state.forgetRecentClockReads()
+          } else if (++quietTicks >= QUIET_TICKS_BEFORE_IDLE) {
+            clockReads = CLOCK_READS_NONE
+            break
+          }
           // A tick a second, forever: infinite too.
           withInfiniteFrameNanos(recordFrame)
           invalidationVersion += 1
@@ -7934,6 +7964,12 @@ private fun blendMode(value: Int): BlendMode =
   }
 
 private const val MILLIS_PER_SECOND = 1_000L
+
+/** Frames without a continuous clock read before a document stops asking for every frame. */
+private const val QUIET_FRAMES_BEFORE_IDLE = 3
+
+/** Ticks without a clock read before a document stops asking for one a second. */
+private const val QUIET_TICKS_BEFORE_IDLE = 2
 
 /**
  * A frame for one of the player's never-ending loops, asked for as an infinite animation: through

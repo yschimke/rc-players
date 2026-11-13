@@ -310,10 +310,21 @@ private constructor(
   private var timeAttributeReadClock = false
   private var timeAttributeReadContinuousClock = false
 
+  /**
+   * The same reads as [reservedIdsRead] and the time attributes', since [forgetRecentClockReads]:
+   * what the document read on the frames since the player last asked. An animation that has ended
+   * (a "live" badge that is gone) stops reading the clock, and the player stops drawing it.
+   */
+  private var recentReservedIdsRead = 0L
+  private var recentTimeAttributeReadClock = false
+  private var recentTimeAttributeReadContinuousClock = false
+
   private fun noteRead(id: Int) {
-    if (id in 0 until Long.SIZE_BITS) reservedIdsRead = reservedIdsRead or (1L shl id)
-    if (expressionReservedReads.isNotEmpty()) {
-      expressionReservedReads[id]?.let { reservedIdsRead = reservedIdsRead or it }
+    var bits = if (id in 0 until Long.SIZE_BITS) 1L shl id else 0L
+    if (expressionReservedReads.isNotEmpty()) expressionReservedReads[id]?.let { bits = bits or it }
+    if (bits != 0L) {
+      reservedIdsRead = reservedIdsRead or bits
+      recentReservedIdsRead = recentReservedIdsRead or bits
     }
     noteValueRead(id)
   }
@@ -435,6 +446,28 @@ private constructor(
    */
   public val readsContinuousClock: Boolean
     get() = timeAttributeReadContinuousClock || hasReadSystem(RcSystemVariables.CONTINUOUS)
+
+  private fun hasRecentlyReadSystem(ids: Set<Int>): Boolean = ids.any {
+    it in 0 until Long.SIZE_BITS &&
+      recentReservedIdsRead and (1L shl it) != 0L &&
+      it !in claimedSystemIds
+  }
+
+  /** [readsClock], for the reads since [forgetRecentClockReads] only. */
+  public val readClockRecently: Boolean
+    get() = recentTimeAttributeReadClock || hasRecentlyReadSystem(RcSystemVariables.CLOCK)
+
+  /** [readsContinuousClock], for the reads since [forgetRecentClockReads] only. */
+  public val readContinuousClockRecently: Boolean
+    get() =
+      recentTimeAttributeReadContinuousClock || hasRecentlyReadSystem(RcSystemVariables.CONTINUOUS)
+
+  /** Starts a new window for [readClockRecently] and [readContinuousClockRecently]. */
+  public fun forgetRecentClockReads() {
+    recentReservedIdsRead = 0L
+    recentTimeAttributeReadClock = false
+    recentTimeAttributeReadContinuousClock = false
+  }
 
   /**
    * The host's density and font scale, published as [RcSystemVariables.DENSITY] and
@@ -748,7 +781,11 @@ private constructor(
     // Counting from now, or reading the current time's fields, is a read of the clock.
     if (type in 0..2 || selectedMillis == frameEpochMillis) {
       timeAttributeReadClock = true
-      if (operation.type.requiresContinuousFrames) timeAttributeReadContinuousClock = true
+      recentTimeAttributeReadClock = true
+      if (operation.type.requiresContinuousFrames) {
+        timeAttributeReadContinuousClock = true
+        recentTimeAttributeReadContinuousClock = true
+      }
     }
     val selected =
       if (selectedMillis == frameEpochMillis) now else timeSource.snapshot(selectedMillis)
@@ -1445,6 +1482,7 @@ private constructor(
     evaluatingFloatExpression = true
     if (!nested) expressionReadCount = 0
     val readBefore = reservedIdsRead
+    val recentBefore = recentReservedIdsRead
     reservedIdsRead = 0L
     val value =
       try {
@@ -1456,6 +1494,7 @@ private constructor(
         else expressionReservedReads.remove(operation.id)
         // An expression evaluated inside another's evaluation is part of computing that one.
         reservedIdsRead = if (nested) readBefore or read else readBefore
+        recentReservedIdsRead = if (nested) recentBefore or read else recentBefore
       }
     if (!nested) recordExpressionInputs(operation.id)
     setFloat(operation.id, value)
