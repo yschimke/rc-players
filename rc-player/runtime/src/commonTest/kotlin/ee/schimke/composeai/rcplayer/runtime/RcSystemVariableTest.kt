@@ -246,6 +246,55 @@ class RcSystemVariableTest {
   }
 
   @Test
+  fun aClockAnExpressionReadsIsReadWhenTheExpressionIsUsed() {
+    // A "live" badge's pulse over the clock, which the player evaluates each composition whether
+    // or not the badge is shown. Only reading its value asks for frames.
+    val pulse =
+      RcFloatExpression(
+        PULSE,
+        listOf(RcFloatWord(0x7fc00000 or RcSystemVariables.CONTINUOUS_SEC)),
+        animation = null,
+      )
+    val scaled =
+      RcFloatExpression(
+        SCALED,
+        listOf(RcFloatWord(0x7fc00000 or PULSE)),
+        animation = null,
+      )
+    val state =
+      RcPlayerState(
+        RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(pulse, scaled)),
+        timeSource = clock,
+      )
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    state.applyFloatExpression(pulse)
+    state.applyFloatExpression(scaled)
+    assertFalse(state.readsContinuousClock, "evaluating an expression used it")
+
+    // Through another expression too: what the outer one computes from carries the clock.
+    state.resolve(RcFloatWord(0x7fc00000 or SCALED))
+    assertTrue(state.readsContinuousClock)
+  }
+
+  @Test
+  fun aClockAnExpressionReadsIsReadWhenItsValueIsReadAsAnInteger() {
+    // A component's visibility reads its id as an integer.
+    val pulse =
+      RcFloatExpression(
+        PULSE,
+        listOf(RcFloatWord(0x7fc00000 or RcSystemVariables.CONTINUOUS_SEC)),
+        animation = null,
+      )
+    val state =
+      RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(pulse)), timeSource = clock)
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    state.applyFloatExpression(pulse)
+    assertFalse(state.readsContinuousClock)
+    state.integer(PULSE)
+    assertTrue(state.readsContinuousClock)
+  }
+
+  @Test
   fun aPathsCommandsAreNotReads() {
     // AndroidX marks path commands with NaN-boxed words: MOVE is 10 and LINE 11, the ids of
     // OFFSET_TO_UTC and WEEK_DAY, and CUBIC is 14, the touch position's Y. An icon is not a clock.
@@ -734,6 +783,8 @@ class RcSystemVariableTest {
 
   private companion object {
     const val EPOCH_MILLIS = 1_787_243_445_250L
+    const val PULSE = 100
+    const val SCALED = 101
     const val NAN_REFERENCE = 0x7fc00000
     const val PATH_COMMAND = 0xff800000.toInt()
   }

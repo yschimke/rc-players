@@ -310,14 +310,40 @@ private constructor(
   private var timeAttributeReadClock = false
   private var timeAttributeReadContinuousClock = false
 
+  /**
+   * The same reads as [reservedIdsRead] and the time attributes', since [forgetRecentClockReads]:
+   * what the document read on the frames since the player last asked. An animation that has ended
+   * (a "live" badge that is gone) stops reading the clock, and the player stops drawing it.
+   */
+  private var recentReservedIdsRead = 0L
+  private var recentTimeAttributeReadClock = false
+  private var recentTimeAttributeReadContinuousClock = false
+
   private fun noteRead(id: Int) {
-    if (id in 0 until Long.SIZE_BITS) reservedIdsRead = reservedIdsRead or (1L shl id)
+    if (id in 0 until Long.SIZE_BITS) noteReservedReads(1L shl id)
     noteValueRead(id)
   }
+
+  private fun noteReservedReads(bits: Long) {
+    reservedIdsRead = reservedIdsRead or bits
+    recentReservedIdsRead = recentReservedIdsRead or bits
+  }
+
+  /**
+   * The reserved ids (the clock, the pointer, …) each float expression read to compute its value,
+   * as [reservedIdsRead] bits. Evaluating an expression is not a use of what it read: the player
+   * evaluates every one of a layout's expressions each composition, including one only a component
+   * that is gone reads. Reading the expression's value is ([noteRead]), and carries these with it.
+   * A card's pulsing "live" badge then asks for a frame every vsync only while it is shown.
+   */
+  private val expressionReservedReads = HashMap<Int, Long>()
 
   /** Records a read for [layoutReads] alone: not the reserved-id reads [noteRead] also tracks. */
   private fun noteValueRead(id: Int) {
     if (id < 0) return
+    // Reading an expression's value, as a float or as an integer (a visibility, a data-map
+    // copy), reads what it was computed from.
+    if (expressionReservedReads.isNotEmpty()) expressionReservedReads[id]?.let(::noteReservedReads)
     when {
       evaluatingFloatExpression -> recordExpressionInput(id)
       paintDepth == 0 -> layoutReads.add(id)
@@ -423,6 +449,28 @@ private constructor(
    */
   public val readsContinuousClock: Boolean
     get() = timeAttributeReadContinuousClock || hasReadSystem(RcSystemVariables.CONTINUOUS)
+
+  private fun hasRecentlyReadSystem(ids: Set<Int>): Boolean = ids.any {
+    it in 0 until Long.SIZE_BITS &&
+      recentReservedIdsRead and (1L shl it) != 0L &&
+      it !in claimedSystemIds
+  }
+
+  /** [readsClock], for the reads since [forgetRecentClockReads] only. */
+  public val readClockRecently: Boolean
+    get() = recentTimeAttributeReadClock || hasRecentlyReadSystem(RcSystemVariables.CLOCK)
+
+  /** [readsContinuousClock], for the reads since [forgetRecentClockReads] only. */
+  public val readContinuousClockRecently: Boolean
+    get() =
+      recentTimeAttributeReadContinuousClock || hasRecentlyReadSystem(RcSystemVariables.CONTINUOUS)
+
+  /** Starts a new window for [readClockRecently] and [readContinuousClockRecently]. */
+  public fun forgetRecentClockReads() {
+    recentReservedIdsRead = 0L
+    recentTimeAttributeReadClock = false
+    recentTimeAttributeReadContinuousClock = false
+  }
 
   /**
    * The host's density and font scale, published as [RcSystemVariables.DENSITY] and
@@ -736,7 +784,11 @@ private constructor(
     // Counting from now, or reading the current time's fields, is a read of the clock.
     if (type in 0..2 || selectedMillis == frameEpochMillis) {
       timeAttributeReadClock = true
-      if (operation.type.requiresContinuousFrames) timeAttributeReadContinuousClock = true
+      recentTimeAttributeReadClock = true
+      if (operation.type.requiresContinuousFrames) {
+        timeAttributeReadContinuousClock = true
+        recentTimeAttributeReadContinuousClock = true
+      }
     }
     val selected =
       if (selectedMillis == frameEpochMillis) now else timeSource.snapshot(selectedMillis)
@@ -973,12 +1025,16 @@ private constructor(
         val entry =
           requireNotNull(idMaps[operation.mapId]).entries.firstOrNull { it.name == key }
             ?: error("Missing AndroidX data-map key '$key'")
+        // The output reads what this entry was computed from, and nothing an earlier lookup copied.
+        expressionReservedReads.remove(operation.outId)
         when (entry.type) {
           RcIdMap.TYPE_STRING -> texts[operation.outId] = requireNotNull(texts[entry.id])
           RcIdMap.TYPE_INT ->
             setInteger(operation.outId, requireNotNull(integers[entry.id.also(::noteValueRead)]))
-          RcIdMap.TYPE_FLOAT ->
+          RcIdMap.TYPE_FLOAT -> {
             storeFloat(operation.outId, requireNotNull(floats[entry.id.also(::noteValueRead)]))
+            expressionReservedReads[entry.id]?.let { expressionReservedReads[operation.outId] = it }
+          }
           RcIdMap.TYPE_LONG -> setInteger(operation.outId, requireNotNull(longs[entry.id]).toInt())
           RcIdMap.TYPE_BOOLEAN ->
             setInteger(operation.outId, if (requireNotNull(booleans[entry.id])) 1 else 0)
@@ -1430,11 +1486,20 @@ private constructor(
     val nested = evaluatingFloatExpression
     evaluatingFloatExpression = true
     if (!nested) expressionReadCount = 0
+    val readBefore = reservedIdsRead
+    val recentBefore = recentReservedIdsRead
+    reservedIdsRead = 0L
     val value =
       try {
         runtime.evaluate(frameTimeSeconds, ::resolve)
       } finally {
         evaluatingFloatExpression = nested
+        val read = reservedIdsRead
+        if (read != 0L) expressionReservedReads[operation.id] = read
+        else expressionReservedReads.remove(operation.id)
+        // An expression evaluated inside another's evaluation is part of computing that one.
+        reservedIdsRead = if (nested) readBefore or read else readBefore
+        recentReservedIdsRead = if (nested) recentBefore or read else recentBefore
       }
     if (!nested) recordExpressionInputs(operation.id)
     setFloat(operation.id, value)
@@ -1871,6 +1936,16 @@ private constructor(
   }
 
   public fun hasComponentValues(componentId: Int): Boolean = componentId in componentValues
+
+  /**
+   * Whether the document reads only [componentId]'s width and height, never where it is: then a
+   * player can publish the size from the measure pass and needs no callback each time the component
+   * moves (in a scrolling list, every frame).
+   */
+  public fun readsComponentSizeOnly(componentId: Int): Boolean =
+    componentValues[componentId]?.all {
+      it.type == RcComponentValue.WIDTH || it.type == RcComponentValue.HEIGHT
+    } == true
 
   /** Whether any component's geometry is read back by the document through a `ComponentValue`. */
   public val hasAnyComponentValues: Boolean

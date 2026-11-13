@@ -4,13 +4,36 @@ import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
+import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
+import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
+import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
+import ee.schimke.composeai.rcplayer.protocol.RcIdList
+import ee.schimke.composeai.rcplayer.protocol.RcIdLookup
+import ee.schimke.composeai.rcplayer.protocol.RcIdMap
+import ee.schimke.composeai.rcplayer.protocol.RcImpulseStart
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
+import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
+import ee.schimke.composeai.rcplayer.protocol.RcMarqueeModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
+import ee.schimke.composeai.rcplayer.protocol.RcScrollModifier
+import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
+import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTimeAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatExpressionChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueStringChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
+import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
 import ee.schimke.composeai.rcplayer.protocol.RcWireWriter
 
 /**
@@ -93,6 +116,109 @@ private fun RcOperation.mentionedIds(): Set<Int>? {
         add(word)
         RcFloatWord(word).referencedId?.let(::add)
       }
+    }
+  }
+}
+
+/**
+ * Whether a document can change its layout without a host value changing: it animates, reads the
+ * clock, scrolls, takes input, runs touch expressions, impulses, particles or a marquee, switches
+ * state layouts, or has actions that write its own state. Such a document keeps the lookahead pass
+ * its bounds animations need from its first frame. Any other document's layout changes only when
+ * its host hands it a value or someone touches it, and a player defers that pass until then (see
+ * `RcComposePlayerResolved`). Conservative: an operation it cannot account for counts as moving.
+ */
+internal fun rcChangesLayoutOnItsOwn(operations: List<RcOperation>): Boolean {
+  for (operation in operations) {
+    when (operation) {
+      is RcImpulseStart,
+      is RcParticleDefine,
+      is RcTimeAttribute,
+      is RcWakeIn,
+      is RcScrollModifier,
+      is RcMarqueeModifier,
+      is RcStateLayout,
+      is RcTouchExpression,
+      // A host-rendered component (a text field, say) holds state of its own, which rebuilding the
+      // tree when the pass switches on would lose: focus, selection, an IME composition.
+      is RcCustomLayout,
+      is RcLoopOperation,
+      // A tap that writes the document's own state changes it there and then; one that only tells
+      // the host (Livery's actions) changes it through a host value, which the player sees coming.
+      is RcValueFloatChangeAction,
+      is RcValueFloatExpressionChangeAction,
+      is RcValueIntegerChangeAction,
+      is RcValueIntegerExpressionChangeAction,
+      is RcValueStringChangeAction -> return true
+      is RcFloatExpression -> if (operation.animation != null) return true
+      else -> Unit
+    }
+  }
+  // A clock read that can reach layout. A moving value is followed through the float expressions
+  // that read it; a reader that only paints (a graphics layer, a background, a border, a clip, all
+  // applied after measure) moves pixels, never bounds, so it needs no lookahead pass. A pulse on a
+  // "live" badge's layer is the common case. Anything else naming a moving id counts.
+  val moving = RcSystemVariables.MOVING.toMutableSet()
+  // What a moving value flows into, by id: an expression over it, a map or list holding it, and a
+  // lookup that can select it. Each pass adds at least one id to a finite set, so this ends.
+  val flows = operations.mapNotNull { operation ->
+    when (operation) {
+      is RcFloatExpression ->
+        operation.id to operation.expression.mapNotNull { it.referencedId }.toSet()
+      is RcIdMap -> operation.id to operation.entries.mapTo(mutableSetOf()) { it.id }
+      is RcIdList -> operation.id to operation.ids.toSet()
+      is RcDataMapLookup -> operation.outId to setOf(operation.mapId)
+      is RcIdLookup ->
+        operation.outId to setOfNotNull(operation.listId, operation.index.referencedId)
+      else -> null
+    }
+  }
+  var growing = true
+  while (growing) {
+    growing = false
+    for ((id, inputs) in flows) {
+      if (id !in moving && inputs.any { it in moving }) {
+        moving += id
+        growing = true
+      }
+    }
+  }
+  return operations.any { operation ->
+    when (operation) {
+      is RcTextData,
+      is RcBitmapData,
+      is RcFontData,
+      is RcGraphicsLayerModifier,
+      is RcRoundedClipRectModifier,
+      is RcBackgroundModifier,
+      is RcBorderModifier -> false
+      is RcFloatExpression -> false // followed above; what reads it is checked in its place
+      // An integer expression names ids as marked values, not NaN boxes: a clock (or an expression
+      // over one) read there feeds whatever reads its result.
+      is RcIntegerExpression ->
+        operation.values.indices.any { index ->
+          val value = operation.values[index]
+          operation.isMarked(index) && value < RcIntegerExpression.OFFSET && value in moving
+        }
+      // Names its value as a plain id, not a NaN box: a component a clock shows and hides.
+      is RcVisibilityModifier -> operation.visibilityId in moving
+      else -> operation.referencedFloatIds()?.any { it in moving } != false
+    }
+  }
+}
+
+/**
+ * The ids the NaN-boxed float words of this operation's encoding name; null if it does not encode.
+ */
+private fun RcOperation.referencedFloatIds(): Set<Int>? {
+  val bytes =
+    runCatching { RcWireWriter().also { RcDocumentCodec.encodeOperation(it, this) }.toByteArray() }
+      .getOrNull() ?: return null
+  return buildSet {
+    for (offset in 0..bytes.size - 4) {
+      var bits = 0
+      for (i in 0 until 4) bits = (bits shl 8) or (bytes[offset + i].toInt() and 0xff)
+      RcFloatWord(bits).referencedId?.let(::add)
     }
   }
 }

@@ -42,6 +42,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRootContentDescription
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
+import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextLength
@@ -1476,5 +1477,40 @@ class RcPlayerStateTest {
     assertEquals("one", state.text(21))
     assertEquals(1, state.integer(22))
     assertEquals(21.5f, state.resolve(RcFloatWord(0x7fc00000 or 23)))
+  }
+
+  @Test
+  fun aLookupThatSwitchesToAConstantNoLongerReadsTheClock() {
+    val pulse =
+      RcFloatExpression(
+        6,
+        listOf(RcFloatWord(0x7fc00000 or RcSystemVariables.CONTINUOUS_SEC)),
+        animation = null,
+      )
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(0, 1, 0)),
+          listOf(
+            RcTextData(3, "value"),
+            RcFloatConstant(5, RcFloatWord.literal(21.5f)),
+            pulse,
+            RcIdMap(11, listOf(RcDataMapEntry("value", RcIdMap.TYPE_FLOAT, 6))),
+            RcIdMap(12, listOf(RcDataMapEntry("value", RcIdMap.TYPE_FLOAT, 5))),
+          ),
+        ),
+      )
+    state.applyFloatExpression(pulse)
+    val output = RcFloatWord(0x7fc00000 or 23)
+
+    state.applyDataOperation(RcDataMapLookup(23, 11, 3))
+    state.forgetRecentClockReads()
+    state.resolve(output)
+    assertTrue(state.readContinuousClockRecently, "the copy of the pulse did not read the clock")
+
+    state.applyDataOperation(RcDataMapLookup(23, 12, 3))
+    state.forgetRecentClockReads()
+    state.resolve(output)
+    assertFalse(state.readContinuousClockRecently, "the constant still read the clock")
   }
 }

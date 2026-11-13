@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.profile
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -10,8 +11,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.InfiniteAnimationPolicy
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import ee.schimke.composeai.rcplayer.compose.ExperimentalRcPlayerApi
+import ee.schimke.composeai.rcplayer.compose.LocalRcDeferLayoutAnimations
+import ee.schimke.composeai.rcplayer.compose.LocalRcInfiniteAnimationPolicy
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPreparedDocument
 import ee.schimke.composeai.rcplayer.edit.forDisplay
@@ -21,6 +26,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import java.io.File
 import kotlin.math.ceil
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * How a host hands a feed's cards to the player. Every card of a feed is the same template with
@@ -34,6 +40,16 @@ public enum class RcFeedMode(public val description: String) {
   Document("shared RcDocument (link + layout + state)"),
   /** One prepared document shared by every card: only the state per card. */
   Prepared("shared RcPreparedDocument (state only)"),
+  /**
+   * [Prepared], under a host that lets players defer the lookahead pass behind layout animations
+   * until a card's layout can first change (`LocalRcDeferLayoutAnimations`), as a feed does.
+   */
+  Deferred("shared RcPreparedDocument, layout animations deferred"),
+  /**
+   * [Deferred], with the player's never-ending frame loops held for the whole run, as a host that
+   * pauses them while its list scrolls holds them for a fling (`LocalRcInfiniteAnimationPolicy`).
+   */
+  Paused("shared RcPreparedDocument, deferred, infinite animations paused"),
   /**
    * No player at all: [RcReferenceCard], a session-shaped card written directly in Compose UI
    * (foundation), as the bar a player card has to beat.
@@ -79,6 +95,7 @@ public data class RcFeedResult(
  * measures, and they are the platform's business, not the player's. A real fling is measured on a
  * device (`FrameTimingMetric`), where this number is what prefetch has to fit into idle time.
  */
+@OptIn(ExperimentalRcPlayerApi::class)
 public class RcFeedProfile(
   private val visible: Int = 4,
   private val arrivalsPerFrame: Int = 2,
@@ -130,19 +147,37 @@ public class RcFeedProfile(
               // map costs what a host's map costs whichever template plays.
               val values = remember {
                 mutableStateMapOf<String, RcNamedValue>(
-                  "USER:title" to RcNamedValue.Text("Item $item"),
-                  "USER:index" to RcNamedValue.Integer(item),
-                  // A Livery session card's inputs, by their contract names.
-                  "title" to
-                    RcNamedValue.Text("Session $item: building adaptive apps with Compose"),
-                  "speakers" to RcNamedValue.Text("Jane Doe, John Smith"),
-                )
+                    "USER:title" to RcNamedValue.Text("Item $item"),
+                    "USER:index" to RcNamedValue.Integer(item),
+                    // A Livery session card's inputs, by their contract names.
+                    "title" to
+                      RcNamedValue.Text("Session $item: building adaptive apps with Compose"),
+                    "speakers" to RcNamedValue.Text("Jane Doe, John Smith"),
+                  )
+                  .apply {
+                    // `-Prc.feed.live=N`: every Nth card is live, as a conference day's are.
+                    if (liveEvery > 0 && item % liveEvery == 0) {
+                      put("USER:live", RcNamedValue.Integer(1))
+                      put("live", RcNamedValue.Integer(1))
+                    }
+                  }
               }
               val modifier = Modifier.size(CARD_WIDTH.dp, CARD_HEIGHT.dp)
               when (mode) {
                 RcFeedMode.Bytes -> RcComposePlayer(bytes, modifier, namedValues = values)
                 RcFeedMode.Document -> RcComposePlayer(document, modifier, namedValues = values)
                 RcFeedMode.Prepared -> RcComposePlayer(prepared, modifier, namedValues = values)
+                RcFeedMode.Deferred ->
+                  CompositionLocalProvider(LocalRcDeferLayoutAnimations provides true) {
+                    RcComposePlayer(prepared, modifier, namedValues = values)
+                  }
+                RcFeedMode.Paused ->
+                  CompositionLocalProvider(
+                    LocalRcDeferLayoutAnimations provides true,
+                    LocalRcInfiniteAnimationPolicy provides HeldInfiniteAnimations,
+                  ) {
+                    RcComposePlayer(prepared, modifier, namedValues = values)
+                  }
                 RcFeedMode.ComposeUi -> RcReferenceCard(item, modifier)
                 RcFeedMode.Edited,
                 RcFeedMode.EditedTheme -> RcComposePlayer(edited, modifier, namedValues = values)
@@ -165,6 +200,13 @@ public class RcFeedProfile(
       scene.close()
     }
   }
+
+  /** Grants no frame to a never-ending loop: a scroll that lasts the whole run. */
+  private object HeldInfiniteAnimations : InfiniteAnimationPolicy {
+    override suspend fun <R> onInfiniteOperation(block: suspend () -> R): R = awaitCancellation()
+  }
+
+  private val liveEvery = System.getProperty("rc.feed.live")?.toIntOrNull() ?: 0
 
   public companion object {
     public const val CARD_WIDTH: Int = 360
