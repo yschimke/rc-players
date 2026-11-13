@@ -14,6 +14,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPreparedDocument
+import ee.schimke.composeai.rcplayer.edit.forDisplay
+import ee.schimke.composeai.rcplayer.edit.namedVariables
+import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import java.io.File
@@ -36,6 +39,14 @@ public enum class RcFeedMode(public val description: String) {
    * (foundation), as the bar a player card has to beat.
    */
   ComposeUi("Compose UI reference card (no player)"),
+  /**
+   * One prepared document, edited first as a host serving one display would (`rc-player-edit`):
+   * density and font scale hardcoded, named values no card binds frozen, constant state layouts
+   * collapsed and the result optimized. Every `USER:` value stays bound.
+   */
+  Edited("shared, edited for this display (density baked, optimized)"),
+  /** As [Edited], with the theme (`theme.*`, the same for every card of a screen) frozen too. */
+  EditedTheme("shared, edited, theme baked too"),
 }
 
 /** One mode's frame times over a simulated fling. */
@@ -103,6 +114,12 @@ public class RcFeedProfile(
     // point.
     val document = RcDocumentCodec.decode(bytes)
     val prepared = RcPreparedDocument(document)
+    val edited =
+      when (mode) {
+        RcFeedMode.Edited -> RcPreparedDocument(document.editedFor(bindTheme = true))
+        RcFeedMode.EditedTheme -> RcPreparedDocument(document.editedFor(bindTheme = false))
+        else -> prepared
+      }
     var first by mutableIntStateOf(0)
     val scene =
       ImageComposeScene(width = CARD_WIDTH, height = CARD_HEIGHT * visible, density = Density(1f)) {
@@ -127,6 +144,8 @@ public class RcFeedProfile(
                 RcFeedMode.Document -> RcComposePlayer(document, modifier, namedValues = values)
                 RcFeedMode.Prepared -> RcComposePlayer(prepared, modifier, namedValues = values)
                 RcFeedMode.ComposeUi -> RcReferenceCard(item, modifier)
+                RcFeedMode.Edited,
+                RcFeedMode.EditedTheme -> RcComposePlayer(edited, modifier, namedValues = values)
               }
             }
           }
@@ -214,3 +233,20 @@ public object RcFeedProfileMain {
     println(report)
   }
 }
+
+/**
+ * This document as a host serving one display at density 1 plays it: see [RcFeedMode.Edited]. With
+ * [bindTheme] false the `theme.*` values are frozen at their recorded values, as a host that bakes
+ * the screen's theme in would freeze them at its own.
+ */
+internal fun RcDocument.editedFor(bindTheme: Boolean): RcDocument =
+  if (bindTheme) forDisplay(density = 1f)
+  else
+    forDisplay(
+      density = 1f,
+      bound =
+        namedVariables
+          .map { it.name }
+          .filter { it.startsWith("USER:") && !it.startsWith("USER:theme.") }
+          .toSet(),
+    )

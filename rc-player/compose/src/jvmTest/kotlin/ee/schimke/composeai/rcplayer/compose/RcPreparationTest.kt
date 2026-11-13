@@ -117,6 +117,35 @@ class RcPreparationTest {
     all.forEach { assertSame(all.first(), it) }
   }
 
+  @Test
+  fun aPreprocessorRewritesEachDocumentOncePerDisplay() {
+    val seen = mutableListOf<RcDisplay>()
+    val cache =
+      RcPreparedDocumentCache(
+        preprocessor = { document, display ->
+          synchronized(seen) { seen += display }
+          document
+        },
+      )
+    val bytes = greenSquare()
+    val phone = RcDisplay(density = 2.625f)
+    val tablet = RcDisplay(density = 2f, fontScale = 1.3f)
+    runBlocking {
+      assertSame(cache.prepare(bytes, phone), cache.prepare(bytes.copyOf(), phone))
+      cache.prepare(bytes, tablet)
+    }
+    assertEquals(listOf(phone, tablet), seen)
+    assertEquals(2, cache.prepared)
+    assertSame(null, cache.peek(bytes, RcDisplay(density = 3f)))
+  }
+
+  @Test
+  fun aPreprocessorThatFailsLeavesTheDocumentAsItWas() {
+    val cache = RcPreparedDocumentCache(preprocessor = { _, _ -> error("cannot rewrite this") })
+    val prepared = cache.prepareNow(greenSquare(), RcDisplay(density = 2f))
+    assertEquals(RcDocumentCodec.decode(greenSquare()), prepared.document)
+  }
+
   private fun org.jetbrains.skia.Image.greenPixels(): Int {
     val image = this
     val bitmap = Bitmap().apply { allocN32Pixels(image.width, image.height) }

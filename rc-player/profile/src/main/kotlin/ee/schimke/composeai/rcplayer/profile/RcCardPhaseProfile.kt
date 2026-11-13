@@ -1,7 +1,11 @@
 package ee.schimke.composeai.rcplayer.profile
 
 import ee.schimke.composeai.rcplayer.compose.RcPreparedDocument
+import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
+import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import java.io.File
@@ -29,8 +33,11 @@ public object RcCardPhaseProfileMain {
       appendLine()
       appendLine("Median of $RUNS runs after $WARMUP warm-up runs.")
       appendLine()
-      appendLine("| Template | Bytes | Ops | decode | prepare | state | state (seeded) |")
-      appendLine("| --- | ---: | ---: | ---: | ---: | ---: | ---: |")
+      appendLine(
+        "| Template | Bytes | Ops | Ops edited | Expressions | Expressions edited | decode | " +
+          "prepare | state | state (seeded) | edit |",
+      )
+      appendLine("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
       for (file in templates) {
         val bytes = file.readBytes()
         val document = RcDocumentCodec.decode(bytes)
@@ -40,10 +47,16 @@ public object RcCardPhaseProfileMain {
         val prepare = time { RcPreparedDocument(document) }
         val state = time { RcPlayerState(document, values) }
         val seeded = time { RcPlayerState(prepared.stateSeed, values) }
+        val edited = document.editedFor(bindTheme = true)
+        val edit = time { document.editedFor(bindTheme = true) }
+        fun RcDocument.expressions() = operations.count {
+          it is RcFloatExpression || it is RcIntegerExpression || it is RcColorExpression
+        }
         appendLine(
           "| `${file.nameWithoutExtension.take(40)}` | ${bytes.size} | " +
-            "${document.operations.size} | ${us(decode)} | ${us(prepare)} | ${us(state)} | " +
-            "${us(seeded)} |",
+            "${document.operations.size} | ${edited.operations.size} | " +
+            "${document.expressions()} | ${edited.expressions()} | ${us(decode)} | " +
+            "${us(prepare)} | ${us(state)} | ${us(seeded)} | ${us(edit)} |",
         )
       }
     }

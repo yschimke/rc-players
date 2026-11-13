@@ -64,6 +64,10 @@ abstract fun interface ee.schimke.composeai.rcplayer.compose/RcImageLoader { // 
     }
 }
 
+abstract fun interface ee.schimke.composeai.rcplayer.compose/RcPreprocessor { // ee.schimke.composeai.rcplayer.compose/RcPreprocessor|null[0]
+    abstract fun preprocess(ee.schimke.composeai.rcplayer.protocol/RcDocument, ee.schimke.composeai.rcplayer.compose/RcDisplay): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.compose/RcPreprocessor.preprocess|preprocess(ee.schimke.composeai.rcplayer.protocol.RcDocument;ee.schimke.composeai.rcplayer.compose.RcDisplay){}[0]
+}
+
 abstract interface ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope { // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope|null[0]
     abstract val componentId // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.componentId|{}componentId[0]
         abstract fun <get-componentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcExtensionDrawScope.componentId.<get-componentId>|<get-componentId>(){}[0]
@@ -240,6 +244,22 @@ final class ee.schimke.composeai.rcplayer.compose/RcCustomComponentRegistry { //
         final val Empty // ee.schimke.composeai.rcplayer.compose/RcCustomComponentRegistry.Companion.Empty|{}Empty[0]
             final fun <get-Empty>(): ee.schimke.composeai.rcplayer.compose/RcCustomComponentRegistry // ee.schimke.composeai.rcplayer.compose/RcCustomComponentRegistry.Companion.Empty.<get-Empty>|<get-Empty>(){}[0]
     }
+}
+
+final class ee.schimke.composeai.rcplayer.compose/RcDisplay { // ee.schimke.composeai.rcplayer.compose/RcDisplay|null[0]
+    constructor <init>(kotlin/Float, kotlin/Float = ...) // ee.schimke.composeai.rcplayer.compose/RcDisplay.<init>|<init>(kotlin.Float;kotlin.Float){}[0]
+
+    final val density // ee.schimke.composeai.rcplayer.compose/RcDisplay.density|{}density[0]
+        final fun <get-density>(): kotlin/Float // ee.schimke.composeai.rcplayer.compose/RcDisplay.density.<get-density>|<get-density>(){}[0]
+    final val fontScale // ee.schimke.composeai.rcplayer.compose/RcDisplay.fontScale|{}fontScale[0]
+        final fun <get-fontScale>(): kotlin/Float // ee.schimke.composeai.rcplayer.compose/RcDisplay.fontScale.<get-fontScale>|<get-fontScale>(){}[0]
+
+    final fun component1(): kotlin/Float // ee.schimke.composeai.rcplayer.compose/RcDisplay.component1|component1(){}[0]
+    final fun component2(): kotlin/Float // ee.schimke.composeai.rcplayer.compose/RcDisplay.component2|component2(){}[0]
+    final fun copy(kotlin/Float = ..., kotlin/Float = ...): ee.schimke.composeai.rcplayer.compose/RcDisplay // ee.schimke.composeai.rcplayer.compose/RcDisplay.copy|copy(kotlin.Float;kotlin.Float){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcDisplay.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcDisplay.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcDisplay.toString|toString(){}[0]
 }
 
 final class ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest { // ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest|null[0]
@@ -1071,21 +1091,23 @@ final class ee.schimke.composeai.rcplayer.compose/RcPreparedDocument { // ee.sch
 }
 
 final class ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache { // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache|null[0]
-    constructor <init>(kotlin/Int = ...) // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.<init>|<init>(kotlin.Int){}[0]
+    constructor <init>(kotlin/Int = ..., ee.schimke.composeai.rcplayer.compose/RcPreprocessor? = ...) // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.<init>|<init>(kotlin.Int;ee.schimke.composeai.rcplayer.compose.RcPreprocessor?){}[0]
 
     final val misses // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.misses|{}misses[0]
         final fun <get-misses>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.misses.<get-misses>|<get-misses>(){}[0]
     final val prepared // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepared|{}prepared[0]
         final fun <get-prepared>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepared.<get-prepared>|<get-prepared>(){}[0]
+    final val preprocessor // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.preprocessor|{}preprocessor[0]
+        final fun <get-preprocessor>(): ee.schimke.composeai.rcplayer.compose/RcPreprocessor? // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.preprocessor.<get-preprocessor>|<get-preprocessor>(){}[0]
     final val size // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.size|{}size[0]
         final fun <get-size>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.size.<get-size>|<get-size>(){}[0]
 
-    final fun peek(kotlin/ByteArray): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument? // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.peek|peek(kotlin.ByteArray){}[0]
-    final fun peek(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerExtensions): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument? // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.peek|peek(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions){}[0]
-    final fun prepareNow(kotlin/ByteArray): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepareNow|prepareNow(kotlin.ByteArray){}[0]
-    final fun prepareNow(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerExtensions): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepareNow|prepareNow(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions){}[0]
-    final suspend fun prepare(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerExtensions, kotlin.coroutines/CoroutineContext = ...): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepare|prepare(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions;kotlin.coroutines.CoroutineContext){}[0]
-    final suspend fun prepare(kotlin/ByteArray, kotlin.coroutines/CoroutineContext = ...): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepare|prepare(kotlin.ByteArray;kotlin.coroutines.CoroutineContext){}[0]
+    final fun peek(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcDisplay? = ...): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument? // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.peek|peek(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcDisplay?){}[0]
+    final fun peek(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerExtensions, ee.schimke.composeai.rcplayer.compose/RcDisplay? = ...): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument? // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.peek|peek(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions;ee.schimke.composeai.rcplayer.compose.RcDisplay?){}[0]
+    final fun prepareNow(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcDisplay? = ...): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepareNow|prepareNow(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcDisplay?){}[0]
+    final fun prepareNow(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerExtensions, ee.schimke.composeai.rcplayer.compose/RcDisplay? = ...): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepareNow|prepareNow(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions;ee.schimke.composeai.rcplayer.compose.RcDisplay?){}[0]
+    final suspend fun prepare(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcDisplay? = ..., kotlin.coroutines/CoroutineContext = ...): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepare|prepare(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcDisplay?;kotlin.coroutines.CoroutineContext){}[0]
+    final suspend fun prepare(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerExtensions, ee.schimke.composeai.rcplayer.compose/RcDisplay? = ..., kotlin.coroutines/CoroutineContext = ...): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache.prepare|prepare(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerExtensions;ee.schimke.composeai.rcplayer.compose.RcDisplay?;kotlin.coroutines.CoroutineContext){}[0]
 }
 
 final class ee.schimke.composeai.rcplayer.compose/RcTextRun { // ee.schimke.composeai.rcplayer.compose/RcTextRun|null[0]
@@ -1191,6 +1213,7 @@ final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposeTextRasterizer$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposeTextRasterizer$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcComposeTextRasterizer$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop[0]
+final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop[0]
@@ -1275,6 +1298,7 @@ final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposeTextRasterizer$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposeTextRasterizer$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcComposeTextRasterizer$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop_getter(){}[0]

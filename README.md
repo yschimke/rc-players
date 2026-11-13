@@ -470,6 +470,13 @@ CompositionLocalProvider(LocalRcPreparation provides RcPreparation.Background(do
 `rememberRcPreparedDocument(bytes)` gives the same answer to a host that plays prepared documents
 itself, and `RcPreparedDocumentCache.misses` counts the players that had to wait for one.
 
+A cache can also rewrite each document for the display it plays on, as part of that background work:
+`RcPreparedDocumentCache(preprocessor = { doc, display -> doc.forDisplay(display.density, display.fontScale) })`
+hardcodes the density and font scale, freezes the values no card binds and folds the expressions that
+leaves (`rc-player-edit`'s `forDisplay`), once per document and display. Only the document is
+prepared off the main thread: every card is still ordinary Compose nodes, laid out, drawn and
+exposed to accessibility on the composition's thread.
+
 An override returns a Compose `ImageBitmap`, or null for an unavailable image. It owns its access
 policy and recoverable errors; it must not block the composition dispatcher. Use
 `RcImageLoader.Empty` to disable external loading. To keep Coil while configuring authentication,

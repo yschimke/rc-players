@@ -23,6 +23,7 @@ dependencies {
   implementation(project(":rc-player-protocol"))
   implementation(project(":rc-player-runtime"))
   implementation(project(":rc-player-trace"))
+  implementation(project(":rc-player-edit"))
 
   // Compose Desktop supplies `ImageComposeScene` and skiko's software rasterizer.
   @Suppress("DEPRECATION") implementation(compose.desktop.currentOs)

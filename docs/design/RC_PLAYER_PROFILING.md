@@ -317,6 +317,12 @@ against a hand-written card's leaner one. The foundation card is a lower bound: 
 | droidcon session | 17.3 µs | 77.6 µs | 9.5 µs | 6.0 µs |
 | kotlinconf session | 16.2 µs | 380.8 µs | 9.9 µs | 6.0 µs |
 
+`forDisplay` (the **edited** lanes: density hardcoded, unbound values frozen, constants folded)
+removes about 60% of a session template's expressions (24 → 9 float, integer and colour expressions)
+for about 1.2 ms of background work per template and display. A card's arrival cost moves within
+this machine's noise (−17% to +15% across the six templates): evaluating expressions is not what a
+card's first frame costs. It is still what every later frame of every card evaluates.
+
 Warm, decoding and preparing are a small share of a 1–2 ms card, so preparing in the background is
 not where a fling gets faster on a desktop JVM. It is what guarantees a list never does it on its main
 thread: on a device a template's first card meets cold code, and a prepare that is cheap here is not
