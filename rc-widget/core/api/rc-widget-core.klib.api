@@ -360,6 +360,22 @@ final class ee.schimke.composeai.rcwidget/RcWidgetActionMetadata { // ee.schimke
     }
 }
 
+final class ee.schimke.composeai.rcwidget/RcWidgetCaptureSize { // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize.<init>|<init>(kotlin.Int;kotlin.Int){}[0]
+
+    final val heightDp // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize.heightDp|{}heightDp[0]
+        final fun <get-heightDp>(): kotlin/Int // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize.heightDp.<get-heightDp>|<get-heightDp>(){}[0]
+    final val widthDp // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize.widthDp|{}widthDp[0]
+        final fun <get-widthDp>(): kotlin/Int // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize.widthDp.<get-widthDp>|<get-widthDp>(){}[0]
+
+    final fun component1(): kotlin/Int // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize.component1|component1(){}[0]
+    final fun component2(): kotlin/Int // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize.component2|component2(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Int = ...): ee.schimke.composeai.rcwidget/RcWidgetCaptureSize // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize.copy|copy(kotlin.Int;kotlin.Int){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcwidget/RcWidgetCaptureSize.toString|toString(){}[0]
+}
+
 final class ee.schimke.composeai.rcwidget/RcWidgetTarget { // ee.schimke.composeai.rcwidget/RcWidgetTarget|null[0]
     constructor <init>(kotlin/String, ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin.collections/Set<ee.schimke.composeai.rcplayer.edit/RcApproximation> = ..., kotlin/Boolean = ...) // ee.schimke.composeai.rcwidget/RcWidgetTarget.<init>|<init>(kotlin.String;ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.collections.Set<ee.schimke.composeai.rcplayer.edit.RcApproximation>;kotlin.Boolean){}[0]
 

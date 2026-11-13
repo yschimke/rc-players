@@ -428,6 +428,8 @@ jobs:
             :rc-widget-core:jvmTest \
             :rc-widget-core:testAndroidHostTest \
             :rc-widget-creation:compileAndroidMain \
+            :rc-widget-launcher-core:testAndroidHostTest \
+            :rc-widget-launcher-cmp:testAndroidHostTest \
             :rc-widget-launcher:testAndroidHostTest \
             :rc-widget-wear:testAndroidHostTest \
             :third-party-rc-embedded-player:testDebugUnitTest
@@ -468,7 +470,12 @@ jobs:
             :rc-widget-core:checkKotlinAbi \
             :rc-widget-creation:checkKotlinAbi \
             :rc-widget-creation-androidx:checkKotlinAbi \
+            :rc-widget-launcher-core:checkKotlinAbi \
+            :rc-widget-launcher-cmp:checkKotlinAbi \
             :rc-widget-launcher:checkKotlinAbi \
+            :rc-widget-launcher-core:verifyCreationApiIsolation \
+            :rc-widget-launcher-cmp:verifyCreationApiIsolation \
+            :rc-widget-launcher:verifyCreationApiIsolation \
             :rc-widget-wear:checkKotlinAbi \
             :rc-widget-creation:compileKotlinWasmJs \
             :rc-widget-core:compileCommonMainKotlinMetadata \

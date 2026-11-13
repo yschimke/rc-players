@@ -216,6 +216,14 @@ include(":rc-widget-creation-androidx")
 
 project(":rc-widget-creation-androidx").projectDir = file("rc-widget/creation-androidx")
 
+include(":rc-widget-launcher-core")
+
+project(":rc-widget-launcher-core").projectDir = file("rc-widget/launcher-core")
+
+include(":rc-widget-launcher-cmp")
+
+project(":rc-widget-launcher-cmp").projectDir = file("rc-widget/launcher-cmp")
+
 include(":rc-widget-launcher")
 
 project(":rc-widget-launcher").projectDir = file("rc-widget/launcher")

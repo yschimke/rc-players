@@ -18,14 +18,19 @@ works without a server, and the server-side pieces run the same code.
 | `rc-widget/core` | `rc-widget-core` | JVM · Android · iOS · macOS · wasmJs | What a phone, a watch and a server have to agree on about a document. No Compose and no Android; safe on a server. |
 | `rc-widget/creation` | `rc-widget-creation` | JVM · Android · iOS · macOS · wasmJs | Creation helpers against rc-players' CMP creation API (`rc-creation-compose`, package `ee.schimke.composeai.rccreation`) on every target. Package `ee.schimke.composeai.rcwidget.creation`. |
 | `rc-widget/creation-androidx` | `rc-widget-creation-androidx` | Android | The same helpers against AndroidX's own `remote-creation-compose`, and the AndroidX capture profiles. Package `ee.schimke.composeai.rcwidget.creation.androidx`. |
-| `rc-widget/launcher` | `rc-widget-launcher` | Android | Android launcher widgets (`RemoteViews.DrawInstructions`). |
+| `rc-widget/launcher-core` | `rc-widget-launcher-core` | Android | The creation-API-neutral half of launcher widgets (`RemoteViews.DrawInstructions`): the Android 16 pass, `RemoteViews` assembly, sizing, preview. |
+| `rc-widget/launcher-cmp` | `rc-widget-launcher-cmp` | Android | Launcher widgets authored through the CMP creation API. |
+| `rc-widget/launcher` | `rc-widget-launcher` | Android | Launcher widgets authored through AndroidX's creation API. |
 | `rc-widget/wear` | `rc-widget-wear` | Android | Wear OS widgets through Glance Wear. |
 
 ```
 rc-player-edit ─▶ rc-widget-core ─▶ rc-widget-creation            (rc-creation-compose, every target)
-                               └──▶ rc-widget-creation-androidx ─▶ rc-widget-launcher
-                                    (AndroidX creation, Android) └▶ rc-widget-wear
+                               └──▶ rc-widget-creation-androidx ─▶ rc-widget-launcher ─▶ rc-widget-launcher-core
+                                    (AndroidX creation, Android) └▶ rc-widget-wear          ▲
+                    rc-widget-creation ─▶ rc-widget-launcher-cmp ──────────────────────────┘
 ```
+
+A launcher widget can be authored through either API; see [LAUNCHER_EITHER_API.md](LAUNCHER_EITHER_API.md).
 
 ### Two bindings of one source
 
@@ -151,7 +156,12 @@ behind another function in `RcCreationCompat.kt`.
 - **AndroidX capture profiles:** `androidXExperimental`, and `androidXExperimentalWrap`
   (paint-measure off).
 
-### `rc-widget-launcher`
+### `rc-widget-launcher`, `rc-widget-launcher-core`, `rc-widget-launcher-cmp`
+
+The API-neutral parts below are in `rc-widget-launcher-core`; `rc-widget-launcher` keeps the AndroidX
+capture (`captureLauncherWidget`, the AndroidX profiles, `RcLauncherWidgets`) and
+`rc-widget-launcher-cmp` has the same capture for rc-players' creation API. See
+[LAUNCHER_EITHER_API.md](LAUNCHER_EITHER_API.md).
 
 - **Capture profiles.**
   - `widgetsProfile` (Android 16) and `systemThemedWidgetsProfile` (API 37+, `ColorTheme`).

@@ -4,7 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.os.Bundle
 import android.util.Xml
-import ee.schimke.composeai.rcwidget.creation.androidx.RcWidgetCaptureSize
+import ee.schimke.composeai.rcwidget.RcWidgetCaptureSize
 import kotlin.math.roundToInt
 import org.xmlpull.v1.XmlPullParser
 
@@ -33,6 +33,9 @@ public object RcWidgetSizing {
   /** [cellsW] × [cellsH] cells, in dp. */
   public fun cells(cellsW: Int, cellsH: Int): RcWidgetCaptureSize =
     RcWidgetCaptureSize(cellsW * CELL_WIDTH_DP, cellsH * CELL_HEIGHT_DP)
+
+  /** [dp] in pixels on a display of [densityDpi]: the size a capture is given. */
+  public fun dpToPx(dp: Int, densityDpi: Int): Int = (dp * densityDpi / 160f).toInt()
 
   private fun Bundle.dp(key: String, fallback: Int): Int =
     getInt(key, fallback).takeIf { it > 0 } ?: fallback

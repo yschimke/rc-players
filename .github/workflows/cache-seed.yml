@@ -88,12 +88,19 @@ jobs:
             :third-party-rc-embedded-player:testDebugUnitTest \
             :rc-widget-core:jvmTest \
             :rc-widget-core:testAndroidHostTest \
+            :rc-widget-launcher-core:testAndroidHostTest \
+            :rc-widget-launcher-cmp:testAndroidHostTest \
             :rc-widget-launcher:testAndroidHostTest \
             :rc-widget-wear:testAndroidHostTest \
             :rc-widget-core:checkKotlinAbi \
             :rc-widget-creation:checkKotlinAbi \
             :rc-widget-creation-androidx:checkKotlinAbi \
+            :rc-widget-launcher-core:checkKotlinAbi \
+            :rc-widget-launcher-cmp:checkKotlinAbi \
             :rc-widget-launcher:checkKotlinAbi \
+            :rc-widget-launcher-core:verifyCreationApiIsolation \
+            :rc-widget-launcher-cmp:verifyCreationApiIsolation \
+            :rc-widget-launcher:verifyCreationApiIsolation \
             :rc-widget-wear:checkKotlinAbi \
             :rc-player-trace:checkKotlinAbi \
             :rc-player-protocol:checkKotlinAbi \
