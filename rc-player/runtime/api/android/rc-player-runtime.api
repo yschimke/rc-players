@@ -927,6 +927,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun forgetRecentClockReads ()V
 	public final fun getAnimationTimeSeconds ()F
 	public final fun getClickAreas ()Ljava/util/List;
+	public final fun getClockReadCount ()J
 	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public final fun getFrameWallClockMillis ()J
 	public final fun getHasActiveFloatAnimations ()Z
