@@ -266,6 +266,7 @@ private fun RcDocument.bitmapFonts(
   if (wanted.isEmpty()) return unchanged
   if (operations.none { it is RcCoreText || it is RcDrawTextOnPath }) return unchanged
   val scales = target.apiLevel >= 7
+  val readsGlyphSpacing = target.apiLevel >= 8
   val required = REQUIRED_OPCODES + if (scales) SCALE_OPCODES else emptySet()
   val boxes = required.all { it in target.supportedOpcodes }
   val paths = PATH_OPCODES.all { it in target.supportedOpcodes }
@@ -476,11 +477,20 @@ private fun RcDocument.bitmapFonts(
     val font = fonts[plan.face] ?: continue
     when (plan) {
       is CorePlan -> {
+        // A player below level 8 reads no glyph spacing: there a text that asks for letter
+        // spacing keeps its layout, and the advances' rounding isn't made up (a line may be a
+        // pixel or two short) rather than written as a spacing the target rejects.
+        if (!readsGlyphSpacing && plan.letterSpacing != 0f) {
+          skipped += plan.text.componentId
+          continue
+        }
         val spacing =
-          plan.letterSpacing * plan.face.fontSize +
-            font.rounding(
-              plan.value?.let(font::tokens) ?: plan.dynamic!!.chars.map { it.toString() },
-            )
+          if (!readsGlyphSpacing) 0f
+          else
+            plan.letterSpacing * plan.face.fontSize +
+              font.rounding(
+                plan.value?.let(font::tokens) ?: plan.dynamic!!.chars.map { it.toString() },
+              )
         val pixelWidth =
           if (plan.dynamic != null) {
             val widest = plan.dynamic.chars.maxOf { font.advances.getValue(it.toString()) }

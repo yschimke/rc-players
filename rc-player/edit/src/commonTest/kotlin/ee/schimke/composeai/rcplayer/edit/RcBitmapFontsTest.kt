@@ -165,6 +165,31 @@ class RcBitmapFontsTest {
   }
 
   @Test
+  fun aLauncherTextWithFractionalAdvancesWritesNoGlyphSpacing() {
+    // A real face's advances fall between pixels; below level 8 their rounding can't be made up
+    // with a glyph spacing, which the launcher doesn't read.
+    val fractional = RcTextRasterizer { text ->
+      val scale = text.fontSize / 28f
+      RcRasterizedText(byteArrayOf(1, 2, 3), (text.text.length * 10.4f * scale).toInt(), 20)
+    }
+    val result =
+      screen(texts = layout(42, -7))
+        .coreTextAsBitmapFonts(
+          RcTargetProfiles.WIDGETS_V6,
+          setOf("Digital7"),
+          fractional,
+          RcDisplay(2f),
+          glyphs = { null },
+        )
+
+    assertEquals(-7, result.texts.single().componentId)
+    assertEquals(
+      emptyList(),
+      result.document.validateFor(RcTargetProfiles.WIDGETS_V6).filter { it.opcode != null },
+    )
+  }
+
+  @Test
   fun aLauncherTextLayoutLeftAsTextStaysATextLayout() {
     // Centred and changing: the launcher has no anchored draw, so it stays text.
     val live =
@@ -414,8 +439,22 @@ class RcBitmapFontsTest {
   fun letterSpacingBecomesGlyphSpacing() {
     val spaced = screen(texts = text(42, -7, FloatValue(12, f(0.5f))))
     val draw =
-      spaced.bitmapFonts().document.operations.filterIsInstance<RcDrawBitmapFontTextRun>().single()
+      spaced
+        .bitmapFonts(target = RcTargetProfiles.ANDROIDX)
+        .document
+        .operations
+        .filterIsInstance<RcDrawBitmapFontTextRun>()
+        .single()
     assertEquals(f(14f), draw.glyphSpacing, "half an em of a 28px text")
+  }
+
+  @Test
+  fun belowLevel8ALetterSpacedTextStaysText() {
+    // The launcher reads no glyph spacing: its letter spacing can't be kept in a bitmap font.
+    val spaced = screen(texts = text(42, -7, FloatValue(12, f(0.5f))))
+    val result = spaced.bitmapFonts()
+    assertEquals(spaced, result.document)
+    assertEquals(listOf(-7), result.skipped)
   }
 
   @Test
