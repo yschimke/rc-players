@@ -214,6 +214,34 @@ public class RcPreparedDocumentCache(
   public val size: Int
     get() = documents.load().size
 
+  /** Drops all prepared documents from memory. */
+  public fun clear() {
+    documents.store(emptyMap())
+  }
+
+  /**
+   * Drops the oldest prepared documents until at most [maxDocuments] remain in memory. Does not
+   * cancel in-flight preparations.
+   */
+  public fun trimToSize(maxDocuments: Int) {
+    require(maxDocuments >= 0) { "maxDocuments must be >= 0, was $maxDocuments" }
+    if (maxDocuments == 0) {
+      clear()
+      return
+    }
+    while (true) {
+      val current = documents.load()
+      if (current.size <= maxDocuments) return
+      val next = LinkedHashMap<RcContentKey, RcPreparedDocument>(maxDocuments)
+      val drop = current.size - maxDocuments
+      var index = 0
+      for ((key, value) in current) {
+        if (index++ >= drop) next[key] = value
+      }
+      if (documents.compareAndSet(current, next)) return
+    }
+  }
+
   internal fun recordMiss() {
     missCount.incrementAndFetch()
   }

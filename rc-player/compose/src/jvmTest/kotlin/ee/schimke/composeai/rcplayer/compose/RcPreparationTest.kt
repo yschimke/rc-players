@@ -24,6 +24,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -172,6 +173,29 @@ class RcPreparationTest {
     val cache = RcPreparedDocumentCache(preprocessor = { _, _ -> error("cannot rewrite this") })
     val prepared = cache.prepareNow(greenSquare(), RcDisplay(density = 2f))
     assertEquals(RcDocumentCodec.decode(greenSquare()), prepared.document)
+  }
+
+  @Test
+  fun trimToSizeDropsOldestAndClearEmptiesTheCache() {
+    val cache = RcPreparedDocumentCache(preprocessor = { document, _ -> document })
+    val bytes = greenSquare()
+    val first = RcDisplay(density = 1f)
+    val second = RcDisplay(density = 2f)
+    val third = RcDisplay(density = 3f)
+    cache.prepareNow(bytes, first)
+    cache.prepareNow(bytes, second)
+    cache.prepareNow(bytes, third)
+    assertEquals(3, cache.size)
+
+    cache.trimToSize(2)
+    assertEquals(2, cache.size)
+    assertSame(null, cache.peek(bytes, first))
+    assertNotNull(cache.peek(bytes, second))
+    assertNotNull(cache.peek(bytes, third))
+
+    cache.clear()
+    assertEquals(0, cache.size)
+    assertSame(null, cache.peek(bytes, third))
   }
 
   private fun org.jetbrains.skia.Image.greenPixels(): Int {
