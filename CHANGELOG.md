@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.5.0](https://github.com/yschimke/rc-players/compare/v3.4.0...v3.5.0) (2026-11-14)
+
+
+### Features
+
+* **compose:** flatten plain clickables as tap targets ([#901](https://github.com/yschimke/rc-players/issues/901)) ([2e636e2](https://github.com/yschimke/rc-players/commit/2e636e2d39da4fc1a6493f090bb964befcfe7e05))
+
+
+### Bug Fixes
+
+* **compose:** keep clickables a flat tap target cannot stand in for composed ([#904](https://github.com/yschimke/rc-players/issues/904)) ([e721686](https://github.com/yschimke/rc-players/commit/e721686838e05c06e0df268016f9f571ab1eb654))
+
+
+### Performance Improvements
+
+* **compose:** compose a reused lazy-list card once ([#902](https://github.com/yschimke/rc-players/issues/902)) ([d6bde88](https://github.com/yschimke/rc-players/commit/d6bde8839efe206797bc5c65ea0201319e46c5f7))
+* **compose:** follow the clock only in draws that read it ([#900](https://github.com/yschimke/rc-players/issues/900)) ([8391fcd](https://github.com/yschimke/rc-players/commit/8391fcd98520b9b2e0874d7df97022b2d9a1a9c1))
+
 ## [3.4.0](https://github.com/yschimke/rc-players/compare/v3.3.1...v3.4.0) (2026-11-14)
 
 
