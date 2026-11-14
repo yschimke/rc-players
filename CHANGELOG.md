@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.4.0](https://github.com/yschimke/rc-players/compare/v3.3.1...v3.4.0) (2026-11-14)
+
+
+### Features
+
+* **compose:** add clear() and trimToSize() to RcPreparedDocumentCache ([#899](https://github.com/yschimke/rc-players/issues/899)) ([7df9c05](https://github.com/yschimke/rc-players/commit/7df9c05ac306b69e8b6fe27edc62d4e9573a406e))
+* **compose:** flatten components whose visibility is data ([#895](https://github.com/yschimke/rc-players/issues/895)) ([909fb3c](https://github.com/yschimke/rc-players/commit/909fb3c5c04d84c65a91a1816d307c1cf4c38ef3))
+
 ## [3.3.1](https://github.com/yschimke/rc-players/compare/v3.3.0...v3.3.1) (2026-11-14)
 
 
