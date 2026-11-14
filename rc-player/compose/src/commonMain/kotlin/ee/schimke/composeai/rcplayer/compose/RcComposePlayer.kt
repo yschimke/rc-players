@@ -8382,8 +8382,11 @@ private fun RcFlatContainer(
   val flat =
     rcFlatChildren(children, plain) { rcFlatTextSpec(it, state, density, fontFamilies, typefaces) }
   val holes = ArrayList<RcLayoutNode>()
-  // The container's own texts and its holes, in the order the per-component path has them: a run
-  // of texts after a hole is read after the hole's own, so it goes on a node placed after it.
+  // The container's own texts, its holes and its tap targets, in the order the per-component path
+  // has them: a run of texts after a hole is read after the hole's own, so it goes on a node placed
+  // after it; and a tap target is placed where its component is, so a run that starts before it is
+  // placed below it. Android reports a node's bounds to accessibility services less what the nodes
+  // placed above it cover, and a run spanning a clickable text covered the target's touch bounds.
   val sequence = ArrayList<Any>()
   // The plain components with a click, each with the texts it holds: on the per-component path a
   // clickable merges the semantics below it, so its texts are its own rather than the container's.
@@ -8399,6 +8402,7 @@ private fun RcFlatContainer(
           ArrayList<RcFlat.Text>().also { list ->
             clickables += it.node to ArrayList()
             ownedTexts[it.node.componentId] = list
+            sequence += RcFlatTarget(it.node.componentId)
           }
         } else owner
       when (it) {
@@ -8409,7 +8413,9 @@ private fun RcFlatContainer(
         is RcFlat.Text ->
           if (own != null) own += it
           else
-            ((sequence.lastOrNull() as? RcFlatRun) ?: RcFlatRun().also(sequence::add)).texts += it
+            ((sequence.lastOrNull { entry -> entry !is RcFlatTarget } as? RcFlatRun)
+                ?: RcFlatRun().also(sequence::add))
+              .texts += it
         is RcFlat.Group -> collect(it.children, own)
       }
     }
@@ -8419,8 +8425,10 @@ private fun RcFlatContainer(
     ownedTexts[node.componentId]?.mapTo(texts) { it.spec.text }
   }
   // The texts before the first hole are the container's own; every later run is a node of its own.
-  val texts = (sequence.firstOrNull() as? RcFlatRun)?.texts?.map { it.spec.text }.orEmpty()
-  val laterRuns = sequence.drop(if (sequence.firstOrNull() is RcFlatRun) 1 else 0)
+  val ownRun =
+    sequence.takeWhile { it !is RcLayoutNode }.firstOrNull { it is RcFlatRun } as RcFlatRun?
+  val texts = ownRun?.texts?.map { it.spec.text }.orEmpty()
+  val laterRuns = sequence.filter { it !== ownRun }
   val drawn = remember {
     mutableStateOf(emptyList<androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit>())
   }
@@ -8428,10 +8436,10 @@ private fun RcFlatContainer(
   androidx.compose.ui.layout.Layout(
     content = {
       // A tap target for each plain clickable, where the flat layout puts it: a node with nothing
-      // to
-      // draw, carrying the component's click and the texts it holds, as its own composable would.
-      // Composed before the holes, so it sits below them: a composed child of a clickable group
-      // still takes its own taps, and one with no pointer input lets them through to the group.
+      // to draw, carrying the component's click and the texts it holds, as its own composable
+      // would. Placed in the container's order (see the layout below): below a clickable group's
+      // composed children, which still take their own taps, or let them through to the group when
+      // they have no pointer input of their own.
       clickables.forEach { (node, nodeTexts) ->
         androidx.compose.runtime.key(RcFlatTarget(node.componentId)) {
           Box(
@@ -8472,7 +8480,7 @@ private fun RcFlatContainer(
               },
             )
           }
-        } else composeHole(entry as RcLayoutNode)
+        } else if (entry is RcLayoutNode) composeHole(entry)
       }
       holes.forEach { node -> if (node !in laterRuns) composeHole(node) }
     },
@@ -8511,10 +8519,11 @@ private fun RcFlatContainer(
     measured.place(0, 0, out)
     drawn.value = out.draws
     val tapTargets =
-      out.targets.mapNotNull { target ->
-        targets[target.componentId]?.let {
-          Triple(it.measure(Constraints.fixed(target.width, target.height)), target.x, target.y)
-        }
+      out.targets.associate { target ->
+        target.componentId to
+          targets[target.componentId]?.let {
+            Triple(it.measure(Constraints.fixed(target.width, target.height)), target.x, target.y)
+          }
       }
     // A run of texts covers its texts' bounds, so it is read, and found, where they are drawn.
     val placedRuns = runs.mapValues { (run, measurable) ->
@@ -8533,17 +8542,21 @@ private fun RcFlatContainer(
       }
     }
     layout(measured.width, measured.height) {
-      // Tap targets below everything composed, then the holes and runs in the container's order.
-      tapTargets.forEach { (placeable, x, y) -> placeable.place(x, y) }
+      // The tap targets, holes and runs in the container's order, then the holes inside
+      // clickables: a clickable group's composed child sits above its tap target, and takes its own
+      // taps.
       val placed = HashSet<Int>()
       laterRuns.forEach { entry ->
         val at =
-          if (entry is RcFlatRun) placedRuns[entry]
-          else
-            (entry as RcLayoutNode).componentId.let { id ->
-              placed += id
-              out.holeAt[id]
-            }
+          when (entry) {
+            is RcFlatRun -> placedRuns[entry]
+            is RcFlatTarget -> tapTargets[entry.componentId]
+            else ->
+              (entry as RcLayoutNode).componentId.let { id ->
+                placed += id
+                out.holeAt[id]
+              }
+          }
         at?.let { (placeable, x, y) -> placeable.place(x, y) }
       }
       out.holeAt.forEach { (id, at) ->
