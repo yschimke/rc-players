@@ -8287,24 +8287,25 @@ private fun RcLayoutNode.flatVisibility(state: RcPlayerState): Int =
 private fun rcFlatChildren(
   children: List<RcLayoutNode>,
   plain: Set<Int>,
+  decided: RcFlatDecisions = RcFlatDecisions(),
   spec: (RcLayoutNode.CoreText) -> RcFlatTextSpec?,
 ): List<RcFlat> = children.flatMap { child ->
-  if (child.componentId !in plain || !rcFlattens(child, plain, asGroup = true)) {
+  if (child.componentId !in plain || !rcFlattens(child, plain, asGroup = true, decided)) {
     return@flatMap listOf(RcFlat.Hole(child))
   }
   when (child) {
-    is RcLayoutNode.Content -> rcFlatChildren(child.children, plain, spec)
+    is RcLayoutNode.Content -> rcFlatChildren(child.children, plain, decided, spec)
     is RcLayoutNode.CoreText ->
       listOf(spec(child)?.let { RcFlat.Text(child, it) } ?: RcFlat.Hole(child))
     is RcLayoutNode.Row ->
-      listOf(RcFlat.Group(child, rcFlatChildren(child.content.children, plain, spec)))
+      listOf(RcFlat.Group(child, rcFlatChildren(child.content.children, plain, decided, spec)))
     is RcLayoutNode.Column ->
-      listOf(RcFlat.Group(child, rcFlatChildren(child.content.children, plain, spec)))
+      listOf(RcFlat.Group(child, rcFlatChildren(child.content.children, plain, decided, spec)))
     is RcLayoutNode.Box ->
       listOf(
         RcFlat.Group(
           child,
-          child.content?.let { rcFlatChildren(listOf(it), plain, spec) }.orEmpty(),
+          child.content?.let { rcFlatChildren(listOf(it), plain, decided, spec) }.orEmpty(),
         ),
       )
     else -> listOf(RcFlat.Hole(child))
@@ -9075,6 +9076,30 @@ private fun rcFlattens(
   container: RcLayoutNode,
   plain: Set<Int>,
   asGroup: Boolean = false,
+  decided: RcFlatDecisions = RcFlatDecisions(),
+): Boolean {
+  if (!asGroup) return rcFlattensDecided(container, plain, asGroup = false, decided)
+  return decided.flattens.getOrPut(container.componentId) {
+    rcFlattensDecided(container, plain, asGroup = true, decided)
+  }
+}
+
+/**
+ * What one walk over a tree has decided, by component id: whether each group flattens as a group,
+ * and whether anything below it is composed. A group asks both about everything below it, and so
+ * does each group below it: without these, nested groups repeated the walk at every level, doubling
+ * the work per level.
+ */
+private class RcFlatDecisions {
+  val flattens = HashMap<Int, Boolean>()
+  val composedBelow = HashMap<Int, Boolean>()
+}
+
+private fun rcFlattensDecided(
+  container: RcLayoutNode,
+  plain: Set<Int>,
+  asGroup: Boolean,
+  decided: RcFlatDecisions,
 ): Boolean {
   // A clickable's tap target is a rectangle at its whole box, where the component's press handler
   // sits before its first padding, inside any clip before that: a rounded clip there makes the
@@ -9090,7 +9115,8 @@ private fun rcFlattens(
   // too, and only a component's layer clip clips taps.
   if (
     asGroup &&
-      ((container.modifiers.clicks.isNotEmpty() && rcHasComposedDescendant(children, plain)) ||
+      ((container.modifiers.clicks.isNotEmpty() &&
+        rcHasComposedDescendant(children, plain, decided)) ||
         (container.modifiers.ordered.any { it is RcRoundedClipRectModifier } &&
           rcHasClickableDescendant(children)))
   ) {
@@ -9106,7 +9132,7 @@ private fun rcFlattens(
     asGroup &&
       (container.modifiers.visibility != null ||
         container.modifiers.ordered.any { it is RcRoundedClipRectModifier }) &&
-      rcHasComposedDescendant(children, plain)
+      rcHasComposedDescendant(children, plain, decided)
   ) {
     return false
   }
@@ -9118,7 +9144,8 @@ private fun rcFlattens(
     var composedSeen = false
     for (child in inline(children)) {
       // A plain group the flat layout leaves a component (see above) is composed too.
-      val composed = child.componentId !in plain || !rcFlattens(child, plain, asGroup = true)
+      val composed =
+        child.componentId !in plain || !rcFlattens(child, plain, asGroup = true, decided)
       if (composed) composedSeen = true else if (composedSeen) return false
     }
   }
@@ -9149,13 +9176,19 @@ private fun rcHasClickableDescendant(children: List<RcLayoutNode>): Boolean =
  * plain, or a plain group the flat layout leaves a component ([rcFlattens], as [rcFlatChildren]
  * decides it), such as a clickable a rounded clip cuts.
  */
-private fun rcHasComposedDescendant(children: List<RcLayoutNode>, plain: Set<Int>): Boolean =
-  children.any { child ->
-    child.componentId !in plain ||
-      !rcFlattens(child, plain, asGroup = true) ||
+private fun rcHasComposedDescendant(
+  children: List<RcLayoutNode>,
+  plain: Set<Int>,
+  decided: RcFlatDecisions,
+): Boolean = children.any { child ->
+  child.componentId !in plain ||
+    !rcFlattens(child, plain, asGroup = true, decided) ||
+    decided.composedBelow.getOrPut(child.componentId) {
       rcHasComposedDescendant(
         (if (child is RcLayoutNode.Content) child.children else child.flatContainerChildren())
           .orEmpty(),
         plain,
+        decided,
       )
-  }
+    }
+}

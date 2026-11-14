@@ -77,6 +77,35 @@ class RcFlatClickEdgeTest {
   fun aClippedClickableInsideAnInvisibleGroupIsStillTapped() =
     assertTapsAsComponents(clippedClickable(ownClip = true, invisibleGroup = true))
 
+  /**
+   * Deciding what flattens is linear in the tree: nested groups with a visibility each ask whether
+   * anything below them is composed, and a walk that answered that again at every level doubled its
+   * work per level (about ×1.8 a level measured, some ten seconds of composition at this depth).
+   */
+  @Test
+  fun deeplyNestedVisibleGroupsAreDecidedInLinearTime() {
+    val depth = 26
+    val open =
+      (0 until depth).flatMap { level ->
+        listOf(
+          RcColumnLayout(NESTED + 2 * level, -1, 1, 1, RcFloatWord.literal(0f)),
+          RcVisibilityModifier(VISIBLE),
+          RcLayoutContent(NESTED + 2 * level + 1),
+        )
+      }
+    val document =
+      document(
+        open + text(CLICKABLE + 4) + (0 until depth).flatMap { listOf(END, END) },
+        listOf(RcIntegerConstant(VISIBLE, 1)),
+      )
+    val prepared = RcPreparedDocument(document)
+    val started = System.nanoTime()
+    val labels = labels(prepared, flatten = true)
+    val millis = (System.nanoTime() - started) / 1_000_000
+    assertEquals(emptyList(), labels)
+    assertTrue(millis < 2_000, "deciding what flattens took $millis ms")
+  }
+
   private fun assertTapsAsComponents(document: RcDocument) {
     val prepared = RcPreparedDocument(document)
     assertTrue(CLICKABLE in prepared.plainComponents, "the clickable is not plain")
@@ -244,5 +273,7 @@ class RcFlatClickEdgeTest {
     const val LABEL = 100
     const val HIDDEN = 60
     const val INVISIBLE = 101
+    const val VISIBLE = 102
+    const val NESTED = 200
   }
 }
