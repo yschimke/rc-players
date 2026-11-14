@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.3.0](https://github.com/yschimke/rc-players/compare/v3.2.0...v3.3.0) (2026-11-14)
+
+
+### Features
+
+* **compose:** lay out a container's plain components in one node (experimental) ([#891](https://github.com/yschimke/rc-players/issues/891)) ([1946522](https://github.com/yschimke/rc-players/commit/194652203f0b06565c4068c6002e75aff2459c43))
+
+
+### Bug Fixes
+
+* **deps:** update dependency playwright to v1.65.1 ([#889](https://github.com/yschimke/rc-players/issues/889)) ([10353c2](https://github.com/yschimke/rc-players/commit/10353c238dc9e890d61a0dfab4e1fdac0f6cba36))
+
+
+### Performance Improvements
+
+* **compose:** cut what a scrolling list pays per visible card ([#888](https://github.com/yschimke/rc-players/issues/888)) ([7cd1af0](https://github.com/yschimke/rc-players/commit/7cd1af000ddd3b5e71c54cd938ee32f02179340a))
+
 ## [3.2.0](https://github.com/yschimke/rc-players/compare/v3.1.3...v3.2.0) (2026-11-13)
 
 
