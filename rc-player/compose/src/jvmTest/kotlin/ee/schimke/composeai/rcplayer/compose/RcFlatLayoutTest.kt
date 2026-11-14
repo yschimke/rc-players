@@ -32,6 +32,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
@@ -185,6 +186,59 @@ class RcFlatLayoutTest {
   }
 
   @Test
+  fun halfPixelPaddingRoundsAsOneInset() {
+    // 31.5 + 31.5 px of padding is 63 px, not 64: the next box starts where it does on a component.
+    val padded = box(10, 1f, 20f, 20f, leading = listOf(padding(31.5f, 31.5f)))
+    assertSameBothWays(
+      document(
+        RcRowLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+        listOf(padded, box(20, 0f, 20f, 20f)),
+      ),
+      width = 140,
+      height = 30,
+    )
+  }
+
+  @Test
+  fun weightedSharesAddUpToTheRow() {
+    // Two equal weights in 101 px: 51 and 50, not 51 and 51.
+    assertSameBothWays(
+      document(
+        RcRowLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+        listOf(
+          box(10, 1f, 1f, 20f, widthType = RcDimensionType.WEIGHT),
+          box(20, 0f, 1f, 20f, widthType = RcDimensionType.WEIGHT),
+        ),
+      ),
+      width = 101,
+      height = 30,
+      room = 20,
+    )
+  }
+
+  @Test
+  fun startPaddingIsOnTheRightInRightToLeft() {
+    val padded = box(10, 1f, 20f, 20f, leading = listOf(padding(20f, 0f)))
+    assertSameBothWays(
+      document(
+        RcRowLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+        listOf(padded, box(20, 0f, 20f, 20f)),
+      ),
+      width = 120,
+      height = 30,
+      rtl = true,
+    )
+  }
+
+  private fun padding(start: Float, end: Float) =
+    RcPaddingModifier(
+      RcFloatWord.literal(start),
+      RcFloatWord.literal(0f),
+      RcFloatWord.literal(end),
+      RcFloatWord.literal(0f),
+    )
+
+  @Test
   fun aGoneWeightedChildTakesNoShare() {
     // Two equal weights, one of them gone: the other has the whole row, as a Compose row gives it.
     val gone = box(20, 0f, 1f, 20f, listOf(RcVisibilityModifier(VISIBLE)), RcDimensionType.WEIGHT)
@@ -240,8 +294,11 @@ class RcFlatLayoutTest {
     height: Float,
     extra: List<RcOperation> = emptyList(),
     widthType: Int = RcDimensionType.EXACT,
+    /** Modifiers before its size: padding here is outside the box. */
+    leading: List<RcOperation> = emptyList(),
   ): List<RcOperation> = buildList {
     add(RcBoxLayout(id, -1, 1, 1))
+    addAll(leading)
     add(RcWidthModifier(widthType, RcFloatWord.literal(width)))
     add(RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(height)))
     add(

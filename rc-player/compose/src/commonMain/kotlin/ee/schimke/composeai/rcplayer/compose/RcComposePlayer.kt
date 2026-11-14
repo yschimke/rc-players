@@ -337,6 +337,7 @@ import kotlin.math.atan2
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import kotlin.math.sign
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -8372,10 +8373,16 @@ private class RcFlatEngine(
           bottom += px(state.resolve(padding.bottom))
           next++
         }
-        val l = left.coerceAtLeast(0f).roundToInt()
-        val t = top.coerceAtLeast(0f).roundToInt()
-        val horizontal = l + right.coerceAtLeast(0f).roundToInt()
-        val vertical = t + bottom.coerceAtLeast(0f).roundToInt()
+        // As `rcPaddingPixels`: the start edge rounded on its own, the end edge what the rounded
+        // total leaves; and the wire's left is the start, so in right-to-left layout it is the
+        // physical right.
+        val start = rcPaddingStartPixels(left)
+        val end = rcPaddingEndPixels(left, right)
+        val l =
+          if (scope.layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) end else start
+        val t = rcPaddingStartPixels(top)
+        val horizontal = rcCombinedPaddingPixels(left, right)
+        val vertical = rcCombinedPaddingPixels(top, bottom)
         val content =
           chain(node, next, constraints.offset(-horizontal, -vertical), widthSet, heightSet, inner)
         RcFlatMeasured(
@@ -8632,9 +8639,16 @@ private class RcFlatEngine(
         if (bounded) maxMain else if (horizontal) constraints.minWidth else constraints.minHeight
       val free =
         (target - used - gap * (count + weightedCount - 1).coerceAtLeast(0)).coerceAtLeast(0)
+      // As Compose's rows and columns: each share rounded, and the remainder those roundings leave
+      // handed out a pixel at a time, so the shares add up to exactly the free space.
+      val unit = if (totalWeight > 0f) free / totalWeight else 0f
+      var remainder =
+        free - weights.sumOf { weight -> weight?.let { (unit * it).roundToInt() } ?: 0 }
       items.forEachIndexed { index, item ->
         val weight = weights[index] ?: return@forEachIndexed
-        val share = if (totalWeight > 0f) (free * weight / totalWeight).roundToInt() else 0
+        val step = remainder.sign
+        remainder -= step
+        val share = ((unit * weight).roundToInt() + step).coerceAtLeast(0)
         val child =
           measure(
             item,
