@@ -3183,9 +3183,16 @@ private fun Modifier.applyComponentModifiers(
     }
     val operation = modifiers.ordered[operationIndex]
     // AndroidX paints CanvasOperations at the component's full bounds, temporarily undoing the
-    // content-padding inset. Put the Compose draw wrapper outside the first padding modifier even
-    // when the wire DrawContent marker follows it.
-    if (operation is RcPaddingModifier && !appliedCanvasOperations) {
+    // content-padding inset. Put the Compose draw wrapper outside a padding that comes before the
+    // stream's place (the wire DrawContent marker, else the end), but only when nothing paints
+    // between the two: a background or border written after the padding draws before the stream
+    // in AndroidX, so a wrapper outside it would paint the stream underneath them. An outer margin
+    // (padding, then a card's background, then a brush drawn over it) keeps the stream in place.
+    if (
+      operation is RcPaddingModifier &&
+        !appliedCanvasOperations &&
+        !paintsBeforeCanvas(modifiers.ordered, operationIndex)
+    ) {
       result = applyCanvasOperations(applyPendingGraphicsLayer(result))
     }
     if (operation is RcPaddingModifier && !pressHandlersApplied) {
@@ -3250,11 +3257,9 @@ private fun Modifier.applyComponentModifiers(
         is RcGraphicsLayerModifier -> result
         is RcMarqueeModifier -> result.applyAndroidXMarquee(operation, state)
         is RcNoArg ->
-          if (
-            operation.opcode == RcOpcodes.MODIFIER_DRAW_CONTENT &&
-              !appliedCanvasOperations &&
-              modifiers.ordered.drop(operationIndex + 1).none { it is RcPaddingModifier }
-          ) {
+          // The stream's own place: everything before it is drawn underneath, and the paddings
+          // after it haven't inset the bounds yet, so it covers the component as AndroidX does.
+          if (operation.opcode == RcOpcodes.MODIFIER_DRAW_CONTENT && !appliedCanvasOperations) {
             applyCanvasOperations(applyPendingGraphicsLayer(result))
           } else result
         else -> result
@@ -9204,4 +9209,15 @@ private fun rcHasComposedDescendant(
         decided,
       )
     }
+}
+
+/**
+ * Whether a background or border lies between the padding at [paddingIndex] and the canvas stream's
+ * place in [ordered]: the DrawContent marker, or the end of the modifiers without one.
+ */
+private fun paintsBeforeCanvas(ordered: List<RcOperation>, paddingIndex: Int): Boolean {
+  val rest = ordered.drop(paddingIndex + 1)
+  val marker = rest.indexOfFirst { it is RcNoArg && it.opcode == RcOpcodes.MODIFIER_DRAW_CONTENT }
+  val between = if (marker >= 0) rest.take(marker) else rest
+  return between.any { it is RcBackgroundModifier || it is RcBorderModifier }
 }
