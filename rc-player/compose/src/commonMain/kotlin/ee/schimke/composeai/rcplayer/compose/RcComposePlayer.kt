@@ -9144,10 +9144,15 @@ private fun rcHasClickableDescendant(children: List<RcLayoutNode>): Boolean =
       )
   }
 
-/** Whether any of [children], or anything plain below them, is composed rather than flattened. */
+/**
+ * Whether any of [children], or anything plain below them, is composed rather than flattened: not
+ * plain, or a plain group the flat layout leaves a component ([rcFlattens], as [rcFlatChildren]
+ * decides it), such as a clickable a rounded clip cuts.
+ */
 private fun rcHasComposedDescendant(children: List<RcLayoutNode>, plain: Set<Int>): Boolean =
   children.any { child ->
     child.componentId !in plain ||
+      !rcFlattens(child, plain, asGroup = true) ||
       rcHasComposedDescendant(
         (if (child is RcLayoutNode.Content) child.children else child.flatContainerChildren())
           .orEmpty(),

@@ -27,6 +27,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHostAction
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
@@ -36,6 +37,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
@@ -69,6 +71,11 @@ class RcFlatClickEdgeTest {
   @Test
   fun aClickableInsideAClippedGroupTakesNoTapInItsCorners() =
     assertTapsAsComponents(clippedClickable(ownClip = false))
+
+  /** Invisible, a group still lays out what it holds, at alpha 0, and its clickables take taps. */
+  @Test
+  fun aClippedClickableInsideAnInvisibleGroupIsStillTapped() =
+    assertTapsAsComponents(clippedClickable(ownClip = true, invisibleGroup = true))
 
   private fun assertTapsAsComponents(document: RcDocument) {
     val prepared = RcPreparedDocument(document)
@@ -157,9 +164,9 @@ class RcFlatClickEdgeTest {
 
   /**
    * A 100 px clickable box, rounded to a circle: by its own clip, before any padding, or by a plain
-   * group around it.
+   * group around it. With [invisibleGroup], inside an invisible plain column.
    */
-  private fun clippedClickable(ownClip: Boolean): RcDocument {
+  private fun clippedClickable(ownClip: Boolean, invisibleGroup: Boolean = false): RcDocument {
     val circle = RcFloatWord.literal(50f)
     val clip = RcRoundedClipRectModifier(circle, circle, circle, circle)
     val size =
@@ -175,28 +182,39 @@ class RcFlatClickEdgeTest {
         listOf(RcLayoutContent(CLICKABLE + 1)) +
         text(CLICKABLE + 4) +
         listOf(END, END)
-    return document(
+    val clipped =
       if (ownClip) clickable
       else
         listOf(RcBoxLayout(GROUP, -1, 1, 1), clip) +
           size +
           listOf(RcLayoutContent(GROUP + 1)) +
           clickable +
-          listOf(END, END),
+          listOf(END, END)
+    if (!invisibleGroup) return document(clipped)
+    return document(
+      listOf(
+        RcColumnLayout(HIDDEN, -1, 1, 1, RcFloatWord.literal(0f)),
+        RcVisibilityModifier(INVISIBLE),
+        RcLayoutContent(HIDDEN + 1),
+      ) + clipped + listOf(END, END),
+      listOf(RcIntegerConstant(INVISIBLE, 2)),
     )
   }
 
-  private fun document(content: List<RcOperation>) =
+  private fun document(content: List<RcOperation>, data: List<RcOperation> = emptyList()) =
     RcDocument(
       RcHeader(RcVersion(1, 1, 0), legacyWidth = WIDTH, legacyHeight = HEIGHT, modern = false),
-      listOf(
-        RcTextData(LABEL, "Live"),
-        RcRootLayout(1),
-        RcLayoutContent(2),
-        RcColumnLayout(COLUMN, -1, 1, 1, RcFloatWord.literal(0f)),
-        RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
-        RcLayoutContent(COLUMN + 1),
-      ) + content + listOf(END, END, END, END),
+      listOf<RcOperation>(RcTextData(LABEL, "Live")) +
+        data +
+        listOf(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcColumnLayout(COLUMN, -1, 1, 1, RcFloatWord.literal(0f)),
+          RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+          RcLayoutContent(COLUMN + 1),
+        ) +
+        content +
+        listOf(END, END, END, END),
     )
 
   private fun click(action: Int) = listOf(RcClickModifier, RcHostAction(action), END)
@@ -224,5 +242,7 @@ class RcFlatClickEdgeTest {
     const val GROUP = 20
     const val CLICKABLE = 40
     const val LABEL = 100
+    const val HIDDEN = 60
+    const val INVISIBLE = 101
   }
 }
