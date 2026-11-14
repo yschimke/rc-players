@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.1](https://github.com/yschimke/rc-players/compare/v3.3.0...v3.3.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **compose:** keep a rounded-clipped group with composed children off the flat path ([#893](https://github.com/yschimke/rc-players/issues/893)) ([8e12b72](https://github.com/yschimke/rc-players/commit/8e12b729f0a5e78b92104e1b1ba32fe219a19e25))
+
 ## [3.3.0](https://github.com/yschimke/rc-players/compare/v3.2.0...v3.3.0) (2026-11-14)
 
 
