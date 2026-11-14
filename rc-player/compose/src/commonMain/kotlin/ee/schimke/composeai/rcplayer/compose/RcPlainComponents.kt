@@ -12,6 +12,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import ee.schimke.composeai.rcplayer.runtime.RcClickActionType
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 
@@ -19,8 +20,10 @@ import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
  * The components of [layout] that [RcFlatContainer] can lay out and draw itself, with no composable
  * of their own: boxes, rows, columns, layout content and core text whose modifiers are only sizes,
  * padding, backgrounds, borders, rounded clips and visibility (and text that is not auto-sized),
- * with no click, touch, scroll, marquee, layout computation, accessibility semantics or animation
- * spec, and whose geometry no `ComponentValue` reads. Everything else stays a component of its own.
+ * and whose only clicks are plain `CLICK`s (the flat layout gives each a tap target: see
+ * `RcFlatContainer`), with no other click, touch, scroll, marquee, layout computation,
+ * accessibility semantics or animation spec, and whose geometry no `ComponentValue` reads.
+ * Everything else stays a component of its own.
  *
  * A visibility is read as the flat layout measures, which it only does while the document has
  * deferred the lookahead pass: a host value that could change it switches the pass on first, and
@@ -83,7 +86,7 @@ private val PLAIN_DIMENSIONS =
 private fun RcLayoutNode.hasPlainModifiers(): Boolean =
   with(modifiers) {
     (visibility == null || this@hasPlainModifiers !is RcLayoutNode.Content) &&
-      clicks.isEmpty() &&
+      clicks.all { it.type == RcClickActionType.CLICK } &&
       touchActions.isEmpty() &&
       scroll == null &&
       marquee == null &&
