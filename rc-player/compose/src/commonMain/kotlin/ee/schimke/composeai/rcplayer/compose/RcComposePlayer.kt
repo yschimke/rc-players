@@ -2354,7 +2354,14 @@ public val LocalRcDeferLayoutAnimations:
   androidx.compose.runtime.staticCompositionLocalOf { false }
 
 /** Whether components publish their size from the measure pass; see `trackComponentGeometry`. */
-private val LocalRcPublishSizeOnMeasure = compositionLocalOf { false }
+// A value fixed for a document (its state's callbacks, its offscreen pool, its fonts, this one)
+// is provided through a static local: it changes only when the player shows another document, and
+// then everything under it composes anyway. A dynamic local holds each in a state, and a lazy list
+// that reuses a card's slot for another card writes those states during the very composition that
+// reads them, which invalidates every reader again: the whole card composed a second time, in the
+// recomposer's next frame (`RcSlotReuseTest`). The layout version and the lookahead scope change
+// while a document plays, so they stay dynamic and recompose only their readers.
+private val LocalRcPublishSizeOnMeasure = staticCompositionLocalOf { false }
 private val LocalRcLayoutVersion = compositionLocalOf { 0 }
 
 /**
@@ -2422,12 +2429,14 @@ internal class RcPlayerRoot {
 }
 
 private val LocalRcPlayerRoot = staticCompositionLocalOf<RcPlayerRoot?> { null }
-private val LocalRcFonts = compositionLocalOf { RcDocumentFonts.Empty }
-private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
-private val LocalRcCustomComponents = compositionLocalOf { RcCustomComponentRegistry.Empty }
-private val LocalRcInvalidate = compositionLocalOf<() -> Unit> { {} }
+private val LocalRcFonts = staticCompositionLocalOf { RcDocumentFonts.Empty }
+private val LocalRcTypefaces = staticCompositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
+private val LocalRcCustomComponents = staticCompositionLocalOf { RcCustomComponentRegistry.Empty }
+private val LocalRcInvalidate = staticCompositionLocalOf<() -> Unit> { {} }
 private val LocalRcOffscreenTargets =
-  compositionLocalOf<RcOffscreenTargetPool> { error("No document-scoped offscreen target pool") }
+  staticCompositionLocalOf<RcOffscreenTargetPool> {
+    error("No document-scoped offscreen target pool")
+  }
 
 internal val DefaultRcAnimationSpec =
   RcAnimationSpec(

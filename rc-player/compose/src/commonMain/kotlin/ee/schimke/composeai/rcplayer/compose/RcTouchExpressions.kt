@@ -1,6 +1,6 @@
 package ee.schimke.composeai.rcplayer.compose
 
-import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEvent
@@ -40,7 +40,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import ee.schimke.composeai.rcplayer.runtime.RcTouchExpressionRuntime
 
-internal val LocalRcTouchExpressions = compositionLocalOf {
+internal val LocalRcTouchExpressions = staticCompositionLocalOf {
   emptyMap<Int?, List<RcTouchExpression>>()
 }
 
