@@ -1154,6 +1154,8 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
     final val rootContentDescription // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.rootContentDescription|{}rootContentDescription[0]
         final fun <get-rootContentDescription>(): kotlin/String? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.rootContentDescription.<get-rootContentDescription>|<get-rootContentDescription>(){}[0]
 
+    final var clockReadCount // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.clockReadCount|{}clockReadCount[0]
+        final fun <get-clockReadCount>(): kotlin/Long // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.clockReadCount.<get-clockReadCount>|<get-clockReadCount>(){}[0]
     final var onRepaint // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.onRepaint|{}onRepaint[0]
         final fun <get-onRepaint>(): kotlin/Function0<kotlin/Unit>? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.onRepaint.<get-onRepaint>|<get-onRepaint>(){}[0]
         final fun <set-onRepaint>(kotlin/Function0<kotlin/Unit>?) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.onRepaint.<set-onRepaint>|<set-onRepaint>(kotlin.Function0<kotlin.Unit>?){}[0]

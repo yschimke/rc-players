@@ -1053,6 +1053,7 @@ private fun RcComposePlayerResolved(
           LocalRcLayoutVersion provides version,
           LocalRcFrameTime provides frameTime,
           LocalRcLayoutAnimationActivity provides layoutAnimationActivity,
+          LocalRcGateClockDraws provides !prepared.changesLayoutOnItsOwn,
           LocalRcPaintVersion provides paintVersion,
           LocalRcGeometryProbe provides probe,
           LocalRcPublishSizeOnMeasure provides !settles,
@@ -1432,30 +1433,33 @@ private fun RenderLayoutNode(
               ?.operations
               ?.takeIf { it.isNotEmpty() }
               ?.let { operations ->
+                val clockGate = RcClockDrawGate(LocalRcGateClockDraws.current)
                 Canvas(Modifier.fillMaxSize()) {
-                  frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
+                  clockGate.follow(frameTime) // Redraw with the clock; see [RcClockDrawGate].
                   paintVersion?.intValue // And with repainted geometry; see [LocalRcPaintVersion].
-                  rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
-                    drawOperations(
-                      operations,
-                      state,
-                      RcPaintState(typefaces, drawObserver, fontFamilies, extensionSessions),
-                      mutableMapOf(),
-                      textMeasurer,
-                      images,
-                      RcFloatFunctionRuntime(documentFunctions),
-                      theme,
-                      filterTheme = true,
-                      offscreenTargets = offscreenTargets,
-                      // Core paints a canvas's operations as its content component.
-                      active =
-                        RcActiveComponent(
-                          node.content?.componentId?.takeIf { it > 0 } ?: node.componentId,
-                          size,
-                          drawSelf = null,
-                        ),
-                      captures = captures,
-                    )
+                  clockGate.observe(state) {
+                    rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
+                      drawOperations(
+                        operations,
+                        state,
+                        RcPaintState(typefaces, drawObserver, fontFamilies, extensionSessions),
+                        mutableMapOf(),
+                        textMeasurer,
+                        images,
+                        RcFloatFunctionRuntime(documentFunctions),
+                        theme,
+                        filterTheme = true,
+                        offscreenTargets = offscreenTargets,
+                        // Core paints a canvas's operations as its content component.
+                        active =
+                          RcActiveComponent(
+                            node.content?.componentId?.takeIf { it > 0 } ?: node.componentId,
+                            size,
+                            drawSelf = null,
+                          ),
+                        captures = captures,
+                      )
+                    }
                   }
                 }
               }
@@ -1475,24 +1479,27 @@ private fun RenderLayoutNode(
           // `ComponentValue` to the canvas content's own id (the AndroidX `RemoteCanvas` writer
           // does) reads its width and height back, and drawing with `Modifier.fillMaxSize()` alone
           // never published them, so every coordinate derived from them collapsed to the origin.
+          val clockGate = RcClockDrawGate(LocalRcGateClockDraws.current)
           Canvas(effectiveModifier.fillMaxSize()) {
-            frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
+            clockGate.follow(frameTime) // Redraw with the clock; see [RcClockDrawGate].
             paintVersion?.intValue // And with repainted geometry; see [LocalRcPaintVersion].
-            rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
-              drawOperations(
-                node.operations,
-                state,
-                RcPaintState(typefaces, drawObserver, fontFamilies, extensionSessions),
-                mutableMapOf(),
-                textMeasurer,
-                images,
-                RcFloatFunctionRuntime(canvasDocumentFunctions),
-                theme,
-                filterTheme = true,
-                offscreenTargets = offscreenTargets,
-                active = RcActiveComponent(node.componentId, size, drawSelf = null),
-                captures = captures,
-              )
+            clockGate.observe(state) {
+              rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
+                drawOperations(
+                  node.operations,
+                  state,
+                  RcPaintState(typefaces, drawObserver, fontFamilies, extensionSessions),
+                  mutableMapOf(),
+                  textMeasurer,
+                  images,
+                  RcFloatFunctionRuntime(canvasDocumentFunctions),
+                  theme,
+                  filterTheme = true,
+                  offscreenTargets = offscreenTargets,
+                  active = RcActiveComponent(node.componentId, size, drawSelf = null),
+                  captures = captures,
+                )
+              }
             }
           }
         }
@@ -2361,6 +2368,43 @@ private val LocalRcLayoutVersion = compositionLocalOf { 0 }
 private val LocalRcFrameTime = staticCompositionLocalOf<FloatState?> { null }
 
 /**
+ * Whether draws below may stop following [LocalRcFrameTime] while they read no clock (see
+ * [RcClockDrawGate]): true for a document that cannot change on its own, whose only way to move
+ * with time is a read of the clock. A document that animates a value, runs particles or impulses,
+ * or takes touch moves without one, and its draws follow the clock as before.
+ */
+private val LocalRcGateClockDraws = staticCompositionLocalOf { false }
+
+/**
+ * Lets a draw block follow the clock only while it reads it. A draw that reads [LocalRcFrameTime]
+ * runs again on every frame the document's clock moves, so in a card whose "live" badge pulses,
+ * every container and canvas in the card was drawn again each frame, however little of it moved.
+ * This one records whether its last run read the clock ([RcPlayerState.clockReadCount]), and
+ * follows the frame time on its next run only if so. Anything else that changes what it draws (a
+ * host value, a recomposition, repainted geometry) runs it again, and that run looks afresh. Made
+ * per composition, so every recomposition starts by following the clock.
+ */
+internal class RcClockDrawGate(private val enabled: Boolean) {
+  private var readClock = true
+
+  /** Subscribes the running draw to [frameTime] unless its last run read no clock. */
+  fun follow(frameTime: FloatState?) {
+    if (!enabled || readClock) frameTime?.floatValue
+  }
+
+  /** Runs [draw], noting whether it read the clock. */
+  inline fun observe(state: RcPlayerState, draw: () -> Unit) {
+    val before = state.clockReadCount
+    draw()
+    noteRead(state.clockReadCount != before)
+  }
+
+  fun noteRead(read: Boolean) {
+    readClock = read
+  }
+}
+
+/**
  * Bumped when published geometry changed values only drawing reads (`RcPlayerState.onRepaint`):
  * every canvas draw block reads it, so those blocks draw again with the new values while nothing
  * recomposes. A component animating its bounds publishes geometry every frame, as AndroidX does.
@@ -3044,31 +3088,36 @@ private fun Modifier.applyComponentModifiers(
 
   val documentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
 
+  val gateClockDraws = LocalRcGateClockDraws.current
+
   fun applyCanvasOperations(modifier: Modifier): Modifier {
     val operations = canvasOperations ?: return modifier
     appliedCanvasOperations = true
+    val clockGate = RcClockDrawGate(gateClockDraws)
     return modifier.drawWithContent {
-      frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
+      clockGate.follow(frameTime) // Redraw with the clock; see [RcClockDrawGate].
       paintVersion?.intValue // And with repainted geometry; see [LocalRcPaintVersion].
-      rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
-        drawOperations(
-          operations,
-          state,
-          RcPaintState(typefaces, drawObserver, documentFonts, extensionSessions),
-          mutableMapOf(),
-          textMeasurer,
-          images,
-          RcFloatFunctionRuntime(documentFunctions),
-          theme,
-          filterTheme = true,
-          offscreenTargets = offscreenTargets,
-          drawContent = { drawContent() },
-          active =
-            geometryComponentIds.firstOrNull()?.let {
-              RcActiveComponent(it, size, drawSelf = { drawContent() })
-            },
-          captures = captures,
-        )
+      clockGate.observe(state) {
+        rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
+          drawOperations(
+            operations,
+            state,
+            RcPaintState(typefaces, drawObserver, documentFonts, extensionSessions),
+            mutableMapOf(),
+            textMeasurer,
+            images,
+            RcFloatFunctionRuntime(documentFunctions),
+            theme,
+            filterTheme = true,
+            offscreenTargets = offscreenTargets,
+            drawContent = { drawContent() },
+            active =
+              geometryComponentIds.firstOrNull()?.let {
+                RcActiveComponent(it, size, drawSelf = { drawContent() })
+              },
+            captures = captures,
+          )
+        }
       }
     }
   }
@@ -8315,6 +8364,7 @@ private fun RcFlatContainer(
   val drawn = remember {
     mutableStateOf(emptyList<androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit>())
   }
+  val clockGate = RcClockDrawGate(LocalRcGateClockDraws.current)
   androidx.compose.ui.layout.Layout(
     content = {
       holes.forEach { node ->
@@ -8339,11 +8389,13 @@ private fun RcFlatContainer(
           }
         }
         .drawBehind {
-          // Redraw with the clock and with repainted values, as the components' own decorations
-          // do: a background colour can be a document variable.
-          frameTime?.floatValue
+          // Redraw with repainted values, and with the clock while what it draws reads the clock:
+          // a background colour can be a document variable over it.
+          clockGate.follow(frameTime)
           paintVersion?.intValue
-          drawn.value.forEach { it() }
+          clockGate.observe(state) {
+            rcTrace(RcTraceCategory.FRAME, "rc:drawFlat") { drawn.value.forEach { it() } }
+          }
         },
   ) { measurables, constraints ->
     val byId = HashMap<Int, androidx.compose.ui.layout.Measurable>()
@@ -8468,20 +8520,23 @@ private class RcFlatEngine(
         val content = chain(node, index + 1, constraints, widthSet, heightSet, inner)
         RcFlatMeasured(content.width, content.height) { x, y, out ->
           val size = Size(content.width.toFloat(), content.height.toFloat())
-          val outline =
-            RcCornerClipShape(
-                topLeft = px(state.resolve(operation.topStart)),
-                topRight = px(state.resolve(operation.topEnd)),
-                bottomRight = px(state.resolve(operation.bottomEnd)),
-                bottomLeft = px(state.resolve(operation.bottomStart)),
-              )
-              .createOutline(size, scope.layoutDirection, scope)
-          val path =
-            androidx.compose.ui.graphics.Path().apply {
-              addOutline(outline)
-              translate(Offset(x.toFloat(), y.toFloat()))
-            }
+          val direction = scope.layoutDirection
           out.draws += {
+            // The radii are read as it draws, as the component's layer clip reads them: a corner a
+            // document variable moves re-clips without a new layout.
+            val outline =
+              RcCornerClipShape(
+                  topLeft = px(state.resolve(operation.topStart)),
+                  topRight = px(state.resolve(operation.topEnd)),
+                  bottomRight = px(state.resolve(operation.bottomEnd)),
+                  bottomLeft = px(state.resolve(operation.bottomStart)),
+                )
+                .createOutline(size, direction, this)
+            val path =
+              androidx.compose.ui.graphics.Path().apply {
+                addOutline(outline)
+                translate(Offset(x.toFloat(), y.toFloat()))
+              }
             drawContext.canvas.save()
             drawContext.canvas.clipPath(path)
           }

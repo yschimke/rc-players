@@ -327,7 +327,16 @@ private constructor(
   private fun noteReservedReads(bits: Long) {
     reservedIdsRead = reservedIdsRead or bits
     recentReservedIdsRead = recentReservedIdsRead or bits
+    if (bits and CLOCK_BITS != 0L) clockReadCount++
   }
+
+  /**
+   * How many reads of the clock or the calendar anything the player evaluated has made, directly or
+   * through an expression over them. A draw that leaves it unchanged drew nothing that moves as
+   * time passes, so it need not run again on the next frame for that alone.
+   */
+  public var clockReadCount: Long = 0L
+    private set
 
   /**
    * The reserved ids (the clock, the pointer, …) each float expression read to compute its value,
@@ -785,6 +794,7 @@ private constructor(
     if (type in 0..2 || selectedMillis == frameEpochMillis) {
       timeAttributeReadClock = true
       recentTimeAttributeReadClock = true
+      clockReadCount++
       if (operation.type.requiresContinuousFrames) {
         timeAttributeReadContinuousClock = true
         recentTimeAttributeReadContinuousClock = true
@@ -2397,3 +2407,8 @@ private val EVERY_FRAME_CONTAINERS: Set<Int> =
     RcOpcodes.LAYOUT_CANVAS,
     RcOpcodes.LAYOUT_CANVAS_CONTENT,
   )
+
+/** [RcSystemVariables.CLOCK] as `RcPlayerState`'s reserved-read bits. */
+private val CLOCK_BITS: Long =
+  RcSystemVariables.CLOCK.filter { it in 0 until Long.SIZE_BITS }
+    .fold(0L) { bits, id -> bits or (1L shl id) }
