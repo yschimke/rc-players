@@ -1001,6 +1001,7 @@ public final class ee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache
 	public fun <init> ()V
 	public fun <init> (ILee/schimke/composeai/rcplayer/compose/RcPreprocessor;)V
 	public synthetic fun <init> (ILee/schimke/composeai/rcplayer/compose/RcPreprocessor;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun clear ()V
 	public final fun getMisses ()I
 	public final fun getPrepared ()I
 	public final fun getPreprocessor ()Lee/schimke/composeai/rcplayer/compose/RcPreprocessor;
@@ -1017,6 +1018,7 @@ public final class ee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache
 	public final fun prepareNow ([BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lee/schimke/composeai/rcplayer/compose/RcDisplay;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
 	public static synthetic fun prepareNow$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcDisplay;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
 	public static synthetic fun prepareNow$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;[BLee/schimke/composeai/rcplayer/compose/RcPlayerExtensions;Lee/schimke/composeai/rcplayer/compose/RcDisplay;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;
+	public final fun trimToSize (I)V
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcPreprocessor {
