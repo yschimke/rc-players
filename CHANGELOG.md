@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.1](https://github.com/yschimke/rc-players/compare/v3.5.0...v3.5.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **compose:** flat tap targets report their full touch bounds to accessibility ([#905](https://github.com/yschimke/rc-players/issues/905)) ([f688d05](https://github.com/yschimke/rc-players/commit/f688d05720498a527c9a51bcde25a7efcbdcb8e3))
+
 ## [3.5.0](https://github.com/yschimke/rc-players/compare/v3.4.0...v3.5.0) (2026-11-14)
 
 
