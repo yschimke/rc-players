@@ -8183,7 +8183,7 @@ private fun rcFlatChildren(
   plain: Set<Int>,
   spec: (RcLayoutNode.CoreText) -> RcFlatTextSpec?,
 ): List<RcFlat> = children.flatMap { child ->
-  if (child.componentId !in plain || !rcFlattens(child, plain)) {
+  if (child.componentId !in plain || !rcFlattens(child, plain, asGroup = true)) {
     return@flatMap listOf(RcFlat.Hole(child))
   }
   when (child) {
@@ -8793,8 +8793,23 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRcBorder(
  * does not implement; and not a box where a composed child comes before a plain one, since the flat
  * layout draws everything plain behind the composed children and a box's children overlap.
  */
-private fun rcFlattens(container: RcLayoutNode, plain: Set<Int>): Boolean {
+private fun rcFlattens(
+  container: RcLayoutNode,
+  plain: Set<Int>,
+  asGroup: Boolean = false,
+): Boolean {
   val children = container.flatContainerChildren() ?: return true
+  // A group's rounded clip is drawn by the flat layout, which clips what it draws but not a
+  // composed
+  // child placed inside it. Such a group stays a component, whose clip is a real layer clip. (The
+  // flattened container's own clip is one already: its modifiers are applied as a component's.)
+  if (
+    asGroup &&
+      container.modifiers.ordered.any { it is RcRoundedClipRectModifier } &&
+      rcHasComposedDescendant(children, plain)
+  ) {
+    return false
+  }
   if (container is RcLayoutNode.Row && children.any { it.modifiers.alignBy != null }) return false
   if (container is RcLayoutNode.Box) {
     fun inline(nodes: List<RcLayoutNode>): List<RcLayoutNode> = nodes.flatMap {
@@ -8802,8 +8817,21 @@ private fun rcFlattens(container: RcLayoutNode, plain: Set<Int>): Boolean {
     }
     var composedSeen = false
     for (child in inline(children)) {
-      if (child.componentId !in plain) composedSeen = true else if (composedSeen) return false
+      // A plain group the flat layout leaves a component (see above) is composed too.
+      val composed = child.componentId !in plain || !rcFlattens(child, plain, asGroup = true)
+      if (composed) composedSeen = true else if (composedSeen) return false
     }
   }
   return true
 }
+
+/** Whether any of [children], or anything plain below them, is composed rather than flattened. */
+private fun rcHasComposedDescendant(children: List<RcLayoutNode>, plain: Set<Int>): Boolean =
+  children.any { child ->
+    child.componentId !in plain ||
+      rcHasComposedDescendant(
+        (if (child is RcLayoutNode.Content) child.children else child.flatContainerChildren())
+          .orEmpty(),
+        plain,
+      )
+  }
