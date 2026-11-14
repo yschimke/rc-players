@@ -85,6 +85,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
@@ -112,12 +113,14 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.Vertices
+import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -145,6 +148,7 @@ import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
@@ -333,6 +337,7 @@ import kotlin.math.atan2
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import kotlin.math.sign
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -1022,6 +1027,7 @@ private fun RcComposePlayerResolved(
       { scope, probe ->
         CompositionLocalProvider(
           LocalRcLookaheadScope provides scope,
+          LocalRcPlainComponents provides prepared.plainComponents,
           LocalRcLayoutVersion provides version,
           LocalRcFrameTime provides frameTime,
           LocalRcPaintVersion provides paintVersion,
@@ -1299,190 +1305,368 @@ private fun RenderLayoutNode(
         )
         .reportComponentCoordinates(node.componentId, componentCoordinates)
         .then(reportClickAction(node, state, componentCoordinates, collapse))
-    when (node) {
-      is RcLayoutNode.Root ->
-        Box(
-          effectiveModifier.applyComponentModifiers(
-            node.modifiers,
-            state,
-            geometryIds,
-            // A root with no size of its own wraps its content within the host's constraints, as
-            // the View player does under `wrap_content`; a host that pins a dimension (`min ==
-            // max`, e.g. `fillMaxSize()`) still gets it filled, because Compose coerces the wrapped
-            // size up to the minimum. Filling here made a player in a `Column`, a `Row` or a lazy
-            // list item take every pixel it was offered, so wrapping needed the host to measure it
-            // with unbounded constraints.
-            fillMissingDimensions = false,
-            node.canvasOperations,
-            textMeasurer,
-            images,
-            theme,
-          ),
-        ) {
-          node.children.forEach {
-            RenderLayoutNode(
-              it,
-              state = state,
-              textMeasurer = textMeasurer,
-              images = images,
-              theme = theme,
-            )
-          }
-        }
-      is RcLayoutNode.Content -> {
-        val content: @Composable () -> Unit = {
-          node.children.forEach {
-            RenderLayoutNode(
-              it,
-              state = state,
-              textMeasurer = textMeasurer,
-              images = images,
-              theme = theme,
-            )
-          }
-        }
-        if (visibility == 2) Box(effectiveModifier) { content() } else content()
+    val flatChildren = node.flatContainerChildren()
+    val plainComponents = LocalRcPlainComponents.current
+    val flatten =
+      flatChildren != null &&
+        LocalRcFlattenLayout.current &&
+        lookaheadScope == null &&
+        !inspecting &&
+        geometryProbe == null &&
+        componentCoordinates == null &&
+        !LocalRcAhemTextMetrics.current &&
+        !node.drawsCanvasOperations(node.flatCanvasOperations()) &&
+        rcFlattens(node, plainComponents) &&
+        flatChildren.any { it.componentId in plainComponents }
+    if (flatten) {
+      RcFlatContainer(
+        node,
+        effectiveModifier.applyComponentModifiers(
+          node.modifiers,
+          state,
+          geometryIds,
+          fillMissingDimensions = false,
+          null,
+          textMeasurer,
+          images,
+          theme,
+        ),
+        state,
+        plainComponents,
+        textMeasurer,
+      ) { child, childModifier ->
+        RenderLayoutNode(
+          child,
+          modifier = childModifier,
+          state = state,
+          textMeasurer = textMeasurer,
+          images = images,
+          theme = theme,
+        )
       }
-      is RcLayoutNode.Canvas ->
-        Box(
-          effectiveModifier.applyComponentModifiers(
-            node.modifiers,
-            state,
-            geometryIds,
-            fillMissingDimensions = true,
-            node.canvasOperations,
-            textMeasurer,
-            images,
-            theme,
-          ),
-        ) {
-          val documentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
-          node.content
-            ?.operations
-            ?.takeIf { it.isNotEmpty() }
-            ?.let { operations ->
-              Canvas(Modifier.fillMaxSize()) {
-                frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
-                paintVersion?.intValue // And with repainted geometry; see [LocalRcPaintVersion].
-                rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
-                  drawOperations(
-                    operations,
-                    state,
-                    RcPaintState(typefaces, drawObserver, fontFamilies, extensionSessions),
-                    mutableMapOf(),
-                    textMeasurer,
-                    images,
-                    RcFloatFunctionRuntime(documentFunctions),
-                    theme,
-                    filterTheme = true,
-                    offscreenTargets = offscreenTargets,
-                    // Core paints a canvas's operations as its content component.
-                    active =
-                      RcActiveComponent(
-                        node.content?.componentId?.takeIf { it > 0 } ?: node.componentId,
-                        size,
-                        drawSelf = null,
-                      ),
-                    captures = captures,
-                  )
-                }
-              }
-            }
-          node.content?.let {
-            RenderLayoutNode(
-              it,
-              state = state,
-              textMeasurer = textMeasurer,
-              images = images,
-              theme = theme,
-            )
-          }
-        }
-      is RcLayoutNode.CanvasContent -> {
-        val canvasDocumentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
-        // `effectiveModifier` carries [trackComponentGeometry]: a document that binds a
-        // `ComponentValue` to the canvas content's own id (the AndroidX `RemoteCanvas` writer
-        // does) reads its width and height back, and drawing with `Modifier.fillMaxSize()` alone
-        // never published them, so every coordinate derived from them collapsed to the origin.
-        Canvas(effectiveModifier.fillMaxSize()) {
-          frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
-          paintVersion?.intValue // And with repainted geometry; see [LocalRcPaintVersion].
-          rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
-            drawOperations(
-              node.operations,
+    } else
+      when (node) {
+        is RcLayoutNode.Root ->
+          Box(
+            effectiveModifier.applyComponentModifiers(
+              node.modifiers,
               state,
-              RcPaintState(typefaces, drawObserver, fontFamilies, extensionSessions),
-              mutableMapOf(),
+              geometryIds,
+              // A root with no size of its own wraps its content within the host's constraints, as
+              // the View player does under `wrap_content`; a host that pins a dimension (`min ==
+              // max`, e.g. `fillMaxSize()`) still gets it filled, because Compose coerces the
+              // wrapped
+              // size up to the minimum. Filling here made a player in a `Column`, a `Row` or a lazy
+              // list item take every pixel it was offered, so wrapping needed the host to measure
+              // it
+              // with unbounded constraints.
+              fillMissingDimensions = false,
+              node.canvasOperations,
               textMeasurer,
               images,
-              RcFloatFunctionRuntime(canvasDocumentFunctions),
               theme,
-              filterTheme = true,
-              offscreenTargets = offscreenTargets,
-              active = RcActiveComponent(node.componentId, size, drawSelf = null),
-              captures = captures,
-            )
-          }
-        }
-      }
-      is RcLayoutNode.Custom -> {
-        val customModifier =
-          effectiveModifier.applyComponentModifiers(
-            node.modifiers,
-            state,
-            geometryIds,
-            fillMissingDimensions = false,
-            canvasOperations = null,
-            textMeasurer,
-            images,
-            theme,
-          )
-        Box(customModifier) {
-          val config = state.text(node.operation.configId).orEmpty()
-          fun component(child: RcLayoutNode.Custom): RcCustomComponent =
-            RcCustomComponent(
-              state.text(child.operation.configId).orEmpty(),
-              child.componentId,
-              child.operation.properties,
-              state,
-              invalidate,
-              child.children.map { (it as? RcLayoutNode.Custom)?.let(::component) },
-            ) { index, childModifier ->
+            ),
+          ) {
+            node.children.forEach {
               RenderLayoutNode(
-                child.children[index],
+                it,
                 state = state,
                 textMeasurer = textMeasurer,
                 images = images,
                 theme = theme,
-                modifier = childModifier,
               )
             }
-          customComponents
-            .content(config)
-            ?.invoke(
-              component(node),
-              Modifier.fillMaxSize(),
-            )
+          }
+        is RcLayoutNode.Content -> {
+          val content: @Composable () -> Unit = {
+            node.children.forEach {
+              RenderLayoutNode(
+                it,
+                state = state,
+                textMeasurer = textMeasurer,
+                images = images,
+                theme = theme,
+              )
+            }
+          }
+          if (visibility == 2) Box(effectiveModifier) { content() } else content()
         }
-      }
-      is RcLayoutNode.Box ->
-        Box(
-          effectiveModifier.applyComponentModifiers(
-            node.modifiers,
-            state,
-            geometryIds,
-            fillMissingDimensions = false,
-            node.canvasOperations,
-            textMeasurer,
-            images,
-            theme,
-          ),
-          contentAlignment =
-            boxAlignment(node.operation.horizontalPositioning, node.operation.verticalPositioning),
-        ) {
-          node.content?.let { content ->
+        is RcLayoutNode.Canvas ->
+          Box(
+            effectiveModifier.applyComponentModifiers(
+              node.modifiers,
+              state,
+              geometryIds,
+              fillMissingDimensions = true,
+              node.canvasOperations,
+              textMeasurer,
+              images,
+              theme,
+            ),
+          ) {
+            val documentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
+            node.content
+              ?.operations
+              ?.takeIf { it.isNotEmpty() }
+              ?.let { operations ->
+                Canvas(Modifier.fillMaxSize()) {
+                  frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
+                  paintVersion?.intValue // And with repainted geometry; see [LocalRcPaintVersion].
+                  rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
+                    drawOperations(
+                      operations,
+                      state,
+                      RcPaintState(typefaces, drawObserver, fontFamilies, extensionSessions),
+                      mutableMapOf(),
+                      textMeasurer,
+                      images,
+                      RcFloatFunctionRuntime(documentFunctions),
+                      theme,
+                      filterTheme = true,
+                      offscreenTargets = offscreenTargets,
+                      // Core paints a canvas's operations as its content component.
+                      active =
+                        RcActiveComponent(
+                          node.content?.componentId?.takeIf { it > 0 } ?: node.componentId,
+                          size,
+                          drawSelf = null,
+                        ),
+                      captures = captures,
+                    )
+                  }
+                }
+              }
+            node.content?.let {
+              RenderLayoutNode(
+                it,
+                state = state,
+                textMeasurer = textMeasurer,
+                images = images,
+                theme = theme,
+              )
+            }
+          }
+        is RcLayoutNode.CanvasContent -> {
+          val canvasDocumentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
+          // `effectiveModifier` carries [trackComponentGeometry]: a document that binds a
+          // `ComponentValue` to the canvas content's own id (the AndroidX `RemoteCanvas` writer
+          // does) reads its width and height back, and drawing with `Modifier.fillMaxSize()` alone
+          // never published them, so every coordinate derived from them collapsed to the origin.
+          Canvas(effectiveModifier.fillMaxSize()) {
+            frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
+            paintVersion?.intValue // And with repainted geometry; see [LocalRcPaintVersion].
+            rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
+              drawOperations(
+                node.operations,
+                state,
+                RcPaintState(typefaces, drawObserver, fontFamilies, extensionSessions),
+                mutableMapOf(),
+                textMeasurer,
+                images,
+                RcFloatFunctionRuntime(canvasDocumentFunctions),
+                theme,
+                filterTheme = true,
+                offscreenTargets = offscreenTargets,
+                active = RcActiveComponent(node.componentId, size, drawSelf = null),
+                captures = captures,
+              )
+            }
+          }
+        }
+        is RcLayoutNode.Custom -> {
+          val customModifier =
+            effectiveModifier.applyComponentModifiers(
+              node.modifiers,
+              state,
+              geometryIds,
+              fillMissingDimensions = false,
+              canvasOperations = null,
+              textMeasurer,
+              images,
+              theme,
+            )
+          Box(customModifier) {
+            val config = state.text(node.operation.configId).orEmpty()
+            fun component(child: RcLayoutNode.Custom): RcCustomComponent =
+              RcCustomComponent(
+                state.text(child.operation.configId).orEmpty(),
+                child.componentId,
+                child.operation.properties,
+                state,
+                invalidate,
+                child.children.map { (it as? RcLayoutNode.Custom)?.let(::component) },
+              ) { index, childModifier ->
+                RenderLayoutNode(
+                  child.children[index],
+                  state = state,
+                  textMeasurer = textMeasurer,
+                  images = images,
+                  theme = theme,
+                  modifier = childModifier,
+                )
+              }
+            customComponents
+              .content(config)
+              ?.invoke(
+                component(node),
+                Modifier.fillMaxSize(),
+              )
+          }
+        }
+        is RcLayoutNode.Box ->
+          Box(
+            effectiveModifier.applyComponentModifiers(
+              node.modifiers,
+              state,
+              geometryIds,
+              fillMissingDimensions = false,
+              node.canvasOperations,
+              textMeasurer,
+              images,
+              theme,
+            ),
+            contentAlignment =
+              boxAlignment(
+                node.operation.horizontalPositioning,
+                node.operation.verticalPositioning,
+              ),
+          ) {
+            node.content?.let { content ->
+              RenderLayoutNode(
+                content,
+                state = state,
+                textMeasurer = textMeasurer,
+                images = images,
+                theme = theme,
+              )
+            }
+          }
+        is RcLayoutNode.Row -> {
+          val density = androidx.compose.ui.platform.LocalDensity.current
+          val spacingDp = state.dpTypedDp(state.resolve(node.operation.spacedBy), density)
+          val rowModifier =
+            effectiveModifier.applyComponentModifiers(
+              node.modifiers,
+              state,
+              geometryIds,
+              fillMissingDimensions = false,
+              node.canvasOperations,
+              textMeasurer,
+              images,
+              theme,
+            )
+          val alignedRow = rememberRcAlignedRow(node.content.children, state)
+          val hasWeightedChildren =
+            node.content.children.any { child ->
+              rcChildWeight(child.modifiers.width?.type, child.modifiers.width?.value, state) !=
+                null &&
+                child.modifiers.visibility?.let {
+                  androidXVisibility(state.integer(it.visibilityId) ?: 0) != 0
+                } != false
+            }
+          Row(
+            // Compose's Row places an alignment-line-aligned group at the top of the row and
+            // ignores
+            // `verticalAlignment` for it; AndroidX offsets the group by the row's vertical
+            // positioning against the tallest child. See [rcAlignedRowPositioning].
+            if (alignedRow != null) {
+              rowModifier.rcAlignedRowPositioning(
+                alignedRow,
+                rowAlignment(node.operation.verticalPositioning),
+              )
+            } else {
+              rowModifier
+            },
+            horizontalArrangement =
+              RcHorizontalArrangement(
+                androidXRowMainPosition(node.operation.horizontalPositioning),
+                visualSpacing = spacingDp,
+                // AndroidX measures weighted children from all remaining row space, then adds the
+                // configured gaps while positioning. Compose normally reserves those gaps before
+                // distributing weight, which makes every weighted child too narrow.
+                spacing = if (hasWeightedChildren) 0.dp else spacingDp,
+              ),
+            verticalAlignment = rowAlignment(node.operation.verticalPositioning),
+          ) {
+            node.content.children.forEachIndexed { index, child ->
+              RenderLayoutNode(
+                child,
+                modifier =
+                  rowWeightModifier(child, state).let { weight ->
+                    alignedRow?.let { weight.then(rcRowAnchorModifier(it, index)) } ?: weight
+                  },
+                state = state,
+                textMeasurer = textMeasurer,
+                images = images,
+                theme = theme,
+              )
+            }
+          }
+        }
+        is RcLayoutNode.Column -> {
+          val density = androidx.compose.ui.platform.LocalDensity.current
+          val spacing = state.dpTypedDp(state.resolve(node.operation.spacedBy), density)
+          Column(
+            effectiveModifier.applyComponentModifiers(
+              node.modifiers,
+              state,
+              geometryIds,
+              fillMissingDimensions = false,
+              node.canvasOperations,
+              textMeasurer,
+              images,
+              theme,
+            ),
+            verticalArrangement =
+              RcVerticalArrangement(
+                androidXColumnMainPosition(node.operation.verticalPositioning),
+                spacing,
+              ),
+            horizontalAlignment = columnAlignment(node.operation.horizontalPositioning),
+          ) {
+            node.content.children.forEach { child ->
+              RenderLayoutNode(
+                child,
+                modifier = columnWeightModifier(child, state),
+                state = state,
+                textMeasurer = textMeasurer,
+                images = images,
+                theme = theme,
+              )
+            }
+          }
+        }
+        is RcLayoutNode.Flow -> {
+          val density = androidx.compose.ui.platform.LocalDensity.current
+          val spacing = state.dpTypedDp(state.resolve(node.operation.spacedBy), density)
+          @OptIn(ExperimentalLayoutApi::class)
+          FlowRow(
+            effectiveModifier.applyComponentModifiers(
+              node.modifiers,
+              state,
+              geometryIds,
+              fillMissingDimensions = false,
+              node.canvasOperations,
+              textMeasurer,
+              images,
+              theme,
+            ),
+            horizontalArrangement =
+              RcHorizontalArrangement(
+                androidXRowMainPosition(node.operation.horizontalPositioning),
+                spacing,
+              ),
+            verticalArrangement =
+              RcVerticalArrangement(
+                androidXVerticalPosition(node.operation.verticalPositioning),
+                0.dp,
+              ),
+            itemVerticalAlignment = rowAlignment(node.operation.verticalPositioning),
+            maxItemsInEachRow = node.operation.maxItemsInEachRow,
+            maxLines = node.operation.maxLines,
+          ) {
             RenderLayoutNode(
-              content,
+              node.content,
               state = state,
               textMeasurer = textMeasurer,
               images = images,
@@ -1490,179 +1674,480 @@ private fun RenderLayoutNode(
             )
           }
         }
-      is RcLayoutNode.Row -> {
-        val density = androidx.compose.ui.platform.LocalDensity.current
-        val spacingDp = state.dpTypedDp(state.resolve(node.operation.spacedBy), density)
-        val rowModifier =
-          effectiveModifier.applyComponentModifiers(
-            node.modifiers,
-            state,
-            geometryIds,
-            fillMissingDimensions = false,
-            node.canvasOperations,
-            textMeasurer,
-            images,
-            theme,
-          )
-        val alignedRow = rememberRcAlignedRow(node.content.children, state)
-        val hasWeightedChildren =
-          node.content.children.any { child ->
-            rcChildWeight(child.modifiers.width?.type, child.modifiers.width?.value, state) !=
-              null &&
-              child.modifiers.visibility?.let {
-                androidXVisibility(state.integer(it.visibilityId) ?: 0) != 0
-              } != false
-          }
-        Row(
-          // Compose's Row places an alignment-line-aligned group at the top of the row and ignores
-          // `verticalAlignment` for it; AndroidX offsets the group by the row's vertical
-          // positioning against the tallest child. See [rcAlignedRowPositioning].
-          if (alignedRow != null) {
-            rowModifier.rcAlignedRowPositioning(
-              alignedRow,
-              rowAlignment(node.operation.verticalPositioning),
-            )
-          } else {
-            rowModifier
-          },
-          horizontalArrangement =
-            RcHorizontalArrangement(
-              androidXRowMainPosition(node.operation.horizontalPositioning),
-              visualSpacing = spacingDp,
-              // AndroidX measures weighted children from all remaining row space, then adds the
-              // configured gaps while positioning. Compose normally reserves those gaps before
-              // distributing weight, which makes every weighted child too narrow.
-              spacing = if (hasWeightedChildren) 0.dp else spacingDp,
+        is RcLayoutNode.State -> {
+          val selected = state.integer(node.operation.indexId) ?: 0
+          // AndroidX sizes a state container to whichever branch is showing and ignores fill
+          // modifiers
+          // on it — `state_layout_basic` declares `fillMaxSize` and the reference still reports the
+          // container at its active child's 120x80. Honouring the fill, as Compose naturally does,
+          // stretches the container to the viewport and paints its background across everything the
+          // reference leaves clear: 50,400 differing pixels on a 300x200 canvas.
+          // The padding goes the same way as the fill: `state_layout_padding_container` declares
+          // `fillMaxSize` + `padding: 20` around an 80x80 child, and the reference reports the
+          // container at the child's own 80x80 with the child at (0, 0) — neither the container's
+          // padding nor the fill reaches its geometry.
+          val stateModifiers = layoutModifiers
+          val contentVisibility =
+            node.content.modifiers.visibility?.let {
+              androidXVisibility(state.integer(it.visibilityId) ?: 0)
+            } ?: 1
+          Box(
+            effectiveModifier.applyComponentModifiers(
+              stateModifiers,
+              state,
+              geometryIds,
+              fillMissingDimensions = false,
+              canvasOperations = null,
+              textMeasurer,
+              images,
+              theme,
             ),
-          verticalAlignment = rowAlignment(node.operation.verticalPositioning),
-        ) {
-          node.content.children.forEachIndexed { index, child ->
-            RenderLayoutNode(
-              child,
-              modifier =
-                rowWeightModifier(child, state).let { weight ->
-                  alignedRow?.let { weight.then(rcRowAnchorModifier(it, index)) } ?: weight
-                },
-              state = state,
-              textMeasurer = textMeasurer,
-              images = images,
-              theme = theme,
-            )
+          ) {
+            val children = node.content.children
+            val target = selected.coerceIn(0, (children.size - 1).coerceAtLeast(0))
+            val renderChildren: @Composable () -> Unit = {
+              // Every branch the switch is not showing still publishes its (zero) geometry: a
+              // component-value expression reads those ids whether or not its branch is on screen,
+              // and
+              // that was true before the switch animated too.
+              children.forEachIndexed { index, child ->
+                if (index != target || contentVisibility == 0) {
+                  RenderLayoutNode(
+                    child,
+                    forceGone = true,
+                    state = state,
+                    textMeasurer = textMeasurer,
+                    images = images,
+                    theme = theme,
+                  )
+                }
+              }
+              if (contentVisibility != 0 && children.isNotEmpty()) {
+                // Alignment stays TopStart, which is where this player has always placed a state
+                // branch — upstream centres it, and matching that is a layout change rather than
+                // the
+                // transition this ports.
+                RcAnimatedAlternatives(
+                  target = target,
+                  spec = node.modifiers.animationSpec ?: DefaultRcAnimationSpec,
+                  alignment = Alignment.TopStart,
+                  label = "RcStateLayout",
+                  sharedElements = { index -> children[index].sharedElementComponents() },
+                  sharesElements =
+                    remember(children) {
+                      children.any { it.sharedElementComponents().isNotEmpty() }
+                    },
+                ) { index ->
+                  val child = children[index]
+                  key(child.componentId) {
+                    RenderLayoutNode(
+                      child,
+                      ignoreOwnVisibility = true,
+                      state = state,
+                      textMeasurer = textMeasurer,
+                      images = images,
+                      theme = theme,
+                    )
+                  }
+                }
+              }
+            }
+            if (contentVisibility == 0) {
+              Layout(
+                Modifier.trackComponentGeometry(
+                  listOf(node.content.componentId),
+                  state,
+                  geometryProbe,
+                  playerRoot,
+                  publishSizeOnMeasure,
+                  invalidate,
+                ),
+              ) { _, _ ->
+                layout(0, 0) {}
+              }
+              renderChildren()
+            } else {
+              Box(
+                Modifier.trackComponentGeometry(
+                  listOf(node.content.componentId),
+                  state,
+                  geometryProbe,
+                  playerRoot,
+                  publishSizeOnMeasure,
+                  invalidate,
+                ),
+              ) {
+                renderChildren()
+              }
+            }
           }
         }
-      }
-      is RcLayoutNode.Column -> {
-        val density = androidx.compose.ui.platform.LocalDensity.current
-        val spacing = state.dpTypedDp(state.resolve(node.operation.spacedBy), density)
-        Column(
-          effectiveModifier.applyComponentModifiers(
-            node.modifiers,
-            state,
-            geometryIds,
-            fillMissingDimensions = false,
-            node.canvasOperations,
-            textMeasurer,
-            images,
-            theme,
-          ),
-          verticalArrangement =
-            RcVerticalArrangement(
-              androidXColumnMainPosition(node.operation.verticalPositioning),
-              spacing,
-            ),
-          horizontalAlignment = columnAlignment(node.operation.horizontalPositioning),
-        ) {
-          node.content.children.forEach { child ->
-            RenderLayoutNode(
-              child,
-              modifier = columnWeightModifier(child, state),
-              state = state,
-              textMeasurer = textMeasurer,
-              images = images,
-              theme = theme,
-            )
-          }
-        }
-      }
-      is RcLayoutNode.Flow -> {
-        val density = androidx.compose.ui.platform.LocalDensity.current
-        val spacing = state.dpTypedDp(state.resolve(node.operation.spacedBy), density)
-        @OptIn(ExperimentalLayoutApi::class)
-        FlowRow(
-          effectiveModifier.applyComponentModifiers(
-            node.modifiers,
-            state,
-            geometryIds,
-            fillMissingDimensions = false,
-            node.canvasOperations,
-            textMeasurer,
-            images,
-            theme,
-          ),
-          horizontalArrangement =
-            RcHorizontalArrangement(
-              androidXRowMainPosition(node.operation.horizontalPositioning),
-              spacing,
-            ),
-          verticalArrangement =
-            RcVerticalArrangement(
-              androidXVerticalPosition(node.operation.verticalPositioning),
-              0.dp,
-            ),
-          itemVerticalAlignment = rowAlignment(node.operation.verticalPositioning),
-          maxItemsInEachRow = node.operation.maxItemsInEachRow,
-          maxLines = node.operation.maxLines,
-        ) {
-          RenderLayoutNode(
-            node.content,
+        is RcLayoutNode.CollapsibleRow -> {
+          RcCollapsibleLayout(
+            children = node.content.children,
+            orientation = RcCollapseOrientation.Horizontal,
+            collapse = requireNotNull(collapse),
+            mainPositioning = androidXRowMainPosition(node.operation.horizontalPositioning),
+            crossPositioning = androidXVerticalPosition(node.operation.verticalPositioning),
+            spacing =
+              state.dpTypedPixels(state.resolve(node.operation.spacedBy), density).roundToInt(),
+            modifier =
+              effectiveModifier.applyComponentModifiers(
+                node.modifiers,
+                state,
+                geometryIds,
+                fillMissingDimensions = false,
+                node.canvasOperations,
+                textMeasurer,
+                images,
+                theme,
+              ),
             state = state,
             textMeasurer = textMeasurer,
             images = images,
             theme = theme,
           )
         }
-      }
-      is RcLayoutNode.State -> {
-        val selected = state.integer(node.operation.indexId) ?: 0
-        // AndroidX sizes a state container to whichever branch is showing and ignores fill
-        // modifiers
-        // on it — `state_layout_basic` declares `fillMaxSize` and the reference still reports the
-        // container at its active child's 120x80. Honouring the fill, as Compose naturally does,
-        // stretches the container to the viewport and paints its background across everything the
-        // reference leaves clear: 50,400 differing pixels on a 300x200 canvas.
-        // The padding goes the same way as the fill: `state_layout_padding_container` declares
-        // `fillMaxSize` + `padding: 20` around an 80x80 child, and the reference reports the
-        // container at the child's own 80x80 with the child at (0, 0) — neither the container's
-        // padding nor the fill reaches its geometry.
-        val stateModifiers = layoutModifiers
-        val contentVisibility =
-          node.content.modifiers.visibility?.let {
-            androidXVisibility(state.integer(it.visibilityId) ?: 0)
-          } ?: 1
-        Box(
-          effectiveModifier.applyComponentModifiers(
-            stateModifiers,
-            state,
-            geometryIds,
-            fillMissingDimensions = false,
-            canvasOperations = null,
-            textMeasurer,
-            images,
-            theme,
-          ),
-        ) {
+        is RcLayoutNode.CollapsibleColumn -> {
+          RcCollapsibleLayout(
+            children = node.content.children,
+            orientation = RcCollapseOrientation.Vertical,
+            collapse = requireNotNull(collapse),
+            mainPositioning = androidXColumnMainPosition(node.operation.verticalPositioning),
+            crossPositioning = androidXHorizontalPosition(node.operation.horizontalPositioning),
+            spacing =
+              state.dpTypedPixels(state.resolve(node.operation.spacedBy), density).roundToInt(),
+            modifier =
+              effectiveModifier.applyComponentModifiers(
+                node.modifiers,
+                state,
+                geometryIds,
+                fillMissingDimensions = false,
+                node.canvasOperations,
+                textMeasurer,
+                images,
+                theme,
+              ),
+            state = state,
+            textMeasurer = textMeasurer,
+            images = images,
+            theme = theme,
+          )
+        }
+        is RcLayoutNode.Image -> {
+          val image = images[node.operation.bitmapId]
+          val density = androidx.compose.ui.platform.LocalDensity.current
+          var imageModifier =
+            effectiveModifier.applyComponentModifiers(
+              node.modifiers,
+              state,
+              geometryIds,
+              fillMissingDimensions = false,
+              canvasOperations = null,
+              textMeasurer,
+              images,
+              theme,
+            )
+          // A wrap-content image sizes to its bitmap's intrinsic dimensions. `applyWidth` treats
+          // WRAP
+          // as the absence of a size modifier — Compose would size the Canvas to its (empty)
+          // content,
+          // which is 0×0 — so the intrinsic size has to be applied here, as it is when no dimension
+          // is
+          // declared at all. `image_layout_sizing_options` asserts exactly that: its wrap-content
+          // ImageLayout is 60×40, the bitmap's own size.
+          val wrapsWidth = node.modifiers.width?.type == RcDimensionType.WRAP
+          val wrapsHeight = node.modifiers.height?.type == RcDimensionType.WRAP
+          if (image != null && (node.modifiers.width == null || wrapsWidth)) {
+            imageModifier = imageModifier.width(with(density) { image.width.toDp() })
+          }
+          if (image != null && (node.modifiers.height == null || wrapsHeight)) {
+            imageModifier = imageModifier.height(with(density) { image.height.toDp() })
+          }
+          // Drawn through Compose's painter pipeline (`Modifier.paint` + `ContentScale`, the
+          // mapping
+          // AndroidX's embedded player uses) rather than a hand-computed scaled rect.
+          // `sizeToIntrinsics = false` keeps the sizing above authoritative — a `Spacer` measures
+          // to its modifiers exactly as a `Canvas` does — and the clip matches `Image`'s.
+          val painter = remember(image) { image?.let(::BitmapPainter) }
+          var drawModifier = imageModifier
+          if (painter != null) {
+            drawModifier =
+              drawModifier
+                .clipToBounds()
+                .paint(
+                  painter,
+                  sizeToIntrinsics = false,
+                  alignment = Alignment.Center,
+                  contentScale = imageLayoutContentScale(node.operation.scaleType),
+                  alpha = state.resolve(node.operation.alpha),
+                )
+          }
+          Spacer(drawModifier)
+        }
+        is RcLayoutNode.Text -> {
+          val density = androidx.compose.ui.platform.LocalDensity.current
+          val operation = node.operation
+          val fontWeight = rcFontWeight(state.resolve(operation.fontWeight))
+          val italic = isWireItalic(operation.fontStyle)
+          val lines = remember { RcTextLines() }
+          BasicText(
+            text = state.text(operation.textId).orEmpty(),
+            modifier =
+              effectiveModifier
+                .applyComponentModifiers(
+                  node.modifiers,
+                  state,
+                  geometryIds,
+                  fillMissingDimensions = false,
+                  canvasOperations = null,
+                  textMeasurer,
+                  images,
+                  theme,
+                )
+                .reportTextLayout(node.componentId, componentCoordinates, lines),
+            onTextLayout = { lines.result = it },
+            style =
+              TextStyle(
+                color =
+                  Color(
+                    if (operation.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0)
+                      state.color(operation.color)
+                    else operation.color,
+                  ),
+                // `toSp()`, not `/ density.density`: Compose rasterizes `x.sp` at
+                // `x * density * fontScale`, so returning the wire's pixels needs BOTH divided out.
+                // Dividing by density alone left the host's font scale applied a second time, which
+                // was
+                // invisible at `fontScale = 1` and doubled this operation's text at 2.0 while
+                // `CoreText` below held still. Worse than a doubling on a `RemoteDensity.Host`
+                // document, whose sizes already carry Android's damped sp curve: a 44sp headline is
+                // 50.4px at fontScale 2.0, and scaling that again gives 100.8.
+                fontSize =
+                  with(density) { state.textFontSizePixels(operation.fontSize, density).toSp() },
+                fontWeight = FontWeight(fontWeight),
+                fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
+                fontFamily =
+                  resolveFontFamily(
+                    operation.fontFamilyId,
+                    state,
+                    fontFamilies,
+                    typefaces,
+                    weight = fontWeight,
+                    italic = italic,
+                  ),
+                textAlign = operation.composeTextAlign(),
+              ),
+            overflow = operation.composeTextOverflow(),
+            maxLines = androidXMaxLines(operation.overflow, operation.maxLines),
+          )
+        }
+        is RcLayoutNode.CoreText -> {
+          val density = androidx.compose.ui.platform.LocalDensity.current
+          val properties = node.resolvedStyle
+          val fontSize = state.textFontSizePixels(properties.floatProperty(5, 36f), density)
+          // Letter spacing and line height may be variables — `RemoteText` writes them as a ratio
+          // to
+          // the font size, a variable when the font size is — and a variable can fail to resolve to
+          // a
+          // number. AndroidX's embedded player reads such a value as unset (androidx-main
+          // `300a543b2`) rather than handing NaN to text layout, and so does this one.
+          val letterSpacing = state.resolve(properties.floatProperty(12, 0f)).finiteOr(0f)
+          val lineHeightAdd = state.resolve(properties.floatProperty(13, 0f)).finiteOr(0f)
+          val lineHeightMultiplier = state.resolve(properties.floatProperty(14, 1f)).finiteOr(1f)
+          val italic = isWireItalic(properties.intProperty(6, 0))
+          val fontWeight = rcFontWeight(state.resolve(properties.floatProperty(7, 400f)))
+          val colorId = properties.intProperty(4, -1)
+          val autosize = properties.booleanProperty(22, false)
+          val minFontSize = properties.floatProperty(25, -1f).let(state::resolve)
+          val maxFontSize = properties.floatProperty(26, -1f).let(state::resolve)
+          val resolvedMaxFontSize = if (maxFontSize > 0f) maxFontSize else 400f
+          val resolvedMinFontSize =
+            minOf(if (minFontSize > 0f) minFontSize else 4f, resolvedMaxFontSize)
+          // Font-variation axes (properties 20/21) — a variable font's `wght` / `wdth` / …
+          // instance.
+          // The tags arrive as text ids and the values may be document floats, so both are resolved
+          // through the player state before they are paired up.
+          //
+          // The same list carries the style's OpenType *features*: Remote Compose's
+          // `RemoteTextStyle`
+          // writes `fontFeatureSettings` into it beside the axes (`tnum` = 1 next to `wght` = 650).
+          // Those are split back out and applied as the style's `fontFeatureSettings`; handed to
+          // the
+          // font as variation axes they were silently ignored.
+          val fontSettings =
+            fontVariationSettings(
+              axisTags =
+                properties.intArrayProperty(CORE_TEXT_FONT_AXIS_TAGS).map { state.text(it) },
+              axisValues =
+                properties.floatArrayProperty(CORE_TEXT_FONT_AXIS_VALUES).map { state.resolve(it) },
+            )
+          val variations = fontSettings.withoutFeatures()
+          val fontFeatures = fontFeatureSettings(fontSettings)
+          val lines = remember { RcTextLines() }
+          val text = state.text(node.operation.textId).orEmpty()
+          val overflow = properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP)
+          val maxLines = androidXMaxLines(overflow, properties.intProperty(11, Int.MAX_VALUE))
+          // Under the closed-form Ahem model a truncated run is sized as the model sizes it (§2.3):
+          // its kept lines, the last one ellipsized. Without the model it keeps the full width.
+          // The model keeps `maxLines` lines whatever the overflow, one font size each.
+          val truncatedBlock: ((Float, Float) -> Size)? =
+            if (
+              LocalRcAhemTextMetrics.current && lineHeightAdd == 0f && lineHeightMultiplier == 1f
+            ) {
+              { maxWidth, laidOutFontSize ->
+                rcAhemTruncatedBlock(
+                  text,
+                  maxWidth,
+                  laidOutFontSize,
+                  properties.intProperty(11, Int.MAX_VALUE),
+                  ellipsis = overflow == RcTextLayout.OVERFLOW_ELLIPSIS,
+                )
+              }
+            } else null
+          BasicText(
+            text = text,
+            modifier =
+              effectiveModifier
+                .applyComponentModifiers(
+                  node.modifiers,
+                  state,
+                  geometryIds,
+                  fillMissingDimensions = false,
+                  canvasOperations = null,
+                  textMeasurer,
+                  images,
+                  theme,
+                )
+                .fitToLines(lines, truncatedBlock)
+                .reportTextLayout(node.componentId, componentCoordinates, lines),
+            onTextLayout = { lines.result = it },
+            style =
+              TextStyle(
+                color =
+                  Color(
+                    if (colorId == -1) properties.intProperty(3, 0xff000000.toInt())
+                    else state.color(colorId),
+                  ),
+                fontSize = with(density) { fontSize.toSp() },
+                // **Ems, not pixels.** Property 12 carries what
+                // `android.graphics.Paint.setLetterSpacing`
+                // takes, which is a multiple of the font size — the vendored AndroidX player spells
+                // the
+                // same value `data.letterSpacing.em`. Converting it as a pixel length made every
+                // document's spacing effectively zero: the `remote-m3` body style asks for 0.02857
+                // em,
+                // and `0.02857.toSp()` at density 2 is 0.014 sp. Text then measured about 5%
+                // narrow,
+                // which is invisible on one line and re-breaks every paragraph that wraps.
+                letterSpacing = letterSpacing.em,
+                lineHeight =
+                  if (lineHeightAdd == 0f && lineHeightMultiplier == 1f) TextUnit.Unspecified
+                  else if (autosize)
+                    (lineHeightMultiplier + lineHeightAdd / fontSize.coerceAtLeast(0.0001f)).em
+                  else with(density) { (fontSize * lineHeightMultiplier + lineHeightAdd).toSp() },
+                // Half-leading above and below each line, trimmed at the paragraph's first and last
+                // line. The default style left the first baseline about 2px lower than the AndroidX
+                // frames for a 1.125 multiplier at 32px, in every remote-m3 card. Measured over the
+                // 703-document catalog against the baked frames: card 2.47% -> 1.72% mismatch,
+                // appcard 2.33% -> 1.76%, titlecard 2.45% -> 2.10%, with nothing else moving.
+                lineHeightStyle =
+                  LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+                fontWeight = FontWeight(fontWeight),
+                fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
+                fontFeatureSettings = fontFeatures,
+                fontFamily =
+                  resolveFontFamily(
+                    properties.intProperty(8, -1),
+                    state,
+                    fontFamilies,
+                    typefaces,
+                    withWeightAxis(withItalicAxis(variations, italic), fontWeight),
+                    fontWeight,
+                    italic,
+                  ),
+                textAlign =
+                  if (properties.intProperty(17, 0) == 1) TextAlign.Justify
+                  else androidXTextAlign(properties.intProperty(9, RcTextLayout.ALIGN_LEFT)),
+                lineBreak =
+                  when (properties.intProperty(15, 0)) {
+                    1 -> LineBreak.Paragraph
+                    2 -> LineBreak.Heading
+                    else -> LineBreak.Simple
+                  },
+                hyphens = if (properties.intProperty(16, 0) > 0) Hyphens.Auto else Hyphens.None,
+                textDecoration =
+                  when {
+                    properties.booleanProperty(18, false) &&
+                      properties.booleanProperty(19, false) ->
+                      TextDecoration.combine(
+                        listOf(TextDecoration.Underline, TextDecoration.LineThrough),
+                      )
+                    properties.booleanProperty(18, false) -> TextDecoration.Underline
+                    properties.booleanProperty(19, false) -> TextDecoration.LineThrough
+                    else -> TextDecoration.None
+                  },
+              ),
+            overflow = androidXTextOverflow(properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP)),
+            maxLines =
+              androidXMaxLines(
+                properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP),
+                properties.intProperty(11, Int.MAX_VALUE),
+              ),
+            autoSize =
+              if (autosize && LocalRcAhemTextMetrics.current)
+                RcAhemAutoSize(
+                  minPx = resolvedMinFontSize,
+                  maxPx = resolvedMaxFontSize,
+                  // The declared cap, whatever the overflow: the model keeps `maxLines` lines.
+                  maxLines = properties.intProperty(11, Int.MAX_VALUE),
+                )
+              else if (autosize)
+                TextAutoSize.StepBased(
+                  minFontSize = with(density) { resolvedMinFontSize.toSp() },
+                  maxFontSize = with(density) { resolvedMaxFontSize.toSp() },
+                  stepSize = with(density) { 0.5f.toSp() },
+                )
+              else null,
+          )
+        }
+        is RcLayoutNode.FitBox -> {
+          // Two phases, ported from AndroidX's embedded player ("Add FitBox shared element
+          // transitions
+          // using Compose Intrinsics", androidx-main `6fb763d3fe4`). The probe pass asks each
+          // alternative for its intrinsic size — no placeables, and nothing is placed, so none of
+          // the
+          // probe subtree's `onGloballyPositioned` geometry ever reaches the document's component
+          // values. The content pass then composes the winner alone, inside the same switcher a
+          // `StateLayout` uses, so an alternative that gives way to another as the box resizes
+          // cross-fades into it and the components the two share morph between their two sizes
+          // rather
+          // than jumping.
+          val alignment =
+            boxAlignment(node.operation.horizontalPositioning, node.operation.verticalPositioning)
           val children = node.content.children
-          val target = selected.coerceIn(0, (children.size - 1).coerceAtLeast(0))
-          val renderChildren: @Composable () -> Unit = {
-            // Every branch the switch is not showing still publishes its (zero) geometry: a
-            // component-value expression reads those ids whether or not its branch is on screen,
-            // and
-            // that was true before the switch animated too.
-            children.forEachIndexed { index, child ->
-              if (index != target || contentVisibility == 0) {
+          val contentVisibility =
+            node.content.modifiers.visibility?.let {
+              androidXVisibility(state.integer(it.visibilityId) ?: 0)
+            } ?: 1
+          // The switcher, hoisted out of the measure pass so it reads as ordinary composition: it
+          // is
+          // called from `subcompose` with the alternative the probe chose.
+          val alternatives: @Composable (Int) -> Unit = { chosenIndex ->
+            RcAnimatedAlternatives(
+              target = chosenIndex,
+              spec = node.modifiers.animationSpec ?: DefaultRcAnimationSpec,
+              alignment = alignment,
+              label = "RcFitBox",
+              sharedElements = { index -> children[index].sharedElementComponents() },
+              sharesElements =
+                remember(children) { children.any { it.sharedElementComponents().isNotEmpty() } },
+            ) { index ->
+              val child = children[index]
+              key(child.componentId) {
                 RenderLayoutNode(
                   child,
-                  forceGone = true,
+                  ignoreOwnVisibility = true,
                   state = state,
                   textMeasurer = textMeasurer,
                   images = images,
@@ -1670,503 +2155,95 @@ private fun RenderLayoutNode(
                 )
               }
             }
-            if (contentVisibility != 0 && children.isNotEmpty()) {
-              // Alignment stays TopStart, which is where this player has always placed a state
-              // branch — upstream centres it, and matching that is a layout change rather than the
-              // transition this ports.
-              RcAnimatedAlternatives(
-                target = target,
-                spec = node.modifiers.animationSpec ?: DefaultRcAnimationSpec,
-                alignment = Alignment.TopStart,
-                label = "RcStateLayout",
-                sharedElements = { index -> children[index].sharedElementComponents() },
-                sharesElements =
-                  remember(children) { children.any { it.sharedElementComponents().isNotEmpty() } },
-              ) { index ->
-                val child = children[index]
-                key(child.componentId) {
-                  RenderLayoutNode(
-                    child,
-                    ignoreOwnVisibility = true,
-                    state = state,
-                    textMeasurer = textMeasurer,
-                    images = images,
-                    theme = theme,
-                  )
-                }
-              }
-            }
           }
-          if (contentVisibility == 0) {
-            Layout(
-              Modifier.trackComponentGeometry(
-                listOf(node.content.componentId),
-                state,
-                geometryProbe,
-                playerRoot,
-                publishSizeOnMeasure,
-                invalidate,
-              ),
-            ) { _, _ ->
-              layout(0, 0) {}
-            }
-            renderChildren()
-          } else {
-            Box(
-              Modifier.trackComponentGeometry(
-                listOf(node.content.componentId),
-                state,
-                geometryProbe,
-                playerRoot,
-                publishSizeOnMeasure,
-                invalidate,
-              ),
-            ) {
-              renderChildren()
-            }
-          }
-        }
-      }
-      is RcLayoutNode.CollapsibleRow -> {
-        RcCollapsibleLayout(
-          children = node.content.children,
-          orientation = RcCollapseOrientation.Horizontal,
-          collapse = requireNotNull(collapse),
-          mainPositioning = androidXRowMainPosition(node.operation.horizontalPositioning),
-          crossPositioning = androidXVerticalPosition(node.operation.verticalPositioning),
-          spacing =
-            state.dpTypedPixels(state.resolve(node.operation.spacedBy), density).roundToInt(),
-          modifier =
-            effectiveModifier.applyComponentModifiers(
-              node.modifiers,
-              state,
-              geometryIds,
-              fillMissingDimensions = false,
-              node.canvasOperations,
-              textMeasurer,
-              images,
-              theme,
-            ),
-          state = state,
-          textMeasurer = textMeasurer,
-          images = images,
-          theme = theme,
-        )
-      }
-      is RcLayoutNode.CollapsibleColumn -> {
-        RcCollapsibleLayout(
-          children = node.content.children,
-          orientation = RcCollapseOrientation.Vertical,
-          collapse = requireNotNull(collapse),
-          mainPositioning = androidXColumnMainPosition(node.operation.verticalPositioning),
-          crossPositioning = androidXHorizontalPosition(node.operation.horizontalPositioning),
-          spacing =
-            state.dpTypedPixels(state.resolve(node.operation.spacedBy), density).roundToInt(),
-          modifier =
-            effectiveModifier.applyComponentModifiers(
-              node.modifiers,
-              state,
-              geometryIds,
-              fillMissingDimensions = false,
-              node.canvasOperations,
-              textMeasurer,
-              images,
-              theme,
-            ),
-          state = state,
-          textMeasurer = textMeasurer,
-          images = images,
-          theme = theme,
-        )
-      }
-      is RcLayoutNode.Image -> {
-        val image = images[node.operation.bitmapId]
-        val density = androidx.compose.ui.platform.LocalDensity.current
-        var imageModifier =
-          effectiveModifier.applyComponentModifiers(
-            node.modifiers,
-            state,
-            geometryIds,
-            fillMissingDimensions = false,
-            canvasOperations = null,
-            textMeasurer,
-            images,
-            theme,
-          )
-        // A wrap-content image sizes to its bitmap's intrinsic dimensions. `applyWidth` treats WRAP
-        // as the absence of a size modifier — Compose would size the Canvas to its (empty) content,
-        // which is 0×0 — so the intrinsic size has to be applied here, as it is when no dimension
-        // is
-        // declared at all. `image_layout_sizing_options` asserts exactly that: its wrap-content
-        // ImageLayout is 60×40, the bitmap's own size.
-        val wrapsWidth = node.modifiers.width?.type == RcDimensionType.WRAP
-        val wrapsHeight = node.modifiers.height?.type == RcDimensionType.WRAP
-        if (image != null && (node.modifiers.width == null || wrapsWidth)) {
-          imageModifier = imageModifier.width(with(density) { image.width.toDp() })
-        }
-        if (image != null && (node.modifiers.height == null || wrapsHeight)) {
-          imageModifier = imageModifier.height(with(density) { image.height.toDp() })
-        }
-        // Drawn through Compose's painter pipeline (`Modifier.paint` + `ContentScale`, the mapping
-        // AndroidX's embedded player uses) rather than a hand-computed scaled rect.
-        // `sizeToIntrinsics = false` keeps the sizing above authoritative — a `Spacer` measures
-        // to its modifiers exactly as a `Canvas` does — and the clip matches `Image`'s.
-        val painter = remember(image) { image?.let(::BitmapPainter) }
-        var drawModifier = imageModifier
-        if (painter != null) {
-          drawModifier =
-            drawModifier
-              .clipToBounds()
-              .paint(
-                painter,
-                sizeToIntrinsics = false,
-                alignment = Alignment.Center,
-                contentScale = imageLayoutContentScale(node.operation.scaleType),
-                alpha = state.resolve(node.operation.alpha),
-              )
-        }
-        Spacer(drawModifier)
-      }
-      is RcLayoutNode.Text -> {
-        val density = androidx.compose.ui.platform.LocalDensity.current
-        val operation = node.operation
-        val fontWeight = rcFontWeight(state.resolve(operation.fontWeight))
-        val italic = isWireItalic(operation.fontStyle)
-        val lines = remember { RcTextLines() }
-        BasicText(
-          text = state.text(operation.textId).orEmpty(),
-          modifier =
-            effectiveModifier
-              .applyComponentModifiers(
+          SubcomposeLayout(
+            modifier =
+              effectiveModifier.applyComponentModifiers(
                 node.modifiers,
                 state,
                 geometryIds,
                 fillMissingDimensions = false,
-                canvasOperations = null,
+                node.canvasOperations,
                 textMeasurer,
                 images,
                 theme,
-              )
-              .reportTextLayout(node.componentId, componentCoordinates, lines),
-          onTextLayout = { lines.result = it },
-          style =
-            TextStyle(
-              color =
-                Color(
-                  if (operation.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0)
-                    state.color(operation.color)
-                  else operation.color,
-                ),
-              // `toSp()`, not `/ density.density`: Compose rasterizes `x.sp` at
-              // `x * density * fontScale`, so returning the wire's pixels needs BOTH divided out.
-              // Dividing by density alone left the host's font scale applied a second time, which
-              // was
-              // invisible at `fontScale = 1` and doubled this operation's text at 2.0 while
-              // `CoreText` below held still. Worse than a doubling on a `RemoteDensity.Host`
-              // document, whose sizes already carry Android's damped sp curve: a 44sp headline is
-              // 50.4px at fontScale 2.0, and scaling that again gives 100.8.
-              fontSize =
-                with(density) { state.textFontSizePixels(operation.fontSize, density).toSp() },
-              fontWeight = FontWeight(fontWeight),
-              fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
-              fontFamily =
-                resolveFontFamily(
-                  operation.fontFamilyId,
-                  state,
-                  fontFamilies,
-                  typefaces,
-                  weight = fontWeight,
-                  italic = italic,
-                ),
-              textAlign = operation.composeTextAlign(),
-            ),
-          overflow = operation.composeTextOverflow(),
-          maxLines = androidXMaxLines(operation.overflow, operation.maxLines),
-        )
-      }
-      is RcLayoutNode.CoreText -> {
-        val density = androidx.compose.ui.platform.LocalDensity.current
-        val properties = node.resolvedStyle
-        val fontSize = state.textFontSizePixels(properties.floatProperty(5, 36f), density)
-        // Letter spacing and line height may be variables — `RemoteText` writes them as a ratio to
-        // the font size, a variable when the font size is — and a variable can fail to resolve to a
-        // number. AndroidX's embedded player reads such a value as unset (androidx-main
-        // `300a543b2`) rather than handing NaN to text layout, and so does this one.
-        val letterSpacing = state.resolve(properties.floatProperty(12, 0f)).finiteOr(0f)
-        val lineHeightAdd = state.resolve(properties.floatProperty(13, 0f)).finiteOr(0f)
-        val lineHeightMultiplier = state.resolve(properties.floatProperty(14, 1f)).finiteOr(1f)
-        val italic = isWireItalic(properties.intProperty(6, 0))
-        val fontWeight = rcFontWeight(state.resolve(properties.floatProperty(7, 400f)))
-        val colorId = properties.intProperty(4, -1)
-        val autosize = properties.booleanProperty(22, false)
-        val minFontSize = properties.floatProperty(25, -1f).let(state::resolve)
-        val maxFontSize = properties.floatProperty(26, -1f).let(state::resolve)
-        val resolvedMaxFontSize = if (maxFontSize > 0f) maxFontSize else 400f
-        val resolvedMinFontSize =
-          minOf(if (minFontSize > 0f) minFontSize else 4f, resolvedMaxFontSize)
-        // Font-variation axes (properties 20/21) — a variable font's `wght` / `wdth` / … instance.
-        // The tags arrive as text ids and the values may be document floats, so both are resolved
-        // through the player state before they are paired up.
-        //
-        // The same list carries the style's OpenType *features*: Remote Compose's `RemoteTextStyle`
-        // writes `fontFeatureSettings` into it beside the axes (`tnum` = 1 next to `wght` = 650).
-        // Those are split back out and applied as the style's `fontFeatureSettings`; handed to the
-        // font as variation axes they were silently ignored.
-        val fontSettings =
-          fontVariationSettings(
-            axisTags = properties.intArrayProperty(CORE_TEXT_FONT_AXIS_TAGS).map { state.text(it) },
-            axisValues =
-              properties.floatArrayProperty(CORE_TEXT_FONT_AXIS_VALUES).map { state.resolve(it) },
-          )
-        val variations = fontSettings.withoutFeatures()
-        val fontFeatures = fontFeatureSettings(fontSettings)
-        val lines = remember { RcTextLines() }
-        val text = state.text(node.operation.textId).orEmpty()
-        val overflow = properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP)
-        val maxLines = androidXMaxLines(overflow, properties.intProperty(11, Int.MAX_VALUE))
-        // Under the closed-form Ahem model a truncated run is sized as the model sizes it (§2.3):
-        // its kept lines, the last one ellipsized. Without the model it keeps the full width.
-        // The model keeps `maxLines` lines whatever the overflow, one font size each.
-        val truncatedBlock: ((Float, Float) -> Size)? =
-          if (LocalRcAhemTextMetrics.current && lineHeightAdd == 0f && lineHeightMultiplier == 1f) {
-            { maxWidth, laidOutFontSize ->
-              rcAhemTruncatedBlock(
-                text,
-                maxWidth,
-                laidOutFontSize,
-                properties.intProperty(11, Int.MAX_VALUE),
-                ellipsis = overflow == RcTextLayout.OVERFLOW_ELLIPSIS,
-              )
-            }
-          } else null
-        BasicText(
-          text = text,
-          modifier =
-            effectiveModifier
-              .applyComponentModifiers(
-                node.modifiers,
-                state,
-                geometryIds,
-                fillMissingDimensions = false,
-                canvasOperations = null,
-                textMeasurer,
-                images,
-                theme,
-              )
-              .fitToLines(lines, truncatedBlock)
-              .reportTextLayout(node.componentId, componentCoordinates, lines),
-          onTextLayout = { lines.result = it },
-          style =
-            TextStyle(
-              color =
-                Color(
-                  if (colorId == -1) properties.intProperty(3, 0xff000000.toInt())
-                  else state.color(colorId),
-                ),
-              fontSize = with(density) { fontSize.toSp() },
-              // **Ems, not pixels.** Property 12 carries what
-              // `android.graphics.Paint.setLetterSpacing`
-              // takes, which is a multiple of the font size — the vendored AndroidX player spells
-              // the
-              // same value `data.letterSpacing.em`. Converting it as a pixel length made every
-              // document's spacing effectively zero: the `remote-m3` body style asks for 0.02857
-              // em,
-              // and `0.02857.toSp()` at density 2 is 0.014 sp. Text then measured about 5% narrow,
-              // which is invisible on one line and re-breaks every paragraph that wraps.
-              letterSpacing = letterSpacing.em,
-              lineHeight =
-                if (lineHeightAdd == 0f && lineHeightMultiplier == 1f) TextUnit.Unspecified
-                else if (autosize)
-                  (lineHeightMultiplier + lineHeightAdd / fontSize.coerceAtLeast(0.0001f)).em
-                else with(density) { (fontSize * lineHeightMultiplier + lineHeightAdd).toSp() },
-              // Half-leading above and below each line, trimmed at the paragraph's first and last
-              // line. The default style left the first baseline about 2px lower than the AndroidX
-              // frames for a 1.125 multiplier at 32px, in every remote-m3 card. Measured over the
-              // 703-document catalog against the baked frames: card 2.47% -> 1.72% mismatch,
-              // appcard 2.33% -> 1.76%, titlecard 2.45% -> 2.10%, with nothing else moving.
-              lineHeightStyle =
-                LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
-              fontWeight = FontWeight(fontWeight),
-              fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
-              fontFeatureSettings = fontFeatures,
-              fontFamily =
-                resolveFontFamily(
-                  properties.intProperty(8, -1),
-                  state,
-                  fontFamilies,
-                  typefaces,
-                  withWeightAxis(withItalicAxis(variations, italic), fontWeight),
-                  fontWeight,
-                  italic,
-                ),
-              textAlign =
-                if (properties.intProperty(17, 0) == 1) TextAlign.Justify
-                else androidXTextAlign(properties.intProperty(9, RcTextLayout.ALIGN_LEFT)),
-              lineBreak =
-                when (properties.intProperty(15, 0)) {
-                  1 -> LineBreak.Paragraph
-                  2 -> LineBreak.Heading
-                  else -> LineBreak.Simple
-                },
-              hyphens = if (properties.intProperty(16, 0) > 0) Hyphens.Auto else Hyphens.None,
-              textDecoration =
-                when {
-                  properties.booleanProperty(18, false) && properties.booleanProperty(19, false) ->
-                    TextDecoration.combine(
-                      listOf(TextDecoration.Underline, TextDecoration.LineThrough),
+              ),
+          ) { constraints ->
+            val maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
+            val maxHeight =
+              if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE
+            val probes =
+              subcompose(RcFitBoxSlot.Probe) {
+                children.forEach { child ->
+                  Box(Modifier.clearAndSetSemantics {}) {
+                    RenderLayoutNode(
+                      child,
+                      // The same override the content pass applies, or the two disagree about what
+                      // an
+                      // alternative measures: a visibility-decorated child would probe as 0x0,
+                      // always
+                      // "fit", and be selected — then be rendered visible at its real size,
+                      // displacing
+                      // a later alternative that actually fits.
+                      ignoreOwnVisibility = true,
+                      state = state,
+                      textMeasurer = textMeasurer,
+                      images = images,
+                      theme = theme,
                     )
-                  properties.booleanProperty(18, false) -> TextDecoration.Underline
-                  properties.booleanProperty(19, false) -> TextDecoration.LineThrough
-                  else -> TextDecoration.None
-                },
-            ),
-          overflow = androidXTextOverflow(properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP)),
-          maxLines =
-            androidXMaxLines(
-              properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP),
-              properties.intProperty(11, Int.MAX_VALUE),
-            ),
-          autoSize =
-            if (autosize && LocalRcAhemTextMetrics.current)
-              RcAhemAutoSize(
-                minPx = resolvedMinFontSize,
-                maxPx = resolvedMaxFontSize,
-                // The declared cap, whatever the overflow: the model keeps `maxLines` lines.
-                maxLines = properties.intProperty(11, Int.MAX_VALUE),
-              )
-            else if (autosize)
-              TextAutoSize.StepBased(
-                minFontSize = with(density) { resolvedMinFontSize.toSp() },
-                maxFontSize = with(density) { resolvedMaxFontSize.toSp() },
-                stepSize = with(density) { 0.5f.toSp() },
-              )
-            else null,
-        )
-      }
-      is RcLayoutNode.FitBox -> {
-        // Two phases, ported from AndroidX's embedded player ("Add FitBox shared element
-        // transitions
-        // using Compose Intrinsics", androidx-main `6fb763d3fe4`). The probe pass asks each
-        // alternative for its intrinsic size — no placeables, and nothing is placed, so none of the
-        // probe subtree's `onGloballyPositioned` geometry ever reaches the document's component
-        // values. The content pass then composes the winner alone, inside the same switcher a
-        // `StateLayout` uses, so an alternative that gives way to another as the box resizes
-        // cross-fades into it and the components the two share morph between their two sizes rather
-        // than jumping.
-        val alignment =
-          boxAlignment(node.operation.horizontalPositioning, node.operation.verticalPositioning)
-        val children = node.content.children
-        val contentVisibility =
-          node.content.modifiers.visibility?.let {
-            androidXVisibility(state.integer(it.visibilityId) ?: 0)
-          } ?: 1
-        // The switcher, hoisted out of the measure pass so it reads as ordinary composition: it is
-        // called from `subcompose` with the alternative the probe chose.
-        val alternatives: @Composable (Int) -> Unit = { chosenIndex ->
-          RcAnimatedAlternatives(
-            target = chosenIndex,
-            spec = node.modifiers.animationSpec ?: DefaultRcAnimationSpec,
-            alignment = alignment,
-            label = "RcFitBox",
-            sharedElements = { index -> children[index].sharedElementComponents() },
-            sharesElements =
-              remember(children) { children.any { it.sharedElementComponents().isNotEmpty() } },
-          ) { index ->
-            val child = children[index]
-            key(child.componentId) {
-              RenderLayoutNode(
-                child,
-                ignoreOwnVisibility = true,
-                state = state,
-                textMeasurer = textMeasurer,
-                images = images,
-                theme = theme,
-              )
-            }
-          }
-        }
-        SubcomposeLayout(
-          modifier =
-            effectiveModifier.applyComponentModifiers(
-              node.modifiers,
-              state,
-              geometryIds,
-              fillMissingDimensions = false,
-              node.canvasOperations,
-              textMeasurer,
-              images,
-              theme,
-            ),
-        ) { constraints ->
-          val maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
-          val maxHeight = if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE
-          val probes =
-            subcompose(RcFitBoxSlot.Probe) {
-              children.forEach { child ->
-                Box(Modifier.clearAndSetSemantics {}) {
-                  RenderLayoutNode(
-                    child,
-                    // The same override the content pass applies, or the two disagree about what an
-                    // alternative measures: a visibility-decorated child would probe as 0x0, always
-                    // "fit", and be selected — then be rendered visible at its real size,
-                    // displacing
-                    // a later alternative that actually fits.
-                    ignoreOwnVisibility = true,
-                    state = state,
-                    textMeasurer = textMeasurer,
-                    images = images,
-                    theme = theme,
-                  )
-                }
-              }
-            }
-          val fits =
-            probes.indices.firstOrNull { index ->
-              probes[index].maxIntrinsicWidth(maxHeight) <= maxWidth &&
-                probes[index].maxIntrinsicHeight(maxWidth) <= maxHeight
-            }
-          // Nothing fits: remote-core hides the box entirely, and showing the smallest alternative
-          // is
-          // upstream's answer — a clipped component says more than a blank one. `fitbox_fit`
-          // asserts
-          // the other behaviour (box and child both GONE, geometry retained), which is a separate
-          // change: the box's own gone state is a composition-time value while the fit decision is
-          // made here, and forcing only the child leaves the box drawing its background.
-          val chosen =
-            fits ?: probes.indices.minByOrNull { probes[it].maxIntrinsicWidth(maxHeight) }
-          // Loose, and the FitBox places the result itself: the switcher wraps the winner, and the
-          // box aligns that against its own size the way it always has. Letting the switcher fill
-          // and
-          // align internally would work too, but only for a FitBox that has a size of its own — a
-          // wrap-content one has to keep measuring at the winner's size.
-          val loose = constraints.copy(minWidth = 0, minHeight = 0)
-          val placeables =
-            if (chosen == null || contentVisibility == 0) emptyList()
-            else
-              subcompose(RcFitBoxSlot.Content) {
-                  if (contentVisibility == 2) {
-                    Box(Modifier.alpha(0f)) { alternatives(chosen) }
-                  } else {
-                    alternatives(chosen)
                   }
                 }
-                .map { it.measure(loose) }
-          val width = constraints.constrainWidth(placeables.maxOfOrNull { it.width } ?: 0)
-          val height = constraints.constrainHeight(placeables.maxOfOrNull { it.height } ?: 0)
-          layout(width, height) {
-            placeables.forEach { placeable ->
-              val offset =
-                alignment.align(
-                  IntSize(placeable.width, placeable.height),
-                  IntSize(width, height),
-                  layoutDirection,
-                )
-              placeable.place(offset.x, offset.y)
+              }
+            val fits =
+              probes.indices.firstOrNull { index ->
+                probes[index].maxIntrinsicWidth(maxHeight) <= maxWidth &&
+                  probes[index].maxIntrinsicHeight(maxWidth) <= maxHeight
+              }
+            // Nothing fits: remote-core hides the box entirely, and showing the smallest
+            // alternative
+            // is
+            // upstream's answer — a clipped component says more than a blank one. `fitbox_fit`
+            // asserts
+            // the other behaviour (box and child both GONE, geometry retained), which is a separate
+            // change: the box's own gone state is a composition-time value while the fit decision
+            // is
+            // made here, and forcing only the child leaves the box drawing its background.
+            val chosen =
+              fits ?: probes.indices.minByOrNull { probes[it].maxIntrinsicWidth(maxHeight) }
+            // Loose, and the FitBox places the result itself: the switcher wraps the winner, and
+            // the
+            // box aligns that against its own size the way it always has. Letting the switcher fill
+            // and
+            // align internally would work too, but only for a FitBox that has a size of its own — a
+            // wrap-content one has to keep measuring at the winner's size.
+            val loose = constraints.copy(minWidth = 0, minHeight = 0)
+            val placeables =
+              if (chosen == null || contentVisibility == 0) emptyList()
+              else
+                subcompose(RcFitBoxSlot.Content) {
+                    if (contentVisibility == 2) {
+                      Box(Modifier.alpha(0f)) { alternatives(chosen) }
+                    } else {
+                      alternatives(chosen)
+                    }
+                  }
+                  .map { it.measure(loose) }
+            val width = constraints.constrainWidth(placeables.maxOfOrNull { it.width } ?: 0)
+            val height = constraints.constrainHeight(placeables.maxOfOrNull { it.height } ?: 0)
+            layout(width, height) {
+              placeables.forEach { placeable ->
+                val offset =
+                  alignment.align(
+                    IntSize(placeable.width, placeable.height),
+                    IntSize(width, height),
+                    layoutDirection,
+                  )
+                placeable.place(offset.x, offset.y)
+              }
             }
           }
         }
       }
-    }
   }
   // A component's visibility can only change when it carries a visibility modifier, which reads a
   // document variable. Without one (or at a call site that fixes it) the component is shown, or
@@ -3966,7 +4043,7 @@ private val SnappingStopModes =
     ee.schimke.composeai.rcplayer.protocol.RcTouchExpression.STOP_NOTCHES_SINGLE_EVEN,
   )
 
-private fun RcLayoutNode.geometryComponentIds(): List<Int> =
+internal fun RcLayoutNode.geometryComponentIds(): List<Int> =
   when (this) {
     is RcLayoutNode.Root ->
       listOf(componentId) + children.filterIsInstance<RcLayoutNode.Content>().map { it.componentId }
@@ -4780,75 +4857,8 @@ private fun Modifier.applyPaintDecorator(
 ): Modifier {
   val localDensity = androidx.compose.ui.platform.LocalDensity.current
   return when (operation) {
-    is RcBackgroundModifier ->
-      drawBehind {
-        val color =
-          if (operation.usesColorId) {
-            Color(state.color(operation.colorId))
-          } else {
-            Color(
-              red = state.resolve(operation.red),
-              green = state.resolve(operation.green),
-              blue = state.resolve(operation.blue),
-              alpha = state.resolve(operation.alpha),
-            )
-          }
-        when (operation.shapeType) {
-          RcBackgroundModifier.SHAPE_RECTANGLE -> drawRect(color)
-          RcBackgroundModifier.SHAPE_CIRCLE ->
-            drawCircle(color, radius = minOf(size.width, size.height) / 2f)
-        }
-      }
-    is RcBorderModifier ->
-      drawBehind {
-        val color =
-          if (operation.usesColorId) {
-            Color(state.color(operation.colorId))
-          } else {
-            Color(
-              red = state.resolve(operation.red),
-              green = state.resolve(operation.green),
-              blue = state.resolve(operation.blue),
-              alpha = state.resolve(operation.alpha),
-            )
-          }
-        val borderWidth =
-          state.borderWidthPixels(operation.borderWidth, localDensity).coerceAtLeast(0f)
-        val corner =
-          state
-            .dpTypedPixels(state.resolve(operation.roundedCorner), localDensity)
-            .coerceAtLeast(0f)
-        val halfSize = minOf(size.width, size.height) / 2f
-        if (operation.wireVersion != 0 && borderWidth >= halfSize) {
-          when (operation.shapeType) {
-            RcBackgroundModifier.SHAPE_RECTANGLE -> drawRect(color)
-            RcBackgroundModifier.SHAPE_CIRCLE -> drawCircle(color, radius = halfSize)
-            else -> drawRoundRect(color, cornerRadius = CornerRadius(corner))
-          }
-        } else {
-          val inset = if (operation.wireVersion == 0) 0f else borderWidth / 2f
-          val stroke = Stroke(width = borderWidth)
-          when (operation.shapeType) {
-            RcBackgroundModifier.SHAPE_RECTANGLE ->
-              drawRect(
-                color,
-                topLeft = Offset(inset, inset),
-                size = Size(size.width - inset * 2f, size.height - inset * 2f),
-                style = stroke,
-              )
-            RcBackgroundModifier.SHAPE_CIRCLE ->
-              drawCircle(color, radius = (halfSize - inset).coerceAtLeast(0f), style = stroke)
-            else ->
-              drawRoundRect(
-                color,
-                topLeft = Offset(inset, inset),
-                size = Size(size.width - inset * 2f, size.height - inset * 2f),
-                cornerRadius = CornerRadius((corner - inset).coerceAtLeast(0f)),
-                style = stroke,
-              )
-          }
-        }
-      }
+    is RcBackgroundModifier -> drawBehind { drawRcBackground(operation, state, size) }
+    is RcBorderModifier -> drawBehind { drawRcBorder(operation, state, localDensity, size) }
     // Component clips are Compose's own layer clip — what `Modifier.clip` expands to — so the
     // content (and hit testing) is clipped by the layer rather than by a hand-rolled draw pass.
     // The lambda form of `graphicsLayer` keeps the radius reads in the layer phase: an animated
@@ -8008,3 +8018,792 @@ private const val REFUSED_FRAME_RETRY_MILLIS = 100L
 internal const val WIRE_FONT_STYLE_ITALIC: Int = 1
 
 internal fun isWireItalic(fontStyle: Int): Boolean = fontStyle == WIRE_FONT_STYLE_ITALIC
+
+/**
+ * What [RcFlatContainer] lays out and draws for one plain `CoreText`: as the component styles it.
+ */
+internal class RcFlatTextSpec(
+  val text: String,
+  val style: TextStyle,
+  val overflow: TextOverflow,
+  val maxLines: Int,
+)
+
+/**
+ * The text, style and line limits a `CoreText` component lays out with, built by the same code as
+ * its composable (generated from it for the flat-layout prototype). Null for auto-sized text, which
+ * the flat layout leaves to the component.
+ */
+internal fun rcFlatTextSpec(
+  node: RcLayoutNode.CoreText,
+  state: RcPlayerState,
+  density: Density,
+  fontFamilies: RcDocumentFonts,
+  typefaces: RcTypefaceLoader,
+): RcFlatTextSpec? {
+  val properties = node.resolvedStyle
+  val fontSize = state.textFontSizePixels(properties.floatProperty(5, 36f), density)
+  // Letter spacing and line height may be variables — `RemoteText` writes them as a ratio to
+  // the font size, a variable when the font size is — and a variable can fail to resolve to a
+  // number. AndroidX's embedded player reads such a value as unset (androidx-main
+  // `300a543b2`) rather than handing NaN to text layout, and so does this one.
+  val letterSpacing = state.resolve(properties.floatProperty(12, 0f)).finiteOr(0f)
+  val lineHeightAdd = state.resolve(properties.floatProperty(13, 0f)).finiteOr(0f)
+  val lineHeightMultiplier = state.resolve(properties.floatProperty(14, 1f)).finiteOr(1f)
+  val italic = isWireItalic(properties.intProperty(6, 0))
+  val fontWeight = rcFontWeight(state.resolve(properties.floatProperty(7, 400f)))
+  val colorId = properties.intProperty(4, -1)
+  val autosize = properties.booleanProperty(22, false)
+  val minFontSize = properties.floatProperty(25, -1f).let(state::resolve)
+  val maxFontSize = properties.floatProperty(26, -1f).let(state::resolve)
+  val resolvedMaxFontSize = if (maxFontSize > 0f) maxFontSize else 400f
+  val resolvedMinFontSize = minOf(if (minFontSize > 0f) minFontSize else 4f, resolvedMaxFontSize)
+  // Font-variation axes (properties 20/21) — a variable font's `wght` / `wdth` / … instance.
+  // The tags arrive as text ids and the values may be document floats, so both are resolved
+  // through the player state before they are paired up.
+  //
+  // The same list carries the style's OpenType *features*: Remote Compose's `RemoteTextStyle`
+  // writes `fontFeatureSettings` into it beside the axes (`tnum` = 1 next to `wght` = 650).
+  // Those are split back out and applied as the style's `fontFeatureSettings`; handed to the
+  // font as variation axes they were silently ignored.
+  val fontSettings =
+    fontVariationSettings(
+      axisTags = properties.intArrayProperty(CORE_TEXT_FONT_AXIS_TAGS).map { state.text(it) },
+      axisValues =
+        properties.floatArrayProperty(CORE_TEXT_FONT_AXIS_VALUES).map { state.resolve(it) },
+    )
+  val variations = fontSettings.withoutFeatures()
+  val fontFeatures = fontFeatureSettings(fontSettings)
+  if (autosize) return null
+  val style =
+    TextStyle(
+      color =
+        Color(
+          if (colorId == -1) properties.intProperty(3, 0xff000000.toInt())
+          else state.color(colorId),
+        ),
+      fontSize = with(density) { fontSize.toSp() },
+      // **Ems, not pixels.** Property 12 carries what
+      // `android.graphics.Paint.setLetterSpacing`
+      // takes, which is a multiple of the font size — the vendored AndroidX player spells
+      // the
+      // same value `data.letterSpacing.em`. Converting it as a pixel length made every
+      // document's spacing effectively zero: the `remote-m3` body style asks for 0.02857
+      // em,
+      // and `0.02857.toSp()` at density 2 is 0.014 sp. Text then measured about 5% narrow,
+      // which is invisible on one line and re-breaks every paragraph that wraps.
+      letterSpacing = letterSpacing.em,
+      lineHeight =
+        if (lineHeightAdd == 0f && lineHeightMultiplier == 1f) TextUnit.Unspecified
+        else if (autosize)
+          (lineHeightMultiplier + lineHeightAdd / fontSize.coerceAtLeast(0.0001f)).em
+        else with(density) { (fontSize * lineHeightMultiplier + lineHeightAdd).toSp() },
+      // Half-leading above and below each line, trimmed at the paragraph's first and last
+      // line. The default style left the first baseline about 2px lower than the AndroidX
+      // frames for a 1.125 multiplier at 32px, in every remote-m3 card. Measured over the
+      // 703-document catalog against the baked frames: card 2.47% -> 1.72% mismatch,
+      // appcard 2.33% -> 1.76%, titlecard 2.45% -> 2.10%, with nothing else moving.
+      lineHeightStyle =
+        LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+      fontWeight = FontWeight(fontWeight),
+      fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
+      fontFeatureSettings = fontFeatures,
+      fontFamily =
+        resolveFontFamily(
+          properties.intProperty(8, -1),
+          state,
+          fontFamilies,
+          typefaces,
+          withWeightAxis(withItalicAxis(variations, italic), fontWeight),
+          fontWeight,
+          italic,
+        ),
+      textAlign =
+        if (properties.intProperty(17, 0) == 1) TextAlign.Justify
+        else androidXTextAlign(properties.intProperty(9, RcTextLayout.ALIGN_LEFT)),
+      lineBreak =
+        when (properties.intProperty(15, 0)) {
+          1 -> LineBreak.Paragraph
+          2 -> LineBreak.Heading
+          else -> LineBreak.Simple
+        },
+      hyphens = if (properties.intProperty(16, 0) > 0) Hyphens.Auto else Hyphens.None,
+      textDecoration =
+        when {
+          properties.booleanProperty(18, false) && properties.booleanProperty(19, false) ->
+            TextDecoration.combine(
+              listOf(TextDecoration.Underline, TextDecoration.LineThrough),
+            )
+          properties.booleanProperty(18, false) -> TextDecoration.Underline
+          properties.booleanProperty(19, false) -> TextDecoration.LineThrough
+          else -> TextDecoration.None
+        },
+    )
+  return RcFlatTextSpec(
+    text = state.text(node.operation.textId).orEmpty(),
+    style = style,
+    overflow = androidXTextOverflow(properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP)),
+    maxLines =
+      androidXMaxLines(
+        properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP),
+        properties.intProperty(11, Int.MAX_VALUE),
+      ),
+  )
+}
+
+// ---- Flat layout (prototype) ----------------------------------------------------------------
+
+/**
+ * Whether players below lay out and draw the plain parts of a layout container in one node
+ * ([RcFlatContainer]) rather than one composable per component. Experimental and off by default: a
+ * prototype for feeds of cards, measured against the per-component path.
+ */
+@ExperimentalRcPlayerApi
+public val LocalRcFlattenLayout: androidx.compose.runtime.ProvidableCompositionLocal<Boolean> =
+  androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/** The prepared document's [RcPreparedDocument.plainComponents]. */
+internal val LocalRcPlainComponents =
+  androidx.compose.runtime.staticCompositionLocalOf<Set<Int>> { emptySet() }
+
+/** A container's content as [RcFlatContainer] handles it. */
+private sealed class RcFlat {
+  /** A plain box, row or column: its own modifiers and arrangement are laid out here. */
+  class Group(val node: RcLayoutNode, val children: List<RcFlat>) : RcFlat()
+
+  /** A plain core text: measured with [TextMeasurer] and drawn here. */
+  class Text(val node: RcLayoutNode.CoreText, val spec: RcFlatTextSpec) : RcFlat()
+
+  /** Anything else: composed as its own component and placed here. */
+  class Hole(val node: RcLayoutNode) : RcFlat()
+}
+
+private fun rcFlatChildren(
+  children: List<RcLayoutNode>,
+  plain: Set<Int>,
+  spec: (RcLayoutNode.CoreText) -> RcFlatTextSpec?,
+): List<RcFlat> = children.flatMap { child ->
+  if (child.componentId !in plain || !rcFlattens(child, plain)) {
+    return@flatMap listOf(RcFlat.Hole(child))
+  }
+  when (child) {
+    is RcLayoutNode.Content -> rcFlatChildren(child.children, plain, spec)
+    is RcLayoutNode.CoreText ->
+      listOf(spec(child)?.let { RcFlat.Text(child, it) } ?: RcFlat.Hole(child))
+    is RcLayoutNode.Row ->
+      listOf(RcFlat.Group(child, rcFlatChildren(child.content.children, plain, spec)))
+    is RcLayoutNode.Column ->
+      listOf(RcFlat.Group(child, rcFlatChildren(child.content.children, plain, spec)))
+    is RcLayoutNode.Box ->
+      listOf(
+        RcFlat.Group(
+          child,
+          child.content?.let { rcFlatChildren(listOf(it), plain, spec) }.orEmpty(),
+        ),
+      )
+    else -> listOf(RcFlat.Hole(child))
+  }
+}
+
+/** The children of a box, row or column container, as its own composable renders them. */
+private fun RcLayoutNode.flatContainerChildren(): List<RcLayoutNode>? =
+  when (this) {
+    is RcLayoutNode.Row -> content.children
+    is RcLayoutNode.Column -> content.children
+    is RcLayoutNode.Box -> listOfNotNull(content)
+    else -> null
+  }
+
+/** One measured piece: its size, and how to place it (draws and holes) at an offset. */
+private class RcFlatMeasured(
+  val width: Int,
+  val height: Int,
+  val place: (x: Int, y: Int, out: RcFlatOut) -> Unit,
+)
+
+private class RcFlatOut {
+  val draws = ArrayList<androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit>()
+  val holes = ArrayList<Triple<androidx.compose.ui.layout.Placeable, Int, Int>>()
+}
+
+/**
+ * Lays out [container]'s content (its own modifiers are already in [modifier]) as one layout node:
+ * plain groups and texts are measured, placed and drawn here, and every other child is composed by
+ * [hole] and placed where the container's arrangement puts it. Prototype: plain components use the
+ * subset [rcPlainComponents] admits, and a rounded clip does not clip a hole inside it.
+ */
+@Composable
+private fun RcFlatContainer(
+  container: RcLayoutNode,
+  modifier: Modifier,
+  state: RcPlayerState,
+  plain: Set<Int>,
+  textMeasurer: TextMeasurer,
+  hole: @Composable (RcLayoutNode, Modifier) -> Unit,
+) {
+  val density = androidx.compose.ui.platform.LocalDensity.current
+  val fontFamilies = LocalRcFonts.current
+  val typefaces = LocalRcTypefaces.current
+  val frameTime = LocalRcFrameTime.current
+  val paintVersion = LocalRcPaintVersion.current
+  val children = container.flatContainerChildren().orEmpty()
+  val flat =
+    rcFlatChildren(children, plain) { rcFlatTextSpec(it, state, density, fontFamilies, typefaces) }
+  val holes = ArrayList<RcLayoutNode>()
+  val texts = ArrayList<String>()
+  fun collect(items: List<RcFlat>) {
+    items.forEach {
+      when (it) {
+        is RcFlat.Hole -> holes += it.node
+        is RcFlat.Text -> texts += it.spec.text
+        is RcFlat.Group -> collect(it.children)
+      }
+    }
+  }
+  collect(flat)
+  val drawn = remember {
+    mutableStateOf(emptyList<androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit>())
+  }
+  androidx.compose.ui.layout.Layout(
+    content = {
+      holes.forEach { node ->
+        androidx.compose.runtime.key(node.componentId) {
+          if (node is RcLayoutNode.Content) {
+            // Layout content lays its children out in its parent, without a node of its own to
+            // carry the id: give it one.
+            Box(Modifier.layoutId(node.componentId)) { hole(node, Modifier) }
+          } else {
+            hole(node, Modifier.layoutId(node.componentId))
+          }
+        }
+      }
+    },
+    modifier =
+      modifier
+        .semantics {
+          if (texts.isNotEmpty()) {
+            this[androidx.compose.ui.semantics.SemanticsProperties.Text] = texts.map {
+              androidx.compose.ui.text.AnnotatedString(it)
+            }
+          }
+        }
+        .drawBehind {
+          // Redraw with the clock and with repainted values, as the components' own decorations
+          // do: a background colour can be a document variable.
+          frameTime?.floatValue
+          paintVersion?.intValue
+          drawn.value.forEach { it() }
+        },
+  ) { measurables, constraints ->
+    val byId = HashMap<Int, androidx.compose.ui.layout.Measurable>()
+    measurables.forEach { measurable ->
+      (measurable.layoutId as? Int)?.let { byId[it] = measurable }
+    }
+    val engine = RcFlatEngine(this, state, textMeasurer, byId)
+    val measured = engine.arrange(container, flat, constraints)
+    val out = RcFlatOut()
+    measured.place(0, 0, out)
+    drawn.value = out.draws
+    layout(measured.width, measured.height) {
+      out.holes.forEach { (placeable, x, y) -> placeable.place(x, y) }
+    }
+  }
+}
+
+private class RcFlatEngine(
+  private val scope: androidx.compose.ui.layout.MeasureScope,
+  private val state: RcPlayerState,
+  private val textMeasurer: TextMeasurer,
+  private val holes: Map<Int, androidx.compose.ui.layout.Measurable>,
+) {
+  private fun px(value: Float): Float = state.dpTypedPixels(value, scope)
+
+  /** A child, or null when it is a gone hole. */
+  fun measure(item: RcFlat, constraints: Constraints): RcFlatMeasured? =
+    when (item) {
+      is RcFlat.Hole -> {
+        val measurable = holes[item.node.componentId]
+        if (measurable == null) null
+        else {
+          val placeable = measurable.measure(constraints)
+          RcFlatMeasured(placeable.width, placeable.height) { x, y, out ->
+            out.holes += Triple(placeable, x, y)
+          }
+        }
+      }
+      is RcFlat.Text ->
+        chain(item.node, 0, constraints, widthSet = false, heightSet = false) {
+          text(item.spec, it)
+        }
+      is RcFlat.Group ->
+        chain(item.node, 0, constraints, widthSet = false, heightSet = false) {
+          arrange(item.node, item.children, it)
+        }
+    }
+
+  /** [node]'s modifiers from [index] on, outermost first, around [inner]. */
+  private fun chain(
+    node: RcLayoutNode,
+    index: Int,
+    constraints: Constraints,
+    widthSet: Boolean,
+    heightSet: Boolean,
+    inner: (Constraints) -> RcFlatMeasured,
+  ): RcFlatMeasured {
+    val ordered = node.modifiers.ordered
+    if (index >= ordered.size) return inner(constraints)
+    return when (val operation = ordered[index]) {
+      is RcWidthModifier ->
+        if (widthSet) chain(node, index + 1, constraints, true, heightSet, inner)
+        else chain(node, index + 1, constraints.withWidth(operation), true, heightSet, inner)
+      is RcHeightModifier ->
+        if (heightSet) chain(node, index + 1, constraints, widthSet, true, inner)
+        else chain(node, index + 1, constraints.withHeight(operation), widthSet, true, inner)
+      is RcPaddingModifier -> {
+        var left = 0f
+        var top = 0f
+        var right = 0f
+        var bottom = 0f
+        var next = index
+        while (next < ordered.size) {
+          val padding = ordered[next] as? RcPaddingModifier ?: break
+          left += px(state.resolve(padding.left))
+          top += px(state.resolve(padding.top))
+          right += px(state.resolve(padding.right))
+          bottom += px(state.resolve(padding.bottom))
+          next++
+        }
+        // As `rcPaddingPixels`: the start edge rounded on its own, the end edge what the rounded
+        // total leaves; and the wire's left is the start, so in right-to-left layout it is the
+        // physical right.
+        val start = rcPaddingStartPixels(left)
+        val end = rcPaddingEndPixels(left, right)
+        val l =
+          if (scope.layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) end else start
+        val t = rcPaddingStartPixels(top)
+        val horizontal = rcCombinedPaddingPixels(left, right)
+        val vertical = rcCombinedPaddingPixels(top, bottom)
+        val content =
+          chain(node, next, constraints.offset(-horizontal, -vertical), widthSet, heightSet, inner)
+        RcFlatMeasured(
+          constraints.constrainWidth(content.width + horizontal),
+          constraints.constrainHeight(content.height + vertical),
+        ) { x, y, out ->
+          content.place(x + l, y + t, out)
+        }
+      }
+      is RcBackgroundModifier,
+      is RcBorderModifier -> {
+        val content = chain(node, index + 1, constraints, widthSet, heightSet, inner)
+        RcFlatMeasured(content.width, content.height) { x, y, out ->
+          val size = Size(content.width.toFloat(), content.height.toFloat())
+          out.draws += { decorate(operation, Offset(x.toFloat(), y.toFloat()), size) }
+          content.place(x, y, out)
+        }
+      }
+      is RcRoundedClipRectModifier -> {
+        val content = chain(node, index + 1, constraints, widthSet, heightSet, inner)
+        RcFlatMeasured(content.width, content.height) { x, y, out ->
+          val size = Size(content.width.toFloat(), content.height.toFloat())
+          val outline =
+            RcCornerClipShape(
+                topLeft = px(state.resolve(operation.topStart)),
+                topRight = px(state.resolve(operation.topEnd)),
+                bottomRight = px(state.resolve(operation.bottomEnd)),
+                bottomLeft = px(state.resolve(operation.bottomStart)),
+              )
+              .createOutline(size, scope.layoutDirection, scope)
+          val path =
+            androidx.compose.ui.graphics.Path().apply {
+              addOutline(outline)
+              translate(Offset(x.toFloat(), y.toFloat()))
+            }
+          out.draws += {
+            drawContext.canvas.save()
+            drawContext.canvas.clipPath(path)
+          }
+          content.place(x, y, out)
+          out.draws += { drawContext.canvas.restore() }
+        }
+      }
+      else -> chain(node, index + 1, constraints, widthSet, heightSet, inner)
+    }
+  }
+
+  private fun Constraints.withWidth(width: RcWidthModifier): Constraints =
+    when (width.type) {
+      RcDimensionType.EXACT -> fixWidth(px(state.resolve(width.value)).roundToInt())
+      RcDimensionType.EXACT_DP ->
+        fixWidth((state.resolve(width.value) * scope.density).roundToInt())
+      RcDimensionType.FILL,
+      RcDimensionType.FILL_PARENT_MAX_WIDTH ->
+        if (hasBoundedWidth) fixWidth((maxWidth * state.fillFraction(width.value)).roundToInt())
+        else this
+      else -> this
+    }
+
+  private fun Constraints.withHeight(height: RcHeightModifier): Constraints =
+    when (height.type) {
+      RcDimensionType.EXACT -> fixHeight(px(state.resolve(height.value)).roundToInt())
+      RcDimensionType.EXACT_DP ->
+        fixHeight((state.resolve(height.value) * scope.density).roundToInt())
+      RcDimensionType.FILL,
+      RcDimensionType.FILL_PARENT_MAX_HEIGHT ->
+        if (hasBoundedHeight) fixHeight((maxHeight * state.fillFraction(height.value)).roundToInt())
+        else this
+      else -> this
+    }
+
+  private fun Constraints.fixWidth(width: Int): Constraints {
+    val w = constrainWidth(width.coerceAtLeast(0))
+    return copy(minWidth = w, maxWidth = w)
+  }
+
+  private fun Constraints.fixHeight(height: Int): Constraints {
+    val h = constrainHeight(height.coerceAtLeast(0))
+    return copy(minHeight = h, maxHeight = h)
+  }
+
+  private fun androidx.compose.ui.graphics.drawscope.DrawScope.decorate(
+    operation: ee.schimke.composeai.rcplayer.protocol.RcOperation,
+    topLeft: Offset,
+    size: Size,
+  ) {
+    // The components' own drawing, moved to where the flat layout placed the component.
+    translate(topLeft.x, topLeft.y) {
+      when (operation) {
+        is RcBackgroundModifier -> drawRcBackground(operation, state, size)
+        is RcBorderModifier -> drawRcBorder(operation, state, scope, size)
+        else -> Unit
+      }
+    }
+  }
+
+  /** A plain text, sized to its lines as `fitToLines` sizes the component. */
+  private fun text(spec: RcFlatTextSpec, constraints: Constraints): RcFlatMeasured {
+    val result =
+      textMeasurer.measure(
+        spec.text,
+        spec.style,
+        spec.overflow,
+        softWrap = true,
+        maxLines = spec.maxLines,
+        constraints =
+          // The component's height limits too: a text clipped or ellipsised by a fixed height
+          // is laid out within it, as `BasicText` lays it out.
+          Constraints(
+            minWidth = constraints.minWidth,
+            maxWidth =
+              if (constraints.hasBoundedWidth) constraints.maxWidth else Constraints.Infinity,
+            minHeight = constraints.minHeight,
+            maxHeight = constraints.maxHeight,
+          ),
+        layoutDirection = scope.layoutDirection,
+        density = scope,
+      )
+    var width = constraints.constrainWidth(result.size.width)
+    var shift = 0
+    if (result.lineCount > 0 && !result.hasVisualOverflow) {
+      var left = Float.MAX_VALUE
+      var right = 0f
+      for (line in 0 until result.lineCount) {
+        left = minOf(left, result.getLineLeft(line))
+        right = maxOf(right, result.getLineRight(line))
+      }
+      val span = ceil(right - left - LINE_EXTENT_EPSILON).toInt()
+      val fitted = constraints.constrainWidth(span).coerceAtMost(result.size.width)
+      if (fitted < result.size.width) shift = -left.roundToInt()
+      width = fitted
+    }
+    val height = constraints.constrainHeight(result.size.height)
+    // `BasicText` clips a paragraph that overflows its box unless its overflow is visible.
+    val clip = result.hasVisualOverflow && spec.overflow != TextOverflow.Visible
+    return RcFlatMeasured(width, height) { x, y, out ->
+      out.draws += {
+        val origin = Offset(x.toFloat(), y.toFloat())
+        if (clip) {
+          clipRect(origin.x, origin.y, origin.x + width, origin.y + height) {
+            drawText(result, topLeft = Offset((x + shift).toFloat(), y.toFloat()))
+          }
+        } else {
+          drawText(result, topLeft = Offset((x + shift).toFloat(), y.toFloat()))
+        }
+      }
+    }
+  }
+
+  /** [container]'s content, arranged as its row, column or box arranges it. */
+  fun arrange(
+    container: RcLayoutNode,
+    items: List<RcFlat>,
+    constraints: Constraints,
+  ): RcFlatMeasured =
+    when (container) {
+      is RcLayoutNode.Row -> linear(container, items, constraints, horizontal = true)
+      is RcLayoutNode.Column -> linear(container, items, constraints, horizontal = false)
+      else -> box(container as RcLayoutNode.Box, items, constraints)
+    }
+
+  private fun box(
+    node: RcLayoutNode.Box,
+    items: List<RcFlat>,
+    constraints: Constraints,
+  ): RcFlatMeasured {
+    val loose = constraints.copy(minWidth = 0, minHeight = 0)
+    val children = items.mapNotNull { measure(it, loose) }
+    val width = constraints.constrainWidth(children.maxOfOrNull { it.width } ?: 0)
+    val height = constraints.constrainHeight(children.maxOfOrNull { it.height } ?: 0)
+    val alignment =
+      boxAlignment(node.operation.horizontalPositioning, node.operation.verticalPositioning)
+    return RcFlatMeasured(width, height) { x, y, out ->
+      children.forEach { child ->
+        val offset =
+          alignment.align(
+            androidx.compose.ui.unit.IntSize(child.width, child.height),
+            androidx.compose.ui.unit.IntSize(width, height),
+            scope.layoutDirection,
+          )
+        child.place(x + offset.x, y + offset.y, out)
+      }
+    }
+  }
+
+  private fun linear(
+    node: RcLayoutNode,
+    allItems: List<RcFlat>,
+    constraints: Constraints,
+    horizontal: Boolean,
+  ): RcFlatMeasured {
+    // A gone child is not a child of the row at all: no weight, no gap (as on the per-component
+    // path, where it emits no node).
+    val items = allItems.filter { it !is RcFlat.Hole || it.node.componentId in holes }
+    val (spacedBy, mainPositioning, crossPositioning) =
+      if (node is RcLayoutNode.Row)
+        Triple(
+          node.operation.spacedBy,
+          androidXRowMainPosition(node.operation.horizontalPositioning),
+          node.operation.verticalPositioning,
+        )
+      else {
+        node as RcLayoutNode.Column
+        Triple(
+          node.operation.spacedBy,
+          androidXColumnMainPosition(node.operation.verticalPositioning),
+          node.operation.horizontalPositioning,
+        )
+      }
+    val spacing = with(scope) { state.dpTypedDp(state.resolve(spacedBy), scope).roundToPx() }
+    fun weightOf(item: RcFlat): Float? {
+      val node =
+        when (item) {
+          is RcFlat.Group -> item.node
+          is RcFlat.Text -> item.node
+          is RcFlat.Hole -> item.node
+        }
+      return if (horizontal)
+        rcChildWeight(node.modifiers.width?.type, node.modifiers.width?.value, state)
+      else rcChildWeight(node.modifiers.height?.type, node.modifiers.height?.value, state)
+    }
+    val maxMain = if (horizontal) constraints.maxWidth else constraints.maxHeight
+    val maxCross = if (horizontal) constraints.maxHeight else constraints.maxWidth
+    val bounded = maxMain != Constraints.Infinity
+    val weights = items.map(::weightOf)
+    val weighted = weights.any { it != null }
+    // A weighted row measures its children without the gaps and adds them as it places them, as
+    // `RcHorizontalArrangement` does; a column reserves them, as `RcVerticalArrangement` does.
+    val gap = if (weighted && horizontal) 0 else spacing
+    val measured = arrayOfNulls<RcFlatMeasured>(items.size)
+    var used = 0
+    var count = 0
+    items.forEachIndexed { index, item ->
+      if (weights[index] != null) return@forEachIndexed
+      // The gaps before this child are taken too, as the row's arrangement spacing is.
+      val remaining =
+        if (bounded) (maxMain - used - gap * count).coerceAtLeast(0) else Constraints.Infinity
+      val child =
+        measure(
+          item,
+          if (horizontal) Constraints(0, remaining, 0, maxCross)
+          else Constraints(0, maxCross, 0, remaining),
+        ) ?: return@forEachIndexed
+      measured[index] = child
+      used += if (horizontal) child.width else child.height
+      count++
+    }
+    val weightedCount = weights.count { it != null }
+    if (weighted) {
+      val totalWeight = weights.sumOf { (it ?: 0f).toDouble() }.toFloat()
+      // As Compose's rows and columns: weights share the maximum when it is bounded, and the
+      // minimum (often nothing) when it is not; a weighted child is measured either way.
+      val target =
+        if (bounded) maxMain else if (horizontal) constraints.minWidth else constraints.minHeight
+      val free =
+        (target - used - gap * (count + weightedCount - 1).coerceAtLeast(0)).coerceAtLeast(0)
+      // As Compose's rows and columns: each share rounded, and the remainder those roundings leave
+      // handed out a pixel at a time, so the shares add up to exactly the free space.
+      val unit = if (totalWeight > 0f) free / totalWeight else 0f
+      var remainder =
+        free - weights.sumOf { weight -> weight?.let { (unit * it).roundToInt() } ?: 0 }
+      items.forEachIndexed { index, item ->
+        val weight = weights[index] ?: return@forEachIndexed
+        val step = remainder.sign
+        remainder -= step
+        val share = ((unit * weight).roundToInt() + step).coerceAtLeast(0)
+        val child =
+          measure(
+            item,
+            if (horizontal) Constraints(share, share, 0, maxCross)
+            else Constraints(0, maxCross, share, share),
+          ) ?: return@forEachIndexed
+        measured[index] = child
+        used += if (horizontal) child.width else child.height
+        count++
+      }
+    }
+    val children = measured.filterNotNull()
+    val content = used + gap * (children.size - 1).coerceAtLeast(0)
+    val minMain = if (horizontal) constraints.minWidth else constraints.minHeight
+    val main = if (weighted && bounded) maxMain else maxOf(content, minMain).coerceAtMost(maxMain)
+    val cross =
+      (children.maxOfOrNull { if (horizontal) it.height else it.width } ?: 0).let {
+        if (horizontal) constraints.constrainHeight(it) else constraints.constrainWidth(it)
+      }
+    val sizes =
+      IntArray(children.size) { if (horizontal) children[it].width else children[it].height }
+    val positions = IntArray(children.size)
+    arrangeLinear(
+      main,
+      sizes,
+      mainPositioning,
+      spacing,
+      // A row runs from the end in right-to-left layout, as `RcHorizontalArrangement` arranges it.
+      reverse = horizontal && scope.layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl,
+      outPositions = positions,
+    )
+    val width = if (horizontal) main else cross
+    val height = if (horizontal) cross else main
+    return RcFlatMeasured(width, height) { x, y, out ->
+      children.forEachIndexed { index, child ->
+        val crossOffset =
+          if (horizontal) rowAlignment(crossPositioning).align(child.height, cross)
+          else columnAlignment(crossPositioning).align(child.width, cross, scope.layoutDirection)
+        if (horizontal) child.place(x + positions[index], y + crossOffset, out)
+        else child.place(x + crossOffset, y + positions[index], out)
+      }
+    }
+  }
+}
+
+private fun RcLayoutNode.flatCanvasOperations(): List<RcLinkedNode>? =
+  when (this) {
+    is RcLayoutNode.Row -> canvasOperations
+    is RcLayoutNode.Column -> canvasOperations
+    is RcLayoutNode.Box -> canvasOperations
+    else -> null
+  }
+
+/**
+ * A component's `RcBackgroundModifier`, drawn over [size]: the component's and the flat layout's.
+ */
+internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRcBackground(
+  operation: RcBackgroundModifier,
+  state: RcPlayerState,
+  size: Size,
+) {
+  val color =
+    if (operation.usesColorId) {
+      Color(state.color(operation.colorId))
+    } else {
+      Color(
+        red = state.resolve(operation.red),
+        green = state.resolve(operation.green),
+        blue = state.resolve(operation.blue),
+        alpha = state.resolve(operation.alpha),
+      )
+    }
+  when (operation.shapeType) {
+    RcBackgroundModifier.SHAPE_RECTANGLE -> drawRect(color, size = size)
+    RcBackgroundModifier.SHAPE_CIRCLE ->
+      drawCircle(color, radius = minOf(size.width, size.height) / 2f, center = size.center)
+  }
+}
+
+/** A component's `RcBorderModifier`, drawn over [size]: the component's and the flat layout's. */
+internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRcBorder(
+  operation: RcBorderModifier,
+  state: RcPlayerState,
+  localDensity: Density,
+  size: Size,
+) {
+  val color =
+    if (operation.usesColorId) {
+      Color(state.color(operation.colorId))
+    } else {
+      Color(
+        red = state.resolve(operation.red),
+        green = state.resolve(operation.green),
+        blue = state.resolve(operation.blue),
+        alpha = state.resolve(operation.alpha),
+      )
+    }
+  val borderWidth = state.borderWidthPixels(operation.borderWidth, localDensity).coerceAtLeast(0f)
+  val corner =
+    state.dpTypedPixels(state.resolve(operation.roundedCorner), localDensity).coerceAtLeast(0f)
+  val halfSize = minOf(size.width, size.height) / 2f
+  if (operation.wireVersion != 0 && borderWidth >= halfSize) {
+    when (operation.shapeType) {
+      RcBackgroundModifier.SHAPE_RECTANGLE -> drawRect(color, size = size)
+      RcBackgroundModifier.SHAPE_CIRCLE ->
+        drawCircle(color, radius = halfSize, center = size.center)
+      else -> drawRoundRect(color, size = size, cornerRadius = CornerRadius(corner))
+    }
+  } else {
+    val inset = if (operation.wireVersion == 0) 0f else borderWidth / 2f
+    val stroke = Stroke(width = borderWidth)
+    when (operation.shapeType) {
+      RcBackgroundModifier.SHAPE_RECTANGLE ->
+        drawRect(
+          color,
+          topLeft = Offset(inset, inset),
+          size = Size(size.width - inset * 2f, size.height - inset * 2f),
+          style = stroke,
+        )
+      RcBackgroundModifier.SHAPE_CIRCLE ->
+        drawCircle(
+          color,
+          radius = (halfSize - inset).coerceAtLeast(0f),
+          center = size.center,
+          style = stroke,
+        )
+      else ->
+        drawRoundRect(
+          color,
+          topLeft = Offset(inset, inset),
+          size = Size(size.width - inset * 2f, size.height - inset * 2f),
+          cornerRadius = CornerRadius((corner - inset).coerceAtLeast(0f)),
+          style = stroke,
+        )
+    }
+  }
+}
+
+/**
+ * Whether the flat layout can arrange [container]'s children as the container's own composable
+ * does. Not a row whose children align by an anchor or baseline (`alignBy`), which the flat layout
+ * does not implement; and not a box where a composed child comes before a plain one, since the flat
+ * layout draws everything plain behind the composed children and a box's children overlap.
+ */
+private fun rcFlattens(container: RcLayoutNode, plain: Set<Int>): Boolean {
+  val children = container.flatContainerChildren() ?: return true
+  if (container is RcLayoutNode.Row && children.any { it.modifiers.alignBy != null }) return false
+  if (container is RcLayoutNode.Box) {
+    fun inline(nodes: List<RcLayoutNode>): List<RcLayoutNode> = nodes.flatMap {
+      if (it is RcLayoutNode.Content && it.componentId in plain) inline(it.children) else listOf(it)
+    }
+    var composedSeen = false
+    for (child in inline(children)) {
+      if (child.componentId !in plain) composedSeen = true else if (composedSeen) return false
+    }
+  }
+  return true
+}
