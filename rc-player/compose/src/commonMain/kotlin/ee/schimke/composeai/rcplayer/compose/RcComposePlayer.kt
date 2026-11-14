@@ -8817,7 +8817,9 @@ private fun rcFlattens(
     }
     var composedSeen = false
     for (child in inline(children)) {
-      if (child.componentId !in plain) composedSeen = true else if (composedSeen) return false
+      // A plain group the flat layout leaves a component (see above) is composed too.
+      val composed = child.componentId !in plain || !rcFlattens(child, plain, asGroup = true)
+      if (composed) composedSeen = true else if (composedSeen) return false
     }
   }
   return true

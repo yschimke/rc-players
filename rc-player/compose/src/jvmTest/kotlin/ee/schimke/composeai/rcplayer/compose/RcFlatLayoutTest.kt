@@ -265,6 +265,41 @@ class RcFlatLayoutTest {
   }
 
   @Test
+  fun aPlainBoxAfterAClippedGroupWithAComposedChildStaysOnTop() {
+    // The clipped group stays a component, so the box holding it and a later, overlapping plain
+    // box does too: the plain box draws over the group, as on the per-component path.
+    val corner = RcFloatWord.literal(10f)
+    val clipped =
+      listOf<RcOperation>(
+        RcBoxLayout(10, -1, 1, 1),
+        RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+        RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+        RcRoundedClipRectModifier(corner, corner, corner, corner),
+        RcBackgroundModifier(
+          flags = 0,
+          colorId = 0,
+          reserved1 = 0,
+          reserved2 = 0,
+          red = RcFloatWord.literal(0f),
+          green = RcFloatWord.literal(0f),
+          blue = RcFloatWord.literal(1f),
+          alpha = RcFloatWord.literal(1f),
+          shapeType = RcBackgroundModifier.SHAPE_RECTANGLE,
+        ),
+        RcLayoutContent(11),
+      ) + box(20, 0f, 20f, 20f, listOf(RcVisibilityModifier(VISIBLE))) + listOf(end, end)
+    assertSameBothWays(
+      document(
+        RcBoxLayout(3, -1, 1, 4),
+        listOf(clipped, box(30, 1f, 40f, 40f)),
+        listOf(RcIntegerConstant(VISIBLE, 1)),
+      ),
+      width = 80,
+      height = 80,
+    )
+  }
+
+  @Test
   fun aGoneWeightedChildTakesNoShare() {
     // Two equal weights, one of them gone: the other has the whole row, as a Compose row gives it.
     val gone = box(20, 0f, 1f, 20f, listOf(RcVisibilityModifier(VISIBLE)), RcDimensionType.WEIGHT)
