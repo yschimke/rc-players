@@ -9076,7 +9076,26 @@ private fun rcFlattens(
   plain: Set<Int>,
   asGroup: Boolean = false,
 ): Boolean {
+  // A clickable's tap target is a rectangle at its whole box, where the component's press handler
+  // sits before its first padding, inside any clip before that: a rounded clip there makes the
+  // component a real layer clip, which clips its taps, so the clickable stays a component.
+  if (asGroup && container.modifiers.clicks.isNotEmpty() && container.clipsBeforePadding()) {
+    return false
+  }
   val children = container.flatContainerChildren() ?: return true
+  // A clickable merges the semantics of what it holds, and a composed child is no descendant of its
+  // tap target: one holding a composed child stays a component, whose clickable merges its texts.
+  //
+  // Likewise a group with a rounded clip around a clickable: its clip would cut that tap target
+  // too, and only a component's layer clip clips taps.
+  if (
+    asGroup &&
+      ((container.modifiers.clicks.isNotEmpty() && rcHasComposedDescendant(children, plain)) ||
+        (container.modifiers.ordered.any { it is RcRoundedClipRectModifier } &&
+          rcHasClickableDescendant(children)))
+  ) {
+    return false
+  }
   // A group's rounded clip is drawn by the flat layout, which clips what it draws but not a
   // composed
   // child placed inside it. Such a group stays a component, whose clip is a real layer clip. (The
@@ -9105,6 +9124,25 @@ private fun rcFlattens(
   }
   return true
 }
+
+/** Whether a rounded clip comes before this component's first padding. */
+private fun RcLayoutNode.clipsBeforePadding(): Boolean {
+  for (operation in modifiers.ordered) {
+    if (operation is RcPaddingModifier) return false
+    if (operation is RcRoundedClipRectModifier) return true
+  }
+  return false
+}
+
+/** Whether any of [children], or anything below them, has a click. */
+private fun rcHasClickableDescendant(children: List<RcLayoutNode>): Boolean =
+  children.any { child ->
+    child.modifiers.clicks.isNotEmpty() ||
+      rcHasClickableDescendant(
+        (if (child is RcLayoutNode.Content) child.children else child.flatContainerChildren())
+          .orEmpty(),
+      )
+  }
 
 /** Whether any of [children], or anything plain below them, is composed rather than flattened. */
 private fun rcHasComposedDescendant(children: List<RcLayoutNode>, plain: Set<Int>): Boolean =
