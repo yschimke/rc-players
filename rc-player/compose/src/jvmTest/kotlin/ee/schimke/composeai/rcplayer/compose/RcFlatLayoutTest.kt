@@ -34,6 +34,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
+import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
@@ -237,6 +238,31 @@ class RcFlatLayoutTest {
       RcFloatWord.literal(end),
       RcFloatWord.literal(0f),
     )
+
+  @Test
+  fun aRoundedClipStillClipsAComposedChild() {
+    // A plain box clipped to round corners holds a composed child that fills it: the corners stay
+    // clipped (the box stays a component, whose clip is a layer clip).
+    val corner = RcFloatWord.literal(20f)
+    val composed = box(20, 0f, 60f, 60f, listOf(RcVisibilityModifier(VISIBLE)))
+    val clipped =
+      listOf<RcOperation>(
+        RcBoxLayout(10, -1, 1, 1),
+        RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+        RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+        RcRoundedClipRectModifier(corner, corner, corner, corner),
+        RcLayoutContent(11),
+      ) + composed + listOf(end, end)
+    assertSameBothWays(
+      document(
+        RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+        listOf(clipped, box(30, 1f, 60f, 10f)),
+        listOf(RcIntegerConstant(VISIBLE, 1)),
+      ),
+      width = 80,
+      height = 80,
+    )
+  }
 
   @Test
   fun aGoneWeightedChildTakesNoShare() {
