@@ -8688,7 +8688,9 @@ private class RcFlatEngine(
     var count = 0
     items.forEachIndexed { index, item ->
       if (weights[index] != null) return@forEachIndexed
-      val remaining = if (bounded) (maxMain - used).coerceAtLeast(0) else Constraints.Infinity
+      // The gaps before this child are taken too, as the row's arrangement spacing is.
+      val remaining =
+        if (bounded) (maxMain - used - gap * count).coerceAtLeast(0) else Constraints.Infinity
       val child =
         measure(
           item,
@@ -8700,10 +8702,14 @@ private class RcFlatEngine(
       count++
     }
     val weightedCount = weights.count { it != null }
-    if (weighted && bounded) {
+    if (weighted) {
       val totalWeight = weights.sumOf { (it ?: 0f).toDouble() }.toFloat()
+      // As Compose's rows and columns: weights share the maximum when it is bounded, and the
+      // minimum (often nothing) when it is not; a weighted child is measured either way.
+      val target =
+        if (bounded) maxMain else if (horizontal) constraints.minWidth else constraints.minHeight
       val free =
-        (maxMain - used - gap * (count + weightedCount - 1).coerceAtLeast(0)).coerceAtLeast(0)
+        (target - used - gap * (count + weightedCount - 1).coerceAtLeast(0)).coerceAtLeast(0)
       items.forEachIndexed { index, item ->
         val weight = weights[index] ?: return@forEachIndexed
         val share = if (totalWeight > 0f) (free * weight / totalWeight).roundToInt() else 0
@@ -8729,7 +8735,15 @@ private class RcFlatEngine(
     val sizes =
       IntArray(children.size) { if (horizontal) children[it].width else children[it].height }
     val positions = IntArray(children.size)
-    arrangeLinear(main, sizes, mainPositioning, spacing, reverse = false, outPositions = positions)
+    arrangeLinear(
+      main,
+      sizes,
+      mainPositioning,
+      spacing,
+      // A row runs from the end in right-to-left layout, as `RcHorizontalArrangement` arranges it.
+      reverse = horizontal && scope.layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl,
+      outPositions = positions,
+    )
     val width = if (horizontal) main else cross
     val height = if (horizontal) cross else main
     return RcFlatMeasured(width, height) { x, y, out ->
