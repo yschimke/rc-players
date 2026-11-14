@@ -4784,6 +4784,15 @@ private fun rcLayerFloat(
     }
   }
   val animatable = remember(state) { Animatable(target) }
+  // A host change that eases a layer keeps the lookahead pass it switched on until the tween ends:
+  // dropping the pass rebuilds the tree, which would land the value mid-way.
+  LocalRcLayoutAnimationActivity.current?.let { activity ->
+    DisposableEffect(activity, animatable) {
+      val running = { animatable.isRunning }
+      activity.add(running)
+      onDispose { activity.remove(running) }
+    }
+  }
   LaunchedEffect(animatable, target) {
     when {
       // A value with nothing to ease from lands, as the first one does.
