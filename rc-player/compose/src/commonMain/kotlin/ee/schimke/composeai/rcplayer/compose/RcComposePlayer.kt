@@ -85,6 +85,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
@@ -119,6 +120,7 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -1313,6 +1315,7 @@ private fun RenderLayoutNode(
         componentCoordinates == null &&
         !LocalRcAhemTextMetrics.current &&
         !node.drawsCanvasOperations(node.flatCanvasOperations()) &&
+        rcFlattens(node, plainComponents) &&
         flatChildren.any { it.componentId in plainComponents }
     if (flatten) {
       RcFlatContainer(
@@ -4853,75 +4856,8 @@ private fun Modifier.applyPaintDecorator(
 ): Modifier {
   val localDensity = androidx.compose.ui.platform.LocalDensity.current
   return when (operation) {
-    is RcBackgroundModifier ->
-      drawBehind {
-        val color =
-          if (operation.usesColorId) {
-            Color(state.color(operation.colorId))
-          } else {
-            Color(
-              red = state.resolve(operation.red),
-              green = state.resolve(operation.green),
-              blue = state.resolve(operation.blue),
-              alpha = state.resolve(operation.alpha),
-            )
-          }
-        when (operation.shapeType) {
-          RcBackgroundModifier.SHAPE_RECTANGLE -> drawRect(color)
-          RcBackgroundModifier.SHAPE_CIRCLE ->
-            drawCircle(color, radius = minOf(size.width, size.height) / 2f)
-        }
-      }
-    is RcBorderModifier ->
-      drawBehind {
-        val color =
-          if (operation.usesColorId) {
-            Color(state.color(operation.colorId))
-          } else {
-            Color(
-              red = state.resolve(operation.red),
-              green = state.resolve(operation.green),
-              blue = state.resolve(operation.blue),
-              alpha = state.resolve(operation.alpha),
-            )
-          }
-        val borderWidth =
-          state.borderWidthPixels(operation.borderWidth, localDensity).coerceAtLeast(0f)
-        val corner =
-          state
-            .dpTypedPixels(state.resolve(operation.roundedCorner), localDensity)
-            .coerceAtLeast(0f)
-        val halfSize = minOf(size.width, size.height) / 2f
-        if (operation.wireVersion != 0 && borderWidth >= halfSize) {
-          when (operation.shapeType) {
-            RcBackgroundModifier.SHAPE_RECTANGLE -> drawRect(color)
-            RcBackgroundModifier.SHAPE_CIRCLE -> drawCircle(color, radius = halfSize)
-            else -> drawRoundRect(color, cornerRadius = CornerRadius(corner))
-          }
-        } else {
-          val inset = if (operation.wireVersion == 0) 0f else borderWidth / 2f
-          val stroke = Stroke(width = borderWidth)
-          when (operation.shapeType) {
-            RcBackgroundModifier.SHAPE_RECTANGLE ->
-              drawRect(
-                color,
-                topLeft = Offset(inset, inset),
-                size = Size(size.width - inset * 2f, size.height - inset * 2f),
-                style = stroke,
-              )
-            RcBackgroundModifier.SHAPE_CIRCLE ->
-              drawCircle(color, radius = (halfSize - inset).coerceAtLeast(0f), style = stroke)
-            else ->
-              drawRoundRect(
-                color,
-                topLeft = Offset(inset, inset),
-                size = Size(size.width - inset * 2f, size.height - inset * 2f),
-                cornerRadius = CornerRadius((corner - inset).coerceAtLeast(0f)),
-                style = stroke,
-              )
-          }
-        }
-      }
+    is RcBackgroundModifier -> drawBehind { drawRcBackground(operation, state, size) }
+    is RcBorderModifier -> drawBehind { drawRcBorder(operation, state, localDensity, size) }
     // Component clips are Compose's own layer clip — what `Modifier.clip` expands to — so the
     // content (and hit testing) is clipped by the layer rather than by a hand-rolled draw pass.
     // The lambda form of `graphicsLayer` keeps the radius reads in the layer phase: an animated
@@ -8246,7 +8182,9 @@ private fun rcFlatChildren(
   plain: Set<Int>,
   spec: (RcLayoutNode.CoreText) -> RcFlatTextSpec?,
 ): List<RcFlat> = children.flatMap { child ->
-  if (child.componentId !in plain) return@flatMap listOf(RcFlat.Hole(child))
+  if (child.componentId !in plain || !rcFlattens(child, plain)) {
+    return@flatMap listOf(RcFlat.Hole(child))
+  }
   when (child) {
     is RcLayoutNode.Content -> rcFlatChildren(child.children, plain, spec)
     is RcLayoutNode.CoreText ->
@@ -8524,49 +8462,13 @@ private class RcFlatEngine(
     topLeft: Offset,
     size: Size,
   ) {
-    when (operation) {
-      is RcBackgroundModifier -> {
-        val color =
-          if (operation.usesColorId) Color(state.color(operation.colorId))
-          else
-            Color(
-              red = state.resolve(operation.red),
-              green = state.resolve(operation.green),
-              blue = state.resolve(operation.blue),
-              alpha = state.resolve(operation.alpha),
-            )
-        when (operation.shapeType) {
-          RcBackgroundModifier.SHAPE_CIRCLE ->
-            drawCircle(
-              color,
-              radius = minOf(size.width, size.height) / 2f,
-              center = topLeft + Offset(size.width / 2f, size.height / 2f),
-            )
-          else -> drawRect(color, topLeft = topLeft, size = size)
-        }
+    // The components' own drawing, moved to where the flat layout placed the component.
+    translate(topLeft.x, topLeft.y) {
+      when (operation) {
+        is RcBackgroundModifier -> drawRcBackground(operation, state, size)
+        is RcBorderModifier -> drawRcBorder(operation, state, scope, size)
+        else -> Unit
       }
-      is RcBorderModifier -> {
-        val color =
-          if (operation.usesColorId) Color(state.color(operation.colorId))
-          else
-            Color(
-              red = state.resolve(operation.red),
-              green = state.resolve(operation.green),
-              blue = state.resolve(operation.blue),
-              alpha = state.resolve(operation.alpha),
-            )
-        val borderWidth = state.borderWidthPixels(operation.borderWidth, scope).coerceAtLeast(0f)
-        val corner = px(state.resolve(operation.roundedCorner)).coerceAtLeast(0f)
-        val inset = if (operation.wireVersion == 0) 0f else borderWidth / 2f
-        drawRoundRect(
-          color,
-          topLeft = topLeft + Offset(inset, inset),
-          size = Size(size.width - inset * 2f, size.height - inset * 2f),
-          cornerRadius = CornerRadius((corner - inset).coerceAtLeast(0f)),
-          style = Stroke(width = borderWidth),
-        )
-      }
-      else -> Unit
     }
   }
 
@@ -8682,7 +8584,9 @@ private class RcFlatEngine(
     val bounded = maxMain != Constraints.Infinity
     val weights = items.map(::weightOf)
     val weighted = weights.any { it != null }
-    val gap = if (weighted) 0 else spacing
+    // A weighted row measures its children without the gaps and adds them as it places them, as
+    // `RcHorizontalArrangement` does; a column reserves them, as `RcVerticalArrangement` does.
+    val gap = if (weighted && horizontal) 0 else spacing
     val measured = arrayOfNulls<RcFlatMeasured>(items.size)
     var used = 0
     var count = 0
@@ -8765,3 +8669,109 @@ private fun RcLayoutNode.flatCanvasOperations(): List<RcLinkedNode>? =
     is RcLayoutNode.Box -> canvasOperations
     else -> null
   }
+
+/**
+ * A component's `RcBackgroundModifier`, drawn over [size]: the component's and the flat layout's.
+ */
+internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRcBackground(
+  operation: RcBackgroundModifier,
+  state: RcPlayerState,
+  size: Size,
+) {
+  val color =
+    if (operation.usesColorId) {
+      Color(state.color(operation.colorId))
+    } else {
+      Color(
+        red = state.resolve(operation.red),
+        green = state.resolve(operation.green),
+        blue = state.resolve(operation.blue),
+        alpha = state.resolve(operation.alpha),
+      )
+    }
+  when (operation.shapeType) {
+    RcBackgroundModifier.SHAPE_RECTANGLE -> drawRect(color, size = size)
+    RcBackgroundModifier.SHAPE_CIRCLE ->
+      drawCircle(color, radius = minOf(size.width, size.height) / 2f, center = size.center)
+  }
+}
+
+/** A component's `RcBorderModifier`, drawn over [size]: the component's and the flat layout's. */
+internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRcBorder(
+  operation: RcBorderModifier,
+  state: RcPlayerState,
+  localDensity: Density,
+  size: Size,
+) {
+  val color =
+    if (operation.usesColorId) {
+      Color(state.color(operation.colorId))
+    } else {
+      Color(
+        red = state.resolve(operation.red),
+        green = state.resolve(operation.green),
+        blue = state.resolve(operation.blue),
+        alpha = state.resolve(operation.alpha),
+      )
+    }
+  val borderWidth = state.borderWidthPixels(operation.borderWidth, localDensity).coerceAtLeast(0f)
+  val corner =
+    state.dpTypedPixels(state.resolve(operation.roundedCorner), localDensity).coerceAtLeast(0f)
+  val halfSize = minOf(size.width, size.height) / 2f
+  if (operation.wireVersion != 0 && borderWidth >= halfSize) {
+    when (operation.shapeType) {
+      RcBackgroundModifier.SHAPE_RECTANGLE -> drawRect(color, size = size)
+      RcBackgroundModifier.SHAPE_CIRCLE ->
+        drawCircle(color, radius = halfSize, center = size.center)
+      else -> drawRoundRect(color, size = size, cornerRadius = CornerRadius(corner))
+    }
+  } else {
+    val inset = if (operation.wireVersion == 0) 0f else borderWidth / 2f
+    val stroke = Stroke(width = borderWidth)
+    when (operation.shapeType) {
+      RcBackgroundModifier.SHAPE_RECTANGLE ->
+        drawRect(
+          color,
+          topLeft = Offset(inset, inset),
+          size = Size(size.width - inset * 2f, size.height - inset * 2f),
+          style = stroke,
+        )
+      RcBackgroundModifier.SHAPE_CIRCLE ->
+        drawCircle(
+          color,
+          radius = (halfSize - inset).coerceAtLeast(0f),
+          center = size.center,
+          style = stroke,
+        )
+      else ->
+        drawRoundRect(
+          color,
+          topLeft = Offset(inset, inset),
+          size = Size(size.width - inset * 2f, size.height - inset * 2f),
+          cornerRadius = CornerRadius((corner - inset).coerceAtLeast(0f)),
+          style = stroke,
+        )
+    }
+  }
+}
+
+/**
+ * Whether the flat layout can arrange [container]'s children as the container's own composable
+ * does. Not a row whose children align by an anchor or baseline (`alignBy`), which the flat layout
+ * does not implement; and not a box where a composed child comes before a plain one, since the flat
+ * layout draws everything plain behind the composed children and a box's children overlap.
+ */
+private fun rcFlattens(container: RcLayoutNode, plain: Set<Int>): Boolean {
+  val children = container.flatContainerChildren() ?: return true
+  if (container is RcLayoutNode.Row && children.any { it.modifiers.alignBy != null }) return false
+  if (container is RcLayoutNode.Box) {
+    fun inline(nodes: List<RcLayoutNode>): List<RcLayoutNode> = nodes.flatMap {
+      if (it is RcLayoutNode.Content && it.componentId in plain) inline(it.children) else listOf(it)
+    }
+    var composedSeen = false
+    for (child in inline(children)) {
+      if (child.componentId !in plain) composedSeen = true else if (composedSeen) return false
+    }
+  }
+  return true
+}

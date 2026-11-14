@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.runtime.CompositionLocalProvider
@@ -15,7 +16,9 @@ import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import ee.schimke.composeai.rcplayer.protocol.RcAlignByModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
+import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
@@ -23,12 +26,15 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import java.io.File
 import kotlin.test.Test
@@ -113,6 +119,120 @@ class RcFlatLayoutTest {
     )
   }
 
+  @Test
+  fun aWeightedColumnStillLeavesItsGaps() {
+    assertSameBothWays(
+      linear(row = false, weighted = true),
+      width = 100,
+      height = 120,
+      roomBelow = 40,
+    )
+  }
+
+  @Test
+  fun aCircularBorderStaysCircular() {
+    val border =
+      RcBorderModifier(
+        flags = 0,
+        colorId = 0,
+        wireVersion = 1,
+        reserved = 0,
+        borderWidth = RcFloatWord.literal(4f),
+        roundedCorner = RcFloatWord.literal(0f),
+        red = RcFloatWord.literal(0f),
+        green = RcFloatWord.literal(0f),
+        blue = RcFloatWord.literal(1f),
+        alpha = RcFloatWord.literal(1f),
+        shapeType = RcBackgroundModifier.SHAPE_CIRCLE,
+      )
+    assertSameBothWays(
+      document(RcBoxLayout(3, -1, 2, 2), listOf(box(10, 1f, 60f, 60f, listOf(border)))),
+      width = 100,
+      height = 100,
+    )
+  }
+
+  @Test
+  fun aRowAlignedByAnAnchorKeepsItsAlignment() {
+    val anchored = box(10, 1f, 30f, 20f, listOf(RcAlignByModifier(RcFloatWord.literal(15f), 0)))
+    assertSameBothWays(
+      document(
+        RcRowLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+        listOf(anchored, box(20, 0f, 30f, 40f)),
+      ),
+      width = 100,
+      height = 80,
+    )
+  }
+
+  @Test
+  fun aPlainBoxDrawnAfterAComposedOneStaysOnTop() {
+    // The first child is composed (its visibility is a document value); the second, plain one
+    // overlaps it and has to draw over it.
+    val composed = box(10, 1f, 80f, 80f, listOf(RcVisibilityModifier(VISIBLE)))
+    assertSameBothWays(
+      document(RcBoxLayout(3, -1, 1, 4), listOf(composed, box(20, 0f, 40f, 40f)), visible = true),
+      width = 100,
+      height = 100,
+    )
+  }
+
+  /**
+   * A box of [width] x [height] in a red-to-green [red], with [extra] modifiers after its
+   * background.
+   */
+  private fun box(
+    id: Int,
+    red: Float,
+    width: Float,
+    height: Float,
+    extra: List<RcOperation> = emptyList(),
+  ): List<RcOperation> = buildList {
+    add(RcBoxLayout(id, -1, 1, 1))
+    add(RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(width)))
+    add(RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(height)))
+    add(
+      RcBackgroundModifier(
+        flags = 0,
+        colorId = 0,
+        reserved1 = 0,
+        reserved2 = 0,
+        red = RcFloatWord.literal(red),
+        green = RcFloatWord.literal(1f - red),
+        blue = RcFloatWord.literal(0f),
+        alpha = RcFloatWord.literal(1f),
+        shapeType = RcBackgroundModifier.SHAPE_RECTANGLE,
+      ),
+    )
+    addAll(extra)
+    add(RcLayoutContent(id + 1))
+    add(end)
+    add(end)
+  }
+
+  /** [container] filling the width, holding [children]. */
+  private fun document(
+    container: RcOperation,
+    children: List<List<RcOperation>>,
+    visible: Boolean = false,
+  ): RcDocument =
+    RcDocument(
+      // 1.1: a border's width is taken as written (see `borderWidthPixels`).
+      RcHeader(RcVersion(1, 1, 0), legacyWidth = 200, legacyHeight = 120, modern = false),
+      (if (visible) listOf(RcIntegerConstant(VISIBLE, 1)) else emptyList<RcOperation>()) +
+        listOf(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          container,
+          RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+          RcLayoutContent(4),
+        ) +
+        children.flatten() +
+        listOf(end, end, end, end),
+    )
+
+  private val end = RcNoArg(RcOpcodes.CONTAINER_END)
+
   private fun assertSameBothWays(
     document: RcDocument,
     width: Int,
@@ -121,12 +241,18 @@ class RcFlatLayoutTest {
     unboundedHeight: Boolean = false,
     /** Space beside the player, so a child that overflows it shows. */
     room: Int = 0,
+    /** Space below the player, so a child that overflows it downwards shows. */
+    roomBelow: Int = 0,
   ) {
     val prepared = RcPreparedDocument(document)
     assertTrue(prepared.plainComponents.isNotEmpty(), "nothing to flatten")
     fun draw(flatten: Boolean): IntArray {
       val scene =
-        ImageComposeScene(width = width + room, height = height, density = Density(1f)) {
+        ImageComposeScene(
+          width = width + room,
+          height = height + roomBelow,
+          density = Density(1f),
+        ) {
           CompositionLocalProvider(
             LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
             LocalRcDeferLayoutAnimations provides true,
@@ -134,14 +260,20 @@ class RcFlatLayoutTest {
           ) {
             val host =
               if (unboundedHeight) Modifier.wrapContentHeight(unbounded = true) else Modifier
-            Box(host) { RcComposePlayer(prepared, Modifier.width(width.dp)) }
+            val size =
+              if (roomBelow > 0) Modifier.width(width.dp).height(height.dp)
+              else Modifier.width(width.dp)
+            Box(host) { RcComposePlayer(prepared, size) }
           }
         }
       try {
         val sceneWidth = width + room
-        val bitmap = Bitmap().apply { allocN32Pixels(sceneWidth, height) }
+        val sceneHeight = height + roomBelow
+        val bitmap = Bitmap().apply { allocN32Pixels(sceneWidth, sceneHeight) }
         check(scene.render(0L).readPixels(bitmap))
-        return IntArray(sceneWidth * height) { bitmap.getColor(it % sceneWidth, it / sceneWidth) }
+        return IntArray(sceneWidth * sceneHeight) {
+          bitmap.getColor(it % sceneWidth, it / sceneWidth)
+        }
       } finally {
         scene.close()
       }
@@ -219,5 +351,6 @@ class RcFlatLayoutTest {
   private companion object {
     const val DENSITY = 2f
     const val SUBHEADER = "listsubheader__ideal__centred__compact.rc"
+    const val VISIBLE = 42
   }
 }
