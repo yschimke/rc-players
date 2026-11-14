@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import ee.schimke.composeai.rcplayer.compose.ExperimentalRcPlayerApi
 import ee.schimke.composeai.rcplayer.compose.LocalRcDeferLayoutAnimations
+import ee.schimke.composeai.rcplayer.compose.LocalRcFlattenLayout
 import ee.schimke.composeai.rcplayer.compose.LocalRcInfiniteAnimationPolicy
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcPreparedDocument
@@ -45,6 +46,11 @@ public enum class RcFeedMode(public val description: String) {
    * until a card's layout can first change (`LocalRcDeferLayoutAnimations`), as a feed does.
    */
   Deferred("shared RcPreparedDocument, layout animations deferred"),
+  /**
+   * [Deferred], with plain components laid out and drawn by their container in one node
+   * (`LocalRcFlattenLayout`, a prototype).
+   */
+  Flat("shared RcPreparedDocument, deferred, plain components flattened"),
   /**
    * [Deferred], with the player's never-ending frame loops held for the whole run, as a host that
    * pauses them while its list scrolls holds them for a fling (`LocalRcInfiniteAnimationPolicy`).
@@ -169,6 +175,13 @@ public class RcFeedProfile(
                 RcFeedMode.Prepared -> RcComposePlayer(prepared, modifier, namedValues = values)
                 RcFeedMode.Deferred ->
                   CompositionLocalProvider(LocalRcDeferLayoutAnimations provides true) {
+                    RcComposePlayer(prepared, modifier, namedValues = values)
+                  }
+                RcFeedMode.Flat ->
+                  CompositionLocalProvider(
+                    LocalRcDeferLayoutAnimations provides true,
+                    LocalRcFlattenLayout provides true,
+                  ) {
                     RcComposePlayer(prepared, modifier, namedValues = values)
                   }
                 RcFeedMode.Paused ->

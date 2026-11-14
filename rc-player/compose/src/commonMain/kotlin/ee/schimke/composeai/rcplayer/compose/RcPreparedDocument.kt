@@ -69,6 +69,10 @@ public class RcPreparedDocument(public val document: RcDocument) {
    */
   internal val changesLayoutOnItsOwn: Boolean =
     rcChangesLayoutOnItsOwn(document.operations) || touchExpressions.isNotEmpty()
+
+  /** Components [RcFlatContainer] may lay out and draw itself: see [rcPlainComponents]. */
+  internal val plainComponents: Set<Int> =
+    rcPlainComponents(layout, document, touchExpressions.isNotEmpty(), capturesComponents)
   private val emptyBitmaps: List<RcBitmapData> =
     document.operations.filterIsInstance<RcBitmapData>().filter {
       it.encoding == RcBitmapData.ENCODING_EMPTY
