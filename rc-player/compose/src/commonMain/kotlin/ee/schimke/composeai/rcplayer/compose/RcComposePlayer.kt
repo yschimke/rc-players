@@ -8168,15 +8168,24 @@ internal val LocalRcPlainComponents =
 
 /** A container's content as [RcFlatContainer] handles it. */
 private sealed class RcFlat {
+  abstract val node: RcLayoutNode
+
   /** A plain box, row or column: its own modifiers and arrangement are laid out here. */
-  class Group(val node: RcLayoutNode, val children: List<RcFlat>) : RcFlat()
+  class Group(override val node: RcLayoutNode, val children: List<RcFlat>) : RcFlat()
 
   /** A plain core text: measured with [TextMeasurer] and drawn here. */
-  class Text(val node: RcLayoutNode.CoreText, val spec: RcFlatTextSpec) : RcFlat()
+  class Text(override val node: RcLayoutNode.CoreText, val spec: RcFlatTextSpec) : RcFlat()
 
   /** Anything else: composed as its own component and placed here. */
-  class Hole(val node: RcLayoutNode) : RcFlat()
+  class Hole(override val node: RcLayoutNode) : RcFlat()
 }
+
+/**
+ * A plain component's visibility as the per-component path reads it: 1 shown, 2 invisible (it keeps
+ * its space and draws nothing), 0 gone.
+ */
+private fun RcLayoutNode.flatVisibility(state: RcPlayerState): Int =
+  modifiers.visibility?.let { androidXVisibility(state.integer(it.visibilityId) ?: 0) } ?: 1
 
 private fun rcFlatChildren(
   children: List<RcLayoutNode>,
@@ -8253,6 +8262,9 @@ private fun RcFlatContainer(
   val texts = ArrayList<String>()
   fun collect(items: List<RcFlat>) {
     items.forEach {
+      // A gone text has no node on the per-component path, so nothing to say; an invisible one is
+      // drawn at alpha 0 there, and keeps its semantics.
+      if (it !is RcFlat.Hole && it.node.flatVisibility(state) == 0) return@forEach
       when (it) {
         is RcFlat.Hole -> holes += it.node
         is RcFlat.Text -> texts += it.spec.text
@@ -8318,8 +8330,20 @@ private class RcFlatEngine(
 ) {
   private fun px(value: Float): Float = state.dpTypedPixels(value, scope)
 
-  /** A child, or null when it is a gone hole. */
-  fun measure(item: RcFlat, constraints: Constraints): RcFlatMeasured? =
+  /** A child, or null when it is gone. */
+  fun measure(item: RcFlat, constraints: Constraints): RcFlatMeasured? {
+    if (item is RcFlat.Hole) return measureShown(item, constraints)
+    return when (item.node.flatVisibility(state)) {
+      0 -> null
+      // Invisible: its space, and nothing drawn. (A group with a visibility holds no hole: see
+      // [rcFlattens].)
+      2 ->
+        measureShown(item, constraints)?.let { RcFlatMeasured(it.width, it.height) { _, _, _ -> } }
+      else -> measureShown(item, constraints)
+    }
+  }
+
+  private fun measureShown(item: RcFlat, constraints: Constraints): RcFlatMeasured? =
     when (item) {
       is RcFlat.Hole -> {
         val measurable = holes[item.node.componentId]
@@ -8576,7 +8600,9 @@ private class RcFlatEngine(
   ): RcFlatMeasured {
     // A gone child is not a child of the row at all: no weight, no gap (as on the per-component
     // path, where it emits no node).
-    val items = allItems.filter { it !is RcFlat.Hole || it.node.componentId in holes }
+    val items = allItems.filter {
+      if (it is RcFlat.Hole) it.node.componentId in holes else it.node.flatVisibility(state) != 0
+    }
     val (spacedBy, mainPositioning, crossPositioning) =
       if (node is RcLayoutNode.Row)
         Triple(
@@ -8594,12 +8620,7 @@ private class RcFlatEngine(
       }
     val spacing = with(scope) { state.dpTypedDp(state.resolve(spacedBy), scope).roundToPx() }
     fun weightOf(item: RcFlat): Float? {
-      val node =
-        when (item) {
-          is RcFlat.Group -> item.node
-          is RcFlat.Text -> item.node
-          is RcFlat.Hole -> item.node
-        }
+      val node = item.node
       return if (horizontal)
         rcChildWeight(node.modifiers.width?.type, node.modifiers.width?.value, state)
       else rcChildWeight(node.modifiers.height?.type, node.modifiers.height?.value, state)
@@ -8803,9 +8824,12 @@ private fun rcFlattens(
   // composed
   // child placed inside it. Such a group stays a component, whose clip is a real layer clip. (The
   // flattened container's own clip is one already: its modifiers are applied as a component's.)
+  //
+  // Likewise a group with a visibility: the flat layout hides what it draws, not a composed child.
   if (
     asGroup &&
-      container.modifiers.ordered.any { it is RcRoundedClipRectModifier } &&
+      (container.modifiers.visibility != null ||
+        container.modifiers.ordered.any { it is RcRoundedClipRectModifier }) &&
       rcHasComposedDescendant(children, plain)
   ) {
     return false
