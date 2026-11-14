@@ -10,6 +10,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
+import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
@@ -17,11 +18,16 @@ import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 /**
  * The components of [layout] that [RcFlatContainer] can lay out and draw itself, with no composable
  * of their own: boxes, rows, columns, layout content and core text whose modifiers are only sizes,
- * padding, backgrounds, borders and rounded clips, with no click, touch, visibility, scroll,
- * marquee, layout computation, accessibility semantics or animation spec, and whose geometry no
- * `ComponentValue` reads. Everything else stays a component of its own. Decided once per template,
- * off the main thread, with the prepared document; a document with touch expressions, a state
- * layout or component captures has none.
+ * padding, backgrounds, borders, rounded clips and visibility (and text that is not auto-sized),
+ * with no click, touch, scroll, marquee, layout computation, accessibility semantics or animation
+ * spec, and whose geometry no `ComponentValue` reads. Everything else stays a component of its own.
+ *
+ * A visibility is read as the flat layout measures, which it only does while the document has
+ * deferred the lookahead pass: a host value that could change it switches the pass on first, and
+ * the tree is composed again as components, whose visibility animates. Layout content keeps its
+ * visibility as a component of its own, since the flat layout splices its children into the parent.
+ * Decided once per template, off the main thread, with the prepared document; a document with touch
+ * expressions, a state layout or component captures has none.
  */
 internal fun rcPlainComponents(
   layout: RcLayoutNode.Root?,
@@ -53,10 +59,15 @@ private fun RcLayoutNode.isPlainKind(): Boolean =
     is RcLayoutNode.Box -> !drawsCanvasOperations(canvasOperations)
     is RcLayoutNode.Row -> !drawsCanvasOperations(canvasOperations)
     is RcLayoutNode.Column -> !drawsCanvasOperations(canvasOperations)
-    is RcLayoutNode.Content,
-    is RcLayoutNode.CoreText -> true
+    is RcLayoutNode.Content -> true
+    // Auto-sized text is left to its component (see `rcFlatTextSpec`): not plain, so a group
+    // holding it, a box ordering it and a clip around it all see a composed child.
+    is RcLayoutNode.CoreText -> !resolvedStyle.booleanProperty(CORE_TEXT_AUTO_SIZE, false)
     else -> false
   }
+
+/** `CoreText`'s auto-size style property. */
+private const val CORE_TEXT_AUTO_SIZE = 22
 
 private val PLAIN_DIMENSIONS =
   setOf(
@@ -71,7 +82,7 @@ private val PLAIN_DIMENSIONS =
 
 private fun RcLayoutNode.hasPlainModifiers(): Boolean =
   with(modifiers) {
-    visibility == null &&
+    (visibility == null || this@hasPlainModifiers !is RcLayoutNode.Content) &&
       clicks.isEmpty() &&
       touchActions.isEmpty() &&
       scroll == null &&
@@ -91,7 +102,8 @@ private fun RcLayoutNode.hasPlainModifiers(): Boolean =
           is RcPaddingModifier,
           is RcBackgroundModifier,
           is RcBorderModifier,
-          is RcRoundedClipRectModifier -> true
+          is RcRoundedClipRectModifier,
+          is RcVisibilityModifier -> true
           else -> false
         }
       }

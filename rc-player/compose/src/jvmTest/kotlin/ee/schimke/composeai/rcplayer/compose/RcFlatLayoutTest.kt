@@ -5,12 +5,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.unit.Density
@@ -29,6 +32,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
@@ -41,6 +45,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
+import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -172,9 +178,9 @@ class RcFlatLayoutTest {
 
   @Test
   fun aPlainBoxDrawnAfterAComposedOneStaysOnTop() {
-    // The first child is composed (its visibility is a document value); the second, plain one
+    // The first child is composed (it has a z-index); the second, plain one
     // overlaps it and has to draw over it.
-    val composed = box(10, 1f, 80f, 80f, listOf(RcVisibilityModifier(VISIBLE)))
+    val composed = box(10, 1f, 80f, 80f, composedMarker)
     assertSameBothWays(
       document(
         RcBoxLayout(3, -1, 1, 4),
@@ -244,7 +250,7 @@ class RcFlatLayoutTest {
     // A plain box clipped to round corners holds a composed child that fills it: the corners stay
     // clipped (the box stays a component, whose clip is a layer clip).
     val corner = RcFloatWord.literal(20f)
-    val composed = box(20, 0f, 60f, 60f, listOf(RcVisibilityModifier(VISIBLE)))
+    val composed = box(20, 0f, 60f, 60f, composedMarker)
     val clipped =
       listOf<RcOperation>(
         RcBoxLayout(10, -1, 1, 1),
@@ -287,7 +293,7 @@ class RcFlatLayoutTest {
           shapeType = RcBackgroundModifier.SHAPE_RECTANGLE,
         ),
         RcLayoutContent(11),
-      ) + box(20, 0f, 20f, 20f, listOf(RcVisibilityModifier(VISIBLE))) + listOf(end, end)
+      ) + box(20, 0f, 20f, 20f, composedMarker) + listOf(end, end)
     assertSameBothWays(
       document(
         RcBoxLayout(3, -1, 1, 4),
@@ -313,6 +319,228 @@ class RcFlatLayoutTest {
       height = 40,
     )
   }
+
+  @Test
+  fun aGoneChildIsFlattenedAndLeavesNoGap() {
+    // Three boxes 10 apart, the middle one gone: the third sits 10 after the first, as on the
+    // per-component path, and the gone box is one the flat layout handles.
+    val document =
+      document(
+        RcRowLayout(3, -1, 1, 4, RcFloatWord.literal(10f)),
+        listOf(
+          box(10, 1f, 30f, 20f),
+          box(20, 0.5f, 30f, 20f, listOf(RcVisibilityModifier(VISIBLE))),
+          box(30, 0f, 30f, 20f),
+        ),
+        listOf(RcIntegerConstant(VISIBLE, 0)),
+      )
+    assertTrue(20 in RcPreparedDocument(document).plainComponents, "the gone box is not plain")
+    assertSameBothWays(document, width = 120, height = 40)
+  }
+
+  @Test
+  fun anInvisibleChildKeepsItsSpaceAndDrawsNothing() {
+    val document =
+      document(
+        RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(5f)),
+        listOf(
+          box(10, 1f, 30f, 20f),
+          box(20, 0.5f, 30f, 20f, listOf(RcVisibilityModifier(VISIBLE))),
+          box(30, 0f, 30f, 20f),
+        ),
+        listOf(RcIntegerConstant(VISIBLE, 2)),
+      )
+    assertSameBothWays(document, width = 60, height = 80)
+  }
+
+  @Test
+  fun aHiddenGroupHidesWhatItHolds() {
+    // A group (and the plain box inside it) gone or invisible, with a background of its own.
+    for (visibility in listOf(0, 2)) {
+      val group =
+        listOf<RcOperation>(
+          RcRowLayout(10, -1, 1, 1, RcFloatWord.literal(0f)),
+          RcVisibilityModifier(VISIBLE),
+          RcPaddingModifier(
+            RcFloatWord.literal(4f),
+            RcFloatWord.literal(4f),
+            RcFloatWord.literal(4f),
+            RcFloatWord.literal(4f),
+          ),
+          RcLayoutContent(11),
+        ) + box(20, 0.5f, 30f, 20f) + listOf(end, end)
+      assertSameBothWays(
+        document(
+          RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+          listOf(box(30, 1f, 40f, 10f), group, box(40, 0f, 40f, 10f)),
+          listOf(RcIntegerConstant(VISIBLE, visibility)),
+        ),
+        width = 60,
+        height = 80,
+      )
+    }
+  }
+
+  @Test
+  fun aHiddenGroupWithAComposedChildStaysAComponent() {
+    // The flat layout hides only what it draws, so a group holding a composed child keeps its
+    // visibility as a component: the composed child is hidden with it.
+    for (visibility in listOf(0, 2)) {
+      val group =
+        listOf<RcOperation>(
+          RcBoxLayout(10, -1, 1, 1),
+          RcVisibilityModifier(VISIBLE),
+          RcLayoutContent(11),
+        ) + box(20, 0.5f, 30f, 20f, composedMarker) + listOf(end, end)
+      assertSameBothWays(
+        document(
+          RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+          listOf(box(30, 1f, 40f, 10f), group, box(40, 0f, 40f, 10f)),
+          listOf(RcIntegerConstant(VISIBLE, visibility)),
+        ),
+        width = 60,
+        height = 80,
+      )
+    }
+  }
+
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun aGoneTextIsNotInTheSemanticsTree() =
+    runSkikoComposeUiTest(size = Size(200f, 100f), density = Density(1f)) {
+      val document =
+        document(
+          RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+          listOf(
+            text(50, TEXT, listOf()),
+            text(60, TEXT + 1, listOf(RcVisibilityModifier(VISIBLE))),
+          ),
+          listOf(
+            RcTextData(TEXT, "Shown"),
+            RcTextData(TEXT + 1, "Hidden"),
+            RcIntegerConstant(VISIBLE, 0),
+          ),
+        )
+      val prepared = RcPreparedDocument(document)
+      assertTrue(prepared.plainComponents.isNotEmpty())
+      setContent {
+        CompositionLocalProvider(
+          LocalRcDeferLayoutAnimations provides true,
+          LocalRcFlattenLayout provides true,
+        ) {
+          RcComposePlayer(prepared, Modifier.width(200.dp))
+        }
+      }
+      waitForIdle()
+      onNodeWithText("Shown").assertExists()
+      onNodeWithText("Hidden").assertDoesNotExist()
+    }
+
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun anAutoSizedTextInAnInvisibleGroupKeepsItsSemantics() =
+    runSkikoComposeUiTest(size = Size(200f, 100f), density = Density(1f)) {
+      // Auto-sized text is composed rather than drawn by the flat layout, so an invisible group
+      // holding it stays a component too, and the text keeps its semantics as at alpha 0.
+      val group =
+        listOf<RcOperation>(
+          RcRowLayout(10, -1, 1, 1, RcFloatWord.literal(0f)),
+          RcVisibilityModifier(VISIBLE),
+          RcLayoutContent(11),
+        ) + text(50, TEXT, listOf(), autoSize = true) + listOf(end, end)
+      val prepared =
+        RcPreparedDocument(
+          document(
+            RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+            listOf(box(30, 1f, 40f, 10f), group),
+            listOf(RcTextData(TEXT, "Invisible"), RcIntegerConstant(VISIBLE, 2)),
+          ),
+        )
+      assertTrue(prepared.plainComponents.isNotEmpty())
+      setContent {
+        CompositionLocalProvider(
+          LocalRcDeferLayoutAnimations provides true,
+          LocalRcFlattenLayout provides true,
+        ) {
+          RcComposePlayer(prepared, Modifier.width(200.dp))
+        }
+      }
+      waitForIdle()
+      onNodeWithText("Invisible").assertIsDisplayed()
+    }
+
+  @Test
+  fun aVisibilityTheHostChangesStillChanges() {
+    // A flattened card whose host then shows a gone box: the card switches to components (and its
+    // bounds animation) and ends up drawing what the per-component path draws.
+    val document =
+      document(
+        RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+        listOf(
+          box(10, 1f, 30f, 20f),
+          box(20, 0.5f, 30f, 20f, listOf(RcVisibilityModifier(VISIBLE))),
+          box(30, 0f, 30f, 20f),
+        ),
+        listOf(
+          RcIntegerConstant(VISIBLE, 0),
+          RcNamedVariable(VISIBLE, RcNamedVariable.INT_TYPE, "USER:shown"),
+        ),
+      )
+    val prepared = RcPreparedDocument(document)
+    assertTrue(20 in prepared.plainComponents)
+    fun settled(flatten: Boolean): IntArray {
+      val values = mutableStateMapOf<String, RcNamedValue>("USER:shown" to RcNamedValue.Integer(0))
+      val scene =
+        ImageComposeScene(width = 60, height = 80, density = Density(1f)) {
+          CompositionLocalProvider(
+            LocalRcDeferLayoutAnimations provides true,
+            LocalRcFlattenLayout provides flatten,
+          ) {
+            RcComposePlayer(prepared, Modifier.width(60.dp), namedValues = values)
+          }
+        }
+      try {
+        var time = 0L
+        repeat(3) { scene.render(time).close().also { time += FRAME_NANOS } }
+        values["USER:shown"] = RcNamedValue.Integer(1)
+        Snapshot.sendApplyNotifications()
+        repeat(120) { scene.render(time).close().also { time += FRAME_NANOS } }
+        val bitmap = Bitmap().apply { allocN32Pixels(60, 80) }
+        check(scene.render(time).readPixels(bitmap))
+        return IntArray(60 * 80) { bitmap.getColor(it % 60, it / 60) }
+      } finally {
+        scene.close()
+      }
+    }
+    val components = settled(flatten = false)
+    // The box was shown: the third box moved down to make room for it.
+    assertTrue(components[60 * 50 + 5] != 0, "the shown box did not push the last one down")
+    assertContentEquals(components, settled(flatten = true))
+  }
+
+  /** A plain core text of [textId], filling the width, with [extra] modifiers. */
+  private fun text(
+    id: Int,
+    textId: Int,
+    extra: List<RcOperation>,
+    autoSize: Boolean = false,
+  ): List<RcOperation> =
+    listOf<RcOperation>(
+      RcCoreText(
+        textId = textId,
+        properties =
+          listOf(
+            RcTextStyleProperty.IntValue(1, id),
+            RcTextStyleProperty.IntValue(2, id + 1),
+            RcTextStyleProperty.IntValue(3, 0xff000000.toInt()),
+            RcTextStyleProperty.FloatValue(5, RcFloatWord.literal(16f)),
+          ) + listOfNotNull(RcTextStyleProperty.BooleanValue(22, true).takeIf { autoSize }),
+      ),
+      RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+    ) + extra + listOf(end)
+
+  /** A modifier that keeps a component composed rather than flattened, with no visible effect. */
+  private val composedMarker = listOf<RcOperation>(RcZIndexModifier(RcFloatWord.literal(0f)))
 
   @Test
   fun aTextClippedByItsHeightStaysInsideIt() {
@@ -524,5 +752,6 @@ class RcFlatLayoutTest {
     const val SUBHEADER = "listsubheader__ideal__centred__compact.rc"
     const val VISIBLE = 42
     const val TEXT = 43
+    const val FRAME_NANOS = 16_000_000L
   }
 }
