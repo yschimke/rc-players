@@ -534,14 +534,13 @@ class RcFlatLayoutTest {
   @Test
   fun aLayerTheHostEasesKeepsThePassUntilItsTweenEnds() =
     runSkikoComposeUiTest(size = Size(200f, 200f), density = Density(1f)) {
-      // Two texts around a box whose alpha the host sets: the box is composed (it has a graphics
-      // layer) and the texts flattened. The host fades it out over the layer's 300 ms tween, with
-      // no bounds or visibility to animate.
+      // A box whose alpha the host sets, then two texts: the box is composed (it has a graphics
+      // layer) and the texts flattened, one run after it. The host fades the box out over the
+      // layer's 300 ms tween, with no bounds or visibility to animate.
       val document =
         document(
           RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
           listOf(
-            text(50, TEXT, listOf()),
             box(
               20,
               0.5f,
@@ -558,6 +557,7 @@ class RcFlatLayoutTest {
                 ),
               ),
             ),
+            text(50, TEXT, listOf()),
             text(60, TEXT + 1, listOf()),
           ),
           listOf(
