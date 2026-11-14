@@ -7,6 +7,8 @@ import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.TwoWayConverter
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -55,6 +57,20 @@ internal class RcLayoutAnimationActivity {
 
 internal val LocalRcLayoutAnimationActivity =
   staticCompositionLocalOf<RcLayoutAnimationActivity?> { null }
+
+/**
+ * Tells the player's [RcLayoutAnimationActivity] whether this animation is [running], for as long
+ * as it is composed: what a composable animation (a visibility transition, an alternative's
+ * cross-fade, a layer's tween) does to keep the lookahead pass on until it ends.
+ */
+@Composable
+internal fun RegisterLayoutAnimation(key: Any, running: () -> Boolean) {
+  val activity = LocalRcLayoutAnimationActivity.current ?: return
+  DisposableEffect(activity, key) {
+    activity.add(running)
+    onDispose { activity.remove(running) }
+  }
+}
 
 /** Animates measured x/y/width/height toward the Lookahead result like AndroidX AnimateMeasure. */
 internal fun Modifier.animateRcBounds(
