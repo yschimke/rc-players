@@ -519,10 +519,24 @@ class RcFlatLayoutTest {
     assertContentEquals(components, settled(flatten = true))
   }
 
-  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test fun aCardChangedByItsHostFlattensAgainOnceTheChangeSettles() = flattensAgainOnceSettled(1f)
+
   @Test
-  fun aCardChangedByItsHostFlattensAgainOnceTheChangeSettles() =
-    runSkikoComposeUiTest(size = Size(200f, 200f), density = Density(1f)) {
+  fun aSlowedAnimationKeepsThePassUntilItEnds() =
+    // The platform's animation duration scale (Android's developer setting) stretches the change's
+    // 300 ms animations to 1200 ms: the card stays composed as components until they have run.
+    flattensAgainOnceSettled(4f)
+
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  private fun flattensAgainOnceSettled(durationScale: Float) =
+    runSkikoComposeUiTest(
+      size = Size(200f, 200f),
+      density = Density(1f),
+      effectContext =
+        object : androidx.compose.ui.MotionDurationScale {
+          override val scaleFactor: Float = durationScale
+        },
+    ) {
       // Two texts and a box the host shows: flattened, both texts are one node's; while the change
       // animates, under the lookahead pass, each text is a component of its own; and once it has
       // settled the card is flattened again.
@@ -562,7 +576,10 @@ class RcFlatLayoutTest {
       values["USER:shown"] = RcNamedValue.Integer(1)
       mainClock.advanceTimeBy(100)
       assertEquals(1, textsOfFirst(), "the change did not switch the lookahead pass on")
-      mainClock.advanceTimeBy(prepared.layoutAnimationMillis + 500L)
+      // Most of the way through the (scaled) animations, which a card switched back early snaps.
+      mainClock.advanceTimeBy((225 * durationScale).toLong())
+      assertEquals(1, textsOfFirst(), "the pass was dropped while the change still animated")
+      mainClock.advanceTimeBy((1500 * durationScale).toLong())
       assertEquals(2, textsOfFirst(), "the card did not flatten again once the change settled")
     }
 

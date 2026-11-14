@@ -687,6 +687,7 @@ private fun RcComposePlayerResolved(
   val defersLookahead = deferLayoutAnimations && !prepared.changesLayoutOnItsOwn
   var lookahead by remember(state) { mutableStateOf(!defersLookahead) }
   var hostChanges by remember(state) { mutableIntStateOf(0) }
+  val layoutAnimationActivity = remember(state) { RcLayoutAnimationActivity() }
   LaunchedEffect(state, namedValues) {
     snapshotFlow { namedValues.toMap() }
       .collect { current ->
@@ -711,12 +712,18 @@ private fun RcComposePlayerResolved(
       }
   }
   if (defersLookahead) {
-    // Restarted by every change, so the pass stays on until the last one's animations have run.
+    // Restarted by every change, so the pass stays on until the last one's animations have run:
+    // watched rather than predicted, since one component's visibility can hold another's motion
+    // back, and the platform's animation duration scale stretches them all.
     LaunchedEffect(state, hostChanges) {
       if (!lookahead) return@LaunchedEffect
-      val settled = prepared.layoutAnimationMillis * 1_000_000L + LOOKAHEAD_SETTLE_MARGIN_NANOS
-      val start = withFrameNanos { it }
-      while (withFrameNanos { it } - start < settled) Unit
+      var frames = 0
+      var quiet = 0
+      while (frames < LOOKAHEAD_SETTLE_MIN_FRAMES || quiet < LOOKAHEAD_SETTLE_QUIET_FRAMES) {
+        withFrameNanos {}
+        frames++
+        quiet = if (layoutAnimationActivity.isIdle) quiet + 1 else 0
+      }
       // Every animation has ended, so the tree without the pass lays out and draws the same; it
       // is composed again without the pass's wrappers, and flattened again where it can be.
       lookahead = false
@@ -1045,6 +1052,7 @@ private fun RcComposePlayerResolved(
           LocalRcPlainComponents provides prepared.plainComponents,
           LocalRcLayoutVersion provides version,
           LocalRcFrameTime provides frameTime,
+          LocalRcLayoutAnimationActivity provides layoutAnimationActivity,
           LocalRcPaintVersion provides paintVersion,
           LocalRcGeometryProbe provides probe,
           LocalRcPublishSizeOnMeasure provides !settles,
@@ -2309,8 +2317,17 @@ private enum class RcFitBoxSlot {
 
 private val LocalRcLookaheadScope = compositionLocalOf<LookaheadScope?> { null }
 
-/** Frames past the longest layout animation before a deferring player drops the pass again. */
-private const val LOOKAHEAD_SETTLE_MARGIN_NANOS = 50_000_000L
+/**
+ * Frames a deferring player waits after a host change before it looks for its animations to end:
+ * the change lands, and its bounds and visibility animations start, over the first of them.
+ */
+private const val LOOKAHEAD_SETTLE_MIN_FRAMES = 3
+
+/**
+ * Frames in a row with nothing moving before a deferring player drops the pass again: one animation
+ * can end on the frame another, held back by it, starts.
+ */
+private const val LOOKAHEAD_SETTLE_QUIET_FRAMES = 2
 
 /**
  * Whether players below may defer the lookahead pass behind AndroidX's bounds animations until a

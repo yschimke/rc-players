@@ -7,6 +7,7 @@ import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.TwoWayConverter
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ApproachLayoutModifierNode
@@ -16,7 +17,9 @@ import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
 import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.currentValueOf
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
@@ -26,6 +29,32 @@ import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.runtime.RcAnimationTimeline
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
+
+/**
+ * The layout animations a player has running: its components' bounds animations and visibility
+ * transitions, each as a source that says whether it is still moving. A player that switched the
+ * lookahead pass on for a host change keeps it on until every one is idle (see
+ * `RcComposePlayerResolved`): what they actually do, whatever their specs, sequencing or the
+ * platform's animation duration scale make of them.
+ */
+internal class RcLayoutAnimationActivity {
+  private val sources = ArrayList<() -> Boolean>()
+
+  fun add(running: () -> Boolean) {
+    sources += running
+  }
+
+  fun remove(running: () -> Boolean) {
+    sources -= running
+  }
+
+  /** Whether nothing is moving. */
+  val isIdle: Boolean
+    get() = sources.none { it() }
+}
+
+internal val LocalRcLayoutAnimationActivity =
+  staticCompositionLocalOf<RcLayoutAnimationActivity?> { null }
 
 /** Animates measured x/y/width/height toward the Lookahead result like AndroidX AnimateMeasure. */
 internal fun Modifier.animateRcBounds(
@@ -51,9 +80,20 @@ private data class RcAnimateBoundsElement(
 }
 
 private class RcAnimateBoundsNode(var lookaheadScope: LookaheadScope, var spec: RcAnimationSpec) :
-  ApproachLayoutModifierNode, Modifier.Node() {
+  ApproachLayoutModifierNode, CompositionLocalConsumerModifierNode, Modifier.Node() {
   private val sizeAnimation = RcBoundsTarget(IntSize.VectorConverter)
   private val offsetAnimation = RcBoundsTarget(IntOffset.VectorConverter)
+  private val running: () -> Boolean = { !sizeAnimation.isIdle || !offsetAnimation.isIdle }
+  private var activity: RcLayoutAnimationActivity? = null
+
+  override fun onAttach() {
+    activity = currentValueOf(LocalRcLayoutAnimationActivity)?.also { it.add(running) }
+  }
+
+  override fun onDetach() {
+    activity?.remove(running)
+    activity = null
+  }
 
   // Held, so a frame's approach doesn't allocate a function reference per component.
   private val sizeSpecOf: () -> FiniteAnimationSpec<IntSize> = { sizeSpec() }
