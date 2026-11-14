@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.ui.graphics.ImageBitmap
+import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
@@ -69,6 +70,17 @@ public class RcPreparedDocument(public val document: RcDocument) {
    */
   internal val changesLayoutOnItsOwn: Boolean =
     rcChangesLayoutOnItsOwn(document.operations) || touchExpressions.isNotEmpty()
+
+  /**
+   * The longest a host change's layout animations can run: a component's bounds animation, then
+   * (for a visibility sequenced after it) its visibility animation, over the document's own specs
+   * and the default one. A player that switched the lookahead pass on for a change switches it back
+   * off this long after the last change, once every animation it started has ended.
+   */
+  internal val layoutAnimationMillis: Int =
+    (document.operations.filterIsInstance<RcAnimationSpec>() + DefaultRcAnimationSpec)
+      .filter { it.isEnabled || it === DefaultRcAnimationSpec }
+      .maxOf { it.rcMotionDurationMillis() + it.rcVisibilityDurationMillis() }
 
   /** Components [RcFlatContainer] may lay out and draw itself: see [rcPlainComponents]. */
   internal val plainComponents: Set<Int> =

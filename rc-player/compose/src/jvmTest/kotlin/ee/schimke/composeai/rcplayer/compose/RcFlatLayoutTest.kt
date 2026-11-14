@@ -50,6 +50,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.jetbrains.skia.Bitmap
 
@@ -517,6 +518,53 @@ class RcFlatLayoutTest {
     assertTrue(components[60 * 50 + 5] != 0, "the shown box did not push the last one down")
     assertContentEquals(components, settled(flatten = true))
   }
+
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun aCardChangedByItsHostFlattensAgainOnceTheChangeSettles() =
+    runSkikoComposeUiTest(size = Size(200f, 200f), density = Density(1f)) {
+      // Two texts and a box the host shows: flattened, both texts are one node's; while the change
+      // animates, under the lookahead pass, each text is a component of its own; and once it has
+      // settled the card is flattened again.
+      val document =
+        document(
+          RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+          listOf(
+            text(50, TEXT, listOf()),
+            box(20, 0.5f, 30f, 20f, listOf(RcVisibilityModifier(VISIBLE))),
+            text(60, TEXT + 1, listOf()),
+          ),
+          listOf(
+            RcTextData(TEXT, "First"),
+            RcTextData(TEXT + 1, "Second"),
+            RcIntegerConstant(VISIBLE, 0),
+            RcNamedVariable(VISIBLE, RcNamedVariable.INT_TYPE, "USER:shown"),
+          ),
+        )
+      val prepared = RcPreparedDocument(document)
+      val values = mutableStateMapOf<String, RcNamedValue>("USER:shown" to RcNamedValue.Integer(0))
+      mainClock.autoAdvance = false
+      setContent {
+        CompositionLocalProvider(
+          LocalRcDeferLayoutAnimations provides true,
+          LocalRcFlattenLayout provides true,
+        ) {
+          RcComposePlayer(prepared, Modifier.width(200.dp), namedValues = values)
+        }
+      }
+      fun textsOfFirst() =
+        onNodeWithText("First", substring = true)
+          .fetchSemanticsNode()
+          .config[androidx.compose.ui.semantics.SemanticsProperties.Text]
+          .size
+      mainClock.advanceTimeBy(100)
+      assertEquals(2, textsOfFirst(), "the card was not flattened")
+      values["USER:shown"] = RcNamedValue.Integer(1)
+      mainClock.advanceTimeBy(100)
+      assertEquals(1, textsOfFirst(), "the change did not switch the lookahead pass on")
+      mainClock.advanceTimeBy(prepared.layoutAnimationMillis + 500L)
+      assertEquals(2, textsOfFirst(), "the card did not flatten again once the change settled")
+    }
 
   /** A plain core text of [textId], filling the width, with [extra] modifiers. */
   private fun text(
