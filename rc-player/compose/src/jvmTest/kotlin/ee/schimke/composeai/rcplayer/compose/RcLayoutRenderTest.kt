@@ -262,14 +262,28 @@ class RcLayoutRenderTest {
   }
 
   /**
-   * A card in a row with a margin before it (`padding(end)`, then its solid `background`, then a
+   * A card with a margin before it (padding, then its solid `background`, then a
    * `background(brush)` drawn over it, then its content padding): the brush's canvas stream paints
-   * over the solid background, where its DrawContent marker is, not under it.
+   * over the solid background, as the reference paints `CanvasOperations` after every modifier, and
+   * from the component's own origin, every padding undone.
    */
   @Test
-  fun canvasDecorationAfterAMarginPaintsOverTheBackground() {
-    val gray = 0xff808080.toInt()
-    val purple = 0xff3b3444.toInt()
+  fun canvasDecorationAfterAnEndMarginPaintsOverTheBackground() {
+    val bitmap = renderMarginCard(marginLeft = 0f, marginTop = 0f, marginRight = 20f)
+    assertEquals(PURPLE, bitmap.getColor(5, 5), "the brush paints over the background")
+    assertEquals(GRAY, bitmap.getColor(60, 30), "the background shows where the brush doesn't")
+  }
+
+  @Test
+  fun canvasDecorationAfterALeadingMarginStartsAtTheComponentsOrigin() {
+    // A left and top margin: the brush draws from the component's origin, not shifted into it.
+    val bitmap = renderMarginCard(marginLeft = 20f, marginTop = 10f, marginRight = 0f)
+    assertEquals(PURPLE, bitmap.getColor(30, 30), "the brush paints over the background")
+    assertEquals(PURPLE, bitmap.getColor(35, 30), "the brush is 40 wide from the origin, not 20")
+    assertEquals(GRAY, bitmap.getColor(45, 30), "the brush stops 40 from the origin")
+  }
+
+  private fun renderMarginCard(marginLeft: Float, marginTop: Float, marginRight: Float): Bitmap {
     val document =
       RcDocument(
         RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 60, modern = false),
@@ -280,9 +294,9 @@ class RcLayoutRenderTest {
           width(100f),
           height(60f),
           RcPaddingModifier(
-            RcFloatWord.literal(0f),
-            RcFloatWord.literal(0f),
-            RcFloatWord.literal(20f),
+            RcFloatWord.literal(marginLeft),
+            RcFloatWord.literal(marginTop),
+            RcFloatWord.literal(marginRight),
             RcFloatWord.literal(0f),
           ),
           RcBackgroundModifier(
@@ -304,7 +318,7 @@ class RcLayoutRenderTest {
             RcFloatWord.literal(10f),
           ),
           RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
-          RcPaintData(listOf(4, purple)),
+          RcPaintData(listOf(4, PURPLE)),
           RcDraw4(
             RcOpcodes.DRAW_RECT,
             RcFloatWord.literal(0f),
@@ -325,9 +339,7 @@ class RcLayoutRenderTest {
     try {
       val bitmap = Bitmap().apply { allocN32Pixels(100, 60) }
       check(scene.render().readPixels(bitmap))
-
-      assertEquals(purple, bitmap.getColor(5, 5), "the brush paints over the background")
-      assertEquals(gray, bitmap.getColor(60, 30), "the background shows where the brush doesn't")
+      return bitmap
     } finally {
       scene.close()
     }
@@ -2423,6 +2435,8 @@ class RcLayoutRenderTest {
     )
 
   private companion object {
+    const val PURPLE = 0xff3b3444.toInt()
+    const val GRAY = 0xff808080.toInt()
     const val RED = 0xffff0000.toInt()
     const val GREEN = 0xff00ff00.toInt()
   }

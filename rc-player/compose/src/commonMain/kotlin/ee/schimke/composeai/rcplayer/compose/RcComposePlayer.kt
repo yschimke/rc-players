@@ -120,6 +120,7 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.inset
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
@@ -3077,6 +3078,12 @@ private fun Modifier.applyComponentModifiers(
   var appliedHeight = false
   var appliedCanvasOperations = false
   var graphicsLayerApplied = false
+  // The paddings applied so far, in the whole pixels the chain applies them in: the canvas stream
+  // undoes them (see [applyCanvasOperations]).
+  var insetStart = 0
+  var insetTop = 0
+  var insetEnd = 0
+  var insetBottom = 0
 
   /**
    * Appends the component's graphics layer the first time something that draws asks for it.
@@ -3099,11 +3106,12 @@ private fun Modifier.applyComponentModifiers(
 
   val gateClockDraws = LocalRcGateClockDraws.current
 
-  fun applyCanvasOperations(modifier: Modifier): Modifier {
-    val operations = canvasOperations ?: return modifier
-    appliedCanvasOperations = true
-    val clockGate = RcClockDrawGate(gateClockDraws)
-    return modifier.drawWithContent {
+  fun DrawScope.drawCanvasOperations(
+    operations: List<RcLinkedNode>,
+    clockGate: RcClockDrawGate,
+    drawContent: DrawScope.() -> Unit,
+  ) {
+    run {
       clockGate.follow(frameTime) // Redraw with the clock; see [RcClockDrawGate].
       paintVersion?.intValue // And with repainted geometry; see [LocalRcPaintVersion].
       clockGate.observe(state) {
@@ -3130,6 +3138,41 @@ private fun Modifier.applyComponentModifiers(
       }
     }
   }
+  fun Modifier.drawCanvas(operations: List<RcLinkedNode>, clockGate: RcClockDrawGate): Modifier =
+    drawWithContent {
+      val content = this
+      drawCanvasOperations(operations, clockGate) { content.drawContent() }
+    }
+
+  /**
+   * The component's canvas stream, as the reference paints `CanvasOperations`: after every modifier
+   * decoration (backgrounds, borders, clips), so above them and inside the clips, and at the
+   * component's full bounds, every padding undone. Applied last in the chain, it undoes the
+   * paddings with a negative inset, and puts them back around the content it draws.
+   */
+  fun applyCanvasOperations(modifier: Modifier): Modifier {
+    val operations = canvasOperations ?: return modifier
+    appliedCanvasOperations = true
+    val clockGate = RcClockDrawGate(gateClockDraws)
+    val start = insetStart
+    val top = insetTop
+    val end = insetEnd
+    val bottom = insetBottom
+    if (start == 0 && top == 0 && end == 0 && bottom == 0)
+      return modifier.drawCanvas(operations, clockGate)
+    return modifier.drawWithContent {
+      val ltr = layoutDirection == LayoutDirection.Ltr
+      val left = (if (ltr) start else end).toFloat()
+      val right = (if (ltr) end else start).toFloat()
+      val content = this
+      inset(-left, -top.toFloat(), -right, -bottom.toFloat()) {
+        drawCanvasOperations(operations, clockGate) {
+          inset(left, top.toFloat(), right, bottom.toFloat()) { content.drawContent() }
+        }
+      }
+    }
+  }
+
   var pressHandlersApplied = false
 
   /**
@@ -3182,19 +3225,6 @@ private fun Modifier.applyComponentModifiers(
       }
     }
     val operation = modifiers.ordered[operationIndex]
-    // AndroidX paints CanvasOperations at the component's full bounds, temporarily undoing the
-    // content-padding inset. Put the Compose draw wrapper outside a padding that comes before the
-    // stream's place (the wire DrawContent marker, else the end), but only when nothing paints
-    // between the two: a background or border written after the padding draws before the stream
-    // in AndroidX, so a wrapper outside it would paint the stream underneath them. An outer margin
-    // (padding, then a card's background, then a brush drawn over it) keeps the stream in place.
-    if (
-      operation is RcPaddingModifier &&
-        !appliedCanvasOperations &&
-        !paintsBeforeCanvas(modifiers.ordered, operationIndex)
-    ) {
-      result = applyCanvasOperations(applyPendingGraphicsLayer(result))
-    }
     if (operation is RcPaddingModifier && !pressHandlersApplied) {
       // An offset written after this padding moves what the component draws from here on, and the
       // handlers have to move with it while still covering the padding. So they go on inside the
@@ -3239,6 +3269,10 @@ private fun Modifier.applyComponentModifiers(
             next++
           }
           operationIndex = next - 1
+          insetStart += rcPaddingStartPixels(left)
+          insetTop += rcPaddingStartPixels(top)
+          insetEnd += rcPaddingEndPixels(left, right)
+          insetBottom += rcPaddingEndPixels(top, bottom)
           result.rcPaddingPixels(left = left, top = top, right = right, bottom = bottom, density)
         }
         is RcOffsetModifier -> result.offset { rcOffsetPixels(listOf(operation), state, density) }
@@ -3257,11 +3291,8 @@ private fun Modifier.applyComponentModifiers(
         is RcGraphicsLayerModifier -> result
         is RcMarqueeModifier -> result.applyAndroidXMarquee(operation, state)
         is RcNoArg ->
-          // The stream's own place: everything before it is drawn underneath, and the paddings
-          // after it haven't inset the bounds yet, so it covers the component as AndroidX does.
-          if (operation.opcode == RcOpcodes.MODIFIER_DRAW_CONTENT && !appliedCanvasOperations) {
-            applyCanvasOperations(applyPendingGraphicsLayer(result))
-          } else result
+          // The stream draws after every modifier (see [applyCanvasOperations]), not here.
+          result
         else -> result
       }
     operationIndex++
@@ -9209,15 +9240,4 @@ private fun rcHasComposedDescendant(
         decided,
       )
     }
-}
-
-/**
- * Whether a background or border lies between the padding at [paddingIndex] and the canvas stream's
- * place in [ordered]: the DrawContent marker, or the end of the modifiers without one.
- */
-private fun paintsBeforeCanvas(ordered: List<RcOperation>, paddingIndex: Int): Boolean {
-  val rest = ordered.drop(paddingIndex + 1)
-  val marker = rest.indexOfFirst { it is RcNoArg && it.opcode == RcOpcodes.MODIFIER_DRAW_CONTENT }
-  val between = if (marker >= 0) rest.take(marker) else rest
-  return between.any { it is RcBackgroundModifier || it is RcBorderModifier }
 }
