@@ -1,5 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.toPixelMap
@@ -24,6 +26,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
@@ -32,6 +35,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -73,6 +77,89 @@ class RcFitBoxTransitionTest {
       assertTrue(after.red < 0.05f, "and the 60px one is gone, was $after")
     }
 
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun aHostValueThatChangesTheAlternativeCrossFadesUnderDeferral() =
+    runSkikoComposeUiTest(size = Size(100f, 60f), density = Density(1f)) {
+      // A host value widens the first alternative past the box, which keeps its own size: no
+      // bounds of its own to animate, only the cross-fade, which keeps the lookahead pass it needs
+      // until it ends.
+      val values =
+        mutableStateMapOf<String, RcNamedValue>("USER:width" to RcNamedValue.FloatValue(60f))
+      mainClock.autoAdvance = false
+      setContent {
+        CompositionLocalProvider(LocalRcDeferLayoutAnimations provides true) {
+          RcComposePlayer(RcPreparedDocument(hostDocument()), namedValues = values)
+        }
+      }
+      mainClock.advanceTimeBy(100)
+      waitForIdle()
+      val before = onRoot().captureToImage().toPixelMap()[10, 10]
+      assertTrue(before.red > 0.9f, "the 60px alternative fits a 100px box, was $before")
+
+      values["USER:width"] = RcNamedValue.FloatValue(120f)
+      mainClock.advanceTimeBy(150)
+      waitForIdle()
+      val halfway = onRoot().captureToImage().toPixelMap()[10, 10]
+      assertTrue(halfway.red > 0.05f, "the outgoing alternative is still fading out, was $halfway")
+      assertTrue(halfway.blue > 0.05f, "and the incoming one fading in, was $halfway")
+
+      mainClock.advanceTimeBy(1000)
+      waitForIdle()
+      val after = onRoot().captureToImage().toPixelMap()[10, 10]
+      assertTrue(after.blue > 0.8f, "the 20px alternative has taken over, was $after")
+    }
+
+  /** An alternative's own spec: its bounds don't animate, so only the cross-fade runs. */
+  private val stillBounds =
+    RcAnimationSpec(
+      animationId = 0,
+      motionDurationMillis = RcFloatWord.literal(0f),
+      motionEasingType = 4,
+      visibilityDurationMillis = RcFloatWord.literal(0f),
+      visibilityEasingType = 4,
+      enterAnimation = RcLayoutAnimation.FadeIn,
+      exitAnimation = RcLayoutAnimation.FadeOut,
+    )
+
+  /** A 100 x 60 `FitBox` whose first alternative's width is the host's `USER:width`. */
+  private fun hostDocument(): RcDocument {
+    val alternativeWidth = 21
+    val operations =
+      listOf<RcOperation>(
+        RcFloatConstant(alternativeWidth, RcFloatWord.literal(60f)),
+        RcNamedVariable(alternativeWidth, RcNamedVariable.FLOAT_TYPE, "USER:width"),
+        RcRootLayout(1),
+        RcLayoutContent(2),
+        RcFitBoxLayout(3, 30, horizontalPositioning = 1, verticalPositioning = 4),
+        RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(100f)),
+        RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+        RcAnimationSpec(
+          animationId = 30,
+          motionDurationMillis = RcFloatWord.literal(300f),
+          motionEasingType = 4,
+          visibilityDurationMillis = RcFloatWord.literal(300f),
+          visibilityEasingType = 4,
+          enterAnimation = RcLayoutAnimation.FadeIn,
+          exitAnimation = RcLayoutAnimation.FadeOut,
+        ),
+        RcLayoutContent(4),
+      ) +
+        canvas(
+          componentId = 5,
+          size = 60f,
+          color = RED,
+          width = RcFloatWord(0x7fc00000 or alternativeWidth),
+          extra = listOf(stillBounds),
+        ) +
+        canvas(componentId = 6, size = 20f, color = BLUE, extra = listOf(stillBounds)) +
+        List(4) { end }
+    return RcDocument(
+      RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 60, modern = false),
+      operations,
+    )
+  }
+
   private fun document(): RcDocument {
     val operations =
       listOf<RcOperation>(
@@ -107,23 +194,33 @@ class RcFitBoxTransitionTest {
     )
   }
 
-  private fun canvas(componentId: Int, size: Float, color: Int): List<RcOperation> =
+  private fun canvas(
+    componentId: Int,
+    size: Float,
+    color: Int,
+    width: RcFloatWord = RcFloatWord.literal(size),
+    /** Modifiers after its size: a disabled `AnimationSpec` keeps its own bounds still. */
+    extra: List<RcOperation> = emptyList(),
+  ): List<RcOperation> =
     listOf(
       RcCanvasLayout(componentId, 0),
-      RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(size)),
+      RcWidthModifier(RcDimensionType.EXACT, width),
       RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(size)),
-      RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
-      RcPaintData(listOf(4, color)),
-      RcDraw4(
-        RcOpcodes.DRAW_RECT,
-        RcFloatWord.literal(0f),
-        RcFloatWord.literal(0f),
-        RcFloatWord.literal(size),
-        RcFloatWord.literal(size),
-      ),
-      end,
-      end,
-    )
+    ) +
+      extra +
+      listOf(
+        RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
+        RcPaintData(listOf(4, color)),
+        RcDraw4(
+          RcOpcodes.DRAW_RECT,
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(size),
+          RcFloatWord.literal(size),
+        ),
+        end,
+        end,
+      )
 
   private companion object {
     const val RED = 0xffff0000.toInt()

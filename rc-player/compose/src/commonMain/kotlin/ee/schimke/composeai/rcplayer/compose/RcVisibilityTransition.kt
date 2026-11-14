@@ -79,6 +79,7 @@ internal fun RcVisibilityTransition(
 ) {
   val visibleState = remember { MutableTransitionState(visibility != 0) }
   visibleState.targetState = visibility != 0
+  RegisterLayoutAnimation(visibleState) { !visibleState.isIdle }
   // What the component was last shown as: an invisible component that turns GONE exits unpainted,
   // rather than being painted for the length of its exit.
   val shown = remember { RcShownVisibility(visibility) }

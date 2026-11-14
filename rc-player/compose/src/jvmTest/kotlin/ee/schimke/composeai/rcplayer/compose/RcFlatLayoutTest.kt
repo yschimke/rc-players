@@ -27,7 +27,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
@@ -50,6 +53,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.jetbrains.skia.Bitmap
 
@@ -518,6 +522,136 @@ class RcFlatLayoutTest {
     assertContentEquals(components, settled(flatten = true))
   }
 
+  @Test fun aCardChangedByItsHostFlattensAgainOnceTheChangeSettles() = flattensAgainOnceSettled(1f)
+
+  @Test
+  fun aSlowedAnimationKeepsThePassUntilItEnds() =
+    // The platform's animation duration scale (Android's developer setting) stretches the change's
+    // 300 ms animations to 1200 ms: the card stays composed as components until they have run.
+    flattensAgainOnceSettled(4f)
+
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun aLayerTheHostEasesKeepsThePassUntilItsTweenEnds() =
+    runSkikoComposeUiTest(size = Size(200f, 200f), density = Density(1f)) {
+      // Two texts around a box whose alpha the host sets: the box is composed (it has a graphics
+      // layer) and the texts flattened. The host fades it out over the layer's 300 ms tween, with
+      // no bounds or visibility to animate.
+      val document =
+        document(
+          RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+          listOf(
+            text(50, TEXT, listOf()),
+            box(
+              20,
+              0.5f,
+              30f,
+              20f,
+              listOf(
+                RcGraphicsLayerModifier(
+                  listOf(
+                    RcGraphicsLayerAttribute.FloatValue(
+                      RcGraphicsLayerModifier.ALPHA,
+                      RcFloatWord(0x7fc00000 or ALPHA),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            text(60, TEXT + 1, listOf()),
+          ),
+          listOf(
+            RcTextData(TEXT, "First"),
+            RcTextData(TEXT + 1, "Second"),
+            RcFloatConstant(ALPHA, RcFloatWord.literal(1f)),
+            RcNamedVariable(ALPHA, RcNamedVariable.FLOAT_TYPE, "USER:alpha"),
+          ),
+        )
+      val values =
+        mutableStateMapOf<String, RcNamedValue>("USER:alpha" to RcNamedValue.FloatValue(1f))
+      mainClock.autoAdvance = false
+      setContent {
+        CompositionLocalProvider(
+          LocalRcDeferLayoutAnimations provides true,
+          LocalRcFlattenLayout provides true,
+        ) {
+          RcComposePlayer(
+            RcPreparedDocument(document),
+            Modifier.width(200.dp),
+            namedValues = values,
+          )
+        }
+      }
+      fun textsOfFirst() =
+        onNodeWithText("First", substring = true)
+          .fetchSemanticsNode()
+          .config[androidx.compose.ui.semantics.SemanticsProperties.Text]
+          .size
+      mainClock.advanceTimeBy(100)
+      assertEquals(2, textsOfFirst(), "the card was not flattened")
+      values["USER:alpha"] = RcNamedValue.FloatValue(0f)
+      mainClock.advanceTimeBy(150)
+      assertEquals(1, textsOfFirst(), "the pass was dropped while the layer still eased")
+      mainClock.advanceTimeBy(1000)
+      assertEquals(2, textsOfFirst(), "the card did not flatten again once the tween ended")
+    }
+
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  private fun flattensAgainOnceSettled(durationScale: Float) =
+    runSkikoComposeUiTest(
+      size = Size(200f, 200f),
+      density = Density(1f),
+      effectContext =
+        object : androidx.compose.ui.MotionDurationScale {
+          override val scaleFactor: Float = durationScale
+        },
+    ) {
+      // Two texts and a box the host shows: flattened, both texts are one node's; while the change
+      // animates, under the lookahead pass, each text is a component of its own; and once it has
+      // settled the card is flattened again.
+      val document =
+        document(
+          RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+          listOf(
+            text(50, TEXT, listOf()),
+            box(20, 0.5f, 30f, 20f, listOf(RcVisibilityModifier(VISIBLE))),
+            text(60, TEXT + 1, listOf()),
+          ),
+          listOf(
+            RcTextData(TEXT, "First"),
+            RcTextData(TEXT + 1, "Second"),
+            RcIntegerConstant(VISIBLE, 0),
+            RcNamedVariable(VISIBLE, RcNamedVariable.INT_TYPE, "USER:shown"),
+          ),
+        )
+      val prepared = RcPreparedDocument(document)
+      val values = mutableStateMapOf<String, RcNamedValue>("USER:shown" to RcNamedValue.Integer(0))
+      mainClock.autoAdvance = false
+      setContent {
+        CompositionLocalProvider(
+          LocalRcDeferLayoutAnimations provides true,
+          LocalRcFlattenLayout provides true,
+        ) {
+          RcComposePlayer(prepared, Modifier.width(200.dp), namedValues = values)
+        }
+      }
+      fun textsOfFirst() =
+        onNodeWithText("First", substring = true)
+          .fetchSemanticsNode()
+          .config[androidx.compose.ui.semantics.SemanticsProperties.Text]
+          .size
+      mainClock.advanceTimeBy(100)
+      assertEquals(2, textsOfFirst(), "the card was not flattened")
+      values["USER:shown"] = RcNamedValue.Integer(1)
+      mainClock.advanceTimeBy(100)
+      assertEquals(1, textsOfFirst(), "the change did not switch the lookahead pass on")
+      // Most of the way through the (scaled) animations, which a card switched back early snaps.
+      mainClock.advanceTimeBy((225 * durationScale).toLong())
+      assertEquals(1, textsOfFirst(), "the pass was dropped while the change still animated")
+      mainClock.advanceTimeBy((1500 * durationScale).toLong())
+      assertEquals(2, textsOfFirst(), "the card did not flatten again once the change settled")
+    }
+
   /** A plain core text of [textId], filling the width, with [extra] modifiers. */
   private fun text(
     id: Int,
@@ -753,5 +887,6 @@ class RcFlatLayoutTest {
     const val VISIBLE = 42
     const val TEXT = 43
     const val FRAME_NANOS = 16_000_000L
+    const val ALPHA = 44
   }
 }

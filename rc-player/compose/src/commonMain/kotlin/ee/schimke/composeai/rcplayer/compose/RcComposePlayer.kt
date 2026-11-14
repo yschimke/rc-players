@@ -681,10 +681,13 @@ private fun RcComposePlayerResolved(
   // host
   // allows it ([LocalRcDeferLayoutAnimations]), a document whose layout only changes when its host
   // hands it a value defers that pass until the first one, and plays that change a frame later, so
-  // it still animates.
+  // it still animates. Once that change's animations have ended it defers the pass again, until the
+  // next.
   val deferLayoutAnimations = LocalRcDeferLayoutAnimations.current
-  var lookahead by
-    remember(state) { mutableStateOf(!deferLayoutAnimations || prepared.changesLayoutOnItsOwn) }
+  val defersLookahead = deferLayoutAnimations && !prepared.changesLayoutOnItsOwn
+  var lookahead by remember(state) { mutableStateOf(!defersLookahead) }
+  var hostChanges by remember(state) { mutableIntStateOf(0) }
+  val layoutAnimationActivity = remember(state) { RcLayoutAnimationActivity() }
   LaunchedEffect(state, namedValues) {
     snapshotFlow { namedValues.toMap() }
       .collect { current ->
@@ -705,7 +708,26 @@ private fun RcComposePlayerResolved(
         // `setNamedValue` writes into the state's maps without going through the action path, so
         // nothing else tells the draw layer a value moved.
         invalidationVersion += 1
+        hostChanges += 1
       }
+  }
+  if (defersLookahead) {
+    // Restarted by every change, so the pass stays on until the last one's animations have run:
+    // watched rather than predicted, since one component's visibility can hold another's motion
+    // back, and the platform's animation duration scale stretches them all.
+    LaunchedEffect(state, hostChanges) {
+      if (!lookahead) return@LaunchedEffect
+      var frames = 0
+      var quiet = 0
+      while (frames < LOOKAHEAD_SETTLE_MIN_FRAMES || quiet < LOOKAHEAD_SETTLE_QUIET_FRAMES) {
+        withFrameNanos {}
+        frames++
+        quiet = if (layoutAnimationActivity.isIdle) quiet + 1 else 0
+      }
+      // Every animation has ended, so the tree without the pass lays out and draws the same; it
+      // is composed again without the pass's wrappers, and flattened again where it can be.
+      lookahead = false
+    }
   }
   val documentDeclaresFloatAnimation = prepared.declaresFloatAnimation
   // What the document's reads of the clock ask of the player: nothing, a frame each second, or a
@@ -1030,6 +1052,7 @@ private fun RcComposePlayerResolved(
           LocalRcPlainComponents provides prepared.plainComponents,
           LocalRcLayoutVersion provides version,
           LocalRcFrameTime provides frameTime,
+          LocalRcLayoutAnimationActivity provides layoutAnimationActivity,
           LocalRcPaintVersion provides paintVersion,
           LocalRcGeometryProbe provides probe,
           LocalRcPublishSizeOnMeasure provides !settles,
@@ -2295,6 +2318,18 @@ private enum class RcFitBoxSlot {
 private val LocalRcLookaheadScope = compositionLocalOf<LookaheadScope?> { null }
 
 /**
+ * Frames a deferring player waits after a host change before it looks for its animations to end:
+ * the change lands, and its bounds and visibility animations start, over the first of them.
+ */
+private const val LOOKAHEAD_SETTLE_MIN_FRAMES = 3
+
+/**
+ * Frames in a row with nothing moving before a deferring player drops the pass again: one animation
+ * can end on the frame another, held back by it, starts.
+ */
+private const val LOOKAHEAD_SETTLE_QUIET_FRAMES = 2
+
+/**
  * Whether players below may defer the lookahead pass behind AndroidX's bounds animations until a
  * document's layout can first change. False by default: the player then animates exactly as
  * AndroidX does from its first frame.
@@ -2304,7 +2339,8 @@ private val LocalRcLookaheadScope = compositionLocalOf<LookaheadScope?> { null }
  * layout on its own (it animates, reads the clock, scrolls, takes input, writes its own state)
  * keeps the pass from its first frame. Any other document lays out without it until its host first
  * hands it a changed value; that change then lands one frame later than it otherwise would, and
- * animates as before.
+ * animates as before. Once every animation that change started has ended, the document defers the
+ * pass again until its next change.
  */
 public val LocalRcDeferLayoutAnimations:
   androidx.compose.runtime.ProvidableCompositionLocal<Boolean> =
@@ -4748,6 +4784,9 @@ private fun rcLayerFloat(
     }
   }
   val animatable = remember(state) { Animatable(target) }
+  // A host change that eases a layer keeps the lookahead pass it switched on until the tween ends:
+  // dropping the pass rebuilds the tree, which would land the value mid-way.
+  RegisterLayoutAnimation(animatable) { animatable.isRunning }
   LaunchedEffect(animatable, target) {
     when {
       // A value with nothing to ease from lands, as the first one does.

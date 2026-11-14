@@ -125,6 +125,9 @@ internal fun RcAnimatedAlternatives(
           .using(SizeTransform(clip = false) { _, _ -> tween(duration, easing = easing) })
       },
     ) { index ->
+      // Each alternative, entering or leaving, keeps the lookahead pass on while it fades.
+      val transition = this@AnimatedContent.transition
+      RegisterLayoutAnimation(transition) { transition.isRunning }
       CompositionLocalProvider(
         LocalRcAnimatedVisibilityScope provides this@AnimatedContent,
         LocalRcSharedElementComponents provides sharedElements(index),
@@ -149,6 +152,10 @@ internal fun RcAnimatedAlternatives(
           .using(SizeTransform(clip = false) { _, _ -> tween(duration, easing = easing) })
       },
     ) { index ->
+      // Each alternative, entering or leaving, keeps the lookahead pass on while it fades and its
+      // shared elements morph: both run on this transition.
+      val transition = this@AnimatedContent.transition
+      RegisterLayoutAnimation(transition) { transition.isRunning }
       CompositionLocalProvider(
         LocalRcSharedTransitionScope provides this@SharedTransitionLayout,
         LocalRcAnimatedVisibilityScope provides this@AnimatedContent,
