@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.unit.Density
@@ -435,6 +436,39 @@ class RcFlatLayoutTest {
       onNodeWithText("Hidden").assertDoesNotExist()
     }
 
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun anAutoSizedTextInAnInvisibleGroupKeepsItsSemantics() =
+    runSkikoComposeUiTest(size = Size(200f, 100f), density = Density(1f)) {
+      // Auto-sized text is composed rather than drawn by the flat layout, so an invisible group
+      // holding it stays a component too, and the text keeps its semantics as at alpha 0.
+      val group =
+        listOf<RcOperation>(
+          RcRowLayout(10, -1, 1, 1, RcFloatWord.literal(0f)),
+          RcVisibilityModifier(VISIBLE),
+          RcLayoutContent(11),
+        ) + text(50, TEXT, listOf(), autoSize = true) + listOf(end, end)
+      val prepared =
+        RcPreparedDocument(
+          document(
+            RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+            listOf(box(30, 1f, 40f, 10f), group),
+            listOf(RcTextData(TEXT, "Invisible"), RcIntegerConstant(VISIBLE, 2)),
+          ),
+        )
+      assertTrue(prepared.plainComponents.isNotEmpty())
+      setContent {
+        CompositionLocalProvider(
+          LocalRcDeferLayoutAnimations provides true,
+          LocalRcFlattenLayout provides true,
+        ) {
+          RcComposePlayer(prepared, Modifier.width(200.dp))
+        }
+      }
+      waitForIdle()
+      onNodeWithText("Invisible").assertIsDisplayed()
+    }
+
   @Test
   fun aVisibilityTheHostChangesStillChanges() {
     // A flattened card whose host then shows a gone box: the card switches to components (and its
@@ -485,7 +519,12 @@ class RcFlatLayoutTest {
   }
 
   /** A plain core text of [textId], filling the width, with [extra] modifiers. */
-  private fun text(id: Int, textId: Int, extra: List<RcOperation>): List<RcOperation> =
+  private fun text(
+    id: Int,
+    textId: Int,
+    extra: List<RcOperation>,
+    autoSize: Boolean = false,
+  ): List<RcOperation> =
     listOf<RcOperation>(
       RcCoreText(
         textId = textId,
@@ -495,7 +534,7 @@ class RcFlatLayoutTest {
             RcTextStyleProperty.IntValue(2, id + 1),
             RcTextStyleProperty.IntValue(3, 0xff000000.toInt()),
             RcTextStyleProperty.FloatValue(5, RcFloatWord.literal(16f)),
-          ),
+          ) + listOfNotNull(RcTextStyleProperty.BooleanValue(22, true).takeIf { autoSize }),
       ),
       RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
     ) + extra + listOf(end)

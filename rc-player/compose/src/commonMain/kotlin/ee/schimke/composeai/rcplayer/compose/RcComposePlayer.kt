@@ -2739,7 +2739,7 @@ private fun List<RcTextStyleProperty>.intProperty(id: Int, default: Int): Int =
 private fun List<RcTextStyleProperty>.floatProperty(id: Int, default: Float): RcFloatWord =
   lastProperty<RcTextStyleProperty.FloatValue>(id)?.value ?: RcFloatWord.literal(default)
 
-private fun List<RcTextStyleProperty>.booleanProperty(id: Int, default: Boolean): Boolean =
+internal fun List<RcTextStyleProperty>.booleanProperty(id: Int, default: Boolean): Boolean =
   lastProperty<RcTextStyleProperty.BooleanValue>(id)?.value ?: default
 
 private fun List<RcTextStyleProperty>.intArrayProperty(id: Int): List<Int> =
