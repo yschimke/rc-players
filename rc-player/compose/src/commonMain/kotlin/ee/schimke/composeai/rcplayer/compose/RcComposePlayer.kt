@@ -8482,10 +8482,14 @@ private class RcFlatEngine(
         softWrap = true,
         maxLines = spec.maxLines,
         constraints =
+          // The component's height limits too: a text clipped or ellipsised by a fixed height
+          // is laid out within it, as `BasicText` lays it out.
           Constraints(
             minWidth = constraints.minWidth,
             maxWidth =
               if (constraints.hasBoundedWidth) constraints.maxWidth else Constraints.Infinity,
+            minHeight = constraints.minHeight,
+            maxHeight = constraints.maxHeight,
           ),
         layoutDirection = scope.layoutDirection,
         density = scope,
@@ -8505,8 +8509,19 @@ private class RcFlatEngine(
       width = fitted
     }
     val height = constraints.constrainHeight(result.size.height)
+    // `BasicText` clips a paragraph that overflows its box unless its overflow is visible.
+    val clip = result.hasVisualOverflow && spec.overflow != TextOverflow.Visible
     return RcFlatMeasured(width, height) { x, y, out ->
-      out.draws += { drawText(result, topLeft = Offset((x + shift).toFloat(), y.toFloat())) }
+      out.draws += {
+        val origin = Offset(x.toFloat(), y.toFloat())
+        if (clip) {
+          clipRect(origin.x, origin.y, origin.x + width, origin.y + height) {
+            drawText(result, topLeft = Offset((x + shift).toFloat(), y.toFloat()))
+          }
+        } else {
+          drawText(result, topLeft = Offset((x + shift).toFloat(), y.toFloat()))
+        }
+      }
     }
   }
 
@@ -8548,10 +8563,13 @@ private class RcFlatEngine(
 
   private fun linear(
     node: RcLayoutNode,
-    items: List<RcFlat>,
+    allItems: List<RcFlat>,
     constraints: Constraints,
     horizontal: Boolean,
   ): RcFlatMeasured {
+    // A gone child is not a child of the row at all: no weight, no gap (as on the per-component
+    // path, where it emits no node).
+    val items = allItems.filter { it !is RcFlat.Hole || it.node.componentId in holes }
     val (spacedBy, mainPositioning, crossPositioning) =
       if (node is RcLayoutNode.Row)
         Triple(

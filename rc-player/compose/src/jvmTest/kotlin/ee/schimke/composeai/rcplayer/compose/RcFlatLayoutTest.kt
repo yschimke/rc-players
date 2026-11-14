@@ -21,6 +21,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
@@ -33,6 +34,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
@@ -171,7 +174,56 @@ class RcFlatLayoutTest {
     // overlaps it and has to draw over it.
     val composed = box(10, 1f, 80f, 80f, listOf(RcVisibilityModifier(VISIBLE)))
     assertSameBothWays(
-      document(RcBoxLayout(3, -1, 1, 4), listOf(composed, box(20, 0f, 40f, 40f)), visible = true),
+      document(
+        RcBoxLayout(3, -1, 1, 4),
+        listOf(composed, box(20, 0f, 40f, 40f)),
+        listOf(RcIntegerConstant(VISIBLE, 1)),
+      ),
+      width = 100,
+      height = 100,
+    )
+  }
+
+  @Test
+  fun aGoneWeightedChildTakesNoShare() {
+    // Two equal weights, one of them gone: the other has the whole row, as a Compose row gives it.
+    val gone = box(20, 0f, 1f, 20f, listOf(RcVisibilityModifier(VISIBLE)), RcDimensionType.WEIGHT)
+    assertSameBothWays(
+      document(
+        RcRowLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+        listOf(box(10, 1f, 1f, 20f, widthType = RcDimensionType.WEIGHT), gone),
+        listOf(RcIntegerConstant(VISIBLE, 0)),
+      ),
+      width = 100,
+      height = 40,
+    )
+  }
+
+  @Test
+  fun aTextClippedByItsHeightStaysInsideIt() {
+    // Wrapped text in a 20 px tall component, over a green box: what overflows is clipped.
+    val text =
+      listOf(
+        RcCoreText(
+          textId = TEXT,
+          properties =
+            listOf(
+              RcTextStyleProperty.IntValue(1, 30),
+              RcTextStyleProperty.IntValue(2, 31),
+              RcTextStyleProperty.IntValue(3, 0xff000000.toInt()),
+              RcTextStyleProperty.FloatValue(5, RcFloatWord.literal(16f)),
+            ),
+        ),
+        RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+        RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
+        end,
+      )
+    assertSameBothWays(
+      document(
+        RcColumnLayout(3, -1, 1, 4, RcFloatWord.literal(0f)),
+        listOf(text, box(20, 0f, 100f, 60f)),
+        listOf(RcTextData(TEXT, "WWWW WWWW WWWW WWWW WWWW WWWW")),
+      ),
       width = 100,
       height = 100,
     )
@@ -187,9 +239,10 @@ class RcFlatLayoutTest {
     width: Float,
     height: Float,
     extra: List<RcOperation> = emptyList(),
+    widthType: Int = RcDimensionType.EXACT,
   ): List<RcOperation> = buildList {
     add(RcBoxLayout(id, -1, 1, 1))
-    add(RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(width)))
+    add(RcWidthModifier(widthType, RcFloatWord.literal(width)))
     add(RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(height)))
     add(
       RcBackgroundModifier(
@@ -214,12 +267,12 @@ class RcFlatLayoutTest {
   private fun document(
     container: RcOperation,
     children: List<List<RcOperation>>,
-    visible: Boolean = false,
+    constants: List<RcOperation> = emptyList(),
   ): RcDocument =
     RcDocument(
       // 1.1: a border's width is taken as written (see `borderWidthPixels`).
       RcHeader(RcVersion(1, 1, 0), legacyWidth = 200, legacyHeight = 120, modern = false),
-      (if (visible) listOf(RcIntegerConstant(VISIBLE, 1)) else emptyList<RcOperation>()) +
+      constants +
         listOf(
           RcRootLayout(1),
           RcLayoutContent(2),
@@ -352,5 +405,6 @@ class RcFlatLayoutTest {
     const val DENSITY = 2f
     const val SUBHEADER = "listsubheader__ideal__centred__compact.rc"
     const val VISIBLE = 42
+    const val TEXT = 43
   }
 }
