@@ -448,6 +448,15 @@ private constructor(
    */
   public var onRepaint: (() -> Unit)? = null
 
+  /**
+   * Called instead of the invalidation callback when published geometry changed values something
+   * laid out reads (when only drawing reads them, [onRepaint] is enough), by a host that tracks
+   * each value's readers ([valueReadObserver]): it evaluates the document's derived values again
+   * and tells only what read one that moved, as for any other changed input. Null, the default,
+   * keeps the invalidation callback.
+   */
+  public var onValuesChanged: (() -> Unit)? = null
+
   /** Whether any of [changed], or anything computed from them, has been read outside painting. */
   private fun reachesLayout(changed: IntArray, count: Int): Boolean {
     val dependents =
@@ -1538,6 +1547,19 @@ private constructor(
 
   public fun applyFloatExpression(operation: RcFloatExpression) {
     if (operation.id in overriddenFloats) return
+    // Inputs unchanged since its last evaluation: its value stands, as Compose's `derivedStateOf`
+    // keeps a value whose dependencies did not move. The inputs are read through the observed maps,
+    // so whatever evaluates this (a component's draw) still depends on them.
+    val memo = if (evaluatingFloatExpression) null else expressionMemo(operation)
+    val inputs = memo?.let { currentInputs(it.ids) }
+    if (
+      memo != null &&
+        inputs != null &&
+        memo.inputs?.contentEquals(inputs) == true &&
+        floats.peek(operation.id)?.toRawBits() == memo.output
+    ) {
+      return
+    }
     val runtime =
       floatExpressionRuntimes.getOrPut(operation.id) {
         RcFloatExpressionRuntime(operation, ::floatArray)
@@ -1562,7 +1584,48 @@ private constructor(
       }
     if (!nested) recordExpressionInputs(operation.id)
     setFloat(operation.id, value)
+    if (memo != null) {
+      memo.inputs = inputs
+      memo.output = value.toRawBits()
+    }
   }
+
+  /**
+   * What an expression's value depends on, when that is only the values it names: none of its words
+   * is an operator that is random, keeps registers, runs commands or reads loop variables, none
+   * reads an array, and it does not ease ([RcFloatExpression.animation]) over the frame clock. Null
+   * for any other, which is evaluated every time.
+   */
+  private fun expressionMemo(operation: RcFloatExpression): RcExpressionMemo? =
+    expressionMemos
+      .getOrPut(operation.id) {
+        if (operation.animation != null) return@getOrPut RcExpressionMemo.NONE
+        val ids = mutableListOf<Int>()
+        for (word in operation.expression) {
+          if (!word.isNaNEncoded) continue
+          // Classified exactly as [RcFloatExpressionEvaluator] reads a word.
+          val payload = word.bits and NAN_PAYLOAD
+          when {
+            // An array the expression's operators read by id: its contents are not a value here.
+            payload and ID_REGION_MASK == ID_REGION_ARRAY -> return@getOrPut RcExpressionMemo.NONE
+            payload in (OPERATOR_BASE + 1)..(OPERATOR_BASE + LAST_OPERATOR) ->
+              if (payload - OPERATOR_BASE in UNMEMOIZABLE_OPERATORS) {
+                return@getOrPut RcExpressionMemo.NONE
+              }
+            else -> word.referencedId?.let(ids::add)
+          }
+        }
+        RcExpressionMemo(ids.distinct().toIntArray())
+      }
+      .takeIf { it !== RcExpressionMemo.NONE }
+
+  /**
+   * The raw bits of each of [ids] as the expression would resolve them, read as it would read them.
+   */
+  private fun currentInputs(ids: IntArray): IntArray =
+    IntArray(ids.size) { i -> floats[ids[i]]?.toRawBits() ?: UNSET_INPUT }
+
+  private val expressionMemos = HashMap<Int, RcExpressionMemo>()
 
   public fun applyMatrixVectorMath(operation: RcMatrixVectorMath) {
     val matrix = matrixValues(operation.matrixId)
@@ -2135,8 +2198,9 @@ private constructor(
         // AndroidX does. When nothing laid out reads it — only a canvas draws with it — drawing
         // again is enough, rather than recomposing the whole tree each frame.
         val repaint = onRepaint
+        val valuesChanged = onValuesChanged
         if (repaint != null && !reachesLayout(changedIds, changedCount)) repaint()
-        else onInvalidated()
+        else if (valuesChanged != null) valuesChanged() else onInvalidated()
       }
     }
     return changed
@@ -2525,3 +2589,28 @@ private constructor(private val onRead: (Int) -> Unit, private val backing: Link
 
   fun peek(key: Int): V? = backing[key]
 }
+
+/**
+ * An expression's inputs ([ids]) as they were at its last evaluation ([inputs]), and the value it
+ * computed then ([output], raw bits): it stands while both hold. See `applyFloatExpression`.
+ */
+private class RcExpressionMemo(val ids: IntArray) {
+  var inputs: IntArray? = null
+  var output: Int? = null
+
+  companion object {
+    /** An expression that is evaluated every time. */
+    val NONE = RcExpressionMemo(IntArray(0))
+  }
+}
+
+private const val NAN_PAYLOAD = 0x7fffff
+private const val OPERATOR_BASE = RcFloatExpressionEvaluator.OFFSET
+private const val LAST_OPERATOR = 79
+private const val ID_REGION_MASK = 0x700000
+private const val ID_REGION_ARRAY = 0x200000
+/** A float that resolves to nothing: a value no real float has as its raw bits here. */
+private const val UNSET_INPUT = 0x7fc0dead
+
+/** Random (39, 40, 42), registers (56–63), commands (64–69) and loop variables (70–72). */
+private val UNMEMOIZABLE_OPERATORS: Set<Int> = setOf(39, 40, 42) + (56..72)

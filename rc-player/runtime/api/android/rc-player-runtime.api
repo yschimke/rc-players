@@ -933,6 +933,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun getHasActiveFloatAnimations ()Z
 	public final fun getHasAnyComponentValues ()Z
 	public final fun getOnRepaint ()Lkotlin/jvm/functions/Function0;
+	public final fun getOnValuesChanged ()Lkotlin/jvm/functions/Function0;
 	public final fun getReadClockRecently ()Z
 	public final fun getReadContinuousClockRecently ()Z
 	public final fun getReadsClock ()Z
@@ -973,6 +974,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun setLong (IJ)V
 	public final fun setNamedValue (Ljava/lang/String;Lee/schimke/composeai/rcplayer/runtime/RcNamedValue;)V
 	public final fun setOnRepaint (Lkotlin/jvm/functions/Function0;)V
+	public final fun setOnValuesChanged (Lkotlin/jvm/functions/Function0;)V
 	public final fun setPath (ILee/schimke/composeai/rcplayer/protocol/RcPathData;)V
 	public final fun setText (ILjava/lang/String;)V
 	public final fun setValueReadObserver (Lkotlin/jvm/functions/Function1;)V

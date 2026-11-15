@@ -50,8 +50,7 @@ class RcPerValueInvalidationCorpusTest {
       // A document that reads the clock or runs an animation draws differently twice over.
       if (!fresh.contentEquals(runCatching { fresh(document, values) }.getOrNull())) continue
       compared++
-      if (RcPreparedDocument(document).let { it.layout != null && !it.settlesFirstLayout })
-        perValue++
+      if (RcPreparedDocument(document).layout != null) perValue++
       val updated = runCatching { updated(document, values) }.getOrNull()
       if (fresh.contentEquals(updated)) continue
       RcValueVersions.enabled = false

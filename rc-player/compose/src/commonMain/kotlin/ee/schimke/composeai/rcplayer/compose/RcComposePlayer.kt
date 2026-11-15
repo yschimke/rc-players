@@ -584,13 +584,9 @@ private fun RcComposePlayerResolved(
   SideEffect { soundDispatcher.updateHost(soundHost) }
   var invalidationVersion by remember { mutableIntStateOf(0) }
   // Per-value invalidation (see [RcValueVersions]): a document laid out as a tree recomposes,
-  // measures and draws only
-  // what read a value that moved. A canvas document, or one whose geometry reaches its layout (it
-  // settles its first
-  // layout: the probes publish geometry from inside a measure pass), invalidates the whole player,
-  // as before.
-  val perValueInvalidation =
-    RcValueVersions.enabled && prepared.layout != null && !prepared.settlesFirstLayout
+  // measures and draws only what read a value that moved. A canvas document invalidates the whole
+  // player, as before.
+  val perValueInvalidation = RcValueVersions.enabled && prepared.layout != null
   val valueVersions = remember(document) { RcValueVersions() }
   var wakeIntervalSeconds by remember(document) { mutableStateOf<Float?>(null) }
   var nextFrameRequestVersion by remember(document) { mutableIntStateOf(0) }
@@ -613,9 +609,8 @@ private fun RcComposePlayerResolved(
         seededNamedValues,
         eventSink = { latestEventSink(it) },
         // A value the top level's own evaluation moved reaches what read it through
-        // [RcValueVersions.publish]: the
-        // whole player is invalidated only for a change outside it (an action, a component's
-        // geometry).
+        // [RcValueVersions.publish], and geometry through `onValuesChanged`: the whole player is
+        // invalidated only for a change outside both (an action).
         onInvalidated = {
           if (!(perValueInvalidation && valueVersions.suppressed)) invalidationVersion += 1
         },
@@ -648,14 +643,20 @@ private fun RcComposePlayerResolved(
         systemColorLookup = { name -> latestSystemColors(name)?.toRcArgb() },
       )
     }
+  var hostValueVersion by remember(state) { mutableIntStateOf(0) }
   remember(state) {
     valueVersions.state = state
-    if (perValueInvalidation) state.valueReadObserver = valueVersions::observe
+    if (perValueInvalidation) {
+      state.valueReadObserver = valueVersions::observe
+      // Geometry a component published moved a value: the same as a host value landing. The top
+      // level evaluates the derived values again and publishes what moved; while it is already
+      // evaluating, its own publish covers it.
+      state.onValuesChanged = { if (!valueVersions.suppressed) hostValueVersion += 1 }
+    }
   }
   // Reads from here to the tree are the top level evaluating the document; see
   // [RcValueVersions.suppressed].
   valueVersions.suppressed = true
-  var hostValueVersion by remember(state) { mutableIntStateOf(0) }
   // What the host is actually playing at, for a capture that deferred its density instead of
   // folding it in. Handed to the state as soon as it is built, before anything is laid out: pushed
   // only from a `SideEffect`, it arrived after the first frame had already resolved every deferred
@@ -735,8 +736,7 @@ private fun RcComposePlayerResolved(
         appliedNamedValues.putAll(current)
         // `setNamedValue` writes into the state's maps without going through the action path, so
         // nothing else tells the draw layer a value moved. Per value, only the top level recomposes
-        // and publishes
-        // what moved; otherwise the whole player does.
+        // and publishes what moved; otherwise the whole player does.
         if (perValueInvalidation) hostValueVersion += 1 else invalidationVersion += 1
         hostChanges += 1
       }
@@ -811,9 +811,16 @@ private fun RcComposePlayerResolved(
   // The latest frame time any loop below was handed, un-rebased, so a restarted animation loop can
   // tell how long the player sat idle.
   val lastFrameNanos = remember(document) { longArrayOf(Long.MIN_VALUE) }
+  // The wall clock as of the last frame the player was granted, as Compose samples time once per
+  // frame: every pass over the document reads this one value, rather than the clock again. A pass
+  // that is not a frame (a host value landing, a component's geometry) then moves nothing the clock
+  // drives, and a document held by its animation policy (`LocalRcInfiniteAnimationPolicy`), which
+  // is granted no frames, stays exactly where it is.
+  val frameEpochMillis = remember(document) { longArrayOf(latestTimeSource.currentTimeMillis()) }
   val recordFrame: (Long) -> Unit = { nanos ->
     if (frameOriginNanos == Long.MIN_VALUE) frameOriginNanos = nanos
     lastFrameNanos[0] = nanos
+    frameEpochMillis[0] = latestTimeSource.currentTimeMillis()
     frameNanos = nanos - frameOriginNanos
   }
   LaunchedEffect(document) { withFrameNanos(recordFrame) }
@@ -1037,7 +1044,7 @@ private fun RcComposePlayerResolved(
     // branch as well as the draw layer.
     invalidationVersion
     val frameSeconds = animationClock?.seconds() ?: (frameNanos / 1_000_000_000f)
-    state.beginFrame(frameSeconds)
+    state.beginFrame(frameSeconds, frameEpochMillis[0])
     // Written, never read, here — after `beginFrame`, so a draw or layer block reading it redraws
     // with this frame's values. See [LocalRcFrameTime].
     frameTime.floatValue = frameSeconds
@@ -1175,7 +1182,10 @@ private fun RcComposePlayerResolved(
           scale(rootTransform.scaleX, rootTransform.scaleY, Offset.Zero)
         },
       ) {
-        state.beginFrame(animationClock?.seconds() ?: (frameNanos / 1_000_000_000f))
+        state.beginFrame(
+          animationClock?.seconds() ?: (frameNanos / 1_000_000_000f),
+          frameEpochMillis[0],
+        )
         rcTrace(RcTraceCategory.FRAME, "rc:drawRoot") {
           drawOperations(
             linkedDocument.operations,
