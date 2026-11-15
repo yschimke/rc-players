@@ -686,14 +686,18 @@ private fun RcComposePlayerResolved(
   // next.
   val deferLayoutAnimations = LocalRcDeferLayoutAnimations.current
   val defersLookahead = deferLayoutAnimations && !prepared.changesLayoutOnItsOwn
-  var lookahead by remember(state) { mutableStateOf(!defersLookahead) }
+  // A document every component of which has animation turned off (`animationSpec(enabled = false)`,
+  // what rc-player-edit's `withoutDefaultAnimations` writes) has no bounds to animate, and never
+  // takes the pass.
+  val animatesBounds = prepared.animatesLayout
+  var lookahead by remember(state) { mutableStateOf(animatesBounds && !defersLookahead) }
   var hostChanges by remember(state) { mutableIntStateOf(0) }
   val layoutAnimationActivity = remember(state) { RcLayoutAnimationActivity() }
   LaunchedEffect(state, namedValues) {
     snapshotFlow { namedValues.toMap() }
       .collect { current ->
         if (current == appliedNamedValues) return@collect
-        if (!lookahead) {
+        if (!lookahead && animatesBounds) {
           // Lay the tree out under the lookahead pass at the old values first, so the change has
           // bounds to animate from.
           lookahead = true
@@ -718,6 +722,13 @@ private fun RcComposePlayerResolved(
     // back, and the platform's animation duration scale stretches them all.
     LaunchedEffect(state, hostChanges) {
       if (!lookahead) return@LaunchedEffect
+      // A document its host keeps changing is live (a chart, a score, a poll's numbers): it keeps
+      // the
+      // pass from its second change on. Dropping it again rebuilt the tree twice for every change —
+      // composed with the pass's wrappers as the change landed, without them once it settled —
+      // which
+      // costs a live card more than the pass does on the frames between its changes.
+      if (hostChanges >= LOOKAHEAD_LIVE_HOST_CHANGES) return@LaunchedEffect
       var frames = 0
       var quiet = 0
       while (frames < LOOKAHEAD_SETTLE_MIN_FRAMES || quiet < LOOKAHEAD_SETTLE_QUIET_FRAMES) {
@@ -2338,6 +2349,13 @@ private const val LOOKAHEAD_SETTLE_MIN_FRAMES = 3
 private const val LOOKAHEAD_SETTLE_QUIET_FRAMES = 2
 
 /**
+ * Host changes after which a deferring player keeps the lookahead pass for good: a document changed
+ * once (a card that arrived with stale data) defers again, one changed twice is updated on a
+ * schedule.
+ */
+private const val LOOKAHEAD_LIVE_HOST_CHANGES = 2
+
+/**
  * Whether players below may defer the lookahead pass behind AndroidX's bounds animations until a
  * document's layout can first change. False by default: the player then animates exactly as
  * AndroidX does from its first frame.
@@ -2348,7 +2366,9 @@ private const val LOOKAHEAD_SETTLE_QUIET_FRAMES = 2
  * keeps the pass from its first frame. Any other document lays out without it until its host first
  * hands it a changed value; that change then lands one frame later than it otherwise would, and
  * animates as before. Once every animation that change started has ended, the document defers the
- * pass again until its next change.
+ * pass again until its next change; a document its host changes a second time keeps the pass from
+ * then on, as one updated on a schedule pays more to drop and rebuild it on every change than to
+ * keep it.
  */
 public val LocalRcDeferLayoutAnimations:
   androidx.compose.runtime.ProvidableCompositionLocal<Boolean> =
@@ -4219,13 +4239,13 @@ private fun Modifier.trackComponentGeometry(
     val published = booleanArrayOf(false)
     return layout { measurable, constraints ->
       val placeable = measurable.measure(constraints)
-      var changed = false
-      tracked.forEach { id ->
-        if (state.publishComponentSize(id, placeable.width.toFloat(), placeable.height.toFloat())) {
-          changed = true
-        }
-      }
-      if (changed && published[0]) invalidate()
+      val width = placeable.width.toFloat()
+      val height = placeable.height.toFloat()
+      // After the first layout a change is announced: drawn again when only drawing reads it,
+      // recomposed when layout does (`publishComponentSizeChange`).
+      if (published[0])
+        tracked.forEach { id -> state.publishComponentSizeChange(id, width, height) }
+      else tracked.forEach { id -> state.publishComponentSize(id, width, height) }
       published[0] = true
       layout(placeable.width, placeable.height) { placeable.place(0, 0) }
     }

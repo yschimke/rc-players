@@ -70,6 +70,27 @@ public class RcPreparedDocument(public val document: RcDocument) {
   internal val changesLayoutOnItsOwn: Boolean =
     rcChangesLayoutOnItsOwn(document.operations) || touchExpressions.isNotEmpty()
 
+  /**
+   * Whether any layout component can animate its bounds or visibility: one with no animation spec
+   * (AndroidX's 300 ms default applies) or an enabled one. False only when every component turned
+   * animation off (`animationSpec(enabled = false)`, see rc-player-edit's
+   * `withoutDefaultAnimations`): such a document never needs the lookahead pass behind those
+   * animations.
+   */
+  internal val animatesLayout: Boolean =
+    layout?.let { root ->
+      val pending = ArrayDeque<RcLayoutNode>().apply { add(root) }
+      var animates = false
+      while (pending.isNotEmpty() && !animates) {
+        val node = pending.removeLast()
+        if (node !is RcLayoutNode.Content && node.modifiers.animationSpec?.isEnabled != false) {
+          animates = true
+        }
+        pending.addAll(node.layoutChildren())
+      }
+      animates
+    } ?: false
+
   /** Components [RcFlatContainer] may lay out and draw itself: see [rcPlainComponents]. */
   internal val plainComponents: Set<Int> =
     rcPlainComponents(layout, document, touchExpressions.isNotEmpty(), capturesComponents)

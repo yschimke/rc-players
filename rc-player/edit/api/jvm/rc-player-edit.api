@@ -566,3 +566,7 @@ public final class ee/schimke/composeai/rcplayer/edit/RcUnsupportedOperations$Co
 	public final fun getRemoveAll ()Lee/schimke/composeai/rcplayer/edit/RcUnsupportedOperations;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcWithoutDefaultAnimationsKt {
+	public static final fun withoutDefaultAnimations (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+

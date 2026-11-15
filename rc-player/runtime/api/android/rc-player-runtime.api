@@ -956,6 +956,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun publishComponentGeometry (ILee/schimke/composeai/rcplayer/runtime/RcComponentGeometry;)Z
 	public final fun publishComponentGeometry (ILee/schimke/composeai/rcplayer/runtime/RcComponentGeometry;Z)Z
 	public final fun publishComponentSize (IFF)Z
+	public final fun publishComponentSizeChange (IFF)Z
 	public final fun publishTouchPosition (FF)Z
 	public final fun readsComponentSizeOnly (I)Z
 	public final fun requestWakeIn (Lee/schimke/composeai/rcplayer/protocol/RcWakeIn;)V

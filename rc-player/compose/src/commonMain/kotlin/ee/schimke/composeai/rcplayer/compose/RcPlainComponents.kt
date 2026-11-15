@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.compose
 
+import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
@@ -92,7 +93,9 @@ private fun RcLayoutNode.hasPlainModifiers(): Boolean =
       marquee == null &&
       layoutComputes.isEmpty() &&
       accessibility.isEmpty() &&
-      animationSpec == null &&
+      // A disabled spec (rc-player-edit's `withoutDefaultAnimations`) animates nothing: still
+      // plain.
+      animationSpec?.isEnabled != true &&
       collapsiblePriority == null &&
       alignBy == null &&
       graphicsLayer == null &&
@@ -107,6 +110,7 @@ private fun RcLayoutNode.hasPlainModifiers(): Boolean =
           is RcBorderModifier,
           is RcRoundedClipRectModifier,
           is RcVisibilityModifier -> true
+          is RcAnimationSpec -> !operation.isEnabled
           else -> false
         }
       }

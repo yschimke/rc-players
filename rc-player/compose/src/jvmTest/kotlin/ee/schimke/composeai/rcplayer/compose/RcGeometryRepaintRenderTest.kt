@@ -10,6 +10,8 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.unit.Density
+import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
+import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
@@ -29,6 +31,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
+import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
@@ -66,6 +69,44 @@ class RcGeometryRepaintRenderTest {
       assertEquals(50, topWidth(pixels), "the top canvas did not resize")
       assertEquals(50, barWidth(pixels), "the bar was not repainted at the resized width")
     }
+
+  /**
+   * A box that eases its width to a host value, with the size readback the creation library writes
+   * for every rounded clip (`ComponentValue` width and height, which nothing here reads), as a poll
+   * card's bars have. Its size is published from the measure pass on every frame of the animation;
+   * nothing laid out reads it, so those frames compose nothing. They used to recompose the whole
+   * player, every frame.
+   */
+  @Test
+  fun aResizeOnlyDrawingReadsComposesNothingWhileItAnimates() {
+    val namedValues = mutableStateMapOf<String, RcNamedValue>()
+    val scene =
+      androidx.compose.ui.ImageComposeScene(width = 60, height = 20, density = Density(1f)) {
+        RcComposePlayer(barDocument(), namedValues = namedValues)
+      }
+    try {
+      var time = 0L
+      repeat(3) {
+        scene.render(time)
+        time += FRAME_NANOS
+      }
+      val perFrame =
+        countingCompositions(RENDER_LAYOUT_NODE) { count ->
+          namedValues["USER:width"] = RcNamedValue.FloatValue(50f)
+          androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
+          List(30) {
+            val before = count()
+            scene.render(time)
+            time += FRAME_NANOS
+            count() - before
+          }
+        }
+      // The change itself recomposes, on the frames it lands; the animation after it does not.
+      assertEquals(List(25) { 0 }, perFrame.drop(5), "composed while it animated: $perFrame")
+    } finally {
+      scene.close()
+    }
+  }
 
   private fun topWidth(pixels: androidx.compose.ui.graphics.PixelMap) =
     (0 until 60).count { pixels[it, 5].toArgb() == RED }
@@ -119,6 +160,42 @@ class RcGeometryRepaintRenderTest {
     )
   }
 
+  private fun barDocument(): RcDocument {
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val radius = RcFloatWord.literal(4f)
+    return RcDocument(
+      RcHeader(RcVersion(1, 0, 0), legacyWidth = 60, legacyHeight = 20, modern = false),
+      listOf(
+        RcFloatConstant(WIDTH, RcFloatWord.literal(20f)),
+        RcNamedVariable(WIDTH, RcNamedVariable.FLOAT_TYPE, "USER:width"),
+        RcRootLayout(1),
+        RcLayoutContent(2),
+        RcBoxLayout(TOP, -1, 1, 1),
+        RcWidthModifier(RcDimensionType.EXACT, reference(WIDTH)),
+        RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(10f)),
+        RcRoundedClipRectModifier(radius, radius, radius, radius),
+        RcBackgroundModifier(
+          flags = 0,
+          colorId = 0,
+          reserved1 = 0,
+          reserved2 = 0,
+          red = RcFloatWord.literal(1f),
+          green = RcFloatWord.literal(0f),
+          blue = RcFloatWord.literal(0f),
+          alpha = RcFloatWord.literal(1f),
+          shapeType = RcBackgroundModifier.SHAPE_RECTANGLE,
+        ),
+        RcComponentValue(RcComponentValue.WIDTH, componentId = TOP, valueId = TOP_WIDTH),
+        RcComponentValue(RcComponentValue.HEIGHT, componentId = TOP, valueId = TOP_HEIGHT),
+        RcLayoutContent(3),
+        end,
+        end,
+        end,
+        end,
+      ),
+    )
+  }
+
   private fun rect(width: RcFloatWord) =
     RcDraw4(
       RcOpcodes.DRAW_RECT,
@@ -131,8 +208,10 @@ class RcGeometryRepaintRenderTest {
   private fun reference(id: Int) = RcFloatWord(0x7fc00000 or id)
 
   private companion object {
+    const val FRAME_NANOS = 16_000_000L
     const val WIDTH = 21
     const val TOP_WIDTH = 42
+    const val TOP_HEIGHT = 43
     const val TOP = 5
     const val BOTTOM = 6
     const val RED = 0xffff0000.toInt()

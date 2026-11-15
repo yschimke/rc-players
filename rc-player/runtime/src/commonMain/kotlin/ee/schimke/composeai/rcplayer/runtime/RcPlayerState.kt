@@ -2006,6 +2006,27 @@ private constructor(
     )
   }
 
+  /**
+   * [publishComponentSize] for a size that moved after the component's first layout (a bounds
+   * animation, a resize), outside any settling pass: a change is announced as
+   * [publishComponentGeometry] announces one. When nothing laid out reads it, or anything computed
+   * from it, only drawing again is asked for ([onRepaint]); otherwise the invalidation callback. A
+   * component easing its size publishes on every frame of the animation, and a rounded clip reads
+   * its size, so recomposing the whole player for each was a recomposition per frame.
+   */
+  public fun publishComponentSizeChange(componentId: Int, width: Float, height: Float): Boolean {
+    val geometry =
+      componentGeometries[componentId]?.copy(width = width, height = height)
+        ?: RcComponentGeometry(width, height, 0f, 0f, 0f, 0f)
+    componentGeometries[componentId] = geometry
+    return publishComponentValues(
+      componentId,
+      geometry,
+      refreshExpressions = true,
+      invalidate = true,
+    )
+  }
+
   /** Supplies the scrollable content extent used by alpha18 CONTENT_WIDTH/CONTENT_HEIGHT. */
   public fun publishComponentContentSize(
     componentId: Int,
