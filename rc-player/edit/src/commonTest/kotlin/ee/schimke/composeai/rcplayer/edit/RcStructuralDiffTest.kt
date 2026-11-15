@@ -10,6 +10,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
 import ee.schimke.composeai.rcplayer.protocol.RcHostAction
+import ee.schimke.composeai.rcplayer.protocol.RcHostNamedAction
+import ee.schimke.composeai.rcplayer.protocol.RcHostNamedActionValue
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
@@ -172,6 +174,16 @@ class RcStructuralDiffTest {
       assertTrue("+RcRemark(text=\"$now\")" in diff.unified, diff.toString())
       assertFalse(diff.summary.any { "only ids differ" in it }, diff.toString())
     }
+  }
+
+  @Test
+  fun aSystemVariableInAnIdFieldIsNeverRenumbered() {
+    // 5 and 6 are the window's width and height (RcSystemVariables), not allocated ids.
+    val diff =
+      document(RcHostNamedAction(42, RcHostNamedActionValue.FloatValue(5)))
+        .structuralDiff(document(RcHostNamedAction(42, RcHostNamedActionValue.FloatValue(6))))
+    assertFalse(diff.summary.any { "only ids differ" in it }, diff.toString())
+    assertTrue("valueId=6" in diff.unified, diff.toString())
   }
 
   @Test

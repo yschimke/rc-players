@@ -106,8 +106,9 @@ private val HOST_FACING_FIELDS = setOf("actionId")
 private class IdUse(val range: IntRange, val value: Int)
 
 /**
- * The document ids [text] names, in order. Not ids: 0 and -1 (no id), a text style property's key
- * (`IntValue(id=4, …)` names a property, not a value), system variables and operators.
+ * The document ids [text] names, in order. Not ids: 0 and -1 (no id), system variables (1 to 41), a
+ * text style property's key (`IntValue(id=4, …)` names a property, not a value), system variables
+ * and operators.
  */
 private fun idUses(text: String): List<IdUse> {
   val uses = mutableListOf<IdUse>()
@@ -116,7 +117,10 @@ private fun idUses(text: String): List<IdUse> {
     // What a string says is content, however much it looks like an id.
     if (strings.any { start in it }) return
     val value = digits.toIntOrNull() ?: return
-    if (value != 0 && value != -1) uses += IdUse(start until start + digits.length, value)
+    // Positive ids below the first document id are the player's system variables (window
+    // size, time, …), the same in every document; negative ones are allocated component ids.
+    if (value == -1 || value in 0 until FIRST_DOCUMENT_ID) return
+    uses += IdUse(start until start + digits.length, value)
   }
   ID_FIELD.findAll(text).forEach { match ->
     val field = match.groupValues[1]
