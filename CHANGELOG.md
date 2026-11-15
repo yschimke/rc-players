@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.6.0](https://github.com/yschimke/rc-players/compare/v3.5.3...v3.6.0) (2026-11-15)
+
+
+### Features
+
+* **edit:** structural text and diff for .rc documents, and a capture determinism test ([#913](https://github.com/yschimke/rc-players/issues/913)) ([7785be8](https://github.com/yschimke/rc-players/commit/7785be831ec179ddfac7700fc128161028c905eb))
+
+
+### Performance Improvements
+
+* **rc-player:** a host value change recomposes, measures and draws only what read it ([#915](https://github.com/yschimke/rc-players/issues/915)) ([580035b](https://github.com/yschimke/rc-players/commit/580035b5114df03379e07787d83fa0f9c78fc2d5))
+* **rc-player:** settling documents invalidate per value too; the clock is sampled per frame ([#916](https://github.com/yschimke/rc-players/issues/916)) ([f407845](https://github.com/yschimke/rc-players/commit/f407845deb2f3e3dbfbfe2f3fe91163cf65ff173))
+
 ## [3.5.3](https://github.com/yschimke/rc-players/compare/v3.5.2...v3.5.3) (2026-11-15)
 
 
