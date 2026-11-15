@@ -10,7 +10,6 @@ import ee.schimke.composeai.rccreation.compose.layout.RemoteStateLayout
 import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
 import ee.schimke.composeai.rccreation.compose.modifier.animationSpec
 import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
-import ee.schimke.composeai.rccreation.compose.state.RemoteState
 import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rccreation.compose.state.rf
 
@@ -117,14 +116,12 @@ public fun RcSizeBreakpoint(
     return
   }
 
-  val name = rememberRcExpressionName(BREAKPOINT_PREFIX)
   RemoteBox(modifier = modifier) {
+    val size = rememberComponentSize()
     val dimension =
-      rememberNamedComponentFloat(name, RemoteState.Domain.User) {
-        when (axis) {
-          RcBreakpointAxis.Width -> width
-          RcBreakpointAxis.Height -> height
-        }
+      when (axis) {
+        RcBreakpointAxis.Width -> size.width
+        RcBreakpointAxis.Height -> size.height
       }
     BreakpointTier(dimension, thresholdsDp, 0, content)
   }
@@ -175,17 +172,13 @@ public fun RcMinSizeGate(
     return
   }
   val ratio = minWidthDp.toFloat() / minHeightDp.toFloat()
-  val name = rememberRcExpressionName(MIN_SIZE_PREFIX)
   RemoteBox(modifier = modifier) {
-    val gate =
-      rememberNamedComponentFloat(name, RemoteState.Domain.User) { width.min(height * ratio.rf) }
+    val size = rememberComponentSize()
+    val gate = size.width.min(size.height * ratio.rf)
     val roomy = gate.isGreaterThanOrEqualTo(minWidthDp.rdp.toPx())
     RemoteStateLayout(roomy) { isRoomy -> content(isRoomy) }
   }
 }
-
-private const val BREAKPOINT_PREFIX = "__rc_breakpoint_"
-private const val MIN_SIZE_PREFIX = "__rc_min_size_gate_"
 
 /** The width and height of the layout component a size expression is read in, in pixels. */
 internal class RcComponentSize(val width: RemoteFloat, val height: RemoteFloat)

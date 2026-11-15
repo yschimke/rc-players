@@ -59,7 +59,7 @@ after:   rc-player-edit ─▶ rc-widget-core ─▶ rc-widget-launcher-core    
   `ee.schimke.composeai.rcwidget.launcher.cmp`. It captures through
   `captureCommonRemoteDocument(profile = RcCaptureProfiles.…)` and needs no `Context` (an overload
   with one reads like the AndroidX call). It composes the content under the same locals
-  (`ProvideRcWidgetCaptureSize`, `ProvideRcWidgetActions`, `ProvideRcExpressionNames`) and hands the
+  (`ProvideRcWidgetCaptureSize`, `ProvideRcWidgetActions`) and hands the
   bytes to the same `finishLauncherCapture`.
 - **Same document, whichever API.** Both entry points end in `finishLauncherCapture`, and everything
   after it is one code path. `EitherApiParityTest` holds the two to it (below).

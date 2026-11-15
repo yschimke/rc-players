@@ -15,7 +15,6 @@ import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocume
 import ee.schimke.composeai.rcplayer.edit.RcHardcodedValue
 import ee.schimke.composeai.rcwidget.RcWidgetActionIds
 import ee.schimke.composeai.rcwidget.RcWidgetCaptureSize
-import ee.schimke.composeai.rcwidget.creation.ProvideRcExpressionNames
 import ee.schimke.composeai.rcwidget.creation.ProvideRcWidgetActions
 import ee.schimke.composeai.rcwidget.creation.ProvideRcWidgetCaptureSize
 import ee.schimke.composeai.rcwidget.creation.RcCaptureProfiles
@@ -84,7 +83,7 @@ public suspend fun captureLauncherWidget(
       encodePng = encodePng,
     ) {
       ProvideRcWidgetCaptureSize(size) {
-        ProvideRcWidgetActions(ids) { ProvideRcExpressionNames(content) }
+        ProvideRcWidgetActions(ids, content)
       }
     }
   return finishLauncherCapture(captured, ids, values, fetchImage)

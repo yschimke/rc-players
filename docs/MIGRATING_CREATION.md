@@ -129,8 +129,8 @@ everywhere else. It is now two artifacts.
 | `rc-widget-creation` | JVM, Android, iOS, macOS, wasmJs | `rc-creation-compose` | `ee.schimke.composeai.rcwidget.creation` |
 | `rc-widget-creation-androidx` | Android | AndroidX `remote-creation-compose` | `ee.schimke.composeai.rcwidget.creation.androidx` |
 
-The helpers are the same in both (`ProvideRcExpressionNames`, `RcSizeBreakpoint`,
-`rcWidgetHostAction`, the Wear containers, …); the second is generated from the first.
+The helpers are the same in both (`RcSizeBreakpoint`, `RcMinSizeGate`, `rcWidgetHostAction`, the
+Wear containers, …); the second is generated from the first.
 
 - **On Android, `rc-widget-creation` changed what it is.** It was AndroidX-typed there and is
   `rc-creation-compose`-typed now. Android code that passes its helpers AndroidX content, or uses
@@ -207,6 +207,7 @@ sources.
 | `valueChange(state, value)` | `valueChangeAction(state, value)` |
 | `tween(from, to, fraction)` of two colours | `lerp(from, to, fraction)` |
 | `rememberMutableRemoteFloat(…)`, `rememberMutableRemoteInt(…)`, `rememberMutableRemoteString(…)` and the other `rememberMutableRemote*` | Removed, but for `rememberMutableRemoteImageBitmap`. A state an action changes is a named one (`rememberNamedRemoteFloat`, `rememberNamedRemoteInt`, …, or `RemoteFloat.createNamedRemoteFloat`); the `MutableRemote*` constructors are restricted to the library group. |
+| `rememberRemoteFloatExpression { componentWidth() }`, a component's size with no name | `remoteComponent().width`, inside the component it measures. |
 | `RemoteFloat.createNamedRemoteFloatExpression(name, domain) { componentWidth() }` | `RemoteFloat.createNamedRemoteFloat(name, remoteComponent().width, domain)`: the size is read from a component (`remoteComponent()`), not from a `RemoteFloatContext` lambda. |
 | `import androidx.compose.remote.creation.RemotePath` (the `remote-creation` module) | `ee.schimke.composeai.rccreation.compose.path.RemotePath`; the rewrite of section 2 moves the import. It is a pure-Kotlin path: no `android.graphics.Path` or `java.awt.geom` type in its API. |
 | `RemoteFloat.toRemoteString(java.text.DecimalFormat)` and `toRemoteString(android.icu.text.DecimalFormat)` | `toRemoteString(format: ee.schimke.composeai.rccreation.compose.state.DecimalFormat)`, the fork's own platform-neutral class of that name (separators, grouping, digits, `RoundingMode`). The Java and ICU ones are Android and JVM types and are not in common code. |

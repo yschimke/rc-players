@@ -2,6 +2,10 @@
 
 package ee.schimke.composeai.rcwidget.wear
 
+import androidx.compose.remote.creation.compose.modifier.fillMaxSize
+import ee.schimke.composeai.rcwidget.creation.androidx.RcBreakpointAxis
+import ee.schimke.composeai.rcwidget.creation.androidx.RcMinSizeGate
+import ee.schimke.composeai.rcwidget.creation.androidx.RcSizeBreakpoint
 import android.app.PendingIntent
 import android.content.Intent
 import androidx.compose.remote.creation.compose.layout.RemoteText
@@ -86,6 +90,36 @@ class RcWearWidgetTemplateTest {
         assertTrue(document.namedVariables.none { it.name.removePrefix("USER:") in RcWearContainer.FRAME_NAMES })
       }
     }
+    }
+  }
+
+  /**
+   * A template that switches layout by its container's size reads that size unnamed: the only named
+   * values it leaves are the watch's frame, which each host writes in, so nothing else is left for a
+   * host (or a catalog reading the template) to take for data.
+   */
+  @Test
+  fun aSizeBreakpointLeavesNoNamedValueButTheFrame() {
+    runBlocking {
+      val template =
+        RcWearWidgetTemplate.capture(context) {
+          RcSizeBreakpoint(intArrayOf(150), RemoteModifier.fillMaxSize()) { wide ->
+            RcSizeBreakpoint(intArrayOf(90), RemoteModifier.fillMaxSize(), RcBreakpointAxis.Height) { tall ->
+              RemoteText("w$wide h$tall".rs)
+            }
+          }
+          RcMinSizeGate(150, 90) { roomy -> RemoteText(if (roomy) "roomy".rs else "tight".rs) }
+        }
+      val names = decode(template).namedVariables.map { it.name.removePrefix("USER:") }.toSet()
+      assertEquals(RcWearContainer.FRAME_NAMES + RcWearContainer.COLOR, names)
+      for (host in RcWearHost.All + RcWearHost.Default) {
+        for (frame in listOf(host.small, host.large)) {
+          val widget = assertNotNull(RcWearWidgetTemplate.instantiate(context, template, params(frame)), "$frame")
+          val document = decode(widget.rcDocument)
+          assertEquals(emptyList(), document.validateFor(RcTargetProfiles.WEAR_WIDGETS), "$frame")
+          assertEquals(emptyList(), document.namedVariables.map { it.name }, "$frame")
+        }
+      }
     }
   }
 

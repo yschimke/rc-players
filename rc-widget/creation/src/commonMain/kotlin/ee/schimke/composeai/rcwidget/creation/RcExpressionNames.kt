@@ -17,6 +17,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * call site's place in the order the document is composed. Outside it, the suffix is the call
  * site's place in the composition, which no sibling shares.
  */
+@Deprecated(
+  "rc-widget's size breakpoints read the component's size unnamed, so a document holds no generated names; name a value you mean to name yourself.",
+)
 @Composable
 public fun rememberRcExpressionName(prefix: String): String {
   val names = LocalRcExpressionNames.current
@@ -29,6 +32,9 @@ public fun rememberRcExpressionName(prefix: String): String {
 }
 
 /** The expressions named so far in one capture, in composition order. */
+@Deprecated(
+  "rc-widget's size breakpoints read the component's size unnamed, so a document holds no generated names; name a value you mean to name yourself.",
+)
 public class RcExpressionNames {
   private var count = 0
 
@@ -43,6 +49,9 @@ private val LocalRcExpressionNames = staticCompositionLocalOf<RcExpressionNames?
  * design names them alike. The outermost call counts for the whole document; a nested one keeps
  * counting, so two parts of one document never share a name.
  */
+@Deprecated(
+  "rc-widget's size breakpoints read the component's size unnamed, so a document holds no generated names; name a value you mean to name yourself.",
+)
 @Composable
 public fun ProvideRcExpressionNames(content: @Composable () -> Unit) {
   if (LocalRcExpressionNames.current != null) {

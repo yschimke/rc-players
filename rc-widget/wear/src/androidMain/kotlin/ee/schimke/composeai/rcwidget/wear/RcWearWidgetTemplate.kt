@@ -19,7 +19,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcwidget.RcWearContainerType
 import ee.schimke.composeai.rcwidget.RcWearFrame
 import ee.schimke.composeai.rcwidget.RcWearTemplates
-import ee.schimke.composeai.rcwidget.creation.androidx.ProvideRcExpressionNames
 import ee.schimke.composeai.rcwidget.creation.androidx.RcWearBackground
 import ee.schimke.composeai.rcwidget.creation.androidx.RcWearLevel
 import ee.schimke.composeai.rcwidget.creation.androidx.RcWearLevelLook
@@ -61,9 +60,7 @@ public object RcWearWidgetTemplate {
         remoteDensity = RemoteDensity.Host,
         profile = profile,
       ) {
-        ProvideRcExpressionNames {
-          RcWearTemplateContainer(background = background, level = level, look = look) { content() }
-        }
+        RcWearTemplateContainer(background = background, level = level, look = look) { content() }
       }
       .bytes
 

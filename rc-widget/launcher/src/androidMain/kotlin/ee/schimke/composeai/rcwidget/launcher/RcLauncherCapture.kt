@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import ee.schimke.composeai.rcplayer.edit.RcHardcodedValue
 import ee.schimke.composeai.rcwidget.RcWidgetActionIds
 import ee.schimke.composeai.rcwidget.RcWidgetCaptureSize
-import ee.schimke.composeai.rcwidget.creation.androidx.ProvideRcExpressionNames
 import ee.schimke.composeai.rcwidget.creation.androidx.ProvideRcWidgetActions
 import ee.schimke.composeai.rcwidget.creation.androidx.ProvideRcWidgetCaptureSize
 
@@ -55,7 +54,7 @@ public suspend fun captureLauncherWidget(
       profile = profile,
     ) {
       ProvideRcWidgetCaptureSize(size) {
-        ProvideRcWidgetActions(ids) { ProvideRcExpressionNames(content) }
+        ProvideRcWidgetActions(ids, content)
       }
     }
   return finishLauncherCapture(captured.bytes, ids, values, fetchImage)

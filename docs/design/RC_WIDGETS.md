@@ -120,11 +120,12 @@ behind another function in `RcCreationCompat.kt`.
 
 ### `rc-widget-creation`
 
-- **`ProvideRcExpressionNames` / `rememberRcExpressionName`** name expressions in composition order,
-  so recapturing a design gives the same bytes. Templates can then be cached and served by content
-  hash.
 - **`RcSizeBreakpoint` and `RcMinSizeGate`** switch layouts on the live component size, so one
-  document fits every slot.
+  document fits every slot. They read the size unnamed (`remoteComponent()`; AndroidX alpha23's
+  `rememberRemoteFloatExpression { componentWidth() }`): the document evaluates it as it plays, no
+  host can write it, and a reader such as a template catalog never takes it for data. With no
+  generated names, a recapture gives the same bytes. (`ProvideRcExpressionNames` and
+  `rememberRcExpressionName`, which named these expressions, are deprecated.)
   - Inside a launcher capture (`ProvideRcWidgetCaptureSize`) they pick the layout at capture time.
     Android 16's widget player doesn't reliably re-evaluate dimension-driven state layouts, and the
     launcher recaptures on every resize anyway.
