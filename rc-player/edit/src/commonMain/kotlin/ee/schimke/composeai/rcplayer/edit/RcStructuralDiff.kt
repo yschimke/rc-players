@@ -111,7 +111,10 @@ private class IdUse(val range: IntRange, val value: Int)
  */
 private fun idUses(text: String): List<IdUse> {
   val uses = mutableListOf<IdUse>()
+  val strings = quotedSpans(text)
   fun add(start: Int, digits: String) {
+    // What a string says is content, however much it looks like an id.
+    if (strings.any { start in it }) return
     val value = digits.toIntOrNull() ?: return
     if (value != 0 && value != -1) uses += IdUse(start until start + digits.length, value)
   }
@@ -132,6 +135,27 @@ private fun idUses(text: String): List<IdUse> {
     if (value in FIRST_DOCUMENT_ID until FIRST_OPERATOR_ID) add(match.range.first + 1, digits)
   }
   return uses.sortedBy { it.range.first }
+}
+
+/** The spans of [text] inside `quote`d strings, quotes included, honouring `\\` escapes. */
+private fun quotedSpans(text: String): List<IntRange> {
+  val spans = mutableListOf<IntRange>()
+  var start = -1
+  var i = 0
+  while (i < text.length) {
+    when {
+      start >= 0 && text[i] == '\\' -> i++
+      text[i] == '"' ->
+        if (start < 0) start = i
+        else {
+          spans += start..i
+          start = -1
+        }
+    }
+    i++
+  }
+  if (start >= 0) spans += start until text.length
+  return spans
 }
 
 private fun String.withIds(uses: List<IdUse>, rename: (Int) -> String): String = buildString {

@@ -164,6 +164,17 @@ class RcStructuralDiffTest {
   }
 
   @Test
+  fun idsInsideStringsAreContentNotIds() {
+    listOf("id=42" to "id=43", "@42" to "@43", "ids=[42]" to "ids=[43]").forEach { (was, now) ->
+      val diff =
+        document(RcTextData(42, "x"), RcRemark(was))
+          .structuralDiff(document(RcTextData(43, "x"), RcRemark(now)))
+      assertTrue("+RcRemark(text=\"$now\")" in diff.unified, diff.toString())
+      assertFalse(diff.summary.any { "only ids differ" in it }, diff.toString())
+    }
+  }
+
+  @Test
   fun aChangedHostActionIsAChangeNotARenumbering() {
     val diff = document(RcHostAction(1)).structuralDiff(document(RcHostAction(2)))
     assertContains(diff.unified, "-RcHostAction(actionId=1)\n+RcHostAction(actionId=2)\n")
