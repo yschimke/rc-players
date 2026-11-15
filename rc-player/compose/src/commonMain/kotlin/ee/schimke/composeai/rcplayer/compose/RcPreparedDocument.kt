@@ -77,19 +77,7 @@ public class RcPreparedDocument(public val document: RcDocument) {
    * `withoutDefaultAnimations`): such a document never needs the lookahead pass behind those
    * animations.
    */
-  internal val animatesLayout: Boolean =
-    layout?.let { root ->
-      val pending = ArrayDeque<RcLayoutNode>().apply { add(root) }
-      var animates = false
-      while (pending.isNotEmpty() && !animates) {
-        val node = pending.removeLast()
-        if (node !is RcLayoutNode.Content && node.modifiers.animationSpec?.isEnabled != false) {
-          animates = true
-        }
-        pending.addAll(node.layoutChildren())
-      }
-      animates
-    } ?: false
+  internal val animatesLayout: Boolean = layout?.let(::rcAnimatesLayout) ?: false
 
   /** Components [RcFlatContainer] may lay out and draw itself: see [rcPlainComponents]. */
   internal val plainComponents: Set<Int> =
@@ -127,4 +115,26 @@ public class RcPreparedDocument(public val document: RcDocument) {
     public fun decode(bytes: ByteArray): RcPreparedDocument =
       RcPreparedDocument(decodeCmpDocument(bytes))
   }
+}
+
+/**
+ * Whether any component under [root] can animate its bounds or visibility
+ * ([RcPreparedDocument.animatesLayout]): every component the player renders is visited, a canvas's
+ * content and a custom layout's children included. A content wrapper (a container's, or a canvas's)
+ * carries no spec and takes its container's bounds, so it is not one.
+ */
+internal fun rcAnimatesLayout(root: RcLayoutNode): Boolean {
+  val pending = ArrayDeque<RcLayoutNode>().apply { add(root) }
+  while (pending.isNotEmpty()) {
+    val node = pending.removeLast()
+    val wrapper = node is RcLayoutNode.Content || node is RcLayoutNode.CanvasContent
+    if (!wrapper && node.modifiers.animationSpec?.isEnabled != false) return true
+    pending.addAll(node.layoutChildren())
+    when (node) {
+      is RcLayoutNode.Canvas -> node.content?.let(pending::add)
+      is RcLayoutNode.Custom -> pending.addAll(node.children)
+      else -> Unit
+    }
+  }
+  return false
 }

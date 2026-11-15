@@ -36,6 +36,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers
+import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -84,6 +86,45 @@ class RcDeferredLayoutAnimationsTest {
       assertTrue(heights.none { it in (SHORT + 1) until TALL }, "it eased (defer=$defer): $heights")
       assertEquals(TALL, heights.last())
     }
+  }
+
+  @Test
+  fun aChosenAnimationUnderACanvasOrACustomLayoutStillCounts() {
+    val off = RcLayoutModifiers(animationSpec = DisabledSpec)
+    val on = RcLayoutModifiers(animationSpec = DisabledSpec.copy(animationId = 7))
+    fun root(child: RcLayoutNode) =
+      RcLayoutNode.Root(
+        1,
+        off,
+        listOf(RcLayoutNode.Content(2, RcLayoutModifiers(), listOf(child), emptyList())),
+        null,
+      )
+    fun canvasOver(box: RcLayoutModifiers) =
+      RcLayoutNode.Canvas(
+        3,
+        -1,
+        off,
+        null,
+        RcLayoutNode.Content(
+          4,
+          RcLayoutModifiers(),
+          listOf(RcLayoutNode.Box(RcBoxLayout(5, -1, 1, 1), box, null, null)),
+          emptyList(),
+        ),
+      )
+    fun customOver(box: RcLayoutModifiers) =
+      RcLayoutNode.Custom(
+        RcCustomLayout(6, -1, 8, emptyList()),
+        off,
+        listOf(RcLayoutNode.Box(RcBoxLayout(5, -1, 1, 1), box, null, null)),
+      )
+    assertTrue(rcAnimatesLayout(root(canvasOver(on))), "a canvas's content was not looked in")
+    assertTrue(
+      rcAnimatesLayout(root(customOver(on))),
+      "a custom layout's children were not looked in",
+    )
+    assertFalse(rcAnimatesLayout(root(canvasOver(off))))
+    assertFalse(rcAnimatesLayout(root(customOver(off))))
   }
 
   @Test
