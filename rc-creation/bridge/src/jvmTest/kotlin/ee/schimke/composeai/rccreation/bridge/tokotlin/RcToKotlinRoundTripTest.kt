@@ -21,6 +21,7 @@ import ee.schimke.composeai.rccreation.compose.capture.RemoteDensityBehavior
 import ee.schimke.composeai.rccreation.compose.capture.captureCommonRemoteDocument
 import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
 import ee.schimke.composeai.rcplayer.edit.RcKotlinOptions
+import ee.schimke.composeai.rcplayer.edit.structuralDiff
 import ee.schimke.composeai.rcplayer.edit.toRemoteComposeKotlin
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
@@ -242,16 +243,11 @@ class RcToKotlinRoundTripTest {
       .replace(",)", ")")
       .replace(",]", "]")
 
-  private fun diff(expected: RcDocument, actual: RcDocument): String = buildString {
-    if (expected.header != actual.header)
-      appendLine("header: ${expected.header} != ${actual.header}")
-    val size = maxOf(expected.operations.size, actual.operations.size)
-    for (index in 0 until size) {
-      val e = expected.operations.getOrNull(index)
-      val a = actual.operations.getOrNull(index)
-      if (e != a) appendLine("#$index\n  expected $e\n  actual   $a")
-    }
-  }
+  /**
+   * What differs, by content and then line by line: ids renumber, so an index-wise diff misleads.
+   */
+  private fun diff(expected: RcDocument, actual: RcDocument): String =
+    expected.structuralDiff(actual, "captured", "recaptured").toString()
 
   private companion object {
     const val DENSITY_DPI = 320

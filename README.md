@@ -19,7 +19,7 @@ questions. The supported renderer remains CMP; UIKit is an explicitly experiment
 | **Apple XCFramework** (`Package.swift`) | iOS + Apple-silicon macOS, from Swift | The CMP player's native Apple targets, packaged for SwiftPM | Yes | Same code again, reachable from a Swift app that does not build Kotlin. Distribution, not implementation. |
 | **Native UIKit POC** (`Sources/RcNativePlayerUIKit`) | iOS | Pure Swift + UIKit/Core Graphics/Core Text | **Experimental** | A second renderer beside CMP. It explores an idiomatic native component tree and reports unsupported operations explicitly; it is not a replacement or compatibility claim. |
 | **macOS player app** (`samples/macos-player`) | Apple-silicon macOS | SwiftUI host + CMP or experimental AppKit-native rendering | **Release utility** | Opens local `.rc` files and persists a renderer preference, so both Apple desktop paths can be exercised from one downloadable app. |
-| **Linux desktop viewer** (`rc-player/desktop`) | x86-64 Linux | The CMP player on the JVM, in a Compose Desktop window | **Release utility** | Opens local `.rc` files (dialog, drag-and-drop or command line), fetches `google:` fonts, opens a document in the [web inspector](https://camaelon.github.io/remotecompose-experiments/inspector/), renders headless to PNG with `--render-png`, and turns a document back into Remote Compose Kotlin (`--to-kotlin`) or a UI Builder design (`--to-uid`). Each release attaches a `.deb` and a self-contained `tar.gz`, both bundling a JRE. |
+| **Linux desktop viewer** (`rc-player/desktop`) | x86-64 Linux | The CMP player on the JVM, in a Compose Desktop window | **Release utility** | Opens local `.rc` files (dialog, drag-and-drop or command line), fetches `google:` fonts, opens a document in the [web inspector](https://camaelon.github.io/remotecompose-experiments/inspector/), renders headless to PNG with `--render-png`, and turns a document back into Remote Compose Kotlin (`--to-kotlin`) or a UI Builder design (`--to-uid`), and prints a document's structure (`--dump`) or explains what changed between two versions of one (`--diff`). Each release attaches a `.deb` and a self-contained `tar.gz`, both bundling a JRE. |
 | **Vendored AndroidX player** (`third_party/rc-embedded-player`) | Android (Robolectric) | Kotlin + Compose, vendored from androidx-main | **No** — testing only | The comparison lane. AndroidX's own embedded player, pinned to one commit and locally patched, so a parity number is attributable to a *known* player rather than to whichever alpha resolved that day. |
 | **Vendored TypeScript player** (`third_party/remote-compose-player`) | Browser · Node · VS Code webview | TypeScript → Canvas2D, WebGL for shader ops | **No** — vendored, upstream elsewhere | A client-side lane that needs no Kotlin at all, so a viewer can render a captured `.rc` without a server-side daemon. Upstream is [yschimke/remotecompose-experiments](https://github.com/yschimke/remotecompose-experiments); changes are filed there. |
 
@@ -75,7 +75,7 @@ Beside the stack, and depending on `protocol` and `runtime` rather than the othe
 
 | Module | Artifact | What it is |
 | --- | --- | --- |
-| `rc-player/edit` | `rc-player-edit` | Rewrites over a decoded document, for code that changes a `.rc` file rather than plays it: embed URL bitmaps inline, hardcode host-bound named values, collapse state layouts whose index can no longer change to their one live branch — when the hidden branches hold only layout, modifiers, drawing, touch handlers and plain values, which stay behind since ids are document-wide — and replace a state layout that is down to one branch by that branch, for the platform's widget player, which lays a filling branch out with no size inside one; fold and strip what a document no longer needs, check or adapt a document for the player it targets, and combine two documents into the branches of one state layout a host switches through a named value — identical definitions carried once, and the components both screens show (or that the caller pairs) given one animation id, so they move between their positions. No Compose. |
+| `rc-player/edit` | `rc-player-edit` | Rewrites over a decoded document, for code that changes a `.rc` file rather than plays it: embed URL bitmaps inline, hardcode host-bound named values, collapse state layouts whose index can no longer change to their one live branch — when the hidden branches hold only layout, modifiers, drawing, touch handlers and plain values, which stay behind since ids are document-wide — and replace a state layout that is down to one branch by that branch, for the platform's widget player, which lays a filling branch out with no size inside one; fold and strip what a document no longer needs, check or adapt a document for the player it targets, and combine two documents into the branches of one state layout a host switches through a named value — identical definitions carried once, and the components both screens show (or that the caller pairs) given one animation id, so they move between their positions. Prints a document as structural text and explains the difference between two versions of one (`toStructuralText`, `structuralDiff`). No Compose. |
 
 ```kotlin
 val document = RcDocumentCodec.decode(bytes)
@@ -246,6 +246,25 @@ captured, decompiled, and the committed generated source — compiled in the sam
 captures to the same document operation for operation, in dp and legacy density. Over the catalog
 corpus, Material components draw through canvases with computed geometry, so most documents come
 back as a correct component tree with their drawing marked rather than written.
+
+### Reading and diffing a document
+
+A capture is reproducible down to the bit: the same content and display capture to the same bytes
+every time, in one JVM or another, whatever its locale or time zone (`RcCaptureDeterminismTest`).
+So a change to a committed or published `.rc` is a change to what it does, and two versions are
+worth comparing structurally rather than as bytes:
+
+```sh
+remote-compose-player --dump card.rc               # one operation a line, nested by container
+remote-compose-player --diff old.rc new.rc         # what changed, explained, then the line diff
+git config diff.rc.textconv "remote-compose-player --dump"   # and `*.rc diff=rc` in .gitattributes
+```
+
+`--diff` reports what renumbering cannot hide (the header by property, operation counts, text by
+content, named values by name, embedded data by hash), then a unified diff of the two dumps with the
+new document's ids matched to the old one's, so an inserted value is one changed line rather than
+every line after it. [`docs/design/RC_STRUCTURAL_DIFF.md`](docs/design/RC_STRUCTURAL_DIFF.md) has
+the design and the prior art.
 
 There are no Apple x86_64 slices anywhere in the stack — Compose Multiplatform 1.11 stopped
 publishing them — so Intel iOS simulators and Intel Macs cannot build against it.

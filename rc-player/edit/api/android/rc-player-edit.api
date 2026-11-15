@@ -435,6 +435,22 @@ public final class ee/schimke/composeai/rcplayer/edit/RcSizeReport {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcStructuralDiff {
+	public final fun getSummary ()Ljava/util/List;
+	public final fun getUnified ()Ljava/lang/String;
+	public final fun isIdentical ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcStructuralDiffKt {
+	public static final fun structuralDiff (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/lang/String;Ljava/lang/String;I)Lee/schimke/composeai/rcplayer/edit/RcStructuralDiff;
+	public static synthetic fun structuralDiff$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/lang/String;Ljava/lang/String;IILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcStructuralDiff;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcStructuralTextKt {
+	public static final fun toStructuralText (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Ljava/lang/String;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfile {
 	public static final field Companion Lee/schimke/composeai/rcplayer/edit/RcTargetProfile$Companion;
 	public final fun decode ([BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;

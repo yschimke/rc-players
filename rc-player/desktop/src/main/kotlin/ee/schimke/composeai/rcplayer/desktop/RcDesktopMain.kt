@@ -20,14 +20,17 @@ private val USAGE =
        remote-compose-player --inspector-url <file.rc>  print the inspector link
        remote-compose-player --version
 """ +
-    DECOMPILE_USAGE
+    DECOMPILE_USAGE +
+    "\n" +
+    STRUCTURE_USAGE
 
 /**
  * The Linux desktop viewer: the CMP player in a window, opening local `.rc` files.
  *
  * `--render-png` draws one frame headless and exits, which is how the release job smoke-tests the
  * packaged app on a runner without a display. `--to-kotlin` and `--to-uid` turn a document back
- * into source: see [decompileCommand].
+ * into source: see [decompileCommand]. `--dump` and `--diff` print a document's structure and
+ * explain what changed between two versions of one: see [dumpCommand] and [diffCommand].
  */
 public fun main(args: Array<String>) {
   // `--offline` keeps the viewer off the network: `google:` families draw in the default face and
@@ -43,6 +46,8 @@ public fun main(args: Array<String>) {
     "--inspector-url" -> exitProcess(inspectCommand(rest.drop(1), open = false))
     "--to-kotlin" -> exitProcess(decompileCommand(rest.drop(1), uid = false))
     "--to-uid" -> exitProcess(decompileCommand(rest.drop(1), uid = true))
+    "--dump" -> exitProcess(dumpCommand(rest.drop(1)))
+    "--diff" -> exitProcess(diffCommand(rest.drop(1)))
     else -> {
       if (rest.size > 1) {
         System.err.println(USAGE)

@@ -431,6 +431,17 @@ final class ee.schimke.composeai.rcplayer.edit/RcSizeReport { // ee.schimke.comp
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcSizeReport.toString|toString(){}[0]
 }
 
+final class ee.schimke.composeai.rcplayer.edit/RcStructuralDiff { // ee.schimke.composeai.rcplayer.edit/RcStructuralDiff|null[0]
+    final val isIdentical // ee.schimke.composeai.rcplayer.edit/RcStructuralDiff.isIdentical|{}isIdentical[0]
+        final fun <get-isIdentical>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcStructuralDiff.isIdentical.<get-isIdentical>|<get-isIdentical>(){}[0]
+    final val summary // ee.schimke.composeai.rcplayer.edit/RcStructuralDiff.summary|{}summary[0]
+        final fun <get-summary>(): kotlin.collections/List<kotlin/String> // ee.schimke.composeai.rcplayer.edit/RcStructuralDiff.summary.<get-summary>|<get-summary>(){}[0]
+    final val unified // ee.schimke.composeai.rcplayer.edit/RcStructuralDiff.unified|{}unified[0]
+        final fun <get-unified>(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcStructuralDiff.unified.<get-unified>|<get-unified>(){}[0]
+
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcStructuralDiff.toString|toString(){}[0]
+}
+
 final class ee.schimke.composeai.rcplayer.edit/RcTargetProfile { // ee.schimke.composeai.rcplayer.edit/RcTargetProfile|null[0]
     final val apiLevel // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.apiLevel|{}apiLevel[0]
         final fun <get-apiLevel>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.apiLevel.<get-apiLevel>|<get-apiLevel>(){}[0]
@@ -619,7 +630,9 @@ final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.compose
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/rewriteOperations(kotlin/Function2<kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcOperation, ee.schimke.composeai.rcplayer.edit/RcRewrite>): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/rewriteOperations|rewriteOperations@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.Function2<kotlin.Int,ee.schimke.composeai.rcplayer.protocol.RcOperation,ee.schimke.composeai.rcplayer.edit.RcRewrite>){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/sizeReport(): ee.schimke.composeai.rcplayer.edit/RcSizeReport // ee.schimke.composeai.rcplayer.edit/sizeReport|sizeReport@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/stripDebugOperations(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/stripDebugOperations|stripDebugOperations@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/structuralDiff(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin/String = ..., kotlin/String = ..., kotlin/Int = ...): ee.schimke.composeai.rcplayer.edit/RcStructuralDiff // ee.schimke.composeai.rcplayer.edit/structuralDiff|structuralDiff@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.String;kotlin.String;kotlin.Int){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/toRemoteComposeKotlin(ee.schimke.composeai.rcplayer.edit/RcKotlinOptions = ...): ee.schimke.composeai.rcplayer.edit/RcKotlinSource // ee.schimke.composeai.rcplayer.edit/toRemoteComposeKotlin|toRemoteComposeKotlin@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcKotlinOptions){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/toStructuralText(): kotlin/String // ee.schimke.composeai.rcplayer.edit/toStructuralText|toStructuralText@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/toUiBuilderDesign(ee.schimke.composeai.rcplayer.edit/RcUiBuilderOptions = ...): ee.schimke.composeai.rcplayer.edit/RcUiBuilderDesign // ee.schimke.composeai.rcplayer.edit/toUiBuilderDesign|toUiBuilderDesign@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcUiBuilderOptions){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/unwrapSingleBranchStateLayouts(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/unwrapSingleBranchStateLayouts|unwrapSingleBranchStateLayouts@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/validateFor(ee.schimke.composeai.rcplayer.edit/RcTargetProfile): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> // ee.schimke.composeai.rcplayer.edit/validateFor|validateFor@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile){}[0]
