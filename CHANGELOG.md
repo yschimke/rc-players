@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.5.3](https://github.com/yschimke/rc-players/compare/v3.5.2...v3.5.3) (2026-11-15)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.28.0 ([#912](https://github.com/yschimke/rc-players/issues/912)) ([5cf249a](https://github.com/yschimke/rc-players/commit/5cf249a29a06ce1546192839942d32be9e9bfe1b))
+* **rc-player:** a card whose data changes stops recomposing on every frame of its animation ([#910](https://github.com/yschimke/rc-players/issues/910)) ([a88a7c7](https://github.com/yschimke/rc-players/commit/a88a7c7f864e925ec59f8e77f27949a433b9b283))
+
 ## [3.5.2](https://github.com/yschimke/rc-players/compare/v3.5.1...v3.5.2) (2026-11-15)
 
 
