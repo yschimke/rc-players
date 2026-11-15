@@ -1,11 +1,15 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcClickArea
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
+import ee.schimke.composeai.rcplayer.protocol.RcHostAction
+import ee.schimke.composeai.rcplayer.protocol.RcHostMetadataAction
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 
@@ -96,11 +100,19 @@ private const val FIRST_DOCUMENT_ID = 42
 private const val FIRST_OPERATOR_ID = 0x300000
 
 /**
- * Fields that end in `Id` but name something the host defines, not a value the writer allocated:
- * `RcHostAction` and `RcHostMetadataAction` send their `actionId` to the host as it is, so a
- * changed one is a changed behaviour, never a renumbering.
+ * The fields of [operation] whose value the player hands to the host as it is — every raw id in an
+ * `RcPlayerEvent`: `RcHostAction` and `RcHostMetadataAction` send their `actionId`, and a tap on an
+ * `RcClickArea` sends its `id` (`HostActionMetadata`). A changed one is a changed behaviour, never
+ * a renumbering, so they are never matched. `RcHostNamedAction` sends resolved values, not ids, so
+ * its references match as usual.
  */
-private val HOST_FACING_FIELDS = setOf("actionId")
+private fun hostFacingFields(operation: RcOperation?): Set<String> =
+  when (operation) {
+    is RcHostAction,
+    is RcHostMetadataAction -> setOf("actionId")
+    is RcClickArea -> setOf("id")
+    else -> emptySet()
+  }
 
 /** An id written at [range] (its digits) of a line. */
 private class IdUse(val range: IntRange, val value: Int)
@@ -110,7 +122,8 @@ private class IdUse(val range: IntRange, val value: Int)
  * text style property's key (`IntValue(id=4, …)` names a property, not a value), system variables
  * and operators.
  */
-private fun idUses(text: String): List<IdUse> {
+private fun idUses(text: String, operation: RcOperation?): List<IdUse> {
+  val hostFacing = hostFacingFields(operation)
   val uses = mutableListOf<IdUse>()
   val strings = quotedSpans(text)
   fun add(start: Int, digits: String) {
@@ -124,7 +137,7 @@ private fun idUses(text: String): List<IdUse> {
   }
   ID_FIELD.findAll(text).forEach { match ->
     val field = match.groupValues[1]
-    if (field in HOST_FACING_FIELDS) return@forEach
+    if (field in hostFacing) return@forEach
     if (field == "id" && text.substring(0, match.range.first).endsWith("Value(")) return@forEach
     val digits = match.groupValues[2]
     add(match.range.last + 1 - digits.length, digits)
@@ -184,8 +197,8 @@ internal fun matchIds(
   before: List<RcStructuralLine>,
   after: List<RcStructuralLine>,
 ): List<RcStructuralLine> {
-  val beforeUses = before.map { idUses(it.text) }
-  val afterUses = after.map { idUses(it.text) }
+  val beforeUses = before.map { idUses(it.text, it.operation) }
+  val afterUses = after.map { idUses(it.text, it.operation) }
   val alignment =
     diffLines(
       before.indices.map { before[it].text.withIds(beforeUses[it]) { "%" } },

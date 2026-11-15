@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcClickArea
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -184,6 +185,29 @@ class RcStructuralDiffTest {
         .structuralDiff(document(RcHostNamedAction(42, RcHostNamedActionValue.FloatValue(6))))
     assertFalse(diff.summary.any { "only ids differ" in it }, diff.toString())
     assertTrue("valueId=6" in diff.unified, diff.toString())
+  }
+
+  @Test
+  fun aChangedClickAreaIdIsAChangeButItsReferencesStillMatch() {
+    fun area(id: Int, text: Int) =
+      document(
+        RcTextData(text, "Tap"),
+        RcClickArea(
+          id,
+          0,
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(1f),
+          RcFloatWord.literal(1f),
+          text,
+        ),
+      )
+    val changed = area(42, 50).structuralDiff(area(43, 50))
+    assertFalse(changed.summary.any { "only ids differ" in it }, changed.toString())
+    assertTrue("RcClickArea(id=43" in changed.unified, changed.toString())
+    // The text it reads is renumbered: that alone is only ids.
+    val renumbered = area(42, 50).structuralDiff(area(42, 51))
+    assertTrue(renumbered.summary.any { "only ids differ" in it }, renumbered.toString())
   }
 
   @Test
