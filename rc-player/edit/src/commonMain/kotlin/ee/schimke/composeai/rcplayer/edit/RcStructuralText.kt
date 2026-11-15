@@ -1,15 +1,20 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
+import ee.schimke.composeai.rcplayer.protocol.RcIdMap
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcSoundData
+import ee.schimke.composeai.rcplayer.protocol.RcTextData
 
 /**
  * The document as text a person or a line diff reads: the header's properties by name, then one
@@ -90,6 +95,28 @@ internal fun describeOperation(operation: RcOperation): String =
     is RcMacroDefine ->
       "RcMacroDefine(id=${operation.id}, parameterIds=${operation.parameterIds}, " +
         "body=${describeBytes(operation.body)})"
+    // Operations that hold text print it quoted and untouched: the rewrites below apply to a
+    // model's fields, never to what a string says.
+    is RcTextData -> "RcTextData(id=${operation.id}, text=${quote(operation.text)})"
+    is RcRemark -> "RcRemark(text=${quote(operation.text)})"
+    is RcNamedVariable ->
+      "RcNamedVariable(id=${operation.id}, type=${operation.type}, name=${quote(operation.name)})"
+    is RcIdMap ->
+      "RcIdMap(id=${operation.id}, entries=" +
+        operation.entries.joinToString(", ", "[", "]") {
+          "(name=${quote(it.name)}, type=${it.type}, id=${it.id})"
+        } +
+        ")"
+    is RcBitmapFontData ->
+      "RcBitmapFontData(fontId=${operation.fontId}, glyphs=" +
+        operation.glyphs.joinToString(", ", "[", "]") {
+          "(chars=${quote(it.chars)}, bitmapId=${it.bitmapId}, margins=[${it.marginLeft}, " +
+            "${it.marginTop}, ${it.marginRight}, ${it.marginBottom}], " +
+            "size=${it.bitmapWidth}x${it.bitmapHeight})"
+        } +
+        ", kerning=" +
+        operation.kerning.entries.joinToString(", ", "{", "}") { "${quote(it.key)}=${it.value}" } +
+        ")"
     else -> readableFields(operation.toString())
   }
 

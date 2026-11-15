@@ -37,7 +37,7 @@ The guard is `RcCaptureDeterminismTest`: it fails with the structural diff of th
 `RcDocument.toStructuralText()` (`rc-player-edit`, and `remote-compose-player --dump`) prints the
 header's properties by name, then one operation per line, indented by container, with no
 `ContainerEnd` lines. Float words print as their value or as `@id` for a NaN-boxed reference;
-embedded bytes print as their size and an FNV-1a hash. It is a pure function of the bytes, so it is a
+embedded bytes print as their size and an FNV-1a hash; strings print quoted and untouched. It is a pure function of the bytes, so it is a
 `git diff` textconv:
 
 ```sh
@@ -67,7 +67,9 @@ replaced by `onSurface` with expressions scaling one of its channels by 0.12 and
 Limits: ids are read from field names (`id=`, `…Id=`, `…Ids=[…]`) and `@` references, so an id
 packed into a raw word (paint data, an integer expression's values, `idAndWinding`) keeps its
 number and shows as changed. The summary does not try to say what a change means for drawing;
-`--render-png` or the A/B renders under `renders/` do.
+`--render-png` or the A/B renders under `renders/` do. A host-facing `actionId` is never matched,
+since a changed one changes behaviour. Past 2,000 edits in one span the line diff reports the span
+as replaced rather than aligning it, which bounds memory.
 
 ## Prior art
 

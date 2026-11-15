@@ -9,7 +9,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
+import ee.schimke.composeai.rcplayer.protocol.RcHostAction
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import kotlin.test.Test
@@ -49,7 +51,7 @@ class RcStructuralDiffTest {
     val lines = text.lines()
     assertEquals("header version=1.1.0", lines[0])
     assertEquals("  DOC_WIDTH=200", lines[1])
-    assertContains(text, "\nRcTextData(id=42, text=Hello)\n")
+    assertContains(text, "\nRcTextData(id=42, text=\"Hello\")\n")
     assertContains(text, "\n    RcBoxLayout(componentId=10")
     assertContains(text, "\n        RcColorConstant(id=46")
     assertFalse("CONTAINER_END" in text, text)
@@ -93,7 +95,7 @@ class RcStructuralDiffTest {
     assertContains(diff.summary, "text: added \"Goodbye\"; removed \"Hello\"")
     assertContains(
       diff.unified,
-      "-RcTextData(id=42, text=Hello)\n+RcTextData(id=42, text=Goodbye)\n",
+      "-RcTextData(id=42, text=\"Hello\")\n+RcTextData(id=42, text=\"Goodbye\")\n",
     )
   }
 
@@ -150,7 +152,39 @@ class RcStructuralDiffTest {
       "1 structural lines differ once ids are matched (5 as written)",
     )
     val changed = diff.unified.lines().filter { it.startsWith("+") || it.startsWith("-") }.drop(2)
-    assertEquals(listOf("+RcTextData(id=42', text=Subtitle)"), changed, diff.toString())
+    assertEquals(listOf("+RcTextData(id=42', text=\"Subtitle\")"), changed, diff.toString())
+  }
+
+  @Test
+  fun stringsPrintQuotedAndAreNeverRewritten() {
+    val a = document(RcRemark("RcFloatWord(bits=1065353216)"))
+    val b = document(RcRemark("1.0"))
+    assertContains(a.toStructuralText(), "RcRemark(text=\"RcFloatWord(bits=1065353216)\")")
+    assertFalse(a.structuralDiff(b).isIdentical)
+  }
+
+  @Test
+  fun aChangedHostActionIsAChangeNotARenumbering() {
+    val diff = document(RcHostAction(1)).structuralDiff(document(RcHostAction(2)))
+    assertContains(diff.unified, "-RcHostAction(actionId=1)\n+RcHostAction(actionId=2)\n")
+    assertFalse(diff.summary.any { "only ids differ" in it }, diff.toString())
+  }
+
+  @Test
+  fun aLongDiffIsBoundedAndStillCorrect() {
+    // Every line differs: past MAX_EDIT_DISTANCE the span is reported as replaced.
+    val a = List(MAX_EDIT_DISTANCE + 10) { "a$it" }
+    val b = List(MAX_EDIT_DISTANCE + 10) { "b$it" }
+    val edits = diffLines(listOf("same") + a, listOf("same") + b)
+    assertEquals(EditKind.Same, edits.first().kind)
+    assertEquals(
+      a,
+      edits.filter { it.kind == EditKind.Removed }.map { (listOf("same") + a)[it.aIndex] },
+    )
+    assertEquals(
+      b,
+      edits.filter { it.kind == EditKind.Added }.map { (listOf("same") + b)[it.bIndex] },
+    )
   }
 
   @Test

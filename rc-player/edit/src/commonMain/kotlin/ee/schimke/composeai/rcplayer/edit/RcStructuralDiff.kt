@@ -95,6 +95,13 @@ private val INTEGER = Regex("""-?\d+""")
 private const val FIRST_DOCUMENT_ID = 42
 private const val FIRST_OPERATOR_ID = 0x300000
 
+/**
+ * Fields that end in `Id` but name something the host defines, not a value the writer allocated:
+ * `RcHostAction` and `RcHostMetadataAction` send their `actionId` to the host as it is, so a
+ * changed one is a changed behaviour, never a renumbering.
+ */
+private val HOST_FACING_FIELDS = setOf("actionId")
+
 /** An id written at [range] (its digits) of a line. */
 private class IdUse(val range: IntRange, val value: Int)
 
@@ -110,6 +117,7 @@ private fun idUses(text: String): List<IdUse> {
   }
   ID_FIELD.findAll(text).forEach { match ->
     val field = match.groupValues[1]
+    if (field in HOST_FACING_FIELDS) return@forEach
     if (field == "id" && text.substring(0, match.range.first).endsWith("Value(")) return@forEach
     val digits = match.groupValues[2]
     add(match.range.last + 1 - digits.length, digits)
@@ -334,6 +342,9 @@ internal fun diffLines(a: List<String>, b: List<String>): List<Edit> {
   return edits
 }
 
+/** The most edits [myers] aligns; beyond it a span is reported as replaced. */
+internal const val MAX_EDIT_DISTANCE: Int = 2_000
+
 private fun myers(a: List<String>, b: List<String>, aOffset: Int, bOffset: Int): List<Edit> {
   val n = a.size
   val m = b.size
@@ -342,10 +353,17 @@ private fun myers(a: List<String>, b: List<String>, aOffset: Int, bOffset: Int):
   val max = n + m
   val offset = max
   val v = IntArray(2 * max + 2)
+  // Each step keeps only the diagonals it can reach, -d..d: O(D²) memory in all, not O(D·(N+M)).
   val trace = mutableListOf<IntArray>()
   var found = false
   for (d in 0..max) {
-    trace += v.copyOf()
+    // Past this many edits the two have little in common line for line: report the span as
+    // replaced rather than spend memory and time on an alignment nobody reads.
+    if (d > MAX_EDIT_DISTANCE) {
+      return List(n) { Edit(EditKind.Removed, aOffset + it, bOffset) } +
+        List(m) { Edit(EditKind.Added, aOffset + n, bOffset + it) }
+    }
+    trace += v.copyOfRange(offset - d, offset + d + 1)
     var k = -d
     while (k <= d) {
       var x =
@@ -370,11 +388,11 @@ private fun myers(a: List<String>, b: List<String>, aOffset: Int, bOffset: Int):
   var x = n
   var y = m
   for (d in trace.size - 1 downTo 0) {
-    val vd = trace[d]
+    val window = trace[d]
+    fun vd(k: Int) = window[k + d]
     val k = x - y
-    val previousK =
-      if (k == -d || (k != d && vd[offset + k - 1] < vd[offset + k + 1])) k + 1 else k - 1
-    val previousX = if (d == 0) 0 else vd[offset + previousK]
+    val previousK = if (k == -d || (k != d && vd(k - 1) < vd(k + 1))) k + 1 else k - 1
+    val previousX = if (d == 0) 0 else vd(previousK)
     val previousY = previousX - previousK
     while (x > previousX && y > previousY) {
       x--
