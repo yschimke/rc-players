@@ -1,7 +1,10 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.unit.Density
@@ -23,6 +26,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import org.jetbrains.skia.Bitmap
 
 /**
  * A host value lands with one composition of the player's top level, on the frame it lands.
@@ -69,6 +73,55 @@ class RcValueVersionsPublishTest {
     }
   }
 
+  /**
+   * A host that writes its values as it composes, before the player (as Livery's template does from
+   * its plan), has them drawn on that frame, as a composable handed new parameters is: the player
+   * applies a change in the composition that sees it. Through the player's collector it drew a
+   * frame later.
+   */
+  @Test
+  fun aValueTheHostWritesAsItComposesDrawsOnThatFrame() {
+    val namedValues = mutableStateMapOf<String, RcNamedValue>()
+    var width by mutableIntStateOf(20)
+    val scene =
+      ImageComposeScene(width = 60, height = 20, density = Density(1f)) {
+        val target = width
+        Snapshot.withoutReadObservation {
+          namedValues["USER:width"] = RcNamedValue.FloatValue(target.toFloat())
+        }
+        CompositionLocalProvider(LocalRcLayoutAnimations provides false) {
+          RcComposePlayer(document(), namedValues = namedValues)
+        }
+      }
+    try {
+      var time = 0L
+      repeat(3) {
+        scene.render(time).close()
+        time += FRAME_NANOS
+      }
+      for (next in listOf(30, 45, 25)) {
+        width = next
+        Snapshot.sendApplyNotifications()
+        val drawn =
+          countingCompositions(TOP_LEVEL) { count ->
+            val image = scene.render(time)
+            time += FRAME_NANOS
+            val bitmap = Bitmap().apply { allocN32Pixels(60, 20) }
+            image.readPixels(bitmap)
+            image.close()
+            (0 until 60).count { bitmap.getColor(it, 5) == RED } to count()
+          }
+        assertEquals(
+          next to 1,
+          drawn,
+          "(width drawn, top-level compositions) on the change's frame",
+        )
+      }
+    } finally {
+      scene.close()
+    }
+  }
+
   private fun document(): RcDocument {
     val end = RcNoArg(RcOpcodes.CONTAINER_END)
     return RcDocument(
@@ -105,5 +158,6 @@ class RcValueVersionsPublishTest {
     const val TOP_LEVEL = "ee.schimke.composeai.rcplayer.compose.RcComposePlayerResolved"
     const val WIDTH = 42
     const val FRAME_NANOS = 16_000_000L
+    const val RED = 0xFFFF0000.toInt()
   }
 }

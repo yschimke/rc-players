@@ -717,6 +717,20 @@ private fun RcComposePlayerResolved(
   var lookahead by remember(state) { mutableStateOf(animatesBounds && !defersLookahead) }
   var hostChanges by remember(state) { mutableIntStateOf(0) }
   val layoutAnimationActivity = remember(state) { RcLayoutAnimationActivity() }
+  val applyHostValues: (Map<String, RcNamedValue>) -> Unit =
+    remember(state) {
+      { current ->
+        (appliedNamedValues.keys - current.keys).forEach(state::clearNamedValue)
+        current.forEach { (name, value) ->
+          if (appliedNamedValues[name] != value) state.setNamedValue(name, value)
+        }
+        appliedNamedValues.clear()
+        appliedNamedValues.putAll(current)
+      }
+    }
+  // Set while the collector below lays the tree out under the pass at the old values, before it
+  // applies a change: the composition must not apply it first.
+  val switchingOnLookahead = remember(state) { booleanArrayOf(false) }
   LaunchedEffect(state, namedValues) {
     snapshotFlow { namedValues.toMap() }
       .collect { current ->
@@ -724,22 +738,38 @@ private fun RcComposePlayerResolved(
         if (!lookahead && animatesBounds) {
           // Lay the tree out under the lookahead pass at the old values first, so the change has
           // bounds to animate from.
+          switchingOnLookahead[0] = true
           lookahead = true
-          withFrameNanos {}
-          withFrameNanos {}
+          try {
+            withFrameNanos {}
+            withFrameNanos {}
+          } finally {
+            switchingOnLookahead[0] = false
+          }
+          if (namedValues.toMap() == appliedNamedValues) return@collect
         }
-        (appliedNamedValues.keys - current.keys).forEach(state::clearNamedValue)
-        current.forEach { (name, value) ->
-          if (appliedNamedValues[name] != value) state.setNamedValue(name, value)
-        }
-        appliedNamedValues.clear()
-        appliedNamedValues.putAll(current)
+        applyHostValues(current)
         // `setNamedValue` writes into the state's maps without going through the action path, so
         // nothing else tells the draw layer a value moved. Per value, only the top level recomposes
         // and publishes what moved; otherwise the whole player does.
         if (perValueInvalidation) hostValueVersion += 1 else invalidationVersion += 1
         hostChanges += 1
       }
+  }
+  // Per value, a host change lands in the composition that sees it, rather than a frame later
+  // through the collector above: a host that writes its values as it composes (before this player)
+  // has them drawn on that frame, as a composable given new parameters would be. The top level then
+  // evaluates and publishes them below, in this same composition. A change that first switches the
+  // lookahead pass on still goes through the collector, which waits for the pass.
+  if (perValueInvalidation && !switchingOnLookahead[0] && (lookahead || !animatesBounds)) {
+    val current = namedValues.toMap()
+    if (current != appliedNamedValues) {
+      applyHostValues(current)
+      // Counted after the composition, as the collector counts: written here, the count would
+      // recompose this top level again on the next frame.
+      if (defersLookahead && hostChanges < LOOKAHEAD_LIVE_HOST_CHANGES)
+        SideEffect { hostChanges += 1 }
+    }
   }
   if (defersLookahead) {
     // Restarted by every change, so the pass stays on until the last one's animations have run:
