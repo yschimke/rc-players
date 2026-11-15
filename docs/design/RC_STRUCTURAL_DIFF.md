@@ -64,8 +64,10 @@ The disabled filled button in the catalog corpus against the enabled one goes fr
 to 31, and the summary says what a reviewer needs: the click handler gone, `onPrimary` and `primary`
 replaced by `onSurface` with expressions scaling one of its channels by 0.12 and 0.38 (the disabled container and label).
 
-Limits: ids are read from field names (`id=`, `…Id=`, `…Ids=[…]`) and `@` references, so an id
-packed into a raw word (paint data, an integer expression's values, `idAndWinding`) keeps its
+Limits: ids are read from the operation's own top-level fields (`id=`, `…Id=`, `…Ids=[…]`) and from
+`@` references anywhere, never from inside a string or a nested value. The rule leans that way
+because a missed id leaves a renumbered line, while a number wrongly taken for an id would hide a
+real change. So an id packed into a raw word (paint data, an integer expression's values, `idAndWinding`) keeps its
 number and shows as changed. The summary does not try to say what a change means for drawing;
 `--render-png` or the A/B renders under `renders/` do. A host-facing `actionId` is never matched,
 since a changed one changes behaviour. Past 2,000 edits in one span the line diff reports the span

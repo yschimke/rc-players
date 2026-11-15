@@ -118,16 +118,22 @@ private fun hostFacingFields(operation: RcOperation?): Set<String> =
 private class IdUse(val range: IntRange, val value: Int)
 
 /**
- * The document ids [text] names, in order. Not ids: 0 and -1 (no id), system variables (1 to 41), a
- * text style property's key (`IntValue(id=4, …)` names a property, not a value), system variables
- * and operators.
+ * The document ids [text] names, in order.
+ *
+ * Read from the rendered text, so the rule leans one way: a missed id only leaves a renumbered line
+ * in the diff, but a number wrongly taken for an id hides a real change. So an id field counts only
+ * at the operation's top level — `id=`, `…Id=` and `…Ids=[…]` among its own fields, never inside a
+ * nested value (a text style's properties, a shader's uniforms keyed by name, a map's entries) —
+ * and never what a string says. A NaN-boxed `@` reference is a typed reference wherever it appears.
+ * Never ids: 0 and -1 (no id), the player's system variables (1 to 41), operators, and what the
+ * player hands to the host ([hostFacingFields]).
  */
 private fun idUses(text: String, operation: RcOperation?): List<IdUse> {
   val hostFacing = hostFacingFields(operation)
   val uses = mutableListOf<IdUse>()
   val strings = quotedSpans(text)
+  val depth = nestingDepth(text, strings)
   fun add(start: Int, digits: String) {
-    // What a string says is content, however much it looks like an id.
     if (strings.any { start in it }) return
     val value = digits.toIntOrNull() ?: return
     // Positive ids below the first document id are the player's system variables (window
@@ -136,13 +142,12 @@ private fun idUses(text: String, operation: RcOperation?): List<IdUse> {
     uses += IdUse(start until start + digits.length, value)
   }
   ID_FIELD.findAll(text).forEach { match ->
-    val field = match.groupValues[1]
-    if (field in hostFacing) return@forEach
-    if (field == "id" && text.substring(0, match.range.first).endsWith("Value(")) return@forEach
+    if (depth[match.range.first] != 1 || match.groupValues[1] in hostFacing) return@forEach
     val digits = match.groupValues[2]
     add(match.range.last + 1 - digits.length, digits)
   }
   ID_LIST.findAll(text).forEach { match ->
+    if (depth[match.range.first] != 1 || match.groupValues[1] in hostFacing) return@forEach
     val start = match.range.first + match.groupValues[1].length + 2
     INTEGER.findAll(match.groupValues[2]).forEach { add(start + it.range.first, it.value) }
   }
@@ -152,6 +157,22 @@ private fun idUses(text: String, operation: RcOperation?): List<IdUse> {
     if (value in FIRST_DOCUMENT_ID until FIRST_OPERATOR_ID) add(match.range.first + 1, digits)
   }
   return uses.sortedBy { it.range.first }
+}
+
+/**
+ * How deep in brackets each character of [text] sits, outside [strings]: 1 inside an operation's
+ * own parentheses, more inside a list, map or nested value.
+ */
+private fun nestingDepth(text: String, strings: List<IntRange>): IntArray {
+  val depth = IntArray(text.length)
+  var level = 0
+  text.forEachIndexed { i, c ->
+    val inString = strings.any { i in it }
+    if (!inString && (c == ')' || c == ']' || c == '}')) level--
+    depth[i] = level
+    if (!inString && (c == '(' || c == '[' || c == '{')) level++
+  }
+  return depth
 }
 
 /** The spans of [text] inside `quote`d strings, quotes included, honouring `\\` escapes. */

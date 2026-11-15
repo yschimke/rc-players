@@ -15,6 +15,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcHostNamedAction
 import ee.schimke.composeai.rcplayer.protocol.RcHostNamedActionValue
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
+import ee.schimke.composeai.rcplayer.protocol.RcShaderData
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import kotlin.test.Test
@@ -208,6 +209,16 @@ class RcStructuralDiffTest {
     // The text it reads is renumbered: that alone is only ids.
     val renumbered = area(42, 50).structuralDiff(area(42, 51))
     assertTrue(renumbered.summary.any { "only ids differ" in it }, renumbered.toString())
+  }
+
+  @Test
+  fun numbersNestedInAValueAreLiteralsNotIds() {
+    // A shader's int uniform named `ids` is a literal the shader reads, not a list of ids.
+    fun shader(values: List<Int>) =
+      document(RcShaderData(42, 43, emptyMap(), mapOf("ids" to values), emptyMap()))
+    val diff = shader(listOf(50, 51)).structuralDiff(shader(listOf(60, 61)))
+    assertFalse(diff.summary.any { "only ids differ" in it }, diff.toString())
+    assertTrue("60, 61" in diff.unified, diff.toString())
   }
 
   @Test
