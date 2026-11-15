@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.snapshots.Snapshot
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 
 /**
@@ -49,14 +50,22 @@ internal class RcValueVersions {
     var enabled: Boolean = true
   }
 
-  /** Bumps the version of every observed id whose value is not the one last published for it. */
+  /**
+   * Bumps the version of every observed id whose value is not the one last published for it.
+   *
+   * The bump reads the version it raises, and the top level publishes from its own composition: a
+   * tracked read there subscribed the top level to every version it ever bumped, so each change it
+   * published recomposed the top level again on the next frame, for nothing.
+   */
   fun publish() {
     val state = state ?: return
-    for ((id, version) in versions) {
-      val now = state.valueSignature(id)
-      if (published[id] != now) {
-        published[id] = now
-        version.intValue += 1
+    Snapshot.withoutReadObservation {
+      for ((id, version) in versions) {
+        val now = state.valueSignature(id)
+        if (published[id] != now) {
+          published[id] = now
+          version.intValue += 1
+        }
       }
     }
   }
