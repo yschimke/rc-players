@@ -939,6 +939,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun getReadsContinuousClock ()Z
 	public final fun getRootContentBehavior ()Lee/schimke/composeai/rcplayer/protocol/RcRootContentBehavior;
 	public final fun getRootContentDescription ()Ljava/lang/String;
+	public final fun getValueReadObserver ()Lkotlin/jvm/functions/Function1;
 	public final fun hasComponentValues (I)Z
 	public final fun integer (I)Ljava/lang/Integer;
 	public final fun isContinuouslyDriven (I)Z
@@ -974,7 +975,9 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun setOnRepaint (Lkotlin/jvm/functions/Function0;)V
 	public final fun setPath (ILee/schimke/composeai/rcplayer/protocol/RcPathData;)V
 	public final fun setText (ILjava/lang/String;)V
+	public final fun setValueReadObserver (Lkotlin/jvm/functions/Function1;)V
 	public final fun text (I)Ljava/lang/String;
+	public final fun valueSignature (I)Ljava/lang/Object;
 }
 
 public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerStateKt {

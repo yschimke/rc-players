@@ -193,35 +193,67 @@ private constructor(
     particleLimits = RcParticleExecutionLimits(),
   )
 
-  private val floats = mutableMapOf<Int, Float>()
+  /**
+   * Called with the id of every value the player reads ([valueReadObserver]): through an accessor,
+   * or while it evaluates an operation (a canvas computing a text as it draws reads its inputs
+   * straight from these maps). A host can map each id to observable state, so whatever read it is
+   * invalidated when, and only when, that value changes ([valueSignature]). Null, the default,
+   * observes nothing.
+   */
+  public var valueReadObserver: ((id: Int) -> Unit)? = null
+
+  /**
+   * Depth of the state's own evaluation of the document: refreshing derived values from new inputs
+   * ([applyLayoutContentStateOperations], the expressions a published geometry feeds). Its reads
+   * are the evaluation, not a use of the values, so they are not reported to [valueReadObserver]:
+   * what reads an output is told when the output moves. Reporting them subscribed whatever
+   * triggered the refresh (a component's measure pass) to every input of every expression, the
+   * clock among them, so each frame's new time invalidated it, and it refreshed again.
+   */
+  private var internalEvaluation = 0
+
+  private val noteMapRead: (Int) -> Unit = { id ->
+    if (internalEvaluation == 0) valueReadObserver?.invoke(id)
+  }
+
+  private inline fun <T> evaluating(block: () -> T): T {
+    internalEvaluation++
+    try {
+      return block()
+    } finally {
+      internalEvaluation--
+    }
+  }
+
+  private val floats = RcObservedValues<Float>(noteMapRead)
   private val componentValues: Map<Int, List<RcComponentValue>> =
     seed?.componentValues ?: rcComponentValuesOf(document)
   private val componentGeometries = mutableMapOf<Int, RcComponentGeometry>()
   private val componentContentWidths = mutableMapOf<Int, Float>()
   private val componentContentHeights = mutableMapOf<Int, Float>()
-  private val colors = mutableMapOf<Int, Int>()
+  private val colors = RcObservedValues<Int>(noteMapRead)
   private val baseTexts = mutableMapOf<Int, String>()
   private val textOverrides = mutableMapOf<Int, String>()
-  private val texts = mutableMapOf<Int, String>()
-  private val integers = mutableMapOf<Int, Int>()
-  private val booleans = mutableMapOf<Int, Boolean>()
-  private val longs = mutableMapOf<Int, Long>()
+  private val texts = RcObservedValues<String>(noteMapRead)
+  private val integers = RcObservedValues<Int>(noteMapRead)
+  private val booleans = RcObservedValues<Boolean>(noteMapRead)
+  private val longs = RcObservedValues<Long>(noteMapRead)
   private val basePaths = mutableMapOf<Int, RcPathData>()
-  private val paths = mutableMapOf<Int, RcPathData>()
+  private val paths = RcObservedValues<RcPathData>(noteMapRead)
   private val variableNames = mutableMapOf<String, RcNamedVariable>()
   private val documentNamedValues = mutableMapOf<String, RcNamedValue>()
   private val matrices = mutableMapOf<Int, RcMatrixConstant>()
   private val computedMatrices = mutableMapOf<Int, FloatArray>()
   private val idLists = mutableMapOf<Int, RcIdList>()
   private val floatLists = mutableMapOf<Int, RcFloatList>()
-  private val dynamicFloatLists = mutableMapOf<Int, FloatArray>()
+  private val dynamicFloatLists = RcObservedValues<FloatArray>(noteMapRead)
 
   /**
    * Host float-array overrides, kept apart from [dynamicFloatLists] so the document cannot undo
    * them: replaying a `DynamicFloatList` declaration resizes the list it owns, and an override of
    * another length would otherwise be zero-filled away on the next frame. Reads check here first.
    */
-  private val floatArrayOverrides = mutableMapOf<Int, FloatArray>()
+  private val floatArrayOverrides = RcObservedValues<FloatArray>(noteMapRead)
 
   /** Colour ids the host overrides by name; document writes to them are ignored ([setColor]). */
   private val colorOverrides = mutableSetOf<Int>()
@@ -646,6 +678,23 @@ private constructor(
     } ?: word.value
 
   public fun color(id: Int): Int = colors[id] ?: 0
+
+  /**
+   * Everything the player holds at [id], in a value that is equal from one call to the next exactly
+   * when none of it changed: what a host that observes reads ([valueReadObserver]) compares to know
+   * which ids moved. It reads nothing through the observer.
+   */
+  public fun valueSignature(id: Int): Any =
+    RcValueSignature(
+      floats.peek(id)?.toRawBits(),
+      integers.peek(id),
+      texts.peek(id),
+      colors.peek(id),
+      longs.peek(id),
+      booleans.peek(id),
+      paths.peek(id),
+      (floatArrayOverrides.peek(id) ?: dynamicFloatLists.peek(id))?.toList(),
+    )
 
   public fun text(id: Int): String? = texts[id]
 
@@ -1332,7 +1381,7 @@ private constructor(
     // those out ids unset, so `color(outId)` answered 0 and a `CoreText` reading one rendered fully
     // transparent — while `composeSupportReport` counted the id as declared and passed the document
     // as renderable. Same shape as the canvas-scope bug the comment above records, one level up.
-    applyScope(children, RcTheme.UNSPECIFIED, applyDirect = true)
+    evaluating { applyScope(children, RcTheme.UNSPECIFIED, applyDirect = true) }
   }
 
   /**
@@ -2044,6 +2093,15 @@ private constructor(
     geometry: RcComponentGeometry,
     refreshExpressions: Boolean = true,
     invalidate: Boolean = true,
+  ): Boolean = evaluating {
+    publishComponentValuesEvaluated(componentId, geometry, refreshExpressions, invalidate)
+  }
+
+  private fun publishComponentValuesEvaluated(
+    componentId: Int,
+    geometry: RcComponentGeometry,
+    refreshExpressions: Boolean,
+    invalidate: Boolean,
   ): Boolean {
     var changed = false
     var changedCount = 0
@@ -2433,3 +2491,37 @@ private val EVERY_FRAME_CONTAINERS: Set<Int> =
 private val CLOCK_BITS: Long =
   RcSystemVariables.CLOCK.filter { it in 0 until Long.SIZE_BITS }
     .fold(0L) { bits, id -> bits or (1L shl id) }
+
+/** [RcPlayerState.valueSignature]: each map's value at one id. */
+private data class RcValueSignature(
+  val float: Int?,
+  val integer: Int?,
+  val text: String?,
+  val color: Int?,
+  val long: Long?,
+  val boolean: Boolean?,
+  val path: RcPathData?,
+  val floats: List<Float>?,
+)
+
+/**
+ * A value map that reports each id it is asked for ([RcPlayerState.valueReadObserver]); [peek]
+ * reads without.
+ */
+private class RcObservedValues<V>
+private constructor(private val onRead: (Int) -> Unit, private val backing: LinkedHashMap<Int, V>) :
+  MutableMap<Int, V> by backing {
+  constructor(onRead: (Int) -> Unit) : this(onRead, LinkedHashMap())
+
+  override fun get(key: Int): V? {
+    onRead(key)
+    return backing[key]
+  }
+
+  override fun containsKey(key: Int): Boolean {
+    onRead(key)
+    return backing.containsKey(key)
+  }
+
+  fun peek(key: Int): V? = backing[key]
+}

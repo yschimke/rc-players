@@ -1159,6 +1159,9 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
     final var onRepaint // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.onRepaint|{}onRepaint[0]
         final fun <get-onRepaint>(): kotlin/Function0<kotlin/Unit>? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.onRepaint.<get-onRepaint>|<get-onRepaint>(){}[0]
         final fun <set-onRepaint>(kotlin/Function0<kotlin/Unit>?) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.onRepaint.<set-onRepaint>|<set-onRepaint>(kotlin.Function0<kotlin.Unit>?){}[0]
+    final var valueReadObserver // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.valueReadObserver|{}valueReadObserver[0]
+        final fun <get-valueReadObserver>(): kotlin/Function1<kotlin/Int, kotlin/Unit>? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.valueReadObserver.<get-valueReadObserver>|<get-valueReadObserver>(){}[0]
+        final fun <set-valueReadObserver>(kotlin/Function1<kotlin/Int, kotlin/Unit>?) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.valueReadObserver.<set-valueReadObserver>|<set-valueReadObserver>(kotlin.Function1<kotlin.Int,kotlin.Unit>?){}[0]
 
     final fun applyAddMesh2D(ee.schimke.composeai.rcplayer.protocol/RcAddMesh2D): ee.schimke.composeai.rcplayer.runtime/RcMesh2DGeometry // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.applyAddMesh2D|applyAddMesh2D(ee.schimke.composeai.rcplayer.protocol.RcAddMesh2D){}[0]
     final fun applyColorAttribute(ee.schimke.composeai.rcplayer.protocol/RcColorAttribute) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.applyColorAttribute|applyColorAttribute(ee.schimke.composeai.rcplayer.protocol.RcColorAttribute){}[0]
@@ -1231,6 +1234,7 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
     final fun setPath(kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcPathData) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.setPath|setPath(kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcPathData){}[0]
     final fun setText(kotlin/Int, kotlin/String) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.setText|setText(kotlin.Int;kotlin.String){}[0]
     final fun text(kotlin/Int): kotlin/String? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.text|text(kotlin.Int){}[0]
+    final fun valueSignature(kotlin/Int): kotlin/Any // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.valueSignature|valueSignature(kotlin.Int){}[0]
 }
 
 final class ee.schimke.composeai.rcplayer.runtime/RcPlayerStateSeed { // ee.schimke.composeai.rcplayer.runtime/RcPlayerStateSeed|null[0]

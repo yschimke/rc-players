@@ -583,6 +583,15 @@ private fun RcComposePlayerResolved(
   val soundDispatcher = remember(document) { RcSoundHostDispatcher(soundHost) }
   SideEffect { soundDispatcher.updateHost(soundHost) }
   var invalidationVersion by remember { mutableIntStateOf(0) }
+  // Per-value invalidation (see [RcValueVersions]): a document laid out as a tree recomposes,
+  // measures and draws only
+  // what read a value that moved. A canvas document, or one whose geometry reaches its layout (it
+  // settles its first
+  // layout: the probes publish geometry from inside a measure pass), invalidates the whole player,
+  // as before.
+  val perValueInvalidation =
+    RcValueVersions.enabled && prepared.layout != null && !prepared.settlesFirstLayout
+  val valueVersions = remember(document) { RcValueVersions() }
   var wakeIntervalSeconds by remember(document) { mutableStateOf<Float?>(null) }
   var nextFrameRequestVersion by remember(document) { mutableIntStateOf(0) }
   // Keyed on the document alone. `namedValues` is deliberately *not* in the key: a host rebuilding
@@ -603,7 +612,13 @@ private fun RcComposePlayerResolved(
         // Seeded once, from whatever the map holds when this document is first composed.
         seededNamedValues,
         eventSink = { latestEventSink(it) },
-        onInvalidated = { invalidationVersion += 1 },
+        // A value the top level's own evaluation moved reaches what read it through
+        // [RcValueVersions.publish]: the
+        // whole player is invalidated only for a change outside it (an action, a component's
+        // geometry).
+        onInvalidated = {
+          if (!(perValueInvalidation && valueVersions.suppressed)) invalidationVersion += 1
+        },
         effectSink = { effect ->
           when (effect) {
             is RcPlayerEffect.HapticFeedback ->
@@ -633,6 +648,14 @@ private fun RcComposePlayerResolved(
         systemColorLookup = { name -> latestSystemColors(name)?.toRcArgb() },
       )
     }
+  remember(state) {
+    valueVersions.state = state
+    if (perValueInvalidation) state.valueReadObserver = valueVersions::observe
+  }
+  // Reads from here to the tree are the top level evaluating the document; see
+  // [RcValueVersions.suppressed].
+  valueVersions.suppressed = true
+  var hostValueVersion by remember(state) { mutableIntStateOf(0) }
   // What the host is actually playing at, for a capture that deferred its density instead of
   // folding it in. Handed to the state as soon as it is built, before anything is laid out: pushed
   // only from a `SideEffect`, it arrived after the first frame had already resolved every deferred
@@ -711,8 +734,10 @@ private fun RcComposePlayerResolved(
         appliedNamedValues.clear()
         appliedNamedValues.putAll(current)
         // `setNamedValue` writes into the state's maps without going through the action path, so
-        // nothing else tells the draw layer a value moved.
-        invalidationVersion += 1
+        // nothing else tells the draw layer a value moved. Per value, only the top level recomposes
+        // and publishes
+        // what moved; otherwise the whole player does.
+        if (perValueInvalidation) hostValueVersion += 1 else invalidationVersion += 1
         hostChanges += 1
       }
   }
@@ -960,6 +985,7 @@ private fun RcComposePlayerResolved(
   // Cheap, because `invalidationVersion` is event-driven — actions, wake-ins, next-frame requests,
   // host writes — and not bumped per frame; continuous animation drives `frameNanos` instead.
   invalidationVersion
+  hostValueVersion
   val semanticsModifier =
     state.rootContentDescription?.let { description ->
       modifier.semantics { contentDescription = description }
@@ -1018,6 +1044,9 @@ private fun RcComposePlayerResolved(
     // beginFrame resets derived text to the document's literals, so the ids the layout's own data
     // operations publish must be recomputed before this same composition measures and draws.
     state.applyLayoutContentStateOperations(linkedDocument.operations, theme)
+    // The derived values are this frame's: whatever read one that moved is invalidated, in this
+    // same composition.
+    if (perValueInvalidation) valueVersions.publish()
     val version = invalidationVersion
     // Only a document whose own geometry reaches layout pays for settling; one that reads it only
     // at paint time publishes sizes from the kept tree's measure pass instead (see
@@ -1106,6 +1135,7 @@ private fun RcComposePlayerResolved(
         if (lookahead) LookaheadScope { content(this, probe) } else content(null, probe)
       }
     }
+    valueVersions.suppressed = false
     if (settles) {
       RcSettledLayout(
         modifier = redrawModifier,
