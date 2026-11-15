@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.5.2](https://github.com/yschimke/rc-players/compare/v3.5.1...v3.5.2) (2026-11-15)
+
+
+### Bug Fixes
+
+* **rc-player-edit:** bitmap fonts write no glyph spacing for a target below level 8 ([#908](https://github.com/yschimke/rc-players/issues/908)) ([92b74ae](https://github.com/yschimke/rc-players/commit/92b74ae9963ea266e9004dbfac5da0ea8ebb1c53))
+* **rc-player:** a brush drawn over a background stays over it after a margin ([#907](https://github.com/yschimke/rc-players/issues/907)) ([3746884](https://github.com/yschimke/rc-players/commit/37468842cf6a67b16d0e6818def2f2fbdd8615f8))
+
 ## [3.5.1](https://github.com/yschimke/rc-players/compare/v3.5.0...v3.5.1) (2026-11-14)
 
 
