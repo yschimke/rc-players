@@ -138,5 +138,30 @@ public data class RcWearHost(val name: String, val small: RcWearFrame, val large
       )
 
     public val All: List<RcWearHost> = listOf(Pixel, Galaxy)
+
+    /** [Pixel]'s squircle host on a smaller (204 dp) watch. */
+    public val PixelSmallScreen: RcWearHost =
+      RcWearHost(
+        "Pixel 204dp",
+        RcWearFrame(RcWearContainerType.SMALL, 166f, 60f, 8f, 8f, 26f),
+        RcWearFrame(RcWearContainerType.LARGE, 166f, 96f, 8f, 8f, 26f),
+      )
+
+    /** [Galaxy]'s round host on a smaller (216 dp) watch. */
+    public val GalaxySmallScreen: RcWearHost =
+      RcWearHost(
+        "Galaxy 216dp",
+        RcWearFrame(RcWearContainerType.SMALL, 182f, 54f, 13f, 8f, 999f),
+        RcWearFrame(RcWearContainerType.LARGE, 150f, 120f, 29f, 16f, 999f),
+      )
+
+    /**
+     * The hosts Glance Wear's own previews draw a widget in (`wear-tooling-preview`'s
+     * `WidgetPreviewParams`, 1.0.0-alpha22): the squircle host on 204 and 240 dp screens and the
+     * round one on 216 and 240 dp. A design drawn in each of their containers fits every watch
+     * those previews stand for.
+     */
+    public val Previews: List<RcWearHost> =
+      listOf(PixelSmallScreen, Pixel, GalaxySmallScreen, Galaxy)
   }
 }

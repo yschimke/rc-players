@@ -97,7 +97,8 @@ behind another function in `RcCreationCompat.kt`.
   - values read with another type.
 - **The Wear container contract.** `RcWearContainer` names the frame values a template leaves to the
   watch: `wear.container.horizontal_padding`, `vertical_padding`, `corner_radius` and `color`.
-  - `RcWearFrame` and `RcWearHost` hold a host's containers (Pixel, Galaxy, Glance Wear's default).
+  - `RcWearFrame` and `RcWearHost` hold a host's containers (Pixel, Galaxy, Glance Wear's default), and
+    `RcWearHost.Previews` the four hosts Glance Wear's own previews draw a widget in.
   - `RcWearTemplates` writes a host's frame in: `instantiate` for a widget, `forApp` for the app's
     own player.
   - `fromCardDesign` turns a phone card design into a Wear template by making its card box the

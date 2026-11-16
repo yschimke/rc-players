@@ -312,8 +312,14 @@ final class ee.schimke.composeai.rcwidget/RcWearHost { // ee.schimke.composeai.r
             final fun <get-Default>(): ee.schimke.composeai.rcwidget/RcWearHost // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Default.<get-Default>|<get-Default>(){}[0]
         final val Galaxy // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Galaxy|{}Galaxy[0]
             final fun <get-Galaxy>(): ee.schimke.composeai.rcwidget/RcWearHost // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Galaxy.<get-Galaxy>|<get-Galaxy>(){}[0]
+        final val GalaxySmallScreen // ee.schimke.composeai.rcwidget/RcWearHost.Companion.GalaxySmallScreen|{}GalaxySmallScreen[0]
+            final fun <get-GalaxySmallScreen>(): ee.schimke.composeai.rcwidget/RcWearHost // ee.schimke.composeai.rcwidget/RcWearHost.Companion.GalaxySmallScreen.<get-GalaxySmallScreen>|<get-GalaxySmallScreen>(){}[0]
         final val Pixel // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Pixel|{}Pixel[0]
             final fun <get-Pixel>(): ee.schimke.composeai.rcwidget/RcWearHost // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Pixel.<get-Pixel>|<get-Pixel>(){}[0]
+        final val PixelSmallScreen // ee.schimke.composeai.rcwidget/RcWearHost.Companion.PixelSmallScreen|{}PixelSmallScreen[0]
+            final fun <get-PixelSmallScreen>(): ee.schimke.composeai.rcwidget/RcWearHost // ee.schimke.composeai.rcwidget/RcWearHost.Companion.PixelSmallScreen.<get-PixelSmallScreen>|<get-PixelSmallScreen>(){}[0]
+        final val Previews // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Previews|{}Previews[0]
+            final fun <get-Previews>(): kotlin.collections/List<ee.schimke.composeai.rcwidget/RcWearHost> // ee.schimke.composeai.rcwidget/RcWearHost.Companion.Previews.<get-Previews>|<get-Previews>(){}[0]
     }
 }
 

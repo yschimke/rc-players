@@ -304,7 +304,10 @@ public final class ee/schimke/composeai/rcwidget/RcWearHost$Companion {
 	public final fun getAll ()Ljava/util/List;
 	public final fun getDefault ()Lee/schimke/composeai/rcwidget/RcWearHost;
 	public final fun getGalaxy ()Lee/schimke/composeai/rcwidget/RcWearHost;
+	public final fun getGalaxySmallScreen ()Lee/schimke/composeai/rcwidget/RcWearHost;
 	public final fun getPixel ()Lee/schimke/composeai/rcwidget/RcWearHost;
+	public final fun getPixelSmallScreen ()Lee/schimke/composeai/rcwidget/RcWearHost;
+	public final fun getPreviews ()Ljava/util/List;
 }
 
 public final class ee/schimke/composeai/rcwidget/RcWearTemplates {
