@@ -109,13 +109,18 @@ class AndroidxVisibilityAnimationBytesTest {
     var androidxId = 0
     val expected =
       createRawRcBuffer(androidxProfile) {
-          androidxId = defineVisibilityAnimation { component, _, width, height, x, y ->
-            val buffer = createOffscreenBitmap()
-            drawComponentToBitmap(component, buffer)
-            clipRect(x, y, width, height)
-            drawComponentToBitmap(buffer)
-            drawComponentContent()
-          }
+          // `.hashCode()`: the id itself on either Remote Compose lane. The pinned release returns
+          // it as an `Int`; androidx-main (`-Pcomposeai.remoteCompose=snapshot`) as an
+          // `RcVisibilityAnimation`, a value class over the id that does not expose it.
+          androidxId =
+            defineVisibilityAnimation { component, _, width, height, x, y ->
+              val buffer = createOffscreenBitmap()
+              drawComponentToBitmap(component, buffer)
+              clipRect(x, y, width, height)
+              drawComponentToBitmap(buffer)
+              drawComponentContent()
+            }
+              .hashCode()
         }
         .let { it.copyOfRange(header, it.size) }
 

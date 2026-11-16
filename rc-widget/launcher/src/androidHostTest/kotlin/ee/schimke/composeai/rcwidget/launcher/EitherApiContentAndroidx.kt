@@ -5,7 +5,6 @@ package ee.schimke.composeai.rcwidget.launcher
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.remote.creation.compose.layout.RemoteBox
 import androidx.compose.remote.creation.compose.layout.RemoteImage
 import androidx.compose.remote.creation.compose.layout.RemoteCanvas
@@ -90,6 +89,6 @@ internal fun AndroidxImageContent(image: ImageBitmap) {
     remember { image.rb },
     contentDescription = null,
     modifier = RemoteModifier.fillMaxSize(),
-    contentScale = ContentScale.FillBounds,
+    contentScale = AndroidxFillBounds,
   )
 }

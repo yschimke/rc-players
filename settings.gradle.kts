@@ -41,7 +41,7 @@ val useRemoteComposeSnapshot = remoteComposeLine == "snapshot"
 // `composeai.remoteCompose=snapshot`. Bump this one line to move the group to a newer snapshot.
 // Build ids age out of androidx.dev after a few weeks — if the artifacts 404, pick a fresh one
 // from https://androidx.dev/snapshots/builds.
-val androidxSnapshotBuildId = "16155060"
+val androidxSnapshotBuildId = "16942710"
 
 dependencyResolutionManagement {
   // Kotlin's wasmJs toolchain resolves Node.js from an Ivy repository that the Kotlin Gradle
@@ -55,14 +55,19 @@ dependencyResolutionManagement {
     google()
     mavenCentral()
     // Pinned to a build id rather than `snapshots/latest` so even the snapshot lane stays
-    // reproducible: a new snapshot lands only when `androidxSnapshotBuildId` changes. Scoped by
-    // group regex (which also picks up `androidx.compose.remote.foundation`) and `snapshotsOnly()`,
-    // so nothing else can drift onto an unreviewed snapshot and every release coordinate keeps
-    // resolving from google() even here.
+    // reproducible: a new snapshot lands only when `androidxSnapshotBuildId` changes. Scoped to the
+    // Remote Compose set (the group regex also picks up `androidx.compose.remote.foundation`, and
+    // Wear's `remote-material3` and Glance Wear are built against the same `remote-creation*`) and
+    // `snapshotsOnly()`, so nothing else can drift onto an unreviewed snapshot and every release
+    // coordinate keeps resolving from google() even here.
     if (useRemoteComposeSnapshot) {
       maven("https://androidx.dev/snapshots/builds/$androidxSnapshotBuildId/artifacts/repository") {
         name = "androidxSnapshots"
-        content { includeGroupByRegex("androidx\\.compose\\.remote.*") }
+        content {
+          includeGroupByRegex("androidx\\.compose\\.remote.*")
+          includeGroup("androidx.wear.compose.remote")
+          includeGroup("androidx.glance.wear")
+        }
         mavenContent { snapshotsOnly() }
       }
     }
@@ -76,11 +81,16 @@ dependencyResolutionManagement {
       // `create`, not `named`: `named` fails here with "VersionCatalogBuilder with name 'libs' not
       // found" — the default catalog is registered after settings are evaluated. `create("libs")`
       // returns that same builder with `gradle/libs.versions.toml` ALREADY imported (calling
-      // `from(...)` on it fails with "Multiple 'from' invocations"), so this line overrides one
-      // version and leaves every other entry as the TOML has it.
+      // `from(...)` on it fails with "Multiple 'from' invocations"), so these lines override
+      // the versions they name and leave every other entry as the TOML has it.
       create("libs") {
+        // The whole set `gradle/libs.versions.toml` says moves together: a released
+        // `remote-material3` or Glance Wear against snapshot `remote-creation*` is the mismatch
+        // that comment warns about.
         version("compose-remote", "1.0.0-SNAPSHOT")
         version("compose-remote-foundation", "1.0.0-SNAPSHOT")
+        version("wear-compose-remote", "1.0.0-SNAPSHOT")
+        version("glance-wear", "1.0.0-SNAPSHOT")
       }
     }
   }

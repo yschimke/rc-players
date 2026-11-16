@@ -29,6 +29,10 @@ plugins {
   id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// The Remote Compose lane `settings.gradle.kts` resolved, with the same default and spelling.
+val remoteComposeLine =
+  providers.gradleProperty("composeai.remoteCompose").orElse("release").get().trim().lowercase()
+
 // AndroidX's Android-only creation artifacts, as files, for the JVM half and the class comparison.
 val androidxCreationAars by configurations.creating {
   isCanBeConsumed = false
@@ -75,6 +79,11 @@ dependencies {
   androidxCreationAars(libs.compose.remote.foundation)
   androidxCreationAars(libs.wear.compose.remote.material3)
   androidxCreationJars(libs.compose.remote.creation.core)
+  // After the pinned release the creation API's state types moved to their own artifact, which
+  // `remote-creation-compose` depends on; this configuration takes the AARs without dependencies.
+  if (remoteComposeLine == "snapshot") {
+    androidxCreationJars(libs.compose.remote.creation.expression)
+  }
   rcCreationJars(project(":rc-creation-writer"))
   rcCreationJars(project(":rc-creation-expression"))
   rcCreationJars(project(":rc-creation-compose"))
@@ -198,7 +207,15 @@ kotlin {
     jvmMain.dependencies {
       compileOnly(androidxCreationClasses)
       compileOnly(libs.compose.remote.creation.core)
+      if (remoteComposeLine == "snapshot") compileOnly(libs.compose.remote.creation.expression)
     }
+    // What `AndroidxContent` writes differently per Remote Compose lane (`AndroidxLane.kt`).
+    getByName("androidHostTest")
+      .kotlin
+      .srcDir(
+        if (remoteComposeLine == "snapshot") "src/androidHostTestRemoteSnapshot/kotlin"
+        else "src/androidHostTestRemoteRelease/kotlin",
+      )
     getByName("androidHostTest").dependencies {
       implementation(kotlin("test"))
       implementation(libs.junit)

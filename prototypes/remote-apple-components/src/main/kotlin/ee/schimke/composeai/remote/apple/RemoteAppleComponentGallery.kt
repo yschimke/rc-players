@@ -8,17 +8,18 @@ import androidx.compose.remote.creation.compose.modifier.background
 import androidx.compose.remote.creation.compose.modifier.fillMaxSize
 import androidx.compose.remote.creation.compose.modifier.fillMaxWidth
 import androidx.compose.remote.creation.compose.modifier.padding
+import androidx.compose.remote.creation.compose.state.MutableRemoteBoolean
+import androidx.compose.remote.creation.compose.state.MutableRemoteInt
 import androidx.compose.remote.creation.compose.state.rb
-import androidx.compose.remote.creation.compose.state.rememberMutableRemoteBoolean
-import androidx.compose.remote.creation.compose.state.rememberMutableRemoteInt
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 
 @Composable
 public fun RemoteAppleComponentGallery(modifier: RemoteModifier = RemoteModifier) {
   RemoteAppleTheme {
-    val wifi = rememberMutableRemoteBoolean(true)
+    val wifi = remember { MutableRemoteBoolean(true) }
     val colors = RemoteAppleTheme.colors
     RemoteColumn(
       modifier = modifier.fillMaxSize().background(colors.background).padding(20.rf),
@@ -54,8 +55,8 @@ public fun RemoteAppleComponentGallery(modifier: RemoteModifier = RemoteModifier
 @Composable
 public fun RemoteAppleControlsGallery(modifier: RemoteModifier = RemoteModifier) {
   RemoteAppleTheme {
-    val schedule = rememberMutableRemoteInt(1)
-    val reminders = rememberMutableRemoteInt(3)
+    val schedule = remember { MutableRemoteInt(1) }
+    val reminders = remember { MutableRemoteInt(3) }
     val colors = RemoteAppleTheme.colors
     RemoteColumn(
       modifier = modifier.fillMaxSize().background(colors.background).padding(20.rf),

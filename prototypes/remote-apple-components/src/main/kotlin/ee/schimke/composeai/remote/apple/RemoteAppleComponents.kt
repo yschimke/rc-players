@@ -1,7 +1,6 @@
 package ee.schimke.composeai.remote.apple
 
 import androidx.compose.remote.creation.compose.action.RemoteAction
-import androidx.compose.remote.creation.compose.action.valueChange
 import androidx.compose.remote.creation.compose.layout.RemoteAlignment
 import androidx.compose.remote.creation.compose.layout.RemoteArrangement
 import androidx.compose.remote.creation.compose.layout.RemoteBox
@@ -10,6 +9,7 @@ import androidx.compose.remote.creation.compose.layout.RemoteColumnScope
 import androidx.compose.remote.creation.compose.layout.RemoteRow
 import androidx.compose.remote.creation.compose.layout.RemoteText
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
+import androidx.compose.remote.creation.compose.modifier.RemoteRole
 import androidx.compose.remote.creation.compose.modifier.alpha
 import androidx.compose.remote.creation.compose.modifier.background
 import androidx.compose.remote.creation.compose.modifier.border
@@ -21,7 +21,6 @@ import androidx.compose.remote.creation.compose.modifier.fillMaxWidth
 import androidx.compose.remote.creation.compose.modifier.height
 import androidx.compose.remote.creation.compose.modifier.offset
 import androidx.compose.remote.creation.compose.modifier.padding
-import androidx.compose.remote.creation.compose.modifier.role
 import androidx.compose.remote.creation.compose.modifier.semantics
 import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.modifier.stateDescription
@@ -34,7 +33,6 @@ import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.semantics.Role
 
 public enum class RemoteAppleButtonStyle {
   Prominent,
@@ -68,10 +66,10 @@ public fun RemoteAppleButton(
       .alpha(if (enabled) 1f.rf else 0.4f.rf)
       .semantics {
         contentDescription = title
-        role = Role.Button
+        appleRole = RemoteRole.Button
         this.enabled = enabled
       }
-      .clickable(action, enabled, Role.Button)
+      .clickable(action, enabled, RemoteRole.Button)
 
   buttonModifier =
     when {
@@ -99,17 +97,17 @@ public fun RemoteAppleToggle(
 ) {
   val colors = RemoteAppleTheme.colors
   val typography = RemoteAppleTheme.typography
-  val action = valueChange(isOn, isOn.not())
+  val action = valueChangeAction(isOn, isOn.not())
   RemoteRow(
     modifier =
       modifier
         .fillMaxWidth()
         .height(52.rdp)
         .alpha(if (enabled) 1f.rf else 0.4f.rf)
-        .clickable(action, enabled, Role.Switch)
+        .clickable(action, enabled, RemoteRole.Switch)
         .semantics {
           contentDescription = title
-          role = Role.Switch
+          appleRole = RemoteRole.Switch
           stateDescription = isOn.select("On".rs, "Off".rs)
           this.enabled = enabled
         },
@@ -117,7 +115,7 @@ public fun RemoteAppleToggle(
   ) {
     RemoteText(
       text = title,
-      modifier = RemoteModifier.weight(1f),
+      modifier = RemoteModifier.weight(1f.rf),
       color = colors.label,
       style = typography.bodyLarge,
     )
@@ -184,7 +182,7 @@ public fun RemoteAppleLabel(
   ) {
     RemoteText(
       text = title,
-      modifier = RemoteModifier.weight(1f),
+      modifier = RemoteModifier.weight(1f.rf),
       color = colors.label,
       style = typography.bodyLarge,
     )

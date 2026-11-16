@@ -10,7 +10,9 @@ import androidx.compose.ui.graphics.PaintingStyle
 // The one file of this binding that is written by hand where `:rc-widget-creation` has a file of the
 // same name: every other common file is generated from that module's source (see build.gradle.kts).
 // These two functions are what the AndroidX release this module is built on spells differently from
-// androidx-main, which the Compose Multiplatform creation modules track.
+// androidx-main, which the Compose Multiplatform creation modules track. Release lane only: on the
+// snapshot lane (`-Pcomposeai.remoteCompose=snapshot`) AndroidX is androidx-main, and the common
+// file is generated instead. Delete this file once the pinned release spells both as androidx-main.
 
 /**
  * The enclosing layout component's size, as expressions the document evaluates as it plays: not

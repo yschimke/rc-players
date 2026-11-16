@@ -4,6 +4,10 @@ plugins {
   alias(libs.plugins.compose.compiler)
 }
 
+// The Remote Compose lane `settings.gradle.kts` resolved, with the same default and spelling.
+val remoteComposeLine =
+  providers.gradleProperty("composeai.remoteCompose").orElse("release").get().trim().lowercase()
+
 android {
   namespace = "ee.schimke.composeai.remote.apple"
   compileSdk = 37
@@ -11,6 +15,16 @@ android {
   defaultConfig {
     minSdk = 29
     aarMetadata { minCompileSdk = 36 }
+  }
+
+  // The two names the pinned release spells differently from androidx-main, one file per Remote
+  // Compose lane (`settings.gradle.kts`): `src/remoteRelease` by default, `src/remoteSnapshot` with
+  // `-Pcomposeai.remoteCompose=snapshot`. See `RemoteCreationLane.kt`.
+  sourceSets.getByName("main") {
+    kotlin.directories.add(
+      if (remoteComposeLine == "snapshot") "src/remoteSnapshot/kotlin"
+      else "src/remoteRelease/kotlin",
+    )
   }
 
   // The alpha authoring surface marks several composables as library-group restricted even though

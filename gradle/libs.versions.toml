@@ -144,9 +144,13 @@ wear = "1.4.0"
 #    current set consistent.
 #  * To try an API that has landed on androidx-main but is not released yet, run
 #    with `-Pcomposeai.remoteCompose=snapshot`: `settings.gradle.kts` then adds
-#    the build-id-pinned androidx.dev repository and rewrites `compose-remote` and
-#    `compose-remote-foundation` to `1.0.0-SNAPSHOT`. The snapshot lane is opt-in and temporary — CI,
-#    published consumers and every default build stay on these released pins.
+#    the build-id-pinned androidx.dev repository and rewrites the whole set — `compose-remote`,
+#    `compose-remote-foundation`, `wear-compose-remote` and `glance-wear` — to `1.0.0-SNAPSHOT`, all
+#    from that one build. The snapshot lane is opt-in and temporary — CI, published consumers and
+#    every default build stay on these released pins. Where a source has to spell something
+#    differently per lane it reads the same property and compiles a `src/remoteRelease` or
+#    `src/remoteSnapshot` directory (`*RemoteRelease` / `*RemoteSnapshot` for test source sets); main
+#    sources stay in the form both lanes accept.
 #  * API drift still happens between alphas, and it lands in consumers, not just in resolution.
 #    Past migrations, for shape: `HostAction` went `internal` (build actions via the public
 #    `hostAction(...)` factory returning `Action`); `captureSingleRemoteDocument` took on
@@ -267,6 +271,11 @@ compose-remote-player-view = { module = "androidx.compose.remote:remote-player-v
 # Android-only `remote-player-core`.
 compose-remote-core = { module = "androidx.compose.remote:remote-core", version.ref = "compose-remote" }
 compose-remote-creation-core = { module = "androidx.compose.remote:remote-creation-core", version.ref = "compose-remote" }
+# The creation API's state types (`RemoteFloat`, `MutableRemoteInt`, ...) after androidx-main split
+# them out of `remote-creation-compose`, same package. Not published at the pinned release
+# (alpha23), so only the snapshot lane (`-Pcomposeai.remoteCompose=snapshot`) may name it; on
+# alpha23 those types are inside `remote-creation-compose`.
+compose-remote-creation-expression = { module = "androidx.compose.remote:remote-creation-expression", version.ref = "compose-remote" }
 compose-remote-foundation = { module = "androidx.compose.remote.foundation:foundation", version.ref = "compose-remote-foundation" }
 glance-wear = { module = "androidx.glance.wear:wear", version.ref = "glance-wear" }
 glance-wear-core = { module = "androidx.glance.wear:wear-core", version.ref = "glance-wear" }

@@ -62,7 +62,10 @@ module's committed ABI dump is what review sees of it. Three files are written b
   AndroidX release the widget lane is pinned to is behind it in two places these helpers touch: how
   a component's size is read (`remoteComponent()` on androidx-main, a `RemoteFloatContext` lambda in
   the release) and the type of `RemotePaint.style`. Each binding has its own `RcCreationCompat.kt`
-  with the same two internal functions, and the generated files call them.
+  with the same two internal functions, and the generated files call them. The AndroidX one is in
+  `src/remoteRelease` and only compiles on the default `release` lane: with
+  `-Pcomposeai.remoteCompose=snapshot` AndroidX is androidx-main too, so the common file is generated
+  with the rest.
 - `AndroidxExperimentalProfile.kt` and `WrapModeProfile.kt`, the AndroidX capture profiles. The
   CMP binding's counterparts are in `RcCaptureProfiles.kt`, which is left out of the generation:
   the two APIs build a `Profile` differently (a writer factory and platform services on AndroidX's,

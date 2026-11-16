@@ -1,12 +1,12 @@
 package ee.schimke.composeai.remote.apple
 
 import androidx.compose.remote.creation.compose.action.RemoteAction
-import androidx.compose.remote.creation.compose.action.valueChange
 import androidx.compose.remote.creation.compose.layout.RemoteAlignment
 import androidx.compose.remote.creation.compose.layout.RemoteBox
 import androidx.compose.remote.creation.compose.layout.RemoteRow
 import androidx.compose.remote.creation.compose.layout.RemoteText
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
+import androidx.compose.remote.creation.compose.modifier.RemoteRole
 import androidx.compose.remote.creation.compose.modifier.background
 import androidx.compose.remote.creation.compose.modifier.clickable
 import androidx.compose.remote.creation.compose.modifier.clip
@@ -14,7 +14,6 @@ import androidx.compose.remote.creation.compose.modifier.contentDescription
 import androidx.compose.remote.creation.compose.modifier.fillMaxWidth
 import androidx.compose.remote.creation.compose.modifier.height
 import androidx.compose.remote.creation.compose.modifier.padding
-import androidx.compose.remote.creation.compose.modifier.role
 import androidx.compose.remote.creation.compose.modifier.semantics
 import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.modifier.stateDescription
@@ -25,10 +24,10 @@ import androidx.compose.remote.creation.compose.state.RemoteBoolean
 import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.remote.creation.compose.state.clamp
 import androidx.compose.remote.creation.compose.state.rdp
+import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.ri
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.semantics.Role
 
 @Composable
 public fun RemoteAppleSegmentedPicker(
@@ -53,14 +52,14 @@ public fun RemoteAppleSegmentedPicker(
       val selected = selection.isEqualTo(index.ri)
       RemoteBox(
         modifier =
-          RemoteModifier.weight(1f)
+          RemoteModifier.weight(1f.rf)
             .height(32.rdp)
             .clip(RemoteRoundedCornerShape(7.rdp))
             .background(selected.select(colors.secondaryBackground, colors.toggleOff))
-            .clickable(valueChange(selection, index.ri), true, Role.Tab)
+            .clickable(valueChangeAction(selection, index.ri), true, RemoteRole.Tab)
             .semantics {
               contentDescription = label
-              role = Role.Tab
+              appleRole = RemoteRole.Tab
               stateDescription = selected.select("Selected".rs, "Not selected".rs)
             },
         contentAlignment = RemoteAlignment.Center,
@@ -97,7 +96,7 @@ public fun RemoteAppleStepper(
   ) {
     RemoteText(
       text = title,
-      modifier = RemoteModifier.weight(1f),
+      modifier = RemoteModifier.weight(1f.rf),
       color = colors.label,
       style = typography.bodyLarge,
     )
@@ -109,12 +108,12 @@ public fun RemoteAppleStepper(
     )
     StepperButton(
       symbol = "−".rs,
-      action = valueChange(value, clamp(value - 1, range.first.ri, range.last.ri)),
+      action = valueChangeAction(value, clamp(value - 1, range.first.ri, range.last.ri)),
       enabled = canDecrement,
     )
     StepperButton(
       symbol = "+".rs,
-      action = valueChange(value, clamp(value + 1, range.first.ri, range.last.ri)),
+      action = valueChangeAction(value, clamp(value + 1, range.first.ri, range.last.ri)),
       enabled = canIncrement,
     )
   }
@@ -129,10 +128,10 @@ private fun StepperButton(symbol: RemoteString, action: RemoteAction, enabled: R
       RemoteModifier.size(32.rdp)
         .clip(RemoteCircleShape)
         .background(colors.toggleOff)
-        .clickable(action, true, Role.Button)
+        .clickable(action, true, RemoteRole.Button)
         .semantics {
           contentDescription = symbol
-          role = Role.Button
+          appleRole = RemoteRole.Button
           stateDescription = enabled.select("Enabled".rs, "Disabled".rs)
         },
     contentAlignment = RemoteAlignment.Center,
@@ -183,7 +182,7 @@ public fun RemoteAppleBadgeRow(
   ) {
     RemoteText(
       text = title,
-      modifier = RemoteModifier.weight(1f),
+      modifier = RemoteModifier.weight(1f.rf),
       color = colors.label,
       style = typography.bodyLarge,
     )
@@ -202,15 +201,15 @@ public fun RemoteAppleDisclosureRow(
   val typography = RemoteAppleTheme.typography
   RemoteRow(
     modifier =
-      modifier.fillMaxWidth().height(48.rdp).clickable(action, true, Role.Button).semantics {
+      modifier.fillMaxWidth().height(48.rdp).clickable(action, true, RemoteRole.Button).semantics {
         contentDescription = title
-        role = Role.Button
+        appleRole = RemoteRole.Button
       },
     verticalAlignment = RemoteAlignment.CenterVertically,
   ) {
     RemoteText(
       text = title,
-      modifier = RemoteModifier.weight(1f),
+      modifier = RemoteModifier.weight(1f.rf),
       color = colors.label,
       style = typography.bodyLarge,
     )
@@ -255,7 +254,7 @@ public fun RemoteAppleStatusRow(
     )
     RemoteText(
       text = title,
-      modifier = RemoteModifier.weight(1f).padding(10.rdp, 0.rdp),
+      modifier = RemoteModifier.weight(1f.rf).padding(10.rdp, 0.rdp),
       color = colors.label,
       style = typography.bodyLarge,
     )

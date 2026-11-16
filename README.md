@@ -614,10 +614,12 @@ An Android SDK is needed for `third_party/rc-embedded-player` and for the publis
 modules' Android target (`ANDROID_HOME`, or `sdk.dir` in `local.properties`). The Apple targets only build on macOS; on Linux the Kotlin Gradle plugin disables
 them with a warning rather than failing.
 
-`-Pcomposeai.remoteCompose=snapshot` swaps the pinned AndroidX Remote Compose alphas for the
-androidx-main post-submit build pinned in `settings.gradle.kts`. Use it to exercise an API that has
-landed upstream but has not been released; the default `release` line is what CI and published
-consumers see.
+`-Pcomposeai.remoteCompose=snapshot` swaps the pinned AndroidX Remote Compose alphas, with Wear's
+`remote-material3` and Glance Wear, for the androidx-main post-submit build pinned in
+`settings.gradle.kts`. Use it to exercise an API that has landed upstream but has not been released;
+the default `release` line is what CI and published consumers see. What has to be spelled
+differently on the two lines lives in per-lane source directories (`src/remoteRelease`,
+`src/remoteSnapshot`) that the module compiles according to the same property.
 
 ### What CI runs, and where
 

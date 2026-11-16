@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.RemoteComposeBuffer
-import androidx.compose.remote.creation.compose.action.valueChange
 import androidx.compose.remote.creation.compose.capture.captureSingleRemoteDocument
 import androidx.compose.remote.creation.compose.layout.RemoteBox
 import androidx.compose.remote.creation.compose.layout.RemoteColumn
@@ -35,13 +34,14 @@ import androidx.compose.remote.creation.compose.modifier.height
 import androidx.compose.remote.creation.compose.modifier.semantics
 import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.modifier.width
+import androidx.compose.remote.creation.compose.state.MutableRemoteFloat
 import androidx.compose.remote.creation.compose.state.animateRemoteFloat
 import androidx.compose.remote.creation.compose.state.animateRemoteFloatAsState
 import androidx.compose.remote.creation.compose.state.rdp
-import androidx.compose.remote.creation.compose.state.rememberMutableRemoteFloat
 import androidx.compose.remote.creation.compose.state.remoteSpring
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rs
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
@@ -71,10 +71,10 @@ class RcAnimatedInteractionTest {
             captureSingleRemoteDocument(
                     context = context,
                     content = {
-                        val progress = rememberMutableRemoteFloat { 0.25f.rf }
+                        val progress = remember { MutableRemoteFloat(0.25f) }
                         val animatedProgress = animateRemoteFloat(progress, 0.25f)
                         val advanceProgress =
-                            valueChange(progress, ((progress + 0.25f) % 1f).createReference())
+                            valueChangeAction(progress, ((progress + 0.25f) % 1f).createReference())
 
                         RemoteColumn(modifier = RemoteModifier.size(160.rdp)) {
                             RemoteBox(
@@ -136,13 +136,13 @@ class RcAnimatedInteractionTest {
             captureSingleRemoteDocument(
                     context = context,
                     content = {
-                        val progress = rememberMutableRemoteFloat { 0.75f.rf }
+                        val progress = remember { MutableRemoteFloat(0.75f) }
                         val animatedProgress =
                             animateRemoteFloatAsState(
                                 targetValue = progress,
                                 animationSpec = remoteSpring(stiffness = 200f),
                             )
-                        val shrink = valueChange(progress, 0.25f.rf)
+                        val shrink = valueChangeAction(progress, 0.25f.rf)
 
                         RemoteColumn(modifier = RemoteModifier.size(160.rdp)) {
                             RemoteBox(

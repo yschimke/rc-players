@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 
 @Immutable
 public data class RemoteAppleColors(
@@ -65,22 +64,22 @@ public fun RemoteAppleTypography(
     labelLarge =
       base.copy(
         fontSize = 17.rsp,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = AppleFontWeight.SemiBold,
       ),
     labelMedium =
       base.copy(
         fontSize = 13.rsp,
-        fontWeight = FontWeight.Medium,
+        fontWeight = AppleFontWeight.Medium,
       ),
     labelSmall =
       base.copy(
         fontSize = 13.rsp,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = AppleFontWeight.SemiBold,
       ),
     titleLarge =
       base.copy(
         fontSize = 20.rsp,
-        fontWeight = FontWeight.Medium,
+        fontWeight = AppleFontWeight.Medium,
       ),
     headlineMedium = base.copy(fontSize = 24.rsp),
   )

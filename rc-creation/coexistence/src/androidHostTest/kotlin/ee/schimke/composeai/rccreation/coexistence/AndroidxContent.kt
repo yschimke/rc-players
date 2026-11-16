@@ -38,7 +38,6 @@ import androidx.compose.remote.creation.compose.state.MutableRemoteString
 import androidx.compose.remote.creation.compose.state.RemoteFloat
 import androidx.compose.remote.creation.compose.state.RemoteInt
 import androidx.compose.remote.creation.compose.state.RemotePaint
-import androidx.compose.remote.creation.compose.state.RemoteState
 import androidx.compose.remote.creation.compose.state.RemoteStateInstanceKey
 import androidx.compose.remote.creation.compose.state.animateRemoteFloatAsState
 import androidx.compose.remote.creation.compose.state.rdp
@@ -191,12 +190,12 @@ internal object AndroidxContent {
    * A named float that starts as its component's measured width, read by text and by a state
    * layout: how a consumer sizes or switches content by the space it is given. It is asked for in
    * a layout, as `remoteComponent()` has to be: the root is not a component it can name.
-   * (AndroidX 1.0.0-alpha23 spells it `createNamedRemoteFloatExpression { componentWidth() }`.)
+   * (AndroidX 1.0.0-alpha23 spells it differently from androidx-main: `AndroidxLane.kt`.)
    */
   @Composable
   fun NamedMeasuredWidth() {
     RemoteColumn(modifier = RemoteModifier.fillMaxSize()) {
-      val width = RemoteFloat.createNamedRemoteFloatExpression("measured", RemoteState.Domain.User) { componentWidth() }
+      val width = androidxNamedComponentWidth("measured")
       RemoteText(width.toRemoteStringWithPadding(4, 0, 0))
       RemoteStateLayout(width.isGreaterThanOrEqualTo(200f.rf)) { wide ->
         RemoteText(if (wide) "WIDE".rs else "NARROW".rs)
