@@ -200,7 +200,11 @@ capture (`captureLauncherWidget`, the AndroidX profiles, `RcLauncherWidgets`) an
   - `instantiate` makes it each widget's `WearWidgetRawContent`. It takes the header Glance Wear
     writes for the widget's `WearWidgetParams`, writes in the host's frame and the widget's values,
     folds in the watch's density and font scale, and adapts the document to the Wear widget
-    profile.
+    profile. It also makes the document for that container's size alone: the frame fixes the
+    root's size, so the sizes components measure from it become constants
+    (`hardcodeComponentSizes`), and the size breakpoints, corner radii and paddings they and the
+    frame's values decide fold away. A Pixel Watch and a Galaxy Watch each get only their own
+    layout, drawn exactly as before.
 - **`RcTemplatedWearWidgetData`** draws a widget from its template and falls back (to a Glance Wear
   capture or a placeholder) when the widget has no template or it can't play there.
 - **`withTaps` and `RcWearWidgetTaps`** make the widget's taps open the app.

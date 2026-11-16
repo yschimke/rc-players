@@ -75,7 +75,7 @@ Beside the stack, and depending on `protocol` and `runtime` rather than the othe
 
 | Module | Artifact | What it is |
 | --- | --- | --- |
-| `rc-player/edit` | `rc-player-edit` | Rewrites over a decoded document, for code that changes a `.rc` file rather than plays it: embed URL bitmaps inline, hardcode host-bound named values, collapse state layouts whose index can no longer change to their one live branch — when the hidden branches hold only layout, modifiers, drawing, touch handlers and plain values, which stay behind since ids are document-wide — and replace a state layout that is down to one branch by that branch, for the platform's widget player, which lays a filling branch out with no size inside one; fold and strip what a document no longer needs, check or adapt a document for the player it targets, and combine two documents into the branches of one state layout a host switches through a named value — identical definitions carried once, and the components both screens show (or that the caller pairs) given one animation id, so they move between their positions. Prints a document as structural text and explains the difference between two versions of one (`toStructuralText`, `structuralDiff`). No Compose. |
+| `rc-player/edit` | `rc-player-edit` | Rewrites over a decoded document, for code that changes a `.rc` file rather than plays it: embed URL bitmaps inline, hardcode host-bound named values, hardcode the sizes components measure when the root's size is known (`hardcodeComponentSizes`, so a size breakpoint keeps only its tier), collapse state layouts whose index can no longer change to their one live branch — when the hidden branches hold only layout, modifiers, drawing, touch handlers and plain values, which stay behind since ids are document-wide — and replace a state layout that is down to one branch by that branch, for the platform's widget player, which lays a filling branch out with no size inside one; fold and strip what a document no longer needs, check or adapt a document for the player it targets, and combine two documents into the branches of one state layout a host switches through a named value — identical definitions carried once, and the components both screens show (or that the caller pairs) given one animation id, so they move between their positions. Prints a document as structural text and explains the difference between two versions of one (`toStructuralText`, `structuralDiff`). No Compose. |
 
 ```kotlin
 val document = RcDocumentCodec.decode(bytes)
@@ -84,6 +84,7 @@ val baked =
     .embedBitmapUrls { url -> httpClient.get(url).readBytes() } // may suspend
     .hardcodeNamedValues(mapOf("tab" to RcHardcodedValue.Integer(2)))
     .hardcodeUnboundNamedValues(bound = setOf("progress"))
+    .hardcodeComponentSizes(widthPx = 400f, heightPx = 216f) // the size the host plays it at
     .collapseConstantStateLayouts()
     .unwrapSingleBranchStateLayouts() // for the platform's widget player
     .optimize()

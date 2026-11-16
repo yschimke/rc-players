@@ -1,0 +1,138 @@
+package ee.schimke.composeai.rcplayer.edit
+
+import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
+import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
+import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
+import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
+import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
+import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
+import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
+import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
+import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertSame
+
+class RcHardcodeComponentSizesTest {
+  private fun word(value: Float) = RcFloatWord.literal(value)
+
+  private val fill =
+    listOf(
+      RcWidthModifier(RcDimensionType.FILL, word(1f)),
+      RcHeightModifier(RcDimensionType.FILL, word(1f)),
+    )
+
+  private fun padding(all: Float) = RcPaddingModifier(word(all), word(all), word(all), word(all))
+
+  /**
+   * Box [id] with [modifiers], publishing its width and height into [id] + 1 and [id] + 2, around
+   * [content].
+   */
+  private fun measured(
+    id: Int,
+    modifiers: List<RcOperation>,
+    vararg content: RcOperation,
+  ): List<RcOperation> =
+    listOf(
+      RcBoxLayout(id, -1, 0, 0),
+      *modifiers.toTypedArray(),
+      RcComponentValue(RcComponentValue.WIDTH, id, id + 1),
+      RcComponentValue(RcComponentValue.HEIGHT, id, id + 2),
+      RcLayoutContent(id - 1),
+      *content,
+      END,
+      END,
+    )
+
+  private fun RcDocument.sizeOf(id: Int): Pair<Float?, Float?> {
+    fun value(valueId: Int) =
+      operations.filterIsInstance<RcFloatConstant>().firstOrNull { it.id == valueId }?.value?.value
+    return value(id + 1) to value(id + 2)
+  }
+
+  @Test
+  fun aFillChainIsTheRootLessEachPadding() {
+    val source =
+      document(
+        *rootLayout(
+            *measured(100, fill + padding(10f), *measured(200, fill).toTypedArray()).toTypedArray(),
+          )
+          .toTypedArray(),
+      )
+    val sized = source.hardcodeComponentSizes(400f, 200f)
+    assertEquals(400f to 200f, sized.sizeOf(100))
+    assertEquals(380f to 180f, sized.sizeOf(200), "inside the outer box's padding")
+  }
+
+  @Test
+  fun aWrappingBoxTakesWhatItIsOfferedWhenItsChildrenFillIt() {
+    val source =
+      document(
+        *rootLayout(*measured(100, emptyList(), *measured(200, fill).toTypedArray()).toTypedArray())
+          .toTypedArray(),
+      )
+    assertEquals(400f to 200f, source.hardcodeComponentSizes(400f, 200f).sizeOf(100))
+  }
+
+  @Test
+  fun whatTheLayoutLeavesInDoubtStaysMeasured() {
+    // A wrapping box around nothing that fills it: its size is its content's.
+    val wraps = document(*rootLayout(*measured(100, emptyList()).toTypedArray()).toTypedArray())
+    assertSame(wraps, wraps.hardcodeComponentSizes(400f, 200f))
+    // Padding before the size modifier is an outer margin: not modelled.
+    val margin =
+      document(
+        *rootLayout(*measured(100, listOf(padding(10f)) + fill).toTypedArray()).toTypedArray(),
+      )
+    assertSame(margin, margin.hardcodeComponentSizes(400f, 200f))
+    // A modifier that may change the size (here widthIn) leaves the whole component.
+    val bounded =
+      document(
+        *rootLayout(*measured(100, fill + RcWidthInModifier(word(0f), word(100f))).toTypedArray())
+          .toTypedArray(),
+      )
+    assertSame(bounded, bounded.hardcodeComponentSizes(400f, 200f))
+  }
+
+  @Test
+  fun aBreakpointCollapsesOnceItsSizeIsKnown() {
+    // index = width >= 300 ? 1 : 0, folded to a float, as a size breakpoint's comparison is.
+    val index = 300
+    val source =
+      document(
+        *rootLayout(
+            *measured(
+                100,
+                fill,
+                RcFloatConstant(index, word(1f)),
+                RcStateLayout(10, -1, 0, 0, index),
+                RcLayoutContent(9),
+                *box(20).toTypedArray(),
+                *box(30).toTypedArray(),
+                END,
+                END,
+              )
+              .toTypedArray(),
+          )
+          .toTypedArray(),
+      )
+    val collapsed = source.collapseConstantStateLayouts()
+    assertEquals(
+      listOf(10),
+      collapsed.operations.filterIsInstance<RcStateLayout>().map { it.componentId },
+    )
+    assertEquals(
+      listOf(0),
+      collapsed.operations.filterIsInstance<RcStateLayout>().map { it.indexId },
+      "the float-written index read as the integer 1",
+    )
+    assertEquals(
+      listOf(100, 30),
+      collapsed.operations.filterIsInstance<RcBoxLayout>().map { it.componentId },
+    )
+  }
+}

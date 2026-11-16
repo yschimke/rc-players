@@ -6,10 +6,13 @@ import ee.schimke.composeai.rcplayer.edit.RcHardcodedValue
 import ee.schimke.composeai.rcplayer.edit.RcProfileAdaptation
 import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
 import ee.schimke.composeai.rcplayer.edit.adaptTo
+import ee.schimke.composeai.rcplayer.edit.collapseConstantStateLayouts
+import ee.schimke.composeai.rcplayer.edit.hardcodeComponentSizes
 import ee.schimke.composeai.rcplayer.edit.hardcodeDensity
 import ee.schimke.composeai.rcplayer.edit.hardcodeNamedValues
 import ee.schimke.composeai.rcplayer.edit.hardcodeUnboundNamedValues
 import ee.schimke.composeai.rcplayer.edit.namedVariables
+import ee.schimke.composeai.rcplayer.edit.optimize
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 
@@ -27,6 +30,13 @@ public object RcWearTemplates {
    * values and [values] written in (the fill only when [containerArgb] is given, else the
    * template's own), the watch's density and font scale folded in, and everything the Wear widget
    * player can't read rewritten into what it can ([adaptTo] with [approximations]).
+   *
+   * The document is also made for this container's size alone: the frame fixes the root at
+   * [RcWearFrame.widthDp] × [RcWearFrame.heightDp], so the sizes components read from it
+   * ([hardcodeComponentSizes]) become constants, and the size breakpoints (`RcSizeBreakpoint`) and
+   * corner radii and paddings they and the frame's values decide fold away
+   * ([collapseConstantStateLayouts], [optimize]). The widget draws exactly as before in this
+   * container, from a document that holds only this container's layout.
    *
    * [header], when given, replaces the result's header: the one Glance Wear writes for this
    * widget's params (canvas, density, profile), which `rc-widget-wear` takes from Glance Wear's own
@@ -50,7 +60,13 @@ public object RcWearTemplates {
         it.name.removePrefix(RcBindingContract.USER_DOMAIN)
       } - RcWearContainer.COLOR
     val filled =
-      written.hardcodeUnboundNamedValues(bound).hardcodeDensity(display.density, display.fontScale)
+      written
+        .hardcodeUnboundNamedValues(bound)
+        .hardcodeDensity(display.density, display.fontScale)
+        .optimize()
+        .hardcodeComponentSizes(frame.widthDp * display.density, frame.heightDp * display.density)
+        .collapseConstantStateLayouts()
+        .optimize()
     val adapted = filled.adaptTo(RcTargetProfiles.WEAR_WIDGETS, approximations, display)
     return if (header == null) adapted
     else adapted.copy(document = adapted.document.copy(header = header))

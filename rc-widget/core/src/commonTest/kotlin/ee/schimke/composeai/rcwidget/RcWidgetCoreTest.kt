@@ -238,15 +238,42 @@ class RcWearTemplatesTest {
 
   @Test
   fun aTemplatesOwnFillStaysWithoutATint() {
+    // The container's fill, read by its background as a template's container reads it.
     val withFill =
       document(
         *template.operations.toTypedArray(),
         RcColorConstant(44, 0xFF101820.toInt()),
         RcNamedVariable(44, RcNamedVariable.COLOR_TYPE, "USER:${RcWearContainer.COLOR}"),
+        RcRootLayout(1),
+        RcLayoutContent(2),
+        RcBoxLayout(3, -1, 0, 4),
+        RcBackgroundModifier(
+          RcBackgroundModifier.COLOR_REFERENCE_FLAG,
+          44,
+          0,
+          0,
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(0f),
+          0,
+        ),
+        RcLayoutContent(4),
+        END,
+        END,
+        END,
+        END,
       )
+    fun fill(document: RcDocument): Int? {
+      val background = document.operations.filterIsInstance<RcBackgroundModifier>().single()
+      return document.operations
+        .filterIsInstance<RcColorConstant>()
+        .lastOrNull { it.id == background.colorId }
+        ?.argb
+    }
     val widget =
       RcWearTemplates.instantiate(withFill, RcWearHost.Pixel.large, RcDisplay(2f)).document
-    assertTrue(widget.operations.contains(RcColorConstant(44, 0xFF101820.toInt())))
+    assertEquals(0xFF101820.toInt(), fill(widget))
     assertTrue(widget.namedVariables.none { it.name.endsWith(RcWearContainer.COLOR) })
     val tinted =
       RcWearTemplates.instantiate(
@@ -255,7 +282,7 @@ class RcWearTemplatesTest {
         RcDisplay(2f),
         0xFF00FF00.toInt(),
       )
-    assertTrue(tinted.document.operations.contains(RcColorConstant(44, 0xFF00FF00.toInt())))
+    assertEquals(0xFF00FF00.toInt(), fill(tinted.document))
     // The app's player can still push a tint.
     assertTrue(
       RcWearTemplates.forApp(withFill, RcWearHost.Pixel.large).namedVariables.any {

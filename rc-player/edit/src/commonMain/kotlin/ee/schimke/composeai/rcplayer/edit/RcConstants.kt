@@ -57,9 +57,25 @@ internal class RcValueAnalysis(private val operations: List<RcOperation>) {
   private val texts = mutableMapOf<Int, Pair<String, Int>?>()
   private val resolving = mutableSetOf<Int>()
 
-  /** The value integer [id] always holds by the time the operation at [at] reads it, or null. */
+  /**
+   * The value integer [id] always holds by the time the operation at [at] reads it, or null: an
+   * integer write's, or a float write's truncated, as the player keeps both views of one id.
+   */
   fun integer(id: Int, at: Int): Int? =
-    integerWithLastWrite(id)?.takeIf { (_, last) -> last < at }?.first
+    (integerWithLastWrite(id) ?: floatAsInteger(id))?.takeIf { (_, last) -> last < at }?.first
+
+  /**
+   * An id only floats write, read as an integer: the player publishes every float into the integer
+   * view too, truncated toward zero (`RcPlayerState.storeFloat`, AndroidX
+   * `RemoteComposeState.updateFloat`), so a state layout indexed by a folded comparison — a size
+   * breakpoint once its size is known — reads its branch.
+   */
+  private fun floatAsInteger(id: Int): Pair<Int, Int>? =
+    floatWithLastWrite(id)?.let { (word, last) ->
+      if (word.isNaNEncoded) return@let null
+      val value = word.value
+      if (value.isNaN() || value.isInfinite()) null else value.toInt() to last
+    }
 
   /**
    * The value float [id] always holds by the time the operation at [at] reads it, or null.
