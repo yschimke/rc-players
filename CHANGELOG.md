@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.7.0](https://github.com/yschimke/rc-players/compare/v3.6.1...v3.7.0) (2026-11-16)
+
+
+### Features
+
+* **creation:** Wear Remote Material 3 for Compose Multiplatform (rc-creation-wear-material3) ([#920](https://github.com/yschimke/rc-players/issues/920)) ([51371e9](https://github.com/yschimke/rc-players/commit/51371e969afdf827d60dc040a36cee2d2614ff4f))
+
 ## [3.6.1](https://github.com/yschimke/rc-players/compare/v3.6.0...v3.6.1) (2026-11-16)
 
 
