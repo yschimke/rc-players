@@ -37,7 +37,7 @@ import ee.schimke.composeai.rccreation.compose.text.RemoteTextStyle
  * foundational building block that renders text from explicit parameters and [style] without
  * reading Material theme colors or typography. For themed text that integrates with Material color
  * schemes and typography, use a higher-level component such as
- * [androidx.wear.compose.remote.material3.RemoteText].
+ * [ee.schimke.composeai.rccreation.wear.material3.RemoteText].
  *
  * Commonly used properties from [RemoteTextStyle] are also exposed directly as parameters for
  * convenience:

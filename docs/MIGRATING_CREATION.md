@@ -32,6 +32,7 @@ The group is still `ee.schimke.composeai`, and `rc-players-bom` pins all of thes
 | `third-party-remote-creation-writer` | `rc-creation-writer` |
 | `third-party-remote-creation-compose` | `rc-creation-compose` (brings `rc-creation-expression` and `rc-creation-writer`) |
 | `third-party-remote-creation-compose`, for `RemoteBasicText`, `RemoteBasicImage`, `RemoteBasicIcon` or `RemoteSpacer` | add `rc-creation-foundation` |
+| remote-m3-catalog's vendored `ee.schimke.remotecompose:remote-material3` (AndroidX's package), for Wear Remote Material 3 | `rc-creation-wear-material3`, package `ee.schimke.composeai.rccreation.wear.material3`; Wear Compose's `TextConfiguration` and `ColorScheme` are in `….wear.material3.wearcompose` |
 | `rc-creation-bridge`, `rc-player-embedded` | unchanged; they depend on `rc-creation-compose` |
 
 ```kotlin
@@ -39,6 +40,7 @@ dependencies {
   implementation(platform("ee.schimke.composeai:rc-players-bom:<version>"))
   implementation("ee.schimke.composeai:rc-creation-compose")
   implementation("ee.schimke.composeai:rc-creation-foundation") // if you use RemoteBasicText & co.
+  implementation("ee.schimke.composeai:rc-creation-wear-material3") // Wear Remote Material 3
 }
 ```
 

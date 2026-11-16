@@ -39,9 +39,9 @@ import ee.schimke.composeai.rccreation.compose.vector.painterRemoteVector
  * Displays a vector icon from a [RemoteImageVector] in a remote layout.
  *
  * Sizes the icon to [imageVector]'s intrinsic dimensions, or `24.dp` when unspecified. Unlike
- * Material icon components (such as [androidx.wear.compose.remote.material3.RemoteIcon]) that read
- * a theme content color, [RemoteBasicIcon] is a design-system-agnostic building block that defaults
- * [tint] to opaque white (`0xFFFFFFFF`).
+ * Material icon components (such as [ee.schimke.composeai.rccreation.wear.material3.RemoteIcon])
+ * that read a theme content color, [RemoteBasicIcon] is a design-system-agnostic building block
+ * that defaults [tint] to opaque white (`0xFFFFFFFF`).
  *
  * Provide a localized [contentDescription] (for example, via `stringResource`) whenever the icon
  * conveys meaning or represents an action. Pass `null` only for purely decorative icons, which

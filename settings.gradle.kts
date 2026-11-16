@@ -313,6 +313,12 @@ include(":rc-creation-foundation")
 project(":rc-creation-foundation").projectDir =
   file("third_party/remote-creation-compose/foundation")
 
+// Wear Material 3 over the creation fork (AndroidX `wear/compose/remote/remote-material3`).
+include(":rc-creation-wear-material3")
+
+project(":rc-creation-wear-material3").projectDir =
+  file("third_party/remote-creation-compose/material3")
+
 // The vendored, locally patched AndroidX embedded player — the Android comparison lane the CMP
 // player above is measured against. Provenance and the patch log are in
 // `third_party/rc-embedded-player/PROVENANCE.md`.

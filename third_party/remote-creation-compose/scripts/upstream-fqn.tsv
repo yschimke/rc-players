@@ -43,3 +43,11 @@ androidx.compose.remote.core.semantics.AccessibleComponent	ee.schimke.composeai.
 androidx.compose.remote.creation.Rc	ee.schimke.composeai.rccreation.common.Rc
 androidx.compose.remote.creation.RemoteComposeWriter	ee.schimke.composeai.rccreation.common.RemoteComposeWriter
 androidx.compose.remote.creation.RemotePath	ee.schimke.composeai.rccreation.compose.path.RemotePath
+# Wear Compose Material 3, which is Android's alone: the classes `remote-material3` takes values
+# from, and `android.R.color`'s system colours as their index in the themed-colour group, which the
+# fork carries in material3/src/commonMain/…/wearcompose (see its README.kt).
+androidx.wear.compose.material3.TextConfiguration	ee.schimke.composeai.rccreation.wear.material3.wearcompose.TextConfiguration
+androidx.wear.compose.material3.LocalTextConfiguration	ee.schimke.composeai.rccreation.wear.material3.wearcompose.LocalTextConfiguration
+androidx.wear.compose.material3.ColorScheme	ee.schimke.composeai.rccreation.wear.material3.wearcompose.ColorScheme
+androidx.wear.compose.material3.ButtonDefaults	ee.schimke.composeai.rccreation.wear.material3.wearcompose.ButtonDefaults
+android.R	ee.schimke.composeai.rccreation.wear.material3.wearcompose.R

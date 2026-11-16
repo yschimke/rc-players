@@ -73,11 +73,13 @@ val rcCreationJars by configurations.creating {
 dependencies {
   androidxCreationAars(libs.compose.remote.creation.compose)
   androidxCreationAars(libs.compose.remote.foundation)
+  androidxCreationAars(libs.wear.compose.remote.material3)
   androidxCreationJars(libs.compose.remote.creation.core)
   rcCreationJars(project(":rc-creation-writer"))
   rcCreationJars(project(":rc-creation-expression"))
   rcCreationJars(project(":rc-creation-compose"))
   rcCreationJars(project(":rc-creation-foundation"))
+  rcCreationJars(project(":rc-creation-wear-material3"))
 }
 
 /** Takes `classes.jar` out of each AAR, named after the AAR. */
@@ -186,10 +188,12 @@ kotlin {
     commonMain.dependencies {
       implementation(project(":rc-creation-compose"))
       implementation(project(":rc-creation-foundation"))
+      implementation(project(":rc-creation-wear-material3"))
     }
     androidMain.dependencies {
       implementation(libs.compose.remote.creation.compose)
       implementation(libs.compose.remote.foundation)
+      implementation(libs.wear.compose.remote.material3)
     }
     jvmMain.dependencies {
       compileOnly(androidxCreationClasses)

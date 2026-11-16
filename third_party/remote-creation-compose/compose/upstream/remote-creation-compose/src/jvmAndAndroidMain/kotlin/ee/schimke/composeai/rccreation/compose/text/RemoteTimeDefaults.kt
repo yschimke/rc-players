@@ -30,7 +30,7 @@ import ee.schimke.composeai.rccreation.compose.state.rf
 /**
  * Contains default values and helper methods for displaying time-related text in a remote context.
  */
-// TODO(b/564951851): Move RemoteTimeDefaults to androidx.wear.compose.remote.material3.
+// TODO(b/564951851): Move RemoteTimeDefaults to ee.schimke.composeai.rccreation.wear.material3.
 public object RemoteTimeDefaults {
 
     /**

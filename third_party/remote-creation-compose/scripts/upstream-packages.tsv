@@ -13,4 +13,5 @@
 # AndroidX's package, kept so that imports sort where they did.
 androidx.compose.remote.creation.compose	ee.schimke.composeai.rccreation.compose
 androidx.compose.remote.foundation	ee.schimke.composeai.rccreation.foundation
+androidx.wear.compose.remote.material3	ee.schimke.composeai.rccreation.wear.material3
 androidx.compose.remote.creation.common	ee.schimke.composeai.rccreation.common

@@ -1,4 +1,5 @@
-// Applied by the three creation modules beside this file (`expression`, `compose`, `foundation`).
+// Applied by the creation modules beside this file (`expression`, `compose`, `foundation`,
+// `material3`).
 //
 // They are in rc-players' own package (`ee.schimke.composeai.rccreation`) and declare no capability
 // of AndroidX's, so each can be on one classpath with AndroidX's artifacts. What is still checked is

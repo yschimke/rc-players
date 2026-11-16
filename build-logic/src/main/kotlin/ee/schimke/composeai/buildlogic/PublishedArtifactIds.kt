@@ -36,6 +36,7 @@ object PublishedArtifactIds {
       ":rc-creation-expression" to "rc-creation-expression",
       ":rc-creation-compose" to "rc-creation-compose",
       ":rc-creation-foundation" to "rc-creation-foundation",
+      ":rc-creation-wear-material3" to "rc-creation-wear-material3",
       ":third-party-rc-embedded-player" to "third-party-rc-embedded-player",
       // The vendored TypeScript player's bundle. Named for what it contains rather than for the
       // project that wraps it, and published under that name since 1.53.x — a coordinate cannot be

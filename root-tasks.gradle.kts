@@ -58,6 +58,7 @@ val publishedProjects =
     ":rc-creation-expression" to "rc-creation-expression",
     ":rc-creation-compose" to "rc-creation-compose",
     ":rc-creation-foundation" to "rc-creation-foundation",
+    ":rc-creation-wear-material3" to "rc-creation-wear-material3",
     ":rc-widget-core" to "rc-widget-core",
     ":rc-widget-creation" to "rc-widget-creation",
     ":rc-widget-creation-androidx" to "rc-widget-creation-androidx",

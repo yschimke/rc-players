@@ -1,0 +1,86 @@
+/*
+ * Copyright 2026 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package ee.schimke.composeai.rccreation.wear.material3
+
+import ee.schimke.composeai.rccreation.compose.state.RemoteEasing
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.cubicEasing
+import ee.schimke.composeai.rccreation.compose.state.rf
+
+/**
+ * Shared motion tokens for Wear Remote Material 3 components, matching Wear Compose Material 3
+ * `MotionTokens` and the spring constants of [MotionScheme].
+ *
+ * Components read spring animation specs from [RemoteMaterialTheme.motionScheme], see
+ * [RemoteMotionScheme].
+ */
+internal object RemoteMotionTokens {
+    // Durations (in milliseconds), matching androidx.wear.compose.material3.tokens.MotionTokens
+    const val DurationExtraLong1: Int = 700
+    const val DurationExtraLong2: Int = 800
+    const val DurationExtraLong3: Int = 900
+    const val DurationExtraLong4: Int = 1000
+    const val DurationLong1: Int = 450
+    const val DurationLong2: Int = 500
+    const val DurationLong3: Int = 550
+    const val DurationLong4: Int = 600
+    const val DurationMedium1: Int = 250
+    const val DurationMedium2: Int = 300
+    const val DurationMedium3: Int = 350
+    const val DurationMedium4: Int = 400
+    const val DurationShort1: Int = 50
+    const val DurationShort2: Int = 100
+    const val DurationShort3: Int = 150
+    const val DurationShort4: Int = 200
+
+    // Cubic Bezier easings, matching androidx.wear.compose.material3.tokens.MotionTokens
+    val EasingEmphasizedAccelerate: RemoteEasing = RemoteEasing.cubic(0.3f, 0.0f, 0.8f, 0.15f)
+    val EasingEmphasizedDecelerate: RemoteEasing = RemoteEasing.cubic(0.05f, 0.7f, 0.1f, 1.0f)
+    val EasingLegacyAccelerate: RemoteEasing = RemoteEasing.cubic(0.4f, 0.0f, 1.0f, 1.0f)
+    val EasingLegacyDecelerate: RemoteEasing = RemoteEasing.cubic(0.0f, 0.0f, 0.2f, 1.0f)
+    val EasingLegacyStandard: RemoteEasing = RemoteEasing.cubic(0.4f, 0.0f, 0.2f, 1.0f)
+    val EasingStandard: RemoteEasing = RemoteEasing.cubic(0.2f, 0.0f, 0.0f, 1.0f)
+    val EasingStandardAccelerate: RemoteEasing = RemoteEasing.cubic(0.3f, 0.0f, 1.0f, 1.0f)
+    val EasingStandardDecelerate: RemoteEasing = RemoteEasing.cubic(0.0f, 0.0f, 0.0f, 1.0f)
+
+    /**
+     * Evaluates [EasingStandard] at [progress] (in `0..1`). [cubicEasing] takes control points
+     * rather than a [RemoteEasing].
+     */
+    @Suppress("RestrictedApiAndroidX") // cubicEasing
+    fun easeStandard(progress: RemoteFloat): RemoteFloat =
+        cubicEasing(0.2f.rf, 0.0f.rf, 0.0f.rf, 1.0f.rf, progress)
+
+    // Spring damping ratios and stiffnesses, matching androidx.wear.compose.material3.MotionScheme
+    const val StandardSpatialDampingRatio: Float = 1.0f
+    const val EffectsDampingRatio: Float = 1.0f
+
+    const val EffectsDefaultStiffness: Float = 500f
+    const val EffectsFastStiffness: Float = 1400f
+    const val EffectsSlowStiffness: Float = 260f
+
+    const val StandardDefaultStiffness: Float = 500f
+    const val StandardFastStiffness: Float = 1400f
+    const val StandardSlowStiffness: Float = 260f
+
+    const val ExpressiveDefaultStiffness: Float = 350f
+    const val ExpressiveFastStiffness: Float = 800f
+    const val ExpressiveSlowStiffness: Float = 200f
+    const val ExpressiveDefaultDamping: Float = 0.75f
+    const val ExpressiveFastDamping: Float = 0.7f
+    const val ExpressiveSlowDamping: Float = 0.8f
+}

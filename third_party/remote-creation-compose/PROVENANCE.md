@@ -8,8 +8,10 @@ Covers the four creation modules whose sources are in this directory and beside 
 | `rc-creation-expression` | `expression/` | `remote-creation-expression` | `ee.schimke.composeai.rccreation.compose` |
 | `rc-creation-compose` | `compose/` | `remote-creation-compose` | `ee.schimke.composeai.rccreation.compose` |
 | `rc-creation-foundation` | `foundation/` | `foundation/foundation` | `ee.schimke.composeai.rccreation.foundation` |
+| `rc-creation-wear-material3` | `material3/` | `wear/compose/remote/remote-material3` (outside `compose/remote/`) | `ee.schimke.composeai.rccreation.wear.material3` |
 
-They depend on each other as upstream's do: `foundation` → `compose` → `expression` → the writer.
+They depend on each other as upstream's do: `material3` → `foundation` → `compose` → `expression`
+→ the writer.
 Until the relocation below they were one module and the writer, published as
 `third-party-remote-creation-compose` and `third-party-remote-creation-writer`; those coordinates
 are no longer published.
@@ -54,12 +56,57 @@ the plan, and the feedback for AndroidX are in
 | `compose/upstream/remote-creation-compose/src/jvmAndAndroidMain/kotlin` | `remote-creation-compose/src/jvmAndAndroidMain/kotlin` |
 | `compose/upstream/remote-creation-compose/src/androidMain/kotlin` | `remote-creation-compose/src/androidMain/kotlin` |
 | `foundation/upstream/foundation/foundation/src/main/java` | `foundation/foundation/src/main/java` |
-| `expression/src/`, `compose/src/` | nothing: files only the fork has |
+| `material3/upstream/wear/compose/remote/remote-material3/src/main/java` | `../../wear/compose/remote/remote-material3/src/main/java` |
+| `expression/src/`, `compose/src/`, `material3/src/` | nothing: files only the fork has |
 | `../remote-creation-writer` | write-side sources from `remote-core`, `remote-creation-core` and `remote-creation`, re-expressed as a common `RemoteWriter` (which the carried Kotlin names `RemoteComposeWriter`, a typealias) |
 
 Below a source root, a file is at upstream's path with the fork's package directories:
 `ee/schimke/composeai/rccreation/compose/…` for `androidx/compose/remote/creation/compose/…`, and
 `ee/schimke/composeai/rccreation/foundation/…` for `androidx/compose/remote/foundation/…`.
+
+## Wear Material 3 (`rc-creation-wear-material3`)
+
+Added at the fork's pin, androidx-main `21a1a95e4`: all 48 sources of upstream's
+`wear/compose/remote/remote-material3/src/main/java`, so it is upstream's Wear Remote Material 3 as of
+that commit (`remoteComponent()` in `RemoteEdgeButton` and `RemoteButtonGroup`, the themed colour
+schemes, `RemoteIconToggleButton`, …). It replaces the copy remote-m3-catalog vendored in AndroidX's
+own package (`ee.schimke.remotecompose:remote-material3`, change 4307936 refreshed to snapshot
+16639771), which predates both.
+
+Upstream's module is Android's alone and reads Wear Compose Material 3, which is too. The fork does
+not depend on Wear Compose; what changes:
+
+- **The Wear Compose types it takes** are carried in `material3/src/commonMain/…/wearcompose/`
+  (README.kt there): `TextConfiguration`, `LocalTextConfiguration`, `ColorScheme` (its roles, with
+  Wear Material 3's baseline as defaults), `ButtonDefaults`' two scrim colours, and Wear Compose
+  1.5.5's generated type-scale, variable-font, typeface, colour and palette tokens. Upstream's files
+  keep their `androidx.wear.compose.material3.*` imports; `scripts/upstream-fqn.tsv` names the fork's
+  class for each, so those files compare as identical.
+- **Themed colours** (`dynamicRemoteColorScheme`): upstream maps each role's `android.R.color`
+  resource id to its index in the "android" colour group (`AndroidSystemColorMap`), and only the
+  index reaches the document. The fork carries `R.color` as those indices (`wearcompose/R.kt`, mapped
+  from `android.R` in `upstream-fqn.tsv`), and `rc-creation-compose` gains a common
+  `RemoteColor.createThemedRemoteColor(lightColorIndex, darkColorIndex, …)`
+  (`compose/src/commonMain/…/state/RemoteThemedColor.kt`, upstream's cache key unchanged), so a
+  dynamic scheme writes the same `ColorTheme` operation from every target. `RemoteColorRole` drops
+  `@ColorRes` (Android's alone): its tokens are indices.
+- **The default type scale** (`RemoteTypographyTokens`): upstream converts Wear Compose's
+  `Typography()`, whose fonts are Android's `DeviceFontFamilyName` with variation settings. The fork
+  builds each style from the same tokens, as the conversion gives on Android: the token's weight,
+  size, line height and tracking, `"pnum"`, the variable-font axes, and no font family.
+- **`RemoteTypography(typography: Typography, …)`**, the constructor converting a Wear Compose
+  `Typography`, is not carried.
+- `RemoteShapes` and `RemoteMotionTokens` import Wear Compose's `Shapes` and `MotionScheme` for
+  KDoc only; the imports go. `RemoteMaterial3Flags` imports `kotlin.jvm.JvmField` for common code.
+
+The KDoc links upstream's `foundation` and `remote-creation-compose` make to `remote-material3`
+(`RemoteIcon`, `RemoteText`, `RemoteTimeText`) now resolve to the fork's. Seven hunks in six files
+are ktfmt's: this repository's ktfmt joins and splits a few lines AndroidX's leaves alone; they
+count as unmarked, like the other modules' formatting hunks.
+
+Upstream's tests are Android's (Robolectric and screenshots) and are not carried;
+`material3/src/jvmTest` checks what the patches change, on the JVM, read back with the player's
+reader.
 
 ## Layout, and measuring the difference
 

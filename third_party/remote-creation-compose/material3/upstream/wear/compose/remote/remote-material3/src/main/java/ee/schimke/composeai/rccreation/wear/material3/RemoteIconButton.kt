@@ -1,0 +1,556 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package ee.schimke.composeai.rccreation.wear.material3
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
+import androidx.compose.ui.graphics.Color
+import ee.schimke.composeai.rccreation.compose.action.RemoteAction
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.defaultMinSize
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteCircleShape
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteCornerBasedShape
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteShape
+import ee.schimke.composeai.rccreation.compose.state.RemoteBoolean
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemoteDp
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.max
+import ee.schimke.composeai.rccreation.compose.state.rb
+import ee.schimke.composeai.rccreation.compose.state.rdp
+import ee.schimke.composeai.rccreation.compose.state.rf
+
+/**
+ * Wear Material [RemoteIconButton] is a circular, icon-only button with transparent background and
+ * no border. It offers a single slot to take icon or image content.
+ *
+ * The default [RemoteIconButton] has no border and a transparent background for low emphasis
+ * actions. For actions that require higher emphasis, consider overriding the colors by
+ * [RemoteIconButtonColors.copy]
+ *
+ * [RemoteIconButton] can be enabled or disabled. A disabled button will not respond to click
+ * events.
+ *
+ * Example of a [RemoteIconButton]:
+ *
+ * @sample ee.schimke.composeai.rccreation.wear.material3.samples.RemoteIconButtonSimpleSample
+ *
+ * Example of a [RemoteIconButton] with corner animation on press:
+ *
+ * @sample ee.schimke.composeai.rccreation.wear.material3.samples.RemoteIconButtonWithCornerAnimationSample
+ * @param onClick Will be called when the user clicks the button.
+ * @param modifier Modifier to be applied to the button.
+ * @param enabled Controls the enabled state of the button. When `false`, this button will not be
+ *   clickable. It must be a constant value.
+ * @param shapes Defines the shape for this icon button, including a pressed shape when animated.
+ *   Defaults to a static shape based on [RemoteIconButtonDefaults.shape], or use
+ *   [RemoteIconButtonDefaults.animatedShapes] to animate the corners on press. The press animation
+ *   is driven by touch events on the player, and is not shown by players that don't dispatch them.
+ * @param colors [RemoteIconButtonColors] that will be used to resolve the background and content
+ *   color for this button in different states.
+ * @param border Optional [RemoteBorderStroke] that will be used to resolve the border for this
+ *   button in different states, or `null` for no border.
+ * @param content The content displayed on the icon button, expected to be icon or image.
+ */
+@Composable
+@RemoteComposable
+public fun RemoteIconButton(
+    onClick: RemoteAction,
+    modifier: RemoteModifier = RemoteModifier,
+    enabled: RemoteBoolean = true.rb,
+    shapes: RemoteIconButtonShapes = RemoteIconButtonDefaults.shapes(),
+    colors: RemoteIconButtonColors = RemoteIconButtonDefaults.iconButtonColors(),
+    border: RemoteBorderStroke? = null,
+    content: @Composable @RemoteComposable () -> Unit,
+) {
+    RemoteRoundButton(
+        onClick = onClick,
+        modifier =
+            modifier.defaultMinSize(
+                minWidth = RemoteIconButtonDefaults.DefaultButtonSize,
+                minHeight = RemoteIconButtonDefaults.DefaultButtonSize,
+            ),
+        backgroundColor = colors.containerColor(enabled = enabled),
+        enabled = enabled,
+        border = border,
+        shape = shapes.shape,
+        pressedShape = shapes.pressedShape,
+        content =
+            provideScopeContent(
+                colors.contentColor(enabled = enabled),
+                RemoteMaterialTheme.typography.labelMedium,
+                content,
+            ),
+    )
+}
+
+/** Contains the default values used by [RemoteIconButton]. */
+public object RemoteIconButtonDefaults {
+    /** Recommended [RemoteShape] for [RemoteIconButton]. */
+    public val shape: RemoteRoundedCornerShape = RemoteCircleShape
+
+    /** Recommended pressed [RemoteShape] for [RemoteIconButton]. */
+    public val pressedShape: RemoteCornerBasedShape
+        @Composable @RemoteComposable get() = RemoteMaterialTheme.shapes.small
+
+    /** Recommended alpha to apply to a [RemoteIconButton] with Image content when disabled */
+    public val DisabledImageOpacity: RemoteFloat = DisabledContentAlpha.rf
+
+    /**
+     * Returns the default [RemoteIconButtonShapes] for a static [RemoteIconButton].
+     *
+     * @return a [RemoteIconButtonShapes] with the default static [shape]
+     */
+    @Composable @RemoteComposable public fun shapes(): RemoteIconButtonShapes = shapes(shape)
+
+    /**
+     * Returns a [RemoteIconButtonShapes] for a static [RemoteIconButton].
+     *
+     * @param shape The normal shape of the [RemoteIconButton].
+     * @return a [RemoteIconButtonShapes] with the given static [shape]
+     */
+    @Composable
+    @RemoteComposable
+    public fun shapes(shape: RemoteShape): RemoteIconButtonShapes =
+        RemoteIconButtonShapes(shape = shape)
+
+    /**
+     * Returns a [RemoteIconButtonShapes] with an animation between two [RemoteCornerBasedShape]s
+     * when pressed.
+     *
+     * The press animation requires both shapes to be [RemoteRoundedCornerShape]s. It is driven by
+     * touch events on the player, and is not shown by players that don't dispatch them.
+     *
+     * Example of an icon button animated when pressed:
+     *
+     * @sample ee.schimke.composeai.rccreation.wear.material3.samples.RemoteIconButtonWithCornerAnimationSample
+     * @param shape The normal shape of the [RemoteIconButton].
+     * @param pressedShape The pressed shape of the [RemoteIconButton].
+     * @return a [RemoteIconButtonShapes] with the configured resting and pressed shapes
+     */
+    @Composable
+    @RemoteComposable
+    public fun animatedShapes(
+        shape: RemoteCornerBasedShape = this.shape,
+        pressedShape: RemoteCornerBasedShape = this.pressedShape,
+    ): RemoteIconButtonShapes = RemoteIconButtonShapes(shape = shape, pressedShape = pressedShape)
+
+    /**
+     * Returns a [RemoteIconButtonColors] with the colors for a filled [RemoteIconButton] - by
+     * default, a colored background with a contrasting icon color.
+     *
+     * @return a [RemoteIconButtonColors] with the default colors for a filled [RemoteIconButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun filledIconButtonColors(): RemoteIconButtonColors =
+        RemoteMaterialTheme.colorScheme.defaultFilledIconButtonColors
+
+    /**
+     * Returns a [RemoteIconButtonColors] with the colors for a filled [RemoteIconButton] - by
+     * default, a colored background with a contrasting icon color.
+     *
+     * @param containerColor The background color of this icon button when enabled, or `null` to use
+     *   the theme default.
+     * @param contentColor The color of this icon when enabled, or `null` to use the theme default.
+     * @param disabledContainerColor The background color of this icon button when not enabled, or
+     *   `null` to use the theme default.
+     * @param disabledContentColor The color of this icon when not enabled, or `null` to use the
+     *   theme default.
+     * @return a [RemoteIconButtonColors] with the configured colors for a filled [RemoteIconButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun filledIconButtonColors(
+        containerColor: RemoteColor? = null,
+        contentColor: RemoteColor? = null,
+        disabledContainerColor: RemoteColor? = null,
+        disabledContentColor: RemoteColor? = null,
+    ): RemoteIconButtonColors {
+        val default = RemoteMaterialTheme.colorScheme.defaultFilledIconButtonColors
+        return default.copy(
+            containerColor = containerColor ?: default.containerColor,
+            contentColor = contentColor ?: default.contentColor,
+            disabledContainerColor = disabledContainerColor ?: default.disabledContainerColor,
+            disabledContentColor = disabledContentColor ?: default.disabledContentColor,
+        )
+    }
+
+    /**
+     * Returns a [RemoteIconButtonColors] for a filled tonal [RemoteIconButton] with a muted
+     * background and contrasting content color.
+     *
+     * @return a [RemoteIconButtonColors] with the default colors for a filled tonal
+     *   [RemoteIconButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun filledTonalIconButtonColors(): RemoteIconButtonColors =
+        RemoteMaterialTheme.colorScheme.defaultFilledTonalIconButtonColors
+
+    /**
+     * Returns a [RemoteIconButtonColors] for a filled tonal [RemoteIconButton] with a muted
+     * background and contrasting content color.
+     *
+     * @param containerColor The background color of this icon button when enabled, or `null` to use
+     *   the theme default.
+     * @param contentColor The color of this icon when enabled, or `null` to use the theme default.
+     * @param disabledContainerColor The background color of this icon button when not enabled, or
+     *   `null` to use the theme default.
+     * @param disabledContentColor The color of this icon when not enabled, or `null` to use the
+     *   theme default.
+     * @return a [RemoteIconButtonColors] with the configured colors for a filled tonal
+     *   [RemoteIconButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun filledTonalIconButtonColors(
+        containerColor: RemoteColor? = null,
+        contentColor: RemoteColor? = null,
+        disabledContainerColor: RemoteColor? = null,
+        disabledContentColor: RemoteColor? = null,
+    ): RemoteIconButtonColors {
+        val default = RemoteMaterialTheme.colorScheme.defaultFilledTonalIconButtonColors
+        return default.copy(
+            containerColor = containerColor ?: default.containerColor,
+            contentColor = contentColor ?: default.contentColor,
+            disabledContainerColor = disabledContainerColor ?: default.disabledContainerColor,
+            disabledContentColor = disabledContentColor ?: default.disabledContentColor,
+        )
+    }
+
+    /**
+     * Returns a [RemoteIconButtonColors] with higher chroma container colors for
+     * [RemoteIconButton].
+     *
+     * @return a [RemoteIconButtonColors] with the default colors for a filled variant
+     *   [RemoteIconButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun filledVariantIconButtonColors(): RemoteIconButtonColors =
+        RemoteMaterialTheme.colorScheme.defaultFilledVariantIconButtonColors
+
+    /**
+     * Returns a [RemoteIconButtonColors] with higher chroma container colors for
+     * [RemoteIconButton].
+     *
+     * @param containerColor The background color of this icon button when enabled, or `null` to use
+     *   the theme default.
+     * @param contentColor The color of this icon when enabled, or `null` to use the theme default.
+     * @param disabledContainerColor The background color of this icon button when not enabled, or
+     *   `null` to use the theme default.
+     * @param disabledContentColor The color of this icon when not enabled, or `null` to use the
+     *   theme default.
+     * @return a [RemoteIconButtonColors] with the configured colors for a filled variant
+     *   [RemoteIconButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun filledVariantIconButtonColors(
+        containerColor: RemoteColor? = null,
+        contentColor: RemoteColor? = null,
+        disabledContainerColor: RemoteColor? = null,
+        disabledContentColor: RemoteColor? = null,
+    ): RemoteIconButtonColors {
+        val default = RemoteMaterialTheme.colorScheme.defaultFilledVariantIconButtonColors
+        return default.copy(
+            containerColor = containerColor ?: default.containerColor,
+            contentColor = contentColor ?: default.contentColor,
+            disabledContainerColor = disabledContainerColor ?: default.disabledContainerColor,
+            disabledContentColor = disabledContentColor ?: default.disabledContentColor,
+        )
+    }
+
+    /**
+     * Returns a [RemoteIconButtonColors] with a transparent background for outlined
+     * [RemoteIconButton].
+     *
+     * @return a [RemoteIconButtonColors] with the default colors for an outlined [RemoteIconButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun outlinedIconButtonColors(): RemoteIconButtonColors =
+        RemoteMaterialTheme.colorScheme.defaultOutlinedIconButtonColors
+
+    /**
+     * Returns a [RemoteIconButtonColors] with a transparent background for outlined
+     * [RemoteIconButton].
+     *
+     * @param contentColor The color of this icon button when enabled, or `null` to use the theme
+     *   default.
+     * @param disabledContentColor The color of this icon when not enabled, or `null` to use the
+     *   theme default.
+     * @return a [RemoteIconButtonColors] with the configured colors for an outlined
+     *   [RemoteIconButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun outlinedIconButtonColors(
+        contentColor: RemoteColor? = null,
+        disabledContentColor: RemoteColor? = null,
+    ): RemoteIconButtonColors {
+        val default = RemoteMaterialTheme.colorScheme.defaultOutlinedIconButtonColors
+        return default.copy(
+            contentColor = contentColor ?: default.contentColor,
+            disabledContentColor = disabledContentColor ?: default.disabledContentColor,
+        )
+    }
+
+    /**
+     * Returns a [RemoteIconButtonColors] for an icon button - by default, a transparent background
+     * with contrasting content color. If the button is disabled then the colors default to
+     * [RemoteColorScheme.onSurface] with suitable alpha values applied.
+     *
+     * @return a [RemoteIconButtonColors] with the default colors for a [RemoteIconButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun iconButtonColors(): RemoteIconButtonColors =
+        RemoteMaterialTheme.colorScheme.defaultIconButtonColors
+
+    /**
+     * Returns a [RemoteIconButtonColors] for an icon button - by default, a transparent background
+     * with contrasting content color. If the button is disabled then the colors default to
+     * [RemoteColorScheme.onSurface] with suitable alpha values applied.
+     *
+     * @param containerColor The background color of this icon button when enabled, or `null` to use
+     *   the theme default.
+     * @param contentColor The content color of this icon button when enabled, or `null` to use the
+     *   theme default.
+     * @param disabledContainerColor The background color of this icon button when not enabled, or
+     *   `null` to use the theme default.
+     * @param disabledContentColor The content color of this icon button when not enabled, or `null`
+     *   to use the theme default.
+     * @return a [RemoteIconButtonColors] with the configured colors for a [RemoteIconButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun iconButtonColors(
+        containerColor: RemoteColor? = null,
+        contentColor: RemoteColor? = null,
+        disabledContainerColor: RemoteColor? = null,
+        disabledContentColor: RemoteColor? = null,
+    ): RemoteIconButtonColors {
+        val default = RemoteMaterialTheme.colorScheme.defaultIconButtonColors
+        return default.copy(
+            containerColor = containerColor ?: default.containerColor,
+            contentColor = contentColor ?: default.contentColor,
+            disabledContainerColor = disabledContainerColor ?: default.disabledContainerColor,
+            disabledContentColor = disabledContentColor ?: default.disabledContentColor,
+        )
+    }
+
+    /**
+     * Recommended icon size for a given icon button size.
+     *
+     * Ensures that the minimum recommended icon size is applied.
+     *
+     * Examples: for size [LargeButtonSize], returns [LargeIconSize], for size
+     * [ExtraSmallButtonSize] returns [SmallIconSize].
+     *
+     * @param buttonSize The size of the icon button
+     * @return the recommended icon size in [RemoteDp] for [buttonSize]
+     */
+    public fun iconSizeFor(buttonSize: RemoteDp): RemoteDp =
+        buttonSize
+            .isGreaterThanOrEqualTo(LargeButtonSize)
+            .select(ifTrue = LargeIconSize, ifFalse = max(SmallIconSize, buttonSize / 2f.rf))
+
+    /**
+     * The recommended size of an icon when used inside an icon button with size [SmallButtonSize]
+     * or [ExtraSmallButtonSize]. Use [iconSizeFor] to easily determine the icon size.
+     */
+    public val SmallIconSize: RemoteDp = 24.rdp
+
+    /**
+     * The default size of an icon when used inside an icon button of size DefaultButtonSize. Use
+     * [iconSizeFor] to easily determine the icon size.
+     */
+    public val DefaultIconSize: RemoteDp = 26.rdp
+
+    /**
+     * The size of an icon when used inside an icon button with size [LargeButtonSize]. Use
+     * [iconSizeFor] to easily determine the icon size.
+     */
+    public val LargeIconSize: RemoteDp = 32.rdp
+
+    /** The recommended size for a small button. */
+    public val SmallButtonSize: RemoteDp = 48.rdp
+
+    /** The default size applied for buttons. */
+    public val DefaultButtonSize: RemoteDp = 52.rdp
+
+    /** The recommended size for a large button. */
+    public val LargeButtonSize: RemoteDp = 60.rdp
+
+    /** The recommended background size of an extra small, compact button. */
+    public val ExtraSmallButtonSize: RemoteDp = 32.rdp
+
+    internal val RemoteColorScheme.defaultFilledIconButtonColors: RemoteIconButtonColors
+        @Composable
+        @RemoteComposable
+        get() =
+            RemoteIconButtonColors(
+                containerColor = primary,
+                contentColor = onPrimary,
+                disabledContainerColor = onSurface.toDisabledColor(disabledAlpha = 0.12f.rf),
+                disabledContentColor = onSurface.toDisabledColor(disabledAlpha = 0.38f.rf),
+            )
+
+    internal val RemoteColorScheme.defaultFilledVariantIconButtonColors: RemoteIconButtonColors
+        @Composable
+        @RemoteComposable
+        get() =
+            RemoteIconButtonColors(
+                containerColor = primaryContainer,
+                contentColor = onPrimaryContainer,
+                disabledContainerColor = onSurface.toDisabledColor(disabledAlpha = 0.12f.rf),
+                disabledContentColor = onSurface.toDisabledColor(disabledAlpha = 0.38f.rf),
+            )
+
+    internal val RemoteColorScheme.defaultFilledTonalIconButtonColors: RemoteIconButtonColors
+        @Composable
+        @RemoteComposable
+        get() =
+            RemoteIconButtonColors(
+                containerColor = surfaceContainer,
+                contentColor = primary,
+                disabledContainerColor = onSurface.toDisabledColor(disabledAlpha = 0.12f.rf),
+                disabledContentColor = onSurface.toDisabledColor(disabledAlpha = 0.38f.rf),
+            )
+
+    internal val RemoteColorScheme.defaultOutlinedIconButtonColors: RemoteIconButtonColors
+        @Composable
+        @RemoteComposable
+        get() =
+            RemoteIconButtonColors(
+                containerColor = RemoteColor(Color.Transparent),
+                contentColor = primary,
+                disabledContainerColor = RemoteColor(Color.Transparent),
+                disabledContentColor = onSurface.toDisabledColor(disabledAlpha = 0.38f.rf),
+            )
+
+    internal val RemoteColorScheme.defaultIconButtonColors: RemoteIconButtonColors
+        @Composable
+        @RemoteComposable
+        get() =
+            RemoteIconButtonColors(
+                containerColor = RemoteColor(Color.Transparent),
+                contentColor = primary,
+                disabledContainerColor = RemoteColor(Color.Transparent),
+                disabledContentColor = onSurface.toDisabledColor(disabledAlpha = 0.38f.rf),
+            )
+}
+
+/**
+ * Represents the container and content colors used in an icon button in different states.
+ *
+ * See [RemoteIconButtonDefaults.iconButtonColors] for the default colors used in a
+ * [RemoteIconButton].
+ *
+ * @param containerColor the background color of this icon button when enabled.
+ * @param contentColor the content color of this icon button when enabled.
+ * @param disabledContainerColor the background color of this icon button when not enabled.
+ * @param disabledContentColor the content color of this icon button when not enabled.
+ */
+@Immutable
+public class RemoteIconButtonColors(
+    public val containerColor: RemoteColor,
+    public val contentColor: RemoteColor,
+    public val disabledContainerColor: RemoteColor,
+    public val disabledContentColor: RemoteColor,
+) {
+    @Stable
+    internal fun contentColor(enabled: RemoteBoolean = true.rb): RemoteColor {
+        return enabled.select(ifTrue = contentColor, ifFalse = disabledContentColor)
+    }
+
+    @Stable
+    internal fun containerColor(enabled: RemoteBoolean = true.rb): RemoteColor {
+        return enabled.select(ifTrue = containerColor, ifFalse = disabledContainerColor)
+    }
+
+    /**
+     * Returns a copy of this [RemoteIconButtonColors] optionally overriding some of the values.
+     *
+     * @param containerColor the background color of this icon button when enabled.
+     * @param contentColor the content color of this icon button when enabled.
+     * @param disabledContainerColor the background color of this icon button when not enabled.
+     * @param disabledContentColor the content color of this icon button when not enabled.
+     * @return a copy of this [RemoteIconButtonColors] with the specified values overridden
+     */
+    public fun copy(
+        containerColor: RemoteColor = this.containerColor,
+        contentColor: RemoteColor = this.contentColor,
+        disabledContainerColor: RemoteColor = this.disabledContainerColor,
+        disabledContentColor: RemoteColor = this.disabledContentColor,
+    ): RemoteIconButtonColors =
+        RemoteIconButtonColors(
+            containerColor = containerColor,
+            contentColor = contentColor,
+            disabledContainerColor = disabledContainerColor,
+            disabledContentColor = disabledContentColor,
+        )
+}
+
+/**
+ * Represents the shapes used for [RemoteIconButton] in various states.
+ *
+ * When [pressedShape] differs from [shape], [RemoteIconButton] animates to [pressedShape] while it
+ * is pressed. The press animation requires both shapes to be [RemoteRoundedCornerShape]s and the
+ * icon button to be enabled with a constant value.
+ *
+ * @param shape the shape of the icon button when not pressed.
+ * @param pressedShape the shape of the icon button when pressed.
+ */
+@Immutable
+public class RemoteIconButtonShapes(
+    public val shape: RemoteShape,
+    public val pressedShape: RemoteShape = shape,
+) {
+    /**
+     * Returns a copy of this [RemoteIconButtonShapes], optionally overriding some of the values.
+     *
+     * @param shape the shape of the icon button when not pressed.
+     * @param pressedShape the shape of the icon button when pressed.
+     * @return a copy of this [RemoteIconButtonShapes] with the specified values overridden
+     */
+    public fun copy(
+        shape: RemoteShape = this.shape,
+        pressedShape: RemoteShape = this.pressedShape,
+    ): RemoteIconButtonShapes = RemoteIconButtonShapes(shape = shape, pressedShape = pressedShape)
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RemoteIconButtonShapes) return false
+
+        if (shape != other.shape) return false
+        if (pressedShape != other.pressedShape) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = shape.hashCode()
+        result = 31 * result + pressedShape.hashCode()
+        return result
+    }
+}

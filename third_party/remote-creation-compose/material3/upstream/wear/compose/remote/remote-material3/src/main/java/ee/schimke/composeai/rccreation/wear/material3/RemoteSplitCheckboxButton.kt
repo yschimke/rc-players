@@ -1,0 +1,731 @@
+/*
+ * Copyright 2026 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package ee.schimke.composeai.rccreation.wear.material3
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import ee.schimke.composeai.rccreation.compose.action.RemoteAction
+import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
+import ee.schimke.composeai.rccreation.compose.layout.RemoteArrangement
+import ee.schimke.composeai.rccreation.compose.layout.RemoteBox
+import ee.schimke.composeai.rccreation.compose.layout.RemoteColumn
+import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
+import ee.schimke.composeai.rccreation.compose.layout.RemoteDrawScope
+import ee.schimke.composeai.rccreation.compose.layout.RemotePaddingValues
+import ee.schimke.composeai.rccreation.compose.layout.RemoteRow
+import ee.schimke.composeai.rccreation.compose.layout.RemoteRowScope
+import ee.schimke.composeai.rccreation.compose.layout.RemoteSize
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
+import ee.schimke.composeai.rccreation.compose.modifier.RemoteRole
+import ee.schimke.composeai.rccreation.compose.modifier.clickable
+import ee.schimke.composeai.rccreation.compose.modifier.clip
+import ee.schimke.composeai.rccreation.compose.modifier.contentDescription
+import ee.schimke.composeai.rccreation.compose.modifier.drawWithContent
+import ee.schimke.composeai.rccreation.compose.modifier.heightIn
+import ee.schimke.composeai.rccreation.compose.modifier.padding
+import ee.schimke.composeai.rccreation.compose.modifier.role
+import ee.schimke.composeai.rccreation.compose.modifier.semantics
+import ee.schimke.composeai.rccreation.compose.modifier.size
+import ee.schimke.composeai.rccreation.compose.modifier.widthIn
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteCornerBasedShape
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteRoundedCornerShape
+import ee.schimke.composeai.rccreation.compose.shapes.RemoteShape
+import ee.schimke.composeai.rccreation.compose.shapes.drawOutline
+import ee.schimke.composeai.rccreation.compose.state.RemoteBoolean
+import ee.schimke.composeai.rccreation.compose.state.RemoteColor
+import ee.schimke.composeai.rccreation.compose.state.RemoteDp
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.RemotePaint
+import ee.schimke.composeai.rccreation.compose.state.RemotePaintingStyle
+import ee.schimke.composeai.rccreation.compose.state.RemoteString
+import ee.schimke.composeai.rccreation.compose.state.lerp
+import ee.schimke.composeai.rccreation.compose.state.rb
+import ee.schimke.composeai.rccreation.compose.state.rc
+import ee.schimke.composeai.rccreation.compose.state.rdp
+import ee.schimke.composeai.rccreation.compose.state.rf
+import ee.schimke.composeai.rccreation.wear.material3.wearcompose.TextConfiguration
+
+/**
+ * The Wear Material [RemoteSplitCheckboxButton] offers two slots and shows the current toggle state
+ * via a checkbox.
+ *
+ * The [RemoteSplitCheckboxButton] is essentially a [RemoteRow] with two split areas. The first area
+ * containing [label] and optional [secondaryLabel] is clickable and triggers [onContainerClick].
+ * The second area contains a checkbox toggle control and triggers [onCheckedChange].
+ *
+ * For accessibility, provide a localized [toggleContentDescription] describing what the checkbox
+ * toggle control represents when its meaning is not already clear from surrounding context, or pass
+ * `null` if no extra description is needed beyond its role and checked state.
+ *
+ * Example of a [RemoteSplitCheckboxButton] with separate container and checkbox actions:
+ *
+ * @sample ee.schimke.composeai.rccreation.wear.material3.samples.RemoteSplitCheckboxButtonSample
+ * @param checked [RemoteBoolean] flag indicating whether this button is currently checked.
+ * @param onCheckedChange [RemoteAction] to be invoked when the toggle control is clicked.
+ * @param toggleContentDescription Text used by accessibility services to describe what this toggle
+ *   control represents, or `null` if no separate accessibility description is needed.
+ * @param onContainerClick [RemoteAction] to be invoked when the container area is clicked.
+ * @param modifier [RemoteModifier] to be applied to the button.
+ * @param enabled Controls the enabled state of the button. When `false`, this button will appear
+ *   visually disabled and will not be clickable. Note that only constant values are currently
+ *   supported for [enabled] for click handling.
+ * @param shape Defines the button's shape. It is recommended to use the default shape.
+ * @param colors [RemoteSplitCheckboxButtonColors] that will be used to resolve the container and
+ *   content colors for this button in different states.
+ * @param contentPadding The spacing values to apply internally between the container and the
+ *   content.
+ * @param secondaryLabel A slot for a secondary label displayed below the [label], or `null` if
+ *   there is no secondary label.
+ * @param label A slot for the main label content.
+ */
+@RemoteComposable
+@Composable
+public fun RemoteSplitCheckboxButton(
+    checked: RemoteBoolean,
+    onCheckedChange: RemoteAction,
+    toggleContentDescription: RemoteString?,
+    onContainerClick: RemoteAction,
+    modifier: RemoteModifier = RemoteModifier,
+    enabled: RemoteBoolean = true.rb,
+    shape: RemoteShape = RemoteSplitCheckboxButtonDefaults.shape,
+    colors: RemoteSplitCheckboxButtonColors =
+        RemoteSplitCheckboxButtonDefaults.splitCheckboxButtonColors(),
+    contentPadding: RemotePaddingValues = RemoteSplitCheckboxButtonDefaults.ContentPadding,
+    secondaryLabel: @Composable @RemoteComposable (RemoteRowScope.() -> Unit)? = null,
+    label: @Composable @RemoteComposable RemoteRowScope.() -> Unit,
+) {
+    val progress = animateSelectionControlProgress(checked)
+    val colorProgress = animateSelectionColorProgress(checked)
+    val (startSectionShape, endSectionShape) =
+        splitSectionShapes(shape, RemoteSplitCheckboxButtonDefaults.splitSectionsShape)
+    val containerColor =
+        colors.containerColor(enabled = enabled, checked = checked, progress = colorProgress)
+    val contentColor =
+        colors.contentColor(enabled = enabled, checked = checked, progress = colorProgress)
+    val secondaryContentColor =
+        colors.secondaryContentColor(enabled = enabled, checked = checked, progress = colorProgress)
+    val splitContainerColor =
+        colors.splitContainerColor(enabled = enabled, checked = checked, progress = colorProgress)
+    val boxColor = colors.boxColor(enabled = enabled, checked = checked, progress = progress)
+    val checkmarkColor = colors.checkmarkColor(enabled = enabled)
+
+    RemoteRow(
+        verticalAlignment = RemoteAlignment.CenterVertically,
+        modifier = modifier.heightIn(min = RemoteSplitCheckboxButtonDefaults.Height).clip(shape),
+    ) {
+        // Container clickable slot (label + optional secondary label)
+        RemoteRow(
+            verticalAlignment = RemoteAlignment.CenterVertically,
+            horizontalArrangement = RemoteArrangement.Start,
+            modifier =
+                RemoteModifier.weight(1f.rf)
+                    .heightIn(min = RemoteSplitCheckboxButtonDefaults.Height)
+                    .clip(startSectionShape)
+                    .clickable(
+                        onClick = onContainerClick,
+                        enabled =
+                            (enabled.constantValueOrNull ?: false) &&
+                                onContainerClick != RemoteAction.None,
+                    )
+                    .drawWithContent {
+                        drawSolidColorShape(startSectionShape, containerColor)
+                        drawContent()
+                    }
+                    .padding(contentPadding)
+                    .semantics(mergeDescendants = true) { role = RemoteRole.Button },
+            content = {
+                RemoteColumn {
+                    RemoteRow(
+                        content =
+                            provideScopeContent(
+                                contentColor = contentColor,
+                                textStyle = RemoteMaterialTheme.typography.labelMedium,
+                                textConfiguration =
+                                    TextConfiguration(
+                                        textAlign = TextAlign.Start,
+                                        overflow = TextOverflow.Ellipsis,
+                                        maxLines = 1,
+                                    ),
+                                content = label,
+                            ),
+                    )
+                    if (secondaryLabel != null) {
+                        RemoteBox(RemoteModifier.size(1.rdp))
+                        RemoteRow(
+                            content =
+                                provideScopeContent(
+                                    contentColor = secondaryContentColor,
+                                    textStyle = RemoteMaterialTheme.typography.labelSmall,
+                                    textConfiguration =
+                                        TextConfiguration(
+                                            overflow = TextOverflow.Ellipsis,
+                                            maxLines = 1,
+                                            textAlign = TextAlign.Start,
+                                        ),
+                                    content = secondaryLabel,
+                                ),
+                        )
+                    }
+                }
+            },
+        )
+
+        RemoteBox(RemoteModifier.size(2.rdp))
+
+        // Selection control clickable slot
+        RemoteBox(
+            contentAlignment = RemoteAlignment.Center,
+            modifier =
+                RemoteModifier.widthIn(min = 48.rdp)
+                    .heightIn(min = RemoteSplitCheckboxButtonDefaults.Height)
+                    .clip(endSectionShape)
+                    .clickable(
+                        onClick = onCheckedChange,
+                        enabled =
+                            (enabled.constantValueOrNull ?: false) &&
+                                onCheckedChange != RemoteAction.None,
+                    )
+                    .drawWithContent {
+                        drawSolidColorShape(
+                            endSectionShape,
+                            enabled.select(containerColor, Color.Black.rc),
+                        )
+                        drawSolidColorShape(endSectionShape, splitContainerColor)
+                        drawContent()
+                    }
+                    .padding(contentPadding)
+                    .semantics(mergeDescendants = true) {
+                        role = RemoteRole.Checkbox
+                        if (toggleContentDescription != null) {
+                            contentDescription = toggleContentDescription
+                        }
+                    },
+        ) {
+            RemoteCheckboxControl(
+                checked = checked,
+                boxColor = boxColor,
+                checkmarkColor = checkmarkColor,
+                progress = progress,
+            )
+        }
+    }
+}
+
+/** Contains the default values used by [RemoteSplitCheckboxButton]. */
+public object RemoteSplitCheckboxButtonDefaults {
+    /**
+     * Recommended [RemoteRoundedCornerShape] for the outer container of
+     * [RemoteSplitCheckboxButton].
+     */
+    public val shape: RemoteRoundedCornerShape = RemoteRoundedCornerShape(26.rdp)
+
+    /** Recommended [RemoteRoundedCornerShape] for the split sections. */
+    public val splitSectionsShape: RemoteRoundedCornerShape = RemoteRoundedCornerShape(4.rdp)
+
+    /** The default minimum height applied for the [RemoteSplitCheckboxButton]. */
+    public val Height: RemoteDp = 52.rdp
+
+    /** The default content padding used by [RemoteSplitCheckboxButton]. */
+    public val ContentPadding: RemotePaddingValues =
+        RemotePaddingValues(horizontal = 14.rdp, vertical = 8.rdp)
+
+    /**
+     * Creates a [RemoteSplitCheckboxButtonColors] that represents the default container and content
+     * colors used in a [RemoteSplitCheckboxButton].
+     *
+     * @return a [RemoteSplitCheckboxButtonColors] with the default colors for
+     *   [RemoteSplitCheckboxButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun splitCheckboxButtonColors(): RemoteSplitCheckboxButtonColors =
+        RemoteMaterialTheme.colorScheme.defaultSplitCheckboxButtonColors
+
+    /**
+     * Creates a [RemoteSplitCheckboxButtonColors] that represents the default container and content
+     * colors used in a [RemoteSplitCheckboxButton].
+     *
+     * @param checkedContainerColor The container color of the [RemoteSplitCheckboxButton] when
+     *   enabled and checked, or `null` to use the theme default.
+     * @param checkedContentColor The content color of the [RemoteSplitCheckboxButton] when enabled
+     *   and checked, or `null` to use the theme default.
+     * @param checkedSecondaryContentColor The secondary content color of the
+     *   [RemoteSplitCheckboxButton] when enabled and checked, used for secondaryLabel content, or
+     *   `null` to use the theme default.
+     * @param checkedSplitContainerColor The split container color of the
+     *   [RemoteSplitCheckboxButton] when enabled and checked, or `null` to use the theme default.
+     * @param checkedBoxColor The box color of the [RemoteSplitCheckboxButton] when enabled and
+     *   checked, or `null` to use the theme default.
+     * @param checkedCheckmarkColor The checkmark color of the [RemoteSplitCheckboxButton] when
+     *   enabled and checked, or `null` to use the theme default.
+     * @param uncheckedContainerColor The container color of the [RemoteSplitCheckboxButton] when
+     *   enabled and unchecked, or `null` to use the theme default.
+     * @param uncheckedContentColor The content color of the [RemoteSplitCheckboxButton] when
+     *   enabled and unchecked, or `null` to use the theme default.
+     * @param uncheckedSecondaryContentColor The secondary content color of the
+     *   [RemoteSplitCheckboxButton] when enabled and unchecked, used for secondaryLabel content, or
+     *   `null` to use the theme default.
+     * @param uncheckedSplitContainerColor The split container color of the
+     *   [RemoteSplitCheckboxButton] when enabled and unchecked, or `null` to use the theme default.
+     * @param uncheckedBoxColor The box color of the [RemoteSplitCheckboxButton] when enabled and
+     *   unchecked, or `null` to use the theme default.
+     * @param disabledCheckedContainerColor The container color of the [RemoteSplitCheckboxButton]
+     *   when disabled and checked, or `null` to use the theme default.
+     * @param disabledCheckedContentColor The content color of the [RemoteSplitCheckboxButton] when
+     *   disabled and checked, or `null` to use the theme default.
+     * @param disabledCheckedSecondaryContentColor The secondary content color of the
+     *   [RemoteSplitCheckboxButton] when disabled and checked, used for secondaryLabel content, or
+     *   `null` to use the theme default.
+     * @param disabledCheckedSplitContainerColor The split container color of the
+     *   [RemoteSplitCheckboxButton] when disabled and checked, or `null` to use the theme default.
+     * @param disabledCheckedBoxColor The box color of the [RemoteSplitCheckboxButton] when disabled
+     *   and checked, or `null` to use the theme default.
+     * @param disabledCheckedCheckmarkColor The checkmark color of the [RemoteSplitCheckboxButton]
+     *   when disabled and checked, or `null` to use the theme default.
+     * @param disabledUncheckedContainerColor The container color of the [RemoteSplitCheckboxButton]
+     *   when disabled and unchecked, or `null` to use the theme default.
+     * @param disabledUncheckedContentColor The content color of the [RemoteSplitCheckboxButton]
+     *   when disabled and unchecked, or `null` to use the theme default.
+     * @param disabledUncheckedSecondaryContentColor The secondary content color of the
+     *   [RemoteSplitCheckboxButton] when disabled and unchecked, used for secondaryLabel content,
+     *   or `null` to use the theme default.
+     * @param disabledUncheckedSplitContainerColor The split container color of the
+     *   [RemoteSplitCheckboxButton] when disabled and unchecked, or `null` to use the theme
+     *   default.
+     * @param disabledUncheckedBoxColor The box color of the [RemoteSplitCheckboxButton] when
+     *   disabled and unchecked, or `null` to use the theme default.
+     * @return a [RemoteSplitCheckboxButtonColors] with the configured colors for
+     *   [RemoteSplitCheckboxButton]
+     */
+    @Composable
+    @RemoteComposable
+    public fun splitCheckboxButtonColors(
+        checkedContainerColor: RemoteColor? = null,
+        checkedContentColor: RemoteColor? = null,
+        checkedSecondaryContentColor: RemoteColor? = null,
+        checkedSplitContainerColor: RemoteColor? = null,
+        checkedBoxColor: RemoteColor? = null,
+        checkedCheckmarkColor: RemoteColor? = null,
+        uncheckedContainerColor: RemoteColor? = null,
+        uncheckedContentColor: RemoteColor? = null,
+        uncheckedSecondaryContentColor: RemoteColor? = null,
+        uncheckedSplitContainerColor: RemoteColor? = null,
+        uncheckedBoxColor: RemoteColor? = null,
+        disabledCheckedContainerColor: RemoteColor? = null,
+        disabledCheckedContentColor: RemoteColor? = null,
+        disabledCheckedSecondaryContentColor: RemoteColor? = null,
+        disabledCheckedSplitContainerColor: RemoteColor? = null,
+        disabledCheckedBoxColor: RemoteColor? = null,
+        disabledCheckedCheckmarkColor: RemoteColor? = null,
+        disabledUncheckedContainerColor: RemoteColor? = null,
+        disabledUncheckedContentColor: RemoteColor? = null,
+        disabledUncheckedSecondaryContentColor: RemoteColor? = null,
+        disabledUncheckedSplitContainerColor: RemoteColor? = null,
+        disabledUncheckedBoxColor: RemoteColor? = null,
+    ): RemoteSplitCheckboxButtonColors {
+        val default = RemoteMaterialTheme.colorScheme.defaultSplitCheckboxButtonColors
+        return default.copy(
+            checkedContainerColor = checkedContainerColor ?: default.checkedContainerColor,
+            checkedContentColor = checkedContentColor ?: default.checkedContentColor,
+            checkedSecondaryContentColor =
+                checkedSecondaryContentColor ?: default.checkedSecondaryContentColor,
+            checkedSplitContainerColor =
+                checkedSplitContainerColor ?: default.checkedSplitContainerColor,
+            checkedBoxColor = checkedBoxColor ?: default.checkedBoxColor,
+            checkedCheckmarkColor = checkedCheckmarkColor ?: default.checkedCheckmarkColor,
+            uncheckedContainerColor = uncheckedContainerColor ?: default.uncheckedContainerColor,
+            uncheckedContentColor = uncheckedContentColor ?: default.uncheckedContentColor,
+            uncheckedSecondaryContentColor =
+                uncheckedSecondaryContentColor ?: default.uncheckedSecondaryContentColor,
+            uncheckedSplitContainerColor =
+                uncheckedSplitContainerColor ?: default.uncheckedSplitContainerColor,
+            uncheckedBoxColor = uncheckedBoxColor ?: default.uncheckedBoxColor,
+            disabledCheckedContainerColor =
+                disabledCheckedContainerColor ?: default.disabledCheckedContainerColor,
+            disabledCheckedContentColor =
+                disabledCheckedContentColor ?: default.disabledCheckedContentColor,
+            disabledCheckedSecondaryContentColor =
+                disabledCheckedSecondaryContentColor
+                    ?: default.disabledCheckedSecondaryContentColor,
+            disabledCheckedSplitContainerColor =
+                disabledCheckedSplitContainerColor ?: default.disabledCheckedSplitContainerColor,
+            disabledCheckedBoxColor = disabledCheckedBoxColor ?: default.disabledCheckedBoxColor,
+            disabledCheckedCheckmarkColor =
+                disabledCheckedCheckmarkColor ?: default.disabledCheckedCheckmarkColor,
+            disabledUncheckedContainerColor =
+                disabledUncheckedContainerColor ?: default.disabledUncheckedContainerColor,
+            disabledUncheckedContentColor =
+                disabledUncheckedContentColor ?: default.disabledUncheckedContentColor,
+            disabledUncheckedSecondaryContentColor =
+                disabledUncheckedSecondaryContentColor
+                    ?: default.disabledUncheckedSecondaryContentColor,
+            disabledUncheckedSplitContainerColor =
+                disabledUncheckedSplitContainerColor
+                    ?: default.disabledUncheckedSplitContainerColor,
+            disabledUncheckedBoxColor =
+                disabledUncheckedBoxColor ?: default.disabledUncheckedBoxColor,
+        )
+    }
+
+    private val RemoteColorScheme.defaultSplitCheckboxButtonColors: RemoteSplitCheckboxButtonColors
+        @Composable
+        @RemoteComposable
+        get() {
+            return RemoteSplitCheckboxButtonColors(
+                checkedContainerColor = primaryContainer,
+                checkedContentColor = onPrimaryContainer,
+                checkedSecondaryContentColor = onPrimaryContainer.copy(alpha = 0.9f.rf),
+                checkedSplitContainerColor = onPrimaryContainer.copy(alpha = 0.12f.rf),
+                checkedBoxColor = primary,
+                checkedCheckmarkColor = primaryContainer,
+                uncheckedContainerColor = surfaceContainer,
+                uncheckedContentColor = onSurface,
+                uncheckedSecondaryContentColor = onSurfaceVariant,
+                uncheckedSplitContainerColor = surfaceContainerHigh,
+                uncheckedBoxColor = outline,
+                disabledCheckedContainerColor = onSurface.copy(alpha = 0.12f.rf),
+                disabledCheckedContentColor =
+                    onSurface.toDisabledColor(disabledAlpha = DisabledContentAlpha.rf),
+                disabledCheckedSecondaryContentColor =
+                    onSurface.toDisabledColor(disabledAlpha = DisabledContentAlpha.rf),
+                disabledCheckedSplitContainerColor = onSurface.copy(alpha = 0.16f.rf),
+                disabledCheckedBoxColor = onSurface.toDisabledColor(disabledAlpha = 0.12f.rf),
+                disabledCheckedCheckmarkColor =
+                    background.toDisabledColor(disabledAlpha = DisabledContentAlpha.rf),
+                disabledUncheckedContainerColor = onSurface.copy(alpha = 0.12f.rf),
+                disabledUncheckedContentColor =
+                    onSurface.toDisabledColor(disabledAlpha = DisabledContentAlpha.rf),
+                disabledUncheckedSecondaryContentColor =
+                    onSurface.toDisabledColor(disabledAlpha = DisabledContentAlpha.rf),
+                disabledUncheckedSplitContainerColor = onSurface.copy(alpha = 0.16f.rf),
+                disabledUncheckedBoxColor = onSurface.toDisabledColor(disabledAlpha = 0.12f.rf),
+            )
+        }
+}
+
+/**
+ * Represents the container, content, and toggle control colors used in [RemoteSplitCheckboxButton]
+ * in different states.
+ *
+ * @param checkedContainerColor The container color of the [RemoteSplitCheckboxButton] when enabled
+ *   and checked.
+ * @param checkedContentColor The content color of the [RemoteSplitCheckboxButton] when enabled and
+ *   checked.
+ * @param checkedSecondaryContentColor The secondary content color of the
+ *   [RemoteSplitCheckboxButton] when enabled and checked, used for secondaryLabel content.
+ * @param checkedSplitContainerColor The split container color of the [RemoteSplitCheckboxButton]
+ *   when enabled and checked.
+ * @param checkedBoxColor The box color of the [RemoteSplitCheckboxButton] when enabled and checked.
+ * @param checkedCheckmarkColor The checkmark color of the [RemoteSplitCheckboxButton] when enabled
+ *   and checked.
+ * @param uncheckedContainerColor The container color of the [RemoteSplitCheckboxButton] when
+ *   enabled and unchecked.
+ * @param uncheckedContentColor The content color of the [RemoteSplitCheckboxButton] when enabled
+ *   and unchecked.
+ * @param uncheckedSecondaryContentColor The secondary content color of the
+ *   [RemoteSplitCheckboxButton] when enabled and unchecked, used for secondaryLabel content.
+ * @param uncheckedSplitContainerColor The split container color of the [RemoteSplitCheckboxButton]
+ *   when enabled and unchecked.
+ * @param uncheckedBoxColor The box color of the [RemoteSplitCheckboxButton] when enabled and
+ *   unchecked.
+ * @param disabledCheckedContainerColor The container color of the [RemoteSplitCheckboxButton] when
+ *   disabled and checked.
+ * @param disabledCheckedContentColor The content color of the [RemoteSplitCheckboxButton] when
+ *   disabled and checked.
+ * @param disabledCheckedSecondaryContentColor The secondary content color of the
+ *   [RemoteSplitCheckboxButton] when disabled and checked, used for secondaryLabel content.
+ * @param disabledCheckedSplitContainerColor The split container color of the
+ *   [RemoteSplitCheckboxButton] when disabled and checked.
+ * @param disabledCheckedBoxColor The box color of the [RemoteSplitCheckboxButton] when disabled and
+ *   checked.
+ * @param disabledCheckedCheckmarkColor The checkmark color of the [RemoteSplitCheckboxButton] when
+ *   disabled and checked.
+ * @param disabledUncheckedContainerColor The container color of the [RemoteSplitCheckboxButton]
+ *   when disabled and unchecked.
+ * @param disabledUncheckedContentColor The content color of the [RemoteSplitCheckboxButton] when
+ *   disabled and unchecked.
+ * @param disabledUncheckedSecondaryContentColor The secondary content color of the
+ *   [RemoteSplitCheckboxButton] when disabled and unchecked, used for secondaryLabel content.
+ * @param disabledUncheckedSplitContainerColor The split container color of the
+ *   [RemoteSplitCheckboxButton] when disabled and unchecked.
+ * @param disabledUncheckedBoxColor The box color of the [RemoteSplitCheckboxButton] when disabled
+ *   and unchecked.
+ */
+@Immutable
+public class RemoteSplitCheckboxButtonColors(
+    public val checkedContainerColor: RemoteColor,
+    public val checkedContentColor: RemoteColor,
+    public val checkedSecondaryContentColor: RemoteColor,
+    public val checkedSplitContainerColor: RemoteColor,
+    public val checkedBoxColor: RemoteColor,
+    public val checkedCheckmarkColor: RemoteColor,
+    public val uncheckedContainerColor: RemoteColor,
+    public val uncheckedContentColor: RemoteColor,
+    public val uncheckedSecondaryContentColor: RemoteColor,
+    public val uncheckedSplitContainerColor: RemoteColor,
+    public val uncheckedBoxColor: RemoteColor,
+    public val disabledCheckedContainerColor: RemoteColor,
+    public val disabledCheckedContentColor: RemoteColor,
+    public val disabledCheckedSecondaryContentColor: RemoteColor,
+    public val disabledCheckedSplitContainerColor: RemoteColor,
+    public val disabledCheckedBoxColor: RemoteColor,
+    public val disabledCheckedCheckmarkColor: RemoteColor,
+    public val disabledUncheckedContainerColor: RemoteColor,
+    public val disabledUncheckedContentColor: RemoteColor,
+    public val disabledUncheckedSecondaryContentColor: RemoteColor,
+    public val disabledUncheckedSplitContainerColor: RemoteColor,
+    public val disabledUncheckedBoxColor: RemoteColor,
+) {
+    /**
+     * Returns a copy of this [RemoteSplitCheckboxButtonColors] optionally overriding some values.
+     *
+     * @return a copy of this [RemoteSplitCheckboxButtonColors] with the specified values overridden
+     */
+    public fun copy(
+        checkedContainerColor: RemoteColor = this.checkedContainerColor,
+        checkedContentColor: RemoteColor = this.checkedContentColor,
+        checkedSecondaryContentColor: RemoteColor = this.checkedSecondaryContentColor,
+        checkedSplitContainerColor: RemoteColor = this.checkedSplitContainerColor,
+        checkedBoxColor: RemoteColor = this.checkedBoxColor,
+        checkedCheckmarkColor: RemoteColor = this.checkedCheckmarkColor,
+        uncheckedContainerColor: RemoteColor = this.uncheckedContainerColor,
+        uncheckedContentColor: RemoteColor = this.uncheckedContentColor,
+        uncheckedSecondaryContentColor: RemoteColor = this.uncheckedSecondaryContentColor,
+        uncheckedSplitContainerColor: RemoteColor = this.uncheckedSplitContainerColor,
+        uncheckedBoxColor: RemoteColor = this.uncheckedBoxColor,
+        disabledCheckedContainerColor: RemoteColor = this.disabledCheckedContainerColor,
+        disabledCheckedContentColor: RemoteColor = this.disabledCheckedContentColor,
+        disabledCheckedSecondaryContentColor: RemoteColor =
+            this.disabledCheckedSecondaryContentColor,
+        disabledCheckedSplitContainerColor: RemoteColor = this.disabledCheckedSplitContainerColor,
+        disabledCheckedBoxColor: RemoteColor = this.disabledCheckedBoxColor,
+        disabledCheckedCheckmarkColor: RemoteColor = this.disabledCheckedCheckmarkColor,
+        disabledUncheckedContainerColor: RemoteColor = this.disabledUncheckedContainerColor,
+        disabledUncheckedContentColor: RemoteColor = this.disabledUncheckedContentColor,
+        disabledUncheckedSecondaryContentColor: RemoteColor =
+            this.disabledUncheckedSecondaryContentColor,
+        disabledUncheckedSplitContainerColor: RemoteColor =
+            this.disabledUncheckedSplitContainerColor,
+        disabledUncheckedBoxColor: RemoteColor = this.disabledUncheckedBoxColor,
+    ): RemoteSplitCheckboxButtonColors =
+        RemoteSplitCheckboxButtonColors(
+            checkedContainerColor = checkedContainerColor,
+            checkedContentColor = checkedContentColor,
+            checkedSecondaryContentColor = checkedSecondaryContentColor,
+            checkedSplitContainerColor = checkedSplitContainerColor,
+            checkedBoxColor = checkedBoxColor,
+            checkedCheckmarkColor = checkedCheckmarkColor,
+            uncheckedContainerColor = uncheckedContainerColor,
+            uncheckedContentColor = uncheckedContentColor,
+            uncheckedSecondaryContentColor = uncheckedSecondaryContentColor,
+            uncheckedSplitContainerColor = uncheckedSplitContainerColor,
+            uncheckedBoxColor = uncheckedBoxColor,
+            disabledCheckedContainerColor = disabledCheckedContainerColor,
+            disabledCheckedContentColor = disabledCheckedContentColor,
+            disabledCheckedSecondaryContentColor = disabledCheckedSecondaryContentColor,
+            disabledCheckedSplitContainerColor = disabledCheckedSplitContainerColor,
+            disabledCheckedBoxColor = disabledCheckedBoxColor,
+            disabledCheckedCheckmarkColor = disabledCheckedCheckmarkColor,
+            disabledUncheckedContainerColor = disabledUncheckedContainerColor,
+            disabledUncheckedContentColor = disabledUncheckedContentColor,
+            disabledUncheckedSecondaryContentColor = disabledUncheckedSecondaryContentColor,
+            disabledUncheckedSplitContainerColor = disabledUncheckedSplitContainerColor,
+            disabledUncheckedBoxColor = disabledUncheckedBoxColor,
+        )
+
+    @Stable
+    internal fun containerColor(
+        enabled: RemoteBoolean = true.rb,
+        checked: RemoteBoolean = true.rb,
+        progress: RemoteFloat? = null,
+    ): RemoteColor =
+        enabled.select(
+            ifTrue =
+                progress?.let { lerp(uncheckedContainerColor, checkedContainerColor, it) }
+                    ?: checked.select(checkedContainerColor, uncheckedContainerColor),
+            ifFalse =
+                checked.select(disabledCheckedContainerColor, disabledUncheckedContainerColor),
+        )
+
+    @Stable
+    internal fun contentColor(
+        enabled: RemoteBoolean = true.rb,
+        checked: RemoteBoolean = true.rb,
+        progress: RemoteFloat? = null,
+    ): RemoteColor =
+        enabled.select(
+            ifTrue =
+                progress?.let { lerp(uncheckedContentColor, checkedContentColor, it) }
+                    ?: checked.select(checkedContentColor, uncheckedContentColor),
+            ifFalse = checked.select(disabledCheckedContentColor, disabledUncheckedContentColor),
+        )
+
+    @Stable
+    internal fun secondaryContentColor(
+        enabled: RemoteBoolean = true.rb,
+        checked: RemoteBoolean = true.rb,
+        progress: RemoteFloat? = null,
+    ): RemoteColor =
+        enabled.select(
+            ifTrue =
+                progress?.let {
+                    lerp(uncheckedSecondaryContentColor, checkedSecondaryContentColor, it)
+                } ?: checked.select(checkedSecondaryContentColor, uncheckedSecondaryContentColor),
+            ifFalse =
+                checked.select(
+                    disabledCheckedSecondaryContentColor,
+                    disabledUncheckedSecondaryContentColor,
+                ),
+        )
+
+    @Stable
+    internal fun splitContainerColor(
+        enabled: RemoteBoolean = true.rb,
+        checked: RemoteBoolean = true.rb,
+        progress: RemoteFloat? = null,
+    ): RemoteColor =
+        enabled.select(
+            ifTrue =
+                progress?.let { lerp(uncheckedSplitContainerColor, checkedSplitContainerColor, it) }
+                    ?: checked.select(checkedSplitContainerColor, uncheckedSplitContainerColor),
+            ifFalse =
+                checked.select(
+                    disabledCheckedSplitContainerColor,
+                    disabledUncheckedSplitContainerColor,
+                ),
+        )
+
+    @Stable
+    internal fun boxColor(
+        enabled: RemoteBoolean = true.rb,
+        checked: RemoteBoolean = true.rb,
+        progress: RemoteFloat? = null,
+    ): RemoteColor =
+        enabled.select(
+            ifTrue =
+                progress?.let { lerp(uncheckedBoxColor, checkedBoxColor, it) }
+                    ?: checked.select(checkedBoxColor, uncheckedBoxColor),
+            ifFalse = checked.select(disabledCheckedBoxColor, disabledUncheckedBoxColor),
+        )
+
+    @Stable
+    internal fun checkmarkColor(enabled: RemoteBoolean = true.rb): RemoteColor {
+        return enabled.select(
+            ifTrue = checkedCheckmarkColor,
+            ifFalse = disabledCheckedCheckmarkColor,
+        )
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || other !is RemoteSplitCheckboxButtonColors) return false
+
+        if (checkedContainerColor != other.checkedContainerColor) return false
+        if (checkedContentColor != other.checkedContentColor) return false
+        if (checkedSecondaryContentColor != other.checkedSecondaryContentColor) return false
+        if (checkedSplitContainerColor != other.checkedSplitContainerColor) return false
+        if (checkedBoxColor != other.checkedBoxColor) return false
+        if (checkedCheckmarkColor != other.checkedCheckmarkColor) return false
+        if (uncheckedContainerColor != other.uncheckedContainerColor) return false
+        if (uncheckedContentColor != other.uncheckedContentColor) return false
+        if (uncheckedSecondaryContentColor != other.uncheckedSecondaryContentColor) return false
+        if (uncheckedSplitContainerColor != other.uncheckedSplitContainerColor) return false
+        if (uncheckedBoxColor != other.uncheckedBoxColor) return false
+        if (disabledCheckedContainerColor != other.disabledCheckedContainerColor) return false
+        if (disabledCheckedContentColor != other.disabledCheckedContentColor) return false
+        if (disabledCheckedSecondaryContentColor != other.disabledCheckedSecondaryContentColor)
+            return false
+        if (disabledCheckedSplitContainerColor != other.disabledCheckedSplitContainerColor)
+            return false
+        if (disabledCheckedBoxColor != other.disabledCheckedBoxColor) return false
+        if (disabledCheckedCheckmarkColor != other.disabledCheckedCheckmarkColor) return false
+        if (disabledUncheckedContainerColor != other.disabledUncheckedContainerColor) return false
+        if (disabledUncheckedContentColor != other.disabledUncheckedContentColor) return false
+        if (disabledUncheckedSecondaryContentColor != other.disabledUncheckedSecondaryContentColor)
+            return false
+        if (disabledUncheckedSplitContainerColor != other.disabledUncheckedSplitContainerColor)
+            return false
+        if (disabledUncheckedBoxColor != other.disabledUncheckedBoxColor) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = checkedContainerColor.hashCode()
+        result = 31 * result + checkedContentColor.hashCode()
+        result = 31 * result + checkedSecondaryContentColor.hashCode()
+        result = 31 * result + checkedSplitContainerColor.hashCode()
+        result = 31 * result + checkedBoxColor.hashCode()
+        result = 31 * result + checkedCheckmarkColor.hashCode()
+        result = 31 * result + uncheckedContainerColor.hashCode()
+        result = 31 * result + uncheckedContentColor.hashCode()
+        result = 31 * result + uncheckedSecondaryContentColor.hashCode()
+        result = 31 * result + uncheckedSplitContainerColor.hashCode()
+        result = 31 * result + uncheckedBoxColor.hashCode()
+        result = 31 * result + disabledCheckedContainerColor.hashCode()
+        result = 31 * result + disabledCheckedContentColor.hashCode()
+        result = 31 * result + disabledCheckedSecondaryContentColor.hashCode()
+        result = 31 * result + disabledCheckedSplitContainerColor.hashCode()
+        result = 31 * result + disabledCheckedBoxColor.hashCode()
+        result = 31 * result + disabledCheckedCheckmarkColor.hashCode()
+        result = 31 * result + disabledUncheckedContainerColor.hashCode()
+        result = 31 * result + disabledUncheckedContentColor.hashCode()
+        result = 31 * result + disabledUncheckedSecondaryContentColor.hashCode()
+        result = 31 * result + disabledUncheckedSplitContainerColor.hashCode()
+        result = 31 * result + disabledUncheckedBoxColor.hashCode()
+        return result
+    }
+}
+
+/** Draws a solid color fill for [shape] using [color]. */
+internal fun RemoteDrawScope.drawSolidColorShape(shape: RemoteShape, color: RemoteColor) =
+    drawOutline(
+        shape.createOutline(
+            size = RemoteSize(width, height),
+            layoutDirection = layoutDirection,
+            density = remoteDensity,
+        ),
+        RemotePaint {
+            style = RemotePaintingStyle.Fill
+            this.color = color
+        },
+    )
+
+/**
+ * Returns the shapes of the start (label) and end (selection control) sections of a split button.
+ *
+ * Each section keeps the corners of [sectionShape] on the side facing the other section and takes
+ * the corners of the container [shape] on its outer side. The sections then draw the container
+ * outline themselves rather than relying only on `clip(shape)`, which is not applied by every
+ * renderer. If [shape] is not corner based, both sections use [sectionShape].
+ *
+ * @return a [Pair] of the start and end section [RemoteShape]s
+ */
+internal fun splitSectionShapes(
+    shape: RemoteShape,
+    sectionShape: RemoteCornerBasedShape,
+): Pair<RemoteShape, RemoteShape> =
+    if (shape is RemoteCornerBasedShape) {
+        sectionShape.copy(topStart = shape.topStart, bottomStart = shape.bottomStart) to
+            sectionShape.copy(topEnd = shape.topEnd, bottomEnd = shape.bottomEnd)
+    } else {
+        sectionShape to sectionShape
+    }

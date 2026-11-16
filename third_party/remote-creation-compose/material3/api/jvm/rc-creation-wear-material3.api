@@ -1,0 +1,1186 @@
+public final class ee/schimke/composeai/rccreation/wear/material3/ComposableSingletons$RemoteSliderKt {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/ComposableSingletons$RemoteSliderKt;
+	public fun <init> ()V
+	public final fun getLambda$1030708404$ee_schimke_composeai_rc_creation_wear_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$2052958077$ee_schimke_composeai_rc_creation_wear_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$732392080$ee_schimke_composeai_rc_creation_wear_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$972136609$ee_schimke_composeai_rc_creation_wear_material3 ()Lkotlin/jvm/functions/Function2;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/ComposableSingletons$RemoteStepperKt {
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/ComposableSingletons$RemoteStepperKt;
+	public fun <init> ()V
+	public final fun getLambda$1091667796$ee_schimke_composeai_rc_creation_wear_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$1945940656$ee_schimke_composeai_rc_creation_wear_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$346953345$ee_schimke_composeai_rc_creation_wear_material3 ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$964418269$ee_schimke_composeai_rc_creation_wear_material3 ()Lkotlin/jvm/functions/Function2;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteAppCardKt {
+	public static final fun RemoteAppCard (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;)Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBrush ()Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;
+	public final fun getWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteBorderStrokeKt {
+	public static final fun RemoteBorderStroke (Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun getContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonDefaults;
+	public final fun buttonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun buttonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun buttonWithContainerPainterColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun buttonWithContainerPainterColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun childButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun childButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun containerPainter (Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Landroidx/compose/ui/layout/ContentScale;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/compose/painter/RemotePainter;
+	public final fun disabledContainerPainter (Lee/schimke/composeai/rccreation/compose/painter/RemotePainter;Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/painter/RemotePainter;
+	public final fun filledTonalButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun filledTonalButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun filledVariantButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun filledVariantButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun getButtonHorizontalPadding ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getButtonVerticalPadding ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getCompactButtonContentPadding ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getCompactButtonHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getCompactButtonIconSpacing ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getCompactButtonShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getContentPadding ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getDisabledContainerAlpha ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getExtraSmallIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIconSpacing ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getLargeIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getSmallIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun outlinedButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun outlinedButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun scrimBrush (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;
+	public final fun scrimBrush (Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteButtonGroupDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonGroupDefaults;
+	public final fun fullWidthPaddings ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getExpansionWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getMinWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSpacing ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteButtonGroupKt {
+	public static final fun RemoteButtonGroup (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lee/schimke/composeai/rccreation/compose/layout/RemoteAlignment$Vertical;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+}
+
+public abstract interface class ee/schimke/composeai/rccreation/wear/material3/RemoteButtonGroupScope {
+	public abstract fun animateWidth (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;)Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;
+	public abstract fun minWidth (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;)Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;
+	public static synthetic fun minWidth$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonGroupScope;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;
+	public abstract fun weight (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteButtonGroupScope$DefaultImpls {
+	public static synthetic fun minWidth$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonGroupScope;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteButtonKt {
+	public static final fun RemoteButton (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RemoteButton (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function2;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/painter/RemotePainter;Lee/schimke/composeai/rccreation/compose/painter/RemotePainter;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;III)V
+	public static final fun RemoteButton (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/painter/RemotePainter;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/painter/RemotePainter;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RemoteCompactButton (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function2;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteCardColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;
+	public final fun getAppNameColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSubtitleColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getTimeColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getTitleColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteCardDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteCardDefaults;
+	public final fun cardColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;
+	public final fun cardColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;
+	public final fun cardWithContainerPainterColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;
+	public final fun cardWithContainerPainterColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;
+	public final fun containerPainter (Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Landroidx/compose/ui/layout/ContentScale;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/compose/painter/RemotePainter;
+	public final fun getAppImageSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getCardWithContainerPainterContentPadding ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getContentPadding ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getImageBottomPadding ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getOutlinedBorderSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getOutlinedCardBorderColor (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getScrimColor (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getShape (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun outlinedCardBorder (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;
+	public final fun outlinedCardColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;
+	public final fun outlinedCardColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;
+	public final fun scrimBrush (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteCardKt {
+	public static final fun RemoteCard (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RemoteCard (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/painter/RemotePainter;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RemoteOutlinedCard (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteCheckboxButtonColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteCheckboxButtonColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteCheckboxButtonColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteCheckboxButtonColors;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCheckedBoxColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedCheckmarkColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedBoxColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedCheckmarkColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedBoxColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedBoxColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteCheckboxButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteCheckboxButtonDefaults;
+	public final fun checkboxButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteCheckboxButtonColors;
+	public final fun checkboxButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;IIII)Lee/schimke/composeai/rccreation/wear/material3/RemoteCheckboxButtonColors;
+	public final fun getBoxOuterSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getBoxRadius ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getBoxSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getBoxStroke ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getCheckboxButtonShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getContentPadding ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIconSpacing ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getLabelSpacerSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteCheckboxButtonKt {
+	public static final fun RemoteCheckboxButton (Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteCheckboxButtonColors;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteCircularProgressIndicatorKt {
+	public static final fun RemoteCircularProgressIndicator (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RemoteCircularProgressIndicator (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteColorScheme {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public fun <init> (Lee/schimke/composeai/rccreation/wear/material3/wearcompose/ColorScheme;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/wear/material3/wearcompose/ColorScheme;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteColorScheme;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteColorScheme;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteColorScheme;
+	public final fun getBackground ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getError ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getErrorContainer ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getErrorDim ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOnBackground ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOnError ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOnErrorContainer ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOnPrimary ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOnPrimaryContainer ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOnSecondary ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOnSecondaryContainer ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOnSurface ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOnSurfaceVariant ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOnTertiary ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOnTertiaryContainer ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOutline ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getOutlineVariant ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getPrimary ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getPrimaryContainer ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getPrimaryDim ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSecondary ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSecondaryContainer ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSecondaryDim ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSurfaceContainer ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSurfaceContainerHigh ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSurfaceContainerLow ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getTertiary ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getTertiaryContainer ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getTertiaryDim ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteColorSchemeKt {
+	public static final fun dynamicRemoteColorScheme (Lee/schimke/composeai/rccreation/wear/material3/wearcompose/ColorScheme;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteColorScheme;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteContentColorKt {
+	public static final fun getLocalRemoteContentColor ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteCurvedProgressIndicatorKt {
+	public static final fun RemoteCurvedProgressIndicator (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Landroidx/compose/runtime/Composer;III)V
+	public static final fun RemoteIntroOutroCurvedProgressIndicator (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonDefaults;
+	public final fun buttonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun buttonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun filledTonalButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun filledTonalButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun filledVariantButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun filledVariantButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun getBottomContentPadding ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getContentPadding ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getExtraSmallIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getHorizontalContentPadding ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getLargeIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getMediumIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSmallIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getTopContentPadding ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getVerticalPadding ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun iconSizeFor (Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun outlinedButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun outlinedButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;
+	public final fun shape (Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize;)Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public static synthetic fun shape$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonDefaults;Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonKt {
+	public static final fun RemoteEdgeButton (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/wear/material3/RemoteButtonColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonShape : ee/schimke/composeai/rccreation/compose/shapes/RemoteShape {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun createOutline (Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;Lee/schimke/composeai/rccreation/compose/layout/RemoteLayoutDirection;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;)Lee/schimke/composeai/rccreation/compose/shapes/RemoteOutline;
+	public final fun createOutline (Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;Lee/schimke/composeai/rccreation/compose/layout/RemoteLayoutDirection;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/shapes/RemoteOutline;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getButtonSize ()Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize {
+	public static final field $stable I
+	public static final field Companion Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize$Companion;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMaximumHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize$Companion {
+	public final fun getExtraSmall ()Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize;
+	public final fun getLarge ()Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize;
+	public final fun getMedium ()Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize;
+	public final fun getSmall ()Lee/schimke/composeai/rccreation/wear/material3/RemoteEdgeButtonSize;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public final fun getContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonDefaults;
+	public final fun animatedShapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonShapes;
+	public final fun filledIconButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public final fun filledIconButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public final fun filledTonalIconButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public final fun filledTonalIconButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public final fun filledVariantIconButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public final fun filledVariantIconButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public final fun getDefaultButtonSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getDefaultIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getDisabledImageOpacity ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getExtraSmallButtonSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getLargeButtonSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getLargeIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getPressedShape (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;
+	public final fun getShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getSmallButtonSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSmallIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun iconButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public final fun iconButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public final fun iconSizeFor (Lee/schimke/composeai/rccreation/compose/state/RemoteDp;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun outlinedIconButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public final fun outlinedIconButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;
+	public final fun shapes (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonShapes;
+	public final fun shapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonShapes;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonKt {
+	public static final fun RemoteIconButton (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonShapes;Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonShapes {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonShapes;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonShapes;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconButtonShapes;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPressedShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteIconKt {
+	public static final fun RemoteIcon (Lee/schimke/composeai/rccreation/compose/capture/RemoteImageVector;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonColors;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonDefaults;
+	public final fun animatedShapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonShapes;
+	public final fun colors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonColors;
+	public final fun colors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonColors;
+	public final fun getCheckedShape (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;
+	public final fun getDefaultIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getExtraLargeIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getExtraLargeSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getLargeIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getLargeSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getPressedShape (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;
+	public final fun getShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSmallIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSmallSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun iconSizeFor (Lee/schimke/composeai/rccreation/compose/state/RemoteDp;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun shapes (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonShapes;
+	public final fun shapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonShapes;
+	public final fun variantAnimatedShapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonShapes;
+	public final fun variantShapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonShapes;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonKt {
+	public static final fun RemoteIconToggleButton (Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonShapes;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonShapes {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonShapes;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonShapes;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteIconToggleButtonShapes;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCheckedPressedShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getCheckedShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getUncheckedPressedShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getUncheckedShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteLinearProgressIndicatorDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteLinearProgressIndicatorDefaults;
+	public final fun getStrokeWidthLarge ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getStrokeWidthSmall ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteLinearProgressIndicatorKt {
+	public static final fun RemoteLinearProgressIndicator (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteMaterial3Flags {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteMaterial3Flags;
+	public static field isThemedColorsEnabled Z
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteMaterialTheme {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteMaterialTheme;
+	public final fun getColorScheme (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteColorScheme;
+	public final fun getMotionScheme (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteMotionScheme;
+	public final fun getShapes (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteShapes;
+	public final fun getTypography (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteTypography;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteMaterialThemeKt {
+	public static final fun RemoteMaterialTheme (Lee/schimke/composeai/rccreation/wear/material3/RemoteColorScheme;Lee/schimke/composeai/rccreation/wear/material3/RemoteTypography;Lee/schimke/composeai/rccreation/wear/material3/RemoteShapes;Lee/schimke/composeai/rccreation/wear/material3/RemoteMotionScheme;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+}
+
+public abstract interface class ee/schimke/composeai/rccreation/wear/material3/RemoteMotionScheme {
+	public static final field Companion Lee/schimke/composeai/rccreation/wear/material3/RemoteMotionScheme$Companion;
+	public abstract fun defaultEffectsSpec ()Lee/schimke/composeai/rccreation/compose/state/RemoteAnimationSpec;
+	public abstract fun defaultSpatialSpec ()Lee/schimke/composeai/rccreation/compose/state/RemoteAnimationSpec;
+	public abstract fun fastEffectsSpec ()Lee/schimke/composeai/rccreation/compose/state/RemoteAnimationSpec;
+	public abstract fun fastSpatialSpec ()Lee/schimke/composeai/rccreation/compose/state/RemoteAnimationSpec;
+	public abstract fun slowEffectsSpec ()Lee/schimke/composeai/rccreation/compose/state/RemoteAnimationSpec;
+	public abstract fun slowSpatialSpec ()Lee/schimke/composeai/rccreation/compose/state/RemoteAnimationSpec;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteMotionScheme$Companion {
+	public final fun expressive ()Lee/schimke/composeai/rccreation/wear/material3/RemoteMotionScheme;
+	public final fun standard ()Lee/schimke/composeai/rccreation/wear/material3/RemoteMotionScheme;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteOneHandedGestureClickIndicatorKt {
+	public static final fun RemoteOneHandedGestureClickIndicator (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteOneHandedGestureDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteOneHandedGestureDefaults;
+	public static final field IndicatorDurationMillis I
+	public final fun getIndicatorSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIndicatorTint (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSmallIndicatorSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemotePageIndicatorDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemotePageIndicatorDefaults;
+	public final fun getBackgroundColor (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getIndicatorSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getPageIndicatorPadding ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSelectedColor (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedColor (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemotePageIndicatorKt {
+	public static final fun RemoteHorizontalPageIndicator (Lee/schimke/composeai/rccreation/wear/material3/RemotePageIndicatorState;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RemoteVerticalPageIndicator (Lee/schimke/composeai/rccreation/wear/material3/RemotePageIndicatorState;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Landroidx/compose/runtime/Composer;II)V
+	public static final fun rememberRemotePageIndicatorState (ILee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemotePageIndicatorState;
+}
+
+public abstract interface class ee/schimke/composeai/rccreation/wear/material3/RemotePageIndicatorState {
+	public abstract fun getPageCount ()I
+	public abstract fun getPageOffset ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public abstract fun getSelectedPage ()Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;)Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDisabledIndicatorBrush ()Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;
+	public final fun getDisabledOverflowTrackBrush ()Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;
+	public final fun getDisabledTrackBrush ()Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;
+	public final fun getIndicatorBrush ()Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;
+	public final fun getOverflowTrackBrush ()Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;
+	public final fun getTrackBrush ()Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorDefaults;
+	public final fun calculateRecommendedGapSize (Lee/schimke/composeai/rccreation/compose/state/RemoteDp;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun colors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;
+	public final fun colors (Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Lee/schimke/composeai/rccreation/compose/shaders/RemoteBrush;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;
+	public final fun colors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;
+	public final fun getCurvedIndicatorDotFadeOutFraction ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getCurvedIndicatorGapAngleDegrees ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getCurvedIndicatorPadding ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getCurvedIndicatorStartAngle ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getCurvedIndicatorStrokeWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getCurvedIndicatorSweepAngle ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getDefaultStrokeWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIndeterminateStrokeWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getStartAngle ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun largeStrokeWidth (Lee/schimke/composeai/rccreation/compose/state/RemoteDp;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun smallStrokeWidth (Lee/schimke/composeai/rccreation/compose/state/RemoteDp;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteRadioButtonColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteRadioButtonColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteRadioButtonColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteRadioButtonColors;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDisabledSelectedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledSelectedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledSelectedControlColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledSelectedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledSelectedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedControlColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedControlColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedControlColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteRadioButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteRadioButtonDefaults;
+	public final fun getCircleRadius ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getCircleStroke ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getContentPadding ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getControlSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getDotRadius ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIconSpacing ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getLabelSpacerSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getRadioButtonShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun radioButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteRadioButtonColors;
+	public final fun radioButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;IIII)Lee/schimke/composeai/rccreation/wear/material3/RemoteRadioButtonColors;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteRadioButtonKt {
+	public static final fun RemoteRadioButton (Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteRadioButtonColors;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSegmentedCircularProgressIndicatorKt {
+	public static final fun RemoteSegmentedCircularProgressIndicator (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RemoteSegmentedCircularProgressIndicator (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/wear/material3/RemoteProgressIndicatorColors;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Lee/schimke/composeai/rccreation/compose/state/RemoteDp;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteShapeDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteShapeDefaults;
+	public final fun getExtraLarge ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getExtraSmall ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getLarge ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getMedium ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getSmall ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteShapes {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;)Lee/schimke/composeai/rccreation/wear/material3/RemoteShapes;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteShapes;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteShapes;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getExtraLarge ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;
+	public final fun getExtraSmall ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;
+	public final fun getLarge ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;
+	public final fun getMedium ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;
+	public final fun getSmall ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getButtonIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledButtonIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledSelectedBarColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledSelectedBarSeparatorColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedBarColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedBarSeparatorColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedBarColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedBarSeparatorColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedBarColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedBarSeparatorColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSliderDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderDefaults;
+	public static final field MaxSegmentSteps I
+	public final fun DecreaseIcon (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Landroidx/compose/runtime/Composer;II)V
+	public final fun IncreaseIcon (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Landroidx/compose/runtime/Composer;II)V
+	public final fun colors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors;
+	public final fun colors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;III)Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors;
+	public final fun getBarHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getBarSeparatorRadius ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getControlSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSegmentBarPadding ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSelectedBarHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getShape (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getUnselectedBarHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun sliderColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors;
+	public final fun sliderColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;III)Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors;
+	public final fun variantSliderColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors;
+	public final fun variantSliderColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;III)Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSliderKt {
+	public static final fun RemoteSlider (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lkotlin/ranges/ClosedFloatingPointRange;ZLee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;III)V
+	public static final fun RemoteSlider (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;ILee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lkotlin/ranges/ClosedFloatingPointRange;ZLee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteSliderColors;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSplitCheckboxButtonColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitCheckboxButtonColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitCheckboxButtonColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitCheckboxButtonColors;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCheckedBoxColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedCheckmarkColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedBoxColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedCheckmarkColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedBoxColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedBoxColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSplitCheckboxButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitCheckboxButtonDefaults;
+	public final fun getContentPadding ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getSplitSectionsShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun splitCheckboxButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitCheckboxButtonColors;
+	public final fun splitCheckboxButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;IIII)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitCheckboxButtonColors;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSplitCheckboxButtonKt {
+	public static final fun RemoteSplitCheckboxButton (Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitCheckboxButtonColors;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSplitRadioButtonColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitRadioButtonColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitRadioButtonColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitRadioButtonColors;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDisabledSelectedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledSelectedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledSelectedControlColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledSelectedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledSelectedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedControlColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUnselectedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedControlColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getSelectedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedControlColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUnselectedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSplitRadioButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitRadioButtonDefaults;
+	public final fun getContentPadding ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getSplitSectionsShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun splitRadioButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitRadioButtonColors;
+	public final fun splitRadioButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;IIII)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitRadioButtonColors;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSplitRadioButtonKt {
+	public static final fun RemoteSplitRadioButton (Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitRadioButtonColors;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSplitSwitchButtonColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitSwitchButtonColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitSwitchButtonColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitSwitchButtonColors;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedThumbColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedThumbIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedTrackBorderColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedTrackColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedThumbColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedThumbIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedTrackBorderColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedTrackColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedThumbColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedTrackBorderColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedSplitContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedThumbColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedTrackBorderColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedTrackColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSplitSwitchButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitSwitchButtonDefaults;
+	public final fun getContentPadding ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getSplitSectionsShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun splitSwitchButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitSwitchButtonColors;
+	public final fun splitSwitchButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;IIII)Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitSwitchButtonColors;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSplitSwitchButtonKt {
+	public static final fun RemoteSplitSwitchButton (Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteSplitSwitchButtonColors;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteStepperColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteStepperColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteStepperColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteStepperColors;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getButtonContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getButtonIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledButtonContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledButtonIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteStepperDefaults {
+	public static final field $stable I
+	public static final field ButtonWeight F
+	public static final field ContentWeight F
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteStepperDefaults;
+	public final fun DecreaseIcon (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Landroidx/compose/runtime/Composer;II)V
+	public final fun IncreaseIcon (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Landroidx/compose/runtime/Composer;II)V
+	public final fun colors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteStepperColors;
+	public final fun colors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteStepperColors;
+	public final fun getButtonHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getButtonShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getButtonWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getStepperButtonShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getVerticalSpacing ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun stepperColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteStepperColors;
+	public final fun stepperColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteStepperColors;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteStepperKt {
+	public static final fun RemoteStepper (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lkotlin/ranges/ClosedFloatingPointRange;Lee/schimke/composeai/rccreation/wear/material3/RemoteStepperColors;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;III)V
+	public static final fun RemoteStepper (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;ILkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lkotlin/ranges/ClosedFloatingPointRange;Lee/schimke/composeai/rccreation/wear/material3/RemoteStepperColors;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSwitchButtonColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteSwitchButtonColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteSwitchButtonColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteSwitchButtonColors;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedThumbColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedThumbIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedTrackBorderColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedTrackColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedThumbColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedThumbIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedTrackBorderColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedTrackColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedThumbColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedTrackBorderColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedIconColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedSecondaryContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedThumbColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedTrackBorderColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedTrackColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSwitchButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteSwitchButtonDefaults;
+	public final fun getContentPadding ()Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;
+	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIconSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getIconSpacing ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getLabelSpacerSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSwitchButtonShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getSwitchHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSwitchInnerHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSwitchTrackWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSwitchWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getThumbRadiusChecked ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getThumbRadiusUnchecked ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun switchButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteSwitchButtonColors;
+	public final fun switchButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;IIII)Lee/schimke/composeai/rccreation/wear/material3/RemoteSwitchButtonColors;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteSwitchButtonKt {
+	public static final fun RemoteSwitchButton (Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteSwitchButtonColors;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function3;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonColors;
+	public final fun getContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonDefaults;
+	public final fun animatedShapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonShapes;
+	public final fun filledTonalTextButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonColors;
+	public final fun filledTonalTextButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonColors;
+	public final fun getDefaultButtonSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getDefaultButtonTextStyle (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getLargeButtonSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getLargeButtonTextStyle (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getPressedShape (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;
+	public final fun getShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getSmallButtonSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getSmallButtonTextStyle (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun shapes (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonShapes;
+	public final fun shapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonShapes;
+	public final fun textButtonColors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonColors;
+	public final fun textButtonColors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonColors;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonKt {
+	public static final fun RemoteTextButton (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonShapes;Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonShapes {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonShapes;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonShapes;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextButtonShapes;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPressedShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextKt {
+	public static final fun ProvideRemoteTextStyle (Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;I)V
+	public static final fun RemoteText-yT6CtNU (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;Landroidx/compose/ui/text/font/FontStyle;Landroidx/compose/ui/text/font/FontWeight;Lee/schimke/composeai/rccreation/compose/text/RemoteFontFamily;Landroidx/compose/ui/text/style/TextAlign;IILandroidx/compose/ui/text/font/FontVariation$Settings;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Landroidx/compose/runtime/Composer;III)V
+	public static final fun getLocalRemoteTextStyle ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonColors {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonColors;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonColors;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonColors;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledCheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDisabledUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContainerColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getUncheckedContentColor ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonDefaults;
+	public final fun animatedShapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonShapes;
+	public final fun colors (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonColors;
+	public final fun colors (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonColors;
+	public final fun getCheckedShape (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;
+	public final fun getExtraLargeSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getExtraLargeTextStyle (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getLargeSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getLargeTextStyle (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getPressedShape (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;
+	public final fun getShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteRoundedCornerShape;
+	public final fun getSize ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public final fun getTextStyle (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun shapes (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonShapes;
+	public final fun shapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonShapes;
+	public final fun variantAnimatedShapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonShapes;
+	public final fun variantShapes (Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteCornerBasedShape;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonShapes;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonKt {
+	public static final fun RemoteTextToggleButton (Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonShapes;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonShapes {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonShapes;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonShapes;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteTextToggleButtonShapes;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCheckedPressedShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getCheckedShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getUncheckedPressedShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public final fun getUncheckedShape ()Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTimeTextDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteTimeTextDefaults;
+	public final fun getBackgroundColor (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getFontFamily ()Lee/schimke/composeai/rccreation/compose/text/RemoteFontFamily;
+	public final fun getFontFeatureSettings ()Ljava/lang/String;
+	public final fun getFontVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getTimeTextStyle ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTimeTextKt {
+	public static final fun RemoteTimeText (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;Lee/schimke/composeai/rccreation/compose/text/RemoteFontFamily;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Ljava/lang/String;Landroidx/compose/ui/text/font/FontVariation$Settings;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTitleCardKt {
+	public static final fun RemoteTitleCard (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lee/schimke/composeai/rccreation/compose/painter/RemotePainter;Lkotlin/jvm/functions/Function2;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;III)V
+	public static final fun RemoteTitleCard (Lee/schimke/composeai/rccreation/compose/action/RemoteAction;Lkotlin/jvm/functions/Function2;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;Lee/schimke/composeai/rccreation/compose/shapes/RemoteShape;Lee/schimke/composeai/rccreation/wear/material3/RemoteCardColors;Lee/schimke/composeai/rccreation/wear/material3/RemoteBorderStroke;Lee/schimke/composeai/rccreation/compose/layout/RemotePaddingValues;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;III)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTypography {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/text/RemoteFontFamily;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/text/RemoteFontFamily;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;)V
+	public final fun copy (Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;)Lee/schimke/composeai/rccreation/wear/material3/RemoteTypography;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/wear/material3/RemoteTypography;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/wear/material3/RemoteTypography;
+	public final fun getBodyExtraSmall ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getBodyLarge ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getBodyMedium ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getBodySmall ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getDisplayLarge ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getDisplayMedium ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getDisplaySmall ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getLabelLarge ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getLabelMedium ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getLabelSmall ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getNumeralExtraLarge ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getNumeralExtraSmall ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getNumeralLarge ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getNumeralMedium ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getNumeralSmall ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getTitleLarge ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getTitleMedium ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+	public final fun getTitleSmall ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/internal/RemotePrimaryGestureIndicatorKt {
+	public static final fun RemotePrimaryGestureIndicator (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/wearcompose/ButtonDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/wearcompose/ButtonDefaults;
+	public final fun getScrimGradientEndColor (Landroidx/compose/runtime/Composer;I)J
+	public final fun getScrimGradientStartColor (Landroidx/compose/runtime/Composer;I)J
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/wearcompose/ColorScheme {
+	public static final field $stable I
+	public fun <init> ()V
+	public synthetic fun <init> (JJJJJJJJJJJJJJJJJJJJJJJJJJJJJILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (JJJJJJJJJJJJJJJJJJJJJJJJJJJJJLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getBackground-0d7_KjU ()J
+	public final fun getError-0d7_KjU ()J
+	public final fun getErrorContainer-0d7_KjU ()J
+	public final fun getErrorDim-0d7_KjU ()J
+	public final fun getOnBackground-0d7_KjU ()J
+	public final fun getOnError-0d7_KjU ()J
+	public final fun getOnErrorContainer-0d7_KjU ()J
+	public final fun getOnPrimary-0d7_KjU ()J
+	public final fun getOnPrimaryContainer-0d7_KjU ()J
+	public final fun getOnSecondary-0d7_KjU ()J
+	public final fun getOnSecondaryContainer-0d7_KjU ()J
+	public final fun getOnSurface-0d7_KjU ()J
+	public final fun getOnSurfaceVariant-0d7_KjU ()J
+	public final fun getOnTertiary-0d7_KjU ()J
+	public final fun getOnTertiaryContainer-0d7_KjU ()J
+	public final fun getOutline-0d7_KjU ()J
+	public final fun getOutlineVariant-0d7_KjU ()J
+	public final fun getPrimary-0d7_KjU ()J
+	public final fun getPrimaryContainer-0d7_KjU ()J
+	public final fun getPrimaryDim-0d7_KjU ()J
+	public final fun getSecondary-0d7_KjU ()J
+	public final fun getSecondaryContainer-0d7_KjU ()J
+	public final fun getSecondaryDim-0d7_KjU ()J
+	public final fun getSurfaceContainer-0d7_KjU ()J
+	public final fun getSurfaceContainerHigh-0d7_KjU ()J
+	public final fun getSurfaceContainerLow-0d7_KjU ()J
+	public final fun getTertiary-0d7_KjU ()J
+	public final fun getTertiaryContainer-0d7_KjU ()J
+	public final fun getTertiaryDim-0d7_KjU ()J
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/wearcompose/TextConfiguration {
+	public static final field $stable I
+	public synthetic fun <init> (Landroidx/compose/ui/text/style/TextAlign;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMaxLines ()I
+	public final fun getOverflow-gIe3tQ8 ()I
+	public final fun getTextAlign-buA522U ()Landroidx/compose/ui/text/style/TextAlign;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/wearcompose/TextConfigurationDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/wearcompose/TextConfigurationDefaults;
+	public final fun getMaxLines ()I
+	public final fun getOverflow-gIe3tQ8 ()I
+	public final fun getTextAlign-buA522U ()Landroidx/compose/ui/text/style/TextAlign;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/wearcompose/TextKt {
+	public static final fun getLocalTextConfiguration ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/wearcompose/TypographyVariableFontsTokens {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/wearcompose/TypographyVariableFontsTokens;
+	public final fun getArcLargeVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getArcMediumVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getArcSmallVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getBodyExtraSmallVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getBodyLargeVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getBodyMediumVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getBodySmallVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getDisplayLargeVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getDisplayMediumVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getDisplaySmallVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getLabelLargeVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getLabelMediumVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getLabelSmallVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getNumeralExtraLargeVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getNumeralExtraSmallVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getNumeralLargeVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getNumeralMediumVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getNumeralSmallVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getTitleLargeVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getTitleMediumVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+	public final fun getTitleSmallVariationSettings ()Landroidx/compose/ui/text/font/FontVariation$Settings;
+}
+

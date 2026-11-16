@@ -7,4 +7,5 @@ remote-creation-expression/src/main/java	expression/upstream/remote-creation-exp
 remote-creation-compose/src/jvmAndAndroidMain/kotlin	compose/upstream/remote-creation-compose/src/jvmAndAndroidMain/kotlin
 remote-creation-compose/src/androidMain/kotlin	compose/upstream/remote-creation-compose/src/androidMain/kotlin
 foundation/foundation/src/main/java	foundation/upstream/foundation/foundation/src/main/java
+../../wear/compose/remote/remote-material3/src/main/java	material3/upstream/wear/compose/remote/remote-material3/src/main/java
 remote-creation-expression/src/test/java	expression/upstream/remote-creation-expression/src/test/java

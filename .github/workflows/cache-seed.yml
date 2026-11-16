@@ -73,6 +73,7 @@ jobs:
             :rc-creation-bridge:jvmTest \
             :rc-creation-compose:compileAndroidMain \
             :rc-creation-foundation:compileAndroidMain \
+            :rc-creation-wear-material3:compileAndroidMain \
             :rc-creation-coexistence-check:check \
             :rc-creation-bridge:compileAndroidMain \
             :rc-player-embedded:compileAndroidMain \
@@ -111,6 +112,7 @@ jobs:
             :rc-creation-expression:checkKotlinAbi \
             :rc-creation-compose:checkKotlinAbi \
             :rc-creation-foundation:checkKotlinAbi \
+            :rc-creation-wear-material3:checkKotlinAbi \
             :rc-creation-bridge:checkKotlinAbi \
             :rc-player-embedded:checkKotlinAbi \
             :rc-player-embedded:compileKotlinWasmJs \

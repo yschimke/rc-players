@@ -1811,6 +1811,11 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteTextUnitC
 	public static final fun toRsp-0680j_4 (F)Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;
 }
 
+public final class ee/schimke/composeai/rccreation/compose/state/RemoteThemedColorKt {
+	public static final field ANDROID_SYSTEM_COLOR_GROUP Ljava/lang/String;
+	public static final fun createThemedRemoteColor-jZ3TX3s (Lee/schimke/composeai/rccreation/compose/state/RemoteColor$Companion;SSJJ)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+}
+
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteTileMode {
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteTileMode$Companion;
 	public static final synthetic fun box-impl (I)Lee/schimke/composeai/rccreation/compose/state/RemoteTileMode;
