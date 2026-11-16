@@ -48,15 +48,21 @@ import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
  * only when its layout leaves no doubt, from its parent's content size, and left as it is
  * otherwise.
  * - **Size modifiers:** an axis is known from a fill (`fillMaxWidth`, its fraction) of a known
- *   parent, or an exact size in pixels. Wrap, weight, `widthIn` or any second size modifier for the
- *   axis leaves it unknown.
+ *   parent. An exact size, which the player clamps to its parent's constraints, wrap, weight,
+ *   `widthIn` or any second size modifier for the axis leaves it unknown.
+ * - **State layouts** are as big as their active branch, whatever their own size and padding
+ *   modifiers say: one is known on an axis only when all its branches fill it, and passes on what
+ *   it is offered.
+ * - **Visibility:** a component that is or may become GONE measures 0 × 0, so one with a visibility
+ *   modifier is resolved only while that is a constant that keeps its size (visible or invisible);
+ *   its children are left otherwise.
  * - **Wrapping:** an axis with no size modifier wraps its content, so it is known only for a box,
  *   state layout or canvas whose children all fill it entirely: it takes the space it is offered.
  * - **Padding** with constant values after the size modifier shrinks the content its children
  *   share. Padding before it (an outer margin), or on a wrapping axis, leaves that axis unknown.
  * - **Other modifiers** may only be ones that don't change a size: background, border, clip,
- *   offset, z-index, visibility, graphics layer, click, animation spec, draw content and plain
- *   values. Any other modifier leaves the whole component unknown.
+ *   offset, z-index, graphics layer, click, animation spec, draw content and plain values. Any
+ *   other modifier leaves the whole component unknown.
  * - **Children:** a box's, state layout's and canvas's children each get its content size. A row's
  *   or column's children get the cross axis, and the main axis too only for a single child. Any
  *   other layout leaves its children unknown.
@@ -87,7 +93,21 @@ public fun RcDocument.hardcodeComponentSizes(widthPx: Float, heightPx: Float): R
     }
     val id = layout.declaredComponentId() ?: return
     val children = layoutChildren(node)
-    val stacks = layout is RcBoxLayout || layout is RcStateLayout || layout is RcCanvasLayout
+    if (!keepsItsSize(node, values)) {
+      children.forEach { visit(it, null, null) }
+      return
+    }
+    if (layout is RcStateLayout) {
+      // As big as its active branch, its own size and padding modifiers aside (as the player lays
+      // it out): known on an axis its branches all fill, and offering its children what it is
+      // offered.
+      fun all(width: Boolean) =
+        children.isNotEmpty() && children.all { fills(it, width, ::constant) }
+      sizes[id] = availableWidth?.takeIf { all(true) } to availableHeight?.takeIf { all(false) }
+      children.forEach { visit(it, availableWidth, availableHeight) }
+      return
+    }
+    val stacks = layout is RcBoxLayout || layout is RcCanvasLayout
     val measured =
       measure(
         node,
@@ -108,7 +128,6 @@ public fun RcDocument.hardcodeComponentSizes(widthPx: Float, heightPx: Float): R
     val (childWidth, childHeight) =
       when (layout) {
         is RcBoxLayout,
-        is RcStateLayout,
         is RcCanvasLayout -> measured.contentWidth to measured.contentHeight
         is RcColumnLayout ->
           measured.contentWidth to measured.contentHeight.takeIf { children.size == 1 }
@@ -187,6 +206,8 @@ private fun measure(
         if (!heightSized || top == null || bottom == null) heightKnown = false
         else paddingHeight += top + bottom
       }
+      // Read before measuring ([keepsItsSize]): only a size-keeping constant gets here.
+      is RcVisibilityModifier -> Unit
       else -> if (!operation.keepsSize()) return null
     }
   }
@@ -209,6 +230,11 @@ private fun fills(
   width: Boolean,
   constant: (RcFloatWord, Int) -> Float?,
 ): Boolean {
+  if (node.operation is RcStateLayout) {
+    // Its own modifiers aside: it is its active branch's size.
+    val branches = layoutChildren(node)
+    return branches.isNotEmpty() && branches.all { fills(it, width, constant) }
+  }
   var sized = false
   var fill = false
   var padded = false
@@ -226,6 +252,8 @@ private fun fills(
       }
       operation is RcPaddingModifier -> padded = true
       operation is RcWidthModifier || operation is RcHeightModifier -> Unit
+      // A child that may be GONE measures 0 × 0, so it can't be counted on to fill.
+      operation is RcVisibilityModifier -> return false
       !operation.keepsSize() -> return false
     }
   }
@@ -241,8 +269,40 @@ private fun fills(
 private fun dimension(type: Int, value: Float?, available: Float?): Float? =
   when (type) {
     RcDimensionType.FILL -> if (value == null || available == null) null else available * value
-    RcDimensionType.EXACT -> value
+    // An exact size is clamped to the parent's constraints, which this doesn't model: left
+    // measured.
     else -> null
+  }
+
+/**
+ * Whether [node]'s visibility can't take its size away: it has no visibility modifier, or each one
+ * reads a constant the player shows as visible or invisible, never GONE (which measures 0 × 0).
+ */
+private fun keepsItsSize(node: RcOperationNode, values: RcValueAnalysis): Boolean {
+  for (child in node.children) {
+    val operation = child.operation
+    if (operation is RcLayoutContent || operation is RcCanvasContent) break
+    if (operation is RcVisibilityModifier) {
+      val value = values.integer(operation.visibilityId, child.start) ?: return false
+      if (visibility(value) == GONE) return false
+    }
+  }
+  return true
+}
+
+private const val GONE = 0
+
+/**
+ * AndroidX's visibility from its integer, as the player reads it: 1 visible, 2 invisible, 0 gone.
+ */
+private fun visibility(value: Int): Int =
+  when {
+    value and 32 == 32 -> 1
+    value and 16 == 16 -> 0
+    value and 64 == 64 -> 2
+    value == 1 -> 1
+    value == 2 -> 2
+    else -> 0
   }
 
 /** Whether this modifier (or value) leaves its component's size as the size modifiers make it. */
@@ -253,7 +313,6 @@ private fun RcOperation.keepsSize(): Boolean =
     this === RcClipRectModifier ||
     this is RcOffsetModifier ||
     this is RcZIndexModifier ||
-    this is RcVisibilityModifier ||
     this is RcGraphicsLayerModifier ||
     this === RcClickModifier ||
     this is RcMultiClickModifier ||

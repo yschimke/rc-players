@@ -7,10 +7,13 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
+import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import kotlin.test.Test
@@ -134,5 +137,83 @@ class RcHardcodeComponentSizesTest {
       listOf(100, 30),
       collapsed.operations.filterIsInstance<RcBoxLayout>().map { it.componentId },
     )
+  }
+
+  /**
+   * State layout [id] with [modifiers], publishing its size into [id] + 1 and [id] + 2, over
+   * [branches].
+   */
+  private fun measuredState(
+    id: Int,
+    modifiers: List<RcOperation>,
+    vararg branches: List<RcOperation>,
+  ): List<RcOperation> =
+    listOf(
+      RcIntegerConstant(id + 3, 0),
+      RcStateLayout(id, -1, 0, 0, id + 3),
+      *modifiers.toTypedArray(),
+      RcComponentValue(RcComponentValue.WIDTH, id, id + 1),
+      RcComponentValue(RcComponentValue.HEIGHT, id, id + 2),
+      RcLayoutContent(id - 1),
+      *branches.toList().flatten().toTypedArray(),
+      END,
+      END,
+    )
+
+  @Test
+  fun aStateLayoutIsItsBranchesSizeWhateverItsOwnModifiersSay() {
+    // Filling, around a branch that doesn't fill: the player sizes it to the branch, so it stays
+    // measured.
+    val around =
+      document(*rootLayout(*measuredState(100, fill, box(20)).toTypedArray()).toTypedArray())
+    assertSame(around, around.hardcodeComponentSizes(400f, 200f))
+    // Its own padding takes nothing from its branches: a filling branch is the whole space offered.
+    val padded =
+      document(
+        *rootLayout(*measuredState(100, fill + padding(10f), measured(200, fill)).toTypedArray())
+          .toTypedArray(),
+      )
+    val sized = padded.hardcodeComponentSizes(400f, 200f)
+    assertEquals(400f to 200f, sized.sizeOf(100))
+    assertEquals(400f to 200f, sized.sizeOf(200))
+  }
+
+  @Test
+  fun aComponentThatMayBeGoneStaysMeasured() {
+    // GONE measures 0 × 0; a visibility a host can change could be GONE.
+    val bound =
+      document(
+        RcNamedVariable(50, RcNamedVariable.INT_TYPE, "USER:shown"),
+        RcIntegerConstant(50, 1),
+        *rootLayout(*measured(100, fill + RcVisibilityModifier(50)).toTypedArray()).toTypedArray(),
+      )
+    assertSame(bound, bound.hardcodeComponentSizes(400f, 200f))
+    // Constantly visible keeps its size.
+    val visible =
+      document(
+        RcIntegerConstant(50, 1),
+        *rootLayout(*measured(100, fill + RcVisibilityModifier(50)).toTypedArray()).toTypedArray(),
+      )
+    assertEquals(400f to 200f, visible.hardcodeComponentSizes(400f, 200f).sizeOf(100))
+  }
+
+  @Test
+  fun anExactSizeStaysMeasured() {
+    // The player clamps it to its parent's constraints, which this doesn't model.
+    val exact =
+      document(
+        *rootLayout(
+            *measured(
+                100,
+                listOf(
+                  RcWidthModifier(RcDimensionType.EXACT, word(500f)),
+                  RcHeightModifier(RcDimensionType.EXACT, word(50f)),
+                ),
+              )
+              .toTypedArray(),
+          )
+          .toTypedArray(),
+      )
+    assertSame(exact, exact.hardcodeComponentSizes(400f, 200f))
   }
 }
