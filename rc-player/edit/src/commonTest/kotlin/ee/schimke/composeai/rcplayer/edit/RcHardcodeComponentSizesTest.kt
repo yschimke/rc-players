@@ -230,4 +230,67 @@ class RcHardcodeComponentSizesTest {
       )
     assertSame(exact, exact.hardcodeComponentSizes(400f, 200f))
   }
+
+  /** State layout 100 over [branches], its index [indexId] written by [index]. */
+  private fun stateOver(
+    index: List<RcOperation>,
+    indexId: Int,
+    vararg branches: List<RcOperation>,
+  ) =
+    document(
+      *index.toTypedArray(),
+      *rootLayout(
+          RcStateLayout(100, -1, 0, 0, indexId),
+          RcLayoutContent(99),
+          *branches.toList().flatten().toTypedArray(),
+          END,
+          END,
+        )
+        .toTypedArray(),
+    )
+
+  @Test
+  fun onlyTheSelectedBranchIsOfferedTheSpace() {
+    // The other branches publish 0 × 0: a host-bound index leaves every branch measured.
+    val bound =
+      stateOver(
+        listOf(RcNamedVariable(60, RcNamedVariable.INT_TYPE, "USER:tab"), RcIntegerConstant(60, 1)),
+        60,
+        measured(200, fill),
+        measured(300, fill),
+      )
+    assertSame(bound, bound.hardcodeComponentSizes(400f, 200f))
+    // A constant index resolves its branch alone.
+    val fixed =
+      stateOver(listOf(RcIntegerConstant(60, 1)), 60, measured(200, fill), measured(300, fill))
+    val sized = fixed.hardcodeComponentSizes(400f, 200f)
+    assertEquals(null to null, sized.sizeOf(200))
+    assertEquals(400f to 200f, sized.sizeOf(300))
+  }
+
+  @Test
+  fun aStateLayoutThatMayBeGoneDoesNotFillItsParent() {
+    // A wrapping box around a GONE-able state layout whose branch fills: the box may measure 0.
+    val source =
+      document(
+        RcNamedVariable(50, RcNamedVariable.INT_TYPE, "USER:shown"),
+        RcIntegerConstant(50, 1),
+        RcIntegerConstant(61, 0),
+        *rootLayout(
+            *measured(
+                100,
+                emptyList(),
+                RcStateLayout(10, -1, 0, 0, 61),
+                RcVisibilityModifier(50),
+                RcLayoutContent(9),
+                *box(20).toTypedArray(),
+                END,
+                END,
+              )
+              .toTypedArray(),
+          )
+          .toTypedArray(),
+      )
+    assertSame(source, source.hardcodeComponentSizes(400f, 200f))
+  }
 }

@@ -51,8 +51,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
  *   parent. An exact size, which the player clamps to its parent's constraints, wrap, weight,
  *   `widthIn` or any second size modifier for the axis leaves it unknown.
  * - **State layouts** are as big as their active branch, whatever their own size and padding
- *   modifiers say: one is known on an axis only when all its branches fill it, and passes on what
- *   it is offered.
+ *   modifiers say: one is known on an axis only when all its branches fill it. Only its selected
+ *   branch is laid out (the others measure 0 × 0), so a branch is offered the space only once the
+ *   index is constant; the edit runs in passes, so a breakpoint's index made constant by one pass
+ *   resolves its branch in the next.
  * - **Visibility:** a component that is or may become GONE measures 0 × 0, so one with a visibility
  *   modifier is resolved only while that is a constant that keeps its size (visible or invisible);
  *   its children are left otherwise.
@@ -75,7 +77,21 @@ public fun RcDocument.hardcodeComponentSizes(widthPx: Float, heightPx: Float): R
   if (operations.any { it is RcMacroDefine || it is RcMacroCall || it is RcMacroForEach }) {
     return this
   }
-  val tree = operationTree(operations) ?: return this
+  // In passes: a size made constant can make a state layout's index constant (a breakpoint's
+  // comparison), and only then is its selected branch's size known.
+  var document = this
+  repeat(MAX_PASSES) {
+    document = document.componentSizesPass(widthPx, heightPx) ?: return document
+  }
+  return document
+}
+
+/** Nested breakpoints resolve one level per pass; more than this many levels stay measured. */
+private const val MAX_PASSES = 8
+
+/** One pass of [hardcodeComponentSizes]: the document with the sizes it can now fix, or null. */
+private fun RcDocument.componentSizesPass(widthPx: Float, heightPx: Float): RcDocument? {
+  val tree = operationTree(operations) ?: return null
   val values = RcValueAnalysis(operations)
   val sizes = mutableMapOf<Int, Pair<Float?, Float?>>()
 
@@ -104,12 +120,16 @@ public fun RcDocument.hardcodeComponentSizes(widthPx: Float, heightPx: Float): R
     }
     if (layout is RcStateLayout) {
       // As big as its active branch, its own size and padding modifiers aside (as the player lays
-      // it out): known on an axis its branches all fill, and offering its children what it is
-      // offered.
+      // it out): known on an axis its branches all fill. Only the selected branch is laid out; the
+      // others publish 0 × 0, so a branch is offered the space only once the index is constant.
       fun all(width: Boolean) =
         children.isNotEmpty() && children.all { fills(it, width, ::constant) }
       sizes[id] = availableWidth?.takeIf { all(true) } to availableHeight?.takeIf { all(false) }
-      children.forEach { visit(it, availableWidth, availableHeight) }
+      val selected = values.integer(layout.indexId, node.start)
+      children.forEachIndexed { index, branch ->
+        if (index == selected) visit(branch, availableWidth, availableHeight)
+        else visit(branch, null, null)
+      }
       return
     }
     val stacks = layout is RcBoxLayout || layout is RcCanvasLayout
@@ -157,7 +177,7 @@ public fun RcDocument.hardcodeComponentSizes(widthPx: Float, heightPx: Float): R
     changed = true
     RcFloatConstant(operation.valueId, RcFloatWord.literal(value))
   }
-  return if (changed) copy(operations = rewritten) else this
+  return if (changed) copy(operations = rewritten) else null
 }
 
 private class Measured(
@@ -236,8 +256,10 @@ private fun fills(
   constant: (RcFloatWord, Int) -> Float?,
 ): Boolean {
   if (node.operation is RcStateLayout) {
-    // Its own size and padding modifiers aside: it is its active branch's size.
+    // Its own size and padding modifiers aside: it is its active branch's size. One that may be
+    // GONE measures 0 × 0, so it can't be counted on to fill.
     if (!onlyDimensionsAside(node)) return false
+    if (node.modifiers().any { it is RcVisibilityModifier }) return false
     val branches = layoutChildren(node)
     return branches.isNotEmpty() && branches.all { fills(it, width, constant) }
   }
@@ -279,6 +301,10 @@ private fun dimension(type: Int, value: Float?, available: Float?): Float? =
     // measured.
     else -> null
   }
+
+/** [node]'s modifiers: its operations before its content. */
+private fun RcOperationNode.modifiers(): List<RcOperation> =
+  children.map { it.operation }.takeWhile { it !is RcLayoutContent && it !is RcCanvasContent }
 
 /**
  * Whether a state layout's modifiers are, apart from the size and padding ones the player drops for
