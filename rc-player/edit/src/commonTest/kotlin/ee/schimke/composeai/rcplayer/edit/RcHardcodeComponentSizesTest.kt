@@ -293,4 +293,26 @@ class RcHardcodeComponentSizesTest {
       )
     assertSame(source, source.hardcodeComponentSizes(400f, 200f))
   }
+
+  @Test
+  fun contentThatMayBeGoneLeavesItsChildrenMeasured() {
+    // A visibility on the state layout's content wrapper: when GONE the player lays every branch
+    // out as gone, so even the selected branch stays measured.
+    val source =
+      document(
+        RcNamedVariable(50, RcNamedVariable.INT_TYPE, "USER:shown"),
+        RcIntegerConstant(50, 1),
+        RcIntegerConstant(61, 0),
+        *rootLayout(
+            RcStateLayout(100, -1, 0, 0, 61),
+            RcLayoutContent(99),
+            RcVisibilityModifier(50),
+            *measured(200, fill).toTypedArray(),
+            END,
+            END,
+          )
+          .toTypedArray(),
+      )
+    assertSame(source, source.hardcodeComponentSizes(400f, 200f))
+  }
 }

@@ -109,6 +109,11 @@ private fun RcDocument.componentSizesPass(widthPx: Float, heightPx: Float): RcDo
     }
     val id = layout.declaredComponentId() ?: return
     val children = layoutChildren(node)
+    if (!contentKeepsItsSize(node, values)) {
+      // Its content may be GONE (the player then lays every child out as gone, 0 × 0).
+      children.forEach { visit(it, null, null) }
+      return
+    }
     if (!keepsItsSize(node, values)) {
       children.forEach { visit(it, null, null) }
       return
@@ -259,7 +264,8 @@ private fun fills(
     // Its own size and padding modifiers aside: it is its active branch's size. One that may be
     // GONE measures 0 × 0, so it can't be counted on to fill.
     if (!onlyDimensionsAside(node)) return false
-    if (node.modifiers().any { it is RcVisibilityModifier }) return false
+    if (node.modifiers().any { it is RcVisibilityModifier } || contentHasVisibility(node))
+      return false
     val branches = layoutChildren(node)
     return branches.isNotEmpty() && branches.all { fills(it, width, constant) }
   }
@@ -289,6 +295,8 @@ private fun fills(
   val layout = node.operation
   if (padded || !(layout is RcBoxLayout || layout is RcStateLayout || layout is RcCanvasLayout))
     return false
+  // Wrapping, it is its children's size: none if its content may be GONE.
+  if (contentHasVisibility(node)) return false
   val children = layoutChildren(node)
   return children.isNotEmpty() && children.all { fills(it, width, constant) }
 }
@@ -339,6 +347,30 @@ private fun keepsItsSize(node: RcOperationNode, values: RcValueAnalysis): Boolea
     }
   }
   return true
+}
+
+/**
+ * Whether [node]'s content wrapper (its `LayoutComponentContent`) can't be GONE: a visibility
+ * modifier on it, as the player reads it for a state layout, must be a constant that keeps a size.
+ */
+private fun contentKeepsItsSize(node: RcOperationNode, values: RcValueAnalysis): Boolean {
+  val content =
+    node.children.firstOrNull {
+      it.isContainer && (it.operation is RcLayoutContent || it.operation is RcCanvasContent)
+    } ?: return true
+  return keepsItsSize(content, values)
+}
+
+/**
+ * Whether [node]'s content wrapper declares any visibility (unknown to [fills], which can't read
+ * values).
+ */
+private fun contentHasVisibility(node: RcOperationNode): Boolean {
+  val content =
+    node.children.firstOrNull {
+      it.isContainer && (it.operation is RcLayoutContent || it.operation is RcCanvasContent)
+    } ?: return false
+  return content.children.any { it.operation is RcVisibilityModifier }
 }
 
 private const val GONE = 0
