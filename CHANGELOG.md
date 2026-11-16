@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.6.1](https://github.com/yschimke/rc-players/compare/v3.6.0...v3.6.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **rc-player:** a host value change composes the player once, on the frame it lands ([#919](https://github.com/yschimke/rc-players/issues/919)) ([9023ba9](https://github.com/yschimke/rc-players/commit/9023ba9b000bb426af7d25a96afbb459a71c371f))
+* **rc-widget:** size breakpoints read the component's size unnamed ([#917](https://github.com/yschimke/rc-players/issues/917)) ([02eaab8](https://github.com/yschimke/rc-players/commit/02eaab840c6c83ca0f5e1d892bf75df60df3839b))
+
 ## [3.6.0](https://github.com/yschimke/rc-players/compare/v3.5.3...v3.6.0) (2026-11-15)
 
 
