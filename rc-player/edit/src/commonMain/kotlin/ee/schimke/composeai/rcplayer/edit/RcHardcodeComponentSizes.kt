@@ -97,6 +97,11 @@ public fun RcDocument.hardcodeComponentSizes(widthPx: Float, heightPx: Float): R
       children.forEach { visit(it, null, null) }
       return
     }
+    if (layout is RcStateLayout && !onlyDimensionsAside(node)) {
+      // The player still applies its other modifiers (a `widthIn`, say): not modelled.
+      children.forEach { visit(it, null, null) }
+      return
+    }
     if (layout is RcStateLayout) {
       // As big as its active branch, its own size and padding modifiers aside (as the player lays
       // it out): known on an axis its branches all fill, and offering its children what it is
@@ -231,7 +236,8 @@ private fun fills(
   constant: (RcFloatWord, Int) -> Float?,
 ): Boolean {
   if (node.operation is RcStateLayout) {
-    // Its own modifiers aside: it is its active branch's size.
+    // Its own size and padding modifiers aside: it is its active branch's size.
+    if (!onlyDimensionsAside(node)) return false
     val branches = layoutChildren(node)
     return branches.isNotEmpty() && branches.all { fills(it, width, constant) }
   }
@@ -273,6 +279,25 @@ private fun dimension(type: Int, value: Float?, available: Float?): Float? =
     // measured.
     else -> null
   }
+
+/**
+ * Whether a state layout's modifiers are, apart from the size and padding ones the player drops for
+ * it, only ones that keep a size: it still applies any other (a `widthIn`, a constraint).
+ */
+private fun onlyDimensionsAside(node: RcOperationNode): Boolean {
+  for (child in node.children) {
+    val operation = child.operation
+    if (operation is RcLayoutContent || operation is RcCanvasContent) break
+    val allowed =
+      operation is RcWidthModifier ||
+        operation is RcHeightModifier ||
+        operation is RcPaddingModifier ||
+        operation is RcVisibilityModifier ||
+        operation.keepsSize()
+    if (!allowed) return false
+  }
+  return true
+}
 
 /**
  * Whether [node]'s visibility can't take its size away: it has no visibility modifier, or each one

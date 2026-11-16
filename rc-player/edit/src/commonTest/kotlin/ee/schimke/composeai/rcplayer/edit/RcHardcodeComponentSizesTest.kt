@@ -179,6 +179,20 @@ class RcHardcodeComponentSizesTest {
   }
 
   @Test
+  fun aStateLayoutsOtherConstraintsLeaveItMeasured() {
+    // The player drops a state layout's size and padding modifiers but still applies a widthIn.
+    val bounded =
+      document(
+        *rootLayout(
+            *measuredState(100, fill + RcWidthInModifier(word(0f), word(100f)), measured(200, fill))
+              .toTypedArray(),
+          )
+          .toTypedArray(),
+      )
+    assertSame(bounded, bounded.hardcodeComponentSizes(400f, 200f))
+  }
+
+  @Test
   fun aComponentThatMayBeGoneStaysMeasured() {
     // GONE measures 0 × 0; a visibility a host can change could be GONE.
     val bound =
