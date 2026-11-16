@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.8.0](https://github.com/yschimke/rc-players/compare/v3.7.0...v3.8.0) (2026-11-16)
+
+
+### Features
+
+* **edit:** hardcodeComponentSizes, and Wear widgets made for their container's size ([#923](https://github.com/yschimke/rc-players/issues/923)) ([f36dbc4](https://github.com/yschimke/rc-players/commit/f36dbc4c30881f9719e0ac7e3d5b798c499d7e63))
+* **rc-widget:** RcWearHost.Previews, the hosts Glance Wear's previews draw a widget in ([#922](https://github.com/yschimke/rc-players/issues/922)) ([17a80b4](https://github.com/yschimke/rc-players/commit/17a80b487a927e6c770b3822d7f431ad32c66947))
+
+
+### Bug Fixes
+
+* **edit:** component sizes follow the player for state layouts, visibility and exact sizes ([#925](https://github.com/yschimke/rc-players/issues/925)) ([55c473a](https://github.com/yschimke/rc-players/commit/55c473ae55bae362a73b4f5dafc8eb3ba6529beb))
+
 ## [3.7.0](https://github.com/yschimke/rc-players/compare/v3.6.1...v3.7.0) (2026-11-16)
 
 
