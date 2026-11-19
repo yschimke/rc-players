@@ -24,7 +24,6 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rccreation.compose.state.RemoteConstantCacheKey
 import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
-import ee.schimke.composeai.rccreation.compose.state.RemoteFloatExpression
 import ee.schimke.composeai.rccreation.compose.state.rf
 
 /**
@@ -55,9 +54,7 @@ public fun FontVariation.Settings.toRemoteFontVariationSettings(
  */
 private fun FontVariation.Setting.toRemoteVariationValue(density: Density?): RemoteFloat =
     if (density == null && needsDensity) {
-        RemoteFloatExpression(constantValueOrNull = null, cacheKey = RemoteConstantCacheKey(this)) {
-            floatArrayOf(toVariationValue(null))
-        }
+        RemoteFloat(cacheKey = RemoteConstantCacheKey(this)) { toVariationValue(null).rf }
     } else {
         toVariationValue(density).rf
     }

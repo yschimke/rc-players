@@ -34,6 +34,7 @@ import ee.schimke.composeai.rccreation.compose.capture.DefaultTrimPathStart
 import ee.schimke.composeai.rccreation.compose.capture.EmptyPath
 import ee.schimke.composeai.rccreation.compose.capture.toRemotePath
 import ee.schimke.composeai.rccreation.compose.layout.RemoteDrawScope
+import ee.schimke.composeai.rccreation.compose.layout.RemoteOffset
 import ee.schimke.composeai.rccreation.compose.layout.RemoteSize
 import ee.schimke.composeai.rccreation.compose.path.RemotePath
 import ee.schimke.composeai.rccreation.compose.shaders.RemoteBrush
@@ -80,7 +81,11 @@ internal class RemoteVectorComponent(val root: RemoteGroupComponent) : RemoteVNo
 
     private fun RemoteDrawScope.drawVector(tintFilter: RemoteColorFilter?) {
         val targetViewportSize = this@RemoteVectorComponent.viewportSize
-        with(root) { scale(rootScaleX, rootScaleY) { draw(tintFilter, targetViewportSize) } }
+        with(root) {
+            scale(rootScaleX, rootScaleY, RemoteOffset.Zero) {
+                draw(tintFilter, targetViewportSize)
+            }
+        }
     }
 
     fun RemoteDrawScope.draw(colorFilter: RemoteColorFilter?) {
@@ -280,13 +285,13 @@ internal class RemoteGroupComponent : RemoteVNode() {
                 {
                     if (hasTransform) {
                         translate(translationX + pivotX, translationY + pivotY)
-                        rotate(rotation)
-                        scale(scaleX, scaleY)
+                        rotate(rotation, RemoteOffset.Zero)
+                        scale(scaleX, scaleY, RemoteOffset.Zero)
                         translate(-pivotX, -pivotY)
                     }
                     if (hasClip) {
                         clipPathData.toRemotePath(clipPath, this@draw.remoteCanvas)
-                        clipPath(clipPath)
+                        this@draw.remoteCanvas.clipPath(clipPath)
                     }
                 },
             ) {

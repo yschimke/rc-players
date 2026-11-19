@@ -526,6 +526,7 @@ public class ee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope : ee
 	public static final field $stable I
 	public final fun clipPath (Lee/schimke/composeai/rccreation/compose/path/RemotePath;Lkotlin/jvm/functions/Function1;)V
 	public final fun clipRect (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;)V
+	public static synthetic fun clipRect$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 	public final fun drawAnchoredText (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemotePaint;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;I)V
 	public static synthetic fun drawAnchoredText$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemotePaint;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;IILjava/lang/Object;)V
 	public final fun drawArc (Lee/schimke/composeai/rccreation/compose/state/RemotePaint;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ZLee/schimke/composeai/rccreation/compose/layout/RemoteOffset;Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;)V
@@ -548,6 +549,7 @@ public class ee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope : ee
 	public final fun drawScaledBitmap-3gKlniA (Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;ILee/schimke/composeai/rccreation/compose/state/RemoteFloat;Ljava/lang/String;)V
 	public static synthetic fun drawScaledBitmap-3gKlniA$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope;Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;ILee/schimke/composeai/rccreation/compose/state/RemoteFloat;Ljava/lang/String;ILjava/lang/Object;)V
 	public final fun drawText (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemotePaint;)V
+	public static synthetic fun drawText$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemotePaint;ILjava/lang/Object;)V
 	public final fun drawTextOnCircle (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemotePaint;Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope$CircularAlignment;Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope$CircularPlacement;)V
 	public static synthetic fun drawTextOnCircle$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemotePaint;Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope$CircularAlignment;Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope$CircularPlacement;ILjava/lang/Object;)V
 	public final fun drawTextOnPath (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/path/RemotePath;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemotePaint;)V
@@ -574,11 +576,13 @@ public class ee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope : ee
 	public final fun loop (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function2;)V
 	public fun resolveComponentToken ()Lee/schimke/composeai/rccreation/compose/layout/RemoteComponentToken;
 	public final fun rotate (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;)V
-	public final fun rotate (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;)V
+	public static synthetic fun rotate$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
+	public final fun scale (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;)V
 	public final fun scale (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;)V
-	public final fun scale (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;)V
-	public final fun scale (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;)V
+	public static synthetic fun scale$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
+	public static synthetic fun scale$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 	public final fun translate (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;)V
+	public static synthetic fun translate$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 	public final fun usePaint (Lee/schimke/composeai/rccreation/compose/state/RemotePaint;Lkotlin/jvm/functions/Function0;)V
 	public final fun withTransform (Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;)V
 }
@@ -600,12 +604,50 @@ public final class ee/schimke/composeai/rccreation/compose/layout/RemoteDrawScop
 	public static fun values ()[Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope$CircularPlacement;
 }
 
+public abstract interface annotation class ee/schimke/composeai/rccreation/compose/layout/RemoteDrawScopeMarker : java/lang/annotation/Annotation {
+}
+
+public abstract interface class ee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform {
+	public abstract fun clipRect (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
+	public static synthetic fun clipRect$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILjava/lang/Object;)V
+	public fun getCenter ()Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;
+	public abstract fun getSize ()Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;
+	public abstract fun rotate (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;)V
+	public static synthetic fun rotate$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;ILjava/lang/Object;)V
+	public fun scale (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;)V
+	public abstract fun scale (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;)V
+	public static synthetic fun scale$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;ILjava/lang/Object;)V
+	public static synthetic fun scale$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;ILjava/lang/Object;)V
+	public abstract fun translate (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
+	public static synthetic fun translate$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILjava/lang/Object;)V
+}
+
+public final class ee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform$DefaultImpls {
+	public static synthetic fun clipRect$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILjava/lang/Object;)V
+	public static fun getCenter (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;)Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;
+	public static synthetic fun rotate$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;ILjava/lang/Object;)V
+	public static fun scale (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;)V
+	public static synthetic fun scale$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;ILjava/lang/Object;)V
+	public static synthetic fun scale$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;ILjava/lang/Object;)V
+	public static synthetic fun translate$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILjava/lang/Object;)V
+}
+
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteFitBoxKt {
 	public static final fun RemoteFitBox (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/layout/RemoteAlignment$Horizontal;Lee/schimke/composeai/rccreation/compose/layout/RemoteArrangement$Vertical;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
 }
 
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteFlowRowKt {
 	public static final fun RemoteFlowRow (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/layout/RemoteArrangement$Horizontal;Lee/schimke/composeai/rccreation/compose/layout/RemoteArrangement$Vertical;IILkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+}
+
+public final class ee/schimke/composeai/rccreation/compose/layout/RemoteFontMetrics {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAscent ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getDescent ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteImageKt {
@@ -705,6 +747,20 @@ public final class ee/schimke/composeai/rccreation/compose/layout/RemotePaddingV
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rccreation/compose/layout/RemotePaintBounds {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBottom ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getLeft ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getRight ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getTop ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public abstract interface class ee/schimke/composeai/rccreation/compose/layout/RemotePattern0 : kotlin/jvm/functions/Function1 {
 	public fun invoke ()V
 	public abstract fun invoke (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;)V
@@ -785,6 +841,16 @@ public final class ee/schimke/composeai/rccreation/compose/layout/RemoteRowScope
 	public final fun weight (Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;
 }
 
+public final class ee/schimke/composeai/rccreation/compose/layout/RemoteSingleLineTextBounds {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBaseline ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun getSize ()Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteSize {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/layout/RemoteSize$Companion;
@@ -810,36 +876,22 @@ public final class ee/schimke/composeai/rccreation/compose/layout/RemoteTextKt {
 	public static final fun RemoteText-Bu_HUCE (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;Lee/schimke/composeai/rccreation/compose/text/RemoteFontStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteFontWeight;Lee/schimke/composeai/rccreation/compose/text/RemoteFontFamily;Lee/schimke/composeai/rccreation/compose/text/RemoteTextAlign;IILjava/lang/String;Lee/schimke/composeai/rccreation/compose/text/RemoteFontVariation$Settings;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Landroidx/compose/runtime/Composer;III)V
 }
 
-public final class ee/schimke/composeai/rccreation/compose/layout/RemoteTextLayoutResult {
-	public static final field $stable I
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;)V
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
-	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
-	public final fun getAscent ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getDescent ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getFirstBaseline ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getGlyphBottom ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getGlyphLeft ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getGlyphRight ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getGlyphTop ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getLastBaseline ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getMonospaceWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getSize ()Lee/schimke/composeai/rccreation/compose/layout/RemoteSize;
-	public final fun getWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public fun toString ()Ljava/lang/String;
-}
-
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteTextMeasureKt {
-	public static final fun rememberRemoteTextMeasurer (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/layout/RemoteTextMeasurer;
+	public static final fun rememberRemoteTextMeasurer (Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/compose/layout/RemoteTextMeasurer;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteTextMeasurer {
 	public static final field $stable I
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;)V
-	public final fun measure (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;)Lee/schimke/composeai/rccreation/compose/layout/RemoteTextLayoutResult;
-	public static synthetic fun measure$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteTextMeasurer;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/layout/RemoteTextLayoutResult;
+	public fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun measureFontMetrics (Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;)Lee/schimke/composeai/rccreation/compose/layout/RemoteFontMetrics;
+	public static synthetic fun measureFontMetrics$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteTextMeasurer;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/layout/RemoteFontMetrics;
+	public final fun measureMonospaceWidth (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public static synthetic fun measureMonospaceWidth$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteTextMeasurer;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public final fun measurePaintBounds (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;)Lee/schimke/composeai/rccreation/compose/layout/RemotePaintBounds;
+	public static synthetic fun measurePaintBounds$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteTextMeasurer;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/layout/RemotePaintBounds;
+	public final fun measureSingleLine (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;)Lee/schimke/composeai/rccreation/compose/layout/RemoteSingleLineTextBounds;
+	public static synthetic fun measureSingleLine$default (Lee/schimke/composeai/rccreation/compose/layout/RemoteTextMeasurer;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/layout/RemoteSingleLineTextBounds;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteTime {
@@ -1460,6 +1512,7 @@ public final class ee/schimke/composeai/rccreation/compose/shapes/RemoteOutline$
 
 public final class ee/schimke/composeai/rccreation/compose/shapes/RemoteOutlineKt {
 	public static final fun clipOutline (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope;Lee/schimke/composeai/rccreation/compose/shapes/RemoteOutline;Lkotlin/jvm/functions/Function1;)V
+	public static final fun clipOutline (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawTransform;Lee/schimke/composeai/rccreation/compose/shapes/RemoteOutline;)V
 	public static final fun drawOutline (Lee/schimke/composeai/rccreation/compose/layout/RemoteDrawScope;Lee/schimke/composeai/rccreation/compose/shapes/RemoteOutline;Lee/schimke/composeai/rccreation/compose/state/RemotePaint;)V
 }
 
@@ -1495,10 +1548,10 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteBitmapFon
 	public synthetic fun <init> (Ljava/util/List;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun getConstantValueOrNull ()Ljava/lang/Object;
 	public final fun getGlyphs ()Ljava/util/List;
+	public fun getIdForCreationState (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 	public final fun getKerningTable ()Ljava/util/Map;
 	public final fun measureHeight (Lee/schimke/composeai/rccreation/compose/state/RemoteString;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun measureWidth (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteBitmapFont$Glyph {
@@ -1644,8 +1697,6 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteImageBitm
 	public static synthetic fun createNamedRemoteImageBitmap$default (Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;
 	public static final fun getImageBitmap (Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;)Landroidx/compose/ui/graphics/ImageBitmap;
 	public static final fun getRb (Landroidx/compose/ui/graphics/ImageBitmap;)Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;
-	public static final fun invoke (Lee/schimke/composeai/rccreation/compose/state/MutableRemoteImageBitmap$Companion;Landroidx/compose/ui/graphics/ImageBitmap;)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteImageBitmap;
-	public static final fun invoke (Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap$Companion;Landroidx/compose/ui/graphics/ImageBitmap;)Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;
 	public static final fun rememberMutableRemoteImageBitmap (Landroidx/compose/ui/graphics/ImageBitmap;Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteImageBitmap;
 	public static final fun rememberNamedRemoteImageBitmap (Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;II)Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;
 }
@@ -1900,6 +1951,8 @@ public final class ee/schimke/composeai/rccreation/compose/text/RemoteFontStyle$
 public final class ee/schimke/composeai/rccreation/compose/text/RemoteFontVariation {
 	public static final field $stable I
 	public static final field INSTANCE Lee/schimke/composeai/rccreation/compose/text/RemoteFontVariation;
+	public final fun grade (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/text/RemoteFontVariation$Setting;
+	public final fun opticalSizing (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/text/RemoteFontVariation$Setting;
 	public final fun slant (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/text/RemoteFontVariation$Setting;
 	public final fun weight (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/text/RemoteFontVariation$Setting;
 	public final fun width (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/text/RemoteFontVariation$Setting;

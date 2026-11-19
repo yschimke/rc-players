@@ -21,13 +21,16 @@ import androidx.collection.MutableObjectIntMap
 import ee.schimke.composeai.rccreation.common.RemoteComposeWriter
 import ee.schimke.composeai.rccreation.common.Utils
 import ee.schimke.composeai.rccreation.compose.layout.RemoteComponentToken
-import ee.schimke.composeai.rccreation.compose.state.AnimatedRemoteFloat
 import ee.schimke.composeai.rccreation.compose.state.BaseRemoteStateCacheKey
 import ee.schimke.composeai.rccreation.compose.state.MeshExpressionLowering
-import ee.schimke.composeai.rccreation.compose.state.RemoteFloatExpression
-import ee.schimke.composeai.rccreation.compose.state.RemoteIntExpression
+import ee.schimke.composeai.rccreation.compose.state.MutableRemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.MutableRemoteInt
+import ee.schimke.composeai.rccreation.compose.state.RemoteConstantCacheKey
+import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.RemoteInt
 import ee.schimke.composeai.rccreation.compose.state.RemoteOperationCacheKey
 import ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey
+import ee.schimke.composeai.rccreation.compose.state.RemoteStateIdKey
 import ee.schimke.composeai.rccreation.compose.state.nanIdContentEquals
 import ee.schimke.composeai.rccreation.compose.state.nanIdContentHashCode
 
@@ -571,10 +574,10 @@ public open class RemoteComposeCreationState : RemoteDocumentScope {
 
 private fun RemoteStateCacheKey.isCanvasScopedExpressionKey(): Boolean {
     if (this is RemoteOperationCacheKey) return true
+    if (this is RemoteConstantCacheKey || this is RemoteStateIdKey) return false
     val state = (this as? BaseRemoteStateCacheKey)?.getState() ?: return false
-    return state is RemoteFloatExpression ||
-        state is AnimatedRemoteFloat ||
-        state is RemoteIntExpression
+    return (state is RemoteFloat && state !is MutableRemoteFloat) ||
+        (state is RemoteInt && state !is MutableRemoteInt)
 }
 
 /**

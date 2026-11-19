@@ -58,6 +58,7 @@ import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rccreation.compose.state.rs
 import ee.schimke.composeai.rccreation.compose.state.rsp
 import ee.schimke.composeai.rccreation.compose.text.RemoteTextOverflow
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextStyle
 import ee.schimke.composeai.rccreation.compose.vector.RemoteAnimatedVector
 import ee.schimke.composeai.rccreation.compose.vector.RemoteAnimatedVectorGroup
 import ee.schimke.composeai.rccreation.compose.vector.RemoteAnimatedVectorPath
@@ -229,9 +230,12 @@ class CarriedCreationApiTest {
     val operations = capture {
       val measurer = rememberRemoteTextMeasurer()
       RemoteCanvas(RemoteModifier.fillMaxSize()) {
-        val measured = measurer.measure("Hello".rs, fontSize = 20.rsp)
+        val measured = measurer.measureSingleLine("Hello".rs, RemoteTextStyle(fontSize = 20.rsp))
         drawRect(paint, size = measured.size)
-        drawCircle(paint, measured.ascent + measured.descent + measured.monospaceWidth)
+        val style = RemoteTextStyle(fontSize = 20.rsp)
+        val metrics = measurer.measureFontMetrics(style)
+        val monospaceWidth = measurer.measureMonospaceWidth("Hello".rs, style)
+        drawCircle(paint, metrics.ascent + metrics.descent + monospaceWidth)
       }
     }
     val attributes = operations.all<TextAttribute>()
@@ -240,7 +244,9 @@ class CarriedCreationApiTest {
       setOf<Short>(0x400, 0x201, 0x204, 0x205, 0x100),
       attributes.map { it.mType }.toSet(),
     )
-    assertEquals(1, attributes.map { it.mTextId }.toSet().size)
+    // "Hello" for its line and monospace width, and the empty string for the font metrics, which
+    // `measureFontMetrics` reads from no text in particular.
+    assertEquals(2, attributes.map { it.mTextId }.toSet().size)
     val flat = operations.flattened()
     attributes.forEach { attribute ->
       // The measured text is declared where it is first read, between the two.

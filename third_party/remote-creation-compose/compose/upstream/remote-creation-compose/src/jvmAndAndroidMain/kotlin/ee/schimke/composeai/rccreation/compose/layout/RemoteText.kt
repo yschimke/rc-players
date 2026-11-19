@@ -114,13 +114,11 @@ public fun RemoteText(
 
     RemoteText(
         text = text,
-        color = color ?: style.color ?: RemoteColor(BlackArgb),
+        color = color ?: style.color ?: RemoteColor.Black,
         fontSize = resolvedFontSize,
         modifier = modifier,
         fontStyle = fontStyle ?: style.fontStyle ?: RemoteFontStyle.Normal,
         fontWeight = unadjustedFontWeight,
-        // LOCAL PATCH (rc-players): an alignment neither argument nor style specifies is Start, as
-        // before `99f14adf8`; upstream now writes `Unspecified` (`Int.MIN_VALUE`) to the wire.
         textAlign =
             textAlign?.takeUnless { it == RemoteTextAlign.Unspecified }
                 ?: style.textAlign.takeUnless { it == RemoteTextAlign.Unspecified }
@@ -356,4 +354,4 @@ private const val FONT_WEIGHT_MIN: Float = 1f
  */
 private const val FONT_WEIGHT_MAX: Float = 1000f
 
-internal const val BlackArgb: Int = 0xFF000000.toInt()
+private const val BlackArgb: Int = 0xFF000000.toInt()

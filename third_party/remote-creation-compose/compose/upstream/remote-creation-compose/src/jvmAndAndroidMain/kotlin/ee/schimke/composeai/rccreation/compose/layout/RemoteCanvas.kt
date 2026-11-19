@@ -45,7 +45,6 @@ import ee.schimke.composeai.rccreation.compose.state.RemoteIntArray
 import ee.schimke.composeai.rccreation.compose.state.RemoteLong
 import ee.schimke.composeai.rccreation.compose.state.RemotePaint
 import ee.schimke.composeai.rccreation.compose.state.RemotePathFillType
-import ee.schimke.composeai.rccreation.compose.state.RemoteStateIdKey
 import ee.schimke.composeai.rccreation.compose.state.RemoteStateScope
 import ee.schimke.composeai.rccreation.compose.state.RemoteString
 import ee.schimke.composeai.rccreation.compose.state.RemoteStringArray
@@ -1012,7 +1011,7 @@ public class RemoteCanvas(
         step: RemoteFloat,
         body: (index: RemoteFloat) -> Unit,
     ) {
-        val loopVariable = MutableRemoteFloat()
+        val loopVariable = MutableRemoteFloat.createReserved()
         val childSpan = buffer.recordInChildSpan { body(loopVariable) }
 
         val op =
@@ -1037,7 +1036,7 @@ public class RemoteCanvas(
      * @param body Code that generates draw calls to run in a loop.
      */
     public fun loop(from: Int, until: RemoteInt, body: (index: RemoteInt) -> Unit) {
-        val loopVariable = MutableRemoteFloat()
+        val loopVariable = MutableRemoteFloat.createReserved()
         val childSpan = buffer.recordInChildSpan { body(loopVariable.toRemoteInt()) }
 
         val op =
@@ -1060,9 +1059,9 @@ public class RemoteCanvas(
             is RemoteBoolean -> RemoteBoolean.createForId(id)
             is RemoteImageBitmap -> RemoteImageBitmap.createForId(id)
             is RemoteLong -> RemoteLong.createForId(id)
-            is RemoteFloatArray -> RemoteFloatArray(null, RemoteStateIdKey(id))
-            is RemoteStringArray -> RemoteStringArray(null, RemoteStateIdKey(id))
-            is RemoteIntArray -> RemoteIntArray(null, RemoteStateIdKey(id))
+            is RemoteFloatArray -> RemoteFloatArray.createForId(id)
+            is RemoteStringArray -> RemoteStringArray.createForId(id)
+            is RemoteIntArray -> RemoteIntArray.createForId(id)
             // KMP (rc-players): `::class` for `.javaClass`.
             else ->
                 throw IllegalArgumentException(

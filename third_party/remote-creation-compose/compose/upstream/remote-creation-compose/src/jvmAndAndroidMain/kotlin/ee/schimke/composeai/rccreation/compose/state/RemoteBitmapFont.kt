@@ -95,25 +95,27 @@ constructor(
         get() = null
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
-        // KMP (rc-players): `RemoteWriter.addBitmapFont` takes a list of its own glyph type,
-        // where `RemoteComposeWriter` takes an array of `BitmapFontData.Glyph`.
-        return creationState.document.addBitmapFont(
-            List(glyphs.size) { index ->
-                val glyph = glyphs[index]
-                BitmapFontGlyph(
-                    glyph.chars,
-                    glyph.bitmap?.getIdForCreationState(creationState) ?: -1,
-                    glyph.marginLeft,
-                    glyph.marginTop,
-                    glyph.marginRight,
-                    glyph.marginBottom,
-                    glyph.width,
-                    glyph.height,
-                )
-            },
-            kerningTable,
-        )
+    public override fun getIdForCreationState(creationState: RemoteComposeCreationState): Int {
+        return creationState.getOrPutVariableId(cacheKey) {
+            // KMP (rc-players): `RemoteWriter.addBitmapFont` takes a list of its own glyph type,
+            // where `RemoteComposeWriter` takes an array of `BitmapFontData.Glyph`.
+            creationState.document.addBitmapFont(
+                List(glyphs.size) { index ->
+                    val glyph = glyphs[index]
+                    BitmapFontGlyph(
+                        glyph.chars,
+                        glyph.bitmap?.getIdForCreationState(creationState) ?: -1,
+                        glyph.marginLeft,
+                        glyph.marginTop,
+                        glyph.marginRight,
+                        glyph.marginBottom,
+                        glyph.width,
+                        glyph.height,
+                    )
+                },
+                kerningTable,
+            )
+        }
     }
 
     private fun lookupGlyph(string: String, offset: Int): Glyph? {
@@ -182,16 +184,15 @@ constructor(
         if (text.hasConstantValue && glyphSpacing.hasConstantValue) {
             return RemoteFloat(measure(text.constantValue, glyphSpacing.constantValue).width())
         }
-        return RemoteFloatExpression(
-            constantValueOrNull = null,
+        return RemoteFloat(
             cacheKey = RemoteOperationCacheKey.create(OperationKey.MeasureWidth, this, text),
-        ) { creationState ->
-            floatArrayOf(
-                creationState.document.bitmapTextMeasure(
-                    text.getIdForCreationState(creationState),
-                    getIdForCreationState(creationState),
+        ) {
+            RemoteFloat(
+                document.bitmapTextMeasure(
+                    text.getIdForCreationState(this),
+                    getIdForCreationState(this),
                     BitmapTextMeasure.MEASURE_WIDTH,
-                    glyphSpacing.getFloatIdForCreationState(creationState),
+                    glyphSpacing.getFloatIdForCreationState(this),
                 ),
             )
         }
@@ -208,14 +209,13 @@ constructor(
         if (text.hasConstantValue) {
             return RemoteFloat(measure(text = text.constantValue, glyphSpacing = 0f).height())
         }
-        return RemoteFloatExpression(
-            constantValueOrNull = null,
+        return RemoteFloat(
             cacheKey = RemoteOperationCacheKey.create(OperationKey.MeasureHeight, this, text),
-        ) { creationState ->
-            floatArrayOf(
-                creationState.document.bitmapTextMeasure(
-                    text.getIdForCreationState(creationState),
-                    getIdForCreationState(creationState),
+        ) {
+            RemoteFloat(
+                document.bitmapTextMeasure(
+                    text.getIdForCreationState(this),
+                    getIdForCreationState(this),
                     BitmapTextMeasure.MEASURE_HEIGHT,
                     0f,
                 ),

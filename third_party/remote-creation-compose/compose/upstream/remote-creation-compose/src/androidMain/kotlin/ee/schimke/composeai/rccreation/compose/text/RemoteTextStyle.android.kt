@@ -28,7 +28,6 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 import ee.schimke.composeai.rccreation.compose.layout.toRemoteFontFamily
 import ee.schimke.composeai.rccreation.compose.layout.toRemoteFontStyle
@@ -78,9 +77,7 @@ public fun RemoteTextStyle.Companion.fromTextStyle(style: TextStyle): RemoteText
         fontFamily = style.fontFamily?.toRemoteFontFamily(),
         letterSpacing = letterSpacing,
         background = background,
-        textAlign =
-            if (style.textAlign == TextAlign.Unspecified) RemoteTextAlign.Unspecified
-            else style.textAlign.toRemoteTextAlign(),
+        textAlign = style.textAlign.toRemoteTextAlign(),
         lineHeight = lineHeight,
         textDecoration = style.textDecoration?.toRemoteTextDecoration(),
         lineBreak =

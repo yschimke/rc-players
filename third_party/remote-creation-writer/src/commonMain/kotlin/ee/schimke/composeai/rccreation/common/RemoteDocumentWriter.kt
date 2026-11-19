@@ -1340,14 +1340,14 @@ private constructor(
     return id
   }
 
-  override fun createTextFromFloat(value: Float, before: Int, after: Int, flags: Int): Int {
-    val key = TextFromFloatKey(value.toRawBits(), before, after, flags)
+  override fun createTextFromFloat(value: Float, before: Short, after: Short, flags: Int): Int {
+    val key = TextFromFloatKey(value.toRawBits(), before.toInt(), after.toInt(), flags)
     return textFromFloatIds.getOrPut(key) {
       val id = newId()
       declaration(TextFromFloat, id, inBody(value))
       wire.writeInt(id)
       wire.writeFloat(value)
-      wire.writeInt((before shl 16) or (after and 0xffff))
+      wire.writeInt((before.toInt() shl 16) or (after.toInt() and 0xffff))
       wire.writeInt(flags)
       id
     }

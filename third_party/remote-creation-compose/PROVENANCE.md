@@ -45,7 +45,8 @@ the plan, and the feedback for AndroidX are in
   (2026-10-15, a superset of snapshot `16617687` = `522d8695c`), then to androidx-main
   `5dab33683` (2026-10-27), then to androidx-main `a0e84553095` (2026-10-29), the commit
   `remote-creation-compose:1.0.0-alpha23` was cut from, then to androidx-main `1448d6497`
-  (2026-11-08), then to androidx-main `21a1a95e4` (2026-11-10).
+  (2026-11-08), then to androidx-main `21a1a95e4` (2026-11-10), then to androidx-main `cb8e6388acf`
+  (2026-11-12), the commit `1.0.0-alpha24` was cut from (its release notes' commit range ends there).
 - License: Apache-2.0
 - Paths:
 
@@ -631,6 +632,76 @@ Deliberately skipped:
 
 - Nothing new. Visibility widened only for `remote-creation-expression` stayed internal, as
   before, until realignment step 2.
+
+## Refresh 21a1a95e4 → androidx-main cb8e6388acf (1.0.0-alpha24)
+
+`cb8e6388acf` is where alpha24's release notes' commit range ends. The refresh was a three-way merge
+per carried file: base upstream's file at `21a1a95e4`, theirs at `cb8e6388acf`, both through the
+package map, onto the fork's file. 28 files merged clean and 35 had conflicts. A conflict in imports
+only kept the fork's imports with upstream's additions and removals applied; one where the fork
+differed from the base by nothing but trailing commas took upstream's side. The remaining sixteen
+hunks, in seven files, were merged by hand, the marked hunks put back on upstream's new code. Eleven commits
+touch the carried sources. Two change what a document draws: `843dbb30355` writes an alignment
+nobody set as `Start` (what the fork already wrote), and `8ca84206303` changes the circular progress
+indicator.
+
+Taken:
+
+- `dabd19c478e`: the `RemoteState` and `MutableRemoteState` constructors and `Companion.invoke`
+  factories give way to top-level functions (`RemoteFloat(…)`, `MutableRemoteInt(…)`, …).
+  `writeToDocument` is internal, and a state with an id of its own overrides
+  `getIdForCreationState` instead (`state/RemoteBitmapFont.kt`, KMP hunk kept on the new override).
+  `RemoteFloatExpression(…)` is `RemoteFloat(…)`, which `layout/RemoteFloatContext.kt`'s marked
+  `lastComponentId` hunks now call, and `RemoteFloat { … }` builds a value from the creation state,
+  which `layout/RemoteTextMeasure.kt`'s two measurement patches now sit inside.
+- `25d63d8c876`: `RemoteTextMeasurer.measure` and `RemoteTextLayoutResult` give way to
+  `measureSingleLine` (`RemoteSingleLineTextBounds`: size and baseline), `measureFontMetrics`
+  (ascent and descent, of no text in particular), `measurePaintBounds` and `measureMonospaceWidth`.
+- `64e14776103`: `RemoteDrawScope`'s drawing, transform and clip API is public, and a
+  `withTransform` block's receiver is a `RemoteDrawTransform`. Its `rotate` and `scale` take a
+  `RemoteOffset` pivot that defaults to `center`, as Compose's `DrawTransform` does; inside
+  `withTransform` they used to turn about the origin. The `(px, py)` overloads stay on
+  `RemoteCanvas` only.
+- `843dbb30355`: an alignment neither `RemoteText`'s argument nor its style sets is `Start`. This is
+  the fork's local patch, word for word, which retires (and its follow-up below).
+- `24bbec7fc9f`: `TextFromFloat` takes its digit counts as shorts. `../remote-creation-writer`'s
+  `RemoteWriter.createTextFromFloat(value, before: Short, after: Short, flags)` follows; the wire is
+  unchanged. So does the fork-only `RemoteDecimalFormat.kt`, the common copy of upstream's
+  `RemoteFormatting.android.kt`.
+- `76c70575f49`, `391456ae5d6`, `cb594cd22c3`: `RemoteColor`'s standard colour constants,
+  `RemoteOffset.Infinite`, and `RemoteFontVariation.opticalSizing` and `grade`.
+- `RemoteColor.Companion.createThemedRemoteColor(group, …)` is in the expression module now. The
+  fork-only `state/RemoteThemedColor.kt` keeps its index-based overload and calls it.
+- Wear Material 3: `RemoteText` takes the `Remote*` text types and reads its own
+  `LocalRemoteTextConfiguration` (`c65889a349f`), so the fork-only `wearcompose/Text.kt` is unused
+  by the carried sources. `RemoteIconToggleButton` and `RemoteTextToggleButton` are public
+  (`e55e3dee511`). `RemoteCircularProgressIndicator` and `RemoteSegmentedCircularProgressIndicator`
+  draw each segment as one arc, a full circle's gap closes as it fills, and a segment no longer
+  than the gap is a dot that shrinks with it (`8ca84206303`). `RcWearProgressIndicatorPlaybackTest`
+  (`:rc-player-embedded`) plays it, and `renders/creation-alpha24/` has it before and after.
+- Callers outside the fork move with it: `:rc-creation-bridge`'s and `:rc-player-embedded`'s tests
+  measure with `measureSingleLine`, `measureFontMetrics` and `measureMonospaceWidth`, and
+  `RcCanvasPivotPlaybackTest` names the origin pivot its translated picture means.
+
+Not carried:
+
+- The 17 test files `remote-creation-expression/src/test/java` gains (`RemoteFloatTest`,
+  `TestRemoteContext` and the rest). They play what they write through `remote-core`'s
+  `CoreDocument` and `RemoteContext`, which the fork's writer is not.
+
+Not applicable:
+
+- `remote-core` and `remote-creation-core`: embedded documents and scroll override
+  (`df2eb252356`), the sealed `RcScope` DSL (`808a4e4b24d`, not carried), `ActionOperation.runAction`
+  (`c66a4acf860`, player side) and an errorprone check (`308fc01c0c1`). No carried source writes a
+  new operation, so the writer gains nothing else.
+- The embedded player's scroll position (`db2c2360362`): `third_party/rc-embedded-player`'s
+  concern.
+
+`scripts/diff-upstream.sh --summary`: 279 upstream files (21 of them tests), 130 identical, 101
+differing, 48 not carried; 259 differing hunks, 174 marked, 66 import-only, 19 unmarked (21 at
+`21a1a95e4`, against that tree; the two that went were in `vector/RemoteVector.kt`, which upstream
+brought into line with the fork).
 
 ## alpha22 write side: component offscreen buffers and visibility functions
 
@@ -1239,7 +1310,6 @@ to offer upstream, and the list is meant to shrink. Paths are package-relative (
 | `shaders/RemoteRuntimeShader.kt` (new), `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`addShader`) | `RemoteBrush.runtimeShader(source, floatUniforms, intUniforms, sizeUniform)`: AGSL written as `TextData` + `ShaderData` (`DATA_SHADER`) and set as the paint's shader; float uniforms are any `RemoteFloat` (resolved by the player every frame), and the painted size is passed as a `float2`. A document with a shader declares `PROFILE_ANDROIDX`, as one that draws to a bitmap does | The core format and both players run runtime shaders; the port had no way to write one. remote-core reads `ShaderData` only under the AndroidX profile. `ShaderDataWriteTest`, `RuntimeShaderBrushTest` (with AndroidX read-back) and `RcRuntimeShaderPlaybackTest` cover it. |
 | `layout/RemoteMesh2D.kt` (new), `capture/Mesh2DWriterOp.kt` (new), `state/MeshExpressionLowering.kt` (new), `state/RemoteFloat.kt` (`combineToFloatArray`), `capture/RemoteComposeCreationState.kt` (`meshExpressionLowering`, and `getOrPutFloatArray` bypassing the cache while it is set), `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`addMesh2D`, `addMesh2DValues`, `drawMesh2D`, `matrixFromMesh2D`) + `ProtocolPrimitives.kt` (`Mesh2D`) | `RemoteCanvas.drawMesh2D` / `RemoteDrawScope.drawMesh2D(uCount, vCount, layout, image, paint, antialiasWidth) { ... }`: a parametric 2D mesh written as `AddMesh2D` (`TYPE_EXPRESSION`) plus `DrawMesh2D`, each channel (`x`, `y`, `texU`, `texV`, `alpha`, `red`, `green`, `blue`) the raw RPN of a `RemoteFloat` over `u`/`v` (`VAR1`/`VAR2`). Channels are lowered while `state/MeshExpressionLowering.kt`'s lowering is set on the creation state, which `combineToFloatArray` (`state/RemoteFloat.kt`) defers to. Every operand that reads `u`/`v` stays inline. Every other operand becomes a reference to an ordinary float. The channels are not registered as roots either. So a `u`/`v` expression is never hoisted into a document float, which the player would evaluate without `u`/`v`. A document with a mesh declares `PROFILE_EXPERIMENTAL`, plus `PROFILE_ANDROIDX` unless it names AndroidX or widgets | The core format (alpha23, experimental) and rc-players' players draw meshes; the port had no way to write one. remote-core reads the mesh operations only in its experimental V7 maps. `Mesh2DWriteTest`, `Mesh2DAuthoringTest` (with AndroidX read-back) and `RcMesh2DPlaybackTest` cover it. |
 | `../remote-creation-writer/.../RemoteWriter.kt` + `RemoteDocumentWriter.kt` (`addTouchExpression`, `textMerge(outputId, …)`) + `ProtocolConstants.kt` (`TouchStop`) | A free-standing `TouchExpression` (opcode 157) into a reserved float, and a `TextMerge` into a reserved text id, as AndroidX's `RemoteComposeBuffer.addTouchExpression` / `textMerge(id, left, right)` write them; `Scroll`'s own touch expression is written through it, byte for byte as before | The fork wrote a touch expression only inside `Scroll`, so a drag control (a slider following `Touch.POSITION_X`, its value as a label) could be authored only against AndroidX's writer. `TouchExpressionWriteTest` (with AndroidX read-back) covers it. |
-| `layout/RemoteText.kt` (`textAlign`) | An alignment neither the argument nor the style specifies is written as `Start` | **Upstream bug.** Since `99f14adf8` upstream passes `RemoteTextAlign.Unspecified` (`Int.MIN_VALUE`) through to `startTextComponent`: AndroidX's `CoreText` reads its low bits as start and its high bits as flags, and rc-players' player rejects it. |
 | `layout/RemoteText.kt` (`dpDocumentFontSizeDp`) | In a `RemoteDensityBehavior.Dp` document a constant font size is written in dp, not the capture's pixels | **Upstream bug.** remote-core alpha22's `CoreText`/`TextLayout` multiply a literal font size by the host density in a DP document, as they do padding, so the pixels upstream writes drew text at density squared in the View player and the CMP player alike. A non-constant size stays the pixel expression, which the core reads unscaled. `DpDocumentFontSizeTest` covers it. |
 | `../remote-creation-writer/.../RemoteDocumentWriter.kt` (`startCanvas`, `endCanvas`, `valueComponentId`, `componentValue`, `addComponentValue`) | A `ComponentValue` written directly in a canvas's `CanvasContent` for the canvas names the content, as AndroidX's writer does (`lastComponentId`). Only where the writer writes a `CanvasContent`: documents up to API level 7, which is every profile for Android's platform players (`WIDGETS_V6`, `WIDGETS_V7`, `RcCaptureProfiles.launcherWidgets`) and `ANDROIDX7`; level 8 and above name the canvas, as before | **Port bug.** The port's canvas node passed its own id. Android 16's platform player draws a canvas that reads its measured size as nothing when the value names the canvas (Cadence's notification progress bar: 0 pixels) and draws it when it names the content; Android 17's, AndroidX's and rc-players' players read either. `PlatformPlayerComponentValueTest` (`:rc-widget-launcher`, on API 36 and 37) and `AndroidxPlayerParityTest.aCanvasSizeInALevel7DocumentNamesTheCanvasContent` cover it. |
 
@@ -1268,11 +1338,6 @@ the structural feedback, in
   and type. Upstream: `capture/RemoteComposeCreationState.kt`.
 - **What a layout's content declares, AndroidX's player drops**, and **a component's size asked
   for after the component is never bound**: both in RC_CREATION_UPSTREAM.md.
-
-- **Unspecified text alignment.** `RemoteText` writes `RemoteTextAlign.Unspecified`
-  (`Int.MIN_VALUE`) when neither its argument nor its style sets an alignment (`99f14adf8`), where
-  it wrote `Start` before. The fork writes `Start` (local patch above). Upstream:
-  `layout/RemoteText.kt`.
 
 ## Refreshing
 

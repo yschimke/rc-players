@@ -40,24 +40,61 @@ import ee.schimke.composeai.rccreation.common.TimeAttribute
 import ee.schimke.composeai.rccreation.common.Utils
 import ee.schimke.composeai.rccreation.common.Utils.asNan
 import ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState
-import ee.schimke.composeai.rccreation.compose.capture.RemoteDocumentScope
 import ee.schimke.composeai.rccreation.compose.state.RemoteFloat.OperationKey
 import kotlin.jvm.JvmInline
 import kotlin.jvm.JvmOverloads
 import kotlin.jvm.JvmStatic
 
 /**
- * Abstract base class for all remote float representations.
+ * Read-only supertype for all remote float representations.
  *
- * `RemoteFloat` represents a floating-point value that can be a constant, a possibly named
- * variable, or a dynamic expression (e.g., an arithmetic operation).
+ * [RemoteFloat] represents a floating-point value that may be a constant, a named variable, or a
+ * dynamic expression (such as an arithmetic operation). For writable float variables, see
+ * [MutableRemoteFloat].
+ *
+ * Operations on [RemoteFloat] are evaluated dynamically on the remote player at runtime unless all
+ * inputs are known constants, in which case constant folding evaluates the result immediately at
+ * creation time (see [RemoteState]).
  */
 @Stable
-public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCacheKey) :
-    BaseRemoteState<Float>(cacheKey) {
+public open class RemoteFloat
+@RememberInComposition
+internal constructor(
+    @get:Suppress("AutoBoxing") public override val constantValueOrNull: Float?,
+    cacheKey: RemoteStateCacheKey,
     /** Provides the RPN [FloatArray] expression for the given [RemoteComposeCreationState]. */
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public abstract val arrayProvider: (creationState: RemoteComposeCreationState) -> FloatArray
+    internal open val arrayProvider: (creationState: RemoteComposeCreationState) -> FloatArray,
+) : BaseRemoteState<Float>(cacheKey) {
+
+    init {
+        if (constantValueOrNull?.isNaN() == true) {
+            throw IllegalArgumentException("constantValueOrNull cannot be NaN")
+        }
+    }
+
+    internal constructor(
+        cacheKey: RemoteStateCacheKey,
+    ) : this(
+        constantValueOrNull = null,
+        cacheKey = cacheKey,
+        arrayProvider = { FloatArray(0) },
+    )
+
+    internal override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
+        val array = arrayForCreationState(creationState)
+        // In case we have a single element array, check if the element is a variable id
+        // (and not a 0-argument math operator like RAND); if it is an existing id, just
+        // return this one, no need to create a new floatExpression.
+        if (
+            array.size == 1 && array[0].isNaN() && !AnimatedFloatExpression.isMathOperator(array[0])
+        ) {
+            return Utils.idFromNan(array[0])
+        }
+
+        return creationState.getOrPutFloatExpressionId(array, animation = null) {
+            Utils.idFromNan(creationState.document.floatExpression(*array))
+        }
+    }
 
     internal enum class OperationKey(
         internal val opCode: Float,
@@ -226,8 +263,8 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
                 ToRemoteInt -> (args[0] as RemoteFloat).toRemoteInt()
                 ToRemoteString ->
                     (args[0] as RemoteFloat).toRemoteStringOptions(
-                        (args.getOrNull(1) as? RemoteInt)?.constantValueOrNull ?: 0,
-                        (args.getOrNull(2) as? RemoteInt)?.constantValueOrNull ?: 0,
+                        ((args.getOrNull(1) as? RemoteInt)?.constantValueOrNull ?: 0).toShort(),
+                        ((args.getOrNull(2) as? RemoteInt)?.constantValueOrNull ?: 0).toShort(),
                         (args.getOrNull(3) as? RemoteInt)?.constantValueOrNull ?: 0,
                     )
                 CompareEQ -> (args[0] as RemoteFloat).isEqualTo(args[1] as RemoteFloat)
@@ -251,7 +288,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
                 DayOfWeekForReference -> dayOfWeekForReference(args[0] as RemoteLong)
                 YearForReference -> yearForReference(args[0] as RemoteLong)
                 Anim ->
-                    AnimatedRemoteFloat(
+                    animatedRemoteFloat(
                         args[0] as RemoteFloat,
                         (args[1] as? FloatArrayRemoteState)?.floatArray
                             ?: (args[1].cacheKey as FloatArrayCacheKey).floatArray,
@@ -303,8 +340,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
      *
      * @param creationState state tracking written variable IDs
      */
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public fun hasBeenWrittenToDoc(creationState: RemoteComposeCreationState): Boolean =
+    internal fun hasBeenWrittenToDoc(creationState: RemoteComposeCreationState): Boolean =
         creationState.remoteVariableToId.contains(cacheKey)
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -320,13 +356,18 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
     }
 
     /**
-     * Returns a [RemoteInt] that evaluates to the result of this [RemoteFloat] converted to Int.
+     * Converts this [RemoteFloat] to a [RemoteInt] by truncating any fractional part toward zero
+     * (matching [Float.toInt]).
+     *
+     * Use [round] first to round to the nearest integer before converting.
+     *
+     * @return A [RemoteInt] that evaluates to the truncated integer value of this [RemoteFloat].
      */
     public fun toRemoteInt(): RemoteInt {
         constantValueOrNull?.let {
             return RemoteInt(it.toInt())
         }
-        return RemoteIntExpression(
+        return RemoteInt(
             constantValueOrNull = null,
             cacheKey = RemoteOperationCacheKey.create(OperationKey.ToInt, this),
         ) { creationState ->
@@ -362,8 +403,8 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
     /**
      * Formats this [RemoteFloat] as a [RemoteString] with integer padding options.
      *
-     * @param before maximum digits before the decimal point
-     * @param after maximum digits after the decimal point
+     * @param before maximum digits before the decimal point (stored as a short on the wire)
+     * @param after maximum digits after the decimal point (stored as a short on the wire)
      * @param flags formatting flags from [ee.schimke.composeai.rccreation.common.TextFromFloat]
      * @param minimumIntegerDigits minimum integer digits before padding
      * @param formatWidth total target padded width, or `0` if unset
@@ -372,8 +413,8 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun toRemoteStringWithPadding(
-        before: Int,
-        after: Int,
+        before: Short,
+        after: Short,
         flags: Int,
         minimumIntegerDigits: Int = 0,
         formatWidth: Int = 0,
@@ -384,7 +425,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
             val padWidth = if (formatWidth > 0) formatWidth else minimumIntegerDigits
 
             // Support scenarios where max digits was not restricted (before == 255)
-            if (before == 255) {
+            if (before.toInt() == 255) {
                 val flagsWithoutPrePadding = flags and PAD_PRE_ZERO.inv()
                 val flagsPreNone = flagsWithoutPrePadding or PAD_PRE_NONE
                 val unpadded = toRemoteStringOptions(before, after, flagsPreNone)
@@ -399,9 +440,10 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
 
                 val isNegative = this.isLessThan(0f.rf)
                 val absValue = isNegative.select(-this, this)
+                val paddedBefore = padWidth.coerceIn(0, Short.MAX_VALUE.toInt()).toShort()
 
                 return (absValue.isLessThan(threshold.rf)).select(
-                    toRemoteStringOptions(padWidth, after, flagsPadded),
+                    toRemoteStringOptions(paddedBefore, after, flagsPadded),
                     unpadded,
                 )
             }
@@ -413,13 +455,13 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
     /**
      * Formats this [RemoteFloat] as a [RemoteString] with explicit digit counts and [flags].
      *
-     * @param before digits before the decimal point
-     * @param after digits after the decimal point
+     * @param before digits before the decimal point (stored as a short on the wire)
+     * @param after digits after the decimal point (stored as a short on the wire)
      * @param flags formatting flags from [ee.schimke.composeai.rccreation.common.TextFromFloat]
      * @return formatted [RemoteString]
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public fun toRemoteStringOptions(before: Int, after: Int, flags: Int): RemoteString {
+    public fun toRemoteStringOptions(before: Short, after: Short, flags: Int): RemoteString {
         constantValueOrNull?.let {
             return RemoteString(floatToString(it, before = before, after = after, flags = flags))
         }
@@ -449,8 +491,8 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
                     ): Set<String> {
                         val preFlags = flags and PAD_PRE_ZERO
                         val afterFlags = flags and PAD_AFTER_ZERO
-                        if (after == 0) {
-                            if (before == 1 || preFlags != PAD_PRE_SPACE) {
+                        if (after.toInt() == 0) {
+                            if (before.toInt() == 1 || preFlags != PAD_PRE_SPACE) {
                                 return setOf("0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
                             } else {
                                 return setOf("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", " ")
@@ -459,7 +501,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
 
                         // If flags is non-zero then we may pad with a space.
                         if (
-                            (before == 1 && after == 1) ||
+                            (before.toInt() == 1 && after.toInt() == 1) ||
                                 (preFlags != PAD_PRE_SPACE && afterFlags != PAD_AFTER_SPACE)
                         ) {
                             return setOf("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".")
@@ -488,7 +530,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
             return RemoteFloat(directEval(it))
         }
 
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteOperationCacheKey.create(op, this),
         ) { creationState ->
@@ -496,7 +538,11 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
         }
     }
 
-    /** Returns a new [RemoteFloat] that evaluates to the negative of this [RemoteFloat]. */
+    /**
+     * Returns a new [RemoteFloat] that evaluates to the negative of this [RemoteFloat].
+     *
+     * @return A new [RemoteFloat] representing `-this`.
+     */
     public operator fun unaryMinus(): RemoteFloat {
         constantValueOrNull?.let {
             return RemoteFloat(-it)
@@ -505,7 +551,12 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
         return binaryOp(this, -1f, OperationKey.UnaryMinus, directEval = { a, b -> a * b })
     }
 
-    /** Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] modulo [other]. */
+    /**
+     * Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] modulo [other].
+     *
+     * @param other The divisor [Float].
+     * @return A new [RemoteFloat] representing `this % other`.
+     */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public operator fun rem(other: Float): RemoteFloat =
         binaryOp(this, other, OperationKey.Rem) { a, b -> a % b }
@@ -514,11 +565,17 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
      * Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] modulo [other].
      *
      * @param other The divisor [RemoteFloat].
+     * @return A new [RemoteFloat] representing `this % other`.
      */
     public operator fun rem(other: RemoteFloat): RemoteFloat =
         binaryOp(this, other, OperationKey.Rem) { a, b -> a % b }
 
-    /** Returns a new [RemoteFloat] that evaluates to minimum of this [RemoteFloat] and [other]. */
+    /**
+     * Returns a new [RemoteFloat] that evaluates to the minimum of this [RemoteFloat] and [other].
+     *
+     * @param other The [Float] to compare with.
+     * @return A new [RemoteFloat] representing the smaller of `this` and [other].
+     */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun min(other: Float): RemoteFloat =
         binaryOp(this, other, OperationKey.Min, directEval = { a, b -> kotlin.math.min(a, b) })
@@ -527,11 +584,17 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
      * Returns a new [RemoteFloat] that evaluates to the minimum of this [RemoteFloat] and [other].
      *
      * @param other The [RemoteFloat] to compare with.
+     * @return A new [RemoteFloat] representing the smaller of `this` and [other].
      */
     public fun min(other: RemoteFloat): RemoteFloat =
         binaryOp(this, other, OperationKey.Min) { a, b -> kotlin.math.min(a, b) }
 
-    /** Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] plus [other]. */
+    /**
+     * Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] plus [other].
+     *
+     * @param other The [Float] to add.
+     * @return A new [RemoteFloat] representing `this + other`.
+     */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public operator fun plus(other: Float): RemoteFloat {
         if (other == 0f) {
@@ -544,6 +607,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
      * Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] plus [other].
      *
      * @param other The [RemoteFloat] to add.
+     * @return A new [RemoteFloat] representing `this + other`.
      */
     public operator fun plus(other: RemoteFloat): RemoteFloat {
         other.constantValueOrNull?.let {
@@ -555,7 +619,12 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
         return binaryOp(this, other, OperationKey.Plus) { a, b -> a + b }
     }
 
-    /** Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] minus [other]. */
+    /**
+     * Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] minus [other].
+     *
+     * @param other The [Float] to subtract.
+     * @return A new [RemoteFloat] representing `this - other`.
+     */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public operator fun minus(other: Float): RemoteFloat {
         if (other == 0f) {
@@ -568,6 +637,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
      * Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] minus [other].
      *
      * @param other The [RemoteFloat] to subtract.
+     * @return A new [RemoteFloat] representing `this - other`.
      */
     public operator fun minus(other: RemoteFloat): RemoteFloat {
         other.constantValueOrNull?.let {
@@ -579,7 +649,12 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
         return binaryOp(this, other, OperationKey.Minus) { a, b -> a - b }
     }
 
-    /** Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] times [other]. */
+    /**
+     * Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] times [other].
+     *
+     * @param other The [Float] to multiply by.
+     * @return A new [RemoteFloat] representing `this * other`.
+     */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public operator fun times(other: Float): RemoteFloat {
         if (other == 0f) {
@@ -598,6 +673,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
      * Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] times [other].
      *
      * @param other The [RemoteFloat] to multiply by.
+     * @return A new [RemoteFloat] representing `this * other`.
      */
     public operator fun times(other: RemoteFloat): RemoteFloat {
         other.constantValueOrNull?.let {
@@ -609,7 +685,12 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
         return binaryOp(this, other, OperationKey.Times) { a, b -> a * b }
     }
 
-    /** Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] div [other]. */
+    /**
+     * Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] divided by [other].
+     *
+     * @param other The divisor [Float].
+     * @return A new [RemoteFloat] representing `this / other`.
+     */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public operator fun div(other: Float): RemoteFloat {
         if (constantValueOrNull != null && constantValueOrNull == 0f) {
@@ -625,6 +706,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
      * Returns a new [RemoteFloat] that evaluates to this [RemoteFloat] divided by [other].
      *
      * @param other The divisor [RemoteFloat].
+     * @return A new [RemoteFloat] representing `this / other`.
      */
     public operator fun div(other: RemoteFloat): RemoteFloat {
         if (constantValueOrNull != null && constantValueOrNull == 0f) {
@@ -647,7 +729,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
     @JvmOverloads
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun createReference(forceRemote: Boolean = false): RemoteFloat {
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = if (forceRemote) null else constantValueOrNull,
             cacheKey = RemoteOperationCacheKey.create(OperationKey.Reference, this, forceRemote),
         ) { creationState ->
@@ -656,9 +738,11 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
     }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if [other] is equal to this [RemoteFloat].
+     * Returns a [RemoteBoolean] that evaluates to `true` if the evaluated value of this
+     * [RemoteFloat] is equal to the evaluated value of [other].
      *
      * @param other The [RemoteFloat] to compare with.
+     * @return A [RemoteBoolean] representing `this == other`.
      */
     public fun isEqualTo(other: RemoteFloat): RemoteBoolean =
         comparisonOp(
@@ -682,10 +766,11 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
         }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if [other] is not equal to this
-     * [RemoteFloat].
+     * Returns a [RemoteBoolean] that evaluates to `true` if the evaluated value of this
+     * [RemoteFloat] is not equal to the evaluated value of [other].
      *
      * @param other The [RemoteFloat] to compare with.
+     * @return A [RemoteBoolean] representing `this != other`.
      */
     public fun isNotEqualTo(other: RemoteFloat): RemoteBoolean =
         comparisonOp(
@@ -709,10 +794,11 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
         }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if this [RemoteFloat] is less than
-     * [other].
+     * Returns a [RemoteBoolean] that evaluates to `true` if the evaluated value of this
+     * [RemoteFloat] is less than the evaluated value of [other].
      *
      * @param other The [RemoteFloat] to compare with.
+     * @return A [RemoteBoolean] representing `this < other`.
      */
     public fun isLessThan(other: RemoteFloat): RemoteBoolean =
         comparisonOp(
@@ -735,10 +821,11 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
         }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if this [RemoteFloat] is less than or
-     * equal to [other].
+     * Returns a [RemoteBoolean] that evaluates to `true` if the evaluated value of this
+     * [RemoteFloat] is less than or equal to the evaluated value of [other].
      *
      * @param other The [RemoteFloat] to compare with.
+     * @return A [RemoteBoolean] representing `this <= other`.
      */
     public fun isLessThanOrEqualTo(other: RemoteFloat): RemoteBoolean =
         comparisonOp(
@@ -761,10 +848,11 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
         }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if this [RemoteFloat] is greater than
-     * [other].
+     * Returns a [RemoteBoolean] that evaluates to `true` if the evaluated value of this
+     * [RemoteFloat] is greater than the evaluated value of [other].
      *
      * @param other The [RemoteFloat] to compare with.
+     * @return A [RemoteBoolean] representing `this > other`.
      */
     public fun isGreaterThan(other: RemoteFloat): RemoteBoolean =
         comparisonOp(
@@ -787,10 +875,11 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
         }
 
     /**
-     * Returns a [RemoteBoolean] that evaluates to `true` if this [RemoteFloat] is greater than or
-     * equal to [other].
+     * Returns a [RemoteBoolean] that evaluates to `true` if the evaluated value of this
+     * [RemoteFloat] is greater than or equal to the evaluated value of [other].
      *
      * @param other The [RemoteFloat] to compare with.
+     * @return A [RemoteBoolean] representing `this >= other`.
      */
     public fun isGreaterThanOrEqualTo(other: RemoteFloat): RemoteBoolean =
         comparisonOp(
@@ -850,33 +939,9 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
             }
         }
 
-        private fun isConstant(v: Float): Boolean {
+        internal fun isConstant(v: Float): Boolean {
             // Assume all NaNs are variables which are probably non-const.
             return !v.isNaN()
-        }
-
-        /**
-         * Creates a [RemoteFloat] from a constant [Float] value.
-         *
-         * @param value The value to wrap.
-         * @return A [RemoteFloat] representing the given constant or encoded id.
-         */
-        public operator fun invoke(value: Float): RemoteFloat {
-            return if (isConstant(value)) {
-                RemoteFloatExpression(
-                    constantValueOrNull = value,
-                    cacheKey = RemoteConstantCacheKey(value),
-                ) { _ ->
-                    floatArrayOf(value)
-                }
-            } else {
-                RemoteFloatExpression(
-                    constantValueOrNull = null,
-                    cacheKey = RemoteStateIdKey(Utils.idFromNan(value)),
-                ) { _ ->
-                    floatArrayOf(value)
-                }
-            }
         }
 
         /**
@@ -905,7 +970,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
             defaultValue: Float,
             domain: RemoteState.Domain = RemoteState.Domain.User,
         ): RemoteFloat {
-            return RemoteFloatExpression(
+            return RemoteFloat(
                 constantValueOrNull = null,
                 cacheKey = RemoteNamedCacheKey(domain, name),
             ) { creationState ->
@@ -932,7 +997,7 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
             defaultValue: RemoteFloat,
             domain: RemoteState.Domain = RemoteState.Domain.User,
         ): RemoteFloat {
-            return RemoteFloatExpression(
+            return RemoteFloat(
                 constantValueOrNull = null,
                 cacheKey = RemoteNamedCacheKey(domain, name),
             ) { creationState ->
@@ -954,11 +1019,11 @@ public abstract class RemoteFloat internal constructor(cacheKey: RemoteStateCach
     }
 }
 
-internal fun floatToString(v: Float, before: Int, after: Int, flags: Int) =
+internal fun floatToString(v: Float, before: Short, after: Short, flags: Int) =
     StringUtils.floatToString(
         v,
-        before,
-        after,
+        before.toInt(),
+        after.toInt(),
         when (flags and 12) {
             PAD_PRE_SPACE -> ' '
             PAD_PRE_NONE -> 0.toChar()
@@ -1009,7 +1074,7 @@ internal fun binaryOp(
         return RemoteFloat(directEval(a, bConst))
     }
 
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey = RemoteOperationCacheKey.create(op, a, b),
     ) { creationState ->
@@ -1055,7 +1120,7 @@ internal fun binaryOp(
         }
     }
 
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey = RemoteOperationCacheKey.create(op, a, b),
     ) { creationState ->
@@ -1167,7 +1232,7 @@ internal fun binaryOp(
         return RemoteFloat(directEval(aConst, bConst))
     }
 
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey = RemoteOperationCacheKey.create(op, a, b),
     ) { creationState ->
@@ -1200,7 +1265,7 @@ internal fun comparisonOp(
     }
 
     return RemoteBoolean(
-        RemoteIntExpression(
+        RemoteInt(
             constantValueOrNull = null,
             cacheKey = RemoteOperationCacheKey.create(op, a, b),
         ) { creationState ->
@@ -1359,7 +1424,7 @@ public fun selectIfGe(
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun deltaFromReferenceInSeconds(referenceEpochMillis: RemoteLong): RemoteFloat {
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey =
             RemoteOperationCacheKey.create(
@@ -1386,7 +1451,7 @@ public fun deltaFromReferenceInSeconds(referenceEpochMillis: RemoteLong): Remote
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun deltaFromReferenceInMinutes(referenceEpochMillis: RemoteLong): RemoteFloat {
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey =
             RemoteOperationCacheKey.create(
@@ -1413,7 +1478,7 @@ public fun deltaFromReferenceInMinutes(referenceEpochMillis: RemoteLong): Remote
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun deltaFromReferenceInHours(referenceEpochMillis: RemoteLong): RemoteFloat {
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey =
             RemoteOperationCacheKey.create(
@@ -1440,7 +1505,7 @@ public fun deltaFromReferenceInHours(referenceEpochMillis: RemoteLong): RemoteFl
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun timeOfReferenceInSeconds(referenceEpochMillis: RemoteLong): RemoteFloat {
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey =
             RemoteOperationCacheKey.create(
@@ -1467,7 +1532,7 @@ public fun timeOfReferenceInSeconds(referenceEpochMillis: RemoteLong): RemoteFlo
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun timeOfReferenceInMinutes(referenceEpochMillis: RemoteLong): RemoteFloat {
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey =
             RemoteOperationCacheKey.create(
@@ -1494,7 +1559,7 @@ public fun timeOfReferenceInMinutes(referenceEpochMillis: RemoteLong): RemoteFlo
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun timeOfReferenceInHours(referenceEpochMillis: RemoteLong): RemoteFloat {
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey =
             RemoteOperationCacheKey.create(
@@ -1520,7 +1585,7 @@ public fun timeOfReferenceInHours(referenceEpochMillis: RemoteLong): RemoteFloat
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun dayOfMonthForReference(referenceEpochMillis: RemoteLong): RemoteFloat {
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey =
             RemoteOperationCacheKey.create(
@@ -1546,7 +1611,7 @@ public fun dayOfMonthForReference(referenceEpochMillis: RemoteLong): RemoteFloat
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun monthOfYearForReference(referenceEpochMillis: RemoteLong): RemoteFloat {
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey =
             RemoteOperationCacheKey.create(
@@ -1573,7 +1638,7 @@ public fun monthOfYearForReference(referenceEpochMillis: RemoteLong): RemoteFloa
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun dayOfWeekForReference(referenceEpochMillis: RemoteLong): RemoteFloat {
     val opKey = OperationKey.DayOfWeekForReference
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey = RemoteOperationCacheKey.create(opKey, referenceEpochMillis),
     ) { creationState ->
@@ -1595,7 +1660,7 @@ public fun dayOfWeekForReference(referenceEpochMillis: RemoteLong): RemoteFloat 
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public fun yearForReference(referenceEpochMillis: RemoteLong): RemoteFloat {
-    return RemoteFloatExpression(
+    return RemoteFloat(
         constantValueOrNull = null,
         cacheKey =
             RemoteOperationCacheKey.create(OperationKey.YearForReference, referenceEpochMillis),
@@ -1618,53 +1683,15 @@ internal constructor(
 ) : RemoteFloat(cacheKey), MutableRemoteState<Float> {
 
     @RememberInComposition
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public constructor() :
-        this(
-            cacheKey = RemoteStateInstanceKey(),
-            idProvider = { creationState -> creationState.document.reserveFloatVariable() },
-        )
-
-    @RememberInComposition
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public constructor(id: Int) : this(cacheKey = RemoteStateIdKey(id), idProvider = { asNan(id) })
-
-    /**
-     * Creates a [MutableRemoteFloat] initialized with [initialValue].
-     *
-     * @param initialValue The initial [Float] value.
-     */
-    @RememberInComposition
-    public constructor(
-        initialValue: Float,
-    ) : this(
-        cacheKey = RemoteStateInstanceKey(),
-        idProvider = { creationState -> creationState.document.floatExpression(initialValue) },
-    )
-
-    /**
-     * Creates a [MutableRemoteFloat] initialized with [initialValue].
-     *
-     * @param initialValue The initial [RemoteFloat] value or expression.
-     */
-    @RememberInComposition
-    public constructor(
-        initialValue: RemoteFloat,
-    ) : this(
-        cacheKey = RemoteStateInstanceKey(),
-        idProvider = { creationState ->
-            creationState.document.floatExpression(
-                *initialValue.arrayForCreationState(creationState),
-            )
-        },
-    )
+    internal constructor(
+        id: Int,
+    ) : this(cacheKey = RemoteStateIdKey(id), idProvider = { asNan(id) })
 
     @get:Suppress("AutoBoxing")
     public override val constantValueOrNull: Float?
         get() = null
 
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override val arrayProvider: (creationState: RemoteComposeCreationState) -> FloatArray
+    internal override val arrayProvider: (creationState: RemoteComposeCreationState) -> FloatArray
         get() = { creationState ->
             // idProvider returns the allocated ID encoded as a NaN Float. We decode it
             // to a raw Int using idFromNan because getOrPutVariableId tracks integer IDs.
@@ -1677,102 +1704,105 @@ internal constructor(
             floatArrayOf(asNan(id))
         }
 
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int =
+    internal override fun writeToDocument(creationState: RemoteComposeCreationState): Int =
         Utils.idFromNan(idProvider(creationState))
 
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public companion object {
-        /**
-         * Creates a new mutable state (allocates an ID).
-         *
-         * @param initialValue The initial value for the state.
-         * @return A new [MutableRemoteFloat] instance.
-         */
-        @RememberInComposition
-        public operator fun invoke(initialValue: Float): MutableRemoteFloat {
-            return MutableRemoteFloat(cacheKey = RemoteStateInstanceKey()) { creationState ->
-                creationState.document.floatExpression(initialValue)
-            }
-        }
-
-        /**
-         * Creates a new mutable state (allocates an ID) initialized with [initialValue].
-         *
-         * @param initialValue The initial [RemoteFloat] value or expression for the state.
-         * @return A new [MutableRemoteFloat] instance.
-         */
-        @RememberInComposition
-        public operator fun invoke(initialValue: RemoteFloat): MutableRemoteFloat {
-            return MutableRemoteFloat(initialValue)
-        }
-
         /**
          * Maps an existing mutable ID to a state instance.
          *
          * @param id The existing mutable ID.
          * @return A [MutableRemoteFloat] instance mapping to the ID.
          */
+        internal fun createMutableForId(id: Float): MutableRemoteFloat =
+            MutableRemoteFloat(Utils.idFromNan(id))
+
+        /**
+         * Creates a [MutableRemoteFloat] backed by a reserved float variable ID with no initial
+         * value.
+         *
+         * @return A [MutableRemoteFloat] whose ID is allocated via `reserveFloatVariable()`.
+         */
+        @RememberInComposition
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-        public fun createMutableForId(id: Float): MutableRemoteFloat = MutableRemoteFloat(id)
+        public fun createReserved(): MutableRemoteFloat =
+            MutableRemoteFloat(
+                cacheKey = RemoteStateInstanceKey(),
+                idProvider = { creationState -> creationState.document.reserveFloatVariable() },
+            )
     }
 }
 
 /**
- * An implementation of [RemoteFloat] that represents a float expression.
+ * Creates a [RemoteFloat] from a constant [Float] [value].
  *
- * @property constantValueOrNull The constant [Float] value, or `null` if this expression is
- *   dynamic.
- * @property arrayProvider A lambda that provides the [FloatArray] representing the expression.
+ * @param value The constant [Float] value.
+ * @return A [RemoteFloat] representing the constant float.
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public open class RemoteFloatExpression
+public fun RemoteFloat(value: Float): RemoteFloat =
+    RemoteFloat(
+        constantValueOrNull = if (RemoteFloat.isConstant(value)) value else null,
+        cacheKey =
+            if (RemoteFloat.isConstant(value)) {
+                RemoteConstantCacheKey(value)
+            } else {
+                RemoteStateIdKey(Utils.idFromNan(value))
+            },
+        arrayProvider = { _ -> floatArrayOf(value) },
+    )
+
+/**
+ * Creates a [RemoteFloat] from a lambda evaluated within [RemoteComposeCreationState].
+ *
+ * @param cacheKey The [RemoteStateCacheKey] for caching this expression.
+ * @param value A lambda evaluated within [RemoteComposeCreationState] that provides the
+ *   [RemoteFloat].
+ * @return A [RemoteFloat] representing the dynamic float expression.
+ */
 @RememberInComposition
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public constructor(
-    public override val constantValueOrNull: Float?,
-    cacheKey: RemoteStateCacheKey,
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override val arrayProvider: (creationState: RemoteComposeCreationState) -> FloatArray,
-) : RemoteFloat(cacheKey) {
-
-    /**
-     * Creates a [RemoteFloatExpression] from a lambda evaluated within [RemoteDocumentScope].
-     *
-     * @param value A lambda evaluated within [RemoteDocumentScope] that provides the [RemoteFloat].
-     */
-    @RememberInComposition
-    public constructor(
-        value: RemoteDocumentScope.() -> RemoteFloat,
-    ) : this(
+public fun RemoteFloat(
+    cacheKey: RemoteStateCacheKey = RemoteStateInstanceKey(),
+    value: RemoteComposeCreationState.() -> RemoteFloat,
+): RemoteFloat =
+    RemoteFloat(
         constantValueOrNull = null,
-        cacheKey = RemoteStateInstanceKey(),
+        cacheKey = cacheKey,
         arrayProvider = { creationState ->
             value(creationState).arrayForCreationState(creationState)
         },
     )
 
-    init {
-        if (constantValueOrNull?.isNaN() == true) {
-            throw IllegalArgumentException("constantValueOrNull cannot be NaN")
-        }
-    }
+/**
+ * Creates a [MutableRemoteFloat] initialized with [initialValue].
+ *
+ * @param initialValue The initial [Float] value.
+ * @return A [MutableRemoteFloat] initialized with [initialValue].
+ */
+@RememberInComposition
+public fun MutableRemoteFloat(initialValue: Float): MutableRemoteFloat =
+    MutableRemoteFloat(
+        cacheKey = RemoteStateInstanceKey(),
+        idProvider = { creationState -> creationState.document.floatExpression(initialValue) },
+    )
 
-    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
-        val array = arrayForCreationState(creationState)
-        // In case we have a single element array, check if the element is a variable id
-        // (and not a 0-argument math operator like RAND); if it is an existing id, just
-        // return this one, no need to create a new floatExpression.
-        if (
-            array.size == 1 && array[0].isNaN() && !AnimatedFloatExpression.isMathOperator(array[0])
-        ) {
-            return Utils.idFromNan(array[0])
-        }
-
-        return creationState.getOrPutFloatExpressionId(array, animation = null) {
-            Utils.idFromNan(creationState.document.floatExpression(*array))
-        }
-    }
-}
+/**
+ * Creates a [MutableRemoteFloat] initialized with [initialValue].
+ *
+ * @param initialValue The initial [RemoteFloat] value or expression.
+ * @return A [MutableRemoteFloat] initialized with [initialValue].
+ */
+@RememberInComposition
+public fun MutableRemoteFloat(initialValue: RemoteFloat): MutableRemoteFloat =
+    MutableRemoteFloat(
+        cacheKey = RemoteStateInstanceKey(),
+        idProvider = { creationState ->
+            creationState.document.floatExpression(
+                *initialValue.arrayForCreationState(creationState),
+            )
+        },
+    )
 
 /** Comparison operators for evaluating [RemoteFloat] select conditions. */
 internal enum class FloatComparisonOp {
@@ -1896,7 +1926,7 @@ internal class RemoteFloatSelect(
     val ifFalse: RemoteFloat,
     cacheKey: RemoteStateCacheKey,
 ) :
-    RemoteFloatExpression(
+    RemoteFloat(
         constantValueOrNull = null,
         cacheKey = cacheKey,
         arrayProvider = { creationState ->
@@ -1908,79 +1938,22 @@ internal class RemoteFloatSelect(
 }
 
 /**
- * Similar to [RemoteFloatExpression] but without caching of the array.
- *
- * @property hasConstantValue Indicates if this expression will always yield the same value.
- * @property arrayProvider A lambda that provides the [FloatArray] representing the expression.
+ * Creates an animated [RemoteFloat] combining an [input] [RemoteFloat] with an animation definition
+ * ([FloatArray]).
  */
-internal class UncachedRemoteFloatExpression
-@RememberInComposition
-internal constructor(
-    public override val constantValueOrNull: Float?,
-    cacheKey: RemoteStateCacheKey,
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override val arrayProvider: (creationState: RemoteComposeCreationState) -> FloatArray,
-) : RemoteFloat(cacheKey) {
-
-    init {
-        if (constantValueOrNull?.isNaN() == true) {
-            throw IllegalArgumentException("constantValueOrNull cannot be NaN")
-        }
-    }
-
-    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
-        val array = arrayForCreationState(creationState)
-        // In case we have a single element array, check if the element is an id or not;
-        // if it is an existing id, just return this one, no need to create a new one...
-        if (array.size == 1 && array[0].isNaN()) {
-            return Utils.idFromNan(array[0])
-        }
-        return Utils.idFromNan(creationState.document.floatExpression(*array))
-    }
-}
-
-/**
- * Represents an animated remote float. It combines an input [RemoteFloat] with an animation
- * definition ([FloatArray]).
- *
- * @property input The base [RemoteFloat] that is being animated.
- * @property anim The [FloatArray] defining the animation (e.g., keyframes, easing parameters).
- */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public class AnimatedRemoteFloat
-@RememberInComposition
-internal constructor(
-    public val input: RemoteFloat,
-    public val anim: FloatArray,
-    cacheKey: RemoteStateCacheKey,
-) : RemoteFloat(cacheKey) {
-
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    @RememberInComposition
-    public constructor(
-        input: RemoteFloat,
-        anim: FloatArray,
-    ) : this(
-        input,
-        anim,
-        RemoteOperationCacheKey.create(OperationKey.Anim, input, FloatArrayCacheKey(anim)),
-    )
-
-    public override val arrayProvider: (creationState: RemoteComposeCreationState) -> FloatArray
-        get() = { creationState -> floatArrayOf(asNan(getIdForCreationState(creationState))) }
-
-    @get:Suppress("AutoBoxing")
-    public override val constantValueOrNull: Float?
-        get() = null
-
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
+internal fun animatedRemoteFloat(input: RemoteFloat, anim: FloatArray): RemoteFloat =
+    RemoteFloat(
+        constantValueOrNull = null,
+        cacheKey =
+            RemoteOperationCacheKey.create(OperationKey.Anim, input, FloatArrayCacheKey(anim)),
+    ) { creationState ->
         val array = input.arrayForCreationState(creationState)
-        return creationState.getOrPutFloatExpressionId(array, anim) {
-            Utils.idFromNan(creationState.document.floatExpression(array, anim))
-        }
+        val id =
+            creationState.getOrPutFloatExpressionId(array, anim) {
+                Utils.idFromNan(creationState.document.floatExpression(array, anim))
+            }
+        floatArrayOf(asNan(id))
     }
-}
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public const val CUBIC_STANDARD: Int = 1
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public const val CUBIC_ACCELERATE: Int = 2
@@ -2019,8 +1992,7 @@ internal annotation class AnimationType
  * @param a The number to convert.
  * @return A [FloatArray] representation of the number.
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public fun toArray(a: Number): FloatArray =
+internal fun toArray(a: Number): FloatArray =
     when (a) {
         is Float -> floatArrayOf(a)
         else -> floatArrayOf(a.toFloat())
@@ -2033,8 +2005,7 @@ public fun toArray(a: Number): FloatArray =
  * @param creationState The [RemoteComposeCreationState] to use for conversion.
  * @return A [FloatArray] representation of [a].
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public fun toArray(a: RemoteFloat, creationState: RemoteComposeCreationState): FloatArray =
+internal fun toArray(a: RemoteFloat, creationState: RemoteComposeCreationState): FloatArray =
     a.arrayForCreationState(creationState)
 
 /**
@@ -2054,8 +2025,7 @@ internal fun isTimeVar(fl: Float): Boolean {
  * @param array The [FloatArray] representing the expression.
  * @return A string representation of the expression.
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public fun toString(array: FloatArray): String {
+internal fun toString(array: FloatArray): String {
     val labels = arrayOfNulls<String>(array.size)
     for (i in array.indices) {
         if (array[i].isNaN()) {

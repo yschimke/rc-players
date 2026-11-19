@@ -20,8 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import ee.schimke.composeai.rccreation.compose.action.RemoteAction
 import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
 import ee.schimke.composeai.rccreation.compose.layout.RemoteArrangement
@@ -55,7 +53,8 @@ import ee.schimke.composeai.rccreation.compose.state.rb
 import ee.schimke.composeai.rccreation.compose.state.rc
 import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rccreation.compose.state.rf
-import ee.schimke.composeai.rccreation.wear.material3.wearcompose.TextConfiguration
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextAlign
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextOverflow
 
 /**
  * The Wear Material [RemoteSplitSwitchButton] offers two slots and shows the current toggle state
@@ -157,9 +156,9 @@ public fun RemoteSplitSwitchButton(
                                 contentColor = contentColor,
                                 textStyle = RemoteMaterialTheme.typography.labelMedium,
                                 textConfiguration =
-                                    TextConfiguration(
-                                        textAlign = TextAlign.Start,
-                                        overflow = TextOverflow.Ellipsis,
+                                    RemoteTextConfiguration(
+                                        textAlign = RemoteTextAlign.Start,
+                                        overflow = RemoteTextOverflow.Ellipsis,
                                         maxLines = 1,
                                     ),
                                 content = label,
@@ -173,10 +172,10 @@ public fun RemoteSplitSwitchButton(
                                     contentColor = secondaryContentColor,
                                     textStyle = RemoteMaterialTheme.typography.labelSmall,
                                     textConfiguration =
-                                        TextConfiguration(
-                                            overflow = TextOverflow.Ellipsis,
+                                        RemoteTextConfiguration(
+                                            overflow = RemoteTextOverflow.Ellipsis,
                                             maxLines = 1,
-                                            textAlign = TextAlign.Start,
+                                            textAlign = RemoteTextAlign.Start,
                                         ),
                                     secondaryLabel,
                                 ),

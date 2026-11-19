@@ -518,6 +518,9 @@ defined values rejects the document; rc-players' does. Suggested fix: resolve `U
 
 *Verified by reading both sides. No test here isolates it.*
 
+**Fixed upstream** in `843dbb30355` ("Default unspecified textAlign to RemoteTextAlign.Start in
+RemoteText"), in 1.0.0-alpha24. The fork's local patch retired with the alpha24 refresh.
+
 ### A `RemoteDensityBehavior.Dp` document's header carries pixels
 
 `RemoteCreationDisplayInfo.toCreationDisplayInfo()`

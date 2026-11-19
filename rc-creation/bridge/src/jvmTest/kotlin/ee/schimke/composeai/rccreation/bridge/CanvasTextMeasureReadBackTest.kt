@@ -25,6 +25,7 @@ import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rccreation.compose.state.rs
 import ee.schimke.composeai.rccreation.compose.state.rsp
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
@@ -79,7 +80,7 @@ class CanvasTextMeasureReadBackTest {
   @Test
   fun aMeasurementDoesNotChangeThePaintOfTheDrawThatReadsIt() {
     val bytes = capture { measurer ->
-      val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+      val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
       drawText("HHH".rs, measured.size.width, 20f.rf, text(12f))
       drawText("HHH".rs, 0f.rf, 40f.rf, text(12f))
     }
@@ -93,7 +94,7 @@ class CanvasTextMeasureReadBackTest {
   @Test
   fun aMeasurementDoesNotChangeThePaintADrawInherits() {
     val bytes = capture { measurer ->
-      val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+      val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
       usePaint(text(12f)) { drawText("HHH".rs, measured.size.width, 20f.rf, null) }
     }
     assertEquals(listOf("textBounds@20", "textRun@12"), sizes(bytes))
@@ -107,7 +108,7 @@ class CanvasTextMeasureReadBackTest {
   fun measurementsInAndAroundAConditionalBlock() {
     fun bytes(shown: Boolean) = capture { measurer ->
       val flag = RemoteBoolean.createNamedRemoteBoolean("shown", shown)
-      val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+      val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
       drawText("a".rs, measured.size.width, 20f.rf, text(12f))
       drawConditionally(flag) { drawText("b".rs, measured.size.height, 40f.rf, text(12f)) }
       drawText("c".rs, 0f.rf, 60f.rf, text(12f))
@@ -127,7 +128,7 @@ class CanvasTextMeasureReadBackTest {
   @Test
   fun aPaintWhoseTextSizeIsAMeasurement() {
     val bytes = capture { measurer ->
-      val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+      val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
       // The recording context measures every text as 0 wide.
       val sized = RemotePaint {
         color = RemoteColor(Color.Black)
@@ -144,7 +145,7 @@ class CanvasTextMeasureReadBackTest {
   @Test
   fun aPaintWhoseStrokeWidthOrColourIsAMeasurement() {
     val stroked = capture { measurer ->
-      val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+      val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
       val paint = text(12f).apply { strokeWidth = measured.size.height + 3f }
       drawText("a".rs, 0f.rf, 20f.rf, paint)
       drawText("b".rs, 0f.rf, 40f.rf, text(12f))
@@ -152,7 +153,7 @@ class CanvasTextMeasureReadBackTest {
     assertEquals(listOf("textBounds@20", "textRun@12", "textRun@12"), sizes(stroked))
     assertEquals(listOf("paint", "measure", "paint", "text", "paint", "text"), order(stroked))
     val coloured = capture { measurer ->
-      val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+      val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
       val paint = text(12f).apply { color = RemoteColor.rgb(measured.size.width, 0f.rf, 1f.rf) }
       drawText("a".rs, 0f.rf, 20f.rf, paint)
       drawText("b".rs, 0f.rf, 40f.rf, paint)
@@ -165,7 +166,7 @@ class CanvasTextMeasureReadBackTest {
   @Test
   fun usePaintWithAMeasuredPaintAndAMeasuredDraw() {
     val bytes = capture { measurer ->
-      val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+      val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
       val sized = RemotePaint { textSize = measured.size.width + 14f }
       usePaint(sized) { drawText("a".rs, measured.size.height, 20f.rf, null) }
     }
@@ -183,7 +184,7 @@ class CanvasTextMeasureReadBackTest {
   @Test
   fun aMeasurementReadByATransformBeforeADrawThatInheritsItsPaint() {
     val bytes = capture { measurer ->
-      val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+      val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
       usePaint(text(12f)) {
         translate(measured.size.width, 0f.rf) { drawText("a".rs, 0f.rf, 20f.rf, null) }
       }
@@ -200,7 +201,8 @@ class CanvasTextMeasureReadBackTest {
   @Test
   fun aMeasurementHoistedAheadOfTheDrawsThatShareIt() {
     val bytes = capture { measurer ->
-      val x = measurer.measure("HH".rs, fontSize = 20.rsp).size.width + 4f
+      val x =
+        measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp)).size.width + 4f
       drawText("a".rs, x, 20f.rf, text(12f))
       drawText("b".rs, x, 40f.rf, text(12f))
     }
@@ -214,8 +216,12 @@ class CanvasTextMeasureReadBackTest {
   @Test
   fun aMeasurementOfAMeasurement() {
     val bytes = capture { measurer ->
-      val inner = measurer.measure("HH".rs, fontSize = 20.rsp)
-      val outer = measurer.measure("HHH".rs, fontSize = (inner.size.width + 30f).rsp)
+      val inner = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
+      val outer =
+        measurer.measureSingleLine(
+          "HHH".rs,
+          RemoteTextStyle(fontSize = (inner.size.width + 30f).rsp),
+        )
       drawText("a".rs, outer.size.width, 20f.rf, text(12f))
       drawText("b".rs, 0f.rf, 40f.rf, text(12f))
     }
@@ -229,7 +235,7 @@ class CanvasTextMeasureReadBackTest {
   @Test
   fun aMeasurementInALoopBody() {
     val bytes = capture { measurer ->
-      val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+      val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
       drawText("a".rs, 0f.rf, 20f.rf, text(12f))
       loop(0f.rf, 2f.rf, 1f.rf) { index ->
         drawText("b".rs, measured.size.width + index, 40f.rf, text(12f))
@@ -249,7 +255,7 @@ class CanvasTextMeasureReadBackTest {
   @Test
   fun aMeasurementInAPatternBody() {
     val bytes = capture { measurer ->
-      val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+      val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
       val label = remoteCanvas.definePattern {
         drawText("a".rs, measured.size.width, 20f.rf, text(12f))
         drawText("b".rs, 0f.rf, 40f.rf, text(12f))
@@ -281,7 +287,7 @@ class CanvasTextMeasureReadBackTest {
         )
       captureCommonRemoteDocumentInto(writer, display) {
         val measurer = rememberRemoteTextMeasurer()
-        val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+        val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
         RemoteColumn {
           RemoteCanvas(RemoteModifier.size(40.rdp)) { drawText("a".rs, 0f.rf, 20f.rf, text(30f)) }
           RemoteCanvas(RemoteModifier.width(measured.size.width + 40f).height(40.rdp)) {

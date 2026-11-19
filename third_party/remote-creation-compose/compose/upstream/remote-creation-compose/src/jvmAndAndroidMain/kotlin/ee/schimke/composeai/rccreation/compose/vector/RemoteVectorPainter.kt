@@ -22,7 +22,6 @@ import ee.schimke.composeai.rccreation.compose.capture.DefaultIconSize
 import ee.schimke.composeai.rccreation.compose.capture.RemoteImageVector
 import ee.schimke.composeai.rccreation.compose.capture.RemoteVectorGroup
 import ee.schimke.composeai.rccreation.compose.capture.RemoteVectorPath
-import ee.schimke.composeai.rccreation.compose.capture.TransparentArgb
 import ee.schimke.composeai.rccreation.compose.layout.RemoteCanvas
 import ee.schimke.composeai.rccreation.compose.layout.RemoteDrawScope
 import ee.schimke.composeai.rccreation.compose.layout.RemoteLayoutDirection
@@ -75,7 +74,7 @@ internal class RemoteVectorPainter : RemotePainter() {
             if (shouldMirror) {
                 withTransform(
                     {
-                        translate(width, 0f.rf)
+                        translate(size.width, 0f.rf)
                         scale(-1f.rf, 1f.rf, RemoteOffset.Zero)
                     },
                 ) {
@@ -126,7 +125,7 @@ internal fun createColorFilter(
     tintColor: RemoteColor,
     tintBlendMode: RemoteBlendMode,
 ): RemoteColorFilter? =
-    if (tintColor.constantValueOrNull == TransparentArgb) {
+    if (tintColor.isStructurallyEqual(RemoteColor.Transparent)) {
         null
     } else {
         RemoteBlendModeColorFilter(tintColor, tintBlendMode)

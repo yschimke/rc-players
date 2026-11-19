@@ -16,7 +16,6 @@
 package ee.schimke.composeai.rccreation.compose.state
 
 import androidx.annotation.RestrictTo
-import ee.schimke.composeai.rccreation.compose.layout.BlackArgb
 import ee.schimke.composeai.rccreation.compose.shaders.RemoteShader
 import ee.schimke.composeai.rccreation.compose.text.RemoteFontVariation
 import ee.schimke.composeai.rccreation.compose.text.RemoteTypeface
@@ -110,7 +109,7 @@ internal class StandardRemotePaint() : RemotePaint {
     public override var shader: RemoteShader? = null
     public override var textSize: RemoteFloat = 12f.rf
     public override var typeface: RemoteTypeface? = RemoteTypeface.Default
-    public override var color: RemoteColor = RemoteColor(BlackArgb)
+    public override var color: RemoteColor = RemoteColor.Black
     public override var colorFilter: RemoteColorFilter? = null
     public override var fontFeatureSettings: String? = null
     public override var fontVariationSettings: RemoteFontVariation.Settings? = null

@@ -22,8 +22,6 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.DefaultAlpha
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import ee.schimke.composeai.rccreation.compose.action.RemoteAction
 import ee.schimke.composeai.rccreation.compose.capture.currentProfileSupportsPathClip
 import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
@@ -72,12 +70,13 @@ import ee.schimke.composeai.rccreation.compose.state.rb
 import ee.schimke.composeai.rccreation.compose.state.rc
 import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rccreation.compose.state.rf
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextAlign
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextOverflow
 import ee.schimke.composeai.rccreation.compose.text.RemoteTextStyle
 import ee.schimke.composeai.rccreation.wear.material3.RemoteButtonDefaults.buttonColors
 import ee.schimke.composeai.rccreation.wear.material3.RemoteButtonDefaults.defaultButtonWithContainerPainterColors
 import ee.schimke.composeai.rccreation.wear.material3.wearcompose.ButtonDefaults.scrimGradientEndColor
 import ee.schimke.composeai.rccreation.wear.material3.wearcompose.ButtonDefaults.scrimGradientStartColor
-import ee.schimke.composeai.rccreation.wear.material3.wearcompose.TextConfiguration
 
 /**
  * Base level Wear Material3 [RemoteButton] that offers a single slot to take any content. Used as
@@ -277,9 +276,9 @@ public fun RemoteButton(
                 contentColor = colors.secondaryContentColor(enabled),
                 textStyle = RemoteMaterialTheme.typography.labelSmall,
                 textConfiguration =
-                    TextConfiguration(
-                        textAlign = TextAlign.Start,
-                        overflow = TextOverflow.Ellipsis,
+                    RemoteTextConfiguration(
+                        textAlign = RemoteTextAlign.Start,
+                        overflow = RemoteTextOverflow.Ellipsis,
                         maxLines = 2,
                     ),
                 content = secondaryLabel,
@@ -298,11 +297,11 @@ public fun RemoteButton(
                 contentColor = colors.contentColor(enabled),
                 textStyle = RemoteMaterialTheme.typography.labelMedium,
                 textConfiguration =
-                    TextConfiguration(
+                    RemoteTextConfiguration(
                         textAlign =
-                            if (icon != null || secondaryLabel != null) TextAlign.Start
-                            else TextAlign.Center,
-                        overflow = TextOverflow.Ellipsis,
+                            if (icon != null || secondaryLabel != null) RemoteTextAlign.Start
+                            else RemoteTextAlign.Center,
+                        overflow = RemoteTextOverflow.Ellipsis,
                         maxLines = 3,
                     ),
                 content = label,
@@ -424,10 +423,11 @@ public fun RemoteCompactButton(
                             contentColor = colors.contentColor(enabled),
                             textStyle = RemoteMaterialTheme.typography.labelSmall,
                             textConfiguration =
-                                TextConfiguration(
+                                RemoteTextConfiguration(
                                     textAlign =
-                                        if (icon != null) TextAlign.Start else TextAlign.Center,
-                                    overflow = TextOverflow.Ellipsis,
+                                        if (icon != null) RemoteTextAlign.Start
+                                        else RemoteTextAlign.Center,
+                                    overflow = RemoteTextOverflow.Ellipsis,
                                     maxLines = 1,
                                 ),
                             content = label,
@@ -1368,7 +1368,6 @@ private fun RemoteDrawScope.drawBorder(
  * Clips [block] to the outline of [shape]. Callers must check [currentProfileSupportsPathClip]
  * first.
  */
-@Suppress("RestrictedApiAndroidX") // clipOutline
 internal fun RemoteDrawScope.clipToShape(shape: RemoteShape, block: RemoteDrawScope.() -> Unit) =
     clipOutline(
         shape.createOutline(RemoteSize(width, height), layoutDirection, remoteDensity),
