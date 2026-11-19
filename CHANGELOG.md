@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.9.0](https://github.com/yschimke/rc-players/compare/v3.8.0...v3.9.0) (2026-11-19)
+
+
+### Features
+
+* **third-party:** refresh the vendored Remote Compose code to the alpha24 cut ([#931](https://github.com/yschimke/rc-players/issues/931)) ([8e37308](https://github.com/yschimke/rc-players/commit/8e373082e43a320c01120aac5880741bd3cd0f2c))
+
+
+### Bug Fixes
+
+* **deps:** update androidx-compose ([#932](https://github.com/yschimke/rc-players/issues/932)) ([7259bfc](https://github.com/yschimke/rc-players/commit/7259bfc07995a41de709425c287d461918029e5b))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.44.0 ([#929](https://github.com/yschimke/rc-players/issues/929)) ([703ded9](https://github.com/yschimke/rc-players/commit/703ded907eb41609c64c3a7768fb98227cc21ab6))
+* **deps:** update dependency org.robolectric:robolectric to v4.18 ([#886](https://github.com/yschimke/rc-players/issues/886)) ([155f9cf](https://github.com/yschimke/rc-players/commit/155f9cfb723f7bef9329814fd4c79165ff01b7b2))
+* **deps:** update Remote Compose to 1.0.0-alpha24 ([#933](https://github.com/yschimke/rc-players/issues/933)) ([a59a9cf](https://github.com/yschimke/rc-players/commit/a59a9cf00ce375038bc968c05b2874f648514bd5))
+
 ## [3.8.0](https://github.com/yschimke/rc-players/compare/v3.7.0...v3.8.0) (2026-11-16)
 
 
