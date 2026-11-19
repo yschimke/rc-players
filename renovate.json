@@ -35,7 +35,9 @@
         "androidx.compose.foundation:foundation",
         "androidx.compose.animation:animation",
         "androidx.compose.material:material-ripple",
-        "androidx.compose.ui:ui-text-google-fonts"
+        "androidx.compose.ui:ui-text-google-fonts",
+        "androidx.compose.ui:ui-test-junit4",
+        "androidx.compose.ui:ui-test-manifest"
       ],
       "matchCurrentValue": "/^1\\.12\\./",
       "allowedVersions": "/^1\\.12\\.\\d+$/"
