@@ -29,7 +29,7 @@ rc-player-minSdk = "23"
 # The androidx Compose that Compose Multiplatform `compose-multiplatform` resolves to on Android.
 # `:rc-player-compose`'s Robolectric host tests pin their ui-test artifacts to it, so the test
 # rule drives the same Compose the player compiles against. Bump together with CMP.
-androidx-compose-for-cmp = "1.12.1"
+androidx-compose-for-cmp = "1.13.0"
 # Baseline profiles for the published Android players (`rc-player/baselineprofile/`). The Gradle
 # plugin and the macrobenchmark runtime ship together; keep them on one version.
 androidx-benchmark = "1.5.0"
@@ -99,7 +99,7 @@ compose-bom-compat = "2025.12.01"
 # downgrade and assume binary compatibility. See README.md's consumer compatibility notes.
 # This ref does not control `rc-player-compose`, which uses CMP and `androidx-compose-for-cmp`.
 androidx-compose = "1.12.1"
-androidx-compose-material3 = "1.4.0"
+androidx-compose-material3 = "1.5.0"
 # The desktop/Skiko floor for `renderer-desktop`, `daemon-desktop`, `bundle-viewer` and the CMP
 # player. This version is also a CEILING CONSTRAINT ON EVERY CATALOG THE SERVE HOST RENDERS LIVE:
 # it must be >= the newest `compose-multiplatform` of any catalog served from this host. A catalog
