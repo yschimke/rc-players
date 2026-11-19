@@ -17,9 +17,10 @@ import kotlin.test.assertEquals
  * Before this test the tables were a transcription of 1.0.0-alpha19, and two later changes had
  * passed them by, both already in 1.0.0-alpha23: `MODIFIER_ALIGN_BY` left the experimental sets for
  * the AndroidX and Widgets profiles' own, and the experimental sets gained the 2D mesh operations
- * (and, for AndroidX, `EVENT_ACTION`). `validateFor` then reported an `alignBy` row as unplayable
- * on players that read it. 1.0.0-alpha24 adds the embedded document's operations (`LAYOUT_RC_DOC`,
- * `MAP_RC_DOC_VARIABLES`, `BINARY_DATA`) to every experimental set.
+ * (and, for AndroidX, `EVENT_ACTION`, alpha24's `MODIFIER_EVENT_HANDLER`). `validateFor` then
+ * reported an `alignBy` row as unplayable on players that read it. 1.0.0-alpha24 adds the embedded
+ * document's operations (`LAYOUT_RC_DOC`, `MAP_RC_DOC_VARIABLES`, `BINARY_DATA`) to every
+ * experimental set.
  */
 class RcAndroidxProfileTablesTest {
 
@@ -138,7 +139,7 @@ class RcAndroidxProfileTablesTest {
         (RcProfiles.ANDROIDX or RcProfiles.EXPERIMENTAL) to
           """
           DATA_SHADER DRAW_BITMAP_FONT_TEXT_RUN_ON_PATH MODIFIER_MULTI_CLICK LAYOUT_CUSTOM
-          EVENT_ACTION ADD_MESH_2D DRAW_MESH_2D MATRIX_FROM_MESH_2D LAYOUT_RC_DOC MAP_RC_DOC_VARIABLES BINARY_DATA PLAY_SOUND
+          MODIFIER_EVENT_HANDLER ADD_MESH_2D DRAW_MESH_2D MATRIX_FROM_MESH_2D LAYOUT_RC_DOC MAP_RC_DOC_VARIABLES BINARY_DATA PLAY_SOUND
           REFERENCED_OPERATIONS DATA_SOUND MATRIX_FROM_PATH TEXT_SUBTEXT BITMAP_TEXT_MEASURE
           DRAW_BITMAP_TEXT_ANCHORED DATA_FONT DRAW_TO_BITMAP WAKE_IN ID_LOOKUP PATH_EXPRESSION
           PARTICLE_COMPARE COLOR_THEME DYNAMIC_FLOAT_LIST UPDATE_DYNAMIC_FLOAT_LIST
@@ -158,7 +159,7 @@ class RcAndroidxProfileTablesTest {
         (RcProfiles.ANDROIDX or RcProfiles.EXPERIMENTAL or RcProfiles.DEPRECATED) to
           """
           DATA_SHADER DRAW_BITMAP_FONT_TEXT_RUN_ON_PATH ROOT_CONTENT_BEHAVIOR
-          MODIFIER_MULTI_CLICK LAYOUT_CUSTOM EVENT_ACTION ADD_MESH_2D DRAW_MESH_2D
+          MODIFIER_MULTI_CLICK LAYOUT_CUSTOM MODIFIER_EVENT_HANDLER ADD_MESH_2D DRAW_MESH_2D
           MATRIX_FROM_MESH_2D LAYOUT_RC_DOC MAP_RC_DOC_VARIABLES BINARY_DATA PLAY_SOUND REFERENCED_OPERATIONS DATA_SOUND MATRIX_FROM_PATH
           TEXT_SUBTEXT BITMAP_TEXT_MEASURE DRAW_BITMAP_TEXT_ANCHORED DATA_FONT DRAW_TO_BITMAP
           WAKE_IN ID_LOOKUP PATH_EXPRESSION PARTICLE_COMPARE COLOR_THEME DYNAMIC_FLOAT_LIST

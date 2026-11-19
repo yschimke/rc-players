@@ -171,8 +171,8 @@ public object RcTargetProfiles {
 
   /**
    * The AndroidX embedded player with its experimental operations — macros, custom layouts, sound,
-   * 2D meshes. The set the CMP player itself decodes, but for AndroidX's `EVENT_ACTION`, which has
-   * no codec here.
+   * 2D meshes. The set the CMP player itself decodes, but for AndroidX's `MODIFIER_EVENT_HANDLER`,
+   * which has no codec here.
    */
   public val ANDROIDX_EXPERIMENTAL: RcTargetProfile =
     RcTargetProfile.of(8, RcProfiles.ANDROIDX or RcProfiles.EXPERIMENTAL)

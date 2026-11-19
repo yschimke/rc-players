@@ -19,8 +19,10 @@ removed on 2026-09-25; the CMP player (`rc-player/compose`) is this repository's
 - Paths:
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/embedded`
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/utils`
-- Commit: `cb8e6388acf70f4bc3af425c928a3f0761fb6478` (`androidx-main`, 2026-11-12), the commit
-  `1.0.0-alpha24` was cut from (its release notes' commit range ends there)
+- Commit: `cb8e6388acf70f4bc3af425c928a3f0761fb6478` (`androidx-main`, 2026-11-12). 1.0.0-alpha24
+  was cut one merge later, at `a9dc564e55c` (2026-11-12), the androidx-main merge alpha24 was cut from: its `remote-core`
+  and `remote-player-compose` `-sources.jar`s match that tree file for file (306/306, 104/104). The only change between the two, `fcdee239693`, is in
+  `remote-core` and `remote-creation`, so the copied sources are alpha24's either way.
 - License: Apache-2.0
 
 ## How the copy is made
@@ -58,8 +60,9 @@ the core, so it is sensitive to the gap between `androidx-main` and the pinned a
 with a render of the embedded lane (`scripts/rc-lane-ab/render-ab.sh`), not just a compile. There is
 no reflection left in the copied sources.
 
-**Which commit, and why.** The pin is `cb8e6388acf`, the commit alpha24 was cut from, so the copy
-and the release it builds against are the same tree and there is nothing to shim. A later refresh
+**Which commit, and why.** The pin is `cb8e6388acf`, whose copied sources are alpha24's (cut at
+`a9dc564e55c`, one merge later, which changes nothing copied), so the copy and the release it builds
+against are the same tree and there is nothing to shim. A later refresh
 may take `androidx-main` past the cut again, as the pins before this one did, when the player work
 there is what a comparison lane should measure. If that needs a name the release lacks, put it
 behind a typealias in a file per Remote Compose lane (`src/remoteRelease`, `src/remoteSnapshot`,
@@ -96,7 +99,7 @@ Files that exist only here:
 
 ### The alpha24 refresh (2026-11-19)
 
-Upstream from `21a1a95e41` to `cb8e6388acf`, alpha24's cut, changes two copied files, the same two
+Upstream from `21a1a95e41` to `cb8e6388acf` (whose copied sources are alpha24's) changes two copied files, the same two
 that `scripts/diff-upstream.sh` showed against androidx.dev 16942710, so that snapshot stays the
 snapshot lane's proxy for alpha24. It retires no local patch and adds no shim; the alpha24
 catalog bump then retired every shim ("Version skew" above).

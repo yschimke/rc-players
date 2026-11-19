@@ -46,7 +46,9 @@ the plan, and the feedback for AndroidX are in
   `5dab33683` (2026-10-27), then to androidx-main `a0e84553095` (2026-10-29), the commit
   `remote-creation-compose:1.0.0-alpha23` was cut from, then to androidx-main `1448d6497`
   (2026-11-08), then to androidx-main `21a1a95e4` (2026-11-10), then to androidx-main `cb8e6388acf`
-  (2026-11-12), the commit `1.0.0-alpha24` was cut from (its release notes' commit range ends there).
+  (2026-11-12). `1.0.0-alpha24` was cut one merge later, at `a9dc564e55c` (its `remote-core`
+  `-sources.jar` matches that tree file for file); the only change between them, `fcdee239693`,
+  touches no carried source.
 - License: Apache-2.0
 - Paths:
 
@@ -635,7 +637,9 @@ Deliberately skipped:
 
 ## Refresh 21a1a95e4 → androidx-main cb8e6388acf (1.0.0-alpha24)
 
-`cb8e6388acf` is where alpha24's release notes' commit range ends. The refresh was a three-way merge
+`cb8e6388acf` is where alpha24's release notes' commit range ends; the release itself was cut one merge
+later, at `a9dc564e55c`, whose only change (`fcdee239693`, `EVENT_ACTION` becoming a modifier) is in
+`remote-core` and the Java `remote-creation` and touches no carried source. The refresh was a three-way merge
 per carried file: base upstream's file at `21a1a95e4`, theirs at `cb8e6388acf`, both through the
 package map, onto the fork's file. 28 files merged clean and 35 had conflicts. A conflict in imports
 only kept the fork's imports with upstream's additions and removals applied; one where the fork

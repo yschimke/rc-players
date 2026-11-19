@@ -6,6 +6,10 @@
 # profile does not advertise them.
 # 41, 121 and 122 (BINARY_DATA, LAYOUT_RC_DOC, MAP_RC_DOC_VARIABLES: an embedded document) are new in
 # 1.0.0-alpha24, again only in the experimental V7 reader set, and unavailable here.
+# alpha24 also names 100 MODIFIER_EVENT_HANDLER (EVENT_ACTION until fcdee239693, now a modifier,
+# EventHandlerModifierOperation) and reserves 110-118 and 120 for the 3D protocol (PROTOCOL_3D.md):
+# constants with no reader in any AndroidX profile, so unavailable here. :rc-player-3d decodes them
+# as an extension under the same numbers.
 0|HEADER|0|implemented|Header
 2|COMPONENT_START|6|implemented|ComponentStart
 4|LOAD_BITMAP|4|unavailable|-
@@ -41,7 +45,7 @@
 81|ANIMATED_FLOAT|8|implemented|FloatExpression
 83|MODIFIER_MULTI_CLICK|6|implemented|MultiClickModifier
 93|LAYOUT_CUSTOM|6|implemented|Custom
-100|EVENT_ACTION|8|unavailable|-
+100|MODIFIER_EVENT_HANDLER|8|unavailable|EventHandlerModifierOperation
 101|DATA_BITMAP|4|implemented|BitmapData
 102|DATA_TEXT|1|implemented|TextData
 103|ROOT_CONTENT_DESCRIPTION|1|implemented|RootContentDescription
@@ -50,6 +54,16 @@
 106|MATRIX_FROM_MESH_2D|2|implemented|MatrixFromMesh2D
 107|MODIFIER_BORDER|6|implemented|BorderModifierOperation
 108|MODIFIER_CLIP_RECT|6|implemented|ClipRectModifierOperation
+110|DEFINE_MESH_3D|8|unavailable|-
+111|SET_CAMERA_3D|8|unavailable|-
+112|MATRIX_3D_OP|8|unavailable|-
+113|DRAW_MESH_3D|8|unavailable|-
+114|PAINT_3D_STATE|8|unavailable|-
+115|SET_LIGHTS_3D|8|unavailable|-
+116|VECTOR_EXPRESSION|8|unavailable|-
+117|MESH_EXPRESSION_3D|8|unavailable|-
+118|SET_TEXTURE_3D|8|unavailable|-
+120|MESH_PRIMITIVE_3D|8|unavailable|-
 121|LAYOUT_RC_DOC|6|unavailable|RcDocLayout
 122|MAP_RC_DOC_VARIABLES|8|unavailable|MapRcDocVariables
 123|DATA_PATH|1|implemented|PathData

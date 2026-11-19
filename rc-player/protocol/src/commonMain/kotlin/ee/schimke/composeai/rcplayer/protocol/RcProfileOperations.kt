@@ -1,7 +1,7 @@
 package ee.schimke.composeai.rcplayer.protocol
 
 // Transcribed from AndroidX remote-core `Operations.java` (the per-API-level and per-profile
-// operation sets) at androidx-main `cb8e6388acf` (2026-11-12), the commit 1.0.0-alpha24 was cut
+// operation sets) at androidx-main `a9dc564e55c` (2026-11-12), the commit 1.0.0-alpha24 was cut
 // from,
 // and remote-creation-android 1.0.0-alpha19 `RcPlatformProfiles.java` (the Wear widgets
 // allow-list). Same order as the source so a diff against a newer release is a line-for-line read.
@@ -78,17 +78,18 @@ public object RcProfileOperations {
 }
 
 /**
- * AndroidX `Operations.EVENT_ACTION`, which its experimental AndroidX profile decodes. This library
- * has no codec for it (`rc-operations.manifest` lists it `unavailable`), so `RcOpcodes` has no
- * constant; the number is here so the profile is the set AndroidX's player reads.
+ * AndroidX `Operations.MODIFIER_EVENT_HANDLER` (`EVENT_ACTION` until alpha24, when it became a
+ * modifier), which its experimental AndroidX profile decodes. This library has no codec for it
+ * (`rc-operations.manifest` lists it `unavailable`), so `RcOpcodes` has no constant; the number is
+ * here so the profile is the set AndroidX's player reads.
  */
-private const val EVENT_ACTION: Int = 100
+private const val MODIFIER_EVENT_HANDLER: Int = 100
 
 /**
  * AndroidX `Operations.LAYOUT_RC_DOC`, `MAP_RC_DOC_VARIABLES` and `BINARY_DATA`: an embedded
  * document (`df2eb252356`, alpha24), which both experimental V7 profiles decode. This library has
  * no codec for them either (`rc-operations.manifest` lists them `unavailable`), as for
- * [EVENT_ACTION].
+ * [MODIFIER_EVENT_HANDLER].
  */
 private const val LAYOUT_RC_DOC: Int = 121
 private const val MAP_RC_DOC_VARIABLES: Int = 122
@@ -282,7 +283,7 @@ internal val V7_ANDROIDX_EXPERIMENTAL_OPERATIONS: Set<Int> =
     RcOpcodes.DATA_SOUND,
     RcOpcodes.SOUND_EXPRESSION,
     RcOpcodes.PLAY_SOUND,
-    EVENT_ACTION,
+    MODIFIER_EVENT_HANDLER,
     RcOpcodes.ADD_MESH_2D,
     RcOpcodes.DRAW_MESH_2D,
     RcOpcodes.MATRIX_FROM_MESH_2D,
