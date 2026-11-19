@@ -19,7 +19,8 @@ removed on 2026-09-25; the CMP player (`rc-player/compose`) is this repository's
 - Paths:
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/embedded`
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/utils`
-- Commit: `21a1a95e41de8a72a30e70b471122530089a5c58` (`androidx-main`, 2026-11-10)
+- Commit: `cb8e6388acf70f4bc3af425c928a3f0761fb6478` (`androidx-main`, 2026-11-12), the commit
+  `1.0.0-alpha24` was cut from (its release notes' commit range ends there)
 - License: Apache-2.0
 
 ## How the copy is made
@@ -122,19 +123,21 @@ Files that exist only here:
 - `../GoogleFontFamilies.kt`: the Google Fonts cache resolver behind the `google:` patch. It is null
   unless `composeai.fonts.cacheDir` is set, which is a render-side property no app sets.
 
-### androidx.dev 16942710 (the alpha24 proxy)
+### The alpha24 refresh (2026-11-19)
 
-`scripts/diff-upstream.sh` against 16942710's `remote-player-compose` `-sources.jar` (laid out as a
-checkout) shows, besides the patches and formatting above, two upstream changes after
-`21a1a95e41`:
+Upstream from `21a1a95e41` to `cb8e6388acf`, alpha24's cut, changes two copied files, the same two
+that `scripts/diff-upstream.sh` showed against androidx.dev 16942710, so that snapshot stays the
+snapshot lane's proxy for alpha24. It retires no local patch and adds no shim.
 
-- `SnapshotRemoteComposeState.isFloatOverridden` became an `override` of the new core method. This
-  copy takes it, through `RemoteComposeStateSkew` above.
-- `modifier/ScrollModifier.kt` starts a scroll container at the document's scroll-position
-  variable (or literal) rather than at 0, read through the new `isFloatOverridden`. Not taken
-  yet: it changes what the player draws for a document that starts scrolled, so it comes with the
-  next refresh, from `androidx-main` at alpha24's commit, with the embedded lane rendered before
-  and after.
+- `SnapshotRemoteComposeState.isFloatOverridden` became an `override` of the new core method
+  (`db2c2360362`). This copy already had it, through `RemoteComposeStateSkew` above.
+- `modifier/ScrollModifier.kt` (`db2c2360362`): a scroll container starts at the document's
+  scroll-position variable (or literal), evaluated once without read observation and clamped to
+  `>= 0`, rather than at 0. It used to start at 0 and publish that 0 back into the variable, so a
+  `RemoteScrollState(position = 100f)` opened on its first page. A document whose scroll starts at 0
+  draws as before. `RcInitialScrollPositionTest` is upstream's pixel test for it, written against
+  this copy; with `-Prc.embedded.scrollOutput=<dir>` it writes the frame it checks.
+  `renders/androidx-embedded-alpha24/` has that frame before and after.
 
 ### The 2026-11-11 refresh
 

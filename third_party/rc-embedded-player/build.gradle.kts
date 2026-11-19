@@ -140,6 +140,8 @@ tasks.withType<Test>().configureEach {
             "rc.androidx.embedded.output",
             "rc.view.output",
             "rc.semantics.report",
+            // Where `RcInitialScrollPositionTest` writes the frame it checks, for render evidence.
+            "rc.embedded.scrollOutput",
             // `composeai.fonts.*` are what turn a document's `google:` family into the real face:
             // with a
             // cache directory the player resolves it from the shared machine-local Google Fonts
