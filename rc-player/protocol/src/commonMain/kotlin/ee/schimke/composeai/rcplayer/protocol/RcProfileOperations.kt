@@ -1,7 +1,8 @@
 package ee.schimke.composeai.rcplayer.protocol
 
 // Transcribed from AndroidX remote-core `Operations.java` (the per-API-level and per-profile
-// operation sets) at androidx-main `21a1a95e41d` (2026-11-10), which 1.0.0-alpha23 already matches,
+// operation sets) at androidx-main `cb8e6388acf` (2026-11-12), the commit 1.0.0-alpha24 was cut
+// from,
 // and remote-creation-android 1.0.0-alpha19 `RcPlatformProfiles.java` (the Wear widgets
 // allow-list). Same order as the source so a diff against a newer release is a line-for-line read.
 // [RcProfileOperations.of] combines them exactly as `Operations.getOperations(apiLevel, profiles)`
@@ -82,6 +83,16 @@ public object RcProfileOperations {
  * constant; the number is here so the profile is the set AndroidX's player reads.
  */
 private const val EVENT_ACTION: Int = 100
+
+/**
+ * AndroidX `Operations.LAYOUT_RC_DOC`, `MAP_RC_DOC_VARIABLES` and `BINARY_DATA`: an embedded
+ * document (`df2eb252356`, alpha24), which both experimental V7 profiles decode. This library has
+ * no codec for them either (`rc-operations.manifest` lists them `unavailable`), as for
+ * [EVENT_ACTION].
+ */
+private const val LAYOUT_RC_DOC: Int = 121
+private const val MAP_RC_DOC_VARIABLES: Int = 122
+private const val BINARY_DATA: Int = 41
 
 /** `populateCommonOperations`: every API level from 6 up. */
 internal val BASE_OPERATIONS: Set<Int> =
@@ -275,6 +286,9 @@ internal val V7_ANDROIDX_EXPERIMENTAL_OPERATIONS: Set<Int> =
     RcOpcodes.ADD_MESH_2D,
     RcOpcodes.DRAW_MESH_2D,
     RcOpcodes.MATRIX_FROM_MESH_2D,
+    LAYOUT_RC_DOC,
+    MAP_RC_DOC_VARIABLES,
+    BINARY_DATA,
   )
 
 /** `PROFILE_ANDROIDX_DEPRECATED_OPS`. */
@@ -323,6 +337,9 @@ internal val V7_WIDGETS_EXPERIMENTAL_OPERATIONS: Set<Int> =
     RcOpcodes.ADD_MESH_2D,
     RcOpcodes.DRAW_MESH_2D,
     RcOpcodes.MATRIX_FROM_MESH_2D,
+    LAYOUT_RC_DOC,
+    MAP_RC_DOC_VARIABLES,
+    BINARY_DATA,
   )
 
 /** `PROFILE_WIDGETS_DEPRECATED_OPS`. */

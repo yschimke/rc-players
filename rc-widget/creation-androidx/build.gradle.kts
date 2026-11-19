@@ -13,14 +13,10 @@ plugins {
 // only: it is for code that composes with AndroidX-only libraries, which is what a launcher's
 // `RemoteViews` player and Glance Wear take (`:rc-widget-launcher`, `:rc-widget-wear`).
 //
-// One source, two bindings. Every file of `:rc-widget-creation`'s `commonMain` but
-// `RcCreationCompat.kt` is copied here at build time with its packages rewritten
-// (`generateAndroidxBinding`); nothing generated is committed. What is written by hand, under
-// `src/androidMain`, is what has no counterpart there or cannot be the same text: the AndroidX
-// capture profiles, and, on the release lane only, `src/remoteRelease`'s `RcCreationCompat.kt` (the
-// two functions the pinned AndroidX release spells differently from androidx-main). On the snapshot
-// lane (`-Pcomposeai.remoteCompose=snapshot`) AndroidX is androidx-main, so that file is generated
-// like the others. See docs/design/RC_WIDGETS.md.
+// One source, two bindings. Every file of `:rc-widget-creation`'s `commonMain` is copied here at
+// build time with its packages rewritten (`generateAndroidxBinding`); nothing generated is
+// committed. What is written by hand, under `src/androidMain`, is what has no counterpart there or
+// cannot be the same text: the AndroidX capture profiles. See docs/design/RC_WIDGETS.md.
 
 /**
  * Copies Kotlin sources, replacing each package prefix in [packages] (where an identifier starts
@@ -69,23 +65,13 @@ abstract class RewritePackages : DefaultTask() {
 
 val commonSources = layout.projectDirectory.dir("../creation/src/commonMain/kotlin")
 
-// The Remote Compose lane `settings.gradle.kts` resolved, with the same default and spelling: the
-// released alphas (`release`) or the androidx.dev build `-Pcomposeai.remoteCompose=snapshot` pins.
-val remoteComposeLine =
-  providers.gradleProperty("composeai.remoteCompose").orElse("release").get().trim().lowercase()
-
 val generateAndroidxBinding by
   tasks.registering(RewritePackages::class) {
     description = "Writes :rc-widget-creation's common sources against AndroidX's creation API."
     sourceRoot.set(commonSources)
-    // `RcCreationCompat.kt` is the seam: on the release lane this module has its own, under
-    // `src/remoteRelease`.
     sources.from(
       commonSources.asFileTree.matching {
         include("**/*.kt")
-        // On the snapshot lane AndroidX spells them as androidx-main does, so the common file is
-        // generated like the rest and the hand-written one is left out (`androidMain` below).
-        if (remoteComposeLine != "snapshot") exclude("**/RcCreationCompat.kt")
         // rc-players' capture profiles; this module has AndroidX's own (`androidXExperimental`,
         // `androidXExperimentalWrap`) under `src/androidMain`.
         exclude("**/RcCaptureProfiles.kt")
@@ -118,7 +104,6 @@ kotlin {
   sourceSets {
     androidMain {
       kotlin.srcDir(generateAndroidxBinding.flatMap { it.outputDirectory })
-      if (remoteComposeLine != "snapshot") kotlin.srcDir("src/remoteRelease/kotlin")
       dependencies {
         api(project(":rc-widget-core"))
         api(libs.compose.remote.creation.compose)

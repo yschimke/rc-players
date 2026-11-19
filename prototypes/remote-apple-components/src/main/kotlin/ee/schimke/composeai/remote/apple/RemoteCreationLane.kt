@@ -8,8 +8,9 @@ import androidx.compose.remote.creation.compose.state.MutableRemoteState
 import androidx.compose.remote.creation.compose.state.RemoteState
 import androidx.compose.remote.creation.compose.text.RemoteFontWeight
 
-// The `-Pcomposeai.remoteCompose=snapshot` lane's binding of the three names `src/remoteRelease`
-// declares for the pinned release: here they are androidx-main's own. See that file.
+// Three names this prototype's sources use, each AndroidX's own. Until 1.0.0-alpha24 the release
+// spelled them differently from androidx-main and there was one of this file per Remote Compose
+// lane; if a later bump splits them again, so can this file (see `build.gradle.kts` history).
 
 /** A text style's font weight. */
 internal typealias AppleFontWeight = RemoteFontWeight

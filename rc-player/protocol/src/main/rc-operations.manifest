@@ -4,6 +4,8 @@
 # its experimental V7 reader set. EVENT_ACTION stays unavailable. The 2D mesh ops are implemented (codec
 # and CMP renderer) and listed in RcOperationProfiles' experimental-only set, so the baseline AndroidX
 # profile does not advertise them.
+# 41, 121 and 122 (BINARY_DATA, LAYOUT_RC_DOC, MAP_RC_DOC_VARIABLES: an embedded document) are new in
+# 1.0.0-alpha24, again only in the experimental V7 reader set, and unavailable here.
 0|HEADER|0|implemented|Header
 2|COMPONENT_START|6|implemented|ComponentStart
 4|LOAD_BITMAP|4|unavailable|-
@@ -12,6 +14,7 @@
 38|CLIP_PATH|1|implemented|ClipPath
 39|CLIP_RECT|1|implemented|ClipRect
 40|PAINT_VALUES|1|implemented|PaintData
+41|BINARY_DATA|4|unavailable|BinaryData
 42|DRAW_RECT|1|implemented|DrawRect
 43|DRAW_TEXT_RUN|3|implemented|DrawText
 44|DRAW_BITMAP|4|implemented|DrawBitmap
@@ -47,6 +50,8 @@
 106|MATRIX_FROM_MESH_2D|2|implemented|MatrixFromMesh2D
 107|MODIFIER_BORDER|6|implemented|BorderModifierOperation
 108|MODIFIER_CLIP_RECT|6|implemented|ClipRectModifierOperation
+121|LAYOUT_RC_DOC|6|unavailable|RcDocLayout
+122|MAP_RC_DOC_VARIABLES|8|unavailable|MapRcDocVariables
 123|DATA_PATH|1|implemented|PathData
 124|DRAW_PATH|1|implemented|DrawPath
 125|DRAW_TWEEN_PATH|2|implemented|DrawTweenPath

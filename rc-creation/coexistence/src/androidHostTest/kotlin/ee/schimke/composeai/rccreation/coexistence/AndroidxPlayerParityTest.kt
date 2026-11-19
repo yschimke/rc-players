@@ -169,32 +169,36 @@ class AndroidxPlayerParityTest {
   }
 
   /**
-   * The click and its action's name, inside the click modifier. AndroidX 1.0.0-alpha23 follows a
-   * click with an `AccessibilitySemantics` that says nothing (no role, not clickable); androidx-main
-   * writes one only for a `role`, and so does this library.
+   * The click and its action's name, inside the click modifier. Both write an
+   * `AccessibilitySemantics` only for a `role` (AndroidX 1.0.0-alpha23 followed every click with one
+   * that said nothing).
    */
   @Test
   fun aClickableIsWrittenAsAndroidxWritesIt() {
     val theirs = androidx { AndroidxContent.Clickable() }
     val ours = rcDocument { RcContent.Clickable() }
-    val semantics = setOf("RcAccessibilitySemantics")
-    assertEquals(wireText(theirs, without = semantics), wireText(ours))
+    assertEquals(wireText(theirs), wireText(ours))
     val click = wireOperations(ours).indexOfFirst { it is RcClickModifier }
     assertEquals("tap", (wireOperations(ours)[click + 1] as RcTextData).text)
   }
 
   /**
-   * A named value two canvases read is one variable, as AndroidX 1.0.0-alpha23 writes it, and both
-   * bars follow it when the host sets it. This library declares it ahead of the root, alpha23 in
-   * the first canvas. (androidx-main, whose creation state forgets what a canvas declared when the
-   * canvas ends, declares it again in the second: two variables of one name.)
+   * A named value two canvases read is one variable, declared ahead of the root, and both bars
+   * follow it when the host sets it. AndroidX 1.0.0-alpha23 wrote one variable too, in the first
+   * canvas. Since 1.0.0-alpha24 AndroidX's creation state forgets what a canvas declared when the
+   * canvas ends and declares it again in the second, two variables of one name, so a host that sets
+   * the name reaches only one bar. This library keeps one (PROVENANCE.md, "Upstream follow-ups"),
+   * and the test notes when AndroidX stops writing two.
    */
   @Test
   fun aNamedValueReadByTwoCanvasesIsOneVariable() {
     val theirs = androidx { AndroidxContent.NamedInTwoCanvases() }
     val ours = rcDocument { RcContent.NamedInTwoCanvases() }
-    val named = setOf("RcNamedVariable", "RcFloatConstant")
-    assertEquals(wireText(theirs, without = named), wireText(ours, without = named))
+    assertEquals(
+      2,
+      wireOperations(theirs).count { it is RcNamedVariable },
+      "AndroidX declares the name once per canvas; if this is 1, the follow-up is fixed upstream",
+    )
     val operations = wireOperations(ours)
     assertEquals(1, operations.count { it is RcNamedVariable })
     assertTrue(
@@ -202,7 +206,7 @@ class AndroidxPlayerParityTest {
         operations.indexOfFirst { it is RcRootLayout }
     )
 
-    for ((writer, bytes) in listOf("AndroidX" to theirs, "rc-players" to ours)) {
+    for ((writer, bytes) in listOf("rc-players" to ours)) {
       val played = Played(context, bytes)
       fun bars(): List<Int> {
         val image = played.frame()

@@ -25,6 +25,7 @@ import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.core.operations.DataListFloat
 import androidx.compose.remote.core.operations.NamedVariable
+import androidx.compose.remote.creation.compose.capture.RemoteCapturedDocument
 import androidx.compose.remote.player.core.platform.AndroidRemoteContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableFloatState

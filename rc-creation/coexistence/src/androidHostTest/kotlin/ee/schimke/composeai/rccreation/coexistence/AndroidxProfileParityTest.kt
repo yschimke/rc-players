@@ -23,7 +23,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcHeader as RcProtocolHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
-import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -55,20 +54,14 @@ class AndroidxProfileParityTest {
   }
 
   /**
-   * The header, byte for byte, and the operations, field for field, but for two things in which
-   * this library follows androidx-main and the AndroidX release under test (1.0.0-alpha23) does
-   * not yet:
-   * - a text that names no alignment is `Start` (5), where alpha23 writes `Left` (1);
-   * - a paint under a profile without `CoreText` names its weight as a `wght` axis
-   *   (`PaintTracker`), which alpha23's does not.
+   * The header, byte for byte, and the operations, field for field. Until 1.0.0-alpha24 this left
+   * out two things in which this library followed androidx-main and the AndroidX release did not:
+   * a text that names no alignment (`Start` here, `Left` in alpha23) and a paint's `wght` axis
+   * under a profile without `CoreText`.
    */
   private fun assertSameDocument(theirs: ByteArray, ours: ByteArray) {
     assertEquals(headerBytes(theirs), headerBytes(ours), "the header")
-    fun text(bytes: ByteArray) =
-      wireText(bytes, without = setOf("RcPaintData")) { it is RcTextData && it.text == "wght" }
-        .replace(", IntValue(id=9, value=5)", "")
-        .replace("textAlignAndFlags=5", "textAlignAndFlags=1")
-    assertEquals(text(theirs), text(ours))
+    assertEquals(wireText(theirs), wireText(ours))
   }
 
   @Test

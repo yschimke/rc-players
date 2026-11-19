@@ -42,7 +42,9 @@ import androidx.compose.remote.core.operations.Header
 import androidx.compose.remote.core.operations.RootContentBehavior
 import androidx.compose.remote.core.operations.Theme
 import androidx.compose.remote.creation.compose.action.LambdaAction
+import androidx.compose.remote.creation.compose.capture.RemoteCapturedDocument
 import androidx.compose.remote.player.compose.ExperimentalRemotePlayerApi
+import androidx.compose.remote.player.compose.action.PendingIntentActionHandler
 import androidx.compose.remote.player.core.state.StateUpdater
 import androidx.compose.remote.player.core.state.StateUpdaterImpl
 import androidx.compose.runtime.Composable
