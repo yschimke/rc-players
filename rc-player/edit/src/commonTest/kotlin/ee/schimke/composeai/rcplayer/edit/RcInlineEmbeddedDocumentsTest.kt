@@ -4,10 +4,12 @@ import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBinaryData
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
+import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
@@ -343,5 +345,142 @@ class RcInlineEmbeddedDocumentsTest {
       "Expected child RootLayout padding modifier to be preserved in inlined document",
     )
     assertNotNull(RcLayoutTree.build(RcDocumentLinker.link(inlined)))
+  }
+
+  @Test
+  fun allocatedChildIdsStayWithin22BitResourceIdSpace() {
+    val childWithFloatRef =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 100, legacyHeight = 40),
+        operations =
+          listOf(
+            RcFloatConstant(id = 45, value = RcFloatWord.literal(64f)),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcBoxLayout(
+              componentId = 3,
+              animationId = -1,
+              horizontalPositioning = 0,
+              verticalPositioning = 0,
+            ),
+            RcWidthModifier(RcDimensionType.EXACT, RcFloatWord(0x7fc00000 or 45)),
+            RcLayoutContent(componentId = 4),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+    val childBytes = RcDocumentCodec.encode(childWithFloatRef)
+    val parent =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 200, legacyHeight = 80),
+        operations =
+          listOf(
+            RcBinaryData(id = 50, type = RcBinaryData.TYPE_RC_DOC, flags = 0, data = childBytes),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 50),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+
+    val inlined = parent.inlineEmbeddedDocuments()
+    val floatDecl = inlined.operations.filterIsInstance<RcFloatConstant>().single()
+    assertTrue(
+      floatDecl.id in 42 until 0x003fffff,
+      "Expected allocated float id to stay within 22-bit resource ID space, got ${floatDecl.id}",
+    )
+    val widthRef =
+      inlined.operations.filterIsInstance<RcWidthModifier>().firstNotNullOf {
+        it.value.referencedId
+      }
+    assertEquals(floatDecl.id, widthRef)
+  }
+
+  @Test
+  fun preservesComponentValueBindingsToChildRootAndContentIds() {
+    val childWithBindings =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 100, legacyHeight = 40),
+        operations =
+          listOf(
+            RcComponentValue(type = 0, componentId = 1, valueId = 60),
+            RcComponentValue(type = 1, componentId = 2, valueId = 61),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcBoxLayout(
+              componentId = 3,
+              animationId = -1,
+              horizontalPositioning = 0,
+              verticalPositioning = 0,
+            ),
+            RcLayoutContent(componentId = 4),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+    val childBytes = RcDocumentCodec.encode(childWithBindings)
+    val parent =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 200, legacyHeight = 80),
+        operations =
+          listOf(
+            RcBinaryData(id = 50, type = RcBinaryData.TYPE_RC_DOC, flags = 0, data = childBytes),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 50),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+
+    val inlined = parent.inlineEmbeddedDocuments()
+    val bindings = inlined.operations.filterIsInstance<RcComponentValue>()
+    assertEquals(2, bindings.size)
+    val componentIds = inlined.operations.mapNotNull { it.declaredComponentId() }.toSet()
+    for (binding in bindings) {
+      assertTrue(
+        binding.componentId in componentIds,
+        "Expected RcComponentValue binding componentId ${binding.componentId} to exist in $componentIds",
+      )
+    }
+    assertEquals(10, bindings[0].componentId)
+  }
+
+  @Test
+  fun stripsUnmappedChildNamedVariablesToProtectParentNamespace() {
+    val childBytes = RcDocumentCodec.encode(childDoc("child-default"))
+    val parent =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 200, legacyHeight = 80),
+        operations =
+          listOf(
+            RcTextData(id = 42, text = "parent-title"),
+            RcNamedVariable(id = 42, type = RcNamedVariable.STRING_TYPE, name = "USER:label"),
+            RcBinaryData(id = 50, type = RcBinaryData.TYPE_RC_DOC, flags = 0, data = childBytes),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 50),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+
+    val inlined = parent.inlineEmbeddedDocuments()
+    val namedVars =
+      inlined.operations.filterIsInstance<RcNamedVariable>().filter { it.name == "USER:label" }
+    assertEquals(1, namedVars.size, "Expected unmapped child RcNamedVariable to be stripped")
+    assertEquals(42, namedVars.single().id, "Expected parent's RcNamedVariable id to be preserved")
+    assertTrue(
+      inlined.operations.filterIsInstance<RcTextData>().any { it.text == "child-default" },
+      "Expected child's default text constant to remain",
+    )
   }
 }

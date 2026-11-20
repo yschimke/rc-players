@@ -99,14 +99,14 @@ private fun RcDocument.inlineEmbeddedOnce(resolver: ((String) -> ByteArray?)?): 
       is RcMapRcDocVariables -> mappingsByDoc.getOrPut(op.docId) { mutableListOf() } += op
       else -> Unit
     }
-    op.declaredComponentId()?.let { usedIds += it }
-    op.mentionedValues()?.forEach { usedIds += (it and INLINE_ID_MASK) }
+    op.declaredComponentId()?.let { if (it != -1) usedIds += it }
+    op.mentionedValues()?.forEach { raw -> if (raw != -1) usedIds += (raw and INLINE_ID_MASK) }
   }
 
-  var nextFreshId =
-    (usedIds.maxOrNull() ?: INLINE_FIRST_DOC_ID).coerceAtLeast(INLINE_FIRST_DOC_ID) + 1
-  fun allocateId(): Int {
-    while (nextFreshId in usedIds) nextFreshId++
+  var nextFreshId = INLINE_FIRST_DOC_ID
+  fun allocateId(): Int? {
+    while (nextFreshId < INLINE_ID_MASK && nextFreshId in usedIds) nextFreshId++
+    if (nextFreshId >= INLINE_ID_MASK) return null
     val id = nextFreshId++
     usedIds += id
     return id
@@ -240,7 +240,7 @@ private fun inlineChild(
   parentTexts: Map<Int, String>,
   child: RcDocument,
   usedIds: MutableSet<Int>,
-  allocateId: () -> Int,
+  allocateId: () -> Int?,
 ): InlinedChild? {
   // Map remote variable name -> parent localId for MAP_FORWARD.
   val forwardByName = mutableMapOf<String, Int>()
@@ -269,6 +269,11 @@ private fun inlineChild(
     }
   }
 
+  val origTree = operationTree(child.operations) ?: return null
+  val origRootNode = origTree.singleOrNull { it.operation is RcRootLayout } ?: return null
+  val origRootId = (origRootNode.operation as RcRootLayout).componentId
+  val hasChildRootModifiers = origRootNode.children.size > 1
+
   // Collect all remappable ids in the child document and assign fresh non-colliding ids.
   val childIds = linkedSetOf<Int>()
   for (op in child.operations) {
@@ -283,9 +288,15 @@ private fun inlineChild(
   for ((childVarId, parentLocalId) in mappedChildVarIds) {
     baseMapping[childVarId] = parentLocalId
   }
+  // When the child root has no modifiers of its own, the outer replacement RcBoxLayout takes its
+  // place directly; alias the child root's componentId to docOp.componentId so RcComponentValue
+  // bindings to the child root still receive its geometry.
+  if (!hasChildRootModifiers && origRootId != -1 && docOp.componentId != -1) {
+    baseMapping[origRootId] = docOp.componentId
+  }
   for (id in childIds) {
     if (id !in baseMapping) {
-      baseMapping[id] = allocateId()
+      baseMapping[id] = allocateId() ?: return null
     }
   }
   val fullMapping = buildMap {
@@ -295,11 +306,14 @@ private fun inlineChild(
     }
   }
 
-  // Filter out the child's own declarations for forward-mapped variables (the parent owns localId).
+  // Strip all RcNamedVariable declarations from the child:
+  // - forward-mapped variables are owned by the parent (their id is aliased to parentLocalId);
+  // - unmapped child named variables must not enter the parent's variableNames namespace (their
+  //   default constant declarations remain with fresh ids, matching isolated runtime execution).
   val filteredChildOps =
     child.operations.filterNot { op ->
       when (op) {
-        is RcNamedVariable -> op.id in mappedChildVarIds
+        is RcNamedVariable -> true
         is RcTextData -> op.id in mappedChildVarIds
         is RcFloatConstant -> op.id in mappedChildVarIds
         is RcIntegerConstant -> op.id in mappedChildVarIds
@@ -315,6 +329,8 @@ private fun inlineChild(
   val rootNode = remappedTree.singleOrNull { it.operation is RcRootLayout } ?: return null
   val contentNode =
     rootNode.children.singleOrNull { it.operation is RcLayoutContent } ?: return null
+  val remappedRootId = (rootNode.operation as RcRootLayout).componentId
+  val remappedContentId = (contentNode.operation as RcLayoutContent).componentId
 
   val hoistedDefs = mutableListOf<RcOperation>()
   for (topNode in remappedTree) {
@@ -352,11 +368,13 @@ private fun inlineChild(
     for (i in modNode.start..modNode.end) modifierOps += parentOps[i]
   }
 
-  val freshContentId = allocateId()
+  val outerComponentId =
+    if (docOp.componentId != -1) docOp.componentId
+    else if (!hasChildRootModifiers && remappedRootId != -1) remappedRootId else -1
   val replacementOps = mutableListOf<RcOperation>()
   replacementOps +=
     RcBoxLayout(
-      componentId = docOp.componentId,
+      componentId = outerComponentId,
       animationId = docOp.animationId,
       horizontalPositioning = 0,
       verticalPositioning = 0,
@@ -373,11 +391,15 @@ private fun inlineChild(
   if (!hasClipRect) {
     replacementOps += RcClipRectModifier
   }
-  replacementOps += RcLayoutContent(componentId = freshContentId)
   if (childRootModifierOps.isNotEmpty()) {
+    val outerContentId = allocateId() ?: return null
+    val innerRootId = if (remappedRootId != -1) remappedRootId else (allocateId() ?: return null)
+    val innerContentId =
+      if (remappedContentId != -1) remappedContentId else (allocateId() ?: return null)
+    replacementOps += RcLayoutContent(componentId = outerContentId)
     replacementOps +=
       RcBoxLayout(
-        componentId = allocateId(),
+        componentId = innerRootId,
         animationId = -1,
         horizontalPositioning = 0,
         verticalPositioning = 0,
@@ -389,11 +411,14 @@ private fun inlineChild(
       replacementOps += RcHeightModifier(RcDimensionType.FILL, RcFloatWord.literal(1f))
     }
     replacementOps += childRootModifierOps
-    replacementOps += RcLayoutContent(componentId = allocateId())
+    replacementOps += RcLayoutContent(componentId = innerContentId)
     replacementOps += childBodyOps
     replacementOps += RcNoArg(RcOpcodes.CONTAINER_END)
     replacementOps += RcNoArg(RcOpcodes.CONTAINER_END)
   } else {
+    val contentId =
+      if (remappedContentId != -1) remappedContentId else (allocateId() ?: return null)
+    replacementOps += RcLayoutContent(componentId = contentId)
     replacementOps += childBodyOps
   }
   replacementOps += RcNoArg(RcOpcodes.CONTAINER_END)
