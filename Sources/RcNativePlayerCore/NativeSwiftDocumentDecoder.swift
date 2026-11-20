@@ -3009,6 +3009,13 @@ enum NativeSwiftDocumentDecoder {
         return true
       }
       if matrixVectorMath.contains(where: { references(ids, in: $0.inputWords) }) { return true }
+      if matrixExpressions.values.contains(where: { references(ids, in: $0.words) }) {
+        return true
+      }
+      if dynamicFloatLists.values.contains(where: { references(ids, in: [$0.lengthWord]) }) {
+        return true
+      }
+      if references(ids, in: wakeWords) { return true }
       return colorExpressions.contains { references(ids, in: $0.floatWords) }
     }
     // A moving clock means the frame has to be re-resolved continuously.
