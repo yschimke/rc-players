@@ -239,11 +239,12 @@ fileprivate enum ApplePlayerBenchmark {
     var samples: [Double] = []
     for step in 0..<iterations {
       let nextData = step.isMultiple(of: 2) ? second : first
+      let previousDocument = nativeDocumentView(in: view)
       let started = CACurrentMediaTime()
       replaceDocument(in: view, player: player, data: nextData)
       view.setNeedsLayout()
       view.layoutIfNeeded()
-      try await waitForPlayer(player, view: view)
+      try await waitForReplacement(player, view: view, previousDocument: previousDocument)
       _ = await DisplayLinkSampler.nextFrame()
       samples.append(milliseconds(since: started))
     }
@@ -283,14 +284,30 @@ fileprivate enum ApplePlayerBenchmark {
   private static func waitForPlayer(_ player: Player, view: UIView) async throws {
     let deadline = CACurrentMediaTime() + 5
     while CACurrentMediaTime() < deadline {
-      if player == .cmp || containsNativeDocument(view) { return }
+      if player == .cmp || nativeDocumentView(in: view) != nil { return }
       try await Task.sleep(nanoseconds: 10_000_000)
     }
     throw CocoaError(.coderReadCorrupt)
   }
 
-  private static func containsNativeDocument(_ view: UIView) -> Bool {
-    view.accessibilityIdentifier == "rc-native-document" || view.subviews.contains(where: containsNativeDocument)
+  private static func waitForReplacement(
+    _ player: Player, view: UIView, previousDocument: UIView?
+  ) async throws {
+    let deadline = CACurrentMediaTime() + 5
+    while CACurrentMediaTime() < deadline {
+      if player == .cmp { return }
+      if let current = nativeDocumentView(in: view), current !== previousDocument { return }
+      try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    throw CocoaError(.coderReadCorrupt)
+  }
+
+  private static func nativeDocumentView(in view: UIView) -> UIView? {
+    if view.accessibilityIdentifier == "rc-native-document" { return view }
+    for subview in view.subviews {
+      if let found = nativeDocumentView(in: subview) { return found }
+    }
+    return nil
   }
 
   private static func milliseconds(since start: CFTimeInterval) -> Double { (CACurrentMediaTime() - start) * 1_000 }
