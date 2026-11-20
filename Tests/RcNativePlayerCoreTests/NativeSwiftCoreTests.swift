@@ -3767,6 +3767,33 @@ private final class FailureLog: @unchecked Sendable {
     #expect(snap1.height == snap2.height)
     #expect(snap1.root.children.count == snap2.root.children.count)
   }
+
+  @Test func integerExpressionReadingEpochSecondUpdatesAcrossWallClocks() throws {
+    let writer = Writer()
+    writer.header(width: 200, height: 100)
+    // Slot 60 = EPOCH_SECOND - 1 (mask bit 0 = variable EPOCH_SECOND, bit 1 = literal 1, bit 2 = sub)
+    writer.u8(NativeSwiftWireOpcode.integerExpression).int(60).int(0b101).int(3)
+      .int(NativeSwiftSystemVariables.epochSecond)
+      .int(1)
+      .int(NativeSwiftIntegerOperator.offset + 1)  // sub
+    writer.u8(NativeSwiftWireOpcode.textFromFloat).int(70).int(Writer.nanReference(60))
+      .u16(6).u16(0).int(0)
+    writer.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    writer.textLayout(id: 2, textID: 70, color: 0xFFFF_FFFF, size: 16)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+
+    let session = try NativeSwiftDocumentSession.open(data: writer.data)
+    let utc = TimeZone(secondsFromGMT: 0)!
+    let snap1 = try session.snapshot(
+      timeSeconds: 0,
+      wallClock: NativeSwiftWallClock(epochMillis: 1_000_000, offsetSeconds: 0, timeZone: utc))
+    let snap2 = try session.snapshot(
+      timeSeconds: 0,
+      wallClock: NativeSwiftWallClock(epochMillis: 1_005_000, offsetSeconds: 0, timeZone: utc))
+    #expect(snap1.needsWallClockRefresh)
+    #expect(snap1.root.children.first?.text?.value.trimmingCharacters(in: .whitespaces) == "1001")
+    #expect(snap2.root.children.first?.text?.value.trimmingCharacters(in: .whitespaces) == "1006")
+  }
 }
 
 final class Writer {

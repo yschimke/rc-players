@@ -2984,6 +2984,11 @@ enum NativeSwiftDocumentDecoder {
     func references(_ ids: Set<Int>) -> Bool {
       if root.references(anyOf: ids) { return true }
       if expressions.contains(where: { references(ids, in: $0.words) }) { return true }
+      if integerExpressions.values.contains(where: {
+        NativeSwiftIntegerExpression.references(anyOf: ids, mask: $0.mask, tokens: $0.tokens)
+      }) {
+        return true
+      }
       if textFromFloats.contains(where: { references(ids, in: [$0.value]) }) { return true }
       return colorExpressions.contains { references(ids, in: $0.floatWords) }
     }
