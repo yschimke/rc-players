@@ -802,6 +802,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock?
   ) -> Bool {
     (!document.needsWallClockRefresh || wallClock == nil)
+      && (wallClock == nil || document.timeAttributes.isEmpty)
       && !document.needsContinuousFrames
       && !document.hasMarquee
       && document.impulses.isEmpty
