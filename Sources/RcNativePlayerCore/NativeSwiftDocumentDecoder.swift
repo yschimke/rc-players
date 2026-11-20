@@ -2620,7 +2620,7 @@ enum NativeSwiftDocumentDecoder {
         node.text = ParsedText(
           textID: textID, colorARGB: color, colorID: integers[NativeSwiftTextProperty.colorID],
           sizeWord: floats[NativeSwiftTextProperty.fontSize] ?? Float(36).bitPattern,
-          style: integers[NativeSwiftTextProperty.fontStyle] ?? 0,
+          style: integers[NativeSwiftTextProperty.fontStyle] ?? NativeSwiftFontStyle.normal,
           weightWord: floats[NativeSwiftTextProperty.fontWeight] ?? Float(400).bitPattern,
           familyID: integers[NativeSwiftTextProperty.fontFamily] ?? -1,
           alignment: integers[NativeSwiftTextProperty.textAlign].map(

@@ -986,9 +986,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
             ?? 0,
           transformOriginY: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.transformOriginY]
             ?? 0,
-          compositingStrategy: Int(
-            node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.compositingStrategy]
-              ?? Float(NativeSwiftCompositingStrategy.auto))),
+          compositingStrategy: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.compositingStrategy]
+            .map { value in
+              value.isFinite ? nativeSwiftClampedInt(value) : NativeSwiftCompositingStrategy.auto
+            } ?? NativeSwiftCompositingStrategy.auto),
       offsetX: node.offsetXWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       offsetY: node.offsetYWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       zIndex: node.zIndexWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,

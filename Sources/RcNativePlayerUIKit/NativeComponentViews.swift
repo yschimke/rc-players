@@ -564,8 +564,8 @@
 
     static let `default` = NativeTextStyle(
       swiftSnapshot: NativeSwiftTextSnapshot(
-        value: "", colorARGB: 0xff00_0000, size: 16, style: 0, weight: 400,
-        familyID: -1, alignment: .left, overflow: NativeSwiftTextOverflow.clip,
+        value: "", colorARGB: 0xff00_0000, size: 16, style: NativeSwiftFontStyle.normal,
+        weight: 400, familyID: -1, alignment: .left, overflow: NativeSwiftTextOverflow.clip,
         maximumLines: Int.max))
 
     init(swiftSnapshot snapshot: NativeSwiftTextSnapshot) {
@@ -1274,7 +1274,7 @@
       of wanted: Set<Int>, into result: inout [Int: NativeSwiftMeasuredSize],
       inherited: CGSize? = nil
     ) {
-      if node.visibility == NativeSwiftVisibility.gone {
+      if node.visibility == NativeSwiftVisibility.gone, !ignoresOwnVisibility {
         if wanted.contains(node.componentID) {
           result[node.componentID] = NativeSwiftMeasuredSize(width: 0, height: 0)
         }
