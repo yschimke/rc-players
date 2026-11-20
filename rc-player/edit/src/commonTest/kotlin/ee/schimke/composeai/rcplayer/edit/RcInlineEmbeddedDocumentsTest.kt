@@ -3,6 +3,7 @@ package ee.schimke.composeai.rcplayer.edit
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBinaryData
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
+import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -10,14 +11,17 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcMapRcDocVariables
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
+import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
@@ -165,6 +169,179 @@ class RcInlineEmbeddedDocumentsTest {
       if (url == "rc://badge") childBytes else null
     }
     assertFalse(inlined.operations.any { it is RcDocLayout })
+    assertNotNull(RcLayoutTree.build(RcDocumentLinker.link(inlined)))
+  }
+
+  @Test
+  fun preservesNestedEmbeddedDocTextReferenceAndBlobAtMaxDepth1() {
+    val grandchildBytes = RcDocumentCodec.encode(childDoc("leaf"))
+    val midDoc =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 140, legacyHeight = 48),
+        operations =
+          listOf(
+            RcBinaryData(
+              id = 50,
+              type = RcBinaryData.TYPE_RC_DOC,
+              flags = 0,
+              data = grandchildBytes,
+            ),
+            RcTextData(id = 51, text = "rc:embedded/50"),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 51),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+    val midBytes = RcDocumentCodec.encode(midDoc)
+    val parent =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 200, legacyHeight = 80),
+        operations =
+          listOf(
+            RcBinaryData(id = 50, type = RcBinaryData.TYPE_RC_DOC, flags = 0, data = midBytes),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 50),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+
+    val inlined = parent.inlineEmbeddedDocuments(maxDepth = 1)
+    val nestedDoc = inlined.operations.filterIsInstance<RcDocLayout>().singleOrNull()
+    assertNotNull(nestedDoc, "Expected depth-2 RcDocLayout to remain at maxDepth = 1")
+    val urlText =
+      inlined.operations.filterIsInstance<RcTextData>().firstOrNull { it.id == nestedDoc.urlId }
+    assertNotNull(urlText, "Expected hoisted nested url text")
+    assertTrue(urlText.text.startsWith(RcDocLayout.EMBEDDED_URL_PREFIX))
+    val referencedBlobId =
+      urlText.text.substring(RcDocLayout.EMBEDDED_URL_PREFIX.length).toIntOrNull()
+    assertNotNull(referencedBlobId)
+    val retainedBlob =
+      inlined.operations.filterIsInstance<RcBinaryData>().firstOrNull { it.id == referencedBlobId }
+    assertNotNull(
+      retainedBlob,
+      "Expected nested BinaryData blob id $referencedBlobId to be retained and remapped",
+    )
+    assertTrue(retainedBlob.data.contentEquals(grandchildBytes))
+  }
+
+  @Test
+  fun leavesChildUninlinedWhenChildWritesForwardMappedVariable() {
+    val mutatingChild =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 100, legacyHeight = 40),
+        operations =
+          listOf(
+            RcIntegerConstant(id = 42, value = 1),
+            RcNamedVariable(id = 42, type = RcNamedVariable.INT_TYPE, name = "USER:count"),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcBoxLayout(
+              componentId = 3,
+              animationId = -1,
+              horizontalPositioning = 0,
+              verticalPositioning = 0,
+            ),
+            RcClickModifier,
+            RcValueIntegerChangeAction(targetValueId = 42, value = 99),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcLayoutContent(componentId = 4),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+    val childBytes = RcDocumentCodec.encode(mutatingChild)
+    val parent =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 200, legacyHeight = 80),
+        operations =
+          listOf(
+            RcIntegerConstant(id = 43, value = 5),
+            RcTextData(id = 44, text = "USER:count"),
+            RcBinaryData(id = 50, type = RcBinaryData.TYPE_RC_DOC, flags = 0, data = childBytes),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 50),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcMapRcDocVariables(
+              docId = 10,
+              mode = RcMapRcDocVariables.MAP_FORWARD,
+              localId = 43,
+              remoteTarget = 44,
+            ),
+          ),
+      )
+
+    val result = parent.inlineEmbeddedDocuments()
+    assertTrue(
+      result.operations.any { it is RcDocLayout },
+      "Expected child writing a MAP_FORWARD variable to remain un-inlined",
+    )
+  }
+
+  @Test
+  fun preservesChildRootModifiersWhenInlining() {
+    val childWithRootPadding =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 100, legacyHeight = 40),
+        operations =
+          listOf(
+            RcRootLayout(componentId = 1),
+            RcPaddingModifier(
+              left = RcFloatWord.literal(12f),
+              top = RcFloatWord.literal(8f),
+              right = RcFloatWord.literal(12f),
+              bottom = RcFloatWord.literal(8f),
+            ),
+            RcLayoutContent(componentId = 2),
+            RcBoxLayout(
+              componentId = 3,
+              animationId = -1,
+              horizontalPositioning = 0,
+              verticalPositioning = 0,
+            ),
+            RcLayoutContent(componentId = 4),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+    val childBytes = RcDocumentCodec.encode(childWithRootPadding)
+    val parent =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 200, legacyHeight = 80),
+        operations =
+          listOf(
+            RcBinaryData(id = 50, type = RcBinaryData.TYPE_RC_DOC, flags = 0, data = childBytes),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 50),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+
+    val inlined = parent.inlineEmbeddedDocuments()
+    assertFalse(inlined.operations.any { it is RcDocLayout })
+    assertTrue(
+      inlined.operations.any {
+        it is RcPaddingModifier &&
+          it.left == RcFloatWord.literal(12f) &&
+          it.top == RcFloatWord.literal(8f)
+      },
+      "Expected child RootLayout padding modifier to be preserved in inlined document",
+    )
     assertNotNull(RcLayoutTree.build(RcDocumentLinker.link(inlined)))
   }
 }

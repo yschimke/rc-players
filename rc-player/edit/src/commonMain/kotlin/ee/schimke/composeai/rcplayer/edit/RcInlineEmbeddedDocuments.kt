@@ -25,6 +25,11 @@ import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTheme
+import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatExpressionChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueStringChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
@@ -172,11 +177,16 @@ private fun RcDocument.inlineEmbeddedOnce(resolver: ((String) -> ByteArray?)?): 
   }
 
   // Drop BinaryData(TYPE_RC_DOC) blobs no longer referenced by any remaining RcDocLayout.
+  val rebuiltTexts = buildMap {
+    for (op in rebuilt) {
+      if (op is RcTextData) put(op.id, op.text)
+    }
+  }
   val referencedBlobIds = mutableSetOf<Int>()
   for (op in rebuilt) {
     if (op is RcDocLayout) {
       referencedBlobIds += op.urlId
-      val url = texts[op.urlId]
+      val url = rebuiltTexts[op.urlId]
       if (url != null && url.startsWith(RcDocLayout.EMBEDDED_URL_PREFIX)) {
         url.substring(RcDocLayout.EMBEDDED_URL_PREFIX.length).trim().toIntOrNull()?.let {
           referencedBlobIds += it
@@ -249,6 +259,16 @@ private fun inlineChild(
     }
   }
 
+  // Keep forward-mapped child writes isolated from the parent: if any child action or nested
+  // mapping writes to a forward-mapped variable, aliasing it to parentLocalId would leak writes
+  // back into parent state. Leave such children un-inlined.
+  if (mappedChildVarIds.isNotEmpty()) {
+    val writtenChildIds = childWrittenVariableIds(child.operations)
+    if (mappedChildVarIds.keys.any { (it and INLINE_ID_MASK) in writtenChildIds }) {
+      return null
+    }
+  }
+
   // Collect all remappable ids in the child document and assign fresh non-colliding ids.
   val childIds = linkedSetOf<Int>()
   for (op in child.operations) {
@@ -302,6 +322,17 @@ private fun inlineChild(
     for (i in topNode.start..topNode.end) hoistedDefs += remappedChildOps[i]
   }
 
+  val childRootModifierOps = mutableListOf<RcOperation>()
+  var hasRootWidth = false
+  var hasRootHeight = false
+  for (rootChild in rootNode.children) {
+    if (rootChild === contentNode) continue
+    val op = rootChild.operation
+    if (op is RcWidthModifier) hasRootWidth = true
+    if (op is RcHeightModifier) hasRootHeight = true
+    for (i in rootChild.start..rootChild.end) childRootModifierOps += remappedChildOps[i]
+  }
+
   val childBodyOps = mutableListOf<RcOperation>()
   for (childNode in contentNode.children) {
     for (i in childNode.start..childNode.end) childBodyOps += remappedChildOps[i]
@@ -343,11 +374,53 @@ private fun inlineChild(
     replacementOps += RcClipRectModifier
   }
   replacementOps += RcLayoutContent(componentId = freshContentId)
-  replacementOps += childBodyOps
+  if (childRootModifierOps.isNotEmpty()) {
+    replacementOps +=
+      RcBoxLayout(
+        componentId = allocateId(),
+        animationId = -1,
+        horizontalPositioning = 0,
+        verticalPositioning = 0,
+      )
+    if (!hasRootWidth) {
+      replacementOps += RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f))
+    }
+    if (!hasRootHeight) {
+      replacementOps += RcHeightModifier(RcDimensionType.FILL, RcFloatWord.literal(1f))
+    }
+    replacementOps += childRootModifierOps
+    replacementOps += RcLayoutContent(componentId = allocateId())
+    replacementOps += childBodyOps
+    replacementOps += RcNoArg(RcOpcodes.CONTAINER_END)
+    replacementOps += RcNoArg(RcOpcodes.CONTAINER_END)
+  } else {
+    replacementOps += childBodyOps
+  }
   replacementOps += RcNoArg(RcOpcodes.CONTAINER_END)
   replacementOps += RcNoArg(RcOpcodes.CONTAINER_END)
 
   return InlinedChild(hoistedDefs = hoistedDefs, replacementOps = replacementOps)
+}
+
+private fun childWrittenVariableIds(operations: List<RcOperation>): Set<Int> {
+  val written = mutableSetOf<Int>()
+  for (op in operations) {
+    when (op) {
+      is RcValueIntegerChangeAction -> written += (op.targetValueId and INLINE_ID_MASK)
+      is RcValueStringChangeAction -> written += (op.targetValueId and INLINE_ID_MASK)
+      is RcValueFloatChangeAction -> written += (op.targetValueId and INLINE_ID_MASK)
+      is RcValueFloatExpressionChangeAction -> written += (op.targetValueId and INLINE_ID_MASK)
+      is RcValueIntegerExpressionChangeAction ->
+        written += (op.targetValueId and INLINE_ID_MASK.toLong()).toInt()
+      is RcTouchExpression -> written += (op.id and INLINE_ID_MASK)
+      is RcMapRcDocVariables ->
+        if (op.mode != RcMapRcDocVariables.MAP_FORWARD) {
+          written += (op.localId and INLINE_ID_MASK)
+        }
+      else -> Unit
+    }
+  }
+  return written
 }
 
 private fun isRemappableChildId(value: Int): Boolean =
@@ -364,9 +437,24 @@ private fun remapChildOperations(
   val writer = RcWireWriter()
   operations.forEach { RcDocumentCodec.encodeOperation(writer, it) }
   val bytes = writer.toByteArray()
-  return RcDocumentCodec.decodeOperations(
-    bytes,
-    RcWireLimits(maxBlobBytes = maxOf(bytes.size, RcWireLimits().maxBlobBytes)),
-    RcIdRemapper.expanding(mapping, reserved),
-  )
+  val decoded =
+    RcDocumentCodec.decodeOperations(
+      bytes,
+      RcWireLimits(maxBlobBytes = maxOf(bytes.size, RcWireLimits().maxBlobBytes)),
+      RcIdRemapper.expanding(mapping, reserved),
+    )
+  // Rewrite nested `"rc:embedded/<id>"` text references so they track remapped BinaryData ids.
+  return decoded.map { op ->
+    if (op is RcTextData && op.text.startsWith(RcDocLayout.EMBEDDED_URL_PREFIX)) {
+      val oldId = op.text.substring(RcDocLayout.EMBEDDED_URL_PREFIX.length).trim().toIntOrNull()
+      val newId = if (oldId != null) mapping[oldId] else null
+      if (newId != null && newId != oldId) {
+        op.copy(text = "${RcDocLayout.EMBEDDED_URL_PREFIX}$newId")
+      } else {
+        op
+      }
+    } else {
+      op
+    }
+  }
 }

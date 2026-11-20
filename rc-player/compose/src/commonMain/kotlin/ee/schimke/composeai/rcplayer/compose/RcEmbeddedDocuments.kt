@@ -72,9 +72,9 @@ public class RcEmbeddedDocuments(
   @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class, ExperimentalRcPlayerApi::class)
   private val urlFastCache =
     kotlin.concurrent.atomics.AtomicReference<
-      Map<RcEmbeddedUrlKey, Pair<ByteArray, RcPreparedDocument>>,
+      Pair<Int, Map<RcEmbeddedUrlKey, Pair<ByteArray, RcPreparedDocument>>>,
     >(
-      emptyMap(),
+      0 to emptyMap(),
     )
 
   /**
@@ -100,14 +100,29 @@ public class RcEmbeddedDocuments(
         extensions = if (extensions.extensions.isEmpty()) RcPlayerExtensions.None else extensions,
         display = if (activeCache.preprocessor != null) display else null,
       )
-    val cached = urlFastCache.load()[key]
-    if (cached != null && cached.first === bytes) return cached.second
+    val epochBefore = activeCache.evictionEpoch
+    val currentSnapshot = urlFastCache.load()
+    if (currentSnapshot.first == epochBefore) {
+      val cached = currentSnapshot.second[key]
+      if (cached != null && cached.first === bytes) return cached.second
+    }
     val prepared =
       runCatching { activeCache.prepareNow(bytes, extensions, display) }.getOrNull() ?: return null
+    val epochAfter = activeCache.evictionEpoch
+    val maxEntries = activeCache.maxEntries
+    if (maxEntries <= 0) {
+      urlFastCache.store(epochAfter to emptyMap())
+      return prepared
+    }
     while (true) {
       val snapshot = urlFastCache.load()
-      val next = snapshot + (key to (bytes to prepared))
-      if (urlFastCache.compareAndSet(snapshot, next)) break
+      val base = if (snapshot.first == epochAfter) snapshot.second else emptyMap()
+      val next = LinkedHashMap<RcEmbeddedUrlKey, Pair<ByteArray, RcPreparedDocument>>(base.size + 1)
+      next.putAll(base)
+      next.remove(key)
+      next[key] = bytes to prepared
+      while (next.size > maxEntries) next.remove(next.keys.first())
+      if (urlFastCache.compareAndSet(snapshot, epochAfter to next)) break
     }
     return prepared
   }

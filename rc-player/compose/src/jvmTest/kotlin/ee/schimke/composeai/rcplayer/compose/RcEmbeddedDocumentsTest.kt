@@ -711,6 +711,47 @@ class RcEmbeddedDocumentsTest {
   }
 
   @Test
+  fun urlFastCacheRespectsUnderlyingCacheClearAndEviction() {
+    val redBytes = solidColorDoc(40, 40, 0xFFFF0000.toInt())
+    val blueBytes = solidColorDoc(40, 40, 0xFF0000FF.toInt())
+    val cache = RcPreparedDocumentCache(maxDocuments = 1)
+    val display = RcDisplay(density = 1f)
+    val config =
+      RcEmbeddedDocuments(
+        resolver =
+          RcDocumentResolver { url ->
+            when (url) {
+              "doc://red" -> redBytes
+              "doc://blue" -> blueBytes
+              else -> null
+            }
+          },
+        cache = cache,
+      )
+
+    val red1 = config.resolvePrepared("doc://red", RcPlayerExtensions.None, display)
+    assertTrue(red1 != null)
+    assertEquals(1, cache.prepared)
+
+    // Clearing the underlying cache must invalidate urlFastCache so it re-prepares.
+    cache.clear()
+    val red2 = config.resolvePrepared("doc://red", RcPlayerExtensions.None, display)
+    assertTrue(red2 != null)
+    assertFalse(red1 === red2, "Expected urlFastCache invalidation after cache.clear()")
+    assertEquals(2, cache.prepared)
+
+    // Resolving a second distinct URL evicts doc://red from maxDocuments = 1 cache.
+    val blue = config.resolvePrepared("doc://blue", RcPlayerExtensions.None, display)
+    assertTrue(blue != null)
+    assertEquals(3, cache.prepared)
+
+    val red3 = config.resolvePrepared("doc://red", RcPlayerExtensions.None, display)
+    assertTrue(red3 != null)
+    assertFalse(red2 === red3, "Expected urlFastCache to drop evicted entry")
+    assertEquals(4, cache.prepared)
+  }
+
+  @Test
   fun forwardVariableMappingUpdatesDynamicallyWhenParentNamedValuesChange() {
     val childDoc =
       RcDocument(
