@@ -1113,6 +1113,8 @@ final class ee.schimke.composeai.rcplayer.compose/RcPreparedDocument { // ee.sch
     final val stateSeed // ee.schimke.composeai.rcplayer.compose/RcPreparedDocument.stateSeed|{}stateSeed[0]
         final fun <get-stateSeed>(): ee.schimke.composeai.rcplayer.runtime/RcPlayerStateSeed // ee.schimke.composeai.rcplayer.compose/RcPreparedDocument.stateSeed.<get-stateSeed>|<get-stateSeed>(){}[0]
 
+    final fun prepareEmbeddedDocuments(kotlin/Int = ...) // ee.schimke.composeai.rcplayer.compose/RcPreparedDocument.prepareEmbeddedDocuments|prepareEmbeddedDocuments(kotlin.Int){}[0]
+
     final object Companion { // ee.schimke.composeai.rcplayer.compose/RcPreparedDocument.Companion|null[0]
         final fun decode(kotlin/ByteArray): ee.schimke.composeai.rcplayer.compose/RcPreparedDocument // ee.schimke.composeai.rcplayer.compose/RcPreparedDocument.Companion.decode|decode(kotlin.ByteArray){}[0]
     }

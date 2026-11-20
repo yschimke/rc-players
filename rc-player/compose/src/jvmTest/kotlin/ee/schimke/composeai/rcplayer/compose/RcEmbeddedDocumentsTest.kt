@@ -641,4 +641,174 @@ class RcEmbeddedDocumentsTest {
       scene.close()
     }
   }
+
+  @Test
+  fun prepareEmbeddedDocumentsPreWarmsInlineChildren() {
+    val leafBytes = solidColorDoc(20, 20, 0xFF0000FF.toInt())
+    val midDoc =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 40, legacyHeight = 40),
+        operations =
+          listOf(
+            RcBinaryData(id = 20, type = RcBinaryData.TYPE_RC_DOC, flags = 0, data = leafBytes),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 20),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+    val midBytes = RcDocumentCodec.encode(midDoc)
+    val rootDoc =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 80, legacyHeight = 80),
+        operations =
+          listOf(
+            RcBinaryData(id = 50, type = RcBinaryData.TYPE_RC_DOC, flags = 0, data = midBytes),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 50),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+
+    val prepared = RcPreparedDocument(rootDoc)
+    prepared.prepareEmbeddedDocuments(maxDepth = 2)
+    // Pass empty bytes so a cache miss would fail to decode and return null.
+    val midPrepared = prepared.inlineEmbeddedDocument(50, ByteArray(0), RcPlayerExtensions.None)
+    assertTrue(midPrepared != null, "Expected depth-1 inline child to be pre-warmed")
+    assertTrue(
+      midPrepared.inlineEmbeddedDocument(20, ByteArray(0), RcPlayerExtensions.None) != null,
+      "Expected depth-2 inline grandchild to be pre-warmed",
+    )
+  }
+
+  @Test
+  fun urlFastCacheReusesPreparedDocForSameBytesAndUpdatesOnNewBytes() {
+    val redBytes = solidColorDoc(40, 40, 0xFFFF0000.toInt())
+    val blueBytes = solidColorDoc(40, 40, 0xFF0000FF.toInt())
+    var currentBytes = redBytes
+    val cache = RcPreparedDocumentCache()
+    val display = RcDisplay(density = 1f)
+    val config =
+      RcEmbeddedDocuments(
+        resolver = RcDocumentResolver { url -> if (url == "doc://swatch") currentBytes else null },
+        cache = cache,
+      )
+
+    val first = config.resolvePrepared("doc://swatch", RcPlayerExtensions.None, display)
+    val second = config.resolvePrepared("doc://swatch", RcPlayerExtensions.None, display)
+    assertTrue(first != null)
+    assertTrue(first === second, "Expected identical RcPreparedDocument instance on fast-path hit")
+
+    currentBytes = blueBytes
+    val third = config.resolvePrepared("doc://swatch", RcPlayerExtensions.None, display)
+    assertTrue(third != null)
+    assertFalse(first === third, "Expected cache refresh when resolver returns new ByteArray")
+  }
+
+  @Test
+  fun forwardVariableMappingUpdatesDynamicallyWhenParentNamedValuesChange() {
+    val childDoc =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 60, legacyHeight = 60),
+        operations =
+          listOf(
+            RcColorConstant(id = 70, argb = 0xFFFF0000.toInt()),
+            RcNamedVariable(id = 70, name = "USER:tint", type = RcNamedVariable.COLOR_TYPE),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcBoxLayout(
+              componentId = 3,
+              animationId = -1,
+              horizontalPositioning = 0,
+              verticalPositioning = 0,
+            ),
+            RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+            RcHeightModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+            RcBackgroundModifier(
+              flags = RcBackgroundModifier.COLOR_REFERENCE_FLAG,
+              colorId = 70,
+              reserved1 = 0,
+              reserved2 = 0,
+              red = RcFloatWord.literal(0f),
+              green = RcFloatWord.literal(0f),
+              blue = RcFloatWord.literal(0f),
+              alpha = RcFloatWord.literal(1f),
+              shapeType = 0,
+            ),
+            RcLayoutContent(componentId = 4),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+    val childBytes = RcDocumentCodec.encode(childDoc)
+    val parentDoc =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 80, legacyHeight = 80),
+        operations =
+          listOf(
+            RcColorConstant(id = 80, argb = 0xFF00FF00.toInt()),
+            RcNamedVariable(id = 80, name = "USER:parentTint", type = RcNamedVariable.COLOR_TYPE),
+            RcBinaryData(id = 50, type = RcBinaryData.TYPE_RC_DOC, flags = 0, data = childBytes),
+            RcTextData(id = 90, text = "USER:tint"),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcBoxLayout(
+              componentId = 3,
+              animationId = -1,
+              horizontalPositioning = 0,
+              verticalPositioning = 0,
+            ),
+            RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+            RcHeightModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+            RcLayoutContent(componentId = 4),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 50),
+            RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+            RcHeightModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcMapRcDocVariables(
+              10,
+              RcMapRcDocVariables.MAP_FORWARD,
+              localId = 80,
+              remoteTarget = 90,
+            ),
+          ),
+      )
+
+    val namedValues =
+      mutableStateMapOf<String, RcNamedValue>(
+        "USER:parentTint" to RcNamedValue.Color(0xFF00FF00.toInt()),
+      )
+    val scene =
+      ImageComposeScene(width = 80, height = 80, density = Density(1f)) {
+        CompositionLocalProvider(LocalRcEmbeddedDocuments provides RcEmbeddedDocuments()) {
+          RcComposePlayer(
+            document = parentDoc,
+            modifier = Modifier.size(80.dp, 80.dp),
+            namedValues = namedValues,
+          )
+        }
+      }
+    try {
+      val first = scene.render(0L)
+      assertEquals(0xFF00FF00.toInt(), pixelAt(first, 40, 40))
+
+      namedValues["USER:parentTint"] = RcNamedValue.Color(0xFF0000FF.toInt())
+      scene.render(16_000_000L)
+      val updated = scene.render(32_000_000L)
+      assertEquals(0xFF0000FF.toInt(), pixelAt(updated, 40, 40))
+    } finally {
+      scene.close()
+    }
+  }
 }

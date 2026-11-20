@@ -1017,6 +1017,8 @@ public final class ee/schimke/composeai/rcplayer/compose/RcPreparedDocument {
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)V
 	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public final fun getStateSeed ()Lee/schimke/composeai/rcplayer/runtime/RcPlayerStateSeed;
+	public final fun prepareEmbeddedDocuments (I)V
+	public static synthetic fun prepareEmbeddedDocuments$default (Lee/schimke/composeai/rcplayer/compose/RcPreparedDocument;IILjava/lang/Object;)V
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcPreparedDocument$Companion {

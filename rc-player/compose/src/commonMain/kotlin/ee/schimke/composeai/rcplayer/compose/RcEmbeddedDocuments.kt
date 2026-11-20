@@ -1,8 +1,6 @@
 package ee.schimke.composeai.rcplayer.compose
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
@@ -71,6 +69,49 @@ public class RcEmbeddedDocuments(
   public val isEnabled: Boolean
     get() = maxDepth > 0
 
+  @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class, ExperimentalRcPlayerApi::class)
+  private val urlFastCache =
+    kotlin.concurrent.atomics.AtomicReference<
+      Map<RcEmbeddedUrlKey, Pair<ByteArray, RcPreparedDocument>>,
+    >(
+      emptyMap(),
+    )
+
+  /**
+   * Resolves [url] via [resolver] and returns its [RcPreparedDocument], skipping byte hashing when
+   * [cache] is configured and [resolver] returns the same [ByteArray] instance as before.
+   */
+  @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class, ExperimentalRcPlayerApi::class)
+  internal fun resolvePrepared(
+    url: String,
+    extensions: RcPlayerExtensions,
+    display: RcDisplay,
+  ): RcPreparedDocument? {
+    val activeResolver = resolver ?: return null
+    val bytes = runCatching { activeResolver.resolve(url) }.getOrNull()
+    if (bytes == null || bytes.isEmpty()) return null
+    val activeCache = cache
+    if (activeCache == null) {
+      return runCatching { RcPreparedDocument(decodeCmpDocument(bytes, extensions)) }.getOrNull()
+    }
+    val key =
+      RcEmbeddedUrlKey(
+        url = url,
+        extensions = if (extensions.extensions.isEmpty()) RcPlayerExtensions.None else extensions,
+        display = if (activeCache.preprocessor != null) display else null,
+      )
+    val cached = urlFastCache.load()[key]
+    if (cached != null && cached.first === bytes) return cached.second
+    val prepared =
+      runCatching { activeCache.prepareNow(bytes, extensions, display) }.getOrNull() ?: return null
+    while (true) {
+      val snapshot = urlFastCache.load()
+      val next = snapshot + (key to (bytes to prepared))
+      if (urlFastCache.compareAndSet(snapshot, next)) break
+    }
+    return prepared
+  }
+
   override fun equals(other: Any?): Boolean =
     other is RcEmbeddedDocuments &&
       maxDepth == other.maxDepth &&
@@ -92,6 +133,13 @@ public class RcEmbeddedDocuments(
     public val Disabled: RcEmbeddedDocuments = RcEmbeddedDocuments(maxDepth = 0)
   }
 }
+
+@OptIn(ExperimentalRcPlayerApi::class)
+private data class RcEmbeddedUrlKey(
+  val url: String,
+  val extensions: RcPlayerExtensions,
+  val display: RcDisplay?,
+)
 
 /**
  * Controls whether [RcComposePlayer] loads and renders embedded Remote Compose documents
@@ -361,6 +409,10 @@ internal class RcEmbeddedVariableSync(private val mappings: List<RcMapRcDocVaria
   }
 }
 
+private val EmptyEmbeddedNamedValues: SnapshotStateMap<String, RcNamedValue> = mutableStateMapOf()
+private val NoOpEmbeddedEventSink: (RcPlayerEvent) -> Unit = {}
+private val NoOpEmbeddedSystemColors: (String) -> Color? = { null }
+
 @OptIn(ExperimentalRcPlayerApi::class)
 @Composable
 internal fun RenderEmbeddedDoc(
@@ -393,22 +445,9 @@ internal fun RenderEmbeddedDoc(
             .getOrNull()
         }
     } else if (url != null && config.resolver != null) {
-      val bytes =
-        remember(url, config.resolver) { runCatching { config.resolver.resolve(url) }.getOrNull() }
-      if (bytes == null || bytes.isEmpty()) {
-        null
-      } else {
-        val cache = config.cache
-        if (cache != null) {
-          val display = RcDisplay(density.density, density.fontScale)
-          remember(bytes, cache, extensions, display) {
-            runCatching { cache.prepareNow(bytes, extensions, display) }.getOrNull()
-          }
-        } else {
-          remember(bytes, extensions) {
-            runCatching { RcPreparedDocument(decodeCmpDocument(bytes, extensions)) }.getOrNull()
-          }
-        }
+      val display = RcDisplay(density.density, density.fontScale)
+      remember(url, config, extensions, display) {
+        config.resolvePrepared(url, extensions, display)
       }
     } else {
       null
@@ -432,49 +471,62 @@ internal fun RenderEmbeddedDoc(
   }
 
   val mappings = state.docVariableMappings(node.componentId)
-  val childNamedValues =
-    remember(childPrepared, node.componentId) { mutableStateMapOf<String, RcNamedValue>() }
-  val sync =
-    remember(childPrepared, node.componentId, mappings) { RcEmbeddedVariableSync(mappings) }
-  if (mappings.isNotEmpty()) {
-    sync.syncForward(state, childPrepared, childNamedValues)
+  val childNamedValues: SnapshotStateMap<String, RcNamedValue>
+  val childOnEvent: (RcPlayerEvent) -> Unit
+  val onChildStateChanged: ((RcPlayerState) -> Unit)?
+  if (mappings.isEmpty()) {
+    childNamedValues = EmptyEmbeddedNamedValues
+    childOnEvent = host?.onEvent ?: NoOpEmbeddedEventSink
+    onChildStateChanged = null
+  } else {
+    val hasValueMappings = mappings.any { it.mode != RcMapRcDocVariables.MAP_HOST_ACTION }
+    val hasReverseMappings = mappings.any {
+      it.mode == RcMapRcDocVariables.MAP_REVERSE || it.mode == RcMapRcDocVariables.MAP_BIDIRECTIONAL
+    }
+    val hasHostActionMappings = mappings.any { it.mode == RcMapRcDocVariables.MAP_HOST_ACTION }
+    val sync =
+      remember(childPrepared, node.componentId, mappings) { RcEmbeddedVariableSync(mappings) }
+    childNamedValues =
+      if (hasValueMappings) {
+        remember(childPrepared, node.componentId) { mutableStateMapOf<String, RcNamedValue>() }
+          .also { sync.syncForward(state, childPrepared, it) }
+      } else {
+        EmptyEmbeddedNamedValues
+      }
+    childOnEvent =
+      if (hasHostActionMappings) {
+        remember(state, sync, host, invalidate) {
+          { event ->
+            if (!sync.handleHostAction(state, event, invalidate)) {
+              host?.onEvent?.invoke(event)
+            }
+          }
+        }
+      } else {
+        host?.onEvent ?: NoOpEmbeddedEventSink
+      }
+    onChildStateChanged =
+      if (hasReverseMappings) {
+        remember(state, sync, childNamedValues, invalidate) {
+          { childState -> sync.syncReverse(state, childState, childNamedValues, invalidate) }
+        }
+      } else {
+        null
+      }
   }
 
-  val childOnEvent: (RcPlayerEvent) -> Unit =
-    remember(state, sync, host, invalidate) {
-      { event ->
-        if (!sync.handleHostAction(state, event, invalidate)) {
-          host?.onEvent?.invoke(event)
-        }
-      }
-    }
-  val onChildStateChanged: ((RcPlayerState) -> Unit)? =
-    if (
-      mappings.any {
-        it.mode == RcMapRcDocVariables.MAP_REVERSE ||
-          it.mode == RcMapRcDocVariables.MAP_BIDIRECTIONAL
-      }
-    ) {
-      remember(state, sync, childNamedValues, invalidate) {
-        { childState -> sync.syncReverse(state, childState, childNamedValues, invalidate) }
-      }
-    } else {
-      null
-    }
-
-  Box(sizedModifier.clipToBounds()) {
-    CompositionLocalProvider(LocalRcEmbeddedDepth provides depth + 1) {
-      RcComposePlayerResolved(
-        prepared = childPrepared,
-        modifier = Modifier.fillMaxSize(),
-        theme = theme,
-        namedValues = childNamedValues,
-        onEvent = childOnEvent,
-        typefaces = typefaces,
-        systemColors = host?.systemColors ?: { null },
-        customComponents = customComponents,
-        onStateChanged = onChildStateChanged,
-      )
-    }
+  CompositionLocalProvider(LocalRcEmbeddedDepth provides depth + 1) {
+    RcComposePlayerResolved(
+      prepared = childPrepared,
+      modifier = sizedModifier.clipToBounds(),
+      theme = theme,
+      namedValues = childNamedValues,
+      onEvent = childOnEvent,
+      typefaces = typefaces,
+      systemColors = host?.systemColors ?: NoOpEmbeddedSystemColors,
+      customComponents = customComponents,
+      onStateChanged = onChildStateChanged,
+      observeNamedValues = false,
+    )
   }
 }

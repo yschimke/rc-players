@@ -9,6 +9,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcComponentStart
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
+import ee.schimke.composeai.rcplayer.protocol.RcDocLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFlowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
@@ -91,6 +92,7 @@ internal fun RcOperation.isLayoutComponent(): Boolean =
     this is RcCollapsibleColumnLayout ||
     this is RcFitBoxLayout ||
     this is RcImageLayout ||
+    this is RcDocLayout ||
     this is RcTextLayout ||
     this is RcCoreText
 
@@ -111,6 +113,7 @@ internal fun RcOperation.declaredComponentId(): Int? =
     is RcCollapsibleColumnLayout -> componentId
     is RcFitBoxLayout -> componentId
     is RcImageLayout -> componentId
+    is RcDocLayout -> componentId
     is RcTextLayout -> componentId
     is RcComponentStart -> componentId
     is RcCoreText -> componentId.takeUnless { it == -1 }

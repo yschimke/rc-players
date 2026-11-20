@@ -20,6 +20,8 @@ import ee.schimke.composeai.rcplayer.compose.RcDocumentResolver
 import ee.schimke.composeai.rcplayer.compose.RcEmbeddedDocuments
 import ee.schimke.composeai.rcplayer.compose.RcPreparedDocument
 import ee.schimke.composeai.rcplayer.compose.RcPreparedDocumentCache
+import ee.schimke.composeai.rcplayer.edit.inlineEmbeddedDocuments
+import ee.schimke.composeai.rcplayer.edit.optimize
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBinaryData
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
@@ -62,6 +64,8 @@ public enum class RcEmbeddedFeedMode(public val description: String) {
   InlinePrepared("embedded inline (shared RcPreparedDocument)"),
   /** [InlinePrepared] with `LocalRcDeferLayoutAnimations` enabled. */
   InlineDeferred("embedded inline (shared, animations deferred)"),
+  /** Inline `BinaryData(TYPE_RC_DOC)` statically flattened via `inlineEmbeddedDocuments()`. */
+  InlineFlattened("embedded inline, statically inlined (rc-player-edit)"),
   /**
    * URL-resolved via `RcDocumentResolver` with no `RcPreparedDocumentCache` (decodes child per
    * card).
@@ -123,7 +127,12 @@ public class RcEmbeddedFeedProfile(
 
   private fun play(mode: RcEmbeddedFeedMode, frames: Int): List<Long> {
     val flatPrepared = RcPreparedDocument.decode(bundle.flatCardBytes)
-    val inlinePrepared = RcPreparedDocument.decode(bundle.inlineCardBytes)
+    val inlinePrepared =
+      RcPreparedDocument.decode(bundle.inlineCardBytes).apply { prepareEmbeddedDocuments() }
+    val flattenedPrepared =
+      RcPreparedDocument(
+        RcDocumentCodec.decode(bundle.inlineCardBytes).inlineEmbeddedDocuments().optimize(),
+      )
     val urlPrepared = RcPreparedDocument.decode(bundle.urlCardBytes)
     val resolver = RcDocumentResolver { url ->
       if (url == RcEmbeddedFeedDocuments.CHILD_URL) bundle.childBytes else null
@@ -140,6 +149,7 @@ public class RcEmbeddedFeedProfile(
         val embeddedConfig =
           when (mode) {
             RcEmbeddedFeedMode.FlatPrepared,
+            RcEmbeddedFeedMode.InlineFlattened,
             RcEmbeddedFeedMode.Disabled -> RcEmbeddedDocuments.Disabled
             RcEmbeddedFeedMode.InlineBytes,
             RcEmbeddedFeedMode.InlinePrepared,
@@ -177,6 +187,8 @@ public class RcEmbeddedFeedProfile(
                   RcEmbeddedFeedMode.InlineDeferred,
                   RcEmbeddedFeedMode.Disabled ->
                     RcComposePlayer(inlinePrepared, modifier, namedValues = values)
+                  RcEmbeddedFeedMode.InlineFlattened ->
+                    RcComposePlayer(flattenedPrepared, modifier, namedValues = values)
                   RcEmbeddedFeedMode.UrlUncached,
                   RcEmbeddedFeedMode.UrlCached,
                   RcEmbeddedFeedMode.UrlDeferred ->
