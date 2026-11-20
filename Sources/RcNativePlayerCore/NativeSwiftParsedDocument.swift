@@ -561,7 +561,11 @@ extension ParsedNode {
     func matches(_ word: UInt32) -> Bool {
       NativeSwiftFloatExpression.referenceID(word).map(ids.contains) ?? false
     }
-    if matches(widthWord) || matches(heightWord) || matches(spacingWord) { return true }
+    if matches(widthWord) || matches(heightWord) || matches(spacingWord)
+      || matches(borderWidthWord)
+    {
+      return true
+    }
     if matches(paddingWords.left) || matches(paddingWords.top) || matches(paddingWords.right)
       || matches(paddingWords.bottom)
     {
@@ -576,9 +580,36 @@ extension ParsedNode {
     if let offsetXWord, matches(offsetXWord) { return true }
     if let offsetYWord, matches(offsetYWord) { return true }
     if let zIndexWord, matches(zIndexWord) { return true }
+    if let visibilityID, ids.contains(visibilityID) { return true }
+    if let stateIndexID, ids.contains(stateIndexID) { return true }
+    if let scrollPositionWord, matches(scrollPositionWord) { return true }
+    if let scrollMaximumWord, matches(scrollMaximumWord) { return true }
+    if matches(marqueeRepeatDelayWord) || matches(marqueeInitialDelayWord)
+      || matches(marqueeSpacingWord)
+    {
+      return true
+    }
+    if let marqueeVelocityWord, matches(marqueeVelocityWord) { return true }
+    if let collapsiblePriorityWord, matches(collapsiblePriorityWord) { return true }
     if let text,
       matches(text.sizeWord) || matches(text.weightWord)
         || text.fontSettingValueWords.contains(where: matches)
+        || (text.autosize?.minimumWord.map(matches) ?? false)
+        || (text.autosize?.maximumWord.map(matches) ?? false)
+    {
+      return true
+    }
+    if let custom,
+      custom.properties.contains(where: { property in
+        switch property.dataType {
+        case NativeSwiftCustomPropertyType.floatProperty, NativeSwiftCustomPropertyType.floatReturn:
+          return matches(UInt32(bitPattern: Int32(truncatingIfNeeded: property.valueBits)))
+        case NativeSwiftCustomPropertyType.intIDProperty, NativeSwiftCustomPropertyType.intReturn:
+          return ids.contains(property.valueBits)
+        default:
+          return false
+        }
+      })
     {
       return true
     }
