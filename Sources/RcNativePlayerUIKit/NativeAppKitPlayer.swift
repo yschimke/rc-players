@@ -3564,9 +3564,18 @@ private final class NativeMacCanvasView: NSView {
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
   /// A newer frame's commands for the same component. Skips redrawing when the resolved commands
-  /// are unchanged (including NaN sentinels such as `DrawTextAnchored`'s unset `panY`).
+  /// are unchanged (including NaN sentinels such as `DrawTextAnchored`'s unset `panY`), unless the
+  /// canvas writes or reads a shared offscreen target whose pixels another component may have
+  /// updated.
   func update(commands: [NativeMacDrawCommand]) {
-    guard self.commands != commands else { return }
+    let usesOffscreenTarget =
+      offscreenTargets.hasAnyTarget
+      && commands.contains { command in
+        command.offscreenTarget != nil
+          || (command.image.map { offscreenTargets.contains($0.imageID) } ?? false)
+          || (command.textureImageID.map { offscreenTargets.contains($0) } ?? false)
+      }
+    guard usesOffscreenTarget || self.commands != commands else { return }
     self.commands = commands
     needsDisplay = true
   }
