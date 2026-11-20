@@ -3012,7 +3012,16 @@ enum NativeSwiftDocumentDecoder {
       if matrixExpressions.values.contains(where: { references(ids, in: $0.words) }) {
         return true
       }
-      if dynamicFloatLists.values.contains(where: { references(ids, in: [$0.lengthWord]) }) {
+      if floatLists.values.contains(where: { references(ids, in: $0) }) { return true }
+      if dynamicFloatLists.values.contains(where: { list in
+        references(ids, in: [list.lengthWord])
+          || list.updates.contains { references(ids, in: [$0.index, $0.value]) }
+      }) {
+        return true
+      }
+      if clickAreas.contains(where: {
+        references(ids, in: [$0.left, $0.top, $0.right, $0.bottom])
+      }) {
         return true
       }
       if references(ids, in: wakeWords) { return true }
