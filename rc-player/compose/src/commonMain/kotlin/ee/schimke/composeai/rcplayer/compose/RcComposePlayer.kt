@@ -1209,6 +1209,9 @@ internal fun RcComposePlayerResolved(
           document.header.height.coerceAtLeast(0).toDp(),
         )
       }
+    if (latestOnStateChanged != null) {
+      SideEffect { latestOnStateChanged?.invoke(state) }
+    }
     Canvas(redrawModifier.defaultMinSize(documentSize.width, documentSize.height)) {
       val width = document.header.width.coerceAtLeast(1)
       val height = document.header.height.coerceAtLeast(1)
@@ -1251,6 +1254,7 @@ internal fun RcComposePlayerResolved(
             offscreenTargets = offscreenTargets,
           )
         }
+        latestOnStateChanged?.invoke(state)
       }
     }
   }

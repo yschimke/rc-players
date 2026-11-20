@@ -544,4 +544,101 @@ class RcEmbeddedDocumentsTest {
       scene.close()
     }
   }
+
+  @Test
+  fun reverseVariableMappingSyncsFromCanvasOnlyChild() {
+    // Canvas-only child (no RcRootLayout) exposes a named color "USER:childInk" = blue.
+    val canvasChild =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 20, legacyHeight = 20),
+        operations =
+          listOf(
+            RcColorConstant(id = 42, argb = 0xFF0000FF.toInt()),
+            RcNamedVariable(id = 42, type = RcNamedVariable.COLOR_TYPE, name = "USER:childInk"),
+          ),
+      )
+    val childBytes = RcDocumentCodec.encode(canvasChild)
+
+    // Parent starts with red ink (id 62) and reverse-maps child's "USER:childInk" into id 62.
+    val parent =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 100, legacyHeight = 60),
+        operations =
+          listOf(
+            RcBinaryData(id = 50, type = RcBinaryData.TYPE_RC_DOC, flags = 0, data = childBytes),
+            RcTextData(id = 60, text = "MMMM"),
+            RcTextData(id = 61, text = "USER:childInk"),
+            RcColorConstant(id = 62, argb = 0xFFFF0000.toInt()),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcBoxLayout(
+              componentId = 3,
+              animationId = -1,
+              horizontalPositioning = 0,
+              verticalPositioning = 0,
+            ),
+            RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+            RcHeightModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+            bg(0xFFFFFFFF.toInt()),
+            RcLayoutContent(componentId = 4),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 50),
+            RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
+            RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcTextLayout(
+              componentId = 11,
+              animationId = -1,
+              textId = 60,
+              color = 62,
+              fontSize = RcFloatWord.literal(24f),
+              fontStyle = 0,
+              fontWeight = RcFloatWord.literal(700f),
+              fontFamilyId = -1,
+              textAlignAndFlags =
+                (RcTextLayout.FLAG_DYNAMIC_COLOR shl 16) or RcTextLayout.ALIGN_LEFT,
+              overflow = 1,
+              maxLines = 1,
+            ),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcMapRcDocVariables(
+              10,
+              RcMapRcDocVariables.MAP_REVERSE,
+              localId = 62,
+              remoteTarget = 61,
+            ),
+          ),
+      )
+
+    val scene =
+      ImageComposeScene(width = 100, height = 60, density = Density(1f)) {
+        CompositionLocalProvider(LocalRcEmbeddedDocuments provides RcEmbeddedDocuments()) {
+          RcComposePlayer(document = parent, modifier = Modifier.size(100.dp, 60.dp))
+        }
+      }
+    try {
+      scene.render(0L)
+      val image = scene.render(16_000_000L)
+      var hasBlueGlyph = false
+      for (y in 0 until 60) {
+        for (x in 0 until 100) {
+          val c = pixelAt(image, x, y)
+          val r = (c ushr 16) and 0xff
+          val g = (c ushr 8) and 0xff
+          val b = c and 0xff
+          if (b > 180 && r < 60 && g < 60) {
+            hasBlueGlyph = true
+            break
+          }
+        }
+        if (hasBlueGlyph) break
+      }
+      assertTrue(hasBlueGlyph, "Expected MAP_REVERSE from canvas-only child to update parent color")
+    } finally {
+      scene.close()
+    }
+  }
 }
