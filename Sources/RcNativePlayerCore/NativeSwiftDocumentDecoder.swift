@@ -2990,6 +2990,25 @@ enum NativeSwiftDocumentDecoder {
         return true
       }
       if textFromFloats.contains(where: { references(ids, in: [$0.value]) }) { return true }
+      if textOperations.contains(where: { operation in
+        switch operation {
+        case .fromFloat(let op): return references(ids, in: [op.value])
+        case .merge: return false
+        case .lookupInt(let op): return ids.contains(op.indexID)
+        case .lookup(let op): return references(ids, in: [op.index])
+        case .transform(let op), .subtext(let op):
+          return references(ids, in: [op.start, op.length])
+        }
+      }) {
+        return true
+      }
+      if idLookups.contains(where: { references(ids, in: [$0.index]) }) { return true }
+      if floatListUpdates.values.contains(where: { updates in
+        updates.contains { references(ids, in: [$0.index, $0.value]) }
+      }) {
+        return true
+      }
+      if matrixVectorMath.contains(where: { references(ids, in: $0.inputWords) }) { return true }
       return colorExpressions.contains { references(ids, in: $0.floatWords) }
     }
     // A moving clock means the frame has to be re-resolved continuously.

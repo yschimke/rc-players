@@ -3703,6 +3703,8 @@ private final class FailureLog: @unchecked Sendable {
     let text = try #require(box.children.first?.children.first?.text)
     #expect(text.weight == 400)
     #expect(text.style == NativeSwiftFontStyle.italic)
+  }
+}
 
 @Suite struct NativeSwiftPreparedDocumentTests {
   @Test func preparedDocumentBacksIndependentSessions() throws {
