@@ -56,6 +56,8 @@ fileprivate enum ApplePlayerBenchmark {
     let medianFirstPresentationMilliseconds: Double
     let animation: Animation
     let scroll: Scroll
+    let feedArrival: FeedArrival
+    let documentReplacement: DocumentReplacement
   }
 
   fileprivate struct Animation: Codable {
@@ -70,6 +72,18 @@ fileprivate enum ApplePlayerBenchmark {
     let samples: Int
   }
 
+  fileprivate struct FeedArrival: Codable {
+    let cardCount: Int
+    let iterations: Int
+    let medianTotalMilliseconds: Double
+    let medianPerCardMilliseconds: Double
+  }
+
+  fileprivate struct DocumentReplacement: Codable {
+    let iterations: Int
+    let medianMilliseconds: Double
+  }
+
   fileprivate struct Report: Codable {
     let schemaVersion: Int
     let sourceRevision: String
@@ -81,7 +95,10 @@ fileprivate enum ApplePlayerBenchmark {
   }
 
   private static let iterations = 7
+  private static let feedIterations = 3
+  private static let feedCardCount = 12
   private static let playerSize = CGSize(width: 640, height: 480)
+  private static let feedCardSize = CGSize(width: 360, height: 160)
 
   fileprivate static func run() async throws -> Report {
     guard
@@ -104,7 +121,10 @@ fileprivate enum ApplePlayerBenchmark {
         medianPlayerStartupMilliseconds: median(startup),
         medianFirstPresentationMilliseconds: median(firstPresentation),
         animation: try await animationSample(player, data: animationData),
-        scroll: try await scrollSample(player, data: startupData))
+        scroll: try await scrollSample(player, data: startupData),
+        feedArrival: try await feedArrivalSample(player, data: startupData),
+        documentReplacement: try await documentReplacementSample(
+          player, first: startupData, second: animationData))
     }
     return Report(
       schemaVersion: 1,
@@ -112,7 +132,7 @@ fileprivate enum ApplePlayerBenchmark {
       device: ProcessInfo.processInfo.environment["RC_BENCHMARK_DEVICE"] ?? UIDevice.current.model,
       systemVersion: UIDevice.current.systemVersion,
       iterations: iterations,
-      methodology: "Release app; same booted simulator and process; player creation through the first CADisplayLink callback; animation records 120 display-link intervals; scroll uses UIScrollView's animated content-offset pipeline. Directional simulator evidence only.",
+      methodology: "Release app; same booted simulator and process; player creation through the first CADisplayLink callback; animation records 120 display-link intervals; scroll uses UIScrollView's animated content-offset pipeline; feedArrival constructs and lays out 12 cards in a vertical feed; documentReplacement alternates two documents on one retained view. Directional simulator evidence only.",
       results: results)
   }
 
@@ -166,6 +186,78 @@ fileprivate enum ApplePlayerBenchmark {
       scroll.removeFromSuperview()
     }
     return Scroll(medianCompletionMilliseconds: median(samples), samples: samples.count)
+  }
+
+  private static func feedArrivalSample(_ player: Player, data: Data) async throws -> FeedArrival {
+    let host = benchmarkHost()
+    var totals: [Double] = []
+    for _ in 0..<feedIterations {
+      let container = UIScrollView(frame: host.bounds)
+      container.contentSize = CGSize(
+        width: feedCardSize.width, height: feedCardSize.height * CGFloat(feedCardCount))
+      host.addSubview(container)
+      let started = CACurrentMediaTime()
+      var cards: [UIView] = []
+      cards.reserveCapacity(feedCardCount)
+      for index in 0..<feedCardCount {
+        let card = try makePlayer(player, data: data)
+        card.frame = CGRect(
+          x: 0, y: CGFloat(index) * feedCardSize.height,
+          width: feedCardSize.width, height: feedCardSize.height)
+        container.addSubview(card)
+        cards.append(card)
+      }
+      container.setNeedsLayout()
+      container.layoutIfNeeded()
+      for card in cards {
+        try await waitForPlayer(player, view: card)
+      }
+      _ = await DisplayLinkSampler.nextFrame()
+      totals.append(milliseconds(since: started))
+      container.removeFromSuperview()
+    }
+    let total = median(totals)
+    return FeedArrival(
+      cardCount: feedCardCount,
+      iterations: feedIterations,
+      medianTotalMilliseconds: total,
+      medianPerCardMilliseconds: total / Double(max(feedCardCount, 1)))
+  }
+
+  private static func documentReplacementSample(
+    _ player: Player, first: Data, second: Data
+  ) async throws -> DocumentReplacement {
+    let host = benchmarkHost()
+    let view = try makePlayer(player, data: first)
+    host.addSubview(view)
+    view.frame = CGRect(origin: .zero, size: playerSize)
+    view.setNeedsLayout()
+    view.layoutIfNeeded()
+    try await waitForPlayer(player, view: view)
+    _ = await DisplayLinkSampler.nextFrame()
+
+    var samples: [Double] = []
+    for step in 0..<iterations {
+      let nextData = step.isMultiple(of: 2) ? second : first
+      let started = CACurrentMediaTime()
+      replaceDocument(in: view, player: player, data: nextData)
+      view.setNeedsLayout()
+      view.layoutIfNeeded()
+      try await waitForPlayer(player, view: view)
+      _ = await DisplayLinkSampler.nextFrame()
+      samples.append(milliseconds(since: started))
+    }
+    view.removeFromSuperview()
+    return DocumentReplacement(iterations: iterations, medianMilliseconds: median(samples))
+  }
+
+  private static func replaceDocument(in view: UIView, player: Player, data: Data) {
+    switch player {
+    case .cmp:
+      (view as? BenchmarkComposeContainer)?.load(data)
+    case .nativeUIKit:
+      (view as? RemoteComposeNativePlayerView)?.load(data)
+    }
   }
 
   private static func benchmarkHost() -> UIView {
@@ -225,6 +317,14 @@ private final class BenchmarkComposeContainer: UIView {
       player.topAnchor.constraint(equalTo: topAnchor),
       player.bottomAnchor.constraint(equalTo: bottomAnchor),
     ])
+  }
+
+  func load(_ data: Data) {
+    controller.update(
+      data: data,
+      configuration: .init(theme: .light, compatibility: .compatible, background: .opaque),
+      onEvent: { _ in },
+      onError: { _ in })
   }
 
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }

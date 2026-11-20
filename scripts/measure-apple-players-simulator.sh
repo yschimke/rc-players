@@ -71,5 +71,10 @@ for result in report["results"].values():
     assert result["animation"]["p95FrameIntervalMilliseconds"] > 0
     assert result["scroll"]["samples"] == 3
     assert result["scroll"]["medianCompletionMilliseconds"] > 0
+    assert result["feedArrival"]["cardCount"] == 12
+    assert result["feedArrival"]["medianTotalMilliseconds"] > 0
+    assert result["feedArrival"]["medianPerCardMilliseconds"] > 0
+    assert result["documentReplacement"]["iterations"] >= 5
+    assert result["documentReplacement"]["medianMilliseconds"] > 0
 PY
 echo "Apple player simulator benchmark: $output"

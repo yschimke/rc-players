@@ -120,6 +120,7 @@ jobs:
               scripts/check-native-swift-ios-tests.sh \
               scripts/measure-native-uikit-simulator.sh \
               scripts/measure-apple-players-macos.sh \
+              scripts/measure-apple-players-simulator.sh \
               scripts/native-uikit-comparison \
               scripts/check-native-uikit-package.sh \
               scripts/check-native-uikit-profile.sh \
@@ -816,6 +817,12 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/measure-native-uikit-simulator.sh
 
+      - name: Compare Apple player iOS simulator benchmarks
+        if: needs.apple-changes.outputs.required == 'true' && github.event_name != 'push'
+        env:
+          RC_APPLE_PLAYER_BENCHMARK_OUTPUT: ${{ github.workspace }}/build/apple-player-simulator-benchmark.json
+        run: scripts/measure-apple-players-simulator.sh
+
       # This is intentionally an evidence lane rather than a timing gate. Both implementations run
       # from the packaged Release macOS app on the runner's Apple-silicon host; no simulator is
       # involved, and host load still makes the numbers unsuitable as a product SLA.
@@ -871,6 +878,7 @@ jobs:
           path: |
             build/native-swift-core-benchmark.json
             build/native-uikit-evidence.json
+            build/apple-player-simulator-benchmark.json
             build/apple-player-benchmark.json
             build/native-appkit-evidence.json
             build/native-fuzz-failures
