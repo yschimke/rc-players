@@ -72,6 +72,7 @@ internal fun rcTouchExpressions(nodes: List<RcLinkedNode>): Map<Int?, List<RcTou
               is RcTextLayout -> operation.componentId
               is RcCoreText -> operation.componentId
               is RcImageLayout -> operation.componentId
+              is ee.schimke.composeai.rcplayer.protocol.RcDocLayout -> operation.componentId
               is RcCustomLayout -> operation.componentId
               else -> owner
             }

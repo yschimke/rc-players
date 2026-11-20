@@ -106,6 +106,32 @@ public class RcPreparedDocument(public val document: RcDocument) {
       emptyBitmaps.forEach { images[it.imageId] = ImageBitmap(it.width, it.height) }
     }
 
+  /**
+   * Named variables declared by [document], mapped to their wire type (`RcNamedVariable.*_TYPE`).
+   */
+  internal val namedVariableTypes: Map<String, Int> =
+    document.operations
+      .filterIsInstance<ee.schimke.composeai.rcplayer.protocol.RcNamedVariable>()
+      .associate { it.name to it.type }
+
+  @OptIn(ExperimentalRcPlayerApi::class)
+  private val inlineEmbeddedDocs =
+    mutableMapOf<Pair<Int, RcPlayerExtensions>, RcPreparedDocument?>()
+
+  /**
+   * Prepares an inline `BinaryData(TYPE_RC_DOC)` payload once and caches it on this
+   * [RcPreparedDocument] so every card sharing the parent also shares the prepared child.
+   */
+  @OptIn(ExperimentalRcPlayerApi::class)
+  internal fun inlineEmbeddedDocument(
+    binaryDataId: Int,
+    data: ByteArray,
+    extensions: RcPlayerExtensions,
+  ): RcPreparedDocument? =
+    inlineEmbeddedDocs.getOrPut(binaryDataId to extensions) {
+      runCatching { RcPreparedDocument(decodeCmpDocument(data, extensions)) }.getOrNull()
+    }
+
   public companion object {
     /**
      * Decodes [bytes] and prepares the result. A document that uses player extensions is decoded

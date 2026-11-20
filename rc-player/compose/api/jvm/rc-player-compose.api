@@ -181,6 +181,10 @@ public final class ee/schimke/composeai/rcplayer/compose/RcDisplay {
 	public fun toString ()Ljava/lang/String;
 }
 
+public abstract interface class ee/schimke/composeai/rcplayer/compose/RcDocumentResolver {
+	public abstract fun resolve (Ljava/lang/String;)[B
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcDownloadableFontRequest {
 	public static final field $stable I
 	public fun <init> (Ljava/lang/String;)V
@@ -221,6 +225,29 @@ public final class ee/schimke/composeai/rcplayer/compose/RcDrawObserver$DefaultI
 
 public final class ee/schimke/composeai/rcplayer/compose/RcDrawObserverKt {
 	public static final fun getLocalRcDrawObserver ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcEmbeddedDocuments {
+	public static final field $stable I
+	public static final field Companion Lee/schimke/composeai/rcplayer/compose/RcEmbeddedDocuments$Companion;
+	public static final field DEFAULT_MAX_DEPTH I
+	public fun <init> ()V
+	public fun <init> (ILee/schimke/composeai/rcplayer/compose/RcDocumentResolver;Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;)V
+	public synthetic fun <init> (ILee/schimke/composeai/rcplayer/compose/RcDocumentResolver;Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCache ()Lee/schimke/composeai/rcplayer/compose/RcPreparedDocumentCache;
+	public final fun getMaxDepth ()I
+	public final fun getResolver ()Lee/schimke/composeai/rcplayer/compose/RcDocumentResolver;
+	public fun hashCode ()I
+	public final fun isEnabled ()Z
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcEmbeddedDocuments$Companion {
+	public final fun getDisabled ()Lee/schimke/composeai/rcplayer/compose/RcEmbeddedDocuments;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcEmbeddedDocumentsKt {
+	public static final fun getLocalRcEmbeddedDocuments ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcExtensionDrawScope {

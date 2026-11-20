@@ -46,6 +46,10 @@ abstract fun interface ee.schimke.composeai.rcplayer.compose/RcComponentCoordina
     open fun onTextLaidOut(kotlin/Int, androidx.compose.ui.layout/LayoutCoordinates, androidx.compose.ui.text/TextLayoutResult) // ee.schimke.composeai.rcplayer.compose/RcComponentCoordinatesListener.onTextLaidOut|onTextLaidOut(kotlin.Int;androidx.compose.ui.layout.LayoutCoordinates;androidx.compose.ui.text.TextLayoutResult){}[0]
 }
 
+abstract fun interface ee.schimke.composeai.rcplayer.compose/RcDocumentResolver { // ee.schimke.composeai.rcplayer.compose/RcDocumentResolver|null[0]
+    abstract fun resolve(kotlin/String): kotlin/ByteArray? // ee.schimke.composeai.rcplayer.compose/RcDocumentResolver.resolve|resolve(kotlin.String){}[0]
+}
+
 abstract fun interface ee.schimke.composeai.rcplayer.compose/RcDrawObserver { // ee.schimke.composeai.rcplayer.compose/RcDrawObserver|null[0]
     abstract fun onTextRun(ee.schimke.composeai.rcplayer.compose/RcTextRun) // ee.schimke.composeai.rcplayer.compose/RcDrawObserver.onTextRun|onTextRun(ee.schimke.composeai.rcplayer.compose.RcTextRun){}[0]
     open fun onConditional(ee.schimke.composeai.rcplayer.compose/RcBranch) // ee.schimke.composeai.rcplayer.compose/RcDrawObserver.onConditional|onConditional(ee.schimke.composeai.rcplayer.compose.RcBranch){}[0]
@@ -284,6 +288,30 @@ final class ee.schimke.composeai.rcplayer.compose/RcDownloadedFont { // ee.schim
         final fun <get-family>(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcDownloadedFont.family.<get-family>|<get-family>(){}[0]
     final val identity // ee.schimke.composeai.rcplayer.compose/RcDownloadedFont.identity|{}identity[0]
         final fun <get-identity>(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcDownloadedFont.identity.<get-identity>|<get-identity>(){}[0]
+}
+
+final class ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments { // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments|null[0]
+    constructor <init>(kotlin/Int = ..., ee.schimke.composeai.rcplayer.compose/RcDocumentResolver? = ..., ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache? = ...) // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.<init>|<init>(kotlin.Int;ee.schimke.composeai.rcplayer.compose.RcDocumentResolver?;ee.schimke.composeai.rcplayer.compose.RcPreparedDocumentCache?){}[0]
+
+    final val cache // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.cache|{}cache[0]
+        final fun <get-cache>(): ee.schimke.composeai.rcplayer.compose/RcPreparedDocumentCache? // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.cache.<get-cache>|<get-cache>(){}[0]
+    final val isEnabled // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.isEnabled|{}isEnabled[0]
+        final fun <get-isEnabled>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.isEnabled.<get-isEnabled>|<get-isEnabled>(){}[0]
+    final val maxDepth // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.maxDepth|{}maxDepth[0]
+        final fun <get-maxDepth>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.maxDepth.<get-maxDepth>|<get-maxDepth>(){}[0]
+    final val resolver // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.resolver|{}resolver[0]
+        final fun <get-resolver>(): ee.schimke.composeai.rcplayer.compose/RcDocumentResolver? // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.resolver.<get-resolver>|<get-resolver>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.hashCode|hashCode(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.Companion|null[0]
+        final const val DEFAULT_MAX_DEPTH // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.Companion.DEFAULT_MAX_DEPTH|{}DEFAULT_MAX_DEPTH[0]
+            final fun <get-DEFAULT_MAX_DEPTH>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.Companion.DEFAULT_MAX_DEPTH.<get-DEFAULT_MAX_DEPTH>|<get-DEFAULT_MAX_DEPTH>(){}[0]
+
+        final val Disabled // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.Companion.Disabled|{}Disabled[0]
+            final fun <get-Disabled>(): ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments // ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments.Companion.Disabled.<get-Disabled>|<get-Disabled>(){}[0]
+    }
 }
 
 final class ee.schimke.composeai.rcplayer.compose/RcFontAxis { // ee.schimke.composeai.rcplayer.compose/RcFontAxis|null[0]
@@ -1178,6 +1206,8 @@ final val ee.schimke.composeai.rcplayer.compose/LocalRcDeferLayoutAnimations // 
     final fun <get-LocalRcDeferLayoutAnimations>(): androidx.compose.runtime/ProvidableCompositionLocal<kotlin/Boolean> // ee.schimke.composeai.rcplayer.compose/LocalRcDeferLayoutAnimations.<get-LocalRcDeferLayoutAnimations>|<get-LocalRcDeferLayoutAnimations>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcDrawObserver // ee.schimke.composeai.rcplayer.compose/LocalRcDrawObserver|{}LocalRcDrawObserver[0]
     final fun <get-LocalRcDrawObserver>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcDrawObserver?> // ee.schimke.composeai.rcplayer.compose/LocalRcDrawObserver.<get-LocalRcDrawObserver>|<get-LocalRcDrawObserver>(){}[0]
+final val ee.schimke.composeai.rcplayer.compose/LocalRcEmbeddedDocuments // ee.schimke.composeai.rcplayer.compose/LocalRcEmbeddedDocuments|{}LocalRcEmbeddedDocuments[0]
+    final fun <get-LocalRcEmbeddedDocuments>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcEmbeddedDocuments> // ee.schimke.composeai.rcplayer.compose/LocalRcEmbeddedDocuments.<get-LocalRcEmbeddedDocuments>|<get-LocalRcEmbeddedDocuments>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcFlattenLayout // ee.schimke.composeai.rcplayer.compose/LocalRcFlattenLayout|{}LocalRcFlattenLayout[0]
     final fun <get-LocalRcFlattenLayout>(): androidx.compose.runtime/ProvidableCompositionLocal<kotlin/Boolean> // ee.schimke.composeai.rcplayer.compose/LocalRcFlattenLayout.<get-LocalRcFlattenLayout>|<get-LocalRcFlattenLayout>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcImageLoader // ee.schimke.composeai.rcplayer.compose/LocalRcImageLoader|{}LocalRcImageLoader[0]
@@ -1222,6 +1252,7 @@ final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop[0]
+final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcEmbeddedDocuments$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcEmbeddedDocuments$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcEmbeddedDocuments$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Group$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Group$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcFlat_Group$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Hole$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Hole$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcFlat_Hole$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Text$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Text$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcFlat_Text$stableprop[0]
@@ -1310,6 +1341,7 @@ final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcDisplay$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcEmbeddedDocuments$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcEmbeddedDocuments$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcEmbeddedDocuments$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Group$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Group$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcFlat_Group$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Hole$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Hole$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcFlat_Hole$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Text$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFlat_Text$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcFlat_Text$stableprop_getter(){}[0]

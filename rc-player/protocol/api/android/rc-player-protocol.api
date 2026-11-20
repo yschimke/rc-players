@@ -232,6 +232,25 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcBackgroundModifier :
 public final class ee/schimke/composeai/rcplayer/protocol/RcBackgroundModifier$Companion {
 }
 
+public final class ee/schimke/composeai/rcplayer/protocol/RcBinaryData : ee/schimke/composeai/rcplayer/protocol/RcOperation {
+	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcBinaryData$Companion;
+	public static final field MAX_BYTES I
+	public static final field TYPE_RAW I
+	public static final field TYPE_RC_DOC I
+	public fun <init> (III[B)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getData ()[B
+	public final fun getFlags ()I
+	public final fun getId ()I
+	public fun getOpcode ()I
+	public final fun getType ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcBinaryData$Companion {
+}
+
 public final class ee/schimke/composeai/rcplayer/protocol/RcBitmapData : ee/schimke/composeai/rcplayer/protocol/RcOperation {
 	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcBitmapData$Companion;
 	public static final field ENCODING_COMPONENT_OFFSCREEN_BUFFER I
@@ -887,6 +906,27 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcDimensionType {
 	public static final field INTRINSIC_MIN I
 	public static final field WEIGHT I
 	public static final field WRAP I
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcDocLayout : ee/schimke/composeai/rcplayer/protocol/RcOperation {
+	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcDocLayout$Companion;
+	public static final field EMBEDDED_URL_PREFIX Ljava/lang/String;
+	public fun <init> (III)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun copy (III)Lee/schimke/composeai/rcplayer/protocol/RcDocLayout;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/protocol/RcDocLayout;IIIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocLayout;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAnimationId ()I
+	public final fun getComponentId ()I
+	public fun getOpcode ()I
+	public final fun getUrlId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcDocLayout$Companion {
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcDocument {
@@ -2381,6 +2421,32 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcMacroForEach : ee/sc
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/protocol/RcMapRcDocVariables : ee/schimke/composeai/rcplayer/protocol/RcOperation {
+	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcMapRcDocVariables$Companion;
+	public static final field MAP_BIDIRECTIONAL I
+	public static final field MAP_FORWARD I
+	public static final field MAP_HOST_ACTION I
+	public static final field MAP_REVERSE I
+	public fun <init> (IIII)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun component4 ()I
+	public final fun copy (IIII)Lee/schimke/composeai/rcplayer/protocol/RcMapRcDocVariables;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/protocol/RcMapRcDocVariables;IIIIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcMapRcDocVariables;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDocId ()I
+	public final fun getLocalId ()I
+	public final fun getMode ()I
+	public fun getOpcode ()I
+	public final fun getRemoteTarget ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcMapRcDocVariables$Companion {
+}
+
 public final class ee/schimke/composeai/rcplayer/protocol/RcMarqueeModifier : ee/schimke/composeai/rcplayer/protocol/RcOperation {
 	public synthetic fun <init> (IIIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
@@ -2585,6 +2651,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOpcodes {
 	public static final field ATTRIBUTE_IMAGE I
 	public static final field ATTRIBUTE_TEXT I
 	public static final field ATTRIBUTE_TIME I
+	public static final field BINARY_DATA I
 	public static final field BITMAP_TEXT_MEASURE I
 	public static final field CANVAS_OPERATIONS I
 	public static final field CLICK_AREA I
@@ -2662,6 +2729,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOpcodes {
 	public static final field LAYOUT_FIT_BOX I
 	public static final field LAYOUT_FLOW I
 	public static final field LAYOUT_IMAGE I
+	public static final field LAYOUT_RC_DOC I
 	public static final field LAYOUT_ROOT I
 	public static final field LAYOUT_ROW I
 	public static final field LAYOUT_STATE I
@@ -2672,6 +2740,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOpcodes {
 	public static final field MACRO_CALL I
 	public static final field MACRO_DEFINE I
 	public static final field MACRO_FOR_EACH I
+	public static final field MAP_RC_DOC_VARIABLES I
 	public static final field MATRIX_CONSTANT I
 	public static final field MATRIX_EXPRESSION I
 	public static final field MATRIX_FROM_MESH_2D I

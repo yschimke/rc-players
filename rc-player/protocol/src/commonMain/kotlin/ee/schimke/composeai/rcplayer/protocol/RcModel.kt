@@ -825,6 +825,46 @@ public class RcFontData(public val fontId: Int, public val type: Int, public val
     "RcFontData(fontId=$fontId, type=$type, data=${data.size} bytes)"
 }
 
+/**
+ * Opaque binary blob stored in the document under [id] (AndroidX alpha24 `BinaryData`).
+ *
+ * [TYPE_RC_DOC] carries a complete serialized Remote Compose document that [RcDocLayout] can embed
+ * directly by id or via `rc:embedded/<id>`.
+ */
+public class RcBinaryData(
+  public val id: Int,
+  public val type: Int,
+  public val flags: Int,
+  public val data: ByteArray,
+) : RcOperation {
+  override val opcode: Int = RcOpcodes.BINARY_DATA
+
+  override fun equals(other: Any?): Boolean =
+    other is RcBinaryData &&
+      id == other.id &&
+      type == other.type &&
+      flags == other.flags &&
+      data.contentEquals(other.data)
+
+  override fun hashCode(): Int = 31 * (31 * (31 * id + type) + flags) + data.contentHashCode()
+
+  override fun toString(): String =
+    "RcBinaryData(id=$id, type=$type, flags=$flags, data=${data.size} bytes)"
+
+  public companion object {
+    /** Uninterpreted bytes. */
+    public const val TYPE_RAW: Int = 0
+
+    /** A complete serialized Remote Compose document (header included). */
+    public const val TYPE_RC_DOC: Int = 1
+
+    /**
+     * Maximum size of a [RcBinaryData] blob in bytes (matches AndroidX `Limits.MAX_BINARY_DATA`).
+     */
+    public const val MAX_BYTES: Int = 100_000
+  }
+}
+
 public data class RcDrawBitmap(
   val imageId: Int,
   val left: RcFloatWord,
@@ -1298,6 +1338,51 @@ public data class RcImageLayout(
   val alpha: RcFloatWord,
 ) : RcOperation {
   override val opcode: Int = RcOpcodes.LAYOUT_IMAGE
+}
+
+/**
+ * Embedded Remote Compose document layout component (AndroidX alpha24 `RcDocLayout`).
+ *
+ * [urlId] either refers directly to an [RcBinaryData] blob of type [RcBinaryData.TYPE_RC_DOC], or
+ * to a text string — either `rc:embedded/<id>` for an inline blob or a URL resolved by the host.
+ */
+public data class RcDocLayout(val componentId: Int, val animationId: Int, val urlId: Int) :
+  RcOperation {
+  override val opcode: Int = RcOpcodes.LAYOUT_RC_DOC
+
+  public companion object {
+    /** URL prefix referring to an inline [RcBinaryData] blob of type [RcBinaryData.TYPE_RC_DOC]. */
+    public const val EMBEDDED_URL_PREFIX: String = "rc:embedded/"
+  }
+}
+
+/**
+ * Maps a host variable or host action to a named variable or action id in an embedded [RcDocLayout]
+ * (AndroidX alpha24 `MapRcDocVariables`).
+ */
+public data class RcMapRcDocVariables(
+  val docId: Int,
+  val mode: Int,
+  val localId: Int,
+  val remoteTarget: Int,
+) : RcOperation {
+  override val opcode: Int = RcOpcodes.MAP_RC_DOC_VARIABLES
+
+  public companion object {
+    /** Forward mapping: host [localId] -> child named variable [remoteTarget]. */
+    public const val MAP_FORWARD: Int = 0
+
+    /** Reverse mapping: child named variable [remoteTarget] -> host [localId]. */
+    public const val MAP_REVERSE: Int = 1
+
+    /** Bidirectional mapping: host [localId] <-> child named variable [remoteTarget]. */
+    public const val MAP_BIDIRECTIONAL: Int = 2
+
+    /**
+     * Host action mapping: child `hostAction(remoteTarget, metadata)` sets host string [localId].
+     */
+    public const val MAP_HOST_ACTION: Int = 3
+  }
 }
 
 /** AndroidX alpha18's original self-contained text layout component. */
@@ -1863,6 +1948,7 @@ public object RcOpcodes {
   public const val CLIP_RECT: Int = 39
   public const val CLIP_PATH: Int = 38
   public const val PAINT_VALUES: Int = 40
+  public const val BINARY_DATA: Int = 41
   public const val DRAW_RECT: Int = 42
   public const val DRAW_TEXT_RUN: Int = 43
   public const val DRAW_BITMAP: Int = 44
@@ -1894,6 +1980,8 @@ public object RcOpcodes {
   public const val MATRIX_FROM_MESH_2D: Int = 106
   public const val MODIFIER_BORDER: Int = 107
   public const val MODIFIER_CLIP_RECT: Int = 108
+  public const val LAYOUT_RC_DOC: Int = 121
+  public const val MAP_RC_DOC_VARIABLES: Int = 122
   public const val DATA_PATH: Int = 123
   public const val DRAW_PATH: Int = 124
   public const val DRAW_TWEEN_PATH: Int = 125
@@ -2063,6 +2151,7 @@ public object RcOpcodes {
       LAYOUT_CANVAS,
       LAYOUT_FIT_BOX,
       LAYOUT_IMAGE,
+      LAYOUT_RC_DOC,
       LAYOUT_TEXT,
       CORE_TEXT,
       COMPONENT_START,

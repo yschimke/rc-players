@@ -564,7 +564,7 @@ public fun RcComposePlayer(
 }
 
 @Composable
-private fun RcComposePlayerResolved(
+internal fun RcComposePlayerResolved(
   prepared: RcPreparedDocument,
   modifier: Modifier,
   theme: Int,
@@ -573,10 +573,12 @@ private fun RcComposePlayerResolved(
   typefaces: RcTypefaceLoader,
   systemColors: (name: String) -> Color?,
   customComponents: RcCustomComponentRegistry,
+  onStateChanged: ((RcPlayerState) -> Unit)? = null,
 ) {
   val document = prepared.document
   val latestEventSink by rememberUpdatedState(onEvent)
   val latestSystemColors by rememberUpdatedState(systemColors)
+  val latestOnStateChanged by rememberUpdatedState(onStateChanged)
   val latestTimeSource by rememberUpdatedState(LocalRcTimeSource.current)
   val latestHapticFeedback by rememberUpdatedState(LocalHapticFeedback.current)
   val soundHost = LocalRcSoundHost.current
@@ -1123,6 +1125,17 @@ private fun RcComposePlayerResolved(
         )
       }
     val invalidate: () -> Unit = remember(state) { { invalidationVersion += 1 } }
+    val embeddedHost =
+      remember(prepared) {
+        RcEmbeddedHostContext(
+          prepared = prepared,
+          systemColors = { latestSystemColors(it) },
+          onEvent = { latestEventSink(it) },
+        )
+      }
+    if (latestOnStateChanged != null) {
+      SideEffect { latestOnStateChanged?.invoke(state) }
+    }
     val content: @Composable (scope: LookaheadScope?, probe: RcGeometryProbe?) -> Unit =
       { scope, probe ->
         CompositionLocalProvider(
@@ -1145,6 +1158,7 @@ private fun RcComposePlayerResolved(
           LocalRcVisibilityFunctions provides visibilityFunctions,
           LocalRcComponentCaptures provides captures,
           LocalRcExtensionSessions provides extensionSessions,
+          LocalRcEmbeddedHost provides embeddedHost,
         ) {
           // The root sits at the window's origin at its own size. A root smaller than the window's
           // minimum — one still animating toward a resize, or one the document sizes below the
@@ -1996,6 +2010,28 @@ private fun RenderLayoutNode(
                 )
           }
           Spacer(drawModifier)
+        }
+        is RcLayoutNode.EmbeddedDoc -> {
+          val docModifier =
+            effectiveModifier.applyComponentModifiers(
+              node.modifiers,
+              state,
+              geometryIds,
+              fillMissingDimensions = false,
+              canvasOperations = null,
+              textMeasurer,
+              images,
+              theme,
+            )
+          RenderEmbeddedDoc(
+            node = node,
+            docModifier = docModifier,
+            state = state,
+            theme = theme,
+            typefaces = typefaces,
+            customComponents = customComponents,
+            invalidate = invalidate,
+          )
         }
         is RcLayoutNode.Text -> {
           val density = androidx.compose.ui.platform.LocalDensity.current
@@ -4279,6 +4315,7 @@ internal fun RcLayoutNode.geometryComponentIds(): List<Int> =
     is RcLayoutNode.FitBox -> listOf(componentId, content.componentId)
     is RcLayoutNode.Content -> emptyList() // Its layout manager publishes the wrapper geometry.
     is RcLayoutNode.Image -> listOfNotNull(componentId, contentComponentId)
+    is RcLayoutNode.EmbeddedDoc -> listOfNotNull(componentId, contentComponentId)
     is RcLayoutNode.Text -> listOfNotNull(componentId, contentComponentId)
     is RcLayoutNode.CoreText -> listOfNotNull(componentId, contentComponentId)
     is RcLayoutNode.Custom -> listOf(componentId)
@@ -4749,6 +4786,7 @@ private fun RcLayoutNode.androidXComponentKind(): String? =
     is RcLayoutNode.CollapsibleRow -> "CollapsibleRowLayout"
     is RcLayoutNode.CollapsibleColumn -> "CollapsibleColumnLayout"
     is RcLayoutNode.Image -> "ImageLayout"
+    is RcLayoutNode.EmbeddedDoc -> "RcDocLayout"
     is RcLayoutNode.Canvas -> "CanvasLayout"
     is RcLayoutNode.CoreText -> "CoreText"
     is RcLayoutNode.Text -> "TextLayout"

@@ -5,6 +5,7 @@ package ee.schimke.composeai.rcplayer.compat
 import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.core.WireBuffer
 import androidx.compose.remote.core.operations.AddMesh2D
+import androidx.compose.remote.core.operations.BinaryData
 import androidx.compose.remote.core.operations.BitmapData
 import androidx.compose.remote.core.operations.BitmapFontData as AndroidxBitmapFontData
 import androidx.compose.remote.core.operations.BitmapTextMeasure as AndroidxBitmapTextMeasure
@@ -15,6 +16,7 @@ import androidx.compose.remote.core.operations.DrawMesh2D
 import androidx.compose.remote.core.operations.DrawToBitmap
 import androidx.compose.remote.core.operations.Header
 import androidx.compose.remote.core.operations.IncludeReferencedOperations
+import androidx.compose.remote.core.operations.MapRcDocVariables
 import androidx.compose.remote.core.operations.MatrixFromMesh2D
 import androidx.compose.remote.core.operations.ParticlesCompare
 import androidx.compose.remote.core.operations.ParticlesCreate
@@ -28,6 +30,7 @@ import androidx.compose.remote.core.operations.SoundExpression
 import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.ComponentStart
 import androidx.compose.remote.core.operations.layout.ContainerEnd
+import androidx.compose.remote.core.operations.layout.managers.RcDocLayout as AndroidxRcDocLayout
 import androidx.compose.remote.core.operations.loom.PatternArgument
 import androidx.compose.remote.core.operations.loom.PatternBlock
 import androidx.compose.remote.core.operations.loom.PatternDefine
@@ -35,10 +38,12 @@ import androidx.compose.remote.core.operations.loom.PatternForEach
 import androidx.compose.remote.core.operations.loom.PatternInflation
 import androidx.compose.remote.core.operations.utilities.AnimatedFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcAddMesh2D
+import ee.schimke.composeai.rcplayer.protocol.RcBinaryData
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapTextMeasure
 import ee.schimke.composeai.rcplayer.protocol.RcComponentStart
+import ee.schimke.composeai.rcplayer.protocol.RcDocLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRun
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRunOnPath
@@ -51,6 +56,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcMacroBlock
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
+import ee.schimke.composeai.rcplayer.protocol.RcMapRcDocVariables
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixFromMesh2D
 import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
@@ -402,6 +408,36 @@ class AndroidxExperimentalOperationCompatibilityTest {
     val matrix = assertIs<RcMatrixFromMesh2D>(operations[6])
     assertEquals(32, matrix.v.referencedId)
     assertEquals(RcMatrixFromMesh2D.FLAG_FULL, matrix.flags)
+    assertContentEquals(bytes, RcDocumentCodec.encode(RcDocumentCodec.decode(bytes)))
+  }
+
+  @Test
+  fun embeddedDocumentOperationsUseAndroidxWriterBytes() {
+    val buffer = header()
+    val payload = byteArrayOf(0x04, 0x8c.toByte(), 0x00, 0x00, 0x01, 0x02)
+    BinaryData.apply(buffer, 50, BinaryData.TYPE_RC_DOC, 0, payload)
+    AndroidxRcDocLayout.apply(buffer, 10, -1, 50)
+    ContainerEnd.apply(buffer)
+    MapRcDocVariables.apply(buffer, 10, MapRcDocVariables.MAP_FORWARD, 60, 61)
+    MapRcDocVariables.apply(buffer, 10, MapRcDocVariables.MAP_HOST_ACTION, 62, 999)
+
+    val bytes = bytes(buffer)
+    val operations = RcDocumentCodec.decode(bytes).operations
+
+    val binary = assertIs<RcBinaryData>(operations[0])
+    assertEquals(50, binary.id)
+    assertEquals(RcBinaryData.TYPE_RC_DOC, binary.type)
+    assertEquals(0, binary.flags)
+    assertContentEquals(payload, binary.data)
+    assertEquals(RcDocLayout(10, -1, 50), operations[1])
+    assertEquals(
+      RcMapRcDocVariables(10, RcMapRcDocVariables.MAP_FORWARD, 60, 61),
+      operations[3],
+    )
+    assertEquals(
+      RcMapRcDocVariables(10, RcMapRcDocVariables.MAP_HOST_ACTION, 62, 999),
+      operations[4],
+    )
     assertContentEquals(bytes, RcDocumentCodec.encode(RcDocumentCodec.decode(bytes)))
   }
 

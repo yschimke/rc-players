@@ -105,3 +105,15 @@ tasks.register<JavaExec>("rcPlayerCardPhases") {
       },
   )
 }
+
+tasks.register<JavaExec>("rcPlayerEmbeddedFeedProfile") {
+  description = "Profile what a feed card with an embedded child .rc document costs."
+  group = "verification"
+  classpath = sourceSets.main.get().runtimeClasspath
+  mainClass.set("ee.schimke.composeai.rcplayer.profile.RcEmbeddedFeedProfileMain")
+  (findProperty("rc.jvmArgs") as String?)?.let { jvmArgs(it.split(' ')) }
+  (findProperty("rc.embeddedFeed.modes") as String?)?.let {
+    systemProperty("rc.embeddedFeed.modes", it)
+  }
+  args(layout.buildDirectory.dir("profile").get().asFile.absolutePath)
+}

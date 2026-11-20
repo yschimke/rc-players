@@ -85,16 +85,6 @@ public object RcProfileOperations {
  */
 private const val MODIFIER_EVENT_HANDLER: Int = 100
 
-/**
- * AndroidX `Operations.LAYOUT_RC_DOC`, `MAP_RC_DOC_VARIABLES` and `BINARY_DATA`: an embedded
- * document (`df2eb252356`, alpha24), which both experimental V7 profiles decode. This library has
- * no codec for them either (`rc-operations.manifest` lists them `unavailable`), as for
- * [MODIFIER_EVENT_HANDLER].
- */
-private const val LAYOUT_RC_DOC: Int = 121
-private const val MAP_RC_DOC_VARIABLES: Int = 122
-private const val BINARY_DATA: Int = 41
-
 /** `populateCommonOperations`: every API level from 6 up. */
 internal val BASE_OPERATIONS: Set<Int> =
   setOf(
@@ -287,9 +277,9 @@ internal val V7_ANDROIDX_EXPERIMENTAL_OPERATIONS: Set<Int> =
     RcOpcodes.ADD_MESH_2D,
     RcOpcodes.DRAW_MESH_2D,
     RcOpcodes.MATRIX_FROM_MESH_2D,
-    LAYOUT_RC_DOC,
-    MAP_RC_DOC_VARIABLES,
-    BINARY_DATA,
+    RcOpcodes.LAYOUT_RC_DOC,
+    RcOpcodes.MAP_RC_DOC_VARIABLES,
+    RcOpcodes.BINARY_DATA,
   )
 
 /** `PROFILE_ANDROIDX_DEPRECATED_OPS`. */
@@ -338,9 +328,9 @@ internal val V7_WIDGETS_EXPERIMENTAL_OPERATIONS: Set<Int> =
     RcOpcodes.ADD_MESH_2D,
     RcOpcodes.DRAW_MESH_2D,
     RcOpcodes.MATRIX_FROM_MESH_2D,
-    LAYOUT_RC_DOC,
-    MAP_RC_DOC_VARIABLES,
-    BINARY_DATA,
+    RcOpcodes.LAYOUT_RC_DOC,
+    RcOpcodes.MAP_RC_DOC_VARIABLES,
+    RcOpcodes.BINARY_DATA,
   )
 
 /** `PROFILE_WIDGETS_DEPRECATED_OPS`. */

@@ -5,7 +5,8 @@
 # and CMP renderer) and listed in RcOperationProfiles' experimental-only set, so the baseline AndroidX
 # profile does not advertise them.
 # 41, 121 and 122 (BINARY_DATA, LAYOUT_RC_DOC, MAP_RC_DOC_VARIABLES: an embedded document) are new in
-# 1.0.0-alpha24, again only in the experimental V7 reader set, and unavailable here.
+# 1.0.0-alpha24, again only in the experimental V7 reader set. They are implemented (codec and opt-in
+# CMP renderer) and listed in RcOperationProfiles' experimental-only set.
 # alpha24 also names 100 MODIFIER_EVENT_HANDLER (EVENT_ACTION until fcdee239693, now a modifier,
 # EventHandlerModifierOperation) and reserves 110-118 and 120 for the 3D protocol (PROTOCOL_3D.md):
 # constants with no reader in any AndroidX profile, so unavailable here. :rc-player-3d decodes them
@@ -18,7 +19,7 @@
 38|CLIP_PATH|1|implemented|ClipPath
 39|CLIP_RECT|1|implemented|ClipRect
 40|PAINT_VALUES|1|implemented|PaintData
-41|BINARY_DATA|4|unavailable|BinaryData
+41|BINARY_DATA|4|implemented|BinaryData
 42|DRAW_RECT|1|implemented|DrawRect
 43|DRAW_TEXT_RUN|3|implemented|DrawText
 44|DRAW_BITMAP|4|implemented|DrawBitmap
@@ -64,8 +65,8 @@
 117|MESH_EXPRESSION_3D|8|unavailable|-
 118|SET_TEXTURE_3D|8|unavailable|-
 120|MESH_PRIMITIVE_3D|8|unavailable|-
-121|LAYOUT_RC_DOC|6|unavailable|RcDocLayout
-122|MAP_RC_DOC_VARIABLES|8|unavailable|MapRcDocVariables
+121|LAYOUT_RC_DOC|6|implemented|RcDocLayout
+122|MAP_RC_DOC_VARIABLES|8|implemented|MapRcDocVariables
 123|DATA_PATH|1|implemented|PathData
 124|DRAW_PATH|1|implemented|DrawPath
 125|DRAW_TWEEN_PATH|2|implemented|DrawTweenPath

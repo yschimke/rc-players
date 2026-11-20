@@ -324,6 +324,7 @@ private fun RcLayoutNode.sharedElementChildren(): List<RcLayoutNode> =
     is RcLayoutNode.Custom -> children
     is RcLayoutNode.CanvasContent,
     is RcLayoutNode.Image,
+    is RcLayoutNode.EmbeddedDoc,
     is RcLayoutNode.Text,
     is RcLayoutNode.CoreText -> emptyList()
   }
