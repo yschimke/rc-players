@@ -634,6 +634,7 @@ extension ParsedNode {
       }
       if matches(command.paint.strokeWidth) { return true }
       if matches(command.paint.alpha) { return true }
+      if matches(command.paint.textSize) { return true }
       if let alphaWord = command.alphaWord, matches(alphaWord) { return true }
     }
     return children.contains { $0.references(anyOf: ids) }
