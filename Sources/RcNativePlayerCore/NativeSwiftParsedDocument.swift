@@ -447,7 +447,7 @@ struct ParsedDrawCommand {
           // A colour word is a literal ARGB unless its bit is set in the register, where it is an
           // ID resolved from the same colour table every other paint colour comes from.
           colorsARGB: gradient.colorWords.enumerated().map { index, word in
-            if gradient.colorRegister & (1 << index) != 0 {
+            if index < 16, gradient.colorRegister & (1 << index) != 0 {
               return colors[word] ?? 0
             }
             return UInt32(bitPattern: Int32(word))

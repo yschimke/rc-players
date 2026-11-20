@@ -3625,6 +3625,87 @@ private final class FailureLog: @unchecked Sendable {
   }
 }
 
+@Suite struct NativeSwiftCmpParityTests {
+  @Test func paintGradientSupportsMoreThanSixteenColorsAndGuardsColorRegister() throws {
+    let writer = Writer()
+    writer.header(width: 200, height: 100)
+    writer.u8(NativeSwiftWireOpcode.colorConstant).int(10).int(Int(Int32(bitPattern: 0xFF11_2233)))
+    // PaintBundle with linear gradient of 20 colors: slot 0 is a color ID (register bit 0),
+    // slots 1..19 are literal ARGB values (including slots >= 16).
+    let colorCount = 20
+    let wordCount = 1 + 1 + colorCount + 1 + 5
+    writer.u8(NativeSwiftWireOpcode.paintValues).int(wordCount)
+    writer.int(
+      NativeSwiftPaintCommand.gradient | (NativeSwiftPaintGradientKind.linear << 16))
+    writer.int((1 << 16) | colorCount)
+    writer.int(10)  // slot 0 -> color ID 10
+    for index in 1..<colorCount {
+      writer.int(Int(Int32(bitPattern: 0xFF00_0000 | UInt32(index))))
+    }
+    writer.int(0)  // stopCount = 0
+    writer.float(0).float(0).float(200).float(0).int(0)
+    writer.u8(NativeSwiftWireOpcode.drawRect).float(0).float(0).float(200).float(100)
+
+    let snapshot = try NativeSwiftDocumentSession.open(data: writer.data).snapshot()
+    let gradient = try #require(snapshot.root.commands.first?.gradient)
+    #expect(gradient.colorsARGB.count == 20)
+    #expect(gradient.colorsARGB[0] == 0xFF11_2233)
+    #expect(gradient.colorsARGB[16] == 0xFF00_0010)
+    #expect(gradient.colorsARGB[19] == 0xFF00_0013)
+  }
+
+  @Test func graphicsLayerPlumbsCompositingStrategy() throws {
+    let writer = Writer()
+    writer.header(width: 200, height: 100)
+    writer.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    writer.u8(NativeSwiftWireOpcode.layoutBox).int(2).int(-1).int(1).int(1)
+    writer.u8(NativeSwiftWireOpcode.modifierGraphicsLayer).int(1)
+    writer.int(NativeSwiftGraphicsLayerAttribute.compositingStrategy)
+    writer.int(NativeSwiftCompositingStrategy.offscreen)
+    writer.u8(NativeSwiftWireOpcode.layoutContent).int(3).u8(NativeSwiftWireOpcode.containerEnd)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+
+    let snapshot = try NativeSwiftDocumentSession.open(data: writer.data).snapshot()
+    let layer = try #require(snapshot.root.children.first?.graphicsLayer)
+    #expect(layer.compositingStrategy == NativeSwiftCompositingStrategy.offscreen)
+    #expect(!layer.isIdentity)
+  }
+
+  @Test func nonFiniteWeightAndFontWeightFallBackInsteadOfThrowing() throws {
+    let writer = Writer()
+    writer.header(width: 200, height: 100)
+    writer.text(id: 60, "Fallback")
+    writer.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    writer.u8(NativeSwiftWireOpcode.layoutRow).int(2).int(-1).int(1).int(1).float(0)
+    writer.u8(NativeSwiftWireOpcode.layoutContent).int(3)
+    writer.u8(NativeSwiftWireOpcode.layoutBox).int(4).int(-1).int(1).int(1)
+    // Unwritten variable ID 99 -> unresolved weight leaves the child unweighted.
+    writer.u8(NativeSwiftWireOpcode.modifierWidth).int(NativeSwiftDimensionType.weight)
+      .int(Writer.nanReference(99))
+    writer.u8(NativeSwiftWireOpcode.layoutContent).int(5)
+    // TextLayout with unwritten fontWeight variable ID 99 -> falls back to 400.
+    writer.u8(NativeSwiftWireOpcode.layoutText).int(6).int(0).int(60)
+      .int(Int(Int32(bitPattern: 0xFFFF_FFFF)))
+      .int(Writer.literal(14)).int(NativeSwiftFontStyle.italic)
+      .int(Writer.nanReference(99)).int(-1).int(1).int(1).int(1)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)  // box content
+    writer.u8(NativeSwiftWireOpcode.containerEnd)  // box
+    writer.u8(NativeSwiftWireOpcode.containerEnd)  // row content
+    writer.u8(NativeSwiftWireOpcode.containerEnd)  // row
+    writer.u8(NativeSwiftWireOpcode.containerEnd)  // root
+
+    let snapshot = try NativeSwiftDocumentSession.open(data: writer.data).snapshot()
+    let box = try #require(snapshot.root.children.first?.children.first?.children.first)
+    #expect(box.widthType == NativeSwiftDimensionType.wrap)
+    #expect(box.widthValue == 0)
+    let text = try #require(box.children.first?.children.first?.text)
+    #expect(text.weight == 400)
+    #expect(text.style == NativeSwiftFontStyle.italic)
+  }
+}
+
 final class Writer {
   static func nanReference(_ id: Int) -> Int {
     Int(Int32(bitPattern: 0xff80_0000 | UInt32(id)))

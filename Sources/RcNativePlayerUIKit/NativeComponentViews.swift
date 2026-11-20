@@ -1205,7 +1205,11 @@
     }
 
     private func applyGraphicsLayer() {
-      guard let graphicsLayer = node.graphicsLayer, !graphicsLayer.isIdentity else { return }
+      guard let graphicsLayer = node.graphicsLayer, !graphicsLayer.isIdentity else {
+        layer.allowsGroupOpacity = true
+        layer.shouldRasterize = false
+        return
+      }
       let anchor = CGPoint(
         x: layer.anchorPoint.x * bounds.width, y: layer.anchorPoint.y * bounds.height)
       let linear = CGAffineTransform(
@@ -1222,6 +1226,18 @@
             y: originY + CGFloat(graphicsLayer.translationY))))
       if graphicsLayer.alpha != 1, node.visibility != NativeSwiftVisibility.invisible {
         alpha = CGFloat(max(0, min(1, graphicsLayer.alpha)))
+      }
+      switch graphicsLayer.compositingStrategy {
+      case NativeSwiftCompositingStrategy.offscreen:
+        layer.allowsGroupOpacity = true
+        layer.shouldRasterize = true
+        layer.rasterizationScale = window?.screen.scale ?? UIScreen.main.scale
+      case NativeSwiftCompositingStrategy.modulateAlpha:
+        layer.allowsGroupOpacity = false
+        layer.shouldRasterize = false
+      default:
+        layer.allowsGroupOpacity = true
+        layer.shouldRasterize = false
       }
     }
 
@@ -1258,6 +1274,12 @@
       of wanted: Set<Int>, into result: inout [Int: NativeSwiftMeasuredSize],
       inherited: CGSize? = nil
     ) {
+      if node.visibility == NativeSwiftVisibility.gone {
+        if wanted.contains(node.componentID) {
+          result[node.componentID] = NativeSwiftMeasuredSize(width: 0, height: 0)
+        }
+        return
+      }
       if wanted.contains(node.componentID) {
         // A structural view is transparent to layout: its children are flattened into its parent's
         // arrangement and it is never given a frame of its own, so its bounds are not a size. The
@@ -1994,8 +2016,7 @@
       fontNames: [Int: String] = [:],
       scalesForDynamicType: Bool = false
     ) -> UIFont {
-      let weightValue =
-        command.textStyle.fontStyle & 1 != 0 ? max(command.textWeight, 700) : command.textWeight
+      let weightValue = command.textWeight
       let normalizedWeight = min(max((weightValue - 400) / 500, -1), 1)
       let size = max(command.textSize * scale, 1)
       let base = UIFont.systemFont(ofSize: size, weight: UIFont.Weight(rawValue: normalizedWeight))
@@ -2024,7 +2045,7 @@
         descriptor = weightedDescriptor(
           embedded.fontDescriptor, weight: weightValue, size: size)
       }
-      if command.textStyle.fontStyle & 2 != 0 {
+      if command.textStyle.fontStyle == NativeSwiftFontStyle.italic {
         descriptor =
           descriptor.withSymbolicTraits(descriptor.symbolicTraits.union(.traitItalic)) ?? descriptor
       }

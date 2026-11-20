@@ -830,8 +830,10 @@ struct NativeLayoutEngine {
         extent: extent, count: items.count, spacing: node.isCollapsible ? spacing : 0),
       naturalSizes: sizes.map(\.height),
       weights: items.map { child in
-        guard child.layoutNode.heightType == NativeSwiftDimensionType.weight else { return nil }
-        return max(child.layoutNode.heightValue, .leastNonzeroMagnitude)
+        guard child.layoutNode.heightType == NativeSwiftDimensionType.weight,
+          child.layoutNode.heightValue.isFinite, child.layoutNode.heightValue > 0
+        else { return nil }
+        return child.layoutNode.heightValue
       })
     let heights = zip(items, zip(sizes, weightedHeights)).map { child, values in
       applyDimensions(
@@ -884,8 +886,10 @@ struct NativeLayoutEngine {
         extent: extent, count: items.count, spacing: node.isCollapsible ? spacing : 0),
       naturalSizes: natural.map(\.width),
       weights: items.map { child in
-        guard child.layoutNode.widthType == NativeSwiftDimensionType.weight else { return nil }
-        return max(child.layoutNode.widthValue, .leastNonzeroMagnitude)
+        guard child.layoutNode.widthType == NativeSwiftDimensionType.weight,
+          child.layoutNode.widthValue.isFinite, child.layoutNode.widthValue > 0
+        else { return nil }
+        return child.layoutNode.widthValue
       })
     let widths = zip(items, zip(natural, allocatedWidths)).map { child, values in
       applyDimensions(

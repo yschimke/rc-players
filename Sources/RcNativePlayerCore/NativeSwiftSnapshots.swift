@@ -536,6 +536,8 @@ public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
   public let transformOriginX: Float
   /// The pivot for scale and rotation as a fraction of the component's height.
   public let transformOriginY: Float
+  /// `NativeSwiftCompositingStrategy` (`0 = auto`, `1 = offscreen`, `2 = modulateAlpha`).
+  public let compositingStrategy: Int
 
   /// A layer pivoting about its top-left, the origin a document that writes none gets.
   public init(
@@ -544,12 +546,14 @@ public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
   ) {
     self.init(
       scaleX: scaleX, scaleY: scaleY, translationX: translationX, translationY: translationY,
-      rotationZ: rotationZ, alpha: alpha, transformOriginX: 0, transformOriginY: 0)
+      rotationZ: rotationZ, alpha: alpha, transformOriginX: 0, transformOriginY: 0,
+      compositingStrategy: NativeSwiftCompositingStrategy.auto)
   }
 
   public init(
     scaleX: Float, scaleY: Float, translationX: Float, translationY: Float, rotationZ: Float,
-    alpha: Float, transformOriginX: Float, transformOriginY: Float
+    alpha: Float, transformOriginX: Float, transformOriginY: Float,
+    compositingStrategy: Int = NativeSwiftCompositingStrategy.auto
   ) {
     self.scaleX = scaleX
     self.scaleY = scaleY
@@ -559,13 +563,14 @@ public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
     self.alpha = alpha
     self.transformOriginX = transformOriginX
     self.transformOriginY = transformOriginY
+    self.compositingStrategy = compositingStrategy
   }
 
   /// True when the layer changes nothing. The transform origin is not consulted: a pivot moves
   /// nothing without a scale or rotation to apply about it.
   public var isIdentity: Bool {
     scaleX == 1 && scaleY == 1 && translationX == 0 && translationY == 0 && rotationZ == 0
-      && alpha == 1
+      && alpha == 1 && compositingStrategy == NativeSwiftCompositingStrategy.auto
   }
 }
 
