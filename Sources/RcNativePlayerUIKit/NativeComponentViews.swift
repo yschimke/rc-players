@@ -1065,6 +1065,13 @@
         assertionFailure("update(node:) called with a node canUpdate(with:) rejects")
         return false
       }
+      applyUpdate(node: next, images: images, fontNames: fontNames)
+      return true
+    }
+
+    private func applyUpdate(
+      node next: NativeNode, images: [Int: UIImage], fontNames: [Int: String]
+    ) {
       let local = Self.localContent(for: next, images: images)
       node = next
       self.images = images
@@ -1083,7 +1090,7 @@
       }
       if let custom = next.custom { customView?.update(custom) }
       zip(componentChildren, next.children).forEach { child, childNode in
-        child.update(node: childNode, images: images, fontNames: fontNames)
+        child.applyUpdate(node: childNode, images: images, fontNames: fontNames)
         child.layer.zPosition = childNode.zIndex
       }
       // After the children: a merging or unlabeled node resolves its label, role and action from
@@ -1096,7 +1103,6 @@
         next.cornerRadius > 0 || next.clipsToBounds || next.scrollDirection != nil
         || next.layout.marquee
       setNeedsLayout()
-      return true
     }
 
     private static func localContent(
@@ -1756,6 +1762,10 @@
     func update(
       image: UIImage, draw: NativeImageDraw, alpha: CGFloat, filterQuality: Int?
     ) {
+      guard
+        self.image !== image || drawCommand != draw || self.alpha != alpha
+          || self.filterQuality != filterQuality
+      else { return }
       self.image = image
       drawCommand = draw
       self.filterQuality = filterQuality
@@ -1831,6 +1841,11 @@
     }
 
     func update(command: NativeDrawCommand, fontNames: [Int: String]) {
+      let fontID = command.textStyle.fontFamilyID
+      if self.command == command, self.fontNames[fontID] == fontNames[fontID] {
+        self.fontNames = fontNames
+        return
+      }
       self.command = command
       self.fontNames = fontNames
       text = command.text
@@ -2049,21 +2064,58 @@
       ) as UIFontDescriptor
     }
 
+    private enum ResolvedLocalFont {
+      case family(String)
+      case postScript(String)
+      case missing
+    }
+
+    private static let localFontCacheLock = NSLock()
+    private nonisolated(unsafe) static var localFontCache: [String: ResolvedLocalFont] = [:]
+
     /// Resolves an installed Apple font by family or PostScript name without falling back.
     private static func localFontDescriptor(
       familyName: String, size: CGFloat
     ) -> UIFontDescriptor? {
-      if let installedFamily = UIFont.familyNames.first(where: {
+      let key = familyName.lowercased()
+      localFontCacheLock.lock()
+      let cached = localFontCache[key]
+      localFontCacheLock.unlock()
+
+      let resolved: ResolvedLocalFont
+      if let cached {
+        resolved = cached
+      } else if let installedFamily = UIFont.familyNames.first(where: {
         $0.caseInsensitiveCompare(familyName) == .orderedSame
       }) {
-        return UIFontDescriptor(fontAttributes: [.family: installedFamily])
-      }
-      let postScriptName = UIFont.familyNames.lazy.compactMap { family in
+        resolved = .family(installedFamily)
+        localFontCacheLock.lock()
+        localFontCache[key] = resolved
+        localFontCacheLock.unlock()
+      } else if let postScriptName = UIFont.familyNames.lazy.compactMap({ family in
         UIFont.fontNames(forFamilyName: family).first {
           $0.caseInsensitiveCompare(familyName) == .orderedSame
         }
-      }.first
-      return postScriptName.flatMap { UIFont(name: $0, size: size)?.fontDescriptor }
+      }).first {
+        resolved = .postScript(postScriptName)
+        localFontCacheLock.lock()
+        localFontCache[key] = resolved
+        localFontCacheLock.unlock()
+      } else {
+        resolved = .missing
+        localFontCacheLock.lock()
+        localFontCache[key] = resolved
+        localFontCacheLock.unlock()
+      }
+
+      switch resolved {
+      case .family(let name):
+        return UIFontDescriptor(fontAttributes: [.family: name])
+      case .postScript(let name):
+        return UIFont(name: name, size: size)?.fontDescriptor
+      case .missing:
+        return nil
+      }
     }
 
     /// A resolved face that keeps the run's weight.

@@ -3563,9 +3563,10 @@ private final class NativeMacCanvasView: NSView {
   }
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
-  /// A newer frame's commands for the same component. Draw commands carry no equality, so the
-  /// canvas simply redraws; its backing store is kept.
+  /// A newer frame's commands for the same component. Skips redrawing when the resolved commands
+  /// are unchanged (including NaN sentinels such as `DrawTextAnchored`'s unset `panY`).
   func update(commands: [NativeMacDrawCommand]) {
+    guard self.commands != commands else { return }
     self.commands = commands
     needsDisplay = true
   }
