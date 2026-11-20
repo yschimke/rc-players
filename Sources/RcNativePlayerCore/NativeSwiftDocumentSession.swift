@@ -67,9 +67,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   public static func open(
     data: Data, toleratingRootlessData: Bool = false
   ) throws -> NativeSwiftDocumentSession {
-    NativeSwiftDocumentSession(
-      document: try NativeSwiftDocumentDecoder.decode(
-        data, toleratingRootlessData: toleratingRootlessData))
+    open(
+      prepared: try NativeSwiftPreparedDocument.decode(
+        data: data, toleratingRootlessData: toleratingRootlessData))
+  }
+
+  /// Opens a fresh session over an already-decoded ``NativeSwiftPreparedDocument``.
+  ///
+  /// The returned session shares the immutable parsed AST and owns its own mutable variables,
+  /// animation runtimes, and snapshot cache.
+  public static func open(
+    prepared: NativeSwiftPreparedDocument
+  ) -> NativeSwiftDocumentSession {
+    NativeSwiftDocumentSession(document: prepared.parsed)
   }
 
   /// The operation spans of a document the decoder accepts, for structure-aware mutation.
@@ -213,7 +223,6 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) throws -> NativeSwiftDocumentSnapshot {
     stateLock.lock()
     defer { stateLock.unlock() }
-    try resolveIntegerExpressions()
     if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock),
       let cached = staticSnapshotCache, cached.measuredComponents == measuredComponents
     {
@@ -792,7 +801,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private func canReuseStaticSnapshot(
     timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock?
   ) -> Bool {
-    wallClock == nil
+    (!document.needsWallClockRefresh || wallClock == nil)
       && !document.needsContinuousFrames
       && !document.hasMarquee
       && document.impulses.isEmpty

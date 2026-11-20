@@ -3703,6 +3703,69 @@ private final class FailureLog: @unchecked Sendable {
     let text = try #require(box.children.first?.children.first?.text)
     #expect(text.weight == 400)
     #expect(text.style == NativeSwiftFontStyle.italic)
+
+@Suite struct NativeSwiftPreparedDocumentTests {
+  @Test func preparedDocumentBacksIndependentSessions() throws {
+    let writer = Writer()
+    writer.header(width: 240, height: 120)
+    writer.text(id: 10, "Default")
+    writer.namedVariable(id: 10, type: NativeSwiftNamedVariableType.string, name: "USER:label")
+    writer.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    writer.textLayout(id: 2, textID: 10, color: 0xFFFF_FFFF, size: 16)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+
+    let prepared = try NativeSwiftPreparedDocument.decode(data: writer.data)
+    #expect(prepared.width == 240)
+    #expect(prepared.height == 120)
+
+    let first = NativeSwiftDocumentSession.open(prepared: prepared)
+    let second = NativeSwiftDocumentSession.open(prepared: prepared)
+    #expect(first.setString("Card A", for: "USER:label"))
+    #expect(second.setString("Card B", for: "USER:label"))
+
+    let snapA = try first.snapshot()
+    let snapB = try second.snapshot()
+    #expect(snapA.root.children.first?.text?.value == "Card A")
+    #expect(snapB.root.children.first?.text?.value == "Card B")
+  }
+
+  @Test func preparedDocumentCacheEvictsTrimsAndClears() throws {
+    let dataA = try NativeTestFixtures.data("TitleCardRemote-640x480.rc")
+    let dataB = try NativeTestFixtures.data("CircularProgressRemote-384x384.rc")
+    let dataC = try NativeTestFixtures.data("ArcProgressRemote-454x400.rc")
+
+    let cache = NativeSwiftPreparedDocumentCache(capacity: 2)
+    let docA = try cache.document(for: dataA)
+    let docB = try cache.document(for: dataB)
+    #expect(cache.count == 2)
+    #expect(docA.width == 640)
+    #expect(docB.width == 384)
+
+    // Touch A so B becomes least-recently-used, then insert C.
+    _ = try cache.document(for: dataA)
+    let docC = try cache.document(for: dataC)
+    #expect(cache.count == 2)
+    #expect(docC.width == 454)
+
+    cache.trimToSize(1)
+    #expect(cache.count == 1)
+    cache.clear()
+    #expect(cache.count == 0)
+  }
+
+  @Test func staticSnapshotCacheReusesAcrossWallClockWhenDocumentDoesNotReadWallClock() throws {
+    let data = try NativeTestFixtures.data("TitleCardRemote-640x480.rc")
+    let session = try NativeSwiftDocumentSession.open(data: data)
+    let clock1 = NativeSwiftWallClock(
+      epochMillis: 1_700_000_000_000, offsetSeconds: 0, timeZone: TimeZone(secondsFromGMT: 0)!)
+    let clock2 = NativeSwiftWallClock(
+      epochMillis: 1_700_000_060_000, offsetSeconds: 0, timeZone: TimeZone(secondsFromGMT: 0)!)
+    let snap1 = try session.snapshot(timeSeconds: 0, wallClock: clock1)
+    let snap2 = try session.snapshot(timeSeconds: 1, wallClock: clock2)
+    #expect(!snap1.needsWallClockRefresh)
+    #expect(snap1.width == snap2.width)
+    #expect(snap1.height == snap2.height)
+    #expect(snap1.root.children.count == snap2.root.children.count)
   }
 }
 
