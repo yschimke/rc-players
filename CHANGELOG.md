@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.11.0](https://github.com/yschimke/rc-players/compare/v3.10.0...v3.11.0) (2026-11-21)
+
+
+### Features
+
+* **ios:** set integer and boolean variables from the Swift controller ([#949](https://github.com/yschimke/rc-players/issues/949)) ([78dd947](https://github.com/yschimke/rc-players/commit/78dd94767104afe4bede4bd679bb34a5d5198148))
+
 ## [3.10.0](https://github.com/yschimke/rc-players/compare/v3.9.0...v3.10.0) (2026-11-21)
 
 
