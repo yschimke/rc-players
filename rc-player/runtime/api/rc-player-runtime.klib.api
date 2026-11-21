@@ -1438,6 +1438,7 @@ final class ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime { // 
     final fun onDown(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Function1<ee.schimke.composeai.rcplayer.protocol/RcFloatWord, kotlin/Float>) // ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime.onDown|onDown(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Function1<ee.schimke.composeai.rcplayer.protocol.RcFloatWord,kotlin.Float>){}[0]
     final fun onDrag(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Function1<ee.schimke.composeai.rcplayer.protocol/RcFloatWord, kotlin/Float>): kotlin/Float // ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime.onDrag|onDrag(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Function1<ee.schimke.composeai.rcplayer.protocol.RcFloatWord,kotlin.Float>){}[0]
     final fun stopTarget(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Function1<ee.schimke.composeai.rcplayer.protocol/RcFloatWord, kotlin/Float>): kotlin/Float // ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime.stopTarget|stopTarget(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Function1<ee.schimke.composeai.rcplayer.protocol.RcFloatWord,kotlin.Float>){}[0]
+    final fun touchEffect(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Function1<ee.schimke.composeai.rcplayer.protocol/RcFloatWord, kotlin/Float>, kotlin/Function1<kotlin/Int, kotlin/Int?> = ...): ee.schimke.composeai.rcplayer.protocol/RcHapticType? // ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime.touchEffect|touchEffect(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Function1<ee.schimke.composeai.rcplayer.protocol.RcFloatWord,kotlin.Float>;kotlin.Function1<kotlin.Int,kotlin.Int?>){}[0]
 
     final object Companion { // ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime.Companion|null[0]
         final const val ID_TOUCH_POS_X // ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime.Companion.ID_TOUCH_POS_X|{}ID_TOUCH_POS_X[0]
@@ -1448,6 +1449,8 @@ final class ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime { // 
             final fun <get-ID_TOUCH_VEL_X>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime.Companion.ID_TOUCH_VEL_X.<get-ID_TOUCH_VEL_X>|<get-ID_TOUCH_VEL_X>(){}[0]
         final const val ID_TOUCH_VEL_Y // ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime.Companion.ID_TOUCH_VEL_Y|{}ID_TOUCH_VEL_Y[0]
             final fun <get-ID_TOUCH_VEL_Y>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime.Companion.ID_TOUCH_VEL_Y.<get-ID_TOUCH_VEL_Y>|<get-ID_TOUCH_VEL_Y>(){}[0]
+        final const val TOUCH_EFFECT_VARIABLE // ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime.Companion.TOUCH_EFFECT_VARIABLE|{}TOUCH_EFFECT_VARIABLE[0]
+            final fun <get-TOUCH_EFFECT_VARIABLE>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcTouchExpressionRuntime.Companion.TOUCH_EFFECT_VARIABLE.<get-TOUCH_EFFECT_VARIABLE>|<get-TOUCH_EFFECT_VARIABLE>(){}[0]
     }
 }
 

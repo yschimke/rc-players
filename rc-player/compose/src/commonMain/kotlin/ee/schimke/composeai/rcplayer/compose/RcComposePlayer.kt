@@ -4231,10 +4231,24 @@ private fun Modifier.applyAndroidXScroll(
   val touchRuntime = touch?.let { remember(it) { RcTouchExpressionRuntime(it) } }
 
   LaunchedEffect(scrollState, operation, state) {
+    // The first position is where the scroll starts, not a move across a stop.
+    var settled = false
     snapshotFlow { scrollState.value to scrollState.maxValue }
       .collect { (position, maximum) ->
         operation.position.referencedId?.let { state.setFloat(it, position.toFloat()) }
         operation.max.referencedId?.let { state.setFloat(it, maximum.toFloat()) }
+        // The scroll's touch expression asks for a haptic as the position crosses its stops.
+        touchRuntime
+          ?.touchEffect(
+            position.toFloat(),
+            0f,
+            maximum.toFloat(),
+            state::resolve,
+            state::integer,
+          )
+          ?.takeIf { settled }
+          ?.let { state.performHapticFeedback(RcHapticFeedback(it)) }
+        settled = true
         operation.notchMax.referencedId?.let {
           state.setFloat(it, (maximum + scrollState.viewportSize).toFloat())
         }

@@ -970,13 +970,6 @@ public fun RcDocument.composeSupportReport(
     }
     if (operation is RcTouchExpression) {
       when {
-        operation.touchEffects != 0 ->
-          issues +=
-            RcComposeSupportIssue(
-              index,
-              "TouchExpression",
-              "touch effects ${operation.touchEffects} are not implemented",
-            )
         operation.easingSpec.isNotEmpty() ->
           issues +=
             RcComposeSupportIssue(

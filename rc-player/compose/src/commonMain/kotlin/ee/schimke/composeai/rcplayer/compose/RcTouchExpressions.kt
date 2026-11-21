@@ -29,6 +29,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFlowLayout
+import ee.schimke.composeai.rcplayer.protocol.RcHapticFeedback
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
@@ -260,10 +261,10 @@ private class RcTouchExpressionNode(
         velocity.addPosition(change.uptimeMillis, position)
         val speed = velocity.calculateVelocity()
         expressions.forEachIndexed { index, expression ->
-          state.setFloat(
-            expression.id,
-            runtimes[index].onDrag(position.x, position.y, speed.x, speed.y, state::resolve),
-          )
+          val value =
+            runtimes[index].onDrag(position.x, position.y, speed.x, speed.y, state::resolve)
+          state.setFloat(expression.id, value)
+          touchEffect(index, expression, value)
         }
         last = position
         change.consume()
@@ -296,18 +297,31 @@ private class RcTouchExpressionNode(
             RcTouchExpression.STOP_NOTCHES_SINGLE_EVEN,
           )
       ) {
-        state.setFloat(
-          expression.id,
+        val target =
           runtimes[index].stopTarget(
             state.resolve(RcFloatWord(0x7fc00000 or expression.id)),
             state.resolve(expression.min),
             state.resolve(expression.max),
             state::resolve,
-          ),
-        )
+          )
+        state.setFloat(expression.id, target)
+        touchEffect(index, expression, target)
         invalidate()
       }
     }
+  }
+
+  /** The expression's `touchEffects` haptic, where moving to [value] crosses a stop. */
+  private fun touchEffect(index: Int, expression: RcTouchExpression, value: Float) {
+    runtimes[index]
+      .touchEffect(
+        value,
+        state.resolve(expression.min),
+        state.resolve(expression.max),
+        state::resolve,
+        state::integer,
+      )
+      ?.let { state.performHapticFeedback(RcHapticFeedback(it)) }
   }
 
   override fun onCancelPointerInput() {
