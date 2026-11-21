@@ -47,14 +47,14 @@ import ee.schimke.composeai.rccreation.compose.text.RemoteTextDecoration
 
 internal fun TextAlign.toRemoteTextAlign(): RemoteTextAlign =
     when (this) {
-        TextAlign.Left,
-        TextAlign.Unspecified -> RemoteTextAlign.Left
+        TextAlign.Left -> RemoteTextAlign.Left
         TextAlign.Right -> RemoteTextAlign.Right
         TextAlign.Center -> RemoteTextAlign.Center
         TextAlign.Justify -> RemoteTextAlign.Justify
         TextAlign.Start -> RemoteTextAlign.Start
         TextAlign.End -> RemoteTextAlign.End
-        else -> RemoteTextAlign.Left
+        TextAlign.Unspecified -> RemoteTextAlign.Unspecified
+        else -> RemoteTextAlign.Unspecified
     }
 
 internal fun BlendMode.toRemoteBlendMode(): RemoteBlendMode =

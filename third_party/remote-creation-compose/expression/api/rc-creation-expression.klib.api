@@ -103,7 +103,6 @@ abstract class <#A: kotlin/Any> ee.schimke.composeai.rccreation.compose.state/Ba
     open val cacheKey // ee.schimke.composeai.rccreation.compose.state/BaseRemoteState.cacheKey|{}cacheKey[0]
         open fun <get-cacheKey>(): ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey // ee.schimke.composeai.rccreation.compose.state/BaseRemoteState.cacheKey.<get-cacheKey>|<get-cacheKey>(){}[0]
 
-    abstract fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/BaseRemoteState.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
     open fun getFloatIdForCreationState(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Float // ee.schimke.composeai.rccreation.compose.state/BaseRemoteState.getFloatIdForCreationState|getFloatIdForCreationState(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
     open fun getIdForCreationState(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/BaseRemoteState.getIdForCreationState|getIdForCreationState(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
     open fun getLongIdForCreationState(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Long // ee.schimke.composeai.rccreation.compose.state/BaseRemoteState.getLongIdForCreationState|getLongIdForCreationState(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
@@ -121,135 +120,11 @@ abstract class ee.schimke.composeai.rccreation.compose.state/BaseRemoteStateCach
     open fun setState(ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<*>?) // ee.schimke.composeai.rccreation.compose.state/BaseRemoteStateCacheKey.setState|setState(ee.schimke.composeai.rccreation.compose.state.BaseRemoteState<*>?){}[0]
 }
 
-abstract class ee.schimke.composeai.rccreation.compose.state/RemoteFloat : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/Float> { // ee.schimke.composeai.rccreation.compose.state/RemoteFloat|null[0]
-    abstract val arrayProvider // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.arrayProvider|{}arrayProvider[0]
-        abstract fun <get-arrayProvider>(): kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/FloatArray> // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.arrayProvider.<get-arrayProvider>|<get-arrayProvider>(){}[0]
-
-    final fun arrayForCreationState(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/FloatArray // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.arrayForCreationState|arrayForCreationState(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-    final fun createReference(kotlin/Boolean = ...): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.createReference|createReference(kotlin.Boolean){}[0]
-    final fun div(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.div|div(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun div(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.div|div(kotlin.Float){}[0]
-    final fun hasBeenWrittenToDoc(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.hasBeenWrittenToDoc|hasBeenWrittenToDoc(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-    final fun isEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isEqualTo|isEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun isGreaterThan(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isGreaterThan|isGreaterThan(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun isGreaterThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isGreaterThanOrEqualTo|isGreaterThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun isLessThan(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isLessThan|isLessThan(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun isLessThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isLessThanOrEqualTo|isLessThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun isNotEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isNotEqualTo|isNotEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun min(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.min|min(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun min(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.min|min(kotlin.Float){}[0]
-    final fun minus(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.minus|minus(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun minus(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.minus|minus(kotlin.Float){}[0]
-    final fun plus(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.plus|plus(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun plus(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.plus|plus(kotlin.Float){}[0]
-    final fun rem(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.rem|rem(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun rem(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.rem|rem(kotlin.Float){}[0]
-    final fun times(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.times|times(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun times(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.times|times(kotlin.Float){}[0]
-    final fun toRemoteInt(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.toRemoteInt|toRemoteInt(){}[0]
-    final fun toRemoteString(): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.toRemoteString|toRemoteString(){}[0]
-    final fun toRemoteString(ee.schimke.composeai.rccreation.compose.state/DecimalFormat): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.toRemoteString|toRemoteString(ee.schimke.composeai.rccreation.compose.state.DecimalFormat){}[0]
-    final fun toRemoteStringOptions(kotlin/Int, kotlin/Int, kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.toRemoteStringOptions|toRemoteStringOptions(kotlin.Int;kotlin.Int;kotlin.Int){}[0]
-    final fun toRemoteStringWithPadding(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int = ..., kotlin/Int = ..., kotlin/Char = ...): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.toRemoteStringWithPadding|toRemoteStringWithPadding(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Char){}[0]
-    final fun unaryMinus(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.unaryMinus|unaryMinus(){}[0]
-    open fun getFloatIdForCreationState(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Float // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.getFloatIdForCreationState|getFloatIdForCreationState(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-
-    final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.Companion|null[0]
-        final fun createForId(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.Companion.createForId|createForId(kotlin.Float){}[0]
-        final fun createNamedRemoteFloat(kotlin/String, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.Companion.createNamedRemoteFloat|createNamedRemoteFloat(kotlin.String;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
-        final fun createNamedRemoteFloat(kotlin/String, kotlin/Float, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.Companion.createNamedRemoteFloat|createNamedRemoteFloat(kotlin.String;kotlin.Float;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
-        final fun invoke(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.Companion.invoke|invoke(kotlin.Float){}[0]
-    }
-}
-
-abstract class ee.schimke.composeai.rccreation.compose.state/RemoteInt : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/Int> { // ee.schimke.composeai.rccreation.compose.state/RemoteInt|null[0]
-    final val absoluteValue // ee.schimke.composeai.rccreation.compose.state/RemoteInt.absoluteValue|{}absoluteValue[0]
-        final fun <get-absoluteValue>(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.absoluteValue.<get-absoluteValue>|<get-absoluteValue>(){}[0]
-    final val arrayProvider // ee.schimke.composeai.rccreation.compose.state/RemoteInt.arrayProvider|{}arrayProvider[0]
-        final fun <get-arrayProvider>(): kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/LongArray> // ee.schimke.composeai.rccreation.compose.state/RemoteInt.arrayProvider.<get-arrayProvider>|<get-arrayProvider>(){}[0]
-    open val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/RemoteInt.constantValueOrNull|{}constantValueOrNull[0]
-        open fun <get-constantValueOrNull>(): kotlin/Int? // ee.schimke.composeai.rccreation.compose.state/RemoteInt.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
-
-    final fun and(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.and|and(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun arrayForCreationState(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/LongArray // ee.schimke.composeai.rccreation.compose.state/RemoteInt.arrayForCreationState|arrayForCreationState(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-    final fun createReference(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.createReference|createReference(){}[0]
-    final fun div(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.div|div(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun div(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.div|div(kotlin.Int){}[0]
-    final fun hasBeenWrittenToDoc(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.hasBeenWrittenToDoc|hasBeenWrittenToDoc(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-    final fun inv(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.inv|inv(){}[0]
-    final fun isEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isEqualTo|isEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun isGreaterThan(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isGreaterThan|isGreaterThan(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun isGreaterThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isGreaterThanOrEqualTo|isGreaterThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun isLessThan(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isLessThan|isLessThan(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun isLessThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isLessThanOrEqualTo|isLessThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun isNotEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isNotEqualTo|isNotEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun minus(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.minus|minus(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun minus(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.minus|minus(kotlin.Int){}[0]
-    final fun or(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.or|or(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun plus(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.plus|plus(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun plus(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.plus|plus(kotlin.Int){}[0]
-    final fun rem(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.rem|rem(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun rem(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.rem|rem(kotlin.Int){}[0]
-    final fun shl(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.shl|shl(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun shr(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.shr|shr(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun times(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.times|times(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun times(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.times|times(kotlin.Int){}[0]
-    final fun toRemoteFloat(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteInt.toRemoteFloat|toRemoteFloat(){}[0]
-    final fun toRemoteLong(): ee.schimke.composeai.rccreation.compose.state/RemoteLong // ee.schimke.composeai.rccreation.compose.state/RemoteInt.toRemoteLong|toRemoteLong(){}[0]
-    final fun toRemoteString(): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteInt.toRemoteString|toRemoteString(){}[0]
-    final fun toRemoteString(ee.schimke.composeai.rccreation.compose.state/DecimalFormat): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteInt.toRemoteString|toRemoteString(ee.schimke.composeai.rccreation.compose.state.DecimalFormat){}[0]
-    final fun unaryMinus(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.unaryMinus|unaryMinus(){}[0]
-    final fun xor(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.xor|xor(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-
-    final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteInt.Companion|null[0]
-        final fun createForId(kotlin/Long): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.Companion.createForId|createForId(kotlin.Long){}[0]
-        final fun createNamedRemoteInt(kotlin/String, kotlin/Int, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.Companion.createNamedRemoteInt|createNamedRemoteInt(kotlin.String;kotlin.Int;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
-        final fun invoke(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.Companion.invoke|invoke(kotlin.Int){}[0]
-        final fun isConstant(kotlin/Long): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.Companion.isConstant|isConstant(kotlin.Long){}[0]
-        final fun isLiteral(kotlin/Long): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.Companion.isLiteral|isLiteral(kotlin.Long){}[0]
-    }
-}
-
-abstract class ee.schimke.composeai.rccreation.compose.state/RemoteString : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/String> { // ee.schimke.composeai.rccreation.compose.state/RemoteString|null[0]
-    final val isEmpty // ee.schimke.composeai.rccreation.compose.state/RemoteString.isEmpty|{}isEmpty[0]
-        final fun <get-isEmpty>(): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteString.isEmpty.<get-isEmpty>|<get-isEmpty>(){}[0]
-    final val isNotEmpty // ee.schimke.composeai.rccreation.compose.state/RemoteString.isNotEmpty|{}isNotEmpty[0]
-        final fun <get-isNotEmpty>(): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteString.isNotEmpty.<get-isNotEmpty>|<get-isNotEmpty>(){}[0]
-    final val length // ee.schimke.composeai.rccreation.compose.state/RemoteString.length|{}length[0]
-        final fun <get-length>(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteString.length.<get-length>|<get-length>(){}[0]
-
-    abstract fun computeRequiredCodePointSet(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin.collections/Set<kotlin/String>? // ee.schimke.composeai.rccreation.compose.state/RemoteString.computeRequiredCodePointSet|computeRequiredCodePointSet(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-    final fun lowercase(): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.lowercase|lowercase(){}[0]
-    final fun plus(ee.schimke.composeai.rccreation.compose.state/RemoteString): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.plus|plus(ee.schimke.composeai.rccreation.compose.state.RemoteString){}[0]
-    final fun plus(kotlin/String): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.plus|plus(kotlin.String){}[0]
-    final fun substring(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.substring|substring(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun substring(ee.schimke.composeai.rccreation.compose.state/RemoteInt, ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.substring|substring(ee.schimke.composeai.rccreation.compose.state.RemoteInt;ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun substring(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.substring|substring(kotlin.Int){}[0]
-    final fun substring(kotlin/Int, ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.substring|substring(kotlin.Int;ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-    final fun substring(kotlin/Int, kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.substring|substring(kotlin.Int;kotlin.Int){}[0]
-    final fun trim(): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.trim|trim(){}[0]
-    final fun uppercase(): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.uppercase|uppercase(){}[0]
-
-    final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteString.Companion|null[0]
-        final fun createForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.Companion.createForId|createForId(kotlin.Int){}[0]
-        final fun createNamedRemoteString(kotlin/String, kotlin/String, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.Companion.createNamedRemoteString|createNamedRemoteString(kotlin.String;kotlin.String;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
-        final fun invoke(kotlin/String): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.Companion.invoke|invoke(kotlin.String){}[0]
-    }
-}
-
 final class <#A: kotlin/Enum<#A>> ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum : ee.schimke.composeai.rccreation.compose.state/MutableRemoteState<#A>, ee.schimke.composeai.rccreation.compose.state/RemoteEnum<#A> { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum|null[0]
-    constructor <init>(ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt, kotlin.enums/EnumEntries<#A>) // ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum.<init>|<init>(ee.schimke.composeai.rccreation.compose.state.MutableRemoteInt;kotlin.enums.EnumEntries<1:0>){}[0]
-
     final val asEncodedMutable // ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum.asEncodedMutable|{}asEncodedMutable[0]
         final fun <get-asEncodedMutable>(): ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt // ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum.asEncodedMutable.<get-asEncodedMutable>|<get-asEncodedMutable>(){}[0]
     final val remoteInt // ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum.remoteInt|{}remoteInt[0]
         final fun <get-remoteInt>(): ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt // ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum.remoteInt.<get-remoteInt>|<get-remoteInt>(){}[0]
-
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-
-    final object Companion { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum.Companion|null[0]
-        final inline fun <#A2: reified kotlin/Enum<#A2>> invoke(#A2): ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum<#A2> // ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum.Companion.invoke|invoke(0:0){0§<kotlin.Enum<0:0>>}[0]
-    }
 }
 
 final class ee.schimke.composeai.rccreation.compose.capture/RemoteDensity { // ee.schimke.composeai.rccreation.compose.capture/RemoteDensity|null[0]
@@ -270,9 +145,6 @@ final class ee.schimke.composeai.rccreation.compose.capture/RemoteDensity { // e
 }
 
 final class ee.schimke.composeai.rccreation.compose.layout/RemoteComponent { // ee.schimke.composeai.rccreation.compose.layout/RemoteComponent|null[0]
-    constructor <init>(ee.schimke.composeai.rccreation.compose.capture/RemoteDocumentScope) // ee.schimke.composeai.rccreation.compose.layout/RemoteComponent.<init>|<init>(ee.schimke.composeai.rccreation.compose.capture.RemoteDocumentScope){}[0]
-    constructor <init>(ee.schimke.composeai.rccreation.compose.layout/RemoteComponentToken) // ee.schimke.composeai.rccreation.compose.layout/RemoteComponent.<init>|<init>(ee.schimke.composeai.rccreation.compose.layout.RemoteComponentToken){}[0]
-
     final val centerX // ee.schimke.composeai.rccreation.compose.layout/RemoteComponent.centerX|{}centerX[0]
         final fun <get-centerX>(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.layout/RemoteComponent.centerX.<get-centerX>|<get-centerX>(){}[0]
     final val centerY // ee.schimke.composeai.rccreation.compose.layout/RemoteComponent.centerY|{}centerY[0]
@@ -308,24 +180,11 @@ final class ee.schimke.composeai.rccreation.compose.layout/RemoteOffset { // ee.
         final fun <get-y>(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.layout/RemoteOffset.y.<get-y>|<get-y>(){}[0]
 
     final object Companion { // ee.schimke.composeai.rccreation.compose.layout/RemoteOffset.Companion|null[0]
+        final val Infinite // ee.schimke.composeai.rccreation.compose.layout/RemoteOffset.Companion.Infinite|{}Infinite[0]
+            final fun <get-Infinite>(): ee.schimke.composeai.rccreation.compose.layout/RemoteOffset // ee.schimke.composeai.rccreation.compose.layout/RemoteOffset.Companion.Infinite.<get-Infinite>|<get-Infinite>(){}[0]
         final val Zero // ee.schimke.composeai.rccreation.compose.layout/RemoteOffset.Companion.Zero|{}Zero[0]
             final fun <get-Zero>(): ee.schimke.composeai.rccreation.compose.layout/RemoteOffset // ee.schimke.composeai.rccreation.compose.layout/RemoteOffset.Companion.Zero.<get-Zero>|<get-Zero>(){}[0]
     }
-}
-
-final class ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat : ee.schimke.composeai.rccreation.compose.state/RemoteFloat { // ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat|null[0]
-    constructor <init>(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, kotlin/FloatArray) // ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat.<init>|<init>(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;kotlin.FloatArray){}[0]
-
-    final val anim // ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat.anim|{}anim[0]
-        final fun <get-anim>(): kotlin/FloatArray // ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat.anim.<get-anim>|<get-anim>(){}[0]
-    final val arrayProvider // ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat.arrayProvider|{}arrayProvider[0]
-        final fun <get-arrayProvider>(): kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/FloatArray> // ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat.arrayProvider.<get-arrayProvider>|<get-arrayProvider>(){}[0]
-    final val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat.constantValueOrNull|{}constantValueOrNull[0]
-        final fun <get-constantValueOrNull>(): kotlin/Float? // ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
-    final val input // ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat.input|{}input[0]
-        final fun <get-input>(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat.input.<get-input>|<get-input>(){}[0]
-
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/AnimatedRemoteFloat.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/DecimalFormat { // ee.schimke.composeai.rccreation.compose.state/DecimalFormat|null[0]
@@ -387,104 +246,38 @@ final class ee.schimke.composeai.rccreation.compose.state/MeshExpressionLowering
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean : ee.schimke.composeai.rccreation.compose.state/MutableRemoteState<kotlin/Boolean>, ee.schimke.composeai.rccreation.compose.state/RemoteBoolean { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean|null[0]
-    constructor <init>(kotlin/Boolean) // ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean.<init>|<init>(kotlin.Boolean){}[0]
-
     final val asEncodedMutable // ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean.asEncodedMutable|{}asEncodedMutable[0]
         final fun <get-asEncodedMutable>(): ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt // ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean.asEncodedMutable.<get-asEncodedMutable>|<get-asEncodedMutable>(){}[0]
     final val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean.constantValueOrNull|{}constantValueOrNull[0]
         final fun <get-constantValueOrNull>(): kotlin/Boolean? // ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
-
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-
-    final object Companion { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean.Companion|null[0]
-        final fun createMutableForId(kotlin/Long): ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean // ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean.Companion.createMutableForId|createMutableForId(kotlin.Long){}[0]
-        final fun invoke(kotlin/Boolean): ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean // ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean.Companion.invoke|invoke(kotlin.Boolean){}[0]
-    }
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat : ee.schimke.composeai.rccreation.compose.state/MutableRemoteState<kotlin/Float>, ee.schimke.composeai.rccreation.compose.state/RemoteFloat { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat|null[0]
-    constructor <init>() // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.<init>|<init>(){}[0]
-    constructor <init>(ee.schimke.composeai.rccreation.compose.state/RemoteFloat) // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.<init>|<init>(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    constructor <init>(kotlin/Float) // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.<init>|<init>(kotlin.Float){}[0]
-    constructor <init>(kotlin/Int) // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.<init>|<init>(kotlin.Int){}[0]
-
-    final val arrayProvider // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.arrayProvider|{}arrayProvider[0]
-        final fun <get-arrayProvider>(): kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/FloatArray> // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.arrayProvider.<get-arrayProvider>|<get-arrayProvider>(){}[0]
     final val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.constantValueOrNull|{}constantValueOrNull[0]
         final fun <get-constantValueOrNull>(): kotlin/Float? // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
 
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-
     final object Companion { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.Companion|null[0]
-        final fun createMutableForId(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.Companion.createMutableForId|createMutableForId(kotlin.Float){}[0]
-        final fun invoke(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.Companion.invoke|invoke(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-        final fun invoke(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.Companion.invoke|invoke(kotlin.Float){}[0]
+        final fun createReserved(): ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat.Companion.createReserved|createReserved(){}[0]
     }
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/MutableRemoteImageBitmap : ee.schimke.composeai.rccreation.compose.state/MutableRemoteState<kotlin/Any>, ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteImageBitmap|null[0]
-    constructor <init>(kotlin/Any?, ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey?, kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/Int>) // ee.schimke.composeai.rccreation.compose.state/MutableRemoteImageBitmap.<init>|<init>(kotlin.Any?;ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey?;kotlin.Function1<ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState,kotlin.Int>){}[0]
-
     final val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/MutableRemoteImageBitmap.constantValueOrNull|{}constantValueOrNull[0]
         final fun <get-constantValueOrNull>(): kotlin/Any? // ee.schimke.composeai.rccreation.compose.state/MutableRemoteImageBitmap.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
-
-    final object Companion { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteImageBitmap.Companion|null[0]
-        final fun createMutableForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/MutableRemoteImageBitmap // ee.schimke.composeai.rccreation.compose.state/MutableRemoteImageBitmap.Companion.createMutableForId|createMutableForId(kotlin.Int){}[0]
-    }
 }
 
-final class ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt : ee.schimke.composeai.rccreation.compose.state/MutableRemoteState<kotlin/Int>, ee.schimke.composeai.rccreation.compose.state/RemoteInt { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt|null[0]
-    constructor <init>(kotlin/Int) // ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt.<init>|<init>(kotlin.Int){}[0]
-
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-
-    final object Companion { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt.Companion|null[0]
-        final fun createMutableForId(kotlin/Long): ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt // ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt.Companion.createMutableForId|createMutableForId(kotlin.Long){}[0]
-        final fun invoke(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt // ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt.Companion.invoke|invoke(kotlin.Int){}[0]
-    }
-}
+final class ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt : ee.schimke.composeai.rccreation.compose.state/MutableRemoteState<kotlin/Int>, ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt|null[0]
 
 final class ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong : ee.schimke.composeai.rccreation.compose.state/MutableRemoteState<kotlin/Long>, ee.schimke.composeai.rccreation.compose.state/RemoteLong { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong|null[0]
-    constructor <init>(kotlin/Long) // ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong.<init>|<init>(kotlin.Long){}[0]
-
     final val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong.constantValueOrNull|{}constantValueOrNull[0]
         final fun <get-constantValueOrNull>(): kotlin/Long? // ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
 
     final fun toString(): kotlin/String // ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong.toString|toString(){}[0]
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-
-    final object Companion { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong.Companion|null[0]
-        final fun createMutableForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong // ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong.Companion.createMutableForId|createMutableForId(kotlin.Int){}[0]
-        final fun invoke(kotlin/Long): ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong // ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong.Companion.invoke|invoke(kotlin.Long){}[0]
-    }
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/MutableRemoteString : ee.schimke.composeai.rccreation.compose.state/MutableRemoteState<kotlin/String>, ee.schimke.composeai.rccreation.compose.state/RemoteString { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteString|null[0]
-    constructor <init>(kotlin/String) // ee.schimke.composeai.rccreation.compose.state/MutableRemoteString.<init>|<init>(kotlin.String){}[0]
-
     final val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/MutableRemoteString.constantValueOrNull|{}constantValueOrNull[0]
         final fun <get-constantValueOrNull>(): kotlin/String? // ee.schimke.composeai.rccreation.compose.state/MutableRemoteString.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
-
-    final fun computeRequiredCodePointSet(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin.collections/Set<kotlin/String>? // ee.schimke.composeai.rccreation.compose.state/MutableRemoteString.computeRequiredCodePointSet|computeRequiredCodePointSet(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/MutableRemoteString.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-
-    final object Companion { // ee.schimke.composeai.rccreation.compose.state/MutableRemoteString.Companion|null[0]
-        final fun createMutableForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/MutableRemoteString // ee.schimke.composeai.rccreation.compose.state/MutableRemoteString.Companion.createMutableForId|createMutableForId(kotlin.Int){}[0]
-        final fun invoke(kotlin/String): ee.schimke.composeai.rccreation.compose.state/MutableRemoteString // ee.schimke.composeai.rccreation.compose.state/MutableRemoteString.Companion.invoke|invoke(kotlin.String){}[0]
-    }
-}
-
-final class ee.schimke.composeai.rccreation.compose.state/RemoteColorConstantCacheKey : ee.schimke.composeai.rccreation.compose.state/BaseRemoteStateCacheKey { // ee.schimke.composeai.rccreation.compose.state/RemoteColorConstantCacheKey|null[0]
-    constructor <init>(kotlin/Int) // ee.schimke.composeai.rccreation.compose.state/RemoteColorConstantCacheKey.<init>|<init>(kotlin.Int){}[0]
-
-    final val color // ee.schimke.composeai.rccreation.compose.state/RemoteColorConstantCacheKey.color|{}color[0]
-        final fun <get-color>(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteColorConstantCacheKey.color.<get-color>|<get-color>(){}[0]
-
-    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.state/RemoteColorConstantCacheKey.equals|equals(kotlin.Any?){}[0]
-    final fun getState(): ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<*>? // ee.schimke.composeai.rccreation.compose.state/RemoteColorConstantCacheKey.getState|getState(){}[0]
-    final fun setState(ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<*>?) // ee.schimke.composeai.rccreation.compose.state/RemoteColorConstantCacheKey.setState|setState(ee.schimke.composeai.rccreation.compose.state.BaseRemoteState<*>?){}[0]
-    final fun toDebugString(): kotlin/String // ee.schimke.composeai.rccreation.compose.state/RemoteColorConstantCacheKey.toDebugString|toDebugString(){}[0]
-    final fun toString(): kotlin/String // ee.schimke.composeai.rccreation.compose.state/RemoteColorConstantCacheKey.toString|toString(){}[0]
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/RemoteComponentCacheKey : ee.schimke.composeai.rccreation.compose.state/BaseRemoteStateCacheKey { // ee.schimke.composeai.rccreation.compose.state/RemoteComponentCacheKey|null[0]
@@ -516,11 +309,6 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteConstantCacheKey
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/RemoteDp : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/Float> { // ee.schimke.composeai.rccreation.compose.state/RemoteDp|null[0]
-    constructor <init>(ee.schimke.composeai.rccreation.compose.state/RemoteFloat) // ee.schimke.composeai.rccreation.compose.state/RemoteDp.<init>|<init>(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    constructor <init>(kotlin/Float) // ee.schimke.composeai.rccreation.compose.state/RemoteDp.<init>|<init>(kotlin.Float){}[0]
-
-    final val cacheKey // ee.schimke.composeai.rccreation.compose.state/RemoteDp.cacheKey|{}cacheKey[0]
-        final fun <get-cacheKey>(): ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey // ee.schimke.composeai.rccreation.compose.state/RemoteDp.cacheKey.<get-cacheKey>|<get-cacheKey>(){}[0]
     final val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/RemoteDp.constantValueOrNull|{}constantValueOrNull[0]
         final fun <get-constantValueOrNull>(): kotlin/Float? // ee.schimke.composeai.rccreation.compose.state/RemoteDp.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
     final val value // ee.schimke.composeai.rccreation.compose.state/RemoteDp.value|{}value[0]
@@ -548,7 +336,6 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteDp : ee.schimke.
     final fun toPx(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteDp.toPx|toPx(){}[0]
     final fun toPx(ee.schimke.composeai.rccreation.compose.capture/RemoteDensity): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteDp.toPx|toPx(ee.schimke.composeai.rccreation.compose.capture.RemoteDensity){}[0]
     final fun unaryMinus(): ee.schimke.composeai.rccreation.compose.state/RemoteDp // ee.schimke.composeai.rccreation.compose.state/RemoteDp.unaryMinus|unaryMinus(){}[0]
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteDp.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 
     final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteDp.Companion|null[0]
         final fun createForId(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteDp // ee.schimke.composeai.rccreation.compose.state/RemoteDp.Companion.createForId|createForId(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
@@ -558,8 +345,6 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteDp : ee.schimke.
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/RemoteEasing { // ee.schimke.composeai.rccreation.compose.state/RemoteEasing|null[0]
-    constructor <init>(kotlin/Int, kotlin/FloatArray? = ...) // ee.schimke.composeai.rccreation.compose.state/RemoteEasing.<init>|<init>(kotlin.Int;kotlin.FloatArray?){}[0]
-
     final val spec // ee.schimke.composeai.rccreation.compose.state/RemoteEasing.spec|{}spec[0]
         final fun <get-spec>(): kotlin/FloatArray? // ee.schimke.composeai.rccreation.compose.state/RemoteEasing.spec.<get-spec>|<get-spec>(){}[0]
     final val type // ee.schimke.composeai.rccreation.compose.state/RemoteEasing.type|{}type[0]
@@ -594,7 +379,6 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteEasing { // ee.s
 
 final class ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin.collections/List<ee.schimke.composeai.rccreation.compose.state/RemoteFloat>> { // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray|null[0]
     constructor <init>(kotlin.collections/List<ee.schimke.composeai.rccreation.compose.state/RemoteFloat>?) // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray.<init>|<init>(kotlin.collections.List<ee.schimke.composeai.rccreation.compose.state.RemoteFloat>?){}[0]
-    constructor <init>(kotlin.collections/List<ee.schimke.composeai.rccreation.compose.state/RemoteFloat>?, ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey, kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/Int>? = ...) // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray.<init>|<init>(kotlin.collections.List<ee.schimke.composeai.rccreation.compose.state.RemoteFloat>?;ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey;kotlin.Function1<ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState,kotlin.Int>?){}[0]
     constructor <init>(kotlin/Array<out ee.schimke.composeai.rccreation.compose.state/RemoteFloat>...) // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray.<init>|<init>(kotlin.Array<out|ee.schimke.composeai.rccreation.compose.state.RemoteFloat>...){}[0]
     constructor <init>(kotlin/FloatArray...) // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray.<init>|<init>(kotlin.FloatArray...){}[0]
 
@@ -605,16 +389,15 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray : ee.
     final fun get(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray.get|get(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
     final fun get(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray.get|get(kotlin.Int){}[0]
     final fun getIdListForCreationState(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray.getIdListForCreationState|getIdListForCreationState(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 
     final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray.Companion|null[0]
+        final fun createForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray.Companion.createForId|createForId(kotlin.Int){}[0]
         final fun createNamedRemoteFloatArray(kotlin/String, kotlin/FloatArray, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray // ee.schimke.composeai.rccreation.compose.state/RemoteFloatArray.Companion.createNamedRemoteFloatArray|createNamedRemoteFloatArray(kotlin.String;kotlin.FloatArray;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
     }
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/RemoteIntArray : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin.collections/List<ee.schimke.composeai.rccreation.compose.state/RemoteInt>> { // ee.schimke.composeai.rccreation.compose.state/RemoteIntArray|null[0]
     constructor <init>(kotlin.collections/List<ee.schimke.composeai.rccreation.compose.state/RemoteInt>?) // ee.schimke.composeai.rccreation.compose.state/RemoteIntArray.<init>|<init>(kotlin.collections.List<ee.schimke.composeai.rccreation.compose.state.RemoteInt>?){}[0]
-    constructor <init>(kotlin.collections/List<ee.schimke.composeai.rccreation.compose.state/RemoteInt>?, ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey) // ee.schimke.composeai.rccreation.compose.state/RemoteIntArray.<init>|<init>(kotlin.collections.List<ee.schimke.composeai.rccreation.compose.state.RemoteInt>?;ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey){}[0]
     constructor <init>(kotlin/IntArray...) // ee.schimke.composeai.rccreation.compose.state/RemoteIntArray.<init>|<init>(kotlin.IntArray...){}[0]
 
     final val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/RemoteIntArray.constantValueOrNull|{}constantValueOrNull[0]
@@ -623,7 +406,10 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteIntArray : ee.sc
     final fun get(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteIntArray.get|get(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
     final fun get(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteIntArray.get|get(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
     final fun get(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteIntArray.get|get(kotlin.Int){}[0]
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteIntArray.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
+
+    final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteIntArray.Companion|null[0]
+        final fun createForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteIntArray // ee.schimke.composeai.rccreation.compose.state/RemoteIntArray.Companion.createForId|createForId(kotlin.Int){}[0]
+    }
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/RemoteMatrix3x3 : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/Any> { // ee.schimke.composeai.rccreation.compose.state/RemoteMatrix3x3|null[0]
@@ -633,7 +419,6 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteMatrix3x3 : ee.s
         final fun <get-isIdentity>(): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.state/RemoteMatrix3x3.isIdentity.<get-isIdentity>|<get-isIdentity>(){}[0]
 
     final fun times(ee.schimke.composeai.rccreation.compose.state/RemoteMatrix3x3): ee.schimke.composeai.rccreation.compose.state/RemoteMatrix3x3 // ee.schimke.composeai.rccreation.compose.state/RemoteMatrix3x3.times|times(ee.schimke.composeai.rccreation.compose.state.RemoteMatrix3x3){}[0]
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteMatrix3x3.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 
     final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteMatrix3x3.Companion|null[0]
         final fun createIdentity(): ee.schimke.composeai.rccreation.compose.state/RemoteMatrix3x3 // ee.schimke.composeai.rccreation.compose.state/RemoteMatrix3x3.Companion.createIdentity|createIdentity(){}[0]
@@ -659,7 +444,6 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteMutableFloatArra
     final fun get(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteMutableFloatArray.get|get(kotlin.Int){}[0]
     final fun set(ee.schimke.composeai.rccreation.compose.state/RemoteInt, ee.schimke.composeai.rccreation.compose.state/RemoteFloat) // ee.schimke.composeai.rccreation.compose.state/RemoteMutableFloatArray.set|set(ee.schimke.composeai.rccreation.compose.state.RemoteInt;ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
     final fun set(kotlin/Int, ee.schimke.composeai.rccreation.compose.state/RemoteFloat) // ee.schimke.composeai.rccreation.compose.state/RemoteMutableFloatArray.set|set(kotlin.Int;ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteMutableFloatArray.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/RemoteNamedCacheKey : ee.schimke.composeai.rccreation.compose.state/BaseRemoteStateCacheKey { // ee.schimke.composeai.rccreation.compose.state/RemoteNamedCacheKey|null[0]
@@ -696,19 +480,6 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteOperationCacheKe
     }
 }
 
-final class ee.schimke.composeai.rccreation.compose.state/RemoteStateIdKey : ee.schimke.composeai.rccreation.compose.state/BaseRemoteStateCacheKey { // ee.schimke.composeai.rccreation.compose.state/RemoteStateIdKey|null[0]
-    constructor <init>(kotlin/Int) // ee.schimke.composeai.rccreation.compose.state/RemoteStateIdKey.<init>|<init>(kotlin.Int){}[0]
-
-    final val id // ee.schimke.composeai.rccreation.compose.state/RemoteStateIdKey.id|{}id[0]
-        final fun <get-id>(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteStateIdKey.id.<get-id>|<get-id>(){}[0]
-
-    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.state/RemoteStateIdKey.equals|equals(kotlin.Any?){}[0]
-    final fun getState(): ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<*>? // ee.schimke.composeai.rccreation.compose.state/RemoteStateIdKey.getState|getState(){}[0]
-    final fun setState(ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<*>?) // ee.schimke.composeai.rccreation.compose.state/RemoteStateIdKey.setState|setState(ee.schimke.composeai.rccreation.compose.state.BaseRemoteState<*>?){}[0]
-    final fun toDebugString(): kotlin/String // ee.schimke.composeai.rccreation.compose.state/RemoteStateIdKey.toDebugString|toDebugString(){}[0]
-    final fun toString(): kotlin/String // ee.schimke.composeai.rccreation.compose.state/RemoteStateIdKey.toString|toString(){}[0]
-}
-
 final class ee.schimke.composeai.rccreation.compose.state/RemoteStateInstanceKey : ee.schimke.composeai.rccreation.compose.state/BaseRemoteStateCacheKey { // ee.schimke.composeai.rccreation.compose.state/RemoteStateInstanceKey|null[0]
     constructor <init>() // ee.schimke.composeai.rccreation.compose.state/RemoteStateInstanceKey.<init>|<init>(){}[0]
 
@@ -720,22 +491,19 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteStateInstanceKey
 
 final class ee.schimke.composeai.rccreation.compose.state/RemoteStringArray : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin.collections/List<ee.schimke.composeai.rccreation.compose.state/RemoteString>> { // ee.schimke.composeai.rccreation.compose.state/RemoteStringArray|null[0]
     constructor <init>(kotlin.collections/List<ee.schimke.composeai.rccreation.compose.state/RemoteString>?) // ee.schimke.composeai.rccreation.compose.state/RemoteStringArray.<init>|<init>(kotlin.collections.List<ee.schimke.composeai.rccreation.compose.state.RemoteString>?){}[0]
-    constructor <init>(kotlin.collections/List<ee.schimke.composeai.rccreation.compose.state/RemoteString>?, ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey) // ee.schimke.composeai.rccreation.compose.state/RemoteStringArray.<init>|<init>(kotlin.collections.List<ee.schimke.composeai.rccreation.compose.state.RemoteString>?;ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey){}[0]
 
     final val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/RemoteStringArray.constantValueOrNull|{}constantValueOrNull[0]
         final fun <get-constantValueOrNull>(): kotlin.collections/List<ee.schimke.composeai.rccreation.compose.state/RemoteString>? // ee.schimke.composeai.rccreation.compose.state/RemoteStringArray.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
 
     final fun get(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteStringArray.get|get(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
     final fun get(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteStringArray.get|get(kotlin.Int){}[0]
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteStringArray.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
+
+    final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteStringArray.Companion|null[0]
+        final fun createForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteStringArray // ee.schimke.composeai.rccreation.compose.state/RemoteStringArray.Companion.createForId|createForId(kotlin.Int){}[0]
+    }
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/Float> { // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit|null[0]
-    constructor <init>(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteTextUnitType = ...) // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit.<init>|<init>(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteTextUnitType){}[0]
-    constructor <init>(kotlin/Float, ee.schimke.composeai.rccreation.compose.state/RemoteTextUnitType = ...) // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit.<init>|<init>(kotlin.Float;ee.schimke.composeai.rccreation.compose.state.RemoteTextUnitType){}[0]
-
-    final val cacheKey // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit.cacheKey|{}cacheKey[0]
-        final fun <get-cacheKey>(): ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit.cacheKey.<get-cacheKey>|<get-cacheKey>(){}[0]
     final val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit.constantValueOrNull|{}constantValueOrNull[0]
         final fun <get-constantValueOrNull>(): kotlin/Float? // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
     final val type // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit.type|{}type[0]
@@ -745,7 +513,6 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit : ee.sc
 
     final fun toPx(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit.toPx|toPx(){}[0]
     final fun toPx(ee.schimke.composeai.rccreation.compose.capture/RemoteDensity): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit.toPx|toPx(ee.schimke.composeai.rccreation.compose.capture.RemoteDensity){}[0]
-    final fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 }
 
 final class ee.schimke.composeai.rccreation.compose.state/RemoteTweenSpec : ee.schimke.composeai.rccreation.compose.state/RemoteAnimationSpec { // ee.schimke.composeai.rccreation.compose.state/RemoteTweenSpec|null[0]
@@ -763,9 +530,6 @@ final class ee.schimke.composeai.rccreation.compose.state/RemoteTweenSpec : ee.s
 }
 
 open class <#A: kotlin/Enum<#A>> ee.schimke.composeai.rccreation.compose.state/RemoteEnum : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<#A> { // ee.schimke.composeai.rccreation.compose.state/RemoteEnum|null[0]
-    constructor <init>(#A, kotlin.enums/EnumEntries<#A>) // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.<init>|<init>(1:0;kotlin.enums.EnumEntries<1:0>){}[0]
-    constructor <init>(ee.schimke.composeai.rccreation.compose.state/RemoteInt, kotlin.enums/EnumEntries<#A>) // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.<init>|<init>(ee.schimke.composeai.rccreation.compose.state.RemoteInt;kotlin.enums.EnumEntries<1:0>){}[0]
-
     final val enumEntries // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.enumEntries|{}enumEntries[0]
         final fun <get-enumEntries>(): kotlin.enums/EnumEntries<#A> // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.enumEntries.<get-enumEntries>|<get-enumEntries>(){}[0]
     final val ordinal // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.ordinal|{}ordinal[0]
@@ -780,11 +544,9 @@ open class <#A: kotlin/Enum<#A>> ee.schimke.composeai.rccreation.compose.state/R
     final fun toRemoteInt(kotlin/Function1<#A, ee.schimke.composeai.rccreation.compose.state/RemoteInt>): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.toRemoteInt|toRemoteInt(kotlin.Function1<1:0,ee.schimke.composeai.rccreation.compose.state.RemoteInt>){}[0]
     final fun toRemoteString(kotlin/Function1<#A, ee.schimke.composeai.rccreation.compose.state/RemoteString> = ...): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.toRemoteString|toRemoteString(kotlin.Function1<1:0,ee.schimke.composeai.rccreation.compose.state.RemoteString>){}[0]
     open fun toDebugString(): kotlin/String // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.toDebugString|toDebugString(){}[0]
-    open fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 
     final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.Companion|null[0]
         final inline fun <#A2: reified kotlin/Enum<#A2>> createNamedRemoteEnum(kotlin/String, #A2, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteEnum<#A2> // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.Companion.createNamedRemoteEnum|createNamedRemoteEnum(kotlin.String;0:0;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){0§<kotlin.Enum<0:0>>}[0]
-        final inline fun <#A2: reified kotlin/Enum<#A2>> invoke(#A2): ee.schimke.composeai.rccreation.compose.state/RemoteEnum<#A2> // ee.schimke.composeai.rccreation.compose.state/RemoteEnum.Companion.invoke|invoke(0:0){0§<kotlin.Enum<0:0>>}[0]
     }
 }
 
@@ -842,8 +604,6 @@ open class ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreation
 }
 
 open class ee.schimke.composeai.rccreation.compose.state/RemoteBoolean : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/Boolean> { // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean|null[0]
-    constructor <init>(kotlin/Boolean) // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.<init>|<init>(kotlin.Boolean){}[0]
-
     final val intValue // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.intValue|{}intValue[0]
         final fun <get-intValue>(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.intValue.<get-intValue>|<get-intValue>(){}[0]
     open val asEncoded // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.asEncoded|{}asEncoded[0]
@@ -868,21 +628,14 @@ open class ee.schimke.composeai.rccreation.compose.state/RemoteBoolean : ee.schi
     final fun toRemoteInt(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.toRemoteInt|toRemoteInt(){}[0]
     final fun xor(ee.schimke.composeai.rccreation.compose.state/RemoteBoolean): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.xor|xor(ee.schimke.composeai.rccreation.compose.state.RemoteBoolean){}[0]
     open fun toDebugString(): kotlin/String // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.toDebugString|toDebugString(){}[0]
-    open fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 
     final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.Companion|null[0]
         final fun createForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.Companion.createForId|createForId(kotlin.Int){}[0]
         final fun createNamedRemoteBoolean(kotlin/String, kotlin/Boolean, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.Companion.createNamedRemoteBoolean|createNamedRemoteBoolean(kotlin.String;kotlin.Boolean;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
-        final fun invoke(kotlin/Boolean): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean.Companion.invoke|invoke(kotlin.Boolean){}[0]
     }
 }
 
 open class ee.schimke.composeai.rccreation.compose.state/RemoteColor : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/Int> { // ee.schimke.composeai.rccreation.compose.state/RemoteColor|null[0]
-    constructor <init>(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat = ...) // ee.schimke.composeai.rccreation.compose.state/RemoteColor.<init>|<init>(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-    constructor <init>(ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey, kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/Int>) // ee.schimke.composeai.rccreation.compose.state/RemoteColor.<init>|<init>(ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey;kotlin.Function1<ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState,kotlin.Int>){}[0]
-    constructor <init>(kotlin/Int) // ee.schimke.composeai.rccreation.compose.state/RemoteColor.<init>|<init>(kotlin.Int){}[0]
-    constructor <init>(kotlin/Int?, ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey, ee.schimke.composeai.rccreation.compose.state/RemoteFloat?, ee.schimke.composeai.rccreation.compose.state/RemoteFloat?, ee.schimke.composeai.rccreation.compose.state/RemoteFloat?, ee.schimke.composeai.rccreation.compose.state/RemoteFloat?, kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/Int>) // ee.schimke.composeai.rccreation.compose.state/RemoteColor.<init>|<init>(kotlin.Int?;ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey;ee.schimke.composeai.rccreation.compose.state.RemoteFloat?;ee.schimke.composeai.rccreation.compose.state.RemoteFloat?;ee.schimke.composeai.rccreation.compose.state.RemoteFloat?;ee.schimke.composeai.rccreation.compose.state.RemoteFloat?;kotlin.Function1<ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState,kotlin.Int>){}[0]
-
     final val alpha // ee.schimke.composeai.rccreation.compose.state/RemoteColor.alpha|{}alpha[0]
         final fun <get-alpha>(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteColor.alpha.<get-alpha>|<get-alpha>(){}[0]
     final val blue // ee.schimke.composeai.rccreation.compose.state/RemoteColor.blue|{}blue[0]
@@ -893,8 +646,6 @@ open class ee.schimke.composeai.rccreation.compose.state/RemoteColor : ee.schimk
         final fun <get-green>(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteColor.green.<get-green>|<get-green>(){}[0]
     final val hue // ee.schimke.composeai.rccreation.compose.state/RemoteColor.hue|{}hue[0]
         final fun <get-hue>(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteColor.hue.<get-hue>|<get-hue>(){}[0]
-    final val idProvider // ee.schimke.composeai.rccreation.compose.state/RemoteColor.idProvider|{}idProvider[0]
-        final fun <get-idProvider>(): kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/Int> // ee.schimke.composeai.rccreation.compose.state/RemoteColor.idProvider.<get-idProvider>|<get-idProvider>(){}[0]
     final val red // ee.schimke.composeai.rccreation.compose.state/RemoteColor.red|{}red[0]
         final fun <get-red>(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteColor.red.<get-red>|<get-red>(){}[0]
     final val saturation // ee.schimke.composeai.rccreation.compose.state/RemoteColor.saturation|{}saturation[0]
@@ -907,49 +658,88 @@ open class ee.schimke.composeai.rccreation.compose.state/RemoteColor : ee.schimk
     final fun copy(ee.schimke.composeai.rccreation.compose.state/RemoteFloat? = ..., ee.schimke.composeai.rccreation.compose.state/RemoteFloat? = ..., ee.schimke.composeai.rccreation.compose.state/RemoteFloat? = ..., ee.schimke.composeai.rccreation.compose.state/RemoteFloat? = ...): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.copy|copy(ee.schimke.composeai.rccreation.compose.state.RemoteFloat?;ee.schimke.composeai.rccreation.compose.state.RemoteFloat?;ee.schimke.composeai.rccreation.compose.state.RemoteFloat?;ee.schimke.composeai.rccreation.compose.state.RemoteFloat?){}[0]
     final fun times(ee.schimke.composeai.rccreation.compose.state/RemoteColor): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.times|times(ee.schimke.composeai.rccreation.compose.state.RemoteColor){}[0]
     open fun toDebugString(): kotlin/String // ee.schimke.composeai.rccreation.compose.state/RemoteColor.toDebugString|toDebugString(){}[0]
-    open fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteColor.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 
     final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion|null[0]
+        final val Black // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Black|{}Black[0]
+            final fun <get-Black>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Black.<get-Black>|<get-Black>(){}[0]
+        final val Blue // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Blue|{}Blue[0]
+            final fun <get-Blue>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Blue.<get-Blue>|<get-Blue>(){}[0]
+        final val Cyan // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Cyan|{}Cyan[0]
+            final fun <get-Cyan>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Cyan.<get-Cyan>|<get-Cyan>(){}[0]
+        final val DarkGray // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.DarkGray|{}DarkGray[0]
+            final fun <get-DarkGray>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.DarkGray.<get-DarkGray>|<get-DarkGray>(){}[0]
+        final val Gray // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Gray|{}Gray[0]
+            final fun <get-Gray>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Gray.<get-Gray>|<get-Gray>(){}[0]
+        final val Green // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Green|{}Green[0]
+            final fun <get-Green>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Green.<get-Green>|<get-Green>(){}[0]
+        final val LightGray // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.LightGray|{}LightGray[0]
+            final fun <get-LightGray>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.LightGray.<get-LightGray>|<get-LightGray>(){}[0]
+        final val Magenta // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Magenta|{}Magenta[0]
+            final fun <get-Magenta>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Magenta.<get-Magenta>|<get-Magenta>(){}[0]
+        final val Red // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Red|{}Red[0]
+            final fun <get-Red>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Red.<get-Red>|<get-Red>(){}[0]
+        final val Transparent // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Transparent|{}Transparent[0]
+            final fun <get-Transparent>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Transparent.<get-Transparent>|<get-Transparent>(){}[0]
+        final val White // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.White|{}White[0]
+            final fun <get-White>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.White.<get-White>|<get-White>(){}[0]
+        final val Yellow // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Yellow|{}Yellow[0]
+            final fun <get-Yellow>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.Yellow.<get-Yellow>|<get-Yellow>(){}[0]
+
         final fun createForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.createForId|createForId(kotlin.Int){}[0]
         final fun createNamedRemoteColor(kotlin/String, ee.schimke.composeai.rccreation.compose.state/RemoteColor, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.createNamedRemoteColor|createNamedRemoteColor(kotlin.String;ee.schimke.composeai.rccreation.compose.state.RemoteColor;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
         final fun createNamedRemoteColor(kotlin/String, kotlin/Int, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.createNamedRemoteColor|createNamedRemoteColor(kotlin.String;kotlin.Int;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
-        final fun fromAHSV(kotlin/Int, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.fromAHSV|fromAHSV(kotlin.Int;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+        final fun createThemedRemoteColor(kotlin/String, kotlin/Short, kotlin/Short, kotlin/Int, kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.createThemedRemoteColor|createThemedRemoteColor(kotlin.String;kotlin.Short;kotlin.Short;kotlin.Int;kotlin.Int){}[0]
         final fun hsv(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat = ...): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.hsv|hsv(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-        final fun invoke(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat = ...): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.invoke|invoke(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-        final fun invoke(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float = ...): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.invoke|invoke(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
-        final fun invoke(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.invoke|invoke(kotlin.Int){}[0]
         final fun rgb(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat = ...): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.rgb|rgb(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-        final fun rgb(kotlin/Float, kotlin/Float, kotlin/Float, kotlin/Float = ...): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor.Companion.rgb|rgb(kotlin.Float;kotlin.Float;kotlin.Float;kotlin.Float){}[0]
     }
 }
 
-open class ee.schimke.composeai.rccreation.compose.state/RemoteFloatExpression : ee.schimke.composeai.rccreation.compose.state/RemoteFloat { // ee.schimke.composeai.rccreation.compose.state/RemoteFloatExpression|null[0]
-    constructor <init>(kotlin/Float?, ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey, kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/FloatArray>) // ee.schimke.composeai.rccreation.compose.state/RemoteFloatExpression.<init>|<init>(kotlin.Float?;ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey;kotlin.Function1<ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState,kotlin.FloatArray>){}[0]
-    constructor <init>(kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteDocumentScope, ee.schimke.composeai.rccreation.compose.state/RemoteFloat>) // ee.schimke.composeai.rccreation.compose.state/RemoteFloatExpression.<init>|<init>(kotlin.Function1<ee.schimke.composeai.rccreation.compose.capture.RemoteDocumentScope,ee.schimke.composeai.rccreation.compose.state.RemoteFloat>){}[0]
+open class ee.schimke.composeai.rccreation.compose.state/RemoteFloat : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/Float> { // ee.schimke.composeai.rccreation.compose.state/RemoteFloat|null[0]
+    open val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.constantValueOrNull|{}constantValueOrNull[0]
+        open fun <get-constantValueOrNull>(): kotlin/Float? // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
 
-    open val arrayProvider // ee.schimke.composeai.rccreation.compose.state/RemoteFloatExpression.arrayProvider|{}arrayProvider[0]
-        open fun <get-arrayProvider>(): kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/FloatArray> // ee.schimke.composeai.rccreation.compose.state/RemoteFloatExpression.arrayProvider.<get-arrayProvider>|<get-arrayProvider>(){}[0]
-    open val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/RemoteFloatExpression.constantValueOrNull|{}constantValueOrNull[0]
-        open fun <get-constantValueOrNull>(): kotlin/Float? // ee.schimke.composeai.rccreation.compose.state/RemoteFloatExpression.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
+    final fun arrayForCreationState(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/FloatArray // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.arrayForCreationState|arrayForCreationState(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
+    final fun createReference(kotlin/Boolean = ...): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.createReference|createReference(kotlin.Boolean){}[0]
+    final fun div(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.div|div(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun div(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.div|div(kotlin.Float){}[0]
+    final fun isEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isEqualTo|isEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun isGreaterThan(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isGreaterThan|isGreaterThan(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun isGreaterThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isGreaterThanOrEqualTo|isGreaterThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun isLessThan(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isLessThan|isLessThan(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun isLessThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isLessThanOrEqualTo|isLessThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun isNotEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.isNotEqualTo|isNotEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun min(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.min|min(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun min(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.min|min(kotlin.Float){}[0]
+    final fun minus(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.minus|minus(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun minus(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.minus|minus(kotlin.Float){}[0]
+    final fun plus(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.plus|plus(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun plus(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.plus|plus(kotlin.Float){}[0]
+    final fun rem(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.rem|rem(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun rem(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.rem|rem(kotlin.Float){}[0]
+    final fun times(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.times|times(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+    final fun times(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.times|times(kotlin.Float){}[0]
+    final fun toRemoteInt(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.toRemoteInt|toRemoteInt(){}[0]
+    final fun toRemoteString(): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.toRemoteString|toRemoteString(){}[0]
+    final fun toRemoteString(ee.schimke.composeai.rccreation.compose.state/DecimalFormat): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.toRemoteString|toRemoteString(ee.schimke.composeai.rccreation.compose.state.DecimalFormat){}[0]
+    final fun toRemoteStringOptions(kotlin/Short, kotlin/Short, kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.toRemoteStringOptions|toRemoteStringOptions(kotlin.Short;kotlin.Short;kotlin.Int){}[0]
+    final fun toRemoteStringWithPadding(kotlin/Short, kotlin/Short, kotlin/Int, kotlin/Int = ..., kotlin/Int = ..., kotlin/Char = ...): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.toRemoteStringWithPadding|toRemoteStringWithPadding(kotlin.Short;kotlin.Short;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Char){}[0]
+    final fun unaryMinus(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.unaryMinus|unaryMinus(){}[0]
+    open fun getFloatIdForCreationState(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Float // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.getFloatIdForCreationState|getFloatIdForCreationState(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 
-    open fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteFloatExpression.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
+    final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.Companion|null[0]
+        final fun createForId(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.Companion.createForId|createForId(kotlin.Float){}[0]
+        final fun createNamedRemoteFloat(kotlin/String, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.Companion.createNamedRemoteFloat|createNamedRemoteFloat(kotlin.String;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
+        final fun createNamedRemoteFloat(kotlin/String, kotlin/Float, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat.Companion.createNamedRemoteFloat|createNamedRemoteFloat(kotlin.String;kotlin.Float;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
+    }
 }
 
 open class ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/Any> { // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap|null[0]
-    constructor <init>(kotlin/Any?, ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey) // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.<init>|<init>(kotlin.Any?;ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey){}[0]
-    constructor <init>(kotlin/Any?, ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey, kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/Int>? = ...) // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.<init>|<init>(kotlin.Any?;ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey;kotlin.Function1<ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState,kotlin.Int>?){}[0]
-    constructor <init>(kotlin/String) // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.<init>|<init>(kotlin.String){}[0]
-
     final val height // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.height|{}height[0]
         final fun <get-height>(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.height.<get-height>|<get-height>(){}[0]
-    final val idProvider // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.idProvider|{}idProvider[0]
-        final fun <get-idProvider>(): kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/Int>? // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.idProvider.<get-idProvider>|<get-idProvider>(){}[0]
     final val width // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.width|{}width[0]
         final fun <get-width>(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.width.<get-width>|<get-width>(){}[0]
     open val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.constantValueOrNull|{}constantValueOrNull[0]
         open fun <get-constantValueOrNull>(): kotlin/Any? // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
-
-    open fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 
     final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.Companion|null[0]
         final fun createForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap.Companion.createForId|createForId(kotlin.Int){}[0]
@@ -959,18 +749,50 @@ open class ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap : ee.
     }
 }
 
-open class ee.schimke.composeai.rccreation.compose.state/RemoteIntExpression : ee.schimke.composeai.rccreation.compose.state/RemoteInt { // ee.schimke.composeai.rccreation.compose.state/RemoteIntExpression|null[0]
-    constructor <init>(kotlin/Int?, ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey, kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/LongArray>) // ee.schimke.composeai.rccreation.compose.state/RemoteIntExpression.<init>|<init>(kotlin.Int?;ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey;kotlin.Function1<ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState,kotlin.LongArray>){}[0]
+open class ee.schimke.composeai.rccreation.compose.state/RemoteInt : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/Int> { // ee.schimke.composeai.rccreation.compose.state/RemoteInt|null[0]
+    final val absoluteValue // ee.schimke.composeai.rccreation.compose.state/RemoteInt.absoluteValue|{}absoluteValue[0]
+        final fun <get-absoluteValue>(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.absoluteValue.<get-absoluteValue>|<get-absoluteValue>(){}[0]
+    open val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/RemoteInt.constantValueOrNull|{}constantValueOrNull[0]
+        open fun <get-constantValueOrNull>(): kotlin/Int? // ee.schimke.composeai.rccreation.compose.state/RemoteInt.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
 
-    open val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/RemoteIntExpression.constantValueOrNull|{}constantValueOrNull[0]
-        open fun <get-constantValueOrNull>(): kotlin/Int? // ee.schimke.composeai.rccreation.compose.state/RemoteIntExpression.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
+    final fun and(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.and|and(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun arrayForCreationState(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/LongArray // ee.schimke.composeai.rccreation.compose.state/RemoteInt.arrayForCreationState|arrayForCreationState(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
+    final fun createReference(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.createReference|createReference(){}[0]
+    final fun div(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.div|div(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun div(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.div|div(kotlin.Int){}[0]
+    final fun inv(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.inv|inv(){}[0]
+    final fun isEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isEqualTo|isEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun isGreaterThan(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isGreaterThan|isGreaterThan(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun isGreaterThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isGreaterThanOrEqualTo|isGreaterThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun isLessThan(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isLessThan|isLessThan(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun isLessThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isLessThanOrEqualTo|isLessThanOrEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun isNotEqualTo(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.isNotEqualTo|isNotEqualTo(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun minus(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.minus|minus(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun minus(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.minus|minus(kotlin.Int){}[0]
+    final fun or(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.or|or(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun plus(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.plus|plus(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun plus(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.plus|plus(kotlin.Int){}[0]
+    final fun rem(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.rem|rem(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun rem(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.rem|rem(kotlin.Int){}[0]
+    final fun shl(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.shl|shl(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun shr(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.shr|shr(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun times(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.times|times(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun times(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.times|times(kotlin.Int){}[0]
+    final fun toRemoteFloat(): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteInt.toRemoteFloat|toRemoteFloat(){}[0]
+    final fun toRemoteLong(): ee.schimke.composeai.rccreation.compose.state/RemoteLong // ee.schimke.composeai.rccreation.compose.state/RemoteInt.toRemoteLong|toRemoteLong(){}[0]
+    final fun toRemoteString(): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteInt.toRemoteString|toRemoteString(){}[0]
+    final fun toRemoteString(ee.schimke.composeai.rccreation.compose.state/DecimalFormat): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteInt.toRemoteString|toRemoteString(ee.schimke.composeai.rccreation.compose.state.DecimalFormat){}[0]
+    final fun unaryMinus(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.unaryMinus|unaryMinus(){}[0]
+    final fun xor(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.xor|xor(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
 
-    open fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteIntExpression.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
+    final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteInt.Companion|null[0]
+        final fun createForId(kotlin/Long): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.Companion.createForId|createForId(kotlin.Long){}[0]
+        final fun createNamedRemoteInt(kotlin/String, kotlin/Int, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt.Companion.createNamedRemoteInt|createNamedRemoteInt(kotlin.String;kotlin.Int;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
+        final fun isLiteral(kotlin/Long): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.state/RemoteInt.Companion.isLiteral|isLiteral(kotlin.Long){}[0]
+    }
 }
 
 open class ee.schimke.composeai.rccreation.compose.state/RemoteLong : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/Long> { // ee.schimke.composeai.rccreation.compose.state/RemoteLong|null[0]
-    constructor <init>(ee.schimke.composeai.rccreation.compose.state/RemoteInt, ee.schimke.composeai.rccreation.compose.state/RemoteInt, ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey = ...) // ee.schimke.composeai.rccreation.compose.state/RemoteLong.<init>|<init>(ee.schimke.composeai.rccreation.compose.state.RemoteInt;ee.schimke.composeai.rccreation.compose.state.RemoteInt;ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey){}[0]
-
     final val high // ee.schimke.composeai.rccreation.compose.state/RemoteLong.high|{}high[0]
         final fun <get-high>(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteLong.high.<get-high>|<get-high>(){}[0]
     final val low // ee.schimke.composeai.rccreation.compose.state/RemoteLong.low|{}low[0]
@@ -983,13 +805,38 @@ open class ee.schimke.composeai.rccreation.compose.state/RemoteLong : ee.schimke
     final fun times(ee.schimke.composeai.rccreation.compose.state/RemoteLong): ee.schimke.composeai.rccreation.compose.state/RemoteLong // ee.schimke.composeai.rccreation.compose.state/RemoteLong.times|times(ee.schimke.composeai.rccreation.compose.state.RemoteLong){}[0]
     final fun toRemoteInt(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteLong.toRemoteInt|toRemoteInt(){}[0]
     open fun toDebugString(): kotlin/String // ee.schimke.composeai.rccreation.compose.state/RemoteLong.toDebugString|toDebugString(){}[0]
-    open fun writeToDocument(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/RemoteLong.writeToDocument|writeToDocument(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
 
     final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteLong.Companion|null[0]
         final fun createForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteLong // ee.schimke.composeai.rccreation.compose.state/RemoteLong.Companion.createForId|createForId(kotlin.Int){}[0]
         final fun createNamedRemoteLong(kotlin/String, kotlin/Long, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteLong // ee.schimke.composeai.rccreation.compose.state/RemoteLong.Companion.createNamedRemoteLong|createNamedRemoteLong(kotlin.String;kotlin.Long;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
         final fun fromLowHigh(ee.schimke.composeai.rccreation.compose.state/RemoteInt, ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteLong // ee.schimke.composeai.rccreation.compose.state/RemoteLong.Companion.fromLowHigh|fromLowHigh(ee.schimke.composeai.rccreation.compose.state.RemoteInt;ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-        final fun invoke(kotlin/Long): ee.schimke.composeai.rccreation.compose.state/RemoteLong // ee.schimke.composeai.rccreation.compose.state/RemoteLong.Companion.invoke|invoke(kotlin.Long){}[0]
+    }
+}
+
+open class ee.schimke.composeai.rccreation.compose.state/RemoteString : ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<kotlin/String> { // ee.schimke.composeai.rccreation.compose.state/RemoteString|null[0]
+    final val isEmpty // ee.schimke.composeai.rccreation.compose.state/RemoteString.isEmpty|{}isEmpty[0]
+        final fun <get-isEmpty>(): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteString.isEmpty.<get-isEmpty>|<get-isEmpty>(){}[0]
+    final val isNotEmpty // ee.schimke.composeai.rccreation.compose.state/RemoteString.isNotEmpty|{}isNotEmpty[0]
+        final fun <get-isNotEmpty>(): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteString.isNotEmpty.<get-isNotEmpty>|<get-isNotEmpty>(){}[0]
+    final val length // ee.schimke.composeai.rccreation.compose.state/RemoteString.length|{}length[0]
+        final fun <get-length>(): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteString.length.<get-length>|<get-length>(){}[0]
+    open val constantValueOrNull // ee.schimke.composeai.rccreation.compose.state/RemoteString.constantValueOrNull|{}constantValueOrNull[0]
+        open fun <get-constantValueOrNull>(): kotlin/String? // ee.schimke.composeai.rccreation.compose.state/RemoteString.constantValueOrNull.<get-constantValueOrNull>|<get-constantValueOrNull>(){}[0]
+
+    final fun lowercase(): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.lowercase|lowercase(){}[0]
+    final fun plus(ee.schimke.composeai.rccreation.compose.state/RemoteString): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.plus|plus(ee.schimke.composeai.rccreation.compose.state.RemoteString){}[0]
+    final fun plus(kotlin/String): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.plus|plus(kotlin.String){}[0]
+    final fun substring(ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.substring|substring(ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun substring(ee.schimke.composeai.rccreation.compose.state/RemoteInt, ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.substring|substring(ee.schimke.composeai.rccreation.compose.state.RemoteInt;ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun substring(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.substring|substring(kotlin.Int){}[0]
+    final fun substring(kotlin/Int, ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.substring|substring(kotlin.Int;ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
+    final fun substring(kotlin/Int, kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.substring|substring(kotlin.Int;kotlin.Int){}[0]
+    final fun trim(): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.trim|trim(){}[0]
+    final fun uppercase(): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.uppercase|uppercase(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rccreation.compose.state/RemoteString.Companion|null[0]
+        final fun createForId(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.Companion.createForId|createForId(kotlin.Int){}[0]
+        final fun createNamedRemoteString(kotlin/String, kotlin/String, ee.schimke.composeai.rccreation.compose.state/RemoteState.Domain = ...): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString.Companion.createNamedRemoteString|createNamedRemoteString(kotlin.String;kotlin.String;ee.schimke.composeai.rccreation.compose.state.RemoteState.Domain){}[0]
     }
 }
 
@@ -1069,7 +916,6 @@ final val ee.schimke.composeai.rccreation.compose.layout/ee_schimke_composeai_rc
 final val ee.schimke.composeai.rccreation.compose.layout/ee_schimke_composeai_rccreation_compose_layout_RemoteOffset$stableprop // ee.schimke.composeai.rccreation.compose.layout/ee_schimke_composeai_rccreation_compose_layout_RemoteOffset$stableprop|#static{}ee_schimke_composeai_rccreation_compose_layout_RemoteOffset$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/cacheKey // ee.schimke.composeai.rccreation.compose.state/cacheKey|@ee.schimke.composeai.rccreation.compose.state.RemoteState<*>{}cacheKey[0]
     final fun (ee.schimke.composeai.rccreation.compose.state/RemoteState<*>).<get-cacheKey>(): ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey // ee.schimke.composeai.rccreation.compose.state/cacheKey.<get-cacheKey>|<get-cacheKey>@ee.schimke.composeai.rccreation.compose.state.RemoteState<*>(){}[0]
-final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_AnimatedRemoteFloat$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_AnimatedRemoteFloat$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_AnimatedRemoteFloat$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_BaseRemoteState$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_BaseRemoteState$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_BaseRemoteState$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_BaseRemoteStateCacheKey$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_BaseRemoteStateCacheKey$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_BaseRemoteStateCacheKey$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_DecimalFormat$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_DecimalFormat$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_DecimalFormat$stableprop[0]
@@ -1084,7 +930,6 @@ final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rcc
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_MutableRemoteString$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_MutableRemoteString$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_MutableRemoteString$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteBoolean$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteBoolean$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteBoolean$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteColor$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteColor$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteColor$stableprop[0]
-final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteColorConstantCacheKey$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteColorConstantCacheKey$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteColorConstantCacheKey$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteComponentCacheKey$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteComponentCacheKey$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteComponentCacheKey$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteConfiguration$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteConfiguration$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteConfiguration$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteConstantCacheKey$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteConstantCacheKey$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteConstantCacheKey$stableprop[0]
@@ -1093,17 +938,14 @@ final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rcc
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteEnum$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteEnum$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteEnum$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloat$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloat$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteFloat$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloatArray$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloatArray$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteFloatArray$stableprop[0]
-final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloatExpression$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloatExpression$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteFloatExpression$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteImageBitmap$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteImageBitmap$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteImageBitmap$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteInt$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteInt$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteInt$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteIntArray$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteIntArray$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteIntArray$stableprop[0]
-final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteIntExpression$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteIntExpression$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteIntExpression$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteLong$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteLong$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteLong$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteMatrix3x3$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteMatrix3x3$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteMatrix3x3$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteMutableFloatArray$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteMutableFloatArray$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteMutableFloatArray$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteNamedCacheKey$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteNamedCacheKey$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteNamedCacheKey$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteOperationCacheKey$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteOperationCacheKey$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteOperationCacheKey$stableprop[0]
-final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteStateIdKey$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteStateIdKey$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteStateIdKey$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteStateInstanceKey$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteStateInstanceKey$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteStateInstanceKey$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain$stableprop[0]
 final val ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain_None$stableprop // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain_None$stableprop|#static{}ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain_None$stableprop[0]
@@ -1122,6 +964,8 @@ final val ee.schimke.composeai.rccreation.compose.state/rb // ee.schimke.compose
     final fun (kotlin/Boolean).<get-rb>(): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/rb.<get-rb>|<get-rb>@kotlin.Boolean(){}[0]
 final val ee.schimke.composeai.rccreation.compose.state/rc // ee.schimke.composeai.rccreation.compose.state/rc|@kotlin.Int{}rc[0]
     final fun (kotlin/Int).<get-rc>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/rc.<get-rc>|<get-rc>@kotlin.Int(){}[0]
+final val ee.schimke.composeai.rccreation.compose.state/rc // ee.schimke.composeai.rccreation.compose.state/rc|@kotlin.Long{}rc[0]
+    final fun (kotlin/Long).<get-rc>(): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/rc.<get-rc>|<get-rc>@kotlin.Long(){}[0]
 final val ee.schimke.composeai.rccreation.compose.state/rdp // ee.schimke.composeai.rccreation.compose.state/rdp|@kotlin.Float{}rdp[0]
     final fun (kotlin/Float).<get-rdp>(): ee.schimke.composeai.rccreation.compose.state/RemoteDp // ee.schimke.composeai.rccreation.compose.state/rdp.<get-rdp>|<get-rdp>@kotlin.Float(){}[0]
 final val ee.schimke.composeai.rccreation.compose.state/rdp // ee.schimke.composeai.rccreation.compose.state/rdp|@kotlin.Int{}rdp[0]
@@ -1142,6 +986,7 @@ final val ee.schimke.composeai.rccreation.compose.state/rsp // ee.schimke.compos
     final fun (kotlin/Int).<get-rsp>(): ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit // ee.schimke.composeai.rccreation.compose.state/rsp.<get-rsp>|<get-rsp>@kotlin.Int(){}[0]
 
 final fun (ee.schimke.composeai.rccreation.compose.state/RemoteColor).ee.schimke.composeai.rccreation.compose.state/compositeOver(ee.schimke.composeai.rccreation.compose.state/RemoteColor): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/compositeOver|compositeOver@ee.schimke.composeai.rccreation.compose.state.RemoteColor(ee.schimke.composeai.rccreation.compose.state.RemoteColor){}[0]
+final fun (ee.schimke.composeai.rccreation.compose.state/RemoteDp).ee.schimke.composeai.rccreation.compose.state/toRsp(): ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit // ee.schimke.composeai.rccreation.compose.state/toRsp|toRsp@ee.schimke.composeai.rccreation.compose.state.RemoteDp(){}[0]
 final fun (ee.schimke.composeai.rccreation.compose.state/RemoteFloat).ee.schimke.composeai.rccreation.compose.state/asRemoteDp(): ee.schimke.composeai.rccreation.compose.state/RemoteDp // ee.schimke.composeai.rccreation.compose.state/asRemoteDp|asRemoteDp@ee.schimke.composeai.rccreation.compose.state.RemoteFloat(){}[0]
 final fun (ee.schimke.composeai.rccreation.compose.state/RemoteFloat).ee.schimke.composeai.rccreation.compose.state/toRemoteDp(): ee.schimke.composeai.rccreation.compose.state/RemoteDp // ee.schimke.composeai.rccreation.compose.state/toRemoteDp|toRemoteDp@ee.schimke.composeai.rccreation.compose.state.RemoteFloat(){}[0]
 final fun (ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit).ee.schimke.composeai.rccreation.compose.state/toDp(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/toDp|toDp@ee.schimke.composeai.rccreation.compose.state.RemoteTextUnit(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
@@ -1149,11 +994,35 @@ final fun (kotlin/FloatArray?).ee.schimke.composeai.rccreation.compose.state/nan
 final fun (kotlin/FloatArray?).ee.schimke.composeai.rccreation.compose.state/nanIdContentHashCode(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/nanIdContentHashCode|nanIdContentHashCode@kotlin.FloatArray?(){}[0]
 final fun (kotlin/LongArray).ee.schimke.composeai.rccreation.compose.state/isLiteral(): kotlin/Boolean // ee.schimke.composeai.rccreation.compose.state/isLiteral|isLiteral@kotlin.LongArray(){}[0]
 final fun <#A: ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<*>> (#A).ee.schimke.composeai.rccreation.compose.state/transform(kotlin/Function1<ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<*>, ee.schimke.composeai.rccreation.compose.state/BaseRemoteState<*>?>): #A // ee.schimke.composeai.rccreation.compose.state/transform|transform@0:0(kotlin.Function1<ee.schimke.composeai.rccreation.compose.state.BaseRemoteState<*>,ee.schimke.composeai.rccreation.compose.state.BaseRemoteState<*>?>){0§<ee.schimke.composeai.rccreation.compose.state.BaseRemoteState<*>>}[0]
+final fun <#A: kotlin/Enum<#A>> ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum(ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt, kotlin.enums/EnumEntries<#A>): ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum<#A> // ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum|MutableRemoteEnum(ee.schimke.composeai.rccreation.compose.state.MutableRemoteInt;kotlin.enums.EnumEntries<0:0>){0§<kotlin.Enum<0:0>>}[0]
+final fun <#A: kotlin/Enum<#A>> ee.schimke.composeai.rccreation.compose.state/RemoteEnum(ee.schimke.composeai.rccreation.compose.state/RemoteInt, kotlin.enums/EnumEntries<#A>): ee.schimke.composeai.rccreation.compose.state/RemoteEnum<#A> // ee.schimke.composeai.rccreation.compose.state/RemoteEnum|RemoteEnum(ee.schimke.composeai.rccreation.compose.state.RemoteInt;kotlin.enums.EnumEntries<0:0>){0§<kotlin.Enum<0:0>>}[0]
 final fun ee.schimke.composeai.rccreation.compose.capture/ee_schimke_composeai_rccreation_compose_capture_RemoteComposeCreationState$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.capture/ee_schimke_composeai_rccreation_compose_capture_RemoteComposeCreationState$stableprop_getter|ee_schimke_composeai_rccreation_compose_capture_RemoteComposeCreationState$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.capture/ee_schimke_composeai_rccreation_compose_capture_RemoteDensity$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.capture/ee_schimke_composeai_rccreation_compose_capture_RemoteDensity$stableprop_getter|ee_schimke_composeai_rccreation_compose_capture_RemoteDensity$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rccreation.compose.layout/RemoteComponent(ee.schimke.composeai.rccreation.compose.capture/RemoteDocumentScope): ee.schimke.composeai.rccreation.compose.layout/RemoteComponent // ee.schimke.composeai.rccreation.compose.layout/RemoteComponent|RemoteComponent(ee.schimke.composeai.rccreation.compose.capture.RemoteDocumentScope){}[0]
+final fun ee.schimke.composeai.rccreation.compose.layout/RemoteComponent(ee.schimke.composeai.rccreation.compose.layout/RemoteComponentToken): ee.schimke.composeai.rccreation.compose.layout/RemoteComponent // ee.schimke.composeai.rccreation.compose.layout/RemoteComponent|RemoteComponent(ee.schimke.composeai.rccreation.compose.layout.RemoteComponentToken){}[0]
 final fun ee.schimke.composeai.rccreation.compose.layout/ee_schimke_composeai_rccreation_compose_layout_RemoteComponent$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.layout/ee_schimke_composeai_rccreation_compose_layout_RemoteComponent$stableprop_getter|ee_schimke_composeai_rccreation_compose_layout_RemoteComponent$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.layout/ee_schimke_composeai_rccreation_compose_layout_RemoteComponentToken$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.layout/ee_schimke_composeai_rccreation_compose_layout_RemoteComponentToken$stableprop_getter|ee_schimke_composeai_rccreation_compose_layout_RemoteComponentToken$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.layout/ee_schimke_composeai_rccreation_compose_layout_RemoteOffset$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.layout/ee_schimke_composeai_rccreation_compose_layout_RemoteOffset$stableprop_getter|ee_schimke_composeai_rccreation_compose_layout_RemoteOffset$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean(kotlin/Boolean): ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean // ee.schimke.composeai.rccreation.compose.state/MutableRemoteBoolean|MutableRemoteBoolean(kotlin.Boolean){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat|MutableRemoteFloat(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat // ee.schimke.composeai.rccreation.compose.state/MutableRemoteFloat|MutableRemoteFloat(kotlin.Float){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/MutableRemoteImageBitmap(kotlin/Any?, ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey? = ..., kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/Int>): ee.schimke.composeai.rccreation.compose.state/MutableRemoteImageBitmap // ee.schimke.composeai.rccreation.compose.state/MutableRemoteImageBitmap|MutableRemoteImageBitmap(kotlin.Any?;ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey?;kotlin.Function1<ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState,kotlin.Int>){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt // ee.schimke.composeai.rccreation.compose.state/MutableRemoteInt|MutableRemoteInt(kotlin.Int){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong(kotlin/Long): ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong // ee.schimke.composeai.rccreation.compose.state/MutableRemoteLong|MutableRemoteLong(kotlin.Long){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/MutableRemoteString(kotlin/String): ee.schimke.composeai.rccreation.compose.state/MutableRemoteString // ee.schimke.composeai.rccreation.compose.state/MutableRemoteString|MutableRemoteString(kotlin.String){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteBoolean(kotlin/Boolean): ee.schimke.composeai.rccreation.compose.state/RemoteBoolean // ee.schimke.composeai.rccreation.compose.state/RemoteBoolean|RemoteBoolean(kotlin.Boolean){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteColor(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat = ...): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor|RemoteColor(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteColor(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteColor // ee.schimke.composeai.rccreation.compose.state/RemoteColor|RemoteColor(kotlin.Int){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteDp(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteDp // ee.schimke.composeai.rccreation.compose.state/RemoteDp|RemoteDp(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteDp(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteDp // ee.schimke.composeai.rccreation.compose.state/RemoteDp|RemoteDp(kotlin.Float){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteFloat(ee.schimke.composeai.rccreation.compose.state/RemoteStateCacheKey = ..., kotlin/Function1<ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, ee.schimke.composeai.rccreation.compose.state/RemoteFloat>): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat|RemoteFloat(ee.schimke.composeai.rccreation.compose.state.RemoteStateCacheKey;kotlin.Function1<ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState,ee.schimke.composeai.rccreation.compose.state.RemoteFloat>){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteFloat(kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/RemoteFloat|RemoteFloat(kotlin.Float){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap(kotlin/String): ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap // ee.schimke.composeai.rccreation.compose.state/RemoteImageBitmap|RemoteImageBitmap(kotlin.String){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteInt(kotlin/Int): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/RemoteInt|RemoteInt(kotlin.Int){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteLong(kotlin/Long): ee.schimke.composeai.rccreation.compose.state/RemoteLong // ee.schimke.composeai.rccreation.compose.state/RemoteLong|RemoteLong(kotlin.Long){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteString(kotlin/String): ee.schimke.composeai.rccreation.compose.state/RemoteString // ee.schimke.composeai.rccreation.compose.state/RemoteString|RemoteString(kotlin.String){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteTextUnitType = ...): ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit|RemoteTextUnit(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteTextUnitType){}[0]
+final fun ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit(kotlin/Float, ee.schimke.composeai.rccreation.compose.state/RemoteTextUnitType = ...): ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit // ee.schimke.composeai.rccreation.compose.state/RemoteTextUnit|RemoteTextUnit(kotlin.Float;ee.schimke.composeai.rccreation.compose.state.RemoteTextUnitType){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/abs(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/abs|abs(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/acos(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/acos|acos(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/animateRemoteDpAsState(ee.schimke.composeai.rccreation.compose.state/RemoteDp, ee.schimke.composeai.rccreation.compose.state/RemoteAnimationSpec = ..., kotlin/Float = ...): ee.schimke.composeai.rccreation.compose.state/RemoteDp // ee.schimke.composeai.rccreation.compose.state/animateRemoteDpAsState|animateRemoteDpAsState(ee.schimke.composeai.rccreation.compose.state.RemoteDp;ee.schimke.composeai.rccreation.compose.state.RemoteAnimationSpec;kotlin.Float){}[0]
@@ -1169,7 +1038,6 @@ final fun ee.schimke.composeai.rccreation.compose.state/ceil(ee.schimke.composea
 final fun ee.schimke.composeai.rccreation.compose.state/clamp(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/clamp|clamp(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/clamp(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, kotlin/Float, kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/clamp|clamp(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;kotlin.Float;kotlin.Float){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/clamp(ee.schimke.composeai.rccreation.compose.state/RemoteInt, ee.schimke.composeai.rccreation.compose.state/RemoteInt, ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/clamp|clamp(ee.schimke.composeai.rccreation.compose.state.RemoteInt;ee.schimke.composeai.rccreation.compose.state.RemoteInt;ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
-final fun ee.schimke.composeai.rccreation.compose.state/combineToLongArray(ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState, kotlin/Array<ee.schimke.composeai.rccreation.compose.state/RemoteInt>, kotlin/LongArray...): kotlin/LongArray // ee.schimke.composeai.rccreation.compose.state/combineToLongArray|combineToLongArray(ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState;kotlin.Array<ee.schimke.composeai.rccreation.compose.state.RemoteInt>;kotlin.LongArray...){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/copySign(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/copySign|copySign(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/copySign(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, kotlin/Float): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/copySign|copySign(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;kotlin.Float){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/copySign(ee.schimke.composeai.rccreation.compose.state/RemoteInt, ee.schimke.composeai.rccreation.compose.state/RemoteInt): ee.schimke.composeai.rccreation.compose.state/RemoteInt // ee.schimke.composeai.rccreation.compose.state/copySign|copySign(ee.schimke.composeai.rccreation.compose.state.RemoteInt;ee.schimke.composeai.rccreation.compose.state.RemoteInt){}[0]
@@ -1183,7 +1051,6 @@ final fun ee.schimke.composeai.rccreation.compose.state/dayOfWeekForReference(ee
 final fun ee.schimke.composeai.rccreation.compose.state/deltaFromReferenceInHours(ee.schimke.composeai.rccreation.compose.state/RemoteLong): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/deltaFromReferenceInHours|deltaFromReferenceInHours(ee.schimke.composeai.rccreation.compose.state.RemoteLong){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/deltaFromReferenceInMinutes(ee.schimke.composeai.rccreation.compose.state/RemoteLong): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/deltaFromReferenceInMinutes|deltaFromReferenceInMinutes(ee.schimke.composeai.rccreation.compose.state.RemoteLong){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/deltaFromReferenceInSeconds(ee.schimke.composeai.rccreation.compose.state/RemoteLong): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/deltaFromReferenceInSeconds|deltaFromReferenceInSeconds(ee.schimke.composeai.rccreation.compose.state.RemoteLong){}[0]
-final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_AnimatedRemoteFloat$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_AnimatedRemoteFloat$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_AnimatedRemoteFloat$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_BaseRemoteState$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_BaseRemoteState$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_BaseRemoteState$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_BaseRemoteStateCacheKey$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_BaseRemoteStateCacheKey$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_BaseRemoteStateCacheKey$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_DecimalFormat$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_DecimalFormat$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_DecimalFormat$stableprop_getter(){}[0]
@@ -1198,7 +1065,6 @@ final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rcc
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_MutableRemoteString$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_MutableRemoteString$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_MutableRemoteString$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteBoolean$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteBoolean$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteBoolean$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteColor$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteColor$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteColor$stableprop_getter(){}[0]
-final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteColorConstantCacheKey$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteColorConstantCacheKey$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteColorConstantCacheKey$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteComponentCacheKey$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteComponentCacheKey$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteComponentCacheKey$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteConfiguration$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteConfiguration$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteConfiguration$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteConstantCacheKey$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteConstantCacheKey$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteConstantCacheKey$stableprop_getter(){}[0]
@@ -1207,17 +1073,14 @@ final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rcc
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteEnum$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteEnum$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteEnum$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloat$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloat$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteFloat$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloatArray$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloatArray$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteFloatArray$stableprop_getter(){}[0]
-final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloatExpression$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteFloatExpression$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteFloatExpression$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteImageBitmap$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteImageBitmap$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteImageBitmap$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteInt$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteInt$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteInt$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteIntArray$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteIntArray$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteIntArray$stableprop_getter(){}[0]
-final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteIntExpression$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteIntExpression$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteIntExpression$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteLong$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteLong$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteLong$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteMatrix3x3$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteMatrix3x3$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteMatrix3x3$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteMutableFloatArray$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteMutableFloatArray$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteMutableFloatArray$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteNamedCacheKey$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteNamedCacheKey$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteNamedCacheKey$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteOperationCacheKey$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteOperationCacheKey$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteOperationCacheKey$stableprop_getter(){}[0]
-final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteStateIdKey$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteStateIdKey$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteStateIdKey$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteStateInstanceKey$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteStateInstanceKey$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteStateInstanceKey$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain_None$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rccreation.compose.state/ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain_None$stableprop_getter|ee_schimke_composeai_rccreation_compose_state_RemoteState_Domain_None$stableprop_getter(){}[0]
@@ -1285,9 +1148,8 @@ final fun ee.schimke.composeai.rccreation.compose.state/tan(ee.schimke.composeai
 final fun ee.schimke.composeai.rccreation.compose.state/timeOfReferenceInHours(ee.schimke.composeai.rccreation.compose.state/RemoteLong): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/timeOfReferenceInHours|timeOfReferenceInHours(ee.schimke.composeai.rccreation.compose.state.RemoteLong){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/timeOfReferenceInMinutes(ee.schimke.composeai.rccreation.compose.state/RemoteLong): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/timeOfReferenceInMinutes|timeOfReferenceInMinutes(ee.schimke.composeai.rccreation.compose.state.RemoteLong){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/timeOfReferenceInSeconds(ee.schimke.composeai.rccreation.compose.state/RemoteLong): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/timeOfReferenceInSeconds|timeOfReferenceInSeconds(ee.schimke.composeai.rccreation.compose.state.RemoteLong){}[0]
-final fun ee.schimke.composeai.rccreation.compose.state/toArray(ee.schimke.composeai.rccreation.compose.state/RemoteFloat, ee.schimke.composeai.rccreation.compose.capture/RemoteComposeCreationState): kotlin/FloatArray // ee.schimke.composeai.rccreation.compose.state/toArray|toArray(ee.schimke.composeai.rccreation.compose.state.RemoteFloat;ee.schimke.composeai.rccreation.compose.capture.RemoteComposeCreationState){}[0]
-final fun ee.schimke.composeai.rccreation.compose.state/toArray(kotlin/Number): kotlin/FloatArray // ee.schimke.composeai.rccreation.compose.state/toArray|toArray(kotlin.Number){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/toDeg(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/toDeg|toDeg(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/toRad(ee.schimke.composeai.rccreation.compose.state/RemoteFloat): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/toRad|toRad(ee.schimke.composeai.rccreation.compose.state.RemoteFloat){}[0]
-final fun ee.schimke.composeai.rccreation.compose.state/toString(kotlin/FloatArray): kotlin/String // ee.schimke.composeai.rccreation.compose.state/toString|toString(kotlin.FloatArray){}[0]
 final fun ee.schimke.composeai.rccreation.compose.state/yearForReference(ee.schimke.composeai.rccreation.compose.state/RemoteLong): ee.schimke.composeai.rccreation.compose.state/RemoteFloat // ee.schimke.composeai.rccreation.compose.state/yearForReference|yearForReference(ee.schimke.composeai.rccreation.compose.state.RemoteLong){}[0]
+final inline fun <#A: reified kotlin/Enum<#A>> ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum(#A): ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum<#A> // ee.schimke.composeai.rccreation.compose.state/MutableRemoteEnum|MutableRemoteEnum(0:0){0§<kotlin.Enum<0:0>>}[0]
+final inline fun <#A: reified kotlin/Enum<#A>> ee.schimke.composeai.rccreation.compose.state/RemoteEnum(#A): ee.schimke.composeai.rccreation.compose.state/RemoteEnum<#A> // ee.schimke.composeai.rccreation.compose.state/RemoteEnum|RemoteEnum(0:0){0§<kotlin.Enum<0:0>>}[0]

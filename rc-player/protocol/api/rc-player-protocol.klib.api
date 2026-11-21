@@ -678,6 +678,34 @@ final class ee.schimke.composeai.rcplayer.protocol/RcBackgroundModifier : ee.sch
     }
 }
 
+final class ee.schimke.composeai.rcplayer.protocol/RcBinaryData : ee.schimke.composeai.rcplayer.protocol/RcOperation { // ee.schimke.composeai.rcplayer.protocol/RcBinaryData|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/ByteArray) // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.ByteArray){}[0]
+
+    final val data // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.data|{}data[0]
+        final fun <get-data>(): kotlin/ByteArray // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.data.<get-data>|<get-data>(){}[0]
+    final val flags // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.flags|{}flags[0]
+        final fun <get-flags>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.flags.<get-flags>|<get-flags>(){}[0]
+    final val id // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.id|{}id[0]
+        final fun <get-id>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.id.<get-id>|<get-id>(){}[0]
+    final val opcode // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.opcode|{}opcode[0]
+        final fun <get-opcode>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.opcode.<get-opcode>|<get-opcode>(){}[0]
+    final val type // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.type|{}type[0]
+        final fun <get-type>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.type.<get-type>|<get-type>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.Companion|null[0]
+        final const val MAX_BYTES // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.Companion.MAX_BYTES|{}MAX_BYTES[0]
+            final fun <get-MAX_BYTES>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.Companion.MAX_BYTES.<get-MAX_BYTES>|<get-MAX_BYTES>(){}[0]
+        final const val TYPE_RAW // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.Companion.TYPE_RAW|{}TYPE_RAW[0]
+            final fun <get-TYPE_RAW>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.Companion.TYPE_RAW.<get-TYPE_RAW>|<get-TYPE_RAW>(){}[0]
+        final const val TYPE_RC_DOC // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.Companion.TYPE_RC_DOC|{}TYPE_RC_DOC[0]
+            final fun <get-TYPE_RC_DOC>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcBinaryData.Companion.TYPE_RC_DOC.<get-TYPE_RC_DOC>|<get-TYPE_RC_DOC>(){}[0]
+    }
+}
+
 final class ee.schimke.composeai.rcplayer.protocol/RcBitmapData : ee.schimke.composeai.rcplayer.protocol/RcOperation { // ee.schimke.composeai.rcplayer.protocol/RcBitmapData|null[0]
     constructor <init>(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int, kotlin/ByteArray) // ee.schimke.composeai.rcplayer.protocol/RcBitmapData.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.ByteArray){}[0]
 
@@ -1530,6 +1558,32 @@ final class ee.schimke.composeai.rcplayer.protocol/RcDimensionConstraintsModifie
             final fun <get-REQUIRED_VERTICAL>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDimensionConstraintsModifier.Companion.REQUIRED_VERTICAL.<get-REQUIRED_VERTICAL>|<get-REQUIRED_VERTICAL>(){}[0]
         final const val VERTICAL // ee.schimke.composeai.rcplayer.protocol/RcDimensionConstraintsModifier.Companion.VERTICAL|{}VERTICAL[0]
             final fun <get-VERTICAL>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDimensionConstraintsModifier.Companion.VERTICAL.<get-VERTICAL>|<get-VERTICAL>(){}[0]
+    }
+}
+
+final class ee.schimke.composeai.rcplayer.protocol/RcDocLayout : ee.schimke.composeai.rcplayer.protocol/RcOperation { // ee.schimke.composeai.rcplayer.protocol/RcDocLayout|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+
+    final val animationId // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.animationId|{}animationId[0]
+        final fun <get-animationId>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.animationId.<get-animationId>|<get-animationId>(){}[0]
+    final val componentId // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.componentId|{}componentId[0]
+        final fun <get-componentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.componentId.<get-componentId>|<get-componentId>(){}[0]
+    final val opcode // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.opcode|{}opcode[0]
+        final fun <get-opcode>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.opcode.<get-opcode>|<get-opcode>(){}[0]
+    final val urlId // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.urlId|{}urlId[0]
+        final fun <get-urlId>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.urlId.<get-urlId>|<get-urlId>(){}[0]
+
+    final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.component1|component1(){}[0]
+    final fun component2(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.component2|component2(){}[0]
+    final fun component3(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.component3|component3(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...): ee.schimke.composeai.rcplayer.protocol/RcDocLayout // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.copy|copy(kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.Companion|null[0]
+        final const val EMBEDDED_URL_PREFIX // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.Companion.EMBEDDED_URL_PREFIX|{}EMBEDDED_URL_PREFIX[0]
+            final fun <get-EMBEDDED_URL_PREFIX>(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcDocLayout.Companion.EMBEDDED_URL_PREFIX.<get-EMBEDDED_URL_PREFIX>|<get-EMBEDDED_URL_PREFIX>(){}[0]
     }
 }
 
@@ -3099,6 +3153,41 @@ final class ee.schimke.composeai.rcplayer.protocol/RcMacroForEach : ee.schimke.c
     final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcMacroForEach.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMacroForEach.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcMacroForEach.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables : ee.schimke.composeai.rcplayer.protocol/RcOperation { // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+
+    final val docId // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.docId|{}docId[0]
+        final fun <get-docId>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.docId.<get-docId>|<get-docId>(){}[0]
+    final val localId // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.localId|{}localId[0]
+        final fun <get-localId>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.localId.<get-localId>|<get-localId>(){}[0]
+    final val mode // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.mode|{}mode[0]
+        final fun <get-mode>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.mode.<get-mode>|<get-mode>(){}[0]
+    final val opcode // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.opcode|{}opcode[0]
+        final fun <get-opcode>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.opcode.<get-opcode>|<get-opcode>(){}[0]
+    final val remoteTarget // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.remoteTarget|{}remoteTarget[0]
+        final fun <get-remoteTarget>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.remoteTarget.<get-remoteTarget>|<get-remoteTarget>(){}[0]
+
+    final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.component1|component1(){}[0]
+    final fun component2(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.component2|component2(){}[0]
+    final fun component3(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.component3|component3(){}[0]
+    final fun component4(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.component4|component4(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...): ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.copy|copy(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.Companion|null[0]
+        final const val MAP_BIDIRECTIONAL // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.Companion.MAP_BIDIRECTIONAL|{}MAP_BIDIRECTIONAL[0]
+            final fun <get-MAP_BIDIRECTIONAL>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.Companion.MAP_BIDIRECTIONAL.<get-MAP_BIDIRECTIONAL>|<get-MAP_BIDIRECTIONAL>(){}[0]
+        final const val MAP_FORWARD // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.Companion.MAP_FORWARD|{}MAP_FORWARD[0]
+            final fun <get-MAP_FORWARD>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.Companion.MAP_FORWARD.<get-MAP_FORWARD>|<get-MAP_FORWARD>(){}[0]
+        final const val MAP_HOST_ACTION // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.Companion.MAP_HOST_ACTION|{}MAP_HOST_ACTION[0]
+            final fun <get-MAP_HOST_ACTION>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.Companion.MAP_HOST_ACTION.<get-MAP_HOST_ACTION>|<get-MAP_HOST_ACTION>(){}[0]
+        final const val MAP_REVERSE // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.Companion.MAP_REVERSE|{}MAP_REVERSE[0]
+            final fun <get-MAP_REVERSE>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcMapRcDocVariables.Companion.MAP_REVERSE.<get-MAP_REVERSE>|<get-MAP_REVERSE>(){}[0]
+    }
 }
 
 final class ee.schimke.composeai.rcplayer.protocol/RcMarqueeModifier : ee.schimke.composeai.rcplayer.protocol/RcOperation { // ee.schimke.composeai.rcplayer.protocol/RcMarqueeModifier|null[0]
@@ -5185,6 +5274,8 @@ final object ee.schimke.composeai.rcplayer.protocol/RcOpcodes { // ee.schimke.co
         final fun <get-ATTRIBUTE_TEXT>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.ATTRIBUTE_TEXT.<get-ATTRIBUTE_TEXT>|<get-ATTRIBUTE_TEXT>(){}[0]
     final const val ATTRIBUTE_TIME // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.ATTRIBUTE_TIME|{}ATTRIBUTE_TIME[0]
         final fun <get-ATTRIBUTE_TIME>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.ATTRIBUTE_TIME.<get-ATTRIBUTE_TIME>|<get-ATTRIBUTE_TIME>(){}[0]
+    final const val BINARY_DATA // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.BINARY_DATA|{}BINARY_DATA[0]
+        final fun <get-BINARY_DATA>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.BINARY_DATA.<get-BINARY_DATA>|<get-BINARY_DATA>(){}[0]
     final const val BITMAP_TEXT_MEASURE // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.BITMAP_TEXT_MEASURE|{}BITMAP_TEXT_MEASURE[0]
         final fun <get-BITMAP_TEXT_MEASURE>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.BITMAP_TEXT_MEASURE.<get-BITMAP_TEXT_MEASURE>|<get-BITMAP_TEXT_MEASURE>(){}[0]
     final const val CANVAS_OPERATIONS // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.CANVAS_OPERATIONS|{}CANVAS_OPERATIONS[0]
@@ -5337,6 +5428,8 @@ final object ee.schimke.composeai.rcplayer.protocol/RcOpcodes { // ee.schimke.co
         final fun <get-LAYOUT_FLOW>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_FLOW.<get-LAYOUT_FLOW>|<get-LAYOUT_FLOW>(){}[0]
     final const val LAYOUT_IMAGE // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_IMAGE|{}LAYOUT_IMAGE[0]
         final fun <get-LAYOUT_IMAGE>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_IMAGE.<get-LAYOUT_IMAGE>|<get-LAYOUT_IMAGE>(){}[0]
+    final const val LAYOUT_RC_DOC // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_RC_DOC|{}LAYOUT_RC_DOC[0]
+        final fun <get-LAYOUT_RC_DOC>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_RC_DOC.<get-LAYOUT_RC_DOC>|<get-LAYOUT_RC_DOC>(){}[0]
     final const val LAYOUT_ROOT // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_ROOT|{}LAYOUT_ROOT[0]
         final fun <get-LAYOUT_ROOT>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_ROOT.<get-LAYOUT_ROOT>|<get-LAYOUT_ROOT>(){}[0]
     final const val LAYOUT_ROW // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_ROW|{}LAYOUT_ROW[0]
@@ -5357,6 +5450,8 @@ final object ee.schimke.composeai.rcplayer.protocol/RcOpcodes { // ee.schimke.co
         final fun <get-MACRO_DEFINE>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.MACRO_DEFINE.<get-MACRO_DEFINE>|<get-MACRO_DEFINE>(){}[0]
     final const val MACRO_FOR_EACH // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.MACRO_FOR_EACH|{}MACRO_FOR_EACH[0]
         final fun <get-MACRO_FOR_EACH>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.MACRO_FOR_EACH.<get-MACRO_FOR_EACH>|<get-MACRO_FOR_EACH>(){}[0]
+    final const val MAP_RC_DOC_VARIABLES // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.MAP_RC_DOC_VARIABLES|{}MAP_RC_DOC_VARIABLES[0]
+        final fun <get-MAP_RC_DOC_VARIABLES>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.MAP_RC_DOC_VARIABLES.<get-MAP_RC_DOC_VARIABLES>|<get-MAP_RC_DOC_VARIABLES>(){}[0]
     final const val MATRIX_CONSTANT // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.MATRIX_CONSTANT|{}MATRIX_CONSTANT[0]
         final fun <get-MATRIX_CONSTANT>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.MATRIX_CONSTANT.<get-MATRIX_CONSTANT>|<get-MATRIX_CONSTANT>(){}[0]
     final const val MATRIX_EXPRESSION // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.MATRIX_EXPRESSION|{}MATRIX_EXPRESSION[0]

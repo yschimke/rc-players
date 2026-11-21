@@ -72,12 +72,19 @@ public enum NativeSwiftWireOpcode {
   public static let animatedFloat = 81
   public static let modifierMultiClick = 83
   public static let layoutCustom = 93
+  public static let modifierEventHandler = 100
   public static let dataBitmap = 101
   public static let dataText = 102
   public static let rootContentDescription = 103
+  public static let addMesh2D = 104
+  public static let drawMesh2D = 105
+  public static let matrixFromMesh2D = 106
   public static let modifierBorder = 107
   public static let modifierClipRect = 108
+  /// Legacy pre-alpha24 EVENT_ACTION opcode (superseded by `modifierEventHandler = 100` in alpha24).
   public static let eventAction = 110
+  public static let layoutRcDoc = 121
+  public static let mapRcDocVariables = 122
   public static let dataPath = 123
   public static let drawPath = 124
   public static let drawTweenPath = 125
@@ -670,6 +677,20 @@ enum NativeSwiftGraphicsLayerAttribute {
   static let shape = 20
   static let shapeRadius = 21
   static let attributeCount = 22
+}
+
+/// `GraphicsLayerModifierOperation.COMPOSITING_STRATEGY` values (`RemoteCompositingStrategy`).
+public enum NativeSwiftCompositingStrategy {
+  public static let auto = 0
+  public static let offscreen = 1
+  public static let modulateAlpha = 2
+}
+
+/// Wire text font style (`TextLayout.fontStyle`, `CoreText` style property 6).
+/// AndroidX `remote-core` writes `RemoteFontStyle.Italic` as 1 (enum, not a Typeface bitmask).
+public enum NativeSwiftFontStyle {
+  public static let normal = 0
+  public static let italic = 1
 }
 
 /// The value type of a graphics-layer attribute: bits 10-11 of its tag. Every type

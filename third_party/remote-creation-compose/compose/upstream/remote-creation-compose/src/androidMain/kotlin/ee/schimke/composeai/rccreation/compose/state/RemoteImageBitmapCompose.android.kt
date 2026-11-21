@@ -32,24 +32,14 @@ import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
  * @param value The [ImageBitmap] value.
  * @return A [RemoteImageBitmap] representing the provided bitmap.
  */
-public operator fun RemoteImageBitmap.Companion.invoke(value: ImageBitmap): RemoteImageBitmap {
-    return MutableRemoteImageBitmap(
+public fun RemoteImageBitmap(value: ImageBitmap): RemoteImageBitmap =
+    MutableRemoteImageBitmap(
         constantValueOrNull = value,
         cacheKey = RemoteConstantCacheKey(value),
         // KMP (rc-players): encoded by the host (`RemoteComposeCaptureState.addBitmap`), where
         // upstream hands `document` an Android bitmap.
         idProvider = { creationState -> creationState.addBitmap(value) },
     )
-}
-
-/**
- * Creates a [RemoteImageBitmap] instance from a [ImageBitmap] value.
- *
- * @param value The [ImageBitmap] value.
- * @return A [RemoteImageBitmap] representing the provided bitmap.
- */
-public fun RemoteImageBitmap(value: ImageBitmap): RemoteImageBitmap =
-    RemoteImageBitmap.Companion.invoke(value)
 
 /**
  * Creates a named [RemoteImageBitmap] with an initial value.
@@ -139,19 +129,6 @@ public fun MutableRemoteImageBitmap(initialValue: ImageBitmap): MutableRemoteIma
         // KMP (rc-players): encoded by the host, where upstream hands `document` an Android bitmap.
         idProvider = { creationState -> creationState.addBitmap(initialValue) },
     )
-
-/**
- * Creates a new mutable state (allocates an ID).
- *
- * @param initialValue The initial value for the state.
- * @return A new [MutableRemoteImageBitmap] instance.
- */
-@RememberInComposition
-public operator fun MutableRemoteImageBitmap.Companion.invoke(
-    initialValue: ImageBitmap,
-): MutableRemoteImageBitmap {
-    return MutableRemoteImageBitmap(initialValue)
-}
 
 /**
  * Factory for mutable remote bitmap state.

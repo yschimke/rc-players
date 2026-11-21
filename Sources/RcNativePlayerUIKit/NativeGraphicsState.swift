@@ -386,11 +386,13 @@ enum NativeGradientRenderer {
     context.saveGState()
     defer { context.restoreGState() }
     context.setShouldAntialias(false)
+    let rgbaStops = colors.map { rgbaComponents($0) }
     let steps = 360
     for index in 0..<steps {
       let start = CGFloat(index) / CGFloat(steps)
       let end = CGFloat(index + 1) / CGFloat(steps)
-      context.setFillColor(interpolatedColor(at: (start + end) / 2, colors: colors, stops: stops))
+      let rgba = interpolatedRGBA(at: (start + end) / 2, colors: rgbaStops, stops: stops)
+      context.setFillColor(red: rgba.r, green: rgba.g, blue: rgba.b, alpha: rgba.a)
       context.move(to: center)
       context.addArc(
         center: center,
@@ -403,20 +405,25 @@ enum NativeGradientRenderer {
     }
   }
 
-  private static func interpolatedColor(
-    at location: CGFloat, colors: [CGColor], stops: [CGFloat]
-  ) -> CGColor {
+  private static func interpolatedRGBA(
+    at location: CGFloat, colors: [[CGFloat]], stops: [CGFloat]
+  ) -> (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat) {
     let upper = stops.firstIndex(where: { $0 >= location }) ?? stops.index(before: stops.endIndex)
-    guard upper > stops.startIndex else { return colors[0] }
+    guard upper > stops.startIndex else {
+      let first = colors[0]
+      return (first[0], first[1], first[2], first[3])
+    }
     let lower = stops.index(before: upper)
     let distance = stops[upper] - stops[lower]
     let fraction = distance > 0 ? (location - stops[lower]) / distance : 0
-    let left = rgbaComponents(colors[lower])
-    let right = rgbaComponents(colors[upper])
-    let components = (0..<4).map { index in
-      left[index] + (right[index] - left[index]) * fraction
-    }
-    return CGColor(colorSpace: rgbColorSpace, components: components) ?? colors[lower]
+    let left = colors[lower]
+    let right = colors[upper]
+    return (
+      r: left[0] + (right[0] - left[0]) * fraction,
+      g: left[1] + (right[1] - left[1]) * fraction,
+      b: left[2] + (right[2] - left[2]) * fraction,
+      a: left[3] + (right[3] - left[3]) * fraction
+    )
   }
 
   private static let rgbColorSpace =

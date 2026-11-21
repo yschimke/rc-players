@@ -564,7 +564,7 @@ public fun RcComposePlayer(
 }
 
 @Composable
-private fun RcComposePlayerResolved(
+internal fun RcComposePlayerResolved(
   prepared: RcPreparedDocument,
   modifier: Modifier,
   theme: Int,
@@ -573,10 +573,13 @@ private fun RcComposePlayerResolved(
   typefaces: RcTypefaceLoader,
   systemColors: (name: String) -> Color?,
   customComponents: RcCustomComponentRegistry,
+  onStateChanged: ((RcPlayerState) -> Unit)? = null,
+  observeNamedValues: Boolean = true,
 ) {
   val document = prepared.document
   val latestEventSink by rememberUpdatedState(onEvent)
   val latestSystemColors by rememberUpdatedState(systemColors)
+  val latestOnStateChanged by rememberUpdatedState(onStateChanged)
   val latestTimeSource by rememberUpdatedState(LocalRcTimeSource.current)
   val latestHapticFeedback by rememberUpdatedState(LocalHapticFeedback.current)
   val soundHost = LocalRcSoundHost.current
@@ -731,37 +734,60 @@ private fun RcComposePlayerResolved(
   // Set while the collector below lays the tree out under the pass at the old values, before it
   // applies a change: the composition must not apply it first.
   val switchingOnLookahead = remember(state) { booleanArrayOf(false) }
-  LaunchedEffect(state, namedValues) {
-    snapshotFlow { namedValues.toMap() }
-      .collect { current ->
-        if (current == appliedNamedValues) return@collect
-        if (!lookahead && animatesBounds) {
-          // Lay the tree out under the lookahead pass at the old values first, so the change has
-          // bounds to animate from.
-          switchingOnLookahead[0] = true
-          lookahead = true
-          try {
-            withFrameNanos {}
-            withFrameNanos {}
-          } finally {
-            switchingOnLookahead[0] = false
+  if (observeNamedValues) {
+    LaunchedEffect(state, namedValues) {
+      snapshotFlow { namedValues.toMap() }
+        .collect { current ->
+          if (current == appliedNamedValues) return@collect
+          if (!lookahead && animatesBounds) {
+            // Lay the tree out under the lookahead pass at the old values first, so the change has
+            // bounds to animate from.
+            switchingOnLookahead[0] = true
+            lookahead = true
+            try {
+              withFrameNanos {}
+              withFrameNanos {}
+            } finally {
+              switchingOnLookahead[0] = false
+            }
+            if (namedValues.toMap() == appliedNamedValues) return@collect
           }
-          if (namedValues.toMap() == appliedNamedValues) return@collect
+          applyHostValues(current)
+          // `setNamedValue` writes into the state's maps without going through the action path, so
+          // nothing else tells the draw layer a value moved. Per value, only the top level
+          // recomposes
+          // and publishes what moved; otherwise the whole player does.
+          if (perValueInvalidation) hostValueVersion += 1 else invalidationVersion += 1
+          hostChanges += 1
         }
-        applyHostValues(current)
-        // `setNamedValue` writes into the state's maps without going through the action path, so
-        // nothing else tells the draw layer a value moved. Per value, only the top level recomposes
-        // and publishes what moved; otherwise the whole player does.
-        if (perValueInvalidation) hostValueVersion += 1 else invalidationVersion += 1
-        hostChanges += 1
-      }
+    }
   }
   // Per value, a host change lands in the composition that sees it, rather than a frame later
   // through the collector above: a host that writes its values as it composes (before this player)
   // has them drawn on that frame, as a composable given new parameters would be. The top level then
   // evaluates and publishes them below, in this same composition. A change that first switches the
-  // lookahead pass on still goes through the collector, which waits for the pass.
-  if (perValueInvalidation && !switchingOnLookahead[0] && (lookahead || !animatesBounds)) {
+  // lookahead pass on still goes through the collector (or the on-demand deferred effect below for
+  // embedded players), which waits for the pass.
+  var pendingDeferredNamedValues by
+    remember(state) { mutableStateOf<Map<String, RcNamedValue>?>(null) }
+  if (!observeNamedValues && namedValues.isNotEmpty() && !switchingOnLookahead[0]) {
+    val current = namedValues.toMap()
+    if (current != appliedNamedValues) {
+      if (!lookahead && animatesBounds) {
+        if (pendingDeferredNamedValues != current) pendingDeferredNamedValues = current
+      } else {
+        applyHostValues(current)
+        if (defersLookahead && hostChanges < LOOKAHEAD_LIVE_HOST_CHANGES) {
+          SideEffect { hostChanges += 1 }
+        }
+      }
+    }
+  } else if (
+    observeNamedValues &&
+      perValueInvalidation &&
+      !switchingOnLookahead[0] &&
+      (lookahead || !animatesBounds)
+  ) {
     val current = namedValues.toMap()
     if (current != appliedNamedValues) {
       applyHostValues(current)
@@ -769,6 +795,28 @@ private fun RcComposePlayerResolved(
       // recompose this top level again on the next frame.
       if (defersLookahead && hostChanges < LOOKAHEAD_LIVE_HOST_CHANGES)
         SideEffect { hostChanges += 1 }
+    }
+  }
+  val deferredChange = pendingDeferredNamedValues
+  if (!observeNamedValues && deferredChange != null) {
+    LaunchedEffect(state, deferredChange) {
+      if (!lookahead && animatesBounds) {
+        switchingOnLookahead[0] = true
+        lookahead = true
+        try {
+          withFrameNanos {}
+          withFrameNanos {}
+        } finally {
+          switchingOnLookahead[0] = false
+        }
+      }
+      val latest = namedValues.toMap()
+      if (latest != appliedNamedValues) {
+        applyHostValues(latest)
+        if (perValueInvalidation) hostValueVersion += 1 else invalidationVersion += 1
+        hostChanges += 1
+      }
+      pendingDeferredNamedValues = null
     }
   }
   if (defersLookahead) {
@@ -1123,6 +1171,17 @@ private fun RcComposePlayerResolved(
         )
       }
     val invalidate: () -> Unit = remember(state) { { invalidationVersion += 1 } }
+    val embeddedHost =
+      remember(prepared) {
+        RcEmbeddedHostContext(
+          prepared = prepared,
+          systemColors = { latestSystemColors(it) },
+          onEvent = { latestEventSink(it) },
+        )
+      }
+    if (latestOnStateChanged != null) {
+      SideEffect { latestOnStateChanged?.invoke(state) }
+    }
     val content: @Composable (scope: LookaheadScope?, probe: RcGeometryProbe?) -> Unit =
       { scope, probe ->
         CompositionLocalProvider(
@@ -1145,6 +1204,7 @@ private fun RcComposePlayerResolved(
           LocalRcVisibilityFunctions provides visibilityFunctions,
           LocalRcComponentCaptures provides captures,
           LocalRcExtensionSessions provides extensionSessions,
+          LocalRcEmbeddedHost provides embeddedHost,
         ) {
           // The root sits at the window's origin at its own size. A root smaller than the window's
           // minimum — one still animating toward a resize, or one the document sizes below the
@@ -1165,11 +1225,13 @@ private fun RcComposePlayerResolved(
           }
         }
       }
+    val parentLookaheadScope = LocalRcLookaheadScope.current
     val tree: @Composable (probe: RcGeometryProbe?) -> Unit = { probe ->
       // A new tree when the pass switches on: what the old one held of its own (nothing a document
       // that defers the pass keeps; see [RcPreparedDocument.changesLayoutOnItsOwn]) is rebuilt.
-      key(lookahead) {
-        if (lookahead) LookaheadScope { content(this, probe) } else content(null, probe)
+      key(lookahead, parentLookaheadScope) {
+        if (lookahead && parentLookaheadScope == null) LookaheadScope { content(this, probe) }
+        else content(if (lookahead) parentLookaheadScope else null, probe)
       }
     }
     valueVersions.suppressed = false
@@ -1195,6 +1257,9 @@ private fun RcComposePlayerResolved(
           document.header.height.coerceAtLeast(0).toDp(),
         )
       }
+    if (latestOnStateChanged != null) {
+      SideEffect { latestOnStateChanged?.invoke(state) }
+    }
     Canvas(redrawModifier.defaultMinSize(documentSize.width, documentSize.height)) {
       val width = document.header.width.coerceAtLeast(1)
       val height = document.header.height.coerceAtLeast(1)
@@ -1237,6 +1302,7 @@ private fun RcComposePlayerResolved(
             offscreenTargets = offscreenTargets,
           )
         }
+        latestOnStateChanged?.invoke(state)
       }
     }
   }
@@ -1996,6 +2062,28 @@ private fun RenderLayoutNode(
                 )
           }
           Spacer(drawModifier)
+        }
+        is RcLayoutNode.EmbeddedDoc -> {
+          val docModifier =
+            effectiveModifier.applyComponentModifiers(
+              node.modifiers,
+              state,
+              geometryIds,
+              fillMissingDimensions = false,
+              canvasOperations = null,
+              textMeasurer,
+              images,
+              theme,
+            )
+          RenderEmbeddedDoc(
+            node = node,
+            docModifier = docModifier,
+            state = state,
+            theme = theme,
+            typefaces = typefaces,
+            customComponents = customComponents,
+            invalidate = invalidate,
+          )
         }
         is RcLayoutNode.Text -> {
           val density = androidx.compose.ui.platform.LocalDensity.current
@@ -4279,6 +4367,7 @@ internal fun RcLayoutNode.geometryComponentIds(): List<Int> =
     is RcLayoutNode.FitBox -> listOf(componentId, content.componentId)
     is RcLayoutNode.Content -> emptyList() // Its layout manager publishes the wrapper geometry.
     is RcLayoutNode.Image -> listOfNotNull(componentId, contentComponentId)
+    is RcLayoutNode.EmbeddedDoc -> listOfNotNull(componentId, contentComponentId)
     is RcLayoutNode.Text -> listOfNotNull(componentId, contentComponentId)
     is RcLayoutNode.CoreText -> listOfNotNull(componentId, contentComponentId)
     is RcLayoutNode.Custom -> listOf(componentId)
@@ -4749,6 +4838,7 @@ private fun RcLayoutNode.androidXComponentKind(): String? =
     is RcLayoutNode.CollapsibleRow -> "CollapsibleRowLayout"
     is RcLayoutNode.CollapsibleColumn -> "CollapsibleColumnLayout"
     is RcLayoutNode.Image -> "ImageLayout"
+    is RcLayoutNode.EmbeddedDoc -> "RcDocLayout"
     is RcLayoutNode.Canvas -> "CanvasLayout"
     is RcLayoutNode.CoreText -> "CoreText"
     is RcLayoutNode.Text -> "TextLayout"

@@ -33,6 +33,18 @@ struct ParsedMatrixVectorMath {
 }
 
 enum NativeSwiftIntegerExpression {
+  /// Returns true when any variable-marked token references one of `ids`.
+  static func references(anyOf ids: Set<Int>, mask: Int, tokens: [Int]) -> Bool {
+    let maskBits = UInt32(bitPattern: Int32(mask))
+    for (index, token) in tokens.enumerated() {
+      let marked = maskBits & (UInt32(1) << UInt32(index & 31)) != 0
+      if marked, token < NativeSwiftIntegerOperator.offset, ids.contains(token) {
+        return true
+      }
+    }
+    return false
+  }
+
   /// - Parameter offset: the declaring `INTEGER_EXPRESSION`'s byte offset, reported by any error.
   static func evaluate(mask: Int, tokens: [Int], values: [Int: Int], offset: Int) throws -> Int {
     var stack: [Int32] = []

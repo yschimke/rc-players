@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.runtime
 
+import ee.schimke.composeai.rcplayer.protocol.RcBinaryData
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBooleanConstant
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
@@ -13,6 +14,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcIdMap
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
+import ee.schimke.composeai.rcplayer.protocol.RcMapRcDocVariables
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
@@ -41,6 +43,9 @@ public class RcPlayerStateSeed(public val document: RcDocument) {
   internal val claimedSystemIds: Set<Int> = rcClaimedSystemIdsOf(document)
   internal val rootContentBehavior: RcRootContentBehavior? =
     document.operations.filterIsInstance<RcRootContentBehavior>().lastOrNull()
+  internal val binaryData: Map<Int, RcBinaryData> = rcBinaryDataOf(document)
+  internal val docVariableMappings: Map<Int, List<RcMapRcDocVariables>> =
+    rcDocVariableMappingsOf(document)
 
   private val values = RcSeedValues().also { it.load(document) }
 
@@ -115,6 +120,14 @@ internal class RcSeedValues(
 /** [document]'s `ComponentValue`s by the component they read. */
 internal fun rcComponentValuesOf(document: RcDocument): Map<Int, List<RcComponentValue>> =
   document.operations.filterIsInstance<RcComponentValue>().distinct().groupBy { it.componentId }
+
+/** [document]'s `BinaryData` blobs by id (last declaration wins, matching AndroidX `putObject`). */
+internal fun rcBinaryDataOf(document: RcDocument): Map<Int, RcBinaryData> =
+  document.operations.filterIsInstance<RcBinaryData>().associateBy { it.id }
+
+/** [document]'s `MapRcDocVariables` mappings grouped by target `RcDocLayout` component id. */
+internal fun rcDocVariableMappingsOf(document: RcDocument): Map<Int, List<RcMapRcDocVariables>> =
+  document.operations.filterIsInstance<RcMapRcDocVariables>().distinct().groupBy { it.docId }
 
 /** The system ids [document]'s own declarations claim; see `RcPlayerState.claimedSystemIds`. */
 internal fun rcClaimedSystemIdsOf(document: RcDocument): Set<Int> = buildSet {

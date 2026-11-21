@@ -564,8 +564,8 @@
 
     static let `default` = NativeTextStyle(
       swiftSnapshot: NativeSwiftTextSnapshot(
-        value: "", colorARGB: 0xff00_0000, size: 16, style: 0, weight: 400,
-        familyID: -1, alignment: .left, overflow: NativeSwiftTextOverflow.clip,
+        value: "", colorARGB: 0xff00_0000, size: 16, style: NativeSwiftFontStyle.normal,
+        weight: 400, familyID: -1, alignment: .left, overflow: NativeSwiftTextOverflow.clip,
         maximumLines: Int.max))
 
     init(swiftSnapshot snapshot: NativeSwiftTextSnapshot) {
@@ -1065,6 +1065,13 @@
         assertionFailure("update(node:) called with a node canUpdate(with:) rejects")
         return false
       }
+      applyUpdate(node: next, images: images, fontNames: fontNames)
+      return true
+    }
+
+    private func applyUpdate(
+      node next: NativeNode, images: [Int: UIImage], fontNames: [Int: String]
+    ) {
       let local = Self.localContent(for: next, images: images)
       node = next
       self.images = images
@@ -1083,7 +1090,7 @@
       }
       if let custom = next.custom { customView?.update(custom) }
       zip(componentChildren, next.children).forEach { child, childNode in
-        child.update(node: childNode, images: images, fontNames: fontNames)
+        child.applyUpdate(node: childNode, images: images, fontNames: fontNames)
         child.layer.zPosition = childNode.zIndex
       }
       // After the children: a merging or unlabeled node resolves its label, role and action from
@@ -1096,7 +1103,6 @@
         next.cornerRadius > 0 || next.clipsToBounds || next.scrollDirection != nil
         || next.layout.marquee
       setNeedsLayout()
-      return true
     }
 
     private static func localContent(
@@ -1205,7 +1211,11 @@
     }
 
     private func applyGraphicsLayer() {
-      guard let graphicsLayer = node.graphicsLayer, !graphicsLayer.isIdentity else { return }
+      guard let graphicsLayer = node.graphicsLayer, !graphicsLayer.isIdentity else {
+        layer.allowsGroupOpacity = true
+        layer.shouldRasterize = false
+        return
+      }
       let anchor = CGPoint(
         x: layer.anchorPoint.x * bounds.width, y: layer.anchorPoint.y * bounds.height)
       let linear = CGAffineTransform(
@@ -1222,6 +1232,18 @@
             y: originY + CGFloat(graphicsLayer.translationY))))
       if graphicsLayer.alpha != 1, node.visibility != NativeSwiftVisibility.invisible {
         alpha = CGFloat(max(0, min(1, graphicsLayer.alpha)))
+      }
+      switch graphicsLayer.compositingStrategy {
+      case NativeSwiftCompositingStrategy.offscreen:
+        layer.allowsGroupOpacity = true
+        layer.shouldRasterize = true
+        layer.rasterizationScale = max(traitCollection.displayScale, 1)
+      case NativeSwiftCompositingStrategy.modulateAlpha:
+        layer.allowsGroupOpacity = false
+        layer.shouldRasterize = false
+      default:
+        layer.allowsGroupOpacity = true
+        layer.shouldRasterize = false
       }
     }
 
@@ -1258,6 +1280,12 @@
       of wanted: Set<Int>, into result: inout [Int: NativeSwiftMeasuredSize],
       inherited: CGSize? = nil
     ) {
+      if node.visibility == NativeSwiftVisibility.gone, !ignoresOwnVisibility {
+        if wanted.contains(node.componentID) {
+          result[node.componentID] = NativeSwiftMeasuredSize(width: 0, height: 0)
+        }
+        return
+      }
       if wanted.contains(node.componentID) {
         // A structural view is transparent to layout: its children are flattened into its parent's
         // arrangement and it is never given a frame of its own, so its bounds are not a size. The
@@ -1756,6 +1784,10 @@
     func update(
       image: UIImage, draw: NativeImageDraw, alpha: CGFloat, filterQuality: Int?
     ) {
+      guard
+        self.image !== image || drawCommand != draw || self.alpha != alpha
+          || self.filterQuality != filterQuality
+      else { return }
       self.image = image
       drawCommand = draw
       self.filterQuality = filterQuality
@@ -1831,6 +1863,11 @@
     }
 
     func update(command: NativeDrawCommand, fontNames: [Int: String]) {
+      let fontID = command.textStyle.fontFamilyID
+      if self.command == command, self.fontNames[fontID] == fontNames[fontID] {
+        self.fontNames = fontNames
+        return
+      }
       self.command = command
       self.fontNames = fontNames
       text = command.text
@@ -1994,8 +2031,7 @@
       fontNames: [Int: String] = [:],
       scalesForDynamicType: Bool = false
     ) -> UIFont {
-      let weightValue =
-        command.textStyle.fontStyle & 1 != 0 ? max(command.textWeight, 700) : command.textWeight
+      let weightValue = command.textWeight
       let normalizedWeight = min(max((weightValue - 400) / 500, -1), 1)
       let size = max(command.textSize * scale, 1)
       let base = UIFont.systemFont(ofSize: size, weight: UIFont.Weight(rawValue: normalizedWeight))
@@ -2024,7 +2060,7 @@
         descriptor = weightedDescriptor(
           embedded.fontDescriptor, weight: weightValue, size: size)
       }
-      if command.textStyle.fontStyle & 2 != 0 {
+      if command.textStyle.fontStyle == NativeSwiftFontStyle.italic {
         descriptor =
           descriptor.withSymbolicTraits(descriptor.symbolicTraits.union(.traitItalic)) ?? descriptor
       }
@@ -2049,21 +2085,58 @@
       ) as UIFontDescriptor
     }
 
+    private enum ResolvedLocalFont {
+      case family(String)
+      case postScript(String)
+      case missing
+    }
+
+    private static let localFontCacheLock = NSLock()
+    private nonisolated(unsafe) static var localFontCache: [String: ResolvedLocalFont] = [:]
+
     /// Resolves an installed Apple font by family or PostScript name without falling back.
     private static func localFontDescriptor(
       familyName: String, size: CGFloat
     ) -> UIFontDescriptor? {
-      if let installedFamily = UIFont.familyNames.first(where: {
+      let key = familyName.lowercased()
+      localFontCacheLock.lock()
+      let cached = localFontCache[key]
+      localFontCacheLock.unlock()
+
+      let resolved: ResolvedLocalFont
+      if let cached {
+        resolved = cached
+      } else if let installedFamily = UIFont.familyNames.first(where: {
         $0.caseInsensitiveCompare(familyName) == .orderedSame
       }) {
-        return UIFontDescriptor(fontAttributes: [.family: installedFamily])
-      }
-      let postScriptName = UIFont.familyNames.lazy.compactMap { family in
+        resolved = .family(installedFamily)
+        localFontCacheLock.lock()
+        localFontCache[key] = resolved
+        localFontCacheLock.unlock()
+      } else if let postScriptName = UIFont.familyNames.lazy.compactMap({ family in
         UIFont.fontNames(forFamilyName: family).first {
           $0.caseInsensitiveCompare(familyName) == .orderedSame
         }
-      }.first
-      return postScriptName.flatMap { UIFont(name: $0, size: size)?.fontDescriptor }
+      }).first {
+        resolved = .postScript(postScriptName)
+        localFontCacheLock.lock()
+        localFontCache[key] = resolved
+        localFontCacheLock.unlock()
+      } else {
+        resolved = .missing
+        localFontCacheLock.lock()
+        localFontCache[key] = resolved
+        localFontCacheLock.unlock()
+      }
+
+      switch resolved {
+      case .family(let name):
+        return UIFontDescriptor(fontAttributes: [.family: name])
+      case .postScript(let name):
+        return UIFont(name: name, size: size)?.fontDescriptor
+      case .missing:
+        return nil
+      }
     }
 
     /// A resolved face that keeps the run's weight.

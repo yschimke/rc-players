@@ -19,7 +19,10 @@ removed on 2026-09-25; the CMP player (`rc-player/compose`) is this repository's
 - Paths:
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/embedded`
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/utils`
-- Commit: `21a1a95e41de8a72a30e70b471122530089a5c58` (`androidx-main`, 2026-11-10)
+- Commit: `cb8e6388acf70f4bc3af425c928a3f0761fb6478` (`androidx-main`, 2026-11-12). 1.0.0-alpha24
+  was cut one merge later, at `a9dc564e55c` (2026-11-12), the androidx-main merge alpha24 was cut from: its `remote-core`
+  and `remote-player-compose` `-sources.jar`s match that tree file for file (306/306, 104/104). The only change between the two, `fcdee239693`, is in
+  `remote-core` and `remote-creation`, so the copied sources are alpha24's either way.
 - License: Apache-2.0
 
 ## How the copy is made
@@ -39,9 +42,9 @@ removed on 2026-09-25; the CMP player (`rc-player/compose`) is this repository's
    version differs from this one it also adds a trailing comma to an argument list that is already
    broken over lines, and rewraps the odd line: `RcPlayerState.kt`, `components/RcPlayerTouch.kt`
    and `modifier/ClickModifier.kt` at this pin.
-4. Re-apply the patches and version-skew shims below. Every patched line sits under a
-   `// LOCAL PATCH (rc-players)` or `// VERSION SKEW (rc-players)` comment, and the helpers they need
-   live in files of their own.
+4. Re-apply the patches below (and any version-skew shims, of which there are none at this pin).
+   Every patched line sits under a `// LOCAL PATCH (rc-players)` or `// VERSION SKEW (rc-players)`
+   comment, and the helpers they need live in files of their own.
 
 `scripts/diff-upstream.sh <androidx checkout>` diffs this copy against a checkout with the package
 rewrite and import order normalised. Its output should be the patches and shims listed here and
@@ -51,54 +54,28 @@ nothing more than that formatting.
 
 Upstream builds this player against the in-tree `remote-core` / `remote-player-core` /
 `remote-creation-compose`. This module builds it against the published alphas the version catalog
-pins (`compose-remote = 1.0.0-alpha23`), or, with `-Pcomposeai.remoteCompose=snapshot`, against the
+pins (`compose-remote = 1.0.0-alpha24`), or, with `-Pcomposeai.remoteCompose=snapshot`, against the
 androidx.dev build `settings.gradle.kts` pins. The player reaches `@RestrictTo(LIBRARY_GROUP)` members of
 the core, so it is sensitive to the gap between `androidx-main` and the pinned alpha: pair a refresh
 with a render of the embedded lane (`scripts/rc-lane-ab/render-ab.sh`), not just a compile. There is
 no reflection left in the copied sources.
 
-**Which commit, and why.** alpha23 was cut from `androidx-main` at `a0e84553095` (2026-10-29): its
-`remote-core`, `remote-player-compose` and `remote-creation-compose` `-sources.jar`s match that
-tree file for file (302/302, 103/103 and 213/214, the odd one out being the generated `R.java`).
-The pin is `androidx-main` HEAD rather than that commit because HEAD compiles against alpha23 with
-two one-line shims, and the player work after the cut (TextAttribute/TextMeasure ink bounds,
-`697c967d0d9`; O(1) core-paint seeding, `e293d337e0f`; float variables resolved across the player,
-`300a543b216`; the layer compositing strategy, `28fb380046b`) is what a comparison lane should
-measure. Nothing the player gained after the cut reaches a `remote-core` member alpha23 lacks: the
-graphics layer's `COMPOSITING_STRATEGY` attribute and the raw padding and dimension accessors the
-float-variable sweep reads are all in the release. Move the pin back to the newest commit that
-compiles if a later refresh needs more shimming.
+**Which commit, and why.** The pin is `cb8e6388acf`, whose copied sources are alpha24's (cut at
+`a9dc564e55c`, one merge later, which changes nothing copied), so the copy and the release it builds
+against are the same tree and there is nothing to shim. A later refresh
+may take `androidx-main` past the cut again, as the pins before this one did, when the player work
+there is what a comparison lane should measure. If that needs a name the release lacks, put it
+behind a typealias in a file per Remote Compose lane (`src/remoteRelease`, `src/remoteSnapshot`,
+selected in `build.gradle.kts` by `composeai.remoteCompose`), mark the import it replaces, and list
+it here; move the pin back to the newest commit that compiles if it needs more than that.
 
-The shims are in `CreationVersionSkew.kt`, to be removed once the pinned release catches up. Each
-stands in for a name that moved or appeared after the cut; the file that uses it drops that one
-import line and resolves the alias from its own package instead.
-
-There are two `CreationVersionSkew.kt`, one per Remote Compose lane, and `build.gradle.kts` compiles
-the one `composeai.remoteCompose` selects: `src/remoteRelease` binds each name to alpha23's class,
-`src/remoteSnapshot` to androidx-main's, as the androidx.dev build pinned in `settings.gradle.kts`
-(16942710, the proxy for alpha24) publishes it. The copied sources are the same on both lanes. The
-tests have one name of their own the same way, in `src/testRemoteRelease` and
-`src/testRemoteSnapshot`.
-
-- `RemoteCapturedDocument` is a typealias of alpha23's `CapturedDocument`. `remote-creation-compose`
-  renamed the class in `7177ff18cdd`, and `RcPlayer.kt` / `RcPlayerState.kt` import the new name.
-- `PendingIntentActionHandler` is a typealias of alpha23's class of that name in
-  `androidx.compose.remote.creation.compose.action`. `3be30799c59` moved it, unchanged but for its
-  KDoc links, to `remote-player-compose`'s `androidx.compose.remote.player.compose.action`, where
-  `RcPlayer.kt` now imports it from. A copy built on alpha23 therefore names a class that
-  androidx-main no longer has: rc-players 3.7.0's player fails with `NoClassDefFoundError` at
-  `RcPlayer.kt:501` on 16942710. Built on the snapshot lane it names the new location.
-- `RemoteComposeStateSkew` is what `doc/SnapshotRemoteComposeState.kt` extends, in place of
-  `RemoteComposeState` (a marked line). androidx-main's `remote-core` adds
-  `RemoteComposeState.isFloatOverridden(int)`, which core operations such as `TouchExpression` call
-  and upstream's `SnapshotRemoteComposeState` overrides. On the snapshot lane the alias is
-  `RemoteComposeState` itself; on the release lane it is alpha23's class with that method added, so
-  the override compiles on both.
-- Tests: `valueChangeAction` is alpha23's `valueChange`, renamed on androidx-main.
-
-The previous pin's two shims retired with alpha23, which ships the core changes they stood in for:
-`doc/RcPlayerPreprocess.kt`'s `floatExpressions` registration (`461d551382f`) and the
-`ImageAttribute.imageId` reflection in `doc/` and `draw/CoreVersionSkew.kt` (`d18fe8f34fb`).
+The alpha23 pin's three shims, and the tests' one, retired with the alpha24 catalog bump, which
+ships what they stood in for: `RemoteCapturedDocument` (renamed in `7177ff18cdd`; alpha23 had
+`CapturedDocument`), `PendingIntentActionHandler` in `remote-player-compose` (moved there by
+`3be30799c59`), `RemoteComposeState.isFloatOverridden` (which `doc/SnapshotRemoteComposeState.kt`
+overrides, and which it extends directly again), and the tests' `valueChangeAction` (alpha23's
+`valueChange`). Before them, `doc/RcPlayerPreprocess.kt`'s `floatExpressions` registration
+(`461d551382f`) and the `ImageAttribute.imageId` reflection (`d18fe8f34fb`) retired with alpha23.
 
 `SoundFeature` plays document sounds through the View player's `SoundSupport`, so this module now
 depends on `remote-player-view`, as upstream's `remote-player-compose` does.
@@ -117,24 +94,25 @@ upstream and where it is retired from. The list is meant to shrink.
 Files that exist only here:
 
 - `RcPlayerLocalPatches.kt`: helpers for the patches above.
-- `CreationVersionSkew.kt`: the version-skew shims described above, under `src/remoteRelease` and
-  `src/remoteSnapshot` rather than `src/main`, and the tests' under `src/testRemote*`.
 - `../GoogleFontFamilies.kt`: the Google Fonts cache resolver behind the `google:` patch. It is null
   unless `composeai.fonts.cacheDir` is set, which is a render-side property no app sets.
 
-### androidx.dev 16942710 (the alpha24 proxy)
+### The alpha24 refresh (2026-11-19)
 
-`scripts/diff-upstream.sh` against 16942710's `remote-player-compose` `-sources.jar` (laid out as a
-checkout) shows, besides the patches and formatting above, two upstream changes after
-`21a1a95e41`:
+Upstream from `21a1a95e41` to `cb8e6388acf` (whose copied sources are alpha24's) changes two copied files, the same two
+that `scripts/diff-upstream.sh` showed against androidx.dev 16942710, so that snapshot stays the
+snapshot lane's proxy for alpha24. It retires no local patch and adds no shim; the alpha24
+catalog bump then retired every shim ("Version skew" above).
 
-- `SnapshotRemoteComposeState.isFloatOverridden` became an `override` of the new core method. This
-  copy takes it, through `RemoteComposeStateSkew` above.
-- `modifier/ScrollModifier.kt` starts a scroll container at the document's scroll-position
-  variable (or literal) rather than at 0, read through the new `isFloatOverridden`. Not taken
-  yet: it changes what the player draws for a document that starts scrolled, so it comes with the
-  next refresh, from `androidx-main` at alpha24's commit, with the embedded lane rendered before
-  and after.
+- `SnapshotRemoteComposeState.isFloatOverridden` became an `override` of the new core method
+  (`db2c2360362`). This copy already had it, through `RemoteComposeStateSkew` above.
+- `modifier/ScrollModifier.kt` (`db2c2360362`): a scroll container starts at the document's
+  scroll-position variable (or literal), evaluated once without read observation and clamped to
+  `>= 0`, rather than at 0. It used to start at 0 and publish that 0 back into the variable, so a
+  `RemoteScrollState(position = 100f)` opened on its first page. A document whose scroll starts at 0
+  draws as before. `RcInitialScrollPositionTest` is upstream's pixel test for it, written against
+  this copy; with `-Prc.embedded.scrollOutput=<dir>` it writes the frame it checks.
+  `renders/androidx-embedded-alpha24/` has that frame before and after.
 
 ### The 2026-11-11 refresh
 

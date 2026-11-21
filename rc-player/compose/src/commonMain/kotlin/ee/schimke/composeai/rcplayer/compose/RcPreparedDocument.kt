@@ -106,6 +106,68 @@ public class RcPreparedDocument(public val document: RcDocument) {
       emptyBitmaps.forEach { images[it.imageId] = ImageBitmap(it.width, it.height) }
     }
 
+  /**
+   * Named variables declared by [document], mapped to their wire type (`RcNamedVariable.*_TYPE`).
+   */
+  internal val namedVariableTypes: Map<String, Int> =
+    document.operations
+      .filterIsInstance<ee.schimke.composeai.rcplayer.protocol.RcNamedVariable>()
+      .associate { it.name to it.type }
+
+  @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+  private val inlineEmbeddedDocsDefault =
+    kotlin.concurrent.atomics.AtomicReference<Map<Int, RcPreparedDocument?>>(emptyMap())
+
+  @OptIn(ExperimentalRcPlayerApi::class)
+  private val inlineEmbeddedDocsExtended =
+    mutableMapOf<Pair<Int, RcPlayerExtensions>, RcPreparedDocument?>()
+
+  /**
+   * Prepares all inline `BinaryData(TYPE_RC_DOC)` blobs in this document ahead of time (up to
+   * [maxDepth] levels deep, defaulting to 1), so a host preparing documents off the main thread can
+   * warm embedded children before the first frame.
+   */
+  @OptIn(ExperimentalRcPlayerApi::class)
+  public fun prepareEmbeddedDocuments(maxDepth: Int = 1) {
+    require(maxDepth >= 0) { "maxDepth must be >= 0, was $maxDepth" }
+    if (maxDepth == 0) return
+    document.operations.forEach { op ->
+      if (
+        op is ee.schimke.composeai.rcplayer.protocol.RcBinaryData &&
+          op.type == ee.schimke.composeai.rcplayer.protocol.RcBinaryData.TYPE_RC_DOC
+      ) {
+        val child = inlineEmbeddedDocument(op.id, op.data, RcPlayerExtensions.None)
+        if (maxDepth > 1) child?.prepareEmbeddedDocuments(maxDepth - 1)
+      }
+    }
+  }
+
+  /**
+   * Prepares an inline `BinaryData(TYPE_RC_DOC)` payload once and caches it on this
+   * [RcPreparedDocument] so every card sharing the parent also shares the prepared child.
+   */
+  @OptIn(ExperimentalRcPlayerApi::class, kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+  internal fun inlineEmbeddedDocument(
+    binaryDataId: Int,
+    data: ByteArray,
+    extensions: RcPlayerExtensions,
+  ): RcPreparedDocument? {
+    if (extensions === RcPlayerExtensions.None || extensions.extensions.isEmpty()) {
+      val current = inlineEmbeddedDocsDefault.load()
+      if (binaryDataId in current) return current[binaryDataId]
+      val prepared = runCatching { RcPreparedDocument(decodeCmpDocument(data)) }.getOrNull()
+      while (true) {
+        val snapshot = inlineEmbeddedDocsDefault.load()
+        if (binaryDataId in snapshot) return snapshot[binaryDataId]
+        val next = snapshot + (binaryDataId to prepared)
+        if (inlineEmbeddedDocsDefault.compareAndSet(snapshot, next)) return prepared
+      }
+    }
+    return inlineEmbeddedDocsExtended.getOrPut(binaryDataId to extensions) {
+      runCatching { RcPreparedDocument(decodeCmpDocument(data, extensions)) }.getOrNull()
+    }
+  }
+
   public companion object {
     /**
      * Decodes [bytes] and prepares the result. A document that uses player extensions is decoded

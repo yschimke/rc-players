@@ -17,10 +17,6 @@ plugins {
 // rc-players' Compose Multiplatform creation API. Existing consumers keep this artifact and its
 // package. See docs/design/LAUNCHER_EITHER_API.md.
 
-// The Remote Compose lane `settings.gradle.kts` resolved, with the same default and spelling.
-val remoteComposeLine =
-  providers.gradleProperty("composeai.remoteCompose").orElse("release").get().trim().lowercase()
-
 kotlin {
   explicitApi()
   @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class) abiValidation()
@@ -43,14 +39,6 @@ kotlin {
       implementation(libs.compose.runtime)
       implementation(libs.kotlinx.coroutines.core)
     }
-    // What `EitherApiContentAndroidx` writes differently per Remote Compose lane
-    // (`AndroidxLane.kt`): `-Pcomposeai.remoteCompose=snapshot` is androidx-main.
-    getByName("androidHostTest")
-      .kotlin
-      .srcDir(
-        if (remoteComposeLine == "snapshot") "src/androidHostTestRemoteSnapshot/kotlin"
-        else "src/androidHostTestRemoteRelease/kotlin",
-      )
     getByName("androidHostTest").dependencies {
       // rc-players' own capture profiles, to hold them to this module's AndroidX ones, and its
       // capture entry point, to hold a widget authored through it to one authored through

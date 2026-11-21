@@ -190,7 +190,7 @@ internal object AndroidxContent {
    * A named float that starts as its component's measured width, read by text and by a state
    * layout: how a consumer sizes or switches content by the space it is given. It is asked for in
    * a layout, as `remoteComponent()` has to be: the root is not a component it can name.
-   * (AndroidX 1.0.0-alpha23 spells it differently from androidx-main: `AndroidxLane.kt`.)
+   * (Through `AndroidxLane.kt`, which AndroidX 1.0.0-alpha23 spelled differently.)
    */
   @Composable
   fun NamedMeasuredWidth() {

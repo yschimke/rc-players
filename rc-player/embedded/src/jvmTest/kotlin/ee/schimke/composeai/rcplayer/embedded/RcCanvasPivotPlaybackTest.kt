@@ -40,8 +40,8 @@ class RcCanvasPivotPlaybackTest {
     withTransform(
       {
         translate(4f.rf, 2f.rf)
-        rotate(30f.rf, 20f.rf, 40f.rf)
-        scale(0.5f.rf, 0.5f.rf, 20f.rf, 40f.rf)
+        rotate(30f.rf, RemoteOffset(20f.rf, 40f.rf))
+        scale(0.5f.rf, 0.5f.rf, RemoteOffset(20f.rf, 40f.rf))
       },
     ) {
       shapes()
@@ -54,7 +54,7 @@ class RcCanvasPivotPlaybackTest {
     withTransform(
       {
         translate(pivot.x, pivot.y)
-        rotate(90f.rf * level)
+        rotate(90f.rf * level, RemoteOffset.Zero)
         translate(-pivot.x, -pivot.y)
       },
     ) {
@@ -63,7 +63,7 @@ class RcCanvasPivotPlaybackTest {
     withTransform(
       {
         translate(60f.rf, 30f.rf * level)
-        scale(1.5f.rf * level, 2f.rf)
+        scale(1.5f.rf * level, 2f.rf, RemoteOffset.Zero)
         translate(-60f.rf, -(30f.rf * level))
       },
     ) {
@@ -73,10 +73,10 @@ class RcCanvasPivotPlaybackTest {
       {
         translate(4f.rf, 2f.rf)
         translate(20f.rf, 40f.rf)
-        rotate(30f.rf)
+        rotate(30f.rf, RemoteOffset.Zero)
         translate(-20f.rf, -40f.rf)
         translate(20f.rf, 40f.rf)
-        scale(0.5f.rf, 0.5f.rf)
+        scale(0.5f.rf, 0.5f.rf, RemoteOffset.Zero)
         translate(-20f.rf, -40f.rf)
       },
     ) {

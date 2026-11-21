@@ -20,7 +20,6 @@
 package ee.schimke.composeai.rccreation.compose.capture
 
 import androidx.annotation.RestrictTo
-import ee.schimke.composeai.rccreation.compose.layout.BlackArgb
 import ee.schimke.composeai.rccreation.compose.shaders.RemoteBrush
 import ee.schimke.composeai.rccreation.compose.state.RemoteBlendMode
 import ee.schimke.composeai.rccreation.compose.state.RemoteColor
@@ -35,8 +34,6 @@ import ee.schimke.composeai.rccreation.compose.vector.RemotePathData
 import ee.schimke.composeai.rccreation.compose.vector.RemotePathNode
 import ee.schimke.composeai.rccreation.compose.vector.RemotePathScope
 import ee.schimke.composeai.rccreation.compose.vector.painterRemoteVector
-
-internal const val TransparentArgb: Int = 0x00000000
 
 /**
  * A base class for defining vector graphics that can be drawn in a remote compose. It could be
@@ -64,7 +61,7 @@ internal constructor(
     internal val defaultHeight: RemoteFloat,
     internal val viewportWidth: RemoteFloat,
     internal val viewportHeight: RemoteFloat,
-    internal val tintColor: RemoteColor = RemoteColor(TransparentArgb),
+    internal val tintColor: RemoteColor = RemoteColor.Transparent,
     internal val tintBlendMode: RemoteBlendMode = RemoteBlendMode.SrcIn,
     internal val autoMirror: Boolean = false,
 ) {
@@ -72,7 +69,7 @@ internal constructor(
         name: String,
         viewportWidth: RemoteFloat,
         viewportHeight: RemoteFloat,
-        tintColor: RemoteColor = RemoteColor(BlackArgb),
+        tintColor: RemoteColor = RemoteColor.Black,
         tintBlendMode: RemoteBlendMode = RemoteBlendMode.SrcIn,
         autoMirror: Boolean = false,
     ) : this(

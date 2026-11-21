@@ -228,6 +228,11 @@ private constructor(
   private val floats = RcObservedValues<Float>(noteMapRead)
   private val componentValues: Map<Int, List<RcComponentValue>> =
     seed?.componentValues ?: rcComponentValuesOf(document)
+  private val binaryData: Map<Int, ee.schimke.composeai.rcplayer.protocol.RcBinaryData> =
+    seed?.binaryData ?: rcBinaryDataOf(document)
+  private val docVariableMappings:
+    Map<Int, List<ee.schimke.composeai.rcplayer.protocol.RcMapRcDocVariables>> =
+    seed?.docVariableMappings ?: rcDocVariableMappingsOf(document)
   private val componentGeometries = mutableMapOf<Int, RcComponentGeometry>()
   private val componentContentWidths = mutableMapOf<Int, Float>()
   private val componentContentHeights = mutableMapOf<Int, Float>()
@@ -686,6 +691,8 @@ private constructor(
       floats[id]
     } ?: word.value
 
+  public fun float(id: Int): Float? = floats[id]
+
   public fun color(id: Int): Int = colors[id] ?: 0
 
   /**
@@ -706,6 +713,14 @@ private constructor(
     )
 
   public fun text(id: Int): String? = texts[id]
+
+  public fun binaryData(id: Int): ee.schimke.composeai.rcplayer.protocol.RcBinaryData? =
+    binaryData[id]
+
+  public fun docVariableMappings(
+    docId: Int,
+  ): List<ee.schimke.composeai.rcplayer.protocol.RcMapRcDocVariables> =
+    docVariableMappings[docId].orEmpty()
 
   public fun path(id: Int): RcPathData? = paths[id]
 

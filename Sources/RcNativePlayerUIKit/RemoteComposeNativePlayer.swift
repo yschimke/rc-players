@@ -803,15 +803,18 @@
       generation: UInt64
     ) -> Bool {
       do {
+        if !presentation.inputs.isEmpty {
+          // A newer input will install its own frame; validate and deliver this input's events in
+          // order without building and discarding an intermediate NativeDocument.
+          var budget = NativeFrameBudget()
+          try validateEvents(update.events, budget: &budget)
+          dispatch(update.events, generation: generation)
+          return update.accepted
+        }
         let model = try NativeDocument(
           frame: update.frame, timeSeconds: update.timeSeconds, limits: executionLimits,
           androidCompatibility: androidCompatibility)
         try validateExecution(model, events: update.events)
-        guard presentation.inputs.isEmpty else {
-          // A newer input will install its own frame; this one's events still go out, in order.
-          dispatch(update.events, generation: generation)
-          return update.accepted
-        }
         try validate(model)
         guard generation == self.generation, presentation.inputs.isEmpty else {
           return update.accepted
@@ -854,6 +857,12 @@
       _ model: NativeDocument, events: [RemoteComposeNativePlayerEvent]
     ) throws {
       var budget = model.executionBudget
+      try validateEvents(events, budget: &budget)
+    }
+
+    private func validateEvents(
+      _ events: [RemoteComposeNativePlayerEvent], budget: inout NativeFrameBudget
+    ) throws {
       for event in events {
         switch event {
         case .action:

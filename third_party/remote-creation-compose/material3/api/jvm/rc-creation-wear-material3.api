@@ -981,9 +981,28 @@ public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextButt
 	public fun hashCode ()I
 }
 
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextConfiguration {
+	public static final field $stable I
+	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/text/RemoteTextAlign;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMaxLines ()I
+	public final fun getOverflow-V9iRixA ()I
+	public final fun getTextAlign-jURkyFU ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextAlign;
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextConfigurationDefaults {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rccreation/wear/material3/RemoteTextConfigurationDefaults;
+	public final fun getMaxLines ()I
+	public final fun getOverflow-V9iRixA ()I
+	public final fun getTextAlign-jURkyFU ()Lee/schimke/composeai/rccreation/compose/text/RemoteTextAlign;
+}
+
 public final class ee/schimke/composeai/rccreation/wear/material3/RemoteTextKt {
 	public static final fun ProvideRemoteTextStyle (Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;I)V
-	public static final fun RemoteText-yT6CtNU (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;Landroidx/compose/ui/text/font/FontStyle;Landroidx/compose/ui/text/font/FontWeight;Lee/schimke/composeai/rccreation/compose/text/RemoteFontFamily;Landroidx/compose/ui/text/style/TextAlign;IILandroidx/compose/ui/text/font/FontVariation$Settings;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Landroidx/compose/runtime/Composer;III)V
+	public static final fun RemoteText-UnfsBCo (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/modifier/RemoteModifier;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;Lee/schimke/composeai/rccreation/compose/text/RemoteFontStyle;Lee/schimke/composeai/rccreation/compose/text/RemoteFontWeight;Lee/schimke/composeai/rccreation/compose/text/RemoteFontFamily;Lee/schimke/composeai/rccreation/compose/text/RemoteTextAlign;IILee/schimke/composeai/rccreation/compose/text/RemoteFontVariation$Settings;Lee/schimke/composeai/rccreation/compose/text/RemoteTextStyle;Landroidx/compose/runtime/Composer;III)V
+	public static final fun getLocalRemoteTextConfiguration ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 	public static final fun getLocalRemoteTextStyle ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 }
 

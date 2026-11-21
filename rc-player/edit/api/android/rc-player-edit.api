@@ -227,6 +227,11 @@ public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text : ee
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcInlineEmbeddedDocumentsKt {
+	public static final fun inlineEmbeddedDocuments (Lee/schimke/composeai/rcplayer/protocol/RcDocument;ILkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static synthetic fun inlineEmbeddedDocuments$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;ILkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi : java/lang/Enum {
 	public static final field AndroidX Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;
 	public static final field RcCreation Lee/schimke/composeai/rcplayer/edit/RcKotlinCreationApi;

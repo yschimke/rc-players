@@ -26,8 +26,7 @@ import kotlin.jvm.JvmStatic
 /** Represents an array of floats. */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class RemoteFloatArray
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public constructor(
+internal constructor(
     public override val constantValueOrNull: List<RemoteFloat>?,
     cacheKey: RemoteStateCacheKey,
     internal val idProvider: ((creationState: RemoteComposeCreationState) -> Int)? = null,
@@ -84,7 +83,7 @@ public constructor(
     private val idListCacheKey: RemoteStateCacheKey =
         RemoteOperationCacheKey.create(OperationKey.IdList, this)
 
-    override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
+    internal override fun writeToDocument(creationState: RemoteComposeCreationState): Int {
         // If this instance represents an existing allocated ID (e.g. a formal parameter in a
         // pattern definition), return that ID directly instead of writing to the document.
         if (cacheKey is RemoteStateIdKey) {
@@ -133,7 +132,7 @@ public constructor(
         if (constArray != null && constIndex != null) {
             return constArray[constIndex.toInt()]
         }
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteOperationCacheKey.create(OperationKey.Get, this, v),
         ) { creationState ->
@@ -162,7 +161,7 @@ public constructor(
         if (constArray != null && constIndex != null) {
             return constArray[constIndex]
         }
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteOperationCacheKey.create(OperationKey.Get, this, v),
         ) { creationState ->
@@ -181,6 +180,10 @@ public constructor(
     }
 
     public companion object {
+        /** Creates a [RemoteFloatArray] referencing a remote ID. */
+        public fun createForId(id: Int): RemoteFloatArray =
+            RemoteFloatArray(constantValueOrNull = null, cacheKey = RemoteStateIdKey(id))
+
         /**
          * Creates a named [RemoteFloatArray].
          *

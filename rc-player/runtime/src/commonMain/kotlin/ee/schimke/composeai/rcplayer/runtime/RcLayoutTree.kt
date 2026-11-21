@@ -18,6 +18,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionConstraintsModifier
+import ee.schimke.composeai.rcplayer.protocol.RcDocLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFlowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
@@ -273,6 +274,15 @@ public sealed interface RcLayoutNode {
     override val animationId: Int = operation.animationId
   }
 
+  public data class EmbeddedDoc(
+    val operation: RcDocLayout,
+    override val modifiers: RcLayoutModifiers,
+    val contentComponentId: Int?,
+  ) : RcLayoutNode {
+    override val componentId: Int = operation.componentId
+    override val animationId: Int = operation.animationId
+  }
+
   public data class Text(
     val operation: RcTextLayout,
     override val modifiers: RcLayoutModifiers,
@@ -449,6 +459,8 @@ public object RcLayoutTree {
           )
         is RcImageLayout ->
           RcLayoutNode.Image(operation, modifiers, leafContentComponentId(container, seenIds))
+        is RcDocLayout ->
+          RcLayoutNode.EmbeddedDoc(operation, modifiers, leafContentComponentId(container, seenIds))
         is RcTextLayout ->
           RcLayoutNode.Text(operation, modifiers, leafContentComponentId(container, seenIds))
         is RcCoreText ->
@@ -744,6 +756,7 @@ public object RcLayoutTree {
       this is RcCollapsibleColumnLayout ||
       this is RcFitBoxLayout ||
       this is RcImageLayout ||
+      this is RcDocLayout ||
       this is RcTextLayout ||
       this is RcCoreText
 

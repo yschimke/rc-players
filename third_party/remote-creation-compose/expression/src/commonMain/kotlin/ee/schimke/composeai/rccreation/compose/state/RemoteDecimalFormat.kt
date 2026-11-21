@@ -38,7 +38,11 @@ public enum class RoundingMode {
     HALF_EVEN,
 }
 
-internal data class TextFromFloatOptions(val before: Int, val after: Int, val flags: Int)
+/**
+ * Formatting options for a `TextFromFloat` operation. [before] and [after] are shorts because that
+ * is how the operation encodes them on the wire.
+ */
+internal data class TextFromFloatOptions(val before: Short, val after: Short, val flags: Int)
 
 internal val DefaultJavaDecimalFormat: DecimalFormat = DecimalFormat()
 
@@ -70,8 +74,8 @@ internal fun DecimalFormat.toJavaTextFromFloatOptions(): TextFromFloatOptions {
             SEPARATOR_COMMA_PERIOD
         }
 
-    val before = maximumIntegerDigits.coerceAtMost(255)
-    val after = maximumFractionDigits.coerceAtMost(255)
+    val before = maximumIntegerDigits.coerceIn(0, 255).toShort()
+    val after = maximumFractionDigits.coerceIn(0, 255).toShort()
     var options = 0
     if (negativePrefix == "(") {
         options = options or OPTIONS_NEGATIVE_PARENTHESES
@@ -103,7 +107,7 @@ internal fun formatRemoteFloatJvm(value: RemoteFloat, format: DecimalFormat): Re
 
     if (format.minimumFractionDigits == 0 && after > 0 && format !== DefaultJavaDecimalFormat) {
         value.constantValueOrNull?.let { constVal ->
-            val resolvedAfter = if (constVal % 1f == 0f) 0 else after
+            val resolvedAfter = if (constVal % 1f == 0f) 0.toShort() else after
             return value.toRemoteStringWithPadding(
                 before,
                 resolvedAfter,
@@ -136,7 +140,7 @@ internal fun formatRemoteFloatJvm(value: RemoteFloat, format: DecimalFormat): Re
 
 internal fun formatRemoteIntJvm(value: RemoteInt, format: DecimalFormat): RemoteString {
     val (before, after, flags) = format.toJavaTextFromFloatOptions()
-    val resolvedAfter = if (format.minimumFractionDigits == 0) 0 else after
+    val resolvedAfter = if (format.minimumFractionDigits == 0) 0.toShort() else after
     return value
         .toRemoteFloat()
         .toRemoteStringWithPadding(

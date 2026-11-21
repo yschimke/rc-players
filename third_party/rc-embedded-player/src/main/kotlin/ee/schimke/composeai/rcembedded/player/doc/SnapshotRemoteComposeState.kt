@@ -29,7 +29,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
-import ee.schimke.composeai.rcembedded.player.RemoteComposeStateSkew
 import ee.schimke.composeai.rcembedded.player.resources.setDimensions
 
 /**
@@ -41,12 +40,7 @@ import ee.schimke.composeai.rcembedded.player.resources.setDimensions
  * dependency, and a write (the core's `updateFloat`/`overrideFloat`/… as host actions, value
  * changes, or expression evaluation run) invalidates exactly those readers.
  */
-// VERSION SKEW (rc-players): upstream extends `RemoteComposeState` directly.
-// `RemoteComposeStateSkew`
-// is that class on the snapshot lane and alpha23's with `isFloatOverridden` added on the release
-// lane
-// (`CreationVersionSkew.kt`), so the override below compiles on both.
-internal class SnapshotRemoteComposeState : RemoteComposeStateSkew() {
+internal class SnapshotRemoteComposeState : RemoteComposeState() {
     private val floats: SnapshotStateMap<Int, Float> = mutableStateMapOf()
     private val integers: SnapshotStateMap<Int, Int> = mutableStateMapOf()
     private val colors: SnapshotStateMap<Int, Int> = mutableStateMapOf()

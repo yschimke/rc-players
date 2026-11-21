@@ -16,17 +16,21 @@
 
 package ee.schimke.composeai.rcembedded.player.modifier
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.remote.core.CoreDocument
+import androidx.compose.remote.core.RemoteContext
 import androidx.compose.remote.core.operations.TouchExpression
 import androidx.compose.remote.core.operations.layout.modifiers.ScrollModifierOperation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -34,7 +38,11 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.util.fastFirstOrNull
+import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
+import ee.schimke.composeai.rcembedded.player.LocalGraphContext
 import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
+import ee.schimke.composeai.rcembedded.player.doc.GraphContext
+import ee.schimke.composeai.rcembedded.player.doc.SnapshotRemoteComposeState
 import ee.schimke.composeai.rcembedded.player.state.MaybeVariableFloat
 import kotlin.math.roundToInt
 
@@ -51,10 +59,43 @@ private fun evenNotchCount(op: ScrollModifierOperation): Int {
     return spec.firstOrNull()?.toInt()?.coerceAtLeast(0) ?: 0
 }
 
+/**
+ * Resolves the initial scroll offset in pixels from the document's scroll-position state variable
+ * (or literal expression), clamped to `>= 0`.
+ */
+private fun initialScrollPx(
+    op: ScrollModifierOperation,
+    document: CoreDocument,
+    remoteContext: RemoteContext,
+    graphContext: GraphContext?,
+): Int = Snapshot.withoutReadObservation {
+    val raw = MaybeVariableFloat(op.positionExpression)
+    val px =
+        if (raw.isReference) {
+            val id = raw.id
+            val snapshotState = remoteContext.mRemoteComposeState as? SnapshotRemoteComposeState
+            val expr =
+                if (snapshotState?.isFloatOverridden(id) == true) {
+                    null
+                } else {
+                    document.getFloatExpressions()[id]
+                }
+            expr?.evaluate(graphContext ?: remoteContext) ?: remoteContext.getFloat(id)
+        } else {
+            op.positionExpression
+        }
+    if (px.isFinite()) px.roundToInt().coerceAtLeast(0) else 0
+}
+
 @Composable
 internal fun Modifier.scroll(op: ScrollModifierOperation): Modifier {
+    val document = LocalCoreDocument.current
     val remoteContext = LocalRemoteContext.current
-    val scrollState = rememberScrollState()
+    val graphContext = LocalGraphContext.current
+    val scrollState =
+        rememberSaveable(op, saver = ScrollState.Saver) {
+            ScrollState(initial = initialScrollPx(op, document, remoteContext, graphContext))
+        }
 
     // The document binds the scroll offset to a variable (mPositionExpression, the output of the
     // scroll's TouchExpression). The embedded player drives scroll with Compose's native gesture +

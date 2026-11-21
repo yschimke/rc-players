@@ -285,6 +285,7 @@ private fun RcLayoutNode.collectComponentIds(into: MutableSet<Int>) {
       is RcLayoutNode.FitBox -> listOf(content)
       is RcLayoutNode.CanvasContent,
       is RcLayoutNode.Image,
+      is RcLayoutNode.EmbeddedDoc,
       is RcLayoutNode.Text,
       is RcLayoutNode.CoreText -> emptyList()
     }

@@ -1,7 +1,8 @@
 package ee.schimke.composeai.rcplayer.protocol
 
 // Transcribed from AndroidX remote-core `Operations.java` (the per-API-level and per-profile
-// operation sets) at androidx-main `21a1a95e41d` (2026-11-10), which 1.0.0-alpha23 already matches,
+// operation sets) at androidx-main `a9dc564e55c` (2026-11-12), the commit 1.0.0-alpha24 was cut
+// from,
 // and remote-creation-android 1.0.0-alpha19 `RcPlatformProfiles.java` (the Wear widgets
 // allow-list). Same order as the source so a diff against a newer release is a line-for-line read.
 // [RcProfileOperations.of] combines them exactly as `Operations.getOperations(apiLevel, profiles)`
@@ -77,11 +78,12 @@ public object RcProfileOperations {
 }
 
 /**
- * AndroidX `Operations.EVENT_ACTION`, which its experimental AndroidX profile decodes. This library
- * has no codec for it (`rc-operations.manifest` lists it `unavailable`), so `RcOpcodes` has no
- * constant; the number is here so the profile is the set AndroidX's player reads.
+ * AndroidX `Operations.MODIFIER_EVENT_HANDLER` (`EVENT_ACTION` until alpha24, when it became a
+ * modifier), which its experimental AndroidX profile decodes. This library has no codec for it
+ * (`rc-operations.manifest` lists it `unavailable`), so `RcOpcodes` has no constant; the number is
+ * here so the profile is the set AndroidX's player reads.
  */
-private const val EVENT_ACTION: Int = 100
+private const val MODIFIER_EVENT_HANDLER: Int = 100
 
 /** `populateCommonOperations`: every API level from 6 up. */
 internal val BASE_OPERATIONS: Set<Int> =
@@ -271,10 +273,13 @@ internal val V7_ANDROIDX_EXPERIMENTAL_OPERATIONS: Set<Int> =
     RcOpcodes.DATA_SOUND,
     RcOpcodes.SOUND_EXPRESSION,
     RcOpcodes.PLAY_SOUND,
-    EVENT_ACTION,
+    MODIFIER_EVENT_HANDLER,
     RcOpcodes.ADD_MESH_2D,
     RcOpcodes.DRAW_MESH_2D,
     RcOpcodes.MATRIX_FROM_MESH_2D,
+    RcOpcodes.LAYOUT_RC_DOC,
+    RcOpcodes.MAP_RC_DOC_VARIABLES,
+    RcOpcodes.BINARY_DATA,
   )
 
 /** `PROFILE_ANDROIDX_DEPRECATED_OPS`. */
@@ -323,6 +328,9 @@ internal val V7_WIDGETS_EXPERIMENTAL_OPERATIONS: Set<Int> =
     RcOpcodes.ADD_MESH_2D,
     RcOpcodes.DRAW_MESH_2D,
     RcOpcodes.MATRIX_FROM_MESH_2D,
+    RcOpcodes.LAYOUT_RC_DOC,
+    RcOpcodes.MAP_RC_DOC_VARIABLES,
+    RcOpcodes.BINARY_DATA,
   )
 
 /** `PROFILE_WIDGETS_DEPRECATED_OPS`. */

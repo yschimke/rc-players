@@ -16,7 +16,6 @@
 
 package ee.schimke.composeai.rccreation.compose.state
 
-import androidx.annotation.RestrictTo
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 
@@ -41,78 +40,13 @@ public fun RemoteColor.Companion.createThemedRemoteColor(
     lightFallback: Color,
     darkFallback: Color,
 ): RemoteColor {
-    val light = lightFallback.toArgb()
-    val dark = darkFallback.toArgb()
-    val cacheKey =
-        RemoteStateThemeColorKey(
-            group = ANDROID_SYSTEM_COLOR_GROUP,
-            lightModeIndex = lightColorIndex,
-            darkModeIndex = darkColorIndex,
-            lightFallback = light,
-            darkFallback = dark,
-        )
-    return RemoteColor(
-        cacheKey = cacheKey,
-        idProvider = { creationState ->
-            creationState.getOrPutVariableId(cacheKey) {
-                creationState.document
-                    .addThemedColor(
-                        ANDROID_SYSTEM_COLOR_GROUP,
-                        lightColorIndex,
-                        darkColorIndex,
-                        light,
-                        dark,
-                    )
-                    .toInt()
-            }
-        },
+    // KMP (rc-players): the colour group's write is upstream's own, in the expression module's
+    // `RemoteColor.Companion`, since alpha24.
+    return createThemedRemoteColor(
+        group = ANDROID_SYSTEM_COLOR_GROUP,
+        lightModeIndex = lightColorIndex,
+        darkModeIndex = darkColorIndex,
+        lightFallback = lightFallback.toArgb(),
+        darkFallback = darkFallback.toArgb(),
     )
-}
-
-/**
- * A cache key for themed colors, identified by their [group], [lightModeIndex], [darkModeIndex],
- * [lightFallback], and [darkFallback].
- */
-internal class RemoteStateThemeColorKey(
-    internal val group: String,
-    internal val lightModeIndex: Short,
-    internal val darkModeIndex: Short,
-    internal val lightFallback: Int,
-    internal val darkFallback: Int,
-) : BaseRemoteStateCacheKey() {
-    private var state: BaseRemoteState<*>? = null
-
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun getState(): BaseRemoteState<*>? = state
-
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public override fun setState(state: BaseRemoteState<*>?) {
-        this.state = state
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is RemoteStateThemeColorKey) return false
-        if (group != other.group) return false
-        if (lightModeIndex != other.lightModeIndex) return false
-        if (darkModeIndex != other.darkModeIndex) return false
-        if (lightFallback != other.lightFallback) return false
-        if (darkFallback != other.darkFallback) return false
-        return true
-    }
-
-    override fun hashCodeImpl(): Int {
-        var result = group.hashCode()
-        result = 31 * result + lightModeIndex.hashCode()
-        result = 31 * result + darkModeIndex.hashCode()
-        result = 31 * result + lightFallback.hashCode()
-        result = 31 * result + darkFallback.hashCode()
-        return result
-    }
-
-    override fun toString(): String =
-        "RemoteStateThemeColorKey(group=$group, lightModeIndex=$lightModeIndex, darkModeIndex=$darkModeIndex, lightFallback=$lightFallback, darkFallback=$darkFallback)"
-
-    override fun toDebugString(): String =
-        "themeColor($group, light=$lightModeIndex, dark=$darkModeIndex)"
 }

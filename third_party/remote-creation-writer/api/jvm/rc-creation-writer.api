@@ -935,7 +935,7 @@ public final class ee/schimke/composeai/rccreation/common/RemoteDocumentWriter :
 	public fun createFloatFunction ([F)I
 	public fun createFloatId ()F
 	public fun createOffscreenBitmap (I)I
-	public fun createTextFromFloat (FIII)I
+	public fun createTextFromFloat (FSSI)I
 	public fun definePattern (I[I)V
 	public fun drawArc (FFFFFF)V
 	public fun drawBitmap (IFFFFI)V
@@ -1601,7 +1601,7 @@ public abstract interface class ee/schimke/composeai/rccreation/common/RemoteWri
 	public abstract fun createFloatId ()F
 	public abstract fun createOffscreenBitmap (I)I
 	public static synthetic fun createOffscreenBitmap$default (Lee/schimke/composeai/rccreation/common/RemoteWriter;IILjava/lang/Object;)I
-	public abstract fun createTextFromFloat (FIII)I
+	public abstract fun createTextFromFloat (FSSI)I
 	public abstract fun definePattern (I[I)V
 	public abstract fun drawArc (FFFFFF)V
 	public abstract fun drawBitmap (IFFFFI)V

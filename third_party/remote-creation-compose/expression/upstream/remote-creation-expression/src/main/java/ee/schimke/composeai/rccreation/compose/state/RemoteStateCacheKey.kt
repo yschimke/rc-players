@@ -283,8 +283,7 @@ public class RemoteConstantCacheKey(public val value: Any?) : BaseRemoteStateCac
 }
 
 /** A cache key for constant color values, identified by their packed ARGB integer value. */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public class RemoteColorConstantCacheKey(@ColorInt public val color: Int) :
+internal class RemoteColorConstantCacheKey(@ColorInt internal val color: Int) :
     BaseRemoteStateCacheKey() {
     private var state: BaseRemoteState<*>? = null
 
@@ -342,8 +341,7 @@ public class RemoteNamedCacheKey(
 }
 
 /** A cache key for variable by id. */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public class RemoteStateIdKey(public val id: Int) : BaseRemoteStateCacheKey() {
+internal class RemoteStateIdKey(internal val id: Int) : BaseRemoteStateCacheKey() {
     private var state: BaseRemoteState<*>? = null
 
     override fun getState(): BaseRemoteState<*>? = state

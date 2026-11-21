@@ -16,6 +16,7 @@ import ee.schimke.composeai.rccreation.compose.state.RemotePaint
 import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rccreation.compose.state.rs
 import ee.schimke.composeai.rccreation.compose.state.rsp
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextStyle
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -53,7 +54,7 @@ class RcTextMeasurePaintPlaybackTest {
    */
   private val afterAMeasurement: RemoteDrawScope.(RemoteTextMeasurer) -> Unit = { measurer ->
     drawText("HH".rs, 0f.rf, BASELINE.rf, text(20f))
-    val measured = measurer.measure("HH".rs, fontSize = 20.rsp)
+    val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 20.rsp))
     drawText("HHH".rs, measured.size.width, (ROW + BASELINE).rf, text(12f))
     drawText("HHH".rs, 0f.rf, (2 * ROW + BASELINE).rf, text(12f))
   }
@@ -72,7 +73,7 @@ class RcTextMeasurePaintPlaybackTest {
   private val aPaintSizedByAMeasurement: RemoteDrawScope.(RemoteTextMeasurer) -> Unit =
     { measurer ->
       drawText("HH".rs, 0f.rf, BASELINE.rf, text(20f))
-      val measured = measurer.measure("HH".rs, fontSize = 10.rsp)
+      val measured = measurer.measureSingleLine("HH".rs, RemoteTextStyle(fontSize = 10.rsp))
       val sized = RemotePaint {
         color = RemoteColor(Color.Black)
         textSize = measured.size.height

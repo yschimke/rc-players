@@ -103,6 +103,14 @@ final class NativeOffscreenTargets {
 
   /// What target `id` holds now, or nil when nothing has drawn into it. A component buffer's
   /// innermost binding wins.
+  var hasAnyTarget: Bool {
+    !contexts.isEmpty || bufferScopes.contains { !$0.isEmpty }
+  }
+
+  func contains(_ id: Int) -> Bool {
+    contexts[id] != nil || buffer(id) != nil
+  }
+
   func image(_ id: Int) -> CGImage? {
     (buffer(id) ?? contexts[id])?.makeImage()
   }

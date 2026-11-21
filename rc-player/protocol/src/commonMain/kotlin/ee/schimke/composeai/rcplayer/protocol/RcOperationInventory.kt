@@ -117,6 +117,10 @@ public object RcOperationProfiles {
       RcOpcodes.ADD_MESH_2D,
       RcOpcodes.DRAW_MESH_2D,
       RcOpcodes.MATRIX_FROM_MESH_2D,
+      // remote-core alpha24 registers embedded document ops only in its experimental V7 maps.
+      RcOpcodes.BINARY_DATA,
+      RcOpcodes.LAYOUT_RC_DOC,
+      RcOpcodes.MAP_RC_DOC_VARIABLES,
     )
 
   /**

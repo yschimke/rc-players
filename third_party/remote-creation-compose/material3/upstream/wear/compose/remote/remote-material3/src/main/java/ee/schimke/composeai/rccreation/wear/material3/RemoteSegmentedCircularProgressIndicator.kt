@@ -24,7 +24,6 @@ import ee.schimke.composeai.rccreation.compose.layout.RemoteCanvas
 import ee.schimke.composeai.rccreation.compose.layout.RemoteComposable
 import ee.schimke.composeai.rccreation.compose.layout.RemoteDrawScope
 import ee.schimke.composeai.rccreation.compose.layout.RemoteOffset
-import ee.schimke.composeai.rccreation.compose.layout.RemoteSize
 import ee.schimke.composeai.rccreation.compose.modifier.RemoteModifier
 import ee.schimke.composeai.rccreation.compose.modifier.fillMaxSize
 import ee.schimke.composeai.rccreation.compose.state.RemoteBoolean
@@ -34,18 +33,15 @@ import ee.schimke.composeai.rccreation.compose.state.RemoteInt
 import ee.schimke.composeai.rccreation.compose.state.RemotePaint
 import ee.schimke.composeai.rccreation.compose.state.RemotePaintingStyle
 import ee.schimke.composeai.rccreation.compose.state.RemoteStrokeCap
-import ee.schimke.composeai.rccreation.compose.state.asin
 import ee.schimke.composeai.rccreation.compose.state.clamp
 import ee.schimke.composeai.rccreation.compose.state.cos
 import ee.schimke.composeai.rccreation.compose.state.max
 import ee.schimke.composeai.rccreation.compose.state.min
 import ee.schimke.composeai.rccreation.compose.state.rb
 import ee.schimke.composeai.rccreation.compose.state.rc
-import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rccreation.compose.state.sin
 import ee.schimke.composeai.rccreation.compose.state.toRad
-import kotlin.math.PI
 
 /**
  * Material Design segmented circular progress indicator.
@@ -236,27 +232,16 @@ private fun RemoteDrawScope.drawSegments(
     segmentFractions: List<RemoteFloat>,
     targetSegmentFractions: List<RemoteFloat>,
 ) {
-    val fullSweep = 360f.rf - ((startAngle - endAngle) % 360f.rf + 360f.rf) % 360f.rf
-    val coercedStrokeWidth = max(0.rdp, strokeWidth)
-    val isZeroStroke = coercedStrokeWidth.isLessThanOrEqualTo(0.rdp)
-    val strokePx = coercedStrokeWidth.toPx()
-    val gapSizePx = gapSize.toPx()
-    val diameter = min(width, height)
-    val diameterOffset = strokePx / 2f.rf
-    val arcDimen = diameter - (diameterOffset * 2f.rf)
-    val topLeft =
-        RemoteOffset(
-            diameterOffset + (width - diameter) / 2f.rf,
-            diameterOffset + (height - diameter) / 2f.rf,
-        )
-    val arcSize = RemoteSize(arcDimen, arcDimen)
-    val arcRadius = arcDimen / 2f.rf
-    val arcCenter = RemoteOffset(topLeft.x + arcRadius, topLeft.y + arcRadius)
-
+    val fullSweep = circularFullSweep(startAngle, endAngle)
+    val geometry = circularArcGeometry(strokeWidth, gapSize)
+    val strokePx = geometry.strokePx
+    val isZeroStroke = geometry.isZeroStroke
+    val topLeft = geometry.topLeft
+    val arcSize = geometry.arcSize
+    val arcRadius = geometry.arcRadius
+    val arcCenter = geometry.arcCenter
     // Sweep angle of the gap between two segments.
-    val chordRatio =
-        clamp((strokePx + gapSizePx) / max(0.001f.rf, diameter - strokePx), 0f.rf, 1f.rf)
-    val gapSweep = asin(chordRatio) * (360f / PI.toFloat()).rf
+    val gapSweep = geometry.gapSweep
     val segmentSweep = fullSweep / segmentCount.toFloat().rf
 
     val trackPaint = RemotePaint {
@@ -353,6 +338,3 @@ private fun RemoteDrawScope.drawSegments(
 
 /** Extra stroke width (in px) for the indicator to cover the anti-aliased edges of the track. */
 private const val AntiAliasingStrokePadding = 1f
-
-/** Sweep angle used to draw a dot with a round stroke cap. */
-private val MinDotSweep: RemoteFloat = 0.05f.rf

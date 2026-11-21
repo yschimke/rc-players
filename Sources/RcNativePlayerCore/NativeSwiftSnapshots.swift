@@ -536,6 +536,8 @@ public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
   public let transformOriginX: Float
   /// The pivot for scale and rotation as a fraction of the component's height.
   public let transformOriginY: Float
+  /// `NativeSwiftCompositingStrategy` (`0 = auto`, `1 = offscreen`, `2 = modulateAlpha`).
+  public let compositingStrategy: Int
 
   /// A layer pivoting about its top-left, the origin a document that writes none gets.
   public init(
@@ -544,12 +546,14 @@ public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
   ) {
     self.init(
       scaleX: scaleX, scaleY: scaleY, translationX: translationX, translationY: translationY,
-      rotationZ: rotationZ, alpha: alpha, transformOriginX: 0, transformOriginY: 0)
+      rotationZ: rotationZ, alpha: alpha, transformOriginX: 0, transformOriginY: 0,
+      compositingStrategy: NativeSwiftCompositingStrategy.auto)
   }
 
   public init(
     scaleX: Float, scaleY: Float, translationX: Float, translationY: Float, rotationZ: Float,
-    alpha: Float, transformOriginX: Float, transformOriginY: Float
+    alpha: Float, transformOriginX: Float, transformOriginY: Float,
+    compositingStrategy: Int = NativeSwiftCompositingStrategy.auto
   ) {
     self.scaleX = scaleX
     self.scaleY = scaleY
@@ -559,13 +563,14 @@ public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
     self.alpha = alpha
     self.transformOriginX = transformOriginX
     self.transformOriginY = transformOriginY
+    self.compositingStrategy = compositingStrategy
   }
 
   /// True when the layer changes nothing. The transform origin is not consulted: a pivot moves
   /// nothing without a scale or rotation to apply about it.
   public var isIdentity: Bool {
     scaleX == 1 && scaleY == 1 && translationX == 0 && translationY == 0 && rotationZ == 0
-      && alpha == 1
+      && alpha == 1 && compositingStrategy == NativeSwiftCompositingStrategy.auto
   }
 }
 
@@ -633,7 +638,7 @@ public struct NativeSwiftAccessibilitySnapshot: Sendable {
   public let isClickable: Bool
 }
 
-public struct NativeSwiftDrawCommandSnapshot: Sendable {
+public struct NativeSwiftDrawCommandSnapshot: Sendable, Equatable {
   public let kind: Int
   public let values: [Float]
   public let colorARGB: UInt32
@@ -677,6 +682,36 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
       unsetValueIndices.contains(index) ? nil : value
     }
   }
+
+  /// Compares commands with NaN-safe float equality so an unchanged NaN sentinel (such as
+  /// `DrawTextAnchored`'s unset `panY`) does not trigger unnecessary canvas redraws.
+  public static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.kind == rhs.kind
+      && lhs.values.count == rhs.values.count
+      && zip(lhs.values, rhs.values).allSatisfy { ($0.isNaN && $1.isNaN) || $0 == $1 }
+      && lhs.colorARGB == rhs.colorARGB
+      && lhs.alpha == rhs.alpha
+      && lhs.strokeWidth == rhs.strokeWidth
+      && lhs.isStroke == rhs.isStroke
+      && lhs.strokeCap == rhs.strokeCap
+      && lhs.strokeJoin == rhs.strokeJoin
+      && lhs.blendMode == rhs.blendMode
+      && lhs.path == rhs.path
+      && lhs.pathWinding == rhs.pathWinding
+      && lhs.image == rhs.image
+      && lhs.textureImageID == rhs.textureImageID
+      && lhs.textureTileModeX == rhs.textureTileModeX
+      && lhs.textureTileModeY == rhs.textureTileModeY
+      && lhs.shaderMatrix == rhs.shaderMatrix
+      && lhs.filterQuality == rhs.filterQuality
+      && lhs.usesComponentGeometry == rhs.usesComponentGeometry
+      && lhs.gradient == rhs.gradient
+      && lhs.text == rhs.text
+      && lhs.textSize == rhs.textSize
+      && lhs.textFlags == rhs.textFlags
+      && lhs.unsetValueIndices == rhs.unsetValueIndices
+      && lhs.offscreenTarget == rhs.offscreenTarget
+  }
 }
 
 /// A resolved paint gradient: colours as ARGB, stops and coordinates as floats, ready to draw.
@@ -697,7 +732,7 @@ public struct NativeSwiftGradientSnapshot: Sendable, Equatable {
   }
 }
 
-public struct NativeSwiftImageDrawSnapshot: Sendable {
+public struct NativeSwiftImageDrawSnapshot: Sendable, Equatable {
   public let imageID: Int
   public let sourceLeft: Float
   public let sourceTop: Float
@@ -804,7 +839,7 @@ public struct NativeSwiftOffscreenTargetSnapshot: Sendable, Equatable {
   }
 }
 
-public struct NativeSwiftPathElementSnapshot: Sendable {
+public struct NativeSwiftPathElementSnapshot: Sendable, Equatable {
   public let kind: Int
   public let values: [Float]
 }

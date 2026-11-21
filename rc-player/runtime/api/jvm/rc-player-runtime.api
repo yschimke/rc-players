@@ -488,6 +488,23 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcLayoutNode$Custom : e
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/runtime/RcLayoutNode$EmbeddedDoc : ee/schimke/composeai/rcplayer/runtime/RcLayoutNode {
+	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocLayout;Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;Ljava/lang/Integer;)V
+	public final fun component1 ()Lee/schimke/composeai/rcplayer/protocol/RcDocLayout;
+	public final fun component2 ()Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;
+	public final fun component3 ()Ljava/lang/Integer;
+	public final fun copy (Lee/schimke/composeai/rcplayer/protocol/RcDocLayout;Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;Ljava/lang/Integer;)Lee/schimke/composeai/rcplayer/runtime/RcLayoutNode$EmbeddedDoc;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/runtime/RcLayoutNode$EmbeddedDoc;Lee/schimke/composeai/rcplayer/protocol/RcDocLayout;Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;Ljava/lang/Integer;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/runtime/RcLayoutNode$EmbeddedDoc;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getAnimationId ()Ljava/lang/Integer;
+	public fun getComponentId ()I
+	public final fun getContentComponentId ()Ljava/lang/Integer;
+	public fun getModifiers ()Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;
+	public final fun getOperation ()Lee/schimke/composeai/rcplayer/protocol/RcDocLayout;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class ee/schimke/composeai/rcplayer/runtime/RcLayoutNode$FitBox : ee/schimke/composeai/rcplayer/runtime/RcLayoutNode {
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcFitBoxLayout;Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;Lee/schimke/composeai/rcplayer/runtime/RcLayoutNode$Content;Ljava/util/List;)V
 	public final fun component1 ()Lee/schimke/composeai/rcplayer/protocol/RcFitBoxLayout;
@@ -904,10 +921,12 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun beginFrame (FJ)V
 	public static synthetic fun beginFrame$default (Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;FJILjava/lang/Object;)V
 	public final fun beginPaint ()V
+	public final fun binaryData (I)Lee/schimke/composeai/rcplayer/protocol/RcBinaryData;
 	public final fun boolean (I)Ljava/lang/Boolean;
 	public final fun clearNamedValue (Ljava/lang/String;)V
 	public final fun color (I)I
 	public final fun compareParticles (Lee/schimke/composeai/rcplayer/protocol/RcParticleCompare;Lkotlin/jvm/functions/Function0;)V
+	public final fun docVariableMappings (I)Ljava/util/List;
 	public final fun drawId (I)I
 	public final fun emitDebugMessage (Lee/schimke/composeai/rcplayer/protocol/RcDebugMessage;)V
 	public final fun endPaint ()V
@@ -920,6 +939,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun executeLayoutCompute (Ljava/util/List;)V
 	public final fun executeRunAction (Ljava/util/List;)V
 	public final fun executeTouch (Lee/schimke/composeai/rcplayer/runtime/RcTouchActionBlock;)V
+	public final fun float (I)Ljava/lang/Float;
 	public final fun floatList (I)Lee/schimke/composeai/rcplayer/protocol/RcFloatList;
 	public final fun floatValues (I)[F
 	public final fun forEachLoopValue (Lee/schimke/composeai/rcplayer/protocol/RcLoopOperation;Lkotlin/jvm/functions/Function1;)V

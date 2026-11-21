@@ -19,8 +19,6 @@ package ee.schimke.composeai.rccreation.wear.material3
 import androidx.annotation.RestrictTo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import ee.schimke.composeai.rccreation.compose.action.RemoteAction
 import ee.schimke.composeai.rccreation.compose.capture.RemoteDensity
 import ee.schimke.composeai.rccreation.compose.layout.RemoteAlignment
@@ -59,7 +57,8 @@ import ee.schimke.composeai.rccreation.compose.state.rdp
 import ee.schimke.composeai.rccreation.compose.state.rf
 import ee.schimke.composeai.rccreation.compose.state.sqrt
 import ee.schimke.composeai.rccreation.compose.state.toRemoteDp
-import ee.schimke.composeai.rccreation.wear.material3.wearcompose.TextConfiguration
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextAlign
+import ee.schimke.composeai.rccreation.compose.text.RemoteTextOverflow
 
 /**
  * Wear Material 3 [RemoteEdgeButton] that offers a single slot to take any content.
@@ -169,9 +168,9 @@ public fun RemoteEdgeButton(
                     contentColor = colors.contentColor(enabled = enabled),
                     textStyle = RemoteMaterialTheme.typography.labelMedium,
                     textConfiguration =
-                        TextConfiguration(
-                            textAlign = TextAlign.Center,
-                            overflow = TextOverflow.Ellipsis,
+                        RemoteTextConfiguration(
+                            textAlign = RemoteTextAlign.Center,
+                            overflow = RemoteTextOverflow.Ellipsis,
                             maxLines = buttonSize.maxLines(),
                         ),
                     content = content,

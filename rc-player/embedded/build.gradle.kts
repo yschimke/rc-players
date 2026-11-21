@@ -45,6 +45,8 @@ kotlin {
       implementation(libs.kotlinx.coroutines.test)
       @Suppress("DEPRECATION") implementation(compose.desktop.currentOs)
       implementation(libs.jetbrains.compose.ui.test)
+      // Wear Remote Material 3, played back by `RcWearProgressIndicatorPlaybackTest`.
+      implementation(project(":rc-creation-wear-material3"))
     }
   }
 }

@@ -20,7 +20,6 @@ import ee.schimke.composeai.rccreation.common.RemoteComposeWriter
 import ee.schimke.composeai.rccreation.compose.capture.RemoteDocumentScope
 import ee.schimke.composeai.rccreation.compose.state.RemoteComponentCacheKey
 import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
-import ee.schimke.composeai.rccreation.compose.state.RemoteFloatExpression
 
 /** Exposes component-relative [RemoteFloat] bounds for remote float expressions. */
 internal class RemoteFloatContext
@@ -72,7 +71,7 @@ private constructor(
         type: String,
     ): RemoteFloat {
         capturedToken.markRequested(propIndex)
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(capturedToken, type),
             arrayProvider = { creationState ->
@@ -89,7 +88,7 @@ private constructor(
         }
         // KMP (rc-players): see [lastComponentId].
         val componentId = lastComponentId("width")
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentId, "width"),
             arrayProvider = { creationState ->
@@ -108,7 +107,7 @@ private constructor(
         }
         // KMP (rc-players): see [lastComponentId].
         val componentId = lastComponentId("height")
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentId, "height"),
             arrayProvider = { creationState ->
@@ -128,7 +127,7 @@ private constructor(
         val capturedToken = activeToken()
         if (capturedToken != null) {
             capturedToken.markRequested(RemoteComponentToken.PROP_WIDTH)
-            return RemoteFloatExpression(
+            return RemoteFloat(
                 constantValueOrNull = null,
                 cacheKey = RemoteComponentCacheKey(capturedToken, "centerX"),
                 arrayProvider = { creationState ->
@@ -146,7 +145,7 @@ private constructor(
         }
         // KMP (rc-players): see [lastComponentId]. The half is left inline, as above.
         val componentId = lastComponentId("centerX")
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentId, "centerX"),
             arrayProvider = { creationState ->
@@ -168,7 +167,7 @@ private constructor(
         val capturedToken = activeToken()
         if (capturedToken != null) {
             capturedToken.markRequested(RemoteComponentToken.PROP_HEIGHT)
-            return RemoteFloatExpression(
+            return RemoteFloat(
                 constantValueOrNull = null,
                 cacheKey = RemoteComponentCacheKey(capturedToken, "centerY"),
                 arrayProvider = { creationState ->
@@ -186,7 +185,7 @@ private constructor(
         }
         // KMP (rc-players): see [lastComponentId]. The half is left inline, as above.
         val componentId = lastComponentId("centerY")
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentId, "centerY"),
             arrayProvider = { creationState ->
@@ -207,7 +206,7 @@ private constructor(
         }
         // KMP (rc-players): see [lastComponentId].
         val componentId = lastComponentId("x")
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentId, "x"),
             arrayProvider = { creationState ->
@@ -224,7 +223,7 @@ private constructor(
         }
         // KMP (rc-players): see [lastComponentId].
         val componentId = lastComponentId("y")
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentId, "y"),
             arrayProvider = { creationState ->
@@ -241,7 +240,7 @@ private constructor(
         }
         // KMP (rc-players): see [lastComponentId].
         val componentId = lastComponentId("rootX")
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentId, "rootX"),
             arrayProvider = { creationState ->
@@ -260,7 +259,7 @@ private constructor(
         }
         // KMP (rc-players): see [lastComponentId].
         val componentId = lastComponentId("rootY")
-        return RemoteFloatExpression(
+        return RemoteFloat(
             constantValueOrNull = null,
             cacheKey = RemoteComponentCacheKey(componentId, "rootY"),
             arrayProvider = { creationState ->

@@ -214,9 +214,18 @@ public class RcPreparedDocumentCache(
   public val size: Int
     get() = documents.load().size
 
+  internal val maxEntries: Int
+    get() = maxDocuments
+
+  private val evictionEpochCounter = AtomicInt(0)
+
+  internal val evictionEpoch: Int
+    get() = evictionEpochCounter.load()
+
   /** Drops all prepared documents from memory. */
   public fun clear() {
     documents.store(emptyMap())
+    evictionEpochCounter.incrementAndFetch()
   }
 
   /**
@@ -238,7 +247,10 @@ public class RcPreparedDocumentCache(
       for ((key, value) in current) {
         if (index++ >= drop) next[key] = value
       }
-      if (documents.compareAndSet(current, next)) return
+      if (documents.compareAndSet(current, next)) {
+        evictionEpochCounter.incrementAndFetch()
+        return
+      }
     }
   }
 
@@ -257,8 +269,15 @@ public class RcPreparedDocumentCache(
       next.putAll(current)
       next.remove(key)
       next[key] = value
-      while (next.size > maxDocuments) next.remove(next.keys.first())
-      if (documents.compareAndSet(current, next)) return
+      var evicted = false
+      while (next.size > maxDocuments) {
+        next.remove(next.keys.first())
+        evicted = true
+      }
+      if (documents.compareAndSet(current, next)) {
+        if (evicted) evictionEpochCounter.incrementAndFetch()
+        return
+      }
     }
   }
 }

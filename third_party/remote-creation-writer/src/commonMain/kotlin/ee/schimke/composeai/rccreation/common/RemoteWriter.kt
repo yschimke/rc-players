@@ -284,7 +284,7 @@ public interface RemoteWriter {
 
   public fun textTransform(textId: Int, start: Float, length: Float, operation: Int): Int
 
-  public fun createTextFromFloat(value: Float, before: Int, after: Int, flags: Int): Int
+  public fun createTextFromFloat(value: Float, before: Short, after: Short, flags: Int): Int
 
   public fun getColorAttribute(colorId: Int, type: Short): Float
 

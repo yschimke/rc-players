@@ -3688,6 +3688,179 @@ private final class FailureLog: @unchecked Sendable {
   }
 }
 
+@Suite struct NativeSwiftCmpParityTests {
+  @Test func paintGradientSupportsMoreThanSixteenColorsAndGuardsColorRegister() throws {
+    let writer = Writer()
+    writer.header(width: 200, height: 100)
+    writer.u8(NativeSwiftWireOpcode.colorConstant).int(10).int(Int(Int32(bitPattern: 0xFF11_2233)))
+    // PaintBundle with linear gradient of 20 colors: slot 0 is a color ID (register bit 0),
+    // slots 1..19 are literal ARGB values (including slots >= 16).
+    let colorCount = 20
+    let wordCount = 1 + 1 + colorCount + 1 + 5
+    writer.u8(NativeSwiftWireOpcode.paintValues).int(wordCount)
+    writer.int(
+      NativeSwiftPaintCommand.gradient | (NativeSwiftPaintGradientKind.linear << 16))
+    writer.int((1 << 16) | colorCount)
+    writer.int(10)  // slot 0 -> color ID 10
+    for index in 1..<colorCount {
+      writer.int(Int(Int32(bitPattern: 0xFF00_0000 | UInt32(index))))
+    }
+    writer.int(0)  // stopCount = 0
+    writer.float(0).float(0).float(200).float(0).int(0)
+    writer.u8(NativeSwiftWireOpcode.drawRect).float(0).float(0).float(200).float(100)
+
+    let snapshot = try NativeSwiftDocumentSession.open(data: writer.data).snapshot()
+    let gradient = try #require(snapshot.root.commands.first?.gradient)
+    #expect(gradient.colorsARGB.count == 20)
+    #expect(gradient.colorsARGB[0] == 0xFF11_2233)
+    #expect(gradient.colorsARGB[16] == 0xFF00_0010)
+    #expect(gradient.colorsARGB[19] == 0xFF00_0013)
+  }
+
+  @Test func graphicsLayerPlumbsCompositingStrategy() throws {
+    let writer = Writer()
+    writer.header(width: 200, height: 100)
+    writer.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    writer.u8(NativeSwiftWireOpcode.layoutBox).int(2).int(-1).int(1).int(1)
+    writer.u8(NativeSwiftWireOpcode.modifierGraphicsLayer).int(1)
+    writer.int(NativeSwiftGraphicsLayerAttribute.compositingStrategy)
+    writer.int(NativeSwiftCompositingStrategy.offscreen)
+    writer.u8(NativeSwiftWireOpcode.layoutContent).int(3).u8(NativeSwiftWireOpcode.containerEnd)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+
+    let snapshot = try NativeSwiftDocumentSession.open(data: writer.data).snapshot()
+    let layer = try #require(snapshot.root.children.first?.graphicsLayer)
+    #expect(layer.compositingStrategy == NativeSwiftCompositingStrategy.offscreen)
+    #expect(!layer.isIdentity)
+  }
+
+  @Test func nonFiniteWeightAndFontWeightFallBackInsteadOfThrowing() throws {
+    let writer = Writer()
+    writer.header(width: 200, height: 100)
+    writer.text(id: 60, "Fallback")
+    writer.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    writer.u8(NativeSwiftWireOpcode.layoutRow).int(2).int(-1).int(1).int(1).float(0)
+    writer.u8(NativeSwiftWireOpcode.layoutContent).int(3)
+    writer.u8(NativeSwiftWireOpcode.layoutBox).int(4).int(-1).int(1).int(1)
+    // Unwritten variable ID 99 -> unresolved weight leaves the child unweighted.
+    writer.u8(NativeSwiftWireOpcode.modifierWidth).int(NativeSwiftDimensionType.weight)
+      .int(Writer.nanReference(99))
+    writer.u8(NativeSwiftWireOpcode.layoutContent).int(5)
+    // TextLayout with unwritten fontWeight variable ID 99 -> falls back to 400.
+    writer.u8(NativeSwiftWireOpcode.layoutText).int(6).int(0).int(60)
+      .int(Int(Int32(bitPattern: 0xFFFF_FFFF)))
+      .int(Writer.literal(14)).int(NativeSwiftFontStyle.italic)
+      .int(Writer.nanReference(99)).int(-1).int(1).int(1).int(1)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)  // box content
+    writer.u8(NativeSwiftWireOpcode.containerEnd)  // box
+    writer.u8(NativeSwiftWireOpcode.containerEnd)  // row content
+    writer.u8(NativeSwiftWireOpcode.containerEnd)  // row
+    writer.u8(NativeSwiftWireOpcode.containerEnd)  // root
+
+    let snapshot = try NativeSwiftDocumentSession.open(data: writer.data).snapshot()
+    let box = try #require(snapshot.root.children.first?.children.first?.children.first)
+    #expect(box.widthType == NativeSwiftDimensionType.wrap)
+    #expect(box.widthValue == 0)
+    let text = try #require(box.children.first?.children.first?.text)
+    #expect(text.weight == 400)
+    #expect(text.style == NativeSwiftFontStyle.italic)
+  }
+}
+
+@Suite struct NativeSwiftPreparedDocumentTests {
+  @Test func preparedDocumentBacksIndependentSessions() throws {
+    let writer = Writer()
+    writer.header(width: 240, height: 120)
+    writer.text(id: 10, "Default")
+    writer.namedVariable(id: 10, type: NativeSwiftNamedVariableType.string, name: "USER:label")
+    writer.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    writer.textLayout(id: 2, textID: 10, color: 0xFFFF_FFFF, size: 16)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+
+    let prepared = try NativeSwiftPreparedDocument.decode(data: writer.data)
+    #expect(prepared.width == 240)
+    #expect(prepared.height == 120)
+
+    let first = NativeSwiftDocumentSession.open(prepared: prepared)
+    let second = NativeSwiftDocumentSession.open(prepared: prepared)
+    #expect(first.setString("Card A", for: "USER:label"))
+    #expect(second.setString("Card B", for: "USER:label"))
+
+    let snapA = try first.snapshot()
+    let snapB = try second.snapshot()
+    #expect(snapA.root.children.first?.text?.value == "Card A")
+    #expect(snapB.root.children.first?.text?.value == "Card B")
+  }
+
+  @Test func preparedDocumentCacheEvictsTrimsAndClears() throws {
+    let dataA = try NativeTestFixtures.data("TitleCardRemote-640x480.rc")
+    let dataB = try NativeTestFixtures.data("CircularProgressRemote-384x384.rc")
+    let dataC = try NativeTestFixtures.data("ArcProgressRemote-454x400.rc")
+
+    let cache = NativeSwiftPreparedDocumentCache(capacity: 2)
+    let docA = try cache.document(for: dataA)
+    let docB = try cache.document(for: dataB)
+    #expect(cache.count == 2)
+    #expect(docA.width == 640)
+    #expect(docB.width == 384)
+
+    // Touch A so B becomes least-recently-used, then insert C.
+    _ = try cache.document(for: dataA)
+    let docC = try cache.document(for: dataC)
+    #expect(cache.count == 2)
+    #expect(docC.width == 454)
+
+    cache.trimToSize(1)
+    #expect(cache.count == 1)
+    cache.clear()
+    #expect(cache.count == 0)
+  }
+
+  @Test func staticSnapshotCacheReusesAcrossWallClockWhenDocumentDoesNotReadWallClock() throws {
+    let data = try NativeTestFixtures.data("TitleCardRemote-640x480.rc")
+    let session = try NativeSwiftDocumentSession.open(data: data)
+    let clock1 = NativeSwiftWallClock(
+      epochMillis: 1_700_000_000_000, offsetSeconds: 0, timeZone: TimeZone(secondsFromGMT: 0)!)
+    let clock2 = NativeSwiftWallClock(
+      epochMillis: 1_700_000_060_000, offsetSeconds: 0, timeZone: TimeZone(secondsFromGMT: 0)!)
+    let snap1 = try session.snapshot(timeSeconds: 0, wallClock: clock1)
+    let snap2 = try session.snapshot(timeSeconds: 1, wallClock: clock2)
+    #expect(!snap1.needsWallClockRefresh)
+    #expect(snap1.width == snap2.width)
+    #expect(snap1.height == snap2.height)
+    #expect(snap1.root.children.count == snap2.root.children.count)
+  }
+
+  @Test func integerExpressionReadingEpochSecondUpdatesAcrossWallClocks() throws {
+    let writer = Writer()
+    writer.header(width: 200, height: 100)
+    // Slot 60 = EPOCH_SECOND - 1 (mask bit 0 = variable EPOCH_SECOND, bit 1 = literal 1, bit 2 = sub)
+    writer.u8(NativeSwiftWireOpcode.integerExpression).int(60).int(0b101).int(3)
+      .int(NativeSwiftSystemVariables.epochSecond)
+      .int(1)
+      .int(NativeSwiftIntegerOperator.offset + 1)  // sub
+    writer.u8(NativeSwiftWireOpcode.textFromFloat).int(70).int(Writer.nanReference(60))
+      .u16(6).u16(0).int(0)
+    writer.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    writer.textLayout(id: 2, textID: 70, color: 0xFFFF_FFFF, size: 16)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+
+    let session = try NativeSwiftDocumentSession.open(data: writer.data)
+    let utc = TimeZone(secondsFromGMT: 0)!
+    let snap1 = try session.snapshot(
+      timeSeconds: 0,
+      wallClock: NativeSwiftWallClock(epochMillis: 1_000_000, offsetSeconds: 0, timeZone: utc))
+    let snap2 = try session.snapshot(
+      timeSeconds: 0,
+      wallClock: NativeSwiftWallClock(epochMillis: 1_005_000, offsetSeconds: 0, timeZone: utc))
+    #expect(snap1.needsWallClockRefresh)
+    #expect(snap1.root.children.first?.text?.value.trimmingCharacters(in: .whitespaces) == "1001")
+    #expect(snap2.root.children.first?.text?.value.trimmingCharacters(in: .whitespaces) == "1006")
+  }
+}
+
 final class Writer {
   static func nanReference(_ id: Int) -> Int {
     Int(Int32(bitPattern: 0xff80_0000 | UInt32(id)))

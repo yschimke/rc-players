@@ -55,10 +55,6 @@ plugins {
 // default, or the androidx.dev snapshot when built with `-Pcomposeai.remoteCompose=snapshot`, in
 // which case a consumer also needs that repository. The coordinate is intended for player
 // experiments and parity testing, not as a stable library API.
-// The Remote Compose lane `settings.gradle.kts` resolved, with the same default and spelling.
-val remoteComposeLine =
-    providers.gradleProperty("composeai.remoteCompose").orElse("release").get().trim().lowercase()
-
 // AndroidX formats with ktfmt's kotlinlang style (4-space), and these sources are a direct copy of
 // upstream plus marked patches. Formatting them the way AndroidX does keeps every upstream file
 // byte-identical after the package rename, so `diff -r` against a newer checkout shows only real
@@ -101,23 +97,6 @@ android {
     // *dependencies'* merged resources (Compose's own themes) on the unit-test classpath.
     testOptions { unitTests { isIncludeAndroidResources = true } }
 
-    // The names the pinned release spells differently from androidx-main, one file per Remote
-    // Compose lane: `src/remoteRelease` against the released alphas, `src/remoteSnapshot` against
-    // the androidx.dev build `-Pcomposeai.remoteCompose=snapshot` selects (`settings.gradle.kts`).
-    // See `CreationVersionSkew.kt` and PROVENANCE.md.
-    sourceSets.getByName("main") {
-        kotlin.directories.add(
-            if (remoteComposeLine == "snapshot") "src/remoteSnapshot/kotlin"
-            else "src/remoteRelease/kotlin",
-        )
-    }
-    sourceSets.getByName("test") {
-        kotlin.directories.add(
-            if (remoteComposeLine == "snapshot") "src/testRemoteSnapshot/kotlin"
-            else "src/testRemoteRelease/kotlin",
-        )
-    }
-
     // The player reaches `androidx.compose.remote.core.*` members marked
     // `@RestrictTo(LIBRARY_GROUP)`
     // — unavoidable for an out-of-tree copy of in-tree code. Upstream's module disables it too.
@@ -140,6 +119,8 @@ tasks.withType<Test>().configureEach {
             "rc.androidx.embedded.output",
             "rc.view.output",
             "rc.semantics.report",
+            // Where `RcInitialScrollPositionTest` writes the frame it checks, for render evidence.
+            "rc.embedded.scrollOutput",
             // `composeai.fonts.*` are what turn a document's `google:` family into the real face:
             // with a
             // cache directory the player resolves it from the shared machine-local Google Fonts

@@ -75,8 +75,6 @@ public final class ee/schimke/composeai/rccreation/compose/capture/RemoteDocumen
 
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteComponent {
 	public static final field $stable I
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/capture/RemoteDocumentScope;)V
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/layout/RemoteComponentToken;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCenterX ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun getCenterY ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
@@ -85,6 +83,11 @@ public final class ee/schimke/composeai/rccreation/compose/layout/RemoteComponen
 	public final fun getPositionInRoot ()Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;
 	public final fun getWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rccreation/compose/layout/RemoteComponentKt {
+	public static final fun RemoteComponent (Lee/schimke/composeai/rccreation/compose/capture/RemoteDocumentScope;)Lee/schimke/composeai/rccreation/compose/layout/RemoteComponent;
+	public static final fun RemoteComponent (Lee/schimke/composeai/rccreation/compose/layout/RemoteComponentToken;)Lee/schimke/composeai/rccreation/compose/layout/RemoteComponent;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteComponentToken {
@@ -104,18 +107,8 @@ public final class ee/schimke/composeai/rccreation/compose/layout/RemoteOffset {
 }
 
 public final class ee/schimke/composeai/rccreation/compose/layout/RemoteOffset$Companion {
+	public final fun getInfinite ()Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;
 	public final fun getZero ()Lee/schimke/composeai/rccreation/compose/layout/RemoteOffset;
-}
-
-public final class ee/schimke/composeai/rccreation/compose/state/AnimatedRemoteFloat : ee/schimke/composeai/rccreation/compose/state/RemoteFloat {
-	public static final field $stable I
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;[F)V
-	public final fun getAnim ()[F
-	public fun getArrayProvider ()Lkotlin/jvm/functions/Function1;
-	public fun getConstantValueOrNull ()Ljava/lang/Float;
-	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
-	public final fun getInput ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public abstract class ee/schimke/composeai/rccreation/compose/state/BaseRemoteState : ee/schimke/composeai/rccreation/compose/state/RemoteState {
@@ -131,7 +124,6 @@ public abstract class ee/schimke/composeai/rccreation/compose/state/BaseRemoteSt
 	public fun getLongIdForCreationState (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)J
 	public fun isStructurallyEqual (Lee/schimke/composeai/rccreation/compose/state/BaseRemoteState;)Z
 	public fun toDebugString ()Ljava/lang/String;
-	public abstract fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public abstract class ee/schimke/composeai/rccreation/compose/state/BaseRemoteStateCacheKey : ee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey {
@@ -194,91 +186,48 @@ public final class ee/schimke/composeai/rccreation/compose/state/MeshExpressionL
 
 public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteBoolean : ee/schimke/composeai/rccreation/compose/state/RemoteBoolean, ee/schimke/composeai/rccreation/compose/state/MutableRemoteState {
 	public static final field $stable I
-	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/MutableRemoteBoolean$Companion;
-	public fun <init> (Z)V
 	public fun getAsEncodedMutable ()Lee/schimke/composeai/rccreation/compose/state/MutableRemoteInt;
 	public synthetic fun getAsEncodedMutable ()Lee/schimke/composeai/rccreation/compose/state/MutableRemoteState;
 	public fun getConstantValueOrNull ()Ljava/lang/Boolean;
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
-}
-
-public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteBoolean$Companion {
-	public final fun createMutableForId (J)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteBoolean;
-	public final fun invoke (Z)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteBoolean;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteEnum : ee/schimke/composeai/rccreation/compose/state/RemoteEnum, ee/schimke/composeai/rccreation/compose/state/MutableRemoteState {
 	public static final field $stable I
-	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/MutableRemoteEnum$Companion;
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/MutableRemoteInt;Lkotlin/enums/EnumEntries;)V
 	public fun getAsEncodedMutable ()Lee/schimke/composeai/rccreation/compose/state/MutableRemoteInt;
 	public synthetic fun getAsEncodedMutable ()Lee/schimke/composeai/rccreation/compose/state/MutableRemoteState;
 	public final fun getRemoteInt ()Lee/schimke/composeai/rccreation/compose/state/MutableRemoteInt;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
-}
-
-public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteEnum$Companion {
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteFloat : ee/schimke/composeai/rccreation/compose/state/RemoteFloat, ee/schimke/composeai/rccreation/compose/state/MutableRemoteState {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/MutableRemoteFloat$Companion;
-	public fun <init> (F)V
-	public fun <init> (I)V
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
-	public fun getArrayProvider ()Lkotlin/jvm/functions/Function1;
 	public fun getAsEncodedMutable ()Lee/schimke/composeai/rccreation/compose/state/MutableRemoteState;
 	public fun getConstantValueOrNull ()Ljava/lang/Float;
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteFloat$Companion {
-	public final fun createMutableForId (F)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteFloat;
-	public final fun invoke (F)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteFloat;
-	public final fun invoke (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteFloat;
+	public final fun createReserved ()Lee/schimke/composeai/rccreation/compose/state/MutableRemoteFloat;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteImageBitmap : ee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap, ee/schimke/composeai/rccreation/compose/state/MutableRemoteState {
 	public static final field $stable I
-	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/MutableRemoteImageBitmap$Companion;
-	public fun <init> (Ljava/lang/Object;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;)V
 	public fun getAsEncodedMutable ()Lee/schimke/composeai/rccreation/compose/state/MutableRemoteState;
 	public fun getConstantValueOrNull ()Ljava/lang/Object;
 }
 
-public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteImageBitmap$Companion {
-	public final fun createMutableForId (I)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteImageBitmap;
-}
-
 public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteInt : ee/schimke/composeai/rccreation/compose/state/RemoteInt, ee/schimke/composeai/rccreation/compose/state/MutableRemoteState {
 	public static final field $stable I
-	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/MutableRemoteInt$Companion;
-	public fun <init> (I)V
 	public fun getAsEncodedMutable ()Lee/schimke/composeai/rccreation/compose/state/MutableRemoteState;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
-}
-
-public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteInt$Companion {
-	public final fun createMutableForId (J)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteInt;
-	public final fun invoke (I)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteInt;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteLong : ee/schimke/composeai/rccreation/compose/state/RemoteLong, ee/schimke/composeai/rccreation/compose/state/MutableRemoteState {
 	public static final field $stable I
-	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/MutableRemoteLong$Companion;
-	public fun <init> (J)V
 	public fun getAsEncodedMutable ()Lee/schimke/composeai/rccreation/compose/state/MutableRemoteState;
 	public fun getConstantValueOrNull ()Ljava/lang/Long;
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
 	public fun toString ()Ljava/lang/String;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
-}
-
-public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteLong$Companion {
-	public final fun createMutableForId (I)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteLong;
-	public final fun invoke (J)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteLong;
 }
 
 public abstract interface class ee/schimke/composeai/rccreation/compose/state/MutableRemoteState : ee/schimke/composeai/rccreation/compose/state/RemoteState {
@@ -294,18 +243,9 @@ public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteSt
 
 public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteString : ee/schimke/composeai/rccreation/compose/state/RemoteString, ee/schimke/composeai/rccreation/compose/state/MutableRemoteState {
 	public static final field $stable I
-	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/MutableRemoteString$Companion;
-	public fun <init> (Ljava/lang/String;)V
-	public fun computeRequiredCodePointSet (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)Ljava/util/Set;
 	public fun getAsEncodedMutable ()Lee/schimke/composeai/rccreation/compose/state/MutableRemoteState;
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
 	public fun getConstantValueOrNull ()Ljava/lang/String;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
-}
-
-public final class ee/schimke/composeai/rccreation/compose/state/MutableRemoteString$Companion {
-	public final fun createMutableForId (I)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteString;
-	public final fun invoke (Ljava/lang/String;)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteString;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/NanIdEqualityKt {
@@ -336,7 +276,6 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteAnimation
 public class ee/schimke/composeai/rccreation/compose/state/RemoteBoolean : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean$Companion;
-	public fun <init> (Z)V
 	public final fun and (Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 	public static final fun createNamedRemoteBoolean (Ljava/lang/String;ZLee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 	public fun getAsEncoded ()Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
@@ -358,7 +297,6 @@ public class ee/schimke/composeai/rccreation/compose/state/RemoteBoolean : ee/sc
 	public final fun select (Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteString;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public fun toDebugString ()Ljava/lang/String;
 	public final fun toRemoteInt ()Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 	public final fun xor (Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 }
 
@@ -366,21 +304,17 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteBoolean$C
 	public final fun createForId (I)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 	public final fun createNamedRemoteBoolean (Ljava/lang/String;ZLee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 	public static synthetic fun createNamedRemoteBoolean$default (Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean$Companion;Ljava/lang/String;ZLee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
-	public final fun invoke (Z)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteBooleanKt {
+	public static final fun MutableRemoteBoolean (Z)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteBoolean;
+	public static final fun RemoteBoolean (Z)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 	public static final fun getRb (Z)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 }
 
 public class ee/schimke/composeai/rccreation/compose/state/RemoteColor : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteColor$Companion;
-	public fun <init> (I)V
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
-	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;)V
-	public fun <init> (Ljava/lang/Integer;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lkotlin/jvm/functions/Function1;)V
 	public final fun copy (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public static synthetic fun copy$default (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public static final fun createNamedRemoteColor (Ljava/lang/String;ILee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
@@ -394,12 +328,10 @@ public class ee/schimke/composeai/rccreation/compose/state/RemoteColor : ee/schi
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
 	public final fun getGreen ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun getHue ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getIdProvider ()Lkotlin/jvm/functions/Function1;
 	public final fun getRed ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun getSaturation ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun times (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public fun toDebugString ()Ljava/lang/String;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteColor$Companion {
@@ -408,34 +340,32 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteColor$Com
 	public final fun createNamedRemoteColor (Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public static synthetic fun createNamedRemoteColor$default (Lee/schimke/composeai/rccreation/compose/state/RemoteColor$Companion;Ljava/lang/String;ILee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public static synthetic fun createNamedRemoteColor$default (Lee/schimke/composeai/rccreation/compose/state/RemoteColor$Companion;Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
-	public final fun fromAHSV (ILee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun createThemedRemoteColor (Ljava/lang/String;SSII)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getBlack ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getBlue ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getCyan ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getDarkGray ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getGray ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getGreen ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getLightGray ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getMagenta ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getRed ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getTransparent ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getWhite ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public final fun getYellow ()Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public final fun hsv (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public static synthetic fun hsv$default (Lee/schimke/composeai/rccreation/compose/state/RemoteColor$Companion;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
-	public final fun invoke (FFFF)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
-	public final fun invoke (I)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
-	public final fun invoke (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
-	public static synthetic fun invoke$default (Lee/schimke/composeai/rccreation/compose/state/RemoteColor$Companion;FFFFILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
-	public static synthetic fun invoke$default (Lee/schimke/composeai/rccreation/compose/state/RemoteColor$Companion;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
-	public final fun rgb (FFFF)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public final fun rgb (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
-	public static synthetic fun rgb$default (Lee/schimke/composeai/rccreation/compose/state/RemoteColor$Companion;FFFFILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public static synthetic fun rgb$default (Lee/schimke/composeai/rccreation/compose/state/RemoteColor$Companion;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 }
 
-public final class ee/schimke/composeai/rccreation/compose/state/RemoteColorConstantCacheKey : ee/schimke/composeai/rccreation/compose/state/BaseRemoteStateCacheKey {
-	public static final field $stable I
-	public fun <init> (I)V
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getColor ()I
-	public fun getState ()Lee/schimke/composeai/rccreation/compose/state/BaseRemoteState;
-	public fun setState (Lee/schimke/composeai/rccreation/compose/state/BaseRemoteState;)V
-	public fun toDebugString ()Ljava/lang/String;
-	public fun toString ()Ljava/lang/String;
-}
-
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteColorKt {
+	public static final fun RemoteColor (I)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public static final fun RemoteColor (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public static synthetic fun RemoteColor$default (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public static final fun compositeOver (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public static final fun getRc (I)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
+	public static final fun getRc (J)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public static final fun lerp (IILee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 	public static final fun lerp (Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteColor;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteColor;
 }
@@ -478,14 +408,11 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteConstantC
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteDp : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteDp$Companion;
-	public fun <init> (F)V
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
 	public final fun div (F)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
 	public final fun div (I)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
 	public final fun div (Lee/schimke/composeai/rccreation/compose/state/RemoteDp;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun div (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
 	public final fun div (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
-	public fun getCacheKey ()Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;
 	public fun getConstantValueOrNull ()Ljava/lang/Float;
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
 	public fun getFloatIdForCreationState (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)F
@@ -506,7 +433,6 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteDp : ee/s
 	public final fun toPx ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun toPx (Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun unaryMinus ()Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteDp$Companion {
@@ -518,6 +444,8 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteDp$Compan
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteDpKt {
+	public static final fun RemoteDp (F)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
+	public static final fun RemoteDp (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
 	public static final fun asRemoteDp (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
 	public static final fun createNamedRemoteDp (Ljava/lang/String;FLee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
 	public static final fun createNamedRemoteDp (Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;Lkotlin/jvm/functions/Function0;)Lee/schimke/composeai/rccreation/compose/state/RemoteDp;
@@ -533,8 +461,6 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteDpKt {
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteEasing {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteEasing$Companion;
-	public fun <init> (I[F)V
-	public synthetic fun <init> (I[FILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getSpec ()[F
 	public final fun getType ()I
@@ -558,8 +484,6 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteEasing$Co
 public class ee/schimke/composeai/rccreation/compose/state/RemoteEnum : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteEnum$Companion;
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lkotlin/enums/EnumEntries;)V
-	public fun <init> (Ljava/lang/Enum;Lkotlin/enums/EnumEntries;)V
 	public fun getAsEncoded ()Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public synthetic fun getAsEncoded ()Lee/schimke/composeai/rccreation/compose/state/RemoteState;
 	public fun getCacheKey ()Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;
@@ -571,13 +495,17 @@ public class ee/schimke/composeai/rccreation/compose/state/RemoteEnum : ee/schim
 	public final fun toRemoteInt (Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public final fun toRemoteString (Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public static synthetic fun toRemoteString$default (Lee/schimke/composeai/rccreation/compose/state/RemoteEnum;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteEnum$Companion {
 }
 
-public abstract class ee/schimke/composeai/rccreation/compose/state/RemoteFloat : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
+public final class ee/schimke/composeai/rccreation/compose/state/RemoteEnumKt {
+	public static final fun MutableRemoteEnum (Lee/schimke/composeai/rccreation/compose/state/MutableRemoteInt;Lkotlin/enums/EnumEntries;)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteEnum;
+	public static final fun RemoteEnum (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lkotlin/enums/EnumEntries;)Lee/schimke/composeai/rccreation/compose/state/RemoteEnum;
+}
+
+public class ee/schimke/composeai/rccreation/compose/state/RemoteFloat : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteFloat$Companion;
 	public final fun arrayForCreationState (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)[F
@@ -588,9 +516,9 @@ public abstract class ee/schimke/composeai/rccreation/compose/state/RemoteFloat 
 	public static synthetic fun createReference$default (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;ZILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun div (F)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun div (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public abstract fun getArrayProvider ()Lkotlin/jvm/functions/Function1;
+	public fun getConstantValueOrNull ()Ljava/lang/Float;
+	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
 	public fun getFloatIdForCreationState (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)F
-	public final fun hasBeenWrittenToDoc (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)Z
 	public final fun isEqualTo (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 	public final fun isGreaterThan (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 	public final fun isGreaterThanOrEqualTo (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
@@ -610,9 +538,9 @@ public abstract class ee/schimke/composeai/rccreation/compose/state/RemoteFloat 
 	public final fun toRemoteInt ()Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public final fun toRemoteString ()Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public final fun toRemoteString (Lee/schimke/composeai/rccreation/compose/state/DecimalFormat;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
-	public final fun toRemoteStringOptions (III)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
-	public final fun toRemoteStringWithPadding (IIIIIC)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
-	public static synthetic fun toRemoteStringWithPadding$default (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;IIIIICILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
+	public final fun toRemoteStringOptions (SSI)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
+	public final fun toRemoteStringWithPadding (SSIIIC)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
+	public static synthetic fun toRemoteStringWithPadding$default (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;SSIIICILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public final fun unaryMinus ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 }
 
@@ -622,15 +550,12 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteFloat$Com
 	public final fun createNamedRemoteFloat (Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public static synthetic fun createNamedRemoteFloat$default (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat$Companion;Ljava/lang/String;FLee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public static synthetic fun createNamedRemoteFloat$default (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat$Companion;Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun invoke (F)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteFloatArray : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteFloatArray$Companion;
 	public fun <init> (Ljava/util/List;)V
-	public fun <init> (Ljava/util/List;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;)V
-	public synthetic fun <init> (Ljava/util/List;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun <init> ([F)V
 	public fun <init> ([Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
 	public static final fun createNamedRemoteFloatArray (Ljava/lang/String;[FLee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloatArray;
@@ -640,22 +565,12 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteFloatArra
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
 	public fun getConstantValueOrNull ()Ljava/util/List;
 	public final fun getIdListForCreationState (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteFloatArray$Companion {
+	public final fun createForId (I)Lee/schimke/composeai/rccreation/compose/state/RemoteFloatArray;
 	public final fun createNamedRemoteFloatArray (Ljava/lang/String;[FLee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloatArray;
 	public static synthetic fun createNamedRemoteFloatArray$default (Lee/schimke/composeai/rccreation/compose/state/RemoteFloatArray$Companion;Ljava/lang/String;[FLee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloatArray;
-}
-
-public class ee/schimke/composeai/rccreation/compose/state/RemoteFloatExpression : ee/schimke/composeai/rccreation/compose/state/RemoteFloat {
-	public static final field $stable I
-	public fun <init> (Ljava/lang/Float;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;)V
-	public fun <init> (Lkotlin/jvm/functions/Function1;)V
-	public fun getArrayProvider ()Lkotlin/jvm/functions/Function1;
-	public fun getConstantValueOrNull ()Ljava/lang/Float;
-	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteFloatKt {
@@ -669,6 +584,11 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteFloatKt {
 	public static final field EASE_OUT_BOUNCE I
 	public static final field EASE_OUT_ELASTIC I
 	public static final field SPLINE_CUSTOM I
+	public static final fun MutableRemoteFloat (F)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteFloat;
+	public static final fun MutableRemoteFloat (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteFloat;
+	public static final fun RemoteFloat (F)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public static final fun RemoteFloat (Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
+	public static synthetic fun RemoteFloat$default (Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public static final fun dayOfMonthForReference (Lee/schimke/composeai/rccreation/compose/state/RemoteLong;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public static final fun dayOfWeekForReference (Lee/schimke/composeai/rccreation/compose/state/RemoteLong;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public static final fun deltaFromReferenceInHours (Lee/schimke/composeai/rccreation/compose/state/RemoteLong;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
@@ -684,9 +604,6 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteFloatKt {
 	public static final fun timeOfReferenceInHours (Lee/schimke/composeai/rccreation/compose/state/RemoteLong;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public static final fun timeOfReferenceInMinutes (Lee/schimke/composeai/rccreation/compose/state/RemoteLong;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public static final fun timeOfReferenceInSeconds (Lee/schimke/composeai/rccreation/compose/state/RemoteLong;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public static final fun toArray (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)[F
-	public static final fun toArray (Ljava/lang/Number;)[F
-	public static final fun toString ([F)Ljava/lang/String;
 	public static final fun yearForReference (Lee/schimke/composeai/rccreation/compose/state/RemoteLong;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 }
 
@@ -742,17 +659,11 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteFloatOper
 public class ee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap$Companion;
-	public fun <init> (Ljava/lang/Object;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;)V
-	public fun <init> (Ljava/lang/Object;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;)V
-	public synthetic fun <init> (Ljava/lang/Object;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun <init> (Ljava/lang/String;)V
 	public static final fun createNamedRemoteImageBitmap (Ljava/lang/String;Ljava/lang/String;IILee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;
 	public static final fun createNamedRemoteImageBitmap (Ljava/lang/String;Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;
 	public fun getConstantValueOrNull ()Ljava/lang/Object;
 	public final fun getHeight ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public final fun getIdProvider ()Lkotlin/jvm/functions/Function1;
 	public final fun getWidth ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap$Companion {
@@ -764,7 +675,13 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteImageBitm
 	public final fun createOffscreenRemoteBitmap (II)Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;
 }
 
-public abstract class ee/schimke/composeai/rccreation/compose/state/RemoteInt : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
+public final class ee/schimke/composeai/rccreation/compose/state/RemoteImageBitmapKt {
+	public static final fun MutableRemoteImageBitmap (Ljava/lang/Object;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteImageBitmap;
+	public static synthetic fun MutableRemoteImageBitmap$default (Ljava/lang/Object;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteImageBitmap;
+	public static final fun RemoteImageBitmap (Ljava/lang/String;)Lee/schimke/composeai/rccreation/compose/state/RemoteImageBitmap;
+}
+
+public class ee/schimke/composeai/rccreation/compose/state/RemoteInt : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteInt$Companion;
 	public final fun and (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
@@ -775,10 +692,8 @@ public abstract class ee/schimke/composeai/rccreation/compose/state/RemoteInt : 
 	public final fun div (I)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public final fun div (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public final fun getAbsoluteValue ()Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
-	public final fun getArrayProvider ()Lkotlin/jvm/functions/Function1;
 	public fun getConstantValueOrNull ()Ljava/lang/Integer;
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
-	public final fun hasBeenWrittenToDoc (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)Z
 	public final fun inv ()Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public final fun isEqualTo (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 	public final fun isGreaterThan (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;)Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
@@ -809,35 +724,29 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteInt$Compa
 	public final fun createForId (J)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public final fun createNamedRemoteInt (Ljava/lang/String;ILee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public static synthetic fun createNamedRemoteInt$default (Lee/schimke/composeai/rccreation/compose/state/RemoteInt$Companion;Ljava/lang/String;ILee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
-	public final fun invoke (I)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
-	public final fun isConstant (J)Z
 	public final fun isLiteral (J)Z
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteIntArray : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
+	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteIntArray$Companion;
 	public fun <init> (Ljava/util/List;)V
-	public fun <init> (Ljava/util/List;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;)V
 	public fun <init> ([I)V
 	public final fun get (I)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public final fun get (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public final fun get (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
 	public fun getConstantValueOrNull ()Ljava/util/List;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
-public class ee/schimke/composeai/rccreation/compose/state/RemoteIntExpression : ee/schimke/composeai/rccreation/compose/state/RemoteInt {
-	public static final field $stable I
-	public fun <init> (Ljava/lang/Integer;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;Lkotlin/jvm/functions/Function1;)V
-	public fun getConstantValueOrNull ()Ljava/lang/Integer;
-	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
+public final class ee/schimke/composeai/rccreation/compose/state/RemoteIntArray$Companion {
+	public final fun createForId (I)Lee/schimke/composeai/rccreation/compose/state/RemoteIntArray;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteIntKt {
+	public static final fun MutableRemoteInt (I)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteInt;
+	public static final fun RemoteInt (I)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public static final fun clamp (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteInt;)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
-	public static final fun combineToLongArray (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;[Lee/schimke/composeai/rccreation/compose/state/RemoteInt;[J)[J
 	public static final fun copySign (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteInt;)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public static final fun getRi (I)Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public static final fun isLiteral ([J)Z
@@ -852,10 +761,7 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteIntKt {
 public class ee/schimke/composeai/rccreation/compose/state/RemoteLong : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteLong$Companion;
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;)V
-	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public static final fun createNamedRemoteLong (Ljava/lang/String;JLee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteLong;
-	public static final fun fromLowHigh (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteInt;)Lee/schimke/composeai/rccreation/compose/state/RemoteLong;
 	public fun getConstantValueOrNull ()Ljava/lang/Long;
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
 	public final fun getHigh ()Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
@@ -865,7 +771,6 @@ public class ee/schimke/composeai/rccreation/compose/state/RemoteLong : ee/schim
 	public final fun times (Lee/schimke/composeai/rccreation/compose/state/RemoteLong;)Lee/schimke/composeai/rccreation/compose/state/RemoteLong;
 	public fun toDebugString ()Ljava/lang/String;
 	public final fun toRemoteInt ()Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteLong$Companion {
@@ -873,7 +778,11 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteLong$Comp
 	public final fun createNamedRemoteLong (Ljava/lang/String;JLee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteLong;
 	public static synthetic fun createNamedRemoteLong$default (Lee/schimke/composeai/rccreation/compose/state/RemoteLong$Companion;Ljava/lang/String;JLee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteLong;
 	public final fun fromLowHigh (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteInt;)Lee/schimke/composeai/rccreation/compose/state/RemoteLong;
-	public final fun invoke (J)Lee/schimke/composeai/rccreation/compose/state/RemoteLong;
+}
+
+public final class ee/schimke/composeai/rccreation/compose/state/RemoteLongKt {
+	public static final fun MutableRemoteLong (J)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteLong;
+	public static final fun RemoteLong (J)Lee/schimke/composeai/rccreation/compose/state/RemoteLong;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteMatrix3x3 : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
@@ -882,7 +791,6 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteMatrix3x3
 	public fun getConstantValueOrNull ()Ljava/lang/Object;
 	public final fun isIdentity ()Z
 	public final fun times (Lee/schimke/composeai/rccreation/compose/state/RemoteMatrix3x3;)Lee/schimke/composeai/rccreation/compose/state/RemoteMatrix3x3;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteMatrix3x3$Companion {
@@ -906,7 +814,6 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteMutableFl
 	public final fun getSize ()I
 	public final fun set (ILee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
 	public final fun set (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)V
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteNamedCacheKey : ee/schimke/composeai/rccreation/compose/state/BaseRemoteStateCacheKey {
@@ -1001,17 +908,6 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteStateCach
 	public static final fun getCacheKey (Lee/schimke/composeai/rccreation/compose/state/RemoteState;)Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;
 }
 
-public final class ee/schimke/composeai/rccreation/compose/state/RemoteStateIdKey : ee/schimke/composeai/rccreation/compose/state/BaseRemoteStateCacheKey {
-	public static final field $stable I
-	public fun <init> (I)V
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getId ()I
-	public fun getState ()Lee/schimke/composeai/rccreation/compose/state/BaseRemoteState;
-	public fun setState (Lee/schimke/composeai/rccreation/compose/state/BaseRemoteState;)V
-	public fun toDebugString ()Ljava/lang/String;
-	public fun toString ()Ljava/lang/String;
-}
-
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteStateInstanceKey : ee/schimke/composeai/rccreation/compose/state/BaseRemoteStateCacheKey {
 	public static final field $stable I
 	public fun <init> ()V
@@ -1025,12 +921,13 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteStateVisi
 	public static final fun transform (Lee/schimke/composeai/rccreation/compose/state/BaseRemoteState;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rccreation/compose/state/BaseRemoteState;
 }
 
-public abstract class ee/schimke/composeai/rccreation/compose/state/RemoteString : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
+public class ee/schimke/composeai/rccreation/compose/state/RemoteString : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
 	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteString$Companion;
-	public abstract fun computeRequiredCodePointSet (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)Ljava/util/Set;
 	public static final fun createForId (I)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public static final fun createNamedRemoteString (Ljava/lang/String;Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
+	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
+	public fun getConstantValueOrNull ()Ljava/lang/String;
 	public final fun getLength ()Lee/schimke/composeai/rccreation/compose/state/RemoteInt;
 	public final fun isEmpty ()Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
 	public final fun isNotEmpty ()Lee/schimke/composeai/rccreation/compose/state/RemoteBoolean;
@@ -1050,21 +947,25 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteString$Co
 	public final fun createForId (I)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public final fun createNamedRemoteString (Ljava/lang/String;Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public static synthetic fun createNamedRemoteString$default (Lee/schimke/composeai/rccreation/compose/state/RemoteString$Companion;Ljava/lang/String;Ljava/lang/String;Lee/schimke/composeai/rccreation/compose/state/RemoteState$Domain;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
-	public final fun invoke (Ljava/lang/String;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteStringArray : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
+	public static final field Companion Lee/schimke/composeai/rccreation/compose/state/RemoteStringArray$Companion;
 	public fun <init> (Ljava/util/List;)V
-	public fun <init> (Ljava/util/List;Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;)V
 	public final fun get (I)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public final fun get (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
 	public fun getConstantValueOrNull ()Ljava/util/List;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
+}
+
+public final class ee/schimke/composeai/rccreation/compose/state/RemoteStringArray$Companion {
+	public final fun createForId (I)Lee/schimke/composeai/rccreation/compose/state/RemoteStringArray;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteStringKt {
+	public static final fun MutableRemoteString (Ljava/lang/String;)Lee/schimke/composeai/rccreation/compose/state/MutableRemoteString;
+	public static final fun RemoteString (Ljava/lang/String;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public static final fun getRs (Ljava/lang/String;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public static final fun selectIfGe (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteString;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
 	public static final fun selectIfGe (Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteInt;Lee/schimke/composeai/rccreation/compose/state/RemoteString;Lee/schimke/composeai/rccreation/compose/state/RemoteString;)Lee/schimke/composeai/rccreation/compose/state/RemoteString;
@@ -1078,18 +979,12 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteStringKt 
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteTextUnit : ee/schimke/composeai/rccreation/compose/state/BaseRemoteState {
 	public static final field $stable I
-	public fun <init> (FLee/schimke/composeai/rccreation/compose/state/RemoteTextUnitType;)V
-	public synthetic fun <init> (FLee/schimke/composeai/rccreation/compose/state/RemoteTextUnitType;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnitType;)V
-	public synthetic fun <init> (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnitType;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun getCacheKey ()Lee/schimke/composeai/rccreation/compose/state/RemoteStateCacheKey;
 	public fun getConstantValueOrNull ()Ljava/lang/Float;
 	public synthetic fun getConstantValueOrNull ()Ljava/lang/Object;
 	public final fun getType ()Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnitType;
 	public final fun getValue ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun toPx ()Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
 	public final fun toPx (Lee/schimke/composeai/rccreation/compose/capture/RemoteDensity;)Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;
-	public fun writeToDocument (Lee/schimke/composeai/rccreation/compose/capture/RemoteComposeCreationState;)I
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteTextUnitDpKt {
@@ -1097,9 +992,14 @@ public final class ee/schimke/composeai/rccreation/compose/state/RemoteTextUnitD
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteTextUnitKt {
+	public static final fun RemoteTextUnit (FLee/schimke/composeai/rccreation/compose/state/RemoteTextUnitType;)Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;
+	public static final fun RemoteTextUnit (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnitType;)Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;
+	public static synthetic fun RemoteTextUnit$default (FLee/schimke/composeai/rccreation/compose/state/RemoteTextUnitType;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;
+	public static synthetic fun RemoteTextUnit$default (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnitType;ILjava/lang/Object;)Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;
 	public static final fun getRsp (F)Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;
 	public static final fun getRsp (I)Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;
 	public static final fun getRsp (Lee/schimke/composeai/rccreation/compose/state/RemoteFloat;)Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;
+	public static final fun toRsp (Lee/schimke/composeai/rccreation/compose/state/RemoteDp;)Lee/schimke/composeai/rccreation/compose/state/RemoteTextUnit;
 }
 
 public final class ee/schimke/composeai/rccreation/compose/state/RemoteTextUnitType : java/lang/Enum {

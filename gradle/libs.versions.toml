@@ -21,7 +21,7 @@ kotlin = "2.4.21"
 # `configureKotlinCompatibility(...)`; remove the flag (and bump this to
 # `2.1.x`) when the removal lands and we're ready to drop 2.0.x consumers.
 kotlinCoreLibraries = "2.0.21"
-agp = "9.5.1"
+agp = "9.5.2"
 # Android levels for the published CMP player stack (`rc-player/*`). compileSdk follows the SDK the
 # stack's Compose artifacts compile against; minSdk is Compose's own floor, so the player adds none.
 rc-player-compileSdk = "37"
@@ -48,11 +48,11 @@ tapmoc = "0.5.0"
 # `:daemon:android` draws held frames with those timestamps untranslated, which restores beta-2
 # behaviour inside the daemon sandbox; those two tests are the acceptance check for any bump here,
 # not just a green build.
-robolectric = "4.17"
+robolectric = "4.18.1"
 # Robolectric's Android 15, 16 and 17 platforms: the launcher tests play on the platform's own player.
-robolectric-sdk35 = "15-robolectric-13954326-i7"
-robolectric-sdk36 = "16-robolectric-13921718-i7"
-robolectric-sdk37 = "17-robolectric-15733970-i7"
+robolectric-sdk35 = "15-robolectric-14663667-2-i7"
+robolectric-sdk36 = "16-robolectric-13921718-2-i7"
+robolectric-sdk37 = "17-robolectric-16653203-i7"
 # Jetpack XR SceneCore, for the Android XR sample (`rc-player/xr-sample`) that hands the 3D
 # extension's meshes to the XR runtime. Sample-only: nothing published depends on it.
 xr-scenecore = "1.0.0"
@@ -99,7 +99,7 @@ compose-bom-compat = "2025.12.01"
 # downgrade and assume binary compatibility. See README.md's consumer compatibility notes.
 # This ref does not control `rc-player-compose`, which uses CMP and `androidx-compose-for-cmp`.
 androidx-compose = "1.12.1"
-androidx-compose-material3 = "1.4.0"
+androidx-compose-material3 = "1.5.0"
 # The desktop/Skiko floor for `renderer-desktop`, `daemon-desktop`, `bundle-viewer` and the CMP
 # player. This version is also a CEILING CONSTRAINT ON EVERY CATALOG THE SERVE HOST RENDERS LIVE:
 # it must be >= the newest `compose-multiplatform` of any catalog served from this host. A catalog
@@ -137,10 +137,10 @@ wear = "1.4.0"
 #    together when they were, and matching them by hand has gone wrong before (a runtime
 #    `NoClassDefFoundError` inside `RemoteButtonImpl` after alpha09 dropped a class
 #    `remote-material3` still called; a pin of a `wear-compose-remote` that did not exist yet).
-#    Check the POMs before landing a bump: `remote-material3:1.0.0-alpha15`,
-#    `androidx.compose.remote.foundation:foundation:1.0.0-alpha06` and
-#    `androidx.glance.wear:*:1.0.0-alpha22` all declare `remote-creation*` `1.0.0-alpha23`, and
-#    `remote-material3:1.0.0-alpha15` declares `foundation` `1.0.0-alpha06`, which is what makes the
+#    Check the POMs before landing a bump: `remote-material3:1.0.0-alpha16`,
+#    `androidx.compose.remote.foundation:foundation:1.0.0-alpha07` and
+#    `androidx.glance.wear:*:1.0.0-alpha23` all declare `remote-creation*` `1.0.0-alpha24`, and
+#    `remote-material3:1.0.0-alpha16` declares `foundation` `1.0.0-alpha07`, which is what makes the
 #    current set consistent.
 #  * To try an API that has landed on androidx-main but is not released yet, run
 #    with `-Pcomposeai.remoteCompose=snapshot`: `settings.gradle.kts` then adds
@@ -157,9 +157,9 @@ wear = "1.4.0"
 #    `RemoteCreationDisplayInfo` + `RemoteDensity` + `LayoutDirection`; `RemotePreview` became
 #    `RemoteContentPreview`. Expect the same class of fix when these pins move — verify a render,
 #    not just a compile.
-compose-remote = "1.0.0-alpha23"
+compose-remote = "1.0.0-alpha24"
 # `androidx.compose.remote.foundation:foundation`, for the widget lane. Moves with `compose-remote`.
-compose-remote-foundation = "1.0.0-alpha06"
+compose-remote-foundation = "1.0.0-alpha07"
 # Matches what the `compose-bom-compat` Compose artifacts already resolve collection to; pinned
 # explicitly because `:third-party-rc-embedded-player` names `ObjectIntMap`/`IntObjectMap` directly.
 androidx-collection = "1.7.0"
@@ -171,9 +171,9 @@ androidx-core = "1.19.1"
 # the set above stays recorded in one place, and because the out-of-tree `remote-m3` catalog in
 # yschimke/wear-m3-catalog resolves the same coordinate. Its POM declares the `remote-creation*`
 # and `foundation` versions it was compiled against, so bump it with `compose-remote` above.
-wear-compose-remote = "1.0.0-alpha15"
+wear-compose-remote = "1.0.0-alpha16"
 # Glance Wear, for `rc-widget/wear`. Moves with `compose-remote`.
-glance-wear = "1.0.0-alpha22"
+glance-wear = "1.0.0-alpha23"
 kotlinx-coroutines = "1.11.0"
 kotlinx-datetime = "0.8.0"
 kotlinx-serialization = "1.13.0"
@@ -192,7 +192,7 @@ maven-publish = "0.37.0"
 # exist at the release version: `common-io` is published at 3.13.0 and absent at 3.15.0 and
 # 3.17.0, whose BOMs still map it to 3.13.0. Bumping this ref moves the BOM; the BOM moves the
 # modules.
-composeai-contracts = "3.43.0"
+composeai-contracts = "3.45.0"
 
 # compose-preview-daemon, for the two modules this build consumes from it: `data-fonts-google`
 # (the `(family, weight, italic) -> File` downloadable-font cache both vendored players share) and
@@ -207,7 +207,7 @@ composeai-contracts = "3.43.0"
 # that changed, so a coordinate is not guaranteed to exist at the release version: 3.13.0 ships
 # `data-layoutinspector-connector:3.13.0` but `data-fonts-google` is still at 3.12.0. The BOM maps
 # every module to the version it is actually published at for that release.
-composeai-preview-daemon = "3.28.0"
+composeai-preview-daemon = "3.28.1"
 
 [libraries]
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
@@ -272,9 +272,8 @@ compose-remote-player-view = { module = "androidx.compose.remote:remote-player-v
 compose-remote-core = { module = "androidx.compose.remote:remote-core", version.ref = "compose-remote" }
 compose-remote-creation-core = { module = "androidx.compose.remote:remote-creation-core", version.ref = "compose-remote" }
 # The creation API's state types (`RemoteFloat`, `MutableRemoteInt`, ...) after androidx-main split
-# them out of `remote-creation-compose`, same package. Not published at the pinned release
-# (alpha23), so only the snapshot lane (`-Pcomposeai.remoteCompose=snapshot`) may name it; on
-# alpha23 those types are inside `remote-creation-compose`.
+# them out of `remote-creation-compose`, same package. Published since alpha22; `remote-creation-compose`
+# depends on it, so either lane may name it.
 compose-remote-creation-expression = { module = "androidx.compose.remote:remote-creation-expression", version.ref = "compose-remote" }
 compose-remote-foundation = { module = "androidx.compose.remote.foundation:foundation", version.ref = "compose-remote-foundation" }
 glance-wear = { module = "androidx.glance.wear:wear", version.ref = "glance-wear" }

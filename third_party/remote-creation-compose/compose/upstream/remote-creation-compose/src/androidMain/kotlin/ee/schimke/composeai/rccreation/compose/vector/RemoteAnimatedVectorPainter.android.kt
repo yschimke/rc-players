@@ -722,7 +722,11 @@ private fun evaluateAnimatorColor(
         if (from == to) return RemoteColor(from)
         // LOCAL PATCH (rc-players): through the end keyframe's interpolator; see
         // `evaluateAnimatorFloat`.
-        return lerp(from, to, transformInterpolator(anim.keyframes[1].interpolator, localProgress))
+        return lerp(
+            RemoteColor(from),
+            RemoteColor(to),
+            transformInterpolator(anim.keyframes[1].interpolator, localProgress),
+        )
     }
     val kf = anim.keyframes
     var kfResult: RemoteColor = run {
@@ -738,7 +742,7 @@ private fun evaluateAnimatorColor(
                     clamp((localProgress - frac0.rf) / (frac1 - frac0).rf, 0f, 1f),
                 )
             } else 1f.rf
-        lerp(last0, last1, segmentProgress)
+        lerp(RemoteColor(last0), RemoteColor(last1), segmentProgress)
     }
     for (j in (kf.size - 3) downTo 0) {
         val val0 = (kf[j].value as? Number)?.toInt() ?: baseColor ?: return null
@@ -753,7 +757,7 @@ private fun evaluateAnimatorColor(
                     clamp((localProgress - frac0.rf) / (frac1 - frac0).rf, 0f, 1f),
                 )
             } else 1f.rf
-        val stageExpr = lerp(val0, val1, segmentProgress)
+        val stageExpr = lerp(RemoteColor(val0), RemoteColor(val1), segmentProgress)
         kfResult = localProgress.isLessThan(frac1.rf).select(stageExpr, kfResult)
     }
     return kfResult

@@ -50,22 +50,14 @@ exist once for each:
 Both can be in one app; their packages differ, and so do the creation libraries under them.
 
 The AndroidX binding is not a second copy to maintain. Its build (`generateAndroidxBinding`) copies
-every file of `rc-widget-creation`'s `commonMain` except `RcCreationCompat.kt` and rewrites three
+every file of `rc-widget-creation`'s `commonMain` except `RcCaptureProfiles.kt` and rewrites three
 package prefixes: `ee.schimke.composeai.rccreation.compose` to
 `androidx.compose.remote.creation.compose`, `ee.schimke.composeai.rccreation.foundation` to
 `androidx.compose.remote.foundation`, and its own `ee.schimke.composeai.rcwidget.creation` to
 `ee.schimke.composeai.rcwidget.creation.androidx`. The result is build output, never committed; the
-module's committed ABI dump is what review sees of it. Three files are written by hand in
+module's committed ABI dump is what review sees of it. Two files are written by hand in
 `rc-widget/creation-androidx/src`:
 
-- `RcCreationCompat.kt`, the seam. rc-players' creation modules track androidx-main, and the
-  AndroidX release the widget lane is pinned to is behind it in two places these helpers touch: how
-  a component's size is read (`remoteComponent()` on androidx-main, a `RemoteFloatContext` lambda in
-  the release) and the type of `RemotePaint.style`. Each binding has its own `RcCreationCompat.kt`
-  with the same two internal functions, and the generated files call them. The AndroidX one is in
-  `src/remoteRelease` and only compiles on the default `release` lane: with
-  `-Pcomposeai.remoteCompose=snapshot` AndroidX is androidx-main too, so the common file is generated
-  with the rest.
 - `AndroidxExperimentalProfile.kt` and `WrapModeProfile.kt`, the AndroidX capture profiles. The
   CMP binding's counterparts are in `RcCaptureProfiles.kt`, which is left out of the generation:
   the two APIs build a `Profile` differently (a writer factory and platform services on AndroidX's,
@@ -73,7 +65,8 @@ module's committed ABI dump is what review sees of it. Three files are written b
 
 A helper added to `rc-widget-creation` appears in both bindings. If it uses something the pinned
 AndroidX release lacks, `rc-widget-creation-androidx` stops compiling, and the difference goes
-behind another function in `RcCreationCompat.kt`.
+behind a function in `RcCreationCompat.kt`, with an AndroidX copy of that file under
+`rc-widget/creation-androidx/src` left out of the generation (as it was until alpha24).
 
 ### `rc-widget-core`
 
@@ -125,8 +118,7 @@ behind another function in `RcCreationCompat.kt`.
 ### `rc-widget-creation`
 
 - **`RcSizeBreakpoint` and `RcMinSizeGate`** switch layouts on the live component size, so one
-  document fits every slot. They read the size unnamed (`remoteComponent()`; AndroidX alpha23's
-  `rememberRemoteFloatExpression { componentWidth() }`): the document evaluates it as it plays, no
+  document fits every slot. They read the size unnamed (`remoteComponent()`, on both bindings): the document evaluates it as it plays, no
   host can write it, and a reader such as a template catalog never takes it for data. With no
   generated names, a recapture gives the same bytes. (`ProvideRcExpressionNames` and
   `rememberRcExpressionName`, which named these expressions, are deprecated.)

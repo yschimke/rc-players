@@ -1195,17 +1195,52 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       steadySamples.append(nativeAppKitMilliseconds(since: started))
     }
     steadyWindow.contentView = nil
+
+    // Feed arrival: building, laying out, and capturing a batch of cards sharing one template.
+    let feedCardCount = 12
+    var feedSamples: [Double] = []
+    for _ in 0..<min(iterations, 3) {
+      let started = ProcessInfo.processInfo.systemUptime
+      let cardHeight = max(CGFloat(snapshot.height), 1)
+      let cardWidth = max(CGFloat(snapshot.width), 1)
+      let feedBounds = NSRect(x: 0, y: 0, width: cardWidth, height: cardHeight * CGFloat(feedCardCount))
+      let container = NSView(frame: feedBounds)
+      let feedWindow = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: cardWidth, height: cardHeight),
+        styleMask: .borderless, backing: .buffered, defer: false)
+      feedWindow.contentView = container
+      for index in 0..<feedCardCount {
+        let cardSession = try NativeSwiftDocumentSession.open(data: data)
+        let cardSnapshot = try cardSession.snapshot(timeSeconds: 0, wallClock: .capture)
+        let cardReport = try NativeMacPolicy.evaluate(cardSnapshot, compatibility: .compatible)
+        let cardFonts = try NativeMacFontRegistry.register(
+          snapshot: cardSnapshot, downloadedFonts: [:])
+        let cardView = try NativeMacDocumentView(
+          snapshot: cardSnapshot, resolvedAt: 0, wallClock: .capture, session: cardSession,
+          compatibility: .compatible, report: cardReport, fonts: cardFonts,
+          onEvent: { _ in }, onDiagnostics: { _ in }, onError: { _ in })
+        cardView.frame = NSRect(
+          x: 0, y: CGFloat(index) * cardHeight, width: cardWidth, height: cardHeight)
+        container.addSubview(cardView)
+      }
+      container.layoutSubtreeIfNeeded()
+      feedSamples.append(nativeAppKitMilliseconds(since: started))
+      feedWindow.contentView = nil
+    }
     let residentAfter = nativeAppKitResidentBytes()
 
     return NativeAppKitEvidenceReport(
       fixture: fixture,
       iterations: iterations,
       frames: frames,
+      minimumLabelCount: nativeAppKitContainsText(snapshot.root) ? 1 : 0,
       metrics: NativeAppKitEvidenceReport.Metrics(
         medianDecodeMilliseconds: nativeAppKitMedian(decodeSamples),
         medianBuildMilliseconds: nativeAppKitMedian(buildSamples),
         medianCaptureMilliseconds: nativeAppKitMedian(captureSamples),
         medianSteadyFrameMilliseconds: nativeAppKitMedian(steadySamples),
+        medianFeedArrivalMilliseconds: nativeAppKitMedian(feedSamples),
+        feedCardCount: feedCardCount,
         viewCount: viewCount,
         labelCount: labelCount,
         controlCount: controlCount,
@@ -3413,7 +3448,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     {
       font = downloaded
     }
-    if (text.style & 2) != 0,
+    if text.style == NativeSwiftFontStyle.italic,
       let italic = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) as NSFont?
     {
       font = italic
@@ -3563,9 +3598,19 @@ private final class NativeMacCanvasView: NSView {
   }
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
-  /// A newer frame's commands for the same component. Draw commands carry no equality, so the
-  /// canvas simply redraws; its backing store is kept.
+  /// A newer frame's commands for the same component. Skips redrawing when the resolved commands
+  /// are unchanged (including NaN sentinels such as `DrawTextAnchored`'s unset `panY`), unless the
+  /// canvas writes or reads a shared offscreen target whose pixels another component may have
+  /// updated.
   func update(commands: [NativeMacDrawCommand]) {
+    let usesOffscreenTarget =
+      offscreenTargets.hasAnyTarget
+      && commands.contains { command in
+        command.offscreenTarget != nil
+          || (command.image.map { offscreenTargets.contains($0.imageID) } ?? false)
+          || (command.textureImageID.map { offscreenTargets.contains($0) } ?? false)
+      }
+    guard usesOffscreenTarget || self.commands != commands else { return }
     self.commands = commands
     needsDisplay = true
   }
@@ -3922,6 +3967,8 @@ struct NativeAppKitEvidenceReport: Codable {
     let medianBuildMilliseconds: Double
     let medianCaptureMilliseconds: Double
     let medianSteadyFrameMilliseconds: Double
+    let medianFeedArrivalMilliseconds: Double
+    let feedCardCount: Int
     let viewCount: Int
     let labelCount: Int
     let controlCount: Int
@@ -3951,8 +3998,11 @@ struct NativeAppKitEvidenceReport: Codable {
   let overBudget: [String]
   let passed: Bool
 
-  init(fixture: String, iterations: Int, frames: Int, metrics: Metrics) {
-    let budgets = Budgets()
+  init(
+    fixture: String, iterations: Int, frames: Int, minimumLabelCount: Int = 1, metrics: Metrics
+  ) {
+    var budgets = Budgets()
+    budgets.minimumLabelCount = minimumLabelCount
     var failures: [String] = []
     if metrics.medianDecodeMilliseconds > budgets.decodeMilliseconds { failures.append("decode") }
     if metrics.medianBuildMilliseconds > budgets.buildMilliseconds { failures.append("build") }
@@ -3975,6 +4025,11 @@ struct NativeAppKitEvidenceReport: Codable {
     overBudget = failures
     passed = failures.isEmpty
   }
+}
+
+private func nativeAppKitContainsText(_ node: NativeSwiftNodeSnapshot) -> Bool {
+  if node.text != nil { return true }
+  return node.children.contains(where: nativeAppKitContainsText)
 }
 
 private func nativeAppKitMilliseconds(since start: TimeInterval) -> Double {

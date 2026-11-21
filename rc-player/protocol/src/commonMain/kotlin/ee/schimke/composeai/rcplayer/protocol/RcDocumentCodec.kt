@@ -28,6 +28,9 @@ public object RcDocumentCodec {
         LoopOperationCodec,
         BitmapDataCodec,
         FontDataCodec,
+        BinaryDataCodec,
+        RcDocLayoutCodec,
+        MapRcDocVariablesCodec,
         FloatConstantCodec,
         FloatExpressionCodec,
         TouchExpressionCodec,
@@ -2719,6 +2722,75 @@ private object FontDataCodec : RcOperationCodec<RcFontData> {
     output.writeInt(value.fontId)
     output.writeInt(value.type)
     output.writeByteArray(value.data)
+  }
+}
+
+private object BinaryDataCodec : RcOperationCodec<RcBinaryData> {
+  override val spec = RcOperationSpec(RcOpcodes.BINARY_DATA, "BinaryData")
+
+  override fun decode(input: RcWireReader): RcBinaryData =
+    RcBinaryData(
+      id = input.readId("id"),
+      type = input.readInt("type"),
+      flags = input.readInt("flags"),
+      data =
+        input.readByteArray(
+          "data",
+          maximum = minOf(input.limits.maxBlobBytes, RcBinaryData.MAX_BYTES),
+        ),
+    )
+
+  override fun encode(output: RcWireWriter, value: RcBinaryData) {
+    require(value.data.size <= RcBinaryData.MAX_BYTES) {
+      "binary data too large: ${value.data.size} > ${RcBinaryData.MAX_BYTES}"
+    }
+    output.writeInt(value.id)
+    output.writeInt(value.type)
+    output.writeInt(value.flags)
+    output.writeByteArray(value.data)
+  }
+}
+
+private object RcDocLayoutCodec : RcOperationCodec<RcDocLayout> {
+  override val spec = RcOperationSpec(RcOpcodes.LAYOUT_RC_DOC, "RcDocLayout")
+
+  override fun decode(input: RcWireReader): RcDocLayout =
+    RcDocLayout(
+      componentId = input.readDeclaredId("componentId"),
+      animationId = input.readDeclaredId("animationId"),
+      urlId = input.readId("urlId"),
+    )
+
+  override fun encode(output: RcWireWriter, value: RcDocLayout) {
+    output.writeInt(value.componentId)
+    output.writeInt(value.animationId)
+    output.writeInt(value.urlId)
+  }
+}
+
+private object MapRcDocVariablesCodec : RcOperationCodec<RcMapRcDocVariables> {
+  override val spec = RcOperationSpec(RcOpcodes.MAP_RC_DOC_VARIABLES, "MapRcDocVariables")
+
+  override fun decode(input: RcWireReader): RcMapRcDocVariables {
+    val docId = input.readId("docId")
+    val mode = input.readU8("mode")
+    val localId = input.readId("localId")
+    val remoteTarget =
+      if (mode == RcMapRcDocVariables.MAP_HOST_ACTION) input.readInt("remoteTarget")
+      else input.readId("remoteTarget")
+    return RcMapRcDocVariables(
+      docId = docId,
+      mode = mode,
+      localId = localId,
+      remoteTarget = remoteTarget,
+    )
+  }
+
+  override fun encode(output: RcWireWriter, value: RcMapRcDocVariables) {
+    output.writeInt(value.docId)
+    output.writeU8(value.mode)
+    output.writeInt(value.localId)
+    output.writeInt(value.remoteTarget)
   }
 }
 

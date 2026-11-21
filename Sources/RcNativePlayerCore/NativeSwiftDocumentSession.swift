@@ -71,9 +71,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   public static func open(
     data: Data, toleratingRootlessData: Bool = false
   ) throws -> NativeSwiftDocumentSession {
-    NativeSwiftDocumentSession(
-      document: try NativeSwiftDocumentDecoder.decode(
-        data, toleratingRootlessData: toleratingRootlessData))
+    open(
+      prepared: try NativeSwiftPreparedDocument.decode(
+        data: data, toleratingRootlessData: toleratingRootlessData))
+  }
+
+  /// Opens a fresh session over an already-decoded ``NativeSwiftPreparedDocument``.
+  ///
+  /// The returned session shares the immutable parsed AST and owns its own mutable variables,
+  /// animation runtimes, and snapshot cache.
+  public static func open(
+    prepared: NativeSwiftPreparedDocument
+  ) -> NativeSwiftDocumentSession {
+    NativeSwiftDocumentSession(document: prepared.parsed)
   }
 
   /// The operation spans of a document the decoder accepts, for structure-aware mutation.
@@ -218,7 +228,6 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) throws -> NativeSwiftDocumentSnapshot {
     stateLock.lock()
     defer { stateLock.unlock() }
-    try resolveIntegerExpressions()
     if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock),
       let cached = staticSnapshotCache, cached.measuredComponents == measuredComponents
     {
@@ -801,7 +810,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private func canReuseStaticSnapshot(
     timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock?
   ) -> Bool {
-    wallClock == nil
+    (!document.needsWallClockRefresh || wallClock == nil)
+      && (wallClock == nil || document.timeAttributes.isEmpty)
       && !document.needsContinuousFrames
       && !document.hasMarquee
       && document.impulses.isEmpty
@@ -823,7 +833,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       // `size > 0` used to be a parse-time guard. It still holds, but a computed size has no value
       // to check until here, so the check moved with it rather than being dropped.
       let size = try resolvedFloat(source.sizeWord, "text size", values: values, positive: true)
-      let weight = try resolvedFloat(source.weightWord, "text weight", values: values)
+      let weight = resolveOptionalFloat(source.weightWord, values: values) ?? 400
       text = NativeSwiftTextSnapshot(
         value: texts[source.textID] ?? "",
         colorARGB: source.colorID.flatMap { resolvedColors[$0] } ?? source.colorARGB,
@@ -924,6 +934,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
     let cornerRadius = cornerRadii.max() ?? 0
 
+    let resolvedWidth = try resolvedDimension(
+      node.widthWord, type: stateLayoutDimension(node, isWidth: true), "width", values: values)
+    let resolvedHeight = try resolvedDimension(
+      node.heightWord, type: stateLayoutDimension(node, isWidth: false), "height", values: values)
+
     return NativeSwiftNodeSnapshot(
       kind: node.kind,
       componentKind: node.componentKind,
@@ -952,13 +967,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       // reference: a fill modifier on the container itself is dropped rather than honoured, which
       // is what makes the container's own background and border cover the branch and not the
       // parent.
-      widthType: stateLayoutDimension(node, isWidth: true),
-      widthValue: try dimensionValue(
-        node.widthWord, type: stateLayoutDimension(node, isWidth: true), "width", values: values),
-      heightType: stateLayoutDimension(node, isWidth: false),
-      heightValue: try dimensionValue(
-        node.heightWord, type: stateLayoutDimension(node, isWidth: false), "height",
-        values: values),
+      widthType: resolvedWidth.type,
+      widthValue: resolvedWidth.value,
+      heightType: resolvedHeight.type,
+      heightValue: resolvedHeight.value,
       // A state layout takes the active child's size, so its own padding is dropped with its fill:
       // the reference reports an 80x80 container for an 80x80 child behind a 20pt padding modifier,
       // not 120x120, and the child sits at the container's origin. Keeping the padding made the
@@ -980,9 +992,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         ? nil
         : NativeSwiftGraphicsLayerSnapshot(
           // AndroidX's `GraphicsLayerModifierOperation` ids (#423): 5/6 are the transform origin,
-          // 7/8 the translation and 11 the alpha. An absent origin is the declared 0, the
-          // top-left, as AndroidX's embedded player and `RcGraphicsLayerValues` in
-          // `rc-player-runtime` read it.
+          // 7/8 the translation, 11 the alpha, and 13 the compositing strategy. An absent origin
+          // is the declared 0, the top-left, as AndroidX's embedded player and
+          // `RcGraphicsLayerValues` in `rc-player-runtime` read it.
           scaleX: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.scaleX] ?? 1,
           scaleY: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.scaleY] ?? 1,
           translationX: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.translationX] ?? 0,
@@ -992,7 +1004,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           transformOriginX: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.transformOriginX]
             ?? 0,
           transformOriginY: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.transformOriginY]
-            ?? 0),
+            ?? 0,
+          compositingStrategy: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.compositingStrategy]
+            .map { value in
+              value.isFinite ? nativeSwiftClampedInt(value) : NativeSwiftCompositingStrategy.auto
+            } ?? NativeSwiftCompositingStrategy.auto),
       offsetX: node.offsetXWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       offsetY: node.offsetYWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       zIndex: node.zIndexWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
@@ -1099,11 +1115,28 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// `RcNativeSnapshot.kt`); resolved as an expression reference it would become 0 and be
   /// indistinguishable from an explicit zero fraction, so the raw word is checked here, where it
   /// still exists.
-  private func dimensionValue(
+  private func resolveOptionalFloat(_ word: UInt32, values: [Int: Float]) -> Float? {
+    if let id = NativeSwiftFloatExpression.referenceID(word) {
+      guard let value = values[id], value.isFinite else { return nil }
+      return value
+    }
+    let value = Float(bitPattern: word)
+    return value.isFinite ? value : nil
+  }
+
+  private func resolvedDimension(
     _ word: UInt32, type: Int, _ field: String, values: [Int: Float]
-  ) throws -> Float {
-    if NativeSwiftDimensionType.isFill(type) && word == Float.nan.bitPattern { return 1 }
-    return try resolvedFloat(word, field, values: values)
+  ) throws -> (type: Int, value: Float) {
+    if NativeSwiftDimensionType.isFill(type) && word == Float.nan.bitPattern {
+      return (type, 1)
+    }
+    if type == NativeSwiftDimensionType.weight {
+      guard let value = resolveOptionalFloat(word, values: values), value > 0 else {
+        return (NativeSwiftDimensionType.wrap, 0)
+      }
+      return (type, value)
+    }
+    return (type, try resolvedFloat(word, field, values: values))
   }
 
   private func stateLayoutDimension(_ node: ParsedNode, isWidth: Bool) -> Int {

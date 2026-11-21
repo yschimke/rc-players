@@ -17,9 +17,8 @@
 package ee.schimke.composeai.rccreation.compose.layout
 
 import androidx.annotation.RestrictTo
-import ee.schimke.composeai.rccreation.common.RemoteComposeBuffer
-import ee.schimke.composeai.rccreation.compose.state.AnimatedRemoteFloat
 import ee.schimke.composeai.rccreation.compose.state.RemoteFloat
+import ee.schimke.composeai.rccreation.compose.state.animateRemoteFloat
 import ee.schimke.composeai.rccreation.compose.state.remoteSpring
 import ee.schimke.composeai.rccreation.compose.state.rf
 
@@ -55,10 +54,7 @@ public class RemoteAccess(private val scope: RemoteDrawScope) {
         spec: FloatArray? = null,
         initialValue: Float = Float.NaN,
         wrap: Float = Float.NaN,
-    ): RemoteFloat {
-        val anim = RemoteComposeBuffer.packAnimation(duration, type, spec, initialValue, wrap)
-        return AnimatedRemoteFloat(rf, anim)
-    }
+    ): RemoteFloat = animateRemoteFloat(rf, duration, type, spec, initialValue, wrap)
 
     /**
      * Animates a [RemoteFloat] created in [content].
