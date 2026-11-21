@@ -149,6 +149,10 @@
     public func setInteger(_ value: Int, for name: String) async -> Bool {
       await playerView.setInteger(value, for: name)
     }
+
+    /// Whether the player is still opening its document — see
+    /// ``RemoteComposeNativePlayerView/isOpeningDocument``.
+    public var isOpeningDocument: Bool { playerView.isOpeningDocument }
   }
 
   /// How many host inputs may wait behind the one in flight. Beyond this an input is refused
@@ -462,6 +466,17 @@
     private var isShowingError: Bool {
       if case .failed = state { return true }
       return false
+    }
+
+    /// Whether a document is on its way to an open session: it is being opened, or will be once the
+    /// application returns to the foreground. While this holds, a named-variable write refused for
+    /// want of a session may yet be accepted; once it does not, the session is open (and accepts
+    /// input) or the document failed.
+    public var isOpeningDocument: Bool {
+      switch state {
+      case .loading, .awaitingForeground: return true
+      case .idle, .presenting, .failed: return false
+      }
     }
 
     /// The open session that accepts input, whether or not an error is showing.

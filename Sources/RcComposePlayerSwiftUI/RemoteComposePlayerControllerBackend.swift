@@ -14,9 +14,11 @@ import Foundation
 // types can only exist where that player is linked:
 //
 // - UIKit with the Kotlin framework (iOS): the Kotlin player and its controller.
-// - The native Swift player without the Kotlin UIKit host (visionOS, tvOS, a native-only build,
-//   and macOS, where no view takes a controller so nothing ever attaches a document).
-// - Neither (the macOS Kotlin build `scripts/check-swift-sample.sh` type-checks): nothing to drive.
+// - The native Swift player without the Kotlin UIKit host: visionOS, tvOS, a native-only build,
+//   and macOS — `RcNativePlayerUIKit` is an unconditional overlay dependency, so it is importable
+//   there too, but no macOS view takes a controller, so nothing ever attaches a document and every
+//   write is refused.
+// - Neither: a build that links no native player at all, where there is nothing to drive.
 #if canImport(UIKit) && canImport(RcComposePlayer)
   typealias ControllerBackend = KotlinControllerBackend
 #elseif canImport(RcNativePlayerUIKit)
@@ -95,12 +97,28 @@ protocol ControllerBackendProtocol: AnyObject {
       return true
     }
 
-    /// Attaches the declarations of the document a native player is about to show, as the Kotlin
-    /// controller attaches when its player is built. A value the new document cannot take is
-    /// dropped; the rest are re-applied when the player installs its update handler.
+    /// Attaches the declarations of the document a native player is showing, as the Kotlin
+    /// controller attaches when its player is built. Each stored value is re-keyed under the name
+    /// the new document resolves its key to, and dropped when that variable cannot take it; the
+    /// rest are re-applied when the player installs its update handler. Re-keying keeps the two
+    /// backends in step: checking the old key let a bare name reach a different variable.
     func attach(_ declarations: NativeSwiftNamedVariableDeclarations) {
       self.declarations = declarations
-      values = values.filter { declarations.accepts($0.value, for: $0.key) }
+      var kept: [String: ControllerNamedValue] = [:]
+      for name in values.keys.sorted() {
+        guard let value = values[name], let declared = declarations.declaredName(for: name),
+          declarations.accepts(value, for: declared)
+        else { continue }
+        kept[declared] = value
+      }
+      values = kept
+    }
+
+    /// Forgets the attached declarations without a new document to judge the stored values by —
+    /// the player is not showing one (a refused theme) or its document could not be read. Writes
+    /// are refused until the next `attach`, and the values written so far are kept for it.
+    func detach() {
+      declarations = .none
     }
 
     /// Installs the native player's update handler, replaying every value written so far, or
@@ -123,6 +141,8 @@ protocol ControllerBackendProtocol: AnyObject {
     func setString(_ value: String, for name: String) async -> Bool
     func setColor(_ argb: UInt32, for name: String) async -> Bool
     func setInteger(_ value: Int, for name: String) async -> Bool
+    /// Whether the player is still opening its document, so a refused write may yet be accepted.
+    var isOpeningDocument: Bool { get }
   }
 
   extension ControllerNamedValue {
@@ -136,6 +156,33 @@ protocol ControllerBackendProtocol: AnyObject {
       case .color(let argb): await target.setColor(argb, for: name)
       case .integer(let value): await target.setInteger(Int(value), for: name)
       case .boolean(let value): await target.setInteger(value ? 1 : 0, for: name)
+      }
+    }
+
+    /// Writes this value into the native player. The controller has already checked it against
+    /// the document's declarations, so a refusal means the asynchronous session has not opened
+    /// yet, or its input queue is full. It is retried for as long as the player is still opening
+    /// its document — however long its resources take — and then `openRetries` times for a full
+    /// queue. It stops as soon as the player is gone, or `isCurrent` says a newer value for this
+    /// name has started or the player was rebuilt.
+    @MainActor
+    func deliver<Target: NativeNamedValueTarget>(
+      for name: String, to target: () -> Target?,
+      retryInterval: UInt64 = 50_000_000, openRetries: Int = 50,
+      isCurrent: () -> Bool
+    ) async {
+      var retriesAfterOpen = openRetries
+      while true {
+        // The strong reference lives only for the call, not across the sleep below.
+        do {
+          guard let target = target(), isCurrent() else { return }
+          if await apply(to: target, for: name) { return }
+          if !target.isOpeningDocument {
+            retriesAfterOpen -= 1
+            if retriesAfterOpen <= 0 { return }
+          }
+        }
+        try? await Task.sleep(nanoseconds: retryInterval)
       }
     }
   }

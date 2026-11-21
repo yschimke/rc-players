@@ -76,6 +76,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # Seconds on Linux, so it runs on every change: the sample app lists package sources by hand,
+      # and a Swift file missing from it otherwise fails only at `package-apple-player.sh`, the
+      # better part of an hour into the macOS lane.
+      - name: Check the Apple sample app lists every package source
+        run: scripts/check-apple-player-sources.sh
       - name: Check whether the Apple lane is required
         id: filter
         env:

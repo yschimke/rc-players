@@ -113,6 +113,90 @@ import Testing
     #expect(!controller.setBoolean(true, for: "enabled"))
   }
 
+  /// Stored values are re-keyed under the name the new document resolves them to, as the Kotlin
+  /// controller does, so a bare key cannot be replayed onto a variable it no longer names.
+  @Test func aNewDocumentReResolvesTheStoredNames() {
+    let controller = RemoteComposePlayerController()
+    controller.backend.attach(Self.declaring(["both": NativeSwiftNamedVariableType.int]))
+    #expect(controller.setInteger(1, for: "both"))
+
+    controller.backend.attach(
+      Self.declaring([
+        "both": NativeSwiftNamedVariableType.int,
+        "USER:both": NativeSwiftNamedVariableType.int,
+      ]))
+    var applied: [String: Value] = [:]
+    controller.backend.installUpdateHandler { applied[$0] = $1 }
+    // Replayed under the name it is stored by, which is where the session will resolve it.
+    #expect(applied == ["USER:both": .integer(1)])
+
+    // A resolved name of another type drops the value instead.
+    controller.backend.attach(
+      Self.declaring([
+        "both": NativeSwiftNamedVariableType.int,
+        "USER:both": NativeSwiftNamedVariableType.float,
+      ]))
+    applied = [:]
+    controller.backend.installUpdateHandler { applied[$0] = $1 }
+    #expect(applied.isEmpty)
+  }
+
+  /// Without a document to judge them by — a refused theme, an unreadable document, or while the
+  /// next one's declarations are read — writes are refused but the stored values are kept.
+  @Test func detachingKeepsTheStoredValuesForTheNextDocument() {
+    let controller = RemoteComposePlayerController()
+    controller.backend.attach(Self.declarations)
+    #expect(controller.setInteger(3, for: "count"))
+
+    controller.backend.detach()
+    #expect(controller.names.isEmpty)
+    #expect(!controller.setInteger(4, for: "count"))
+
+    controller.backend.attach(Self.declarations)
+    var applied: [String: Value] = [:]
+    controller.backend.installUpdateHandler { applied[$0] = $1 }
+    #expect(applied == ["USER:count": .integer(3)])
+  }
+
+  /// A value refused while the player is still opening its document is retried until it opens,
+  /// however long that takes, rather than for a fixed time.
+  @Test func deliveryWaitsForTheDocumentToOpen() async {
+    let target = RecordingTarget()
+    target.accepts = false
+    target.isOpeningDocument = true
+    var attempts = 0
+    await Value.integer(1).deliver(
+      for: "USER:count", to: { target }, retryInterval: 0, openRetries: 3,
+      isCurrent: {
+        attempts += 1
+        // Far past `openRetries`; then the session opens and accepts.
+        if attempts == 20 {
+          target.isOpeningDocument = false
+          target.accepts = true
+        }
+        return true
+      })
+    #expect(target.calls.count == 20)
+    #expect(target.calls.last == .integer(1))
+
+    // Once open, a full queue is retried a bounded number of times.
+    let open = RecordingTarget()
+    open.accepts = false
+    await Value.integer(1).deliver(
+      for: "USER:count", to: { open }, retryInterval: 0, openRetries: 3,
+      isCurrent: { true })
+    #expect(open.calls.count == 3)
+
+    // A newer value (or a rebuild) stops it at once.
+    let superseded = RecordingTarget()
+    superseded.accepts = false
+    superseded.isOpeningDocument = true
+    await Value.integer(1).deliver(
+      for: "USER:count", to: { superseded }, retryInterval: 0, openRetries: 3,
+      isCurrent: { superseded.calls.count < 2 })
+    #expect(superseded.calls.count == 2)
+  }
+
   /// Each value reaches the native setter for its type. A colour and an integer are both carried
   /// as integers, and a colour used to be the only integer the native player was sent, so an
   /// integer went to `setColor` and was refused there.
@@ -151,6 +235,7 @@ private final class RecordingTarget: NativeNamedValueTarget {
 
   var calls: [Call] = []
   var accepts = true
+  var isOpeningDocument = false
 
   func setFloat(_ value: Float, for name: String) async -> Bool { record(.float(value)) }
   func setString(_ value: String, for name: String) async -> Bool { record(.string(value)) }

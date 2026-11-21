@@ -332,4 +332,42 @@ class RcComposeViewControllerTest {
       ),
     )
   }
+
+  /**
+   * A bare key stored for one document is re-resolved against the next, as `RcPlayerState` will
+   * resolve it. Checking the key as written kept `count` (INT in the old document), which the new
+   * document's `USER:count` (FLOAT) then rejected by throwing.
+   */
+  @Test
+  fun appleControllerReResolvesStoredNamesWhenTheDocumentChanges() {
+    fun document(vararg variables: RcNamedVariable) =
+      RcDocument(RcHeader(RcVersion(1, 0, 0)), variables.toList())
+
+    val controller = RcComposePlayerController()
+    controller.attach(
+      RcDocumentCapabilities.of(document(RcNamedVariable(1, RcNamedVariable.INT_TYPE, "count"))),
+    )
+    assertTrue(controller.setInteger("count", 1))
+    assertEquals(setOf("count"), controller.values.keys.toSet())
+
+    val conflicting =
+      document(
+        RcNamedVariable(1, RcNamedVariable.INT_TYPE, "count"),
+        RcNamedVariable(2, RcNamedVariable.FLOAT_TYPE, "USER:count"),
+      )
+    controller.attach(RcDocumentCapabilities.of(conflicting))
+    assertEquals(emptySet(), controller.values.keys.toSet())
+    // Built exactly as the player builds its state; this threw before the fix.
+    RcPlayerState(conflicting, namedValues = controller.values)
+
+    // The value is carried over, under the resolved name, when the types agree.
+    controller.attach(
+      RcDocumentCapabilities.of(document(RcNamedVariable(1, RcNamedVariable.INT_TYPE, "count"))),
+    )
+    assertTrue(controller.setInteger("count", 2))
+    val retyped = document(RcNamedVariable(3, RcNamedVariable.INT_TYPE, "USER:count"))
+    controller.attach(RcDocumentCapabilities.of(retyped))
+    assertEquals(setOf("USER:count"), controller.values.keys.toSet())
+    assertEquals(2, RcPlayerState(retyped, namedValues = controller.values).integer(3))
+  }
 }

@@ -65,9 +65,24 @@ public class RcComposePlayerController {
   public fun setBoolean(name: String, value: Boolean): Boolean =
     set(name, RcNamedVariable.INT_TYPE, RcNamedValue.BooleanValue(value))
 
+  /**
+   * Attaches a new document's declarations. Each stored value is re-keyed under the name the new
+   * document resolves its key to — the resolution `RcPlayerState` will apply — and dropped when
+   * that variable is undeclared or of another type. Checking the key as written instead let a bare
+   * `count` stored for one document reach a new document's `USER:count` of another type, which
+   * `RcPlayerState` rejects by throwing.
+   */
   internal fun attach(capabilities: RcDocumentCapabilities) {
     types = capabilities.namedValues
-    values.keys.removeAll { name -> !values.getValue(name).matchesType(types[name]) }
+    for ((key, value) in values.toMap()) {
+      val resolved = declaredName(key)
+      if (resolved == null || !value.matchesType(types[resolved])) {
+        values.remove(key)
+      } else if (resolved != key) {
+        values.remove(key)
+        values[resolved] = value
+      }
+    }
   }
 
   private fun set(name: String, expectedType: Int, value: RcNamedValue): Boolean {

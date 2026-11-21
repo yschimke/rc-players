@@ -339,6 +339,8 @@
     /// land last.
     private var latestNativeUpdates: [String: Int] = [:]
     private var nextNativeUpdateToken = 0
+    /// Reads the current document's declarations off the main thread; replaced on every rebuild.
+    private var declarationTask: Task<Void, Never>?
 
     public init(
       data: Data,
@@ -403,8 +405,12 @@
     private func rebuildContent() {
       playerController.backend.installUpdateHandler(nil)
       latestNativeUpdates.removeAll()
+      declarationTask?.cancel()
+      declarationTask = nil
+      // Writes are refused until the new document's declarations are read below; the values
+      // written so far are kept for them rather than judged against no document at all.
+      playerController.backend.detach()
       guard configuration.nativeFallbackSupportsTheme else {
-        playerController.backend.attach(.none)
         errorHandler(.playback("The native Swift fallback does not support an explicit dark theme yet."))
         return
       }
@@ -417,41 +423,44 @@
         onEvent: { [weak self] event in self?.eventHandler(.init(nativeEvent: event)) },
         onDiagnostics: { _ in },
         onError: { [weak self] error in self?.errorHandler(.playback(error.localizedDescription)) })
-      // Read the declarations now, as the Kotlin player does when it is built, so every controller
-      // write is answered before the native session opens asynchronously.
-      playerController.backend.attach(
-        Self.declarations(of: documentData, within: native.playerView.executionLimits))
       install(native)
-      playerController.backend.installUpdateHandler { [weak self, weak native] name, value in
-        // The task takes its own weak references rather than sharing the handler's captures.
-        Task { @MainActor [weak self, weak native] in
-          guard let token = self?.beginNativeUpdate(for: name) else { return }
-          // The controller has already checked the value against the document's declarations, so
-          // a refusal here only means the asynchronous session has not opened yet (or its input
-          // queue is full). Retry a bounded time until it accepts. Stop early once the player is
-          // gone or rebuilt, or a newer value for this name has started.
-          for _ in 0..<50 {
-            // The strong reference lives only for the call, not across the sleep below.
-            do {
-              guard let target = native, self?.latestNativeUpdates[name] == token else { return }
-              if await value.apply(to: target, for: name) { return }
+      // Reading the declarations decodes the whole document, so it runs off the main thread, like
+      // the session's own open. The controller is attached as soon as it finishes — normally well
+      // before the session has opened — and replays the values written so far.
+      let data = documentData
+      let limits = native.playerView.executionLimits
+      declarationTask = Task { [weak self, weak native] in
+        let declarations = await Task.detached(priority: .userInitiated) {
+          RemoteComposePlayerViewController.declarations(of: data, within: limits)
+        }.value
+        guard !Task.isCancelled, let self, let native, self.nativeController === native else {
+          return
+        }
+        self.declarationTask = nil
+        guard let declarations else { return }
+        self.playerController.backend.attach(declarations)
+        self.playerController.backend.installUpdateHandler { [weak self, weak native] name, value in
+          // The task takes its own weak references rather than sharing the handler's captures.
+          Task { @MainActor [weak self, weak native] in
+            guard let token = self?.beginNativeUpdate(for: name) else { return }
+            await value.deliver(for: name, to: { native }) {
+              self?.latestNativeUpdates[name] == token
             }
-            try? await Task.sleep(nanoseconds: 50_000_000)
           }
         }
       }
     }
 
-    /// The declarations of `data`, or none when the native player will refuse the document — over
+    /// The declarations of `data`, or nil when the native player will refuse the document — over
     /// its size limit, or not decodable — and report that failure itself. The limit is checked
     /// first so an oversized document is not decoded here only to be refused.
-    private static func declarations(
+    nonisolated private static func declarations(
       of data: Data, within limits: RemoteComposeNativeExecutionLimits
-    ) -> NativeSwiftNamedVariableDeclarations {
+    ) -> NativeSwiftNamedVariableDeclarations? {
       guard data.count <= limits.maximumDocumentBytes, data.count <= Int(Int32.max) else {
-        return .none
+        return nil
       }
-      return (try? NativeSwiftNamedVariableDeclarations.declared(in: data)) ?? .none
+      return try? NativeSwiftNamedVariableDeclarations.declared(in: data)
     }
 
     private func beginNativeUpdate(for name: String) -> Int {

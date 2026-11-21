@@ -2396,10 +2396,6 @@ import Testing
     #expect(beforeStart.isEmpty, Comment(rawValue: "trimmed before the start: \(beforeStart)"))
   }
 
-  /// A path id with `NativeSwiftPaintOperationID.pointerDereference` set names an integer variable
-  /// that AndroidX's `PaintOperation.getId` reads each time the operation paints: the path drawn
-  /// follows the variable, and a variable naming no path draws nothing. A literal id is its low
-  /// sixteen bits. `DRAW_TWEEN_PATH` and `DRAW_PATH` read their ids the same way.
   /// A host may validate a named write against a document's declarations before the document's
   /// session exists; the answer must be the one the session gives, for every name and value.
   @Test func namedVariableDeclarationsAnswerAsTheSessionDoes() throws {
@@ -2463,6 +2459,10 @@ import Testing
     #expect(!declarations.acceptsInteger(for: "epoch"))
   }
 
+  /// A path id with `NativeSwiftPaintOperationID.pointerDereference` set names an integer variable
+  /// that AndroidX's `PaintOperation.getId` reads each time the operation paints: the path drawn
+  /// follows the variable, and a variable naming no path draws nothing. A literal id is its low
+  /// sixteen bits. `DRAW_TWEEN_PATH` and `DRAW_PATH` read their ids the same way.
   @Test func drawTweenPathDereferencesIntegerPathIDs() throws {
     let move = NativeSwiftPathCommand.move
     let line = NativeSwiftPathCommand.line
