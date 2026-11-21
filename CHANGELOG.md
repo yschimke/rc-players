@@ -1,5 +1,28 @@
 # Changelog
 
+## [3.10.0](https://github.com/yschimke/rc-players/compare/v3.9.0...v3.10.0) (2026-11-21)
+
+
+### Features
+
+* **player:** add opt-in embedded documents support and feed benchmark ([#937](https://github.com/yschimke/rc-players/issues/937)) ([369b342](https://github.com/yschimke/rc-players/commit/369b342b749de2e43656c4546d61a47419687f09))
+
+
+### Bug Fixes
+
+* **deps:** update dependency com.android.tools.build:gradle to v9.5.2 ([#946](https://github.com/yschimke/rc-players/issues/946)) ([ccacc3d](https://github.com/yschimke/rc-players/commit/ccacc3db7c23474cbd165a557aba22c52db45e6f))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.45.0 ([#947](https://github.com/yschimke/rc-players/issues/947)) ([58b1000](https://github.com/yschimke/rc-players/commit/58b100029c8712eb8fd6c36c7951a668f780007b))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.28.1 ([#935](https://github.com/yschimke/rc-players/issues/935)) ([432ede0](https://github.com/yschimke/rc-players/commit/432ede0ac968e5ae1c970cb0a90d33c1cdc6aa2f))
+* **swift:** port CMP fontStyle, 255-color gradient, compositingStrategy, and NaN fallback fixes ([#939](https://github.com/yschimke/rc-players/issues/939)) ([a8ac3ba](https://github.com/yschimke/rc-players/commit/a8ac3ba7e20c08e736dab0d6633536ca45bbc833))
+
+
+### Performance Improvements
+
+* **player:** optimize embedded documents runtime and add static inlining ([#943](https://github.com/yschimke/rc-players/issues/943)) ([d06119b](https://github.com/yschimke/rc-players/commit/d06119b3db95271f297555e68f84ab0456290fdb))
+* **swift:** add NativeSwiftPreparedDocument cache, fix static wall-clock cache, and skip intermediate input builds ([#940](https://github.com/yschimke/rc-players/issues/940)) ([15a84c6](https://github.com/yschimke/rc-players/commit/15a84c670350fd47f857e9b316d8a537d23eeefc))
+* **swift:** expand core, mobile iOS, and desktop macOS benchmarks ([#938](https://github.com/yschimke/rc-players/issues/938)) ([46af4cb](https://github.com/yschimke/rc-players/commit/46af4cbd99e8bc2f4014945880a679c2bdee491b))
+* **swift:** fix quadratic UIKit update, guard TextLabel/ImageView/AppKit canvas redraws, cache local font lookup, and optimize sweep gradients ([#941](https://github.com/yschimke/rc-players/issues/941)) ([20e60af](https://github.com/yschimke/rc-players/commit/20e60af4579888ab3ac71c01a117743e16116fe5))
+
 ## [3.9.0](https://github.com/yschimke/rc-players/compare/v3.8.0...v3.9.0) (2026-11-19)
 
 
