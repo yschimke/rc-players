@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.12.0](https://github.com/yschimke/rc-players/compare/v3.11.0...v3.12.0) (2026-11-21)
+
+
+### Features
+
+* fire a touch expression's touch-effect haptic as its value crosses a stop ([#951](https://github.com/yschimke/rc-players/issues/951)) ([bb43376](https://github.com/yschimke/rc-players/commit/bb43376ad84b5f1db50be22691e37d571ca9a17c))
+
 ## [3.11.0](https://github.com/yschimke/rc-players/compare/v3.10.0...v3.11.0) (2026-11-21)
 
 
