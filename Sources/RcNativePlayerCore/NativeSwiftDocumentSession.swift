@@ -11,6 +11,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   // recursive lock is required because click() forwards to gesture().
   private let stateLock = NSRecursiveLock()
   private let document: ParsedDocument
+  /// What a host may write by name. Immutable, like `document`, so it needs no lock.
+  public let namedVariableDeclarations: NativeSwiftNamedVariableDeclarations
   private var texts: [Int: String]
   private var floats: [Int: Float]
   private var floatOverrides: [Int: Float] = [:]
@@ -52,6 +54,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   private init(document: ParsedDocument) {
     self.document = document
+    namedVariableDeclarations = NativeSwiftNamedVariableDeclarations(
+      variables: document.namedVariables)
     texts = document.texts
     floats = document.floats
     colors = document.colors
@@ -107,6 +111,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   private init(copying other: NativeSwiftDocumentSession) {
     document = other.document
+    namedVariableDeclarations = other.namedVariableDeclarations
     texts = other.texts
     floats = other.floats
     floatOverrides = other.floatOverrides
@@ -705,7 +710,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// The authoring API addresses user values without the wire format's `USER:` prefix. Keep the
   /// wire spelling available too, so hosts can use either form when a document names it explicitly.
   private func namedVariable(for name: String) -> ParsedNamedVariable? {
-    document.namedVariables[name] ?? document.namedVariables["USER:\(name)"]
+    namedVariableDeclarations.variable(for: name)
   }
 
   /// Writes one float slot by id, for a gesture that moves a document's own value — a scroll's
@@ -723,8 +728,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   public func setFloat(_ value: Float, for name: String) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
-    guard value.isFinite, let variable = namedVariable(for: name),
-      variable.type == NativeSwiftNamedVariableType.float
+    guard namedVariableDeclarations.acceptsFloat(value, for: name),
+      let variable = namedVariable(for: name)
     else {
       return false
     }
@@ -736,8 +741,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   public func setString(_ value: String, for name: String) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
-    guard value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes,
-      let variable = namedVariable(for: name), variable.type == NativeSwiftNamedVariableType.string
+    guard namedVariableDeclarations.acceptsString(value, for: name),
+      let variable = namedVariable(for: name)
     else { return false }
     texts[variable.id] = value
     staticSnapshotCache = nil
@@ -747,7 +752,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   public func setColor(_ value: UInt32, for name: String) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
-    guard let variable = namedVariable(for: name), variable.type == NativeSwiftNamedVariableType.color else {
+    guard namedVariableDeclarations.acceptsColor(for: name),
+      let variable = namedVariable(for: name)
+    else {
       return false
     }
     colors[variable.id] = value
@@ -761,7 +768,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   public func setInteger(_ value: Int, for name: String) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
-    guard let variable = namedVariable(for: name), variable.type == NativeSwiftNamedVariableType.int else {
+    guard namedVariableDeclarations.acceptsInteger(for: name),
+      let variable = namedVariable(for: name)
+    else {
       return false
     }
     integers[variable.id] = value

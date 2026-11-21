@@ -82,14 +82,11 @@ private func remoteComposeActionURL(_ value: String) -> URL? {
   return url
 }
 
+/// Discovers and updates the host-driven named variables of the document a player shows. The same
+/// calls drive whichever player the build links; see `ControllerBackend`.
 @MainActor
 public final class RemoteComposePlayerController {
-  #if canImport(UIKit) && canImport(RcComposePlayer)
-    let kotlinController = RcComposePlayerController()
-  #else
-    private var values: [String: RemoteComposePlayerActionValue] = [:]
-    private var nativeUpdateHandler: ((String, RemoteComposePlayerActionValue) -> Void)?
-  #endif
+  let backend = ControllerBackend()
 
   public init() {}
 
@@ -98,65 +95,41 @@ public final class RemoteComposePlayerController {
   public func configureInputs(editable: Bool,
     onChange: @escaping (String, String) -> Void = { _, _ in },
     onSubmit: @escaping (String, [String: String]) -> Void = { _, _ in }) {
-      kotlinController.configureInputs(editable: editable, onChange: onChange, onSubmit: onSubmit)
+      backend.kotlinController.configureInputs(
+        editable: editable, onChange: onChange, onSubmit: onSubmit)
   }
   #endif
 
-  public var names: [String] {
-    #if canImport(UIKit) && canImport(RcComposePlayer)
-      kotlinController.names
-    #else
-      values.keys.sorted()
-    #endif
-  }
+  /// The names the document currently attached to the player declares; empty before one is.
+  public var names: [String] { backend.names }
 
   @discardableResult
   public func setFloat(_ value: Float, for name: String) -> Bool {
-    #if canImport(UIKit) && canImport(RcComposePlayer)
-      kotlinController.setFloat(name: name, value: value)
-    #else
-      values[name] = .float(value)
-      nativeUpdateHandler?(name, .float(value))
-      return true
-    #endif
+    backend.set(.float(value), for: name)
   }
 
   @discardableResult
   public func setString(_ value: String, for name: String) -> Bool {
-    #if canImport(UIKit) && canImport(RcComposePlayer)
-      kotlinController.setString(name: name, value: value)
-    #else
-      values[name] = .text(value)
-      nativeUpdateHandler?(name, .text(value))
-      return true
-    #endif
+    backend.set(.text(value), for: name)
   }
 
   @discardableResult
   public func setColor(_ argb: UInt32, for name: String) -> Bool {
-    #if canImport(UIKit) && canImport(RcComposePlayer)
-      kotlinController.setColor(name: name, argb: Int32(bitPattern: argb))
-    #else
-      let value = RemoteComposePlayerActionValue.integer(Int(Int32(bitPattern: argb)))
-      values[name] = value
-      nativeUpdateHandler?(name, value)
-      return true
-    #endif
+    backend.set(.color(argb), for: name)
   }
 
-  func installNativeUpdateHandler(
-    _ handler: ((String, RemoteComposePlayerActionValue) -> Void)?
-  ) {
-    #if canImport(UIKit) && canImport(RcComposePlayer)
-      // Kotlin owns controller propagation in the standard UIKit player.
-    #else
-      nativeUpdateHandler = handler
-      guard let handler else { return }
-      for name in values.keys.sorted() {
-        guard let value = values[name] else { continue }
-        handler(name, value)
-      }
-    #endif
+  /// Sets an integer variable. Values outside the 32-bit range a Remote Compose integer holds are
+  /// refused.
+  @discardableResult
+  public func setInteger(_ value: Int, for name: String) -> Bool {
+    guard let value = Int32(exactly: value) else { return false }
+    return backend.set(.integer(value), for: name)
+  }
+
+  /// Sets a boolean variable: an integer variable holding 1 or 0, as AndroidX stores a boolean.
+  @discardableResult
+  public func setBoolean(_ value: Bool, for name: String) -> Bool {
+    backend.set(.boolean(value), for: name)
   }
 }
 

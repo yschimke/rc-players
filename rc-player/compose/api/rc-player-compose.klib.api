@@ -1430,8 +1430,10 @@ final class ee.schimke.composeai.rcplayer.compose/RcComposePlayerController { //
         final fun <get-names>(): kotlin.collections/List<kotlin/String> // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.names.<get-names>|<get-names>(){}[0]
 
     final fun configureInputs(kotlin/Boolean, kotlin/Function2<kotlin/String, kotlin/String, kotlin/Unit>, kotlin/Function2<kotlin/String, kotlin.collections/Map<kotlin/String, kotlin/String>, kotlin/Unit>) // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.configureInputs|configureInputs(kotlin.Boolean;kotlin.Function2<kotlin.String,kotlin.String,kotlin.Unit>;kotlin.Function2<kotlin.String,kotlin.collections.Map<kotlin.String,kotlin.String>,kotlin.Unit>){}[0]
+    final fun setBoolean(kotlin/String, kotlin/Boolean): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.setBoolean|setBoolean(kotlin.String;kotlin.Boolean){}[0]
     final fun setColor(kotlin/String, kotlin/Int): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.setColor|setColor(kotlin.String;kotlin.Int){}[0]
     final fun setFloat(kotlin/String, kotlin/Float): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.setFloat|setFloat(kotlin.String;kotlin.Float){}[0]
+    final fun setInteger(kotlin/String, kotlin/Int): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.setInteger|setInteger(kotlin.String;kotlin.Int){}[0]
     final fun setString(kotlin/String, kotlin/String): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.setString|setString(kotlin.String;kotlin.String){}[0]
 }
 

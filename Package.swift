@@ -66,7 +66,9 @@ if !nativeOnly {
 // the overlay against the native Swift player instead: `Sources/RcComposePlayerSwiftUI` guards
 // every Kotlin code path with `#if canImport(RcComposePlayer)`. An unconditional dependency let
 // those platforms resolve the package and then fail at link time.
-var swiftUIDependencies: [Target.Dependency] = ["RcPlayerAppleFonts", "RcNativePlayerUIKit"]
+var swiftUIDependencies: [Target.Dependency] = [
+  "RcPlayerAppleFonts", "RcNativePlayerCore", "RcNativePlayerUIKit",
+]
 if !nativeOnly {
   swiftUIDependencies.insert(
     .target(name: "RcComposePlayer", condition: .when(platforms: [.iOS, .macOS])), at: 0)
@@ -104,6 +106,15 @@ var targets: [Target] = [
     resources: [.copy("Fixtures")]
   ),
 ]
+// The overlay's own tests drive its native-fallback controller, so they exist only in native-only
+// mode: with the Kotlin binary target in the graph the overlay would need the framework resolved.
+if nativeOnly {
+  targets.append(
+    .testTarget(
+      name: "RcComposePlayerSwiftUITests",
+      dependencies: ["RcComposePlayerSwiftUI", "RcNativePlayerCore"]
+    ))
+}
 if coreOnly {
   let coreTargets: Set<String> = ["RcNativePlayerCore", "RcNativePlayerCoreTests"]
   products = products.filter { $0.name == "RcNativePlayerCore" }

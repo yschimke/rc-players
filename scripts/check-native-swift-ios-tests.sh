@@ -62,6 +62,7 @@ if ! RC_COMPOSE_PLAYER_NATIVE_ONLY=1 xcodebuild test -quiet \
   -resultBundlePath "$result" \
   -only-testing:RcNativePlayerCoreTests \
   -only-testing:RcNativePlayerUIKitTests \
+  -only-testing:RcComposePlayerSwiftUITests \
   CODE_SIGNING_ALLOWED=NO; then
   echo "native Swift iOS simulator tests failed; summary:" >&2
   xcrun xcresulttool get test-results summary --path "$result" >&2 || true

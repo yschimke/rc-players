@@ -119,12 +119,21 @@ struct LivePlayer: View {
     playerController.setFloat(0.75, for: "progress")
     playerController.setString("Ready", for: "status")
     playerController.setColor(0xff336699, for: "accent")
+    playerController.setInteger(3, for: "unreadCount")
+    playerController.setBoolean(true, for: "isOnline")
   }
 }
 ```
 
 Bare names resolve in the `USER:` namespace; explicitly namespaced declarations are accepted as
-written. Each setter returns `false` for an absent name or a type mismatch. Metadata actions and
+written. Each setter returns `false` for an absent name or a type mismatch, and before the player
+view has loaded a document — the controller learns the declared names when the player is built, so
+`names` is empty until then. The Kotlin player and the native Swift fallback answer alike: the
+fallback checks each write against the document's declarations up front, so a `false` is never
+queued and a `true` is applied once the native session opens. `setInteger` and `setBoolean` both
+target an integer variable: a Remote Compose boolean is an integer holding 1 or 0, as AndroidX's
+`setNamedBooleanOverride` stores it, and an integer outside the 32-bit range is refused. Metadata
+actions and
 text-valued named actions also expose a pre-parsed `event.url` convenience property.
 
 ### Downloadable Google Fonts

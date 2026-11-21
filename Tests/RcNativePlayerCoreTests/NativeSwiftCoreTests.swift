@@ -2400,6 +2400,69 @@ import Testing
   /// that AndroidX's `PaintOperation.getId` reads each time the operation paints: the path drawn
   /// follows the variable, and a variable naming no path draws nothing. A literal id is its low
   /// sixteen bits. `DRAW_TWEEN_PATH` and `DRAW_PATH` read their ids the same way.
+  /// A host may validate a named write against a document's declarations before the document's
+  /// session exists; the answer must be the one the session gives, for every name and value.
+  @Test func namedVariableDeclarationsAnswerAsTheSessionDoes() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.text(id: 60, "Idle")
+    document.namedVariable(id: 60, type: NativeSwiftNamedVariableType.string, name: "USER:title")
+    document.u8(NativeSwiftWireOpcode.dataFloat).int(61).float(0)
+    document.namedVariable(id: 61, type: NativeSwiftNamedVariableType.float, name: "USER:progress")
+    document.namedVariable(id: 62, type: NativeSwiftNamedVariableType.color, name: "USER:accent")
+    document.u8(NativeSwiftWireOpcode.dataInt).int(63).int(0)
+    document.namedVariable(id: 63, type: NativeSwiftNamedVariableType.int, name: "USER:enabled")
+    document.u8(NativeSwiftWireOpcode.dataInt).int(64).int(0)
+    document.namedVariable(id: 64, type: NativeSwiftNamedVariableType.int, name: "plain")
+    document.u8(NativeSwiftWireOpcode.dataLong).int(65).long(0)
+    document.namedVariable(id: 65, type: NativeSwiftNamedVariableType.long, name: "USER:epoch")
+    // Declared both bare and in `USER:`; a bare host name means the `USER:` one, as in Kotlin.
+    document.u8(NativeSwiftWireOpcode.dataFloat).int(66).float(0)
+    document.namedVariable(id: 66, type: NativeSwiftNamedVariableType.float, name: "both")
+    document.u8(NativeSwiftWireOpcode.dataInt).int(67).int(0)
+    document.namedVariable(id: 67, type: NativeSwiftNamedVariableType.int, name: "USER:both")
+    document.u8(NativeSwiftWireOpcode.drawLine).float(0).float(0).float(1).float(1)
+
+    let declarations = try NativeSwiftNamedVariableDeclarations.declared(in: document.data)
+    let session = try NativeSwiftDocumentSession.open(data: document.data)
+    #expect(
+      declarations.names == [
+        "USER:accent", "USER:both", "USER:enabled", "USER:epoch", "USER:progress", "USER:title",
+        "both", "plain",
+      ])
+    #expect(session.namedVariableDeclarations.names == declarations.names)
+    #expect(declarations.declaredName(for: "enabled") == "USER:enabled")
+    #expect(declarations.declaredName(for: "USER:enabled") == "USER:enabled")
+    #expect(declarations.declaredName(for: "plain") == "plain")
+    #expect(declarations.declaredName(for: "missing") == nil)
+    #expect(declarations.declaredName(for: "both") == "USER:both")
+    #expect(session.namedVariableID("both") == 67)
+    #expect(declarations.declaredName(for: "USER:missing") == nil)
+    #expect(NativeSwiftNamedVariableDeclarations.none.names.isEmpty)
+
+    let names = [
+      "title", "progress", "accent", "enabled", "plain", "epoch", "missing", "USER:title", "both",
+    ]
+    let longText = String(repeating: "x", count: NativeSwiftDocumentDecoder.maximumStringBytes + 1)
+    for name in names {
+      for value: Float in [0.5, .nan, .infinity] {
+        #expect(declarations.acceptsFloat(value, for: name) == session.setFloat(value, for: name))
+      }
+      for value in ["Ready", longText] {
+        #expect(declarations.acceptsString(value, for: name) == session.setString(value, for: name))
+      }
+      #expect(declarations.acceptsColor(for: name) == session.setColor(0xFF00_FF00, for: name))
+      #expect(declarations.acceptsInteger(for: name) == session.setInteger(1, for: name))
+    }
+    #expect(declarations.acceptsInteger(for: "enabled"))
+    #expect(declarations.acceptsInteger(for: "plain"))
+    #expect(declarations.acceptsFloat(0.5, for: "progress"))
+    #expect(!declarations.acceptsFloat(0.5, for: "enabled"))
+    #expect(declarations.acceptsString("Ready", for: "title"))
+    #expect(declarations.acceptsColor(for: "accent"))
+    #expect(!declarations.acceptsInteger(for: "epoch"))
+  }
+
   @Test func drawTweenPathDereferencesIntegerPathIDs() throws {
     let move = NativeSwiftPathCommand.move
     let line = NativeSwiftPathCommand.line

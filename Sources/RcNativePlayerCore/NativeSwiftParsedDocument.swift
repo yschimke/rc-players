@@ -183,7 +183,7 @@ struct ParsedColorExpression {
   }
 }
 
-struct ParsedNamedVariable {
+struct ParsedNamedVariable: Sendable {
   let id: Int
   let type: Int
 }
