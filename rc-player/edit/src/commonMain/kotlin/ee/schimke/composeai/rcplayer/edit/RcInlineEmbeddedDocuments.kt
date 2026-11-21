@@ -3,16 +3,27 @@ package ee.schimke.composeai.rcplayer.edit
 import ee.schimke.composeai.rcplayer.protocol.RcBinaryData
 import ee.schimke.composeai.rcplayer.protocol.RcBooleanConstant
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClipRectModifier
+import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleColumnLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
+import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
+import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
+import ee.schimke.composeai.rcplayer.protocol.RcCoreText
+import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcFlowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcIdRemapper
+import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
@@ -23,7 +34,11 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
+import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
+import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcTheme
 import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
 import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
@@ -67,6 +82,7 @@ public fun RcDocument.inlineEmbeddedDocuments(
 }
 
 private const val INLINE_FIRST_DOC_ID: Int = 42
+private const val INLINE_OPERATOR_BASE: Int = 0x300000
 private const val INLINE_ID_MASK: Int = 0x003fffff
 private const val INLINE_ID_REGION_MASK: Int = 0x00c00000
 private const val INLINE_ID_REGION_ARRAY: Int = 0x00400000
@@ -105,8 +121,8 @@ private fun RcDocument.inlineEmbeddedOnce(resolver: ((String) -> ByteArray?)?): 
 
   var nextFreshId = INLINE_FIRST_DOC_ID
   fun allocateId(): Int? {
-    while (nextFreshId < INLINE_ID_MASK && nextFreshId in usedIds) nextFreshId++
-    if (nextFreshId >= INLINE_ID_MASK) return null
+    while (nextFreshId < INLINE_OPERATOR_BASE && nextFreshId in usedIds) nextFreshId++
+    if (nextFreshId >= INLINE_OPERATOR_BASE) return null
     val id = nextFreshId++
     usedIds += id
     return id
@@ -274,35 +290,56 @@ private fun inlineChild(
   val origRootId = (origRootNode.operation as RcRootLayout).componentId
   val hasChildRootModifiers = origRootNode.children.size > 1
 
-  // Collect all remappable ids in the child document and assign fresh non-colliding ids.
-  val childIds = linkedSetOf<Int>()
+  // Collect component IDs and resource IDs separately:
+  // - component IDs can be in 0..41 (overlapping system variables like CONTINUOUS_SEC) or negative,
+  //   so they are remapped in a dedicated component-operation pass rather than through
+  //   RcIdRemapper (which would otherwise rewrite system-variable float words);
+  // - resource IDs are strictly in [42, 0x300000), excluding both system variables (< 42) and
+  //   NaN-encoded float/matrix expression operators (>= 0x300000).
+  val childComponentIds = linkedSetOf<Int>()
+  val childResourceIds = linkedSetOf<Int>()
   for (op in child.operations) {
-    op.declaredComponentId()?.let { if (it != -1) childIds += it }
-    op.mentionedValues()?.forEach { raw ->
-      if (isRemappableChildId(raw)) childIds += (raw and INLINE_ID_MASK)
+    op.declaredComponentId()?.let { if (it != -1) childComponentIds += it }
+    when (op) {
+      is RcComponentValue -> if (op.componentId != -1) childComponentIds += op.componentId
+      is RcMapRcDocVariables -> if (op.docId != -1) childComponentIds += op.docId
+      else -> Unit
     }
-    if (op is RcBinaryData && isRemappableChildId(op.id)) childIds += op.id
+    op.mentionedValues()?.forEach { raw ->
+      if (isRemappableResourceId(raw)) childResourceIds += (raw and INLINE_ID_MASK)
+    }
+    if (op is RcBinaryData && isRemappableResourceId(op.id)) childResourceIds += op.id
   }
+  childResourceIds.removeAll(childComponentIds)
 
-  val baseMapping = mutableMapOf<Int, Int>()
-  for ((childVarId, parentLocalId) in mappedChildVarIds) {
-    baseMapping[childVarId] = parentLocalId
-  }
+  val componentMapping = mutableMapOf<Int, Int>()
   // When the child root has no modifiers of its own, the outer replacement RcBoxLayout takes its
   // place directly; alias the child root's componentId to docOp.componentId so RcComponentValue
   // bindings to the child root still receive its geometry.
   if (!hasChildRootModifiers && origRootId != -1 && docOp.componentId != -1) {
-    baseMapping[origRootId] = docOp.componentId
+    componentMapping[origRootId] = docOp.componentId
   }
-  for (id in childIds) {
-    if (id !in baseMapping) {
-      baseMapping[id] = allocateId() ?: return null
+  for (id in childComponentIds) {
+    if (id !in componentMapping) {
+      componentMapping[id] = allocateId() ?: return null
     }
   }
-  val fullMapping = buildMap {
-    for ((from, to) in baseMapping) {
+
+  val resourceMapping = mutableMapOf<Int, Int>()
+  for ((childVarId, parentLocalId) in mappedChildVarIds) {
+    if (isRemappableResourceId(childVarId)) {
+      resourceMapping[childVarId] = parentLocalId
+    }
+  }
+  for (id in childResourceIds) {
+    if (id !in resourceMapping) {
+      resourceMapping[id] = allocateId() ?: return null
+    }
+  }
+  val fullResourceMapping = buildMap {
+    for ((from, to) in resourceMapping) {
       put(from, to)
-      if (from >= 0) put(from or INLINE_ID_REGION_ARRAY, to or INLINE_ID_REGION_ARRAY)
+      put(from or INLINE_ID_REGION_ARRAY, to or INLINE_ID_REGION_ARRAY)
     }
   }
 
@@ -324,7 +361,11 @@ private fun inlineChild(
       }
     }
 
-  val remappedChildOps = remapChildOperations(filteredChildOps, fullMapping, usedIds)
+  val remappedChildOps =
+    remapComponentIds(
+      remapChildOperations(filteredChildOps, fullResourceMapping, usedIds),
+      componentMapping,
+    )
   val remappedTree = operationTree(remappedChildOps) ?: return null
   val rootNode = remappedTree.singleOrNull { it.operation is RcRootLayout } ?: return null
   val contentNode =
@@ -448,11 +489,62 @@ private fun childWrittenVariableIds(operations: List<RcOperation>): Set<Int> {
   return written
 }
 
-private fun isRemappableChildId(value: Int): Boolean =
-  if (value < 0) value != -1
-  else
-    (value and INLINE_ID_REGION_MASK).let { it == 0 || it == INLINE_ID_REGION_ARRAY } &&
-      (value and INLINE_ID_MASK) >= INLINE_FIRST_DOC_ID
+private fun isRemappableResourceId(value: Int): Boolean {
+  if (value < 0) return false
+  val region = value and INLINE_ID_REGION_MASK
+  if (region != 0 && region != INLINE_ID_REGION_ARRAY) return false
+  val base = value and INLINE_ID_MASK
+  return base in INLINE_FIRST_DOC_ID until INLINE_OPERATOR_BASE
+}
+
+private fun remapComponentIds(
+  operations: List<RcOperation>,
+  mapping: Map<Int, Int>,
+): List<RcOperation> {
+  if (mapping.isEmpty()) return operations
+  fun map(id: Int): Int = mapping[id] ?: id
+  return operations.map { op ->
+    when (op) {
+      is RcRootLayout -> op.copy(componentId = map(op.componentId))
+      is RcLayoutContent -> op.copy(componentId = map(op.componentId))
+      is RcCanvasLayout -> op.copy(componentId = map(op.componentId))
+      is RcCanvasContent -> op.copy(componentId = map(op.componentId))
+      is RcCustomLayout -> op.copy(componentId = map(op.componentId))
+      is RcBoxLayout -> op.copy(componentId = map(op.componentId))
+      is RcRowLayout -> op.copy(componentId = map(op.componentId))
+      is RcColumnLayout -> op.copy(componentId = map(op.componentId))
+      is RcFlowLayout -> op.copy(componentId = map(op.componentId))
+      is RcStateLayout -> op.copy(componentId = map(op.componentId))
+      is RcCollapsibleRowLayout -> op.copy(componentId = map(op.componentId))
+      is RcCollapsibleColumnLayout -> op.copy(componentId = map(op.componentId))
+      is RcFitBoxLayout -> op.copy(componentId = map(op.componentId))
+      is RcImageLayout -> op.copy(componentId = map(op.componentId))
+      is RcDocLayout -> op.copy(componentId = map(op.componentId))
+      is RcTextLayout -> op.copy(componentId = map(op.componentId))
+      is RcCoreText -> {
+        val oldId = op.componentId
+        val newId = mapping[oldId]
+        if (newId != null && newId != oldId) {
+          op.copy(
+            properties =
+              op.properties.map { prop ->
+                if (prop is RcTextStyleProperty.IntValue && prop.id == 1) {
+                  prop.copy(value = newId)
+                } else {
+                  prop
+                }
+              },
+          )
+        } else {
+          op
+        }
+      }
+      is RcComponentValue -> op.copy(componentId = map(op.componentId))
+      is RcMapRcDocVariables -> op.copy(docId = map(op.docId))
+      else -> op
+    }
+  }
+}
 
 private fun remapChildOperations(
   operations: List<RcOperation>,

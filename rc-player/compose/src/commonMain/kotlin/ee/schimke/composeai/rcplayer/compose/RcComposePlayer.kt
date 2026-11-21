@@ -766,10 +766,27 @@ internal fun RcComposePlayerResolved(
   // through the collector above: a host that writes its values as it composes (before this player)
   // has them drawn on that frame, as a composable given new parameters would be. The top level then
   // evaluates and publishes them below, in this same composition. A change that first switches the
-  // lookahead pass on still goes through the collector, which waits for the pass.
-  if (
-    (!observeNamedValues && namedValues.isNotEmpty()) ||
-      (perValueInvalidation && !switchingOnLookahead[0] && (lookahead || !animatesBounds))
+  // lookahead pass on still goes through the collector (or the on-demand deferred effect below for
+  // embedded players), which waits for the pass.
+  var pendingDeferredNamedValues by
+    remember(state) { mutableStateOf<Map<String, RcNamedValue>?>(null) }
+  if (!observeNamedValues && namedValues.isNotEmpty() && !switchingOnLookahead[0]) {
+    val current = namedValues.toMap()
+    if (current != appliedNamedValues) {
+      if (!lookahead && animatesBounds) {
+        if (pendingDeferredNamedValues != current) pendingDeferredNamedValues = current
+      } else {
+        applyHostValues(current)
+        if (defersLookahead && hostChanges < LOOKAHEAD_LIVE_HOST_CHANGES) {
+          SideEffect { hostChanges += 1 }
+        }
+      }
+    }
+  } else if (
+    observeNamedValues &&
+      perValueInvalidation &&
+      !switchingOnLookahead[0] &&
+      (lookahead || !animatesBounds)
   ) {
     val current = namedValues.toMap()
     if (current != appliedNamedValues) {
@@ -778,6 +795,28 @@ internal fun RcComposePlayerResolved(
       // recompose this top level again on the next frame.
       if (defersLookahead && hostChanges < LOOKAHEAD_LIVE_HOST_CHANGES)
         SideEffect { hostChanges += 1 }
+    }
+  }
+  val deferredChange = pendingDeferredNamedValues
+  if (!observeNamedValues && deferredChange != null) {
+    LaunchedEffect(state, deferredChange) {
+      if (!lookahead && animatesBounds) {
+        switchingOnLookahead[0] = true
+        lookahead = true
+        try {
+          withFrameNanos {}
+          withFrameNanos {}
+        } finally {
+          switchingOnLookahead[0] = false
+        }
+      }
+      val latest = namedValues.toMap()
+      if (latest != appliedNamedValues) {
+        applyHostValues(latest)
+        if (perValueInvalidation) hostValueVersion += 1 else invalidationVersion += 1
+        hostChanges += 1
+      }
+      pendingDeferredNamedValues = null
     }
   }
   if (defersLookahead) {

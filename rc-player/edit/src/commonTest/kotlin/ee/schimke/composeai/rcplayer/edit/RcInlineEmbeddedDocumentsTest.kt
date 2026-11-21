@@ -10,6 +10,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
@@ -482,5 +483,64 @@ class RcInlineEmbeddedDocumentsTest {
       inlined.operations.filterIsInstance<RcTextData>().any { it.text == "child-default" },
       "Expected child's default text constant to remain",
     )
+  }
+
+  @Test
+  fun preservesExpressionOperatorsAndSystemVariablesWhenInlining() {
+    val continuousSecWord = RcFloatWord(0x7fc00000 or 1) // RcSystemVariables.CONTINUOUS_SEC = 1
+    val addOperatorWord = RcFloatWord(0x7ff10001) // RcFloatExpressionEvaluator.OFFSET + 1 (ADD)
+    val childWithExpr =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 100, legacyHeight = 40),
+        operations =
+          listOf(
+            RcFloatConstant(id = 45, value = RcFloatWord.literal(10f)),
+            RcFloatExpression(
+              id = 46,
+              expression =
+                listOf(continuousSecWord, RcFloatWord(0x7fc00000 or 45), addOperatorWord),
+              animation = null,
+            ),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcBoxLayout(
+              componentId = 3,
+              animationId = -1,
+              horizontalPositioning = 0,
+              verticalPositioning = 0,
+            ),
+            RcWidthModifier(RcDimensionType.EXACT, RcFloatWord(0x7fc00000 or 46)),
+            RcLayoutContent(componentId = 4),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+    val childBytes = RcDocumentCodec.encode(childWithExpr)
+    val parent =
+      RcDocument(
+        header = RcHeader(RcVersion(1, 1, 0), legacyWidth = 200, legacyHeight = 80),
+        operations =
+          listOf(
+            RcBinaryData(id = 50, type = RcBinaryData.TYPE_RC_DOC, flags = 0, data = childBytes),
+            RcRootLayout(componentId = 1),
+            RcLayoutContent(componentId = 2),
+            RcDocLayout(componentId = 10, animationId = -1, urlId = 50),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+      )
+
+    val inlined = parent.inlineEmbeddedDocuments()
+    val expr = inlined.operations.filterIsInstance<RcFloatExpression>().single()
+    val floatDecl = inlined.operations.filterIsInstance<RcFloatConstant>().single()
+    // System variable CONTINUOUS_SEC (id 1) must NOT be remapped to docOp.componentId (10).
+    assertEquals(continuousSecWord, expr.expression[0])
+    // Child float resource 45 must be remapped to floatDecl.id.
+    assertEquals(floatDecl.id, expr.expression[1].referencedId)
+    // Arithmetic operator ADD (0x7ff10001) must remain untouched.
+    assertEquals(addOperatorWord, expr.expression[2])
   }
 }
