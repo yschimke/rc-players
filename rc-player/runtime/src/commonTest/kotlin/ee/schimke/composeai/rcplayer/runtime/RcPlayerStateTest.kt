@@ -39,6 +39,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcMatrixVectorMath
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRootContentDescription
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
@@ -699,6 +700,41 @@ class RcPlayerStateTest {
         "$scope",
       )
     }
+  }
+
+  @Test
+  fun aTextNotYetProducedReadsAsEmptyAndAnEmptyPathExpressionDrawsNothing() {
+    // As AndroidX reads them: a merge, length or substring over a text no operation has produced
+    // yet is over "", a range past the text selects what there is, and a path over no points is
+    // none. Each used to throw, and a throw while drawing takes the whole document down.
+    val state =
+      RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(RcTextData(1, "abc"))))
+    state.beginFrame()
+    listOf(
+        RcTextMerge(10, 1, 99),
+        RcTextLength(11, 99),
+        RcTextSubtext(12, 99, RcFloatWord.literal(0f), RcFloatWord.literal(2f)),
+        RcTextSubtext(13, 1, RcFloatWord.literal(1f), RcFloatWord.literal(10f)),
+        RcTextSubtext(14, 1, RcFloatWord.literal(5f), RcFloatWord.literal(-1f)),
+      )
+      .forEach(state::applyTextOperation)
+    state.applyPathExpression(
+      RcPathExpression(
+        id = 20,
+        flags = 0,
+        min = RcFloatWord.literal(0f),
+        max = RcFloatWord.literal(1f),
+        count = RcFloatWord.literal(0f),
+        expressionX = listOf(RcFloatWord.literal(0f)),
+        expressionY = listOf(RcFloatWord.literal(0f)),
+      ),
+    )
+    assertEquals("abc", state.text(10))
+    assertEquals(0f, state.float(11))
+    assertEquals("", state.text(12))
+    assertEquals("bc", state.text(13))
+    assertEquals("", state.text(14))
+    assertEquals(emptyList(), state.path(20)?.words)
   }
 
   @Test

@@ -1036,24 +1036,27 @@ private constructor(
 
   public fun applyTextOperation(operation: RcOperation) {
     when (operation) {
+      // A text not (yet) produced reads as empty, as AndroidX's text operations read it: a merge
+      // over a value computed later in the frame draws, and the next pass fills it in.
       is RcTextMerge -> {
-        val value =
-          requireNotNull(texts[operation.leftId]) + requireNotNull(texts[operation.rightId])
+        val value = texts[operation.leftId].orEmpty() + texts[operation.rightId].orEmpty()
         require(value.length <= 16 * 1024) { "TextMerge output exceeds AndroidX's 16K limit" }
         texts[operation.outId] = value
       }
       is RcTextLength ->
-        setFloat(operation.outId, requireNotNull(texts[operation.textId]).length.toFloat())
+        setFloat(operation.outId, texts[operation.textId].orEmpty().length.toFloat())
       is RcTextSubtext -> {
-        val value = requireNotNull(texts[operation.textId])
-        val start = resolve(operation.start).toInt()
+        val value = texts[operation.textId].orEmpty()
+        // Clamped to the text, as AndroidX's substring is: a range past a shorter value than the
+        // document was written for selects what there is.
+        val start = resolve(operation.start).toInt().coerceIn(0, value.length)
         val length = resolve(operation.length).toInt()
         texts[operation.outId] =
-          if (length == -1) value.substring(start, value.length)
-          else value.substring(start, start + length)
+          if (length == -1) value.substring(start)
+          else value.substring(start, (start + length.coerceAtLeast(0)).coerceAtMost(value.length))
       }
       is RcTextTransform -> {
-        val value = requireNotNull(texts[operation.textId])
+        val value = texts[operation.textId].orEmpty()
         val start = resolve(operation.start).toInt()
         val length = resolve(operation.length).toInt()
         // A transform that names no range — a plain `uppercase`, say — carries no meaningful

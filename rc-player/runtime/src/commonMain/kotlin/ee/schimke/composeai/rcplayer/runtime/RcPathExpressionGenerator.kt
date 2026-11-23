@@ -13,7 +13,10 @@ internal class RcPathExpressionGenerator(
 ) {
   fun generate(operation: RcPathExpression, resolve: (RcFloatWord) -> Float): RcPathData {
     val count = resolve(operation.count).toInt()
-    require(count != 0) { "path length must be > 1" }
+    val winding = (operation.flags and RcPathExpression.WINDING_MASK) shr 24
+    // No points (a chart over an empty series): no path, as AndroidX's PathExpression draws none,
+    // rather than an exception that takes the whole document down with it.
+    if (count < 1) return RcPathData(operation.id or (winding shl 24), emptyList())
     val loop = operation.flags and RcPathExpression.LOOP != 0
     val minimum = resolve(operation.min)
     val maximum = resolve(operation.max)
@@ -44,7 +47,6 @@ internal class RcPathExpressionGenerator(
         RcPathExpression.MONOTONIC -> curved(x, y, loop, monotonic = true)
         else -> curved(x, y, loop, monotonic = false)
       }
-    val winding = (operation.flags and RcPathExpression.WINDING_MASK) shr 24
     return RcPathData(operation.id or (winding shl 24), words)
   }
 
