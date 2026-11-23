@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.12.1](https://github.com/yschimke/rc-players/compare/v3.12.0...v3.12.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.46.0 ([#954](https://github.com/yschimke/rc-players/issues/954)) ([df33e3a](https://github.com/yschimke/rc-players/commit/df33e3a36d25080cd0662f6a4549d80314ff5605))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.28.2 ([#948](https://github.com/yschimke/rc-players/issues/948)) ([606e3ca](https://github.com/yschimke/rc-players/commit/606e3ca7e05e2f11a6319de1125cdc3f3b35ea53))
+* read a missing text as empty and draw no path for an empty path expression ([#955](https://github.com/yschimke/rc-players/issues/955)) ([fede7b9](https://github.com/yschimke/rc-players/commit/fede7b9a0d9415613321be59c4646ec39cb4d2cd))
+
 ## [3.12.0](https://github.com/yschimke/rc-players/compare/v3.11.0...v3.12.0) (2026-11-21)
 
 
