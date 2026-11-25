@@ -31,7 +31,7 @@
 
     /// Pre-existing (upstream/main rebuilds the same way): a background change, which the native
     /// view can apply in place (`playerBackground`), rebuilds the whole native player.
-    @Test func aBackgroundChangeKeepsDocumentLocalState() async throws {
+    @Test func aBackgroundChangeStillRebuildsThePlayerAndResetsDocumentLocalState() async throws {
       let player = try await player()
       try await setLocally(player, Self.visible, for: "local")
       let native = player.native
@@ -48,7 +48,7 @@
 
     /// Pre-existing: a rebuild's first open is not seeded, so its first frame shows the
     /// document's own values and the host's arrive a frame later.
-    @Test func theFirstFrameAfterARebuildShowsTheHostValues() async throws {
+    @Test func theFirstFrameAfterARebuildIsStillUnseeded() async throws {
       let player = try await player()
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
       try await settle(player)
@@ -71,7 +71,7 @@
     }
 
     /// Pre-existing: as above, for a switch to other bytes declaring the same name.
-    @Test func theFirstFrameOfANewDocumentShowsTheHostValues() async throws {
+    @Test func theFirstFrameOfANewDocumentIsStillUnseeded() async throws {
       let player = try await player()
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
       try await settle(player)
@@ -126,7 +126,7 @@
 
     /// Pre-existing: the backend holds one update handler, so the last player attached takes
     /// every write and the other one never sees it.
-    @Test func aControllerSharedByTwoPlayersReachesBoth() async throws {
+    @Test func aControllerSharedByTwoPlayersStillReachesOnlyTheLastOne() async throws {
       let controller = RemoteComposePlayerController()
       let a = try await player(controller: controller)
       let b = try await player(controller: controller)

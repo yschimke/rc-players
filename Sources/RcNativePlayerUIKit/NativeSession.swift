@@ -45,25 +45,12 @@
   actor NativePlayerEngine {
     /// One unit of host input, applied at the engine's presented frame time.
     enum Input: Sendable {
-      case setFloat(Float, name: String)
-      case setString(String, name: String)
-      case setColor(UInt32, name: String)
-      case setInteger(Int, name: String)
+      /// A host's write of a named variable.
+      case setNamed(String, value: RemoteComposeNativeNamedValue)
       case gesture(NativeSwiftGestureKind, componentID: Int, sample: NativeSwiftPointerSample?)
       case clickAreas(x: Float, y: Float)
       case customFloat(Float, componentID: Int, propertyID: Int)
       case customText(String, componentID: Int, propertyID: Int)
-
-      /// The name and value of a host's named write; nil for any other input.
-      var hostNamedValue: (name: String, value: NativeSwiftNamedValue)? {
-        switch self {
-        case .setFloat(let value, let name): (name, .float(value))
-        case .setString(let value, let name): (name, .text(value))
-        case .setColor(let argb, let name): (name, .color(argb))
-        case .setInteger(let value, let name): (name, .integer(value))
-        case .gesture, .clickAreas, .customFloat, .customText: nil
-        }
-      }
     }
 
     struct Frame: Sendable {
@@ -228,13 +215,13 @@
     func apply(_ input: Input) throws -> Update {
       let time = frameTime
       switch input {
-      case .setFloat(let value, let name):
+      case .setNamed(let name, .float(let value)):
         return try setFloat(value, for: name, at: time)
-      case .setString(let value, let name):
+      case .setNamed(let name, .text(let value)):
         return try setString(value, for: name, at: time)
-      case .setColor(let argb, let name):
+      case .setNamed(let name, .color(let argb)):
         return try setColor(argb, for: name, at: time)
-      case .setInteger(let value, let name):
+      case .setNamed(let name, .integer(let value)):
         return try setInteger(value, for: name, at: time)
       case .gesture(let kind, let componentID, let sample):
         return try gesture(kind, componentID: componentID, sample: sample, at: time)

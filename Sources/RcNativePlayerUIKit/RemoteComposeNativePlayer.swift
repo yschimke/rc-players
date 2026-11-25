@@ -615,9 +615,10 @@
     /// reopen the bytes on activation. A test hook, like ``isApplyingInput``.
     var hasOutstandingInput: Bool { openPresentation?.hasOutstandingInput ?? false }
 
-    /// Called as each session opens, right after its first frame is installed and before anything
-    /// else runs on the main actor. A test hook: it lets a test read the first frame a session
-    /// shows rather than a later one.
+    /// Called once as each session opens, in the same main-actor turn that installed its first
+    /// frame (or showed the error that frame raised), after its left-out values are reported and
+    /// before the writes waiting for it are released, so no later frame or input has landed yet.
+    /// A test hook: it lets a test read the first frame a session shows rather than a later one.
     var onSessionOpened: (() -> Void)?
 
     /// Called each time an open starts building a first frame's model — one call per attempt,
@@ -732,9 +733,10 @@
       let carried = carriedNamedValues
       let onFirstFrameModelBuilt = onFirstFrameModelBuilt
       let hostWriteCounts = hostWriteCounts
-      let seed = (namedValueSeed?() ?? []).map {
-        (name: $0.name, write: NativeHostValue(
-          value: $0.value.coreValue, write: hostWriteCounts[$0.name] ?? 0))
+      let seed = (namedValueSeed?() ?? []).map { entry in
+        let write = NativeHostValue(
+          value: entry.value.coreValue, write: hostWriteCounts[entry.name] ?? 0)
+        return (name: entry.name, write: write)
       }
       // A reopen that supersedes this open before it presents starts from the same values.
       let startingValues = Task {
@@ -1031,26 +1033,26 @@
     /// the next session again. Other bytes start again from their own values.
     @discardableResult
     public func setFloat(_ value: Float, for name: String) async -> Bool {
-      await submit(.setFloat(value, name: name))
+      await submit(.setNamed(name, value: .float(value)))
     }
 
     /// Sets a string named variable; answers as ``setFloat(_:for:)`` does.
     @discardableResult
     public func setString(_ value: String, for name: String) async -> Bool {
-      await submit(.setString(value, name: name))
+      await submit(.setNamed(name, value: .text(value)))
     }
 
     /// Sets an ARGB colour named variable; answers as ``setFloat(_:for:)`` does.
     @discardableResult
     public func setColor(_ argb: UInt32, for name: String) async -> Bool {
-      await submit(.setColor(argb, name: name))
+      await submit(.setNamed(name, value: .color(argb)))
     }
 
     /// Sets an integer named variable — a boolean is 1 or 0 — and answers as
     /// ``setFloat(_:for:)`` does.
     @discardableResult
     public func setInteger(_ value: Int, for name: String) async -> Bool {
-      await submit(.setInteger(value, name: name))
+      await submit(.setNamed(name, value: .integer(value)))
     }
 
     /// Writes a named variable and answers how the document took it. Unlike the `set*` methods,
@@ -1062,18 +1064,7 @@
     ) async -> RemoteComposeNativeInputAdmission {
       let write = (hostWriteCounts[name] ?? 0) &+ 1
       hostWriteCounts[name] = write
-      return await admit(Self.input(value, for: name), hostWrite: write)
-    }
-
-    private static func input(
-      _ value: RemoteComposeNativeNamedValue, for name: String
-    ) -> NativePlayerEngine.Input {
-      switch value {
-      case .float(let value): .setFloat(value, name: name)
-      case .text(let value): .setString(value, name: name)
-      case .color(let argb): .setColor(argb, name: name)
-      case .integer(let value): .setInteger(value, name: name)
-      }
+      return await admit(.setNamed(name, value: value), hostWrite: write)
     }
 
     private func submit(_ input: NativePlayerEngine.Input) async -> Bool {
@@ -1249,15 +1240,15 @@
       _ outcome: NativeInputOutcome, of pending: NativePendingInput,
       on presentation: NativePlayerPresentation
     ) {
-      guard let (name, value) = pending.input.hostNamedValue else { return }
+      guard case .setNamed(let name, let value) = pending.input else { return }
       switch outcome {
       case .accepted:
         presentation.failedWrites[name] = nil
         if let write = pending.hostWrite {
-          presentation.hostValues[name] = NativeHostValue(value: value, write: write)
+          presentation.hostValues[name] = NativeHostValue(value: value.coreValue, write: write)
         }
       case .failed:
-        presentation.failedWrites[name] = value
+        presentation.failedWrites[name] = value.coreValue
       case .declined:
         break
       }

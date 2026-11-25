@@ -183,12 +183,16 @@ public enum NativeTestDocuments {
 
 /// Writes `.rc` wire operations, big-endian, for the test documents.
 public final class NativeTestWire {
-  /// A named variable's wire type: the core's `NativeSwiftNamedVariableType`, which is internal.
+  /// A named variable's wire type: every value of the core's `NativeSwiftNamedVariableType`,
+  /// which is internal.
   public enum NamedType {
     public static let string = 0
     public static let float = 1
     public static let color = 2
+    public static let image = 3
     public static let int = 4
+    public static let long = 5
+    public static let floatArray = 6
   }
 
   public private(set) var data = Data()

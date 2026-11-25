@@ -41,9 +41,11 @@ enum ControllerNamedValue: Equatable {
   case boolean(Bool)
 }
 
-/// What every backend provides. A backend answers each write finally: `true` only for a value the
-/// attached document will apply, `false` before a document is attached, for a name it does not
-/// declare, or for a value its variable cannot hold.
+/// What every backend provides. A backend answers each write finally: `true` for a value the
+/// attached document declares and can hold — handed to the player, or equal to the last value
+/// written to that name, which is no change and is not handed over again (the variable keeps
+/// whatever the document has made of it since) — and `false` before a document is attached, for
+/// a name it does not declare, or for a value its variable cannot hold.
 @MainActor
 protocol ControllerBackendProtocol: AnyObject {
   init()
@@ -139,8 +141,9 @@ protocol ControllerBackendProtocol: AnyObject {
     }
 
     /// The values written so far, by the name the player's document declares them under, which
-    /// seed a session the native player reopens. The player applies those the replaced session
-    /// had not taken — not yet delivered, or refused, which the new session judges afresh. Empty
+    /// seed a session the native player reopens. The player applies each one unless the replaced
+    /// session took that very write: not yet delivered, refused (judged afresh), or written again
+    /// since — even back to the value the session took — is applied. Empty
     /// while no update handler is installed: the values are not yet re-keyed for the player's
     /// document.
     ///
@@ -184,13 +187,14 @@ protocol ControllerBackendProtocol: AnyObject {
     /// offered again each time the player signals that input may be accepted, however long that
     /// takes. Nothing polls while it waits. A refusal is the session's final answer — the document
     /// is failed, declines the value (which reports nothing), or failed applying it (reported
-    /// through `onError`) — and is not offered to that session again. The value stays with the
-    /// controller, as on the Kotlin player, and each session the player reopens is seeded with it
-    /// (`seedValues`) and judges it afresh: a value that breaks an execution limit is refused and
-    /// reported through `onError` once per session, not once per retry, and the session stays
-    /// open. It stops as soon as the player is gone, the task is cancelled, or `isCurrent` says a
-    /// newer value for this name has started, the player was rebuilt, or a reopen took the value
-    /// in its seed.
+    /// through `onError`; a value that breaks an execution limit fails the live session, which
+    /// shows the error until input repairs it) — and is not offered to that session again. The
+    /// value stays with the controller, as on the Kotlin player, and each session the player
+    /// reopens is seeded with it (`seedValues`) and judges it afresh: there a value that breaks an
+    /// execution limit is left out of the first frame and reported through `onError` once per
+    /// session, and that session stays open and takes later writes. It stops as soon as the player
+    /// is gone, the task is cancelled, or `isCurrent` says a newer value for this name has
+    /// started, the player was rebuilt, or a reopen took the value in its seed.
     @MainActor
     func deliver<Target: NativeNamedValueTarget>(
       for name: String, to target: () -> Target?, isCurrent: () -> Bool

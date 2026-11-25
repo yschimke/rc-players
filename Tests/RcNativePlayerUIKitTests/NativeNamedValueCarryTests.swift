@@ -35,11 +35,11 @@
     @Test func everyTypeIsCarriedThroughTwoReopens() async throws {
       let first = try await open()
       #expect(await written(first).isEmpty)
-      _ = try await first.apply(.setFloat(2.5, name: "f"))
-      _ = try await first.apply(.setColor(0xFF00_FF00, name: "c"))
-      _ = try await first.apply(.setInteger(1, name: "b"))
-      _ = try await first.apply(.setString("hello", name: "s"))
-      _ = try await first.apply(.setInteger(7, name: "i"))
+      _ = try await first.apply(.setNamed("f", value: .float(2.5)))
+      _ = try await first.apply(.setNamed("c", value: .color(0xFF00_FF00)))
+      _ = try await first.apply(.setNamed("b", value: .integer(1)))
+      _ = try await first.apply(.setNamed("s", value: .text("hello")))
+      _ = try await first.apply(.setNamed("i", value: .integer(7)))
       let expected: [String: NativeSwiftNamedValue] = [
         "f": .float(2.5), "c": .color(0xFF00_FF00), "b": .integer(1), "s": .text("hello"),
         "i": .integer(7),
@@ -56,9 +56,9 @@
     /// be replaced.
     @Test func aValueWrittenBackToItsInitialValueIsHarmless() async throws {
       let first = try await open()
-      _ = try await first.apply(.setInteger(3, name: "i"))
-      _ = try await first.apply(.setString("a", name: "s"))
-      _ = try await first.apply(.setFloat(1.5, name: "f"))
+      _ = try await first.apply(.setNamed("i", value: .integer(3)))
+      _ = try await first.apply(.setNamed("s", value: .text("a")))
+      _ = try await first.apply(.setNamed("f", value: .float(1.5)))
       let carried = await written(first)
       #expect(carried == ["i": .integer(3), "s": .text("a"), "f": .float(1.5)])
       let second = try await open(await first.writtenNamedValues())

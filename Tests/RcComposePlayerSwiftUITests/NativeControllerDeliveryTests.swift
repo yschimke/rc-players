@@ -190,7 +190,7 @@
       moveToBackground(player.view)
       var applied = 0
       player.view.onInputApplied = { input in
-        if case .setInteger(_, let name) = input, name == "shown" { applied += 1 }
+        if case .setNamed("shown", .integer) = input { applied += 1 }
       }
 
       activate(player.view)

@@ -13,8 +13,8 @@ import Testing
     let (label, _) = try await NativePlayerEngine.open(
       data: NativeTestDocuments.label(), maximumDocumentBytes: 1 << 20)
     #expect(await label.writtenNamedValues().isEmpty)
-    _ = try await label.apply(.setString("Ready", name: "label"))
-    _ = try await label.apply(.setString("Title", name: "title"))
+    _ = try await label.apply(.setNamed("label", value: .text("Ready")))
+    _ = try await label.apply(.setNamed("title", value: .text("Title")))
     let written = await label.writtenNamedValues()
     #expect(written.map(\.name) == ["label", "title"])
     #expect(written.map(\.value) == [.text("Ready"), .text("Title")])
@@ -22,8 +22,8 @@ import Testing
     let (shown, _) = try await NativePlayerEngine.open(
       data: NativeTestDocuments.shownBox(), maximumDocumentBytes: 1 << 20)
     #expect(await shown.writtenNamedValues().isEmpty)
-    _ = try await shown.apply(.setInteger(NativeSwiftVisibility.visible, name: "shown"))
-    _ = try await shown.apply(.setInteger(NativeSwiftVisibility.gone, name: "shown"))
+    _ = try await shown.apply(.setNamed("shown", value: .integer(NativeSwiftVisibility.visible)))
+    _ = try await shown.apply(.setNamed("shown", value: .integer(NativeSwiftVisibility.gone)))
     #expect(
       await shown.writtenNamedValues().map(\.value) == [.integer(NativeSwiftVisibility.gone)])
   }
@@ -128,18 +128,18 @@ import Testing
       data: data, maximumDocumentBytes: data.count)
     let unknown = "rc.native.engine-test.no-such-variable"
 
-    let initial = try await engine.apply(.setFloat(1, name: unknown))
+    let initial = try await engine.apply(.setNamed(unknown, value: .float(1)))
     #expect(!initial.accepted)
     #expect(initial.events.isEmpty)
     #expect(initial.timeSeconds == 0)
 
     // Resolving a frame the host never presented does not move input time.
     _ = try await engine.frame(at: 3, wallClock: nil)
-    let unpresented = try await engine.apply(.setInteger(1, name: unknown))
+    let unpresented = try await engine.apply(.setNamed(unknown, value: .integer(1)))
     #expect(unpresented.timeSeconds == 0)
 
     await engine.present(frameTime: 2.5)
-    let presented = try await engine.apply(.setString("x", name: unknown))
+    let presented = try await engine.apply(.setNamed(unknown, value: .text("x")))
     #expect(presented.timeSeconds == 2.5)
     let frameTime = await engine.frameTime
     #expect(frameTime == 2.5)

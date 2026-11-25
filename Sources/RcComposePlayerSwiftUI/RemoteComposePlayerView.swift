@@ -430,12 +430,13 @@
         onDiagnostics: { _ in },
         onError: { [weak self] error in self?.errorHandler(.playback(error.localizedDescription)) })
       install(native)
-      // A session the player reopens after the background carries the named values the one it
-      // replaces held, the controller's and the document's own, and is seeded with the
-      // controller's values; the player applies those the old session had not already taken, so
-      // its first frame shows the newest value of each. (The first open starts inside `init`,
-      // before this is set, and is not seeded.) The Kotlin player does not reopen and keeps its
-      // state.
+      // A session the player reopens over the same bytes — in this host, after the background
+      // with input outstanding, since a configuration change rebuilds the player instead —
+      // carries the named values the one it replaces held, the controller's and the document's
+      // own, and is seeded with the controller's values; the player applies each one unless the
+      // old session took that very write, so its first frame shows the newest value of each.
+      // (The first open starts inside `init`, before this is set, and is not seeded.) The Kotlin
+      // player does not reopen and keeps its state.
       //
       // A write still on its way when the reopen starts was meant for the session it discards; the
       // seed hands the new session the same value — the controller's latest for that name — so

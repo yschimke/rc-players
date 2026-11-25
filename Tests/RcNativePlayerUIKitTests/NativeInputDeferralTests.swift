@@ -312,7 +312,7 @@
       }
       var applied: [String] = []
       view.onInputApplied = { input in
-        if case .setString(let value, let name) = input { applied.append("\(name)=\(value)") }
+        if case .setNamed(let name, .text(let value)) = input { applied.append("\(name)=\(value)") }
       }
 
       view.configureHostDensity(2)

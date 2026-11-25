@@ -276,14 +276,18 @@ its state instead of reopening. State that is not a named variable (animations, 
 unnamed variables) starts again from the bytes. Loading other bytes starts from their own values.
 
 `RemoteComposePlayerController` in the SwiftUI overlay seeds each reopened session, on top of what
-it carries, with the controller's values that the replaced session did not hold: writes still on
-their way or deferred, and writes it refused. A value the replaced session accepted is not seeded
-again, so a document change made after it wins, and a host write made after a document change
-wins. The player's first open is not seeded; the values reach it as writes. A carried or seeded
-value that breaks an execution limit or the compatibility policy does not fail the reopen: the
-session opens with the values its first frame can take, and each one left out is reported once, as
-a refused write is, so it cannot fail the session's later frames. A seeded value left out is offered
-to the next reopened session again.
+it carries, with the controller's values that the replaced session did not take: writes still on
+their way or deferred, writes it refused, and writes made again since it took one, even back to the
+same value. The write the replaced session took is not seeded again, so a document change made
+after it wins, and a host write made after a document change wins. The player's first open is not
+seeded; the values reach it as writes. A carried or seeded value that breaks an execution limit or
+the compatibility policy does not fail the reopen: the session opens with the values its first
+frame can take, and each one left out is reported once, as a refused write is, so it cannot fail
+the session's later frames. A seeded value left out is offered to the next reopened session again.
+
+A live write that breaks an execution limit fails the open session: it shows the error and keeps
+taking input until a write repairs the frame. A reopen out of that session keeps what it held, the
+document's own changes included, except the value that failed it.
 
 The default `.compatible` policy renders the supported subset and reports all known differences.
 `.strict` refuses to install a document view when any diagnostic is present, including a known
