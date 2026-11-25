@@ -218,13 +218,16 @@
       #expect(errors.count == 1, "\(errors)")
     }
 
-    /// A write made while the reopen opens is newer than the seed, so when the seed falls back to
-    /// ordinary input every seeded value is applied before that write, never on top of it.
-    @Test func aSeedWrittenAsInputLandsBeforeAWriteMadeDuringTheReopen() async throws {
+    /// A seeded value that breaks a limit is left out of the reopened session, which opens with the
+    /// rest of the seed and takes a write made while it opened. Written into the session, the bad
+    /// value would stay there and fail every later frame, refusing every later write.
+    @Test func aSeedValueThatBreaksALimitIsLeftOutAndLaterWritesAreTaken() async throws {
+      var errors: [RemoteComposeNativePlayerError] = []
       var limits = RemoteComposeNativeExecutionLimits.default
       limits.maximumTextBytes = 64
       let view = RemoteComposeNativePlayerView(
-        data: NativeTestDocuments.label(), executionLimits: limits, resourceResolver: nil)
+        data: NativeTestDocuments.label(), executionLimits: limits, resourceResolver: nil,
+        onError: { errors.append($0) })
       try await until("the document opens") { !view.isOpeningDocument }
       let tooLong = String(repeating: "x", count: 100)
       view.namedValueSeed = {
@@ -244,10 +247,11 @@
         answer = await view.submit(.text("Ready"), for: "title")
         if answer == .deferred { await view.inputAvailability.wait(after: mark) }
       }
-      // The answer itself is `.refused`: the over-long label the seed wrote stays in the session,
-      // as any applied write does, so the frame "Ready" produces breaks the same limit.
       try await until("the reopen settles") { !view.isBusy }
-      #expect(applied == ["label=\(tooLong)", "title=Seeded", "title=Ready"])
+      #expect(answer == .accepted)
+      // "title=Seeded" came in the seed, before the first frame; only the write is input.
+      #expect(applied == ["title=Ready"])
+      #expect(errors.count == 1, "\(errors)")
     }
 
     /// The seed belongs to the document it was set for: other bytes clear it, and their first

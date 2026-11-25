@@ -273,9 +273,9 @@ own values. A host driving the view directly writes its values again after such 
 `RemoteComposePlayerController` in the SwiftUI overlay keeps its values and seeds every session the
 player reopens with them before its first frame; the player's first open is not seeded, and the
 values reach it as writes. A seeded value that breaks an execution limit or the compatibility
-policy does not fail the reopen: the session opens without the seed, takes the values as writes,
-and refuses and reports the bad one, as for any write. A reopen still loses what the document's own
-actions changed. Loading other bytes into the view clears the seed.
+policy does not fail the reopen: the session opens with the values its first frame can take, and
+the bad one is left out and reported once, as a refused write is, so it cannot fail the session's
+later frames. A reopen still loses what the document's own actions changed. Loading other bytes into the view clears the seed.
 
 The default `.compatible` policy renders the supported subset and reports all known differences.
 `.strict` refuses to install a document view when any diagnostic is present, including a known

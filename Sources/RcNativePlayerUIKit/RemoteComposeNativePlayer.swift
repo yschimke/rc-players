@@ -329,11 +329,12 @@
     ///
     /// A value the document declines is skipped silently, as a declined write is. When the seeded
     /// first frame fails — a value breaks an execution limit or the compatibility policy — the
-    /// session opens without the seed and the values are written as ordinary input once it is
-    /// open: a bad one is refused and reported through `onError`, once per session, and the
-    /// session stays open. Nil, or empty, opens with the document's own values; a value written
-    /// while the session opens goes through `submit`. `load(_:)` with other bytes clears it: the
-    /// values belong to the document they were written for.
+    /// session opens with every value its first frame can take and without the others: each one
+    /// left out is reported through `onError`, once per session, as a refused write is, and the
+    /// session stays open and takes later writes. (Written into the session, a bad value would
+    /// stay there and fail every later frame.) Nil, or empty, opens with the document's own
+    /// values; a value written while the session opens goes through `submit`. `load(_:)` with
+    /// other bytes clears it: the values belong to the document they were written for.
     @_spi(RemoteComposeController)
     public var namedValueSeed: (() -> [(name: String, value: RemoteComposeNativeNamedValue)])?
     private let clock: any RemoteComposeNativePlayerClock
@@ -616,33 +617,56 @@
               diagnostics: model.diagnostics(
                 availableCustomComponents: availableCustomComponents))
           }
-          /// The opened session, and the seed it has not taken, to write through the input path.
-          func openSeededFirstFrame() async throws -> (
-            NativeOpenedFirstFrame, [(name: String, value: RemoteComposeNativeNamedValue)]
-          ) {
-            guard !namedValues.isEmpty else {
-              return (try await openFirstFrame(seededWith: []), [])
-            }
-            do {
+          /// The opened session, and the errors of the seeded values it was opened without.
+          func openSeededFirstFrame() async throws -> (NativeOpenedFirstFrame, [any Error]) {
+            func openRendering(
+              _ namedValues: [(name: String, value: RemoteComposeNativeNamedValue)]
+            ) async throws -> NativeOpenedFirstFrame {
               let opened = try await openFirstFrame(seededWith: namedValues)
               guard
                 RemoteComposeNativeCompatibilityDecision.shouldRender(
                   policy: compatibilityPolicy, diagnostics: opened.diagnostics)
               else { throw RemoteComposeNativePlayerError.incompatible(opened.diagnostics) }
-              return (opened, [])
+              return opened
+            }
+            guard !namedValues.isEmpty else {
+              return (try await openFirstFrame(seededWith: []), [])
+            }
+            do {
+              return (try await openRendering(namedValues), [])
             } catch is CancellationError {
               throw CancellationError()
             } catch {
               // A seeded value may be what failed — one that breaks an execution limit or the
-              // compatibility policy. Open as an unseeded open would, and write the seed as
-              // ordinary input once the session is open: a bad value is then refused and
-              // reported, and the session stays open, as for any write. A document that fails
-              // without the seed too fails as before.
+              // compatibility policy. A document that fails without the seed too fails as before.
               try Task.checkCancellation()
-              return (try await openFirstFrame(seededWith: []), namedValues)
+              var opened = try await openFirstFrame(seededWith: [])
+              guard
+                RemoteComposeNativeCompatibilityDecision.shouldRender(
+                  policy: compatibilityPolicy, diagnostics: opened.diagnostics)
+              else { return (opened, []) }
+              // Otherwise keep each value the first frame can take, one at a time. A value that
+              // fails it is left out and reported, as a refused write is, rather than written
+              // into the session: a session keeps every value it applied, so it would fail every
+              // later frame and refuse every later write. Only this failure path pays the extra
+              // opens.
+              var kept: [(name: String, value: RemoteComposeNativeNamedValue)] = []
+              var refusals: [any Error] = []
+              for namedValue in namedValues {
+                do {
+                  opened = try await openRendering(kept + [namedValue])
+                  kept.append(namedValue)
+                } catch is CancellationError {
+                  throw CancellationError()
+                } catch {
+                  try Task.checkCancellation()
+                  refusals.append(error)
+                }
+              }
+              return (opened, refusals)
             }
           }
-          let (opened, unseeded) = try await openSeededFirstFrame()
+          let (opened, refusals) = try await openSeededFirstFrame()
           let model = opened.model
           guard generation == self?.generation else { return }
           self?.onDiagnostics(opened.diagnostics)
@@ -660,7 +684,7 @@
           guard let self, generation == self.generation else { return }
           self.presentOpened(
             model, engine: opened.engine, resources: resources, effects: opened.frame.effects,
-            writing: unseeded)
+            reporting: refusals)
         } catch {
           guard !Task.isCancelled, let self, generation == self.generation else { return }
           self.show(error: error, retaining: nil)
@@ -669,16 +693,15 @@
       state = .loading(task)
     }
 
-    /// Install the first frame of a freshly opened session, then write `namedValues` — a seed the
-    /// session could not open with — as ordinary input.
+    /// Install the first frame of a freshly opened session, then report `refusals` — the seeded
+    /// values it was opened without — as refused writes are reported.
     private func presentOpened(
       _ model: NativeDocument, engine: NativePlayerEngine, resources: NativeResourceStore,
-      effects: [RemoteComposeNativePlayerEvent],
-      writing namedValues: [(name: String, value: RemoteComposeNativeNamedValue)]
+      effects: [RemoteComposeNativePlayerEvent], reporting refusals: [any Error]
     ) {
       let presentation = NativePlayerPresentation(engine: engine, resources: resources)
       defer {
-        write(namedValues, to: presentation)
+        for refusal in refusals { report(refusal) }
         announceOpened()
       }
       do {
@@ -692,38 +715,6 @@
         return
       }
       if scheduledFramePending { requestScheduledFrame() }
-    }
-
-    /// Writes `namedValues` to `presentation` as ordinary input, so each is judged and reported as
-    /// any write is. They are queued at once, in order, ahead of any write made after the seed was
-    /// read, so none of them lands on top of a newer value. One the queue has no room for — a seed
-    /// of more values than it holds — is offered again as room frees, until `presentation` is no
-    /// longer the open session; a reopen starts from `namedValueSeed` again.
-    private func write(
-      _ namedValues: [(name: String, value: RemoteComposeNativeNamedValue)],
-      to presentation: NativePlayerPresentation
-    ) {
-      var overflow: [(name: String, value: RemoteComposeNativeNamedValue)] = []
-      for (name, value) in namedValues {
-        var deferred = false
-        enqueue(Self.input(value, for: name)) { deferred = $0 == .deferred }
-        if deferred { overflow.append((name, value)) }
-      }
-      guard !overflow.isEmpty else { return }
-      let availability = inputAvailability
-      Task { [weak self] in
-        for (name, value) in overflow {
-          while true {
-            let mark = availability.mark
-            // The strong reference lives only for the offer, not across the wait below.
-            do {
-              guard let self, self.openPresentation === presentation else { return }
-              guard await self.submit(value, for: name) == .deferred else { break }
-            }
-            await availability.wait(after: mark)
-          }
-        }
-      }
     }
 
     /// A session has opened: release the writes that waited for it.
@@ -1129,6 +1120,10 @@
       scheduledFramePending = false
       errorLabel.text = error.localizedDescription
       errorLabel.isHidden = false
+      report(error)
+    }
+
+    private func report(_ error: any Error) {
       if let error = error as? RemoteComposeNativePlayerError {
         onError(error)
       } else {
