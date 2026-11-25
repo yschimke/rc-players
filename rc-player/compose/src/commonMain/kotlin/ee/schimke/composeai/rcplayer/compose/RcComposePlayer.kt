@@ -1352,16 +1352,17 @@ private fun RenderLayoutNode(
   }
   val layer = node.modifiers.graphicsLayer
   val enclosing = LocalRcModulateAlphaLayer.current
-  if (layer == null || !rcChildLayersMissModulatedAlpha) {
-    content()
-  } else if (layer.compositingStrategy() == CompositingStrategy.ModulateAlpha) {
-    val own = remember(layer, enclosing) { RcModulateAlphaLayer(layer, enclosing) }
-    CompositionLocalProvider(LocalRcModulateAlphaLayer provides own, content)
-  } else if (enclosing != null) {
-    CompositionLocalProvider(LocalRcModulateAlphaLayer provides null, content)
-  } else {
-    content()
-  }
+  val drawnInto =
+    when {
+      layer == null || !rcChildLayersMissModulatedAlpha -> enclosing
+      layer.compositingStrategy() == CompositingStrategy.ModulateAlpha ->
+        remember(layer, enclosing) { RcModulateAlphaLayer(layer, enclosing) }
+      else -> null
+    }
+  // One call site for `content`: composing it from different branches would put it in different
+  // groups, so a document swap that changes this node's layer strategy, or gives it an enclosing
+  // ModulateAlpha layer, would dispose the subtree and drop its remembered state.
+  CompositionLocalProvider(LocalRcModulateAlphaLayer provides drawnInto, content)
 }
 
 /**
