@@ -76,8 +76,8 @@ protocol ControllerBackendProtocol: AnyObject {
   /// Checks each write against the attached document's declarations — the same check the native
   /// session makes — and hands an accepted value to the native player, which applies it once it can:
   /// after its asynchronous session opens, its scene returns from the background, or its input
-  /// queue has room. Every session the player reopens starts from the values held here
-  /// (`seedValues`).
+  /// queue has room. A session the player reopens starts from the named values the one it replaces
+  /// held, and from the values held here that that session did not hold (`seedValues`).
   @MainActor
   final class NativeControllerBackend: ControllerBackendProtocol {
     /// The attached document's declarations; none until a native player has loaded a document.
@@ -134,14 +134,15 @@ protocol ControllerBackendProtocol: AnyObject {
       }
     }
 
-    /// The values written so far, as a session the native player reopens starts from them —
-    /// including values an earlier session refused, which the new session judges afresh. Empty
+    /// The values written so far, by the name the player's document declares them under. The
+    /// player's host seeds a session the native player reopens with those the replaced session
+    /// did not hold — not yet delivered, or refused, which the new session judges afresh. Empty
     /// while no update handler is installed: the values are not yet re-keyed for the player's
     /// document.
     ///
     /// The Kotlin player builds its state once per document, seeded with the host's values, and
     /// keeps it through the background and a density change. The native player reopens its bytes
-    /// for those, and its new session would otherwise start from the document's own values.
+    /// for those, carries the named values the old session held, and adds these.
     var seedValues: [(name: String, value: RemoteComposeNativeNamedValue)] {
       guard updateHandler != nil else { return [] }
       return values.keys.sorted().compactMap { name in
@@ -180,26 +181,27 @@ protocol ControllerBackendProtocol: AnyObject {
     /// takes. Nothing polls while it waits. A refusal is the session's final answer — the document
     /// is failed, declines the value (which reports nothing), or failed applying it (reported
     /// through `onError`) — and is not offered to that session again. The value stays with the
-    /// controller, as on the Kotlin player, and each session the player reopens starts from it
+    /// controller, as on the Kotlin player, and each session the player reopens is seeded with it
     /// (`seedValues`) and judges it afresh: a value that breaks an execution limit is refused and
     /// reported through `onError` once per session, not once per retry, and the session stays
     /// open. It stops as soon as the player is gone, the task is cancelled, or `isCurrent` says a
     /// newer value for this name has started, the player was rebuilt, or a reopen took the value
-    /// in its seed.
-    @MainActor
+    /// in its seed. Answers the player's final answer, or nil when it stopped without one.
+    @MainActor @discardableResult
     func deliver<Target: NativeNamedValueTarget>(
       for name: String, to target: () -> Target?, isCurrent: () -> Bool
-    ) async {
+    ) async -> RemoteComposeNativeInputAdmission? {
       while true {
         let availability: RemoteComposeNativeInputAvailability
         let mark: UInt64
         // The strong reference lives only for the offer, not across the wait below.
         do {
-          guard !Task.isCancelled, let target = target(), isCurrent() else { return }
+          guard !Task.isCancelled, let target = target(), isCurrent() else { return nil }
           availability = target.inputAvailability
           mark = availability.mark
-          switch await target.submit(nativeValue, for: name) {
-          case .accepted, .refused: return
+          let admission = await target.submit(nativeValue, for: name)
+          switch admission {
+          case .accepted, .refused: return admission
           case .deferred: break
           }
         }

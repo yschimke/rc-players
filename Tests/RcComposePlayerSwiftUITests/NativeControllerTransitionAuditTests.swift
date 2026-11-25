@@ -165,6 +165,32 @@
       try #require(player.view.isOpeningDocument, "the bytes are reopened on activation")
     }
 
+    /// Writes a string straight into the open session, as the document's own action would.
+    private func setLocally(_ player: Player, _ value: String, for name: String) async throws {
+      try #require(await player.view.submit(.text(value), for: name) == .accepted)
+    }
+
+    /// The text the component with `id` shows, or nil when it is not on screen.
+    private func text(_ id: Int, in view: UIView) -> String? {
+      var pending: [UIView] = [view]
+      while !pending.isEmpty {
+        let next = pending.removeFirst()
+        if let component = next as? NativeComponentView,
+          let found = component.descendant(withID: id)
+        {
+          var labels: [UIView] = [found]
+          while !labels.isEmpty {
+            let candidate = labels.removeFirst()
+            if let label = candidate as? UILabel { return label.text }
+            labels.append(contentsOf: candidate.subviews)
+          }
+          return nil
+        }
+        pending.append(contentsOf: next.subviews)
+      }
+      return nil
+    }
+
     private func activate(_ player: Player) {
       player.view.perform(NSSelectorFromString("sceneDidActivate"))
     }
@@ -295,22 +321,19 @@
 
     // MARK: - Reopen (background with input in flight)
 
-    /// Pre-existing: a reopen restarts the session from the bytes; only controller values are
-    /// seeded back. The Kotlin player keeps its state through the background.
+    /// A named variable the host never wrote, changed by the document, keeps the document's value
+    /// through a reopen, as the Kotlin player — which keeps its state — shows it.
     @Test func aReopenAfterTheBackgroundKeepsDocumentLocalState() async throws {
       let player = try await player()
       try await setLocally(player, Self.visible, for: "local")
       try await backgroundWithInputInFlight(player)
       activate(player)
       try await settle(player)
-      withKnownIssue("pre-existing: a native reopen restarts the session from the bytes") {
-        #expect(isShown(Self.localBox, in: player.view) == true, "document-local state was reset")
-      }
+      #expect(isShown(Self.localBox, in: player.view) == true, "document-local state was reset")
     }
 
-    /// New with the seed: the host wrote "shown", the document changed it since; the reopen
-    /// restores the host's older value over the document's newer one. (upstream/main restores the
-    /// document's own initial value instead; the Kotlin player keeps the document's.)
+    /// The host wrote "shown", the document changed it since: the reopen keeps the document's
+    /// newer value, as the Kotlin player does, rather than the host's older one.
     @Test func aReopenKeepsTheDocumentsNewerValueOverTheHostsOlderOne() async throws {
       let player = try await player()
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
@@ -320,10 +343,82 @@
       try await backgroundWithInputInFlight(player)
       activate(player)
       try await settle(player)
-      withKnownIssue("behaviour change in #969, left open: the seed restores the host's value") {
-        #expect(
-          isShown(Self.shownBox, in: player.view) == false, "the host's old value came back")
-      }
+      #expect(isShown(Self.shownBox, in: player.view) == false, "the host's old value came back")
+    }
+
+    /// The document changed "shown", then the host wrote it again: the host's write is the newer
+    /// one and the reopen keeps it.
+    @Test func aReopenKeepsTheHostsNewerWriteOverTheDocumentsOlderChange() async throws {
+      let player = try await player()
+      #expect(player.controller.setInteger(Self.gone, for: "shown"))
+      try await settle(player)
+      try await setLocally(player, Self.visible, for: "shown")
+      #expect(player.controller.setInteger(Self.gone, for: "shown"))
+      try await settle(player)
+      try #require(isShown(Self.shownBox, in: player.view) == false)
+      try await backgroundWithInputInFlight(player)
+      activate(player)
+      try await settle(player)
+      #expect(isShown(Self.shownBox, in: player.view) == false, "the document's older value")
+    }
+
+    /// A host write that only reached the session through a reopen's seed is the session's value
+    /// from then on: a document change after it wins at the next reopen.
+    @Test func aSeededHostWriteDoesNotOverrideALaterDocumentChangeAtTheNextReopen() async throws {
+      let player = try await player()
+      player.view.perform(NSSelectorFromString("sceneDidEnterBackground"))
+      #expect(player.controller.setInteger(Self.visible, for: "shown"))
+      // Configured while in the background, the reopen waits for the foreground and seeds the
+      // write that was deferred there.
+      player.view.configureHostDensity(2)
+      activate(player)
+      try await settle(player)
+      try #require(isShown(Self.shownBox, in: player.view) == true)
+
+      try await setLocally(player, Self.gone, for: "shown")
+      player.view.configureHostDensity(3)
+      try await settle(player)
+      #expect(isShown(Self.shownBox, in: player.view) == false, "the seeded host value came back")
+    }
+
+    /// A reopen that starts while the previous one is still opening starts from what that one
+    /// would have: the replaced session's values and the seed it took from the controller.
+    @Test func aReopenDuringAReopenKeepsWhatTheFirstStartedFrom() async throws {
+      let player = try await player()
+      try await setLocally(player, Self.visible, for: "local")
+      player.view.perform(NSSelectorFromString("sceneDidEnterBackground"))
+      #expect(player.controller.setInteger(Self.visible, for: "shown"))
+      player.view.configureHostDensity(2)
+      activate(player)
+      // The first reopen took the deferred write in its seed; the second supersedes it at once.
+      try #require(player.view.isOpeningDocument)
+      try #require(player.host.nativeUpdateTasks["shown"] == nil, "the seed took the write")
+      player.view.configureHostDensity(3)
+      try await settle(player)
+      #expect(isShown(Self.localBox, in: player.view) == true, "document-local state was reset")
+      #expect(isShown(Self.shownBox, in: player.view) == true, "the seeded write was lost")
+    }
+
+    /// A value the document holds that breaks a limit the host has since lowered is left out of
+    /// the reopened session and reported once; the session opens and keeps taking writes.
+    @Test func aCarriedValueThatBreaksANewLimitIsLeftOutAndReported() async throws {
+      var errors: [RemoteComposePlayerError] = []
+      let player = try await player(onError: { errors.append($0) })
+      try await setLocally(player, String(repeating: "x", count: 100), for: "label")
+      try await setLocally(player, Self.visible, for: "local")
+      try #require(errors.isEmpty, "\(errors)")
+
+      var limits = RemoteComposeNativeExecutionLimits.default
+      limits.maximumTextBytes = 64
+      player.view.configureExecutionLimits(limits)
+      try await settle(player)
+      #expect(errors.count == 1, "the over-long label is reported once: \(errors)")
+      #expect(text(NativeTestDocuments.labelID, in: player.view) == "Idle")
+      #expect(isShown(Self.localBox, in: player.view) == true, "the rest is carried")
+      #expect(player.controller.setInteger(Self.visible, for: "shown"))
+      try await settle(player)
+      #expect(isShown(Self.shownBox, in: player.view) == true, "a later write is taken")
+      #expect(errors.count == 1, "\(errors)")
     }
 
     /// A write made while the reopen waits for the foreground is newer than the seed and wins.
@@ -338,9 +433,9 @@
       #expect(isShown(Self.shownBox, in: player.view) == false)
     }
 
-    /// A value that breaks an execution limit was refused once. upstream/main's reopen dropped it
-    /// and the reopened session took other writes; with the seed it is written into every
-    /// reopened session again, where it stays and fails every later frame.
+    /// A value that breaks an execution limit was refused once. The reopened session, which is
+    /// offered it again, leaves it out rather than holding it — held, it would fail every later
+    /// frame — and takes other writes, as upstream/main's reopen did.
     @Test func aRefusedValueDoesNotBlockOtherWritesAfterAReopen() async throws {
       var errors: [RemoteComposePlayerError] = []
       var limits = RemoteComposeNativeExecutionLimits.default
@@ -359,6 +454,26 @@
       #expect(
         isShown(Self.shownBox, in: player.view) == true,
         "a write to another name after the reopen; errors: \(errors.dropFirst(reported))")
+    }
+
+    /// A host value the reopened session left out for breaking a limit stays the host's: the next
+    /// session, opened under a limit it meets, takes it.
+    @Test func aHostValueLeftOutOfAReopenIsOfferedToTheNextOne() async throws {
+      var errors: [RemoteComposePlayerError] = []
+      var limits = RemoteComposeNativeExecutionLimits.default
+      limits.maximumTextBytes = 64
+      let player = try await player(limits: limits, onError: { errors.append($0) })
+      let long = String(repeating: "x", count: 100)
+      #expect(player.controller.setString(long, for: "label"))
+      try await settle(player)
+      try #require(!errors.isEmpty, "the over-long label is refused and reported")
+
+      player.view.configureHostDensity(2)
+      try await settle(player)
+      #expect(text(NativeTestDocuments.labelID, in: player.view) == "Idle", "left out")
+      player.view.configureExecutionLimits(.default)
+      try await settle(player)
+      #expect(text(NativeTestDocuments.labelID, in: player.view) == long)
     }
 
     // MARK: - Teardown and hierarchy

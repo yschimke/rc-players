@@ -182,6 +182,28 @@
     let wallClock: NativeSwiftWallClock?
   }
 
+  /// A named value a new session starts from, applied in order before its first frame.
+  private struct NativeStartingValue {
+    let name: String
+    let value: RemoteComposeNativeNamedValue
+    /// Whether it came from `namedValueSeed` rather than from the session being replaced.
+    let isSeeded: Bool
+
+    /// `values`, then `later`, without an earlier entry that a later one repeats exactly: applying
+    /// it twice changes nothing, and if it breaks a limit it would be reported twice.
+    static func merging(_ values: [Self], with later: [Self]) -> [Self] {
+      values.filter { value in
+        !later.contains { $0.name == value.name && $0.value == value.value }
+      } + later
+    }
+  }
+
+  /// A starting value a reopened session was opened without, and why.
+  private struct NativeLeftOutValue {
+    let value: NativeStartingValue
+    let error: any Error
+  }
+
   /// A session's first frame and what was built from it, before its resources are prepared.
   private struct NativeOpenedFirstFrame {
     let engine: NativePlayerEngine
@@ -321,22 +343,39 @@
     /// Signals a caller holding a deferred write when to offer it again.
     @_spi(RemoteComposeController)
     public let inputAvailability = RemoteComposeNativeInputAvailability()
-    /// The named values each session this player reopens starts from, read as the open starts and
-    /// applied before its first frame is resolved — as the Kotlin player seeds a new state with its
-    /// host's values — so a reopen (for the foreground, a new density, policy, limits, resolver or
-    /// custom components) does not show the document's own values first. The player's first open
-    /// runs from `init`, before a host can set this, and is not seeded.
+    /// Named values a reopened session starts from on top of the ones it carries over, read as the
+    /// open starts: the host's writes the session being replaced has not taken — still on their
+    /// way, deferred, refused, or written before it opened. The player's first open runs from
+    /// `init`, before a host can set this, and is not seeded.
     ///
-    /// A value the document declines is skipped silently, as a declined write is. When the seeded
-    /// first frame fails — a value breaks an execution limit or the compatibility policy — the
-    /// session opens with every value its first frame can take and without the others: each one
-    /// left out is reported through `onError`, once per session, as a refused write is, and the
-    /// session stays open and takes later writes. (Written into the session, a bad value would
-    /// stay there and fail every later frame.) Nil, or empty, opens with the document's own
-    /// values; a value written while the session opens goes through `submit`. `load(_:)` with
-    /// other bytes clears it: the values belong to the document they were written for.
+    /// A reopen — for the foreground, a new density, policy, limits, resolver or custom components
+    /// — carries every named value a write changed in the session it replaces, the host's or the
+    /// document's own (read after any input that session was applying), and then applies these,
+    /// in order, before its first frame is resolved. So each named variable shows the newest value
+    /// written to it, as on the Kotlin player, which keeps its state instead of reopening. State
+    /// that is not a named variable — animations, a scroll position, unnamed variables — starts
+    /// again from the bytes.
+    ///
+    /// A value the document declines is skipped silently, as a declined write is. When the first
+    /// frame fails with these values — one breaks an execution limit or the compatibility policy
+    /// — the session opens with every value its first frame can take and without the others: each
+    /// one left out is reported through `onError`, once per session, as a refused write is, a
+    /// seeded one is also passed to `onSeedValueLeftOut`, and the session stays open and takes
+    /// later writes. (Written into the session, a bad value would stay there and fail every later
+    /// frame.) Nil, or empty, adds nothing; a value written while the session opens goes through
+    /// `submit`. `load(_:)` with other bytes clears it and the carried values: the values belong
+    /// to the document they were written for.
     @_spi(RemoteComposeController)
     public var namedValueSeed: (() -> [(name: String, value: RemoteComposeNativeNamedValue)])?
+    /// Called with the name of each `namedValueSeed` value a reopened session was opened without,
+    /// after it was reported through `onError`. The session does not hold it, so a host that keeps
+    /// it offers it again to the next session.
+    @_spi(RemoteComposeController)
+    public var onSeedValueLeftOut: ((String) -> Void)?
+    /// What the next session to open starts from: the named values of the session it replaces —
+    /// read once that session's in-flight input is done — or, while an open is superseded before
+    /// it presents, what that open started from.
+    private var carriedNamedValues: Task<[NativeStartingValue], Never>?
     private let clock: any RemoteComposeNativePlayerClock
     private var animationTimeline = NativeAnimationTimeline()
     private var frameSchedule = NativeFrameSchedule.idle
@@ -412,10 +451,11 @@
     }
 
     public func load(_ data: Data) {
-      if data == documentData, !isShowingError { return }
-      if data != documentData {
-        // The seed holds values for the document it was set with; another one may declare the
-        // same names for something else.
+      let isSameDocument = data == documentData
+      if isSameDocument, !isShowingError { return }
+      if !isSameDocument {
+        // The seed and the carried values belong to the document they were written for; another
+        // one may declare the same names for something else.
         namedValueSeed = nil
         soundPlayer.stopAll()
         animationTimeline.reset(
@@ -423,7 +463,7 @@
           active: isSceneActive && window != nil && !UIAccessibility.isReduceMotionEnabled)
       }
       documentData = data
-      render(data)
+      render(data, carryingNamedValues: isSameDocument)
     }
 
     /// Apply host-owned resource policy and retry the current document when it changes.
@@ -568,7 +608,27 @@
 
     // MARK: - Loading
 
-    private func render(_ data: Data) {
+    /// Keep the named values of the open session, which is about to be replaced, for the next one.
+    /// Read once the input it is applying is done, so a value it was writing is not lost.
+    private func carryNamedValues() {
+      let presentation: NativePlayerPresentation
+      switch state {
+      case .presenting(let open): presentation = open
+      case .failed(let open?): presentation = open
+      case .idle, .loading, .failed(nil), .awaitingForeground: return
+      }
+      let engine = presentation.engine
+      let pump = presentation.pump
+      carriedNamedValues = Task {
+        await pump?.value
+        return await engine.changedNamedValues().map {
+          NativeStartingValue(name: $0.name, value: $0.value, isSeeded: false)
+        }
+      }
+    }
+
+    private func render(_ data: Data, carryingNamedValues: Bool = true) {
+      if carryingNamedValues { carryNamedValues() } else { carriedNamedValues = nil }
       abandonWork()
       guard isSceneActive else {
         state = .awaitingForeground
@@ -599,19 +659,29 @@
       let downloadableFontResolver = downloadableFontResolver
       let resourceCache = resourceCache
       let wallClock = clock.wallClock()
-      let namedValues = namedValueSeed?() ?? []
+      let carried = carriedNamedValues
+      let seeded = (namedValueSeed?() ?? []).map {
+        NativeStartingValue(name: $0.name, value: $0.value, isSeeded: true)
+      }
+      // A reopen that supersedes this open before it presents starts from the same values.
+      let startingValues = Task {
+        NativeStartingValue.merging(await carried?.value ?? [], with: seeded)
+      }
+      carriedNamedValues = startingValues
       // Reduce Motion stops the frames a visibility animation needs, so it lands at once instead.
       let visibilityAnimations = !UIAccessibility.isReduceMotionEnabled
       let task = Task { [weak self] in
         do {
+          let namedValues = await startingValues.value
+          try Task.checkCancellation()
           func openFirstFrame(
-            seededWith namedValues: [(name: String, value: RemoteComposeNativeNamedValue)]
+            seededWith namedValues: [NativeStartingValue]
           ) async throws -> NativeOpenedFirstFrame {
             let (engine, frame) = try await NativePlayerEngine.open(
               data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes,
               hostDensity: hostDensity, hostFontScale: hostFontScale,
               wallClock: wallClock, visibilityAnimations: visibilityAnimations,
-              namedValues: namedValues)
+              namedValues: namedValues.map { (name: $0.name, value: $0.value) })
             try Task.checkCancellation()
             let model = try NativeDocument(
               frame: frame, timeSeconds: 0, limits: executionLimits,
@@ -621,10 +691,12 @@
               diagnostics: model.diagnostics(
                 availableCustomComponents: availableCustomComponents))
           }
-          /// The opened session, and the errors of the seeded values it was opened without.
-          func openSeededFirstFrame() async throws -> (NativeOpenedFirstFrame, [any Error]) {
+          /// The opened session, and the values it was opened without, with their errors.
+          func openSeededFirstFrame() async throws -> (
+            NativeOpenedFirstFrame, [NativeLeftOutValue]
+          ) {
             func openRendering(
-              _ namedValues: [(name: String, value: RemoteComposeNativeNamedValue)]
+              _ namedValues: [NativeStartingValue]
             ) async throws -> NativeOpenedFirstFrame {
               let opened = try await openFirstFrame(seededWith: namedValues)
               guard
@@ -641,8 +713,9 @@
             } catch is CancellationError {
               throw CancellationError()
             } catch {
-              // A seeded value may be what failed — one that breaks an execution limit or the
-              // compatibility policy. A document that fails without the seed too fails as before.
+              // A carried or seeded value may be what failed — one that breaks an execution limit
+              // or the compatibility policy. A document that fails without them too fails as
+              // before.
               try Task.checkCancellation()
               var opened = try await openFirstFrame(seededWith: [])
               guard
@@ -654,8 +727,8 @@
               // into the session: a session keeps every value it applied, so it would fail every
               // later frame and refuse every later write. Only this failure path pays the extra
               // opens.
-              var kept: [(name: String, value: RemoteComposeNativeNamedValue)] = []
-              var refusals: [any Error] = []
+              var kept: [NativeStartingValue] = []
+              var refusals: [NativeLeftOutValue] = []
               for namedValue in namedValues {
                 do {
                   opened = try await openRendering(kept + [namedValue])
@@ -664,7 +737,7 @@
                   throw CancellationError()
                 } catch {
                   try Task.checkCancellation()
-                  refusals.append(error)
+                  refusals.append(NativeLeftOutValue(value: namedValue, error: error))
                 }
               }
               return (opened, refusals)
@@ -697,15 +770,18 @@
       state = .loading(task)
     }
 
-    /// Install the first frame of a freshly opened session, then report `refusals` — the seeded
-    /// values it was opened without — as refused writes are reported.
+    /// Install the first frame of a freshly opened session, then report `refusals` — the carried
+    /// and seeded values it was opened without — as refused writes are reported.
     private func presentOpened(
       _ model: NativeDocument, engine: NativePlayerEngine, resources: NativeResourceStore,
-      effects: [RemoteComposeNativePlayerEvent], reporting refusals: [any Error]
+      effects: [RemoteComposeNativePlayerEvent], reporting refusals: [NativeLeftOutValue]
     ) {
       let presentation = NativePlayerPresentation(engine: engine, resources: resources)
       defer {
-        for refusal in refusals { report(refusal) }
+        for refusal in refusals {
+          report(refusal.error)
+          if refusal.value.isSeeded { onSeedValueLeftOut?(refusal.value.name) }
+        }
         announceOpened()
       }
       do {
@@ -793,11 +869,11 @@
     /// full, or the session that took it was superseded by a reopen. Nothing is queued for later;
     /// write it again when the player can take it.
     ///
-    /// A value lives in the session, not in the player. The player reopens its document — and
-    /// starts again from the document's own values — when it returns from the background with
-    /// input outstanding, and when its density, policy, limits, resolvers, custom components or
-    /// document change. A host that needs its values to persist writes them again after such a
-    /// change; the SwiftUI controller (`RemoteComposePlayerController`) does this itself.
+    /// A value lives in the session. The player reopens its document when it returns from the
+    /// background with input outstanding, and when its density, policy, limits, resolvers or
+    /// custom components change; the new session starts from the named values the old one held
+    /// (see `namedValueSeed`), less any that now breaks a limit, which is reported. Other bytes
+    /// start again from their own values.
     @discardableResult
     public func setFloat(_ value: Float, for name: String) async -> Bool {
       await submit(.setFloat(value, name: name))
@@ -966,8 +1042,10 @@
       }
       guard generation == self.generation else {
         // Superseded by a reload or the background: the session that applied it is discarded and
-        // the bytes are reopened, so whatever it said, the input is not on screen and will not be.
-        // Nothing from a superseded session reaches the screen or the host's callbacks.
+        // the bytes are reopened, so the frame it produced is never shown and the writer is told
+        // `.deferred`. Nothing from a superseded session reaches the screen or the host's
+        // callbacks; a named value it changed is carried into a session reopened over the same
+        // bytes.
         pending.reply?(.deferred)
         return
       }
@@ -1118,7 +1196,8 @@
       state = .failed(presentation)
       if presentation == nil {
         // The open failed. A write waiting for it gets its answer, `.refused`, from the failed
-        // state; the next session to open starts from `namedValueSeed` again.
+        // state; the next session to open starts from the values this one would have, and from
+        // `namedValueSeed` again.
         inputAvailability.signal()
       }
       scheduledFramePending = false
@@ -1363,6 +1442,8 @@
       }
       animationTimeline.pause(at: clock.now())
       stopFrameDriver()
+      // The session is replaced on activation; what it holds is read before its work is dropped.
+      if reopen { carryNamedValues() }
       abandonWork()
       scheduledFramePending = false
       if reopen, documentData != nil { state = .awaitingForeground }

@@ -85,6 +85,51 @@
       Issue.record("never saw the write in flight")
     }
 
+    /// The value a write in flight was applying as the scene left is carried into the reopened
+    /// session: the session that applied it is read once the write is done, before it is replaced.
+    @Test func aValueInFlightWhenTheSceneGoesToTheBackgroundIsCarried() async throws {
+      let view = RemoteComposeNativePlayerView(
+        data: NativeTestDocuments.label(), resourceResolver: nil)
+      try await until("the document opens") { !view.isOpeningDocument }
+      for attempt in 0..<50 {
+        var answer: RemoteComposeNativeInputAdmission?
+        let value = "Value \(attempt)"
+        Task { @MainActor in answer = await view.submit(.text(value), for: "label") }
+        try await until("the write is in flight or answered") {
+          answer != nil || view.isApplyingInput
+        }
+        guard view.isApplyingInput else { continue }
+        moveToBackground(view)
+        try await until("the write is answered") { answer != nil }
+        activate(view)
+        try await until("the reopen settles") { !view.isOpeningDocument && !view.isBusy }
+        #expect(text(NativeTestDocuments.labelID, in: view) == value)
+        return
+      }
+      Issue.record("never saw the write in flight")
+    }
+
+    /// The text the component with `id` shows, or nil when it is not on screen.
+    private func text(_ id: Int, in view: UIView) -> String? {
+      var pending: [UIView] = [view]
+      while !pending.isEmpty {
+        let next = pending.removeFirst()
+        if let component = next as? NativeComponentView,
+          let found = component.descendant(withID: id)
+        {
+          var labels: [UIView] = [found]
+          while !labels.isEmpty {
+            let candidate = labels.removeFirst()
+            if let label = candidate as? UILabel { return label.text }
+            labels.append(contentsOf: candidate.subviews)
+          }
+          return nil
+        }
+        pending.append(contentsOf: next.subviews)
+      }
+      return nil
+    }
+
     /// A write the document refuses is answered `.refused` once, even while other input is queued:
     /// it is final, not a reason to offer it again.
     @Test func aRefusalWhileInputIsQueuedIsFinal() async throws {
@@ -256,10 +301,36 @@
       #expect(errors.count == 1, "\(errors)")
     }
 
-    /// The seed belongs to the document it was set for: other bytes clear it, and their first
-    /// frame shows their own values.
+    /// A reopen — here for a new density — carries the named values the session it replaces
+    /// held, written by the host or by the document, into the first frame of the new session.
+    @Test func aReopenCarriesTheSessionsNamedValues() async throws {
+      let view = try await openedView()
+      #expect(await view.submit(.integer(Self.visible), for: "shown") == .accepted)
+      var firstFrames: [Bool?] = []
+      view.onSessionOpened = { [unowned view] in firstFrames.append(isBoxShown(in: view)) }
+      view.configureHostDensity(2)
+      try await until("the reopen finishes") { !view.isOpeningDocument }
+      #expect(firstFrames == [true])
+    }
+
+    /// The seed is applied over the carried values: it holds the host's writes the replaced session
+    /// had not taken, which are newer.
+    @Test func theSeedIsAppliedOverTheCarriedValues() async throws {
+      let view = try await openedView()
+      #expect(await view.submit(.integer(Self.visible), for: "shown") == .accepted)
+      view.namedValueSeed = { [(name: "shown", value: .integer(Self.gone))] }
+      var firstFrames: [Bool?] = []
+      view.onSessionOpened = { [unowned view] in firstFrames.append(isBoxShown(in: view)) }
+      view.configureHostDensity(2)
+      try await until("the reopen finishes") { !view.isOpeningDocument }
+      #expect(firstFrames == [false])
+    }
+
+    /// The seed and the carried values belong to the document they were set for: other bytes
+    /// clear them, and their first frame shows their own values.
     @Test func loadingOtherBytesClearsTheSeed() async throws {
       let view = try await openedView()
+      #expect(await view.submit(.integer(Self.visible), for: "shown") == .accepted)
       view.namedValueSeed = { [(name: "shown", value: .integer(Self.visible))] }
       var firstFrames: [Bool?] = []
       view.onSessionOpened = { [unowned view] in firstFrames.append(isBoxShown(in: view)) }

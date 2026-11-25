@@ -343,6 +343,10 @@
     /// rebuilt, so a delivery waiting for the player does not outlive its value. Internal, not
     /// private, so a test can tell when every delivery has finished.
     private(set) var nativeUpdateTasks: [String: Task<Void, Never>] = [:]
+    /// The names whose latest value the native player's session holds: a delivery it accepted, or
+    /// a reopen's seed it was opened with. A reopen carries the session's own values over, so only
+    /// the other names are seeded — the newer value either side wrote is what the session holds.
+    private var settledNativeUpdates: Set<String> = []
     /// Reads the current document's declarations off the main thread; replaced on every rebuild.
     private var declarationTask: Task<Void, Never>?
 
@@ -409,6 +413,7 @@
     private func rebuildContent() {
       playerController.backend.installUpdateHandler(nil)
       latestNativeUpdates.removeAll()
+      settledNativeUpdates.removeAll()
       for task in nativeUpdateTasks.values { task.cancel() }
       nativeUpdateTasks.removeAll()
       declarationTask?.cancel()
@@ -430,23 +435,32 @@
         onDiagnostics: { _ in },
         onError: { [weak self] error in self?.errorHandler(.playback(error.localizedDescription)) })
       install(native)
-      // A session the player reopens — back from the background, or for a new density — is
-      // seeded with the values written so far, so its first frame already shows them. (The
-      // first open starts inside `init`, before this is set, and is not seeded.) The Kotlin
-      // player does not reopen for either and keeps its state; a native reopen still loses what
-      // the document's own actions changed.
+      // A session the player reopens — back from the background, or for a new density — carries
+      // the named values the one it replaces held, the controller's and the document's own, and
+      // is seeded with the controller's values that session did not hold, so its first frame
+      // shows the newest value of each. (The first open starts inside `init`, before this is set,
+      // and is not seeded.) The Kotlin player does not reopen for either and keeps its state.
       //
       // A write still on its way when the reopen starts was meant for the session it discards; the
       // seed hands the new session the same value — the controller's latest for that name — so
-      // that write is dropped rather than applied a second time.
+      // that write is dropped rather than applied a second time. A seeded value the session is
+      // opened without (it breaks a limit) is offered to the next one again, as a refused write
+      // is.
       native.playerView.namedValueSeed = { [weak self, weak native] in
         guard let self, let native, self.nativeController === native else { return [] }
-        let seed = self.playerController.backend.seedValues
+        let seed = self.playerController.backend.seedValues.filter {
+          !self.settledNativeUpdates.contains($0.name)
+        }
         for (name, _) in seed {
           self.latestNativeUpdates[name] = nil
           self.nativeUpdateTasks.removeValue(forKey: name)?.cancel()
+          self.settledNativeUpdates.insert(name)
         }
         return seed
+      }
+      native.playerView.onSeedValueLeftOut = { [weak self, weak native] name in
+        guard let self, let native, self.nativeController === native else { return }
+        self.settledNativeUpdates.remove(name)
       }
       // Reading the declarations decodes the whole document, so it runs off the main thread, like
       // the session's own open. The controller is attached as soon as it finishes — normally well
@@ -468,10 +482,12 @@
           let token = self.beginNativeUpdate(for: name)
           // The task takes its own weak references rather than sharing the handler's captures.
           self.nativeUpdateTasks[name] = Task { @MainActor [weak self, weak native] in
-            await value.deliver(for: name, to: { native }) {
+            let admission = await value.deliver(for: name, to: { native }) {
               self?.latestNativeUpdates[name] == token
             }
-            if self?.latestNativeUpdates[name] == token { self?.nativeUpdateTasks[name] = nil }
+            guard let self, self.latestNativeUpdates[name] == token else { return }
+            self.nativeUpdateTasks[name] = nil
+            if admission == .accepted { self.settledNativeUpdates.insert(name) }
           }
         }
       }
@@ -493,6 +509,7 @@
       let token = nextNativeUpdateToken
       nextNativeUpdateToken += 1
       latestNativeUpdates[name] = token
+      settledNativeUpdates.remove(name)
       nativeUpdateTasks.removeValue(forKey: name)?.cancel()
       return token
     }

@@ -65,3 +65,14 @@ public struct NativeSwiftNamedVariableDeclarations: Sendable {
 
   private func type(of name: String) -> Int? { variable(for: name)?.type }
 }
+
+/// A named variable's value as ``NativeSwiftDocumentSession/changedNamedValues()`` reads it: the
+/// four kinds a host can write. A boolean is an `.integer` 0 or 1, as on the wire.
+@_spi(RemoteComposeController)
+public enum NativeSwiftChangedNamedValue: Equatable, Sendable {
+  case text(String)
+  case float(Float)
+  case integer(Int)
+  /// ARGB, as the document stores a colour.
+  case color(UInt32)
+}

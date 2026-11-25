@@ -1,10 +1,32 @@
 import Foundation
+import RcNativePlayerTestDocuments
 import Testing
 
 @testable import RcNativePlayerCore
 @_spi(RemoteComposeController) @testable import RcNativePlayerUIKit
 
 @Suite struct NativePlayerEngineTests {
+  /// What a reopen carries: each named value a write changed, and nothing a write left at, or put
+  /// back to, the document's initial value.
+  @Test func changedNamedValuesAreWhatAWriteChanged() async throws {
+    let (label, _) = try await NativePlayerEngine.open(
+      data: NativeTestDocuments.label(), maximumDocumentBytes: 1 << 20)
+    #expect(await label.changedNamedValues().isEmpty)
+    _ = try await label.apply(.setString("Ready", name: "label"))
+    _ = try await label.apply(.setString("Title", name: "title"))
+    let changed = await label.changedNamedValues()
+    #expect(changed.map(\.name) == ["label"])
+    #expect(changed.map(\.value) == [.text("Ready")])
+
+    let (shown, _) = try await NativePlayerEngine.open(
+      data: NativeTestDocuments.shownBox(), maximumDocumentBytes: 1 << 20)
+    _ = try await shown.apply(.setInteger(NativeSwiftVisibility.visible, name: "shown"))
+    #expect(
+      await shown.changedNamedValues().map(\.value) == [.integer(NativeSwiftVisibility.visible)])
+    _ = try await shown.apply(.setInteger(NativeSwiftVisibility.gone, name: "shown"))
+    #expect(await shown.changedNamedValues().isEmpty)
+  }
+
   /// `signalOne` releases the longest waiter only, skipping one that was cancelled; a later
   /// `signal` releases the rest.
   @Test func inputAvailabilityWakesOneWaiterInArrivalOrder() async throws {

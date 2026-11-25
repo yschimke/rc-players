@@ -707,6 +707,45 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   @_spi(Conformance)
   public func namedVariableID(_ name: String) -> Int? { namedVariable(for: name)?.id }
 
+  /// The value each named variable holds that a write changed since this session opened — the
+  /// host's, or one of the document's own actions — by the name the document declares it under,
+  /// sorted by name. A variable still at the document's initial value is left out, and so is one
+  /// whose type no host can write.
+  ///
+  /// It is what a host carries into a new session over the same document, so the new session
+  /// starts from the newest value either side wrote rather than from the document's initial ones.
+  /// An integer is read from the integer slot even where an action stored a float into it, as
+  /// `setInteger` writes it back.
+  @_spi(RemoteComposeController)
+  public func changedNamedValues() -> [(name: String, value: NativeSwiftChangedNamedValue)] {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    var changed: [(name: String, value: NativeSwiftChangedNamedValue)] = []
+    for (name, variable) in namedVariableDeclarations.variables.sorted(by: { $0.key < $1.key }) {
+      let id = variable.id
+      switch variable.type {
+      case NativeSwiftNamedVariableType.int:
+        if let value = integers[id], value != document.integers[id] {
+          changed.append((name, .integer(value)))
+        }
+      case NativeSwiftNamedVariableType.float:
+        if let value = floatOverrides[id] { changed.append((name, .float(value))) }
+      case NativeSwiftNamedVariableType.string:
+        if let value = texts[id], value != document.texts[id] {
+          changed.append((name, .text(value)))
+        }
+      case NativeSwiftNamedVariableType.color:
+        // Only a host writes a colour by name; the document's own are restored by its bytes.
+        if hostSetColors.contains(id), let value = colors[id] {
+          changed.append((name, .color(value)))
+        }
+      default:
+        break
+      }
+    }
+    return changed
+  }
+
   /// The authoring API addresses user values without the wire format's `USER:` prefix. Keep the
   /// wire spelling available too, so hosts can use either form when a document names it explicitly.
   private func namedVariable(for name: String) -> ParsedNamedVariable? {

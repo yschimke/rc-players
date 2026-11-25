@@ -1,7 +1,7 @@
 #if canImport(Foundation)
   import Foundation
   #if canImport(RcNativePlayerCore)
-    import RcNativePlayerCore
+    @_spi(RemoteComposeController) import RcNativePlayerCore
   #endif
 
   public enum RemoteComposeNativePlayerActionValue: Equatable, Sendable {
@@ -97,9 +97,10 @@
     ///   - wallClock: the host's absolute time, for the first frame. See `NativeSwiftWallClock`.
     ///   - visibilityAnimations: whether custom visibility animations play; see
     ///     `NativeSwiftDocumentSession.setVisibilityAnimationsEnabled`.
-    ///   - namedValues: host values applied before the first frame is resolved, so that frame
-    ///     already shows them. One the document declines is skipped, as a declined write is; one
-    ///     that breaks a limit fails the first frame, and the caller opens again without it.
+    ///   - namedValues: named values applied, in order, before the first frame is resolved, so
+    ///     that frame already shows them. One the document declines is skipped, as a declined
+    ///     write is; one that breaks a limit fails the first frame, and the caller opens again
+    ///     without it.
     static func open(
       data: Data, maximumDocumentBytes: Int, hostDensity: Float = 1, hostFontScale: Float = 1,
       wallClock: NativeSwiftWallClock? = nil, visibilityAnimations: Bool = true,
@@ -135,6 +136,20 @@
         throw RemoteComposeNativePlayerError.decode(error.description)
       } catch {
         throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
+      }
+    }
+
+    /// The named values a write changed since this session opened — the host's or the
+    /// document's own — for the session that replaces it to start from. See
+    /// `changedNamedValues` on the core.
+    func changedNamedValues() -> [(name: String, value: RemoteComposeNativeNamedValue)] {
+      session.changedNamedValues().map { name, value in
+        switch value {
+        case .text(let value): (name: name, value: .text(value))
+        case .float(let value): (name: name, value: .float(value))
+        case .integer(let value): (name: name, value: .integer(value))
+        case .color(let argb): (name: name, value: .color(argb))
+        }
       }
     }
 
