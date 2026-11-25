@@ -90,7 +90,7 @@ Current version: **2**.
 
 | version | what changed |
 |---|---|
-| 2 | `namedValues`' `color` reads as the TypeScript player's `HostApi.parseColor`: a JSON number is the ARGB itself rather than hex digits, and a string that is not `#RRGGBB` or `#AARRGGBB` is dropped rather than read as any hex number. |
+| 2 | `namedValues`' `color` reads as the TypeScript player's `HostApi.parseColor`. A JSON number is the ARGB itself (wrapped to 32 bits) rather than hex digits. `#RRGGBB` is now opaque (it was `0x00RRGGBB`, invisible). Surrounding whitespace, as JavaScript's `trim` removes it, is ignored (it was dropped). Any other string — `+FF8800`, three or more than eight digits — is dropped rather than read or truncated as a hex number. |
 | 1 | The first published contract. |
 
 ## Query parameters
@@ -147,7 +147,8 @@ const src = `player.html?src=doc.rc&namedValues=${encodeURIComponent(JSON.string
 or strings with a `.` decimal point, never `toLocaleString()` output: `"1,5"` is malformed and
 dropped. `color` is the exception that reads the two differently, as the vendored TypeScript
 player's `HostApi.parseColor` does: a string is hex, `#RRGGBB` (opaque) or `#AARRGGBB`, with or
-without the leading `#`, and any other string is malformed; a number is the ARGB itself, so its
+without the leading `#`, after JavaScript's `trim` of surrounding whitespace, and any other
+string is malformed; a number is the ARGB itself, so its
 alpha is the top byte — `4294936576` (`0xFFFF8800`, or `-30720` as a signed 32-bit value) is opaque
 orange, while `16746496` (`0xFF8800`) has a zero alpha and draws nothing. A fraction is truncated
 and a number outside 32 bits wraps, as JavaScript's `v | 0` does: `8589934591` (`0x1FFFFFFFF`) is

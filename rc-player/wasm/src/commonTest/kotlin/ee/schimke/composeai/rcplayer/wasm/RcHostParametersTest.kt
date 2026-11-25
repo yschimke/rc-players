@@ -257,7 +257,8 @@ class RcHostParametersTest {
       assertEquals(RcNamedValue.Color(0xFFFF8800.toInt()), parseNamedValue("color", value), value)
     }
     // ...but the information separators U+001C-U+001F, U+0085 and U+180E are not, so the value
-    // does not match and is dropped, as the web player drops it.
+    // does not match and is dropped, as the web player drops it. (U+0085 and U+180E were dropped
+    // before this change too; they guard against a regression, not the fix.)
     for (value in listOf("\u001C#FF8800", "#FF8800\u001F", "\u0085#FF8800", "\u180E#FF8800")) {
       assertNull(parseArgbColor(value), value)
       assertNull(parseNamedValue("color", value), value)

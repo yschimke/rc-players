@@ -158,7 +158,9 @@ const CASES = [
       name: 'WearM3.primary',
       reference: '#FFFF8800',
       expectRgb: 0xff8800,
-      sameAs: ['#FF8800', 'FFFF8800', 0xffff8800, -30720],
+      // The last three only agree with `parseColor` in the shipped bundle if the Kotlin/Wasm number
+      // and trim paths match JavaScript: numbers that wrap past 32 bits, and JS-only whitespace.
+      sameAs: ['#FF8800', 'FFFF8800', 0xffff8800, -30720, 8589903872, 4294936576.5, '\uFEFF#FF8800\u3000'],
     },
   },
   {
@@ -449,6 +451,8 @@ async function renderOnce(browser, origin, query) {
       throw new Error(`the render of ?${query} failed: ${settled.error ?? 'unknown error'}`);
     }
     const screenshot = PNG.sync.read(await page.screenshot());
+    // One more frame, so an error logged just after the screenshot is still caught.
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
     if (faults.length > 0) {
       throw new Error(`the render of ?${query} reported errors:\n  ${faults.join('\n  ')}`);
     }
