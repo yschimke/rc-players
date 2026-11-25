@@ -251,9 +251,6 @@
     var deferredFrameTime: TimeInterval?
     /// The task draining this presentation's work, while there is any.
     var pump: Task<Void, Never>?
-    /// What this session started from, the values it was opened without included. A retry out of
-    /// a failure starts from it again rather than from what the failed session held.
-    let startedFrom: NativeCarriedValues
     /// The starting values it was opened without (each broke a limit). The variable still holds
     /// the document's value, so the next session is offered them again until a write replaces
     /// them.
@@ -262,6 +259,12 @@
     /// each `submit` write it applied — also one it applied after a reopen superseded it, since
     /// its written values are carried.
     var hostValues: [String: NativeHostValue]
+    /// Each named write that failed this session — applying it, or the frame it produced, broke a
+    /// limit or the policy — and was refused, by the name it was written under, with its value.
+    /// While the session stays failed its variable may still hold that value, which is what
+    /// failed it, so the next session is not handed it (the seeding host offers its own write
+    /// again in the seed, judged afresh). A later accepted write of the name replaces it.
+    var failedWrites: [String: NativeSwiftNamedValue] = [:]
 
     init(
       engine: NativePlayerEngine, resources: NativeResourceStore,
@@ -269,7 +272,6 @@
     ) {
       self.engine = engine
       self.resources = resources
-      self.startedFrom = startedFrom
       self.leftOut = leftOut
       hostValues = startedFrom.hostValues
     }
@@ -658,26 +660,35 @@
 
     /// Keep what the open session, which is about to be replaced, holds for the next one: its
     /// written named values, read once the input it is applying is done so a value it was writing
-    /// is not lost, and the left-out values no write has replaced. A failed session hands on what
-    /// it started from instead.
+    /// is not lost, and the left-out values no write has replaced. A failed session hands on the
+    /// same, less the values of the writes that failed it (`failedWrites`): the document's own
+    /// values and the host's accepted ones survive one refused write, as on the Kotlin player. A
+    /// value that still breaks a limit is left out of the next session's first frame and
+    /// reported, as any starting value is.
     private func carryNamedValues() {
+      let presentation: NativePlayerPresentation
+      let failed: Bool
       switch state {
-      case .presenting(let presentation):
-        let pump = presentation.pump
-        carriedNamedValues = Task {
-          await pump?.value
-          let written = await presentation.engine.writtenNamedValues().map {
-            NativeStartingValue(name: $0.name, value: $0.value)
-          }
-          return NativeCarriedValues(
-            values: NativeStartingValue.merging(presentation.leftOut, with: written),
-            hostValues: presentation.hostValues)
-        }
-      case .failed(let presentation?):
-        let startedFrom = presentation.startedFrom
-        carriedNamedValues = Task { startedFrom }
+      case .presenting(let open):
+        presentation = open
+        failed = false
+      case .failed(let open?):
+        presentation = open
+        failed = true
       case .idle, .loading, .failed(nil), .awaitingForeground:
         return
+      }
+      let pump = presentation.pump
+      carriedNamedValues = Task {
+        await pump?.value
+        let failedWrites = failed ? presentation.failedWrites : [:]
+        let written = await presentation.engine.writtenNamedValues().compactMap {
+          failedWrites[$0.name] == $0.value
+            ? nil : NativeStartingValue(name: $0.name, value: $0.value)
+        }
+        return NativeCarriedValues(
+          values: NativeStartingValue.merging(presentation.leftOut, with: written),
+          hostValues: presentation.hostValues)
       }
     }
 
@@ -1145,7 +1156,7 @@
         // callbacks; a named value it set is carried into a session reopened over the same bytes,
         // which then holds the host's value too.
         if case .success(let update) = result, update.accepted {
-          recordHostValue(pending, on: presentation)
+          note(.accepted, of: pending, on: presentation)
         }
         pending.reply?(.deferred)
         return
@@ -1154,32 +1165,59 @@
       case .success(let update):
         onInputApplied?(pending.input)
         // Evaluated first: an optional-chained call skips its argument when a gesture has no reply.
-        let accepted = presentInput(update, on: presentation, generation: generation)
-        if accepted { recordHostValue(pending, on: presentation) }
-        pending.reply?(accepted ? .accepted : .refused)
+        let outcome = presentInput(update, on: presentation, generation: generation)
+        note(outcome, of: pending, on: presentation)
+        pending.reply?(outcome == .accepted ? .accepted : .refused)
       case .failure(let error):
-        if !(error is CancellationError) { show(error: error, retaining: presentation) }
+        if !(error is CancellationError) {
+          show(error: error, retaining: presentation)
+          note(.failed, of: pending, on: presentation)
+        }
         pending.reply?(.refused)
       }
     }
 
-    /// Note that `presentation`'s session took the seeding host's write `pending`, so a seed of
-    /// that same write does not overwrite a newer change by the document (or by a `set*` call) at
-    /// the next reopen. Keyed by the name the host wrote, as `hostWriteCounts` and the seed are.
-    private func recordHostValue(
-      _ pending: NativePendingInput, on presentation: NativePlayerPresentation
-    ) {
-      guard let write = pending.hostWrite, let (name, value) = pending.input.hostNamedValue
-      else { return }
-      presentation.hostValues[name] = NativeHostValue(value: value, write: write)
+    /// How the open session took one input.
+    private enum NativeInputOutcome {
+      /// The document applied it.
+      case accepted
+      /// The document declined it — an undeclared name, another type, a gesture nothing
+      /// handles — or a reopen superseded the session before its frame was judged.
+      case declined
+      /// Applying it, or the frame it produced, failed the session.
+      case failed
     }
 
-    /// Install the frame an input produced and deliver its events. Returns whether the document
-    /// accepted the input.
+    /// Record what `presentation`'s session made of the named write `pending`:
+    /// - a seeding host's write it took, so a seed of that same write does not overwrite a newer
+    ///   change by the document (or by a `set*` call) at the next reopen — keyed by the name the
+    ///   host wrote, as `hostWriteCounts` and the seed are;
+    /// - a write that failed it, whose value the next session is not handed (`failedWrites`).
+    private func note(
+      _ outcome: NativeInputOutcome, of pending: NativePendingInput,
+      on presentation: NativePlayerPresentation
+    ) {
+      guard let (name, value) = pending.input.hostNamedValue else { return }
+      switch outcome {
+      case .accepted:
+        presentation.failedWrites[name] = nil
+        if let write = pending.hostWrite {
+          presentation.hostValues[name] = NativeHostValue(value: value, write: write)
+        }
+      case .failed:
+        presentation.failedWrites[name] = value
+      case .declined:
+        break
+      }
+    }
+
+    /// Install the frame an input produced and deliver its events, and say how the session took
+    /// the input.
     private func presentInput(
       _ update: NativePlayerEngine.Update, on presentation: NativePlayerPresentation,
       generation: UInt64
-    ) -> Bool {
+    ) -> NativeInputOutcome {
+      let outcome: NativeInputOutcome = update.accepted ? .accepted : .declined
       do {
         if !presentation.inputs.isEmpty {
           // A newer input will install its own frame; validate and deliver this input's events in
@@ -1187,7 +1225,7 @@
           var budget = NativeFrameBudget()
           try validateEvents(update.events, budget: &budget)
           dispatch(update.events, generation: generation)
-          return update.accepted
+          return outcome
         }
         let model = try NativeDocument(
           frame: update.frame, timeSeconds: update.timeSeconds, limits: executionLimits,
@@ -1195,15 +1233,15 @@
         try validateExecution(model, events: update.events)
         try validate(model)
         guard generation == self.generation, presentation.inputs.isEmpty else {
-          return update.accepted
+          return outcome
         }
         try install(model, for: presentation)
         dispatch(update.events, generation: generation)
-        return update.accepted
+        return outcome
       } catch {
-        guard generation == self.generation else { return false }
+        guard generation == self.generation else { return .declined }
         show(error: error, retaining: presentation)
-        return false
+        return .failed
       }
     }
 

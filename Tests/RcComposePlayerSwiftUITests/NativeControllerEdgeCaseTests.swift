@@ -159,6 +159,29 @@
 
     // MARK: - Failed session, then a reopen
 
+    /// A refused host write (over the text limit) fails the session; a reopen starts from what
+    /// that session started from. The host's accepted value is re-seeded; the document's own
+    /// value, which the Kotlin player keeps, is lost.
+    @Test func aRefusedHostWriteThenAReopenKeepsDocumentLocalState() async throws {
+      var errors: [RemoteComposePlayerError] = []
+      var limits = RemoteComposeNativeExecutionLimits.default
+      limits.maximumTextBytes = 64
+      let player = try await player(limits: limits, onError: { errors.append($0) })
+      #expect(player.controller.setInteger(Self.visible, for: "shown"))
+      try await settle(player)
+      try await setLocally(player, Self.visible, for: "local")
+      #expect(player.controller.setString(String(repeating: "x", count: 100), for: "label"))
+      try await settle(player)
+      try #require(!errors.isEmpty)
+      player.view.configureHostDensity(2)
+      try await settle(player)
+      #expect(isShown(Self.shownBox, in: player.view) == true, "the host's value")
+      #expect(text(label, in: player.view) == "Idle", "the refused value is left out")
+      #expect(
+        isShown(Self.localBox, in: player.view) == true,
+        "document-local state was reset by a reopen after one refused host write")
+    }
+
     /// After that reopen the session takes writes again.
     @Test func aFailedSessionRetryTakesLaterWrites() async throws {
       var errors: [RemoteComposePlayerError] = []
