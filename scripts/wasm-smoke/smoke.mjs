@@ -403,19 +403,56 @@ function countOffscreenWebGl2() {
   };
 }
 
-/** Render [query] in a fresh page and return its screenshot, for [compareRenders]. */
+/**
+ * Hold the version [settled] read off the page to [EXPECTED_CONTRACT_VERSION].
+ *
+ * The contract version is published before anything is loaded, so it is readable even on the
+ * failure case. Hosts read `window.rcPlayerContractVersion`; a page driving an iframe reads the
+ * `data-rc-player-contract` attribute. Both must exist, agree, and carry the version this revision
+ * of the repository documents — a bundle that published a different one, or only one of the two,
+ * would break a host silently.
+ */
+function assertContractVersion(settled) {
+  if (settled.contractGlobal !== EXPECTED_CONTRACT_VERSION) {
+    throw new Error(
+      `window.rcPlayerContractVersion is ${JSON.stringify(settled.contractGlobal)}, expected ` +
+        `${EXPECTED_CONTRACT_VERSION} (bump EXPECTED_CONTRACT_VERSION here in the same commit ` +
+        'that bumps the contract)',
+    );
+  }
+  if (settled.contractAttribute !== String(EXPECTED_CONTRACT_VERSION)) {
+    throw new Error(
+      `data-rc-player-contract is ${JSON.stringify(settled.contractAttribute)}, expected ` +
+        `"${EXPECTED_CONTRACT_VERSION}"`,
+    );
+  }
+}
+
+/**
+ * Render [query] in a fresh page and return its screenshot, for [compareRenders] and the
+ * `namedColour` case. It is held to what the header promises of every case: the contract version,
+ * no uncaught exception, and nothing written to `console.error`.
+ */
 async function renderOnce(browser, origin, query) {
   const context = await browser.newContext({ viewport: VIEWPORT });
   try {
     const page = await context.newPage();
-    const errors = [];
-    page.on('pageerror', (error) => errors.push(String(error)));
+    const faults = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') faults.push(message.text());
+    });
+    page.on('pageerror', (error) => faults.push(String(error)));
     await page.goto(`${origin}/index.html?${query}`, { waitUntil: 'domcontentloaded' });
-    const settled = await waitForSettled(page, () => errors);
+    const settled = await waitForSettled(page, () => faults);
+    assertContractVersion(settled);
     if (settled.state !== 'ready') {
-      throw new Error(`the comparison render failed: ${settled.error ?? 'unknown error'}`);
+      throw new Error(`the render of ?${query} failed: ${settled.error ?? 'unknown error'}`);
     }
-    return PNG.sync.read(await page.screenshot());
+    const screenshot = PNG.sync.read(await page.screenshot());
+    if (faults.length > 0) {
+      throw new Error(`the render of ?${query} reported errors:\n  ${faults.join('\n  ')}`);
+    }
+    return screenshot;
   } finally {
     await context.close();
   }
@@ -495,24 +532,7 @@ async function runCase(browser, origin, testCase) {
     await page.goto(`${origin}/index.html?${testCase.query}`, { waitUntil: 'domcontentloaded' });
     let settled = await waitForSettled(page, watched);
 
-    // The contract version is published before anything is loaded, so it is readable even on the
-    // failure case. Hosts read `window.rcPlayerContractVersion`; a page driving an iframe reads the
-    // `data-rc-player-contract` attribute. Both must exist, agree, and carry the version this
-    // revision of the repository documents — a bundle that published a different one, or only one
-    // of the two, would break a host silently.
-    if (settled.contractGlobal !== EXPECTED_CONTRACT_VERSION) {
-      throw new Error(
-        `window.rcPlayerContractVersion is ${JSON.stringify(settled.contractGlobal)}, expected ` +
-          `${EXPECTED_CONTRACT_VERSION} (bump EXPECTED_CONTRACT_VERSION here in the same commit ` +
-          'that bumps the contract)',
-      );
-    }
-    if (settled.contractAttribute !== String(EXPECTED_CONTRACT_VERSION)) {
-      throw new Error(
-        `data-rc-player-contract is ${JSON.stringify(settled.contractAttribute)}, expected ` +
-          `"${EXPECTED_CONTRACT_VERSION}"`,
-      );
-    }
+    assertContractVersion(settled);
 
     if (expectsError) {
       if (settled.state !== 'error') {
