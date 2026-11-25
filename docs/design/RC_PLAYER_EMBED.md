@@ -86,7 +86,12 @@ tracks this number.
 `data-rc-player-state` value, a `postMessage` payload's shape, `window.rcPlayerLoad`'s behaviour.
 **Do not bump it** for additions — a new parameter or a new message type is feature-detected.
 
-Current version: **1**.
+Current version: **2**.
+
+| version | what changed |
+|---|---|
+| 2 | `namedValues`' `color` reads as the TypeScript player's `HostApi.parseColor`: a JSON number is the ARGB itself rather than hex digits, and a string that is not `#RRGGBB` or `#AARRGGBB` is dropped rather than read as any hex number. |
+| 1 | The first published contract. |
 
 ## Query parameters
 

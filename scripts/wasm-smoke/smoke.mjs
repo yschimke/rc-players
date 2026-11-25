@@ -69,7 +69,7 @@ const COMMON_QUERY = 'handoffDelayMs=0';
  * changed — so it should be a deliberate edit here too, in the same commit, rather than something
  * a presence check waves through.
  */
-const EXPECTED_CONTRACT_VERSION = 1;
+const EXPECTED_CONTRACT_VERSION = 2;
 
 const CASES = [
   {

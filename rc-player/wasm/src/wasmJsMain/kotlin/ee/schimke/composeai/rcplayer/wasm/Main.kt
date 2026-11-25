@@ -660,7 +660,7 @@ private fun decodeUriComponentJs(value: String): JsString = js("decodeURICompone
  * message type or a `window` function (`rcPlayerLoadBytes`) is additive and does not bump it; a
  * host feature-detects those.
  */
-private const val RC_PLAYER_EMBED_CONTRACT_VERSION: Int = 1
+private const val RC_PLAYER_EMBED_CONTRACT_VERSION: Int = 2
 
 private fun publishContractVersion(version: Int): Unit =
   js(
