@@ -521,6 +521,10 @@
     /// tests use it to move the scene to the background while an input is in flight.
     var isApplyingInput: Bool { openPresentation?.activity == .input }
 
+    /// Whether the open session has input in flight or queued — what makes a move to the background
+    /// reopen the bytes on activation. A test hook, like ``isApplyingInput``.
+    var hasOutstandingInput: Bool { openPresentation?.hasOutstandingInput ?? false }
+
     /// Called as each session opens, right after its first frame is installed and before anything
     /// else runs on the main actor. A test hook: it lets a test read the first frame a session
     /// shows rather than a later one.

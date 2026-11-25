@@ -72,10 +72,12 @@
       for _ in 0..<50 {
         var answer: RemoteComposeNativeInputAdmission?
         Task { @MainActor in answer = await view.submit(.integer(Self.visible), for: "shown") }
-        while answer == nil, !view.isApplyingInput { await Task.yield() }
+        try await until("the write is in flight or answered") {
+          answer != nil || view.isApplyingInput
+        }
         guard view.isApplyingInput else { continue }
         moveToBackground(view)
-        while answer == nil { await Task.yield() }
+        try await until("the write is answered") { answer != nil }
         #expect(answer == .deferred)
         #expect(view.isOpeningDocument, "the bytes are reopened on activation")
         return
@@ -277,10 +279,7 @@
       moveToBackground(try #require(view))
       view = nil
       // UIKit may hold the view in the current autorelease pool until the main queue turns over.
-      for _ in 0..<100 where availability.mark == mark {
-        try await Task.sleep(nanoseconds: 10_000_000)
-      }
-      #expect(availability.mark != mark)
+      try await until("the player is released and signals") { availability.mark != mark }
       await availability.wait(after: mark)
     }
   }

@@ -154,13 +154,13 @@
       try #require(await player.view.submit(.integer(value), for: name) == .accepted)
     }
 
-    /// Sends the scene to the background while input is in flight, so the session is reopened
+    /// Sends the scene to the background while input is outstanding, so the session is reopened
     /// from the bytes when the scene is active again — the reopen the SwiftUI fallback can hit.
     private func backgroundWithInputInFlight(_ player: Player) async throws {
       for _ in 0..<50 {
         Task { @MainActor in _ = await player.view.submit(.integer(1), for: "missing") }
       }
-      try await until("an input is in flight") { player.view.isApplyingInput }
+      try await until("input is outstanding") { player.view.hasOutstandingInput }
       player.view.perform(NSSelectorFromString("sceneDidEnterBackground"))
       try #require(player.view.isOpeningDocument, "the bytes are reopened on activation")
     }

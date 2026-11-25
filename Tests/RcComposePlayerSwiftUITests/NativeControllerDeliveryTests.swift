@@ -47,15 +47,20 @@
       return nil
     }
 
-    private func eventually(
-      within seconds: TimeInterval = 5, _ condition: () -> Bool
-    ) async -> Bool {
-      let deadline = Date().addingTimeInterval(seconds)
-      while Date() < deadline {
-        if condition() { return true }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+    /// Returns once the player has opened, has nothing left to apply, and the controller has no
+    /// write left to deliver; fails the test rather than hanging.
+    private func settle(_ player: Player, _ what: String = "the player settles") async throws {
+      try await until(what) {
+        !player.view.isOpeningDocument && !player.view.isBusy
+          && player.host.nativeUpdateTasks.isEmpty
       }
-      return condition()
+    }
+
+    /// Queues `count` writes the document declines, so input is outstanding for a while.
+    private func queueOtherInput(_ player: Player, count: Int = 50) {
+      for _ in 0..<count {
+        Task { @MainActor in _ = await player.view.submit(.integer(1), for: "missing") }
+      }
     }
 
     /// Returns once `condition` holds, yielding to the tasks it waits on; fails the test after
@@ -78,17 +83,22 @@
       view.perform(NSSelectorFromString("sceneDidActivate"))
     }
 
-    /// Longer in the background than the 2.5 s the controller used to retry for.
+    /// A write in the background waits on the player's signal, with no time limit (the controller
+    /// used to give up after 2.5 s), and is shown once the scene is active.
     @Test func aWriteInTheBackgroundIsShownOnceTheSceneIsActive() async throws {
       let player = try await player()
       #expect(isBoxShown(in: player.view) == false)
       moveToBackground(player.view)
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
-      try await Task.sleep(nanoseconds: 3_000_000_000)
+      try await until("the write waits for the player's signal") {
+        player.view.inputAvailability.waiterCount == 1
+      }
+      #expect(player.host.nativeUpdateTasks["shown"] != nil, "the delivery is still pending")
       #expect(isBoxShown(in: player.view) == false)
 
       activate(player.view)
-      #expect(await eventually { isBoxShown(in: player.view) == true })
+      try await settle(player)
+      #expect(isBoxShown(in: player.view) == true)
     }
 
     /// The scene leaves while the write is queued behind other input the session is applying, so
@@ -103,13 +113,12 @@
         }
       }
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
-      for _ in 0..<10_000 where !player.view.isApplyingInput { await Task.yield() }
-      try #require(player.view.isApplyingInput)
+      try await until("input is outstanding") { player.view.hasOutstandingInput }
       moveToBackground(player.view)
       #expect(player.view.isOpeningDocument, "the bytes are reopened on activation")
       activate(player.view)
-      #expect(await eventually { !player.view.isOpeningDocument })
-      #expect(await eventually { isBoxShown(in: player.view) == true })
+      try await settle(player)
+      #expect(isBoxShown(in: player.view) == true)
     }
 
     /// A value already on screen survives the reopen that follows the scene leaving while the
@@ -117,19 +126,15 @@
     @Test func aShownValueSurvivesTheReopenAfterTheBackground() async throws {
       let player = try await player()
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
-      #expect(await eventually { isBoxShown(in: player.view) == true })
+      try await settle(player)
+      #expect(isBoxShown(in: player.view) == true)
 
-      for _ in 0..<50 {
-        Task { @MainActor in _ = await player.view.submit(.integer(1), for: "missing") }
-      }
-      for _ in 0..<10_000 where !player.view.isApplyingInput { await Task.yield() }
-      try #require(player.view.isApplyingInput)
+      queueOtherInput(player)
+      try await until("input is outstanding") { player.view.hasOutstandingInput }
       moveToBackground(player.view)
       #expect(player.view.isOpeningDocument, "the bytes are reopened on activation")
       activate(player.view)
-      #expect(await eventually { !player.view.isOpeningDocument })
-      #expect(await eventually { isBoxShown(in: player.view) == true })
-      try await Task.sleep(nanoseconds: 200_000_000)
+      try await settle(player)
       #expect(isBoxShown(in: player.view) == true)
     }
 
@@ -146,14 +151,15 @@
       invalid.maximumFrameWork = 0
       native.playerView.configureExecutionLimits(invalid)
       #expect(!native.isOpeningDocument)
-      #expect(await eventually { !controller.names.isEmpty })
+      try await until("the declarations are attached") { !controller.names.isEmpty }
       #expect(controller.setInteger(Self.visible, for: "shown"))
-      try await Task.sleep(nanoseconds: 200_000_000)
+      let player = Player(controller: controller, host: host, view: native.playerView)
+      try await settle(player, "the failed player refuses the write")
       #expect(isBoxShown(in: native.playerView) == nil)
 
       native.playerView.configureExecutionLimits(.default)
-      #expect(await eventually { !native.isOpeningDocument })
-      #expect(await eventually { isBoxShown(in: native.playerView) == true })
+      try await settle(player)
+      #expect(isBoxShown(in: native.playerView) == true)
     }
 
     /// The session a reopen opens shows the host's values in its very first frame, as the Kotlin
@@ -161,14 +167,15 @@
     @Test func theFirstFrameAfterAReopenAlreadyHasTheValues() async throws {
       let player = try await player()
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
-      #expect(await eventually { isBoxShown(in: player.view) == true })
+      try await settle(player)
+      #expect(isBoxShown(in: player.view) == true)
 
       var firstFrames: [Bool?] = []
       player.view.onSessionOpened = { [view = player.view] in
         firstFrames.append(isBoxShown(in: view))
       }
       player.view.configureHostDensity(2)
-      #expect(await eventually { !player.view.isOpeningDocument })
+      try await settle(player)
       #expect(firstFrames == [true])
     }
 
@@ -177,12 +184,9 @@
     /// seed, rather than again as a write.
     @Test func aWriteInFlightAtAReopenIsAppliedOnceFromTheSeed() async throws {
       let player = try await player()
-      for _ in 0..<50 {
-        Task { @MainActor in _ = await player.view.submit(.integer(1), for: "missing") }
-      }
+      queueOtherInput(player)
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
-      for _ in 0..<10_000 where !player.view.isApplyingInput { await Task.yield() }
-      try #require(player.view.isApplyingInput)
+      try await until("input is outstanding") { player.view.hasOutstandingInput }
       moveToBackground(player.view)
       var applied = 0
       player.view.onInputApplied = { input in
@@ -191,10 +195,7 @@
 
       activate(player.view)
       // Settled: the session is open and idle, and no delivery is left to offer anything.
-      try await until("the reopened player settles") {
-        !player.view.isOpeningDocument && !player.view.isBusy
-          && player.host.nativeUpdateTasks.isEmpty
-      }
+      try await settle(player, "the reopened player settles")
       #expect(isBoxShown(in: player.view) == true)
       #expect(applied == 0, "the seed applied it; \(applied) more writes did")
     }
@@ -234,14 +235,13 @@
     @Test func aReopenForANewDensityKeepsTheValues() async throws {
       let player = try await player()
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
-      #expect(await eventually { isBoxShown(in: player.view) == true })
+      try await settle(player)
+      #expect(isBoxShown(in: player.view) == true)
 
       player.view.configureHostDensity(2)
       #expect(player.view.isOpeningDocument)
-      #expect(await eventually { !player.view.isOpeningDocument })
-      #expect(await eventually { isBoxShown(in: player.view) == true })
       // Settled, not a frame that happened to land before the reopened session's own.
-      try await Task.sleep(nanoseconds: 200_000_000)
+      try await settle(player)
       #expect(isBoxShown(in: player.view) == true)
     }
   }

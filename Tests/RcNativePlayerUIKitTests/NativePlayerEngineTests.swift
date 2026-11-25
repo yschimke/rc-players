@@ -7,7 +7,7 @@ import Testing
 @Suite struct NativePlayerEngineTests {
   /// `signalOne` releases the longest waiter only, skipping one that was cancelled; a later
   /// `signal` releases the rest.
-  @Test func inputAvailabilityWakesOneWaiterInArrivalOrder() async {
+  @Test func inputAvailabilityWakesOneWaiterInArrivalOrder() async throws {
     let availability = RemoteComposeNativeInputAvailability()
     let released = NativeTestLog()
     func waiter(_ name: String) -> Task<Void, Never> {
@@ -17,19 +17,24 @@ import Testing
         released.append(name)
       }
     }
-    /// Returns once `count` callers are waiting, so each waiter starts after the one before.
-    func waitUntilWaiting(_ count: Int) async {
-      for _ in 0..<1_000_000 where availability.waiterCount < count { await Task.yield() }
+    /// Returns once `count` callers are waiting, so each waiter starts after the one before; fails
+    /// the test after 30 s rather than hanging.
+    func waitUntilWaiting(_ count: Int) async throws {
+      let deadline = Date().addingTimeInterval(30)
+      while availability.waiterCount < count {
+        try #require(Date() < deadline, "timed out waiting for \(count) waiters")
+        await Task.yield()
+      }
       #expect(availability.waiterCount == count)
     }
     let first = waiter("first")
-    await waitUntilWaiting(1)
+    try await waitUntilWaiting(1)
     let cancelled = waiter("cancelled")
-    await waitUntilWaiting(2)
+    try await waitUntilWaiting(2)
     let third = waiter("third")
-    await waitUntilWaiting(3)
+    try await waitUntilWaiting(3)
     let fourth = waiter("fourth")
-    await waitUntilWaiting(4)
+    try await waitUntilWaiting(4)
     #expect(released.entries.isEmpty)
 
     cancelled.cancel()

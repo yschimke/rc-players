@@ -183,17 +183,19 @@ import Testing
   /// A deferred value — the document is still opening, the scene is in the background, or the
   /// queue is full — waits for the player to say input may be accepted again, however long that
   /// takes, and is then offered again. It does not poll while it waits.
-  @Test func aDeferredValueWaitsForThePlayerToTakeInputAgain() async {
+  @Test func aDeferredValueWaitsForThePlayerToTakeInputAgain() async throws {
     let target = RecordingTarget()
     target.answers = [.deferred, .deferred]
     let delivery = Task { @MainActor in
       await Value.integer(5).deliver(for: "USER:count", to: { target }, isCurrent: { true })
     }
-    await Self.settle()
+    try await Self.until("the delivery waits") { target.inputAvailability.waiterCount == 1 }
     #expect(target.calls == [.integer(5)], "offered again without a signal")
 
     target.inputAvailability.signal()
-    await Self.settle()
+    try await Self.until("the delivery waits again") {
+      target.calls.count == 2 && target.inputAvailability.waiterCount == 1
+    }
     #expect(target.calls == [.integer(5), .integer(5)])
 
     target.inputAvailability.signal()
@@ -221,14 +223,14 @@ import Testing
 
   /// A waiting delivery ends when the player goes away, when its task is cancelled — a newer value
   /// for the name, or a rebuild — or when a newer value has started.
-  @Test func aWaitingDeliveryEndsWithThePlayerOrItsTask() async {
+  @Test func aWaitingDeliveryEndsWithThePlayerOrItsTask() async throws {
     var target: RecordingTarget? = RecordingTarget()
     let availability = target!.inputAvailability
     target!.answers = [.deferred]
     let gone = Task { @MainActor in
       await Value.integer(5).deliver(for: "USER:count", to: { target }, isCurrent: { true })
     }
-    await Self.settle()
+    try await Self.until("the delivery waits") { availability.waiterCount == 1 }
     target = nil
     availability.close()
     await gone.value
@@ -238,7 +240,7 @@ import Testing
     let delivery = Task { @MainActor in
       await Value.integer(5).deliver(for: "USER:count", to: { cancelled }, isCurrent: { true })
     }
-    await Self.settle()
+    try await Self.until("the delivery waits") { cancelled.inputAvailability.waiterCount == 1 }
     delivery.cancel()
     await delivery.value
     #expect(cancelled.calls == [.integer(5)])
@@ -271,9 +273,16 @@ import Testing
     }
   }
 
-  /// Lets every task the test started run until it suspends.
-  private static func settle() async {
-    for _ in 0..<50 { await Task.yield() }
+  /// Returns once `condition` holds, yielding to the tasks it waits on; fails the test after
+  /// `seconds` rather than hanging.
+  private static func until(
+    _ what: String, within seconds: TimeInterval = 30, _ condition: () -> Bool
+  ) async throws {
+    let deadline = Date().addingTimeInterval(seconds)
+    while !condition() {
+      try #require(Date() < deadline, "timed out waiting until \(what)")
+      await Task.yield()
+    }
   }
 }
 
