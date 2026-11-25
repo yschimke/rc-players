@@ -620,6 +620,11 @@
     /// shows rather than a later one.
     var onSessionOpened: (() -> Void)?
 
+    /// Called each time an open starts building a first frame's model — one call per attempt,
+    /// whether or not the model passes the limits — on the thread building it. A test hook: it
+    /// counts the attempts an open makes and checks they stay off the main thread.
+    var onFirstFrameModelBuilt: (@Sendable () -> Void)?
+
     /// Called with each input the open session applied. A test hook: it counts the writes a
     /// session took.
     var onInputApplied: ((NativePlayerEngine.Input) -> Void)?
@@ -725,6 +730,7 @@
       let resourceCache = resourceCache
       let wallClock = clock.wallClock()
       let carried = carriedNamedValues
+      let onFirstFrameModelBuilt = onFirstFrameModelBuilt
       let hostWriteCounts = hostWriteCounts
       let seed = (namedValueSeed?() ?? []).map {
         (name: $0.name, write: NativeHostValue(
@@ -753,6 +759,10 @@
           try Task.checkCancellation()
           let prepared = try await NativePlayerEngine.prepare(
             data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes)
+          // The local functions below are nonisolated, so they run on the global executor, off the
+          // main actor: an open builds a first-frame model, and judges it, once per attempt, and
+          // the fallback below makes up to `2 + 2 log2 n` attempts
+          // (NativeNamedValueCarryTests.theFallbackOpenIsBoundedAndOffTheMainThread pins both).
           func openFirstFrame(
             seededWith namedValues: [NativeStartingValue]
           ) async throws -> NativeOpenedFirstFrame {
@@ -761,6 +771,7 @@
               wallClock: wallClock, visibilityAnimations: visibilityAnimations,
               namedValues: namedValues.map { (name: $0.name, value: $0.value) })
             try Task.checkCancellation()
+            onFirstFrameModelBuilt?()
             let model = try NativeDocument(
               frame: frame, timeSeconds: 0, limits: executionLimits,
               androidCompatibility: androidCompatibility)
@@ -769,21 +780,31 @@
               diagnostics: model.diagnostics(
                 availableCustomComponents: availableCustomComponents))
           }
-          /// The opened session, the values it was opened without that are reported, with their
-          /// errors, and those it was opened without that are not.
-          func openSeededFirstFrame() async throws -> (
-            NativeOpenedFirstFrame, [NativeLeftOutValue], [NativeStartingValue]
-          ) {
-            /// Throws unless the player will present `opened`: the policy renders it, and its
-            /// work and its events fit the limits, as `presentOpened` checks them.
-            func checkRendering(_ opened: NativeOpenedFirstFrame) throws {
-              guard
-                RemoteComposeNativeCompatibilityDecision.shouldRender(
-                  policy: compatibilityPolicy, diagnostics: opened.diagnostics)
-              else { throw RemoteComposeNativePlayerError.incompatible(opened.diagnostics) }
-              try Self.validateExecution(
-                opened.model, events: opened.frame.effects, limits: executionLimits)
+          /// Throws unless the player will present `opened`: the policy renders it, and its work
+          /// and its events fit the limits, as the player checks every frame.
+          func checkRendering(_ opened: NativeOpenedFirstFrame) throws {
+            guard
+              RemoteComposeNativeCompatibilityDecision.shouldRender(
+                policy: compatibilityPolicy, diagnostics: opened.diagnostics)
+            else { throw RemoteComposeNativePlayerError.incompatible(opened.diagnostics) }
+            try Self.validateExecution(
+              opened.model, events: opened.frame.effects, limits: executionLimits)
+          }
+          /// Why `opened` will not be presented, or nil when it will.
+          func renderingError(_ opened: NativeOpenedFirstFrame) -> (any Error)? {
+            do {
+              try checkRendering(opened)
+              return nil
+            } catch {
+              return error
             }
+          }
+          /// The opened session, the values it was opened without that are reported, with their
+          /// errors, those it was opened without that are not, and why its first frame fails, if
+          /// it does — judged once, here, rather than again on the main actor.
+          func openSeededFirstFrame() async throws -> (
+            NativeOpenedFirstFrame, [NativeLeftOutValue], [NativeStartingValue], (any Error)?
+          ) {
             func openRendering(
               _ namedValues: [NativeStartingValue]
             ) async throws -> NativeOpenedFirstFrame {
@@ -792,7 +813,8 @@
               return opened
             }
             guard !namedValues.isEmpty else {
-              return (try await openFirstFrame(seededWith: []), [], [])
+              let opened = try await openFirstFrame(seededWith: [])
+              return (opened, [], [], renderingError(opened))
             }
             let firstError: any Error
             var seededOpened: NativeOpenedFirstFrame?
@@ -800,7 +822,7 @@
               let seeded = try await openFirstFrame(seededWith: namedValues)
               do {
                 try checkRendering(seeded)
-                return (seeded, [], [])
+                return (seeded, [], [], nil)
               } catch {
                 seededOpened = seeded
                 firstError = error
@@ -820,15 +842,15 @@
               throw CancellationError()
             } catch {
               guard let seededOpened else { throw error }
-              return (seededOpened, [], [])
+              return (seededOpened, [], [], firstError)
             }
-            guard (try? checkRendering(opened)) != nil else {
+            if let unseededError = renderingError(opened) {
               // The document fails without them too, so they are not what failed it: the session
               // keeps them, fails as the document does, and shows them once input repairs it.
               // Without a session that holds them, it was opened without each one, and the next
               // session is offered them again.
-              if let seededOpened { return (seededOpened, [], []) }
-              return (opened, [], namedValues)
+              if let seededOpened { return (seededOpened, [], [], firstError) }
+              return (opened, [], namedValues, unseededError)
             }
             // Otherwise keep every value the first frame can take, and leave out, and report as a
             // refused write is, each one that fails it, rather than writing it into the session: a
@@ -865,16 +887,19 @@
               try await keep(group[middle...], failing: nil)
             }
             try await keep(namedValues[...], failing: firstError)
-            return (opened, refusals, [])
+            // `opened` is the last attempt that passed `checkRendering`.
+            return (opened, refusals, [], nil)
           }
-          let (opened, refusals, unreported) = try await openSeededFirstFrame()
+          let (opened, refusals, unreported, firstFrameError) = try await openSeededFirstFrame()
           let model = opened.model
           guard generation == self?.generation else { return }
           self?.onDiagnostics(opened.diagnostics)
-          if !RemoteComposeNativeCompatibilityDecision.shouldRender(
-            policy: compatibilityPolicy, diagnostics: opened.diagnostics)
+          // A document the policy does not render has no session; one whose first frame breaks a
+          // limit is opened and shows the error, and keeps taking input.
+          if let error = firstFrameError as? RemoteComposeNativePlayerError,
+            case .incompatible = error
           {
-            throw RemoteComposeNativePlayerError.incompatible(opened.diagnostics)
+            throw error
           }
           try Task.checkCancellation()
           let resources = try await Self.prepareResources(
@@ -885,7 +910,8 @@
           guard let self, generation == self.generation else { return }
           self.presentOpened(
             model, engine: opened.engine, resources: resources, effects: opened.frame.effects,
-            startedFrom: startedFrom, reporting: refusals, alsoLeftOut: unreported)
+            startedFrom: startedFrom, reporting: refusals, alsoLeftOut: unreported,
+            failing: firstFrameError)
         } catch {
           guard !Task.isCancelled, let self, generation == self.generation else { return }
           self.show(error: error, retaining: nil)
@@ -897,10 +923,12 @@
     /// Install the first frame of a freshly opened session, then report `refusals` — starting
     /// values it was opened without because each broke a limit — as refused writes are reported.
     /// `alsoLeftOut` are starting values it was opened without that are not reported.
+    /// `firstFrameError` is why the first frame breaks the limits, as the open judged it.
     private func presentOpened(
       _ model: NativeDocument, engine: NativePlayerEngine, resources: NativeResourceStore,
       effects: [RemoteComposeNativePlayerEvent], startedFrom: NativeCarriedValues,
-      reporting refusals: [NativeLeftOutValue], alsoLeftOut: [NativeStartingValue]
+      reporting refusals: [NativeLeftOutValue], alsoLeftOut: [NativeStartingValue],
+      failing firstFrameError: (any Error)?
     ) {
       let presentation = NativePlayerPresentation(
         engine: engine, resources: resources, startedFrom: startedFrom,
@@ -910,7 +938,7 @@
         announceOpened()
       }
       do {
-        try validateExecution(model, events: effects)
+        if let firstFrameError { throw firstFrameError }
         try install(model, for: presentation)
         dispatch(effects, generation: generation)
       } catch {

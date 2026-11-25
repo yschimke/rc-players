@@ -235,12 +235,10 @@
       }
     }
 
-    /// Measures a reopen with `count` seeded values, with and without one value that breaks the
-    /// text limit, and the longest main-actor stall during it. The fallback reopens the document
-    /// once per value (each attempt replaying every value kept so far), building a
-    /// `NativeDocument` on the main actor each time.
-    private func reopenCost(count: Int, withBadValue: Bool) async throws -> (
-      seconds: Double, longestMainStall: Double
+    /// The first-frame models a reopen with `count` seeded values starts building, and how many
+    /// of them on the main thread.
+    private func reopenBuilds(count: Int, withBadValue: Bool) async throws -> (
+      builds: Int, onMain: Int
     ) {
       var limits = RemoteComposeNativeExecutionLimits.default
       limits.maximumTextBytes = 64
@@ -253,38 +251,52 @@
         (name: "n\($0)", value: .integer(NativeSwiftVisibility.visible))
       }
       if withBadValue {
-        seed.insert((name: "label", value: .text(String(repeating: "x", count: 100))), at: 0)
+        // Last, so a search that peels values off one at a time would reach it last.
+        seed.append((name: "label", value: .text(String(repeating: "x", count: 100))))
       }
       view.namedValueSeed = { seed }
-      var longest = 0.0
-      var last = Date()
+      let builds = NativeModelBuildCount()
+      view.onFirstFrameModelBuilt = { builds.record(onMainThread: Thread.isMainThread) }
       var opened = false
       view.onSessionOpened = { opened = true }
-      let started = Date()
       view.configureHostDensity(2)
-      while !opened {
-        try #require(Date().timeIntervalSince(started) < 300, "timed out reopening")
-        await Task.yield()
-        let now = Date()
-        longest = max(longest, now.timeIntervalSince(last))
-        last = now
-      }
-      return (Date().timeIntervalSince(started), longest)
+      try await until("the reopen opens") { opened }
+      return builds.counts
     }
 
-    /// Reports the fallback's cost; fails when one bad value makes the reopen of a 200-name
-    /// document more than 10× slower than the same reopen without it.
-    @Test func oneBadSeedValueDoesNotMakeTheReopenOrdersOfMagnitudeSlower() async throws {
+    /// The fallback open's cost (R5), counted rather than timed: a clean reopen builds one
+    /// first-frame model; one bad value among `n` costs at most `2 + 2 * ceil(log2 n)` attempts
+    /// (the seeded one, the unseeded one, and two per halving), not about `n`; and none of them is
+    /// built on the main thread, which a 200-name document would otherwise block once per attempt.
+    @Test func theFallbackOpenIsBoundedAndOffTheMainThread() async throws {
       let count = 200
-      let good = try await reopenCost(count: count, withBadValue: false)
-      let bad = try await reopenCost(count: count, withBadValue: true)
-      print(
-        "reopen cost, \(count) values: clean \(good.seconds)s (main stall \(good.longestMainStall)s), "
-          + "one bad value \(bad.seconds)s (main stall \(bad.longestMainStall)s)")
-      #expect(
-        bad.seconds < 10 * max(good.seconds, 0.05),
-        "clean \(good.seconds)s (longest main-actor gap \(good.longestMainStall)s) vs one bad value \(bad.seconds)s (longest main-actor gap \(bad.longestMainStall)s)"
-      )
+      let clean = try await reopenBuilds(count: count, withBadValue: false)
+      #expect(clean.builds == 1, "clean reopen: \(clean)")
+      let bad = try await reopenBuilds(count: count, withBadValue: true)
+      let values = count + 1
+      let bound = 2 + 2 * Int((log2(Double(values))).rounded(.up))
+      #expect(bad.builds > 2 && bad.builds <= bound, "one bad value: \(bad), bound \(bound)")
+      #expect(clean.onMain == 0 && bad.onMain == 0, "clean \(clean), one bad value \(bad)")
+    }
+  }
+
+  /// Counts the hook's calls from whichever thread makes them.
+  private final class NativeModelBuildCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var builds = 0
+    private var onMain = 0
+
+    func record(onMainThread: Bool) {
+      lock.lock()
+      defer { lock.unlock() }
+      builds += 1
+      if onMainThread { onMain += 1 }
+    }
+
+    var counts: (builds: Int, onMain: Int) {
+      lock.lock()
+      defer { lock.unlock() }
+      return (builds, onMain)
     }
   }
 #endif
