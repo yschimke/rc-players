@@ -2,29 +2,30 @@ import Foundation
 import RcNativePlayerTestDocuments
 import Testing
 
-@testable import RcNativePlayerCore
+@_spi(RemoteComposeController) @testable import RcNativePlayerCore
 @_spi(RemoteComposeController) @testable import RcNativePlayerUIKit
 
 @Suite struct NativePlayerEngineTests {
-  /// What a reopen carries: each named value a write changed, and nothing a write left at, or put
-  /// back to, the document's initial value.
-  @Test func changedNamedValuesAreWhatAWriteChanged() async throws {
+  /// What a reopen carries: each named value a write set, also one written back to the
+  /// document's initial value (so a value an earlier reopen left out is known to be replaced),
+  /// and nothing no write reached.
+  @Test func writtenNamedValuesAreWhatAWriteSet() async throws {
     let (label, _) = try await NativePlayerEngine.open(
       data: NativeTestDocuments.label(), maximumDocumentBytes: 1 << 20)
-    #expect(await label.changedNamedValues().isEmpty)
+    #expect(await label.writtenNamedValues().isEmpty)
     _ = try await label.apply(.setString("Ready", name: "label"))
     _ = try await label.apply(.setString("Title", name: "title"))
-    let changed = await label.changedNamedValues()
-    #expect(changed.map(\.name) == ["label"])
-    #expect(changed.map(\.value) == [.text("Ready")])
+    let written = await label.writtenNamedValues()
+    #expect(written.map(\.name) == ["label", "title"])
+    #expect(written.map(\.value) == [.text("Ready"), .text("Title")])
 
     let (shown, _) = try await NativePlayerEngine.open(
       data: NativeTestDocuments.shownBox(), maximumDocumentBytes: 1 << 20)
+    #expect(await shown.writtenNamedValues().isEmpty)
     _ = try await shown.apply(.setInteger(NativeSwiftVisibility.visible, name: "shown"))
-    #expect(
-      await shown.changedNamedValues().map(\.value) == [.integer(NativeSwiftVisibility.visible)])
     _ = try await shown.apply(.setInteger(NativeSwiftVisibility.gone, name: "shown"))
-    #expect(await shown.changedNamedValues().isEmpty)
+    #expect(
+      await shown.writtenNamedValues().map(\.value) == [.integer(NativeSwiftVisibility.gone)])
   }
 
   /// `signalOne` releases the longest waiter only, skipping one that was cancelled; a later

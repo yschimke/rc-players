@@ -159,9 +159,9 @@ import Testing
     #expect(applied == ["USER:count": .integer(3)])
   }
 
-  /// A native player that opens its document anew — back from the background, or for a new
-  /// density — seeds the new session with every value written so far, by the name the document
-  /// declares and as the native player takes it (a boolean is the integer 1 or 0).
+  /// A native player that opens its document anew is handed every value written so far as its
+  /// seed — it applies those the old session had not taken — by the name the document declares
+  /// and as the native player takes it (a boolean is the integer 1 or 0).
   @Test func seedValuesAreEveryStoredValueOnceAHandlerIsInstalled() {
     let controller = RemoteComposePlayerController()
     #expect(controller.backend.seedValues.isEmpty)  // Nothing attached or installed.

@@ -133,17 +133,20 @@ native Swift fallback answer alike: the fallback checks each write against the d
 declarations up front, so a `false` is never queued and a `true` is applied once the native session
 opens, however long its resources take, or, while the scene is in the background or the input queue
 is full, once the session takes input again. The fallback reopens its document after a background
-with input outstanding and on density or configuration changes. Each reopened session carries the
-named values the one it replaces held, the document's own changes included, and is seeded with the
-stored values that session did not hold, so each variable shows the newest value either side wrote,
-as on the Kotlin player, which keeps its state. The fallback reads those declarations off the main
-thread, so its `names` fill in, and its writes start being accepted, shortly after the view loads
-rather than at once. Values already accepted survive a document change when the new document
-declares the same variable with the same type (under the name it resolves to), and are kept while
-the fallback is not showing a document. `setInteger` and `setBoolean` both target an integer
-variable: a Remote Compose boolean is an integer holding 1 or 0, as AndroidX's
-`setNamedBooleanOverride` stores it, and an integer outside the 32-bit range is refused. Metadata
-actions and text-valued named actions also expose a pre-parsed `event.url` convenience property.
+with input outstanding. The reopened session carries the named values the one it replaces held, the
+document's own changes included, and takes the stored values that session had not taken, so each
+variable shows the newest value either side wrote, as on the Kotlin player, which keeps its state.
+On both, a write equal to the stored value changes nothing, so it does not undo a document change
+made since. A configuration or resolver change rebuilds the fallback instead: it starts again from
+the document and the stored values, and the document's own changes are lost. The fallback reads
+those declarations off the main thread, so its `names` fill in, and its writes start being
+accepted, shortly after the view loads rather than at once. Values already accepted survive a
+document change when the new document declares the same variable with the same type (under the
+name it resolves to), and are kept while the fallback is not showing a document. `setInteger` and
+`setBoolean` both target an integer variable: a Remote Compose boolean is an integer holding 1 or 0,
+as AndroidX's `setNamedBooleanOverride` stores it, and an integer outside the 32-bit range is
+refused. Metadata actions and text-valued named actions also expose a pre-parsed `event.url`
+convenience property.
 
 ### Downloadable Google Fonts
 

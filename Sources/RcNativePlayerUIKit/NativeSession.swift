@@ -21,6 +21,18 @@
     case debug(message: String, value: Float, flags: Int)
   }
 
+  extension RemoteComposeNativeNamedValue {
+    /// This value as the core reads and writes it.
+    var coreValue: NativeSwiftNamedValue {
+      switch self {
+      case .text(let value): .text(value)
+      case .float(let value): .float(value)
+      case .integer(let value): .integer(value)
+      case .color(let argb): .color(argb)
+      }
+    }
+  }
+
   /// The name the frame model and the sample harnesses know the engine's frame type by.
   typealias NativeSnapshotSessionHandle = NativePlayerEngine
 
@@ -41,6 +53,17 @@
       case clickAreas(x: Float, y: Float)
       case customFloat(Float, componentID: Int, propertyID: Int)
       case customText(String, componentID: Int, propertyID: Int)
+
+      /// The name and value of a host's named write; nil for any other input.
+      var hostNamedValue: (name: String, value: NativeSwiftNamedValue)? {
+        switch self {
+        case .setFloat(let value, let name): (name, .float(value))
+        case .setString(let value, let name): (name, .text(value))
+        case .setColor(let argb, let name): (name, .color(argb))
+        case .setInteger(let value, let name): (name, .integer(value))
+        case .gesture, .clickAreas, .customFloat, .customText: nil
+        }
+      }
     }
 
     struct Frame: Sendable {
@@ -89,6 +112,39 @@
       self.wallClock = wallClock
     }
 
+    /// Decodes `data` once, for one or more sessions to open over it. Asynchronous so the decode,
+    /// which is proportional to the document, runs off the caller's actor.
+    static func prepare(data: Data, maximumDocumentBytes: Int) async throws
+      -> NativeSwiftPreparedDocument
+    {
+      guard data.count <= maximumDocumentBytes, data.count <= Int(Int32.max) else {
+        throw RemoteComposeNativeLimitError.documentTooLarge(
+          actual: data.count, maximum: min(maximumDocumentBytes, Int(Int32.max)))
+      }
+      do {
+        try Task.checkCancellation()
+        return try NativeSwiftPreparedDocument.decode(data: data)
+      } catch is CancellationError {
+        throw CancellationError()
+      } catch let error as NativeSwiftCoreError {
+        throw RemoteComposeNativePlayerError.decode(error.description)
+      } catch {
+        throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
+      }
+    }
+
+    /// Decodes `data` and opens a session over it; see `open(prepared:...)`.
+    static func open(
+      data: Data, maximumDocumentBytes: Int, hostDensity: Float = 1, hostFontScale: Float = 1,
+      wallClock: NativeSwiftWallClock? = nil, visibilityAnimations: Bool = true,
+      namedValues: [(name: String, value: NativeSwiftNamedValue)] = []
+    ) async throws -> (NativePlayerEngine, Frame) {
+      try await open(
+        prepared: await prepare(data: data, maximumDocumentBytes: maximumDocumentBytes),
+        hostDensity: hostDensity, hostFontScale: hostFontScale, wallClock: wallClock,
+        visibilityAnimations: visibilityAnimations, namedValues: namedValues)
+    }
+
     /// - Parameters:
     ///   - hostDensity: what a deferred-density capture resolves against. Supplied at open rather
     ///     than set afterwards because the first frame is produced here, and a document that reads
@@ -98,31 +154,21 @@
     ///   - visibilityAnimations: whether custom visibility animations play; see
     ///     `NativeSwiftDocumentSession.setVisibilityAnimationsEnabled`.
     ///   - namedValues: named values applied, in order, before the first frame is resolved, so
-    ///     that frame already shows them. One the document declines is skipped, as a declined
-    ///     write is; one that breaks a limit fails the first frame, and the caller opens again
-    ///     without it.
+    ///     that frame already shows them, each to the variable the document declares under exactly
+    ///     that name (`restoreNamedValue`). One the document does not declare, or that does not
+    ///     fit its variable, is skipped, as a declined write is; one that breaks a limit fails the
+    ///     first frame, and the caller opens again without it.
     static func open(
-      data: Data, maximumDocumentBytes: Int, hostDensity: Float = 1, hostFontScale: Float = 1,
+      prepared: NativeSwiftPreparedDocument, hostDensity: Float = 1, hostFontScale: Float = 1,
       wallClock: NativeSwiftWallClock? = nil, visibilityAnimations: Bool = true,
-      namedValues: [(name: String, value: RemoteComposeNativeNamedValue)] = []
+      namedValues: [(name: String, value: NativeSwiftNamedValue)] = []
     ) async throws -> (NativePlayerEngine, Frame) {
-      guard data.count <= maximumDocumentBytes, data.count <= Int(Int32.max) else {
-        throw RemoteComposeNativeLimitError.documentTooLarge(
-          actual: data.count, maximum: min(maximumDocumentBytes, Int(Int32.max)))
-      }
       do {
         try Task.checkCancellation()
-        let session = try NativeSwiftDocumentSession.open(data: data)
+        let session = NativeSwiftDocumentSession.open(prepared: prepared)
         session.setHostDensity(hostDensity, fontScale: hostFontScale)
         session.setVisibilityAnimationsEnabled(visibilityAnimations)
-        for (name, value) in namedValues {
-          switch value {
-          case .float(let value): _ = session.setFloat(value, for: name)
-          case .text(let value): _ = session.setString(value, for: name)
-          case .color(let argb): _ = session.setColor(argb, for: name)
-          case .integer(let value): _ = session.setInteger(value, for: name)
-          }
-        }
+        for (name, value) in namedValues { session.restoreNamedValue(value, forDeclaredName: name) }
         let frame = Frame(
           session: session,
           snapshot: try session.snapshot(wallClock: wallClock), wallClock: wallClock)
@@ -139,18 +185,15 @@
       }
     }
 
-    /// The named values a write changed since this session opened — the host's or the
-    /// document's own — for the session that replaces it to start from. See
-    /// `changedNamedValues` on the core.
-    func changedNamedValues() -> [(name: String, value: RemoteComposeNativeNamedValue)] {
-      session.changedNamedValues().map { name, value in
-        switch value {
-        case .text(let value): (name: name, value: .text(value))
-        case .float(let value): (name: name, value: .float(value))
-        case .integer(let value): (name: name, value: .integer(value))
-        case .color(let argb): (name: name, value: .color(argb))
-        }
-      }
+    /// What a host may write by name; immutable, so it is read without the actor.
+    nonisolated var declarations: NativeSwiftNamedVariableDeclarations {
+      session.namedVariableDeclarations
+    }
+
+    /// The named values a write set since this session opened — the host's or the document's own
+    /// — for the session that replaces it to start from. See `writtenNamedValues` on the core.
+    func writtenNamedValues() -> [(name: String, value: NativeSwiftNamedValue)] {
+      session.writtenNamedValues()
     }
 
     /// Forwards the host's density to the retained document; see `setHostDensity` on the core.

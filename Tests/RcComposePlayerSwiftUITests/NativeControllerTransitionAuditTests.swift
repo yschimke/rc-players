@@ -13,188 +13,8 @@
   ///
   /// "Document-local" state is a value the session holds that the controller never wrote — here
   /// written straight into the player, standing in for one the document's own actions change.
-  @MainActor @Suite(.serialized) struct NativeControllerTransitionAuditTests {
-    private static let visible = NativeSwiftVisibility.visible
-    private static let gone = NativeSwiftVisibility.gone
-    /// Box ids in ``document(size:)``.
-    private static let shownBox = 10
-    private static let localBox = 11
-
-    /// A document with two boxes, gone until the integers named "shown" and "local" say otherwise,
-    /// and a text reading the string named "label". `size` only changes the bytes.
-    static func document(size: Int = 200) -> Data {
-      typealias Op = NativeSwiftWireOpcode
-      var data = Data()
-      func u8(_ value: Int) { data.append(UInt8(truncatingIfNeeded: value)) }
-      func int(_ value: Int) {
-        let raw = UInt32(bitPattern: Int32(truncatingIfNeeded: value))
-        for shift in [24, 16, 8, 0] { data.append(UInt8(truncatingIfNeeded: raw >> shift)) }
-      }
-      func float(_ value: Float) { int(Int(Int32(bitPattern: value.bitPattern))) }
-      func utf8(_ value: String) {
-        let bytes = Array(value.utf8)
-        int(bytes.count)
-        data.append(contentsOf: bytes)
-      }
-      u8(Op.header)
-      for value in [1, 0, 0, size, size, 0, 0] { int(value) }
-      for (id, name) in [(550, "shown"), (551, "local")] {
-        u8(Op.dataInt)
-        int(id)
-        int(NativeSwiftVisibility.gone)
-        u8(Op.namedVariable)
-        int(id)
-        int(4)  // integer
-        utf8(name)
-      }
-      u8(Op.dataText)
-      int(560)
-      utf8("Idle")
-      u8(Op.namedVariable)
-      int(560)
-      int(0)  // string
-      utf8("label")
-      u8(Op.layoutRoot)
-      int(1)
-      for (boxID, variable) in [(shownBox, 550), (localBox, 551)] {
-        u8(Op.layoutBox)
-        for value in [boxID, -1, 1, 1] { int(value) }
-        for opcode in [Op.modifierWidth, Op.modifierHeight] {
-          u8(opcode)
-          int(NativeSwiftDimensionType.exact)
-          float(20)
-        }
-        u8(Op.modifierVisibility)
-        int(variable)
-        u8(Op.layoutContent)
-        int(boxID + 100)
-        u8(Op.containerEnd)
-        u8(Op.containerEnd)
-      }
-      u8(Op.layoutText)
-      for value in [NativeTestDocuments.labelID, 0, 560, Int(Int32(bitPattern: 0xFF00_0000))] {
-        int(value)
-      }
-      float(16)
-      int(0)
-      float(400)
-      for value in [-1, 1, 1, 1] { int(value) }
-      u8(Op.containerEnd)  // text
-      u8(Op.containerEnd)  // root
-      return data
-    }
-
-    /// Every error any player in this suite reported, for the timeout messages.
-    static var lastErrors: [RemoteComposePlayerError] = []
-
-    @MainActor private struct Player {
-      let controller: RemoteComposePlayerController
-      let host: RemoteComposePlayerViewController
-      var native: RemoteComposeNativePlayerViewController {
-        host.children.first as! RemoteComposeNativePlayerViewController
-      }
-      var view: RemoteComposeNativePlayerView { native.playerView }
-    }
-
-    private func player(
-      data: Data = document(), controller: RemoteComposePlayerController = .init(),
-      limits: RemoteComposeNativeExecutionLimits? = nil,
-      onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
-    ) async throws -> Player {
-      let host = RemoteComposePlayerViewController(
-        data: data, controller: controller, resourceResolver: nil,
-        onError: { error in
-          Self.lastErrors.append(error)
-          onError(error)
-        })
-      host.loadViewIfNeeded()
-      let player = Player(controller: controller, host: host)
-      try #require(host.children.first is RemoteComposeNativePlayerViewController)
-      if let limits { player.view.configureExecutionLimits(limits) }
-      try await settle(player)
-      return player
-    }
-
-    /// The player has opened, attached the controller, and has nothing left to apply or deliver.
-    private func settle(_ player: Player, _ what: String = "the player settles") async throws {
-      try await until(
-        "\(what): names \(player.controller.names), opening \(player.view.isOpeningDocument), "
-          + "busy \(player.view.isBusy), deliveries \(player.host.nativeUpdateTasks.keys.sorted()), errors \(Self.lastErrors)"
-      ) {
-        !player.controller.names.isEmpty && !player.view.isOpeningDocument
-          && !player.view.isBusy && player.host.nativeUpdateTasks.isEmpty
-      }
-    }
-
-    private func until(
-      _ what: @autoclosure () -> String, within seconds: TimeInterval = 30, _ condition: () -> Bool
-    ) async throws {
-      let deadline = Date().addingTimeInterval(seconds)
-      while !condition() {
-        try #require(Date() < deadline, "timed out waiting until \(what())")
-        await Task.yield()
-      }
-    }
-
-    private func isShown(_ id: Int, in view: UIView) -> Bool? {
-      var pending: [UIView] = [view]
-      while !pending.isEmpty {
-        let next = pending.removeFirst()
-        if let component = next as? NativeComponentView, let box = component.descendant(withID: id)
-        {
-          return !box.isHidden
-        }
-        pending.append(contentsOf: next.subviews)
-      }
-      return nil
-    }
-
-    /// Writes straight into the open session, as the document's own action would change it.
-    private func setLocally(_ player: Player, _ value: Int, for name: String) async throws {
-      try #require(await player.view.submit(.integer(value), for: name) == .accepted)
-    }
-
-    /// Sends the scene to the background while input is outstanding, so the session is reopened
-    /// from the bytes when the scene is active again — the reopen the SwiftUI fallback can hit.
-    private func backgroundWithInputInFlight(_ player: Player) async throws {
-      for _ in 0..<50 {
-        Task { @MainActor in _ = await player.view.submit(.integer(1), for: "missing") }
-      }
-      try await until("input is outstanding") { player.view.hasOutstandingInput }
-      player.view.perform(NSSelectorFromString("sceneDidEnterBackground"))
-      try #require(player.view.isOpeningDocument, "the bytes are reopened on activation")
-    }
-
-    /// Writes a string straight into the open session, as the document's own action would.
-    private func setLocally(_ player: Player, _ value: String, for name: String) async throws {
-      try #require(await player.view.submit(.text(value), for: name) == .accepted)
-    }
-
-    /// The text the component with `id` shows, or nil when it is not on screen.
-    private func text(_ id: Int, in view: UIView) -> String? {
-      var pending: [UIView] = [view]
-      while !pending.isEmpty {
-        let next = pending.removeFirst()
-        if let component = next as? NativeComponentView,
-          let found = component.descendant(withID: id)
-        {
-          var labels: [UIView] = [found]
-          while !labels.isEmpty {
-            let candidate = labels.removeFirst()
-            if let label = candidate as? UILabel { return label.text }
-            labels.append(contentsOf: candidate.subviews)
-          }
-          return nil
-        }
-        pending.append(contentsOf: next.subviews)
-      }
-      return nil
-    }
-
-    private func activate(_ player: Player) {
-      player.view.perform(NSSelectorFromString("sceneDidActivate"))
-    }
-
+  @MainActor @Suite(.serialized)
+  struct NativeControllerTransitionAuditTests: NativeControllerSuite {
     // MARK: - Same input, new configuration: is the player (and its session) kept?
 
     @Test func theSameBytesReloadedKeepThePlayerAndItsState() async throws {
@@ -284,7 +104,7 @@
       player.host.update(
         data: Self.document(), controller: second, configuration: .init(),
         resourceResolver: nil, onEvent: { _ in }, onError: { _ in })
-      let swapped = Player(controller: second, host: player.host)
+      let swapped = Player(controller: second, host: player.host, errors: player.errors)
       try await settle(swapped)
       #expect(isShown(Self.shownBox, in: swapped.view) == false, "the old controller's value")
       #expect(second.setInteger(Self.visible, for: "local"))
@@ -319,14 +139,14 @@
       }
     }
 
-    // MARK: - Reopen (background with input in flight)
+    // MARK: - Reopen (background with input outstanding)
 
     /// A named variable the host never wrote, changed by the document, keeps the document's value
     /// through a reopen, as the Kotlin player — which keeps its state — shows it.
     @Test func aReopenAfterTheBackgroundKeepsDocumentLocalState() async throws {
       let player = try await player()
       try await setLocally(player, Self.visible, for: "local")
-      try await backgroundWithInputInFlight(player)
+      try await backgroundWithInputQueued(player)
       activate(player)
       try await settle(player)
       #expect(isShown(Self.localBox, in: player.view) == true, "document-local state was reset")
@@ -340,26 +160,29 @@
       try await settle(player)
       try await setLocally(player, Self.gone, for: "shown")
       try #require(isShown(Self.shownBox, in: player.view) == false)
-      try await backgroundWithInputInFlight(player)
+      try await backgroundWithInputQueued(player)
       activate(player)
       try await settle(player)
       #expect(isShown(Self.shownBox, in: player.view) == false, "the host's old value came back")
     }
 
-    /// The document changed "shown", then the host wrote it again: the host's write is the newer
-    /// one and the reopen keeps it.
+    /// The document changed "label", then the host wrote it again: the host's write is the newer
+    /// one and the reopen keeps it. (Writing the host's previous value again would change nothing,
+    /// as on the Kotlin player; see `anEqualHostWriteAfterADocumentChangeMatchesKotlin`.)
     @Test func aReopenKeepsTheHostsNewerWriteOverTheDocumentsOlderChange() async throws {
       let player = try await player()
-      #expect(player.controller.setInteger(Self.gone, for: "shown"))
+      #expect(player.controller.setString("Host", for: "label"))
       try await settle(player)
-      try await setLocally(player, Self.visible, for: "shown")
-      #expect(player.controller.setInteger(Self.gone, for: "shown"))
+      try await setLocally(player, "Document", for: "label")
+      #expect(player.controller.setString("Newer", for: "label"))
       try await settle(player)
-      try #require(isShown(Self.shownBox, in: player.view) == false)
-      try await backgroundWithInputInFlight(player)
+      try #require(text(NativeTestDocuments.labelID, in: player.view) == "Newer")
+      try await backgroundWithInputQueued(player)
       activate(player)
       try await settle(player)
-      #expect(isShown(Self.shownBox, in: player.view) == false, "the document's older value")
+      #expect(
+        text(NativeTestDocuments.labelID, in: player.view) == "Newer",
+        "the document's older value")
     }
 
     /// A host write that only reached the session through a reopen's seed is the session's value
@@ -426,7 +249,7 @@
       let player = try await player()
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
       try await settle(player)
-      try await backgroundWithInputInFlight(player)
+      try await backgroundWithInputQueued(player)
       #expect(player.controller.setInteger(Self.gone, for: "shown"))
       activate(player)
       try await settle(player)
@@ -445,7 +268,7 @@
       try await settle(player)
       try #require(!errors.isEmpty, "the over-long label is refused and reported")
 
-      try await backgroundWithInputInFlight(player)
+      try await backgroundWithInputQueued(player)
       activate(player)
       try await settle(player)
       let reported = errors.count

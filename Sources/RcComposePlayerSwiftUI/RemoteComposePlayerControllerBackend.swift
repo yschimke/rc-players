@@ -77,7 +77,7 @@ protocol ControllerBackendProtocol: AnyObject {
   /// session makes — and hands an accepted value to the native player, which applies it once it can:
   /// after its asynchronous session opens, its scene returns from the background, or its input
   /// queue has room. A session the player reopens starts from the named values the one it replaces
-  /// held, and from the values held here that that session did not hold (`seedValues`).
+  /// held, and from the values held here (`seedValues`) that that session had not taken.
   @MainActor
   final class NativeControllerBackend: ControllerBackendProtocol {
     /// The attached document's declarations; none until a native player has loaded a document.
@@ -94,6 +94,10 @@ protocol ControllerBackendProtocol: AnyObject {
       guard let declared = declarations.declaredName(for: name),
         declarations.accepts(value, for: declared)
       else { return false }
+      // A write equal to the last one is no change, as the Kotlin player diffs the host's values
+      // against the ones it last applied (`applyHostValues`): a document action that changed the
+      // variable since keeps its value.
+      guard values[declared] != value else { return true }
       values[declared] = value
       updateHandler?(declared, value)
       return true
@@ -134,15 +138,15 @@ protocol ControllerBackendProtocol: AnyObject {
       }
     }
 
-    /// The values written so far, by the name the player's document declares them under. The
-    /// player's host seeds a session the native player reopens with those the replaced session
-    /// did not hold — not yet delivered, or refused, which the new session judges afresh. Empty
+    /// The values written so far, by the name the player's document declares them under, which
+    /// seed a session the native player reopens. The player applies those the replaced session
+    /// had not taken — not yet delivered, or refused, which the new session judges afresh. Empty
     /// while no update handler is installed: the values are not yet re-keyed for the player's
     /// document.
     ///
     /// The Kotlin player builds its state once per document, seeded with the host's values, and
-    /// keeps it through the background and a density change. The native player reopens its bytes
-    /// for those, carries the named values the old session held, and adds these.
+    /// keeps it through the background. The native player reopens its bytes for that, carries the
+    /// named values the old session held, and adds these.
     var seedValues: [(name: String, value: RemoteComposeNativeNamedValue)] {
       guard updateHandler != nil else { return [] }
       return values.keys.sorted().compactMap { name in
@@ -186,22 +190,21 @@ protocol ControllerBackendProtocol: AnyObject {
     /// reported through `onError` once per session, not once per retry, and the session stays
     /// open. It stops as soon as the player is gone, the task is cancelled, or `isCurrent` says a
     /// newer value for this name has started, the player was rebuilt, or a reopen took the value
-    /// in its seed. Answers the player's final answer, or nil when it stopped without one.
-    @MainActor @discardableResult
+    /// in its seed.
+    @MainActor
     func deliver<Target: NativeNamedValueTarget>(
       for name: String, to target: () -> Target?, isCurrent: () -> Bool
-    ) async -> RemoteComposeNativeInputAdmission? {
+    ) async {
       while true {
         let availability: RemoteComposeNativeInputAvailability
         let mark: UInt64
         // The strong reference lives only for the offer, not across the wait below.
         do {
-          guard !Task.isCancelled, let target = target(), isCurrent() else { return nil }
+          guard !Task.isCancelled, let target = target(), isCurrent() else { return }
           availability = target.inputAvailability
           mark = availability.mark
-          let admission = await target.submit(nativeValue, for: name)
-          switch admission {
-          case .accepted, .refused: return admission
+          switch await target.submit(nativeValue, for: name) {
+          case .accepted, .refused: return
           case .deferred: break
           }
         }

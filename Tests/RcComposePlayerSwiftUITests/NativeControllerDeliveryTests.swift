@@ -182,7 +182,7 @@
     /// A write queued as the scene leaves is answered `.deferred` and offered again, but the
     /// reopened session's seed already holds the same value: the session applies it once, from the
     /// seed, rather than again as a write.
-    @Test func aWriteInFlightAtAReopenIsAppliedOnceFromTheSeed() async throws {
+    @Test func aWriteQueuedAtAReopenIsAppliedOnceFromTheSeed() async throws {
       let player = try await player()
       queueOtherInput(player)
       #expect(player.controller.setInteger(Self.visible, for: "shown"))

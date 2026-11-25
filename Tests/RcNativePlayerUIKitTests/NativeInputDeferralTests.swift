@@ -63,8 +63,9 @@
       #expect(view.inputAvailability.mark != mark)
     }
 
-    /// A write the session is applying as the scene goes to the background is lost with that
-    /// session — the bytes are reopened on activation — so it is deferred, not accepted.
+    /// A write the session is applying as the scene goes to the background is answered with that
+    /// session, which is replaced on activation, so it is deferred, not accepted (the value it
+    /// set is carried into the reopened session; see the next test).
     @Test func anInputInFlightWhenTheSceneGoesToTheBackgroundIsDeferred() async throws {
       let view = try await openedView()
       // The write is in flight only while the engine applies it; a write that completes before the
@@ -104,6 +105,35 @@
         activate(view)
         try await until("the reopen settles") { !view.isOpeningDocument && !view.isBusy }
         #expect(text(NativeTestDocuments.labelID, in: view) == value)
+        return
+      }
+      Issue.record("never saw the write in flight")
+    }
+
+    /// A write the replaced session applied while the scene left counts as taken from the host
+    /// even though it was answered `.deferred`: a seed that then brings the host's older value
+    /// back is newer than it, and is applied over it.
+    @Test func aSeedIsAppliedOverAWriteASupersededSessionApplied() async throws {
+      let view = RemoteComposeNativePlayerView(
+        data: NativeTestDocuments.label(), resourceResolver: nil)
+      try await until("the document opens") { !view.isOpeningDocument }
+      for attempt in 0..<50 {
+        // What the session took from the host last, before the write that is caught in flight.
+        try #require(await view.submit(.text("Host"), for: "label") == .accepted)
+        var answer: RemoteComposeNativeInputAdmission?
+        let value = "In flight \(attempt)"
+        Task { @MainActor in answer = await view.submit(.text(value), for: "label") }
+        try await until("the write is in flight or answered") {
+          answer != nil || view.isApplyingInput
+        }
+        guard view.isApplyingInput else { continue }
+        moveToBackground(view)
+        try await until("the write is answered") { answer != nil }
+        // The host's latest value is its first one again.
+        view.namedValueSeed = { [(name: "label", value: .text("Host"))] }
+        activate(view)
+        try await until("the reopen settles") { !view.isOpeningDocument && !view.isBusy }
+        #expect(text(NativeTestDocuments.labelID, in: view) == "Host")
         return
       }
       Issue.record("never saw the write in flight")
