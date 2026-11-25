@@ -144,8 +144,9 @@ dropped. `color` is the exception that reads the two differently, as the vendore
 player's `HostApi.parseColor` does: a string is hex, `#RRGGBB` (opaque) or `#AARRGGBB`, with or
 without the leading `#`, and any other string is malformed; a number is the ARGB itself, so its
 alpha is the top byte — `4294936576` (`0xFFFF8800`, or `-30720` as a signed 32-bit value) is opaque
-orange, while `16746496` (`0xFF8800`) has a zero alpha and draws nothing. A number outside 32 bits
-is dropped (the TypeScript player wraps it).
+orange, while `16746496` (`0xFF8800`) has a zero alpha and draws nothing. A fraction is truncated
+and a number outside 32 bits wraps, as JavaScript's `v | 0` does: `8589934591` (`0x1FFFFFFFF`) is
+`-1`, opaque white.
 
 **An eight-digit `color` puts alpha first, unlike CSS.** CSS reads `#RRGGBBAA`; this parameter
 reads `#AARRGGBB`, Android's order and the ARGB a `.rc` document stores. `"#FF880080"` is therefore

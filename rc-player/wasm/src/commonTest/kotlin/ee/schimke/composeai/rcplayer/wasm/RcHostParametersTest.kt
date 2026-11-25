@@ -213,8 +213,32 @@ class RcHostParametersTest {
   }
 
   @Test
-  fun aNumberColorOutsideThirtyTwoBitsIsDropped() {
-    for (value in listOf("4294967296", "-2147483649", "1e+21", "NaN", "Infinity", "")) {
+  fun aNumberColorOutsideThirtyTwoBitsWrapsAsJavaScriptsToInt32() {
+    // HostApi.parseColor's `v | 0`; each expected value is what Node prints for `v | 0`.
+    for ((value, argb) in
+      listOf(
+        "8589934591" to -1, // 0x1FFFFFFFF
+        "4294967296" to 0,
+        "-2147483649" to Int.MAX_VALUE,
+        "1e+21" to -559939584,
+        "-1e+21" to 559939584,
+        "1.7976931348623157e+308" to 0,
+        "9007199254740994" to 2,
+        "-0.5" to 0,
+      )) {
+      assertEquals(argb, argbFromNumber(value), value)
+      assertEquals(
+        RcNamedValue.Color(argb),
+        parseNamedValue("color", value, isNumber = true),
+        value,
+      )
+    }
+  }
+
+  @Test
+  fun aNumberColorThatIsNotFiniteIsDropped() {
+    // HostApi.parseColor falls through to the hex pattern for these, which they never match.
+    for (value in listOf("NaN", "Infinity", "-Infinity", "")) {
       assertNull(argbFromNumber(value), value)
       assertNull(parseNamedValue("color", value, isNumber = true), value)
     }

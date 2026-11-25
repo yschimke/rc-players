@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.wasm
 
 import ee.schimke.composeai.rcplayer.runtime.RcHostValueType
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
+import kotlin.math.truncate
 
 /**
  * Pure parsing for the browser host's page parameters, kept out of `Main.kt` so it runs under a JVM
@@ -176,15 +177,17 @@ internal fun parseArgbColor(value: String): Int? {
 
 /**
  * A `color` passed as a JSON number, which is the ARGB itself (`0xFFFF8800`), as the web player's
- * `HostApi.parseColor` reads one: a fraction is truncated and the value taken as 32 bits, so
- * `0xFFFF8800` and its signed form `-30720` are the same colour. [value] is the number as
- * JavaScript's `String` writes it. Null when it is not finite or is outside the 32-bit range either
- * way, so the element is dropped rather than wrapped into an arbitrary colour.
+ * `HostApi.parseColor` reads one with `v | 0`: JavaScript's ToInt32, which truncates a fraction and
+ * wraps the integer modulo 2^32, so `0xFFFF8800` and its signed form `-30720` are the same colour
+ * and `0x1FFFFFFFF` is `-1`. [value] is the number as JavaScript's `String` writes it. Null when it
+ * is not finite (`parseColor` then tries it as hex, which never matches), so the element is
+ * dropped.
  */
 internal fun argbFromNumber(value: String): Int? {
   val number = value.toDoubleOrNull()?.takeIf { it.isFinite() } ?: return null
-  if (number <= Int.MIN_VALUE - 1.0 || number >= 4_294_967_296.0) return null
-  return number.toLong().toInt()
+  // `%` on doubles is exact, and leaves an integer of magnitude below 2^32 whose low 32 bits are
+  // ToInt32's result.
+  return (truncate(number) % 4_294_967_296.0).toLong().toInt()
 }
 
 private val ARGB_COLOR_PATTERN = Regex("#?([0-9a-fA-F]{6}|[0-9a-fA-F]{8})")
