@@ -165,12 +165,15 @@ internal fun parseNamedValue(
 
 /**
  * A `color` value as ARGB: `RRGGBB`, which is opaque, or `AARRGGBB`, each with or without a leading
- * `#` and surrounding whitespace — the forms docs/design/RC_PLAYER_EMBED.md lists, read as the web
- * player's `HostApi.parseColor` reads a string. Null for anything else, so the element is dropped
- * like any other value that does not parse.
+ * `#` and surrounding whitespace as JavaScript's `trim` sees it — the forms
+ * docs/design/RC_PLAYER_EMBED.md lists, read as the web player's `HostApi.parseColor` reads a
+ * string. Null for anything else, so the element is dropped like any other value that does not
+ * parse.
  */
 internal fun parseArgbColor(value: String): Int? {
-  val hex = ARGB_COLOR_PATTERN.matchEntire(value.trim())?.groupValues?.get(1) ?: return null
+  val hex =
+    ARGB_COLOR_PATTERN.matchEntire(value.trim(Char::isJsWhitespace))?.groupValues?.get(1)
+      ?: return null
   val argb = hex.toLong(radix = 16)
   return (if (hex.length == 6) argb or 0xFF000000L else argb).toInt()
 }
@@ -189,5 +192,30 @@ internal fun argbFromNumber(value: String): Int? {
   // ToInt32's result.
   return (truncate(number) % 4_294_967_296.0).toLong().toInt()
 }
+
+/**
+ * Whether JavaScript's `String.prototype.trim` removes [this]: its WhiteSpace and LineTerminator
+ * sets, which are tab, U+000B, U+000C, the byte order mark U+FEFF, the space separators (Zs), and
+ * LF, CR, U+2028 and U+2029. Kotlin's `trim()` differs both ways: it keeps U+FEFF and removes the
+ * information separators U+001C-U+001F.
+ */
+private fun Char.isJsWhitespace(): Boolean =
+  when (this) {
+    '\t',
+    '\n',
+    '\u000B',
+    '\u000C',
+    '\r',
+    ' ',
+    '\u00A0',
+    '\u1680',
+    '\u2028',
+    '\u2029',
+    '\u202F',
+    '\u205F',
+    '\u3000',
+    '\uFEFF' -> true
+    else -> this in '\u2000'..'\u200A'
+  }
 
 private val ARGB_COLOR_PATTERN = Regex("#?([0-9a-fA-F]{6}|[0-9a-fA-F]{8})")

@@ -245,6 +245,26 @@ class RcHostParametersTest {
   }
 
   @Test
+  fun aColorIsTrimmedAsJavaScriptTrimsIt() {
+    // String.prototype.trim: a byte order mark and the Unicode space separators are trimmed.
+    for (value in
+      listOf(
+        "\uFEFF#FF8800",
+        "\u3000#FF8800\u2029",
+        "\u00A0\u1680\u2000\u200A\u202F\u205F\u000B\u000C#FF8800\t\r\n",
+      )) {
+      assertEquals(0xFFFF8800.toInt(), parseArgbColor(value), value)
+      assertEquals(RcNamedValue.Color(0xFFFF8800.toInt()), parseNamedValue("color", value), value)
+    }
+    // ...but the information separators U+001C-U+001F, U+0085 and U+180E are not, so the value
+    // does not match and is dropped, as the web player drops it.
+    for (value in listOf("\u001C#FF8800", "#FF8800\u001F", "\u0085#FF8800", "\u180E#FF8800")) {
+      assertNull(parseArgbColor(value), value)
+      assertNull(parseNamedValue("color", value), value)
+    }
+  }
+
+  @Test
   fun onlyColorReadsANumberDifferently() {
     for ((typeName, value) in
       listOf(
