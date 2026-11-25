@@ -769,9 +769,10 @@
               diagnostics: model.diagnostics(
                 availableCustomComponents: availableCustomComponents))
           }
-          /// The opened session, and the values it was opened without, with their errors.
+          /// The opened session, the values it was opened without that are reported, with their
+          /// errors, and those it was opened without that are not.
           func openSeededFirstFrame() async throws -> (
-            NativeOpenedFirstFrame, [NativeLeftOutValue]
+            NativeOpenedFirstFrame, [NativeLeftOutValue], [NativeStartingValue]
           ) {
             /// Throws unless the player will present `opened`: the policy renders it, and its
             /// work and its events fit the limits, as `presentOpened` checks them.
@@ -791,22 +792,44 @@
               return opened
             }
             guard !namedValues.isEmpty else {
-              return (try await openFirstFrame(seededWith: []), [])
+              return (try await openFirstFrame(seededWith: []), [], [])
             }
             let firstError: any Error
+            var seededOpened: NativeOpenedFirstFrame?
             do {
-              return (try await openRendering(namedValues), [])
+              let seeded = try await openFirstFrame(seededWith: namedValues)
+              do {
+                try checkRendering(seeded)
+                return (seeded, [], [])
+              } catch {
+                seededOpened = seeded
+                firstError = error
+              }
             } catch is CancellationError {
               throw CancellationError()
             } catch {
               firstError = error
             }
             // A carried or seeded value may be what failed — one that breaks an execution limit
-            // or the compatibility policy. A document that fails without them too fails as
-            // before.
+            // or the compatibility policy.
             try Task.checkCancellation()
-            var opened = try await openFirstFrame(seededWith: [])
-            guard (try? checkRendering(opened)) != nil else { return (opened, []) }
+            var opened: NativeOpenedFirstFrame
+            do {
+              opened = try await openFirstFrame(seededWith: [])
+            } catch is CancellationError {
+              throw CancellationError()
+            } catch {
+              guard let seededOpened else { throw error }
+              return (seededOpened, [], [])
+            }
+            guard (try? checkRendering(opened)) != nil else {
+              // The document fails without them too, so they are not what failed it: the session
+              // keeps them, fails as the document does, and shows them once input repairs it.
+              // Without a session that holds them, it was opened without each one, and the next
+              // session is offered them again.
+              if let seededOpened { return (seededOpened, [], []) }
+              return (opened, [], namedValues)
+            }
             // Otherwise keep every value the first frame can take, and leave out, and report as a
             // refused write is, each one that fails it, rather than writing it into the session: a
             // session keeps every value it applied, so it would fail every later frame and refuse
@@ -842,9 +865,9 @@
               try await keep(group[middle...], failing: nil)
             }
             try await keep(namedValues[...], failing: firstError)
-            return (opened, refusals)
+            return (opened, refusals, [])
           }
-          let (opened, refusals) = try await openSeededFirstFrame()
+          let (opened, refusals, unreported) = try await openSeededFirstFrame()
           let model = opened.model
           guard generation == self?.generation else { return }
           self?.onDiagnostics(opened.diagnostics)
@@ -862,7 +885,7 @@
           guard let self, generation == self.generation else { return }
           self.presentOpened(
             model, engine: opened.engine, resources: resources, effects: opened.frame.effects,
-            startedFrom: startedFrom, reporting: refusals)
+            startedFrom: startedFrom, reporting: refusals, alsoLeftOut: unreported)
         } catch {
           guard !Task.isCancelled, let self, generation == self.generation else { return }
           self.show(error: error, retaining: nil)
@@ -871,16 +894,17 @@
       state = .loading(task)
     }
 
-    /// Install the first frame of a freshly opened session, then report `refusals` — the
-    /// starting values it was opened without — as refused writes are reported.
+    /// Install the first frame of a freshly opened session, then report `refusals` — starting
+    /// values it was opened without because each broke a limit — as refused writes are reported.
+    /// `alsoLeftOut` are starting values it was opened without that are not reported.
     private func presentOpened(
       _ model: NativeDocument, engine: NativePlayerEngine, resources: NativeResourceStore,
       effects: [RemoteComposeNativePlayerEvent], startedFrom: NativeCarriedValues,
-      reporting refusals: [NativeLeftOutValue]
+      reporting refusals: [NativeLeftOutValue], alsoLeftOut: [NativeStartingValue]
     ) {
       let presentation = NativePlayerPresentation(
         engine: engine, resources: resources, startedFrom: startedFrom,
-        leftOut: refusals.map(\.value))
+        leftOut: refusals.map(\.value) + alsoLeftOut)
       defer {
         for refusal in refusals { report(refusal.error) }
         announceOpened()
