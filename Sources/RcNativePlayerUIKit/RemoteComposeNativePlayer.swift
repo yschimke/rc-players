@@ -175,9 +175,10 @@
     let input: NativePlayerEngine.Input
     /// Receives the document's answer; nil for a gesture nobody awaits.
     let reply: ((RemoteComposeNativeInputAdmission) -> Void)?
-    /// Whether it came through `submit`, from the host that seeds reopens (`namedValueSeed`),
-    /// rather than from a `set*` method or the document's own gestures.
-    var isSeedingHostWrite = false
+    /// For a write through `submit`, from the host that seeds reopens (`namedValueSeed`): which
+    /// of that host's writes to the name it is (`hostWriteCounts`). Nil for a `set*` call or a
+    /// gesture.
+    var hostWrite: UInt64?
   }
 
   private struct NativeFrameRequest {
@@ -198,15 +199,25 @@
     }
   }
 
+  /// A value the seeding host wrote to a name, and which of its writes to that name it was.
+  private struct NativeHostValue: Equatable {
+    let value: NativeSwiftNamedValue
+    /// The player's count of the host's writes to the name when this one reached it
+    /// (`hostWriteCounts`).
+    let write: UInt64
+  }
+
   /// What a session over the same bytes starts from.
   private struct NativeCarriedValues {
     static let none = NativeCarriedValues(values: [], hostValues: [:])
     /// Applied, in order, before its first frame.
     let values: [NativeStartingValue]
-    /// The seeding host's value of each name the sessions so far took — written through
-    /// `submit`, or from a seed — by declared name. A seed value equal to it is not applied
-    /// again: the session's own value, which the document may have changed since, is newer.
-    let hostValues: [String: NativeSwiftNamedValue]
+    /// The seeding host's write of each name the sessions so far took — through `submit`, or
+    /// from a seed — by the name the host wrote it under. A seed value is not applied again when
+    /// it is that same write: the session's own value, which the document may have changed since,
+    /// is newer. It is applied when the host has written the name since, even back to an equal
+    /// value.
+    let hostValues: [String: NativeHostValue]
   }
 
   /// A starting value a reopened session was opened without, and why.
@@ -247,10 +258,10 @@
     /// the document's value, so the next session is offered them again until a write replaces
     /// them.
     let leftOut: [NativeStartingValue]
-    /// The seeding host's value of each name this session holds or took: `startedFrom`'s, then
+    /// The seeding host's write of each name this session holds or took: `startedFrom`'s, then
     /// each `submit` write it applied — also one it applied after a reopen superseded it, since
     /// its written values are carried.
-    var hostValues: [String: NativeSwiftNamedValue]
+    var hostValues: [String: NativeHostValue]
 
     init(
       engine: NativePlayerEngine, resources: NativeResourceStore,
@@ -379,11 +390,13 @@
     /// — carries every named value a write set in the session it replaces, the host's or the
     /// document's own (read after any input that session was applying), and each value an
     /// earlier reopen left out that no write has replaced since. A seed value is applied over
-    /// them unless it equals the value the sessions over these bytes already took for that name
-    /// from this host — through `submit`, or an earlier seed: then the session's own value, which
-    /// the document (or a `set*` call) may have changed since, is newer. So each named variable
-    /// shows the newest value written to it, as on the Kotlin player, which keeps its state
-    /// instead of reopening. State that is not a named variable — animations, a scroll position,
+    /// them unless it is the very write the sessions over these bytes already took for that name
+    /// from this host — through `submit`, or an earlier seed — with no write of that name handed
+    /// to `submit` since: then the session's own value, which the document (or a `set*` call) may
+    /// have changed since, is newer. A host that wrote the name again, even back to the value the
+    /// session took, has the newer write. So each named variable shows the newest value written
+    /// to it, as on the Kotlin player, which keeps its state instead of reopening. Seed names are
+    /// the names the host writes through `submit`. State that is not a named variable — animations, a scroll position,
     /// unnamed variables — starts again from the bytes. A reopen out of a failed session starts
     /// from what that session started from: what it held when it failed may be what failed it.
     ///
@@ -399,6 +412,13 @@
     /// document they were written for.
     @_spi(RemoteComposeController)
     public var namedValueSeed: (() -> [(name: String, value: RemoteComposeNativeNamedValue)])?
+    /// How many writes the seeding host has handed the player through `submit`, per name, since
+    /// these bytes were loaded — taken or not, deferred or queued. A seed value is the host's
+    /// newest write of its name; the session took that write only if it took the one with this
+    /// count. Writes the host makes and replaces within one main-queue turn never reach `submit`,
+    /// so they count as no change, as the Kotlin player, which diffs the host's values once per
+    /// pass, sees them.
+    private var hostWriteCounts: [String: UInt64] = [:]
     /// What the next session to open starts from: what the session it replaces held, read once
     /// that session's in-flight input is done, or, while an open is superseded before it
     /// presents, what that open started from.
@@ -484,6 +504,7 @@
         // The seed and the carried values belong to the document they were written for; another
         // one may declare the same names for something else.
         namedValueSeed = nil
+        hostWriteCounts = [:]
         soundPlayer.stopAll()
         animationTimeline.reset(
           at: clock.now(),
@@ -693,15 +714,20 @@
       let resourceCache = resourceCache
       let wallClock = clock.wallClock()
       let carried = carriedNamedValues
+      let hostWriteCounts = hostWriteCounts
       let seed = (namedValueSeed?() ?? []).map {
-        NativeStartingValue(name: $0.name, value: $0.value.coreValue)
+        (name: $0.name, write: NativeHostValue(
+          value: $0.value.coreValue, write: hostWriteCounts[$0.name] ?? 0))
       }
       // A reopen that supersedes this open before it presents starts from the same values.
       let startingValues = Task {
         let carried = await carried?.value ?? .none
-        let seeded = seed.filter { carried.hostValues[$0.name] != $0.value }
+        var seeded: [NativeStartingValue] = []
         var hostValues = carried.hostValues
-        for value in seeded { hostValues[value.name] = value.value }
+        for (name, write) in seed where carried.hostValues[name] != write {
+          seeded.append(NativeStartingValue(name: name, value: write.value))
+          hostValues[name] = write
+        }
         return NativeCarriedValues(
           values: NativeStartingValue.merging(carried.values, with: seeded),
           hostValues: hostValues)
@@ -971,7 +997,9 @@
     public func submit(
       _ value: RemoteComposeNativeNamedValue, for name: String
     ) async -> RemoteComposeNativeInputAdmission {
-      await admit(Self.input(value, for: name), isSeedingHostWrite: true)
+      let write = (hostWriteCounts[name] ?? 0) &+ 1
+      hostWriteCounts[name] = write
+      return await admit(Self.input(value, for: name), hostWrite: write)
     }
 
     private static func input(
@@ -990,11 +1018,11 @@
     }
 
     private func admit(
-      _ input: NativePlayerEngine.Input, isSeedingHostWrite: Bool = false
+      _ input: NativePlayerEngine.Input, hostWrite: UInt64? = nil
     ) async -> RemoteComposeNativeInputAdmission {
       await withCheckedContinuation {
         (continuation: CheckedContinuation<RemoteComposeNativeInputAdmission, Never>) in
-        enqueue(input, isSeedingHostWrite: isSeedingHostWrite) { admission in
+        enqueue(input, hostWrite: hostWrite) { admission in
           continuation.resume(returning: admission)
         }
       }
@@ -1004,7 +1032,7 @@
     /// `.deferred` while the document is opening, the scene is in the background or the queue is
     /// full, and `.refused` when no document will open.
     private func enqueue(
-      _ input: NativePlayerEngine.Input, isSeedingHostWrite: Bool = false,
+      _ input: NativePlayerEngine.Input, hostWrite: UInt64? = nil,
       reply: ((RemoteComposeNativeInputAdmission) -> Void)?
     ) {
       guard let presentation = openPresentation else {
@@ -1013,7 +1041,7 @@
       }
       guard isSceneActive,
         presentation.inputs.append(
-          NativePendingInput(input: input, reply: reply, isSeedingHostWrite: isSeedingHostWrite))
+          NativePendingInput(input: input, reply: reply, hostWrite: hostWrite))
       else {
         reply?(.deferred)
         return
@@ -1135,16 +1163,15 @@
       }
     }
 
-    /// Note that `presentation`'s session holds the value the seeding host wrote with `pending`,
-    /// so a seed of the same value does not overwrite a newer change by the document (or by a
-    /// `set*` call) at the next reopen.
+    /// Note that `presentation`'s session took the seeding host's write `pending`, so a seed of
+    /// that same write does not overwrite a newer change by the document (or by a `set*` call) at
+    /// the next reopen. Keyed by the name the host wrote, as `hostWriteCounts` and the seed are.
     private func recordHostValue(
       _ pending: NativePendingInput, on presentation: NativePlayerPresentation
     ) {
-      guard pending.isSeedingHostWrite, let (name, value) = pending.input.hostNamedValue,
-        let declared = presentation.engine.declarations.declaredName(for: name)
+      guard let write = pending.hostWrite, let (name, value) = pending.input.hostNamedValue
       else { return }
-      presentation.hostValues[declared] = value
+      presentation.hostValues[name] = NativeHostValue(value: value, write: write)
     }
 
     /// Install the frame an input produced and deliver its events. Returns whether the document
