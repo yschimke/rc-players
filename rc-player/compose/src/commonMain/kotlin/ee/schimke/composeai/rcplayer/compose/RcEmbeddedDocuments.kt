@@ -530,7 +530,14 @@ internal fun RenderEmbeddedDoc(
       }
   }
 
-  CompositionLocalProvider(LocalRcEmbeddedDepth provides depth + 1) {
+  // The child player is drawn into `clipToBounds`, a child layer of the host's, so on a platform
+  // whose child layers miss a `ModulateAlpha` alpha (see [RcModulateAlphaLayer]) nothing in it is
+  // faded by a host `ModulateAlpha` layer: it starts with none, and its offsets keep their layers.
+  // Always provided, so the child's subtree is the same group whatever the host's layer is.
+  CompositionLocalProvider(
+    LocalRcEmbeddedDepth provides depth + 1,
+    LocalRcModulateAlphaLayer provides null,
+  ) {
     RcComposePlayerResolved(
       prepared = childPrepared,
       modifier = sizedModifier.clipToBounds(),

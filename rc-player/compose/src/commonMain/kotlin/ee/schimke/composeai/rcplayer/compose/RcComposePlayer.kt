@@ -1367,9 +1367,10 @@ private fun RenderLayoutNode(
 
 /**
  * The `ModulateAlpha` graphics layer what is being composed is drawn into, on a platform whose
- * child layers miss that alpha; null outside one. See [RcModulateAlphaLayer].
+ * child layers miss that alpha; null outside one, and at the root of an embedded document, which is
+ * drawn into a child layer of its own (`clipToBounds`). See [RcModulateAlphaLayer].
  */
-private val LocalRcModulateAlphaLayer = staticCompositionLocalOf<RcModulateAlphaLayer?> { null }
+internal val LocalRcModulateAlphaLayer = staticCompositionLocalOf<RcModulateAlphaLayer?> { null }
 
 /**
  * A component's `ModulateAlpha` graphics layer [operation], as the offsets drawn into it see it, on
