@@ -90,9 +90,9 @@ public data class RcDocumentCapabilities(
    * Whether the document **declares** [name] — not whether a seed for it currently drives anything.
    *
    * The two differ, and the type is what separates them: `RcPlayerState.setNamedValue` accepts
-   * string, float, colour, int and long, and throws for the image and float-array types, which no
-   * serve override grammar can construct a seed for either. A caller that needs drivability rather
-   * than declaration reads [namedValueType] and decides against that setter's range, which is
+   * string, float, colour, int, long and float array, and throws for the image type, which no serve
+   * override grammar can construct a seed for either. A caller that needs drivability rather than
+   * declaration reads [namedValueType] and decides against that setter's range, which is
    * deliberately not duplicated here — a copy would be free to drift from the setter it claims to
    * describe, the same failure this class exists to remove.
    */

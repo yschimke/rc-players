@@ -1865,7 +1865,9 @@ import Testing
     let timeFields: [(output: Int, type: Int, arguments: [Int], expected: Float)] = [
       (20, 6, [], 20), (26, 7, [], 13), (27, 8, [], 22), (21, 9, [], 14),
       (23, 10, [], 10), (22, 11, [], 1), (24, 12, [], 2023), (29, 15, [], 318),
-      (25, 3, [2], 1000), (30, 4, [2], 1000.0 / 60),
+      // Seconds in Float, as AndroidX's `delta * 1E-3f` (`TimeAttribute.java:269`): 1,000,000 ms
+      // times 0.001f is 1000.00006, not 1000; minutes in Double (`:276`).
+      (25, 3, [2], Float(1_000_000) * 0.001), (30, 4, [2], Float(1_000_000.0 * 0.001 / 60)),
     ]
     for field in timeFields {
       timed.u8(172).int(field.output).int(1).u16(field.type).u16(field.arguments.count)
@@ -2718,7 +2720,9 @@ import Testing
 
   /// Time-attribute intervals between two document-chosen instants were Int64 differences, and
   /// `LongConstant`s of Int64.max and Int64.min overflowed them: a 55-byte document trapped. They
-  /// are taken in Double now, and every interval form resolves to a finite value.
+  /// wrap now, as AndroidX's `long` subtraction does (`TimeAttribute.java:254`, `:260`) and the
+  /// Kotlin player's does: Int64.max minus Int64.min is -1 ms. The load interval is taken from the
+  /// elapsed seconds in Double, so it stays the large positive span.
   @Test func extremeTimeAttributeIntervalsDoNotTrap() throws {
     typealias TimeType = NativeSwiftTimeAttributeType
     let document = Writer()
@@ -2735,12 +2739,9 @@ import Testing
     let values = try NativeSwiftDocumentSession.open(
       data: document.data, toleratingRootlessData: true
     ).probeValues(timeSeconds: 0, wallClock: NativeSwiftWallClock(epochMillis: .min))
-    for id in 60...62 {
-      let value = values.floats[id]
-      #expect(
-        value.map { $0.isFinite && $0 > 0 } == true,
-        Comment(rawValue: "interval \(id): \(String(describing: value))"))
-    }
+    #expect(values.floats[60] == Float(-1) * 0.001)
+    #expect(values.floats[61] == Float(-1) * 0.001)
+    #expect(values.floats[62].map { $0.isFinite && $0 > 0 } == true)
   }
 
   /// A MacroDefine that names one parameter id twice built its argument mapping with

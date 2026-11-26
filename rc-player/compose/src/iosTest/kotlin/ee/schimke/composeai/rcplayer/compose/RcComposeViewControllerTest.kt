@@ -3,7 +3,11 @@ package ee.schimke.composeai.rcplayer.compose
 import androidx.compose.ui.text.font.FontFamily
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
+import ee.schimke.composeai.rcplayer.protocol.RcFloatList
+import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
@@ -257,6 +261,113 @@ class RcComposeViewControllerTest {
 
     assertFalse("USER:count" in controller.values)
     assertEquals(RcNamedValue.BooleanValue(false), controller.values["USER:enabled"])
+  }
+
+  @Test
+  fun appleControllerDrivesLongAndFloatArrayVariablesIntoTheDocument() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0)),
+        listOf(
+          RcFloatList(51, listOf(RcFloatWord.literal(1f), RcFloatWord.literal(2f))),
+          RcNamedVariable(51, RcNamedVariable.FLOAT_ARRAY_TYPE, "USER:series"),
+          RcLongConstant(52, 5L),
+          RcNamedVariable(52, RcNamedVariable.LONG_TYPE, "USER:epoch"),
+          RcFloatConstant(53, RcFloatWord.literal(4f)),
+          RcNamedVariable(53, RcNamedVariable.FLOAT_TYPE, "USER:progress"),
+        ),
+      )
+    val controller = RcComposePlayerController()
+    assertFalse(controller.setLong("epoch", 9L), "before a document is attached")
+    controller.attach(RcDocumentCapabilities.of(document))
+
+    assertTrue(controller.setLong("epoch", 1_700_000_000_000L))
+    assertTrue(controller.setFloatArray("USER:series", floatArrayOf(5f, 6f, 7f)))
+    assertFalse(controller.setLong("progress", 1L))
+    assertFalse(controller.setLong("series", 1L))
+    assertFalse(controller.setFloatArray("epoch", floatArrayOf(1f)))
+    assertFalse(controller.setFloatArray("progress", floatArrayOf(1f)))
+    assertFalse(controller.setFloatArray("missing", floatArrayOf(1f)))
+    assertFalse(controller.setInteger("epoch", 1))
+    assertFalse(controller.setFloat("series", 1f))
+    assertEquals(RcNamedValue.LongValue(1_700_000_000_000L), controller.values["USER:epoch"])
+    assertEquals(
+      RcNamedValue.FloatArrayValue(listOf(5f, 6f, 7f)),
+      controller.values["USER:series"],
+    )
+
+    // The arrays the native Swift player refuses are refused here too: an oversized one before
+    // it is copied, a non-finite one by the same rule on the copy.
+    assertFalse(controller.setFloatArray("series", floatArrayOf(1f, Float.NaN)))
+    assertFalse(controller.setFloatArray("series", floatArrayOf(Float.POSITIVE_INFINITY)))
+    assertFalse(controller.setFloatArray("series", floatArrayOf(Float.NEGATIVE_INFINITY)))
+    // Every element is checked, not only the first: one non-finite value anywhere refuses all.
+    val full = FloatArray(RcFloatList.MAX_VALUES) { it.toFloat() }
+    for (index in intArrayOf(0, 1, RcFloatList.MAX_VALUES / 2, RcFloatList.MAX_VALUES - 1)) {
+      for (bad in floatArrayOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+        val values = full.copyOf().also { it[index] = bad }
+        assertFalse(controller.setFloatArray("series", values), "$bad at index $index")
+      }
+    }
+    assertFalse(controller.setFloatArray("series", FloatArray(RcFloatList.MAX_VALUES + 1)))
+    assertEquals(
+      RcNamedValue.FloatArrayValue(listOf(5f, 6f, 7f)),
+      controller.values["USER:series"],
+      "a refused array replaced the stored one",
+    )
+    assertTrue(controller.setFloatArray("series", FloatArray(RcFloatList.MAX_VALUES)))
+    assertTrue(controller.setFloatArray("series", floatArrayOf(5f, 6f, 7f)))
+
+    val state = RcPlayerState(document, namedValues = controller.values)
+    assertEquals(1_700_000_000_000L, state.long(52))
+    assertEquals(listOf(5f, 6f, 7f), state.floatValues(51)?.toList())
+  }
+
+  /**
+   * `clear` removes the stored value, which `RcComposePlayer` hands to `RcPlayerState`'s
+   * `clearNamedValue` (`RcNamedValueRenderTest` drives that removal through a live player); the
+   * state built from the controller's values then holds the document's own.
+   */
+  @Test
+  fun appleControllerClearRemovesTheValueSoTheDocumentsOwnIsShown() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0)),
+        listOf(
+          RcFloatConstant(53, RcFloatWord.literal(4f)),
+          RcNamedVariable(53, RcNamedVariable.FLOAT_TYPE, "USER:progress"),
+          RcFloatList(51, listOf(RcFloatWord.literal(1f), RcFloatWord.literal(2f))),
+          RcNamedVariable(51, RcNamedVariable.FLOAT_ARRAY_TYPE, "USER:series"),
+          RcNamedVariable(54, RcNamedVariable.INT_TYPE, "light.is_on"),
+        ),
+      )
+    val controller = RcComposePlayerController()
+    assertFalse(controller.clear("progress"), "before a document is attached")
+    controller.attach(RcDocumentCapabilities.of(document))
+    assertTrue(controller.setFloat("progress", 0.5f))
+    assertTrue(controller.setFloatArray("series", floatArrayOf(9f)))
+    assertTrue(controller.setBoolean("light.is_on", true))
+
+    assertTrue(controller.clear("progress"))
+    assertTrue(controller.clear("USER:series"))
+    assertTrue(controller.clear("light.is_on"))
+    assertTrue(controller.values.isEmpty(), "${controller.values}")
+    val state = RcPlayerState(document, namedValues = controller.values)
+    assertEquals(4f, state.float(53))
+    assertEquals(listOf(1f, 2f), state.floatValues(51)?.toList())
+
+    // Clearing twice, or a name nobody set, is harmless; an undeclared name is refused.
+    assertTrue(controller.clear("progress"))
+    assertFalse(controller.clear("missing"))
+    assertFalse(controller.clear("theme:missing"))
+
+    // The value written before the clear is stored again: the clear forgot it.
+    assertTrue(controller.setFloat("progress", 0.5f))
+    assertEquals(RcNamedValue.FloatValue(0.5f), controller.values["USER:progress"])
+
+    // Another document that no longer declares the name refuses the clear.
+    controller.attach(RcDocumentCapabilities(emptyMap(), emptySet()))
+    assertFalse(controller.clear("progress"))
   }
 
   /**

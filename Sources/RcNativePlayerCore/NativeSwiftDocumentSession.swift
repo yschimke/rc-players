@@ -16,11 +16,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var texts: [Int: String]
   private var floats: [Int: Float]
   private var floatOverrides: [Int: Float] = [:]
+  /// The longs a host has set by name, over the document's `LongConstant`s.
+  private var longOverrides: [Int: Int64] = [:]
+  /// The float arrays a host has set by name, over the lists the document keeps at those ids.
+  private var floatArrayOverrides: [Int: [Float]] = [:]
   private var hostDensity: Float = 1
   private var hostFontScale: Float = 1
   private var requestedTheme = NativeSwiftTheme.unspecified
   private var colors: [Int: UInt32]
   private var integers: [Int: Int]
+  /// Both numeric views as the document recorded them when it opened (`seededNumericViews`): what
+  /// `clearNamedValue` restores a float or integer variable to.
+  private let recordedFloats: [Int: Float]
+  private let recordedIntegers: [Int: Int]
   /// The ids the document itself fills as integers: its integer constants and the outputs of its
   /// integer expressions, id lookups and data-map lookups. With the ids a host or an action wrote
   /// (`writtenIDs`) they are every integer slot the float evaluator may need projected; the rest
@@ -75,6 +83,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     texts = document.texts
     colors = document.colors
     (floats, integers) = Self.seededNumericViews(of: document)
+    (recordedFloats, recordedIntegers) = (floats, integers)
     var imageSizeByID: [Int: Float] = [:]
     for case .imageSize(let id, let value) in document.numericConstants {
       imageSizeByID[id] = value
@@ -185,8 +194,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     texts = other.texts
     floats = other.floats
     floatOverrides = other.floatOverrides
+    longOverrides = other.longOverrides
+    floatArrayOverrides = other.floatArrayOverrides
     colors = other.colors
     integers = other.integers
+    recordedFloats = other.recordedFloats
+    recordedIntegers = other.recordedIntegers
     integerSlotIDs = other.integerSlotIDs
     imageSizeByID = other.imageSizeByID
     floatExpressionIDs = other.floatExpressionIDs
@@ -342,7 +355,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case NativeSwiftDataMapType.string:
         if let value = texts[entry.valueID] { texts[lookup.outputID] = value }
       case NativeSwiftDataMapType.int, NativeSwiftDataMapType.long, NativeSwiftDataMapType.boolean:
-        storeInteger(lookup.outputID, integers[entry.valueID] ?? 0)
+        storeInteger(lookup.outputID, dataMapInteger(type: entry.type, valueID: entry.valueID))
       case NativeSwiftDataMapType.float:
         values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
       default:
@@ -384,7 +397,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         || floatAnimationRuntimes.contains {
           floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
         },
-      needsWallClockRefresh: document.needsWallClockRefresh,
+      needsWallClockRefresh: document.needsWallClockRefresh || measuresFromNowForAMissingArgument,
       boundComponents: document.boundComponentIDs,
       animationSpecs: document.animationSpecs,
       accessibilityRecords: document.accessibilityRecords.map {
@@ -711,7 +724,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case NativeSwiftDataMapType.string:
         if let value = texts[entry.valueID] { texts[lookup.outputID] = value }
       case NativeSwiftDataMapType.int, NativeSwiftDataMapType.long, NativeSwiftDataMapType.boolean:
-        storeInteger(lookup.outputID, integers[entry.valueID] ?? 0)
+        storeInteger(lookup.outputID, dataMapInteger(type: entry.type, valueID: entry.valueID))
       case NativeSwiftDataMapType.float:
         values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
       default:
@@ -744,6 +757,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// A float list as `values` resolves it: a static `DataListFloat` (when `staticFirst`) with its
   /// updates applied, or else a `DynamicFloatList`, zero-filled to its length.
   private func floatList(id: Int, staticFirst: Bool, values: [Int: Float]) -> [Float]? {
+    // A host's float array replaces whatever list the document keeps at the id, static or dynamic,
+    // as the Kotlin player's `floatValues` reads its override first.
+    if let override = floatArrayOverrides[id] { return override }
     if staticFirst {
       if var result = document.floatLists[id]?.map({
         NativeSwiftFloatExpression.resolve($0, values: values)
@@ -761,7 +777,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
     guard let list = document.dynamicFloatLists[id] else { return nil }
     let length = nativeSwiftClampedInt(NativeSwiftFloatExpression.resolve(list.lengthWord, values: values))
-    guard (0...2_000).contains(length) else { return nil }
+    guard (0...NativeSwiftDocumentDecoder.maximumFloatListValues).contains(length) else {
+      return nil
+    }
     var result = Array(repeating: Float(0), count: length)
     for update in list.updates {
       let index = nativeSwiftClampedInt(NativeSwiftFloatExpression.resolve(update.index, values: values))
@@ -824,6 +842,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         if hostSetColors.contains(id), let value = colors[id] {
           written.append((name, .color(value)))
         }
+      case NativeSwiftNamedVariableType.long:
+        if let value = longOverrides[id] { written.append((name, .long(value))) }
+      case NativeSwiftNamedVariableType.floatArray:
+        if let value = floatArrayOverrides[id] { written.append((name, .floatArray(value))) }
       default:
         break
       }
@@ -868,6 +890,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       } else {
         storeInteger(id, value)
       }
+    case .long(let value):
+      longOverrides[id] = value
+    case .floatArray(let values):
+      floatArrayOverrides[id] = values
     }
     staticSnapshotCache = nil
     return true
@@ -907,6 +933,58 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// for false and true respectively.
   public func setInteger(_ value: Int, for name: String) -> Bool {
     set(.integer(value), for: name)
+  }
+
+  /// Updates a named long — an instant in epoch milliseconds, which a time attribute reads.
+  public func setLong(_ value: Int64, for name: String) -> Bool {
+    set(.long(value), for: name)
+  }
+
+  /// Replaces the list a named float array holds. The values must be finite, and no more than a
+  /// document's float list may hold.
+  public func setFloatArray(_ values: [Float], for name: String) -> Bool {
+    set(.floatArray(values), for: name)
+  }
+
+  /// Restores the named variable `name` to the value the document recorded, discarding the
+  /// host's override — the inverse of the `set*` methods, as the Kotlin player's
+  /// `clearNamedValue` is. The recorded value is the document's own, never one a host seeded when
+  /// the session opened. A named system variable goes back to the player's clock. A document
+  /// action's earlier write to the variable is discarded with the override.
+  ///
+  /// Returns whether `name` is a variable a host can write; a name the document does not declare
+  /// (or declares as an image) is ignored, and clearing twice changes nothing.
+  @discardableResult
+  public func clearNamedValue(_ name: String) -> Bool {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    guard let variable = namedVariable(for: name) else { return false }
+    let id = variable.id
+    switch variable.type {
+    case NativeSwiftNamedVariableType.float, NativeSwiftNamedVariableType.int:
+      // Both views, as the Kotlin clear writes the recorded value back through `setFloat` or
+      // `setInteger`: a float write published the integer view (`storeFloat`), and an integer
+      // write replaced the float view (`storeInteger`), so each goes back to the recorded one.
+      floatOverrides[id] = nil
+      floats[id] = recordedFloats[id]
+      integers[id] = recordedIntegers[id]
+      writtenIDs.remove(id)
+    case NativeSwiftNamedVariableType.string:
+      texts[id] = document.texts[id]
+      writtenIDs.remove(id)
+    case NativeSwiftNamedVariableType.color:
+      // No longer the host's, so the document's dark palette applies to it again.
+      colors[id] = document.colors[id]
+      hostSetColors.remove(id)
+    case NativeSwiftNamedVariableType.long:
+      longOverrides[id] = nil
+    case NativeSwiftNamedVariableType.floatArray:
+      floatArrayOverrides[id] = nil
+    default:
+      return false
+    }
+    staticSnapshotCache = nil
+    return true
   }
 
   /// A host write by the name a host addresses it with; see `namedVariable(for:)`.
@@ -1241,8 +1319,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // A list is dynamic when it is a DynamicFloatList and no static list of the same id shadows
     // it, as `floatList(staticFirst:)` reads it: the reference seeds the component's box into, and
     // applies `UpdateDynamicFloatList` to, only those.
+    // A list a host overrides is not dynamic: the body reads the host's values, and an update to
+    // the document's list underneath stays invisible while the override stands, as on the Kotlin
+    // player.
     let dynamicListIDs = listIDs.filter {
       document.dynamicFloatLists[$0] != nil && document.floatLists[$0] == nil
+        && floatArrayOverrides[$0] == nil
     }
     return NativeSwiftLayoutComputeSnapshot(
       type: compute.type, boundsID: compute.boundsID, animateChanges: compute.animateChanges,
@@ -1416,44 +1498,73 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
   }
 
+  /// A data-map entry's integer value: a long entry reads the long (a host's included), truncated
+  /// to 32 bits as the Kotlin player's `Long.toInt()` is; the others read the integer.
+  private func dataMapInteger(type: Int, valueID: Int) -> Int {
+    guard type == NativeSwiftDataMapType.long else { return integers[valueID] ?? 0 }
+    return Int(Int32(truncatingIfNeeded: long(valueID) ?? 0))
+  }
+
+  /// The long at `id`: a host's, over the document's `LongConstant`.
+  private func long(_ id: Int) -> Int64? {
+    longOverrides[id] ?? document.longConstants[id]
+  }
+
+  /// Whether a `fromArgument` interval reads its argument as now — the host's long at it was
+  /// cleared and the document gives it no `LongConstant` — while its instant is a stated one, so the
+  /// value moves with the clock: the Kotlin player counts that a clock read
+  /// (`RcPlayerState.applyTimeAttribute`). The decoder cannot know it, as a host's long decides it.
+  private var measuresFromNowForAMissingArgument: Bool {
+    typealias TimeType = NativeSwiftTimeAttributeType
+    let fromArgument: Set<Int> = [
+      TimeType.fromArgumentSeconds, TimeType.fromArgumentMinutes, TimeType.fromArgumentHours,
+    ]
+    return document.timeAttributes.contains { attribute in
+      fromArgument.contains(attribute.type) && long(attribute.timeID) != nil
+        && attribute.argumentIDs.first.map { long($0) == nil } == true
+    }
+  }
+
   /// AndroidX `TimeAttribute.paint`: one calendar field or interval, read from an instant.
   ///
   /// The instant is the `LongConstant` the operation names, or the host's wall clock when the
   /// document names none. Fields are read in the wall clock's zone, as the reference reads the
-  /// system zone. Month and day of week are zero-based, as they are in the reference. A value
-  /// with nothing to measure from — no wall clock for a `NOW` or `LOAD` interval, a missing
-  /// argument — leaves the slot unwritten rather than inventing an epoch.
+  /// system zone. Month and day of week are zero-based, as they are in the reference. A missing
+  /// argument is read as now, as a missing instant is (`TimeAttribute.java:243-244`; the reference
+  /// would cast a null and throw, `:259-260`), as the Kotlin player reads it. A value with nothing
+  /// to measure from — no wall clock for a `NOW`, `LOAD` or argument-less interval — leaves the
+  /// slot unwritten rather than inventing an epoch.
   private func timeAttribute(
     _ attribute: ParsedTimeAttribute, timeSeconds: TimeInterval,
     wallClock: NativeSwiftWallClock?
   ) -> Float? {
-    guard let selectedMillis = document.longConstants[attribute.timeID] ?? wallClock?.epochMillis
+    guard let selectedMillis = long(attribute.timeID) ?? wallClock?.epochMillis
     else { return nil }
     let selected = NativeSwiftWallClock(
       epochMillis: selectedMillis,
       offsetSeconds: wallClock?.offsetSeconds(atEpochMillis: selectedMillis) ?? 0)
     let fields = selected.fields
     typealias TimeType = NativeSwiftTimeAttributeType
-    // Intervals are taken in Double, not Int64: a document picks both instants, and two
-    // `LongConstant`s as far apart as Int64.max and Int64.min overflow -- and trap -- an Int64
-    // subtraction. Epoch milliseconds are exact in Double well beyond any real date, so an ordinary
-    // instant gives exactly what the integer difference did.
-    func interval(since start: Double, unit: Double) -> Float {
-      Float((Double(selectedMillis) - start) * 0.001 / unit)
+    // As the reference computes it (`TimeAttribute.java:254-288`): a `long` subtraction, which
+    // wraps rather than traps for instants as far apart as Int64.max and Int64.min; seconds in
+    // Float (`delta * 1E-3f`), minutes and hours in Double, as the Kotlin player does too.
+    func interval(since start: Int64, unit: Double) -> Float {
+      let delta = selectedMillis &- start
+      return unit == 1 ? Float(delta) * 0.001 : Float(Double(delta) * 0.001 / unit)
     }
     switch attribute.type {
     case TimeType.fromNowSeconds, TimeType.fromNowMinutes, TimeType.fromNowHours:
       guard let now = wallClock?.epochMillis else { return nil }
       let unit: Double = attribute.type == TimeType.fromNowSeconds
         ? 1 : attribute.type == TimeType.fromNowMinutes ? 60 : 3600
-      return interval(since: Double(now), unit: unit)
+      return interval(since: now, unit: unit)
     case TimeType.fromArgumentSeconds, TimeType.fromArgumentMinutes, TimeType.fromArgumentHours:
       guard let argumentID = attribute.argumentIDs.first,
-        let argument = document.longConstants[argumentID]
+        let argument = long(argumentID) ?? wallClock?.epochMillis
       else { return nil }
       let unit: Double = attribute.type == TimeType.fromArgumentSeconds
         ? 1 : attribute.type == TimeType.fromArgumentMinutes ? 60 : 3600
-      return interval(since: Double(argument), unit: unit)
+      return interval(since: argument, unit: unit)
     case TimeType.second: return Float(fields.second)
     case TimeType.minute: return Float(fields.minute)
     case TimeType.hour: return Float(fields.hour)
@@ -1466,7 +1577,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       guard let now = wallClock?.epochMillis else { return nil }
       // In Double too: `Int64(_:)` traps on a non-finite or out-of-range elapsed time.
       let loadMillis = Double(now) - (timeSeconds * 1000).rounded()
-      return interval(since: loadMillis, unit: 1)
+      return Float((Double(selectedMillis) - loadMillis) * 0.001)
     case TimeType.dayOfYear: return Float(fields.dayOfYear)
     default: return nil
     }

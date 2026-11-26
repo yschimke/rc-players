@@ -6,9 +6,9 @@ public enum NativeTestDocuments {
   /// The id of the box in ``shownBox()``.
   public static let boxID = 10
 
-  /// A `size`×`size` document whose 50×50 box (``boxID``) is gone until the integer named "shown"
-  /// says otherwise.
-  public static func shownBox(size: Int = 200) -> Data {
+  /// A `size`×`size` document whose 50×50 box (``boxID``) is gone until the integer named
+  /// `variableName` ("shown" by default) says otherwise.
+  public static func shownBox(size: Int = 200, variableName: String = "shown") -> Data {
     typealias Op = NativeSwiftWireOpcode
     let shownID = 550
     var data = Data()
@@ -23,7 +23,7 @@ public enum NativeTestDocuments {
     u8(Op.dataInt)
     int(shownID)
     int(NativeSwiftVisibility.gone)
-    let name = Array("shown".utf8)
+    let name = Array(variableName.utf8)
     u8(Op.namedVariable)
     int(shownID)
     int(4)  // The wire type of an integer named variable.
@@ -119,6 +119,23 @@ public enum NativeTestDocuments {
     // TextFromFloat: output id, value, digits before << 16 | digits after, flags.
     wire.u8(Op.textFromFloat).int(704).float(2).int((2 << 16) | 1).int(0)
       .named(704, Kind.string, "computed")
+    wire.u8(Op.layoutRoot).int(1)
+    wire.box(id: 10, size: 10)
+    wire.u8(Op.containerEnd)
+    return wire.data
+  }
+
+  /// long "when" (id 710, 2023-11-14T22:13:20Z in epoch milliseconds), float array "series" (id
+  /// 711, a static list of 1 and 2) and float "scalar" (id 712, 1), and one 10×10 box.
+  public static func longAndFloatArray() -> Data {
+    typealias Op = NativeSwiftWireOpcode
+    typealias Kind = NativeTestWire.NamedType
+    let wire = NativeTestWire()
+    wire.header(width: 100, height: 100)
+    wire.u8(Op.dataLong).int(710).int(0x18B).int(Int(Int32(bitPattern: 0xCFE5_6800)))
+      .named(710, Kind.long, "when")
+    wire.u8(Op.floatList).int(711).int(2).float(1).float(2).named(711, Kind.floatArray, "series")
+    wire.u8(Op.dataFloat).int(712).float(1).named(712, Kind.float, "scalar")
     wire.u8(Op.layoutRoot).int(1)
     wire.box(id: 10, size: 10)
     wire.u8(Op.containerEnd)

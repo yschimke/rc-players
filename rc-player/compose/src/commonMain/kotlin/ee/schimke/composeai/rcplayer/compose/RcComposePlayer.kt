@@ -5175,6 +5175,19 @@ internal fun androidXSemanticsRole(role: Int): Role? =
     else -> null
   }
 
+/**
+ * Indices into a layout compute's bounds list, as the native Swift player's
+ * `NativeSwiftLayoutComputeBound` names them; the player reads the first four of the result.
+ */
+private object LayoutComputeBound {
+  const val X = 0
+  const val Y = 1
+  const val WIDTH = 2
+  const val HEIGHT = 3
+  /** How many leading values of the result the player reads: x, y, width and height. */
+  const val READ_COUNT = HEIGHT + 1
+}
+
 private fun Modifier.applyLayoutComputes(
   modifiers: RcLayoutModifiers,
   state: RcPlayerState,
@@ -5199,14 +5212,27 @@ private fun Modifier.applyLayoutComputes(
           parentHeight.toFloat(),
         ),
       )
+    // A host's float array over the bounds list is what comes back, whatever its length. One that
+    // cannot say where or how big the component is leaves it as measured, as the native Swift
+    // player does (`NativeSwiftLayoutComputeSnapshot.evaluate` answers nil for it).
+    if (
+      values.size < LayoutComputeBound.READ_COUNT ||
+        (0 until LayoutComputeBound.READ_COUNT).any { !values[it].isFinite() }
+    ) {
+      return@forEach
+    }
     when (block.operation.type) {
       RcLayoutCompute.MEASURE -> {
-        width = constraints.constrainWidth(values[2].roundToInt().coerceAtLeast(0))
-        height = constraints.constrainHeight(values[3].roundToInt().coerceAtLeast(0))
+        width =
+          constraints.constrainWidth(values[LayoutComputeBound.WIDTH].roundToInt().coerceAtLeast(0))
+        height =
+          constraints.constrainHeight(
+            values[LayoutComputeBound.HEIGHT].roundToInt().coerceAtLeast(0),
+          )
       }
       RcLayoutCompute.POSITION -> {
-        x = values[0].roundToInt()
-        y = values[1].roundToInt()
+        x = values[LayoutComputeBound.X].roundToInt()
+        y = values[LayoutComputeBound.Y].roundToInt()
       }
     }
   }

@@ -2290,6 +2290,13 @@ final class ee.schimke.composeai.rcplayer.protocol/RcFloatList : ee.schimke.comp
     final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcFloatList.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcFloatList.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcFloatList.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcplayer.protocol/RcFloatList.Companion|null[0]
+        final const val MAX_VALUES // ee.schimke.composeai.rcplayer.protocol/RcFloatList.Companion.MAX_VALUES|{}MAX_VALUES[0]
+            final fun <get-MAX_VALUES>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcFloatList.Companion.MAX_VALUES.<get-MAX_VALUES>|<get-MAX_VALUES>(){}[0]
+
+        final fun canHold(kotlin.collections/List<kotlin/Float>): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcFloatList.Companion.canHold|canHold(kotlin.collections.List<kotlin.Float>){}[0]
+    }
 }
 
 final class ee.schimke.composeai.rcplayer.protocol/RcFlowLayout : ee.schimke.composeai.rcplayer.protocol/RcOperation { // ee.schimke.composeai.rcplayer.protocol/RcFlowLayout|null[0]

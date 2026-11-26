@@ -58,14 +58,26 @@ public struct NativeSwiftNamedVariableDeclarations: Sendable {
     accepts(.integer(0), for: name)
   }
 
+  /// Whether `name` is declared as a long.
+  public func acceptsLong(for name: String) -> Bool {
+    accepts(.long(0), for: name)
+  }
+
+  /// Whether `values` may be written to the float-array variable `name`: every value finite, no
+  /// more of them than a document's float list may hold, and `name` is declared as a float array.
+  public func acceptsFloatArray(_ values: [Float], for name: String) -> Bool {
+    accepts(.floatArray(values), for: name)
+  }
+
   @_spi(RemoteComposeController)
   public func accepts(_ value: NativeSwiftNamedValue, for name: String) -> Bool {
     variable(for: name).map { Self.accepts(value, by: $0) } ?? false
   }
 
   /// The rule every named write meets, whoever names the variable: the value is of the declared
-  /// type, a float (either view of an integer included) is finite, and a string is no longer than
-  /// a document string may be.
+  /// type, a float (either view of an integer included, and each value of a float array) is
+  /// finite, a string is no longer than a document string may be, and a float array is no longer
+  /// than a document's float list may be.
   static func accepts(_ value: NativeSwiftNamedValue, by variable: ParsedNamedVariable) -> Bool {
     switch value {
     case .float(let value):
@@ -77,7 +89,22 @@ public struct NativeSwiftNamedVariableDeclarations: Sendable {
       variable.type == NativeSwiftNamedVariableType.color
     case .integer(_, let float):
       variable.type == NativeSwiftNamedVariableType.int && float?.isFinite != false
+    case .long:
+      variable.type == NativeSwiftNamedVariableType.long
+    case .floatArray(let values):
+      variable.type == NativeSwiftNamedVariableType.floatArray && isWritableFloatArray(values)
     }
+  }
+
+  /// The rule a float array a host writes meets, whatever variable it is for: no more values than
+  /// a document's float list may hold (AndroidX `DataListFloat.MAX_FLOAT_ARRAY`, 2000), each one
+  /// finite. The one Swift owner of this rule: the native session and the controller's native
+  /// backend read it. (The Kotlin backend counts against `maxFloatArrayValues` instead and leaves
+  /// the rest to Kotlin's `RcFloatList.canHold`.) The count is checked first, so an oversized
+  /// array is refused without reading its values.
+  public static func isWritableFloatArray(_ values: [Float]) -> Bool {
+    values.count <= NativeSwiftDocumentDecoder.maximumFloatListValues
+      && values.allSatisfy(\.isFinite)
   }
 
   func variable(for name: String) -> ParsedNamedVariable? {
@@ -85,9 +112,9 @@ public struct NativeSwiftNamedVariableDeclarations: Sendable {
   }
 }
 
-/// A named variable's value: the four kinds a host can write, as a session reads and restores
-/// them (``NativeSwiftDocumentSession/writtenNamedValues()``). A boolean is an `.integer` 0 or 1, as
-/// on the wire.
+/// A named variable's value: the kinds a host can write, as a session reads and restores them
+/// (``NativeSwiftDocumentSession/writtenNamedValues()``). A boolean is an `.integer` 0 or 1, as on
+/// the wire.
 @_spi(RemoteComposeController)
 public enum NativeSwiftNamedValue: Equatable, Sendable {
   case text(String)
@@ -97,4 +124,8 @@ public enum NativeSwiftNamedValue: Equatable, Sendable {
   case integer(Int, float: Float? = nil)
   /// ARGB, as the document stores a colour.
   case color(UInt32)
+  /// A long — an epoch-millisecond instant, as the document's `LongConstant` holds one.
+  case long(Int64)
+  /// A float array, which replaces the list the document keeps at that name's id.
+  case floatArray([Float])
 }

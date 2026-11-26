@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeUIViewController
+import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcOperationProfiles
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentCapabilities
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
@@ -61,6 +62,44 @@ public class RcComposePlayerController {
    */
   public fun setBoolean(name: String, value: Boolean): Boolean =
     set(name, RcNamedValue.BooleanValue(value))
+
+  /**
+   * Sets a long variable — an instant in epoch milliseconds, as a document's time attributes read
+   * one — returning false when [name] is absent or has a different type.
+   */
+  public fun setLong(name: String, value: Long): Boolean = set(name, RcNamedValue.LongValue(value))
+
+  /**
+   * The most values [setFloatArray] takes ([RcFloatList.MAX_VALUES]), so a Swift host can refuse a
+   * larger array before it copies it into a `KotlinFloatArray` one element at a time.
+   */
+  public val maxFloatArrayValues: Int
+    get() = RcFloatList.MAX_VALUES
+
+  /**
+   * Replaces the list a float-array variable holds, returning false when [name] is absent or has a
+   * different type, when a value is not finite, or when there are more than a float list holds
+   * ([RcFloatList.MAX_VALUES]) — the native Swift player refuses the same arrays. The length is
+   * checked before the array is copied; finiteness is checked on the copy.
+   */
+  public fun setFloatArray(name: String, values: FloatArray): Boolean {
+    // Counted before it is copied: a host's array can be far larger than a float list holds.
+    if (values.size > RcFloatList.MAX_VALUES) return false
+    val list = values.toList()
+    if (!RcFloatList.canHold(list)) return false
+    return set(name, RcNamedValue.FloatArrayValue(list))
+  }
+
+  /**
+   * Stops overriding [name]: the value set for it is removed, and the player restores the value the
+   * document recorded (`RcPlayerState.clearNamedValue`). Returns false when the attached document
+   * does not declare [name]; clearing a name with no value set changes nothing.
+   */
+  public fun clear(name: String): Boolean {
+    val declaredName = declaredName(name) ?: return false
+    values.remove(declaredName)
+    return true
+  }
 
   /**
    * Attaches a new document's declarations. Each stored value is re-keyed under the name the new

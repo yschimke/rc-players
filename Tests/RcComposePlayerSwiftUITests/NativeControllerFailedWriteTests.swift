@@ -25,7 +25,7 @@
       for _ in 0..<50 {
         Task { @MainActor in _ = await player.view.submit(.integer(1), for: "missing") }
       }
-      try await until("input is outstanding") { player.view.hasOutstandingInput }
+      try await waitUntil("input is outstanding") { player.view.hasOutstandingInput }
     }
 
     /// A, refused B (breaks the limit, fails the session), A again: A is a change from B, is

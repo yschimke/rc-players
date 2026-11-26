@@ -5,12 +5,14 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 
 /**
  * `setNamedValue` had no inverse, which is why a host holding named values in a map had no way to
@@ -97,6 +99,37 @@ class RcNamedValueLifecycleTest {
     assertEquals(RcNamedValue.FloatValue(21.5f), state.namedValue("USER:temperature"))
     // Reading one still fails: there is no value to return.
     assertFailsWith<IllegalArgumentException> { state.namedValue("USER:nothing") }
+  }
+
+  /**
+   * A long declared by name with no `LongConstant` behind it holds no value: a time attribute
+   * reading it falls back to the clock, as AndroidX `TimeAttribute.paint` does when its id holds no
+   * `LongConstant`. Clearing a host long there hands it back to the clock — the document recorded
+   * no instant — rather than writing epoch 0. With a constant, the constant comes back.
+   */
+  @Test
+  fun clearingALongRestoresTheDocumentsConstantOrNone() {
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(0, 1, 0)),
+          listOf(
+            RcNamedVariable(13, RcNamedVariable.LONG_TYPE, "USER:when"),
+            RcLongConstant(14, 1_700_000_000_000L),
+            RcNamedVariable(14, RcNamedVariable.LONG_TYPE, "USER:since"),
+          ),
+        ),
+      )
+    assertNull(state.long(13))
+
+    state.setNamedValue("when", RcNamedValue.LongValue(946_684_800_000L))
+    state.setNamedValue("since", RcNamedValue.LongValue(5L))
+    assertEquals(946_684_800_000L, state.long(13))
+    state.clearNamedValue("when")
+    state.clearNamedValue("since")
+
+    assertNull(state.long(13), "the clock should be back, not epoch 0")
+    assertEquals(1_700_000_000_000L, state.long(14))
   }
 
   @Test

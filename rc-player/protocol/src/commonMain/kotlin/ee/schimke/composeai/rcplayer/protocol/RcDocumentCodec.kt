@@ -1849,12 +1849,12 @@ private object IntegerExpressionCodec : RcOperationCodec<RcIntegerExpression> {
   override fun decode(input: RcWireReader): RcIntegerExpression {
     val outId = input.readDeclaredId("outId")
     val mask = input.readInt("mask")
-    val count = input.readInt("values.count")
-    if (count < 0) input.fail("values.count", "Negative integer-expression size $count")
-    if (count > 320)
-      input.fail("values.count", "Integer expression exceeds AndroidX's 320-entry limit")
+    val count = input.readInt(VALUES_COUNT_FIELD)
+    if (count < 0) input.fail(VALUES_COUNT_FIELD, "Negative integer-expression size $count")
+    if (count > MAX_INTEGER_EXPRESSION_VALUES)
+      input.fail(VALUES_COUNT_FIELD, INTEGER_EXPRESSION_TOO_LONG)
     if (count > input.limits.maxCollectionEntries) {
-      input.fail("values.count", "Integer expression exceeds configured collection limit")
+      input.fail(VALUES_COUNT_FIELD, "Integer expression exceeds configured collection limit")
     }
     // AndroidX `IntegerExpression.isId`: a masked value below the operator range is a variable id.
     return RcIntegerExpression(
@@ -1869,7 +1869,7 @@ private object IntegerExpressionCodec : RcOperationCodec<RcIntegerExpression> {
   }
 
   override fun encode(output: RcWireWriter, value: RcIntegerExpression) {
-    require(value.values.size <= 320) { "Integer expression exceeds AndroidX's 320-entry limit" }
+    require(value.values.size <= MAX_INTEGER_EXPRESSION_VALUES) { INTEGER_EXPRESSION_TOO_LONG }
     output.writeInt(value.outId)
     output.writeInt(value.mask)
     output.writeInt(value.values.size)
@@ -1987,17 +1987,33 @@ private object IdListCodec : RcOperationCodec<RcIdList> {
   }
 }
 
+/** The most values AndroidX's `IntegerExpression` holds, and the error both directions report. */
+private const val MAX_INTEGER_EXPRESSION_VALUES = 320
+private const val INTEGER_EXPRESSION_TOO_LONG =
+  "Integer expression exceeds AndroidX's $MAX_INTEGER_EXPRESSION_VALUES-entry limit"
+
+/** The wire field label of a value list's count, which several codecs read and report. */
+private const val VALUES_COUNT_FIELD = "values.count"
+
 private object FloatListCodec : RcOperationCodec<RcFloatList> {
   override val spec = RcOperationSpec(RcOpcodes.FLOAT_LIST, "DataListFloat")
 
   override fun decode(input: RcWireReader): RcFloatList {
     val id = input.readDeclaredId("id")
-    val count = input.readCount("values.count", input.limits.maxCollectionEntries)
+    // AndroidX `DataListFloat.read` refuses more than `MAX_FLOAT_ARRAY` (`DataListFloat.java:115`),
+    // whatever a reader's collection limit allows; the encoder below refuses the same lists.
+    val count =
+      input.readCount(
+        VALUES_COUNT_FIELD,
+        minOf(input.limits.maxCollectionEntries, RcFloatList.MAX_VALUES),
+      )
     return RcFloatList(id, List(count) { input.readFloatWord("values[$it]") })
   }
 
   override fun encode(output: RcWireWriter, value: RcFloatList) {
-    require(value.values.size <= 2_000) { "DataListFloat exceeds AndroidX's 2,000-entry limit" }
+    require(value.values.size <= RcFloatList.MAX_VALUES) {
+      "DataListFloat exceeds AndroidX's ${RcFloatList.MAX_VALUES}-entry limit"
+    }
     output.writeInt(value.id)
     output.writeInt(value.values.size)
     value.values.forEach(output::writeFloatWord)
@@ -2007,19 +2023,25 @@ private object FloatListCodec : RcOperationCodec<RcFloatList> {
 private object DynamicFloatListCodec : RcOperationCodec<RcDynamicFloatList> {
   override val spec = RcOperationSpec(RcOpcodes.DYNAMIC_FLOAT_LIST, "DataDynamicListFloat")
 
+  /** The wire field label the length read and its failure both use. */
+  private const val LENGTH_FIELD = "length" // lint-ok: this codec's own field label
+
   override fun decode(input: RcWireReader): RcDynamicFloatList {
     val id = input.readDeclaredId("id")
-    val length = input.readFloatWord("length")
-    if (length.referencedId == null && length.value.toInt() !in 0..2_000) {
-      input.fail("length", "Dynamic float-list length ${length.value.toInt()} is outside 0..2000")
+    val length = input.readFloatWord(LENGTH_FIELD)
+    if (length.referencedId == null && length.value.toInt() !in 0..RcFloatList.MAX_VALUES) {
+      input.fail(
+        LENGTH_FIELD,
+        "Dynamic float-list length ${length.value.toInt()} is outside 0..${RcFloatList.MAX_VALUES}",
+      )
     }
     return RcDynamicFloatList(id, length)
   }
 
   override fun encode(output: RcWireWriter, value: RcDynamicFloatList) {
     if (value.length.referencedId == null) {
-      require(value.length.value.toInt() in 0..2_000) {
-        "DataDynamicListFloat length must be within AndroidX's 0..2,000 limit"
+      require(value.length.value.toInt() in 0..RcFloatList.MAX_VALUES) {
+        "DataDynamicListFloat length must be within AndroidX's 0..${RcFloatList.MAX_VALUES} limit"
       }
     }
     output.writeInt(value.id)
@@ -2376,7 +2398,7 @@ private object MatrixConstantCodec : RcOperationCodec<RcMatrixConstant> {
   override fun decode(input: RcWireReader): RcMatrixConstant {
     val id = input.readId("id")
     val type = input.readInt("type")
-    val count = input.readCount("values.count", 16)
+    val count = input.readCount(VALUES_COUNT_FIELD, 16)
     return RcMatrixConstant(id, type, List(count) { input.readFloatWord("values[$it]") })
   }
 

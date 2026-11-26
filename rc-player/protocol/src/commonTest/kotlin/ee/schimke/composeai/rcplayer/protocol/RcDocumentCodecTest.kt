@@ -781,6 +781,33 @@ class RcDocumentCodecTest {
     assertEquals("length", failure.fieldName)
   }
 
+  /**
+   * AndroidX `DataListFloat.read` refuses more than `MAX_FLOAT_ARRAY` values
+   * (`DataListFloat.java:115`) even when a reader's collection limit is higher, so a decoded list
+   * is always one the encoder would write back and the native Swift decoder accepts.
+   */
+  @Test
+  fun floatListRejectsMoreValuesThanAndroidXHoldsWhateverTheCollectionLimit() {
+    val header =
+      RcDocumentCodec.encode(RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), emptyList()))
+    val writer = RcWireWriter()
+    writer.writeU8(RcOpcodes.FLOAT_LIST)
+    writer.writeInt(7)
+    writer.writeInt(RcFloatList.MAX_VALUES + 1)
+    repeat(RcFloatList.MAX_VALUES + 1) { writer.writeFloatWord(RcFloatWord.literal(1f)) }
+
+    val failure =
+      assertFailsWith<RcWireException> {
+        RcDocumentCodec.decode(
+          header + writer.toByteArray(),
+          limits = RcWireLimits(maxCollectionEntries = 5_000),
+        )
+      }
+
+    assertEquals("DataListFloat", failure.operationName)
+    assertEquals("values.count", failure.fieldName)
+  }
+
   @Test
   fun floatFunctionDefinitionRejectsTooManyParameters() {
     val header =

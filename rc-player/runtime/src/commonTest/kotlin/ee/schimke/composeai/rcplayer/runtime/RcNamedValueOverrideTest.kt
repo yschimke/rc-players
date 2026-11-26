@@ -12,6 +12,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 /**
  * The host overrides the embedded AndroidX player grew beyond the scalar ones: booleans (an integer
@@ -55,6 +56,56 @@ class RcNamedValueOverrideTest {
     state.clearNamedValue("USER:series")
     assertEquals(listOf(1f, 2f), state.floatValues(51)?.toList())
   }
+
+  /**
+   * A float array no float list could hold — a value that is not finite, or more values than
+   * [RcFloatList.MAX_VALUES] — is ignored, and the list stays as it was: the native Swift player
+   * and the iOS controller refuse the same arrays. It must not throw, because a host's map reaches
+   * here from inside composition (`RcComposePlayer`'s `applyHostValues`), where a throw crashes the
+   * app; AndroidX `DataListFloat.read` refuses such a list only when decoding a document.
+   */
+  @Test
+  fun aFloatArrayNoFloatListCouldHoldIsIgnored() {
+    val state = RcPlayerState(document())
+    for (values in invalidFloatArrays) {
+      state.setNamedValue("USER:series", RcNamedValue.FloatArrayValue(values))
+      assertEquals(listOf(1f, 2f), state.floatValues(51)?.toList())
+    }
+    state.setNamedValue(
+      "USER:series",
+      RcNamedValue.FloatArrayValue(List(RcFloatList.MAX_VALUES) { 1f }),
+    )
+    assertEquals(RcFloatList.MAX_VALUES, state.floatValues(51)?.size)
+  }
+
+  /** A host's map seeded at construction is read the same way: an invalid array is ignored. */
+  @Test
+  fun anInvalidFloatArrayInTheSeededMapIsIgnored() {
+    for (values in invalidFloatArrays) {
+      val state =
+        RcPlayerState(
+          document(),
+          namedValues = mapOf("USER:series" to RcNamedValue.FloatArrayValue(values)),
+        )
+      assertEquals(listOf(1f, 2f), state.floatValues(51)?.toList())
+    }
+  }
+
+  /** A value of another type is still the caller's error, as before float arrays existed. */
+  @Test
+  fun aValueOfAnotherTypeStillThrows() {
+    val state = RcPlayerState(document())
+    assertFailsWith<IllegalArgumentException> {
+      state.setNamedValue("USER:series", RcNamedValue.FloatValue(1f))
+    }
+  }
+
+  private val invalidFloatArrays =
+    listOf(
+      listOf(1f, Float.NaN),
+      listOf(Float.POSITIVE_INFINITY),
+      List(RcFloatList.MAX_VALUES + 1) { 1f },
+    )
 
   @Test
   fun anUnqualifiedNameResolvesIntoTheUserNamespaceFirst() {

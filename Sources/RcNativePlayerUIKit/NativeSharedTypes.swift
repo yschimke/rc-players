@@ -7,14 +7,18 @@ public enum RemoteComposeNativePlayerBackground: Equatable, Sendable {
   case transparent
 }
 
-/// A value a host sets on a document's named variable before it renders: the four kinds a `.rc`
-/// document declares a `USER:` name with. A boolean travels as `.integer` 0 or 1, as on the wire.
+/// A value a host sets on a document's named variable: the kinds a `.rc` document declares a
+/// `USER:` name with that a host can write. A boolean travels as `.integer` 0 or 1, as on the wire.
 public enum RemoteComposeNativeNamedValue: Equatable, Sendable {
   case text(String)
   case float(Float)
   case integer(Int)
   /// ARGB, as the document stores a color.
   case color(UInt32)
+  /// An instant in epoch milliseconds, as a document's `LongConstant` holds one.
+  case long(Int64)
+  /// A float array, which replaces the list the document keeps at that name.
+  case floatArray([Float])
 }
 
 /// How a native player answered a named-variable write.
@@ -43,7 +47,7 @@ public enum RemoteComposeNativeInputAdmission: Equatable, Sendable {
 public final class RemoteComposeNativeInputAvailability: @unchecked Sendable {
   private let lock = NSLock()
   private var epoch: UInt64 = 0
-  private var isClosed = false
+  private var closed = false
   private var nextWaiter: UInt64 = 0
   private var waiters: [UInt64: CheckedContinuation<Void, Never>] = [:]
   /// Waiter ids in arrival order, from `orderHead` on; an id no longer in `waiters` (cancelled) is
@@ -57,6 +61,10 @@ public final class RemoteComposeNativeInputAvailability: @unchecked Sendable {
   /// write is being answered is not missed.
   public var mark: UInt64 { locked { epoch } }
 
+  /// Whether the player has gone away. Every wait returns at once from then on, so a caller that
+  /// offers and waits in a loop stops here rather than offering again without end.
+  public var isClosed: Bool { locked { closed } }
+
   /// How many callers are waiting now. Tests use it to know a waiter has started waiting.
   var waiterCount: Int { locked { waiters.count } }
 
@@ -69,7 +77,7 @@ public final class RemoteComposeNativeInputAvailability: @unchecked Sendable {
     await withTaskCancellationHandler {
       await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
         let resumeNow = locked { () -> Bool in
-          if epoch != mark || isClosed || Task.isCancelled { return true }
+          if epoch != mark || closed || Task.isCancelled { return true }
           waiters[id] = continuation
           order.append(id)
           return false
@@ -82,8 +90,17 @@ public final class RemoteComposeNativeInputAvailability: @unchecked Sendable {
   }
 
   /// Releases every waiter: input may be accepted now that was not before.
-  func signal() {
+  func signal() { releaseAll(closing: false) }
+
+  /// Releases every waiter, present and future: the player is gone.
+  func close() { releaseAll(closing: true) }
+
+  /// Moves the mark on, and closes when `closing`, in one locked step, then resumes every waiter.
+  /// One step keeps `isClosed` and `mark` consistent for any one reader; a caller that reads them
+  /// separately can still see a close between its two reads.
+  private func releaseAll(closing: Bool) {
     for waiter in locked({ () -> [CheckedContinuation<Void, Never>] in
+      if closing { closed = true }
       epoch &+= 1
       defer {
         waiters.removeAll()
@@ -115,12 +132,6 @@ public final class RemoteComposeNativeInputAvailability: @unchecked Sendable {
       }
       return next
     }?.resume()
-  }
-
-  /// Releases every waiter, present and future: the player is gone.
-  func close() {
-    locked { isClosed = true }
-    signal()
   }
 
   private func locked<T>(_ body: () -> T) -> T {

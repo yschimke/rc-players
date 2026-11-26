@@ -1467,6 +1467,8 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcFloatFunctionDefine 
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcFloatList : ee/schimke/composeai/rcplayer/protocol/RcOperation {
+	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcFloatList$Companion;
+	public static final field MAX_VALUES I
 	public fun <init> (ILjava/util/List;)V
 	public final fun component1 ()I
 	public final fun component2 ()Ljava/util/List;
@@ -1478,6 +1480,10 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcFloatList : ee/schim
 	public final fun getValues ()Ljava/util/List;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcFloatList$Companion {
+	public final fun canHold (Ljava/util/List;)Z
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcFloatWord {

@@ -8,6 +8,11 @@ enum NativeSwiftDocumentDecoder {
   static let maximumDecodedExpressionWords = 200_000
   private static let maximumOperations = 100_000
   private static let maximumProperties = 2_000
+  /// The most values a float list may hold — a document's `DataListFloat`, a `DynamicFloatList`'s
+  /// length, and a host's float array: AndroidX `DataListFloat.MAX_FLOAT_ARRAY`. The Kotlin player
+  /// declares it as `RcFloatList.MAX_VALUES`; this core links no Kotlin, so it keeps its own copy,
+  /// and `NativeSwiftFloatListLimitParityTests` fails when the two drift.
+  static let maximumFloatListValues = 2_000
   private static let maximumNodes = 20_000
   private static let maximumNestingDepth = 256
   /// AndroidX's own bound on one loop's passes.
@@ -1767,7 +1772,7 @@ enum NativeSwiftDocumentDecoder {
         idLists[id] = try (0..<count).map { _ in try input.int("id list value") }
       case NativeSwiftWireOpcode.floatList:  // Static float list.
         let id = try input.int("float list id")
-        let count = try input.count("float list count", maximum: maximumProperties)
+        let count = try input.count("float list count", maximum: maximumFloatListValues)
         guard floatLists[id] == nil else { throw input.malformed("Duplicate float list \(id)") }
         floatLists[id] = try (0..<count).map { _ in try input.word("float list value") }
       case NativeSwiftWireOpcode.dynamicFloatList:  // Zero-filled float list with a dynamic length.

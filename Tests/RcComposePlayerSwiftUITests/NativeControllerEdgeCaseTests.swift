@@ -21,7 +21,7 @@
       for _ in 0..<50 {
         Task { @MainActor in _ = await player.view.submit(.integer(1), for: "missing") }
       }
-      try await until("input is outstanding") { player.view.hasOutstandingInput }
+      try await waitUntil("input is outstanding") { player.view.hasOutstandingInput }
     }
 
     // MARK: - Equal writes in every order
@@ -37,10 +37,16 @@
       try await setLocally(player, "Doc", for: "label")
       try #require(text(label, in: player.view) == "Doc")
       try await queueDeclinedInput(player)
+      // Each write's delivery starts — it is handed to the player — before the next is made, so
+      // they are two passes for Kotlin.
       #expect(player.controller.setString("B", for: "label"))
-      for _ in 0..<5 { await Task.yield() }
+      try await waitUntil("B is handed to the player") {
+        player.host.nativeAppliedValues["label"] == .text("B")
+      }
       #expect(player.controller.setString("A", for: "label"))
-      for _ in 0..<5 { await Task.yield() }
+      try await waitUntil("A is handed to the player") {
+        player.host.nativeAppliedValues["label"] == .text("A")
+      }
       try #require(player.view.hasOutstandingInput, "B and A are still queued")
       background(player)
       try #require(player.view.isOpeningDocument)

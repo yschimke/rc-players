@@ -303,7 +303,9 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   /// The discrete fields — `TIME_IN_SEC`, `TIME_IN_MIN`, `TIME_IN_HR`, `CALENDAR_MONTH`,
   /// `OFFSET_TO_UTC`, `WEEK_DAY`, `DAY_OF_MONTH`, `DAY_OF_YEAR`, `YEAR` — are constant within a
   /// second, so a host that idles after the first frame shows a frozen clock. A host that supplies
-  /// a wall clock should re-resolve at least once a second while this is true.
+  /// a wall clock should re-resolve at least once a second while this is true. A time attribute
+  /// measured from now (its long argument has no value, e.g. after the host cleared it) also
+  /// sets it, so this can change from one snapshot to the next.
   public let needsWallClockRefresh: Bool
   /// Components whose measured geometry a document binds to a float.
   ///

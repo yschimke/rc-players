@@ -12,21 +12,10 @@
   /// refused, on the direct UIKit API.
   /// No sleeps; waits poll the player's state with a failing deadline.
   @MainActor @Suite(.serialized) struct NativeFailedWriteCarryTests {
-    private func until(
-      _ what: @autoclosure () -> String, within seconds: TimeInterval = 60,
-      _ condition: () -> Bool
-    ) async throws {
-      let deadline = Date().addingTimeInterval(seconds)
-      while !condition() {
-        try #require(Date() < deadline, "timed out waiting until \(what())")
-        await Task.yield()
-      }
-    }
-
     private func settled(_ view: RemoteComposeNativePlayerView, _ what: String = "settles")
       async throws
     {
-      try await until(what) { !view.isOpeningDocument && !view.isBusy }
+      try await waitUntil(what, within: 60) { !view.isOpeningDocument && !view.isBusy }
     }
 
     private static let labelID = 20
@@ -158,12 +147,12 @@
       for _ in 0..<20 {
         Task { @MainActor in _ = await view.submit(.integer(1), for: "missing") }
       }
-      try await until("input is outstanding") { view.hasOutstandingInput }
+      try await waitUntil("input is outstanding", within: 60) { view.hasOutstandingInput }
       var bad: RemoteComposeNativeInputAdmission?
       var good: RemoteComposeNativeInputAdmission?
       Task { @MainActor in bad = await view.submit(.text(long), for: "label") }
       Task { @MainActor in good = await view.submit(.text("T2"), for: "title") }
-      try await until("both answered") { bad != nil && good != nil }
+      try await waitUntil("both answered", within: 60) { bad != nil && good != nil }
       try await settled(view)
       #expect(
         bad == .refused, "the write that broke the limit was answered \(String(describing: bad))")
@@ -192,7 +181,7 @@
       try await settled(view, "opens")
       view.namedValueSeed = { [(name: "label", value: .text(String(repeating: "x", count: 100)))] }
       view.configureExecutionLimits(lowTextLimit)
-      try await until("left out and reported") {
+      try await waitUntil("left out and reported", within: 60) {
         !view.isOpeningDocument && !view.isBusy && !errors.isEmpty
       }
       try #require(errors.count == 1, "\(errors)")
@@ -215,7 +204,9 @@
       let long = self.long
       view.namedValueSeed = { [(name: "label", value: .text(long))] }
       view.configureExecutionLimits(lowTextLimit)
-      try await until("left out") { !view.isOpeningDocument && !view.isBusy && !errors.isEmpty }
+      try await waitUntil("left out", within: 60) {
+        !view.isOpeningDocument && !view.isBusy && !errors.isEmpty
+      }
       try #require(errors.count == 1)
       view.configureExecutionLimits(.default)
       try await settled(view, "raised")
@@ -225,6 +216,31 @@
       try await settled(view, "density")
       #expect(text(NativeTestDocuments.labelID, in: view) == long)
       #expect(errors.count == 1, "\(errors)")
+    }
+
+    /// A clear of a left-out name that fails the session — another write already failed it, so
+    /// its frame still breaks a limit — still hands the variable back to the document's value:
+    /// the left-out value is not offered to the next session, as the Kotlin player's
+    /// `clearNamedValue` drops it whatever the frame then does.
+    @Test func aFailedClearOfALeftOutNameDropsTheLeftOutValue() async throws {
+      var errors: [RemoteComposeNativePlayerError] = []
+      let view = RemoteComposeNativePlayerView(
+        data: NativeTestDocuments.label(), resourceResolver: nil,
+        onError: { errors.append($0) })
+      try await settled(view, "opens")
+      #expect(await view.setString(long, for: "label"))
+      view.configureExecutionLimits(lowTextLimit)
+      try await waitUntil("left out and reported", within: 60) {
+        !view.isOpeningDocument && !view.isBusy && !errors.isEmpty
+      }
+      try #require(errors.count == 1, "\(errors)")
+      try #require(text(NativeTestDocuments.labelID, in: view) == "Idle")
+      #expect(await view.setString(long, for: "title") == false, "fails the session")
+      try #require(errors.count == 2, "\(errors)")
+      #expect(await view.clear("label") == false, "the frame still fails")
+      view.configureExecutionLimits(.default)
+      try await settled(view, "raised")
+      #expect(text(NativeTestDocuments.labelID, in: view) == "Idle")
     }
 
     // MARK: - Interleavings
@@ -254,7 +270,7 @@
       var tiny = RemoteComposeNativeExecutionLimits.default
       tiny.maximumDocumentBytes = 8
       view.configureExecutionLimits(tiny)
-      try await until("the write is answered") { answer != nil }
+      try await waitUntil("the write is answered", within: 60) { answer != nil }
       #expect(answer == .refused)
     }
 
@@ -269,7 +285,7 @@
       for _ in 0..<20 {
         Task { @MainActor in _ = await view.submit(.integer(1), for: "missing") }
       }
-      try await until("input is outstanding") { view.hasOutstandingInput }
+      try await waitUntil("input is outstanding", within: 60) { view.hasOutstandingInput }
       view.perform(NSSelectorFromString("sceneDidEnterBackground"))
       view.load(NativeTestDocuments.shownBox())
       view.load(NativeTestDocuments.label())

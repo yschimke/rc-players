@@ -429,6 +429,23 @@ public data class RcIdList(val id: Int, val ids: List<Int>) : RcOperation {
 
 public data class RcFloatList(val id: Int, val values: List<RcFloatWord>) : RcOperation {
   override val opcode: Int = RcOpcodes.FLOAT_LIST
+
+  public companion object {
+    /**
+     * The most values a float list may hold — a `DataListFloat`, a `DynamicFloatList`'s length, and
+     * a host's float array: AndroidX `DataListFloat.MAX_FLOAT_ARRAY`.
+     */
+    public const val MAX_VALUES: Int = 2_000
+
+    /**
+     * Whether a host's float array is one a float list could hold: at most [MAX_VALUES] values,
+     * every one finite. The one rule every Kotlin host path checks a float array against; the
+     * native Swift player's `NativeSwiftNamedVariableDeclarations.isWritableFloatArray` is its
+     * twin.
+     */
+    public fun canHold(values: List<Float>): Boolean =
+      values.size <= MAX_VALUES && values.all { it.isFinite() }
+  }
 }
 
 /** A zero-initialized mutable float list whose length may reference a runtime float. */

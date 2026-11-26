@@ -29,6 +29,8 @@
       case .float(let value): .float(value)
       case .integer(let value): .integer(value)
       case .color(let argb): .color(argb)
+      case .long(let value): .long(value)
+      case .floatArray(let values): .floatArray(values)
       }
     }
   }
@@ -47,6 +49,8 @@
     enum Input: Sendable {
       /// A host's write of a named variable.
       case setNamed(String, value: RemoteComposeNativeNamedValue)
+      /// A host's clear of a named variable: back to the document's value.
+      case clearNamed(String)
       case gesture(NativeSwiftGestureKind, componentID: Int, sample: NativeSwiftPointerSample?)
       case clickAreas(x: Float, y: Float)
       case customFloat(Float, componentID: Int, propertyID: Int)
@@ -223,6 +227,12 @@
         return try setColor(argb, for: name, at: time)
       case .setNamed(let name, .integer(let value)):
         return try setInteger(value, for: name, at: time)
+      case .setNamed(let name, .long(let value)):
+        return try update(accepted: session.setLong(value, for: name), timeSeconds: time)
+      case .setNamed(let name, .floatArray(let values)):
+        return try update(accepted: session.setFloatArray(values, for: name), timeSeconds: time)
+      case .clearNamed(let name):
+        return try update(accepted: session.clearNamedValue(name), timeSeconds: time)
       case .gesture(let kind, let componentID, let sample):
         return try gesture(kind, componentID: componentID, sample: sample, at: time)
       case .clickAreas(let x, let y):

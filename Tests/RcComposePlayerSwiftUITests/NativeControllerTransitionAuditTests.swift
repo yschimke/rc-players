@@ -315,14 +315,14 @@
       player!.view.perform(NSSelectorFromString("sceneDidEnterBackground"))
       #expect(player!.controller.setInteger(Self.visible, for: "shown"))
       let delivery = try #require(player!.host.nativeUpdateTasks["shown"])
-      try await until("the delivery waits") { player!.view.inputAvailability.waiterCount == 1 }
+      try await waitUntil("the delivery waits") { player!.view.inputAvailability.waiterCount == 1 }
       var finished = false
       Task { @MainActor in
         await delivery.value
         finished = true
       }
       player = nil
-      try await until("the delivery finishes after the player is gone") { finished }
+      try await waitUntil("the delivery finishes after the player is gone") { finished }
     }
 
     @Test func aWriteDeferredInTheBackgroundSurvivesARebuild() async throws {

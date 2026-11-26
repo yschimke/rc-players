@@ -442,6 +442,8 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       case .float(let number): _ = session.setFloat(number, for: name)
       case .integer(let number): _ = session.setInteger(number, for: name)
       case .color(let argb): _ = session.setColor(argb, for: name)
+      case .long(let number): _ = session.setLong(number, for: name)
+      case .floatArray(let numbers): _ = session.setFloatArray(numbers, for: name)
       }
     }
     let snapshot = try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock)

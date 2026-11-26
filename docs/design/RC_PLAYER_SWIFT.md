@@ -121,6 +121,9 @@ struct LivePlayer: View {
     playerController.setColor(0xff336699, for: "accent")
     playerController.setInteger(3, for: "unreadCount")
     playerController.setBoolean(true, for: "isOnline")
+    playerController.setLong(1_700_000_000_000, for: "deadline")
+    playerController.setFloatArray([0.2, 0.5, 0.9], for: "series")
+    playerController.clear("status")
   }
 }
 ```
@@ -149,8 +152,18 @@ document change when the new document declares the same variable with the same t
 name it resolves to), and are kept while the fallback is not showing a document. `setInteger` and
 `setBoolean` both target an integer variable: a Remote Compose boolean is an integer holding 1 or 0,
 as AndroidX's `setNamedBooleanOverride` stores it, and an integer outside the 32-bit range is
-refused. Metadata actions and text-valued named actions also expose a pre-parsed `event.url`
-convenience property.
+refused. `setLong` takes an instant in epoch milliseconds, which the document's time attributes
+read, and `setFloatArray` replaces the list a float-array variable holds; both players check every
+element and refuse an array with a non-finite value anywhere in it, or with more values than a float
+list holds (AndroidX `DataListFloat.MAX_FLOAT_ARRAY`, 2000). `clear` is the inverse of the setters,
+as removing a key from the Kotlin player's named values is: the stored value is removed and the
+variable shows the value the document recorded again (a named system variable, or a long with no
+constant, the player's clock), so writing the old value afterwards is a change again. It returns
+`false` where a setter would for an absent name. Clearing a name with no value set changes nothing,
+nor does a write cleared in the same main-actor turn, so a value the document changed itself stands.
+A clear reaches every player sharing the controller, a player whose first open was seeded with the
+cleared value included. Metadata actions and text-valued named actions also expose a pre-parsed
+`event.url` convenience property.
 
 ### Downloadable Google Fonts
 

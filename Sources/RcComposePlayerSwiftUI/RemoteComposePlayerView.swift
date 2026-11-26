@@ -343,6 +343,23 @@
     /// rebuilt, so a delivery waiting for the player does not outlive its value. Internal, not
     /// private, so a test can tell when every delivery has finished.
     private(set) var nativeUpdateTasks: [String: Task<Void, Never>] = [:]
+    /// The names the native player may hold a value of the controller's for: a delivery of a value
+    /// started offering it, and no clear of the name has been accepted since. A clear of any other
+    /// name is no change — its write was replaced within the same main-actor turn and never
+    /// reached the player, as the Kotlin player, which diffs the controller's values once per
+    /// pass, never sees it — so it is neither delivered nor seeded into a reopen, where it would
+    /// reset a value the document changed itself.
+    private var nativeHeldNames: Set<String> = []
+    /// The controller's value of each name the player was last offered — a delivery that started,
+    /// a value the first open or a reopen was seeded with — and no clear of it has started since:
+    /// what the Kotlin player's `appliedNamedValues` holds (RcComposePlayer.kt, `applyHostValues`,
+    /// which diffs the host's map against it once per pass). Internal, not private, so a test can
+    /// tell when a delivery has started.
+    private(set) var nativeAppliedValues: [String: ControllerNamedValue] = [:]
+    /// Names whose clear is scheduled and whose delivery has not started — the clear and anything
+    /// after it are still in the main-actor turn that made them, which a Kotlin pass sees as one
+    /// change.
+    private var unstartedNativeClears: Set<String> = []
     /// Reads the current document's declarations off the main thread; replaced on every rebuild.
     private var declarationTask: Task<Void, Never>?
 
@@ -440,6 +457,9 @@
       latestNativeUpdates.removeAll()
       for task in nativeUpdateTasks.values { task.cancel() }
       nativeUpdateTasks.removeAll()
+      nativeHeldNames.removeAll()
+      nativeAppliedValues.removeAll()
+      unstartedNativeClears.removeAll()
       declarationTask?.cancel()
       declarationTask = nil
       // Writes are refused until the new document's declarations are read below (unless another
@@ -475,10 +495,24 @@
       // that write is dropped rather than applied a second time.
       native.playerView.namedValueSeed = { [weak self, weak native] in
         guard let self, let native, self.nativeController === native else { return [] }
-        let seed = self.playerController.backend.seedValues(for: owner)
-        for (name, _) in seed {
+        let seed = self.playerController.backend.seedValues(for: owner).filter {
+          $0.value != nil || self.nativeHeldNames.contains($0.name)  // lint-ok: Set, O(1)
+        }
+        for (name, value) in seed {
           self.latestNativeUpdates[name] = nil
           self.nativeUpdateTasks.removeValue(forKey: name)?.cancel()
+          self.unstartedNativeClears.remove(name)
+          self.nativeAppliedValues[name] =
+            value == nil ? nil : self.playerController.backend.storedValues[name]
+          // The reopened session takes the entry from the seed instead: the player holds a value
+          // it is seeded with, and a seeded clear hands the name back to the document's value,
+          // so a later write and its clear in one turn are no change to it, as Kotlin's diff
+          // never sees either (RcComposePlayer.kt:731-734).
+          if value != nil {
+            self.nativeHeldNames.insert(name)
+          } else {
+            self.nativeHeldNames.remove(name)
+          }
         }
         return seed
       }
@@ -497,14 +531,60 @@
         self.declarationTask = nil
         guard let declarations else { return }
         self.playerController.backend.attach(declarations)
+        // The player's first open was seeded with the controller's values (`initialSeed`), so it
+        // holds them: a clear of one of them is a change to deliver.
+        // Only a value the document accepts: the first open skips any other, so the player
+        // never held it.
+        for (name, value) in initialValues {
+          if let declared = declarations.declaredName(for: name),
+            declarations.accepts(value, for: declared)
+          {
+            self.nativeHeldNames.insert(declared)
+            self.nativeAppliedValues[declared] = value
+          }
+        }
         self.playerController.backend.installUpdateHandler(
           { [weak self, weak native] name, value in
             guard let self else { return }
+            // A write equal to the value a clear in this same turn replaced: Kotlin's pass sees the
+            // value it last applied again and changes nothing (RcComposePlayer.kt:731-734, a key
+            // removed and put back is not in `appliedNamedValues.keys - current.keys`, and an equal
+            // value is not set), so the clear is cancelled and the write is not delivered — the
+            // variable keeps whatever the document has made of it.
+            if let value, self.unstartedNativeClears.contains(name),  // lint-ok: Set, O(1)
+              self.nativeAppliedValues[name] == value
+            {
+              self.unstartedNativeClears.remove(name)
+              self.latestNativeUpdates[name] = nil
+              self.nativeUpdateTasks.removeValue(forKey: name)?.cancel()
+              return
+            }
             let token = self.beginNativeUpdate(for: name)
+            self.unstartedNativeClears.remove(name)
+            guard value != nil || self.nativeHeldNames.contains(name) else {  // lint-ok: Set
+              // The write this clears never reached the player: no change (see `nativeHeldNames`).
+              self.latestNativeUpdates[name] = nil
+              return
+            }
+            if value == nil { self.unstartedNativeClears.insert(name) }
             // The task takes its own weak references rather than sharing the handler's captures.
             self.nativeUpdateTasks[name] = Task { @MainActor [weak self, weak native] in
-              await value.deliver(for: name, to: { native }) {
+              if self?.latestNativeUpdates[name] == token, !Task.isCancelled {
+                // Offered from here on: the player may take it whatever a later write does.
+                self?.nativeAppliedValues[name] = value
+                if value == nil {
+                  self?.unstartedNativeClears.remove(name)
+                } else {
+                  self?.nativeHeldNames.insert(name)
+                }
+              }
+              let admission = await deliverNamedUpdate(value, for: name, to: { native }) {
                 self?.latestNativeUpdates[name] == token
+              }
+              // Only while this clear is still the newest update for the name: a write that
+              // started since is held whatever this late answer says.
+              if value == nil, admission == .accepted, self?.latestNativeUpdates[name] == token {
+                self?.nativeHeldNames.remove(name)
               }
               if self?.latestNativeUpdates[name] == token { self?.nativeUpdateTasks[name] = nil }
             }
@@ -604,6 +684,10 @@
       -> RemoteComposeNativeInputAdmission
     {
       await playerView.submit(value, for: name)
+    }
+
+    func submitClear(for name: String) async -> RemoteComposeNativeInputAdmission {
+      await playerView.submitClear(for: name)
     }
 
     var inputAvailability: RemoteComposeNativeInputAvailability { playerView.inputAvailability }

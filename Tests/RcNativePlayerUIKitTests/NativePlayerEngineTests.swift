@@ -30,7 +30,7 @@ import Testing
 
   /// `signalOne` releases the longest waiter only, skipping one that was cancelled; a later
   /// `signal` releases the rest.
-  @Test func inputAvailabilityWakesOneWaiterInArrivalOrder() async throws {
+  @MainActor @Test func inputAvailabilityWakesOneWaiterInArrivalOrder() async throws {
     let availability = RemoteComposeNativeInputAvailability()
     let released = NativeTestLog()
     func waiter(_ name: String) -> Task<Void, Never> {
@@ -41,13 +41,9 @@ import Testing
       }
     }
     /// Returns once `count` callers are waiting, so each waiter starts after the one before; fails
-    /// the test after 30 s rather than hanging.
+    /// the test rather than hanging (`waitUntil`).
     func waitUntilWaiting(_ count: Int) async throws {
-      let deadline = Date().addingTimeInterval(30)
-      while availability.waiterCount < count {
-        try #require(Date() < deadline, "timed out waiting for \(count) waiters")
-        await Task.yield()
-      }
+      try await waitUntil("\(count) waiters") { availability.waiterCount >= count }
       #expect(availability.waiterCount == count)
     }
     let first = waiter("first")

@@ -247,6 +247,9 @@ private constructor(
   private val paths = RcObservedValues<RcPathData>(noteMapRead)
   private val variableNames = mutableMapOf<String, RcNamedVariable>()
   private val documentNamedValues = mutableMapOf<String, RcNamedValue>()
+
+  /** The ids the document itself gave a long (a `LongConstant`), before any host override. */
+  private var documentLongIds: Set<Int> = emptySet()
   private val matrices = mutableMapOf<Int, RcMatrixConstant>()
   private val computedMatrices = mutableMapOf<Int, FloatArray>()
   private val idLists = mutableMapOf<Int, RcIdList>()
@@ -669,6 +672,7 @@ private constructor(
         documentNamedValues[name] = readNamedValue(name)
       }
     }
+    documentLongIds = longs.keys.toSet()
     namedValues.forEach { (name, value) -> setNamedValue(name, value) }
     soundRuntime.prepare(document.operations)
     particleRuntime =
@@ -863,15 +867,7 @@ private constructor(
     val now = timeSource.snapshot(frameEpochMillis)
     val selectedMillis = longs[operation.timeId] ?: frameEpochMillis
     // Counting from now, or reading the current time's fields, is a read of the clock.
-    if (type in 0..2 || selectedMillis == frameEpochMillis) {
-      timeAttributeReadClock = true
-      recentTimeAttributeReadClock = true
-      clockReadCount++
-      if (operation.type.requiresContinuousFrames) {
-        timeAttributeReadContinuousClock = true
-        recentTimeAttributeReadContinuousClock = true
-      }
-    }
+    if (type in 0..2 || selectedMillis == frameEpochMillis) noteTimeAttributeClockRead(operation)
     val selected =
       if (selectedMillis == frameEpochMillis) now else timeSource.snapshot(selectedMillis)
     val deltaMillis =
@@ -886,8 +882,16 @@ private constructor(
             requireNotNull(operation.argumentIds.firstOrNull()) {
               "TimeAttribute type $type requires one argument id"
             }
-          selected.epochMillis -
-            requireNotNull(longs[argumentId]) { "Missing TimeAttribute long argument $argumentId" }
+          // No long at the argument — a host long cleared on an id the document gives no
+          // `LongConstant` — is read as now, as a missing instant is (`TimeAttribute.java:243-
+          // 244`); AndroidX would cast a null and throw (`:259-260`). The native Swift player
+          // reads it the same way. The subtraction wraps, as AndroidX's `long` one does (`:260`).
+          val argument =
+            longs[argumentId]
+              ?: frameEpochMillis.also {
+                if (selectedMillis != frameEpochMillis) noteTimeAttributeClockRead(operation)
+              }
+          selected.epochMillis - argument
         }
         else -> 0L
       }
@@ -911,6 +915,17 @@ private constructor(
         else -> return
       }
     setFloat(operation.outId, value)
+  }
+
+  /** A time attribute that measures from now reads the clock, and so needs a frame as it moves. */
+  private fun noteTimeAttributeClockRead(operation: RcTimeAttribute) {
+    timeAttributeReadClock = true
+    recentTimeAttributeReadClock = true
+    clockReadCount++
+    if (operation.type.requiresContinuousFrames) {
+      timeAttributeReadContinuousClock = true
+      recentTimeAttributeReadContinuousClock = true
+    }
   }
 
   public fun requestWakeIn(operation: RcWakeIn) {
@@ -1120,7 +1135,9 @@ private constructor(
             storeFloat(operation.outId, requireNotNull(floats[entry.id.also(::noteValueRead)]))
             expressionReservedReads[entry.id]?.let { expressionReservedReads[operation.outId] = it }
           }
-          RcIdMap.TYPE_LONG -> setInteger(operation.outId, requireNotNull(longs[entry.id]).toInt())
+          // A missing long (a host long cleared on an id with no `LongConstant`) reads 0, as on
+          // the native Swift player; AndroidX would cast a null and throw.
+          RcIdMap.TYPE_LONG -> setInteger(operation.outId, (longs[entry.id] ?: 0L).toInt())
           RcIdMap.TYPE_BOOLEAN ->
             setInteger(operation.outId, if (requireNotNull(booleans[entry.id])) 1 else 0)
           else -> error("Unknown AndroidX data-map type ${entry.type}")
@@ -1128,8 +1145,8 @@ private constructor(
       }
       is RcDynamicFloatList -> {
         val length = resolve(operation.length).toInt()
-        require(length in 0..2_000) {
-          "Dynamic float-list length $length is outside AndroidX's 0..2000 range"
+        require(length in 0..RcFloatList.MAX_VALUES) {
+          "Dynamic float-list length $length is outside AndroidX's 0..${RcFloatList.MAX_VALUES} range"
         }
         val existing = dynamicFloatLists[operation.id]
         if (existing == null || existing.size != length) {
@@ -2276,8 +2293,9 @@ private constructor(
    * The inverse [setNamedValue] never had. A host holding named values in a map will eventually
    * *remove* one, and the only sensible reading of that is "stop overriding it", which needs the
    * pre-override value — captured at construction, because by the time a removal happens the
-   * original has been overwritten. Values a document action changed are *not* restored: those are
-   * the document's own, not the host's, and the host never overrode them.
+   * original has been overwritten. The recorded value is written back whoever wrote last, so a
+   * value a document action changed is restored too; a named system variable goes back to the clock
+   * instead, and a long with no `LongConstant` to nothing.
    *
    * A name the document does not declare is a no-op, as it is for [setNamedValue]: there is no
    * override to remove.
@@ -2285,39 +2303,47 @@ private constructor(
   public fun clearNamedValue(hostName: String) {
     val name = resolveName(hostName)
     val variable = variableNames[name] ?: return
-    if (variable.type == RcNamedVariable.FLOAT_ARRAY_TYPE) {
+    when (variable.type) {
       // The override sits on top of whatever list the document keeps; removing it is the restore.
-      floatArrayOverrides.remove(variable.id)
-      return
+      RcNamedVariable.FLOAT_ARRAY_TYPE -> floatArrayOverrides.remove(variable.id)
+      RcNamedVariable.STRING_TYPE -> {
+        // A text override outlives the frame it was set in: `beginFrame` rebuilds `texts` from
+        // `baseTexts` and then re-applies `textOverrides` on top, every frame. So clearing one
+        // means *removing* the override, not writing the old string back — writing it back would
+        // install a fresh override that happens to hold the document's text, and the document
+        // could never change it again.
+        textOverrides.remove(variable.id)
+        baseTexts[variable.id]?.let { texts[variable.id] = it } ?: texts.remove(variable.id)
+      }
+      RcNamedVariable.COLOR_TYPE -> {
+        // Drop the override before restoring, so the document's own writes (a colour expression
+        // naming this id) land again; the remembered value stands until the next one does.
+        colorOverrides.remove(variable.id)
+        (documentNamedValues[name] as? RcNamedValue.Color)?.let { colors[variable.id] = it.argb }
+      }
+      RcNamedVariable.LONG_TYPE -> {
+        // A long with no `LongConstant` behind it holds nothing: a time attribute reading it falls
+        // back to the clock, as AndroidX `TimeAttribute.paint` does with no constant at the id. So
+        // the document's value to go back to is that absence, not the `0L` `readNamedValue`
+        // reports for it.
+        val recorded = documentNamedValues[name] as? RcNamedValue.LongValue
+        if (variable.id in documentLongIds && recorded != null) {
+          longs[variable.id] = recorded.value
+        } else {
+          longs.remove(variable.id)
+        }
+      }
+      RcNamedVariable.FLOAT_TYPE,
+      RcNamedVariable.INT_TYPE ->
+        // A named system variable: the value to go back to is the clock's, which the next frame
+        // loads once the host's claim is gone. Writing a remembered value back would re-claim it.
+        if (variable.id in RcSystemVariables.ALL && variable.id !in documentClaimedSystemIds) {
+          claimedSystemIds.remove(variable.id)
+        } else {
+          documentNamedValues[name]?.let { setNamedValue(name, it) }
+        }
+      else -> documentNamedValues[name]?.let { setNamedValue(name, it) }
     }
-    if (variable.type == RcNamedVariable.STRING_TYPE) {
-      // A text override outlives the frame it was set in: `beginFrame` rebuilds `texts` from
-      // `baseTexts` and then re-applies `textOverrides` on top, every frame. So clearing one means
-      // *removing* the override, not writing the old string back — writing it back would install a
-      // fresh override that happens to hold the document's text, and the document could never
-      // change it again.
-      textOverrides.remove(variable.id)
-      baseTexts[variable.id]?.let { texts[variable.id] = it } ?: texts.remove(variable.id)
-      return
-    }
-    if (variable.type == RcNamedVariable.COLOR_TYPE) {
-      // Drop the override before restoring, so the document's own writes (a colour expression
-      // naming this id) land again; the remembered value stands until the next one does.
-      colorOverrides.remove(variable.id)
-      (documentNamedValues[name] as? RcNamedValue.Color)?.let { colors[variable.id] = it.argb }
-      return
-    }
-    val numeric =
-      variable.type == RcNamedVariable.FLOAT_TYPE || variable.type == RcNamedVariable.INT_TYPE
-    if (
-      numeric && variable.id in RcSystemVariables.ALL && variable.id !in documentClaimedSystemIds
-    ) {
-      // A named system variable: the value to go back to is the clock's, which the next frame
-      // loads once the host's claim is gone. Writing a remembered value back would re-claim it.
-      claimedSystemIds.remove(variable.id)
-      return
-    }
-    documentNamedValues[name]?.let { setNamedValue(name, it) }
   }
 
   /**
@@ -2359,7 +2385,12 @@ private constructor(
    * every document declares every name; throwing made each host filter its map against the
    * document's `RcNamedVariable`s before handing it over. A declared name written with an
    * incompatible type is still an error — that is a host bug, not a document that happens not to
-   * use the value.
+   * use the value. A float array no float list could hold ([RcFloatList.canHold]: a value that is
+   * not finite, or more than [RcFloatList.MAX_VALUES] of them) is ignored instead, and the variable
+   * keeps its value: such an array is data, a sensor gap or a long series, not a host bug, and it
+   * reaches here from inside composition, where a throw crashes the app. A host that needs to know
+   * checks [RcFloatList.canHold] first, as the iOS controller's `setFloatArray` does to answer
+   * `false`.
    */
   public fun setNamedValue(hostName: String, value: RcNamedValue) {
     val name = resolveName(hostName)
@@ -2386,8 +2417,13 @@ private constructor(
       // AndroidX's `setNamedBooleanOverride` is an integer override of 1 or 0.
       is RcNamedValue.BooleanValue ->
         setNamedValue(name, RcNamedValue.Integer(if (value.value) 1 else 0))
+      // An array no float list could hold is ignored, not thrown: a host's map reaches here from
+      // inside composition, where a throw crashes the app. The iOS controller and the native
+      // Swift player refuse the same arrays.
       is RcNamedValue.FloatArrayValue ->
-        floatArrayOverrides[variable.id] = value.values.toFloatArray()
+        if (RcFloatList.canHold(value.values)) {
+          floatArrayOverrides[variable.id] = value.values.toFloatArray()
+        }
     }
   }
 }
