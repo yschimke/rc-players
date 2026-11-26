@@ -70,16 +70,16 @@ public struct RemoteDocument {
       encoded.int(value)
       properties.append((tag, RemoteHeaderValueType.int, encoded))
     }
-    int(RemoteHeaderKey.documentWidth, width)
-    int(RemoteHeaderKey.documentHeight, height)
+    int(RemoteHeaderKey.docWidth, width)
+    int(RemoteHeaderKey.docHeight, height)
     var densityValue = RemoteByteBuffer()
     densityValue.float(density)
     properties.append(
-      (RemoteHeaderKey.densityAtGeneration, RemoteHeaderValueType.float, densityValue))
+      (RemoteHeaderKey.docDensityAtGeneration, RemoteHeaderValueType.float, densityValue))
     if let contentDescription {
       var text = RemoteByteBuffer()
       text.utf8(contentDescription)
-      properties.append((RemoteHeaderKey.contentDescription, RemoteHeaderValueType.string, text))
+      properties.append((RemoteHeaderKey.docContentDescription, RemoteHeaderValueType.string, text))
     }
 
     buffer.byte(RemoteOpcode.header)

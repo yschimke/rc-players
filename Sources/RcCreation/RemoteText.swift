@@ -16,23 +16,35 @@ public struct RemoteFontWeight: Sendable, Hashable {
   public static let black = RemoteFontWeight(900)
 }
 
-/// `TextLayout`'s alignment values.
-public enum RemoteTextAlign: Int, Sendable {
-  case left = 1
-  case right = 2
-  case center = 3
-  case justify = 4
-  case start = 5
-  case end = 6
+/// How a text is aligned in its width.
+public enum RemoteTextAlign: Sendable {
+  case left, right, center, justify, start, end
+
+  var wire: Int {
+    switch self {
+    case .left: RemoteTextLayoutAlign.left
+    case .right: RemoteTextLayoutAlign.right
+    case .center: RemoteTextLayoutAlign.center
+    case .justify: RemoteTextLayoutAlign.justify
+    case .start: RemoteTextLayoutAlign.start
+    case .end: RemoteTextLayoutAlign.end
+    }
+  }
 }
 
-/// `TextLayout`'s overflow values.
-public enum RemoteTextOverflow: Int, Sendable {
-  case clip = 1
-  case visible = 2
-  case ellipsis = 3
-  case startEllipsis = 4
-  case middleEllipsis = 5
+/// What a text that does not fit shows.
+public enum RemoteTextOverflow: Sendable {
+  case clip, visible, ellipsis, startEllipsis, middleEllipsis
+
+  var wire: Int {
+    switch self {
+    case .clip: RemoteTextLayoutOverflow.clip
+    case .visible: RemoteTextLayoutOverflow.visible
+    case .ellipsis: RemoteTextLayoutOverflow.ellipsis
+    case .startEllipsis: RemoteTextLayoutOverflow.startEllipsis
+    case .middleEllipsis: RemoteTextLayoutOverflow.middleEllipsis
+    }
+  }
 }
 
 /// A text, as Compose's `Text`. Its size is in sp.
@@ -108,17 +120,17 @@ public struct RemoteText: RemoteView, RemotePrimitiveView {
     switch resolved {
     case .literal(let argb):
       context.body.int(Int(Int32(bitPattern: argb)))
-      alignment = textAlign.rawValue
+      alignment = textAlign.wire
     case .id(let id):
       context.body.int(id)
-      alignment = remoteTextDynamicColorFlag | textAlign.rawValue
+      alignment = RemoteTextLayoutFlag.isDynamicColor | textAlign.wire
     }
     context.body.float(context.px(fontSize))
     context.body.int(italic ? RemoteFontStyle.italic : RemoteFontStyle.normal)
     context.body.float(fontWeight.value)
     context.body.int(remoteNoID)  // The default font family.
     context.body.int(alignment)
-    context.body.int(overflow.rawValue)
+    context.body.int(overflow.wire)
     context.body.int(maxLines)
     context.body.append(modifierBody)
     context.contentSection()

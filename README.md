@@ -418,6 +418,13 @@ text-metrics set. Committed visual evidence is under `renders/`.
 tested against documents it did not produce. `rc-player/profile` and `rc-player/metrics` are the
 profiling and text-metric harnesses. None of the three publishes anything.
 
+`rc-codegen` generates wire code from AndroidX's Remote Compose schema, through a fork of AndroidX's
+`remote-generator` (`third_party/remote-generator`) that takes pluggable targets. It owns two
+committed Swift sources: `RcCreation`'s wire constants, and `RcWireOperations`, upstream's
+per-operation Swift bindings made Foundation-free. `./gradlew :rc-codegen:generateSwiftSources`
+regenerates them, and `check` fails while either is stale. See
+[`docs/design/RC_CODEGEN.md`](docs/design/RC_CODEGEN.md).
+
 For an Apple-only, simulator-oriented CMP/UIKit comparison, see
 [`docs/design/APPLE_PLAYER_BENCHMARKS.md`](docs/design/APPLE_PLAYER_BENCHMARKS.md).
 

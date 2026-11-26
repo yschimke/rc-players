@@ -1,15 +1,3 @@
-/// AndroidX `LayoutManager` positioning values.
-enum RemotePositioning {
-  static let start = 1
-  static let center = 2
-  static let end = 3
-  static let top = 4
-  static let bottom = 5
-  static let spaceBetween = 6
-  static let spaceEvenly = 7
-  static let spaceAround = 8
-}
-
 /// Where a child sits on the cross axis of a row or column, or inside a box.
 public enum RemoteAlignment: Sendable {
   /// Horizontal placement, for a column's children.

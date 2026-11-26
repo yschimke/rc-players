@@ -175,13 +175,13 @@ extension RemoteCreationContext {
     case .literal(let argb):
       paint += [RemotePaintTag.color, Int(Int32(bitPattern: argb))]
     case .id(let id):
-      paint += [RemotePaintTag.colorID, id]
+      paint += [RemotePaintTag.colorId, id]
     }
     switch command.style {
     case .fill:
-      paint.append(RemotePaintTag.style | RemotePaintTag.styleFill << 16)
+      paint.append(RemotePaintTag.style | RemotePaintStyle.fill << 16)
     case .stroke(let width):
-      paint.append(RemotePaintTag.style | RemotePaintTag.styleStroke << 16)
+      paint.append(RemotePaintTag.style | RemotePaintStyle.stroke << 16)
       paint += [RemotePaintTag.strokeWidth, Int(Int32(bitPattern: px(width).bitPattern))]
     }
     paint.append(RemotePaintTag.antiAlias | 1 << 16)

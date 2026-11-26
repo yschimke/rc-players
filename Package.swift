@@ -85,6 +85,11 @@ var targets: [Target] = [
   .target(name: "RcComposePlayerSwiftUI", dependencies: swiftUIDependencies),
   .target(name: "RcNativePlayerCore"),
   .target(name: "RcCreation"),
+  // Upstream AndroidX's per-operation Swift bindings, generated Foundation-free by `:rc-codegen`
+  // (target `swift-portable`) from the forked schema in `third_party/remote-generator`. Not a
+  // product yet: its tests hold it to the documents this repository plays.
+  .target(name: "RcWireOperations"),
+  .testTarget(name: "RcWireOperationsTests", dependencies: ["RcWireOperations", "RcCreation"]),
   // Round trips: documents written by RcCreation, read back by the native document core.
   .testTarget(name: "RcCreationTests", dependencies: ["RcCreation", "RcNativePlayerCore"]),
   .target(
@@ -134,6 +139,7 @@ if nativeOnly {
 if coreOnly {
   let coreTargets: Set<String> = [
     "RcNativePlayerCore", "RcNativePlayerCoreTests", "RcCreation", "RcCreationTests",
+    "RcWireOperations", "RcWireOperationsTests",
   ]
   products = products.filter { ["RcNativePlayerCore", "RcCreation"].contains($0.name) }
   targets = targets.filter { coreTargets.contains($0.name) }

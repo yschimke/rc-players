@@ -1,0 +1,462 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RemoteCompose Operations Schema",
+  "description": "Meta-schema defining the structure, types, bitfields, and grammars for RemoteCompose operations.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "targetApiLevel",
+    "types",
+    "categories",
+    "operations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "targetApiLevel": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "types": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["wire", "description"],
+        "properties": {
+          "wire": { "type": "string" },
+          "base": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "structs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["fields"],
+        "properties": {
+          "description": { "type": "string" },
+          "fields": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/field" }
+          }
+        }
+      }
+    },
+    "paintCommands": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "description": { "type": "string" },
+          "wireFormat": { "type": "string" },
+          "fields": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/field" }
+          }
+        }
+      }
+    },
+    "rpnOperators": {
+      "type": "object",
+      "required": ["offset", "operators"],
+      "properties": {
+        "offset": { "type": "integer" },
+        "operators": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "arity"],
+            "properties": {
+              "id": { "type": "integer", "minimum": 1 },
+              "name": { "type": "string" },
+              "symbol": { "type": "string" },
+              "arity": { "type": "integer", "minimum": 0, "maximum": 6 },
+              "addedVersion": { "type": "integer", "minimum": 6 },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "intRpnOperators": {
+      "type": "object",
+      "required": ["offset", "operators"],
+      "properties": {
+        "offset": { "type": "integer" },
+        "operators": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "arity"],
+            "properties": {
+              "id": { "type": "integer", "minimum": 1 },
+              "name": { "type": "string" },
+              "symbol": { "type": "string" },
+              "arity": { "type": "integer", "minimum": 0, "maximum": 6 },
+              "addedVersion": { "type": "integer", "minimum": 6 },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "systemVariables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "type"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["float", "long"] },
+          "isTime": { "type": "boolean" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "pathCommands": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "description": { "type": "string" },
+          "leadingPaddingFloats": { "type": "integer", "minimum": 0 },
+          "fields": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/field" }
+          }
+        }
+      }
+    },
+    "headerConstants": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": "integer" }
+      }
+    },
+    "idEncoding": {
+      "type": "object",
+      "required": [
+        "nanPrefix",
+        "payloadMask",
+        "startId",
+        "regionMask",
+        "regionSubIdMask",
+        "regionSystem",
+        "regionVariable",
+        "regionArray",
+        "regionOperation",
+        "longIdOffset",
+        "ptrDereference",
+        "valueMask",
+        "macroLocalStartId",
+        "macroLocalEndId"
+      ],
+      "properties": {
+        "nanPrefix": { "type": "integer" },
+        "payloadMask": { "type": "integer" },
+        "startId": { "type": "integer" },
+        "regionMask": { "type": "integer" },
+        "regionSubIdMask": { "type": "integer" },
+        "regionSystem": { "type": "integer" },
+        "regionVariable": { "type": "integer" },
+        "regionArray": { "type": "integer" },
+        "regionOperation": { "type": "integer" },
+        "longIdOffset": { "type": "integer" },
+        "ptrDereference": { "type": "integer" },
+        "valueMask": { "type": "integer" },
+        "macroLocalStartId": { "type": "integer" },
+        "macroLocalEndId": { "type": "integer" }
+      }
+    },
+    "animationSpec": {
+      "type": "object",
+      "required": ["easings", "flagsBits"],
+      "properties": {
+        "easings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+              "id": { "type": "integer" },
+              "name": { "type": "string" },
+              "aliases": { "type": "array", "items": { "type": "string" } },
+              "cubicControlPoints": {
+                "type": "array",
+                "items": { "type": "number" },
+                "minItems": 4,
+                "maxItems": 4
+              }
+            }
+          }
+        },
+        "flagsBits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "range"],
+            "properties": {
+              "name": { "type": "string" },
+              "range": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "pathEffects": {
+      "type": "object",
+      "required": ["maxDashIntervals", "maxNestingDepth", "types"],
+      "properties": {
+        "maxDashIntervals": { "type": "integer", "minimum": 1 },
+        "maxNestingDepth": { "type": "integer", "minimum": 1 },
+        "types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "constName", "fields"],
+            "properties": {
+              "id": { "type": "integer", "minimum": 0 },
+              "name": { "type": "string" },
+              "constName": { "type": "string" },
+              "fields": {
+                "type": "array",
+                "items": { "$ref": "#/definitions/field" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "category",
+          "description",
+          "addedVersion"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "name": { "type": "string" },
+          "category": { "type": "string" },
+          "description": { "type": "string" },
+          "addedVersion": { "type": "integer", "minimum": 1 },
+          "isContainer": { "type": "boolean" },
+          "isContainerEnd": { "type": "boolean" },
+          "closedBy": { "type": "string" },
+          "allowedChildren": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "fields": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/field" }
+          },
+          "sparseParameters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "name", "type"],
+              "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "name": { "type": "string" },
+                "type": { "type": "string" },
+                "lengthType": {
+                  "type": "string",
+                  "enum": ["short", "ushort", "int"]
+                },
+                "role": { "type": "string" },
+                "idKind": { "type": "string" },
+                "ignored": { "type": "boolean" },
+                "defaultValue": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            }
+          },
+          "sparseCountType": {
+            "type": "string",
+            "enum": ["ushort", "short", "int"]
+          },
+          "sparseKeyType": {
+            "type": "string",
+            "enum": ["ubyte", "byte", "ushort", "short", "int"]
+          },
+          "extensions": { "type": "object" },
+          "profiles": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "opCodeName": { "type": "string" },
+          "restrictToLibraryGroup": { "type": "boolean" },
+          "encoding": { "type": "string" },
+          "conditionalSkip": {
+            "type": "object",
+            "required": [
+              "conditionField",
+              "conditionBits",
+              "valueField",
+              "lengthField",
+              "payloadField",
+              "conditions"
+            ],
+            "properties": {
+              "conditionField": { "type": "string" },
+              "conditionBits": {
+                "type": "string",
+                "pattern": "^[0-9]+\\.\\.[0-9]+$"
+              },
+              "conditionSigned": { "type": "boolean" },
+              "valueField": { "type": "string" },
+              "lengthField": { "type": "string" },
+              "payloadField": { "type": "string" },
+              "unknownConditionSkips": { "type": "boolean" },
+              "conditions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["when", "name", "target", "op"],
+                  "properties": {
+                    "when": { "type": "integer" },
+                    "name": { "type": "string" },
+                    "target": {
+                      "type": "string",
+                      "enum": ["apiLevel", "profiles"]
+                    },
+                    "op": {
+                      "type": "string",
+                      "enum": ["<", ">", "==", "!=", "mask_any", "mask_none"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "field": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "description": { "type": "string" },
+        "bits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "range"],
+            "properties": {
+              "name": { "type": "string" },
+              "range": { "type": "string" },
+              "role": { "type": "string" },
+              "idKind": { "type": "string" },
+              "derivedFrom": { "type": "string" },
+              "signed": { "type": "boolean" },
+              "enum": {
+                "type": "object",
+                "additionalProperties": { "type": "integer" }
+              },
+              "strictEnum": { "type": "boolean" },
+              "whenBitSet": {
+                "type": "object",
+                "required": ["bit", "range"],
+                "properties": {
+                  "bit": { "type": "integer", "minimum": 0, "maximum": 31 },
+                  "range": { "type": "string" }
+                }
+              },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "unpackBits": { "type": "boolean" },
+        "mustBeZeroBits": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.\\.[0-9]+$"
+        },
+        "lengthType": {
+          "type": "string",
+          "enum": ["short", "ushort", "int"]
+        },
+        "countFrom": { "type": "string" },
+        "derivedFrom": { "type": "string" },
+        "enum": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "strictEnum": { "type": "boolean" },
+        "minValue": { "type": "integer" },
+        "minLength": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 0 },
+        "javaLimit": { "type": "string" },
+        "payloadKind": {
+          "type": "string",
+          "enum": ["operations"]
+        },
+        "addedVersion": { "type": "integer" },
+        "defaultValue": { "type": "string" },
+        "presentIf": { "type": "string" },
+        "omitIf": {},
+        "role": { "type": "string" },
+        "idKind": { "type": "string" },
+        "conditionalTypes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["when", "type"],
+            "properties": {
+              "when": { "type": "string" },
+              "type": { "type": "string" }
+            }
+          }
+        },
+        "conditionalRoles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["when", "role"],
+            "properties": {
+              "when": { "type": "string" },
+              "role": { "type": "string" },
+              "idKind": { "type": "string" }
+            }
+          }
+        },
+        "encoding": { "type": "string" },
+        "offset": { "type": ["string", "integer"] },
+        "lookupBit": { "type": "integer" }
+      }
+    }
+  }
+}

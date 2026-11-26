@@ -106,9 +106,11 @@ percentage text and the subtitle without a new document.
   is a precondition failure.
 - **Constants fold.** Arithmetic on two constants is evaluated in Swift and costs the document
   nothing; constant strings joined with `+` become one string.
-- **No player dependency.** `RcCreation` declares its own opcode constants and depends on nothing,
-  so it builds for every Apple platform and on Linux. `RcCreationTests` depends on the native player
-  core to read documents back.
+- **No player dependency.** `RcCreation` depends on nothing, so it builds for every Apple platform
+  and on Linux. Its wire constants are generated from AndroidX's schema by `:rc-codegen`
+  (`RemoteWireConstants.swift`, [`RC_CODEGEN.md`](RC_CODEGEN.md)); only the few values the schema
+  does not carry are written by hand. `RcCreationTests` depends on the native player core to read
+  documents back.
 
 ## Verification
 

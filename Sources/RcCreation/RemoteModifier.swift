@@ -400,7 +400,7 @@ extension RemoteCreationContext {
   private func floatIDForAction(_ value: RemoteFloat) -> Int {
     let word = floatWord(value)
     if case .constant(let literal) = value.node { return declareFloatConstant(literal) }
-    return Int(word.bitPattern & 0x003F_FFFF)
+    return Int(word.bitPattern & RemoteIDEncoding.payloadMask)
   }
 
   /// [argb] as the red, green, blue and alpha floats in 0...1 a modifier writes.

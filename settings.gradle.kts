@@ -347,6 +347,18 @@ project(":third-party-remote-compose-player-dist").projectDir =
 // Horologist's Lottie → Remote Compose compiler, vendored because Horologist publishes no artifact
 // for it. It is what the UI builder's Wear `LottiePlayer` export compiles against. See
 
+// AndroidX's `remote-generator`: the Remote Compose schema (`operations.json`) and its multi-language
+// code generators, forked with marked local patches so rc-players can add its own targets
+// (`:rc-codegen`). Build-only; nothing publishes. See `third_party/remote-generator/PROVENANCE.md`.
+include(":third-party-remote-generator")
+
+project(":third-party-remote-generator").projectDir = file("third_party/remote-generator")
+
+// rc-players' own code generation targets over the forked schema: see `rc-codegen/build.gradle.kts`.
+include(":rc-codegen")
+
+project(":rc-codegen").projectDir = file("rc-codegen")
+
 // Snapshot the project paths that carry ktfmt (every project except the root, which applies no
 // convention plugin) for the root build's `ktfmtCheckAll` / `ktfmtFormatAll` aggregate tasks. We
 // gather the paths here in settings — where every project is already known — and hand them to the

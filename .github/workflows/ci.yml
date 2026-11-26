@@ -274,7 +274,9 @@ jobs:
   # only behind the macOS job's packaging gate. Off Apple platforms `Package.swift` declares only
   # the pure-Swift targets — `RcNativePlayerCore`, the `RcCreation` authoring API and their tests —
   # so nothing here resolves the XCFramework or compiles a UIKit/AppKit/CoreGraphics target.
-  # `RcCreationTests` reads every document it writes back through the core, so it runs here too. The fuzz suite is skipped for the same reason the
+  # `RcCreationTests` reads every document it writes back through the core, and
+  # `RcWireOperationsTests` round-trips the catalog corpus through upstream's generated Swift
+  # bindings (`RcWireOperations`, Foundation-free), so both run here too. The fuzz suite is skipped for the same reason the
   # macOS lane skips it: its elapsed-time budget was calibrated against an optimized build.
   #
   # The official toolchain image, as in format.yml's swift-format job, so the Swift version is
@@ -304,14 +306,20 @@ jobs:
               Sources/RcNativePlayerCore \
               Tests/RcNativePlayerCoreTests \
               Sources/RcCreation \
-              Tests/RcCreationTests
+              Tests/RcCreationTests \
+              Sources/RcWireOperations \
+              Tests/RcWireOperationsTests \
+              scripts/rc-catalog-corpus/corpus
           then
             required=false
           fi
           echo "required=$required" | tee -a "$GITHUB_OUTPUT"
-      - name: Test the native Swift core and the creation API
+      - name: Test the native Swift core, the creation API and the generated wire operations
         if: steps.filter.outputs.required == 'true'
-        run: swift test --filter 'RcNativePlayerCoreTests|RcCreationTests' --skip NativeSwiftFuzzTests
+        run: >-
+          swift test
+          --filter 'RcNativePlayerCoreTests|RcCreationTests|RcWireOperationsTests'
+          --skip NativeSwiftFuzzTests
 
   # The Linux lane: everything that does not need a Mac. The JVM cuts of the whole player stack,
   # both vendored players, and the build-only fixture generators.
@@ -457,6 +465,7 @@ jobs:
             :rc-player-metrics:test \
             :rc-player-profile:test \
             :rc-player-desktop:test \
+            :rc-codegen:check \
             :rc-widget-core:jvmTest \
             :rc-widget-core:testAndroidHostTest \
             :rc-widget-creation:compileAndroidMain \

@@ -13,7 +13,7 @@ final class RemoteCreationContext {
   var body = RemoteByteBuffer()
 
   /// `RemoteComposeState.START_ID`: ids below it are system variables.
-  private var nextDataID = 42
+  private var nextDataID = RemoteIDEncoding.firstDataID
   private var nextComponentID = -1
 
   private var textIDs: [String: Int] = [:]
