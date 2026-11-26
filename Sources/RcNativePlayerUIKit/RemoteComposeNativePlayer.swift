@@ -1213,7 +1213,8 @@
       case .success(let update):
         onInputApplied?(pending.input)
         // Evaluated first: an optional-chained call skips its argument when a gesture has no reply.
-        let outcome = presentInput(update, on: presentation, generation: generation)
+        let outcome = presentInput(
+          update, of: pending.input, on: presentation, generation: generation)
         note(outcome, of: pending, on: presentation)
         pending.reply?(outcome == .accepted ? .accepted : .refused)
       case .failure(let error):
@@ -1266,12 +1267,13 @@
     /// Install the frame an input produced and deliver its events, and say how the session took
     /// the input.
     private func presentInput(
-      _ update: NativePlayerEngine.Update, on presentation: NativePlayerPresentation,
-      generation: UInt64
+      _ update: NativePlayerEngine.Update, of input: NativePlayerEngine.Input,
+      on presentation: NativePlayerPresentation, generation: UInt64
     ) -> NativeInputOutcome {
       let outcome: NativeInputOutcome = update.accepted ? .accepted : .declined
       do {
-        if !presentation.inputs.isEmpty {
+        let queued = !presentation.inputs.isEmpty
+        if queued, !Self.isNamedWrite(input) {
           // A newer input will install its own frame; validate and deliver this input's events in
           // order without building and discarding an intermediate NativeDocument.
           var budget = NativeFrameBudget()
@@ -1279,15 +1281,17 @@
           dispatch(update.events, generation: generation)
           return outcome
         }
+        // A named write's frame is judged even with input queued behind it, so the write whose
+        // value breaks a limit is the one refused (and kept out of the next session), not the input
+        // after it, whatever happens to be queued.
         let model = try NativeDocument(
           frame: update.frame, timeSeconds: update.timeSeconds, limits: executionLimits,
           androidCompatibility: androidCompatibility)
         try validateExecution(model, events: update.events)
         try validate(model)
-        guard generation == self.generation, presentation.inputs.isEmpty else {
-          return outcome
-        }
-        try install(model, for: presentation)
+        guard generation == self.generation else { return outcome }
+        // Checked again: `validate` calls the host's diagnostics handler, which may queue input.
+        if presentation.inputs.isEmpty { try install(model, for: presentation) }
         dispatch(update.events, generation: generation)
         return outcome
       } catch {
@@ -1295,6 +1299,11 @@
         show(error: error, retaining: presentation)
         return .failed
       }
+    }
+
+    private static func isNamedWrite(_ input: NativePlayerEngine.Input) -> Bool {
+      if case .setNamed = input { return true }
+      return false
     }
 
     private func dispatch(_ events: [RemoteComposeNativePlayerEvent], generation: UInt64) {

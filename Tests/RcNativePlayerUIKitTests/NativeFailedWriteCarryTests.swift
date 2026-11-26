@@ -144,6 +144,41 @@
         "the title shown before the second failure was dropped by a stale failedWrites entry")
     }
 
+    // MARK: - Batched writes: which write is blamed
+
+    /// Two writes queued back to back behind other input: the first breaks the text limit, the
+    /// second is fine. The first is the refused one, as it is when it runs alone, rather than
+    /// answered `.accepted` with the next write blamed for the frame it broke.
+    @Test func aBatchedBadWriteIsRefusedNotTheNextOne() async throws {
+      var errors: [RemoteComposeNativePlayerError] = []
+      let view = RemoteComposeNativePlayerView(
+        data: NativeTestDocuments.label(), executionLimits: lowTextLimit, resourceResolver: nil,
+        onError: { errors.append($0) })
+      try await settled(view, "opens")
+      for _ in 0..<20 {
+        Task { @MainActor in _ = await view.submit(.integer(1), for: "missing") }
+      }
+      try await until("input is outstanding") { view.hasOutstandingInput }
+      var bad: RemoteComposeNativeInputAdmission?
+      var good: RemoteComposeNativeInputAdmission?
+      Task { @MainActor in bad = await view.submit(.text(long), for: "label") }
+      Task { @MainActor in good = await view.submit(.text("T2"), for: "title") }
+      try await until("both answered") { bad != nil && good != nil }
+      try await settled(view)
+      #expect(
+        bad == .refused, "the write that broke the limit was answered \(String(describing: bad))")
+      #expect(good == .accepted || good == .refused)
+      // Raise the limit: the retry starts from what the session held, less the failing write.
+      view.configureExecutionLimits(.default)
+      try await settled(view, "retry settles")
+      #expect(
+        text(NativeTestDocuments.labelID + 1, in: view) == "T2" || good == .refused,
+        "title")
+      #expect(
+        text(NativeTestDocuments.labelID, in: view) != long || bad == .accepted,
+        "label: the failing write was carried")
+    }
+
     // MARK: - failedWrites + leftOut
 
     /// A seed value left out of a reopen, then written directly (it fails the session again):
