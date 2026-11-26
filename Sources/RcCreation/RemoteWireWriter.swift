@@ -62,6 +62,16 @@ enum RemoteModifierColorFlag {
   static let colorID = 2
 }
 
+/// `BorderModifierOperation`'s `shapeType`, as AndroidX's `BorderModifier` writes it
+/// (`remote-creation-compose`, `modifier/BorderModifier.kt`). The schema gives this field no enum,
+/// and the values differ from the background's: a rounded rectangle is its own shape here, and
+/// a player reads the corner radius only for it.
+enum RemoteBorderShape {
+  static let rectangle = 0
+  static let circle = 1
+  static let roundedRectangle = 2
+}
+
 /// `BorderModifierOperation`'s wire versions (its `reserve1` word).
 enum RemoteBorderWireVersion {
   /// The legacy stroke, centred on the bounds.

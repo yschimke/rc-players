@@ -80,6 +80,24 @@ import Testing
     #expect(try operationsRoundTrip(document.encode()))
   }
 
+  /// A border with a corner radius is written as the rounded-rectangle shape, the only one a
+  /// player reads the radius for; without a radius it stays a rectangle. Read through upstream's
+  /// bindings, so the wire fields are checked as AndroidX names them.
+  @Test func roundedBorderIsTheRoundedShape() throws {
+    func border(_ radius: Float) throws -> BorderModifierOperation {
+      let bytes = RemoteDocument_(width: 100, height: 100, density: 2) {
+        RemoteBox(modifier: .size(40).border(2, .black, cornerRadius: radius))
+      }.encode()
+      let operations = try RcWireOperations.RemoteDocument.load(from: bytes).operations
+      return try #require(operations.compactMap { $0 as? BorderModifierOperation }.first)
+    }
+    let rounded = try border(6)
+    #expect(rounded.shapeType == 2)
+    #expect(rounded.roundedCorner == 12)
+    #expect(rounded.borderWidth == 4)
+    #expect(try border(0).shapeType == 0)
+  }
+
   /// A failure is a typed error a caller can inspect, not an `NSError`.
   @Test func truncatedDocumentFailsWithATypedError() {
     #expect(throws: RemoteComposeWireError.self) {

@@ -318,7 +318,8 @@ extension RemoteCreationContext {
         body.float(px(cornerRadius))
         for _ in 0..<4 { body.float(0) }
       }
-      body.int(RemoteModifierShape.rectangle)
+      // The radius is read only for a rounded rectangle: written as a rectangle, it is ignored.
+      body.int(cornerRadius > 0 ? RemoteBorderShape.roundedRectangle : RemoteBorderShape.rectangle)
     case .clip(let shape):
       switch shape {
       case .rectangle:

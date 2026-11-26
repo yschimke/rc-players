@@ -619,6 +619,13 @@ enum NativeSwiftHeaderKey {
   static let densityBehavior = 27
 }
 
+/// Background and border modifier `flags` (`BackgroundModifierOperation`,
+/// `BorderModifierOperation`): bit 1 says the colour is the id in the `colorId` word rather than
+/// the four channel floats. AndroidX names no other bit.
+enum NativeSwiftModifierColorFlag {
+  static let colorID = 2
+}
+
 /// The magic a modern header ORs into the high half of its major-version word
 /// (`Header.MAGIC_NUMBER`).
 let nativeSwiftHeaderMagic = 0x048c_0000

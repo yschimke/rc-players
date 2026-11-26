@@ -1535,7 +1535,7 @@ enum NativeSwiftDocumentDecoder {
         let colorID = try input.int("background color id")
         _ = try input.int("background reserved1")
         _ = try input.int("background reserved2")
-        let usesColorID = flags & 2 != 0
+        let usesColorID = flags & NativeSwiftModifierColorFlag.colorID != 0
         let red = try input.floatWord(
           "background red", requireLiteral: !usesColorID, opcode: opcode)
         let green = try input.floatWord(
@@ -2446,7 +2446,7 @@ enum NativeSwiftDocumentDecoder {
         _ = try input.int("border reserved 2")
         let width = try input.word(NativeSwiftWireField.borderWidth)
         _ = try input.word("border corner")
-        let usesColorID = flags & 2 != 0
+        let usesColorID = flags & NativeSwiftModifierColorFlag.colorID != 0
         let red = try input.floatWord(
           "border red", requireLiteral: !usesColorID, opcode: opcode)
         let green = try input.floatWord(
