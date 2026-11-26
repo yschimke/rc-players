@@ -164,6 +164,31 @@ const CASES = [
     },
   },
   {
+    // A bad `?namedValues=` element is dropped on its own (docs/design/RC_PLAYER_EMBED.md): the
+    // good colour next to it must still draw, before and after it. Each of these used to throw
+    // inside the bundle's one-`try` flattening — `null.kind`, `encodeURIComponent` on a lone
+    // surrogate — and take every override down with it; the last forged a second row out of an
+    // unescaped `kind`, which overrode the good colour with blue.
+    name: 'named-values-bad-neighbour',
+    description: 'a bad `?namedValues=` element does not drop the good one beside it',
+    namedNeighbours: {
+      src: 'CircularProgressRemote-384x384.rc',
+      good: { kind: 'color', name: 'WearM3.primary', value: '#FFFF8800' },
+      expectRgb: 0xff8800,
+      bad: {
+        'a null element': null,
+        'a lone surrogate in a name': { kind: 'string', name: '\uD800', value: 'x' },
+        'a lone surrogate in a value': { kind: 'string', name: 'label', value: 'a\uDC00' },
+        'control characters in a kind': {
+          kind: 'color\u0000\u0001', name: 'WearM3.primary', value: '#FF0000FF',
+        },
+        'a kind that spells another row': {
+          kind: 'x\u0000a\u0000b\u0000s\u0001color', name: 'WearM3.primary', value: '#FF0000FF',
+        },
+      },
+    },
+  },
+  {
     // `rc-cmp-player.js`, the library a page includes instead of driving the iframe by hand. It
     // ships in the distribution beside `index.html`, so it is tested against the same bundle: a
     // host page creates a player, hands it bytes, then swaps to a URL, awaiting each promise.
@@ -503,6 +528,9 @@ function compareRenders(a, b) {
 
 async function runCase(browser, origin, testCase) {
   if (testCase.namedColour) return runNamedColourCase(browser, origin, testCase.namedColour);
+  if (testCase.namedNeighbours) {
+    return runNamedNeighboursCase(browser, origin, testCase.namedNeighbours);
+  }
   const context = await browser.newContext({ viewport: VIEWPORT });
   const page = await context.newPage();
   if (testCase.expectWebGl2DepthRenderer) await page.addInitScript(countOffscreenWebGl2);
@@ -620,10 +648,13 @@ async function runCase(browser, origin, testCase) {
 
 /** The query that shows [spec]'s document with its colour variable overridden by [value]. */
 function namedColourQuery(spec, value) {
-  const namedValues = [{ kind: 'color', name: spec.name, value }];
+  return namedValuesQuery(spec.src, [{ kind: 'color', name: spec.name, value }]);
+}
+
+/** The query that shows [src] with the `?namedValues=` array [namedValues]. */
+function namedValuesQuery(src, namedValues) {
   return (
-    `src=${spec.src}&namedValues=${encodeURIComponent(JSON.stringify(namedValues))}&` +
-    COMMON_QUERY
+    `src=${src}&namedValues=${encodeURIComponent(JSON.stringify(namedValues))}&` + COMMON_QUERY
   );
 }
 
@@ -688,6 +719,42 @@ async function runNamedColourCase(browser, origin, spec) {
   }
   return {
     note: `${drawn} px drawn in the override's colour; ${spec.sameAs.length} other spellings identical`,
+  };
+}
+
+/**
+ * The `namedNeighbours` case. The good element alone is the reference, and must visibly draw its
+ * colour, so a bundle that dropped every override cannot pass; then each bad element, before and
+ * after the good one, must draw exactly that reference.
+ */
+async function runNamedNeighboursCase(browser, origin, spec) {
+  const plain = await renderOnce(browser, origin, `src=${spec.src}&${COMMON_QUERY}`);
+  const reference = await renderOnce(browser, origin, namedValuesQuery(spec.src, [spec.good]));
+  const changed = differingPixels(plain, reference);
+  const drawn = pixelsNear(reference, spec.expectRgb);
+  if (changed < MINIMUM_INK_PIXELS || drawn < MINIMUM_INK_PIXELS) {
+    throw new Error(
+      `the good element alone changed ${changed} pixels and drew ${drawn} in its colour: the ` +
+        'override was not applied',
+    );
+  }
+  const failures = [];
+  for (const [label, bad] of Object.entries(spec.bad)) {
+    for (const [order, namedValues] of [
+      ['before', [bad, spec.good]],
+      ['after', [spec.good, bad]],
+    ]) {
+      const render = await renderOnce(browser, origin, namedValuesQuery(spec.src, namedValues));
+      const differ = differingPixels(reference, render);
+      if (differ !== 0) {
+        const lost = differingPixels(plain, render) === 0 ? ' (every override was dropped)' : '';
+        failures.push(`${label} ${order} the good element: ${differ} pixels differ${lost}`);
+      }
+    }
+  }
+  if (failures.length > 0) throw new Error(failures.join('\n'));
+  return {
+    note: `${drawn} px in the good colour beside each of ${Object.keys(spec.bad).length} bad elements, both orders`,
   };
 }
 

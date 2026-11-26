@@ -165,11 +165,14 @@ So a malformed boolean does not fall back to the document's own value, it active
 variable to false. Send `true`/`false` and nothing else.
 
 **Otherwise, a malformed array is silently ignored rather than reported.** The parser returns no
-overrides at all on any JSON error, and an element whose `kind` is unrecognized or whose `value`
-does not parse as its kind is dropped on its own — the document still renders, with its own
-defaults. Nothing appears in `data-rc-player-error`, because failing to *style* a document is not
-failing to *load* one. A host that cannot tolerate a silently-defaulted (or, for `bool`, silently
-falsified) override should validate before building the URL.
+overrides at all on any JSON error or when the value is not an array, and any other bad element is
+dropped on its own, keeping the rest: one that is `null` or has no `kind`, one whose `kind` is
+unrecognized or whose `value` does not parse as its kind, and one whose `kind`, `name` or `value`
+is not well-formed UTF-16 (a lone surrogate, which `JSON.parse` accepts from a `\uD800` escape) —
+the document still renders, with its own defaults. Nothing appears in `data-rc-player-error`,
+because failing to *style* a document is not failing to *load* one. A host that cannot tolerate a
+silently-defaulted (or, for `bool`, silently falsified) override should validate before building
+the URL.
 
 (The NUL-and-`\u0001`-delimited rows in `Main.kt`'s `flattenNamedValuesFromLocation` are an internal
 shape used to hand the parsed array across the JS/Wasm boundary. They are not the wire format, and

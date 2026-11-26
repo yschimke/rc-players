@@ -615,36 +615,40 @@ private fun queryParameter(name: String): String? =
 private fun queryParameterFromLocation(name: String): JsString? =
   js("new URL(window.location.href).searchParams.get(name)")
 
-private fun namedValuesFromLocation(): Map<String, RcNamedValue> {
-  val flat = flattenNamedValuesFromLocation()?.toString().orEmpty()
-  if (flat.isEmpty()) return emptyMap()
-  return buildMap {
-    flat.split('\u0001').forEach { row ->
-      val fields = row.split('\u0000')
-      if (fields.size != 4) return@forEach
-      val name = decodeUriComponent(fields[1])
-      val value = decodeUriComponent(fields[2])
-      val namedValue =
-        parseNamedValue(typeName = fields[0], value = value, isNumber = fields[3] == "n")
-      if (name.isNotEmpty() && namedValue != null) put("USER:$name", namedValue)
-    }
-  }
-}
+private fun namedValuesFromLocation(): Map<String, RcNamedValue> =
+  namedValuesFromRows(
+    flattenNamedValuesFromLocation()?.toString().orEmpty(),
+    decodeComponent = ::decodeUriComponent,
+  )
 
+/**
+ * `?namedValues=` as the rows [namedValuesFromRows] reads, or null when it is not a JSON array.
+ *
+ * Each element is flattened in its own `try`, so one that throws — `null`, whose `kind` is a
+ * TypeError, or text with a lone surrogate, which `encodeURIComponent` refuses with a URIError — is
+ * dropped on its own, as docs/design/RC_PLAYER_EMBED.md promises, rather than taking every override
+ * in the array with it. All three text fields are encoded, `kind` too: unescaped, a U+0000 or
+ * U+0001 in it would break its row or spell another one.
+ */
 private fun flattenNamedValuesFromLocation(): JsString? =
   js(
     """(function () {
+      var values;
       try {
-        var raw = new URL(window.location.href).searchParams.get('namedValues') || '[]';
-        var values = JSON.parse(raw);
-        if (!Array.isArray(values)) return null;
-        // The fourth field says whether `value` was a JSON number; parseNamedValue reads it.
-        return values.map(function (value) {
-          return [String(value.kind || ''), encodeURIComponent(String(value.name || '')),
-            encodeURIComponent(String(value.value == null ? '' : value.value)),
-            typeof value.value === 'number' ? 'n' : 's'].join('\u0000');
-        }).join('\u0001');
+        values = JSON.parse(new URL(window.location.href).searchParams.get('namedValues') || '[]');
       } catch (error) { return null; }
+      if (!Array.isArray(values)) return null;
+      var rows = [];
+      values.forEach(function (value) {
+        try {
+          // The fourth field says whether `value` was a JSON number; parseNamedValue reads it.
+          rows.push([encodeURIComponent(String(value.kind || '')),
+            encodeURIComponent(String(value.name || '')),
+            encodeURIComponent(String(value.value == null ? '' : value.value)),
+            typeof value.value === 'number' ? 'n' : 's'].join('\u0000'));
+        } catch (error) { /* this element alone is malformed */ }
+      });
+      return rows.join('\u0001');
     })()""",
   )
 

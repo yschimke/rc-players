@@ -133,6 +133,34 @@ internal val EMBED_TYPE_NAMES: List<String> =
   listOf("string", "float", "dp", "int", "bool", "color", "long")
 
 /**
+ * The `?namedValues=` overrides carried by [rows], keyed `USER:<name>`: the internal shape
+ * `Main.kt`'s `flattenNamedValuesFromLocation` hands across the JS/Wasm boundary, not the wire
+ * format. Rows are separated by U+0001; each is four U+0000-separated fields — the `kind`, the
+ * `name` and the `value` as `encodeURIComponent` wrote them, so none can contain a separator, then
+ * `n` when `value` was a JSON number. [decodeComponent] undoes the encoding (`decodeURIComponent`
+ * in the browser).
+ *
+ * Each row stands alone: one that is malformed, names no variable or does not parse as its kind is
+ * dropped and the rest are kept, as docs/design/RC_PLAYER_EMBED.md promises of the elements they
+ * come from. When two rows name one variable, the later wins.
+ */
+internal fun namedValuesFromRows(
+  rows: String,
+  decodeComponent: (String) -> String,
+): Map<String, RcNamedValue> {
+  if (rows.isEmpty()) return emptyMap()
+  return buildMap {
+    rows.split('\u0001').forEach { row ->
+      val fields = row.split('\u0000')
+      if (fields.size != 4) return@forEach
+      val (kind, name, value) = fields.take(3).map(decodeComponent)
+      val namedValue = parseNamedValue(typeName = kind, value = value, isNumber = fields[3] == "n")
+      if (name.isNotEmpty() && namedValue != null) put("USER:$name", namedValue)
+    }
+  }
+}
+
+/**
  * One `?namedValues=` element's value as the player takes it, or null when [typeName] is not one of
  * [EMBED_TYPE_NAMES] or [value] does not parse as it — the element is then dropped, as
  * docs/design/RC_PLAYER_EMBED.md describes.
