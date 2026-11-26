@@ -187,7 +187,7 @@ extension RemoteCreationContext {
 
     op(opcode)
     body.int(componentID)
-    body.int(remoteNoID)  // No animation id.
+    body.int(RemoteIDEncoding.noID)  // No animation id.
     fields(&body)
     body.append(modifierBody)
     contentSection()

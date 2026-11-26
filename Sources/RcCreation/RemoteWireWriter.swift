@@ -1,22 +1,5 @@
-// The wire values `operations.json` does not carry, written by hand with their AndroidX source.
-// Everything the schema defines is generated into RemoteWireConstants.swift by `:rc-codegen`.
-
-/// The type field (`tag >> 10`) of a modern header property.
-enum RemoteHeaderValueType {
-  static let int = 0
-  static let float = 1
-  static let long = 2
-  static let string = 3
-}
-
-/// The version words of a modern header.
-enum RemoteHeaderVersion {
-  /// `Header.MAGIC_NUMBER`, OR'd into the major version.
-  static let magic = 0x048C_0000
-  static let major = 1
-  static let minor = 1
-  static let patch = 0
-}
+// The byte writer and the NaN boxing. Every wire constant is generated from the schema into
+// RemoteWireConstants.swift by `:rc-codegen`.
 
 /// The NaN boxing every id reference uses (`Utils.asNan`), from the schema's id encoding.
 enum RemoteNaN {
@@ -55,36 +38,3 @@ struct RemoteByteBuffer {
 
   mutating func append(_ other: RemoteByteBuffer) { bytes.append(contentsOf: other.bytes) }
 }
-
-/// Background and border modifier `flags`.
-enum RemoteModifierColorFlag {
-  /// The colour is the id in `colorId`, not the four channel floats.
-  static let colorID = 2
-}
-
-/// `BorderModifierOperation`'s `shapeType`, as AndroidX's `BorderModifier` writes it
-/// (`remote-creation-compose`, `modifier/BorderModifier.kt`). The schema gives this field no enum,
-/// and the values differ from the background's: a rounded rectangle is its own shape here, and
-/// a player reads the corner radius only for it.
-enum RemoteBorderShape {
-  static let rectangle = 0
-  static let circle = 1
-  static let roundedRectangle = 2
-}
-
-/// `BorderModifierOperation`'s wire versions (its `reserve1` word).
-enum RemoteBorderWireVersion {
-  /// The legacy stroke, centred on the bounds.
-  static let centred = 0
-  /// The stroke drawn inside the bounds, as AndroidX writes it from API level 8.
-  static let inside = 1
-}
-
-/// `TextLayout`'s `fontStyle`.
-enum RemoteFontStyle {
-  static let normal = 0
-  static let italic = 1
-}
-
-/// The "none" value of an id field: no component id requested, no animation, the default font.
-let remoteNoID = -1

@@ -44,6 +44,8 @@ Every hunk is marked `LOCAL PATCH (rc-players)`.
 | `RemoteSerializationCodeGenerator.kt` | `loadBundledSchema()` made public; `generate(target, outputDirectory, schema)` added | A target outside the module needs the same schema, and a way to run. |
 | `codegen/SwiftGenerator.kt` | `SwiftGenerator.Options`: `DEFAULT` (upstream's output, unchanged) or `PORTABLE` (no Foundation). The portable output uses `[UInt8]` (`WireBytes`), a typed `RemoteComposeWireError` in place of `NSError`, and a validating UTF-8 decode | So the bindings build with the standard library alone, and a caller can inspect a failure. Written as a rewrite of the finished output, so upstream's templates stay untouched. |
 | `codegen/SwiftGenerator.kt` | `Swift.min` in array reads | Upstream bug: in an operation with a field named `min`, the unqualified call resolves to the field, and upstream's Swift fails to compile (16 errors). |
+| `JsonSchemaParser.kt`, `OperationSchema.kt` | `SchemaIdEncoding.noId`, read from `idEncoding.noId` (default -1) | The "no id" sentinel (no component id requested, no animation, the default font) is a wire value the schema did not name. |
+| `resources/schema/operations.json` | Values upstream's schema leaves out, added so generated code needs no hand-written constants: `colorRef` bit on `BackgroundModifierOperation.flags` and `BorderModifierOperation.flags`; enums on `BorderModifierOperation.shapeType` (`RECTANGLE`, `CIRCLE`, `ROUNDED_RECTANGLE` = 2), `BorderModifierOperation.reserve1` (`LEGACY`, `VERSION_1`) and `TextLayout.fontStyle` (`NORMAL`, `ITALIC`); `headerConstants.propertyType` (`DATA_TYPE_INT` … `DATA_TYPE_STRING`) and `headerConstants.version` (`MAGIC_NUMBER` 0x048C0000, major 1, minor 1, patch 0); `idEncoding.noId` (-1) | JSON has no comments, so this table is the marker. Each value is AndroidX's: the writers in `remote-creation-compose` and `remote-core`. `ROUNDED_RECTANGLE` matters: without it a writer sends a radius with shape 0 and players draw the border square. Upstream's validator passes over the patched file (`RcCodegenTest.schemaPassesUpstreamValidation`). |
 
 ## Found while forking (for upstream)
 
@@ -55,12 +57,17 @@ These are also tracked in the upstream-issues document linked from
   content description and the rest), and `save()` always writes the legacy header. Operations
   round-trip; the header does not.
 - `rpnOperators` spells `STORE_R0` as `STORE_RO`.
+- The schema names no values for several fields writers set: the background and border colour-reference
+  flag, the border shape (and has no rounded rectangle, which writers send as 2), the border wire
+  version, the text font style, the header property types and version words, and the "no id"
+  sentinel. The fork adds them (above).
 
 ## Re-syncing
 
 1. Copy upstream's `src/main` over this directory's `src/main`.
 2. Re-apply the hunks marked `LOCAL PATCH (rc-players)` (`git diff` against the previous sync shows
-   them). Then update the commit above.
+   them), and the `operations.json` additions in the table above, dropping any upstream has since
+   made itself. Then update the commit above.
 3. Run `./gradlew :rc-codegen:generateSwiftSources`, then the Swift suites
    (`swift test --filter 'RcCreationTests|RcWireOperationsTests'`), and commit the regenerated
    sources.

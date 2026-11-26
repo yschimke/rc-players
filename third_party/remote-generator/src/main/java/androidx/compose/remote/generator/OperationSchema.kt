@@ -92,6 +92,8 @@ public class SchemaIdEncoding(
     public val valueMask: Int,
     public val macroLocalStartId: Int,
     public val macroLocalEndId: Int,
+    // LOCAL PATCH (rc-players): see JsonSchemaParser's `noId`.
+    public val noId: Int = -1,
 )
 
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)

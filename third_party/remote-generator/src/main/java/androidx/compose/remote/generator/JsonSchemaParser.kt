@@ -199,6 +199,9 @@ public object JsonSchemaParser {
                     valueMask = obj.getInt("valueMask"),
                     macroLocalStartId = obj.getInt("macroLocalStartId"),
                     macroLocalEndId = obj.getInt("macroLocalEndId"),
+                    // LOCAL PATCH (rc-players): the sentinel for "no id" (no component id
+                    // requested, no animation, the default font), which operations.json did not name.
+                    noId = obj.optInt("noId", -1),
                 )
             } else null
 

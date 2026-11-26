@@ -114,7 +114,7 @@ public struct RemoteText: RemoteView, RemotePrimitiveView {
     // `TextLayout`, the text component every player profile reads (`CoreText` is AndroidX-only).
     context.op(RemoteOpcode.layoutText)
     context.body.int(context.newComponentID())
-    context.body.int(remoteNoID)  // No animation id.
+    context.body.int(RemoteIDEncoding.noID)  // No animation id.
     context.body.int(textID)
     let alignment: Int
     switch resolved {
@@ -128,7 +128,7 @@ public struct RemoteText: RemoteView, RemotePrimitiveView {
     context.body.float(context.px(fontSize))
     context.body.int(italic ? RemoteFontStyle.italic : RemoteFontStyle.normal)
     context.body.float(fontWeight.value)
-    context.body.int(remoteNoID)  // The default font family.
+    context.body.int(RemoteIDEncoding.noID)  // The default font family.
     context.body.int(alignment)
     context.body.int(overflow.wire)
     context.body.int(maxLines)

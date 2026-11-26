@@ -206,6 +206,8 @@ enum RemoteIDEncoding {
   static let nanPrefix: UInt32 = 0xFF80_0000
   static let payloadMask: UInt32 = 0x003F_FFFF
   static let firstDataID = 42
+  /// No id: no component id requested, no animation, the default font.
+  static let noID = -1
 }
 
 /// `AnimatedFloatExpression`'s operators, as offsets from `offset`.
@@ -460,4 +462,44 @@ enum RemoteTextLayoutOverflow {
 /// `TextLayout`'s flag bits in its `textAlign` word.
 enum RemoteTextLayoutFlag {
   static let isDynamicColor = 65_536
+}
+
+/// `TextLayout`'s `fontStyle`.
+enum RemoteFontStyle {
+  static let normal = 0
+  static let italic = 1
+}
+
+/// Background and border modifier `flags` bits.
+enum RemoteModifierColorFlag {
+  static let colorRef = 2
+}
+
+/// `BorderModifierOperation`'s `shapeType`; only the rounded rectangle reads the radius.
+enum RemoteBorderShape {
+  static let rectangle = 0
+  static let circle = 1
+  static let roundedRectangle = 2
+}
+
+/// `BorderModifierOperation`'s wire version, its `reserve1` word.
+enum RemoteBorderWireVersion {
+  static let legacy = 0
+  static let version1 = 1
+}
+
+/// The type field (`tag >> 10`) of a modern header property.
+enum RemoteHeaderValueType {
+  static let int = 0
+  static let float = 1
+  static let long = 2
+  static let string = 3
+}
+
+/// The version words of a modern header: `magicNumber` is OR'd into the major version.
+enum RemoteHeaderVersion {
+  static let patch = 0
+  static let major = 1
+  static let minor = 1
+  static let magicNumber = 0x048C_0000
 }

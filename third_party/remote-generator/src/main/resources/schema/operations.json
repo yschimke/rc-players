@@ -1200,7 +1200,15 @@
         {
           "name": "flags",
           "type": "int",
-          "description": "Modifier flags (bit 1 = COLOR_REF)"
+          "description": "Modifier flags (bit 1 = COLOR_REF)",
+          "unpackBits": false,
+          "bits": [
+            {
+              "name": "colorRef",
+              "range": "1",
+              "description": "The color is the id in colorId, not the r/g/b/a channel floats"
+            }
+          ]
         },
         {
           "name": "colorId",
@@ -2432,7 +2440,15 @@
         {
           "name": "flags",
           "type": "int",
-          "description": "Behavior flags"
+          "description": "Behavior flags",
+          "unpackBits": false,
+          "bits": [
+            {
+              "name": "colorRef",
+              "range": "1",
+              "description": "The color is the id in colorId, not the r/g/b/a channel floats"
+            }
+          ]
         },
         {
           "name": "colorId",
@@ -2442,7 +2458,11 @@
         {
           "name": "reserve1",
           "type": "int",
-          "description": "0 for legacy behavior, 1 to support dynamic radius"
+          "description": "0 for legacy behavior, 1 to support dynamic radius",
+          "enum": {
+            "LEGACY": 0,
+            "VERSION_1": 1
+          }
         },
         {
           "name": "reserve2",
@@ -2482,7 +2502,12 @@
         {
           "name": "shapeType",
           "type": "int",
-          "description": "The shape type (0=RECTANGLE, 1=CIRCLE)"
+          "description": "The shape type (0=RECTANGLE, 1=CIRCLE, 2=ROUNDED_RECTANGLE: the only one roundedCorner applies to)",
+          "enum": {
+            "RECTANGLE": 0,
+            "CIRCLE": 1,
+            "ROUNDED_RECTANGLE": 2
+          }
         }
       ],
       "profiles": [
@@ -5655,7 +5680,11 @@
         {
           "name": "fontStyle",
           "type": "int",
-          "description": "The font style (0=normal, 1=italic)"
+          "description": "The font style (0=normal, 1=italic)",
+          "enum": {
+            "NORMAL": 0,
+            "ITALIC": 1
+          }
         },
         {
           "name": "fontWeight",
@@ -9290,6 +9319,18 @@
     }
   ],
   "headerConstants": {
+    "propertyType": {
+      "DATA_TYPE_INT": 0,
+      "DATA_TYPE_FLOAT": 1,
+      "DATA_TYPE_LONG": 2,
+      "DATA_TYPE_STRING": 3
+    },
+    "version": {
+      "MAGIC_NUMBER": 76283904,
+      "MAJOR_VERSION": 1,
+      "MINOR_VERSION": 1,
+      "PATCH_VERSION": 0
+    },
     "densityBehavior": {
       "DENSITY_BEHAVIOR_LEGACY": 0,
       "DENSITY_BEHAVIOR_PIXELS": 1,
@@ -9319,7 +9360,8 @@
     "ptrDereference": 1073741824,
     "valueMask": 65535,
     "macroLocalStartId": 16384,
-    "macroLocalEndId": 20479
+    "macroLocalEndId": 20479,
+    "noId": -1
   },
   "animationSpec": {
     "easings": [

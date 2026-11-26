@@ -21,10 +21,12 @@ Two modules do this:
 
 `rc-swift-wire-constants` takes opcodes from the schema and from `rc-operations.manifest`, because
 the manifest also carries constants the schema has no entry for: the 3D range, the reserved
-extension range, and opcodes with no reader. Everything else comes from the schema. The few values
-the schema does not carry (header value types, the header magic, the colour-id flag, the border wire
-version, the font style) stay hand-written in `RemoteWireWriter.swift`, each naming its AndroidX
-source.
+extension range, and opcodes with no reader. Everything else comes from the schema, so no wire
+value in `RcCreation` is written by hand. Where upstream's schema left a value out, the fork's schema
+adds it as a marked local patch (see the PROVENANCE): the header property types and version words,
+the background and border colour-reference flag, the border shape (including the rounded rectangle)
+and wire version, the text font style, and the "no id" sentinel. Upstream's validator runs over the
+patched schema in `:rc-codegen`'s tests.
 
 ## Commands
 

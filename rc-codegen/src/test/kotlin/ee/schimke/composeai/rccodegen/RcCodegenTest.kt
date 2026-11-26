@@ -34,6 +34,36 @@ class RcCodegenTest {
     assertTrue("opcodes without a Swift constant: $missing", missing.isEmpty())
   }
 
+  /**
+   * The fork's schema, local patches included, passes upstream's own validation: what
+   * `:compose:remote:remote-generator:updateGeneratedCode` runs in androidx-main. Its entry point
+   * is `internal`, so it is reached by name.
+   */
+  @Test
+  fun schemaPassesUpstreamValidation() {
+    val updater = Class.forName("androidx.compose.remote.generator.AndroidXCodegenUpdater")
+    updater.getMethod("main", Array<String>::class.java).invoke(null, arrayOf(root.toString()))
+  }
+
+  /** Every value the Swift writer needs comes from the schema: nothing is left by hand. */
+  @Test
+  fun schemaCarriesTheValuesThatWereHandWritten() {
+    val swift = constants()
+    for (namespace in
+      listOf(
+        "RemoteFontStyle",
+        "RemoteModifierColorFlag",
+        "RemoteBorderShape",
+        "RemoteBorderWireVersion",
+        "RemoteHeaderValueType",
+        "RemoteHeaderVersion",
+      )) {
+      assertTrue("$namespace is not generated", "enum $namespace {" in swift)
+    }
+    assertTrue("static let noID = -1" in swift)
+    assertTrue("static let magicNumber = 0x048C_0000" in swift)
+  }
+
   @Test
   fun generationIsDeterministic() {
     assertEquals(constants(), constants())

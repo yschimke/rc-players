@@ -83,7 +83,7 @@ public struct RemoteDocument {
     }
 
     buffer.byte(RemoteOpcode.header)
-    buffer.int(RemoteHeaderVersion.magic | RemoteHeaderVersion.major)
+    buffer.int(RemoteHeaderVersion.magicNumber | RemoteHeaderVersion.major)
     buffer.int(RemoteHeaderVersion.minor)
     buffer.int(RemoteHeaderVersion.patch)
     buffer.int(properties.count)

@@ -120,6 +120,43 @@ private class SwiftConstantsWriter(
       "`TextLayout`'s flag bits in its `textAlign` word.",
       bitFlags("TextLayout", "textAlign"),
     )
+    namespace(
+      "RemoteFontStyle",
+      "`TextLayout`'s `fontStyle`.",
+      fieldEnum("TextLayout", "fontStyle"),
+    )
+    namespace(
+      "RemoteModifierColorFlag",
+      "Background and border modifier `flags` bits.",
+      bitFlags("BackgroundModifierOperation", "flags"),
+    )
+    check(
+      bitFlags("BorderModifierOperation", "flags") ==
+        bitFlags("BackgroundModifierOperation", "flags"),
+    ) {
+      "the background and border flags differ; give the border its own namespace"
+    }
+    namespace(
+      "RemoteBorderShape",
+      "`BorderModifierOperation`'s `shapeType`; only the rounded rectangle reads the radius.",
+      fieldEnum("BorderModifierOperation", "shapeType"),
+    )
+    namespace(
+      "RemoteBorderWireVersion",
+      "`BorderModifierOperation`'s wire version, its `reserve1` word.",
+      fieldEnum("BorderModifierOperation", "reserve1"),
+    )
+    namespace(
+      "RemoteHeaderValueType",
+      "The type field (`tag >> 10`) of a modern header property.",
+      headerGroup("propertyType").mapKeys { it.key.removePrefix("DATA_TYPE_") },
+    )
+    namespace(
+      "RemoteHeaderVersion",
+      "The version words of a modern header: `magicNumber` is OR'd into the major version.",
+      headerGroup("version").mapKeys { it.key.removeSuffix("_VERSION") },
+      literal = { name, value -> if (name == "magicNumber") hex(value) else swiftDecimal(value) },
+    )
     return out.toString()
   }
 
@@ -141,6 +178,8 @@ private class SwiftConstantsWriter(
     line("  static let nanPrefix: UInt32 = ${hex(encoding.nanPrefix)}")
     line("  static let payloadMask: UInt32 = ${hex(encoding.payloadMask)}")
     line("  static let firstDataID = ${encoding.startId}")
+    line("  /// No id: no component id requested, no animation, the default font.")
+    line("  static let noID = ${encoding.noId}")
     line("}")
   }
 
@@ -184,6 +223,9 @@ private class SwiftConstantsWriter(
       .filter { !it.range.contains("..") }
       .associate { it.name to (1 shl it.range.toInt()) }
 
+  private fun headerGroup(group: String): Map<String, Int> =
+    checkNotNull(schema.headerConstants[group]) { "the schema has no header constants \"$group\"" }
+
   private fun paintEnum(command: String): Map<String, Int> =
     checkNotNull(
       schema.paintCommands.values.first { it.name == command }.fields.firstOrNull()?.enumValues,
@@ -196,6 +238,7 @@ private class SwiftConstantsWriter(
     doc: String,
     values: Map<String, Int>,
     camel: (String) -> String = ::lowerCamel,
+    literal: (name: String, value: Int) -> String = { _, value -> swiftDecimal(value) },
   ) {
     check(values.isNotEmpty()) { "$name would be empty" }
     line()
@@ -206,7 +249,7 @@ private class SwiftConstantsWriter(
     for ((key, value) in values.entries.sortedWith(compareBy({ it.value }, { it.key }))) {
       val swiftName = swiftIdentifier(camel(key))
       check(seen.add(swiftName)) { "$name has two values named $swiftName" }
-      line("  static let $swiftName = ${swiftDecimal(value)}")
+      line("  static let $swiftName = ${literal(swiftName, value)}")
     }
     line("}")
   }

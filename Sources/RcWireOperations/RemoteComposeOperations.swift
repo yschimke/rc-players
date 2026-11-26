@@ -581,6 +581,10 @@ public enum IdEncoding {
 }
 
 public enum HeaderConstants {
+    public static let DATA_TYPE_INT: Int32 = 0
+    public static let DATA_TYPE_FLOAT: Int32 = 1
+    public static let DATA_TYPE_LONG: Int32 = 2
+    public static let DATA_TYPE_STRING: Int32 = 3
     public static let SCROLL_NONE: Int32 = 0
     public static let SCROLL_HORIZONTAL: Int32 = 1
     public static let SCROLL_VERTICAL: Int32 = 2
@@ -589,6 +593,10 @@ public enum HeaderConstants {
     public static let DENSITY_BEHAVIOR_DP: Int32 = 2
     public static let COMPRESSION_NONE: Int32 = 0
     public static let COMPRESSION_DEFLATE: Int32 = 1
+    public static let PATCH_VERSION: Int32 = 0
+    public static let MAJOR_VERSION: Int32 = 1
+    public static let MINOR_VERSION: Int32 = 1
+    public static let MAGIC_NUMBER: Int32 = 76283904
 }
 
 public enum PaintCommandTags {
@@ -2671,6 +2679,9 @@ public struct BackgroundModifierOperation: RemoteOperation, Equatable {
     public var a: Float
     /// Background shape type
     public var shapeType: Int32
+    public var colorRef: Int32 {
+        return Int32((UInt32(bitPattern: flags) >> 1) & 0x1)
+    }
 
     /// Creates a new [BackgroundModifierOperation] operation.
     /// - Parameters:
@@ -4560,6 +4571,11 @@ public struct MatrixFromMesh2D: RemoteOperation, Equatable {
 /// Define a border for a component
 public struct BorderModifierOperation: RemoteOperation, Equatable {
     public let opCode: OpCode = .borderModifierOperation
+    public static let LEGACY: Int32 = 0
+    public static let VERSION_1: Int32 = 1
+    public static let RECTANGLE: Int32 = 0
+    public static let CIRCLE: Int32 = 1
+    public static let ROUNDED_RECTANGLE: Int32 = 2
 
     /// Behavior flags
     public var flags: Int32
@@ -4581,8 +4597,11 @@ public struct BorderModifierOperation: RemoteOperation, Equatable {
     public var b: Float
     /// Alpha component [0..1]
     public var a: Float
-    /// The shape type (0=RECTANGLE, 1=CIRCLE)
+    /// The shape type (0=RECTANGLE, 1=CIRCLE, 2=ROUNDED_RECTANGLE: the only one roundedCorner applies to)
     public var shapeType: Int32
+    public var colorRef: Int32 {
+        return Int32((UInt32(bitPattern: flags) >> 1) & 0x1)
+    }
 
     /// Creates a new [BorderModifierOperation] operation.
     /// - Parameters:
@@ -4596,7 +4615,7 @@ public struct BorderModifierOperation: RemoteOperation, Equatable {
     ///   - g: Green component [0..1]
     ///   - b: Blue component [0..1]
     ///   - a: Alpha component [0..1]
-    ///   - shapeType: The shape type (0=RECTANGLE, 1=CIRCLE)
+    ///   - shapeType: The shape type (0=RECTANGLE, 1=CIRCLE, 2=ROUNDED_RECTANGLE: the only one roundedCorner applies to)
     public init(flags: Int32 = 0, colorId: Int32 = 0, reserve1: Int32 = 0, reserve2: Int32 = 0, borderWidth: Float = 0.0, roundedCorner: Float = 0.0, r: Float = 0.0, g: Float = 0.0, b: Float = 0.0, a: Float = 0.0, shapeType: Int32 = 0) {
         self.flags = flags
         self.colorId = colorId
@@ -8750,6 +8769,8 @@ public struct CanvasContent: RemoteOperation, Equatable {
 /// Text layout implementation
 public struct TextLayout: RemoteOperation, Equatable {
     public let opCode: OpCode = .textLayout
+    public static let NORMAL: Int32 = 0
+    public static let ITALIC: Int32 = 1
     public static let LEFT: Int32 = 1
     public static let RIGHT: Int32 = 2
     public static let CENTER: Int32 = 3

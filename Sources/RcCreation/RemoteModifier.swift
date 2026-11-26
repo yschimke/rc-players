@@ -290,7 +290,7 @@ extension RemoteCreationContext {
         body.int(0)
         for channel in RemoteCreationContext.components(argb) { body.float(channel) }
       case .id(let id):
-        body.int(RemoteModifierColorFlag.colorID)
+        body.int(RemoteModifierColorFlag.colorRef)
         body.int(id)
         body.int(0)
         body.int(0)
@@ -304,15 +304,15 @@ extension RemoteCreationContext {
       case .literal(let argb):
         body.int(0)
         body.int(0)
-        body.int(RemoteBorderWireVersion.inside)
+        body.int(RemoteBorderWireVersion.version1)
         body.int(0)
         body.float(px(width))
         body.float(px(cornerRadius))
         for channel in RemoteCreationContext.components(argb) { body.float(channel) }
       case .id(let id):
-        body.int(RemoteModifierColorFlag.colorID)
+        body.int(RemoteModifierColorFlag.colorRef)
         body.int(id)
-        body.int(RemoteBorderWireVersion.inside)
+        body.int(RemoteBorderWireVersion.version1)
         body.int(0)
         body.float(px(width))
         body.float(px(cornerRadius))
@@ -359,7 +359,7 @@ extension RemoteCreationContext {
       let nameID = textID(name)
       let (type, valueID): (Int, Int)
       switch value {
-      case .none: (type, valueID) = (RemoteHostActionValueType.none, remoteNoID)
+      case .none: (type, valueID) = (RemoteHostActionValueType.none, RemoteIDEncoding.noID)
       case .float(let float):
         (type, valueID) = (RemoteHostActionValueType.float, floatIDForAction(float))
       case .int(let int): (type, valueID) = (RemoteHostActionValueType.int, intID(int))

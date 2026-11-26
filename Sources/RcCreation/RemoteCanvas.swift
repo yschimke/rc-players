@@ -115,7 +115,7 @@ public struct RemoteCanvas: RemoteView, RemotePrimitiveView {
     let canvasID = context.newComponentID()
     context.op(RemoteOpcode.layoutCanvas)
     context.body.int(canvasID)
-    context.body.int(remoteNoID)  // No animation id.
+    context.body.int(RemoteIDEncoding.noID)  // No animation id.
     context.body.append(modifierBody)
     context.contentSection()
     // `CanvasContent`: the drawing, in the form every player profile reads.

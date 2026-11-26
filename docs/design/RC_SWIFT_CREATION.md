@@ -108,9 +108,9 @@ percentage text and the subtitle without a new document.
   nothing; constant strings joined with `+` become one string.
 - **No player dependency.** `RcCreation` depends on nothing, so it builds for every Apple platform
   and on Linux. Its wire constants are generated from AndroidX's schema by `:rc-codegen`
-  (`RemoteWireConstants.swift`, [`RC_CODEGEN.md`](RC_CODEGEN.md)); only the few values the schema
-  does not carry are written by hand. `RcCreationTests` depends on the native player core to read
-  documents back.
+  (`RemoteWireConstants.swift`, [`RC_CODEGEN.md`](RC_CODEGEN.md)), including the few the fork had
+  to add to the schema; none is written by hand. `RcCreationTests` depends on the native player
+  core to read documents back.
 
 ## Verification
 
