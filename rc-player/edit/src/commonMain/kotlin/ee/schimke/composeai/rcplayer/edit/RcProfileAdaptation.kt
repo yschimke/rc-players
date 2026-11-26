@@ -168,9 +168,13 @@ public fun RcDocument.adaptTo(
       .legacyBorders(target)
       .bakeDensity(target, display)
       .let {
-        // The platform's widget player lays a layout with a variable spacing out as nothing.
-        if (target.isLauncherWidget) it.hardcodeLayoutSpacing(display.density, display.fontScale)
-        else it
+        // CoreDocument layout managers (platform widgets, Wear widgets, AndroidX View player) read
+        // layout spacing only as a literal float.
+        if (target.readsLiteralLayoutSpacingOnly) {
+          it.hardcodeLayoutSpacing(display.density, display.fontScale)
+        } else {
+          it
+        }
       }
       .foldLiteralFields(target)
       .literalTextColors(target)
@@ -251,12 +255,12 @@ internal val RcTargetProfile.isLauncherWidget: Boolean
   get() = apiLevel <= 6 || profiles and RcProfiles.WIDGETS != 0
 
 /**
- * Whether a layout's spacing in this document, on the launcher widget player [target] is, comes out
- * differently on different displays: a variable no display-free reading fixes, which one display's
- * density does.
+ * Whether a layout's spacing in this document, on a player that reads spacing only as a literal,
+ * comes out differently on different displays: a variable no display-free reading fixes, which one
+ * display's density does.
  */
 private fun RcDocument.spacingReadsDisplay(target: RcTargetProfile): Boolean {
-  if (!target.isLauncherWidget) return false
+  if (!target.readsLiteralLayoutSpacingOnly) return false
   // As [adaptTo] sees it: a layout in a macro's body is inlined before its spacing is written.
   val operations = inlineStructuralOperations(target).operations
   if (operations.none { it.layoutSpacing?.isNaNEncoded == true }) return false
