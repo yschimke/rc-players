@@ -52,6 +52,9 @@ var products: [Product] = [
   .library(name: "RcPlayerAppleFonts", targets: ["RcPlayerAppleFonts"]),
   .library(name: "RcComposePlayerSwiftUI", targets: ["RcComposePlayerSwiftUI"]),
   .library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"]),
+  // Authoring `.rc` documents from Swift, in the shape of Compose's layouts and modifiers. Pure
+  // Swift with no player dependency, so it builds on every platform, Linux included.
+  .library(name: "RcCreation", targets: ["RcCreation"]),
   .library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"]),
   // The AppKit renderer as a command-line tool: what the preview server's `swift-appkit` lane
   // spawns. Released as `rc-swift-render-macos-arm64.zip`; see docs/design/RC_SWIFT_RENDER.md.
@@ -81,6 +84,9 @@ var targets: [Target] = [
   .target(name: "RcPlayerAppleFonts", resources: [.copy("PrivacyInfo.xcprivacy")]),
   .target(name: "RcComposePlayerSwiftUI", dependencies: swiftUIDependencies),
   .target(name: "RcNativePlayerCore"),
+  .target(name: "RcCreation"),
+  // Round trips: documents written by RcCreation, read back by the native document core.
+  .testTarget(name: "RcCreationTests", dependencies: ["RcCreation", "RcNativePlayerCore"]),
   .target(
     name: "RcNativePlayerUIKit",
     dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"],
@@ -126,8 +132,10 @@ if nativeOnly {
     ))
 }
 if coreOnly {
-  let coreTargets: Set<String> = ["RcNativePlayerCore", "RcNativePlayerCoreTests"]
-  products = products.filter { $0.name == "RcNativePlayerCore" }
+  let coreTargets: Set<String> = [
+    "RcNativePlayerCore", "RcNativePlayerCoreTests", "RcCreation", "RcCreationTests",
+  ]
+  products = products.filter { ["RcNativePlayerCore", "RcCreation"].contains($0.name) }
   targets = targets.filter { coreTargets.contains($0.name) }
 }
 if !nativeOnly {

@@ -59,6 +59,8 @@ jobs:
             --recursive \
             Sources/RcNativePlayerCore \
             Sources/RcNativePlayerUIKit \
+            Sources/RcCreation \
+            Tests/RcCreationTests \
             Tests/RcNativePlayerCoreTests \
             Tests/RcNativePlayerTestDocuments \
             Tests/RcNativePlayerUIKitTests

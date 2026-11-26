@@ -249,6 +249,25 @@ captures to the same document operation for operation, in dp and legacy density.
 corpus, Material components draw through canvases with computed geometry, so most documents come
 back as a correct component tree with their drawing marked rather than written.
 
+#### From Swift (`RcCreation`) — experimental
+
+The `RcCreation` SwiftPM product writes documents from Swift with Compose's layouts and modifiers
+in the shape of SwiftUI: result builders, `RemoteView` structs with a `body`, and named state the
+host writes later. Pure Swift with no player dependency, so it builds on Linux too. Its tests read
+every document back through the native player core. Design and coverage:
+[`docs/design/RC_SWIFT_CREATION.md`](docs/design/RC_SWIFT_CREATION.md).
+
+```swift
+let progress = RemoteFloat.named("progress", 0.62)
+let document = RemoteDocument(width: 720, height: 400, density: 2) {
+  RemoteColumn(modifier: .fillMaxSize().padding(16), verticalArrangement: .spacedBy(12)) {
+    RemoteText("Upload " + RemoteString(progress * 100, decimals: 0) + "%", fontSize: 13)
+    RemoteBox(modifier: .width(progress * 328).height(8).background(.blue))
+  }
+}
+let bytes: [UInt8] = document.encode()
+```
+
 ### Reading and diffing a document
 
 A capture is reproducible down to the bit: the same content and display capture to the same bytes
