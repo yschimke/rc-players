@@ -619,6 +619,13 @@ enum NativeSwiftHeaderKey {
   static let densityBehavior = 27
 }
 
+/// `BackgroundModifierOperation`'s `shapeType`: every value AndroidX defines. The native core draws
+/// only the rectangle and reports a circle as unsupported.
+enum NativeSwiftBackgroundShape {
+  static let rectangle = 0
+  static let circle = 1
+}
+
 /// Background and border modifier `flags` (`BackgroundModifierOperation`,
 /// `BorderModifierOperation`): bit 1 says the colour is the id in the `colorId` word rather than
 /// the four channel floats. AndroidX names no other bit.

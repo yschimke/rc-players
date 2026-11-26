@@ -1545,7 +1545,7 @@ enum NativeSwiftDocumentDecoder {
         let alpha = try input.floatWord(
           "background alpha", requireLiteral: !usesColorID, opcode: opcode)
         let shape = try input.int("background shape")
-        guard shape == 0 else {
+        guard shape == NativeSwiftBackgroundShape.rectangle else {
           throw NativeSwiftCoreError.unsupported(
             opcode: opcode, offset: opcodeOffset, reason: "non-rectangular backgrounds")
         }
