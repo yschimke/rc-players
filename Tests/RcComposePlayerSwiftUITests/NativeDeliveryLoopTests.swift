@@ -76,14 +76,12 @@ import Testing
   }
 
   private static func deliver(
-    _ value: ControllerNamedValue?, to slot: TargetSlot,
-    isCurrent: @escaping () -> Bool = { true }
+    _ value: ControllerNamedValue?, to slot: TargetSlot
   ) -> Task<RemoteComposeNativeInputAdmission?, Never> {
     slot.target?.expected = value?.nativeValue
     return Task { @MainActor in
       defer { slot.isFinished = true }
-      return await deliverNamedUpdate(
-        value, for: "USER:count", to: { slot.target }, isCurrent: isCurrent)
+      return await deliverNamedUpdate(value, for: "USER:count", to: { slot.target })
     }
   }
 
@@ -219,20 +217,6 @@ import Testing
     #expect(try await Self.finish(value, to: inFlight) == nil)
     #expect(inFlight.offers == 1)
     #expect(inFlightAvailability.waiterCount == 0)
-  }
-
-  /// 5c. A delivery that is no longer current (a newer value for the name started, or the player
-  /// was rebuilt) returns nil on its next wake without offering again.
-  @Test(arguments: updates)
-  func aDeliveryThatIsNoLongerCurrentStopsOffering(_ value: ControllerNamedValue?) async throws {
-    let target = ScriptedTarget(answers: { _ in .deferred })
-    let slot = TargetSlot(target)
-    let delivery = Self.deliver(value, to: slot, isCurrent: { target.offers == 0 })
-    defer { delivery.cancel() }
-    try await Self.parked(slot, after: 1)
-    target.availability.signal()
-    #expect(try await Self.finish(delivery, of: slot) == nil)
-    #expect(target.offers == 1)
   }
 
   /// 6. A refusal returns at once: one offer, and no wait.

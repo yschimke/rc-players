@@ -2733,7 +2733,8 @@ private val LocalRcLayoutVersion = compositionLocalOf { 0 }
  * is written after `beginFrame`, so the block runs once the state holds the frame's values rather
  * than the previous frame's. A document that never reads the clock never moves it.
  */
-private val LocalRcFrameTime = staticCompositionLocalOf<FloatState?> { null }
+// Internal, not private, only so `RcLayerFloatTest` can provide a frame clock.
+internal val LocalRcFrameTime = staticCompositionLocalOf<FloatState?> { null }
 
 /**
  * Whether draws below may stop following [LocalRcFrameTime] while they read no clock (see
@@ -5286,8 +5287,10 @@ private fun Modifier.applyGraphicsLayer(
   // RenderNode layer composites like `Auto`).
   val compositingStrategy = remember(operation) { operation.compositingStrategy() }
   // The offsets drawn into a `ModulateAlpha` layer decide from these same eased values whether
-  // they can keep a layer of their own (see [RcModulateAlphaLayer]).
-  modulateAlphaLayer?.bind(alpha, blurX, blurY)
+  // they can keep a layer of their own (see [RcModulateAlphaLayer]). Bound once the composition
+  // applies, not during it: the readers are snapshot state, and a recomposition that changed none
+  // of them hands over the same readers, which writes nothing.
+  if (modulateAlphaLayer != null) SideEffect { modulateAlphaLayer.bind(alpha, blurX, blurY) }
   val shapeType = int(RcGraphicsLayerModifier.SHAPE)
   val blurTileMode =
     when (int(RcGraphicsLayerModifier.BLUR_TILE_MODE)) {
@@ -5345,22 +5348,35 @@ private fun Modifier.applyGraphicsLayer(
  *   are read straight through.
  */
 @Composable
-private fun rcLayerFloat(
+// Internal, not private, only so `RcLayerFloatTest` can check the readers stay the same object.
+internal fun rcLayerFloat(
   attribute: RcGraphicsLayerAttribute?,
   default: Float,
   state: RcPlayerState,
 ): () -> Float {
-  val word = (attribute as? RcGraphicsLayerAttribute.FloatValue)?.value ?: return { default }
+  // Each reader is remembered for what it captures, so a recomposition that changed none of them
+  // returns the same reader, and `RcModulateAlphaLayer.bind` sees no change (`RcLayerFloatTest`).
+  // A float is keyed by its bits: compared as a number, `-0f` would keep the `0f` reader, and a
+  // NaN target (the frame-less clock branch below can resolve one) would never match itself.
+  val word =
+    (attribute as? RcGraphicsLayerAttribute.FloatValue)?.value
+      ?: return remember(default.toRawBits()) { { default } }
   val target = state.resolve(word)
-  val referencedId = word.referencedId ?: return { target }
+  val referencedId = word.referencedId ?: return remember(target.toRawBits()) { { target } }
   if (state.isContinuouslyDriven(referencedId)) {
     // Resolved in the layer block, not captured here: a component whose parameters did not change
     // is skipped on recomposition, so a captured value left a clock-bound layer on its first frame
     // for good. Reading the frame time in the same block is what re-runs it each frame.
-    val frame = LocalRcFrameTime.current ?: return { target }
-    return {
-      frame.floatValue
-      state.resolve(word)
+    val frame = LocalRcFrameTime.current
+    return if (frame != null) {
+      remember(frame, state, word) {
+        {
+          frame.floatValue
+          state.resolve(word)
+        }
+      }
+    } else {
+      remember(target.toRawBits()) { { target } }
     }
   }
   val animatable = remember(state) { Animatable(target) }

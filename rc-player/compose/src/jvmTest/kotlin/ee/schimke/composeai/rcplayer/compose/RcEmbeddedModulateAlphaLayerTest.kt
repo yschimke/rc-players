@@ -1,38 +1,36 @@
 package ee.schimke.composeai.rcplayer.compose
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.ImageComposeScene
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Density
-import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
-import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
-import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
-import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
-import ee.schimke.composeai.rcplayer.protocol.RcDocLayout
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.AUTO
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.EMBEDDED_PROBE
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.EMBEDDED_WIDTH
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.HEIGHT
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.HOST_PROBE
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.MODULATE_ALPHA
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.OFFSCREEN
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.OWN_PROBE
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.PROBE_TEXT_ID
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.Probe
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.URL_NESTED
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.URL_OWN
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.WIDTH
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.encode
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.host
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.layer
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.nestedEmbedded
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.offsetChild
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.ownLayerEmbedded
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.probeEntry
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.rootBox
+import ee.schimke.composeai.rcplayer.compose.RcEmbeddedLayerFixture.stillChild
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
-import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
-import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
-import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
-import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
-import ee.schimke.composeai.rcplayer.protocol.RcHeader
-import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
-import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
-import ee.schimke.composeai.rcplayer.protocol.RcNoArg
-import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
-import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
-import ee.schimke.composeai.rcplayer.protocol.RcOperation
-import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
-import ee.schimke.composeai.rcplayer.protocol.RcVersion
-import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -205,7 +203,7 @@ class RcEmbeddedModulateAlphaLayerTest {
         val own = assertNotNull(probes.embeddedOwn.layer, "$url: its own layer")
         assertNull(own.enclosing, "$url: its own layer encloses no host layer")
         assertTrue(own.childLayersMissAlpha, "$url: its own layer is bound at half alpha")
-        assertEquals(1, probes.embeddedOwn.present, "$url: one embedded subtree is present")
+        assertEquals(1, probes.embeddedOwn.liveRemembers, "$url: one embedded subtree is present")
       }
     }
   }
@@ -292,27 +290,6 @@ class RcEmbeddedModulateAlphaLayerTest {
 
   private fun hex(color: Int) = color.toUInt().toString(16)
 
-  /** What a custom component saw, and how often its remembered state was created and forgotten. */
-  private class Probe {
-    var layer: RcModulateAlphaLayer? = null
-    var remembers = 0
-    var forgets = 0
-    val present
-      get() = remembers - forgets
-  }
-
-  private class Remembered(private val probe: Probe) : RememberObserver {
-    override fun onRemembered() {
-      probe.remembers++
-    }
-
-    override fun onForgotten() {
-      probe.forgets++
-    }
-
-    override fun onAbandoned() = Unit
-  }
-
   private class Probes {
     val host = Probe()
     /** The offset box of an embedded document with no layer of its own. */
@@ -320,22 +297,11 @@ class RcEmbeddedModulateAlphaLayerTest {
     /** The offset box of an embedded document with a `ModulateAlpha` layer of its own. */
     val embeddedOwn = Probe()
 
-    private fun entry(
-      name: String,
-      probe: Probe,
-    ): Pair<String, @Composable (RcCustomComponent, Modifier) -> Unit> =
-      name to
-        { _, modifier ->
-          probe.layer = LocalRcModulateAlphaLayer.current
-          remember { Remembered(probe) }
-          Box(modifier)
-        }
-
     val registry =
       RcCustomComponentRegistry(
-        entry(HOST_PROBE, host),
-        entry(EMBEDDED_PROBE, embedded),
-        entry(OWN_PROBE, embeddedOwn),
+        probeEntry(HOST_PROBE, host),
+        probeEntry(EMBEDDED_PROBE, embedded),
+        probeEntry(OWN_PROBE, embeddedOwn),
       )
 
     fun scene(document: () -> RcDocument, maxDepth: Int = 3, block: ImageComposeScene.() -> Unit) {
@@ -355,8 +321,6 @@ class RcEmbeddedModulateAlphaLayerTest {
   }
 
   private companion object {
-    const val WIDTH = 60
-    const val HEIGHT = 20
     const val MID_Y = 10
     const val STILL_X = 10
     const val MOVED_X = 30
@@ -364,121 +328,9 @@ class RcEmbeddedModulateAlphaLayerTest {
     const val OPAQUE = 0xff
     const val HALF = 0x80
     const val QUARTER = 0x40
-    const val MODULATE_ALPHA = RcGraphicsLayerModifier.COMPOSITING_STRATEGY_MODULATE_ALPHA
-    const val AUTO = RcGraphicsLayerModifier.COMPOSITING_STRATEGY_AUTO
-    const val OFFSCREEN = RcGraphicsLayerModifier.COMPOSITING_STRATEGY_OFFSCREEN
     const val URL_PLAIN = "doc://plain"
     const val URL_PLAIN_WITH_STILL = "doc://plain-with-still"
-    const val URL_OWN = "doc://own"
     const val URL_OWN_WIDER = "doc://own-wider"
-    const val URL_NESTED = "doc://nested"
-    const val HOST_PROBE = "hostProbe"
-    const val EMBEDDED_PROBE = "embeddedProbe"
-    const val OWN_PROBE = "ownProbe"
-
-    val end = RcNoArg(RcOpcodes.CONTAINER_END)
-
-    fun literal(value: Float) = RcFloatWord.literal(value)
-
-    fun size(width: Int, height: Int) =
-      listOf(
-        RcWidthModifier(RcDimensionType.EXACT, literal(width.toFloat())),
-        RcHeightModifier(RcDimensionType.EXACT, literal(height.toFloat())),
-      )
-
-    fun background(red: Float, blue: Float) =
-      RcBackgroundModifier(
-        flags = 0,
-        colorId = 0,
-        reserved1 = 0,
-        reserved2 = 0,
-        red = literal(red),
-        green = literal(0f),
-        blue = literal(blue),
-        alpha = literal(1f),
-        shapeType = RcBackgroundModifier.SHAPE_RECTANGLE,
-      )
-
-    fun layer(strategy: Int, alpha: Float = 0.5f, blur: Float = 0f) =
-      RcGraphicsLayerModifier(
-        buildList {
-          add(RcGraphicsLayerAttribute.FloatValue(RcGraphicsLayerModifier.ALPHA, literal(alpha)))
-          add(
-            RcGraphicsLayerAttribute.IntValue(
-              RcGraphicsLayerModifier.COMPOSITING_STRATEGY,
-              strategy,
-            ),
-          )
-          if (blur > 0f) {
-            add(
-              RcGraphicsLayerAttribute.FloatValue(
-                RcGraphicsLayerModifier.BLUR_RADIUS_X,
-                literal(blur),
-              ),
-            )
-            add(
-              RcGraphicsLayerAttribute.FloatValue(
-                RcGraphicsLayerModifier.BLUR_RADIUS_Y,
-                literal(blur),
-              ),
-            )
-          }
-        },
-      )
-
-    fun header(width: Int) =
-      RcHeader(RcVersion(1, 1, 0), legacyWidth = width, legacyHeight = HEIGHT, modern = false)
-
-    /**
-     * A 60x20 box (with a graphics layer of [strategy] unless null) stacking a 20x20 custom
-     * component ([HOST_PROBE]) and a 40x20 embedded document ([url]).
-     */
-    fun host(strategy: Int?, alpha: Float = 0.5f, blur: Float = 0f, url: String): RcDocument =
-      RcDocument(
-        header(WIDTH),
-        buildList<RcOperation> {
-          add(RcTextData(50, HOST_PROBE))
-          add(RcTextData(51, url))
-          add(RcRootLayout(1))
-          add(RcLayoutContent(2))
-          add(RcBoxLayout(3, 30, 1, 1))
-          if (strategy != null) add(layer(strategy, alpha, blur))
-          addAll(size(WIDTH, HEIGHT))
-          add(RcLayoutContent(4))
-          add(RcCustomLayout(10, 0, 50, emptyList()))
-          addAll(size(20, HEIGHT))
-          add(end)
-          add(RcDocLayout(20, -1, 51))
-          addAll(size(40, HEIGHT))
-          add(end)
-          repeat(4) { add(end) }
-        },
-      )
-
-    /** A 20x20 box moved by [offsetX] unless null, with a background, holding [probeTextId]. */
-    fun MutableList<RcOperation>.child(
-      id: Int,
-      offsetX: Float?,
-      red: Float,
-      blue: Float,
-      probeTextId: Int?,
-    ) {
-      add(RcBoxLayout(id, 30 + id, 1, 1))
-      if (offsetX != null) add(RcOffsetModifier(literal(offsetX), literal(0f)))
-      addAll(size(20, HEIGHT))
-      add(background(red, blue))
-      add(RcLayoutContent(id + 1))
-      if (probeTextId != null) {
-        add(RcCustomLayout(id + 2, 0, probeTextId, emptyList()))
-        addAll(size(20, HEIGHT))
-        add(end)
-      }
-      add(end)
-      add(end)
-    }
-
-    fun encode(width: Int, operations: List<RcOperation>) =
-      RcDocumentCodec.encode(RcDocument(header(width), operations))
 
     /**
      * A 40x20 document with no layer: a blue still child at 0..20 when [withStill], and a red child
@@ -486,58 +338,13 @@ class RcEmbeddedModulateAlphaLayerTest {
      */
     fun plainEmbedded(withStill: Boolean): ByteArray =
       encode(
-        40,
+        EMBEDDED_WIDTH,
         buildList {
-          add(RcTextData(50, EMBEDDED_PROBE))
-          add(RcRootLayout(1))
-          add(RcLayoutContent(2))
-          add(RcBoxLayout(3, 30, 1, 1))
-          addAll(size(40, HEIGHT))
-          add(RcLayoutContent(4))
-          if (withStill) child(10, null, 0f, 1f, null)
-          child(20, 20f, 1f, 0f, 50)
-          repeat(4) { add(end) }
-        },
-      )
-
-    /**
-     * A [width]x20 document with a half-alpha `ModulateAlpha` layer: a blue still child at 0..20,
-     * and a red child moved by `offset` to 20..40 holding [OWN_PROBE].
-     */
-    fun ownLayerEmbedded(width: Int): ByteArray =
-      encode(
-        width,
-        buildList {
-          add(RcTextData(50, OWN_PROBE))
-          add(RcRootLayout(1))
-          add(RcLayoutContent(2))
-          add(RcBoxLayout(3, 30, 1, 1))
-          add(layer(MODULATE_ALPHA))
-          addAll(size(40, HEIGHT))
-          add(RcLayoutContent(4))
-          child(10, null, 0f, 1f, null)
-          child(20, 20f, 1f, 0f, 50)
-          repeat(4) { add(end) }
-        },
-      )
-
-    /** A 40x20 document embedding [URL_OWN], and an offset child holding [EMBEDDED_PROBE]. */
-    fun nestedEmbedded(): ByteArray =
-      encode(
-        40,
-        buildList {
-          add(RcTextData(50, EMBEDDED_PROBE))
-          add(RcTextData(51, URL_OWN))
-          add(RcRootLayout(1))
-          add(RcLayoutContent(2))
-          add(RcBoxLayout(3, 30, 1, 1))
-          addAll(size(40, HEIGHT))
-          add(RcLayoutContent(4))
-          add(RcDocLayout(40, -1, 51))
-          addAll(size(40, HEIGHT))
-          add(end)
-          child(20, 20f, 1f, 0f, 50)
-          repeat(4) { add(end) }
+          add(RcTextData(PROBE_TEXT_ID, EMBEDDED_PROBE))
+          rootBox(EMBEDDED_WIDTH) {
+            if (withStill) stillChild()
+            offsetChild(painted = true)
+          }
         },
       )
 
@@ -545,9 +352,9 @@ class RcEmbeddedModulateAlphaLayerTest {
       mapOf(
         URL_PLAIN to plainEmbedded(withStill = false),
         URL_PLAIN_WITH_STILL to plainEmbedded(withStill = true),
-        URL_OWN to ownLayerEmbedded(40),
-        URL_OWN_WIDER to ownLayerEmbedded(41),
-        URL_NESTED to nestedEmbedded(),
+        URL_OWN to ownLayerEmbedded(painted = true),
+        URL_OWN_WIDER to ownLayerEmbedded(painted = true, width = EMBEDDED_WIDTH + 1),
+        URL_NESTED to nestedEmbedded(painted = true),
       )
   }
 }

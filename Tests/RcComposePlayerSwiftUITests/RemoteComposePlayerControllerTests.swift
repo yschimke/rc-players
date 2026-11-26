@@ -212,7 +212,7 @@ import Testing
     let target = RecordingTarget()
     target.answers = [.deferred, .deferred]
     let delivery = Task { @MainActor in
-      await Value.integer(5).deliver(for: "USER:count", to: { target }, isCurrent: { true })
+      await Value.integer(5).deliver(for: "USER:count", to: { target })
     }
     try await waitUntil("the delivery waits") { target.inputAvailability.waiterCount == 1 }
     #expect(target.calls == [.integer(5)], "offered again without a signal")
@@ -233,7 +233,7 @@ import Testing
     let target = RecordingTarget()
     target.answers = [.deferred]
     target.onCall = { target.inputAvailability.signal() }
-    await Value.integer(5).deliver(for: "USER:count", to: { target }, isCurrent: { true })
+    await Value.integer(5).deliver(for: "USER:count", to: { target })
     #expect(target.calls == [.integer(5), .integer(5)])
   }
 
@@ -242,18 +242,18 @@ import Testing
   @Test func aRefusedValueIsNotOfferedAgain() async {
     let target = RecordingTarget()
     target.answers = [.refused]
-    await Value.integer(5).deliver(for: "USER:count", to: { target }, isCurrent: { true })
+    await Value.integer(5).deliver(for: "USER:count", to: { target })
     #expect(target.calls == [.integer(5)])
   }
 
-  /// A waiting delivery ends when the player goes away, when its task is cancelled — a newer value
-  /// for the name, or a rebuild — or when a newer value has started.
+  /// A waiting delivery ends when the player goes away or when its task is cancelled, whether it
+  /// is waiting for a signal or its offer is being answered.
   @Test func aWaitingDeliveryEndsWithThePlayerOrItsTask() async throws {
     var target: RecordingTarget? = RecordingTarget()
     let availability = target!.inputAvailability
     target!.answers = [.deferred]
     let gone = Task { @MainActor in
-      await Value.integer(5).deliver(for: "USER:count", to: { target }, isCurrent: { true })
+      await Value.integer(5).deliver(for: "USER:count", to: { target })
     }
     try await waitUntil("the delivery waits") { availability.waiterCount == 1 }
     target = nil
@@ -263,18 +263,26 @@ import Testing
     let cancelled = RecordingTarget()
     cancelled.answers = [.deferred]
     let delivery = Task { @MainActor in
-      await Value.integer(5).deliver(for: "USER:count", to: { cancelled }, isCurrent: { true })
+      await Value.integer(5).deliver(for: "USER:count", to: { cancelled })
     }
     try await waitUntil("the delivery waits") { cancelled.inputAvailability.waiterCount == 1 }
     delivery.cancel()
     await delivery.value
     #expect(cancelled.calls == [.integer(5)])
 
+    // Cancelled while its first offer is being answered, as the player view cancels it when a
+    // newer value starts; the signal only keeps a missed cancellation from hanging the test.
     let superseded = RecordingTarget()
     superseded.answers = [.deferred]
-    superseded.onCall = { superseded.inputAvailability.signal() }
-    await Value.integer(5).deliver(
-      for: "USER:count", to: { superseded }, isCurrent: { superseded.calls.isEmpty })
+    // The task starts only once this test yields, so `onCall` is in place before the first offer.
+    let supersededDelivery = Task { @MainActor in
+      await Value.integer(5).deliver(for: "USER:count", to: { superseded })
+    }
+    superseded.onCall = { [unowned superseded] in
+      supersededDelivery.cancel()
+      superseded.inputAvailability.signal()
+    }
+    await supersededDelivery.value
     #expect(superseded.calls == [.integer(5)])
   }
 
@@ -293,7 +301,7 @@ import Testing
     ]
     for (value, expected) in cases {
       let target = RecordingTarget()
-      await value.deliver(for: "USER:name", to: { target }, isCurrent: { true })
+      await value.deliver(for: "USER:name", to: { target })
       #expect(target.calls == [expected], "\(value)")
     }
   }

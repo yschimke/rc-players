@@ -133,32 +133,80 @@ internal val EMBED_TYPE_NAMES: List<String> =
   listOf("string", "float", "dp", "int", "bool", "color", "long")
 
 /**
+ * The row format `Main.kt`'s `flattenNamedValuesFromLocation` writes and [namedValuesFromRows]
+ * reads. The JavaScript takes these values as parameters, so the two sides share one definition.
+ */
+internal const val NAMED_VALUE_ROW_SEPARATOR: String = "\u0001"
+
+/**
+ * Separates a row's fields; see [NAMED_VALUE_ROW_SEPARATOR]. `Main.kt` joins `navigator.languages`
+ * with the same character, but that is a format of its own.
+ */
+internal const val NAMED_VALUE_FIELD_SEPARATOR: String = "\u0000"
+
+/** A row's encoded text fields: `kind`, `name` and `value`. */
+internal const val NAMED_VALUE_TEXT_FIELD_COUNT: Int = 3
+
+/**
+ * A row's fields: the text fields, then [NAMED_VALUE_NUMBER_MARK] or [NAMED_VALUE_TEXT_MARK]; a row
+ * with any other mark is dropped.
+ */
+internal const val NAMED_VALUE_FIELD_COUNT: Int = NAMED_VALUE_TEXT_FIELD_COUNT + 1
+
+/** The last field when `value` was a JSON number. */
+internal const val NAMED_VALUE_NUMBER_MARK: String = "n"
+
+/** The last field when `value` was anything else. */
+internal const val NAMED_VALUE_TEXT_MARK: String = "s"
+
+/**
  * The `?namedValues=` overrides carried by [rows], keyed `USER:<name>`: the internal shape
  * `Main.kt`'s `flattenNamedValuesFromLocation` hands across the JS/Wasm boundary, not the wire
- * format. Rows are separated by U+0001; each is four U+0000-separated fields — the `kind`, the
- * `name` and the `value` as `encodeURIComponent` wrote them, so none can contain a separator, then
- * `n` when `value` was a JSON number. [decodeComponent] undoes the encoding (`decodeURIComponent`
- * in the browser) and may throw on a field that is not percent-encoding.
+ * format. Rows are separated by [NAMED_VALUE_ROW_SEPARATOR]; each is [NAMED_VALUE_FIELD_COUNT]
+ * [NAMED_VALUE_FIELD_SEPARATOR]-separated fields — the `kind`, the `name` and the `value` as
+ * `encodeURIComponent` wrote them, so none can contain a separator, then [NAMED_VALUE_NUMBER_MARK]
+ * when `value` was a JSON number or [NAMED_VALUE_TEXT_MARK] when it was not. [decodeComponent]
+ * undoes the encoding (`decodeURIComponent` in the browser) and may throw on a field that is not
+ * percent-encoding.
  *
- * Each row stands alone: one that is malformed, names no variable or does not parse as its kind is
- * dropped and the rest are kept, as docs/design/RC_PLAYER_EMBED.md promises of the elements they
- * come from. When two rows name one variable, the later wins.
+ * Each row stands alone: one that is malformed (another field count or mark, a field that does not
+ * decode), names no variable or does not parse as its kind is dropped and the rest are kept, as
+ * docs/design/RC_PLAYER_EMBED.md promises of the elements they come from. When two rows name one
+ * variable, the later wins.
  */
 internal fun namedValuesFromRows(
   rows: String,
   decodeComponent: (String) -> String,
 ): Map<String, RcNamedValue> {
   if (rows.isEmpty()) return emptyMap()
-  return buildMap {
-    rows.split('\u0001').forEach { row ->
-      val fields = row.split('\u0000')
-      if (fields.size != 4) return@forEach
-      // A field [decodeComponent] rejects (a stray `%`) drops this row, not the whole array.
-      val (kind, name, value) =
-        runCatching { fields.take(3).map(decodeComponent) }.getOrNull() ?: return@forEach
-      val namedValue = parseNamedValue(typeName = kind, value = value, isNumber = fields[3] == "n")
-      if (name.isNotEmpty() && namedValue != null) put("USER:$name", namedValue)
+  return rows
+    .split(NAMED_VALUE_ROW_SEPARATOR)
+    .mapNotNull { row -> namedValueFromRow(row, decodeComponent) }
+    .toMap()
+}
+
+/** One row of [namedValuesFromRows] as its `USER:` key and value, or null when it is dropped. */
+private fun namedValueFromRow(
+  row: String,
+  decodeComponent: (String) -> String,
+): Pair<String, RcNamedValue>? {
+  val fields = row.split(NAMED_VALUE_FIELD_SEPARATOR)
+  if (fields.size != NAMED_VALUE_FIELD_COUNT) return null
+  // The JS writes exactly one of the two marks; a row with any other is malformed. Checked before
+  // the fields are decoded, so a malformed row costs no decoding.
+  val isNumber =
+    when (fields[NAMED_VALUE_TEXT_FIELD_COUNT]) {
+      NAMED_VALUE_NUMBER_MARK -> true
+      NAMED_VALUE_TEXT_MARK -> false
+      else -> return null
     }
+  // A field [decodeComponent] rejects (a stray `%`) drops this row, not the whole array.
+  val (kind, name, value) =
+    runCatching { fields.take(NAMED_VALUE_TEXT_FIELD_COUNT).map(decodeComponent) }.getOrNull()
+      ?: return null
+  if (name.isEmpty()) return null
+  return parseNamedValue(typeName = kind, value = value, isNumber = isNumber)?.let {
+    "USER:$name" to it
   }
 }
 

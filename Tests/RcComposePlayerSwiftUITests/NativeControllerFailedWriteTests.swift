@@ -13,11 +13,11 @@
   /// applied one) shows.
   @MainActor @Suite(.serialized) struct NativeControllerFailedWriteTests: NativeControllerSuite {
     private var label: Int { NativeTestDocuments.labelID }
-    private let long = String(repeating: "x", count: 100)
+    private let long = NativeTestDocuments.overLimitText()
 
     private func lowTextLimit() -> RemoteComposeNativeExecutionLimits {
       var limits = RemoteComposeNativeExecutionLimits.default
-      limits.maximumTextBytes = 64
+      limits.maximumTextBytes = NativeTestDocuments.textLimitBytes
       return limits
     }
 
@@ -32,12 +32,12 @@
     /// delivered and repairs the session; a background reopen keeps A and reports nothing more.
     @Test func aThenRefusedBThenAShowsA() async throws {
       let player = try await player(limits: lowTextLimit())
-      #expect(player.controller.setString("A", for: "label"))
+      #expect(player.controller.setString("A", for: NativeTestDocuments.labelName))
       try await settle(player)
-      #expect(player.controller.setString(long, for: "label"))
+      #expect(player.controller.setString(long, for: NativeTestDocuments.labelName))
       try await settle(player)
       try #require(player.errors.all.count == 1, "\(player.errors.all)")
-      #expect(player.controller.setString("A", for: "label"))
+      #expect(player.controller.setString("A", for: NativeTestDocuments.labelName))
       try await settle(player)
       #expect(text(label, in: player.view) == "A")
       try await backgroundWithInputQueued(player)
@@ -59,14 +59,14 @@
       try #require(player.view.isOpeningDocument)
       var applied = 0
       player.view.onInputApplied = { input in
-        if case .setNamed("label", _) = input { applied += 1 }
+        if case .setNamed(NativeTestDocuments.labelName, _) = input { applied += 1 }
       }
-      #expect(player.controller.setString("Race", for: "label"))
+      #expect(player.controller.setString("Race", for: NativeTestDocuments.labelName))
       activate(player)
       try await settle(player)
       #expect(text(label, in: player.view) == "Race")
       #expect(applied == 0, "applied \(applied) more times after the seed")
-      try await setLocally(player, "Doc", for: "label")
+      try await setLocally(player, "Doc", for: NativeTestDocuments.labelName)
       try await backgroundWithInputQueued(player)
       activate(player)
       try await settle(player)
@@ -78,23 +78,24 @@
     /// the newest of the two sides.
     @Test func twoReopensWithAHostWriteAndADocumentChangeBetween() async throws {
       let player = try await player()
-      #expect(player.controller.setString("H1", for: "label"))
+      #expect(player.controller.setString("H1", for: NativeTestDocuments.labelName))
       try await settle(player)
       try await backgroundWithInputQueued(player)
       activate(player)
       try await settle(player)
-      try await setLocally(player, "D1", for: "label")
-      #expect(player.controller.setString("H2", for: "label"))
+      try await setLocally(player, "D1", for: NativeTestDocuments.labelName)
+      #expect(player.controller.setString("H2", for: NativeTestDocuments.labelName))
       try await settle(player)
-      try await setLocally(player, "D2", for: "label")
+      try await setLocally(player, "D2", for: NativeTestDocuments.labelName)
       try await backgroundWithInputQueued(player)
       activate(player)
       try await settle(player)
       #expect(text(label, in: player.view) == "D2")
-      #expect(player.controller.setString("H2", for: "label"), "equal: no change")
+      #expect(
+        player.controller.setString("H2", for: NativeTestDocuments.labelName), "equal: no change")
       try await settle(player)
       #expect(text(label, in: player.view) == "D2")
-      #expect(player.controller.setString("H1", for: "label"))
+      #expect(player.controller.setString("H1", for: NativeTestDocuments.labelName))
       try await settle(player)
       try await backgroundWithInputQueued(player)
       activate(player)
@@ -107,14 +108,14 @@
     /// limit: the innocent value, shown after the repair, is shown after the reopen.
     @Test func anInnocentWriteRefusedWhileFailedSurvivesALaterReopen() async throws {
       let player = try await player(limits: lowTextLimit())
-      #expect(player.controller.setString(long, for: "label"))
+      #expect(player.controller.setString(long, for: NativeTestDocuments.labelName))
       try await settle(player)
-      #expect(player.controller.setInteger(Self.visible, for: "shown"))
+      #expect(player.controller.setInteger(Self.visible, for: NativeTestDocuments.shownName))
       try await settle(player)
-      #expect(player.controller.setString("ok", for: "label"))
+      #expect(player.controller.setString("ok", for: NativeTestDocuments.labelName))
       try await settle(player)
       try #require(isShown(Self.shownBox, in: player.view) == true, "shown after the repair")
-      #expect(player.controller.setString(long, for: "label"))
+      #expect(player.controller.setString(long, for: NativeTestDocuments.labelName))
       try await settle(player)
       try await backgroundWithInputQueued(player)
       activate(player)
@@ -127,8 +128,8 @@
     @Test func undeclaredAndMistypedWritesAreNotSeeded() async throws {
       let player = try await player()
       #expect(!player.controller.setString("x", for: "nope"))
-      #expect(!player.controller.setString("x", for: "shown"))
-      #expect(player.controller.setInteger(Self.visible, for: "shown"))
+      #expect(!player.controller.setString("x", for: NativeTestDocuments.shownName))
+      #expect(player.controller.setInteger(Self.visible, for: NativeTestDocuments.shownName))
       try await settle(player)
       try await backgroundWithInputQueued(player)
       activate(player)
@@ -142,11 +143,13 @@
     /// value, which it already held; nothing is lost or duplicated.
     @Test func aDocumentWriteDuringTheReopenIsDeferredAndTheHostValueStays() async throws {
       let player = try await player()
-      #expect(player.controller.setString("H", for: "label"))
+      #expect(player.controller.setString("H", for: NativeTestDocuments.labelName))
       try await settle(player)
       try await backgroundWithInputQueued(player)
       activate(player)
-      #expect(await player.view.setString("Doc", for: "label") == false, "deferred while opening")
+      #expect(
+        await player.view.setString("Doc", for: NativeTestDocuments.labelName) == false,
+        "deferred while opening")
       try await settle(player)
       #expect(text(label, in: player.view) == "H")
     }

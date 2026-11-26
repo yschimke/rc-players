@@ -32,20 +32,20 @@
     /// (each turn ends with a snapshot apply), so it applies both and shows A.
     @Test func hostABAQueuedAtTheBackgroundShowsTheHostsNewestValue() async throws {
       let player = try await player()
-      #expect(player.controller.setString("A", for: "label"))
+      #expect(player.controller.setString("A", for: NativeTestDocuments.labelName))
       try await settle(player)
-      try await setLocally(player, "Doc", for: "label")
+      try await setLocally(player, "Doc", for: NativeTestDocuments.labelName)
       try #require(text(label, in: player.view) == "Doc")
       try await queueDeclinedInput(player)
       // Each write's delivery starts — it is handed to the player — before the next is made, so
       // they are two passes for Kotlin.
-      #expect(player.controller.setString("B", for: "label"))
+      #expect(player.controller.setString("B", for: NativeTestDocuments.labelName))
       try await waitUntil("B is handed to the player") {
-        player.host.nativeAppliedValues["label"] == .text("B")
+        player.host.nativeAppliedValues[NativeTestDocuments.labelName] == .text("B")
       }
-      #expect(player.controller.setString("A", for: "label"))
+      #expect(player.controller.setString("A", for: NativeTestDocuments.labelName))
       try await waitUntil("A is handed to the player") {
-        player.host.nativeAppliedValues["label"] == .text("A")
+        player.host.nativeAppliedValues[NativeTestDocuments.labelName] == .text("A")
       }
       try #require(player.view.hasOutstandingInput, "B and A are still queued")
       background(player)
@@ -66,11 +66,11 @@
       async throws
     {
       let player = try await player()
-      #expect(player.controller.setString("A", for: "label"))
+      #expect(player.controller.setString("A", for: NativeTestDocuments.labelName))
       try await settle(player)
-      try await setLocally(player, "Doc", for: "label")
-      #expect(player.controller.setString("B", for: "label"))
-      #expect(player.controller.setString("A", for: "label"))
+      try await setLocally(player, "Doc", for: NativeTestDocuments.labelName)
+      #expect(player.controller.setString("B", for: NativeTestDocuments.labelName))
+      #expect(player.controller.setString("A", for: NativeTestDocuments.labelName))
       player.view.configureHostDensity(2)
       try await settle(player)
       #expect(
@@ -82,10 +82,10 @@
     /// and a reopen keeps the document's value.
     @Test func hostDocumentHostEqualKeepsTheDocumentsValueThroughAReopen() async throws {
       let player = try await player()
-      #expect(player.controller.setString("A", for: "label"))
+      #expect(player.controller.setString("A", for: NativeTestDocuments.labelName))
       try await settle(player)
-      try await setLocally(player, "Doc", for: "label")
-      #expect(player.controller.setString("A", for: "label"))
+      try await setLocally(player, "Doc", for: NativeTestDocuments.labelName)
+      #expect(player.controller.setString("A", for: NativeTestDocuments.labelName))
       try await settle(player)
       #expect(text(label, in: player.view) == "Doc")
       try await backgroundWithInputQueued(player)
@@ -98,13 +98,15 @@
     /// is a change for the controller (it never held it) and is shown, then carried.
     @Test func aWriteEqualToTheDocumentsInitialValueIsApplied() async throws {
       let player = try await player()
-      try await setLocally(player, "Doc", for: "label")
-      #expect(player.controller.setString("Idle", for: "label"))
+      try await setLocally(player, "Doc", for: NativeTestDocuments.labelName)
+      #expect(
+        player.controller.setString(
+          NativeTestDocuments.labelInitial, for: NativeTestDocuments.labelName))
       try await settle(player)
-      #expect(text(label, in: player.view) == "Idle")
+      #expect(text(label, in: player.view) == NativeTestDocuments.labelInitial)
       player.view.configureHostDensity(2)
       try await settle(player)
-      #expect(text(label, in: player.view) == "Idle")
+      #expect(text(label, in: player.view) == NativeTestDocuments.labelInitial)
     }
 
     // MARK: - Refusal, then the same write
@@ -114,14 +116,16 @@
     @Test func aRefusedValueThenAnEqualWriteIsShownOnceTheLimitIsRaised() async throws {
       var errors: [RemoteComposePlayerError] = []
       var limits = RemoteComposeNativeExecutionLimits.default
-      limits.maximumTextBytes = 64
+      limits.maximumTextBytes = NativeTestDocuments.textLimitBytes
       let player = try await player(limits: limits, onError: { errors.append($0) })
-      let long = String(repeating: "x", count: 100)
-      #expect(player.controller.setString(long, for: "label"))
+      let long = NativeTestDocuments.overLimitText()
+      #expect(player.controller.setString(long, for: NativeTestDocuments.labelName))
       try await settle(player)
       try #require(!errors.isEmpty)
       let reported = errors.count
-      #expect(player.controller.setString(long, for: "label"), "an equal write answers true")
+      #expect(
+        player.controller.setString(long, for: NativeTestDocuments.labelName),
+        "an equal write answers true")
       try await settle(player)
       #expect(errors.count == reported, "the equal write is not offered again")
       player.view.configureExecutionLimits(.default)
@@ -133,15 +137,15 @@
 
     @Test func aLeftOutHostValueWithAnEqualWriteInBetweenComesBack() async throws {
       let player = try await player()
-      let long = String(repeating: "x", count: 100)
-      #expect(player.controller.setString(long, for: "label"))
+      let long = NativeTestDocuments.overLimitText()
+      #expect(player.controller.setString(long, for: NativeTestDocuments.labelName))
       try await settle(player)
       var limits = RemoteComposeNativeExecutionLimits.default
-      limits.maximumTextBytes = 64
+      limits.maximumTextBytes = NativeTestDocuments.textLimitBytes
       player.view.configureExecutionLimits(limits)
       try await settle(player)
-      try #require(text(label, in: player.view) == "Idle")
-      #expect(player.controller.setString(long, for: "label"))
+      try #require(text(label, in: player.view) == NativeTestDocuments.labelInitial)
+      #expect(player.controller.setString(long, for: NativeTestDocuments.labelName))
       try await settle(player)
       player.view.configureExecutionLimits(.default)
       try await settle(player)
@@ -150,14 +154,14 @@
 
     @Test func aDocumentChangeWhileAHostValueIsLeftOutWinsWhenTheLimitIsRaised() async throws {
       let player = try await player()
-      let long = String(repeating: "x", count: 100)
-      #expect(player.controller.setString(long, for: "label"))
+      let long = NativeTestDocuments.overLimitText()
+      #expect(player.controller.setString(long, for: NativeTestDocuments.labelName))
       try await settle(player)
       var limits = RemoteComposeNativeExecutionLimits.default
-      limits.maximumTextBytes = 64
+      limits.maximumTextBytes = NativeTestDocuments.textLimitBytes
       player.view.configureExecutionLimits(limits)
       try await settle(player)
-      try await setLocally(player, "Doc", for: "label")
+      try await setLocally(player, "Doc", for: NativeTestDocuments.labelName)
       player.view.configureExecutionLimits(.default)
       try await settle(player)
       #expect(text(label, in: player.view) == "Doc")
@@ -171,18 +175,22 @@
     @Test func aRefusedHostWriteThenAReopenKeepsDocumentLocalState() async throws {
       var errors: [RemoteComposePlayerError] = []
       var limits = RemoteComposeNativeExecutionLimits.default
-      limits.maximumTextBytes = 64
+      limits.maximumTextBytes = NativeTestDocuments.textLimitBytes
       let player = try await player(limits: limits, onError: { errors.append($0) })
-      #expect(player.controller.setInteger(Self.visible, for: "shown"))
+      #expect(player.controller.setInteger(Self.visible, for: NativeTestDocuments.shownName))
       try await settle(player)
-      try await setLocally(player, Self.visible, for: "local")
-      #expect(player.controller.setString(String(repeating: "x", count: 100), for: "label"))
+      try await setLocally(player, Self.visible, for: NativeTestDocuments.localName)
+      #expect(
+        player.controller.setString(
+          NativeTestDocuments.overLimitText(), for: NativeTestDocuments.labelName))
       try await settle(player)
       try #require(!errors.isEmpty)
       player.view.configureHostDensity(2)
       try await settle(player)
       #expect(isShown(Self.shownBox, in: player.view) == true, "the host's value")
-      #expect(text(label, in: player.view) == "Idle", "the refused value is left out")
+      #expect(
+        text(label, in: player.view) == NativeTestDocuments.labelInitial,
+        "the refused value is left out")
       #expect(
         isShown(Self.localBox, in: player.view) == true,
         "document-local state was reset by a reopen after one refused host write")
@@ -192,16 +200,18 @@
     @Test func aFailedSessionRetryTakesLaterWrites() async throws {
       var errors: [RemoteComposePlayerError] = []
       var limits = RemoteComposeNativeExecutionLimits.default
-      limits.maximumTextBytes = 64
+      limits.maximumTextBytes = NativeTestDocuments.textLimitBytes
       let player = try await player(limits: limits, onError: { errors.append($0) })
-      #expect(player.controller.setString(String(repeating: "x", count: 100), for: "label"))
+      #expect(
+        player.controller.setString(
+          NativeTestDocuments.overLimitText(), for: NativeTestDocuments.labelName))
       try await settle(player)
       player.view.configureHostDensity(2)
       try await settle(player)
-      #expect(player.controller.setString("ok", for: "label"))
+      #expect(player.controller.setString("ok", for: NativeTestDocuments.labelName))
       try await settle(player)
       #expect(text(label, in: player.view) == "ok")
-      #expect(player.controller.setInteger(Self.visible, for: "shown"))
+      #expect(player.controller.setInteger(Self.visible, for: NativeTestDocuments.shownName))
       try await settle(player)
       #expect(isShown(Self.shownBox, in: player.view) == true)
     }
@@ -213,16 +223,17 @@
     @Test func aReopenDuringALeftOutReopenReportsOnceAndCarriesTheRest() async throws {
       var errors: [RemoteComposePlayerError] = []
       let player = try await player(onError: { errors.append($0) })
-      try await setLocally(player, String(repeating: "x", count: 100), for: "label")
-      try await setLocally(player, Self.visible, for: "local")
+      try await setLocally(
+        player, NativeTestDocuments.overLimitText(), for: NativeTestDocuments.labelName)
+      try await setLocally(player, Self.visible, for: NativeTestDocuments.localName)
       var limits = RemoteComposeNativeExecutionLimits.default
-      limits.maximumTextBytes = 64
+      limits.maximumTextBytes = NativeTestDocuments.textLimitBytes
       player.view.configureExecutionLimits(limits)
       try #require(player.view.isOpeningDocument)
       player.view.configureHostDensity(2)
       try await settle(player)
       #expect(errors.count == 1, "\(errors)")
-      #expect(text(label, in: player.view) == "Idle")
+      #expect(text(label, in: player.view) == NativeTestDocuments.labelInitial)
       #expect(isShown(Self.localBox, in: player.view) == true)
     }
 
@@ -234,21 +245,21 @@
     @Test func aControllerSwapWithAnEqualValue() async throws {
       let first = RemoteComposePlayerController()
       let player = try await player(controller: first)
-      #expect(first.setString("A", for: "label"))
+      #expect(first.setString("A", for: NativeTestDocuments.labelName))
       try await settle(player)
       let second = RemoteComposePlayerController()
       let other = try await self.player(controller: second)
-      #expect(second.setString("A", for: "label"))
+      #expect(second.setString("A", for: NativeTestDocuments.labelName))
       try await settle(other)
-      try await setLocally(player, "Doc", for: "label")
+      try await setLocally(player, "Doc", for: NativeTestDocuments.labelName)
       player.host.update(
         data: Self.document(), controller: second, configuration: .init(),
         resourceResolver: nil, onEvent: { _ in }, onError: { _ in })
       let swapped = Player(controller: second, host: player.host, errors: player.errors)
       try await settle(swapped)
       #expect(text(label, in: swapped.view) == "A")
-      try await setLocally(swapped, "Doc2", for: "label")
-      #expect(second.setString("A", for: "label"))
+      try await setLocally(swapped, "Doc2", for: NativeTestDocuments.labelName)
+      #expect(second.setString("A", for: NativeTestDocuments.labelName))
       try await settle(swapped)
       #expect(text(label, in: swapped.view) == "Doc2")
     }

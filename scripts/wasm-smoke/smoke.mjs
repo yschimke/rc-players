@@ -72,6 +72,22 @@ const COMMON_QUERY = 'handoffDelayMs=0';
  */
 const EXPECTED_CONTRACT_VERSION = 2;
 
+/**
+ * The document, colour variable and override the `namedColour` and `namedExpectations` cases share:
+ * the Swift core's circular progress document, whose `WearM3.primary` the override turns orange.
+ */
+const NAMED_COLOUR_FIXTURE = Object.freeze({
+  src: 'CircularProgressRemote-384x384.rc',
+  name: 'WearM3.primary',
+  colour: '#FFFF8800',
+  // The RGB the override draws: `colour` without its `#` and alpha.
+  get expectRgb() {
+    return Number.parseInt(this.colour.slice(3), 16);
+  },
+  // A second override the `namedValues` cases set against the first.
+  blueColour: '#FF0000FF',
+});
+
 const CASES = [
   {
     name: 'androidx-baseline',
@@ -155,10 +171,10 @@ const CASES = [
     name: 'named-colour-spellings',
     description: '`?namedValues=` colour as #AARRGGBB, #RRGGBB and an ARGB number draws alike',
     namedColour: {
-      src: 'CircularProgressRemote-384x384.rc',
-      name: 'WearM3.primary',
-      reference: '#FFFF8800',
-      expectRgb: 0xff8800,
+      src: NAMED_COLOUR_FIXTURE.src,
+      name: NAMED_COLOUR_FIXTURE.name,
+      reference: NAMED_COLOUR_FIXTURE.colour,
+      expectRgb: NAMED_COLOUR_FIXTURE.expectRgb,
       // The last three only agree with `parseColor` in the shipped bundle if the Kotlin/Wasm number
       // and trim paths match JavaScript: numbers that wrap past 32 bits, and JS-only whitespace.
       sameAs: ['#FF8800', 'FFFF8800', 0xffff8800, -30720, 8589903872, 4294936576.5, '\uFEFF#FF8800\u3000'],
@@ -173,10 +189,10 @@ const CASES = [
     name: 'named-values-elements',
     description: 'a bad `?namedValues=` element is dropped alone: every shape, unicode, %, long values',
     namedExpectations: {
-      src: 'CircularProgressRemote-384x384.rc',
-      good: { kind: 'color', name: 'WearM3.primary', value: '#FFFF8800' },
-      blue: { kind: 'color', name: 'WearM3.primary', value: '#FF0000FF' },
-      expectRgb: 0xff8800,
+      src: NAMED_COLOUR_FIXTURE.src,
+      good: { kind: 'color', name: NAMED_COLOUR_FIXTURE.name, value: NAMED_COLOUR_FIXTURE.colour },
+      blue: { kind: 'color', name: NAMED_COLOUR_FIXTURE.name, value: NAMED_COLOUR_FIXTURE.blueColour },
+      expectRgb: NAMED_COLOUR_FIXTURE.expectRgb,
       cases: (good, blue) => ({
         // Each bad element before and after the good one. The bundle's earlier one-`try`
         // flattening threw on `null.kind` and on `encodeURIComponent` of a lone surrogate, losing
@@ -189,22 +205,23 @@ const CASES = [
           'a lone surrogate in a name': { kind: 'string', name: '\uD800', value: 'x' },
           'a lone surrogate in a value': { kind: 'string', name: 'label', value: 'a\uDC00' },
           'control characters in a kind': { ...blue, kind: 'color\u0000\u0001' },
+          // The bundle's row format, which NamedValueRowsTest pins.
           'a kind that spells another row': { ...blue, kind: 'x\u0000a\u0000b\u0000s\u0001color' },
         }),
         // Every JSON value type as an element.
         'a number element': { namedValues: [5, good], expect: 'good' },
         'a string element': { namedValues: ['color', good], expect: 'good' },
         'an array element': {
-          namedValues: [good, ['color', 'WearM3.primary', '#FF0000FF']], expect: 'good',
+          namedValues: [good, ['color', blue.name, blue.value]], expect: 'good',
         },
         'a boolean element': { namedValues: [true, good, false], expect: 'good' },
         'a nested-object value': {
-          namedValues: [good, { ...blue, value: { argb: '#FF0000FF' } }], expect: 'good',
+          namedValues: [good, { ...blue, value: { argb: blue.value } }], expect: 'good',
         },
         'a boolean colour value': { namedValues: [good, { ...blue, value: true }], expect: 'good' },
         // Stringified as documented ("`value` is stringified"), as HostApi.parseColor's String(v).
         'a one-element array value': {
-          namedValues: [good, { ...blue, value: ['#FF0000FF'] }], expect: 'blue',
+          namedValues: [good, { ...blue, value: [blue.value] }], expect: 'blue',
         },
         // The doc drops a `kind` that is "unrecognized"; an array is not a kind string.
         'an array kind': { namedValues: [good, { ...blue, kind: ['color'] }], expect: 'good' },
@@ -237,13 +254,13 @@ const CASES = [
           namedValues: [
             good,
             { kind: 'string', name: 'label', value: 'é \u{1F600}\u{1F3FD} של‮' },
-            { ...blue, value: '#FF0000FF‏' },
+            { ...blue, value: `${blue.value}\u200F` },
             { ...blue, value: '\u{1F600}' },
           ],
           expect: 'good',
         },
         'a JS-trimmed line separator around a colour': {
-          namedValues: [good, { ...blue, value: ' #FF0000FF ' }], expect: 'blue',
+          namedValues: [good, { ...blue, value: ` ${blue.value} ` }], expect: 'blue',
         },
         // Very long values.
         'a 200k-character value of an unknown variable': {
@@ -251,7 +268,7 @@ const CASES = [
           expect: 'good',
         },
         'a colour behind 100k spaces': {
-          namedValues: [good, { ...blue, value: ' '.repeat(100000) + '#FF0000FF' }], expect: 'blue',
+          namedValues: [good, { ...blue, value: ' '.repeat(100000) + blue.value }], expect: 'blue',
         },
         // Duplicate names with a bad one in between: the last *good* one wins.
         'blue, a bad duplicate, then orange': {
@@ -269,7 +286,9 @@ const CASES = [
         'a %-escaped name': {
           namedValues: [good, { ...blue, name: 'WearM3%2Eprimary' }], expect: 'good',
         },
-        'a %-escaped value': { namedValues: [good, { ...blue, value: '%23FF0000FF' }], expect: 'good' },
+        'a %-escaped value': {
+          namedValues: [good, { ...blue, value: `%23${blue.value.slice(1)}` }], expect: 'good',
+        },
         'malformed % sequences': {
           namedValues: [
             good,
@@ -283,11 +302,12 @@ const CASES = [
         // query layer percent-decodes once, so `%63olor` is `color` there (URL semantics, not the
         // player's), and an unencoded `#` starts the fragment and truncates the JSON.
         'raw query: a %-escaped kind': {
-          rawNamedValues: '[{"kind":"%63olor","name":"WearM3.primary","value":"%23FF0000FF"}]',
+          rawNamedValues:
+            `[{"kind":"%63olor","name":"${blue.name}","value":"%23${blue.value.slice(1)}"}]`,
           expect: 'blue',
         },
         'raw query: an unencoded #': {
-          rawNamedValues: '[{"kind":"color","name":"WearM3.primary","value":"#FF0000FF"}]',
+          rawNamedValues: `[{"kind":"color","name":"${blue.name}","value":"${blue.value}"}]`,
           expect: 'plain',
         },
         // A JSON number String() writes with an exponent: HostApi.parseColor's `1e21 | 0` is

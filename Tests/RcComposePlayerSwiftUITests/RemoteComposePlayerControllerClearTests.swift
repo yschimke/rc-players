@@ -162,7 +162,7 @@ import Testing
     let target = ClearTarget()
     target.answers = [.deferred]
     let delivery = Task { @MainActor in
-      await deliverNamedUpdate(nil, for: "USER:count", to: { target }, isCurrent: { true })
+      await deliverNamedUpdate(nil, for: "USER:count", to: { target })
     }
     try await waitUntil("the delivery waits") { target.inputAvailability.waiterCount == 1 }
     #expect(target.clears == ["USER:count"] && target.writes == 0)

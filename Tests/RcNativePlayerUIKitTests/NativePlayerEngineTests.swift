@@ -13,17 +13,19 @@ import Testing
     let (label, _) = try await NativePlayerEngine.open(
       data: NativeTestDocuments.label(), maximumDocumentBytes: 1 << 20)
     #expect(await label.writtenNamedValues().isEmpty)
-    _ = try await label.apply(.setNamed("label", value: .text("Ready")))
-    _ = try await label.apply(.setNamed("title", value: .text("Title")))
+    _ = try await label.apply(.setNamed(NativeTestDocuments.labelName, value: .text("Ready")))
+    _ = try await label.apply(.setNamed(NativeTestDocuments.titleName, value: .text("Title")))
     let written = await label.writtenNamedValues()
-    #expect(written.map(\.name) == ["label", "title"])
+    #expect(written.map(\.name) == [NativeTestDocuments.labelName, NativeTestDocuments.titleName])
     #expect(written.map(\.value) == [.text("Ready"), .text("Title")])
 
     let (shown, _) = try await NativePlayerEngine.open(
       data: NativeTestDocuments.shownBox(), maximumDocumentBytes: 1 << 20)
     #expect(await shown.writtenNamedValues().isEmpty)
-    _ = try await shown.apply(.setNamed("shown", value: .integer(NativeSwiftVisibility.visible)))
-    _ = try await shown.apply(.setNamed("shown", value: .integer(NativeSwiftVisibility.gone)))
+    _ = try await shown.apply(
+      .setNamed(NativeTestDocuments.shownName, value: .integer(NativeSwiftVisibility.visible)))
+    _ = try await shown.apply(
+      .setNamed(NativeTestDocuments.shownName, value: .integer(NativeSwiftVisibility.gone)))
     #expect(
       await shown.writtenNamedValues().map(\.value) == [.integer(NativeSwiftVisibility.gone)])
   }

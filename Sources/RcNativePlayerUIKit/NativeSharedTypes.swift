@@ -9,6 +9,9 @@ public enum RemoteComposeNativePlayerBackground: Equatable, Sendable {
 
 /// A value a host sets on a document's named variable: the kinds a `.rc` document declares a
 /// `USER:` name with that a host can write. A boolean travels as `.integer` 0 or 1, as on the wire.
+///
+/// Public, so it stays its own type rather than an alias of the core's SPI `NativeSwiftNamedValue`,
+/// which also carries an integer's float view that a host never writes (`coreValue` maps to it).
 public enum RemoteComposeNativeNamedValue: Equatable, Sendable {
   case text(String)
   case float(Float)
@@ -43,6 +46,13 @@ public enum RemoteComposeNativeInputAdmission: Equatable, Sendable {
 /// when it goes away, so no waiter outlives it.
 ///
 /// Thread-safe, and holds no reference to the player, so a waiter does not keep it alive.
+///
+/// A lock rather than `@MainActor` isolation, although every signal and wait but `wait`'s
+/// cancellation handler happens on the main actor: the player calls `close()` from its `deinit`,
+/// which is nonisolated (an isolated `deinit` needs iOS 18.4), and a cancellation handler runs on
+/// whatever thread cancels the task. Hopping either to the main actor would release waiters late,
+/// after the player is gone. With an iOS 13 floor, `Mutex`, `OSAllocatedUnfairLock` and
+/// `NSLock.withLock` are unavailable, so this is an `NSLock` and the class is `@unchecked Sendable`.
 @_spi(RemoteComposeController)
 public final class RemoteComposeNativeInputAvailability: @unchecked Sendable {
   private let lock = NSLock()

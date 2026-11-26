@@ -1,6 +1,10 @@
 package ee.schimke.composeai.rcplayer.wasm
 
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
+import ee.schimke.composeai.rcplayer.wasm.NamedValueRowsFixture.join
+import ee.schimke.composeai.rcplayer.wasm.NamedValueRowsFixture.rawRow
+import ee.schimke.composeai.rcplayer.wasm.NamedValueRowsFixture.read
+import ee.schimke.composeai.rcplayer.wasm.NamedValueRowsFixture.row
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -20,7 +24,7 @@ class NamedValueRowsEdgeCaseTest {
   fun anElementThatIsNotAnObjectIsDroppedOnItsOwn() {
     // The JS writes no row for `5`, `"color"`, `[...]`, `true` or `{}` (no string `kind`); the
     // shapeless row the one-`try` version wrote for them is still dropped on its own.
-    val shapeless = "\u0000\u0000\u0000s"
+    val shapeless = row("", "", "")
     assertEquals(orange, read(join(shapeless, orangeRow, shapeless)))
   }
 
@@ -102,7 +106,7 @@ class NamedValueRowsEdgeCaseTest {
     assertEquals(orange, read(join(blueRow, bad, orangeRow)))
     assertEquals(orange, read(join(orangeRow, bad)))
     // A lone surrogate never becomes a row (the JS `try` skips it), nor does a shapeless one count.
-    assertEquals(orange, read(join(blueRow, "\u0000\u0000\u0000s", orangeRow)))
+    assertEquals(orange, read(join(blueRow, row("", "", ""), orangeRow)))
     assertEquals(blue, read(join(orangeRow, blueRow)))
   }
 
@@ -139,20 +143,7 @@ class NamedValueRowsEdgeCaseTest {
     // The KDoc promises every malformed row is dropped on its own. `Main.kt` always writes
     // `encodeURIComponent` output, so this row cannot come from the bundle today, but the function
     // takes any `String`: a decoder that throws on it must not take the good row down too.
-    val notEncoded = listOf("%", "x", "y", "s").joinToString("\u0000")
+    val notEncoded = rawRow("%", "x", "y", NAMED_VALUE_TEXT_MARK)
     assertEquals(orange, read(join(notEncoded, orangeRow)))
   }
-
-  private fun read(rows: String) = namedValuesFromRows(rows, ::decodeUriComponent)
-
-  private fun join(vararg rows: String) = rows.joinToString("\u0001")
-
-  private fun row(kind: String, name: String, value: String, isNumber: Boolean = false) =
-    listOf(
-        encodeUriComponent(kind),
-        encodeUriComponent(name),
-        encodeUriComponent(value),
-        if (isNumber) "n" else "s",
-      )
-      .joinToString("\u0000")
 }

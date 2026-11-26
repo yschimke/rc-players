@@ -115,6 +115,12 @@ public struct NativeSwiftNamedVariableDeclarations: Sendable {
 /// A named variable's value: the kinds a host can write, as a session reads and restores them
 /// (``NativeSwiftDocumentSession/writtenNamedValues()``). A boolean is an `.integer` 0 or 1, as on
 /// the wire.
+///
+/// One of three value enums with mappers between them, kept apart because merging them would change
+/// a public API: this one is the core's SPI type and alone carries an integer's float view
+/// (`.integer(_:float:)`), which only a session restores; `RemoteComposeNativeNamedValue` is
+/// `RcNativePlayerUIKit`'s public host type; and the SwiftUI overlay's `ControllerNamedValue` keeps
+/// a boolean apart and compiles where no native player is linked.
 @_spi(RemoteComposeController)
 public enum NativeSwiftNamedValue: Equatable, Sendable {
   case text(String)

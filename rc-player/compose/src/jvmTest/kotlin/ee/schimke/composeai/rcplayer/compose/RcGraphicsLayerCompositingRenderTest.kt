@@ -163,10 +163,10 @@ class RcGraphicsLayerCompositingRenderTest {
           blur = RcFloatWord.literal(1f),
         ),
       )
-    assertFaded(RED, 0x80, image.getColor(OFFSET_CHILD_X, MID_Y), "offset child")
+    assertFaded(RED, HALF_ALPHA, image.getColor(OFFSET_CHILD_X, MID_Y), "offset child")
     assertFaded(
       BLUE,
-      0x40,
+      QUARTER_ALPHA,
       image.getColor(STILL_CHILD_X, MID_Y),
       "still child, Skiko's own quirk",
     )
@@ -186,14 +186,19 @@ class RcGraphicsLayerCompositingRenderTest {
         blur = variable(BLUR_ID),
       )
     scene(document, namedValues) {
-      assertFaded(RED, 0x80, pixel(0L, OFFSET_CHILD_X), "before the blur")
+      assertFaded(RED, HALF_ALPHA, pixel(0L, OFFSET_CHILD_X), "before the blur")
       var nanos = 0L
       for (blur in listOf(1f, 0f)) {
         namedValues["USER:blur"] = RcNamedValue.FloatValue(blur)
         Snapshot.sendApplyNotifications()
         repeat(STEPS) {
           nanos += FRAME
-          assertFaded(RED, 0x80, pixel(nanos, OFFSET_CHILD_X), "blur -> $blur, frame at $nanos")
+          assertFaded(
+            RED,
+            HALF_ALPHA,
+            pixel(nanos, OFFSET_CHILD_X),
+            "blur -> $blur, frame at $nanos",
+          )
         }
       }
     }
@@ -663,6 +668,8 @@ class RcGraphicsLayerCompositingRenderTest {
     const val ALPHA_ID = 61
     const val FRAME = 16_000_000L
     const val STEPS = 30
+    const val HALF_ALPHA = 0x80
+    const val QUARTER_ALPHA = 0x40
     const val RED = 0xffff0000.toInt()
     const val HALF_RED = 0x80ff0000.toInt()
     const val HALF_BLUE = 0x800000ff.toInt()

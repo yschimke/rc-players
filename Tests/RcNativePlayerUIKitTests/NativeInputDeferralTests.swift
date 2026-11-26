@@ -36,14 +36,16 @@
       let view = try await openedView()
       moveToBackground(view)
       let mark = view.inputAvailability.mark
-      #expect(await view.submit(.integer(Self.visible), for: "shown") == .deferred)
+      #expect(
+        await view.submit(.integer(Self.visible), for: NativeTestDocuments.shownName) == .deferred)
       // The public setter's answer is unchanged: the write was not applied.
-      #expect(!(await view.setInteger(Self.visible, for: "shown")))
+      #expect(!(await view.setInteger(Self.visible, for: NativeTestDocuments.shownName)))
       #expect(view.inputAvailability.mark == mark)
 
       activate(view)
       #expect(view.inputAvailability.mark != mark)
-      #expect(await view.submit(.integer(Self.visible), for: "shown") == .accepted)
+      #expect(
+        await view.submit(.integer(Self.visible), for: NativeTestDocuments.shownName) == .accepted)
     }
 
     /// A write beyond the queue's capacity is deferred, and the player signals as the queue drains.
@@ -52,7 +54,8 @@
       let mark = view.inputAvailability.mark
       let writes = (0..<300).map { index in
         Task { @MainActor in
-          await view.submit(.integer(index % 2 == 0 ? Self.visible : Self.gone), for: "shown")
+          await view.submit(
+            .integer(index % 2 == 0 ? Self.visible : Self.gone), for: NativeTestDocuments.shownName)
         }
       }
       var answers: [RemoteComposeNativeInputAdmission] = []
@@ -72,7 +75,9 @@
       // test sees it in flight is simply tried again.
       for _ in 0..<50 {
         var answer: RemoteComposeNativeInputAdmission?
-        Task { @MainActor in answer = await view.submit(.integer(Self.visible), for: "shown") }
+        Task { @MainActor in
+          answer = await view.submit(.integer(Self.visible), for: NativeTestDocuments.shownName)
+        }
         try await waitUntil("the write is in flight or answered") {
           answer != nil || view.isApplyingInput
         }
@@ -95,7 +100,9 @@
       for attempt in 0..<50 {
         var answer: RemoteComposeNativeInputAdmission?
         let value = "Value \(attempt)"
-        Task { @MainActor in answer = await view.submit(.text(value), for: "label") }
+        Task { @MainActor in
+          answer = await view.submit(.text(value), for: NativeTestDocuments.labelName)
+        }
         try await waitUntil("the write is in flight or answered") {
           answer != nil || view.isApplyingInput
         }
@@ -119,10 +126,13 @@
       try await waitUntil("the document opens") { !view.isOpeningDocument }
       for attempt in 0..<50 {
         // What the session took from the host last, before the write that is caught in flight.
-        try #require(await view.submit(.text("Host"), for: "label") == .accepted)
+        try #require(
+          await view.submit(.text("Host"), for: NativeTestDocuments.labelName) == .accepted)
         var answer: RemoteComposeNativeInputAdmission?
         let value = "In flight \(attempt)"
-        Task { @MainActor in answer = await view.submit(.text(value), for: "label") }
+        Task { @MainActor in
+          answer = await view.submit(.text(value), for: NativeTestDocuments.labelName)
+        }
         try await waitUntil("the write is in flight or answered") {
           answer != nil || view.isApplyingInput
         }
@@ -130,7 +140,7 @@
         moveToBackground(view)
         try await waitUntil("the write is answered") { answer != nil }
         // The host's latest value is its first one again.
-        view.namedValueSeed = { [(name: "label", value: .text("Host"))] }
+        view.namedValueSeed = { [(name: NativeTestDocuments.labelName, value: .text("Host"))] }
         activate(view)
         try await waitUntil("the reopen settles") { !view.isOpeningDocument && !view.isBusy }
         #expect(text(NativeTestDocuments.labelID, in: view) == "Host")
@@ -165,7 +175,9 @@
     @Test func aRefusalWhileInputIsQueuedIsFinal() async throws {
       let view = try await openedView()
       let busy = (0..<20).map { _ in
-        Task { @MainActor in await view.submit(.integer(Self.visible), for: "shown") }
+        Task { @MainActor in
+          await view.submit(.integer(Self.visible), for: NativeTestDocuments.shownName)
+        }
       }
       let refused = Task { @MainActor in await view.submit(.integer(1), for: "missing") }
       #expect(await refused.value == .refused)
@@ -212,7 +224,7 @@
       view.namedValueSeed = {
         seedReads += 1
         return [
-          (name: "shown", value: .integer(Self.visible)),
+          (name: NativeTestDocuments.shownName, value: .integer(Self.visible)),
           (name: "missing", value: .integer(1)),
         ]
       }
@@ -235,13 +247,16 @@
       let view = RemoteComposeNativePlayerView(
         data: NativeTestDocuments.shownBox(), resourceResolver: nil,
         onError: { errors.append($0) })
-      view.namedValueSeed = { [(name: "shown", value: .integer(Self.visible))] }
+      view.namedValueSeed = {
+        [(name: NativeTestDocuments.shownName, value: .integer(Self.visible))]
+      }
       // Invalid limits fail the open before it starts, so the first session never opens.
       var invalid = RemoteComposeNativeExecutionLimits.default
       invalid.maximumFrameWork = 0
       view.configureExecutionLimits(invalid)
       #expect(!view.isOpeningDocument && errors.count == 1)
-      #expect(await view.submit(.integer(Self.visible), for: "shown") == .refused)
+      #expect(
+        await view.submit(.integer(Self.visible), for: NativeTestDocuments.shownName) == .refused)
 
       var firstFrames: [Bool?] = []
       view.onSessionOpened = { [unowned view] in firstFrames.append(isBoxShown(in: view)) }
@@ -263,13 +278,15 @@
     ) async throws {
       var errors: [RemoteComposeNativePlayerError] = []
       var limits = RemoteComposeNativeExecutionLimits.default
-      limits.maximumTextBytes = 64
+      limits.maximumTextBytes = NativeTestDocuments.textLimitBytes
       let view = RemoteComposeNativePlayerView(
         data: NativeTestDocuments.label(), compatibilityPolicy: policy, executionLimits: limits,
         resourceResolver: nil, onError: { errors.append($0) })
       try await waitUntil("the document opens") { !view.isOpeningDocument }
       try #require(errors.isEmpty, "\(errors)")
-      view.namedValueSeed = { [(name: "label", value: .text(String(repeating: "x", count: 100)))] }
+      view.namedValueSeed = {
+        [(name: NativeTestDocuments.labelName, value: .text(NativeTestDocuments.overLimitText()))]
+      }
 
       view.configureHostDensity(2)
       // Settled: the reopen finished and has nothing left to apply or report.
@@ -282,7 +299,7 @@
         "the text limit, reported for the seeded value: \(errors)")
       #expect(hasComponent(NativeTestDocuments.labelID, in: view))
       // The session is open, not failed: it still takes a write.
-      #expect(await view.submit(.text("Ready"), for: "label") == .accepted)
+      #expect(await view.submit(.text("Ready"), for: NativeTestDocuments.labelName) == .accepted)
       #expect(errors.count == 1, "\(errors)")
     }
 
@@ -292,14 +309,17 @@
     @Test func aSeedValueThatBreaksALimitIsLeftOutAndLaterWritesAreTaken() async throws {
       var errors: [RemoteComposeNativePlayerError] = []
       var limits = RemoteComposeNativeExecutionLimits.default
-      limits.maximumTextBytes = 64
+      limits.maximumTextBytes = NativeTestDocuments.textLimitBytes
       let view = RemoteComposeNativePlayerView(
         data: NativeTestDocuments.label(), executionLimits: limits, resourceResolver: nil,
         onError: { errors.append($0) })
       try await waitUntil("the document opens") { !view.isOpeningDocument }
-      let tooLong = String(repeating: "x", count: 100)
+      let tooLong = NativeTestDocuments.overLimitText()
       view.namedValueSeed = {
-        [(name: "label", value: .text(tooLong)), (name: "title", value: .text("Seeded"))]
+        [
+          (name: NativeTestDocuments.labelName, value: .text(tooLong)),
+          (name: NativeTestDocuments.titleName, value: .text("Seeded")),
+        ]
       }
       var applied: [String] = []
       view.onInputApplied = { input in
@@ -312,7 +332,7 @@
       var answer = RemoteComposeNativeInputAdmission.deferred
       while answer == .deferred {
         let mark = view.inputAvailability.mark
-        answer = await view.submit(.text("Ready"), for: "title")
+        answer = await view.submit(.text("Ready"), for: NativeTestDocuments.titleName)
         if answer == .deferred { await view.inputAvailability.wait(after: mark) }
       }
       try await waitUntil("the reopen settles") { !view.isBusy }
@@ -326,7 +346,8 @@
     /// held, written by the host or by the document, into the first frame of the new session.
     @Test func aReopenCarriesTheSessionsNamedValues() async throws {
       let view = try await openedView()
-      #expect(await view.submit(.integer(Self.visible), for: "shown") == .accepted)
+      #expect(
+        await view.submit(.integer(Self.visible), for: NativeTestDocuments.shownName) == .accepted)
       var firstFrames: [Bool?] = []
       view.onSessionOpened = { [unowned view] in firstFrames.append(isBoxShown(in: view)) }
       view.configureHostDensity(2)
@@ -338,8 +359,9 @@
     /// had not taken, which are newer.
     @Test func theSeedIsAppliedOverTheCarriedValues() async throws {
       let view = try await openedView()
-      #expect(await view.submit(.integer(Self.visible), for: "shown") == .accepted)
-      view.namedValueSeed = { [(name: "shown", value: .integer(Self.gone))] }
+      #expect(
+        await view.submit(.integer(Self.visible), for: NativeTestDocuments.shownName) == .accepted)
+      view.namedValueSeed = { [(name: NativeTestDocuments.shownName, value: .integer(Self.gone))] }
       var firstFrames: [Bool?] = []
       view.onSessionOpened = { [unowned view] in firstFrames.append(isBoxShown(in: view)) }
       view.configureHostDensity(2)
@@ -351,8 +373,11 @@
     /// clear them, and their first frame shows their own values.
     @Test func loadingOtherBytesClearsTheSeed() async throws {
       let view = try await openedView()
-      #expect(await view.submit(.integer(Self.visible), for: "shown") == .accepted)
-      view.namedValueSeed = { [(name: "shown", value: .integer(Self.visible))] }
+      #expect(
+        await view.submit(.integer(Self.visible), for: NativeTestDocuments.shownName) == .accepted)
+      view.namedValueSeed = {
+        [(name: NativeTestDocuments.shownName, value: .integer(Self.visible))]
+      }
       var firstFrames: [Bool?] = []
       view.onSessionOpened = { [unowned view] in firstFrames.append(isBoxShown(in: view)) }
 

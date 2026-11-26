@@ -31,9 +31,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private let recordedIntegers: [Int: Int]
   /// The ids the document itself fills as integers: its integer constants and the outputs of its
   /// integer expressions, id lookups and data-map lookups. With the ids a host or an action wrote
-  /// (`writtenIDs`) they are every integer slot the float evaluator may need projected; the rest
-  /// of `integers` is the integer view of a float, which already has its float. Kept apart so a
-  /// frame does not walk every float constant's integer view.
+  /// (`writtenIntegerAndTextIDs`) they are every integer slot the float evaluator may need
+  /// projected; the rest of `integers` is the integer view of a float, which already has its float.
+  /// Kept apart so a frame does not walk every float constant's integer view.
   private let integerSlotIDs: Set<Int>
   /// Each `ImageAttribute` output's size. The reference writes it again on every pass, so every
   /// resolution puts it back over whatever a write left there.
@@ -48,7 +48,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// The integer and text slots a write has reached since the session opened — the host's, or one
   /// of the document's own actions — as opposed to ones only the document's computations fill (a
   /// text operation's output, an integer expression). A float write is in `floatOverrides`.
-  private var writtenIDs: Set<Int> = []
+  private var writtenIntegerAndTextIDs: Set<Int> = []
   private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
   private var particleSystems: [Int: NativeSwiftParticleSystemRuntime] = [:]
   /// AndroidX's per-impulse "first frame in the window" bit, and each impulse's phase at the frame
@@ -205,7 +205,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     floatExpressionIDs = other.floatExpressionIDs
     documentClaimsEpochSecond = other.documentClaimsEpochSecond
     hostSetColors = other.hostSetColors
-    writtenIDs = other.writtenIDs
+    writtenIntegerAndTextIDs = other.writtenIntegerAndTextIDs
     hostDensity = other.hostDensity
     hostFontScale = other.hostFontScale
     floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
@@ -611,7 +611,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     -> [NativeSwiftEvent]
   {
     func storeActionInteger(_ id: Int, _ value: Int) {
-      writtenIDs.insert(id)
+      writtenIntegerAndTextIDs.insert(id)
       guard storeInteger(id, value) else {
         // Unchanged, so Kotlin leaves `floats[id]`: a float expression's value stays; any other
         // id's float view is its integer, which an earlier action may have moved this frame.
@@ -628,7 +628,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     func storeActionFloat(_ id: Int, _ value: Float) {
       storeFloat(id, value)
       values[id] = value
-      writtenIDs.insert(id)
+      writtenIntegerAndTextIDs.insert(id)
     }
     // A sequence can mutate state before a later expression fails. Invalidate before executing the
     // first action so an error cannot leave a stale static snapshot cached over that mutation.
@@ -662,7 +662,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case .textValue(let targetID, let textID):
         if let text = texts[textID] {
           texts[targetID] = text
-          writtenIDs.insert(targetID)
+          writtenIntegerAndTextIDs.insert(targetID)
         }
       case .hostAction(let id):
         events.append(.action(id: id))
@@ -830,13 +830,17 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       let id = variable.id
       switch variable.type {
       case NativeSwiftNamedVariableType.int:
-        if writtenIDs.contains(id) || floatOverrides[id] != nil, let value = integers[id] {
+        if writtenIntegerAndTextIDs.contains(id) || floatOverrides[id] != nil,
+          let value = integers[id]
+        {
           written.append((name, .integer(value, float: floatOverrides[id])))
         }
       case NativeSwiftNamedVariableType.float:
         if let value = floatOverrides[id] { written.append((name, .float(value))) }
       case NativeSwiftNamedVariableType.string:
-        if writtenIDs.contains(id), let value = texts[id] { written.append((name, .text(value))) }
+        if writtenIntegerAndTextIDs.contains(id), let value = texts[id] {
+          written.append((name, .text(value)))
+        }
       case NativeSwiftNamedVariableType.color:
         // Only a host writes a colour by name; the document's own are restored by its bytes.
         if hostSetColors.contains(id), let value = colors[id] {
@@ -877,12 +881,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       storeFloat(id, value)
     case .text(let value):
       texts[id] = value
-      writtenIDs.insert(id)
+      writtenIntegerAndTextIDs.insert(id)
     case .color(let argb):
       colors[id] = argb
       hostSetColors.insert(id)
     case .integer(let value, let float):
-      writtenIDs.insert(id)
+      writtenIntegerAndTextIDs.insert(id)
       if let float {
         // A carried value restores both views exactly as the previous session left them.
         integers[id] = value
@@ -968,10 +972,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       floatOverrides[id] = nil
       floats[id] = recordedFloats[id]
       integers[id] = recordedIntegers[id]
-      writtenIDs.remove(id)
+      writtenIntegerAndTextIDs.remove(id)
     case NativeSwiftNamedVariableType.string:
       texts[id] = document.texts[id]
-      writtenIDs.remove(id)
+      writtenIntegerAndTextIDs.remove(id)
     case NativeSwiftNamedVariableType.color:
       // No longer the host's, so the document's dark palette applies to it again.
       colors[id] = document.colors[id]
@@ -1005,7 +1009,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       })
     else { return false }
     texts[property.valueBits] = value
-    writtenIDs.insert(property.valueBits)
+    writtenIntegerAndTextIDs.insert(property.valueBits)
     staticSnapshotCache = nil
     return true
   }
@@ -1620,7 +1624,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
     // O(slots + written ids) per resolution, not O(every integer view).
     for id in integerSlotIDs { projectIntegerSlot(id) }
-    for id in writtenIDs where !integerSlotIDs.contains(id) { projectIntegerSlot(id) }
+    for id in writtenIntegerAndTextIDs where !integerSlotIDs.contains(id) {
+      projectIntegerSlot(id)
+    }
     // A copied dynamic colour is encoded as colour expression → channel attributes → colour
     // expression. Resolve the source colours before extracting their channels so the final colour
     // pass can preserve copies such as a selected tint with reduced alpha. Only a channel attribute

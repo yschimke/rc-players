@@ -29,7 +29,9 @@ import Foundation
 
 /// A value the controller writes to a named variable, with its type, so a colour and an integer —
 /// both carried as integers — reach the setter that type-checks each. The overlay keeps its own
-/// type rather than a player's because it also compiles with no native player linked at all.
+/// type rather than a player's because it also compiles with no native player linked at all, and
+/// because it keeps a boolean apart from an integer, as the controller's API does, until
+/// `nativeValue` writes it as 1 or 0 into the native player's `RemoteComposeNativeNamedValue`.
 enum ControllerNamedValue: Equatable {
   case float(Float)
   case text(String)
@@ -193,10 +195,10 @@ protocol ControllerBackendProtocol: AnyObject {
     func attach(_ declarations: NativeSwiftNamedVariableDeclarations) {
       attachedDeclarations = declarations
       var kept: [String: ControllerNamedValue] = [:]
-      // Sorted so that when two stored names resolve to one declared name, the same one wins on
-      // every run (Swift randomises Dictionary order per process).
-      for name in valuesByName.keys.sorted() {  // lint-ok: O(n log n) once per attach
-        guard let value = valuesByName[name], let declared = declarations.declaredName(for: name),
+      // In name order, so that when two stored names resolve to one declared name ("foo" and
+      // "USER:foo") the same one wins every time.
+      for (name, value) in valuesByName.sortedByName {
+        guard let declared = declarations.declaredName(for: name),
           declarations.accepts(value, for: declared)
         else { continue }
         kept[declared] = value
@@ -207,7 +209,7 @@ protocol ControllerBackendProtocol: AnyObject {
       // never held the name leaves the clear out of its seed (the host's `nativeHeldNames`).
       pendingClearedNames = Set(
         pendingClearedNames.lazy.compactMap { declarations.declaredName(for: $0) }
-          .filter { kept[$0] == nil })  // lint-ok: O(1) dictionary lookup per pending clear
+          .filter { kept[$0] == nil })
     }
 
     /// Forgets the attached declarations without a new document to judge the stored values by —
@@ -246,21 +248,21 @@ protocol ControllerBackendProtocol: AnyObject {
       updateHandlers[owner] = handler
       guard let handler else { return }
       var seeded: [String: ControllerNamedValue] = [:]
-      for name in initial.keys.sorted() {  // lint-ok: O(n log n) once per install
-        guard let value = initial[name],
-          let declared = attachedDeclarations.declaredName(for: name),
+      // Name order, as in `attach`: two initial names that resolve to one declared name always
+      // leave the same one seeded.
+      for (name, value) in initial.sortedByName {
+        guard let declared = attachedDeclarations.declaredName(for: name),
           attachedDeclarations.accepts(value, for: declared)
         else { continue }
         seeded[declared] = value
       }
-      for name in valuesByName.keys.sorted() {  // lint-ok: O(n log n) once per install
-        guard let value = valuesByName[name] else { continue }
-        if seeded[name] == value { continue }
+      // Replayed in name order, so the player receives the values in the same order every time.
+      for (name, value) in valuesByName.sortedByName where seeded[name] != value {
         handler(name, value)
       }
       // A value the first open was seeded with that has been cleared since: the player holds it,
       // so it is handed the clear.
-      for name in seeded.keys.sorted() where valuesByName[name] == nil {  // lint-ok: once per install
+      for name in seeded.keys.sorted() where valuesByName[name] == nil {
         handler(name, nil)
       }
     }
@@ -270,10 +272,10 @@ protocol ControllerBackendProtocol: AnyObject {
     var storedValues: [String: ControllerNamedValue] { valuesByName }
 
     /// Every value stored so far, sorted by key, for seeding a brand-new player's first open
-    /// before its declarations finish loading on the main actor.
+    /// before its declarations finish loading on the main actor. Sorted because a seed is applied
+    /// in order and a dictionary's order changes from run to run.
     var initialSeedValues: [(name: String, value: RemoteComposeNativeNamedValue)] {
-      valuesByName.sorted { $0.key < $1.key }  // lint-ok: O(n log n) once per player open
-        .map { (name: $0.key, value: $0.value.nativeValue) }
+      valuesByName.sortedByName.map { (name: $0.key, value: $0.value.nativeValue) }
     }
 
     /// The values written so far, by the name the player's document declares them under, which
@@ -305,10 +307,10 @@ protocol ControllerBackendProtocol: AnyObject {
     private var reopenSeed: [(name: String, value: RemoteComposeNativeNamedValue?)] {
       var seed: [(name: String, value: RemoteComposeNativeNamedValue?)] = []
       seed.reserveCapacity(valuesByName.count + pendingClearedNames.count)
-      for (name, value) in valuesByName.sorted(by: { $0.key < $1.key }) {  // lint-ok: per reopen
+      for (name, value) in valuesByName.sortedByName {
         seed.append((name: name, value: value.nativeValue))
       }
-      for name in pendingClearedNames.sorted() {  // lint-ok: O(c log c) once per reopen
+      for name in pendingClearedNames.sorted() {
         seed.append((name: name, value: nil))
       }
       return seed
@@ -352,34 +354,34 @@ protocol ControllerBackendProtocol: AnyObject {
     /// value stays with the controller, as on the Kotlin player, and each session the player
     /// reopens is seeded with it (`seedValues`) and judges it afresh: there a value that breaks an
     /// execution limit is left out of the first frame and reported through `onError` once per
-    /// session, and that session stays open and takes later writes. It stops as soon as the player
-    /// is gone or has closed its input availability, the task is cancelled, or `isCurrent` says a
-    /// newer value for this name has started, the player was rebuilt, or a reopen took the value in
-    /// its seed.
+    /// session, and that session stays open and takes later writes. It stops at its next check
+    /// once the player is gone or has closed its input availability, or the task is cancelled (an
+    /// offer already being answered still gets its answer): the player view cancels a delivery's
+    /// task when a newer value for its name starts, the player is rebuilt, or a reopen takes the
+    /// value in its seed.
     @MainActor
     func deliver<Target: NativeNamedValueTarget>(
-      for name: String, to target: () -> Target?, isCurrent: () -> Bool
+      for name: String, to target: () -> Target?
     ) async {
-      await deliverNamedUpdate(self, for: name, to: target, isCurrent: isCurrent)
+      await deliverNamedUpdate(self, for: name, to: target)
     }
   }
 
   /// Delivers a write — or, for nil, a clear — to the native player, as
-  /// ``ControllerNamedValue/deliver(for:to:isCurrent:)`` describes: offered again each time the
-  /// player signals until the session it reaches answers finally. Returns that answer, or nil when
-  /// it stopped first.
+  /// ``ControllerNamedValue/deliver(for:to:)`` describes: offered again each time the player
+  /// signals until the session it reaches answers finally. Returns that answer, or nil when it
+  /// stopped first.
   @MainActor
   @discardableResult
   func deliverNamedUpdate<Target: NativeNamedValueTarget>(
-    _ value: ControllerNamedValue?, for name: String, to target: () -> Target?,
-    isCurrent: () -> Bool
+    _ value: ControllerNamedValue?, for name: String, to target: () -> Target?
   ) async -> RemoteComposeNativeInputAdmission? {
     while true {
       let availability: RemoteComposeNativeInputAvailability
       let mark: UInt64
       // The strong reference lives only for the offer, not across the wait below.
       do {
-        guard !Task.isCancelled, let target = target(), isCurrent() else { return nil }
+        guard !Task.isCancelled, let target = target() else { return nil }
         availability = target.inputAvailability
         // A closed availability returns from every wait at once: its player is gone, and offering
         // again would spin.
@@ -397,6 +399,15 @@ protocol ControllerBackendProtocol: AnyObject {
         }
       }
       await availability.wait(after: mark)
+    }
+  }
+
+  extension Dictionary where Key == String {
+    /// The entries in name order: the order the controller re-keys, replays and seeds its values
+    /// in, since a dictionary's own order changes from run to run. O(n log n) in the stored names,
+    /// a handful.
+    fileprivate var sortedByName: [(key: String, value: Value)] {
+      sorted { $0.key < $1.key }
     }
   }
 
