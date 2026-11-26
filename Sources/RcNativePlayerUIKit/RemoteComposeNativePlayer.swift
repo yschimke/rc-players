@@ -262,9 +262,10 @@
     /// Each named write that failed this session — applying it, or the frame it produced, broke a
     /// limit or the policy — and was refused, by the name the document declares, with its value.
     /// While the session stays failed its variable may still hold that value, which is what
-    /// failed it, so the next session is not handed it (the seeding host offers its own write
-    /// again in the seed, judged afresh). A later accepted write of the name removes it, and a
-    /// frame installed again clears them all: every value the session then holds renders.
+    /// failed it, so the next session is not handed it, neither as a written value nor as a
+    /// left-out one (the seeding host offers its own write again in the seed, judged afresh). A
+    /// later accepted write of the name removes it, and a frame installed again clears them all:
+    /// every value the session then holds renders.
     var failedWrites: [String: NativeSwiftNamedValue] = [:]
 
     init(
@@ -689,12 +690,15 @@
       carriedNamedValues = Task {
         await pump?.value
         let failedWrites = failed ? presentation.failedWrites : [:]
-        let written = await presentation.engine.writtenNamedValues().compactMap {
-          failedWrites[$0.name] == $0.value
-            ? nil : NativeStartingValue(name: $0.name, value: $0.value)
+        let written = await presentation.engine.writtenNamedValues().map {
+          NativeStartingValue(name: $0.name, value: $0.value)
         }
+        // A write of a left-out name replaces it, even one that failed; then neither a written nor
+        // a left-out value that failed the session is handed on.
         return NativeCarriedValues(
-          values: NativeStartingValue.merging(presentation.leftOut, with: written),
+          values: NativeStartingValue.merging(presentation.leftOut, with: written).filter {
+            failedWrites[$0.name] != $0.value
+          },
           hostValues: presentation.hostValues)
       }
     }

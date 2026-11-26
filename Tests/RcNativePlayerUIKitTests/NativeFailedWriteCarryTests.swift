@@ -146,6 +146,29 @@
 
     // MARK: - failedWrites + leftOut
 
+    /// A seed value left out of a reopen, then written directly (it fails the session again):
+    /// the retry hands the next session that value neither as the failed write nor as the
+    /// left-out entry for the same name, so it is not reported once more.
+    @Test func aLeftOutValueWrittenAgainAndFailedIsNotReplayedOnTheRetry() async throws {
+      var errors: [RemoteComposeNativePlayerError] = []
+      let view = RemoteComposeNativePlayerView(
+        data: NativeTestDocuments.label(), resourceResolver: nil,
+        onError: { errors.append($0) })
+      try await settled(view, "opens")
+      view.namedValueSeed = { [(name: "label", value: .text(String(repeating: "x", count: 100)))] }
+      view.configureExecutionLimits(lowTextLimit)
+      try await until("left out and reported") {
+        !view.isOpeningDocument && !view.isBusy && !errors.isEmpty
+      }
+      try #require(errors.count == 1, "\(errors)")
+      try #require(text(NativeTestDocuments.labelID, in: view) == "Idle")
+      #expect(await view.setString(long, for: "label") == false)
+      try #require(errors.count == 2, "\(errors)")
+      view.load(NativeTestDocuments.label())
+      try await settled(view, "retry settles")
+      #expect(errors.count == 2, "the failed write came back through leftOut: \(errors)")
+    }
+
     /// A value both left out and then written equal through `submit` (counted) after the limit
     /// is raised by a reopen: shown once, not reported again.
     @Test func aLeftOutValueThenAnEqualSubmitAfterTheLimitIsRaised() async throws {
