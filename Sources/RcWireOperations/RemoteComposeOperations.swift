@@ -591,8 +591,10 @@ public enum IdEncoding {
     public static let valueMask: Int32 = 65535
     public static let macroLocalStartId: Int32 = 16384
     public static let macroLocalEndId: Int32 = 20479
+    /// No id: no component id requested, no animation, the default font.
+    public static let noId: Int32 = -1
     public static func isNanBits(_ bits: Int32) -> Bool { (bits & nanPrefix) == nanPrefix && (bits & payloadMask) != 0 }
-    public static func idFromNanBits(_ bits: Int32) -> Int32 { isNanBits(bits) ? (bits & payloadMask) : -1 }
+    public static func idFromNanBits(_ bits: Int32) -> Int32 { isNanBits(bits) ? (bits & payloadMask) : noId }
     public static func asNanBits(_ id: Int32) -> Int32 { (id & payloadMask) | nanPrefix }
     public static func isDereferenced(_ raw: Int32) -> Bool { (raw & ptrDereference) != 0 }
     public static func directId(_ raw: Int32) -> Int32? { isDereferenced(raw) ? nil : (raw & valueMask) }
@@ -643,6 +645,9 @@ public enum PaintCommandTags {
     public static let texture: Int32 = 24
     public static let pathEffect: Int32 = 25
     public static let fallbackTypeface: Int32 = 26
+    /// A paint word's tag is its low half; an `inline_high16` value is its high half.
+    public static let tagMask: Int32 = 0xFFFF
+    public static let inlineValueShift: Int32 = 16
 }
 
 public enum PaintConstants {
@@ -11552,8 +11557,9 @@ public struct CoreSemantics: RemoteOperation, Hashable {
     }
 }
 
-/// The values the schema's field conditions compare against, by name: its
-/// `expressionConstants` and its header constants.
+/// Named values the schema defines outside any one field: its `expressionConstants` (the
+/// values its field conditions compare against, and component visibility) and its header
+/// constants.
 public enum WireExpressionConstants {
     public static let dataTypeFloat: Int = 1
     public static let dataTypeInt: Int = 0
@@ -11575,7 +11581,9 @@ public enum WireExpressionConstants {
     public static let mesh2dTypeSplineRoundStrip: Int = 4
     public static let graphicsLayerTypeInt: Int = 0
     public static let graphicsLayerTypeFloat: Int = 1
+    public static let visibilityOverrideVisible: Int = 32
     public static let headerPropertyMapMajorVersion: Int = 65536
+    public static let visibilityOverrideGone: Int = 16
     public static let animationKindCustom: Int = 8
     public static let customPropertyStringProp: Int = 2
     public static let graphicsLayerAmbientShadowColor: Int = 15
@@ -11588,6 +11596,7 @@ public enum WireExpressionConstants {
     public static let graphicsLayerAttributeMask: Int = 63
     public static let customPropertyIntIdProp: Int = 9
     public static let headerPropertyTypeShift: Int = 10
+    public static let visibilityGone: Int = 0
     public static let customPropertyColorIdProp: Int = 7
     public static let customPropertyColorProp: Int = 8
     public static let customPropertyColorReturn: Int = 6
@@ -11598,6 +11607,7 @@ public enum WireExpressionConstants {
     public static let graphicsLayerTypeShift: Int = 10
     public static let mesh2dTypeF16Values: Int = 2
     public static let animationKindMask: Int = 255
+    public static let visibilityOverrideInvisible: Int = 64
     public static let hsvMode: Int = 4
     public static let argbMode: Int = 5
     public static let customPropertyIntReturn: Int = 5
@@ -11606,9 +11616,228 @@ public enum WireExpressionConstants {
     public static let eventFlagUnconditional: Int = 1
     public static let idColorInterpolate: Int = 1
     public static let customPropertyIntProp: Int = 0
+    public static let visibilityClearOverride: Int = 128
     public static let mesh2dTypeExpression: Int = 0
+    public static let visibilityVisible: Int = 1
+    public static let visibilityInvisible: Int = 2
     public static let colorIdInterpolate: Int = 2
     public static let customPropertyFloatProp: Int = 1
+}
+
+/// `FloatExpression`'s operators. An operator is written as the word whose id is `offset` plus
+/// its code, NaN-boxed as an id is.
+public enum FloatExpressionOperator {
+    public static let offset: Int32 = 3211264
+    /// Addition
+    public static let add: Int32 = 1
+    /// Subtraction
+    public static let sub: Int32 = 2
+    /// Multiplication
+    public static let mul: Int32 = 3
+    /// Division
+    public static let div: Int32 = 4
+    /// Modulo
+    public static let mod: Int32 = 5
+    /// Minimum
+    public static let min: Int32 = 6
+    /// Maximum
+    public static let max: Int32 = 7
+    /// Power
+    public static let pow: Int32 = 8
+    /// Square root
+    public static let sqrt: Int32 = 9
+    /// Absolute value
+    public static let abs: Int32 = 10
+    /// Signum
+    public static let sign: Int32 = 11
+    /// Copy sign
+    public static let copySign: Int32 = 12
+    /// Natural exponential
+    public static let exp: Int32 = 13
+    /// Floor
+    public static let floor: Int32 = 14
+    /// Base-10 logarithm
+    public static let log: Int32 = 15
+    /// Natural logarithm
+    public static let ln: Int32 = 16
+    /// Round to nearest integer
+    public static let round: Int32 = 17
+    /// Sine
+    public static let sin: Int32 = 18
+    /// Cosine
+    public static let cos: Int32 = 19
+    /// Tangent
+    public static let tan: Int32 = 20
+    /// Arcsine
+    public static let asin: Int32 = 21
+    /// Arccosine
+    public static let acos: Int32 = 22
+    /// Arctangent
+    public static let atan: Int32 = 23
+    /// Two-argument arctangent
+    public static let atan2: Int32 = 24
+    /// Multiply-add (a * b + c)
+    public static let mad: Int32 = 25
+    /// Ternary conditional
+    public static let ifelse: Int32 = 26
+    /// Clamp value between min and max
+    public static let clamp: Int32 = 27
+    /// Cube root
+    public static let cbrt: Int32 = 28
+    /// Radians to degrees (DEG)
+    public static let degToRad: Int32 = 29
+    /// Degrees to radians (RAD)
+    public static let radToDeg: Int32 = 30
+    /// Ceiling
+    public static let ceil: Int32 = 31
+    /// Dereference float array at index
+    public static let aDeref: Int32 = 32
+    /// Maximum element of float array
+    public static let aMax: Int32 = 33
+    /// Minimum element of float array
+    public static let aMin: Int32 = 34
+    /// Sum of float array elements
+    public static let aSum: Int32 = 35
+    /// Average of float array elements
+    public static let aAvg: Int32 = 36
+    /// Length of float array
+    public static let aLen: Int32 = 37
+    /// Monotonic spline interpolation over array
+    public static let aSpline: Int32 = 38
+    /// Random float in [0, 1)
+    public static let rand: Int32 = 39
+    /// Set random generator seed
+    public static let randSeed: Int32 = 40
+    /// Deterministic pseudo-random noise from seed
+    public static let noiseFrom: Int32 = 41
+    /// Random float in [min, max)
+    public static let randInRange: Int32 = 42
+    /// Sum of squares (x*x + y*y)
+    public static let squareSum: Int32 = 43
+    /// Step function (x > edge ? 1 : 0)
+    public static let step: Int32 = 44
+    /// Square (x * x)
+    public static let square: Int32 = 45
+    /// Duplicate top of stack
+    public static let dup: Int32 = 46
+    /// Hypotenuse sqrt(x*x + y*y)
+    public static let hypot: Int32 = 47
+    /// Swap top two stack values
+    public static let swap: Int32 = 48
+    /// Linear interpolation
+    public static let lerp: Int32 = 49
+    /// Smooth Hermite interpolation
+    public static let smoothStep: Int32 = 50
+    /// Base-2 logarithm
+    public static let log2: Int32 = 51
+    /// Reciprocal (1 / x)
+    public static let inv: Int32 = 52
+    /// Fractional part
+    public static let fract: Int32 = 53
+    /// Ping-pong modulo wave
+    public static let pingpong: Int32 = 54
+    /// No-op
+    public static let nop: Int32 = 55
+    /// Store to register 0
+    public static let storeRo: Int32 = 56
+    /// Store to register 1
+    public static let storeR1: Int32 = 57
+    /// Store to register 2
+    public static let storeR2: Int32 = 58
+    /// Store to register 3
+    public static let storeR3: Int32 = 59
+    /// Load from register 0
+    public static let loadR0: Int32 = 60
+    /// Load from register 1
+    public static let loadR1: Int32 = 61
+    /// Load from register 2
+    public static let loadR2: Int32 = 62
+    /// Load from register 3
+    public static let loadR3: Int32 = 63
+    /// Reserved command 1
+    public static let cmd1: Int32 = 64
+    /// Reserved command 2
+    public static let cmd2: Int32 = 65
+    /// Reserved command 3
+    public static let cmd3: Int32 = 66
+    /// Reserved command 4
+    public static let cmd4: Int32 = 67
+    /// Function parameter 1
+    public static let var1: Int32 = 70
+    /// Function parameter 2
+    public static let var2: Int32 = 71
+    /// Function parameter 3
+    public static let var3: Int32 = 72
+    /// Negate (-x)
+    public static let changeSign: Int32 = 73
+    /// Cubic Bezier evaluation
+    public static let cubic: Int32 = 74
+    /// Looping spline interpolation over array
+    public static let aSplineLoop: Int32 = 75
+    /// Sum of array elements up to index
+    public static let aSumTill: Int32 = 76
+    /// Dot product of two arrays
+    public static let aSumXy: Int32 = 77
+    /// Sum of squared array elements
+    public static let aSumSqr: Int32 = 78
+    /// Piecewise linear interpolation over array
+    public static let aLerp: Int32 = 79
+}
+
+/// `IntegerExpression`'s operators. An operator is written as the word whose id is `offset` plus
+/// its code, NaN-boxed as an id is.
+public enum IntegerExpressionOperator {
+    public static let offset: Int32 = 65536
+    /// Integer addition
+    public static let iAdd: Int32 = 1
+    /// Integer subtraction
+    public static let iSub: Int32 = 2
+    /// Integer multiplication
+    public static let iMul: Int32 = 3
+    /// Integer division
+    public static let iDiv: Int32 = 4
+    /// Integer modulo
+    public static let iMod: Int32 = 5
+    /// Bitwise shift left
+    public static let iShl: Int32 = 6
+    /// Arithmetic shift right
+    public static let iShr: Int32 = 7
+    /// Logical unsigned shift right
+    public static let iUshr: Int32 = 8
+    /// Bitwise OR
+    public static let iOr: Int32 = 9
+    /// Bitwise AND
+    public static let iAnd: Int32 = 10
+    /// Bitwise xor
+    public static let iXor: Int32 = 11
+    /// Integer copy sign
+    public static let iCopySign: Int32 = 12
+    /// Integer minimum
+    public static let iMin: Int32 = 13
+    /// Integer maximum
+    public static let iMax: Int32 = 14
+    /// Integer negation (-x)
+    public static let iNeg: Int32 = 15
+    /// Integer absolute value
+    public static let iAbs: Int32 = 16
+    /// Increment (x + 1)
+    public static let iIncr: Int32 = 17
+    /// Decrement (x - 1)
+    public static let iDecr: Int32 = 18
+    /// Bitwise NOT
+    public static let iNot: Int32 = 19
+    /// Integer signum
+    public static let iSign: Int32 = 20
+    /// Clamp integer between min and max
+    public static let iClamp: Int32 = 21
+    /// Integer ternary conditional
+    public static let iIfelse: Int32 = 22
+    /// Integer multiply-add
+    public static let iMad: Int32 = 23
+    /// Integer function parameter 1
+    public static let iVar1: Int32 = 24
+    /// Integer function parameter 2
+    public static let iVar2: Int32 = 25
 }
 
 /// The reader's limits, by name: each field's `maxLength` (`Limits.*` where AndroidX

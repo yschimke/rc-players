@@ -52,7 +52,7 @@ var products: [Product] = [
   .library(name: "RcPlayerAppleFonts", targets: ["RcPlayerAppleFonts"]),
   .library(name: "RcComposePlayerSwiftUI", targets: ["RcComposePlayerSwiftUI"]),
   .library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"]),
-  // Authoring `.rc` documents from Swift, in the shape of Compose's layouts and modifiers. Pure
+  // Authoring `.rc` documents from Swift, in SwiftUI's shape: views, modifiers and stacks. Pure
   // Swift with no player dependency, so it builds on every platform, Linux included.
   .library(name: "RcCreation", targets: ["RcCreation"]),
   .library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"]),
@@ -84,14 +84,17 @@ var targets: [Target] = [
   .target(name: "RcPlayerAppleFonts", resources: [.copy("PrivacyInfo.xcprivacy")]),
   .target(name: "RcComposePlayerSwiftUI", dependencies: swiftUIDependencies),
   .target(name: "RcNativePlayerCore"),
-  .target(name: "RcCreation"),
+  // Writes through the generated bindings: every operation it emits is a `WireOperation`.
+  .target(name: "RcCreation", dependencies: ["RcWireOperations"]),
   // Upstream AndroidX's per-operation Swift bindings, generated Foundation-free by `:rc-codegen`
-  // (target `swift`) from the forked schema in `third_party/remote-generator`. Not a
-  // product yet: its tests hold it to the documents this repository plays.
+  // (target `swift`) from the forked schema in `third_party/remote-generator`. Not a product of
+  // its own yet; RcCreation writes through it and its tests hold it to the documents this
+  // repository plays.
   .target(name: "RcWireOperations"),
   .testTarget(name: "RcWireOperationsTests", dependencies: ["RcWireOperations", "RcCreation"]),
   // Round trips: documents written by RcCreation, read back by the native document core.
-  .testTarget(name: "RcCreationTests", dependencies: ["RcCreation", "RcNativePlayerCore"]),
+  .testTarget(
+    name: "RcCreationTests", dependencies: ["RcCreation", "RcWireOperations", "RcNativePlayerCore"]),
   .target(
     name: "RcNativePlayerUIKit",
     dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"],
@@ -160,10 +163,10 @@ if !nativeOnly {
 // Every target compiles in the Swift 6 language mode: complete strict-concurrency checking, with
 // data races as errors. Tools 6.0 defaults to it already; stating it keeps a later tools bump from
 // changing the mode silently. It does not move the deployment floor above: the concurrency
-// annotations the sources rely on all back-deploy to iOS 13 and macOS 12.
+// annotations the sources rely on all back-deploy to iOS 13, macOS 12, tvOS 13 and watchOS 6.
 let package = Package(
   name: "RcComposePlayer",
-  platforms: [.iOS(.v13), .macOS(.v12), .visionOS(.v1)],
+  platforms: [.iOS(.v13), .macOS(.v12), .tvOS(.v13), .watchOS(.v6), .visionOS(.v1)],
   products: products,
   targets: targets,
   swiftLanguageModes: [.v6]

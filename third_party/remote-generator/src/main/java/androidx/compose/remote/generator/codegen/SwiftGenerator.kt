@@ -25,6 +25,7 @@ import androidx.compose.remote.generator.SchemaField
 import androidx.compose.remote.generator.SchemaOperation
 import androidx.compose.remote.generator.SchemaSparseParam
 import androidx.compose.remote.generator.SchemaStruct
+import androidx.compose.remote.generator.SchemaRpnOperatorTable
 
 /**
  * Generator that transforms an [OperationSchema] into idiomatic Swift bindings:
@@ -527,11 +528,28 @@ internal class SwiftGenerator(private val schema: OperationSchema) {
     // LOCAL PATCH (rc-players): the constants [swiftCondition] names, from the schema.
     private fun emitWireExpressionConstants(w: CodeWriter) {
         if (schema.conditionConstants.isEmpty()) return
-        w.line("/// The values the schema's field conditions compare against, by name: its")
-        w.line("/// `expressionConstants` and its header constants.")
+        w.line("/// Named values the schema defines outside any one field: its `expressionConstants` (the")
+        w.line("/// values its field conditions compare against, and component visibility) and its header")
+        w.line("/// constants.")
         w.block("public enum $WIRE_EXPRESSION_CONSTANTS") {
             for ((name, value) in schema.conditionConstants) {
                 line("public static let $name: Int = $value")
+            }
+        }
+        w.line()
+    }
+
+    // LOCAL PATCH (rc-players): the schema's operator tables, so a writer names every operator
+    // word it emits. Upstream's Swift has no writer and leaves them out.
+    private fun emitOperatorTable(w: CodeWriter, table: SchemaRpnOperatorTable?, name: String, reader: String) {
+        if (table == null) return
+        w.line("/// $reader's operators. An operator is written as the word whose id is `offset` plus")
+        w.line("/// its code, NaN-boxed as an id is.")
+        w.block("public enum $name") {
+            line("public static let OFFSET: Int32 = ${table.offset}")
+            for (op in table.operators.sortedBy { it.id }) {
+                line("/// ${op.description.ifEmpty { op.name }}")
+                line("public static let ${op.name}: Int32 = ${op.id}")
             }
         }
         w.line()
@@ -580,6 +598,8 @@ internal class SwiftGenerator(private val schema: OperationSchema) {
     // API's) keeping a modern header's properties so it writes back what it read.
     private fun emitRemoteDocument(w: CodeWriter) {
         emitWireExpressionConstants(w)
+        emitOperatorTable(w, schema.rpnOperators, "FloatExpressionOperator", "`FloatExpression`")
+        emitOperatorTable(w, schema.intRpnOperators, "IntegerExpressionOperator", "`IntegerExpression`")
         emitWireLimits(w)
         emitHeaderLayout(w)
         val bodyOps = schema.operations.filter { it.name != "Header" }

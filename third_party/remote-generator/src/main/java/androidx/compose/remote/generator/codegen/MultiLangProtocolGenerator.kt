@@ -1508,11 +1508,14 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 line("public static let VALUE_MASK: Int32 = ${enc.valueMask}")
                 line("public static let MACRO_LOCAL_START_ID: Int32 = ${enc.macroLocalStartId}")
                 line("public static let MACRO_LOCAL_END_ID: Int32 = ${enc.macroLocalEndId}")
+                // LOCAL PATCH (rc-players): the "no id" sentinel, from the schema's `idEncoding.noId`.
+                line("/// No id: no component id requested, no animation, the default font.")
+                line("public static let NO_ID: Int32 = ${enc.noId}")
                 line(
                     "public static func isNanBits(_ bits: Int32) -> Bool { (bits & NAN_PREFIX) == NAN_PREFIX && (bits & PAYLOAD_MASK) != 0 }"
                 )
                 line(
-                    "public static func idFromNanBits(_ bits: Int32) -> Int32 { isNanBits(bits) ? (bits & PAYLOAD_MASK) : -1 }"
+                    "public static func idFromNanBits(_ bits: Int32) -> Int32 { isNanBits(bits) ? (bits & PAYLOAD_MASK) : NO_ID }"
                 )
                 line(
                     "public static func asNanBits(_ id: Int32) -> Int32 { (id & PAYLOAD_MASK) | NAN_PREFIX }"
@@ -1548,6 +1551,14 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                         "public static let ${SchemaOperation.toScreamingSnakeCase(cmd.name)}: Int32 = $id"
                     )
                 }
+                // LOCAL PATCH (rc-players): how a paint word packs its tag and an inline value, as the
+                // schema's `inline_high16` wire formats name it.
+                check(schema.paintCommands.values.any { it.wireFormat == "inline_high16" }) {
+                    "the schema's paint commands no longer use inline_high16"
+                }
+                line("/// A paint word's tag is its low half; an `inline_high16` value is its high half.")
+                line("public static let TAG_MASK: Int32 = 0xFFFF")
+                line("public static let INLINE_VALUE_SHIFT: Int32 = 16")
             }
             w.line()
             w.block("public enum PaintConstants") {

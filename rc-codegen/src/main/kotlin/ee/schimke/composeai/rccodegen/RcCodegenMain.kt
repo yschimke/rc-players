@@ -11,7 +11,7 @@ import kotlin.system.exitProcess
  * Runs code generation targets over the forked AndroidX schema.
  *
  * ```
- * rc-codegen --target=<id> --out=<directory> [--manifest=<rc-operations.manifest>]
+ * rc-codegen --target=<id> --out=<directory>
  * rc-codegen --list
  * rc-codegen --sync=<repository root> [--check]
  * ```
@@ -20,8 +20,8 @@ import kotlin.system.exitProcess
  * `--check` it writes nothing and fails if any committed file differs from what the targets
  * generate now.
  *
- * The targets are upstream's languages (`cpp`, `rust`, `python`, `swift`, `typescript`), the fork's
- * the fork's Foundation-free Swift (`swift`), and rc-players' own ([rcPlayersTargets]).
+ * The targets are upstream's languages (`cpp`, `rust`, `python`, `typescript`), the fork's Swift 6
+ * bindings (`swift`), and rc-players' own ([rcPlayersTargets]).
  */
 object RcCodegenMain {
   @JvmStatic
@@ -31,8 +31,7 @@ object RcCodegenMain {
         argument.removePrefix("--").split("=", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
       key to value
     }
-    val manifest = options["manifest"]?.let(Path::of)
-    val targets = allTargets(manifest)
+    val targets = allTargets()
     options["sync"]?.let { root ->
       val problems = sync(Path.of(root).toAbsolutePath(), check = "check" in options)
       if (problems.isNotEmpty()) {
@@ -59,11 +58,8 @@ object RcCodegenMain {
    * repository root) its paths are resolved against.
    */
   fun committedOutputs(root: Path): List<Pair<RemoteCodegenTarget, Path>> {
-    val targets = allTargets(root.resolve(MANIFEST)).associateBy { it.id }
-    return listOf(
-      targets.getValue("rc-swift-wire-constants") to root,
-      targets.getValue("swift") to root.resolve("Sources/RcWireOperations"),
-    )
+    val targets = allTargets().associateBy { it.id }
+    return listOf(targets.getValue("swift") to root.resolve("Sources/RcWireOperations"))
   }
 
   /** Writes, or with [check] compares, every committed output. Returns the differences found. */
@@ -88,19 +84,22 @@ object RcCodegenMain {
     return problems
   }
 
-  /** The repository's opcode inventory, relative to its root. */
-  const val MANIFEST: String = "rc-player/protocol/src/main/rc-operations.manifest"
-
   /** Every target this tool knows, upstream's and the fork's first. */
-  fun allTargets(manifest: Path?): List<RemoteCodegenTarget> =
-    builtInTargets() + rcPlayersTargets(manifest)
+  fun allTargets(): List<RemoteCodegenTarget> = builtInTargets() + rcPlayersTargets()
 
   private fun usage(problem: String): Nothing {
     System.err.println(
       "rc-codegen: $problem\n" +
-        "usage: rc-codegen --target=<id> --out=<dir> [--manifest=<rc-operations.manifest>]\n" +
+        "usage: rc-codegen --target=<id> --out=<dir>\n" +
         "       rc-codegen --list",
     )
     exitProcess(2)
   }
 }
+
+/**
+ * rc-players' own targets: platforms or outputs upstream does not have. None today; RcCreation
+ * writes through the `swift` bindings, which carry every constant it needs. Add one here, and to
+ * [RcCodegenMain.committedOutputs] if its output is committed.
+ */
+fun rcPlayersTargets(): List<RemoteCodegenTarget> = emptyList()

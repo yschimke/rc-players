@@ -1,190 +1,162 @@
-/// A point in dp.
-public struct RemotePoint: Sendable {
+import RcWireOperations
+
+/// A point, in points from a canvas's top-leading corner.
+public struct RemotePoint: Hashable, Sendable {
   public var x: RemoteFloat
   public var y: RemoteFloat
 
-  public init(_ x: RemoteFloat, _ y: RemoteFloat) {
+  public init(x: RemoteFloat, y: RemoteFloat) {
     self.x = x
     self.y = y
   }
+
+  public static let zero = RemotePoint(x: 0, y: 0)
 }
 
-/// A size in dp.
-public struct RemoteSize: Sendable {
+/// A size, in points.
+public struct RemoteSize: Hashable, Sendable {
   public var width: RemoteFloat
   public var height: RemoteFloat
 
-  public init(_ width: RemoteFloat, _ height: RemoteFloat) {
+  public init(width: RemoteFloat, height: RemoteFloat) {
     self.width = width
     self.height = height
   }
 }
 
-/// Whether a shape is filled or outlined.
-public enum RemoteDrawStyle: Sendable, Equatable {
-  case fill
-  /// Outlined with a stroke [width] dp wide.
-  case stroke(width: Float)
+/// A rectangle, in points.
+public struct RemoteRect: Hashable, Sendable {
+  public var origin: RemotePoint
+  public var size: RemoteSize
+
+  public init(origin: RemotePoint, size: RemoteSize) {
+    self.origin = origin
+    self.size = size
+  }
+
+  public init(x: RemoteFloat, y: RemoteFloat, width: RemoteFloat, height: RemoteFloat) {
+    self.init(origin: RemotePoint(x: x, y: y), size: RemoteSize(width: width, height: height))
+  }
+
+  public var center: RemotePoint {
+    RemotePoint(x: origin.x + size.width / 2, y: origin.y + size.height / 2)
+  }
 }
 
-/// The drawing calls of a ``RemoteCanvas``, as Compose's `DrawScope`. Coordinates are in dp from
-/// the canvas's top-left corner.
-public struct RemoteDrawScope: Sendable {
-  enum Shape: Sendable {
-    case rect(RemotePoint, RemoteSize)
-    case roundRect(RemotePoint, RemoteSize, radius: Float)
-    case oval(RemotePoint, RemoteSize)
+/// A canvas's size, as its layout gives it while the document plays.
+public struct RemoteCanvasSize: Hashable, Sendable {
+  public let width: RemoteFloat
+  public let height: RemoteFloat
+
+  public var center: RemotePoint { RemotePoint(x: width / 2, y: height / 2) }
+
+  /// The whole canvas.
+  public var bounds: RemoteRect {
+    RemoteRect(origin: .zero, size: RemoteSize(width: width, height: height))
+  }
+}
+
+/// Something a ``RemoteGraphicsContext`` fills or strokes.
+public struct RemoteDrawShape: Hashable, Sendable {
+  enum Kind: Hashable, Sendable {
+    case rect(RemoteRect)
+    case roundedRect(RemoteRect, cornerRadius: Double)
+    case ellipse(RemoteRect)
     case circle(center: RemotePoint, radius: RemoteFloat)
-    case line(RemotePoint, RemotePoint)
+    case line(from: RemotePoint, to: RemotePoint)
   }
 
-  struct Command: Sendable {
-    let shape: Shape
-    let color: RemoteColor
-    let style: RemoteDrawStyle
+  let kind: Kind
+
+  public static func rect(_ rect: RemoteRect) -> RemoteDrawShape {
+    RemoteDrawShape(kind: .rect(rect))
   }
 
-  var commands: [Command] = []
-
-  public mutating func drawRect(
-    _ color: RemoteColor, topLeft: RemotePoint = RemotePoint(0, 0), size: RemoteSize,
-    style: RemoteDrawStyle = .fill
-  ) {
-    commands.append(Command(shape: .rect(topLeft, size), color: color, style: style))
+  public static func roundedRect(_ rect: RemoteRect, cornerRadius: Double) -> RemoteDrawShape {
+    RemoteDrawShape(kind: .roundedRect(rect, cornerRadius: cornerRadius))
   }
 
-  public mutating func drawRoundRect(
-    _ color: RemoteColor, topLeft: RemotePoint = RemotePoint(0, 0), size: RemoteSize,
-    cornerRadius: Float, style: RemoteDrawStyle = .fill
-  ) {
-    commands.append(
-      Command(shape: .roundRect(topLeft, size, radius: cornerRadius), color: color, style: style))
+  public static func ellipse(in rect: RemoteRect) -> RemoteDrawShape {
+    RemoteDrawShape(kind: .ellipse(rect))
   }
 
-  public mutating func drawOval(
-    _ color: RemoteColor, topLeft: RemotePoint = RemotePoint(0, 0), size: RemoteSize,
-    style: RemoteDrawStyle = .fill
-  ) {
-    commands.append(Command(shape: .oval(topLeft, size), color: color, style: style))
+  public static func circle(center: RemotePoint, radius: RemoteFloat) -> RemoteDrawShape {
+    RemoteDrawShape(kind: .circle(center: center, radius: radius))
   }
 
-  public mutating func drawCircle(
-    _ color: RemoteColor, radius: RemoteFloat, center: RemotePoint,
-    style: RemoteDrawStyle = .fill
-  ) {
-    commands.append(
-      Command(shape: .circle(center: center, radius: radius), color: color, style: style))
-  }
-
-  public mutating func drawLine(
-    _ color: RemoteColor, start: RemotePoint, end: RemotePoint, strokeWidth: Float = 1
-  ) {
-    commands.append(
-      Command(shape: .line(start, end), color: color, style: .stroke(width: strokeWidth)))
+  /// A segment; it has no area, so only ``RemoteGraphicsContext/stroke(_:with:lineWidth:)``
+  /// draws it.
+  public static func line(from start: RemotePoint, to end: RemotePoint) -> RemoteDrawShape {
+    RemoteDrawShape(kind: .line(from: start, to: end))
   }
 }
 
-/// A component that draws, as Compose's `Canvas`. Give it a size through its modifier.
+/// What a ``RemoteCanvas`` draws, as SwiftUI's `GraphicsContext` takes it.
+public struct RemoteGraphicsContext: Sendable {
+  enum Style: Hashable, Sendable {
+    case fill
+    case stroke(lineWidth: Double)
+  }
+
+  struct Command: Hashable, Sendable {
+    let shape: RemoteDrawShape
+    let color: RemoteColor
+    let style: Style
+
+    var readsCanvasSize: Bool {
+      let values: [RemoteFloat]
+      switch shape.kind {
+      case .rect(let rect), .roundedRect(let rect, _), .ellipse(let rect):
+        values = [rect.origin.x, rect.origin.y, rect.size.width, rect.size.height]
+      case .circle(let center, let radius): values = [center.x, center.y, radius]
+      case .line(let start, let end): values = [start.x, start.y, end.x, end.y]
+      }
+      return values.contains { $0.readsCanvasSize }
+    }
+  }
+
+  private(set) var commands: [Command] = []
+
+  init() {}
+
+  public mutating func fill(_ shape: RemoteDrawShape, with color: RemoteColor) {
+    commands.append(Command(shape: shape, color: color, style: .fill))
+  }
+
+  public mutating func stroke(
+    _ shape: RemoteDrawShape, with color: RemoteColor, lineWidth: Double = 1
+  ) {
+    commands.append(Command(shape: shape, color: color, style: .stroke(lineWidth: lineWidth)))
+  }
+}
+
+/// Drawing, as SwiftUI's `Canvas`: the closure runs once, while the document is written, and
+/// records what to draw; the player draws it, at the size the layout gives the canvas.
 ///
 /// ```swift
-/// RemoteCanvas(modifier: .size(48)) { scope in
-///   scope.drawCircle(.blue, radius: 24, center: RemotePoint(24, 24))
+/// RemoteCanvas { context, size in
+///   context.fill(.circle(center: size.center, radius: 20), with: .hex(0x3D5AFE))
+///   context.stroke(.circle(center: size.center, radius: 12), with: .white, lineWidth: 3)
 /// }
+/// .frame(width: 40, height: 40)
 /// ```
-public struct RemoteCanvas: RemoteView, RemotePrimitiveView {
-  let modifier: RemoteModifier
-  let scope: RemoteDrawScope
+///
+/// `size` is live: coordinates built from it follow the canvas as it resizes. A canvas fills the
+/// space it is offered on any axis its frame does not fix.
+public struct RemoteCanvas: _PrimitiveRemoteView {
+  let commands: [RemoteGraphicsContext.Command]
 
-  public init(modifier: RemoteModifier, draw: (inout RemoteDrawScope) -> Void) {
-    self.modifier = modifier
-    var scope = RemoteDrawScope()
-    draw(&scope)
-    self.scope = scope
+  public init(_ draw: (inout RemoteGraphicsContext, RemoteCanvasSize) -> Void) {
+    var context = RemoteGraphicsContext()
+    draw(
+      &context,
+      RemoteCanvasSize(
+        width: RemoteFloat(node: .canvasSize(.width)),
+        height: RemoteFloat(node: .canvasSize(.height))))
+    commands = context.commands
   }
 
-  public var body: Never { return fatalError("RemoteCanvas writes itself") }
-
-  func write(to context: RemoteCreationContext) {
-    // Resolve every value the drawing reads before the canvas opens.
-    let draws = scope.commands.map { context.resolve($0) }
-    var modifierBody = RemoteByteBuffer()
-    swap(&modifierBody, &context.body)
-    context.write(modifier)
-    swap(&modifierBody, &context.body)
-
-    let canvasID = context.newComponentID()
-    context.op(RemoteOpcode.layoutCanvas)
-    context.body.int(canvasID)
-    context.body.int(RemoteIDEncoding.noID)  // No animation id.
-    context.body.append(modifierBody)
-    context.contentSection()
-    // `CanvasContent`: the drawing, in the form every player profile reads.
-    context.op(RemoteOpcode.layoutCanvasContent)
-    context.body.int(context.newComponentID())
-    var current: [Int]? = nil
-    for draw in draws {
-      if draw.paint != current {
-        context.op(RemoteOpcode.paintValues)
-        context.body.int(draw.paint.count)
-        for word in draw.paint { context.body.int(word) }
-        current = draw.paint
-      }
-      context.op(draw.opcode)
-      for word in draw.words { context.body.float(word) }
-    }
-    context.containerEnd()
-    context.containerEnd()
-    context.containerEnd()
-  }
-}
-
-struct RemoteResolvedDraw {
-  let opcode: Int
-  let words: [Float]
-  /// The whole paint, written in full whenever it changes: a delta would depend on the paint
-  /// the previous component left, which a player resets per component.
-  let paint: [Int]
-}
-
-extension RemoteCreationContext {
-  func resolve(_ command: RemoteDrawScope.Command) -> RemoteResolvedDraw {
-    func point(_ p: RemotePoint) -> [Float] { [pxWord(p.x), pxWord(p.y)] }
-    func box(_ origin: RemotePoint, _ size: RemoteSize) -> [Float] {
-      [
-        pxWord(origin.x), pxWord(origin.y), pxWord(origin.x + size.width),
-        pxWord(origin.y + size.height),
-      ]
-    }
-    let opcode: Int
-    let words: [Float]
-    switch command.shape {
-    case .rect(let origin, let size):
-      (opcode, words) = (RemoteOpcode.drawRect, box(origin, size))
-    case .roundRect(let origin, let size, let radius):
-      (opcode, words) = (RemoteOpcode.drawRoundRect, box(origin, size) + [px(radius), px(radius)])
-    case .oval(let origin, let size):
-      (opcode, words) = (RemoteOpcode.drawOval, box(origin, size))
-    case .circle(let center, let radius):
-      (opcode, words) = (RemoteOpcode.drawCircle, point(center) + [pxWord(radius)])
-    case .line(let start, let end):
-      (opcode, words) = (RemoteOpcode.drawLine, point(start) + point(end))
-    }
-
-    var paint: [Int] = []
-    switch color(command.color) {
-    case .literal(let argb):
-      paint += [RemotePaintTag.color, Int(Int32(bitPattern: argb))]
-    case .id(let id):
-      paint += [RemotePaintTag.colorId, id]
-    }
-    switch command.style {
-    case .fill:
-      paint.append(RemotePaintTag.style | RemotePaintStyle.fill << 16)
-    case .stroke(let width):
-      paint.append(RemotePaintTag.style | RemotePaintStyle.stroke << 16)
-      paint += [RemotePaintTag.strokeWidth, Int(Int32(bitPattern: px(width).bitPattern))]
-    }
-    paint.append(RemotePaintTag.antiAlias | 1 << 16)
-    return RemoteResolvedDraw(opcode: opcode, words: words, paint: paint)
+  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
+    try writer.writeCanvas(commands)
   }
 }

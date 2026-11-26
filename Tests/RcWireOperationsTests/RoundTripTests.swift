@@ -43,29 +43,37 @@ import Testing
     #expect(failures.isEmpty, "\(failures.count) of \(files.count): \(failures.prefix(10))")
   }
 
-  /// What RcCreation writes reads back through upstream's bindings unchanged.
+  /// What RcCreation writes reads back through the bindings unchanged.
   @Test func creationDocumentsRoundTrip() throws {
-    let progress = RemoteFloat.named("progress", 0.5)
-    let document = RemoteDocument(width: 400, height: 200, density: 2) {
-      RemoteColumn(modifier: .fillMaxSize().padding(8), verticalArrangement: .spacedBy(4)) {
-        RemoteText("Upload " + RemoteString(progress * 100, decimals: 0) + "%", fontSize: 16)
-        RemoteBox(modifier: .width(progress * 200).height(8).background(.blue))
-        RemoteCanvas(modifier: .size(20)) { scope in
-          scope.drawCircle(.red, radius: 10, center: RemotePoint(10, 10))
+    let progress = RemoteVariable("progress", default: 0.5)
+    let document = RemoteDocument(width: 200, height: 100, displayScale: 2) {
+      RemoteVStack(alignment: .leading, spacing: 4) {
+        RemoteText("Upload \(progress * 100, decimals: 0)%").font(.callout)
+        RemoteColor.blue.frame(width: progress * 200, height: 8)
+        RemoteCanvas { context, size in
+          context.fill(.circle(center: size.center, radius: 10), with: .red)
         }
-        RemoteBox(modifier: .size(10).clickable(.host("tapped")))
+        .frame(width: 20, height: 20)
+        RemoteColor.adaptive(light: .white, dark: .black)
+          .frame(width: 10, height: 10)
+          .onTap(.host("tapped"))
+          .accessibilityLabel("Tap")
       }
+      .padding(8)
     }
     #expect(try roundTrips(document.encode()))
   }
 
   /// A border with a corner radius is written as the rounded-rectangle shape, the only one a
-  /// player reads the radius for; without a radius it stays a rectangle. Read through upstream's
+  /// player reads the radius for; without a radius it stays a rectangle. Read through the
   /// bindings, so the wire fields are checked as AndroidX names them.
   @Test func roundedBorderIsTheRoundedShape() throws {
-    func border(_ radius: Float) throws -> BorderModifierOperation {
-      let bytes = RemoteDocument(width: 100, height: 100, density: 2) {
-        RemoteBox(modifier: .size(40).border(2, .black, cornerRadius: radius))
+    let displayScale = 2.0
+    func border(_ radius: Double) throws -> BorderModifierOperation {
+      let bytes = try RemoteDocument(width: 100, height: 100, displayScale: displayScale) {
+        RemoteColor.clear
+          .frame(width: 40, height: 40)
+          .border(.black, width: 2, cornerRadius: radius)
       }.encode()
       let border = try WireDocument.load(from: bytes).operations.lazy.compactMap {
         if case .borderModifierOperation(let border) = $0 { border } else { nil }
@@ -73,10 +81,9 @@ import Testing
       return try #require(border)
     }
     let rounded = try border(6)
-    let density: Float = 2
     #expect(rounded.shapeType == BorderModifierOperation.roundedRectangle)
-    #expect(rounded.roundedCorner == 6 * density)
-    #expect(rounded.borderWidth == 2 * density)
+    #expect(rounded.roundedCorner == Float(6 * displayScale))
+    #expect(rounded.borderWidth == Float(2 * displayScale))
     #expect(try border(0).shapeType == BorderModifierOperation.rectangle)
   }
 

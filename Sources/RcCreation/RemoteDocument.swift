@@ -1,96 +1,134 @@
+import RcWireOperations
+
 #if canImport(Foundation)
   import Foundation
 #endif
 
+/// Why a document could not be encoded.
+public enum RemoteEncodingError: Error, Sendable, Hashable {
+  /// Two variables share `name` but not their type or default, so a host write by that name
+  /// could reach only one of them.
+  case conflictingVariable(name: String)
+  /// An expression has more terms than a `FloatExpression` holds.
+  case expressionTooLong(terms: Int, limit: Int)
+  /// The display scale is not a positive, finite number.
+  case invalidDisplayScale(Double)
+  /// The document's size is not positive and finite, or does not fit the header.
+  case invalidDocumentSize(width: Double, height: Double)
+  /// A font weight outside 1...1000.
+  case invalidFontWeight(Double)
+  /// A flex weight that is not positive and finite.
+  case invalidFlexWeight(Double)
+  /// A number format whose digit counts are outside 0...16.
+  case invalidNumberFormat(integerDigits: Int, decimals: Int)
+  /// A canvas's size was used outside that canvas's own drawing.
+  case canvasSizeOutsideCanvas
+  /// The bindings refused an operation.
+  case wire(WireError)
+}
+
 /// A Remote Compose document, composed in Swift and encoded as the `.rc` bytes any player reads.
 ///
 /// ```swift
-/// let document = RemoteDocument(width: 400, height: 200, density: 2) {
-///   RemoteColumn(
-///     modifier: .fillMaxSize().background(.white).padding(16),
-///     verticalArrangement: .spacedBy(8)
-///   ) {
-///     RemoteText("Hello", fontSize: 24, fontWeight: .bold)
-///     RemoteText(.named("subtitle", "from Swift"), color: .gray)
+/// let document = RemoteDocument(width: 360, height: 200, displayScale: 2) {
+///   RemoteVStack(alignment: .leading, spacing: 8) {
+///     RemoteText("Hello").font(.title)
+///     RemoteText(RemoteVariable("subtitle", default: "from Swift"))
+///       .foregroundStyle(.secondary)
 ///   }
+///   .padding(16)
 /// }
-/// let bytes = document.encode()
+/// let bytes = try document.encode()
 /// ```
 ///
-/// [width] and [height] are in pixels, as the header records them. Every dimension inside is in
-/// dp (sp for text) and is written in pixels at [density], which the header records as the
-/// density the document was generated at, as AndroidX's capture does.
-public struct RemoteDocument {
-  public let width: Int
-  public let height: Int
-  public let density: Float
-  public let contentDescription: String?
-  let content: RemoteContent
+/// Every length is in points, as in SwiftUI. The document is written in pixels at
+/// `displayScale` pixels per point, which the header records as the density it was generated at.
+public struct RemoteDocument: Sendable {
+  /// The width, in points.
+  public let width: Double
+  /// The height, in points.
+  public let height: Double
+  /// Pixels per point.
+  public let displayScale: Double
+  /// What assistive technologies read for the document as a whole.
+  public let accessibilityLabel: String?
+  let content: any RemoteView
 
   public init(
-    width: Int,
-    height: Int,
-    density: Float = 1,
-    contentDescription: String? = nil,
-    @RemoteContentBuilder content: () -> RemoteContent
+    width: Double,
+    height: Double,
+    displayScale: Double = 1,
+    accessibilityLabel: String? = nil,
+    @RemoteViewBuilder content: () -> some RemoteView
   ) {
-    precondition(width > 0 && height > 0, "a document needs a positive size")
     self.width = width
     self.height = height
-    self.density = density
-    self.contentDescription = contentDescription
+    self.displayScale = displayScale
+    self.accessibilityLabel = accessibilityLabel
     self.content = content()
   }
 
   /// The document's `.rc` bytes.
-  public func encode() -> [UInt8] {
-    let context = RemoteCreationContext(density: density)
-    context.op(RemoteOpcode.layoutRoot)
-    context.body.int(context.newComponentID())
-    context.withParent(.root) { context.write(content) }
-    context.containerEnd()
+  public func encode() throws(RemoteEncodingError) -> [UInt8] {
+    guard displayScale > 0, displayScale.isFinite else {
+      throw RemoteEncodingError.invalidDisplayScale(displayScale)
+    }
+    let pixelWidth = (width * displayScale).rounded()
+    let pixelHeight = (height * displayScale).rounded()
+    guard pixelWidth >= 1, pixelHeight >= 1, pixelWidth <= Double(Int32.max),
+      pixelHeight <= Double(Int32.max)
+    else {
+      throw RemoteEncodingError.invalidDocumentSize(width: width, height: height)
+    }
 
-    var output = RemoteByteBuffer()
-    writeHeader(to: &output)
-    output.append(context.declarations)
-    output.append(context.body)
-    return output.bytes
+    let writer = _RemoteWriter(displayScale: Float(displayScale))
+    try writer.writeRoot(content)
+
+    var properties = [
+      HeaderProperty.int(HeaderProperty.docWidth, Int32(pixelWidth)),
+      HeaderProperty.int(HeaderProperty.docHeight, Int32(pixelHeight)),
+      HeaderProperty.float(HeaderProperty.docDensityAtGeneration, Float(displayScale)),
+    ]
+    if let accessibilityLabel {
+      properties.append(.string(HeaderProperty.docContentDescription, accessibilityLabel))
+    }
+    let document = WireDocument(
+      properties: properties, width: Int32(pixelWidth), height: Int32(pixelHeight),
+      operations: writer.declarations + writer.body)
+    do {
+      return try document.save()
+    } catch {
+      throw RemoteEncodingError.wire(error)
+    }
   }
 
   #if canImport(Foundation)
     /// The document's `.rc` bytes as `Data`, for a player or a file.
-    public func encodedData() -> Data { Data(encode()) }
+    public func encodedData() throws(RemoteEncodingError) -> Data { Data(try encode()) }
   #endif
+}
 
-  /// A modern header: the version with `Header.MAGIC_NUMBER`, then tagged properties.
-  private func writeHeader(to buffer: inout RemoteByteBuffer) {
-    var properties: [(tag: Int, type: Int, value: RemoteByteBuffer)] = []
-    func int(_ tag: Int, _ value: Int) {
-      var encoded = RemoteByteBuffer()
-      encoded.int(value)
-      properties.append((tag, RemoteHeaderValueType.int, encoded))
-    }
-    int(RemoteHeaderKey.docWidth, width)
-    int(RemoteHeaderKey.docHeight, height)
-    var densityValue = RemoteByteBuffer()
-    densityValue.float(density)
-    properties.append(
-      (RemoteHeaderKey.docDensityAtGeneration, RemoteHeaderValueType.float, densityValue))
-    if let contentDescription {
-      var text = RemoteByteBuffer()
-      text.utf8(contentDescription)
-      properties.append((RemoteHeaderKey.docContentDescription, RemoteHeaderValueType.string, text))
-    }
+extension HeaderProperty {
+  private static func tag(_ key: Int32, _ type: Int32) -> Int16 {
+    Int16(key | type << Int32(HeaderProperty.BitLayout.tagDataTypeShift))
+  }
 
-    buffer.byte(RemoteOpcode.header)
-    buffer.int(RemoteHeaderVersion.magicNumber | RemoteHeaderVersion.major)
-    buffer.int(RemoteHeaderVersion.minor)
-    buffer.int(RemoteHeaderVersion.patch)
-    buffer.int(properties.count)
-    for property in properties {
-      buffer.short(property.tag | property.type << 10)
-      buffer.short(property.value.bytes.count)
-      buffer.append(property.value)
-    }
+  static func int(_ key: Int32, _ value: Int32) -> HeaderProperty {
+    HeaderProperty(
+      tag: tag(key, HeaderConstants.dataTypeInt), itemLen: Int16(MemoryLayout<Int32>.size),
+      intValue: value)
+  }
+
+  static func float(_ key: Int32, _ value: Float) -> HeaderProperty {
+    HeaderProperty(
+      tag: tag(key, HeaderConstants.dataTypeFloat), itemLen: Int16(MemoryLayout<Float>.size),
+      floatValue: value)
+  }
+
+  /// A string property: its length word, then its UTF-8 bytes.
+  static func string(_ key: Int32, _ value: String) -> HeaderProperty {
+    HeaderProperty(
+      tag: tag(key, HeaderConstants.dataTypeString),
+      itemLen: Int16(clamping: MemoryLayout<Int32>.size + value.utf8.count), stringValue: value)
   }
 }

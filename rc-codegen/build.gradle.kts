@@ -8,9 +8,8 @@ plugins {
 // `third_party/remote-generator`. It defines this repository's own targets beside upstream's
 // languages, and owns the generated sources the repository commits:
 //
-//  * `Sources/RcCreation/RemoteWireConstants.swift` (target `rc-swift-wire-constants`)
-//  * `Sources/RcWireOperations/RemoteComposeOperations.swift` (target `swift-portable`: upstream's
-//    Swift bindings without Foundation)
+//  * `Sources/RcWireOperations/RemoteComposeOperations.swift` (target `swift`: the fork's Swift 6
+//    bindings, which RcCreation writes through)
 //
 // `./gradlew :rc-codegen:generateSwiftSources` rewrites them; `check` fails while any is stale.
 // Build-only: nothing here publishes.
@@ -41,13 +40,7 @@ val checkSwiftSources by
     mainClass.set(codegenMain)
     args("--sync=$repositoryRoot", "--check")
     inputs.files(
-      fileTree(repositoryRoot) {
-        include(
-          "Sources/RcCreation/RemoteWireConstants.swift",
-          "Sources/RcWireOperations/**",
-          "rc-player/protocol/src/main/rc-operations.manifest",
-        )
-      },
+      fileTree(repositoryRoot) { include("Sources/RcWireOperations/**") },
     )
     val marker = layout.buildDirectory.file("checkSwiftSources.ok")
     outputs.file(marker)

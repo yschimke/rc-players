@@ -1,7 +1,6 @@
 package ee.schimke.composeai.rccodegen
 
 import androidx.compose.remote.generator.RemoteSerializationCodeGenerator
-import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -14,25 +13,8 @@ class RcCodegenTest {
   /** The repository root: Gradle runs tests from the module's directory. */
   private val root: Path = Path.of("").toAbsolutePath().parent
 
-  private fun constants(): String =
-    SwiftWireConstantsTarget(root.resolve(RcCodegenMain.MANIFEST))
-      .generate(schema)
-      .getValue(SwiftWireConstantsTarget.OUTPUT)
-
-  @Test
-  fun everyOpcodeTheManifestOrTheSchemaKnowsIsNamed() {
-    val generated =
-      Regex("""static let \w+ = (\d+)""")
-        .findAll(constants().substringAfter("enum RemoteOpcode {").substringBefore("}"))
-        .map { it.groupValues[1].toInt() }
-        .toSet()
-    val manifest =
-      Files.readAllLines(root.resolve(RcCodegenMain.MANIFEST))
-        .filter { it.isNotBlank() && !it.startsWith("#") }
-        .map { it.substringBefore("|").toInt() }
-    val missing = (manifest + schema.operations.map { it.id }).toSet() - generated
-    assertTrue("opcodes without a Swift constant: $missing", missing.isEmpty())
-  }
+  private fun swift(): String =
+    RcCodegenMain.allTargets().first { it.id == "swift" }.generate(schema).values.single()
 
   /**
    * The fork's schema, local patches included, passes upstream's own validation: what
@@ -67,33 +49,33 @@ class RcCodegenTest {
     assertTrue("conditions name unknown constants: $unknown", unknown.isEmpty())
   }
 
-  /** Every value the Swift writer needs comes from the schema: nothing is left by hand. */
+  /** Every value RcCreation writes comes from the schema, through the bindings: none by hand. */
   @Test
-  fun schemaCarriesTheValuesThatWereHandWritten() {
-    val swift = constants()
-    for (namespace in
+  fun bindingsCarryEveryValueTheWriterNeeds() {
+    val swift = swift()
+    for (declaration in
       listOf(
-        "RemoteFontStyle",
-        "RemoteModifierColorFlag",
-        "RemoteBorderShape",
-        "RemoteBorderWireVersion",
-        "RemoteHeaderValueType",
-        "RemoteHeaderVersion",
+        "public static let noId: Int32 = -1",
+        "public static let magicNumber: Int32 = 76283904",
+        "public static let roundedRectangle: Int32 = 2",
+        "public static let version1: Int32 = 1",
+        "public static let visibilityGone: Int = 0",
+        "public static let inlineValueShift: Int32 = 16",
+        "public enum FloatExpressionOperator",
+        "public enum IntegerExpressionOperator",
       )) {
-      assertTrue("$namespace is not generated", "enum $namespace {" in swift)
+      assertTrue("missing: $declaration", declaration in swift)
     }
-    assertTrue("static let noID = -1" in swift)
-    assertTrue("static let magicNumber = 0x048C_0000" in swift)
   }
 
   @Test
   fun generationIsDeterministic() {
-    assertEquals(constants(), constants())
+    assertEquals(swift(), swift())
   }
 
   @Test
   fun swiftUsesNoFoundation() {
-    val target = RcCodegenMain.allTargets(null).first { it.id == "swift" }
+    val target = RcCodegenMain.allTargets().first { it.id == "swift" }
     val swift = target.generate(schema).values.single()
     assertFalse("imports Foundation", "import Foundation" in swift)
     assertFalse("throws NSError", "NSError(" in swift)
@@ -110,7 +92,7 @@ class RcCodegenTest {
    */
   @Test
   fun swiftNamesEveryNumber() {
-    val target = RcCodegenMain.allTargets(null).first { it.id == "swift" }
+    val target = RcCodegenMain.allTargets().first { it.id == "swift" }
     val number = Regex("""(?<![\w.])(0x[0-9A-Fa-f_]+|\d[\d_]*)(?![\w.])""")
     val offending =
       target.generate(schema).values.single().lines().withIndex().filter { (_, raw) ->
@@ -132,7 +114,7 @@ class RcCodegenTest {
   @Test
   fun swiftOperationsAreAClosedEnum() {
     val swift =
-      RcCodegenMain.allTargets(null).first { it.id == "swift" }.generate(schema).values.single()
+      RcCodegenMain.allTargets().first { it.id == "swift" }.generate(schema).values.single()
     assertTrue("public enum WireOperation: Sendable, Hashable" in swift)
     assertTrue("public var operations: [WireOperation]" in swift)
     assertFalse("existential operations", "[RemoteOperation]" in swift)
@@ -141,14 +123,7 @@ class RcCodegenTest {
 
   @Test
   fun targetIdsAreUnique() {
-    val ids = RcCodegenMain.allTargets(null).map { it.id }
+    val ids = RcCodegenMain.allTargets().map { it.id }
     assertEquals(ids.distinct(), ids)
-  }
-
-  @Test
-  fun namesAreLowerCamel() {
-    assertEquals("fillParentMaxWidth", lowerCamel("FILL_PARENT_MAX_WIDTH"))
-    assertEquals("strokeWidth", lowerCamelFromPascal("StrokeWidth"))
-    assertEquals("docWidth", lowerCamel("DOC_WIDTH"))
   }
 }

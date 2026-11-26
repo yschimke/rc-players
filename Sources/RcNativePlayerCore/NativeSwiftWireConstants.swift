@@ -1057,6 +1057,14 @@ public enum NativeSwiftTextAlignment: Int, Sendable, Equatable {
   }
 }
 
+/// `TextLayout`'s flags, the upper half of its `textAlign` word (shifted down), from the schema's
+/// `TextLayout.textAlign` bits: `isDynamicColor` is bit 16 of the word; bits 17 to 31 are
+/// reserved.
+public enum NativeSwiftTextLayoutFlag {
+  /// `color` is a colour id, not an ARGB value.
+  public static let dynamicColor: UInt32 = 1
+}
+
 /// `RcTextLayout`'s text overflow values.
 public enum NativeSwiftTextOverflow {
   public static let clip = 1
