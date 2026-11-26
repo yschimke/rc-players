@@ -50,18 +50,19 @@ private const val DEFAULT_TEXT_SP = 14f
 
 /**
  * This document with each row's, column's and flow layout's spacing a literal: the number it is on
- * a display of [density] and [fontScale]. The recovery a document needs before the Android
- * platform's widget player — a launcher's, or a notification's — is handed it.
+ * a display of [density] and [fontScale]. The recovery a document needs before AndroidX's
+ * `CoreDocument` layout managers — the AndroidX View player (`RemoteComposePlayer`), the Android 16
+ * and 17 platform widget/notification players, and Wear widgets — are handed it.
  *
- * That player, Android 16's and API 37's alike, lays out a layout whose `spacedBy` is a variable as
- * nothing: the whole document draws blank, and reports no error. A `RemoteDensity.Host` capture
- * writes every `Arrangement.spacedBy(n.dp)` that way, as an expression over the display's density;
- * unlike a padding, a level 7 player does not read it as a variable either.
+ * Those players read `mSpacedBy` only as a literal float: a `RemoteDensity.Host` capture writes
+ * every `Arrangement.spacedBy(n.dp)` as an expression over the display's density, whose variable id
+ * leaks as `NaN` into layout sizes (drawing blank on a launcher or failing downstream
+ * `FloatExpression`s in the View player).
  *
  * Only the spacing changes: the document keeps its other density expressions, its named values and
  * its state layouts. A spacing no display fixes — one following a host value, or the time — stays a
- * variable, which [validateFor] reports for a launcher target. [adaptTo] applies this for those
- * targets.
+ * variable, which [validateFor] reports for players missing
+ * [RcPlayerFeature.VARIABLE_LAYOUT_SPACING]. [adaptTo] applies this for those targets.
  *
  * Like [hardcodeDensity], the result is right only on that display.
  */

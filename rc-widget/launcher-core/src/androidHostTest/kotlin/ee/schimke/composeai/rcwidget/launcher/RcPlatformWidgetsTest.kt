@@ -1,12 +1,30 @@
+@file:Suppress("RestrictedApi")
+
 package ee.schimke.composeai.rcwidget.launcher
 
 import android.content.Intent
+import androidx.compose.remote.core.CoreDocument
+import androidx.compose.remote.core.RemoteComposeBuffer
+import androidx.compose.remote.core.operations.utilities.AnimatedFloatExpression
 import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
+import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
+import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
+import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcNoArg
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
+import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcwidget.RcWidgetActionMetadata
 import ee.schimke.composeai.rcwidget.RcWidgetCaptureSize
 import ee.schimke.composeai.rcwidget.RcWidgetTargets
+import java.io.ByteArrayInputStream
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
@@ -51,6 +69,55 @@ class RcPlatformWidgetsTest {
   fun aDocumentTheTargetCannotReadComesBackAsItWas() {
     val notADocument = byteArrayOf(1, 2, 3)
     assertSame(notADocument, RcPlatformWidgets.forDisplay(notADocument, density = 2f))
+    assertSame(notADocument, prepareForViewPlayer(notADocument, density = 2f))
+  }
+
+  @Test
+  fun prepareForViewPlayerBakesHostDensityLayoutSpacing() {
+    val multiply = RcFloatWord(AnimatedFloatExpression.MUL.toRawBits())
+    val hostDensityDoc =
+      RcDocumentCodec.encode(
+        RcDocument(
+          RcHeader(
+            RcVersion(1, 1, 0),
+            legacyWidth = 200,
+            legacyHeight = 100,
+            legacyCapabilities = 0,
+          ),
+          listOf(
+            RcFloatExpression(
+              42,
+              listOf(
+                RcFloatWord(0x7fc00000 or RcSystemVariables.DENSITY),
+                RcFloatWord.literal(4f),
+                multiply,
+              ),
+              null,
+            ),
+            RcColumnLayout(-3, -1, 1, 4, spacedBy = RcFloatWord(0x7fc00000 or 42)),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+        ),
+      )
+
+    val prepared = prepareForViewPlayer(hostDensityDoc, density = 3f)
+    val column =
+      RcDocumentCodec.decode(prepared, RcWireLimits())
+        .operations
+        .filterIsInstance<RcColumnLayout>()
+        .single()
+    assertEquals(RcFloatWord.literal(12f), column.spacedBy)
+    assertFalse(column.spacedBy.isNaNEncoded)
+
+    // Already-literal documents are returned untouched without re-encoding.
+    assertSame(prepared, prepareForViewPlayer(prepared, density = 3f))
+
+    // AndroidX CoreDocument decodes the prepared document cleanly.
+    val core =
+      CoreDocument().apply {
+        initFromBuffer(RemoteComposeBuffer.fromInputStream(ByteArrayInputStream(prepared)))
+      }
+    assertNotNull(core)
   }
 
   @Test

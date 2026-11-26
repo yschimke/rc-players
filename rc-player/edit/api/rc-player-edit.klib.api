@@ -46,6 +46,7 @@ final enum class ee.schimke.composeai.rcplayer.edit/RcPlayerFeature : kotlin/Enu
     enum entry DYNAMIC_TEXT_COLOR // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.DYNAMIC_TEXT_COLOR|null[0]
     enum entry MODIFIER_COLOR_REFERENCES // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.MODIFIER_COLOR_REFERENCES|null[0]
     enum entry VARIABLE_FLOAT_FIELDS // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.VARIABLE_FLOAT_FIELDS|null[0]
+    enum entry VARIABLE_LAYOUT_SPACING // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.VARIABLE_LAYOUT_SPACING|null[0]
 
     final val entries // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.entries|#static{}entries[0]
         final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rcplayer.edit/RcPlayerFeature> // ee.schimke.composeai.rcplayer.edit/RcPlayerFeature.entries.<get-entries>|<get-entries>#static(){}[0]
@@ -588,6 +589,8 @@ final object ee.schimke.composeai.rcplayer.edit/RcTargetProfiles { // ee.schimke
         final fun <get-ANDROIDX>(): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.ANDROIDX.<get-ANDROIDX>|<get-ANDROIDX>(){}[0]
     final val ANDROIDX_EXPERIMENTAL // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.ANDROIDX_EXPERIMENTAL|{}ANDROIDX_EXPERIMENTAL[0]
         final fun <get-ANDROIDX_EXPERIMENTAL>(): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.ANDROIDX_EXPERIMENTAL.<get-ANDROIDX_EXPERIMENTAL>|<get-ANDROIDX_EXPERIMENTAL>(){}[0]
+    final val ANDROIDX_VIEW // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.ANDROIDX_VIEW|{}ANDROIDX_VIEW[0]
+        final fun <get-ANDROIDX_VIEW>(): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.ANDROIDX_VIEW.<get-ANDROIDX_VIEW>|<get-ANDROIDX_VIEW>(){}[0]
     final val WEAR_WIDGETS // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.WEAR_WIDGETS|{}WEAR_WIDGETS[0]
         final fun <get-WEAR_WIDGETS>(): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.WEAR_WIDGETS.<get-WEAR_WIDGETS>|<get-WEAR_WIDGETS>(){}[0]
     final val WIDGETS_V6 // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.WIDGETS_V6|{}WIDGETS_V6[0]

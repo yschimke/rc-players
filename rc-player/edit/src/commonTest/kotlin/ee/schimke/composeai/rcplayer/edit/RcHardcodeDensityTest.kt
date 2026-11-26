@@ -110,28 +110,52 @@ class RcHardcodeDensityTest {
     )
 
   @Test
-  fun aLayoutsSpacingIsALiteralOnTheLauncherAtEveryLevel() {
-    // The platform widget player draws a document blank when a spacing is a variable, at level 7
-    // as at level 6; the AndroidX player reads it.
-    for (target in listOf(RcTargetProfiles.WIDGETS_V6, RcTargetProfiles.WIDGETS_V7)) {
+  fun aLayoutsSpacingIsALiteralOnEveryCoreDocumentPlayer() {
+    // AndroidX's CoreDocument layout managers (platform widgets at levels 6 and 7, Wear widgets,
+    // and the AndroidX View player) read `mSpacedBy` only as a literal float; the Compose embedded
+    // player (`ANDROIDX`) resolves it.
+    val literalSpacingTargets =
+      listOf(
+        RcTargetProfiles.WIDGETS_V6,
+        RcTargetProfiles.WIDGETS_V7,
+        RcTargetProfiles.WEAR_WIDGETS,
+        RcTargetProfiles.ANDROIDX_VIEW,
+        RcTargetProfiles.ANDROIDX.without(RcPlayerFeature.VARIABLE_LAYOUT_SPACING),
+      )
+    for (target in literalSpacingTargets) {
       val violations = dpSpacing.validateFor(target).filter { it.kind == Kind.DYNAMIC_VALUE }
       assertEquals(listOf(1), violations.map { it.operationIndex }, target.name)
       assertTrue(dpSpacing.needsDisplay(target), target.name)
-    }
-    assertFalse(dpSpacing.needsDisplay(RcTargetProfiles.ANDROIDX))
 
-    val served = dpSpacing.adaptTo(RcTargetProfiles.WIDGETS_V7, emptySet(), RcDisplay(2.75f))
-    assertTrue(
-      served.violations.none { it.kind == Kind.DYNAMIC_VALUE },
-      served.violations.toString(),
+      val served = dpSpacing.adaptTo(target, emptySet(), RcDisplay(2.75f))
+      assertTrue(
+        served.violations.none { it.kind == Kind.DYNAMIC_VALUE },
+        "${target.name}: ${served.violations}",
+      )
+      assertEquals(
+        RcColumnLayout(-3, -1, 1, 4, spacedBy = RcFloatWord.literal(27.5f)),
+        served.document.operations.filterIsInstance<RcColumnLayout>().single(),
+        target.name,
+      )
+    }
+    // Only the spacing: a level 7+ player reads the document's other density expressions itself.
+    assertEquals(
+      dpSpacing.operations[0],
+      dpSpacing
+        .adaptTo(RcTargetProfiles.WIDGETS_V7, emptySet(), RcDisplay(2.75f))
+        .document
+        .operations[0],
     )
     assertEquals(
-      RcColumnLayout(-3, -1, 1, 4, spacedBy = RcFloatWord.literal(27.5f)),
-      served.document.operations.filterIsInstance<RcColumnLayout>().single(),
+      dpSpacing.operations[0],
+      dpSpacing
+        .adaptTo(RcTargetProfiles.ANDROIDX_VIEW, emptySet(), RcDisplay(2.75f))
+        .document
+        .operations[0],
     )
-    // Only the spacing: a level 7 player reads the document's other density expressions itself.
-    assertEquals(dpSpacing.operations[0], served.document.operations[0])
 
+    // The Compose embedded player (`ANDROIDX`) resolves variable spacing itself.
+    assertFalse(dpSpacing.needsDisplay(RcTargetProfiles.ANDROIDX))
     val untouched = dpSpacing.adaptTo(RcTargetProfiles.ANDROIDX, emptySet(), RcDisplay(2.75f))
     assertEquals(dpSpacing.operations, untouched.document.operations)
   }
