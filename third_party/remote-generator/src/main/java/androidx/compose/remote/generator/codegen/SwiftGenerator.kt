@@ -302,6 +302,34 @@ internal class SwiftGenerator(
         }
     }
 
+    // LOCAL PATCH (rc-players): a condition with every value named. Upstream copies the schema's
+    // expression into Swift as it stands, numbers and all; the fork's schema names them, and Swift
+    // reads them from [WIRE_EXPRESSION_CONSTANTS]. The fields are widened to `Int` so one constant
+    // compares with a `UInt8`, an `Int16` or an `Int32` field alike.
+    private fun swiftCondition(expr: String): String =
+        // A bare name is a `Bool` the read computed (`skipTaken`): it is the condition as it stands.
+        if (expr.trim().matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) expr.trim()
+        else CodegenExprUtils.translateCondition(
+            expr,
+            ExprLang.SWIFT,
+            constants = schema.conditionConstants.keys.associateWith { "$WIRE_EXPRESSION_CONSTANTS.$it" },
+        ) {
+            "Int($it)"
+        }
+
+    // LOCAL PATCH (rc-players): the constants [swiftCondition] names, from the schema.
+    private fun emitWireExpressionConstants(w: CodeWriter) {
+        if (schema.conditionConstants.isEmpty()) return
+        w.line("/// The values the schema's field conditions compare against, by name: its")
+        w.line("/// `expressionConstants` and its header constants.")
+        w.block("public enum $WIRE_EXPRESSION_CONSTANTS") {
+            for ((name, value) in schema.conditionConstants) {
+                line("public static let $name: Int = $value")
+            }
+        }
+        w.line()
+    }
+
     // LOCAL PATCH (rc-players): the header's bit layout and limits, derived from the schema, so the
     // loader below names every wire value instead of repeating it as a literal.
     private fun emitHeaderLayout(w: CodeWriter) {
@@ -341,6 +369,7 @@ internal class SwiftGenerator(
     }
 
     private fun emitRemoteDocument(w: CodeWriter) {
+        emitWireExpressionConstants(w)
         emitHeaderLayout(w)
         w.line("/// In-memory representation of a RemoteCompose document.")
         w.block("public struct RemoteDocument") {
@@ -857,7 +886,7 @@ internal class SwiftGenerator(
                     f.defaultValue == null
 
             if (f.presentIf != null) {
-                val cond = CodegenExprUtils.translateCondition(f.presentIf, ExprLang.SWIFT) { it }
+                val cond = swiftCondition(f.presentIf)
                 val swiftType = mapToSwiftType(f.type, isNullable)
                 w.line("let ${f.name}: $swiftType")
                 w.block("if $cond", close = null) {
@@ -1082,7 +1111,7 @@ internal class SwiftGenerator(
                 val expr = derivedExprToSwift(DerivedExpr.parse(f.derivedFrom))
                 if (f.presentIf != null) {
                     val cond =
-                        CodegenExprUtils.translateCondition(f.presentIf, ExprLang.SWIFT) { it }
+                        swiftCondition(f.presentIf)
                     w.block("if $cond") { line(mapToSwiftDerivedWrite(f.type, expr)) }
                 } else {
                     w.line("let ${f.name}: Int32 = $expr")
@@ -1104,7 +1133,7 @@ internal class SwiftGenerator(
                 continue
             }
             if (f.presentIf != null) {
-                val cond = CodegenExprUtils.translateCondition(f.presentIf, ExprLang.SWIFT) { it }
+                val cond = swiftCondition(f.presentIf)
                 w.block("if $cond") {
                     if (isNullable) {
                         block("guard let val = ${f.name} else") {
@@ -1334,6 +1363,7 @@ internal class SwiftGenerator(
     companion object {
         // LOCAL PATCH (rc-players): the portable rewrite's patterns and prelude.
         const val PORTABLE_ERROR_TYPE: String = "RemoteComposeWireError"
+        const val WIRE_EXPRESSION_CONSTANTS: String = "WireExpressionConstants"
 
         private val NS_ERROR =
             Regex(

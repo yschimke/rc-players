@@ -34,10 +34,23 @@ public class OperationSchema(
     public val pathCommands: Map<Int, SchemaPathCommand> = emptyMap(),
     public val systemVariables: List<SchemaSystemVariable> = emptyList(),
     public val headerConstants: Map<String, Map<String, Int>> = emptyMap(),
+    // LOCAL PATCH (rc-players): the names a condition expression may use for a value: the schema's
+    // `expressionConstants` and every `headerConstants` entry.
+    public val expressionConstants: Map<String, Int> = emptyMap(),
     public val idEncoding: SchemaIdEncoding? = null,
     public val animationSpec: SchemaAnimationSpec? = null,
     public val pathEffects: SchemaPathEffects? = null,
 ) {
+    // LOCAL PATCH (rc-players): every name a condition expression can resolve, with its value.
+    public val conditionConstants: Map<String, Int> by lazy {
+        val all = linkedMapOf<String, Int>()
+        for ((_, group) in headerConstants) all.putAll(group)
+        for ((name, value) in expressionConstants) {
+            check(all.put(name, value) == null) { "expressionConstants.$name repeats a header constant" }
+        }
+        all
+    }
+
     public val operationsById: Map<Int, SchemaOperation> = operations.associateBy { it.id }
     public val operationsByName: Map<String, SchemaOperation> = operations.associateBy { it.name }
     public val systemVariablesById: Map<Int, SchemaSystemVariable> = systemVariables.associateBy {

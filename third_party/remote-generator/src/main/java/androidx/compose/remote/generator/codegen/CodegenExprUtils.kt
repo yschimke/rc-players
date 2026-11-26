@@ -116,13 +116,28 @@ internal object CodegenExprUtils {
         lang: ExprLang,
         needsKotlinIntCast: (String) -> Boolean = { true },
         isKotlinUnsignedByte: (String) -> Boolean = { false },
+        // LOCAL PATCH (rc-players): how a named constant in the expression is written, by name.
+        // A name with no entry is a field, through [resolveIdent].
+        constants: Map<String, String> = emptyMap(),
         resolveIdent: (String) -> String,
     ): String {
         val tokens = tokenize(expr)
         val parser =
-            ConditionParser(tokens, lang, needsKotlinIntCast, isKotlinUnsignedByte, resolveIdent)
+            ConditionParser(
+                tokens,
+                lang,
+                needsKotlinIntCast,
+                isKotlinUnsignedByte,
+                constants,
+                resolveIdent,
+            )
         return parser.parseOr()
     }
+
+    // LOCAL PATCH (rc-players): the named constants of a condition, as their values: what every
+    // language but Swift writes, so its output is what upstream's literal expressions gave.
+    fun inlineConstants(schema: OperationSchema): Map<String, String> =
+        schema.conditionConstants.mapValues { it.value.toString() }
 
     fun extractBitExpr(src: String, bit: SchemaBitField, lang: ExprLang): String {
         val condRange = bit.whenBitSet
@@ -357,6 +372,7 @@ internal object CodegenExprUtils {
         private val lang: ExprLang,
         private val needsKotlinIntCast: (String) -> Boolean,
         private val isKotlinUnsignedByte: (String) -> Boolean,
+        private val constants: Map<String, String>,
         private val resolveIdent: (String) -> String,
     ) {
         private var pos = 0
@@ -461,6 +477,8 @@ internal object CodegenExprUtils {
             if (tok.first().isDigit() || tok.startsWith("-")) {
                 return PrimaryExpr(tok, null)
             }
+            // LOCAL PATCH (rc-players): a named constant.
+            constants[tok]?.let { return PrimaryExpr(it, null) }
             return PrimaryExpr(resolveIdent(tok), tok)
         }
     }

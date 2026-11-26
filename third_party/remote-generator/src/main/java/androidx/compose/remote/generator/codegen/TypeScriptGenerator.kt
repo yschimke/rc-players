@@ -790,7 +790,12 @@ internal class TypeScriptGenerator(private val schema: OperationSchema) {
 
             if (f.presentIf != null) {
                 val cond =
-                    CodegenExprUtils.translateCondition(f.presentIf, ExprLang.TYPESCRIPT) {
+                    CodegenExprUtils.translateCondition(
+                        f.presentIf,
+                        ExprLang.TYPESCRIPT,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                         if (it in localReadVars) it else "this.$it"
                     }
                 if (isLocalDerived) {
@@ -1028,7 +1033,12 @@ internal class TypeScriptGenerator(private val schema: OperationSchema) {
                 val expr = derivedExprToTs(DerivedExpr.parse(f.derivedFrom))
                 if (f.presentIf != null) {
                     val cond =
-                        CodegenExprUtils.translateCondition(f.presentIf, ExprLang.TYPESCRIPT) {
+                        CodegenExprUtils.translateCondition(
+                        f.presentIf,
+                        ExprLang.TYPESCRIPT,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                             if (it in localWriteVars) it else "this.$it"
                         }
                     w.block("if ($cond)") { line("${mapToTsWriteExpr(f.type, expr)};") }
@@ -1055,7 +1065,12 @@ internal class TypeScriptGenerator(private val schema: OperationSchema) {
             }
             if (f.presentIf != null) {
                 val cond =
-                    CodegenExprUtils.translateCondition(f.presentIf, ExprLang.TYPESCRIPT) {
+                    CodegenExprUtils.translateCondition(
+                        f.presentIf,
+                        ExprLang.TYPESCRIPT,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                         if (it in localWriteVars) it else "this.$it"
                     }
                 w.block("if ($cond)") {

@@ -521,7 +521,12 @@ internal class RustGenerator(private val schema: OperationSchema) {
 
             if (field.presentIf != null) {
                 val cond =
-                    CodegenExprUtils.translateCondition(field.presentIf, ExprLang.RUST) {
+                    CodegenExprUtils.translateCondition(
+                        field.presentIf,
+                        ExprLang.RUST,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                         sanitizeRustIdentifier(it)
                     }
                 w.block("let $snakeName = if $cond", close = null) {
@@ -740,7 +745,12 @@ internal class RustGenerator(private val schema: OperationSchema) {
                 val derivedVal = derivedExprToRust(DerivedExpr.parse(field.derivedFrom))
                 if (field.presentIf != null) {
                     val cond =
-                        CodegenExprUtils.translateCondition(field.presentIf, ExprLang.RUST) {
+                        CodegenExprUtils.translateCondition(
+                        field.presentIf,
+                        ExprLang.RUST,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                             if (it in localVars) sanitizeRustIdentifier(it)
                             else "self.${sanitizeRustIdentifier(it)}"
                         }
@@ -779,7 +789,12 @@ internal class RustGenerator(private val schema: OperationSchema) {
 
             if (field.presentIf != null) {
                 val cond =
-                    CodegenExprUtils.translateCondition(field.presentIf, ExprLang.RUST) {
+                    CodegenExprUtils.translateCondition(
+                        field.presentIf,
+                        ExprLang.RUST,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                         if (it in localVars) sanitizeRustIdentifier(it)
                         else "self.${sanitizeRustIdentifier(it)}"
                     }

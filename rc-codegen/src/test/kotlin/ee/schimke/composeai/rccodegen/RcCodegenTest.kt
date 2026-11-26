@@ -45,6 +45,28 @@ class RcCodegenTest {
     updater.getMethod("main", Array<String>::class.java).invoke(null, arrayOf(root.toString()))
   }
 
+  /**
+   * The schema's field conditions name every value they compare against: a number in one would be
+   * copied into generated Swift as a wire magic number. Zero stays, as the test of a flag.
+   */
+  @Test
+  fun conditionsNameEveryValue() {
+    val conditions =
+      (schema.operations.flatMap { it.fields } + schema.structs.values.flatMap { it.fields })
+        .flatMap { field ->
+          listOfNotNull(field.presentIf) +
+            field.conditionalTypes.map { it.condition } +
+            field.conditionalRoles.map { it.condition }
+        }
+    val literal = Regex("""(?<![\w.])(?:0x[0-9A-Fa-f]+|[1-9][0-9]*)(?![\w.])""")
+    val offending = conditions.filter { literal.containsMatchIn(it) }
+    assertTrue("conditions with bare numbers: $offending", offending.isEmpty())
+    val names =
+      Regex("""\b[A-Z][A-Z0-9_]+\b""").findAll(conditions.joinToString(" ")).map { it.value }
+    val unknown = names.toSet() - schema.conditionConstants.keys
+    assertTrue("conditions name unknown constants: $unknown", unknown.isEmpty())
+  }
+
   /** Every value the Swift writer needs comes from the schema: nothing is left by hand. */
   @Test
   fun schemaCarriesTheValuesThatWereHandWritten() {

@@ -181,6 +181,13 @@ public object JsonSchemaParser {
             }
         }
 
+        // LOCAL PATCH (rc-players): named values the condition expressions (`presentIf`,
+        // `conditionalTypes`, `conditionalRoles`) use instead of bare numbers.
+        val expressionConstants = linkedMapOf<String, Int>()
+        root.optJSONObject("expressionConstants")?.let { obj ->
+            for (key in obj.keys()) expressionConstants[key] = obj.getInt(key)
+        }
+
         val idEncoding =
             if (root.has("idEncoding")) {
                 val obj = root.getJSONObject("idEncoding")
@@ -427,6 +434,7 @@ public object JsonSchemaParser {
             pathCommands = pathCommands,
             systemVariables = systemVariables,
             headerConstants = headerConstants,
+            expressionConstants = expressionConstants,
             idEncoding = idEncoding,
             animationSpec = animationSpec,
             pathEffects = pathEffects,

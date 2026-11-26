@@ -1004,7 +1004,7 @@ public struct GraphicsLayerAttribute: Equatable {
             throw RemoteComposeWireError(domain: "GraphicsLayerAttribute", code: 2, message: "Invalid enum value for attributeType")
         }
         let value: Int32
-        if ((tag >> 10)) == 0 || ((tag >> 10)) == 1 {
+        if ((Int(tag) >> WireExpressionConstants.GRAPHICS_LAYER_TYPE_SHIFT)) == WireExpressionConstants.GRAPHICS_LAYER_TYPE_INT || ((Int(tag) >> WireExpressionConstants.GRAPHICS_LAYER_TYPE_SHIFT)) == WireExpressionConstants.GRAPHICS_LAYER_TYPE_FLOAT {
             value = try buffer.readInt()
         } else {
             value = 0
@@ -1014,7 +1014,7 @@ public struct GraphicsLayerAttribute: Equatable {
 
     public func write(to buffer: inout WireBuffer) throws {
         buffer.writeInt(tag)
-        if ((tag >> 10)) == 0 || ((tag >> 10)) == 1 {
+        if ((Int(tag) >> WireExpressionConstants.GRAPHICS_LAYER_TYPE_SHIFT)) == WireExpressionConstants.GRAPHICS_LAYER_TYPE_INT || ((Int(tag) >> WireExpressionConstants.GRAPHICS_LAYER_TYPE_SHIFT)) == WireExpressionConstants.GRAPHICS_LAYER_TYPE_FLOAT {
             buffer.writeInt(value)
         }
     }
@@ -1082,25 +1082,25 @@ public struct HeaderProperty: Equatable {
         let tag = try buffer.readShort()
         let itemLen = try buffer.readShort()
         let intValue: Int32?
-        if ((tag >> 10)) == 0 {
+        if ((Int(tag) >> WireExpressionConstants.HEADER_PROPERTY_TYPE_SHIFT)) == WireExpressionConstants.DATA_TYPE_INT {
             intValue = try buffer.readInt()
         } else {
             intValue = nil
         }
         let floatValue: Float?
-        if ((tag >> 10)) == 1 {
+        if ((Int(tag) >> WireExpressionConstants.HEADER_PROPERTY_TYPE_SHIFT)) == WireExpressionConstants.DATA_TYPE_FLOAT {
             floatValue = try buffer.readFloat()
         } else {
             floatValue = nil
         }
         let longValue: Int64?
-        if ((tag >> 10)) == 2 {
+        if ((Int(tag) >> WireExpressionConstants.HEADER_PROPERTY_TYPE_SHIFT)) == WireExpressionConstants.DATA_TYPE_LONG {
             longValue = try buffer.readLong()
         } else {
             longValue = nil
         }
         let stringValue: String?
-        if ((tag >> 10)) == 3 {
+        if ((Int(tag) >> WireExpressionConstants.HEADER_PROPERTY_TYPE_SHIFT)) == WireExpressionConstants.DATA_TYPE_STRING {
             stringValue = try buffer.readUTF8(maxLength: 4000)
         } else {
             stringValue = nil
@@ -1111,25 +1111,25 @@ public struct HeaderProperty: Equatable {
     public func write(to buffer: inout WireBuffer) throws {
         buffer.writeShort(tag)
         buffer.writeShort(itemLen)
-        if ((tag >> 10)) == 0 {
+        if ((Int(tag) >> WireExpressionConstants.HEADER_PROPERTY_TYPE_SHIFT)) == WireExpressionConstants.DATA_TYPE_INT {
             guard let val = intValue else {
                 throw RemoteComposeWireError(domain: "HeaderProperty", code: 3, message: "Missing required field intValue")
             }
             buffer.writeInt(val)
         }
-        if ((tag >> 10)) == 1 {
+        if ((Int(tag) >> WireExpressionConstants.HEADER_PROPERTY_TYPE_SHIFT)) == WireExpressionConstants.DATA_TYPE_FLOAT {
             guard let val = floatValue else {
                 throw RemoteComposeWireError(domain: "HeaderProperty", code: 3, message: "Missing required field floatValue")
             }
             buffer.writeFloat(val)
         }
-        if ((tag >> 10)) == 2 {
+        if ((Int(tag) >> WireExpressionConstants.HEADER_PROPERTY_TYPE_SHIFT)) == WireExpressionConstants.DATA_TYPE_LONG {
             guard let val = longValue else {
                 throw RemoteComposeWireError(domain: "HeaderProperty", code: 3, message: "Missing required field longValue")
             }
             buffer.writeLong(val)
         }
-        if ((tag >> 10)) == 3 {
+        if ((Int(tag) >> WireExpressionConstants.HEADER_PROPERTY_TYPE_SHIFT)) == WireExpressionConstants.DATA_TYPE_STRING {
             guard let val = stringValue else {
                 throw RemoteComposeWireError(domain: "HeaderProperty", code: 3, message: "Missing required field stringValue")
             }
@@ -1517,25 +1517,25 @@ public struct Header: RemoteOperation, Equatable {
         let minorVersion = try buffer.readInt()
         let patchVersion = try buffer.readInt()
         let width: Int32
-        if majorVersion < 65536 {
+        if Int(majorVersion) < WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
             width = try buffer.readInt()
         } else {
             width = 256
         }
         let height: Int32
-        if majorVersion < 65536 {
+        if Int(majorVersion) < WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
             height = try buffer.readInt()
         } else {
             height = 256
         }
         let capabilities: Int64
-        if majorVersion < 65536 {
+        if Int(majorVersion) < WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
             capabilities = try buffer.readLong()
         } else {
             capabilities = 0
         }
         let properties: [HeaderProperty]
-        if majorVersion >= 65536 {
+        if Int(majorVersion) >= WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
             let _propertiesCount = Int(try buffer.readInt())
             guard _propertiesCount >= 0 else {
                 throw RemoteComposeWireError(domain: "Header", code: 1, message: "Invalid negative array length")
@@ -1564,16 +1564,16 @@ public struct Header: RemoteOperation, Equatable {
         buffer.writeInt(majorVersion)
         buffer.writeInt(minorVersion)
         buffer.writeInt(patchVersion)
-        if majorVersion < 65536 {
+        if Int(majorVersion) < WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
             buffer.writeInt(width)
         }
-        if majorVersion < 65536 {
+        if Int(majorVersion) < WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
             buffer.writeInt(height)
         }
-        if majorVersion < 65536 {
+        if Int(majorVersion) < WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
             buffer.writeLong(capabilities)
         }
-        if majorVersion >= 65536 {
+        if Int(majorVersion) >= WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
             buffer.writeInt(Int32(properties.count))
             for item in properties {
                 try item.write(to: &buffer)
@@ -1695,13 +1695,13 @@ public struct AnimationSpec: RemoteOperation, Equatable {
         let enterAnimation = try buffer.readInt()
         let exitAnimation = try buffer.readInt()
         let enterFunctionId: Int32
-        if ((enterAnimation & 255)) == 8 || ((exitAnimation & 255)) == 8 {
+        if ((Int(enterAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM || ((Int(exitAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM {
             enterFunctionId = try buffer.readInt()
         } else {
             enterFunctionId = -1
         }
         let exitFunctionId: Int32
-        if ((enterAnimation & 255)) == 8 || ((exitAnimation & 255)) == 8 {
+        if ((Int(enterAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM || ((Int(exitAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM {
             exitFunctionId = try buffer.readInt()
         } else {
             exitFunctionId = -1
@@ -1719,10 +1719,10 @@ public struct AnimationSpec: RemoteOperation, Equatable {
         buffer.writeInt(visibilityEasingType)
         buffer.writeInt(enterAnimation)
         buffer.writeInt(exitAnimation)
-        if ((enterAnimation & 255)) == 8 || ((exitAnimation & 255)) == 8 {
+        if ((Int(enterAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM || ((Int(exitAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM {
             buffer.writeInt(enterFunctionId)
         }
-        if ((enterAnimation & 255)) == 8 || ((exitAnimation & 255)) == 8 {
+        if ((Int(enterAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM || ((Int(exitAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM {
             buffer.writeInt(exitFunctionId)
         }
     }
@@ -2343,7 +2343,7 @@ public struct DrawBitmapFontText: RemoteOperation, Equatable {
         let textId = Int32(UInt32(bitPattern: raw_textId) & 0x7FFFFFFF)
         let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_textId) >> 31) & 0x1)
         let glyphSpacing: Float?
-        if hasGlyphSpacing != 0 {
+        if Int(hasGlyphSpacing) != 0 {
             glyphSpacing = try buffer.readFloat()
         } else {
             glyphSpacing = nil
@@ -2361,7 +2361,7 @@ public struct DrawBitmapFontText: RemoteOperation, Equatable {
         buffer.writeByte(opCode.rawValue)
         let hasGlyphSpacing: Int32 = (glyphSpacing != nil ? 1 : 0)
         buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(textId)) & 0x7FFFFFFF) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & 0x1) << 31)))
-        if hasGlyphSpacing != 0 {
+        if Int(hasGlyphSpacing) != 0 {
             guard let val = glyphSpacing else {
                 throw RemoteComposeWireError(domain: "DrawBitmapFontText", code: 3, message: "Missing required field glyphSpacing")
             }
@@ -2419,7 +2419,7 @@ public struct DrawBitmapFontTextOnPath: RemoteOperation, Equatable {
         let textId = Int32(UInt32(bitPattern: raw_textId) & 0x7FFFFFFF)
         let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_textId) >> 31) & 0x1)
         let glyphSpacing: Float?
-        if hasGlyphSpacing != 0 {
+        if Int(hasGlyphSpacing) != 0 {
             glyphSpacing = try buffer.readFloat()
         } else {
             glyphSpacing = nil
@@ -2437,7 +2437,7 @@ public struct DrawBitmapFontTextOnPath: RemoteOperation, Equatable {
         buffer.writeByte(opCode.rawValue)
         let hasGlyphSpacing: Int32 = (glyphSpacing != nil ? 1 : 0)
         buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(textId)) & 0x7FFFFFFF) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & 0x1) << 31)))
-        if hasGlyphSpacing != 0 {
+        if Int(hasGlyphSpacing) != 0 {
             guard let val = glyphSpacing else {
                 throw RemoteComposeWireError(domain: "DrawBitmapFontTextOnPath", code: 3, message: "Missing required field glyphSpacing")
             }
@@ -3584,7 +3584,7 @@ public struct EventHandlerModifierOperation: RemoteOperation, Equatable {
         let commonFlags = try buffer.readShort()
         let flags = try buffer.readShort()
         let dataIds: [Int32]
-        if ((commonFlags & 2)) == 0 {
+        if ((Int(commonFlags) & WireExpressionConstants.EVENT_FLAG_NO_DATA)) == 0 {
             let _dataIdsCount = Int(try buffer.readInt())
             guard _dataIdsCount >= 0 else {
                 throw RemoteComposeWireError(domain: "EventHandlerModifierOperation", code: 1, message: "Invalid negative array length")
@@ -3605,7 +3605,7 @@ public struct EventHandlerModifierOperation: RemoteOperation, Equatable {
             dataIds = []
         }
         let condition: [Float]
-        if ((commonFlags & 1)) == 0 {
+        if ((Int(commonFlags) & WireExpressionConstants.EVENT_FLAG_UNCONDITIONAL)) == 0 {
             let _conditionCount = Int(try buffer.readInt())
             guard _conditionCount >= 0 else {
                 throw RemoteComposeWireError(domain: "EventHandlerModifierOperation", code: 1, message: "Invalid negative array length")
@@ -3636,13 +3636,13 @@ public struct EventHandlerModifierOperation: RemoteOperation, Equatable {
         buffer.writeInt(filter)
         buffer.writeShort(commonFlags)
         buffer.writeShort(flags)
-        if ((commonFlags & 2)) == 0 {
+        if ((Int(commonFlags) & WireExpressionConstants.EVENT_FLAG_NO_DATA)) == 0 {
             buffer.writeInt(Int32(dataIds.count))
             for item in dataIds {
                 buffer.writeInt(item)
             }
         }
-        if ((commonFlags & 1)) == 0 {
+        if ((Int(commonFlags) & WireExpressionConstants.EVENT_FLAG_UNCONDITIONAL)) == 0 {
             buffer.writeInt(Int32(condition.count))
             for item in condition {
                 buffer.writeFloat(item)
@@ -3920,7 +3920,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
         let flags = try buffer.readInt()
         let aux = try buffer.readInt()
         let expX: [Float]
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             let _expXCount = Int(try buffer.readInt())
             guard _expXCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -3941,7 +3941,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             expX = []
         }
         let expY: [Float]
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             let _expYCount = Int(try buffer.readInt())
             guard _expYCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -3962,7 +3962,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             expY = []
         }
         let expTexU: [Float]
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             let _expTexUCount = Int(try buffer.readInt())
             guard _expTexUCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -3983,7 +3983,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             expTexU = []
         }
         let expTexV: [Float]
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             let _expTexVCount = Int(try buffer.readInt())
             guard _expTexVCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4004,7 +4004,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             expTexV = []
         }
         let expColorA: [Float]
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             let _expColorACount = Int(try buffer.readInt())
             guard _expColorACount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4025,7 +4025,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             expColorA = []
         }
         let expColorR: [Float]
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             let _expColorRCount = Int(try buffer.readInt())
             guard _expColorRCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4046,7 +4046,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             expColorR = []
         }
         let expColorG: [Float]
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             let _expColorGCount = Int(try buffer.readInt())
             guard _expColorGCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4067,7 +4067,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             expColorG = []
         }
         let expColorB: [Float]
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             let _expColorBCount = Int(try buffer.readInt())
             guard _expColorBCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4088,7 +4088,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             expColorB = []
         }
         let expWidth: [Float]
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             let _expWidthCount = Int(try buffer.readInt())
             guard _expWidthCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4109,7 +4109,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             expWidth = []
         }
         let indices: [Int16]
-        if type != 0 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             let _indicesCount = Int(try buffer.readInt())
             guard _indicesCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4130,25 +4130,25 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             indices = []
         }
         let vertsLen: Int32
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             vertsLen = try buffer.readInt()
         } else {
             vertsLen = 0
         }
         let uvLen: Int32
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             uvLen = try buffer.readInt()
         } else {
             uvLen = 0
         }
         let colorsLen: Int32
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             colorsLen = try buffer.readInt()
         } else {
             colorsLen = 0
         }
         let verts: [Float]
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             let _vertsCount = Int(vertsLen)
             guard _vertsCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4169,7 +4169,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             verts = []
         }
         let uv: [Float]
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             let _uvCount = Int(uvLen)
             guard _uvCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4190,7 +4190,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             uv = []
         }
         let colors: [Int32]
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             let _colorsCount = Int(colorsLen)
             guard _colorsCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4211,25 +4211,25 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             colors = []
         }
         let vertsF16Len: Int32
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             vertsF16Len = try buffer.readInt()
         } else {
             vertsF16Len = 0
         }
         let uvF16Len: Int32
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             uvF16Len = try buffer.readInt()
         } else {
             uvF16Len = 0
         }
         let colorsF16Len: Int32
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             colorsF16Len = try buffer.readInt()
         } else {
             colorsF16Len = 0
         }
         let vertsF16: [Int16]
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             let _vertsF16Count = Int(vertsF16Len)
             guard _vertsF16Count >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4250,7 +4250,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             vertsF16 = []
         }
         let uvF16: [Int16]
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             let _uvF16Count = Int(uvF16Len)
             guard _uvF16Count >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4271,7 +4271,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             uvF16 = []
         }
         let colorsF16: [Int32]
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             let _colorsF16Count = Int(colorsF16Len)
             guard _colorsF16Count >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4292,7 +4292,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             colorsF16 = []
         }
         let widths: [Float]
-        if type == 3 || type == 4 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP || Int(type) == WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             let _widthsCount = Int(try buffer.readInt())
             guard _widthsCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4313,7 +4313,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             widths = []
         }
         let widthPositions: [Float]
-        if type == 3 || type == 4 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP || Int(type) == WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             let _widthPositionsCount = Int(try buffer.readInt())
             guard _widthPositionsCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
@@ -4334,7 +4334,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             widthPositions = []
         }
         let antialiasWidth: Float
-        if ((flags & 256)) != 0 {
+        if ((Int(flags) & WireExpressionConstants.MESH2D_FLAG_ANTIALIAS)) != 0 {
             antialiasWidth = try buffer.readFloat()
         } else {
             antialiasWidth = 1.0
@@ -4352,127 +4352,127 @@ public struct AddMesh2D: RemoteOperation, Equatable {
         buffer.writeInt(vCount)
         buffer.writeInt(flags)
         buffer.writeInt(aux)
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             buffer.writeInt(Int32(expX.count))
             for item in expX {
                 buffer.writeFloat(item)
             }
         }
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             buffer.writeInt(Int32(expY.count))
             for item in expY {
                 buffer.writeFloat(item)
             }
         }
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             buffer.writeInt(Int32(expTexU.count))
             for item in expTexU {
                 buffer.writeFloat(item)
             }
         }
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             buffer.writeInt(Int32(expTexV.count))
             for item in expTexV {
                 buffer.writeFloat(item)
             }
         }
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             buffer.writeInt(Int32(expColorA.count))
             for item in expColorA {
                 buffer.writeFloat(item)
             }
         }
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             buffer.writeInt(Int32(expColorR.count))
             for item in expColorR {
                 buffer.writeFloat(item)
             }
         }
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             buffer.writeInt(Int32(expColorG.count))
             for item in expColorG {
                 buffer.writeFloat(item)
             }
         }
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             buffer.writeInt(Int32(expColorB.count))
             for item in expColorB {
                 buffer.writeFloat(item)
             }
         }
-        if type == 0 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_EXPRESSION {
             buffer.writeInt(Int32(expWidth.count))
             for item in expWidth {
                 buffer.writeFloat(item)
             }
         }
-        if type != 0 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             buffer.writeInt(Int32(indices.count))
             for item in indices {
                 buffer.writeShort(item)
             }
         }
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             buffer.writeInt(Int32(verts.count))
         }
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             buffer.writeInt(Int32(uv.count))
         }
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             buffer.writeInt(Int32(colors.count))
         }
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             for item in verts {
                 buffer.writeFloat(item)
             }
         }
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             for item in uv {
                 buffer.writeFloat(item)
             }
         }
-        if type != 0 && type != 2 && type != 3 && type != 4 {
+        if Int(type) != WireExpressionConstants.MESH2D_TYPE_EXPRESSION && Int(type) != WireExpressionConstants.MESH2D_TYPE_F16_VALUES && Int(type) != WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP && Int(type) != WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             for item in colors {
                 buffer.writeInt(item)
             }
         }
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             buffer.writeInt(Int32(vertsF16.count))
         }
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             buffer.writeInt(Int32(uvF16.count))
         }
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             buffer.writeInt(Int32(colorsF16.count))
         }
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             for item in vertsF16 {
                 buffer.writeShort(item)
             }
         }
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             for item in uvF16 {
                 buffer.writeShort(item)
             }
         }
-        if type == 2 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_F16_VALUES {
             for item in colorsF16 {
                 buffer.writeInt(item)
             }
         }
-        if type == 3 || type == 4 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP || Int(type) == WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             buffer.writeInt(Int32(widths.count))
             for item in widths {
                 buffer.writeFloat(item)
             }
         }
-        if type == 3 || type == 4 {
+        if Int(type) == WireExpressionConstants.MESH2D_TYPE_PATH_SPLINE_STRIP || Int(type) == WireExpressionConstants.MESH2D_TYPE_SPLINE_ROUND_STRIP {
             buffer.writeInt(Int32(widthPositions.count))
             for item in widthPositions {
                 buffer.writeFloat(item)
             }
         }
-        if ((flags & 256)) != 0 {
+        if ((Int(flags) & WireExpressionConstants.MESH2D_FLAG_ANTIALIAS)) != 0 {
             buffer.writeFloat(antialiasWidth)
         }
     }
@@ -6809,7 +6809,7 @@ public struct BitmapFontData: RemoteOperation, Equatable {
             glyphs.append(try Glyph.read(from: &buffer))
         }
         let kerningTable: [KerningPair]
-        if version >= 1 {
+        if Int(version) >= WireExpressionConstants.BITMAP_FONT_VERSION_KERNING {
             let _kerningTableCount = Int(UInt16(bitPattern: try buffer.readShort()))
             guard _kerningTableCount >= 0 else {
                 throw RemoteComposeWireError(domain: "BitmapFontData", code: 1, message: "Invalid negative array length")
@@ -6839,7 +6839,7 @@ public struct BitmapFontData: RemoteOperation, Equatable {
         for item in glyphs {
             try item.write(to: &buffer)
         }
-        if version >= 1 {
+        if Int(version) >= WireExpressionConstants.BITMAP_FONT_VERSION_KERNING {
             buffer.writeShort(Int16(truncatingIfNeeded: kerningTable.count))
             for item in kerningTable {
                 try item.write(to: &buffer)
@@ -7536,7 +7536,7 @@ public struct BitmapTextMeasure: RemoteOperation, Equatable {
         let id = Int32(UInt32(bitPattern: raw_id) & 0x7FFFFFFF)
         let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_id) >> 31) & 0x1)
         let glyphSpacing: Float?
-        if hasGlyphSpacing != 0 {
+        if Int(hasGlyphSpacing) != 0 {
             glyphSpacing = try buffer.readFloat()
         } else {
             glyphSpacing = nil
@@ -7552,7 +7552,7 @@ public struct BitmapTextMeasure: RemoteOperation, Equatable {
         buffer.writeByte(opCode.rawValue)
         let hasGlyphSpacing: Int32 = (glyphSpacing != nil ? 1 : 0)
         buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(id)) & 0x7FFFFFFF) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & 0x1) << 31)))
-        if hasGlyphSpacing != 0 {
+        if Int(hasGlyphSpacing) != 0 {
             guard let val = glyphSpacing else {
                 throw RemoteComposeWireError(domain: "BitmapTextMeasure", code: 3, message: "Missing required field glyphSpacing")
             }
@@ -7616,7 +7616,7 @@ public struct DrawBitmapTextAnchored: RemoteOperation, Equatable {
         let textId = (((UInt32(bitPattern: raw_textId) >> 31) & 1) != 0 ? Int32(UInt32(bitPattern: raw_textId) & 0xFFFF) : Int32(UInt32(bitPattern: raw_textId) & 0x7FFFFFFF))
         let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_textId) >> 31) & 0x1)
         let glyphSpacing: Float?
-        if hasGlyphSpacing != 0 {
+        if Int(hasGlyphSpacing) != 0 {
             glyphSpacing = try buffer.readFloat()
         } else {
             glyphSpacing = nil
@@ -7636,7 +7636,7 @@ public struct DrawBitmapTextAnchored: RemoteOperation, Equatable {
         buffer.writeByte(opCode.rawValue)
         let hasGlyphSpacing: Int32 = (glyphSpacing != nil ? 1 : 0)
         buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(textId)) & 0x7FFFFFFF) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & 0x1) << 31)))
-        if hasGlyphSpacing != 0 {
+        if Int(hasGlyphSpacing) != 0 {
             guard let val = glyphSpacing else {
                 throw RemoteComposeWireError(domain: "DrawBitmapTextAnchored", code: 3, message: "Missing required field glyphSpacing")
             }
@@ -11147,6 +11147,65 @@ public struct CoreSemantics: RemoteOperation, Equatable {
         buffer.writeBoolean(enabled)
         buffer.writeBoolean(clickable)
     }
+}
+
+/// The values the schema's field conditions compare against, by name: its
+/// `expressionConstants` and its header constants.
+public enum WireExpressionConstants {
+    public static let DATA_TYPE_FLOAT: Int = 1
+    public static let DATA_TYPE_INT: Int = 0
+    public static let DATA_TYPE_STRING: Int = 3
+    public static let DATA_TYPE_LONG: Int = 2
+    public static let SCROLL_NONE: Int = 0
+    public static let SCROLL_VERTICAL: Int = 2
+    public static let SCROLL_HORIZONTAL: Int = 1
+    public static let DENSITY_BEHAVIOR_LEGACY: Int = 0
+    public static let DENSITY_BEHAVIOR_PIXELS: Int = 1
+    public static let DENSITY_BEHAVIOR_DP: Int = 2
+    public static let COMPRESSION_NONE: Int = 0
+    public static let COMPRESSION_DEFLATE: Int = 1
+    public static let MAGIC_NUMBER: Int = 76283904
+    public static let MAJOR_VERSION: Int = 1
+    public static let MINOR_VERSION: Int = 1
+    public static let PATCH_VERSION: Int = 0
+    public static let MESH2D_TYPE_VALUES: Int = 1
+    public static let MESH2D_TYPE_SPLINE_ROUND_STRIP: Int = 4
+    public static let GRAPHICS_LAYER_TYPE_INT: Int = 0
+    public static let GRAPHICS_LAYER_TYPE_FLOAT: Int = 1
+    public static let HEADER_PROPERTY_MAP_MAJOR_VERSION: Int = 65536
+    public static let ANIMATION_KIND_CUSTOM: Int = 8
+    public static let CUSTOM_PROPERTY_STRING_PROP: Int = 2
+    public static let GRAPHICS_LAYER_AMBIENT_SHADOW_COLOR: Int = 15
+    public static let EVENT_FLAG_NO_DATA: Int = 2
+    public static let COLOR_COLOR_INTERPOLATE: Int = 0
+    public static let MESH2D_FLAG_ANTIALIAS: Int = 256
+    public static let CUSTOM_PROPERTY_TEXT_RETURN: Int = 4
+    public static let GRAPHICS_LAYER_SPOT_SHADOW_COLOR: Int = 14
+    public static let CUSTOM_PROPERTY_FLOAT_RETURN: Int = 3
+    public static let GRAPHICS_LAYER_ATTRIBUTE_MASK: Int = 63
+    public static let CUSTOM_PROPERTY_INT_ID_PROP: Int = 9
+    public static let HEADER_PROPERTY_TYPE_SHIFT: Int = 10
+    public static let CUSTOM_PROPERTY_COLOR_ID_PROP: Int = 7
+    public static let CUSTOM_PROPERTY_COLOR_PROP: Int = 8
+    public static let CUSTOM_PROPERTY_COLOR_RETURN: Int = 6
+    public static let TEXT_LAYOUT_DYNAMIC_COLOR: Int = 65536
+    public static let BITMAP_FONT_VERSION_KERNING: Int = 1
+    public static let MESH2D_TYPE_PATH_SPLINE_STRIP: Int = 3
+    public static let IDARGB_MODE: Int = 6
+    public static let GRAPHICS_LAYER_TYPE_SHIFT: Int = 10
+    public static let MESH2D_TYPE_F16_VALUES: Int = 2
+    public static let ANIMATION_KIND_MASK: Int = 255
+    public static let HSV_MODE: Int = 4
+    public static let ARGB_MODE: Int = 5
+    public static let CUSTOM_PROPERTY_INT_RETURN: Int = 5
+    public static let ID_ID_INTERPOLATE: Int = 3
+    public static let COLOR_EXPRESSION_MODE_MASK: Int = 255
+    public static let EVENT_FLAG_UNCONDITIONAL: Int = 1
+    public static let ID_COLOR_INTERPOLATE: Int = 1
+    public static let CUSTOM_PROPERTY_INT_PROP: Int = 0
+    public static let MESH2D_TYPE_EXPRESSION: Int = 0
+    public static let COLOR_ID_INTERPOLATE: Int = 2
+    public static let CUSTOM_PROPERTY_FLOAT_PROP: Int = 1
 }
 
 /// A header's bit layout and limits, from the schema: the major-version word (version and

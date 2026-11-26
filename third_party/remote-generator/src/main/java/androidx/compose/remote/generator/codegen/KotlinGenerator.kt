@@ -859,6 +859,8 @@ public class KotlinGenerator(private val schema: OperationSchema) {
                         ExprLang.KOTLIN,
                         needsKotlinIntCast = { it in shortNames },
                         isKotlinUnsignedByte = { it in byteNames },
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
                     ) {
                         sanitizeIdentifier(it)
                     }
@@ -1662,6 +1664,8 @@ public class KotlinGenerator(private val schema: OperationSchema) {
                             ExprLang.KOTLIN,
                             needsKotlinIntCast = { it in shortNames },
                             isKotlinUnsignedByte = { it in byteNames },
+                            // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                            constants = CodegenExprUtils.inlineConstants(schema),
                         ) {
                             sanitizeIdentifier(it)
                         }
@@ -1700,6 +1704,8 @@ public class KotlinGenerator(private val schema: OperationSchema) {
                         ExprLang.KOTLIN,
                         needsKotlinIntCast = { it in shortNames },
                         isKotlinUnsignedByte = { it in byteNames },
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
                     ) {
                         sanitizeIdentifier(it)
                     }

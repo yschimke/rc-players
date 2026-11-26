@@ -139,21 +139,21 @@
           "name": "width",
           "type": "int",
           "defaultValue": "256",
-          "presentIf": "majorVersion < 65536",
+          "presentIf": "majorVersion < HEADER_PROPERTY_MAP_MAJOR_VERSION",
           "description": "Document canvas width in pixels (legacy layout)"
         },
         {
           "name": "height",
           "type": "int",
           "defaultValue": "256",
-          "presentIf": "majorVersion < 65536",
+          "presentIf": "majorVersion < HEADER_PROPERTY_MAP_MAJOR_VERSION",
           "description": "Document canvas height in pixels (legacy layout)"
         },
         {
           "name": "capabilities",
           "type": "long",
           "defaultValue": "0",
-          "presentIf": "majorVersion < 65536",
+          "presentIf": "majorVersion < HEADER_PROPERTY_MAP_MAJOR_VERSION",
           "description": "Bitmask of supported capability profiles (legacy layout)"
         },
         {
@@ -162,7 +162,7 @@
           "lengthType": "int",
           "maxLength": 1000,
           "javaLimit": "Limits.MAX_TABLE_SIZE",
-          "presentIf": "majorVersion >= 65536",
+          "presentIf": "majorVersion >= HEADER_PROPERTY_MAP_MAJOR_VERSION",
           "description": "Header property map entries (modern layout)"
         }
       ],
@@ -453,14 +453,14 @@
           "name": "enterFunctionId",
           "type": "int",
           "defaultValue": "-1",
-          "presentIf": "(enterAnimation & 255) == 8 || (exitAnimation & 255) == 8",
+          "presentIf": "(enterAnimation & ANIMATION_KIND_MASK) == ANIMATION_KIND_CUSTOM || (exitAnimation & ANIMATION_KIND_MASK) == ANIMATION_KIND_CUSTOM",
           "description": "Custom enter animation function ID when enter or exit type is CUSTOM (8)"
         },
         {
           "name": "exitFunctionId",
           "type": "int",
           "defaultValue": "-1",
-          "presentIf": "(enterAnimation & 255) == 8 || (exitAnimation & 255) == 8",
+          "presentIf": "(enterAnimation & ANIMATION_KIND_MASK) == ANIMATION_KIND_CUSTOM || (exitAnimation & ANIMATION_KIND_MASK) == ANIMATION_KIND_CUSTOM",
           "description": "Custom exit animation function ID when enter or exit type is CUSTOM (8)"
         }
       ],
@@ -1929,7 +1929,7 @@
           "lengthType": "int",
           "maxLength": 32,
           "javaLimit": "Limits.MAX_FUNCTION_ARGUMENTS",
-          "presentIf": "(commonFlags & 2) == 0",
+          "presentIf": "(commonFlags & EVENT_FLAG_NO_DATA) == 0",
           "description": "Optional event payload variable IDs"
         },
         {
@@ -1938,7 +1938,7 @@
           "lengthType": "int",
           "maxLength": 32,
           "javaLimit": "Limits.MAX_EXPRESSION_SIZE",
-          "presentIf": "(commonFlags & 1) == 0",
+          "presentIf": "(commonFlags & EVENT_FLAG_UNCONDITIONAL) == 0",
           "description": "Optional RPN condition expression"
         }
       ],
@@ -2142,7 +2142,7 @@
           "lengthType": "int",
           "maxLength": 32,
           "javaLimit": "Limits.MAX_EXPRESSION_SIZE",
-          "presentIf": "type == 0",
+          "presentIf": "type == MESH2D_TYPE_EXPRESSION",
           "description": "Vertex X expression"
         },
         {
@@ -2151,7 +2151,7 @@
           "lengthType": "int",
           "maxLength": 32,
           "javaLimit": "Limits.MAX_EXPRESSION_SIZE",
-          "presentIf": "type == 0",
+          "presentIf": "type == MESH2D_TYPE_EXPRESSION",
           "description": "Vertex Y expression"
         },
         {
@@ -2160,7 +2160,7 @@
           "lengthType": "int",
           "maxLength": 32,
           "javaLimit": "Limits.MAX_EXPRESSION_SIZE",
-          "presentIf": "type == 0",
+          "presentIf": "type == MESH2D_TYPE_EXPRESSION",
           "description": "Texcoord U expression"
         },
         {
@@ -2169,7 +2169,7 @@
           "lengthType": "int",
           "maxLength": 32,
           "javaLimit": "Limits.MAX_EXPRESSION_SIZE",
-          "presentIf": "type == 0",
+          "presentIf": "type == MESH2D_TYPE_EXPRESSION",
           "description": "Texcoord V expression"
         },
         {
@@ -2178,7 +2178,7 @@
           "lengthType": "int",
           "maxLength": 32,
           "javaLimit": "Limits.MAX_EXPRESSION_SIZE",
-          "presentIf": "type == 0",
+          "presentIf": "type == MESH2D_TYPE_EXPRESSION",
           "description": "Vertex alpha expression"
         },
         {
@@ -2187,7 +2187,7 @@
           "lengthType": "int",
           "maxLength": 32,
           "javaLimit": "Limits.MAX_EXPRESSION_SIZE",
-          "presentIf": "type == 0",
+          "presentIf": "type == MESH2D_TYPE_EXPRESSION",
           "description": "Vertex red expression"
         },
         {
@@ -2196,7 +2196,7 @@
           "lengthType": "int",
           "maxLength": 32,
           "javaLimit": "Limits.MAX_EXPRESSION_SIZE",
-          "presentIf": "type == 0",
+          "presentIf": "type == MESH2D_TYPE_EXPRESSION",
           "description": "Vertex green expression"
         },
         {
@@ -2205,7 +2205,7 @@
           "lengthType": "int",
           "maxLength": 32,
           "javaLimit": "Limits.MAX_EXPRESSION_SIZE",
-          "presentIf": "type == 0",
+          "presentIf": "type == MESH2D_TYPE_EXPRESSION",
           "description": "Vertex blue expression"
         },
         {
@@ -2214,7 +2214,7 @@
           "lengthType": "int",
           "maxLength": 32,
           "javaLimit": "Limits.MAX_EXPRESSION_SIZE",
-          "presentIf": "type == 0",
+          "presentIf": "type == MESH2D_TYPE_EXPRESSION",
           "description": "Strip width expression"
         },
         {
@@ -2223,28 +2223,28 @@
           "lengthType": "int",
           "maxLength": 49152,
           "javaLimit": "Limits.MAX_MESH_2D_INDICES",
-          "presentIf": "type != 0 && type != 3 && type != 4",
+          "presentIf": "type != MESH2D_TYPE_EXPRESSION && type != MESH2D_TYPE_PATH_SPLINE_STRIP && type != MESH2D_TYPE_SPLINE_ROUND_STRIP",
           "description": "Triangle index buffer"
         },
         {
           "name": "vertsLen",
           "type": "int",
           "derivedFrom": "len(verts)",
-          "presentIf": "type != 0 && type != 2 && type != 3 && type != 4",
+          "presentIf": "type != MESH2D_TYPE_EXPRESSION && type != MESH2D_TYPE_F16_VALUES && type != MESH2D_TYPE_PATH_SPLINE_STRIP && type != MESH2D_TYPE_SPLINE_ROUND_STRIP",
           "description": "Vertex float count"
         },
         {
           "name": "uvLen",
           "type": "int",
           "derivedFrom": "len(uv)",
-          "presentIf": "type != 0 && type != 2 && type != 3 && type != 4",
+          "presentIf": "type != MESH2D_TYPE_EXPRESSION && type != MESH2D_TYPE_F16_VALUES && type != MESH2D_TYPE_PATH_SPLINE_STRIP && type != MESH2D_TYPE_SPLINE_ROUND_STRIP",
           "description": "UV float count"
         },
         {
           "name": "colorsLen",
           "type": "int",
           "derivedFrom": "len(colors)",
-          "presentIf": "type != 0 && type != 2 && type != 3 && type != 4",
+          "presentIf": "type != MESH2D_TYPE_EXPRESSION && type != MESH2D_TYPE_F16_VALUES && type != MESH2D_TYPE_PATH_SPLINE_STRIP && type != MESH2D_TYPE_SPLINE_ROUND_STRIP",
           "description": "Color int count"
         },
         {
@@ -2253,7 +2253,7 @@
           "countFrom": "vertsLen",
           "maxLength": 32768,
           "javaLimit": "Limits.MAX_MESH_2D_VERTICES * 2",
-          "presentIf": "type != 0 && type != 2 && type != 3 && type != 4",
+          "presentIf": "type != MESH2D_TYPE_EXPRESSION && type != MESH2D_TYPE_F16_VALUES && type != MESH2D_TYPE_PATH_SPLINE_STRIP && type != MESH2D_TYPE_SPLINE_ROUND_STRIP",
           "description": "32-bit vertex coordinates"
         },
         {
@@ -2262,7 +2262,7 @@
           "countFrom": "uvLen",
           "maxLength": 32768,
           "javaLimit": "Limits.MAX_MESH_2D_VERTICES * 2",
-          "presentIf": "type != 0 && type != 2 && type != 3 && type != 4",
+          "presentIf": "type != MESH2D_TYPE_EXPRESSION && type != MESH2D_TYPE_F16_VALUES && type != MESH2D_TYPE_PATH_SPLINE_STRIP && type != MESH2D_TYPE_SPLINE_ROUND_STRIP",
           "description": "32-bit UV texture coordinates"
         },
         {
@@ -2271,28 +2271,28 @@
           "countFrom": "colorsLen",
           "maxLength": 16384,
           "javaLimit": "Limits.MAX_MESH_2D_VERTICES",
-          "presentIf": "type != 0 && type != 2 && type != 3 && type != 4",
+          "presentIf": "type != MESH2D_TYPE_EXPRESSION && type != MESH2D_TYPE_F16_VALUES && type != MESH2D_TYPE_PATH_SPLINE_STRIP && type != MESH2D_TYPE_SPLINE_ROUND_STRIP",
           "description": "ARGB vertex colors"
         },
         {
           "name": "vertsF16Len",
           "type": "int",
           "derivedFrom": "len(vertsF16)",
-          "presentIf": "type == 2",
+          "presentIf": "type == MESH2D_TYPE_F16_VALUES",
           "description": "FP16 vertex half-float count"
         },
         {
           "name": "uvF16Len",
           "type": "int",
           "derivedFrom": "len(uvF16)",
-          "presentIf": "type == 2",
+          "presentIf": "type == MESH2D_TYPE_F16_VALUES",
           "description": "FP16 UV half-float count"
         },
         {
           "name": "colorsF16Len",
           "type": "int",
           "derivedFrom": "len(colorsF16)",
-          "presentIf": "type == 2",
+          "presentIf": "type == MESH2D_TYPE_F16_VALUES",
           "description": "Color int count for F16 mesh"
         },
         {
@@ -2301,7 +2301,7 @@
           "countFrom": "vertsF16Len",
           "maxLength": 32768,
           "javaLimit": "Limits.MAX_MESH_2D_VERTICES * 2",
-          "presentIf": "type == 2",
+          "presentIf": "type == MESH2D_TYPE_F16_VALUES",
           "description": "IEEE 754 binary16 vertex coordinates"
         },
         {
@@ -2310,7 +2310,7 @@
           "countFrom": "uvF16Len",
           "maxLength": 32768,
           "javaLimit": "Limits.MAX_MESH_2D_VERTICES * 2",
-          "presentIf": "type == 2",
+          "presentIf": "type == MESH2D_TYPE_F16_VALUES",
           "description": "IEEE 754 binary16 UV coordinates"
         },
         {
@@ -2319,7 +2319,7 @@
           "countFrom": "colorsF16Len",
           "maxLength": 16384,
           "javaLimit": "Limits.MAX_MESH_2D_VERTICES",
-          "presentIf": "type == 2",
+          "presentIf": "type == MESH2D_TYPE_F16_VALUES",
           "description": "ARGB vertex colors for F16 mesh"
         },
         {
@@ -2328,7 +2328,7 @@
           "lengthType": "int",
           "maxLength": 64,
           "javaLimit": "Limits.MAX_MESH_2D_WIDTH_SAMPLES",
-          "presentIf": "type == 3 || type == 4",
+          "presentIf": "type == MESH2D_TYPE_PATH_SPLINE_STRIP || type == MESH2D_TYPE_SPLINE_ROUND_STRIP",
           "description": "Spline strip width samples"
         },
         {
@@ -2337,14 +2337,14 @@
           "lengthType": "int",
           "maxLength": 64,
           "javaLimit": "Limits.MAX_MESH_2D_WIDTH_SAMPLES",
-          "presentIf": "type == 3 || type == 4",
+          "presentIf": "type == MESH2D_TYPE_PATH_SPLINE_STRIP || type == MESH2D_TYPE_SPLINE_ROUND_STRIP",
           "description": "Spline strip width sample positions"
         },
         {
           "name": "antialiasWidth",
           "type": "float_or_id",
           "defaultValue": "1.0",
-          "presentIf": "(flags & 256) != 0",
+          "presentIf": "(flags & MESH2D_FLAG_ANTIALIAS) != 0",
           "description": "Optional edge antialiasing width"
         }
       ],
@@ -2960,21 +2960,21 @@
           "description": "First color, hue float bits, or source ID depending on mode",
           "conditionalTypes": [
             {
-              "when": "(flagsAndMode & 255) >= 4",
+              "when": "(flagsAndMode & COLOR_EXPRESSION_MODE_MASK) >= HSV_MODE",
               "type": "float_or_id"
             },
             {
-              "when": "(flagsAndMode & 255) == 0 || (flagsAndMode & 255) == 2",
+              "when": "(flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == COLOR_COLOR_INTERPOLATE || (flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == COLOR_ID_INTERPOLATE",
               "type": "color"
             },
             {
-              "when": "(flagsAndMode & 255) == 1 || (flagsAndMode & 255) == 3",
+              "when": "(flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == ID_COLOR_INTERPOLATE || (flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == ID_ID_INTERPOLATE",
               "type": "int_id"
             }
           ],
           "conditionalRoles": [
             {
-              "when": "(flagsAndMode & 255) == 1 || (flagsAndMode & 255) == 3",
+              "when": "(flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == ID_COLOR_INTERPOLATE || (flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == ID_ID_INTERPOLATE",
               "role": "idRef",
               "idKind": "color"
             }
@@ -2986,21 +2986,21 @@
           "description": "Second color, saturation float bits, or attribute type depending on mode",
           "conditionalTypes": [
             {
-              "when": "(flagsAndMode & 255) >= 4",
+              "when": "(flagsAndMode & COLOR_EXPRESSION_MODE_MASK) >= HSV_MODE",
               "type": "float_or_id"
             },
             {
-              "when": "(flagsAndMode & 255) == 0 || (flagsAndMode & 255) == 1",
+              "when": "(flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == COLOR_COLOR_INTERPOLATE || (flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == ID_COLOR_INTERPOLATE",
               "type": "color"
             },
             {
-              "when": "(flagsAndMode & 255) == 2 || (flagsAndMode & 255) == 3",
+              "when": "(flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == COLOR_ID_INTERPOLATE || (flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == ID_ID_INTERPOLATE",
               "type": "int_id"
             }
           ],
           "conditionalRoles": [
             {
-              "when": "(flagsAndMode & 255) == 2 || (flagsAndMode & 255) == 3",
+              "when": "(flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == COLOR_ID_INTERPOLATE || (flagsAndMode & COLOR_EXPRESSION_MODE_MASK) == ID_ID_INTERPOLATE",
               "role": "idRef",
               "idKind": "color"
             }
@@ -3012,7 +3012,7 @@
           "description": "Tween/value/blue float bits depending on mode",
           "conditionalTypes": [
             {
-              "when": "(flagsAndMode & 255) <= 6",
+              "when": "(flagsAndMode & COLOR_EXPRESSION_MODE_MASK) <= IDARGB_MODE",
               "type": "float_or_id"
             }
           ]
@@ -4184,7 +4184,7 @@
           "name": "kerningTable",
           "type": "KerningPair[]",
           "lengthType": "ushort",
-          "presentIf": "version >= 1",
+          "presentIf": "version >= BITMAP_FONT_VERSION_KERNING",
           "description": "Optional kerning adjustment pairs (present when version >= 1)"
         }
       ],
@@ -5656,17 +5656,17 @@
           "description": "The text color (ARGB)",
           "conditionalTypes": [
             {
-              "when": "(textAlign & 65536) == 0",
+              "when": "(textAlign & TEXT_LAYOUT_DYNAMIC_COLOR) == 0",
               "type": "color"
             },
             {
-              "when": "(textAlign & 65536) != 0",
+              "when": "(textAlign & TEXT_LAYOUT_DYNAMIC_COLOR) != 0",
               "type": "int_id"
             }
           ],
           "conditionalRoles": [
             {
-              "when": "(textAlign & 65536) != 0",
+              "when": "(textAlign & TEXT_LAYOUT_DYNAMIC_COLOR) != 0",
               "role": "idRef",
               "idKind": "color"
             }
@@ -7471,20 +7471,20 @@
           "name": "value",
           "type": "int",
           "defaultValue": "0",
-          "presentIf": "(tag >> 10) == 0 || (tag >> 10) == 1",
+          "presentIf": "(tag >> GRAPHICS_LAYER_TYPE_SHIFT) == GRAPHICS_LAYER_TYPE_INT || (tag >> GRAPHICS_LAYER_TYPE_SHIFT) == GRAPHICS_LAYER_TYPE_FLOAT",
           "conditionalTypes": [
             {
-              "when": "(tag >> 10) == 0",
+              "when": "(tag >> GRAPHICS_LAYER_TYPE_SHIFT) == GRAPHICS_LAYER_TYPE_INT",
               "type": "int"
             },
             {
-              "when": "(tag >> 10) == 1",
+              "when": "(tag >> GRAPHICS_LAYER_TYPE_SHIFT) == GRAPHICS_LAYER_TYPE_FLOAT",
               "type": "float_or_id"
             }
           ],
           "conditionalRoles": [
             {
-              "when": "(tag >> 10) == 0 && ((tag & 63) == 14 || (tag & 63) == 15)",
+              "when": "(tag >> GRAPHICS_LAYER_TYPE_SHIFT) == GRAPHICS_LAYER_TYPE_INT && ((tag & GRAPHICS_LAYER_ATTRIBUTE_MASK) == GRAPHICS_LAYER_SPOT_SHADOW_COLOR || (tag & GRAPHICS_LAYER_ATTRIBUTE_MASK) == GRAPHICS_LAYER_AMBIENT_SHADOW_COLOR)",
               "role": "idRef",
               "idKind": "color"
             }
@@ -7576,35 +7576,35 @@
           "type": "int",
           "conditionalTypes": [
             {
-              "when": "dataType == 0",
+              "when": "dataType == CUSTOM_PROPERTY_INT_PROP",
               "type": "int"
             },
             {
-              "when": "dataType == 1 || dataType == 3",
+              "when": "dataType == CUSTOM_PROPERTY_FLOAT_PROP || dataType == CUSTOM_PROPERTY_FLOAT_RETURN",
               "type": "float_or_id"
             },
             {
-              "when": "dataType == 8",
+              "when": "dataType == CUSTOM_PROPERTY_COLOR_PROP",
               "type": "color"
             },
             {
-              "when": "dataType == 2 || dataType == 4 || dataType == 5 || dataType == 6 || dataType == 7 || dataType == 9",
+              "when": "dataType == CUSTOM_PROPERTY_STRING_PROP || dataType == CUSTOM_PROPERTY_TEXT_RETURN || dataType == CUSTOM_PROPERTY_INT_RETURN || dataType == CUSTOM_PROPERTY_COLOR_RETURN || dataType == CUSTOM_PROPERTY_COLOR_ID_PROP || dataType == CUSTOM_PROPERTY_INT_ID_PROP",
               "type": "int_id"
             }
           ],
           "conditionalRoles": [
             {
-              "when": "dataType == 2 || dataType == 4",
+              "when": "dataType == CUSTOM_PROPERTY_STRING_PROP || dataType == CUSTOM_PROPERTY_TEXT_RETURN",
               "role": "idRef",
               "idKind": "text"
             },
             {
-              "when": "dataType == 5 || dataType == 9",
+              "when": "dataType == CUSTOM_PROPERTY_INT_RETURN || dataType == CUSTOM_PROPERTY_INT_ID_PROP",
               "role": "idRef",
               "idKind": "int"
             },
             {
-              "when": "dataType == 6 || dataType == 7",
+              "when": "dataType == CUSTOM_PROPERTY_COLOR_RETURN || dataType == CUSTOM_PROPERTY_COLOR_ID_PROP",
               "role": "idRef",
               "idKind": "color"
             }
@@ -7743,19 +7743,19 @@
         {
           "name": "intValue",
           "type": "int",
-          "presentIf": "(tag >> 10) == 0",
+          "presentIf": "(tag >> HEADER_PROPERTY_TYPE_SHIFT) == DATA_TYPE_INT",
           "description": "32-bit integer property value when dataType == 0"
         },
         {
           "name": "floatValue",
           "type": "float",
-          "presentIf": "(tag >> 10) == 1",
+          "presentIf": "(tag >> HEADER_PROPERTY_TYPE_SHIFT) == DATA_TYPE_FLOAT",
           "description": "32-bit float property value when dataType == 1"
         },
         {
           "name": "longValue",
           "type": "long",
-          "presentIf": "(tag >> 10) == 2",
+          "presentIf": "(tag >> HEADER_PROPERTY_TYPE_SHIFT) == DATA_TYPE_LONG",
           "description": "64-bit integer property value when dataType == 2"
         },
         {
@@ -7763,7 +7763,7 @@
           "type": "string",
           "maxLength": 4000,
           "javaLimit": "Limits.MAX_STRING_SIZE",
-          "presentIf": "(tag >> 10) == 3",
+          "presentIf": "(tag >> HEADER_PROPERTY_TYPE_SHIFT) == DATA_TYPE_STRING",
           "description": "UTF-8 string property value when dataType == 3"
         }
       ]
@@ -9318,6 +9318,46 @@
       "description": "Calendar year (e.g. 2026)"
     }
   ],
+  "expressionConstants": {
+    "MESH2D_TYPE_EXPRESSION": 0,
+    "MESH2D_TYPE_VALUES": 1,
+    "MESH2D_TYPE_F16_VALUES": 2,
+    "MESH2D_TYPE_PATH_SPLINE_STRIP": 3,
+    "MESH2D_TYPE_SPLINE_ROUND_STRIP": 4,
+    "MESH2D_FLAG_ANTIALIAS": 256,
+    "ANIMATION_KIND_MASK": 255,
+    "ANIMATION_KIND_CUSTOM": 8,
+    "BITMAP_FONT_VERSION_KERNING": 1,
+    "COLOR_EXPRESSION_MODE_MASK": 255,
+    "COLOR_COLOR_INTERPOLATE": 0,
+    "ID_COLOR_INTERPOLATE": 1,
+    "COLOR_ID_INTERPOLATE": 2,
+    "ID_ID_INTERPOLATE": 3,
+    "HSV_MODE": 4,
+    "ARGB_MODE": 5,
+    "IDARGB_MODE": 6,
+    "CUSTOM_PROPERTY_INT_PROP": 0,
+    "CUSTOM_PROPERTY_FLOAT_PROP": 1,
+    "CUSTOM_PROPERTY_STRING_PROP": 2,
+    "CUSTOM_PROPERTY_FLOAT_RETURN": 3,
+    "CUSTOM_PROPERTY_TEXT_RETURN": 4,
+    "CUSTOM_PROPERTY_INT_RETURN": 5,
+    "CUSTOM_PROPERTY_COLOR_RETURN": 6,
+    "CUSTOM_PROPERTY_COLOR_ID_PROP": 7,
+    "CUSTOM_PROPERTY_COLOR_PROP": 8,
+    "CUSTOM_PROPERTY_INT_ID_PROP": 9,
+    "EVENT_FLAG_UNCONDITIONAL": 1,
+    "EVENT_FLAG_NO_DATA": 2,
+    "GRAPHICS_LAYER_TYPE_SHIFT": 10,
+    "GRAPHICS_LAYER_ATTRIBUTE_MASK": 63,
+    "GRAPHICS_LAYER_TYPE_INT": 0,
+    "GRAPHICS_LAYER_TYPE_FLOAT": 1,
+    "GRAPHICS_LAYER_SPOT_SHADOW_COLOR": 14,
+    "GRAPHICS_LAYER_AMBIENT_SHADOW_COLOR": 15,
+    "HEADER_PROPERTY_MAP_MAJOR_VERSION": 65536,
+    "HEADER_PROPERTY_TYPE_SHIFT": 10,
+    "TEXT_LAYOUT_DYNAMIC_COLOR": 65536
+  },
   "headerConstants": {
     "propertyType": {
       "DATA_TYPE_INT": 0,

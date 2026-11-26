@@ -788,7 +788,12 @@ internal class CppGenerator(private val schema: OperationSchema) {
 
             if (field.presentIf != null) {
                 val cond =
-                    CodegenExprUtils.translateCondition(field.presentIf, ExprLang.CPP) {
+                    CodegenExprUtils.translateCondition(
+                        field.presentIf,
+                        ExprLang.CPP,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                         sanitizeIdentifier(it)
                     }
                 if (isLocalDerived) {
@@ -1062,7 +1067,12 @@ internal class CppGenerator(private val schema: OperationSchema) {
                 val derivedVal = derivedExprToCpp(DerivedExpr.parse(field.derivedFrom), propByName)
                 if (field.presentIf != null) {
                     val cond =
-                        CodegenExprUtils.translateCondition(field.presentIf, ExprLang.CPP) {
+                        CodegenExprUtils.translateCondition(
+                        field.presentIf,
+                        ExprLang.CPP,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                             sanitizeIdentifier(it)
                         }
                     w.block("if ($cond)") {
@@ -1093,7 +1103,12 @@ internal class CppGenerator(private val schema: OperationSchema) {
 
             if (field.presentIf != null) {
                 val cond =
-                    CodegenExprUtils.translateCondition(field.presentIf, ExprLang.CPP) {
+                    CodegenExprUtils.translateCondition(
+                        field.presentIf,
+                        ExprLang.CPP,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                         sanitizeIdentifier(it)
                     }
                 w.block("if ($cond)") {

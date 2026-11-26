@@ -727,7 +727,12 @@ internal class PythonGenerator(private val schema: OperationSchema) {
 
             if (f.presentIf != null) {
                 val cond =
-                    CodegenExprUtils.translateCondition(f.presentIf, ExprLang.PYTHON) {
+                    CodegenExprUtils.translateCondition(
+                        f.presentIf,
+                        ExprLang.PYTHON,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                         if (it in localVars) sanitizePythonIdentifier(it)
                         else "self.${sanitizePythonIdentifier(it)}"
                     }
@@ -991,7 +996,12 @@ internal class PythonGenerator(private val schema: OperationSchema) {
                 val derivedVal = derivedExprToPy(DerivedExpr.parse(f.derivedFrom))
                 if (f.presentIf != null) {
                     val cond =
-                        CodegenExprUtils.translateCondition(f.presentIf, ExprLang.PYTHON) {
+                        CodegenExprUtils.translateCondition(
+                        f.presentIf,
+                        ExprLang.PYTHON,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                             if (it in localVars) sanitizePythonIdentifier(it)
                             else "self.${sanitizePythonIdentifier(it)}"
                         }
@@ -1024,7 +1034,12 @@ internal class PythonGenerator(private val schema: OperationSchema) {
 
             if (f.presentIf != null) {
                 val cond =
-                    CodegenExprUtils.translateCondition(f.presentIf, ExprLang.PYTHON) {
+                    CodegenExprUtils.translateCondition(
+                        f.presentIf,
+                        ExprLang.PYTHON,
+                        // LOCAL PATCH (rc-players): named constants, inlined as upstream wrote them.
+                        constants = CodegenExprUtils.inlineConstants(schema),
+                    ) {
                         if (it in localVars) sanitizePythonIdentifier(it)
                         else "self.${sanitizePythonIdentifier(it)}"
                     }
