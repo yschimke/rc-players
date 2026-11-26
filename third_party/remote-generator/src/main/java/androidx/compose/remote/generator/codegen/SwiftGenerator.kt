@@ -302,7 +302,46 @@ internal class SwiftGenerator(
         }
     }
 
+    // LOCAL PATCH (rc-players): the header's bit layout and limits, derived from the schema, so the
+    // loader below names every wire value instead of repeating it as a literal.
+    private fun emitHeaderLayout(w: CodeWriter) {
+        fun bits(fields: List<SchemaField>?, field: String, bit: String): SchemaBitField =
+            checkNotNull(fields?.firstOrNull { it.name == field }?.bits?.firstOrNull { it.name == bit }) {
+                "the schema does not describe $field.$bit"
+            }
+        fun range(b: SchemaBitField): IntRange =
+            b.range.split("..").let { it[0].toInt()..it.last().toInt() }
+        fun mask(b: SchemaBitField): Long =
+            range(b).fold(0L) { acc, i -> acc or (1L shl i) }
+        val header = schema.operationsByName.getValue("Header").fields
+        val tag = schema.structs.getValue("HeaderProperty").fields
+        val version = bits(header, "majorVersion", "version")
+        val magic = bits(header, "majorVersion", "magic")
+        val key = bits(tag, "tag", "key")
+        val dataType = bits(tag, "tag", "dataType")
+        val defaultSize = checkNotNull(header.first { it.name == "width" }.defaultValue)
+        val maxString = schema.operationsByName.getValue("TextData").fields
+            .first { it.name == "text" }.maxLength.let { checkNotNull(it) { "TextData.text has no maxLength" } }
+        for (name in listOf("DATA_TYPE_INT", "DATA_TYPE_FLOAT", "DATA_TYPE_LONG", "DATA_TYPE_STRING", "MAGIC_NUMBER")) {
+            check(schema.headerConstants.values.any { name in it }) { "headerConstants has no $name" }
+        }
+        w.line("/// A header's bit layout and limits, from the schema: the major-version word (version and")
+        w.line("/// magic) and each property's tag (key and data type).")
+        w.block("public enum HeaderLayout") {
+            line("public static let versionMask: Int32 = 0x${mask(version).toString(16).uppercase()}")
+            line("public static let magicMask: UInt32 = 0x${mask(magic).toString(16).uppercase()}")
+            line("public static let propertyKeyMask: Int32 = 0x${mask(key).toString(16).uppercase()}")
+            line("public static let propertyTypeShift: Int32 = ${range(dataType).first}")
+            line("/// The width and height a modern header without size properties declares.")
+            line("public static let defaultSize: Int32 = $defaultSize")
+            line("/// The longest string property a header may carry.")
+            line("public static let maxStringLength: Int = $maxString")
+        }
+        w.line()
+    }
+
     private fun emitRemoteDocument(w: CodeWriter) {
+        emitHeaderLayout(w)
         w.line("/// In-memory representation of a RemoteCompose document.")
         w.block("public struct RemoteDocument") {
             line("public static let MAX_HEADER_PROPERTIES: Int = 1000")
@@ -376,12 +415,12 @@ internal class SwiftGenerator(
                 line("doc.minorVersion = try buffer.readInt()")
                 line("doc.patchVersion = try buffer.readInt()")
                 block(
-                    "if (UInt32(bitPattern: rawMajor) & 0xFFFF0000) == 0x048C0000",
+                    "if (UInt32(bitPattern: rawMajor) & HeaderLayout.magicMask) == UInt32(bitPattern: HeaderConstants.MAGIC_NUMBER)",
                     close = null,
                 ) {
-                    line("doc.majorVersion = rawMajor & 0xFFFF")
-                    line("doc.width = 256")
-                    line("doc.height = 256")
+                    line("doc.majorVersion = rawMajor & HeaderLayout.versionMask")
+                    line("doc.width = HeaderLayout.defaultSize")
+                    line("doc.height = HeaderLayout.defaultSize")
                     line("let numProps = Int(try buffer.readInt())")
                     block("guard numProps >= 0 && numProps <= MAX_HEADER_PROPERTIES else") {
                         line(
@@ -396,38 +435,40 @@ internal class SwiftGenerator(
                     block("for _ in 0..<numProps") {
                         line("let tag = Int32(try buffer.readShort())")
                         line("_ = try buffer.readShort() // itemLen (read and ignored)")
-                        line("let dataType = tag >> 10")
-                        line("let key = tag & 0x3F")
+                        line("let dataType = tag >> HeaderLayout.propertyTypeShift")
+                        line("let key = tag & HeaderLayout.propertyKeyMask")
                         swiftSwitch("dataType") {
-                            swiftCase("case 0") {
+                            swiftCase("case HeaderConstants.DATA_TYPE_INT") {
                                 line("let val = try buffer.readInt()")
-                                line("if key == 5 { doc.width = val }")
-                                line("else if key == 6 { doc.height = val }")
+                                line("if key == HeaderProperty.DOC_WIDTH { doc.width = val }")
+                                line("else if key == HeaderProperty.DOC_HEIGHT { doc.height = val }")
                                 line(
-                                    "else if key == 14 { doc.capabilities = Int64(UInt32(bitPattern: val)) }"
+                                    "else if key == HeaderProperty.DOC_PROFILES { doc.capabilities = Int64(UInt32(bitPattern: val)) }"
                                 )
-                                block("else if key == 31 && val != 0") {
+                                block("else if key == HeaderProperty.COMPRESS && val != 0") {
                                     line(
                                         "throw NSError(domain: \"RemoteDocument\", code: 6, userInfo: [NSLocalizedDescriptionKey: \"Compressed RemoteCompose documents are not supported\"])"
                                     )
                                 }
                             }
-                            swiftCase("case 1") { line("_ = try buffer.readFloat()") }
-                            swiftCase("case 2") {
+                            swiftCase("case HeaderConstants.DATA_TYPE_FLOAT") { line("_ = try buffer.readFloat()") }
+                            swiftCase("case HeaderConstants.DATA_TYPE_LONG") {
                                 line("let val = try buffer.readLong()")
-                                line("if key == 14 { doc.capabilities = val }")
-                                block("else if key == 31 && val != 0") {
+                                line("if key == HeaderProperty.DOC_PROFILES { doc.capabilities = val }")
+                                block("else if key == HeaderProperty.COMPRESS && val != 0") {
                                     line(
                                         "throw NSError(domain: \"RemoteDocument\", code: 6, userInfo: [NSLocalizedDescriptionKey: \"Compressed RemoteCompose documents are not supported\"])"
                                     )
                                 }
                             }
-                            swiftCase("case 3") { line("_ = try buffer.readUTF8(maxLength: 4000)") }
+                            swiftCase("case HeaderConstants.DATA_TYPE_STRING") {
+                                line("_ = try buffer.readUTF8(maxLength: HeaderLayout.maxStringLength)")
+                            }
                             swiftCase("default") { line("break") }
                         }
                     }
                 }
-                block("} else if rawMajor >= 0 && rawMajor < 0x10000", close = null) {
+                block("} else if rawMajor >= 0 && rawMajor <= HeaderLayout.versionMask", close = null) {
                     line("doc.majorVersion = rawMajor")
                     line("doc.width = try buffer.readInt()")
                     line("doc.height = try buffer.readInt()")

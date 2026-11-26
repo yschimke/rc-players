@@ -11149,6 +11149,19 @@ public struct CoreSemantics: RemoteOperation, Equatable {
     }
 }
 
+/// A header's bit layout and limits, from the schema: the major-version word (version and
+/// magic) and each property's tag (key and data type).
+public enum HeaderLayout {
+    public static let versionMask: Int32 = 0xFFFF
+    public static let magicMask: UInt32 = 0xFFFF0000
+    public static let propertyKeyMask: Int32 = 0x3F
+    public static let propertyTypeShift: Int32 = 10
+    /// The width and height a modern header without size properties declares.
+    public static let defaultSize: Int32 = 256
+    /// The longest string property a header may carry.
+    public static let maxStringLength: Int = 4000
+}
+
 /// In-memory representation of a RemoteCompose document.
 public struct RemoteDocument {
     public static let MAX_HEADER_PROPERTIES: Int = 1000
@@ -11203,10 +11216,10 @@ public struct RemoteDocument {
         let rawMajor = try buffer.readInt()
         doc.minorVersion = try buffer.readInt()
         doc.patchVersion = try buffer.readInt()
-        if (UInt32(bitPattern: rawMajor) & 0xFFFF0000) == 0x048C0000 {
-            doc.majorVersion = rawMajor & 0xFFFF
-            doc.width = 256
-            doc.height = 256
+        if (UInt32(bitPattern: rawMajor) & HeaderLayout.magicMask) == UInt32(bitPattern: HeaderConstants.MAGIC_NUMBER) {
+            doc.majorVersion = rawMajor & HeaderLayout.versionMask
+            doc.width = HeaderLayout.defaultSize
+            doc.height = HeaderLayout.defaultSize
             let numProps = Int(try buffer.readInt())
             guard numProps >= 0 && numProps <= MAX_HEADER_PROPERTIES else {
                 throw RemoteComposeWireError(domain: "RemoteDocument", code: 3, message: "Invalid header property count: \(numProps)")
@@ -11217,32 +11230,32 @@ public struct RemoteDocument {
             for _ in 0..<numProps {
                 let tag = Int32(try buffer.readShort())
                 _ = try buffer.readShort() // itemLen (read and ignored)
-                let dataType = tag >> 10
-                let key = tag & 0x3F
+                let dataType = tag >> HeaderLayout.propertyTypeShift
+                let key = tag & HeaderLayout.propertyKeyMask
                 switch dataType {
-                case 0:
+                case HeaderConstants.DATA_TYPE_INT:
                     let val = try buffer.readInt()
-                    if key == 5 { doc.width = val }
-                    else if key == 6 { doc.height = val }
-                    else if key == 14 { doc.capabilities = Int64(UInt32(bitPattern: val)) }
-                    else if key == 31 && val != 0 {
+                    if key == HeaderProperty.DOC_WIDTH { doc.width = val }
+                    else if key == HeaderProperty.DOC_HEIGHT { doc.height = val }
+                    else if key == HeaderProperty.DOC_PROFILES { doc.capabilities = Int64(UInt32(bitPattern: val)) }
+                    else if key == HeaderProperty.COMPRESS && val != 0 {
                         throw RemoteComposeWireError(domain: "RemoteDocument", code: 6, message: "Compressed RemoteCompose documents are not supported")
                     }
-                case 1:
+                case HeaderConstants.DATA_TYPE_FLOAT:
                     _ = try buffer.readFloat()
-                case 2:
+                case HeaderConstants.DATA_TYPE_LONG:
                     let val = try buffer.readLong()
-                    if key == 14 { doc.capabilities = val }
-                    else if key == 31 && val != 0 {
+                    if key == HeaderProperty.DOC_PROFILES { doc.capabilities = val }
+                    else if key == HeaderProperty.COMPRESS && val != 0 {
                         throw RemoteComposeWireError(domain: "RemoteDocument", code: 6, message: "Compressed RemoteCompose documents are not supported")
                     }
-                case 3:
-                    _ = try buffer.readUTF8(maxLength: 4000)
+                case HeaderConstants.DATA_TYPE_STRING:
+                    _ = try buffer.readUTF8(maxLength: HeaderLayout.maxStringLength)
                 default:
                     break
                 }
             }
-        } else if rawMajor >= 0 && rawMajor < 0x10000 {
+        } else if rawMajor >= 0 && rawMajor <= HeaderLayout.versionMask {
             doc.majorVersion = rawMajor
             doc.width = try buffer.readInt()
             doc.height = try buffer.readInt()
