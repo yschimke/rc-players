@@ -62,13 +62,16 @@ final class RemoteCreationContext {
     return id
   }
 
+  /// Refuses a second declaration of [name]. A value's node is cached, so reaching here twice for
+  /// one name means two different values claim it — another type, or another default — and a host
+  /// write by that name could only ever reach one of them.
+  private func claimName(_ name: String) {
+    precondition(
+      namedTypes[name] == nil,
+      "the name \"\(name)\" is declared twice, with another type or another default")
+  }
+
   private func declareName(_ name: String, id: Int, type: Int) {
-    if let existing = namedTypes[name] {
-      precondition(
-        existing == type,
-        "the name \"\(name)\" is already declared as a value of another type")
-      return
-    }
     namedTypes[name] = type
     declarations.byte(RemoteOpcode.namedVariable)
     declarations.int(id)
@@ -103,6 +106,7 @@ final class RemoteCreationContext {
       declarations.int(id)
       declarations.float(literal)
     case .named(let name, let initial):
+      claimName(name)
       id = newDataID()
       declarations.byte(RemoteOpcode.dataFloat)
       declarations.int(id)
@@ -129,11 +133,11 @@ final class RemoteCreationContext {
     case .named: words.append(RemoteNaN.id(floatID(node)))
     case .unary(let operation, let operand):
       appendRPN(operand, to: &words)
-      words.append(RemoteNaN.operation(operation.rawValue))
+      words.append(RemoteNaN.operation(operation.code))
     case .binary(let operation, let lhs, let rhs):
       appendRPN(lhs, to: &words)
       appendRPN(rhs, to: &words)
-      words.append(RemoteNaN.operation(operation.rawValue))
+      words.append(RemoteNaN.operation(operation.code))
     }
   }
 
@@ -146,6 +150,7 @@ final class RemoteCreationContext {
     case .constant(let literal):
       return textID(literal)
     case .named(let name, let initial):
+      claimName(name)
       // A named text needs a definition of its own: a constant shared with another component
       // would change both when the host writes the name.
       id = newDataID()
@@ -178,6 +183,7 @@ final class RemoteCreationContext {
   /// The id of the integer [value] reads.
   func intID(_ value: RemoteInt) -> Int {
     if let id = intIDs[value.node] { return id }
+    if case .named(let name, _) = value.node { claimName(name) }
     let id = newDataID()
     declarations.byte(RemoteOpcode.dataInt)
     declarations.int(id)
@@ -203,6 +209,7 @@ final class RemoteCreationContext {
           "the colour \"\(name)\" is declared twice with different defaults")
         return .id(existing.id)
       }
+      claimName(name)
       let id = newDataID()
       declarations.byte(RemoteOpcode.colorConstant)
       declarations.int(id)

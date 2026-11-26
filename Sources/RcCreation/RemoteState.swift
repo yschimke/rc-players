@@ -17,19 +17,21 @@ public struct RemoteFloat: Hashable, Sendable, ExpressibleByFloatLiteral,
     case binary(Operator, Node, Node)
   }
 
-  /// AndroidX `AnimatedFloatExpression` operators this API writes.
-  enum Operator: Int, Hashable, Sendable {
-    case add = 1
-    case subtract = 2
-    case multiply = 3
-    case divide = 4
-    case modulo = 5
-    case minimum = 6
-    case maximum = 7
-    case absolute = 10
-    case floor = 14
-    case round = 17
-    case ceil = 31
+  /// The `AnimatedFloatExpression` operators this API writes.
+  enum Operator: Hashable, Sendable {
+    case add, subtract, multiply, divide, minimum, maximum, absolute
+
+    var code: Int {
+      switch self {
+      case .add: RemoteFloatOperatorCode.add
+      case .subtract: RemoteFloatOperatorCode.sub
+      case .multiply: RemoteFloatOperatorCode.mul
+      case .divide: RemoteFloatOperatorCode.div
+      case .minimum: RemoteFloatOperatorCode.min
+      case .maximum: RemoteFloatOperatorCode.max
+      case .absolute: RemoteFloatOperatorCode.abs
+      }
+    }
   }
 
   let node: Node
@@ -132,11 +134,15 @@ public struct RemoteString: Hashable, Sendable, ExpressibleByStringLiteral {
   public init(stringLiteral value: String) { node = .constant(value) }
 
   /// [number] as text with up to [integerDigits] digits before the point and exactly [decimals]
-  /// after it, written by `TextFromFloat` so it follows the value as it changes.
+  /// after it, zero-padded (`1.50` for 1.5 at two decimals), written by `TextFromFloat` so it
+  /// follows the value as it changes.
   public init(_ number: RemoteFloat, integerDigits: Int = 9, decimals: Int = 0) {
     precondition((0...16).contains(integerDigits) && (0...16).contains(decimals))
-    // PAD_PRE_NONE | PAD_AFTER_NONE: no padding either side, as `String(format:)` would print it.
-    node = .number(number, before: integerDigits, after: decimals, flags: 4 | 1)
+    // No padding before the point; zeros after it, so the fraction always has [decimals] digits,
+    // as `String(format: "%.2f")` prints it.
+    node = .number(
+      number, before: integerDigits, after: decimals,
+      flags: RemoteTextFromFloatFlag.padPreNone | RemoteTextFromFloatFlag.padAfterZero)
   }
 
   /// A text the host can write by [name], [initial] until it does.
@@ -219,4 +225,9 @@ public enum RemoteVisibility {
   public static let gone = 0
   public static let visible = 1
   public static let invisible = 2
+  /// Override flags a host can OR in to force a state over the document's own.
+  public static let overrideGone = 16
+  public static let overrideVisible = 32
+  public static let overrideInvisible = 64
+  public static let clearOverride = 128
 }

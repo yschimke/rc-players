@@ -68,24 +68,24 @@ public struct RemoteDocument {
     func int(_ tag: Int, _ value: Int) {
       var encoded = RemoteByteBuffer()
       encoded.int(value)
-      properties.append((tag, RemoteHeaderTag.typeInt, encoded))
+      properties.append((tag, RemoteHeaderValueType.int, encoded))
     }
-    int(RemoteHeaderTag.documentWidth, width)
-    int(RemoteHeaderTag.documentHeight, height)
+    int(RemoteHeaderKey.documentWidth, width)
+    int(RemoteHeaderKey.documentHeight, height)
     var densityValue = RemoteByteBuffer()
     densityValue.float(density)
     properties.append(
-      (RemoteHeaderTag.densityAtGeneration, RemoteHeaderTag.typeFloat, densityValue))
+      (RemoteHeaderKey.densityAtGeneration, RemoteHeaderValueType.float, densityValue))
     if let contentDescription {
       var text = RemoteByteBuffer()
       text.utf8(contentDescription)
-      properties.append((RemoteHeaderTag.contentDescription, RemoteHeaderTag.typeString, text))
+      properties.append((RemoteHeaderKey.contentDescription, RemoteHeaderValueType.string, text))
     }
 
     buffer.byte(RemoteOpcode.header)
-    buffer.int(RemoteHeaderTag.magic | RemoteHeaderTag.majorVersion)
-    buffer.int(RemoteHeaderTag.minorVersion)
-    buffer.int(0)
+    buffer.int(RemoteHeaderVersion.magic | RemoteHeaderVersion.major)
+    buffer.int(RemoteHeaderVersion.minor)
+    buffer.int(RemoteHeaderVersion.patch)
     buffer.int(properties.count)
     for property in properties {
       buffer.short(property.tag | property.type << 10)

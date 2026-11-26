@@ -290,13 +290,13 @@ extension RemoteCreationContext {
         body.int(0)
         for channel in RemoteCreationContext.components(argb) { body.float(channel) }
       case .id(let id):
-        body.int(2)  // The colour is an id.
+        body.int(RemoteModifierColorFlag.colorID)
         body.int(id)
         body.int(0)
         body.int(0)
         for _ in 0..<4 { body.float(0) }
       }
-      body.int(0)  // RECTANGLE: clip() gives any other outline.
+      body.int(RemoteModifierShape.rectangle)  // clip() gives any other outline.
     case .border(let width, let color, let cornerRadius):
       let resolved = self.color(color)
       op(RemoteOpcode.modifierBorder)
@@ -304,21 +304,21 @@ extension RemoteCreationContext {
       case .literal(let argb):
         body.int(0)
         body.int(0)
-        body.int(1)  // Wire version 1: the stroke is drawn inside the bounds.
+        body.int(RemoteBorderWireVersion.inside)
         body.int(0)
         body.float(px(width))
         body.float(px(cornerRadius))
         for channel in RemoteCreationContext.components(argb) { body.float(channel) }
       case .id(let id):
-        body.int(2)
+        body.int(RemoteModifierColorFlag.colorID)
         body.int(id)
-        body.int(1)
+        body.int(RemoteBorderWireVersion.inside)
         body.int(0)
         body.float(px(width))
         body.float(px(cornerRadius))
         for _ in 0..<4 { body.float(0) }
       }
-      body.int(0)
+      body.int(RemoteModifierShape.rectangle)
     case .clip(let shape):
       switch shape {
       case .rectangle:
@@ -332,7 +332,7 @@ extension RemoteCreationContext {
       body.float(pxWord(x))
       body.float(pxWord(y))
     case .zIndex(let value):
-      op(RemoteOpcode.modifierZIndex)
+      op(RemoteOpcode.modifierZindex)
       body.float(value)
     case .visibility(let value):
       let id = intID(value)
@@ -358,7 +358,7 @@ extension RemoteCreationContext {
       let nameID = textID(name)
       let (type, valueID): (Int, Int)
       switch value {
-      case .none: (type, valueID) = (RemoteHostActionValueType.none, -1)
+      case .none: (type, valueID) = (RemoteHostActionValueType.none, remoteNoID)
       case .float(let float):
         (type, valueID) = (RemoteHostActionValueType.float, floatIDForAction(float))
       case .int(let int): (type, valueID) = (RemoteHostActionValueType.int, intID(int))

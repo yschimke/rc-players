@@ -31,6 +31,8 @@ public enum RemoteTextOverflow: Int, Sendable {
   case clip = 1
   case visible = 2
   case ellipsis = 3
+  case startEllipsis = 4
+  case middleEllipsis = 5
 }
 
 /// A text, as Compose's `Text`. Its size is in sp.
@@ -100,7 +102,7 @@ public struct RemoteText: RemoteView, RemotePrimitiveView {
     // `TextLayout`, the text component every player profile reads (`CoreText` is AndroidX-only).
     context.op(RemoteOpcode.layoutText)
     context.body.int(context.newComponentID())
-    context.body.int(-1)
+    context.body.int(remoteNoID)  // No animation id.
     context.body.int(textID)
     let alignment: Int
     switch resolved {
@@ -112,9 +114,9 @@ public struct RemoteText: RemoteView, RemotePrimitiveView {
       alignment = remoteTextDynamicColorFlag | textAlign.rawValue
     }
     context.body.float(context.px(fontSize))
-    context.body.int(italic ? 1 : 0)
+    context.body.int(italic ? RemoteFontStyle.italic : RemoteFontStyle.normal)
     context.body.float(fontWeight.value)
-    context.body.int(-1)  // The default font family.
+    context.body.int(remoteNoID)  // The default font family.
     context.body.int(alignment)
     context.body.int(overflow.rawValue)
     context.body.int(maxLines)

@@ -116,6 +116,28 @@ import Testing
     #expect(components(try session.snapshot().root).first?.text?.value == "Items: 12")
   }
 
+  @Test func decimalsAreZeroPadded() throws {
+    let document = RemoteDocument(width: 200, height: 50) {
+      RemoteText(RemoteString(RemoteFloat.named("price", 1.5), decimals: 2))
+    }
+    let session = try open(document)
+    #expect(components(try session.snapshot().root).first?.text?.value == "1.50")
+    #expect(session.setFloat(12, for: "price"))
+    #expect(components(try session.snapshot().root).first?.text?.value == "12.00")
+  }
+
+  @Test func oneNameReadTwiceIsOneValue() throws {
+    let status = RemoteString.named("status", "Idle")
+    let document = RemoteDocument(width: 200, height: 50) {
+      RemoteText(status)
+      RemoteText(.named("status", "Idle"))
+    }
+    let session = try open(document)
+    #expect(session.setString("Running", for: "status"))
+    #expect(
+      components(try session.snapshot().root).map(\.text?.value) == ["Running", "Running"])
+  }
+
   @Test func expressionDrivesWidth() throws {
     let progress = RemoteFloat.named("progress", 0.25)
     let document = RemoteDocument(width: 400, height: 50, density: 2) {
