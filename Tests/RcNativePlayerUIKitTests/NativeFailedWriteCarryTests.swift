@@ -121,6 +121,29 @@
       #expect(text(Self.labelID, in: view) == "Idle")
     }
 
+    // MARK: - Stale failedWrites after a repair
+
+    /// A write refused while the session was failed stays in the session and is shown once a
+    /// later write repairs it. When the session later fails for another name, a retry must
+    /// carry that shown value: only the write that failed it this time is left behind.
+    @Test func aValueShownAfterARepairSurvivesARetryAfterALaterFailure() async throws {
+      var errors: [RemoteComposeNativePlayerError] = []
+      let view = RemoteComposeNativePlayerView(
+        data: NativeTestDocuments.label(), executionLimits: lowTextLimit, resourceResolver: nil,
+        onError: { errors.append($0) })
+      try await settled(view, "opens")
+      #expect(await view.setString(long, for: "label") == false)
+      #expect(await view.setString("T2", for: "title") == false, "refused: the frame still fails")
+      #expect(await view.setString("ok", for: "label") == true, "repairs the session")
+      try #require(text(NativeTestDocuments.labelID + 1, in: view) == "T2", "the title is shown")
+      #expect(await view.setString(long, for: "label") == false, "fails it again")
+      view.load(NativeTestDocuments.label())
+      try await settled(view, "retry settles")
+      #expect(
+        text(NativeTestDocuments.labelID + 1, in: view) == "T2",
+        "the title shown before the second failure was dropped by a stale failedWrites entry")
+    }
+
     // MARK: - failedWrites + leftOut
 
     /// A value both left out and then written equal through `submit` (counted) after the limit

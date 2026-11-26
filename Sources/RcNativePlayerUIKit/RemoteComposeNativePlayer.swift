@@ -263,7 +263,8 @@
     /// limit or the policy — and was refused, by the name the document declares, with its value.
     /// While the session stays failed its variable may still hold that value, which is what
     /// failed it, so the next session is not handed it (the seeding host offers its own write
-    /// again in the seed, judged afresh). A later accepted write of the name replaces it.
+    /// again in the seed, judged afresh). A later accepted write of the name removes it, and a
+    /// frame installed again clears them all: every value the session then holds renders.
     var failedWrites: [String: NativeSwiftNamedValue] = [:]
 
     init(
@@ -1375,6 +1376,8 @@
       installedResources = presentation.resources
       // Before the view update, so a callback it raises already finds this session.
       state = .presenting(presentation)
+      // The session renders again with every value it holds, so none of them still fails it.
+      presentation.failedWrites = [:]
       if documentView?.update(
         document: model, resources: presentation.resources, customComponents: customComponents)
         != true
