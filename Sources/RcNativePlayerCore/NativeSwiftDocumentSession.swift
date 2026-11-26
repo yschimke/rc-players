@@ -531,6 +531,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     func storeInteger(_ id: Int, _ value: Int) {
       integers[id] = value
       writtenIDs.insert(id)
+      floatOverrides.removeValue(forKey: id)
       values[id] = Float(value)
     }
     // A float write is published into the integer view too, truncated, as
@@ -786,7 +787,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     case .integer(let value, let float):
       integers[id] = value
       writtenIDs.insert(id)
-      if let float { floatOverrides[id] = float }
+      if let float {
+        floatOverrides[id] = float
+      } else {
+        floatOverrides.removeValue(forKey: id)
+      }
     }
     staticSnapshotCache = nil
     return true

@@ -29,9 +29,9 @@
       #expect(isShown(Self.localBox, in: player.view) == true)
     }
 
-    /// Pre-existing (upstream/main rebuilds the same way): a background change, which the native
-    /// view can apply in place (`playerBackground`), rebuilds the whole native player.
-    @Test func aBackgroundChangeStillRebuildsThePlayerAndResetsDocumentLocalState() async throws {
+    /// A background change applies in place (`playerBackground`) without rebuilding the native
+    /// player or resetting document-local state.
+    @Test func aBackgroundChangeKeepsThePlayerAndItsDocumentLocalState() async throws {
       let player = try await player()
       try await setLocally(player, Self.visible, for: "local")
       let native = player.native
@@ -40,20 +40,34 @@
         configuration: .init(background: .transparent),
         resourceResolver: nil, onEvent: { _ in }, onError: { _ in })
       try await settle(player)
-      withKnownIssue("pre-existing: any configuration change rebuilds the native player") {
-        #expect(player.native === native, "the native player was rebuilt")
-        #expect(isShown(Self.localBox, in: player.view) == true, "document-local state was reset")
-      }
+      #expect(player.native === native, "the native player was rebuilt")
+      #expect(isShown(Self.localBox, in: player.view) == true, "document-local state was reset")
     }
 
-    /// Pre-existing: a rebuild's first open is not seeded, so its first frame shows the
-    /// document's own values and the host's arrive a frame later.
-    @Test func theFirstFrameAfterARebuildIsStillUnseeded() async throws {
+    /// A resource resolver change configures the existing native player in place rather than
+    /// rebuilding it, preserving document-local state across the reopen.
+    @Test func aResolverChangeKeepsThePlayerAndItsDocumentLocalState() async throws {
+      let player = try await player()
+      try await setLocally(player, Self.visible, for: "local")
+      let native = player.native
+      player.host.update(
+        data: Self.document(), controller: player.controller, configuration: .init(),
+        resourceResolver: RemoteComposeNativeURLSessionResourceResolver.shared,
+        onEvent: { _ in }, onError: { _ in })
+      try await settle(player)
+      #expect(player.native === native, "the native player was rebuilt")
+      #expect(isShown(Self.localBox, in: player.view) == true, "document-local state was reset")
+    }
+
+    /// A compatibility policy change updates the existing native player in place, so its reopened
+    /// session starts from the carried and seeded values on its first frame.
+    @Test func aCompatibilityChangeKeepsThePlayerAndSeedsItsFirstFrame() async throws {
       let player = try await player()
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
       try await settle(player)
       try #require(isShown(Self.shownBox, in: player.view) == true)
 
+      let native = player.native
       player.host.update(
         data: Self.document(), controller: player.controller,
         configuration: .init(compatibility: .compatible),
@@ -64,14 +78,14 @@
         firstFrames.append(isShown(Self.shownBox, in: view))
       }
       try await settle(player)
+      #expect(player.native === native, "the native player was rebuilt")
       #expect(isShown(Self.shownBox, in: player.view) == true)
-      withKnownIssue("pre-existing: a rebuild's first open is not seeded") {
-        #expect(firstFrames == [true], "first frame after the rebuild: \(firstFrames)")
-      }
+      #expect(firstFrames == [true], "first frame after the policy change: \(firstFrames)")
     }
 
-    /// Pre-existing: as above, for a switch to other bytes declaring the same name.
-    @Test func theFirstFrameOfANewDocumentIsStillUnseeded() async throws {
+    /// Switching to other bytes declaring the same name seeds the new player's first open, so its
+    /// first frame already shows the controller's value.
+    @Test func theFirstFrameOfANewDocumentIsSeeded() async throws {
       let player = try await player()
       #expect(player.controller.setInteger(Self.visible, for: "shown"))
       try await settle(player)
@@ -86,9 +100,7 @@
       }
       try await settle(player)
       #expect(isShown(Self.shownBox, in: player.view) == true, "the value is re-keyed and shown")
-      withKnownIssue("pre-existing: a new document's first open is not seeded") {
-        #expect(firstFrames == [true], "first frame of the new document: \(firstFrames)")
-      }
+      #expect(firstFrames == [true], "first frame of the new document: \(firstFrames)")
     }
 
     // MARK: - Controller ownership
@@ -124,9 +136,8 @@
       #expect(isShown(Self.localBox, in: player.view) == false)
     }
 
-    /// Pre-existing: the backend holds one update handler, so the last player attached takes
-    /// every write and the other one never sees it.
-    @Test func aControllerSharedByTwoPlayersStillReachesOnlyTheLastOne() async throws {
+    /// A controller shared by two players delivers writes to both of them.
+    @Test func aControllerSharedByTwoPlayersReachesBoth() async throws {
       let controller = RemoteComposePlayerController()
       let a = try await player(controller: controller)
       let b = try await player(controller: controller)
@@ -134,9 +145,7 @@
       try await settle(a)
       try await settle(b)
       #expect(isShown(Self.shownBox, in: b.view) == true)
-      withKnownIssue("pre-existing: the backend holds one update handler") {
-        #expect(isShown(Self.shownBox, in: a.view) == true, "the first player never got the write")
-      }
+      #expect(isShown(Self.shownBox, in: a.view) == true, "the first player never got the write")
     }
 
     // MARK: - Reopen (background with input outstanding)

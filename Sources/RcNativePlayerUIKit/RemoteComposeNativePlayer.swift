@@ -47,7 +47,7 @@
   public final class RemoteComposeNativePlayerViewController: UIViewController {
     public private(set) var playerView: RemoteComposeNativePlayerView
 
-    public init(
+    public convenience init(
       data: Data,
       background: RemoteComposeNativePlayerBackground = .platformDefault,
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
@@ -63,6 +63,33 @@
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in },
       onError: @escaping (RemoteComposeNativePlayerError) -> Void = { _ in }
     ) {
+      self.init(
+        data: data, background: background, compatibilityPolicy: compatibilityPolicy,
+        androidCompatibility: androidCompatibility, resourceLimits: resourceLimits,
+        executionLimits: executionLimits, customComponents: customComponents,
+        resourceResolver: resourceResolver, downloadableFontResolver: downloadableFontResolver,
+        clock: clock, initialNamedValues: [], onEvent: onEvent, onDiagnostics: onDiagnostics,
+        onError: onError)
+    }
+
+    @_spi(RemoteComposeController)
+    public init(
+      data: Data,
+      background: RemoteComposeNativePlayerBackground = .platformDefault,
+      compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
+      androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility = .disabled,
+      resourceLimits: RemoteComposeNativeResourceLimits = .default,
+      executionLimits: RemoteComposeNativeExecutionLimits = .default,
+      customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
+      resourceResolver: (any RemoteComposeNativeResourceResolving)? =
+        RemoteComposeNativeURLSessionResourceResolver.shared,
+      downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+      clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
+      initialNamedValues: [(name: String, value: RemoteComposeNativeNamedValue)],
+      onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
+      onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in },
+      onError: @escaping (RemoteComposeNativePlayerError) -> Void = { _ in }
+    ) {
       let customComponents = customComponents ?? RemoteComposeNativeCustomComponentRegistry()
       playerView = RemoteComposeNativePlayerView(
         data: data, background: background, compatibilityPolicy: compatibilityPolicy,
@@ -72,6 +99,7 @@
         resourceResolver: resourceResolver,
         downloadableFontResolver: downloadableFontResolver,
         clock: clock,
+        initialNamedValues: initialNamedValues,
         onEvent: onEvent,
         onDiagnostics: onDiagnostics,
         onError: onError)
@@ -400,9 +428,9 @@
     /// have changed since, is newer. A host that wrote the name again, even back to the value the
     /// session took, has the newer write. So each named variable shows the newest value written
     /// to it, as on the Kotlin player, which keeps its state instead of reopening. Seed names are
-    /// the names the host writes through `submit`. State that is not a named variable — animations, a scroll position,
-    /// unnamed variables — starts again from the bytes. A reopen out of a failed session starts
-    /// from what that session started from: what it held when it failed may be what failed it.
+    /// the names the host writes through `submit`. State that is not a named variable — animations,
+    /// a scroll position, unnamed variables — starts again from the bytes. A reopen out of a failed
+    /// session keeps what that session held except the writes that failed it (`failedWrites`).
     ///
     /// A value the document does not declare, or that does not fit its variable, is skipped
     /// silently, as a declined write is. When the first frame fails with the starting values —
@@ -427,6 +455,10 @@
     /// that session's in-flight input is done, or, while an open is superseded before it
     /// presents, what that open started from.
     private var carriedNamedValues: Task<NativeCarriedValues, Never>?
+    /// Host values handed to the player's first open before declarations were read; kept until a
+    /// session presents (or other bytes are loaded) so an early reopen does not drop them.
+    private var pendingInitialNamedValues: [(name: String, value: RemoteComposeNativeNamedValue)] =
+      []
     private let clock: any RemoteComposeNativePlayerClock
     private var animationTimeline = NativeAnimationTimeline()
     private var frameSchedule = NativeFrameSchedule.idle
@@ -437,6 +469,32 @@
     private var resourceCache: NativeImageCache
     private let errorLabel = UILabel()
 
+    public convenience init(
+      data: Data,
+      background: RemoteComposeNativePlayerBackground = .platformDefault,
+      compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
+      androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility = .disabled,
+      resourceLimits: RemoteComposeNativeResourceLimits = .default,
+      executionLimits: RemoteComposeNativeExecutionLimits = .default,
+      customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
+      resourceResolver: (any RemoteComposeNativeResourceResolving)? =
+        RemoteComposeNativeURLSessionResourceResolver.shared,
+      downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+      clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
+      onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
+      onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in },
+      onError: @escaping (RemoteComposeNativePlayerError) -> Void = { _ in }
+    ) {
+      self.init(
+        data: data, background: background, compatibilityPolicy: compatibilityPolicy,
+        androidCompatibility: androidCompatibility, resourceLimits: resourceLimits,
+        executionLimits: executionLimits, customComponents: customComponents,
+        resourceResolver: resourceResolver, downloadableFontResolver: downloadableFontResolver,
+        clock: clock, initialNamedValues: [], onEvent: onEvent, onDiagnostics: onDiagnostics,
+        onError: onError)
+    }
+
+    @_spi(RemoteComposeController)
     public init(
       data: Data,
       background: RemoteComposeNativePlayerBackground = .platformDefault,
@@ -449,6 +507,7 @@
         RemoteComposeNativeURLSessionResourceResolver.shared,
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
+      initialNamedValues: [(name: String, value: RemoteComposeNativeNamedValue)],
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in },
       onError: @escaping (RemoteComposeNativePlayerError) -> Void = { _ in }
@@ -484,7 +543,9 @@
         selector: #selector(reduceMotionStatusDidChange),
         name: UIAccessibility.reduceMotionStatusDidChangeNotification,
         object: nil)
-      load(data)
+      pendingInitialNamedValues = initialNamedValues
+      documentData = data
+      render(data, carryingNamedValues: false)
     }
 
     @available(*, unavailable)
@@ -508,6 +569,7 @@
         // The seed and the carried values belong to the document they were written for; another
         // one may declare the same names for something else.
         namedValueSeed = nil
+        pendingInitialNamedValues = []
         hostWriteCounts = [:]
         soundPlayer.stopAll()
         animationTimeline.reset(
@@ -736,6 +798,7 @@
       let resourceCache = resourceCache
       let wallClock = clock.wallClock()
       let carried = carriedNamedValues
+      let initialNamedValues = pendingInitialNamedValues
       let onFirstFrameModelBuilt = onFirstFrameModelBuilt
       let hostWriteCounts = hostWriteCounts
       let seed = (namedValueSeed?() ?? []).map { entry in
@@ -761,11 +824,35 @@
       let visibilityAnimations = !UIAccessibility.isReduceMotionEnabled
       let task = Task { [weak self] in
         do {
-          let startedFrom = await startingValues.value
-          let namedValues = startedFrom.values
+          var startedFrom = await startingValues.value
           try Task.checkCancellation()
           let prepared = try await NativePlayerEngine.prepare(
             data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes)
+          if !initialNamedValues.isEmpty {
+            let declarations = prepared.namedVariableDeclarations
+            var resolvedByName: [String: NativeSwiftNamedValue] = [:]
+            for (name, value) in initialNamedValues {
+              let coreValue = value.coreValue
+              guard let declared = declarations.declaredName(for: name),
+                declarations.accepts(coreValue, for: declared)
+              else { continue }
+              resolvedByName[declared] = coreValue
+            }
+            var initialStarting: [NativeStartingValue] = []
+            var hostValues = startedFrom.hostValues
+            for name in resolvedByName.keys.sorted() {
+              if let value = resolvedByName[name] {
+                initialStarting.append(NativeStartingValue(name: name, value: value))
+                if hostValues[name] == nil {
+                  hostValues[name] = NativeHostValue(value: value, write: 0)
+                }
+              }
+            }
+            startedFrom = NativeCarriedValues(
+              values: NativeStartingValue.merging(initialStarting, with: startedFrom.values),
+              hostValues: hostValues)
+          }
+          let namedValues = startedFrom.values
           // The local functions below are nonisolated, so they run on the global executor, off the
           // main actor: an open builds a first-frame model, and judges it, once per attempt, and
           // the fallback below makes up to `2 + 2 log2 n` attempts
@@ -937,6 +1024,7 @@
       reporting refusals: [NativeLeftOutValue], alsoLeftOut: [NativeStartingValue],
       failing firstFrameError: (any Error)?
     ) {
+      pendingInitialNamedValues = []
       let presentation = NativePlayerPresentation(
         engine: engine, resources: resources, startedFrom: startedFrom,
         leftOut: refusals.map(\.value) + alsoLeftOut)

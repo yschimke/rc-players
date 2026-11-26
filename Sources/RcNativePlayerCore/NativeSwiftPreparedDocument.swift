@@ -24,6 +24,12 @@ public struct NativeSwiftPreparedDocument: @unchecked Sendable {
 
   /// The document's declared height in wire units.
   public var height: Int { parsed.height }
+
+  /// The document's named variable declarations.
+  @_spi(RemoteComposeController)
+  public var namedVariableDeclarations: NativeSwiftNamedVariableDeclarations {
+    NativeSwiftNamedVariableDeclarations(variables: parsed.namedVariables)
+  }
 }
 
 /// Thread-safe bounded LRU cache of ``NativeSwiftPreparedDocument`` instances keyed by wire bytes.

@@ -138,8 +138,11 @@ document's own changes included, and takes the stored values that session had no
 written again since counts as not taken, even when it is back to the one the session took), so each
 variable shows the newest value either side wrote, as on the Kotlin player, which keeps its state.
 On both, a write equal to the stored value changes nothing, so it does not undo a document change
-made since. A configuration or resolver change rebuilds the fallback instead: it starts again from
-the document and the stored values, and the document's own changes are lost. The fallback reads
+made since. Background changes update the fallback in place without reopening; compatibility policy
+and resolver changes reconfigure the existing fallback in place, carrying the document's own changes
+across the reopen rather than rebuilding. Only a document, controller, or unsupported-theme change
+rebuilds the fallback, and its first open is seeded with the controller's stored values so the first
+frame already shows them. The fallback reads
 those declarations off the main thread, so its `names` fill in, and its writes start being
 accepted, shortly after the view loads rather than at once. Values already accepted survive a
 document change when the new document declares the same variable with the same type (under the

@@ -279,8 +279,8 @@ unnamed variables) starts again from the bytes. Loading other bytes starts from 
 it carries, with the controller's values that the replaced session did not take: writes still on
 their way or deferred, writes it refused, and writes made again since it took one, even back to the
 same value. The write the replaced session took is not seeded again, so a document change made
-after it wins, and a host write made after a document change wins. The player's first open is not
-seeded; the values reach it as writes. A carried or seeded value that breaks an execution limit or
+after it wins, and a host write made after a document change wins. A new player's first open is also
+seeded with any values the controller already holds. A carried or seeded value that breaks an execution limit or
 the compatibility policy does not fail the reopen: the session opens with the values its first
 frame can take, and each one left out is reported once, as a refused write is, so it cannot fail
 the session's later frames. A seeded value left out is offered to the next reopened session again.
