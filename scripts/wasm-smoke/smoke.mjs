@@ -5,7 +5,7 @@
  * `:rc-player-wasm:wasmPlayerTestDist` stages the optimized distribution next to four `.rc`
  * documents written by the *authoritative AndroidX writer* (`:rc-player-compat-tests`' fixture
  * generators) plus committed fixtures: an image button, a 3D scene, and the Swift core's circular
- * progress document for the `namedValues` colour case — it was built that way so a browser smoke test
+ * progress document for the `namedValues` cases — it was built that way so a browser smoke test
  * could run against real writer output, and then nothing opened it (#77). This is the thing that
  * opens it.
  *
@@ -26,6 +26,7 @@
  *     rather than a "the module instantiated" test.
  *
  * Usage: `node smoke.mjs [dist-directory]`, default `rc-player/wasm/build/wasmTestDist`.
+ * Set `RC_SMOKE_ONLY` to a comma-separated list of case names to run only those.
  * Set `CHROMIUM_EXECUTABLE` to launch a browser Playwright did not install itself.
  */
 
@@ -164,28 +165,143 @@ const CASES = [
     },
   },
   {
-    // A bad `?namedValues=` element is dropped on its own (docs/design/RC_PLAYER_EMBED.md): the
-    // good colour next to it must still draw, before and after it. Each of these used to throw
-    // inside the bundle's one-`try` flattening — `null.kind`, `encodeURIComponent` on a lone
-    // surrogate — and take every override down with it; the last forged a second row out of an
-    // unescaped `kind`, which overrode the good colour with blue.
-    name: 'named-values-bad-neighbour',
-    description: 'a bad `?namedValues=` element does not drop the good one beside it',
-    namedNeighbours: {
+    // `?namedValues=` element by element, through the shipped bundle's `js(...)` flattening
+    // (docs/design/RC_PLAYER_EMBED.md, "namedValues in detail"). Each entry is a whole array (or a
+    // raw query) and the render it must draw exactly: `good` (orange), `blue` or `plain` (the
+    // document's own colour). A bad element is dropped on its own, so the good colour beside it
+    // still draws; a bundle that dropped every override draws `plain` and fails.
+    name: 'named-values-elements',
+    description: 'a bad `?namedValues=` element is dropped alone: every shape, unicode, %, long values',
+    namedExpectations: {
       src: 'CircularProgressRemote-384x384.rc',
       good: { kind: 'color', name: 'WearM3.primary', value: '#FFFF8800' },
+      blue: { kind: 'color', name: 'WearM3.primary', value: '#FF0000FF' },
       expectRgb: 0xff8800,
-      bad: {
-        'a null element': null,
-        'a lone surrogate in a name': { kind: 'string', name: '\uD800', value: 'x' },
-        'a lone surrogate in a value': { kind: 'string', name: 'label', value: 'a\uDC00' },
-        'control characters in a kind': {
-          kind: 'color\u0000\u0001', name: 'WearM3.primary', value: '#FF0000FF',
+      cases: (good, blue) => ({
+        // Each bad element before and after the good one. The bundle's earlier one-`try`
+        // flattening threw on `null.kind` and on `encodeURIComponent` of a lone surrogate, losing
+        // every override, and let the unescaped `kind` that spells another row forge a blue
+        // `color` row. That last one is also what catches the JavaScript no longer encoding `kind`
+        // (the JVM tests build their rows themselves). The control characters that spell no row
+        // were dropped harmlessly even then; they pin that an escaped kind stays one row.
+        ...beforeAndAfter(good, {
+          'a null element': null,
+          'a lone surrogate in a name': { kind: 'string', name: '\uD800', value: 'x' },
+          'a lone surrogate in a value': { kind: 'string', name: 'label', value: 'a\uDC00' },
+          'control characters in a kind': { ...blue, kind: 'color\u0000\u0001' },
+          'a kind that spells another row': { ...blue, kind: 'x\u0000a\u0000b\u0000s\u0001color' },
+        }),
+        // Every JSON value type as an element.
+        'a number element': { namedValues: [5, good], expect: 'good' },
+        'a string element': { namedValues: ['color', good], expect: 'good' },
+        'an array element': {
+          namedValues: [good, ['color', 'WearM3.primary', '#FF0000FF']], expect: 'good',
         },
-        'a kind that spells another row': {
-          kind: 'x\u0000a\u0000b\u0000s\u0001color', name: 'WearM3.primary', value: '#FF0000FF',
+        'a boolean element': { namedValues: [true, good, false], expect: 'good' },
+        'a nested-object value': {
+          namedValues: [good, { ...blue, value: { argb: '#FF0000FF' } }], expect: 'good',
         },
-      },
+        'a boolean colour value': { namedValues: [good, { ...blue, value: true }], expect: 'good' },
+        // Stringified as documented ("`value` is stringified"), as HostApi.parseColor's String(v).
+        'a one-element array value': {
+          namedValues: [good, { ...blue, value: ['#FF0000FF'] }], expect: 'blue',
+        },
+        // The doc drops a `kind` that is "unrecognized"; an array is not a kind string.
+        'an array kind': { namedValues: [good, { ...blue, kind: ['color'] }], expect: 'good' },
+        'an object kind': { namedValues: [good, { ...blue, kind: {} }], expect: 'good' },
+        'a kind whose toString throws': {
+          namedValues: [{ ...blue, kind: { toString: 1 } }, good], expect: 'good',
+        },
+        // Missing and extra fields.
+        'no kind': { namedValues: [good, { name: blue.name, value: blue.value }], expect: 'good' },
+        'no name': { namedValues: [good, { kind: 'color', value: blue.value }], expect: 'good' },
+        'a null name': { namedValues: [good, { ...blue, name: null }], expect: 'good' },
+        'no value': { namedValues: [good, { kind: 'color', name: blue.name }], expect: 'good' },
+        'a null value': { namedValues: [good, { ...blue, value: null }], expect: 'good' },
+        'extra fields': {
+          namedValues: [good, { ...blue, extra: 1, Kind: 'nope', __proto__: null }], expect: 'blue',
+        },
+        'an empty object': { namedValues: [{}, good, {}], expect: 'good' },
+        // Unicode in names and values.
+        'emoji, combining and RTL names of unknown variables': {
+          namedValues: [
+            { kind: 'string', name: '\u{1F600}ש́‮', value: 'x' },
+            good,
+            { kind: 'color', name: 'WearM3.primarý', value: blue.value },
+            { kind: 'color', name: '‮WearM3.primary', value: blue.value },
+            { kind: 'color', name: 'WearM3.١primary', value: blue.value },
+          ],
+          expect: 'good',
+        },
+        'emoji, combining and RTL values': {
+          namedValues: [
+            good,
+            { kind: 'string', name: 'label', value: 'é \u{1F600}\u{1F3FD} של‮' },
+            { ...blue, value: '#FF0000FF‏' },
+            { ...blue, value: '\u{1F600}' },
+          ],
+          expect: 'good',
+        },
+        'a JS-trimmed line separator around a colour': {
+          namedValues: [good, { ...blue, value: ' #FF0000FF ' }], expect: 'blue',
+        },
+        // Very long values.
+        'a 200k-character value of an unknown variable': {
+          namedValues: [good, { kind: 'string', name: 'n'.repeat(5000), value: '\u{1F600}'.repeat(100000) }],
+          expect: 'good',
+        },
+        'a colour behind 100k spaces': {
+          namedValues: [good, { ...blue, value: ' '.repeat(100000) + '#FF0000FF' }], expect: 'blue',
+        },
+        // Duplicate names with a bad one in between: the last *good* one wins.
+        'blue, a bad duplicate, then orange': {
+          namedValues: [blue, { ...blue, value: '#nope' }, good], expect: 'good',
+        },
+        'blue, null, a lone surrogate, then orange': {
+          namedValues: [blue, null, { ...blue, value: '\uD800' }, good], expect: 'good',
+        },
+        'orange then a bad duplicate': {
+          namedValues: [good, { ...blue, value: 'FF0000F' }], expect: 'good',
+        },
+        'orange then blue': { namedValues: [good, blue], expect: 'blue' },
+        // A `kind`, name or value that is valid only after one more percent-decoding.
+        'a %-escaped kind': { namedValues: [good, { ...blue, kind: '%63olor' }], expect: 'good' },
+        'a %-escaped name': {
+          namedValues: [good, { ...blue, name: 'WearM3%2Eprimary' }], expect: 'good',
+        },
+        'a %-escaped value': { namedValues: [good, { ...blue, value: '%23FF0000FF' }], expect: 'good' },
+        'malformed % sequences': {
+          namedValues: [
+            good,
+            { ...blue, value: '%' },
+            { ...blue, value: '%E0%A4%A' },
+            { kind: 'string', name: '%uD800%', value: '%%%' },
+          ],
+          expect: 'good',
+        },
+        // Raw (not URL-encoded) input, as a host that forgot `encodeURIComponent` sends it: the
+        // query layer percent-decodes once, so `%63olor` is `color` there (URL semantics, not the
+        // player's), and an unencoded `#` starts the fragment and truncates the JSON.
+        'raw query: a %-escaped kind': {
+          rawNamedValues: '[{"kind":"%63olor","name":"WearM3.primary","value":"%23FF0000FF"}]',
+          expect: 'blue',
+        },
+        'raw query: an unencoded #': {
+          rawNamedValues: '[{"kind":"color","name":"WearM3.primary","value":"#FF0000FF"}]',
+          expect: 'plain',
+        },
+        // A JSON number String() writes with an exponent: HostApi.parseColor's `1e21 | 0` is
+        // 0xDEA00000, so the Kotlin/Wasm number parser must read `1e+21` as JavaScript does.
+        'a colour number written with an exponent': {
+          namedValues: [good, { ...blue, value: 1e21 }],
+          expect: [good, { ...blue, value: 0xdea00000 }],
+        },
+        // Nothing valid at all: the document's own colour.
+        'only bad elements': {
+          namedValues: [null, 5, { ...blue, kind: 'nope' }, { ...blue, value: '\uDC00' }],
+          expect: 'plain',
+        },
+      }),
     },
   },
   {
@@ -255,7 +371,9 @@ const MIME_TYPES = new Map(
  * `file://` page satisfies none of that, which is why this is a server and not a path.
  */
 function startServer() {
-  const server = createServer(async (request, response) => {
+  // The `namedExpectations` case sends request lines of over a megabyte (100,000 emoji, 12
+  // characters each once percent-encoded); Node's default 16 KiB header limit resets them.
+  const server = createServer({ maxHeaderSize: 4_000_000 }, async (request, response) => {
     const requestedPath = new URL(request.url, 'http://127.0.0.1').pathname;
     if (requestedPath === EMBED_HOST_PATH) {
       const lib = new URL(request.url, 'http://127.0.0.1').searchParams.get('lib') ?? '';
@@ -457,8 +575,8 @@ function assertContractVersion(settled) {
 
 /**
  * Render [query] in a fresh page and return its screenshot, for [compareRenders] and the
- * `namedColour` case. It is held to what the header promises of every case: the contract version,
- * no uncaught exception, and nothing written to `console.error`.
+ * `namedColour` and `namedExpectations` cases. It is held to what the header promises of every
+ * case: the contract version, no uncaught exception, and nothing written to `console.error`.
  */
 async function renderOnce(browser, origin, query) {
   const context = await browser.newContext({ viewport: VIEWPORT });
@@ -528,8 +646,8 @@ function compareRenders(a, b) {
 
 async function runCase(browser, origin, testCase) {
   if (testCase.namedColour) return runNamedColourCase(browser, origin, testCase.namedColour);
-  if (testCase.namedNeighbours) {
-    return runNamedNeighboursCase(browser, origin, testCase.namedNeighbours);
+  if (testCase.namedExpectations) {
+    return runNamedExpectationsCase(browser, origin, testCase.namedExpectations);
   }
   const context = await browser.newContext({ viewport: VIEWPORT });
   const page = await context.newPage();
@@ -722,40 +840,113 @@ async function runNamedColourCase(browser, origin, spec) {
   };
 }
 
+/** Each of [bad] as an entry of its own, before and after [good]: it must draw the good render. */
+function beforeAndAfter(good, bad) {
+  return Object.fromEntries(
+    Object.entries(bad).flatMap(([label, element]) => [
+      [`${label}, before the good one`, { namedValues: [element, good], expect: 'good' }],
+      [`${label}, after the good one`, { namedValues: [good, element], expect: 'good' }],
+    ]),
+  );
+}
+
 /**
- * The `namedNeighbours` case. The good element alone is the reference, and must visibly draw its
- * colour, so a bundle that dropped every override cannot pass; then each bad element, before and
- * after the good one, must draw exactly that reference.
+ * The `namedExpectations` case: each entry must draw exactly the `good`, `blue` or `plain`
+ * reference. Also records what a host could see of the dropped elements, which the contract keeps
+ * silent: every console
+ * message at any level and every `data-rc-player-*` attribute, against the plain render's.
  */
-async function runNamedNeighboursCase(browser, origin, spec) {
-  const plain = await renderOnce(browser, origin, `src=${spec.src}&${COMMON_QUERY}`);
-  const reference = await renderOnce(browser, origin, namedValuesQuery(spec.src, [spec.good]));
-  const changed = differingPixels(plain, reference);
-  const drawn = pixelsNear(reference, spec.expectRgb);
-  if (changed < MINIMUM_INK_PIXELS || drawn < MINIMUM_INK_PIXELS) {
-    throw new Error(
-      `the good element alone changed ${changed} pixels and drew ${drawn} in its colour: the ` +
-        'override was not applied',
-    );
+async function runNamedExpectationsCase(browser, origin, spec) {
+  const plainQuery = `src=${spec.src}&${COMMON_QUERY}`;
+  const references = {
+    plain: await renderOnce(browser, origin, plainQuery),
+    good: await renderOnce(browser, origin, namedValuesQuery(spec.src, [spec.good])),
+    blue: await renderOnce(browser, origin, namedValuesQuery(spec.src, [spec.blue])),
+  };
+  if (differingPixels(references.plain, references.good) < MINIMUM_INK_PIXELS ||
+    differingPixels(references.good, references.blue) < MINIMUM_INK_PIXELS ||
+    pixelsNear(references.good, spec.expectRgb) < MINIMUM_INK_PIXELS) {
+    throw new Error('the good and blue overrides do not draw distinguishable renders');
   }
   const failures = [];
-  for (const [label, bad] of Object.entries(spec.bad)) {
-    for (const [order, namedValues] of [
-      ['before', [bad, spec.good]],
-      ['after', [spec.good, bad]],
-    ]) {
-      const render = await renderOnce(browser, origin, namedValuesQuery(spec.src, namedValues));
-      const differ = differingPixels(reference, render);
-      if (differ !== 0) {
-        const lost = differingPixels(plain, render) === 0 ? ' (every override was dropped)' : '';
-        failures.push(`${label} ${order} the good element: ${differ} pixels differ${lost}`);
+  const entries = Object.entries(spec.cases(spec.good, spec.blue));
+  for (const [label, entry] of entries) {
+    const query = entry.rawNamedValues !== undefined
+      ? `src=${spec.src}&namedValues=${entry.rawNamedValues}&${COMMON_QUERY}`
+      : namedValuesQuery(spec.src, entry.namedValues);
+    let render;
+    try {
+      render = await renderOnce(browser, origin, query);
+    } catch (error) {
+      failures.push(`${label}: ${error.message.split('\n')[0].slice(0, 200)}`);
+      continue;
+    }
+    if (Array.isArray(entry.expect)) {
+      // Another array that must draw the same: HostApi.parseColor parity for spellings.
+      const same = await renderOnce(browser, origin, namedValuesQuery(spec.src, entry.expect));
+      const differ = differingPixels(same, render);
+      const applied = differingPixels(references.good, same) >= MINIMUM_INK_PIXELS;
+      if (differ !== 0 || !applied) {
+        failures.push(`${label}: ${differ} pixels differ from its equivalent (applied: ${applied})`);
       }
+      continue;
+    }
+    const matches = Object.keys(references).filter(
+      (name) => differingPixels(references[name], render) === 0,
+    );
+    if (!matches.includes(entry.expect)) {
+      failures.push(
+        `${label}: expected the ${entry.expect} render, drew ` +
+          (matches.length ? `the ${matches.join('/')} render` : 'none of the references'),
+      );
     }
   }
-  if (failures.length > 0) throw new Error(failures.join('\n'));
-  return {
-    note: `${drawn} px in the good colour beside each of ${Object.keys(spec.bad).length} bad elements, both orders`,
+  const visible = await hostVisibleSignals(browser, origin, plainQuery);
+  const dropped = await hostVisibleSignals(
+    browser,
+    origin,
+    namedValuesQuery(spec.src, [null, { ...spec.blue, kind: 'nope' }, { ...spec.blue, value: 'x' }]),
+  );
+  const extra = {
+    console: dropped.console.filter((line) => !visible.console.includes(line)),
+    dataset: Object.entries(dropped.dataset)
+      .filter(([key, value]) => visible.dataset[key] !== value)
+      .map(([key, value]) => `${key}=${value}`),
+    messages: dropped.messages.filter((m) => !visible.messages.includes(m)),
   };
+  const note =
+    `${entries.length} arrays; dropped elements visible to a host: ` +
+    `console ${JSON.stringify(extra.console)}, dataset ${JSON.stringify(extra.dataset)}, ` +
+    `postMessage ${JSON.stringify(extra.messages)}`;
+  if (failures.length > 0) throw new Error([...failures, `(${note})`].join('\n'));
+  return { note };
+}
+
+/** Every console line, `data-*` attribute on the root and parent `postMessage` of one load. */
+async function hostVisibleSignals(browser, origin, query) {
+  const context = await browser.newContext({ viewport: VIEWPORT });
+  try {
+    const page = await context.newPage();
+    const lines = [];
+    page.on('console', (message) => lines.push(`${message.type()}: ${message.text()}`));
+    await page.addInitScript(() => {
+      window.__seenMessages = [];
+      window.addEventListener('message', (event) => {
+        window.__seenMessages.push(JSON.stringify(event.data));
+      });
+    });
+    await page.goto(`${origin}/index.html?${query}`, { waitUntil: 'domcontentloaded' });
+    const settled = await waitForSettled(page, () => []);
+    if (settled.state !== 'ready') throw new Error(`?${query} did not load: ${settled.error}`);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
+    const { dataset, messages } = await page.evaluate(() => ({
+      dataset: { ...document.documentElement.dataset },
+      messages: window.__seenMessages,
+    }));
+    return { console: lines, dataset, messages };
+  } finally {
+    await context.close();
+  }
 }
 
 /** The `embed` case: drive the library from a host page, as a site including it would. */
@@ -889,6 +1080,15 @@ async function main() {
     return;
   }
 
+  // `RC_SMOKE_ONLY=name,name` runs just those cases, for iterating on one; CI runs them all.
+  const only = process.env.RC_SMOKE_ONLY?.split(',');
+  const cases = only ? CASES.filter((c) => only.includes(c.name)) : CASES;
+  if (only && cases.length !== only.length) {
+    const known = new Set(CASES.map((c) => c.name));
+    console.error(`RC_SMOKE_ONLY names no case: ${only.filter((n) => !known.has(n)).join(', ')}`);
+    process.exitCode = 1;
+    return;
+  }
   const server = await startServer();
   const origin = `http://127.0.0.1:${server.address().port}`;
   const browser = await chromium.launch({
@@ -898,7 +1098,7 @@ async function main() {
 
   const failures = [];
   try {
-    for (const testCase of CASES) {
+    for (const testCase of cases) {
       const started = Date.now();
       try {
         const { note } = await runCase(browser, origin, testCase);
@@ -916,12 +1116,12 @@ async function main() {
   }
 
   if (failures.length > 0) {
-    console.error(`\n${failures.length} of ${CASES.length} wasm smoke cases failed: ` +
+    console.error(`\n${failures.length} of ${cases.length} wasm smoke cases failed: ` +
       failures.join(', '));
     process.exitCode = 1;
     return;
   }
-  console.log(`\nAll ${CASES.length} wasm smoke cases passed.`);
+  console.log(`\nAll ${cases.length} ${only ? 'selected ' : ''}wasm smoke cases passed.`);
 }
 
 await main();

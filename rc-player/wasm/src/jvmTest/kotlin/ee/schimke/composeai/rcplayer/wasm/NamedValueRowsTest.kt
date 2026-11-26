@@ -1,15 +1,14 @@
 package ee.schimke.composeai.rcplayer.wasm
 
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
-import java.net.URLDecoder
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
  * The Kotlin half of `?namedValues=`: the rows `Main.kt`'s `flattenNamedValuesFromLocation` writes,
- * read back. JVM-only because it needs a real percent-decoder; the JavaScript half (`JSON.parse`,
- * the per-element `try`) only runs in a browser and is covered by `scripts/wasm-smoke`'s
- * `named-values-bad-neighbour` case.
+ * read back, decoded by [decodeUriComponent] as the browser's `decodeURIComponent` would. The
+ * JavaScript half (`JSON.parse`, the per-element checks, the encoding of every field) only runs in
+ * a browser and is covered by `scripts/wasm-smoke`'s `named-values-elements` case.
  */
 class NamedValueRowsTest {
   private val orange = "USER:WearM3.primary" to RcNamedValue.Color(0xFFFF8800.toInt())
@@ -60,7 +59,7 @@ class NamedValueRowsTest {
     assertEquals(mapOf(orange), read(join(blue, row("color", "WearM3.primary", "#FFFF8800"))))
   }
 
-  private fun read(rows: String) = namedValuesFromRows(rows) { URLDecoder.decode(it, "UTF-8") }
+  private fun read(rows: String) = namedValuesFromRows(rows, ::decodeUriComponent)
 
   private fun join(vararg rows: String) = rows.joinToString("\u0001")
 
@@ -69,18 +68,11 @@ class NamedValueRowsTest {
    * `encodeURIComponent`.
    */
   private fun row(kind: String, name: String, value: String, isNumber: Boolean = false) =
-    listOf(encode(kind), encode(name), encode(value), if (isNumber) "n" else "s")
+    listOf(
+        encodeUriComponent(kind),
+        encodeUriComponent(name),
+        encodeUriComponent(value),
+        if (isNumber) "n" else "s",
+      )
       .joinToString("\u0000")
-
-  /** JavaScript's `encodeURIComponent` for well-formed text: UTF-8, all but its unreserved set. */
-  private fun encode(text: String): String = buildString {
-    for (byte in text.toByteArray(Charsets.UTF_8)) {
-      val c = byte.toInt().toChar()
-      if (byte >= 0 && (c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' || c in "-_.!~*'()")) {
-        append(c)
-      } else {
-        append('%').append("%02X".format(byte.toInt() and 0xFF))
-      }
-    }
-  }
 }

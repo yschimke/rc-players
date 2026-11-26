@@ -138,7 +138,7 @@ internal val EMBED_TYPE_NAMES: List<String> =
  * format. Rows are separated by U+0001; each is four U+0000-separated fields — the `kind`, the
  * `name` and the `value` as `encodeURIComponent` wrote them, so none can contain a separator, then
  * `n` when `value` was a JSON number. [decodeComponent] undoes the encoding (`decodeURIComponent`
- * in the browser).
+ * in the browser) and may throw on a field that is not percent-encoding.
  *
  * Each row stands alone: one that is malformed, names no variable or does not parse as its kind is
  * dropped and the rest are kept, as docs/design/RC_PLAYER_EMBED.md promises of the elements they
@@ -153,7 +153,9 @@ internal fun namedValuesFromRows(
     rows.split('\u0001').forEach { row ->
       val fields = row.split('\u0000')
       if (fields.size != 4) return@forEach
-      val (kind, name, value) = fields.take(3).map(decodeComponent)
+      // A field [decodeComponent] rejects (a stray `%`) drops this row, not the whole array.
+      val (kind, name, value) =
+        runCatching { fields.take(3).map(decodeComponent) }.getOrNull() ?: return@forEach
       val namedValue = parseNamedValue(typeName = kind, value = value, isNumber = fields[3] == "n")
       if (name.isNotEmpty() && namedValue != null) put("USER:$name", namedValue)
     }

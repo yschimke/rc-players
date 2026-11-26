@@ -183,7 +183,7 @@ tasks.register<Sync>("wasmPlayerTestDist") {
       .projectDirectory
       .file("src/jvmTest/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc"),
   )
-  // A document with a named colour variable (`WearM3.primary`), for the `namedValues` colour case.
+  // A document with a named colour variable (`WearM3.primary`), for the `namedValues` cases.
   from(
     rootProject.layout.projectDirectory.file(
       "Tests/RcNativePlayerCoreTests/Fixtures/CircularProgressRemote-384x384.rc",

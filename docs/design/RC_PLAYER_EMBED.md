@@ -90,7 +90,7 @@ Current version: **2**.
 
 | version | what changed |
 |---|---|
-| 2 | `namedValues`' `color` reads as the TypeScript player's `HostApi.parseColor`. A JSON number is the ARGB itself (wrapped to 32 bits) rather than hex digits. `#RRGGBB` is now opaque (it was `0x00RRGGBB`, invisible). Surrounding whitespace, as JavaScript's `trim` removes it, is ignored (it was dropped). Any other string — `+FF8800`, three or more than eight digits — is dropped rather than read or truncated as a hex number. |
+| 2 | `namedValues`' `color` reads as the TypeScript player's `HostApi.parseColor`. A JSON number is the ARGB itself (wrapped to 32 bits) rather than hex digits. `#RRGGBB` is now opaque (it was `0x00RRGGBB`, invisible). Surrounding whitespace, as JavaScript's `trim` removes it, is ignored (it was dropped). Any other string — `+FF8800`, three or more than eight digits — is dropped rather than read or truncated as a hex number. Fixed within 2, as this document already described: a bad `namedValues` element is dropped on its own (a `null` element or a lone surrogate used to drop the whole array), and one whose `kind` or `name` is not a JSON string is dropped rather than coerced (`["color"]` read as `color`). |
 | 1 | The first published contract. |
 
 ## Query parameters
@@ -143,7 +143,10 @@ const namedValues = [
 const src = `player.html?src=doc.rc&namedValues=${encodeURIComponent(JSON.stringify(namedValues))}`;
 ```
 
-`value` is stringified, so a number or boolean may be passed unquoted. Pass numbers as JSON numbers
+`value` is stringified, so a number or boolean may be passed unquoted. A missing or `null` `value`
+is the empty string, not the text `null`: it sets a `string` variable to `""` and a `bool` to
+false, and every other kind drops it as malformed. (The TypeScript player's `HostApi` would write
+the text `undefined` or `null`; send `""` to mean empty.) Pass numbers as JSON numbers
 or strings with a `.` decimal point, never `toLocaleString()` output: `"1,5"` is malformed and
 dropped. `color` is the exception that reads the two differently, as the vendored TypeScript
 player's `HostApi.parseColor` does: a string is hex, `#RRGGBB` (opaque) or `#AARRGGBB`, with or
@@ -166,13 +169,13 @@ variable to false. Send `true`/`false` and nothing else.
 
 **Otherwise, a malformed array is silently ignored rather than reported.** The parser returns no
 overrides at all on any JSON error or when the value is not an array, and any other bad element is
-dropped on its own, keeping the rest: one that is `null` or has no `kind`, one whose `kind` is
-unrecognized or whose `value` does not parse as its kind, and one whose `kind`, `name` or `value`
-is not well-formed UTF-16 (a lone surrogate, which `JSON.parse` accepts from a `\uD800` escape) —
-the document still renders, with its own defaults. Nothing appears in `data-rc-player-error`,
-because failing to *style* a document is not failing to *load* one. A host that cannot tolerate a
-silently-defaulted (or, for `bool`, silently falsified) override should validate before building
-the URL.
+dropped on its own, keeping the rest: one that is not an object, one whose `kind` or `name` is
+missing or not a string (`["color"]` is not the kind `color`), one whose `kind` is unrecognized or
+whose `value` does not parse as its kind, and one whose `kind`, `name` or `value` is not well-formed
+UTF-16 (a lone surrogate, which `JSON.parse` accepts from a `\uD800` escape) — the document still
+renders, with its own defaults. Nothing appears in `data-rc-player-error`, because failing to
+*style* a document is not failing to *load* one. A host that cannot tolerate a silently-defaulted
+(or, for `bool`, silently falsified) override should validate before building the URL.
 
 (The NUL-and-`\u0001`-delimited rows in `Main.kt`'s `flattenNamedValuesFromLocation` are an internal
 shape used to hand the parsed array across the JS/Wasm boundary. They are not the wire format, and

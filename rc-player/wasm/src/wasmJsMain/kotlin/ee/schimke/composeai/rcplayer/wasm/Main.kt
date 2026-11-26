@@ -624,11 +624,13 @@ private fun namedValuesFromLocation(): Map<String, RcNamedValue> =
 /**
  * `?namedValues=` as the rows [namedValuesFromRows] reads, or null when it is not a JSON array.
  *
- * Each element is flattened in its own `try`, so one that throws — `null`, whose `kind` is a
- * TypeError, or text with a lone surrogate, which `encodeURIComponent` refuses with a URIError — is
- * dropped on its own, as docs/design/RC_PLAYER_EMBED.md promises, rather than taking every override
- * in the array with it. All three text fields are encoded, `kind` too: unescaped, a U+0000 or
- * U+0001 in it would break its row or spell another one.
+ * Each element is flattened on its own, so a bad one is dropped alone, as
+ * docs/design/RC_PLAYER_EMBED.md promises, rather than taking every override in the array with it.
+ * An element whose `kind` or `name` is not a JSON string (`null`, a number, an array, an object, or
+ * missing) is skipped: coerced with `String()`, `["color"]` would read as the kind `color`. The
+ * `try` catches the rest — a `value` whose `String()` throws, or text with a lone surrogate, which
+ * `encodeURIComponent` refuses with a URIError. All three text fields are encoded, `kind` too:
+ * unescaped, a U+0000 or U+0001 in it would break its row or spell another one.
  */
 private fun flattenNamedValuesFromLocation(): JsString? =
   js(
@@ -640,10 +642,11 @@ private fun flattenNamedValuesFromLocation(): JsString? =
       if (!Array.isArray(values)) return null;
       var rows = [];
       values.forEach(function (value) {
+        if (value === null || typeof value !== 'object') return;
+        if (typeof value.kind !== 'string' || typeof value.name !== 'string') return;
         try {
           // The fourth field says whether `value` was a JSON number; parseNamedValue reads it.
-          rows.push([encodeURIComponent(String(value.kind || '')),
-            encodeURIComponent(String(value.name || '')),
+          rows.push([encodeURIComponent(value.kind), encodeURIComponent(value.name),
             encodeURIComponent(String(value.value == null ? '' : value.value)),
             typeof value.value === 'number' ? 'n' : 's'].join('\u0000'));
         } catch (error) { /* this element alone is malformed */ }
