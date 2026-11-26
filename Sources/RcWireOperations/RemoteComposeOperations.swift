@@ -432,13 +432,21 @@ public struct WireBuffer {
         withUnsafeBytes(of: &val) { data.append(contentsOf: $0) }
     }
 
-    public mutating func readShort() throws -> Int16 {
-        guard 2 <= remaining else {
+    private mutating func readBigEndian<T: FixedWidthInteger & UnsignedInteger>(_ type: T.Type) throws -> T {
+        let size = MemoryLayout<T>.size
+        guard size <= remaining else {
             throw RemoteComposeWireError(domain: "WireBuffer", code: 1, message: "Underflow")
         }
-        let bits = (UInt16(data[index]) << 8) | UInt16(data[index + 1])
-        index += 2
-        return Int16(bitPattern: bits)
+        var bits: T = 0
+        for offset in 0..<size {
+            bits = (bits << UInt8.bitWidth) | T(data[index + offset])
+        }
+        index += size
+        return bits
+    }
+
+    public mutating func readShort() throws -> Int16 {
+        return Int16(bitPattern: try readBigEndian(UInt16.self))
     }
 
     public mutating func writeInt(_ value: Int32) {
@@ -447,15 +455,7 @@ public struct WireBuffer {
     }
 
     public mutating func readInt() throws -> Int32 {
-        guard 4 <= remaining else {
-            throw RemoteComposeWireError(domain: "WireBuffer", code: 1, message: "Underflow")
-        }
-        let bits = (UInt32(data[index]) << 24)
-            | (UInt32(data[index + 1]) << 16)
-            | (UInt32(data[index + 2]) << 8)
-            | UInt32(data[index + 3])
-        index += 4
-        return Int32(bitPattern: bits)
+        return Int32(bitPattern: try readBigEndian(UInt32.self))
     }
 
     public mutating func writeLong(_ value: Int64) {
@@ -464,15 +464,7 @@ public struct WireBuffer {
     }
 
     public mutating func readLong() throws -> Int64 {
-        guard 8 <= remaining else {
-            throw RemoteComposeWireError(domain: "WireBuffer", code: 1, message: "Underflow")
-        }
-        var bits: UInt64 = 0
-        for i in 0..<8 {
-            bits = (bits << 8) | UInt64(data[index + i])
-        }
-        index += 8
-        return Int64(bitPattern: bits)
+        return Int64(bitPattern: try readBigEndian(UInt64.self))
     }
 
     public mutating func writeFloat(_ value: Float) {
@@ -731,7 +723,7 @@ public enum RemoteContextIds {
     public static let ID_FONT_SIZE: Int32 = 33
     public static let ID_DAY_OF_YEAR: Int32 = 34
     public static let ID_YEAR: Int32 = 35
-    public static func isTime(_ id: Int32) -> Bool { id >= 1 && id <= 12 }
+    public static func isTime(_ id: Int32) -> Bool { id >= ID_CONTINUOUS_SEC && id <= ID_DAY_OF_MONTH }
 }
 
 public enum AnimationEasing {
@@ -761,6 +753,26 @@ public enum AnimationEasing {
 }
 
 public struct FloatAnimationSpec: Equatable {
+    public enum BitLayout {
+        public static let typeShift: UInt32 = 0
+        public static let typeMask: UInt32 = 0xFF
+        public static let hasWrapShift: UInt32 = 8
+        public static let hasWrapMask: UInt32 = 0x1
+        public static let hasInitShift: UInt32 = 9
+        public static let hasInitMask: UInt32 = 0x1
+        public static let directionalSnapShift: UInt32 = 10
+        public static let directionalSnapMask: UInt32 = 0x3
+        public static let isPropagateShift: UInt32 = 12
+        public static let isPropagateMask: UInt32 = 0x1
+        public static let paramLenShift: UInt32 = 16
+        public static let paramLenMask: UInt32 = 0xFFFF
+    }
+    /// The duration, then the flags word, then the curve's parameters.
+    public static let DURATION_INDEX: Int = 0
+    public static let FLAGS_INDEX: Int = DURATION_INDEX + 1
+    public static let PARAMS_START: Int = FLAGS_INDEX + 1
+    /// A spring spec is a zero duration marker followed by more than this many words.
+    public static let SPRING_PARAMETER_COUNT: Int = 4
     public var duration: Float
     public var type: Int32
     public var params: [Float]
@@ -788,23 +800,23 @@ public struct FloatAnimationSpec: Equatable {
             && lhs.directionalSnap == rhs.directionalSnap
             && lhs.isPropagate == rhs.isPropagate
     }
-    public static func isSpring(_ data: [Float]) -> Bool { data.count > 4 && data[0] == 0.0 }
+    public static func isSpring(_ data: [Float]) -> Bool { data.count > SPRING_PARAMETER_COUNT && data[DURATION_INDEX] == 0.0 }
     public static func unpack(_ data: [Float]) throws -> FloatAnimationSpec {
         if isSpring(data) { throw RemoteComposeWireError(domain: "FloatAnimationSpec", code: 2, message: "Spring animation specs cannot be unpacked with unpackAnimationSpec") }
         var out = FloatAnimationSpec()
         if data.isEmpty { return out }
-        out.duration = data[0]
-        if data.count == 1 { return out }
-        let bits = data[1].bitPattern
-        out.type = Int32(bits & 0xFF)
-        let hasWrap = ((bits >> 8) & 1) != 0
-        let hasInit = ((bits >> 9) & 1) != 0
-        out.directionalSnap = Int32((bits >> 10) & 3)
-        out.isPropagate = ((bits >> 12) & 1) != 0
-        let paramLen = Int((bits >> 16) & 0xFFFF)
-        if 2 + paramLen > data.count { throw RemoteComposeWireError(domain: "FloatAnimationSpec", code: 2, message: "Truncated animation spec params") }
-        out.params = Array(data[2..<(2 + paramLen)])
-        var off = 2 + paramLen
+        out.duration = data[DURATION_INDEX]
+        if data.count == FLAGS_INDEX { return out }
+        let bits = data[FLAGS_INDEX].bitPattern
+        out.type = Int32((bits >> BitLayout.typeShift) & BitLayout.typeMask)
+        let hasWrap = ((bits >> BitLayout.hasWrapShift) & BitLayout.hasWrapMask) != 0
+        let hasInit = ((bits >> BitLayout.hasInitShift) & BitLayout.hasInitMask) != 0
+        out.directionalSnap = Int32((bits >> BitLayout.directionalSnapShift) & BitLayout.directionalSnapMask)
+        out.isPropagate = ((bits >> BitLayout.isPropagateShift) & BitLayout.isPropagateMask) != 0
+        let paramLen = Int((bits >> BitLayout.paramLenShift) & BitLayout.paramLenMask)
+        if PARAMS_START + paramLen > data.count { throw RemoteComposeWireError(domain: "FloatAnimationSpec", code: 2, message: "Truncated animation spec params") }
+        out.params = Array(data[PARAMS_START..<(PARAMS_START + paramLen)])
+        var off = PARAMS_START + paramLen
         if hasInit { if off >= data.count { throw RemoteComposeWireError(domain: "FloatAnimationSpec", code: 2, message: "Truncated animation spec initialValue") }; out.initialValue = data[off]; off += 1 }
         if hasWrap { if off >= data.count { throw RemoteComposeWireError(domain: "FloatAnimationSpec", code: 2, message: "Truncated animation spec wrap") }; out.wrap = data[off] }
         return out
@@ -826,8 +838,8 @@ public struct FloatAnimationSpec: Equatable {
         if !ret.isEmpty { ret[pos] = duration; pos += 1 }
         if ret.count > 1 {
             let wrapBit: UInt32 = hasWrap ? 1 : 0
-            let initBit: UInt32 = hasInit ? 2 : 0
-            let bits: UInt32 = UInt32(bitPattern: type) | ((wrapBit | initBit) << 8) | (UInt32(specLen) << 16)
+            let initBit: UInt32 = hasInit ? 1 : 0
+            let bits: UInt32 = (UInt32(bitPattern: type) << BitLayout.typeShift) | (wrapBit << BitLayout.hasWrapShift) | (initBit << BitLayout.hasInitShift) | (UInt32(specLen) << BitLayout.paramLenShift)
             ret[pos] = Float(bitPattern: bits); pos += 1
         }
         if let s = spec { for v in s { ret[pos] = v; pos += 1 } }
@@ -854,6 +866,17 @@ public indirect enum PathEffect: Equatable {
     public static let TYPE_COMPOSE: Int32 = 5
     public static let MAX_DASH_INTERVALS: Int = 1000
     public static let MAX_NESTING_DEPTH: Int = 64
+    public static let DASH_PHASE_OFFSET: Int = 1
+    public static let DASH_INTERVALS_OFFSET: Int = 2
+    public static let DASH_WORDS: Int = 3
+    public static let DISCRETE_SEGMENT_LENGTH_OFFSET: Int = 1
+    public static let DISCRETE_DEVIATION_OFFSET: Int = 2
+    public static let DISCRETE_WORDS: Int = 3
+    public static let PATH_DASH_SHAPE_ID_OFFSET: Int = 1
+    public static let PATH_DASH_ADVANCE_OFFSET: Int = 2
+    public static let PATH_DASH_PHASE_OFFSET: Int = 3
+    public static let PATH_DASH_STYLE_OFFSET: Int = 4
+    public static let PATH_DASH_WORDS: Int = 5
     public func encode() throws -> [Float] {
         switch self {
             case let .dash(phase, intervals): if intervals.count > Self.MAX_DASH_INTERVALS { throw RemoteComposeWireError(domain: "PathEffect", code: 1, message: "Dash interval count (\(intervals.count)) exceeds MAX_DASH_INTERVALS (\(Self.MAX_DASH_INTERVALS))") }; return [Float(bitPattern: UInt32(bitPattern: Self.TYPE_DASH)), phase, Float(bitPattern: UInt32(intervals.count))] + intervals
@@ -874,14 +897,41 @@ public indirect enum PathEffect: Equatable {
         let idx = cursor
         let tag = Int32(bitPattern: data[idx].bitPattern)
         switch tag {
-            case TYPE_DASH: if idx + 3 > data.count { return nil }; let count = Int(Int32(bitPattern: data[idx + 2].bitPattern)); if count < 0 || count > MAX_DASH_INTERVALS || count > data.count - (idx + 3) { return nil }; cursor = idx + 3 + count; return .dash(phase: data[idx + 1], intervals: Array(data[(idx + 3)..<(idx + 3 + count)]))
-            case TYPE_DISCRETE: if idx + 3 > data.count { return nil }; cursor = idx + 3; return .discrete(segmentLength: data[idx + 1], deviation: data[idx + 2])
-            case TYPE_PATH_DASH: if idx + 5 > data.count { return nil }; cursor = idx + 5; return .pathDash(shapeId: Int32(bitPattern: data[idx + 1].bitPattern), advance: data[idx + 2], phase: data[idx + 3], style: Int32(bitPattern: data[idx + 4].bitPattern))
+            case TYPE_DASH: if idx + DASH_WORDS > data.count { return nil }; let count = Int(Int32(bitPattern: data[idx + DASH_INTERVALS_OFFSET].bitPattern)); if count < 0 || count > MAX_DASH_INTERVALS || count > data.count - (idx + DASH_WORDS) { return nil }; cursor = idx + DASH_WORDS + count; return .dash(phase: data[idx + DASH_PHASE_OFFSET], intervals: Array(data[(idx + DASH_WORDS)..<(idx + DASH_WORDS + count)]))
+            case TYPE_DISCRETE: if idx + DISCRETE_WORDS > data.count { return nil }; cursor = idx + DISCRETE_WORDS; return .discrete(segmentLength: data[idx + DISCRETE_SEGMENT_LENGTH_OFFSET], deviation: data[idx + DISCRETE_DEVIATION_OFFSET])
+            case TYPE_PATH_DASH: if idx + PATH_DASH_WORDS > data.count { return nil }; cursor = idx + PATH_DASH_WORDS; return .pathDash(shapeId: Int32(bitPattern: data[idx + PATH_DASH_SHAPE_ID_OFFSET].bitPattern), advance: data[idx + PATH_DASH_ADVANCE_OFFSET], phase: data[idx + PATH_DASH_PHASE_OFFSET], style: Int32(bitPattern: data[idx + PATH_DASH_STYLE_OFFSET].bitPattern))
             case TYPE_SUM: cursor = idx + 1; guard let a = parseOne(data, &cursor, depth + 1), let b = parseOne(data, &cursor, depth + 1) else { return nil }; return .sum(a, b)
             case TYPE_COMPOSE: cursor = idx + 1; guard let a = parseOne(data, &cursor, depth + 1), let b = parseOne(data, &cursor, depth + 1) else { return nil }; return .compose(a, b)
             default: return nil
         }
     }
+}
+
+public enum PathCommandLayout {
+    public static let MOVE_X_OFFSET: Int = 1
+    public static let MOVE_Y_OFFSET: Int = 2
+    public static let MOVE_WORDS: Int = 3
+    public static let LINE_X_OFFSET: Int = 3
+    public static let LINE_Y_OFFSET: Int = 4
+    public static let LINE_WORDS: Int = 5
+    public static let QUADRATIC_X1_OFFSET: Int = 3
+    public static let QUADRATIC_Y1_OFFSET: Int = 4
+    public static let QUADRATIC_X2_OFFSET: Int = 5
+    public static let QUADRATIC_Y2_OFFSET: Int = 6
+    public static let QUADRATIC_WORDS: Int = 7
+    public static let CONIC_X1_OFFSET: Int = 3
+    public static let CONIC_Y1_OFFSET: Int = 4
+    public static let CONIC_X2_OFFSET: Int = 5
+    public static let CONIC_Y2_OFFSET: Int = 6
+    public static let CONIC_WEIGHT_OFFSET: Int = 7
+    public static let CONIC_WORDS: Int = 8
+    public static let CUBIC_X1_OFFSET: Int = 3
+    public static let CUBIC_Y1_OFFSET: Int = 4
+    public static let CUBIC_X2_OFFSET: Int = 5
+    public static let CUBIC_Y2_OFFSET: Int = 6
+    public static let CUBIC_X3_OFFSET: Int = 7
+    public static let CUBIC_Y3_OFFSET: Int = 8
+    public static let CUBIC_WORDS: Int = 9
 }
 
 public enum PathCommand: Equatable {
@@ -901,11 +951,11 @@ public enum PathCommand: Equatable {
         while i < n {
             let tag = IdEncoding.idFromNanBits(Int32(bitPattern: pathData[i].bitPattern))
             switch tag {
-                case PathCommandTags.MOVE: if i + 3 > n { result.append(.unknown(verb: tag)); return result }; result.append(.moveTo(x: pathData[i + 1], y: pathData[i + 2])); i += 3
-                case PathCommandTags.LINE: if i + 5 > n { result.append(.unknown(verb: tag)); return result }; result.append(.lineTo(x: pathData[i + 3], y: pathData[i + 4])); i += 5
-                case PathCommandTags.QUADRATIC: if i + 7 > n { result.append(.unknown(verb: tag)); return result }; result.append(.quadTo(x1: pathData[i + 3], y1: pathData[i + 4], x2: pathData[i + 5], y2: pathData[i + 6])); i += 7
-                case PathCommandTags.CONIC: if i + 8 > n { result.append(.unknown(verb: tag)); return result }; result.append(.conicTo(x1: pathData[i + 3], y1: pathData[i + 4], x2: pathData[i + 5], y2: pathData[i + 6], weight: pathData[i + 7])); i += 8
-                case PathCommandTags.CUBIC: if i + 9 > n { result.append(.unknown(verb: tag)); return result }; result.append(.cubicTo(x1: pathData[i + 3], y1: pathData[i + 4], x2: pathData[i + 5], y2: pathData[i + 6], x3: pathData[i + 7], y3: pathData[i + 8])); i += 9
+                case PathCommandTags.MOVE: if i + PathCommandLayout.MOVE_WORDS > n { result.append(.unknown(verb: tag)); return result }; result.append(.moveTo(x: pathData[i + PathCommandLayout.MOVE_X_OFFSET], y: pathData[i + PathCommandLayout.MOVE_Y_OFFSET])); i += PathCommandLayout.MOVE_WORDS
+                case PathCommandTags.LINE: if i + PathCommandLayout.LINE_WORDS > n { result.append(.unknown(verb: tag)); return result }; result.append(.lineTo(x: pathData[i + PathCommandLayout.LINE_X_OFFSET], y: pathData[i + PathCommandLayout.LINE_Y_OFFSET])); i += PathCommandLayout.LINE_WORDS
+                case PathCommandTags.QUADRATIC: if i + PathCommandLayout.QUADRATIC_WORDS > n { result.append(.unknown(verb: tag)); return result }; result.append(.quadTo(x1: pathData[i + PathCommandLayout.QUADRATIC_X1_OFFSET], y1: pathData[i + PathCommandLayout.QUADRATIC_Y1_OFFSET], x2: pathData[i + PathCommandLayout.QUADRATIC_X2_OFFSET], y2: pathData[i + PathCommandLayout.QUADRATIC_Y2_OFFSET])); i += PathCommandLayout.QUADRATIC_WORDS
+                case PathCommandTags.CONIC: if i + PathCommandLayout.CONIC_WORDS > n { result.append(.unknown(verb: tag)); return result }; result.append(.conicTo(x1: pathData[i + PathCommandLayout.CONIC_X1_OFFSET], y1: pathData[i + PathCommandLayout.CONIC_Y1_OFFSET], x2: pathData[i + PathCommandLayout.CONIC_X2_OFFSET], y2: pathData[i + PathCommandLayout.CONIC_Y2_OFFSET], weight: pathData[i + PathCommandLayout.CONIC_WEIGHT_OFFSET])); i += PathCommandLayout.CONIC_WORDS
+                case PathCommandTags.CUBIC: if i + PathCommandLayout.CUBIC_WORDS > n { result.append(.unknown(verb: tag)); return result }; result.append(.cubicTo(x1: pathData[i + PathCommandLayout.CUBIC_X1_OFFSET], y1: pathData[i + PathCommandLayout.CUBIC_Y1_OFFSET], x2: pathData[i + PathCommandLayout.CUBIC_X2_OFFSET], y2: pathData[i + PathCommandLayout.CUBIC_Y2_OFFSET], x3: pathData[i + PathCommandLayout.CUBIC_X3_OFFSET], y3: pathData[i + PathCommandLayout.CUBIC_Y3_OFFSET])); i += PathCommandLayout.CUBIC_WORDS
                 case PathCommandTags.CLOSE: result.append(.close); i += 1
                 case PathCommandTags.DONE: result.append(.done); return result
                 case PathCommandTags.RESET: result.append(.reset); i += 1
@@ -920,6 +970,7 @@ public func decodePathCommands(_ pathData: [Float]) -> [PathCommand] { PathComma
 
 /// Particle comparison branch RPN float expression
 public struct ParticleCompareEquation: Equatable {
+    public static let MIN_WIRE_BYTES: Int = 4
     /// Branch update RPN float expression
     public var equation: [Float]
 
@@ -932,14 +983,14 @@ public struct ParticleCompareEquation: Equatable {
         guard _equationCount >= 0 else {
             throw RemoteComposeWireError(domain: "ParticleCompareEquation", code: 1, message: "Invalid negative array length")
         }
-        guard _equationCount <= 46 else {
+        guard _equationCount <= WireLimits.PARTICLE_COMPARE_EQUATION_EQUATION_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "ParticleCompareEquation", code: 1, message: "Array length exceeds maximum (46)")
         }
-        guard _equationCount <= buffer.remaining / 4 else {
+        guard _equationCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "ParticleCompareEquation", code: 1, message: "Array length exceeds remaining buffer")
         }
         var equation = [Float]()
-        equation.reserveCapacity(Swift.min(_equationCount, 4096))
+        equation.reserveCapacity(Swift.min(_equationCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_equationCount {
             equation.append(try buffer.readFloat())
         }
@@ -978,27 +1029,38 @@ public struct GraphicsLayerAttribute: Equatable {
     public static let BLUR_TILE_MODE: Int32 = 19
     public static let SHAPE: Int32 = 20
     public static let SHAPE_RADIUS: Int32 = 21
+    public static let MIN_WIRE_BYTES: Int = 4
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let tagAttributeTypeShift: UInt32 = 0
+        public static let tagAttributeTypeMask: UInt32 = 0x3F
+        public static let tagDataTypeShift: UInt32 = 10
+        public static let tagDataTypeMask: UInt32 = 0x3FFFFF
+        public static let tagDataTypeLeftShift: UInt32 = 0
+        public static let tagDataTypeRightShift: UInt32 = 10
+    }
+    public static let DEFAULT_VALUE: Int32 = 0
     /// Packed attribute index in bits 0..5 (0..21) and signed data type in bits 10..31 (0=int, 1=float_or_id)
     public var tag: Int32
     /// Integer value (dataType == 0) or raw float/NaN-ID bits (dataType == 1)
     public var value: Int32
     public var attributeType: Int32 {
-        return Int32(UInt32(bitPattern: tag) & 0x3F)
+        return Int32((UInt32(bitPattern: tag) >> BitLayout.tagAttributeTypeShift) & BitLayout.tagAttributeTypeMask)
     }
     public var dataType: Int32 {
-        return (tag >> 10)
+        return (Int32(bitPattern: UInt32(bitPattern: tag) << BitLayout.tagDataTypeLeftShift) >> BitLayout.tagDataTypeRightShift)
     }
 
-    public init(tag: Int32 = 0, value: Int32 = 0) {
+    public init(tag: Int32 = 0, value: Int32 = GraphicsLayerAttribute.DEFAULT_VALUE) {
         self.tag = tag
         self.value = value
     }
 
     public static func read(from buffer: inout WireBuffer) throws -> GraphicsLayerAttribute {
         let tag = try buffer.readInt()
-        let bit_attributeType = Int32(UInt32(bitPattern: tag) & 0x3F)
+        let bit_attributeType = Int32((UInt32(bitPattern: tag) >> BitLayout.tagAttributeTypeShift) & BitLayout.tagAttributeTypeMask)
         switch bit_attributeType {
-        case 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21:
+        case GraphicsLayerAttribute.SCALE_X, GraphicsLayerAttribute.SCALE_Y, GraphicsLayerAttribute.ROTATION_X, GraphicsLayerAttribute.ROTATION_Y, GraphicsLayerAttribute.ROTATION_Z, GraphicsLayerAttribute.TRANSFORM_ORIGIN_X, GraphicsLayerAttribute.TRANSFORM_ORIGIN_Y, GraphicsLayerAttribute.TRANSLATION_X, GraphicsLayerAttribute.TRANSLATION_Y, GraphicsLayerAttribute.TRANSLATION_Z, GraphicsLayerAttribute.SHADOW_ELEVATION, GraphicsLayerAttribute.ALPHA, GraphicsLayerAttribute.CAMERA_DISTANCE, GraphicsLayerAttribute.COMPOSITING_STRATEGY, GraphicsLayerAttribute.SPOT_SHADOW_COLOR, GraphicsLayerAttribute.AMBIENT_SHADOW_COLOR, GraphicsLayerAttribute.HAS_BLUR, GraphicsLayerAttribute.BLUR_RADIUS_X, GraphicsLayerAttribute.BLUR_RADIUS_Y, GraphicsLayerAttribute.BLUR_TILE_MODE, GraphicsLayerAttribute.SHAPE, GraphicsLayerAttribute.SHAPE_RADIUS:
             break
         default:
             throw RemoteComposeWireError(domain: "GraphicsLayerAttribute", code: 2, message: "Invalid enum value for attributeType")
@@ -1007,7 +1069,7 @@ public struct GraphicsLayerAttribute: Equatable {
         if ((Int(tag) >> WireExpressionConstants.GRAPHICS_LAYER_TYPE_SHIFT)) == WireExpressionConstants.GRAPHICS_LAYER_TYPE_INT || ((Int(tag) >> WireExpressionConstants.GRAPHICS_LAYER_TYPE_SHIFT)) == WireExpressionConstants.GRAPHICS_LAYER_TYPE_FLOAT {
             value = try buffer.readInt()
         } else {
-            value = 0
+            value = GraphicsLayerAttribute.DEFAULT_VALUE
         }
         return GraphicsLayerAttribute(tag: tag, value: value)
     }
@@ -1050,6 +1112,16 @@ public struct HeaderProperty: Equatable {
     public static let COMPRESS: Int32 = 31
     public static let DOC_SCROLL: Int32 = 32
     public static let FEATURE_UNIFIED_POINTER_INPUT: Int32 = 33
+    public static let MIN_WIRE_BYTES: Int = 4
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let tagKeyShift: UInt32 = 0
+        public static let tagKeyMask: UInt32 = 0x3F
+        public static let tagDataTypeShift: UInt32 = 10
+        public static let tagDataTypeMask: UInt32 = 0x3F
+        public static let tagDataTypeLeftShift: UInt32 = 16
+        public static let tagDataTypeRightShift: UInt32 = 26
+    }
     /// Packed 6-bit property key (bits 0..5) and signed data type (bits 10..15)
     public var tag: Int16
     /// Declared payload byte length (read and ignored by Java reader)
@@ -1063,10 +1135,10 @@ public struct HeaderProperty: Equatable {
     /// UTF-8 string property value when dataType == 3
     public var stringValue: String?
     public var key: Int32 {
-        return Int32(UInt32(bitPattern: Int32(tag)) & 0x3F)
+        return Int32((UInt32(bitPattern: Int32(tag)) >> BitLayout.tagKeyShift) & BitLayout.tagKeyMask)
     }
     public var dataType: Int32 {
-        return (Int32(bitPattern: UInt32(bitPattern: Int32(tag)) << 16) >> 26)
+        return (Int32(bitPattern: UInt32(bitPattern: Int32(tag)) << BitLayout.tagDataTypeLeftShift) >> BitLayout.tagDataTypeRightShift)
     }
 
     public init(tag: Int16 = 0, itemLen: Int16 = 0, intValue: Int32? = nil, floatValue: Float? = nil, longValue: Int64? = nil, stringValue: String? = nil) {
@@ -1101,7 +1173,7 @@ public struct HeaderProperty: Equatable {
         }
         let stringValue: String?
         if ((Int(tag) >> WireExpressionConstants.HEADER_PROPERTY_TYPE_SHIFT)) == WireExpressionConstants.DATA_TYPE_STRING {
-            stringValue = try buffer.readUTF8(maxLength: 4000)
+            stringValue = try buffer.readUTF8(maxLength: WireLimits.MAX_STRING_SIZE)
         } else {
             stringValue = nil
         }
@@ -1140,6 +1212,7 @@ public struct HeaderProperty: Equatable {
 
 /// Named typed variable entry in DataMapIds
 public struct DataMapEntry: Equatable {
+    public static let MIN_WIRE_BYTES: Int = 9
     /// Map entry key
     public var name: String
     /// Variable data type
@@ -1169,6 +1242,7 @@ public struct DataMapEntry: Equatable {
 
 /// Named float array uniform entry in ShaderData
 public struct ShaderFloatUniform: Equatable {
+    public static let MIN_WIRE_BYTES: Int = 8
     /// Uniform variable name
     public var name: String
     /// Uniform float values or variable IDs
@@ -1185,14 +1259,14 @@ public struct ShaderFloatUniform: Equatable {
         guard _valuesCount >= 0 else {
             throw RemoteComposeWireError(domain: "ShaderFloatUniform", code: 1, message: "Invalid negative array length")
         }
-        guard _valuesCount <= 200 else {
+        guard _valuesCount <= WireLimits.MAX_SHADER_FLOAT_COUNT else {
             throw RemoteComposeWireError(domain: "ShaderFloatUniform", code: 1, message: "Array length exceeds maximum (200)")
         }
-        guard _valuesCount <= buffer.remaining / 4 else {
+        guard _valuesCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "ShaderFloatUniform", code: 1, message: "Array length exceeds remaining buffer")
         }
         var values = [Float]()
-        values.reserveCapacity(Swift.min(_valuesCount, 4096))
+        values.reserveCapacity(Swift.min(_valuesCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_valuesCount {
             values.append(try buffer.readFloat())
         }
@@ -1210,6 +1284,7 @@ public struct ShaderFloatUniform: Equatable {
 
 /// Particle state variable and initialization RPN equation
 public struct ParticleVariable: Equatable {
+    public static let MIN_WIRE_BYTES: Int = 8
     /// Variable ID
     public var varId: Int32
     /// Initialization RPN float expression
@@ -1226,14 +1301,14 @@ public struct ParticleVariable: Equatable {
         guard _equationCount >= 0 else {
             throw RemoteComposeWireError(domain: "ParticleVariable", code: 1, message: "Invalid negative array length")
         }
-        guard _equationCount <= 32 else {
+        guard _equationCount <= WireLimits.PARTICLE_VARIABLE_EQUATION_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "ParticleVariable", code: 1, message: "Array length exceeds maximum (32)")
         }
-        guard _equationCount <= buffer.remaining / 4 else {
+        guard _equationCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "ParticleVariable", code: 1, message: "Array length exceeds remaining buffer")
         }
         var equation = [Float]()
-        equation.reserveCapacity(Swift.min(_equationCount, 4096))
+        equation.reserveCapacity(Swift.min(_equationCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_equationCount {
             equation.append(try buffer.readFloat())
         }
@@ -1251,6 +1326,7 @@ public struct ParticleVariable: Equatable {
 
 /// Bitmap font glyph metrics and bitmap reference
 public struct Glyph: Equatable {
+    public static let MIN_WIRE_BYTES: Int = 20
     /// Character or ligature string
     public var character: String
     /// Bitmap asset ID
@@ -1305,6 +1381,7 @@ public struct Glyph: Equatable {
 
 /// Named bitmap uniform entry in ShaderData
 public struct ShaderBitmapUniform: Equatable {
+    public static let MIN_WIRE_BYTES: Int = 8
     /// Uniform sampler name
     public var name: String
     /// Bitmap ID
@@ -1329,6 +1406,7 @@ public struct ShaderBitmapUniform: Equatable {
 
 /// Particle update RPN float expression
 public struct ParticleEquation: Equatable {
+    public static let MIN_WIRE_BYTES: Int = 4
     /// Update RPN float expression
     public var equation: [Float]
 
@@ -1341,14 +1419,14 @@ public struct ParticleEquation: Equatable {
         guard _equationCount >= 0 else {
             throw RemoteComposeWireError(domain: "ParticleEquation", code: 1, message: "Invalid negative array length")
         }
-        guard _equationCount <= 32 else {
+        guard _equationCount <= WireLimits.MAX_EXPRESSION_SIZE else {
             throw RemoteComposeWireError(domain: "ParticleEquation", code: 1, message: "Array length exceeds maximum (32)")
         }
-        guard _equationCount <= buffer.remaining / 4 else {
+        guard _equationCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "ParticleEquation", code: 1, message: "Array length exceeds remaining buffer")
         }
         var equation = [Float]()
-        equation.reserveCapacity(Swift.min(_equationCount, 4096))
+        equation.reserveCapacity(Swift.min(_equationCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_equationCount {
             equation.append(try buffer.readFloat())
         }
@@ -1365,6 +1443,7 @@ public struct ParticleEquation: Equatable {
 
 /// Named integer array uniform entry in ShaderData
 public struct ShaderIntUniform: Equatable {
+    public static let MIN_WIRE_BYTES: Int = 8
     /// Uniform variable name
     public var name: String
     /// Uniform integer values
@@ -1381,14 +1460,14 @@ public struct ShaderIntUniform: Equatable {
         guard _valuesCount >= 0 else {
             throw RemoteComposeWireError(domain: "ShaderIntUniform", code: 1, message: "Invalid negative array length")
         }
-        guard _valuesCount <= 200 else {
+        guard _valuesCount <= WireLimits.MAX_SHADER_FLOAT_COUNT else {
             throw RemoteComposeWireError(domain: "ShaderIntUniform", code: 1, message: "Array length exceeds maximum (200)")
         }
-        guard _valuesCount <= buffer.remaining / 4 else {
+        guard _valuesCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "ShaderIntUniform", code: 1, message: "Array length exceeds remaining buffer")
         }
         var values = [Int32]()
-        values.reserveCapacity(Swift.min(_valuesCount, 4096))
+        values.reserveCapacity(Swift.min(_valuesCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_valuesCount {
             values.append(try buffer.readInt())
         }
@@ -1416,6 +1495,7 @@ public struct CustomProperty: Equatable {
     public static let COLOR_ID_PROP: Int32 = 7
     public static let COLOR_PROP: Int32 = 8
     public static let INT_ID_PROP: Int32 = 9
+    public static let MIN_WIRE_BYTES: Int = 8
     /// Property slot index
     public var propertyIndex: Int16
     /// Property wire data type
@@ -1445,6 +1525,7 @@ public struct CustomProperty: Equatable {
 
 /// Kerning adjustment for a pair of glyphs
 public struct KerningPair: Equatable {
+    public static let MIN_WIRE_BYTES: Int = 6
     /// Two-character sequence
     public var glyphPair: String
     /// Horizontal kerning adjustment in pixels
@@ -1470,6 +1551,16 @@ public struct KerningPair: Equatable {
 /// Document metadata containing version, dimensions, density behavior, and capabilities
 public struct Header: RemoteOperation, Equatable {
     public let opCode: OpCode = .header
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let majorVersionVersionShift: UInt32 = 0
+        public static let majorVersionVersionMask: UInt32 = 0xFFFF
+        public static let majorVersionMagicShift: UInt32 = 16
+        public static let majorVersionMagicMask: UInt32 = 0xFFFF
+    }
+    public static let DEFAULT_WIDTH: Int32 = 256
+    public static let DEFAULT_HEIGHT: Int32 = 256
+    public static let DEFAULT_CAPABILITIES: Int64 = 0
 
     /// Signed values < 0x10000 select legacy layout; values >= 0x10000 select property-map layout with version in bits 0..15
     public var majorVersion: Int32
@@ -1486,10 +1577,10 @@ public struct Header: RemoteOperation, Equatable {
     /// Header property map entries (modern layout)
     public var properties: [HeaderProperty]
     public var version: Int32 {
-        return Int32(UInt32(bitPattern: majorVersion) & 0xFFFF)
+        return Int32((UInt32(bitPattern: majorVersion) >> BitLayout.majorVersionVersionShift) & BitLayout.majorVersionVersionMask)
     }
     public var magic: Int32 {
-        return Int32((UInt32(bitPattern: majorVersion) >> 16) & 0xFFFF)
+        return Int32((UInt32(bitPattern: majorVersion) >> BitLayout.majorVersionMagicShift) & BitLayout.majorVersionMagicMask)
     }
 
     /// Creates a new [Header] operation.
@@ -1501,7 +1592,7 @@ public struct Header: RemoteOperation, Equatable {
     ///   - height: Document canvas height in pixels (legacy layout)
     ///   - capabilities: Bitmask of supported capability profiles (legacy layout)
     ///   - properties: Header property map entries (modern layout)
-    public init(majorVersion: Int32 = 0, minorVersion: Int32 = 0, patchVersion: Int32 = 0, width: Int32 = 256, height: Int32 = 256, capabilities: Int64 = 0, properties: [HeaderProperty] = []) {
+    public init(majorVersion: Int32 = 0, minorVersion: Int32 = 0, patchVersion: Int32 = 0, width: Int32 = Header.DEFAULT_WIDTH, height: Int32 = Header.DEFAULT_HEIGHT, capabilities: Int64 = Header.DEFAULT_CAPABILITIES, properties: [HeaderProperty] = []) {
         self.majorVersion = majorVersion
         self.minorVersion = minorVersion
         self.patchVersion = patchVersion
@@ -1520,19 +1611,19 @@ public struct Header: RemoteOperation, Equatable {
         if Int(majorVersion) < WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
             width = try buffer.readInt()
         } else {
-            width = 256
+            width = Header.DEFAULT_WIDTH
         }
         let height: Int32
         if Int(majorVersion) < WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
             height = try buffer.readInt()
         } else {
-            height = 256
+            height = Header.DEFAULT_HEIGHT
         }
         let capabilities: Int64
         if Int(majorVersion) < WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
             capabilities = try buffer.readLong()
         } else {
-            capabilities = 0
+            capabilities = Header.DEFAULT_CAPABILITIES
         }
         let properties: [HeaderProperty]
         if Int(majorVersion) >= WireExpressionConstants.HEADER_PROPERTY_MAP_MAJOR_VERSION {
@@ -1540,14 +1631,14 @@ public struct Header: RemoteOperation, Equatable {
             guard _propertiesCount >= 0 else {
                 throw RemoteComposeWireError(domain: "Header", code: 1, message: "Invalid negative array length")
             }
-            guard _propertiesCount <= 1000 else {
+            guard _propertiesCount <= WireLimits.MAX_TABLE_SIZE else {
                 throw RemoteComposeWireError(domain: "Header", code: 1, message: "Array length exceeds maximum (1000)")
             }
-            guard _propertiesCount <= buffer.remaining / 4 else {
+            guard _propertiesCount <= buffer.remaining / HeaderProperty.MIN_WIRE_BYTES else {
                 throw RemoteComposeWireError(domain: "Header", code: 1, message: "Array length exceeds remaining buffer")
             }
             var propertiesTmp = [HeaderProperty]()
-            propertiesTmp.reserveCapacity(Swift.min(_propertiesCount, 4096))
+            propertiesTmp.reserveCapacity(Swift.min(_propertiesCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_propertiesCount {
                 propertiesTmp.append(try HeaderProperty.read(from: &buffer))
             }
@@ -1630,6 +1721,19 @@ public struct ComponentStart: RemoteOperation, Equatable {
 /// Define the animation specifications for a component
 public struct AnimationSpec: RemoteOperation, Equatable {
     public let opCode: OpCode = .animationSpec
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let enterAnimationEnterTypeShift: UInt32 = 0
+        public static let enterAnimationEnterTypeMask: UInt32 = 0xFF
+        public static let enterAnimationEnterSequenceShift: UInt32 = 8
+        public static let enterAnimationEnterSequenceMask: UInt32 = 0xFF
+        public static let exitAnimationExitTypeShift: UInt32 = 0
+        public static let exitAnimationExitTypeMask: UInt32 = 0xFF
+        public static let exitAnimationExitSequenceShift: UInt32 = 8
+        public static let exitAnimationExitSequenceMask: UInt32 = 0xFF
+    }
+    public static let DEFAULT_ENTER_FUNCTION_ID: Int32 = -1
+    public static let DEFAULT_EXIT_FUNCTION_ID: Int32 = -1
 
     /// The ID of the animation
     public var animationId: Int32
@@ -1650,16 +1754,16 @@ public struct AnimationSpec: RemoteOperation, Equatable {
     /// Custom exit animation function ID when enter or exit type is CUSTOM (8)
     public var exitFunctionId: Int32
     public var enterType: Int32 {
-        return Int32(UInt32(bitPattern: enterAnimation) & 0xFF)
+        return Int32((UInt32(bitPattern: enterAnimation) >> BitLayout.enterAnimationEnterTypeShift) & BitLayout.enterAnimationEnterTypeMask)
     }
     public var enterSequence: Int32 {
-        return Int32((UInt32(bitPattern: enterAnimation) >> 8) & 0xFF)
+        return Int32((UInt32(bitPattern: enterAnimation) >> BitLayout.enterAnimationEnterSequenceShift) & BitLayout.enterAnimationEnterSequenceMask)
     }
     public var exitType: Int32 {
-        return Int32(UInt32(bitPattern: exitAnimation) & 0xFF)
+        return Int32((UInt32(bitPattern: exitAnimation) >> BitLayout.exitAnimationExitTypeShift) & BitLayout.exitAnimationExitTypeMask)
     }
     public var exitSequence: Int32 {
-        return Int32((UInt32(bitPattern: exitAnimation) >> 8) & 0xFF)
+        return Int32((UInt32(bitPattern: exitAnimation) >> BitLayout.exitAnimationExitSequenceShift) & BitLayout.exitAnimationExitSequenceMask)
     }
 
     /// Creates a new [AnimationSpec] operation.
@@ -1673,7 +1777,7 @@ public struct AnimationSpec: RemoteOperation, Equatable {
     ///   - exitAnimation: Packed exit animation type (bits 0..7) and sequence (bits 8..15)
     ///   - enterFunctionId: Custom enter animation function ID when enter or exit type is CUSTOM (8)
     ///   - exitFunctionId: Custom exit animation function ID when enter or exit type is CUSTOM (8)
-    public init(animationId: Int32 = 0, motionDuration: Float = 0.0, motionEasingType: Int32 = 0, visibilityDuration: Float = 0.0, visibilityEasingType: Int32 = 0, enterAnimation: Int32 = 0, exitAnimation: Int32 = 0, enterFunctionId: Int32 = -1, exitFunctionId: Int32 = -1) {
+    public init(animationId: Int32 = 0, motionDuration: Float = 0.0, motionEasingType: Int32 = 0, visibilityDuration: Float = 0.0, visibilityEasingType: Int32 = 0, enterAnimation: Int32 = 0, exitAnimation: Int32 = 0, enterFunctionId: Int32 = AnimationSpec.DEFAULT_ENTER_FUNCTION_ID, exitFunctionId: Int32 = AnimationSpec.DEFAULT_EXIT_FUNCTION_ID) {
         self.animationId = animationId
         self.motionDuration = motionDuration
         self.motionEasingType = motionEasingType
@@ -1698,13 +1802,13 @@ public struct AnimationSpec: RemoteOperation, Equatable {
         if ((Int(enterAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM || ((Int(exitAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM {
             enterFunctionId = try buffer.readInt()
         } else {
-            enterFunctionId = -1
+            enterFunctionId = AnimationSpec.DEFAULT_ENTER_FUNCTION_ID
         }
         let exitFunctionId: Int32
         if ((Int(enterAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM || ((Int(exitAnimation) & WireExpressionConstants.ANIMATION_KIND_MASK)) == WireExpressionConstants.ANIMATION_KIND_CUSTOM {
             exitFunctionId = try buffer.readInt()
         } else {
-            exitFunctionId = -1
+            exitFunctionId = AnimationSpec.DEFAULT_EXIT_FUNCTION_ID
         }
         return AnimationSpec(animationId: animationId, motionDuration: motionDuration, motionEasingType: motionEasingType, visibilityDuration: visibilityDuration, visibilityEasingType: visibilityEasingType, enterAnimation: enterAnimation, exitAnimation: exitAnimation, enterFunctionId: enterFunctionId, exitFunctionId: exitFunctionId)
     }
@@ -1740,6 +1844,7 @@ public struct WidthModifierOperation: RemoteOperation, Equatable {
     public static let EXACT_DP: Int32 = 6
     public static let FILL_PARENT_MAX_WIDTH: Int32 = 7
     public static let FILL_PARENT_MAX_HEIGHT: Int32 = 8
+    public static let DEFAULT_TYPE: Int32 = 0
 
     /// Dimension sizing mode
     public var type: Int32
@@ -1750,7 +1855,7 @@ public struct WidthModifierOperation: RemoteOperation, Equatable {
     /// - Parameters:
     ///   - type: Dimension sizing mode
     ///   - value: Target width value or variable ID
-    public init(type: Int32 = 0, value: Float = 0.0) {
+    public init(type: Int32 = WidthModifierOperation.DEFAULT_TYPE, value: Float = 0.0) {
         self.type = type
         self.value = value
     }
@@ -1780,14 +1885,23 @@ public struct ClipPath: RemoteOperation, Equatable {
     public static let XOR: Int32 = 4
     public static let REVERSE_DIFFERENCE: Int32 = 5
     public static let UNDEFINED: Int32 = 6
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let idAndRegionOpPathIdShift: UInt32 = 0
+        public static let idAndRegionOpPathIdMask: UInt32 = 0xFFFFF
+        public static let idAndRegionOpRegionOpShift: UInt32 = 24
+        public static let idAndRegionOpRegionOpMask: UInt32 = 0xFF
+        public static let idAndRegionOpRegionOpLeftShift: UInt32 = 0
+        public static let idAndRegionOpRegionOpRightShift: UInt32 = 24
+    }
 
     /// Packed path ID (bits 0..19) and region clip operation (bits 24..31)
     public var idAndRegionOp: Int32
     public var pathId: Int32 {
-        return Int32(UInt32(bitPattern: idAndRegionOp) & 0xFFFFF)
+        return Int32((UInt32(bitPattern: idAndRegionOp) >> BitLayout.idAndRegionOpPathIdShift) & BitLayout.idAndRegionOpPathIdMask)
     }
     public var regionOp: Int32 {
-        return (idAndRegionOp >> 24)
+        return (Int32(bitPattern: UInt32(bitPattern: idAndRegionOp) << BitLayout.idAndRegionOpRegionOpLeftShift) >> BitLayout.idAndRegionOpRegionOpRightShift)
     }
 
     /// Creates a new [ClipPath] operation.
@@ -1875,14 +1989,14 @@ public struct PaintData: RemoteOperation, Equatable {
         guard _wordsCount >= 0 else {
             throw RemoteComposeWireError(domain: "PaintData", code: 1, message: "Invalid negative array length")
         }
-        guard _wordsCount <= 1024 else {
+        guard _wordsCount <= WireLimits.PAINT_DATA_WORDS_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "PaintData", code: 1, message: "Array length exceeds maximum (1024)")
         }
-        guard _wordsCount <= buffer.remaining / 4 else {
+        guard _wordsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "PaintData", code: 1, message: "Array length exceeds remaining buffer")
         }
         var words = [Int32]()
-        words.reserveCapacity(Swift.min(_wordsCount, 4096))
+        words.reserveCapacity(Swift.min(_wordsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_wordsCount {
             words.append(try buffer.readInt())
         }
@@ -1932,7 +2046,7 @@ public struct BinaryData: RemoteOperation, Equatable {
         let id = try buffer.readInt()
         let type = try buffer.readInt()
         let flags = try buffer.readInt()
-        let data = try buffer.readBuffer(maxLength: 100000)
+        let data = try buffer.readBuffer(maxLength: WireLimits.MAX_BINARY_DATA)
         return BinaryData(id: id, type: type, flags: flags, data: data)
     }
 
@@ -2120,6 +2234,15 @@ public struct DrawBitmap: RemoteOperation, Equatable {
 /// Defines a runtime shader program with uniforms and texture bindings for paint effects
 public struct ShaderData: RemoteOperation, Equatable {
     public let opCode: OpCode = .shaderData
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let uniformCountsFloatCountShift: UInt32 = 0
+        public static let uniformCountsFloatCountMask: UInt32 = 0xFF
+        public static let uniformCountsIntCountShift: UInt32 = 8
+        public static let uniformCountsIntCountMask: UInt32 = 0xFF
+        public static let uniformCountsBitmapCountShift: UInt32 = 16
+        public static let uniformCountsBitmapCountMask: UInt32 = 0xFF
+    }
 
     /// The ID of the shader
     public var shaderId: Int32
@@ -2152,18 +2275,18 @@ public struct ShaderData: RemoteOperation, Equatable {
         let shaderId = try buffer.readInt()
         let shaderTextId = try buffer.readInt()
         let raw_uniformCounts = try buffer.readInt()
-        let floatCount = Int32(UInt32(bitPattern: raw_uniformCounts) & 0xFF)
-        let intCount = Int32((UInt32(bitPattern: raw_uniformCounts) >> 8) & 0xFF)
-        let bitmapCount = Int32((UInt32(bitPattern: raw_uniformCounts) >> 16) & 0xFF)
+        let floatCount = Int32((UInt32(bitPattern: raw_uniformCounts) >> BitLayout.uniformCountsFloatCountShift) & BitLayout.uniformCountsFloatCountMask)
+        let intCount = Int32((UInt32(bitPattern: raw_uniformCounts) >> BitLayout.uniformCountsIntCountShift) & BitLayout.uniformCountsIntCountMask)
+        let bitmapCount = Int32((UInt32(bitPattern: raw_uniformCounts) >> BitLayout.uniformCountsBitmapCountShift) & BitLayout.uniformCountsBitmapCountMask)
         let _floatUniformsCount = Int(floatCount)
         guard _floatUniformsCount >= 0 else {
             throw RemoteComposeWireError(domain: "ShaderData", code: 1, message: "Invalid negative array length")
         }
-        guard _floatUniformsCount <= buffer.remaining / 8 else {
+        guard _floatUniformsCount <= buffer.remaining / ShaderFloatUniform.MIN_WIRE_BYTES else {
             throw RemoteComposeWireError(domain: "ShaderData", code: 1, message: "Array length exceeds remaining buffer")
         }
         var floatUniforms = [ShaderFloatUniform]()
-        floatUniforms.reserveCapacity(Swift.min(_floatUniformsCount, 4096))
+        floatUniforms.reserveCapacity(Swift.min(_floatUniformsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_floatUniformsCount {
             floatUniforms.append(try ShaderFloatUniform.read(from: &buffer))
         }
@@ -2171,11 +2294,11 @@ public struct ShaderData: RemoteOperation, Equatable {
         guard _intUniformsCount >= 0 else {
             throw RemoteComposeWireError(domain: "ShaderData", code: 1, message: "Invalid negative array length")
         }
-        guard _intUniformsCount <= buffer.remaining / 8 else {
+        guard _intUniformsCount <= buffer.remaining / ShaderIntUniform.MIN_WIRE_BYTES else {
             throw RemoteComposeWireError(domain: "ShaderData", code: 1, message: "Array length exceeds remaining buffer")
         }
         var intUniforms = [ShaderIntUniform]()
-        intUniforms.reserveCapacity(Swift.min(_intUniformsCount, 4096))
+        intUniforms.reserveCapacity(Swift.min(_intUniformsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_intUniformsCount {
             intUniforms.append(try ShaderIntUniform.read(from: &buffer))
         }
@@ -2183,11 +2306,11 @@ public struct ShaderData: RemoteOperation, Equatable {
         guard _bitmapUniformsCount >= 0 else {
             throw RemoteComposeWireError(domain: "ShaderData", code: 1, message: "Invalid negative array length")
         }
-        guard _bitmapUniformsCount <= buffer.remaining / 8 else {
+        guard _bitmapUniformsCount <= buffer.remaining / ShaderBitmapUniform.MIN_WIRE_BYTES else {
             throw RemoteComposeWireError(domain: "ShaderData", code: 1, message: "Array length exceeds remaining buffer")
         }
         var bitmapUniforms = [ShaderBitmapUniform]()
-        bitmapUniforms.reserveCapacity(Swift.min(_bitmapUniformsCount, 4096))
+        bitmapUniforms.reserveCapacity(Swift.min(_bitmapUniformsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_bitmapUniformsCount {
             bitmapUniforms.append(try ShaderBitmapUniform.read(from: &buffer))
         }
@@ -2202,7 +2325,7 @@ public struct ShaderData: RemoteOperation, Equatable {
         let floatCount: Int32 = Int32(floatUniforms.count)
         let intCount: Int32 = Int32(intUniforms.count)
         let bitmapCount: Int32 = Int32(bitmapUniforms.count)
-        buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(floatCount)) & 0xFF) | ((UInt32(bitPattern: Int32(intCount)) & 0xFF) << 8) | ((UInt32(bitPattern: Int32(bitmapCount)) & 0xFF) << 16)))
+        buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(floatCount)) & BitLayout.uniformCountsFloatCountMask) << BitLayout.uniformCountsFloatCountShift) | ((UInt32(bitPattern: Int32(intCount)) & BitLayout.uniformCountsIntCountMask) << BitLayout.uniformCountsIntCountShift) | ((UInt32(bitPattern: Int32(bitmapCount)) & BitLayout.uniformCountsBitmapCountMask) << BitLayout.uniformCountsBitmapCountShift)))
         for item in floatUniforms {
             try item.write(to: &buffer)
         }
@@ -2302,6 +2425,13 @@ public struct DrawLine: RemoteOperation, Equatable {
 /// Draw text using a bitmap font
 public struct DrawBitmapFontText: RemoteOperation, Equatable {
     public let opCode: OpCode = .drawBitmapFontText
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let textIdTextIdShift: UInt32 = 0
+        public static let textIdTextIdMask: UInt32 = 0x7FFFFFFF
+        public static let textIdHasGlyphSpacingShift: UInt32 = 31
+        public static let textIdHasGlyphSpacingMask: UInt32 = 0x1
+    }
 
     /// Text ID in bits 0..30 and optional glyphSpacing presence flag in bit 31
     public var textId: Int32
@@ -2340,8 +2470,8 @@ public struct DrawBitmapFontText: RemoteOperation, Equatable {
     /// Reads and decodes a [DrawBitmapFontText] from the wire buffer.
     public static func read(from buffer: inout WireBuffer) throws -> DrawBitmapFontText {
         let raw_textId = try buffer.readInt()
-        let textId = Int32(UInt32(bitPattern: raw_textId) & 0x7FFFFFFF)
-        let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_textId) >> 31) & 0x1)
+        let textId = Int32((UInt32(bitPattern: raw_textId) >> BitLayout.textIdTextIdShift) & BitLayout.textIdTextIdMask)
+        let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_textId) >> BitLayout.textIdHasGlyphSpacingShift) & BitLayout.textIdHasGlyphSpacingMask)
         let glyphSpacing: Float?
         if Int(hasGlyphSpacing) != 0 {
             glyphSpacing = try buffer.readFloat()
@@ -2360,7 +2490,7 @@ public struct DrawBitmapFontText: RemoteOperation, Equatable {
     public func write(to buffer: inout WireBuffer) throws {
         buffer.writeByte(opCode.rawValue)
         let hasGlyphSpacing: Int32 = (glyphSpacing != nil ? 1 : 0)
-        buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(textId)) & 0x7FFFFFFF) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & 0x1) << 31)))
+        buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(textId)) & BitLayout.textIdTextIdMask) << BitLayout.textIdTextIdShift) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & BitLayout.textIdHasGlyphSpacingMask) << BitLayout.textIdHasGlyphSpacingShift)))
         if Int(hasGlyphSpacing) != 0 {
             guard let val = glyphSpacing else {
                 throw RemoteComposeWireError(domain: "DrawBitmapFontText", code: 3, message: "Missing required field glyphSpacing")
@@ -2378,6 +2508,13 @@ public struct DrawBitmapFontText: RemoteOperation, Equatable {
 /// Draw text using a bitmap font along a path
 public struct DrawBitmapFontTextOnPath: RemoteOperation, Equatable {
     public let opCode: OpCode = .drawBitmapFontTextOnPath
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let textIdTextIdShift: UInt32 = 0
+        public static let textIdTextIdMask: UInt32 = 0x7FFFFFFF
+        public static let textIdHasGlyphSpacingShift: UInt32 = 31
+        public static let textIdHasGlyphSpacingMask: UInt32 = 0x1
+    }
 
     /// Text ID in bits 0..30 and optional glyphSpacing presence flag in bit 31
     public var textId: Int32
@@ -2416,8 +2553,8 @@ public struct DrawBitmapFontTextOnPath: RemoteOperation, Equatable {
     /// Reads and decodes a [DrawBitmapFontTextOnPath] from the wire buffer.
     public static func read(from buffer: inout WireBuffer) throws -> DrawBitmapFontTextOnPath {
         let raw_textId = try buffer.readInt()
-        let textId = Int32(UInt32(bitPattern: raw_textId) & 0x7FFFFFFF)
-        let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_textId) >> 31) & 0x1)
+        let textId = Int32((UInt32(bitPattern: raw_textId) >> BitLayout.textIdTextIdShift) & BitLayout.textIdTextIdMask)
+        let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_textId) >> BitLayout.textIdHasGlyphSpacingShift) & BitLayout.textIdHasGlyphSpacingMask)
         let glyphSpacing: Float?
         if Int(hasGlyphSpacing) != 0 {
             glyphSpacing = try buffer.readFloat()
@@ -2436,7 +2573,7 @@ public struct DrawBitmapFontTextOnPath: RemoteOperation, Equatable {
     public func write(to buffer: inout WireBuffer) throws {
         buffer.writeByte(opCode.rawValue)
         let hasGlyphSpacing: Int32 = (glyphSpacing != nil ? 1 : 0)
-        buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(textId)) & 0x7FFFFFFF) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & 0x1) << 31)))
+        buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(textId)) & BitLayout.textIdTextIdMask) << BitLayout.textIdTextIdShift) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & BitLayout.textIdHasGlyphSpacingMask) << BitLayout.textIdHasGlyphSpacingShift)))
         if Int(hasGlyphSpacing) != 0 {
             guard let val = glyphSpacing else {
                 throw RemoteComposeWireError(domain: "DrawBitmapFontTextOnPath", code: 3, message: "Missing required field glyphSpacing")
@@ -2660,6 +2797,11 @@ public struct BackgroundModifierOperation: RemoteOperation, Equatable {
     public let opCode: OpCode = .backgroundModifierOperation
     public static let RECTANGLE: Int32 = 0
     public static let CIRCLE: Int32 = 1
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let flagsColorRefShift: UInt32 = 1
+        public static let flagsColorRefMask: UInt32 = 0x1
+    }
 
     /// Modifier flags (bit 1 = COLOR_REF)
     public var flags: Int32
@@ -2680,7 +2822,7 @@ public struct BackgroundModifierOperation: RemoteOperation, Equatable {
     /// Background shape type
     public var shapeType: Int32
     public var colorRef: Int32 {
-        return Int32((UInt32(bitPattern: flags) >> 1) & 0x1)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsColorRefShift) & BitLayout.flagsColorRefMask)
     }
 
     /// Creates a new [BackgroundModifierOperation] operation.
@@ -2922,6 +3064,15 @@ public struct ClickModifier: RemoteOperation, Equatable {
 /// A box whose content displays a string the user can edit. On click, players with text input support open a platform editor over the content (aligned with the text component bound to the string when there is one) and write edits back into the string.
 public struct TextInputLayout: RemoteOperation, Equatable {
     public let opCode: OpCode = .textInputLayout
+    public enum SparseParameterID {
+        public static let keyboardType: Int = 1
+        public static let imeAction: Int = 2
+        public static let inputFlags: Int = 3
+        public static let maxLength: Int = 4
+        public static let filter: Int = 5
+        public static let hintId: Int = 6
+        public static let contentType: Int = 7
+    }
 
     /// Unique ID for this component
     public var componentId: Int32
@@ -2982,25 +3133,25 @@ public struct TextInputLayout: RemoteOperation, Equatable {
         var hintId: Int32? = nil
         var contentType: Int32? = nil
         let sparseCount = Int(UInt16(bitPattern: try buffer.readShort()))
-        guard sparseCount <= buffer.remaining / 2 else {
+        guard sparseCount <= buffer.remaining / (MemoryLayout<UInt8>.size + MemoryLayout<UInt8>.size) else {
             throw RemoteComposeWireError(domain: "TextInputLayout", code: 1, message: "Sparse parameter count exceeds remaining buffer")
         }
         for _ in 0..<sparseCount {
             let paramId = Int(try buffer.readByte())
             switch paramId {
-            case 1:
+            case SparseParameterID.keyboardType:
                 keyboardType = try buffer.readInt()
-            case 2:
+            case SparseParameterID.imeAction:
                 imeAction = try buffer.readInt()
-            case 3:
+            case SparseParameterID.inputFlags:
                 inputFlags = try buffer.readInt()
-            case 4:
+            case SparseParameterID.maxLength:
                 maxLength = try buffer.readInt()
-            case 5:
+            case SparseParameterID.filter:
                 filter = try buffer.readInt()
-            case 6:
+            case SparseParameterID.hintId:
                 hintId = try buffer.readInt()
-            case 7:
+            case SparseParameterID.contentType:
                 contentType = try buffer.readInt()
             default:
                 throw RemoteComposeWireError(domain: "TextInputLayout", code: 2, message: "Unknown sparse parameter")
@@ -3025,31 +3176,31 @@ public struct TextInputLayout: RemoteOperation, Equatable {
         if contentType != nil { sparseCount += 1 }
         buffer.writeShort(Int16(truncatingIfNeeded: sparseCount))
         if let val = keyboardType {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 1))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.keyboardType))
             buffer.writeInt(val)
         }
         if let val = imeAction {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 2))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.imeAction))
             buffer.writeInt(val)
         }
         if let val = inputFlags {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 3))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.inputFlags))
             buffer.writeInt(val)
         }
         if let val = maxLength {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 4))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.maxLength))
             buffer.writeInt(val)
         }
         if let val = filter {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 5))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.filter))
             buffer.writeInt(val)
         }
         if let val = hintId {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 6))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.hintId))
             buffer.writeInt(val)
         }
         if let val = contentType {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 7))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.contentType))
             buffer.writeInt(val)
         }
     }
@@ -3313,6 +3464,7 @@ public struct HeightModifierOperation: RemoteOperation, Equatable {
     public static let EXACT_DP: Int32 = 6
     public static let FILL_PARENT_MAX_WIDTH: Int32 = 7
     public static let FILL_PARENT_MAX_HEIGHT: Int32 = 8
+    public static let DEFAULT_TYPE: Int32 = 0
 
     /// Dimension sizing mode
     public var type: Int32
@@ -3323,7 +3475,7 @@ public struct HeightModifierOperation: RemoteOperation, Equatable {
     /// - Parameters:
     ///   - type: Dimension sizing mode
     ///   - value: Target height value or variable ID
-    public init(type: Int32 = 0, value: Float = 0.0) {
+    public init(type: Int32 = HeightModifierOperation.DEFAULT_TYPE, value: Float = 0.0) {
         self.type = type
         self.value = value
     }
@@ -3379,6 +3531,13 @@ public struct FloatConstant: RemoteOperation, Equatable {
 /// Defines a float variable computed via Reverse Polish Notation (RPN) expression evaluation
 public struct FloatExpression: RemoteOperation, Equatable {
     public let opCode: OpCode = .floatExpression
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let packedLengthsExpressionLengthShift: UInt32 = 0
+        public static let packedLengthsExpressionLengthMask: UInt32 = 0xFFFF
+        public static let packedLengthsAnimationLengthShift: UInt32 = 16
+        public static let packedLengthsAnimationLengthMask: UInt32 = 0xFFFF
+    }
 
     /// The ID of the expression variable
     public var id: Int32
@@ -3404,20 +3563,20 @@ public struct FloatExpression: RemoteOperation, Equatable {
     public static func read(from buffer: inout WireBuffer) throws -> FloatExpression {
         let id = try buffer.readInt()
         let raw_packedLengths = try buffer.readInt()
-        let expressionLength = Int32(UInt32(bitPattern: raw_packedLengths) & 0xFFFF)
-        let animationLength = Int32((UInt32(bitPattern: raw_packedLengths) >> 16) & 0xFFFF)
+        let expressionLength = Int32((UInt32(bitPattern: raw_packedLengths) >> BitLayout.packedLengthsExpressionLengthShift) & BitLayout.packedLengthsExpressionLengthMask)
+        let animationLength = Int32((UInt32(bitPattern: raw_packedLengths) >> BitLayout.packedLengthsAnimationLengthShift) & BitLayout.packedLengthsAnimationLengthMask)
         let _expressionCount = Int(expressionLength)
         guard _expressionCount >= 0 else {
             throw RemoteComposeWireError(domain: "FloatExpression", code: 1, message: "Invalid negative array length")
         }
-        guard _expressionCount <= 32 else {
+        guard _expressionCount <= WireLimits.MAX_EXPRESSION_SIZE else {
             throw RemoteComposeWireError(domain: "FloatExpression", code: 1, message: "Array length exceeds maximum (32)")
         }
-        guard _expressionCount <= buffer.remaining / 4 else {
+        guard _expressionCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "FloatExpression", code: 1, message: "Array length exceeds remaining buffer")
         }
         var expression = [Float]()
-        expression.reserveCapacity(Swift.min(_expressionCount, 4096))
+        expression.reserveCapacity(Swift.min(_expressionCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_expressionCount {
             expression.append(try buffer.readFloat())
         }
@@ -3425,11 +3584,11 @@ public struct FloatExpression: RemoteOperation, Equatable {
         guard _animationSpecCount >= 0 else {
             throw RemoteComposeWireError(domain: "FloatExpression", code: 1, message: "Invalid negative array length")
         }
-        guard _animationSpecCount <= buffer.remaining / 4 else {
+        guard _animationSpecCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "FloatExpression", code: 1, message: "Array length exceeds remaining buffer")
         }
         var animationSpec = [Float]()
-        animationSpec.reserveCapacity(Swift.min(_animationSpecCount, 4096))
+        animationSpec.reserveCapacity(Swift.min(_animationSpecCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_animationSpecCount {
             animationSpec.append(try buffer.readFloat())
         }
@@ -3442,7 +3601,7 @@ public struct FloatExpression: RemoteOperation, Equatable {
         buffer.writeInt(id)
         let expressionLength: Int32 = Int32(expression.count)
         let animationLength: Int32 = Int32(animationSpec.count)
-        buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(expressionLength)) & 0xFFFF) | ((UInt32(bitPattern: Int32(animationLength)) & 0xFFFF) << 16)))
+        buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(expressionLength)) & BitLayout.packedLengthsExpressionLengthMask) << BitLayout.packedLengthsExpressionLengthShift) | ((UInt32(bitPattern: Int32(animationLength)) & BitLayout.packedLengthsAnimationLengthMask) << BitLayout.packedLengthsAnimationLengthShift)))
         for item in expression {
             buffer.writeFloat(item)
         }
@@ -3514,11 +3673,11 @@ public struct Custom: RemoteOperation, Equatable {
         guard _propertiesCount >= 0 else {
             throw RemoteComposeWireError(domain: "Custom", code: 1, message: "Invalid negative array length")
         }
-        guard _propertiesCount <= buffer.remaining / 8 else {
+        guard _propertiesCount <= buffer.remaining / CustomProperty.MIN_WIRE_BYTES else {
             throw RemoteComposeWireError(domain: "Custom", code: 1, message: "Array length exceeds remaining buffer")
         }
         var properties = [CustomProperty]()
-        properties.reserveCapacity(Swift.min(_propertiesCount, 4096))
+        properties.reserveCapacity(Swift.min(_propertiesCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_propertiesCount {
             properties.append(try CustomProperty.read(from: &buffer))
         }
@@ -3589,14 +3748,14 @@ public struct EventHandlerModifierOperation: RemoteOperation, Equatable {
             guard _dataIdsCount >= 0 else {
                 throw RemoteComposeWireError(domain: "EventHandlerModifierOperation", code: 1, message: "Invalid negative array length")
             }
-            guard _dataIdsCount <= 32 else {
+            guard _dataIdsCount <= WireLimits.MAX_FUNCTION_ARGUMENTS else {
                 throw RemoteComposeWireError(domain: "EventHandlerModifierOperation", code: 1, message: "Array length exceeds maximum (32)")
             }
-            guard _dataIdsCount <= buffer.remaining / 4 else {
+            guard _dataIdsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "EventHandlerModifierOperation", code: 1, message: "Array length exceeds remaining buffer")
             }
             var dataIdsTmp = [Int32]()
-            dataIdsTmp.reserveCapacity(Swift.min(_dataIdsCount, 4096))
+            dataIdsTmp.reserveCapacity(Swift.min(_dataIdsCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_dataIdsCount {
                 dataIdsTmp.append(try buffer.readInt())
             }
@@ -3610,14 +3769,14 @@ public struct EventHandlerModifierOperation: RemoteOperation, Equatable {
             guard _conditionCount >= 0 else {
                 throw RemoteComposeWireError(domain: "EventHandlerModifierOperation", code: 1, message: "Invalid negative array length")
             }
-            guard _conditionCount <= 32 else {
+            guard _conditionCount <= WireLimits.MAX_EXPRESSION_SIZE else {
                 throw RemoteComposeWireError(domain: "EventHandlerModifierOperation", code: 1, message: "Array length exceeds maximum (32)")
             }
-            guard _conditionCount <= buffer.remaining / 4 else {
+            guard _conditionCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "EventHandlerModifierOperation", code: 1, message: "Array length exceeds remaining buffer")
             }
             var conditionTmp = [Float]()
-            conditionTmp.reserveCapacity(Swift.min(_conditionCount, 4096))
+            conditionTmp.reserveCapacity(Swift.min(_conditionCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_conditionCount {
                 conditionTmp.append(try buffer.readFloat())
             }
@@ -3664,6 +3823,19 @@ public struct BitmapData: RemoteOperation, Equatable {
     public static let ENCODING_FILE: Int32 = 2
     public static let ENCODING_EMPTY: Int32 = 3
     public static let ENCODING_COMPONENT_OFFSCREEN_BUFFER: Int32 = 4
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let widthAndTypeWidthShift: UInt32 = 0
+        public static let widthAndTypeWidthMask: UInt32 = 0xFFFF
+        public static let widthAndTypeImageTypeShift: UInt32 = 16
+        public static let widthAndTypeImageTypeMask: UInt32 = 0x7FFF
+        public static let widthAndTypeReservedMask: UInt32 = 0x80000000
+        public static let heightAndEncodingHeightShift: UInt32 = 0
+        public static let heightAndEncodingHeightMask: UInt32 = 0xFFFF
+        public static let heightAndEncodingBitmapEncodingShift: UInt32 = 16
+        public static let heightAndEncodingBitmapEncodingMask: UInt32 = 0x7FFF
+        public static let heightAndEncodingReservedMask: UInt32 = 0x80000000
+    }
 
     /// The ID of the bitmap
     public var imageId: Int32
@@ -3674,18 +3846,18 @@ public struct BitmapData: RemoteOperation, Equatable {
     /// The raw or encoded bitmap data
     public var bitmap: WireBytes
     public var width: Int32 {
-        return Int32(UInt32(bitPattern: widthAndType) & 0xFFFF)
+        return Int32((UInt32(bitPattern: widthAndType) >> BitLayout.widthAndTypeWidthShift) & BitLayout.widthAndTypeWidthMask)
     }
     public var imageType: Int32 {
-        return Int32((UInt32(bitPattern: widthAndType) >> 16) & 0x7FFF)
+        return Int32((UInt32(bitPattern: widthAndType) >> BitLayout.widthAndTypeImageTypeShift) & BitLayout.widthAndTypeImageTypeMask)
     }
     public var height: Int32 {
-        return Int32(UInt32(bitPattern: heightAndEncoding) & 0xFFFF)
+        return Int32((UInt32(bitPattern: heightAndEncoding) >> BitLayout.heightAndEncodingHeightShift) & BitLayout.heightAndEncodingHeightMask)
     }
     public var bitmapEncoding: Int32 {
-        return Int32((UInt32(bitPattern: heightAndEncoding) >> 16) & 0x7FFF)
+        return Int32((UInt32(bitPattern: heightAndEncoding) >> BitLayout.heightAndEncodingBitmapEncodingShift) & BitLayout.heightAndEncodingBitmapEncodingMask)
     }
-    public var uncompressedByteSize: Int64 { let w = Int64(width); let h = Int64(height); if w <= 0 || h <= 0 { return 0 }; let bpp: Int64 = imageType == BitmapData.TYPE_PNG_ALPHA_8 ? 1 : 4; let (wh, o1) = w.multipliedReportingOverflow(by: h); if o1 { return Int64.max }; let (total, o2) = wh.multipliedReportingOverflow(by: bpp); return o2 ? Int64.max : total }
+    public var uncompressedByteSize: Int64 { let w = Int64(width); let h = Int64(height); if w <= 0 || h <= 0 { return 0 }; let bpp: Int64 = imageType == BitmapData.TYPE_PNG_ALPHA_8 ? Int64(MemoryLayout<UInt8>.size) : Int64(MemoryLayout<UInt32>.size); let (wh, o1) = w.multipliedReportingOverflow(by: h); if o1 { return Int64.max }; let (total, o2) = wh.multipliedReportingOverflow(by: bpp); return o2 ? Int64.max : total }
 
     /// Creates a new [BitmapData] operation.
     /// - Parameters:
@@ -3704,11 +3876,11 @@ public struct BitmapData: RemoteOperation, Equatable {
     public static func read(from buffer: inout WireBuffer) throws -> BitmapData {
         let imageId = try buffer.readInt()
         let widthAndType = try buffer.readInt()
-        if ((UInt32(bitPattern: Int32(widthAndType)) & 0x80000000) != 0) {
+        if ((UInt32(bitPattern: Int32(widthAndType)) & BitLayout.widthAndTypeReservedMask) != 0) {
             throw RemoteComposeWireError(domain: "BitmapData", code: 2, message: "Non-zero reserved bits in widthAndType")
         }
         let heightAndEncoding = try buffer.readInt()
-        if ((UInt32(bitPattern: Int32(heightAndEncoding)) & 0x80000000) != 0) {
+        if ((UInt32(bitPattern: Int32(heightAndEncoding)) & BitLayout.heightAndEncodingReservedMask) != 0) {
             throw RemoteComposeWireError(domain: "BitmapData", code: 2, message: "Non-zero reserved bits in heightAndEncoding")
         }
         let bitmap = try buffer.readBuffer()
@@ -3746,7 +3918,7 @@ public struct TextData: RemoteOperation, Equatable {
     /// Reads and decodes a [TextData] from the wire buffer.
     public static func read(from buffer: inout WireBuffer) throws -> TextData {
         let textId = try buffer.readInt()
-        let text = try buffer.readUTF8(maxLength: 4000)
+        let text = try buffer.readUTF8(maxLength: WireLimits.MAX_STRING_SIZE)
         return TextData(textId: textId, text: text)
     }
 
@@ -3793,6 +3965,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
     public static let F16_VALUES: Int32 = 2
     public static let PATH_SPLINE_STRIP: Int32 = 3
     public static let SPLINE_ROUND_STRIP: Int32 = 4
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let flagsCapSegmentsShift: UInt32 = 0
+        public static let flagsCapSegmentsMask: UInt32 = 0xFF
+        public static let flagsAntialiasShift: UInt32 = 8
+        public static let flagsAntialiasMask: UInt32 = 0x1
+    }
+    public static let DEFAULT_ANTIALIAS_WIDTH: Float = 1.0
 
     /// Mesh asset ID
     public var meshId: Int32
@@ -3847,10 +4027,10 @@ public struct AddMesh2D: RemoteOperation, Equatable {
     /// Optional edge antialiasing width
     public var antialiasWidth: Float
     public var capSegments: Int32 {
-        return Int32(UInt32(bitPattern: flags) & 0xFF)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsCapSegmentsShift) & BitLayout.flagsCapSegmentsMask)
     }
     public var antialias: Int32 {
-        return Int32((UInt32(bitPattern: flags) >> 8) & 0x1)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsAntialiasShift) & BitLayout.flagsAntialiasMask)
     }
 
     /// Creates a new [AddMesh2D] operation.
@@ -3881,7 +4061,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
     ///   - widths: Spline strip width samples
     ///   - widthPositions: Spline strip width sample positions
     ///   - antialiasWidth: Optional edge antialiasing width
-    public init(meshId: Int32 = 0, type: Int32 = 0, layout: Int32 = 0, uCount: Int32 = 0, vCount: Int32 = 0, flags: Int32 = 0, aux: Int32 = 0, expX: [Float] = [], expY: [Float] = [], expTexU: [Float] = [], expTexV: [Float] = [], expColorA: [Float] = [], expColorR: [Float] = [], expColorG: [Float] = [], expColorB: [Float] = [], expWidth: [Float] = [], indices: [Int16] = [], verts: [Float] = [], uv: [Float] = [], colors: [Int32] = [], vertsF16: [Int16] = [], uvF16: [Int16] = [], colorsF16: [Int32] = [], widths: [Float] = [], widthPositions: [Float] = [], antialiasWidth: Float = 1.0) {
+    public init(meshId: Int32 = 0, type: Int32 = 0, layout: Int32 = 0, uCount: Int32 = 0, vCount: Int32 = 0, flags: Int32 = 0, aux: Int32 = 0, expX: [Float] = [], expY: [Float] = [], expTexU: [Float] = [], expTexV: [Float] = [], expColorA: [Float] = [], expColorR: [Float] = [], expColorG: [Float] = [], expColorB: [Float] = [], expWidth: [Float] = [], indices: [Int16] = [], verts: [Float] = [], uv: [Float] = [], colors: [Int32] = [], vertsF16: [Int16] = [], uvF16: [Int16] = [], colorsF16: [Int32] = [], widths: [Float] = [], widthPositions: [Float] = [], antialiasWidth: Float = AddMesh2D.DEFAULT_ANTIALIAS_WIDTH) {
         self.meshId = meshId
         self.type = type
         self.layout = layout
@@ -3925,14 +4105,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _expXCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _expXCount <= 32 else {
+            guard _expXCount <= WireLimits.MAX_EXPRESSION_SIZE else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32)")
             }
-            guard _expXCount <= buffer.remaining / 4 else {
+            guard _expXCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var expXTmp = [Float]()
-            expXTmp.reserveCapacity(Swift.min(_expXCount, 4096))
+            expXTmp.reserveCapacity(Swift.min(_expXCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_expXCount {
                 expXTmp.append(try buffer.readFloat())
             }
@@ -3946,14 +4126,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _expYCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _expYCount <= 32 else {
+            guard _expYCount <= WireLimits.MAX_EXPRESSION_SIZE else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32)")
             }
-            guard _expYCount <= buffer.remaining / 4 else {
+            guard _expYCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var expYTmp = [Float]()
-            expYTmp.reserveCapacity(Swift.min(_expYCount, 4096))
+            expYTmp.reserveCapacity(Swift.min(_expYCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_expYCount {
                 expYTmp.append(try buffer.readFloat())
             }
@@ -3967,14 +4147,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _expTexUCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _expTexUCount <= 32 else {
+            guard _expTexUCount <= WireLimits.MAX_EXPRESSION_SIZE else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32)")
             }
-            guard _expTexUCount <= buffer.remaining / 4 else {
+            guard _expTexUCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var expTexUTmp = [Float]()
-            expTexUTmp.reserveCapacity(Swift.min(_expTexUCount, 4096))
+            expTexUTmp.reserveCapacity(Swift.min(_expTexUCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_expTexUCount {
                 expTexUTmp.append(try buffer.readFloat())
             }
@@ -3988,14 +4168,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _expTexVCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _expTexVCount <= 32 else {
+            guard _expTexVCount <= WireLimits.MAX_EXPRESSION_SIZE else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32)")
             }
-            guard _expTexVCount <= buffer.remaining / 4 else {
+            guard _expTexVCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var expTexVTmp = [Float]()
-            expTexVTmp.reserveCapacity(Swift.min(_expTexVCount, 4096))
+            expTexVTmp.reserveCapacity(Swift.min(_expTexVCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_expTexVCount {
                 expTexVTmp.append(try buffer.readFloat())
             }
@@ -4009,14 +4189,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _expColorACount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _expColorACount <= 32 else {
+            guard _expColorACount <= WireLimits.MAX_EXPRESSION_SIZE else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32)")
             }
-            guard _expColorACount <= buffer.remaining / 4 else {
+            guard _expColorACount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var expColorATmp = [Float]()
-            expColorATmp.reserveCapacity(Swift.min(_expColorACount, 4096))
+            expColorATmp.reserveCapacity(Swift.min(_expColorACount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_expColorACount {
                 expColorATmp.append(try buffer.readFloat())
             }
@@ -4030,14 +4210,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _expColorRCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _expColorRCount <= 32 else {
+            guard _expColorRCount <= WireLimits.MAX_EXPRESSION_SIZE else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32)")
             }
-            guard _expColorRCount <= buffer.remaining / 4 else {
+            guard _expColorRCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var expColorRTmp = [Float]()
-            expColorRTmp.reserveCapacity(Swift.min(_expColorRCount, 4096))
+            expColorRTmp.reserveCapacity(Swift.min(_expColorRCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_expColorRCount {
                 expColorRTmp.append(try buffer.readFloat())
             }
@@ -4051,14 +4231,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _expColorGCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _expColorGCount <= 32 else {
+            guard _expColorGCount <= WireLimits.MAX_EXPRESSION_SIZE else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32)")
             }
-            guard _expColorGCount <= buffer.remaining / 4 else {
+            guard _expColorGCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var expColorGTmp = [Float]()
-            expColorGTmp.reserveCapacity(Swift.min(_expColorGCount, 4096))
+            expColorGTmp.reserveCapacity(Swift.min(_expColorGCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_expColorGCount {
                 expColorGTmp.append(try buffer.readFloat())
             }
@@ -4072,14 +4252,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _expColorBCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _expColorBCount <= 32 else {
+            guard _expColorBCount <= WireLimits.MAX_EXPRESSION_SIZE else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32)")
             }
-            guard _expColorBCount <= buffer.remaining / 4 else {
+            guard _expColorBCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var expColorBTmp = [Float]()
-            expColorBTmp.reserveCapacity(Swift.min(_expColorBCount, 4096))
+            expColorBTmp.reserveCapacity(Swift.min(_expColorBCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_expColorBCount {
                 expColorBTmp.append(try buffer.readFloat())
             }
@@ -4093,14 +4273,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _expWidthCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _expWidthCount <= 32 else {
+            guard _expWidthCount <= WireLimits.MAX_EXPRESSION_SIZE else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32)")
             }
-            guard _expWidthCount <= buffer.remaining / 4 else {
+            guard _expWidthCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var expWidthTmp = [Float]()
-            expWidthTmp.reserveCapacity(Swift.min(_expWidthCount, 4096))
+            expWidthTmp.reserveCapacity(Swift.min(_expWidthCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_expWidthCount {
                 expWidthTmp.append(try buffer.readFloat())
             }
@@ -4114,14 +4294,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _indicesCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _indicesCount <= 49152 else {
+            guard _indicesCount <= WireLimits.MAX_MESH_2D_INDICES else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (49152)")
             }
-            guard _indicesCount <= buffer.remaining / 2 else {
+            guard _indicesCount <= buffer.remaining / MemoryLayout<Int16>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var indicesTmp = [Int16]()
-            indicesTmp.reserveCapacity(Swift.min(_indicesCount, 4096))
+            indicesTmp.reserveCapacity(Swift.min(_indicesCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_indicesCount {
                 indicesTmp.append(try buffer.readShort())
             }
@@ -4153,14 +4333,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _vertsCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _vertsCount <= 32768 else {
+            guard _vertsCount <= WireLimits.ADD_MESH2_D_VERTS_MAX_LENGTH else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32768)")
             }
-            guard _vertsCount <= buffer.remaining / 4 else {
+            guard _vertsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var vertsTmp = [Float]()
-            vertsTmp.reserveCapacity(Swift.min(_vertsCount, 4096))
+            vertsTmp.reserveCapacity(Swift.min(_vertsCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_vertsCount {
                 vertsTmp.append(try buffer.readFloat())
             }
@@ -4174,14 +4354,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _uvCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _uvCount <= 32768 else {
+            guard _uvCount <= WireLimits.ADD_MESH2_D_UV_MAX_LENGTH else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32768)")
             }
-            guard _uvCount <= buffer.remaining / 4 else {
+            guard _uvCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var uvTmp = [Float]()
-            uvTmp.reserveCapacity(Swift.min(_uvCount, 4096))
+            uvTmp.reserveCapacity(Swift.min(_uvCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_uvCount {
                 uvTmp.append(try buffer.readFloat())
             }
@@ -4195,14 +4375,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _colorsCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _colorsCount <= 16384 else {
+            guard _colorsCount <= WireLimits.MAX_MESH_2D_VERTICES else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (16384)")
             }
-            guard _colorsCount <= buffer.remaining / 4 else {
+            guard _colorsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var colorsTmp = [Int32]()
-            colorsTmp.reserveCapacity(Swift.min(_colorsCount, 4096))
+            colorsTmp.reserveCapacity(Swift.min(_colorsCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_colorsCount {
                 colorsTmp.append(try buffer.readInt())
             }
@@ -4234,14 +4414,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _vertsF16Count >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _vertsF16Count <= 32768 else {
+            guard _vertsF16Count <= WireLimits.ADD_MESH2_D_VERTS_F16_MAX_LENGTH else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32768)")
             }
-            guard _vertsF16Count <= buffer.remaining / 2 else {
+            guard _vertsF16Count <= buffer.remaining / MemoryLayout<Int16>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var vertsF16Tmp = [Int16]()
-            vertsF16Tmp.reserveCapacity(Swift.min(_vertsF16Count, 4096))
+            vertsF16Tmp.reserveCapacity(Swift.min(_vertsF16Count, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_vertsF16Count {
                 vertsF16Tmp.append(try buffer.readShort())
             }
@@ -4255,14 +4435,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _uvF16Count >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _uvF16Count <= 32768 else {
+            guard _uvF16Count <= WireLimits.ADD_MESH2_D_UV_F16_MAX_LENGTH else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (32768)")
             }
-            guard _uvF16Count <= buffer.remaining / 2 else {
+            guard _uvF16Count <= buffer.remaining / MemoryLayout<Int16>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var uvF16Tmp = [Int16]()
-            uvF16Tmp.reserveCapacity(Swift.min(_uvF16Count, 4096))
+            uvF16Tmp.reserveCapacity(Swift.min(_uvF16Count, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_uvF16Count {
                 uvF16Tmp.append(try buffer.readShort())
             }
@@ -4276,14 +4456,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _colorsF16Count >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _colorsF16Count <= 16384 else {
+            guard _colorsF16Count <= WireLimits.MAX_MESH_2D_VERTICES else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (16384)")
             }
-            guard _colorsF16Count <= buffer.remaining / 4 else {
+            guard _colorsF16Count <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var colorsF16Tmp = [Int32]()
-            colorsF16Tmp.reserveCapacity(Swift.min(_colorsF16Count, 4096))
+            colorsF16Tmp.reserveCapacity(Swift.min(_colorsF16Count, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_colorsF16Count {
                 colorsF16Tmp.append(try buffer.readInt())
             }
@@ -4297,14 +4477,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _widthsCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _widthsCount <= 64 else {
+            guard _widthsCount <= WireLimits.MAX_MESH_2D_WIDTH_SAMPLES else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (64)")
             }
-            guard _widthsCount <= buffer.remaining / 4 else {
+            guard _widthsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var widthsTmp = [Float]()
-            widthsTmp.reserveCapacity(Swift.min(_widthsCount, 4096))
+            widthsTmp.reserveCapacity(Swift.min(_widthsCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_widthsCount {
                 widthsTmp.append(try buffer.readFloat())
             }
@@ -4318,14 +4498,14 @@ public struct AddMesh2D: RemoteOperation, Equatable {
             guard _widthPositionsCount >= 0 else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Invalid negative array length")
             }
-            guard _widthPositionsCount <= 64 else {
+            guard _widthPositionsCount <= WireLimits.MAX_MESH_2D_WIDTH_SAMPLES else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds maximum (64)")
             }
-            guard _widthPositionsCount <= buffer.remaining / 4 else {
+            guard _widthPositionsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                 throw RemoteComposeWireError(domain: "AddMesh2D", code: 1, message: "Array length exceeds remaining buffer")
             }
             var widthPositionsTmp = [Float]()
-            widthPositionsTmp.reserveCapacity(Swift.min(_widthPositionsCount, 4096))
+            widthPositionsTmp.reserveCapacity(Swift.min(_widthPositionsCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_widthPositionsCount {
                 widthPositionsTmp.append(try buffer.readFloat())
             }
@@ -4337,7 +4517,7 @@ public struct AddMesh2D: RemoteOperation, Equatable {
         if ((Int(flags) & WireExpressionConstants.MESH2D_FLAG_ANTIALIAS)) != 0 {
             antialiasWidth = try buffer.readFloat()
         } else {
-            antialiasWidth = 1.0
+            antialiasWidth = AddMesh2D.DEFAULT_ANTIALIAS_WIDTH
         }
         return AddMesh2D(meshId: meshId, type: type, layout: layout, uCount: uCount, vCount: vCount, flags: flags, aux: aux, expX: expX, expY: expY, expTexU: expTexU, expTexV: expTexV, expColorA: expColorA, expColorR: expColorR, expColorG: expColorG, expColorB: expColorB, expWidth: expWidth, indices: indices, verts: verts, uv: uv, colors: colors, vertsF16: vertsF16, uvF16: uvF16, colorsF16: colorsF16, widths: widths, widthPositions: widthPositions, antialiasWidth: antialiasWidth)
     }
@@ -4576,6 +4756,11 @@ public struct BorderModifierOperation: RemoteOperation, Equatable {
     public static let RECTANGLE: Int32 = 0
     public static let CIRCLE: Int32 = 1
     public static let ROUNDED_RECTANGLE: Int32 = 2
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let flagsColorRefShift: UInt32 = 1
+        public static let flagsColorRefMask: UInt32 = 0x1
+    }
 
     /// Behavior flags
     public var flags: Int32
@@ -4600,7 +4785,7 @@ public struct BorderModifierOperation: RemoteOperation, Equatable {
     /// The shape type (0=RECTANGLE, 1=CIRCLE, 2=ROUNDED_RECTANGLE: the only one roundedCorner applies to)
     public var shapeType: Int32
     public var colorRef: Int32 {
-        return Int32((UInt32(bitPattern: flags) >> 1) & 0x1)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsColorRefShift) & BitLayout.flagsColorRefMask)
     }
 
     /// Creates a new [BorderModifierOperation] operation.
@@ -4805,16 +4990,25 @@ public struct PathData: RemoteOperation, Equatable {
     public static let EVEN_ODD: Int32 = 1
     public static let INVERSE_WINDING: Int32 = 2
     public static let INVERSE_EVEN_ODD: Int32 = 3
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let idAndWindingPathIdShift: UInt32 = 0
+        public static let idAndWindingPathIdMask: UInt32 = 0xFFFFFF
+        public static let idAndWindingWindingShift: UInt32 = 24
+        public static let idAndWindingWindingMask: UInt32 = 0xFF
+        public static let idAndWindingWindingLeftShift: UInt32 = 0
+        public static let idAndWindingWindingRightShift: UInt32 = 24
+    }
 
     /// Packed path ID (bits 0..23) and winding rule (bits 24..31)
     public var idAndWinding: Int32
     /// Encoded path command and coordinate float stream
     public var pathData: [Float]
     public var pathId: Int32 {
-        return Int32(UInt32(bitPattern: idAndWinding) & 0xFFFFFF)
+        return Int32((UInt32(bitPattern: idAndWinding) >> BitLayout.idAndWindingPathIdShift) & BitLayout.idAndWindingPathIdMask)
     }
     public var winding: Int32 {
-        return (idAndWinding >> 24)
+        return (Int32(bitPattern: UInt32(bitPattern: idAndWinding) << BitLayout.idAndWindingWindingLeftShift) >> BitLayout.idAndWindingWindingRightShift)
     }
     public func decodePathCommands() -> [PathCommand] { PathCommand.decode(pathData) }
 
@@ -4834,14 +5028,14 @@ public struct PathData: RemoteOperation, Equatable {
         guard _pathDataCount >= 0 else {
             throw RemoteComposeWireError(domain: "PathData", code: 1, message: "Invalid negative array length")
         }
-        guard _pathDataCount <= 20000 else {
+        guard _pathDataCount <= WireLimits.PATH_DATA_PATH_DATA_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "PathData", code: 1, message: "Array length exceeds maximum (20000)")
         }
-        guard _pathDataCount <= buffer.remaining / 4 else {
+        guard _pathDataCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "PathData", code: 1, message: "Array length exceeds remaining buffer")
         }
         var pathData = [Float]()
-        pathData.reserveCapacity(Swift.min(_pathDataCount, 4096))
+        pathData.reserveCapacity(Swift.min(_pathDataCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_pathDataCount {
             pathData.append(try buffer.readFloat())
         }
@@ -5198,6 +5392,15 @@ public struct ColorExpression: RemoteOperation, Equatable {
     public static let HSV_MODE: Int32 = 4
     public static let ARGB_MODE: Int32 = 5
     public static let IDARGB_MODE: Int32 = 6
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let flagsAndModeModeShift: UInt32 = 0
+        public static let flagsAndModeModeMask: UInt32 = 0xFF
+        public static let flagsAndModeUpperParamShift: UInt32 = 16
+        public static let flagsAndModeUpperParamMask: UInt32 = 0xFFFF
+        public static let flagsAndModeUpperParamLeftShift: UInt32 = 0
+        public static let flagsAndModeUpperParamRightShift: UInt32 = 16
+    }
 
     /// Color variable ID
     public var id: Int32
@@ -5210,12 +5413,12 @@ public struct ColorExpression: RemoteOperation, Equatable {
     /// Tween/value/blue float bits depending on mode
     public var arg3: Int32
     public var mode: Int32 {
-        return Int32(UInt32(bitPattern: flagsAndMode) & 0xFF)
+        return Int32((UInt32(bitPattern: flagsAndMode) >> BitLayout.flagsAndModeModeShift) & BitLayout.flagsAndModeModeMask)
     }
     public var upperParam: Int32 {
-        return (flagsAndMode >> 16)
+        return (Int32(bitPattern: UInt32(bitPattern: flagsAndMode) << BitLayout.flagsAndModeUpperParamLeftShift) >> BitLayout.flagsAndModeUpperParamRightShift)
     }
-    public var alphaPayload: Int32 { Int32((UInt32(bitPattern: flagsAndMode) >> 16) & 0xFF) }
+    public var alphaPayload: Int32 { Int32((UInt32(bitPattern: flagsAndMode) >> BitLayout.flagsAndModeUpperParamShift) & UInt32(UInt8.max)) }
 
     /// Creates a new [ColorExpression] operation.
     /// - Parameters:
@@ -5236,9 +5439,9 @@ public struct ColorExpression: RemoteOperation, Equatable {
     public static func read(from buffer: inout WireBuffer) throws -> ColorExpression {
         let id = try buffer.readInt()
         let flagsAndMode = try buffer.readInt()
-        let bit_mode = Int32(UInt32(bitPattern: flagsAndMode) & 0xFF)
+        let bit_mode = Int32((UInt32(bitPattern: flagsAndMode) >> BitLayout.flagsAndModeModeShift) & BitLayout.flagsAndModeModeMask)
         switch bit_mode {
-        case 0, 1, 2, 3, 4, 5, 6:
+        case ColorExpression.COLOR_COLOR_INTERPOLATE, ColorExpression.ID_COLOR_INTERPOLATE, ColorExpression.COLOR_ID_INTERPOLATE, ColorExpression.ID_ID_INTERPOLATE, ColorExpression.HSV_MODE, ColorExpression.ARGB_MODE, ColorExpression.IDARGB_MODE:
             break
         default:
             throw RemoteComposeWireError(domain: "ColorExpression", code: 2, message: "Invalid enum value for mode")
@@ -5282,6 +5485,25 @@ public struct TextFromFloat: RemoteOperation, Equatable {
     public static let OPTIONS_ROUNDING: Int32 = 512
     public static let LEGACY_MODE: Int32 = 1024
     public static let FULL_FORMAT: Int32 = 4096
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let flagsPadAfterShift: UInt32 = 0
+        public static let flagsPadAfterMask: UInt32 = 0x3
+        public static let flagsPadPreShift: UInt32 = 2
+        public static let flagsPadPreMask: UInt32 = 0x3
+        public static let flagsGroupingShift: UInt32 = 4
+        public static let flagsGroupingMask: UInt32 = 0x3
+        public static let flagsSeparatorShift: UInt32 = 6
+        public static let flagsSeparatorMask: UInt32 = 0x3
+        public static let flagsNegativeParenthesesShift: UInt32 = 8
+        public static let flagsNegativeParenthesesMask: UInt32 = 0x1
+        public static let flagsRoundingShift: UInt32 = 9
+        public static let flagsRoundingMask: UInt32 = 0x1
+        public static let flagsLegacyModeShift: UInt32 = 10
+        public static let flagsLegacyModeMask: UInt32 = 0x1
+        public static let flagsFullFormatShift: UInt32 = 12
+        public static let flagsFullFormatMask: UInt32 = 0x1
+    }
 
     /// The ID of the resulting text
     public var textId: Int32
@@ -5294,28 +5516,28 @@ public struct TextFromFloat: RemoteOperation, Equatable {
     /// Formatting and padding flags
     public var flags: Int32
     public var padAfter: Int32 {
-        return Int32(UInt32(bitPattern: flags) & 0x3)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsPadAfterShift) & BitLayout.flagsPadAfterMask)
     }
     public var padPre: Int32 {
-        return Int32((UInt32(bitPattern: flags) >> 2) & 0x3)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsPadPreShift) & BitLayout.flagsPadPreMask)
     }
     public var grouping: Int32 {
-        return Int32((UInt32(bitPattern: flags) >> 4) & 0x3)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsGroupingShift) & BitLayout.flagsGroupingMask)
     }
     public var separator: Int32 {
-        return Int32((UInt32(bitPattern: flags) >> 6) & 0x3)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsSeparatorShift) & BitLayout.flagsSeparatorMask)
     }
     public var negativeParentheses: Int32 {
-        return Int32((UInt32(bitPattern: flags) >> 8) & 0x1)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsNegativeParenthesesShift) & BitLayout.flagsNegativeParenthesesMask)
     }
     public var rounding: Int32 {
-        return Int32((UInt32(bitPattern: flags) >> 9) & 0x1)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsRoundingShift) & BitLayout.flagsRoundingMask)
     }
     public var legacyMode: Int32 {
-        return Int32((UInt32(bitPattern: flags) >> 10) & 0x1)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsLegacyModeShift) & BitLayout.flagsLegacyModeMask)
     }
     public var fullFormat: Int32 {
-        return Int32((UInt32(bitPattern: flags) >> 12) & 0x1)
+        return Int32((UInt32(bitPattern: flags) >> BitLayout.flagsFullFormatShift) & BitLayout.flagsFullFormatMask)
     }
 
     /// Creates a new [TextFromFloat] operation.
@@ -5427,7 +5649,7 @@ public struct NamedVariable: RemoteOperation, Equatable {
     public static func read(from buffer: inout WireBuffer) throws -> NamedVariable {
         let varId = try buffer.readInt()
         let varType = try buffer.readInt()
-        let name = try buffer.readUTF8(maxLength: 4000)
+        let name = try buffer.readUTF8(maxLength: WireLimits.MAX_STRING_SIZE)
         return NamedVariable(varId: varId, varType: varType, name: name)
     }
 
@@ -5643,14 +5865,14 @@ public struct IntegerExpression: RemoteOperation, Equatable {
         guard _valuesCount >= 0 else {
             throw RemoteComposeWireError(domain: "IntegerExpression", code: 1, message: "Invalid negative array length")
         }
-        guard _valuesCount <= 320 else {
+        guard _valuesCount <= WireLimits.INTEGER_EXPRESSION_VALUES_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "IntegerExpression", code: 1, message: "Array length exceeds maximum (320)")
         }
-        guard _valuesCount <= buffer.remaining / 4 else {
+        guard _valuesCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "IntegerExpression", code: 1, message: "Array length exceeds remaining buffer")
         }
         var values = [Int32]()
-        values.reserveCapacity(Swift.min(_valuesCount, 4096))
+        values.reserveCapacity(Swift.min(_valuesCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_valuesCount {
             values.append(try buffer.readInt())
         }
@@ -5694,14 +5916,14 @@ public struct DataMapIds: RemoteOperation, Equatable {
         guard _entriesCount >= 0 else {
             throw RemoteComposeWireError(domain: "DataMapIds", code: 1, message: "Invalid negative array length")
         }
-        guard _entriesCount <= 2000 else {
+        guard _entriesCount <= WireLimits.MAX_DATA_MAP_SIZE else {
             throw RemoteComposeWireError(domain: "DataMapIds", code: 1, message: "Array length exceeds maximum (2000)")
         }
-        guard _entriesCount <= buffer.remaining / 9 else {
+        guard _entriesCount <= buffer.remaining / DataMapEntry.MIN_WIRE_BYTES else {
             throw RemoteComposeWireError(domain: "DataMapIds", code: 1, message: "Array length exceeds remaining buffer")
         }
         var entries = [DataMapEntry]()
-        entries.reserveCapacity(Swift.min(_entriesCount, 4096))
+        entries.reserveCapacity(Swift.min(_entriesCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_entriesCount {
             entries.append(try DataMapEntry.read(from: &buffer))
         }
@@ -5744,14 +5966,14 @@ public struct IdListData: RemoteOperation, Equatable {
         guard _idsCount >= 0 else {
             throw RemoteComposeWireError(domain: "IdListData", code: 1, message: "Invalid negative array length")
         }
-        guard _idsCount <= 2000 else {
+        guard _idsCount <= WireLimits.ID_LIST_DATA_IDS_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "IdListData", code: 1, message: "Array length exceeds maximum (2000)")
         }
-        guard _idsCount <= buffer.remaining / 4 else {
+        guard _idsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "IdListData", code: 1, message: "Array length exceeds remaining buffer")
         }
         var ids = [Int32]()
-        ids.reserveCapacity(Swift.min(_idsCount, 4096))
+        ids.reserveCapacity(Swift.min(_idsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_idsCount {
             ids.append(try buffer.readInt())
         }
@@ -5794,14 +6016,14 @@ public struct FloatListData: RemoteOperation, Equatable {
         guard _valuesCount >= 0 else {
             throw RemoteComposeWireError(domain: "FloatListData", code: 1, message: "Invalid negative array length")
         }
-        guard _valuesCount <= 2000 else {
+        guard _valuesCount <= WireLimits.FLOAT_LIST_DATA_VALUES_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "FloatListData", code: 1, message: "Array length exceeds maximum (2000)")
         }
-        guard _valuesCount <= buffer.remaining / 4 else {
+        guard _valuesCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "FloatListData", code: 1, message: "Array length exceeds remaining buffer")
         }
         var values = [Float]()
-        values.reserveCapacity(Swift.min(_valuesCount, 4096))
+        values.reserveCapacity(Swift.min(_valuesCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_valuesCount {
             values.append(try buffer.readFloat())
         }
@@ -5863,6 +6085,13 @@ public struct DrawBitmapScaled: RemoteOperation, Equatable {
     public static let SCALE_CROP: Int32 = 5
     public static let SCALE_FILL_BOUNDS: Int32 = 6
     public static let SCALE_FIXED_SCALE: Int32 = 7
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let scaleTypeScaleModeShift: UInt32 = 0
+        public static let scaleTypeScaleModeMask: UInt32 = 0xFF
+        public static let scaleTypeDereferenceImageIdShift: UInt32 = 8
+        public static let scaleTypeDereferenceImageIdMask: UInt32 = 0x1
+    }
 
     /// The ID of the bitmap
     public var imageId: Int32
@@ -5889,10 +6118,10 @@ public struct DrawBitmapScaled: RemoteOperation, Equatable {
     /// The ID of the content description string
     public var cdId: Int32
     public var scaleMode: Int32 {
-        return Int32(UInt32(bitPattern: scaleType) & 0xFF)
+        return Int32((UInt32(bitPattern: scaleType) >> BitLayout.scaleTypeScaleModeShift) & BitLayout.scaleTypeScaleModeMask)
     }
     public var dereferenceImageId: Int32 {
-        return Int32((UInt32(bitPattern: scaleType) >> 8) & 0x1)
+        return Int32((UInt32(bitPattern: scaleType) >> BitLayout.scaleTypeDereferenceImageIdShift) & BitLayout.scaleTypeDereferenceImageIdMask)
     }
 
     /// Creates a new [DrawBitmapScaled] operation.
@@ -6189,6 +6418,15 @@ public struct TextMeasure: RemoteOperation, Equatable {
     public static let MEASURE_RIGHT: Int32 = 3
     public static let MEASURE_TOP: Int32 = 4
     public static let MEASURE_BOTTOM: Int32 = 5
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let typeMeasureKindShift: UInt32 = 0
+        public static let typeMeasureKindMask: UInt32 = 0xFF
+        public static let typeMeasureFlagsShift: UInt32 = 8
+        public static let typeMeasureFlagsMask: UInt32 = 0xFFFFFF
+        public static let typeMeasureFlagsLeftShift: UInt32 = 0
+        public static let typeMeasureFlagsRightShift: UInt32 = 8
+    }
 
     /// The ID of the float variable to store the result
     public var id: Int32
@@ -6197,10 +6435,10 @@ public struct TextMeasure: RemoteOperation, Equatable {
     /// The type of measurement (WIDTH, HEIGHT, etc.)
     public var type: Int32
     public var measureKind: Int32 {
-        return Int32(UInt32(bitPattern: type) & 0xFF)
+        return Int32((UInt32(bitPattern: type) >> BitLayout.typeMeasureKindShift) & BitLayout.typeMeasureKindMask)
     }
     public var measureFlags: Int32 {
-        return (type >> 8)
+        return (Int32(bitPattern: UInt32(bitPattern: type) << BitLayout.typeMeasureFlagsLeftShift) >> BitLayout.typeMeasureFlagsRightShift)
     }
 
     /// Creates a new [TextMeasure] operation.
@@ -6267,6 +6505,17 @@ public struct TextLength: RemoteOperation, Equatable {
 /// Defines a float variable derived from touch interactions and gestures
 public struct TouchExpression: RemoteOperation, Equatable {
     public let opCode: OpCode = .touchExpression
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let expressionLenExpLenShift: UInt32 = 0
+        public static let expressionLenExpLenMask: UInt32 = 0xFFFF
+        public static let stopModeAndLenStopLenShift: UInt32 = 0
+        public static let stopModeAndLenStopLenMask: UInt32 = 0xFFFF
+        public static let stopModeAndLenStopModeShift: UInt32 = 16
+        public static let stopModeAndLenStopModeMask: UInt32 = 0xFFFF
+        public static let stopModeAndLenStopModeLeftShift: UInt32 = 0
+        public static let stopModeAndLenStopModeRightShift: UInt32 = 16
+    }
 
     /// Output float variable ID
     public var id: Int32
@@ -6323,37 +6572,37 @@ public struct TouchExpression: RemoteOperation, Equatable {
         let velocityId = try buffer.readFloat()
         let touchEffects = try buffer.readInt()
         let raw_expressionLen = try buffer.readInt()
-        let expLen = Int32(UInt32(bitPattern: raw_expressionLen) & 0xFFFF)
+        let expLen = Int32((UInt32(bitPattern: raw_expressionLen) >> BitLayout.expressionLenExpLenShift) & BitLayout.expressionLenExpLenMask)
         let _expressionCount = Int(expLen)
         guard _expressionCount >= 0 else {
             throw RemoteComposeWireError(domain: "TouchExpression", code: 1, message: "Invalid negative array length")
         }
-        guard _expressionCount <= 32 else {
+        guard _expressionCount <= WireLimits.MAX_EXPRESSION_SIZE else {
             throw RemoteComposeWireError(domain: "TouchExpression", code: 1, message: "Array length exceeds maximum (32)")
         }
-        guard _expressionCount <= buffer.remaining / 4 else {
+        guard _expressionCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "TouchExpression", code: 1, message: "Array length exceeds remaining buffer")
         }
         var expression = [Float]()
-        expression.reserveCapacity(Swift.min(_expressionCount, 4096))
+        expression.reserveCapacity(Swift.min(_expressionCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_expressionCount {
             expression.append(try buffer.readFloat())
         }
         let raw_stopModeAndLen = try buffer.readInt()
-        let stopLen = Int32(UInt32(bitPattern: raw_stopModeAndLen) & 0xFFFF)
-        let stopMode = (raw_stopModeAndLen >> 16)
+        let stopLen = Int32((UInt32(bitPattern: raw_stopModeAndLen) >> BitLayout.stopModeAndLenStopLenShift) & BitLayout.stopModeAndLenStopLenMask)
+        let stopMode = (Int32(bitPattern: UInt32(bitPattern: raw_stopModeAndLen) << BitLayout.stopModeAndLenStopModeLeftShift) >> BitLayout.stopModeAndLenStopModeRightShift)
         let _stopSpecCount = Int(stopLen)
         guard _stopSpecCount >= 0 else {
             throw RemoteComposeWireError(domain: "TouchExpression", code: 1, message: "Invalid negative array length")
         }
-        guard _stopSpecCount <= 200 else {
+        guard _stopSpecCount <= WireLimits.MAX_TOUCH_STOPS else {
             throw RemoteComposeWireError(domain: "TouchExpression", code: 1, message: "Array length exceeds maximum (200)")
         }
-        guard _stopSpecCount <= buffer.remaining / 4 else {
+        guard _stopSpecCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "TouchExpression", code: 1, message: "Array length exceeds remaining buffer")
         }
         var stopSpec = [Float]()
-        stopSpec.reserveCapacity(Swift.min(_stopSpecCount, 4096))
+        stopSpec.reserveCapacity(Swift.min(_stopSpecCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_stopSpecCount {
             stopSpec.append(try buffer.readFloat())
         }
@@ -6361,14 +6610,14 @@ public struct TouchExpression: RemoteOperation, Equatable {
         guard _easingSpecCount >= 0 else {
             throw RemoteComposeWireError(domain: "TouchExpression", code: 1, message: "Invalid negative array length")
         }
-        guard _easingSpecCount <= 200 else {
+        guard _easingSpecCount <= WireLimits.MAX_EASING_LEN else {
             throw RemoteComposeWireError(domain: "TouchExpression", code: 1, message: "Array length exceeds maximum (200)")
         }
-        guard _easingSpecCount <= buffer.remaining / 4 else {
+        guard _easingSpecCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "TouchExpression", code: 1, message: "Array length exceeds remaining buffer")
         }
         var easingSpec = [Float]()
-        easingSpec.reserveCapacity(Swift.min(_easingSpecCount, 4096))
+        easingSpec.reserveCapacity(Swift.min(_easingSpecCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_easingSpecCount {
             easingSpec.append(try buffer.readFloat())
         }
@@ -6385,12 +6634,12 @@ public struct TouchExpression: RemoteOperation, Equatable {
         buffer.writeFloat(velocityId)
         buffer.writeInt(touchEffects)
         let expLen: Int32 = Int32(expression.count)
-        buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(expLen)) & 0xFFFF)))
+        buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(expLen)) & BitLayout.expressionLenExpLenMask) << BitLayout.expressionLenExpLenShift)))
         for item in expression {
             buffer.writeFloat(item)
         }
         let stopLen: Int32 = Int32(stopSpec.count)
-        buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(stopLen)) & 0xFFFF) | ((UInt32(bitPattern: Int32(stopMode)) & 0xFFFF) << 16)))
+        buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(stopLen)) & BitLayout.stopModeAndLenStopLenMask) << BitLayout.stopModeAndLenStopLenShift) | ((UInt32(bitPattern: Int32(stopMode)) & BitLayout.stopModeAndLenStopModeMask) << BitLayout.stopModeAndLenStopModeShift)))
         for item in stopSpec {
             buffer.writeFloat(item)
         }
@@ -6511,14 +6760,14 @@ public struct PathAppend: RemoteOperation, Equatable {
         guard _pathDataCount >= 0 else {
             throw RemoteComposeWireError(domain: "PathAppend", code: 1, message: "Invalid negative array length")
         }
-        guard _pathDataCount <= 2000 else {
+        guard _pathDataCount <= WireLimits.PATH_APPEND_PATH_DATA_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "PathAppend", code: 1, message: "Array length exceeds maximum (2000)")
         }
-        guard _pathDataCount <= buffer.remaining / 4 else {
+        guard _pathDataCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "PathAppend", code: 1, message: "Array length exceeds remaining buffer")
         }
         var pathData = [Float]()
-        pathData.reserveCapacity(Swift.min(_pathDataCount, 4096))
+        pathData.reserveCapacity(Swift.min(_pathDataCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_pathDataCount {
             pathData.append(try buffer.readFloat())
         }
@@ -6566,14 +6815,14 @@ public struct ParticlesCreate: RemoteOperation, Equatable {
         guard _variablesCount >= 0 else {
             throw RemoteComposeWireError(domain: "ParticlesCreate", code: 1, message: "Invalid negative array length")
         }
-        guard _variablesCount <= 2000 else {
+        guard _variablesCount <= WireLimits.PARTICLES_CREATE_VARIABLES_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "ParticlesCreate", code: 1, message: "Array length exceeds maximum (2000)")
         }
-        guard _variablesCount <= buffer.remaining / 8 else {
+        guard _variablesCount <= buffer.remaining / ParticleVariable.MIN_WIRE_BYTES else {
             throw RemoteComposeWireError(domain: "ParticlesCreate", code: 1, message: "Array length exceeds remaining buffer")
         }
         var variables = [ParticleVariable]()
-        variables.reserveCapacity(Swift.min(_variablesCount, 4096))
+        variables.reserveCapacity(Swift.min(_variablesCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_variablesCount {
             variables.append(try ParticleVariable.read(from: &buffer))
         }
@@ -6621,14 +6870,14 @@ public struct ParticlesLoop: RemoteOperation, Equatable {
         guard _restartEquationCount >= 0 else {
             throw RemoteComposeWireError(domain: "ParticlesLoop", code: 1, message: "Invalid negative array length")
         }
-        guard _restartEquationCount <= 32 else {
+        guard _restartEquationCount <= WireLimits.MAX_EXPRESSION_SIZE else {
             throw RemoteComposeWireError(domain: "ParticlesLoop", code: 1, message: "Array length exceeds maximum (32)")
         }
-        guard _restartEquationCount <= buffer.remaining / 4 else {
+        guard _restartEquationCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "ParticlesLoop", code: 1, message: "Array length exceeds remaining buffer")
         }
         var restartEquation = [Float]()
-        restartEquation.reserveCapacity(Swift.min(_restartEquationCount, 4096))
+        restartEquation.reserveCapacity(Swift.min(_restartEquationCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_restartEquationCount {
             restartEquation.append(try buffer.readFloat())
         }
@@ -6636,14 +6885,14 @@ public struct ParticlesLoop: RemoteOperation, Equatable {
         guard _equationsCount >= 0 else {
             throw RemoteComposeWireError(domain: "ParticlesLoop", code: 1, message: "Invalid negative array length")
         }
-        guard _equationsCount <= 2000 else {
+        guard _equationsCount <= WireLimits.MAX_PARTICLE_FLOAT_ARRAY_SIZE else {
             throw RemoteComposeWireError(domain: "ParticlesLoop", code: 1, message: "Array length exceeds maximum (2000)")
         }
-        guard _equationsCount <= buffer.remaining / 4 else {
+        guard _equationsCount <= buffer.remaining / ParticleEquation.MIN_WIRE_BYTES else {
             throw RemoteComposeWireError(domain: "ParticlesLoop", code: 1, message: "Array length exceeds remaining buffer")
         }
         var equations = [ParticleEquation]()
-        equations.reserveCapacity(Swift.min(_equationsCount, 4096))
+        equations.reserveCapacity(Swift.min(_equationsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_equationsCount {
             equations.append(try ParticleEquation.read(from: &buffer))
         }
@@ -6743,14 +6992,14 @@ public struct FloatFunctionCall: RemoteOperation, Equatable {
         guard _argsCount >= 0 else {
             throw RemoteComposeWireError(domain: "FloatFunctionCall", code: 1, message: "Invalid negative array length")
         }
-        guard _argsCount <= 80 else {
+        guard _argsCount <= WireLimits.FLOAT_FUNCTION_CALL_ARGS_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "FloatFunctionCall", code: 1, message: "Array length exceeds maximum (80)")
         }
-        guard _argsCount <= buffer.remaining / 4 else {
+        guard _argsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "FloatFunctionCall", code: 1, message: "Array length exceeds remaining buffer")
         }
         var args = [Float]()
-        args.reserveCapacity(Swift.min(_argsCount, 4096))
+        args.reserveCapacity(Swift.min(_argsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_argsCount {
             args.append(try buffer.readFloat())
         }
@@ -6771,6 +7020,15 @@ public struct FloatFunctionCall: RemoteOperation, Equatable {
 /// Embeds font glyph layout, character metrics, and glyph page mappings for bitmap font rendering
 public struct BitmapFontData: RemoteOperation, Equatable {
     public let opCode: OpCode = .bitmapFontData
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let versionAndNumGlyphsNumGlyphsShift: UInt32 = 0
+        public static let versionAndNumGlyphsNumGlyphsMask: UInt32 = 0xFFFF
+        public static let versionAndNumGlyphsVersionShift: UInt32 = 16
+        public static let versionAndNumGlyphsVersionMask: UInt32 = 0xFFFF
+        public static let versionAndNumGlyphsVersionLeftShift: UInt32 = 0
+        public static let versionAndNumGlyphsVersionRightShift: UInt32 = 16
+    }
 
     /// Bitmap font ID
     public var id: Int32
@@ -6794,17 +7052,17 @@ public struct BitmapFontData: RemoteOperation, Equatable {
     public static func read(from buffer: inout WireBuffer) throws -> BitmapFontData {
         let id = try buffer.readInt()
         let raw_versionAndNumGlyphs = try buffer.readInt()
-        let numGlyphs = Int32(UInt32(bitPattern: raw_versionAndNumGlyphs) & 0xFFFF)
-        let version = (raw_versionAndNumGlyphs >> 16)
+        let numGlyphs = Int32((UInt32(bitPattern: raw_versionAndNumGlyphs) >> BitLayout.versionAndNumGlyphsNumGlyphsShift) & BitLayout.versionAndNumGlyphsNumGlyphsMask)
+        let version = (Int32(bitPattern: UInt32(bitPattern: raw_versionAndNumGlyphs) << BitLayout.versionAndNumGlyphsVersionLeftShift) >> BitLayout.versionAndNumGlyphsVersionRightShift)
         let _glyphsCount = Int(numGlyphs)
         guard _glyphsCount >= 0 else {
             throw RemoteComposeWireError(domain: "BitmapFontData", code: 1, message: "Invalid negative array length")
         }
-        guard _glyphsCount <= buffer.remaining / 20 else {
+        guard _glyphsCount <= buffer.remaining / Glyph.MIN_WIRE_BYTES else {
             throw RemoteComposeWireError(domain: "BitmapFontData", code: 1, message: "Array length exceeds remaining buffer")
         }
         var glyphs = [Glyph]()
-        glyphs.reserveCapacity(Swift.min(_glyphsCount, 4096))
+        glyphs.reserveCapacity(Swift.min(_glyphsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_glyphsCount {
             glyphs.append(try Glyph.read(from: &buffer))
         }
@@ -6814,11 +7072,11 @@ public struct BitmapFontData: RemoteOperation, Equatable {
             guard _kerningTableCount >= 0 else {
                 throw RemoteComposeWireError(domain: "BitmapFontData", code: 1, message: "Invalid negative array length")
             }
-            guard _kerningTableCount <= buffer.remaining / 6 else {
+            guard _kerningTableCount <= buffer.remaining / KerningPair.MIN_WIRE_BYTES else {
                 throw RemoteComposeWireError(domain: "BitmapFontData", code: 1, message: "Array length exceeds remaining buffer")
             }
             var kerningTableTmp = [KerningPair]()
-            kerningTableTmp.reserveCapacity(Swift.min(_kerningTableCount, 4096))
+            kerningTableTmp.reserveCapacity(Swift.min(_kerningTableCount, WireLimits.MAX_INITIAL_CAPACITY))
             for _ in 0..<_kerningTableCount {
                 kerningTableTmp.append(try KerningPair.read(from: &buffer))
             }
@@ -6835,7 +7093,7 @@ public struct BitmapFontData: RemoteOperation, Equatable {
         buffer.writeInt(id)
         let numGlyphs: Int32 = Int32(glyphs.count)
         let version: Int32 = (!kerningTable.isEmpty ? 1 : 0)
-        buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(numGlyphs)) & 0xFFFF) | ((UInt32(bitPattern: Int32(version)) & 0xFFFF) << 16)))
+        buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(numGlyphs)) & BitLayout.versionAndNumGlyphsNumGlyphsMask) << BitLayout.versionAndNumGlyphsNumGlyphsShift) | ((UInt32(bitPattern: Int32(version)) & BitLayout.versionAndNumGlyphsVersionMask) << BitLayout.versionAndNumGlyphsVersionShift)))
         for item in glyphs {
             try item.write(to: &buffer)
         }
@@ -6873,14 +7131,14 @@ public struct FloatFunctionDefine: RemoteOperation, Equatable {
         guard _argIdsCount >= 0 else {
             throw RemoteComposeWireError(domain: "FloatFunctionDefine", code: 1, message: "Invalid negative array length")
         }
-        guard _argIdsCount <= 32 else {
+        guard _argIdsCount <= WireLimits.MAX_FUNCTION_ARGUMENTS else {
             throw RemoteComposeWireError(domain: "FloatFunctionDefine", code: 1, message: "Array length exceeds maximum (32)")
         }
-        guard _argIdsCount <= buffer.remaining / 4 else {
+        guard _argIdsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "FloatFunctionDefine", code: 1, message: "Array length exceeds remaining buffer")
         }
         var argIds = [Int32]()
-        argIds.reserveCapacity(Swift.min(_argIdsCount, 4096))
+        argIds.reserveCapacity(Swift.min(_argIdsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_argIdsCount {
             argIds.append(try buffer.readInt())
         }
@@ -6919,7 +7177,7 @@ public struct SoundData: RemoteOperation, Equatable {
     /// Reads and decodes a [SoundData] from the wire buffer.
     public static func read(from buffer: inout WireBuffer) throws -> SoundData {
         let soundId = try buffer.readInt()
-        let data = try buffer.readBuffer(maxLength: 262144)
+        let data = try buffer.readBuffer(maxLength: WireLimits.SOUND_DATA_DATA_MAX_LENGTH)
         return SoundData(soundId: soundId, data: data)
     }
 
@@ -6941,6 +7199,15 @@ public struct TextAttribute: RemoteOperation, Equatable {
     public static let MEASURE_TOP: Int32 = 4
     public static let MEASURE_BOTTOM: Int32 = 5
     public static let TEXT_LENGTH: Int32 = 6
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let typeAttributeKindShift: UInt32 = 0
+        public static let typeAttributeKindMask: UInt32 = 0xFF
+        public static let typeMeasureFlagsShift: UInt32 = 8
+        public static let typeMeasureFlagsMask: UInt32 = 0xFF
+        public static let typeMeasureFlagsLeftShift: UInt32 = 16
+        public static let typeMeasureFlagsRightShift: UInt32 = 24
+    }
 
     /// The ID of the float variable to store the result
     public var id: Int32
@@ -6951,10 +7218,10 @@ public struct TextAttribute: RemoteOperation, Equatable {
     /// unused field
     public var unused: Int16
     public var attributeKind: Int32 {
-        return Int32(UInt32(bitPattern: Int32(type)) & 0xFF)
+        return Int32((UInt32(bitPattern: Int32(type)) >> BitLayout.typeAttributeKindShift) & BitLayout.typeAttributeKindMask)
     }
     public var measureFlags: Int32 {
-        return (Int32(bitPattern: UInt32(bitPattern: Int32(type)) << 16) >> 24)
+        return (Int32(bitPattern: UInt32(bitPattern: Int32(type)) << BitLayout.typeMeasureFlagsLeftShift) >> BitLayout.typeMeasureFlagsRightShift)
     }
 
     /// Creates a new [TextAttribute] operation.
@@ -7024,11 +7291,11 @@ public struct ImageAttribute: RemoteOperation, Equatable {
         guard _argsCount >= 0 else {
             throw RemoteComposeWireError(domain: "ImageAttribute", code: 1, message: "Invalid negative array length")
         }
-        guard _argsCount <= buffer.remaining / 4 else {
+        guard _argsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "ImageAttribute", code: 1, message: "Array length exceeds remaining buffer")
         }
         var args = [Int32]()
-        args.reserveCapacity(Swift.min(_argsCount, 4096))
+        args.reserveCapacity(Swift.min(_argsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_argsCount {
             args.append(try buffer.readInt())
         }
@@ -7083,14 +7350,14 @@ public struct TimeAttribute: RemoteOperation, Equatable {
         guard _argsCount >= 0 else {
             throw RemoteComposeWireError(domain: "TimeAttribute", code: 1, message: "Invalid negative array length")
         }
-        guard _argsCount <= 32 else {
+        guard _argsCount <= WireLimits.TIME_ATTRIBUTE_ARGS_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "TimeAttribute", code: 1, message: "Array length exceeds maximum (32)")
         }
-        guard _argsCount <= buffer.remaining / 4 else {
+        guard _argsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "TimeAttribute", code: 1, message: "Array length exceeds remaining buffer")
         }
         var args = [Int32]()
-        args.reserveCapacity(Swift.min(_argsCount, 4096))
+        args.reserveCapacity(Swift.min(_argsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_argsCount {
             args.append(try buffer.readInt())
         }
@@ -7503,6 +7770,13 @@ public struct TextSubtext: RemoteOperation, Equatable {
 /// Measure text dimensions specifically for bitmap fonts
 public struct BitmapTextMeasure: RemoteOperation, Equatable {
     public let opCode: OpCode = .bitmapTextMeasure
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let idIdShift: UInt32 = 0
+        public static let idIdMask: UInt32 = 0x7FFFFFFF
+        public static let idHasGlyphSpacingShift: UInt32 = 31
+        public static let idHasGlyphSpacingMask: UInt32 = 0x1
+    }
 
     /// Output float ID in bits 0..30 and glyphSpacing presence flag in bit 31
     public var id: Int32
@@ -7533,8 +7807,8 @@ public struct BitmapTextMeasure: RemoteOperation, Equatable {
     /// Reads and decodes a [BitmapTextMeasure] from the wire buffer.
     public static func read(from buffer: inout WireBuffer) throws -> BitmapTextMeasure {
         let raw_id = try buffer.readInt()
-        let id = Int32(UInt32(bitPattern: raw_id) & 0x7FFFFFFF)
-        let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_id) >> 31) & 0x1)
+        let id = Int32((UInt32(bitPattern: raw_id) >> BitLayout.idIdShift) & BitLayout.idIdMask)
+        let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_id) >> BitLayout.idHasGlyphSpacingShift) & BitLayout.idHasGlyphSpacingMask)
         let glyphSpacing: Float?
         if Int(hasGlyphSpacing) != 0 {
             glyphSpacing = try buffer.readFloat()
@@ -7551,7 +7825,7 @@ public struct BitmapTextMeasure: RemoteOperation, Equatable {
     public func write(to buffer: inout WireBuffer) throws {
         buffer.writeByte(opCode.rawValue)
         let hasGlyphSpacing: Int32 = (glyphSpacing != nil ? 1 : 0)
-        buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(id)) & 0x7FFFFFFF) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & 0x1) << 31)))
+        buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(id)) & BitLayout.idIdMask) << BitLayout.idIdShift) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & BitLayout.idHasGlyphSpacingMask) << BitLayout.idHasGlyphSpacingShift)))
         if Int(hasGlyphSpacing) != 0 {
             guard let val = glyphSpacing else {
                 throw RemoteComposeWireError(domain: "BitmapTextMeasure", code: 3, message: "Missing required field glyphSpacing")
@@ -7567,6 +7841,16 @@ public struct BitmapTextMeasure: RemoteOperation, Equatable {
 /// Draw bitmap font text anchored to a point with alignment (pan)
 public struct DrawBitmapTextAnchored: RemoteOperation, Equatable {
     public let opCode: OpCode = .drawBitmapTextAnchored
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let textIdTextIdShift: UInt32 = 0
+        public static let textIdTextIdMask: UInt32 = 0x7FFFFFFF
+        public static let textIdTextIdNarrowFlagShift: UInt32 = 31
+        public static let textIdTextIdNarrowShift: UInt32 = 0
+        public static let textIdTextIdNarrowMask: UInt32 = 0xFFFF
+        public static let textIdHasGlyphSpacingShift: UInt32 = 31
+        public static let textIdHasGlyphSpacingMask: UInt32 = 0x1
+    }
 
     /// Text ID (bits 0..15 when bit 31 is set, bits 0..30 otherwise) and glyphSpacing presence flag in bit 31
     public var textId: Int32
@@ -7613,8 +7897,8 @@ public struct DrawBitmapTextAnchored: RemoteOperation, Equatable {
     /// Reads and decodes a [DrawBitmapTextAnchored] from the wire buffer.
     public static func read(from buffer: inout WireBuffer) throws -> DrawBitmapTextAnchored {
         let raw_textId = try buffer.readInt()
-        let textId = (((UInt32(bitPattern: raw_textId) >> 31) & 1) != 0 ? Int32(UInt32(bitPattern: raw_textId) & 0xFFFF) : Int32(UInt32(bitPattern: raw_textId) & 0x7FFFFFFF))
-        let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_textId) >> 31) & 0x1)
+        let textId = (((UInt32(bitPattern: raw_textId) >> BitLayout.textIdTextIdNarrowFlagShift) & 1) != 0 ? Int32((UInt32(bitPattern: raw_textId) >> BitLayout.textIdTextIdNarrowShift) & BitLayout.textIdTextIdNarrowMask) : Int32((UInt32(bitPattern: raw_textId) >> BitLayout.textIdTextIdShift) & BitLayout.textIdTextIdMask))
+        let hasGlyphSpacing = Int32((UInt32(bitPattern: raw_textId) >> BitLayout.textIdHasGlyphSpacingShift) & BitLayout.textIdHasGlyphSpacingMask)
         let glyphSpacing: Float?
         if Int(hasGlyphSpacing) != 0 {
             glyphSpacing = try buffer.readFloat()
@@ -7635,7 +7919,7 @@ public struct DrawBitmapTextAnchored: RemoteOperation, Equatable {
     public func write(to buffer: inout WireBuffer) throws {
         buffer.writeByte(opCode.rawValue)
         let hasGlyphSpacing: Int32 = (glyphSpacing != nil ? 1 : 0)
-        buffer.writeInt(Int32(bitPattern: (UInt32(bitPattern: Int32(textId)) & 0x7FFFFFFF) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & 0x1) << 31)))
+        buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(textId)) & BitLayout.textIdTextIdMask) << BitLayout.textIdTextIdShift) | ((UInt32(bitPattern: Int32(hasGlyphSpacing)) & BitLayout.textIdHasGlyphSpacingMask) << BitLayout.textIdHasGlyphSpacingShift)))
         if Int(hasGlyphSpacing) != 0 {
             guard let val = glyphSpacing else {
                 throw RemoteComposeWireError(domain: "DrawBitmapTextAnchored", code: 3, message: "Missing required field glyphSpacing")
@@ -7668,7 +7952,7 @@ public struct Rem: RemoteOperation, Equatable {
 
     /// Reads and decodes a [Rem] from the wire buffer.
     public static func read(from buffer: inout WireBuffer) throws -> Rem {
-        let text = try buffer.readUTF8(maxLength: 4000)
+        let text = try buffer.readUTF8(maxLength: WireLimits.MAX_STRING_SIZE)
         return Rem(text: text)
     }
 
@@ -7709,14 +7993,14 @@ public struct MatrixConstant: RemoteOperation, Equatable {
         guard _valuesCount >= 0 else {
             throw RemoteComposeWireError(domain: "MatrixConstant", code: 1, message: "Invalid negative array length")
         }
-        guard _valuesCount <= 16 else {
+        guard _valuesCount <= WireLimits.MATRIX_CONSTANT_VALUES_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "MatrixConstant", code: 1, message: "Array length exceeds maximum (16)")
         }
-        guard _valuesCount <= buffer.remaining / 4 else {
+        guard _valuesCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "MatrixConstant", code: 1, message: "Array length exceeds remaining buffer")
         }
         var values = [Float]()
-        values.reserveCapacity(Swift.min(_valuesCount, 4096))
+        values.reserveCapacity(Swift.min(_valuesCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_valuesCount {
             values.append(try buffer.readFloat())
         }
@@ -7765,14 +8049,14 @@ public struct MatrixExpression: RemoteOperation, Equatable {
         guard _expressionCount >= 0 else {
             throw RemoteComposeWireError(domain: "MatrixExpression", code: 1, message: "Invalid negative array length")
         }
-        guard _expressionCount <= 32 else {
+        guard _expressionCount <= WireLimits.MATRIX_EXPRESSION_EXPRESSION_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "MatrixExpression", code: 1, message: "Array length exceeds maximum (32)")
         }
-        guard _expressionCount <= buffer.remaining / 4 else {
+        guard _expressionCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "MatrixExpression", code: 1, message: "Array length exceeds remaining buffer")
         }
         var expression = [Float]()
-        expression.reserveCapacity(Swift.min(_expressionCount, 4096))
+        expression.reserveCapacity(Swift.min(_expressionCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_expressionCount {
             expression.append(try buffer.readFloat())
         }
@@ -7828,14 +8112,14 @@ public struct MatrixVectorMath: RemoteOperation, Equatable {
         guard _outputsCount >= 1 else {
             throw RemoteComposeWireError(domain: "MatrixVectorMath", code: 1, message: "Array length below minimum (1)")
         }
-        guard _outputsCount <= 4 else {
+        guard _outputsCount <= WireLimits.MATRIX_VECTOR_MATH_OUTPUTS_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "MatrixVectorMath", code: 1, message: "Array length exceeds maximum (4)")
         }
-        guard _outputsCount <= buffer.remaining / 4 else {
+        guard _outputsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "MatrixVectorMath", code: 1, message: "Array length exceeds remaining buffer")
         }
         var outputs = [Int32]()
-        outputs.reserveCapacity(Swift.min(_outputsCount, 4096))
+        outputs.reserveCapacity(Swift.min(_outputsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_outputsCount {
             outputs.append(try buffer.readInt())
         }
@@ -7846,14 +8130,14 @@ public struct MatrixVectorMath: RemoteOperation, Equatable {
         guard _inputsCount >= 1 else {
             throw RemoteComposeWireError(domain: "MatrixVectorMath", code: 1, message: "Array length below minimum (1)")
         }
-        guard _inputsCount <= 4 else {
+        guard _inputsCount <= WireLimits.MATRIX_VECTOR_MATH_INPUTS_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "MatrixVectorMath", code: 1, message: "Array length exceeds maximum (4)")
         }
-        guard _inputsCount <= buffer.remaining / 4 else {
+        guard _inputsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "MatrixVectorMath", code: 1, message: "Array length exceeds remaining buffer")
         }
         var inputs = [Float]()
-        inputs.reserveCapacity(Swift.min(_inputsCount, 4096))
+        inputs.reserveCapacity(Swift.min(_inputsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_inputsCount {
             inputs.append(try buffer.readFloat())
         }
@@ -7902,7 +8186,7 @@ public struct FontData: RemoteOperation, Equatable {
     public static func read(from buffer: inout WireBuffer) throws -> FontData {
         let fontId = try buffer.readInt()
         let type = try buffer.readInt()
-        let fontData = try buffer.readBuffer(maxLength: 800000)
+        let fontData = try buffer.readBuffer(maxLength: WireLimits.MAX_FONT_DATA)
         return FontData(fontId: fontId, type: type, fontData: fontData)
     }
 
@@ -8069,14 +8353,14 @@ public struct PathExpression: RemoteOperation, Equatable {
         guard _expressionXCount >= 0 else {
             throw RemoteComposeWireError(domain: "PathExpression", code: 1, message: "Invalid negative array length")
         }
-        guard _expressionXCount <= 32 else {
+        guard _expressionXCount <= WireLimits.MAX_EXPRESSION_SIZE else {
             throw RemoteComposeWireError(domain: "PathExpression", code: 1, message: "Array length exceeds maximum (32)")
         }
-        guard _expressionXCount <= buffer.remaining / 4 else {
+        guard _expressionXCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "PathExpression", code: 1, message: "Array length exceeds remaining buffer")
         }
         var expressionX = [Float]()
-        expressionX.reserveCapacity(Swift.min(_expressionXCount, 4096))
+        expressionX.reserveCapacity(Swift.min(_expressionXCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_expressionXCount {
             expressionX.append(try buffer.readFloat())
         }
@@ -8084,14 +8368,14 @@ public struct PathExpression: RemoteOperation, Equatable {
         guard _expressionYCount >= 0 else {
             throw RemoteComposeWireError(domain: "PathExpression", code: 1, message: "Invalid negative array length")
         }
-        guard _expressionYCount <= 32 else {
+        guard _expressionYCount <= WireLimits.MAX_EXPRESSION_SIZE else {
             throw RemoteComposeWireError(domain: "PathExpression", code: 1, message: "Array length exceeds maximum (32)")
         }
-        guard _expressionYCount <= buffer.remaining / 4 else {
+        guard _expressionYCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "PathExpression", code: 1, message: "Array length exceeds remaining buffer")
         }
         var expressionY = [Float]()
-        expressionY.reserveCapacity(Swift.min(_expressionYCount, 4096))
+        expressionY.reserveCapacity(Swift.min(_expressionYCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_expressionYCount {
             expressionY.append(try buffer.readFloat())
         }
@@ -8165,14 +8449,14 @@ public struct ParticlesCompare: RemoteOperation, Equatable {
         guard _conditionCount >= 0 else {
             throw RemoteComposeWireError(domain: "ParticlesCompare", code: 1, message: "Invalid negative array length")
         }
-        guard _conditionCount <= 46 else {
+        guard _conditionCount <= WireLimits.PARTICLES_COMPARE_CONDITION_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "ParticlesCompare", code: 1, message: "Array length exceeds maximum (46)")
         }
-        guard _conditionCount <= buffer.remaining / 4 else {
+        guard _conditionCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "ParticlesCompare", code: 1, message: "Array length exceeds remaining buffer")
         }
         var condition = [Float]()
-        condition.reserveCapacity(Swift.min(_conditionCount, 4096))
+        condition.reserveCapacity(Swift.min(_conditionCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_conditionCount {
             condition.append(try buffer.readFloat())
         }
@@ -8180,14 +8464,14 @@ public struct ParticlesCompare: RemoteOperation, Equatable {
         guard _equations1Count >= 0 else {
             throw RemoteComposeWireError(domain: "ParticlesCompare", code: 1, message: "Invalid negative array length")
         }
-        guard _equations1Count <= 2000 else {
+        guard _equations1Count <= WireLimits.PARTICLES_COMPARE_EQUATIONS1_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "ParticlesCompare", code: 1, message: "Array length exceeds maximum (2000)")
         }
-        guard _equations1Count <= buffer.remaining / 4 else {
+        guard _equations1Count <= buffer.remaining / ParticleCompareEquation.MIN_WIRE_BYTES else {
             throw RemoteComposeWireError(domain: "ParticlesCompare", code: 1, message: "Array length exceeds remaining buffer")
         }
         var equations1 = [ParticleCompareEquation]()
-        equations1.reserveCapacity(Swift.min(_equations1Count, 4096))
+        equations1.reserveCapacity(Swift.min(_equations1Count, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_equations1Count {
             equations1.append(try ParticleCompareEquation.read(from: &buffer))
         }
@@ -8195,14 +8479,14 @@ public struct ParticlesCompare: RemoteOperation, Equatable {
         guard _equations2Count >= 0 else {
             throw RemoteComposeWireError(domain: "ParticlesCompare", code: 1, message: "Invalid negative array length")
         }
-        guard _equations2Count <= 2000 else {
+        guard _equations2Count <= WireLimits.PARTICLES_COMPARE_EQUATIONS2_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "ParticlesCompare", code: 1, message: "Array length exceeds maximum (2000)")
         }
-        guard _equations2Count <= buffer.remaining / 4 else {
+        guard _equations2Count <= buffer.remaining / ParticleCompareEquation.MIN_WIRE_BYTES else {
             throw RemoteComposeWireError(domain: "ParticlesCompare", code: 1, message: "Array length exceeds remaining buffer")
         }
         var equations2 = [ParticleCompareEquation]()
-        equations2.reserveCapacity(Swift.min(_equations2Count, 4096))
+        equations2.reserveCapacity(Swift.min(_equations2Count, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_equations2Count {
             equations2.append(try ParticleCompareEquation.read(from: &buffer))
         }
@@ -8711,14 +8995,14 @@ public struct SoundExpression: RemoteOperation, Equatable {
         guard _paramsCount >= 0 else {
             throw RemoteComposeWireError(domain: "SoundExpression", code: 1, message: "Invalid negative array length")
         }
-        guard _paramsCount <= 64 else {
+        guard _paramsCount <= WireLimits.SOUND_EXPRESSION_PARAMS_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "SoundExpression", code: 1, message: "Array length exceeds maximum (64)")
         }
-        guard _paramsCount <= buffer.remaining / 4 else {
+        guard _paramsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "SoundExpression", code: 1, message: "Array length exceeds remaining buffer")
         }
         var params = [Float]()
-        params.reserveCapacity(Swift.min(_paramsCount, 4096))
+        params.reserveCapacity(Swift.min(_paramsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_paramsCount {
             params.append(try buffer.readFloat())
         }
@@ -8782,6 +9066,19 @@ public struct TextLayout: RemoteOperation, Equatable {
     public static let OVERFLOW_ELLIPSIS: Int32 = 3
     public static let OVERFLOW_START_ELLIPSIS: Int32 = 4
     public static let OVERFLOW_MIDDLE_ELLIPSIS: Int32 = 5
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let textAlignAlignmentShift: UInt32 = 0
+        public static let textAlignAlignmentMask: UInt32 = 0xFFFF
+        public static let textAlignAlignmentLeftShift: UInt32 = 16
+        public static let textAlignAlignmentRightShift: UInt32 = 16
+        public static let textAlignIsDynamicColorShift: UInt32 = 16
+        public static let textAlignIsDynamicColorMask: UInt32 = 0x1
+        public static let textAlignUpperFlagsShift: UInt32 = 17
+        public static let textAlignUpperFlagsMask: UInt32 = 0x7FFF
+        public static let textAlignUpperFlagsLeftShift: UInt32 = 0
+        public static let textAlignUpperFlagsRightShift: UInt32 = 17
+    }
 
     /// Unique ID for this component
     public var componentId: Int32
@@ -8806,13 +9103,13 @@ public struct TextLayout: RemoteOperation, Equatable {
     /// The maximum number of lines
     public var maxLines: Int32
     public var alignment: Int32 {
-        return (Int32(bitPattern: UInt32(bitPattern: textAlign) << 16) >> 16)
+        return (Int32(bitPattern: UInt32(bitPattern: textAlign) << BitLayout.textAlignAlignmentLeftShift) >> BitLayout.textAlignAlignmentRightShift)
     }
     public var isDynamicColor: Int32 {
-        return Int32((UInt32(bitPattern: textAlign) >> 16) & 0x1)
+        return Int32((UInt32(bitPattern: textAlign) >> BitLayout.textAlignIsDynamicColorShift) & BitLayout.textAlignIsDynamicColorMask)
     }
     public var upperFlags: Int32 {
-        return (textAlign >> 17)
+        return (Int32(bitPattern: UInt32(bitPattern: textAlign) << BitLayout.textAlignUpperFlagsLeftShift) >> BitLayout.textAlignUpperFlagsRightShift)
     }
 
     /// Creates a new [TextLayout] operation.
@@ -9374,14 +9671,14 @@ public struct GraphicsLayerModifierOperation: RemoteOperation, Equatable {
         guard _attributesCount >= 0 else {
             throw RemoteComposeWireError(domain: "GraphicsLayerModifierOperation", code: 1, message: "Invalid negative array length")
         }
-        guard _attributesCount <= 22 else {
+        guard _attributesCount <= WireLimits.GRAPHICS_LAYER_MODIFIER_OPERATION_ATTRIBUTES_MAX_LENGTH else {
             throw RemoteComposeWireError(domain: "GraphicsLayerModifierOperation", code: 1, message: "Array length exceeds maximum (22)")
         }
-        guard _attributesCount <= buffer.remaining / 4 else {
+        guard _attributesCount <= buffer.remaining / GraphicsLayerAttribute.MIN_WIRE_BYTES else {
             throw RemoteComposeWireError(domain: "GraphicsLayerModifierOperation", code: 1, message: "Array length exceeds remaining buffer")
         }
         var attributes = [GraphicsLayerAttribute]()
-        attributes.reserveCapacity(Swift.min(_attributesCount, 4096))
+        attributes.reserveCapacity(Swift.min(_attributesCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_attributesCount {
             attributes.append(try GraphicsLayerAttribute.read(from: &buffer))
         }
@@ -9768,6 +10065,11 @@ public struct ImageLayout: RemoteOperation, Equatable {
     public static let SCALE_CROP: Int32 = 5
     public static let SCALE_FILL_BOUNDS: Int32 = 6
     public static let SCALE_FIXED_SCALE: Int32 = 7
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let scaleTypeScaleModeShift: UInt32 = 0
+        public static let scaleTypeScaleModeMask: UInt32 = 0xFF
+    }
 
     /// Unique ID for this component
     public var componentId: Int32
@@ -9780,7 +10082,7 @@ public struct ImageLayout: RemoteOperation, Equatable {
     /// The alpha transparency [0..1]
     public var alpha: Float
     public var scaleMode: Int32 {
-        return Int32(UInt32(bitPattern: scaleType) & 0xFF)
+        return Int32((UInt32(bitPattern: scaleType) >> BitLayout.scaleTypeScaleModeShift) & BitLayout.scaleTypeScaleModeMask)
     }
 
     /// Creates a new [ImageLayout] operation.
@@ -9947,6 +10249,34 @@ public struct LayoutCompute: RemoteOperation, Equatable {
 /// Core text layout implementation with advanced styling
 public struct CoreText: RemoteOperation, Equatable {
     public let opCode: OpCode = .coreText
+    public enum SparseParameterID {
+        public static let componentId: Int = 1
+        public static let animationId: Int = 2
+        public static let color: Int = 3
+        public static let colorId: Int = 4
+        public static let fontSize: Int = 5
+        public static let minFontSize: Int = 25
+        public static let maxFontSize: Int = 26
+        public static let fontStyle: Int = 6
+        public static let fontWeight: Int = 7
+        public static let fontFamilyId: Int = 8
+        public static let textAlign: Int = 9
+        public static let overflow: Int = 10
+        public static let maxLines: Int = 11
+        public static let letterSpacing: Int = 12
+        public static let lineHeightAdd: Int = 13
+        public static let lineHeightMultiplier: Int = 14
+        public static let lineBreakStrategy: Int = 15
+        public static let hyphenationFrequency: Int = 16
+        public static let justificationMode: Int = 17
+        public static let underline: Int = 18
+        public static let strikethrough: Int = 19
+        public static let fontAxis: Int = 20
+        public static let fontAxisValues: Int = 21
+        public static let autosize: Int = 22
+        public static let flags: Int = 23
+        public static let textStyleId: Int = 24
+    }
 
     /// The ID of the text to display
     public var textId: Int32
@@ -10066,87 +10396,87 @@ public struct CoreText: RemoteOperation, Equatable {
         var flags: Int32? = nil
         var textStyleId: Int32? = nil
         let sparseCount = Int(UInt16(bitPattern: try buffer.readShort()))
-        guard sparseCount <= buffer.remaining / 2 else {
+        guard sparseCount <= buffer.remaining / (MemoryLayout<UInt8>.size + MemoryLayout<UInt8>.size) else {
             throw RemoteComposeWireError(domain: "CoreText", code: 1, message: "Sparse parameter count exceeds remaining buffer")
         }
         for _ in 0..<sparseCount {
             let paramId = Int(try buffer.readByte())
             switch paramId {
-            case 1:
+            case SparseParameterID.componentId:
                 componentId = try buffer.readInt()
-            case 2:
+            case SparseParameterID.animationId:
                 animationId = try buffer.readInt()
-            case 3:
+            case SparseParameterID.color:
                 color = try buffer.readInt()
-            case 4:
+            case SparseParameterID.colorId:
                 colorId = try buffer.readInt()
-            case 5:
+            case SparseParameterID.fontSize:
                 fontSize = try buffer.readFloat()
-            case 25:
+            case SparseParameterID.minFontSize:
                 minFontSize = try buffer.readFloat()
-            case 26:
+            case SparseParameterID.maxFontSize:
                 maxFontSize = try buffer.readFloat()
-            case 6:
+            case SparseParameterID.fontStyle:
                 fontStyle = try buffer.readInt()
-            case 7:
+            case SparseParameterID.fontWeight:
                 fontWeight = try buffer.readFloat()
-            case 8:
+            case SparseParameterID.fontFamilyId:
                 fontFamilyId = try buffer.readInt()
-            case 9:
+            case SparseParameterID.textAlign:
                 textAlign = try buffer.readInt()
-            case 10:
+            case SparseParameterID.overflow:
                 overflow = try buffer.readInt()
-            case 11:
+            case SparseParameterID.maxLines:
                 maxLines = try buffer.readInt()
-            case 12:
+            case SparseParameterID.letterSpacing:
                 letterSpacing = try buffer.readFloat()
-            case 13:
+            case SparseParameterID.lineHeightAdd:
                 lineHeightAdd = try buffer.readFloat()
-            case 14:
+            case SparseParameterID.lineHeightMultiplier:
                 lineHeightMultiplier = try buffer.readFloat()
-            case 15:
+            case SparseParameterID.lineBreakStrategy:
                 lineBreakStrategy = try buffer.readInt()
-            case 16:
+            case SparseParameterID.hyphenationFrequency:
                 hyphenationFrequency = try buffer.readInt()
-            case 17:
+            case SparseParameterID.justificationMode:
                 justificationMode = try buffer.readInt()
-            case 18:
+            case SparseParameterID.underline:
                 underline = try buffer.readBoolean()
-            case 19:
+            case SparseParameterID.strikethrough:
                 strikethrough = try buffer.readBoolean()
-            case 20:
+            case SparseParameterID.fontAxis:
                 let _fontAxisCount = Int(UInt16(bitPattern: try buffer.readShort()))
                 guard _fontAxisCount >= 0 else {
                     throw RemoteComposeWireError(domain: "CoreText", code: 1, message: "Invalid negative array length")
                 }
-                guard _fontAxisCount <= buffer.remaining / 4 else {
+                guard _fontAxisCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                     throw RemoteComposeWireError(domain: "CoreText", code: 1, message: "Array length exceeds remaining buffer")
                 }
                 var fontAxisTmp = [Int32]()
-                fontAxisTmp.reserveCapacity(Swift.min(_fontAxisCount, 4096))
+                fontAxisTmp.reserveCapacity(Swift.min(_fontAxisCount, WireLimits.MAX_INITIAL_CAPACITY))
                 for _ in 0..<_fontAxisCount {
                     fontAxisTmp.append(try buffer.readInt())
                 }
                 fontAxis = fontAxisTmp
-            case 21:
+            case SparseParameterID.fontAxisValues:
                 let _fontAxisValuesCount = Int(UInt16(bitPattern: try buffer.readShort()))
                 guard _fontAxisValuesCount >= 0 else {
                     throw RemoteComposeWireError(domain: "CoreText", code: 1, message: "Invalid negative array length")
                 }
-                guard _fontAxisValuesCount <= buffer.remaining / 4 else {
+                guard _fontAxisValuesCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                     throw RemoteComposeWireError(domain: "CoreText", code: 1, message: "Array length exceeds remaining buffer")
                 }
                 var fontAxisValuesTmp = [Float]()
-                fontAxisValuesTmp.reserveCapacity(Swift.min(_fontAxisValuesCount, 4096))
+                fontAxisValuesTmp.reserveCapacity(Swift.min(_fontAxisValuesCount, WireLimits.MAX_INITIAL_CAPACITY))
                 for _ in 0..<_fontAxisValuesCount {
                     fontAxisValuesTmp.append(try buffer.readFloat())
                 }
                 fontAxisValues = fontAxisValuesTmp
-            case 22:
+            case SparseParameterID.autosize:
                 autosize = try buffer.readBoolean()
-            case 23:
+            case SparseParameterID.flags:
                 flags = try buffer.readInt()
-            case 24:
+            case SparseParameterID.textStyleId:
                 textStyleId = try buffer.readInt()
             default:
                 throw RemoteComposeWireError(domain: "CoreText", code: 2, message: "Unknown sparse parameter")
@@ -10188,113 +10518,113 @@ public struct CoreText: RemoteOperation, Equatable {
         if textStyleId != nil { sparseCount += 1 }
         buffer.writeShort(Int16(truncatingIfNeeded: sparseCount))
         if let val = componentId {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 1))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.componentId))
             buffer.writeInt(val)
         }
         if let val = animationId {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 2))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.animationId))
             buffer.writeInt(val)
         }
         if let val = color {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 3))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.color))
             buffer.writeInt(val)
         }
         if let val = colorId {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 4))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.colorId))
             buffer.writeInt(val)
         }
         if let val = fontSize {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 5))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontSize))
             buffer.writeFloat(val)
         }
         if let val = minFontSize {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 25))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.minFontSize))
             buffer.writeFloat(val)
         }
         if let val = maxFontSize {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 26))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.maxFontSize))
             buffer.writeFloat(val)
         }
         if let val = fontStyle {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 6))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontStyle))
             buffer.writeInt(val)
         }
         if let val = fontWeight {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 7))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontWeight))
             buffer.writeFloat(val)
         }
         if let val = fontFamilyId {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 8))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontFamilyId))
             buffer.writeInt(val)
         }
         if let val = textAlign {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 9))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.textAlign))
             buffer.writeInt(val)
         }
         if let val = overflow {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 10))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.overflow))
             buffer.writeInt(val)
         }
         if let val = maxLines {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 11))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.maxLines))
             buffer.writeInt(val)
         }
         if let val = letterSpacing {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 12))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.letterSpacing))
             buffer.writeFloat(val)
         }
         if let val = lineHeightAdd {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 13))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.lineHeightAdd))
             buffer.writeFloat(val)
         }
         if let val = lineHeightMultiplier {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 14))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.lineHeightMultiplier))
             buffer.writeFloat(val)
         }
         if let val = lineBreakStrategy {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 15))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.lineBreakStrategy))
             buffer.writeInt(val)
         }
         if let val = hyphenationFrequency {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 16))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.hyphenationFrequency))
             buffer.writeInt(val)
         }
         if let val = justificationMode {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 17))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.justificationMode))
             buffer.writeInt(val)
         }
         if let val = underline {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 18))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.underline))
             buffer.writeBoolean(val)
         }
         if let val = strikethrough {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 19))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.strikethrough))
             buffer.writeBoolean(val)
         }
         if let val = fontAxis {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 20))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontAxis))
             buffer.writeShort(Int16(truncatingIfNeeded: val.count))
             for item in val {
                 buffer.writeInt(item)
             }
         }
         if let val = fontAxisValues {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 21))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontAxisValues))
             buffer.writeShort(Int16(truncatingIfNeeded: val.count))
             for item in val {
                 buffer.writeFloat(item)
             }
         }
         if let val = autosize {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 22))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.autosize))
             buffer.writeBoolean(val)
         }
         if let val = flags {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 23))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.flags))
             buffer.writeInt(val)
         }
         if let val = textStyleId {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 24))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.textStyleId))
             buffer.writeInt(val)
         }
     }
@@ -10380,6 +10710,13 @@ public struct Skip: RemoteOperation, Equatable {
     public static let SKIP_IF_API_NOT_EQUAL_TO: Int32 = 4
     public static let SKIP_IF_PROFILE_INCLUDES: Int32 = 5
     public static let SKIP_IF_PROFILE_EXCLUDES: Int32 = 6
+    /// The shifts and masks of this type's packed fields, from the schema's bit ranges.
+    public enum BitLayout {
+        public static let conditionTypeConditionShift: UInt32 = 0
+        public static let conditionTypeConditionMask: UInt32 = 0xFFFF
+        public static let conditionTypeConditionLeftShift: UInt32 = 16
+        public static let conditionTypeConditionRightShift: UInt32 = 16
+    }
 
     /// 32-bit condition word; reader keeps only the signed low 16 bits and never skips on unknown types
     public var conditionType: Int32
@@ -10390,7 +10727,7 @@ public struct Skip: RemoteOperation, Equatable {
     /// Raw skipped operation bytes consumed when the skip condition holds; omitted (decoded inline) when not taken
     public var skippedBytes: WireBytes?
     public var condition: Int32 {
-        return (Int32(bitPattern: UInt32(bitPattern: conditionType) << 16) >> 16)
+        return (Int32(bitPattern: UInt32(bitPattern: conditionType) << BitLayout.conditionTypeConditionLeftShift) >> BitLayout.conditionTypeConditionRightShift)
     }
 
     /// Creates a new [Skip] operation.
@@ -10425,13 +10762,13 @@ public struct Skip: RemoteOperation, Equatable {
     }
 
     public static func shouldSkip(conditionType: Int32, value: Int32, playerApiLevel: Int32, playerProfiles: Int32) -> Bool {
-        switch (Int32(bitPattern: UInt32(bitPattern: conditionType) << 16) >> 16) {
-        case 1: return playerApiLevel < value
-        case 2: return playerApiLevel > value
-        case 3: return playerApiLevel == value
-        case 4: return playerApiLevel != value
-        case 5: return (playerProfiles & value) != 0
-        case 6: return (playerProfiles & value) == 0
+        switch (Int32(bitPattern: UInt32(bitPattern: conditionType) << BitLayout.conditionTypeConditionLeftShift) >> BitLayout.conditionTypeConditionRightShift) {
+        case Skip.SKIP_IF_API_LESS_THAN: return playerApiLevel < value
+        case Skip.SKIP_IF_API_GREATER_THAN: return playerApiLevel > value
+        case Skip.SKIP_IF_API_EQUAL_TO: return playerApiLevel == value
+        case Skip.SKIP_IF_API_NOT_EQUAL_TO: return playerApiLevel != value
+        case Skip.SKIP_IF_PROFILE_INCLUDES: return (playerProfiles & value) != 0
+        case Skip.SKIP_IF_PROFILE_EXCLUDES: return (playerProfiles & value) == 0
         default: return false
         }
     }
@@ -10468,6 +10805,34 @@ public struct Skip: RemoteOperation, Equatable {
 /// Text style implementation
 public struct TextStyle: RemoteOperation, Equatable {
     public let opCode: OpCode = .textStyle
+    public enum SparseParameterID {
+        public static let id: Int = 1
+        public static let animationId: Int = 2
+        public static let color: Int = 3
+        public static let colorId: Int = 4
+        public static let fontSize: Int = 5
+        public static let minFontSize: Int = 25
+        public static let maxFontSize: Int = 26
+        public static let fontStyle: Int = 6
+        public static let fontWeight: Int = 7
+        public static let fontFamilyId: Int = 8
+        public static let textAlign: Int = 9
+        public static let overflow: Int = 10
+        public static let maxLines: Int = 11
+        public static let letterSpacing: Int = 12
+        public static let lineHeightAdd: Int = 13
+        public static let lineHeightMultiplier: Int = 14
+        public static let lineBreakStrategy: Int = 15
+        public static let hyphenationFrequency: Int = 16
+        public static let justificationMode: Int = 17
+        public static let underline: Int = 18
+        public static let strikethrough: Int = 19
+        public static let fontAxis: Int = 20
+        public static let fontAxisValues: Int = 21
+        public static let autosize: Int = 22
+        public static let flags: Int = 23
+        public static let parentId: Int = 24
+    }
 
     public var id: Int32?
     public var animationId: Int32?
@@ -10582,87 +10947,87 @@ public struct TextStyle: RemoteOperation, Equatable {
         var flags: Int32? = nil
         var parentId: Int32? = nil
         let sparseCount = Int(UInt16(bitPattern: try buffer.readShort()))
-        guard sparseCount <= buffer.remaining / 2 else {
+        guard sparseCount <= buffer.remaining / (MemoryLayout<UInt8>.size + MemoryLayout<UInt8>.size) else {
             throw RemoteComposeWireError(domain: "TextStyle", code: 1, message: "Sparse parameter count exceeds remaining buffer")
         }
         for _ in 0..<sparseCount {
             let paramId = Int(try buffer.readByte())
             switch paramId {
-            case 1:
+            case SparseParameterID.id:
                 id = try buffer.readInt()
-            case 2:
+            case SparseParameterID.animationId:
                 animationId = try buffer.readInt()
-            case 3:
+            case SparseParameterID.color:
                 color = try buffer.readInt()
-            case 4:
+            case SparseParameterID.colorId:
                 colorId = try buffer.readInt()
-            case 5:
+            case SparseParameterID.fontSize:
                 fontSize = try buffer.readFloat()
-            case 25:
+            case SparseParameterID.minFontSize:
                 minFontSize = try buffer.readFloat()
-            case 26:
+            case SparseParameterID.maxFontSize:
                 maxFontSize = try buffer.readFloat()
-            case 6:
+            case SparseParameterID.fontStyle:
                 fontStyle = try buffer.readInt()
-            case 7:
+            case SparseParameterID.fontWeight:
                 fontWeight = try buffer.readFloat()
-            case 8:
+            case SparseParameterID.fontFamilyId:
                 fontFamilyId = try buffer.readInt()
-            case 9:
+            case SparseParameterID.textAlign:
                 textAlign = try buffer.readInt()
-            case 10:
+            case SparseParameterID.overflow:
                 overflow = try buffer.readInt()
-            case 11:
+            case SparseParameterID.maxLines:
                 maxLines = try buffer.readInt()
-            case 12:
+            case SparseParameterID.letterSpacing:
                 letterSpacing = try buffer.readFloat()
-            case 13:
+            case SparseParameterID.lineHeightAdd:
                 lineHeightAdd = try buffer.readFloat()
-            case 14:
+            case SparseParameterID.lineHeightMultiplier:
                 lineHeightMultiplier = try buffer.readFloat()
-            case 15:
+            case SparseParameterID.lineBreakStrategy:
                 lineBreakStrategy = try buffer.readInt()
-            case 16:
+            case SparseParameterID.hyphenationFrequency:
                 hyphenationFrequency = try buffer.readInt()
-            case 17:
+            case SparseParameterID.justificationMode:
                 justificationMode = try buffer.readInt()
-            case 18:
+            case SparseParameterID.underline:
                 underline = try buffer.readBoolean()
-            case 19:
+            case SparseParameterID.strikethrough:
                 strikethrough = try buffer.readBoolean()
-            case 20:
+            case SparseParameterID.fontAxis:
                 let _fontAxisCount = Int(UInt16(bitPattern: try buffer.readShort()))
                 guard _fontAxisCount >= 0 else {
                     throw RemoteComposeWireError(domain: "TextStyle", code: 1, message: "Invalid negative array length")
                 }
-                guard _fontAxisCount <= buffer.remaining / 4 else {
+                guard _fontAxisCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                     throw RemoteComposeWireError(domain: "TextStyle", code: 1, message: "Array length exceeds remaining buffer")
                 }
                 var fontAxisTmp = [Int32]()
-                fontAxisTmp.reserveCapacity(Swift.min(_fontAxisCount, 4096))
+                fontAxisTmp.reserveCapacity(Swift.min(_fontAxisCount, WireLimits.MAX_INITIAL_CAPACITY))
                 for _ in 0..<_fontAxisCount {
                     fontAxisTmp.append(try buffer.readInt())
                 }
                 fontAxis = fontAxisTmp
-            case 21:
+            case SparseParameterID.fontAxisValues:
                 let _fontAxisValuesCount = Int(UInt16(bitPattern: try buffer.readShort()))
                 guard _fontAxisValuesCount >= 0 else {
                     throw RemoteComposeWireError(domain: "TextStyle", code: 1, message: "Invalid negative array length")
                 }
-                guard _fontAxisValuesCount <= buffer.remaining / 4 else {
+                guard _fontAxisValuesCount <= buffer.remaining / MemoryLayout<Int32>.size else {
                     throw RemoteComposeWireError(domain: "TextStyle", code: 1, message: "Array length exceeds remaining buffer")
                 }
                 var fontAxisValuesTmp = [Float]()
-                fontAxisValuesTmp.reserveCapacity(Swift.min(_fontAxisValuesCount, 4096))
+                fontAxisValuesTmp.reserveCapacity(Swift.min(_fontAxisValuesCount, WireLimits.MAX_INITIAL_CAPACITY))
                 for _ in 0..<_fontAxisValuesCount {
                     fontAxisValuesTmp.append(try buffer.readFloat())
                 }
                 fontAxisValues = fontAxisValuesTmp
-            case 22:
+            case SparseParameterID.autosize:
                 autosize = try buffer.readBoolean()
-            case 23:
+            case SparseParameterID.flags:
                 flags = try buffer.readInt()
-            case 24:
+            case SparseParameterID.parentId:
                 parentId = try buffer.readInt()
             default:
                 throw RemoteComposeWireError(domain: "TextStyle", code: 2, message: "Unknown sparse parameter")
@@ -10703,113 +11068,113 @@ public struct TextStyle: RemoteOperation, Equatable {
         if parentId != nil { sparseCount += 1 }
         buffer.writeShort(Int16(truncatingIfNeeded: sparseCount))
         if let val = id {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 1))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.id))
             buffer.writeInt(val)
         }
         if let val = animationId {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 2))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.animationId))
             buffer.writeInt(val)
         }
         if let val = color {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 3))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.color))
             buffer.writeInt(val)
         }
         if let val = colorId {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 4))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.colorId))
             buffer.writeInt(val)
         }
         if let val = fontSize {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 5))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontSize))
             buffer.writeFloat(val)
         }
         if let val = minFontSize {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 25))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.minFontSize))
             buffer.writeFloat(val)
         }
         if let val = maxFontSize {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 26))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.maxFontSize))
             buffer.writeFloat(val)
         }
         if let val = fontStyle {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 6))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontStyle))
             buffer.writeInt(val)
         }
         if let val = fontWeight {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 7))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontWeight))
             buffer.writeFloat(val)
         }
         if let val = fontFamilyId {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 8))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontFamilyId))
             buffer.writeInt(val)
         }
         if let val = textAlign {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 9))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.textAlign))
             buffer.writeInt(val)
         }
         if let val = overflow {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 10))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.overflow))
             buffer.writeInt(val)
         }
         if let val = maxLines {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 11))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.maxLines))
             buffer.writeInt(val)
         }
         if let val = letterSpacing {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 12))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.letterSpacing))
             buffer.writeFloat(val)
         }
         if let val = lineHeightAdd {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 13))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.lineHeightAdd))
             buffer.writeFloat(val)
         }
         if let val = lineHeightMultiplier {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 14))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.lineHeightMultiplier))
             buffer.writeFloat(val)
         }
         if let val = lineBreakStrategy {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 15))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.lineBreakStrategy))
             buffer.writeInt(val)
         }
         if let val = hyphenationFrequency {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 16))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.hyphenationFrequency))
             buffer.writeInt(val)
         }
         if let val = justificationMode {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 17))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.justificationMode))
             buffer.writeInt(val)
         }
         if let val = underline {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 18))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.underline))
             buffer.writeBoolean(val)
         }
         if let val = strikethrough {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 19))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.strikethrough))
             buffer.writeBoolean(val)
         }
         if let val = fontAxis {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 20))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontAxis))
             buffer.writeShort(Int16(truncatingIfNeeded: val.count))
             for item in val {
                 buffer.writeInt(item)
             }
         }
         if let val = fontAxisValues {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 21))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.fontAxisValues))
             buffer.writeShort(Int16(truncatingIfNeeded: val.count))
             for item in val {
                 buffer.writeFloat(item)
             }
         }
         if let val = autosize {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 22))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.autosize))
             buffer.writeBoolean(val)
         }
         if let val = flags {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 23))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.flags))
             buffer.writeInt(val)
         }
         if let val = parentId {
-            buffer.writeByte(UInt8(truncatingIfNeeded: 24))
+            buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.parentId))
             buffer.writeInt(val)
         }
     }
@@ -10947,11 +11312,11 @@ public struct PatternDefine: RemoteOperation, Equatable {
         guard _paramIdsCount >= 0 else {
             throw RemoteComposeWireError(domain: "PatternDefine", code: 1, message: "Invalid negative array length")
         }
-        guard _paramIdsCount <= buffer.remaining / 4 else {
+        guard _paramIdsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "PatternDefine", code: 1, message: "Array length exceeds remaining buffer")
         }
         var paramIds = [Int32]()
-        paramIds.reserveCapacity(Swift.min(_paramIdsCount, 4096))
+        paramIds.reserveCapacity(Swift.min(_paramIdsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_paramIdsCount {
             paramIds.append(try buffer.readInt())
         }
@@ -10996,11 +11361,11 @@ public struct PatternInflation: RemoteOperation, Equatable {
         guard _argIdsCount >= 0 else {
             throw RemoteComposeWireError(domain: "PatternInflation", code: 1, message: "Invalid negative array length")
         }
-        guard _argIdsCount <= buffer.remaining / 4 else {
+        guard _argIdsCount <= buffer.remaining / MemoryLayout<Int32>.size else {
             throw RemoteComposeWireError(domain: "PatternInflation", code: 1, message: "Array length exceeds remaining buffer")
         }
         var argIds = [Int32]()
-        argIds.reserveCapacity(Swift.min(_argIdsCount, 4096))
+        argIds.reserveCapacity(Swift.min(_argIdsCount, WireLimits.MAX_INITIAL_CAPACITY))
         for _ in 0..<_argIdsCount {
             argIds.append(try buffer.readInt())
         }
@@ -11208,6 +11573,52 @@ public enum WireExpressionConstants {
     public static let CUSTOM_PROPERTY_FLOAT_PROP: Int = 1
 }
 
+/// The reader's limits, by name: each field's `maxLength` (`Limits.*` where AndroidX
+/// names it).
+public enum WireLimits {
+    public static let ADD_MESH2_D_UV_F16_MAX_LENGTH: Int = 32768
+    public static let ADD_MESH2_D_UV_MAX_LENGTH: Int = 32768
+    public static let ADD_MESH2_D_VERTS_F16_MAX_LENGTH: Int = 32768
+    public static let ADD_MESH2_D_VERTS_MAX_LENGTH: Int = 32768
+    public static let FLOAT_FUNCTION_CALL_ARGS_MAX_LENGTH: Int = 80
+    public static let FLOAT_LIST_DATA_VALUES_MAX_LENGTH: Int = 2000
+    public static let GRAPHICS_LAYER_MODIFIER_OPERATION_ATTRIBUTES_MAX_LENGTH: Int = 22
+    public static let ID_LIST_DATA_IDS_MAX_LENGTH: Int = 2000
+    public static let INTEGER_EXPRESSION_VALUES_MAX_LENGTH: Int = 320
+    public static let MATRIX_CONSTANT_VALUES_MAX_LENGTH: Int = 16
+    public static let MATRIX_EXPRESSION_EXPRESSION_MAX_LENGTH: Int = 32
+    public static let MATRIX_VECTOR_MATH_INPUTS_MAX_LENGTH: Int = 4
+    public static let MATRIX_VECTOR_MATH_OUTPUTS_MAX_LENGTH: Int = 4
+    public static let MAX_BINARY_DATA: Int = 100000
+    public static let MAX_DATA_MAP_SIZE: Int = 2000
+    public static let MAX_EASING_LEN: Int = 200
+    public static let MAX_EXPRESSION_SIZE: Int = 32
+    public static let MAX_FONT_DATA: Int = 800000
+    public static let MAX_FUNCTION_ARGUMENTS: Int = 32
+    public static let MAX_MESH_2D_INDICES: Int = 49152
+    public static let MAX_MESH_2D_VERTICES: Int = 16384
+    public static let MAX_MESH_2D_WIDTH_SAMPLES: Int = 64
+    public static let MAX_PARTICLE_FLOAT_ARRAY_SIZE: Int = 2000
+    public static let MAX_SHADER_FLOAT_COUNT: Int = 200
+    public static let MAX_STRING_SIZE: Int = 4000
+    public static let MAX_TABLE_SIZE: Int = 1000
+    public static let MAX_TOUCH_STOPS: Int = 200
+    public static let PAINT_DATA_WORDS_MAX_LENGTH: Int = 1024
+    public static let PARTICLES_COMPARE_CONDITION_MAX_LENGTH: Int = 46
+    public static let PARTICLES_COMPARE_EQUATIONS1_MAX_LENGTH: Int = 2000
+    public static let PARTICLES_COMPARE_EQUATIONS2_MAX_LENGTH: Int = 2000
+    public static let PARTICLES_CREATE_VARIABLES_MAX_LENGTH: Int = 2000
+    public static let PARTICLE_COMPARE_EQUATION_EQUATION_MAX_LENGTH: Int = 46
+    public static let PARTICLE_VARIABLE_EQUATION_MAX_LENGTH: Int = 32
+    public static let PATH_APPEND_PATH_DATA_MAX_LENGTH: Int = 2000
+    public static let PATH_DATA_PATH_DATA_MAX_LENGTH: Int = 20000
+    public static let SOUND_DATA_DATA_MAX_LENGTH: Int = 262144
+    public static let SOUND_EXPRESSION_PARAMS_MAX_LENGTH: Int = 64
+    public static let TIME_ATTRIBUTE_ARGS_MAX_LENGTH: Int = 32
+    /// The most elements an array read reserves room for before it has read them.
+    public static let MAX_INITIAL_CAPACITY: Int = 4096
+}
+
 /// A header's bit layout and limits, from the schema: the major-version word (version and
 /// magic) and each property's tag (key and data type).
 public enum HeaderLayout {
@@ -11283,7 +11694,7 @@ public struct RemoteDocument {
             guard numProps >= 0 && numProps <= MAX_HEADER_PROPERTIES else {
                 throw RemoteComposeWireError(domain: "RemoteDocument", code: 3, message: "Invalid header property count: \(numProps)")
             }
-            guard numProps <= buffer.remaining / 4 else {
+            guard numProps <= buffer.remaining / HeaderProperty.MIN_WIRE_BYTES else {
                 throw RemoteComposeWireError(domain: "RemoteDocument", code: 3, message: "Header property count exceeds remaining buffer")
             }
             for _ in 0..<numProps {

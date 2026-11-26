@@ -1575,11 +1575,13 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 for (sv in schema.systemVariables) {
                     line("public static let ID_${sv.name}: Int32 = ${sv.id}")
                 }
+                // LOCAL PATCH (rc-players): the time ids by name, not number.
+                val idName = schema.systemVariables.associate { it.id to "ID_${it.name}" }
                 val expr =
                     if (timeIds.isEmpty()) "false"
                     else if (timeIds.size == timeIds.last() - timeIds.first() + 1)
-                        "id >= ${timeIds.first()} && id <= ${timeIds.last()}"
-                    else timeIds.joinToString(" || ") { "id == $it" }
+                        "id >= ${idName.getValue(timeIds.first())} && id <= ${idName.getValue(timeIds.last())}"
+                    else timeIds.joinToString(" || ") { "id == ${idName.getValue(it)}" }
                 line("public static func isTime(_ id: Int32) -> Bool { $expr }")
             }
             w.line()
@@ -1607,6 +1609,24 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
             }
             w.line()
             w.block("public struct FloatAnimationSpec: Equatable") {
+                // LOCAL PATCH (rc-players): the packed flags word's layout, from the schema's
+                // `animationSpec.flagsBits`, and the positions of the spec's words, by name.
+                val flagBits = anim.flagsBits.associateBy { it.name }
+                for (name in listOf("type", "hasWrap", "hasInit", "directionalSnap", "isPropagate", "paramLen")) {
+                    check(name in flagBits) { "animationSpec.flagsBits has no $name" }
+                }
+                block("public enum BitLayout") {
+                    for (b in anim.flagsBits) {
+                        line("public static let ${b.name}Shift: UInt32 = ${b.lowBit}")
+                        line("public static let ${b.name}Mask: UInt32 = 0x${(b.bitMask).toString(16).uppercase()}")
+                    }
+                }
+                line("/// The duration, then the flags word, then the curve's parameters.")
+                line("public static let DURATION_INDEX: Int = 0")
+                line("public static let FLAGS_INDEX: Int = DURATION_INDEX + 1")
+                line("public static let PARAMS_START: Int = FLAGS_INDEX + 1")
+                line("/// A spring spec is a zero duration marker followed by more than this many words.")
+                line("public static let SPRING_PARAMETER_COUNT: Int = 4")
                 line("public var duration: Float")
                 line("public var type: Int32")
                 line("public var params: [Float]")
@@ -1641,7 +1661,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     line("    && lhs.isPropagate == rhs.isPropagate")
                 }
                 line(
-                    "public static func isSpring(_ data: [Float]) -> Bool { data.count > 4 && data[0] == 0.0 }"
+                    "public static func isSpring(_ data: [Float]) -> Bool { data.count > SPRING_PARAMETER_COUNT && data[DURATION_INDEX] == 0.0 }"
                 )
                 block("public static func unpack(_ data: [Float]) throws -> FloatAnimationSpec") {
                     line(
@@ -1649,20 +1669,24 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     )
                     line("var out = FloatAnimationSpec()")
                     line("if data.isEmpty { return out }")
-                    line("out.duration = data[0]")
-                    line("if data.count == 1 { return out }")
-                    line("let bits = data[1].bitPattern")
-                    line("out.type = Int32(bits & 0xFF)")
-                    line("let hasWrap = ((bits >> 8) & 1) != 0")
-                    line("let hasInit = ((bits >> 9) & 1) != 0")
-                    line("out.directionalSnap = Int32((bits >> 10) & 3)")
-                    line("out.isPropagate = ((bits >> 12) & 1) != 0")
-                    line("let paramLen = Int((bits >> 16) & 0xFFFF)")
+                    line("out.duration = data[DURATION_INDEX]")
+                    line("if data.count == FLAGS_INDEX { return out }")
+                    line("let bits = data[FLAGS_INDEX].bitPattern")
+                    line("out.type = Int32((bits >> BitLayout.typeShift) & BitLayout.typeMask)")
+                    line("let hasWrap = ((bits >> BitLayout.hasWrapShift) & BitLayout.hasWrapMask) != 0")
+                    line("let hasInit = ((bits >> BitLayout.hasInitShift) & BitLayout.hasInitMask) != 0")
                     line(
-                        "if 2 + paramLen > data.count { throw NSError(domain: \"FloatAnimationSpec\", code: 2, userInfo: [NSLocalizedDescriptionKey: \"Truncated animation spec params\"]) }"
+                        "out.directionalSnap = Int32((bits >> BitLayout.directionalSnapShift) & BitLayout.directionalSnapMask)"
                     )
-                    line("out.params = Array(data[2..<(2 + paramLen)])")
-                    line("var off = 2 + paramLen")
+                    line(
+                        "out.isPropagate = ((bits >> BitLayout.isPropagateShift) & BitLayout.isPropagateMask) != 0"
+                    )
+                    line("let paramLen = Int((bits >> BitLayout.paramLenShift) & BitLayout.paramLenMask)")
+                    line(
+                        "if PARAMS_START + paramLen > data.count { throw NSError(domain: \"FloatAnimationSpec\", code: 2, userInfo: [NSLocalizedDescriptionKey: \"Truncated animation spec params\"]) }"
+                    )
+                    line("out.params = Array(data[PARAMS_START..<(PARAMS_START + paramLen)])")
+                    line("var off = PARAMS_START + paramLen")
                     line(
                         "if hasInit { if off >= data.count { throw NSError(domain: \"FloatAnimationSpec\", code: 2, userInfo: [NSLocalizedDescriptionKey: \"Truncated animation spec initialValue\"]) }; out.initialValue = data[off]; off += 1 }"
                     )
@@ -1693,9 +1717,9 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     line("if ret.count > 1 {")
                     indent {
                         line("let wrapBit: UInt32 = hasWrap ? 1 : 0")
-                        line("let initBit: UInt32 = hasInit ? 2 : 0")
+                        line("let initBit: UInt32 = hasInit ? 1 : 0")
                         line(
-                            "let bits: UInt32 = UInt32(bitPattern: type) | ((wrapBit | initBit) << 8) | (UInt32(specLen) << 16)"
+                            "let bits: UInt32 = (UInt32(bitPattern: type) << BitLayout.typeShift) | (wrapBit << BitLayout.hasWrapShift) | (initBit << BitLayout.hasInitShift) | (UInt32(specLen) << BitLayout.paramLenShift)"
                         )
                         line("ret[pos] = Float(bitPattern: bits); pos += 1")
                     }
@@ -1731,6 +1755,16 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 }
                 line("public static let MAX_DASH_INTERVALS: Int = ${pe.maxDashIntervals}")
                 line("public static let MAX_NESTING_DEPTH: Int = ${pe.maxNestingDepth}")
+                // LOCAL PATCH (rc-players): each effect's word positions, from the schema's fields: the
+                // tag, then a word per field (an array's word is its count, its values follow).
+                for (t in pe.types) {
+                    if (t.fields.any { it.type == "path_effect" }) continue
+                    val prefix = t.constName.removePrefix("TYPE_")
+                    t.fields.forEachIndexed { i, f ->
+                        line("public static let ${prefix}_${SchemaOperation.toScreamingSnakeCase(f.name)}_OFFSET: Int = ${1 + i}")
+                    }
+                    line("public static let ${prefix}_WORDS: Int = ${1 + t.fields.size}")
+                }
                 block("public func encode() throws -> [Float]") {
                     block("switch self") {
                         line(
@@ -1766,13 +1800,13 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     line("let tag = Int32(bitPattern: data[idx].bitPattern)")
                     block("switch tag") {
                         line(
-                            "case TYPE_DASH: if idx + 3 > data.count { return nil }; let count = Int(Int32(bitPattern: data[idx + 2].bitPattern)); if count < 0 || count > MAX_DASH_INTERVALS || count > data.count - (idx + 3) { return nil }; cursor = idx + 3 + count; return .dash(phase: data[idx + 1], intervals: Array(data[(idx + 3)..<(idx + 3 + count)]))"
+                            "case TYPE_DASH: if idx + DASH_WORDS > data.count { return nil }; let count = Int(Int32(bitPattern: data[idx + DASH_INTERVALS_OFFSET].bitPattern)); if count < 0 || count > MAX_DASH_INTERVALS || count > data.count - (idx + DASH_WORDS) { return nil }; cursor = idx + DASH_WORDS + count; return .dash(phase: data[idx + DASH_PHASE_OFFSET], intervals: Array(data[(idx + DASH_WORDS)..<(idx + DASH_WORDS + count)]))"
                         )
                         line(
-                            "case TYPE_DISCRETE: if idx + 3 > data.count { return nil }; cursor = idx + 3; return .discrete(segmentLength: data[idx + 1], deviation: data[idx + 2])"
+                            "case TYPE_DISCRETE: if idx + DISCRETE_WORDS > data.count { return nil }; cursor = idx + DISCRETE_WORDS; return .discrete(segmentLength: data[idx + DISCRETE_SEGMENT_LENGTH_OFFSET], deviation: data[idx + DISCRETE_DEVIATION_OFFSET])"
                         )
                         line(
-                            "case TYPE_PATH_DASH: if idx + 5 > data.count { return nil }; cursor = idx + 5; return .pathDash(shapeId: Int32(bitPattern: data[idx + 1].bitPattern), advance: data[idx + 2], phase: data[idx + 3], style: Int32(bitPattern: data[idx + 4].bitPattern))"
+                            "case TYPE_PATH_DASH: if idx + PATH_DASH_WORDS > data.count { return nil }; cursor = idx + PATH_DASH_WORDS; return .pathDash(shapeId: Int32(bitPattern: data[idx + PATH_DASH_SHAPE_ID_OFFSET].bitPattern), advance: data[idx + PATH_DASH_ADVANCE_OFFSET], phase: data[idx + PATH_DASH_PHASE_OFFSET], style: Int32(bitPattern: data[idx + PATH_DASH_STYLE_OFFSET].bitPattern))"
                         )
                         line(
                             "case TYPE_SUM: cursor = idx + 1; guard let a = parseOne(data, &cursor, depth + 1), let b = parseOne(data, &cursor, depth + 1) else { return nil }; return .sum(a, b)"
@@ -1788,6 +1822,19 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
         }
 
         if (schema.pathCommands.isNotEmpty() && schema.idEncoding != null) {
+            // LOCAL PATCH (rc-players): each command's word positions, from the schema: the tag, its
+            // leading padding, then a word per field.
+            w.block("public enum PathCommandLayout") {
+                for ((_, cmd) in schema.pathCommands.entries.sortedBy { it.key }) {
+                    if (cmd.fields.isEmpty()) continue
+                    val prefix = SchemaOperation.toScreamingSnakeCase(cmd.name)
+                    cmd.fields.forEachIndexed { i, f ->
+                        line("public static let ${prefix}_${SchemaOperation.toScreamingSnakeCase(f.name)}_OFFSET: Int = ${1 + cmd.leadingPaddingFloats + i}")
+                    }
+                    line("public static let ${prefix}_WORDS: Int = ${1 + cmd.leadingPaddingFloats + cmd.fields.size}")
+                }
+            }
+            w.line()
             w.block("public enum PathCommand: Equatable") {
                 for ((_, cmd) in schema.pathCommands.entries.sortedBy { it.key }) {
                     val vName = pathCmdVariantName(cmd).replaceFirstChar { it.lowercaseChar() }
@@ -1820,11 +1867,12 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                                     )
                                 } else {
                                     val args =
-                                        cmd.fields.withIndex().joinToString(", ") { (fIdx, fl) ->
-                                            "${fl.name}: pathData[i + ${1 + cmd.leadingPaddingFloats + fIdx}]"
+                                        cmd.fields.joinToString(", ") { fl ->
+                                            "${fl.name}: pathData[i + PathCommandLayout.${tagConst}_${SchemaOperation.toScreamingSnakeCase(fl.name)}_OFFSET]"
                                         }
+                                    val words = "PathCommandLayout.${tagConst}_WORDS"
                                     line(
-                                        "case PathCommandTags.$tagConst: if i + $total > n { result.append(.unknown(verb: tag)); return result }; result.append(.$vName($args)); i += $total"
+                                        "case PathCommandTags.$tagConst: if i + $words > n { result.append(.unknown(verb: tag)); return result }; result.append(.$vName($args)); i += $words"
                                     )
                                 }
                             }
@@ -1853,7 +1901,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
         }
         if (isBitmapDataReady(op)) {
             w.line(
-                "public var uncompressedByteSize: Int64 { let w = Int64(width); let h = Int64(height); if w <= 0 || h <= 0 { return 0 }; let bpp: Int64 = imageType == BitmapData.TYPE_PNG_ALPHA_8 ? 1 : 4; let (wh, o1) = w.multipliedReportingOverflow(by: h); if o1 { return Int64.max }; let (total, o2) = wh.multipliedReportingOverflow(by: bpp); return o2 ? Int64.max : total }"
+                "public var uncompressedByteSize: Int64 { let w = Int64(width); let h = Int64(height); if w <= 0 || h <= 0 { return 0 }; let bpp: Int64 = imageType == BitmapData.TYPE_PNG_ALPHA_8 ? Int64(MemoryLayout<UInt8>.size) : Int64(MemoryLayout<UInt32>.size); let (wh, o1) = w.multipliedReportingOverflow(by: h); if o1 { return Int64.max }; let (total, o2) = wh.multipliedReportingOverflow(by: bpp); return o2 ? Int64.max : total }"
             )
         }
         if (
@@ -1867,7 +1915,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
         }
         if (op.name == "ColorExpression" && op.fields.any { it.name == "flagsAndMode" }) {
             w.line(
-                "public var alphaPayload: Int32 { Int32((UInt32(bitPattern: flagsAndMode) >> 16) & 0xFF) }"
+                "public var alphaPayload: Int32 { Int32((UInt32(bitPattern: flagsAndMode) >> BitLayout.flagsAndModeUpperParamShift) & UInt32(UInt8.max)) }"
             )
         }
     }

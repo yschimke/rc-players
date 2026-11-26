@@ -155,15 +155,27 @@ internal class SwiftGenerator(
                 line("withUnsafeBytes(of: &val) { data.append(contentsOf: \$0) }")
             }
             line()
-            block("public mutating func readShort() throws -> Int16") {
-                block("guard 2 <= remaining else") {
+            // LOCAL PATCH (rc-players): one big-endian reader, sized by the type it reads, so no byte
+            // count or shift is written as a number.
+            block(
+                "private mutating func readBigEndian<T: FixedWidthInteger & UnsignedInteger>(_ type: T.Type) throws -> T"
+            ) {
+                line("let size = MemoryLayout<T>.size")
+                block("guard size <= remaining else") {
                     line(
                         "throw NSError(domain: \"WireBuffer\", code: 1, userInfo: [NSLocalizedDescriptionKey: \"Underflow\"])"
                     )
                 }
-                line("let bits = (UInt16(data[index]) << 8) | UInt16(data[index + 1])")
-                line("index += 2")
-                line("return Int16(bitPattern: bits)")
+                line("var bits: T = 0")
+                block("for offset in 0..<size") {
+                    line("bits = (bits << UInt8.bitWidth) | T(data[index + offset])")
+                }
+                line("index += size")
+                line("return bits")
+            }
+            line()
+            block("public mutating func readShort() throws -> Int16") {
+                line("return Int16(bitPattern: try readBigEndian(UInt16.self))")
             }
             line()
             block("public mutating func writeInt(_ value: Int32)") {
@@ -172,19 +184,7 @@ internal class SwiftGenerator(
             }
             line()
             block("public mutating func readInt() throws -> Int32") {
-                block("guard 4 <= remaining else") {
-                    line(
-                        "throw NSError(domain: \"WireBuffer\", code: 1, userInfo: [NSLocalizedDescriptionKey: \"Underflow\"])"
-                    )
-                }
-                line("let bits = (UInt32(data[index]) << 24)")
-                indent {
-                    line("| (UInt32(data[index + 1]) << 16)")
-                    line("| (UInt32(data[index + 2]) << 8)")
-                    line("| UInt32(data[index + 3])")
-                }
-                line("index += 4")
-                line("return Int32(bitPattern: bits)")
+                line("return Int32(bitPattern: try readBigEndian(UInt32.self))")
             }
             line()
             block("public mutating func writeLong(_ value: Int64)") {
@@ -193,15 +193,7 @@ internal class SwiftGenerator(
             }
             line()
             block("public mutating func readLong() throws -> Int64") {
-                block("guard 8 <= remaining else") {
-                    line(
-                        "throw NSError(domain: \"WireBuffer\", code: 1, userInfo: [NSLocalizedDescriptionKey: \"Underflow\"])"
-                    )
-                }
-                line("var bits: UInt64 = 0")
-                block("for i in 0..<8") { line("bits = (bits << 8) | UInt64(data[index + i])") }
-                line("index += 8")
-                line("return Int64(bitPattern: bits)")
+                line("return Int64(bitPattern: try readBigEndian(UInt64.self))")
             }
             line()
             block("public mutating func writeFloat(_ value: Float)") {
@@ -302,6 +294,181 @@ internal class SwiftGenerator(
         }
     }
 
+    // LOCAL PATCH (rc-players): every wire value the templates below write is named. Upstream
+    // writes limits, element sizes, sparse-parameter ids, enum values and bit layouts as numbers;
+    // these name them from the schema, so the generated Swift carries no wire magic numbers.
+
+    /** The `WireLimits` name of each field's `maxLength`: its `javaLimit`, or one made for it. */
+    private val limits: Pair<Map<SchemaField, String>, Map<String, Int>> by lazy {
+        val names = HashMap<SchemaField, String>()
+        val values = linkedMapOf<String, Int>()
+        fun add(owner: String, f: SchemaField) {
+            val max = f.maxLength ?: return
+            val own = "${constName(owner)}_${constName(f.name)}_MAX_LENGTH"
+            // A `javaLimit` that is an expression (`Limits.X * 2`) is not a name: the field gets one.
+            var name =
+                f.javaLimit
+                    ?.removePrefix("Limits.")
+                    ?.takeIf { it.matches(Regex("[A-Z_][A-Z0-9_]*")) } ?: own
+            if (values[name]?.let { it != max } == true) name = own
+            values[name] = max
+            names[f] = name
+        }
+        schema.operations.forEach { op -> op.fields.forEach { add(op.name, it) } }
+        schema.structs.values.forEach { st -> st.fields.forEach { add(st.name, it) } }
+        names to values
+    }
+
+    private fun limitRef(f: SchemaField): String? = limits.first[f]?.let { "WireLimits.$it" }
+
+    private fun constName(name: String): String = CodegenExprUtils.toSnakeCase(name).uppercase()
+
+    private fun emitWireLimits(w: CodeWriter) {
+        w.line("/// The reader's limits, by name: each field's `maxLength` (`Limits.*` where AndroidX")
+        w.line("/// names it).")
+        w.block("public enum WireLimits") {
+            for ((name, value) in limits.second.entries.sortedBy { it.key }) {
+                line("public static let $name: Int = $value")
+            }
+            line("/// The most elements an array read reserves room for before it has read them.")
+            line("public static let MAX_INITIAL_CAPACITY: Int = $MAX_INITIAL_CAPACITY")
+        }
+        w.line()
+    }
+
+    /** The fewest bytes one element of [elemType] takes on the wire, as Swift computes it. */
+    private fun elementBytes(elemType: String): String =
+        when (elemType) {
+            "int", "int_id", "color", "float", "float_or_id", "string", "bytes" ->
+                "MemoryLayout<Int32>.size"
+            "short" -> "MemoryLayout<Int16>.size"
+            "byte", "boolean" -> "MemoryLayout<UInt8>.size"
+            "long" -> "MemoryLayout<Int64>.size"
+            else ->
+                if (schema.structs.containsKey(elemType)) "$elemType.MIN_WIRE_BYTES"
+                else "MemoryLayout<Int32>.size"
+        }
+
+    /** A sparse key's size: a sparse entry is a key and at least one byte of value. */
+    private fun sparseKeyBytes(keyType: String): String =
+        when (keyType) {
+            "int" -> "MemoryLayout<Int32>.size"
+            "short", "ushort" -> "MemoryLayout<Int16>.size"
+            else -> "MemoryLayout<UInt8>.size"
+        }
+
+    /** [name] = [value] as the owner's own enum constant, which the struct emits by that name. */
+    private fun enumRef(ownerName: String, fields: List<SchemaField>, name: String, value: Int): String {
+        val constants = multiLang.collectEnumConstants(fields).toMap()
+        check(constants[name] == value) { "$ownerName.$name is not the constant $value" }
+        return "$ownerName.$name"
+    }
+
+    private fun ownerFields(ownerName: String): List<SchemaField> =
+        schema.operationsByName[ownerName]?.fields
+            ?: schema.structs[ownerName]?.fields
+            ?: error("no operation or struct $ownerName")
+
+    private fun bitBase(field: String, bit: String): String =
+        field + bit.replaceFirstChar { it.uppercaseChar() }
+
+    private fun hex(value: Long): String = "0x" + value.toString(16).uppercase()
+
+    /** The `BitLayout` constants of [fields]' bit ranges, reserved bits and skip condition. */
+    private fun emitBitLayout(w: CodeWriter, fields: List<SchemaField>, skip: SchemaConditionalSkip?) {
+        val out = linkedMapOf<String, String>()
+        fun range(base: String, b: SchemaBitField) {
+            if (b.bitWidth >= 32) return
+            out["${base}Shift"] = "${b.lowBit}"
+            out["${base}Mask"] = hex(b.bitMask)
+            if (b.signed) {
+                out["${base}LeftShift"] = "${31 - b.highBit}"
+                out["${base}RightShift"] = "${31 - b.highBit + b.lowBit}"
+            }
+        }
+        fun bit(field: String, b: SchemaBitField) {
+            val base = bitBase(field, b.name)
+            range(base, b)
+            b.whenBitSet?.let { c ->
+                out["${base}NarrowFlagShift"] = "${c.bit}"
+                range("${base}Narrow", SchemaBitField(name = b.name, range = c.range, signed = false))
+            }
+        }
+        for (f in fields) {
+            f.bits?.forEach { bit(f.name, it) }
+            f.mustBeZeroBits?.let { r ->
+                val low = r.substringBefore("..").toInt()
+                val high = r.substringAfter("..", r).toInt()
+                val width = high - low + 1
+                val mask = if (width >= 32) 0xFFFFFFFFL else ((1L shl width) - 1L) shl low
+                out["${f.name}ReservedMask"] = hex(mask)
+            }
+        }
+        skip?.let { bit(it.conditionField, skipBit(it)) }
+        if (out.isEmpty()) return
+        w.line("/// The shifts and masks of this type's packed fields, from the schema's bit ranges.")
+        w.block("public enum BitLayout") {
+            for ((name, value) in out) line("public static let $name: UInt32 = $value")
+        }
+    }
+
+    private fun skipBit(cs: SchemaConditionalSkip): SchemaBitField =
+        SchemaBitField(name = "condition", range = cs.conditionBits, signed = cs.conditionSigned)
+
+    /** [bit] of [field] read out of [src], as `CodegenExprUtils.extractBitExpr` does, by name. */
+    private fun swiftExtract(src: String, field: String, bit: SchemaBitField): String {
+        val base = bitBase(field, bit.name)
+        val normal = swiftExtractRange(src, base, bit)
+        val c = bit.whenBitSet ?: return normal
+        val narrow =
+            swiftExtractRange(src, "${base}Narrow", SchemaBitField(name = bit.name, range = c.range))
+        return "(((UInt32(bitPattern: $src) >> BitLayout.${base}NarrowFlagShift) & 1) != 0 ? $narrow : $normal)"
+    }
+
+    private fun swiftExtractRange(src: String, base: String, b: SchemaBitField): String {
+        if (b.bitWidth >= 32) return src
+        return if (b.signed) {
+            "(Int32(bitPattern: UInt32(bitPattern: $src) << BitLayout.${base}LeftShift) >> BitLayout.${base}RightShift)"
+        } else {
+            "Int32((UInt32(bitPattern: $src) >> BitLayout.${base}Shift) & BitLayout.${base}Mask)"
+        }
+    }
+
+    private fun swiftPack(field: String, terms: List<Pair<String, SchemaBitField>>): String {
+        if (terms.isEmpty()) return "0"
+        return "Int32(bitPattern: " +
+            terms.joinToString(" | ") { (v, b) ->
+                val base = bitBase(field, b.name)
+                "((UInt32(bitPattern: Int32($v)) & BitLayout.${base}Mask) << BitLayout.${base}Shift)"
+            } + ")"
+    }
+
+    private fun swiftReservedBits(src: String, field: String): String =
+        "((UInt32(bitPattern: Int32($src)) & BitLayout.${field}ReservedMask) != 0)"
+
+    // LOCAL PATCH (rc-players): a field's schema default by name, `<Owner>.DEFAULT_<FIELD>`.
+    private val numericTypes =
+        setOf("int", "int_id", "color", "short", "byte", "long", "float", "float_or_id")
+
+    private fun defaultFields(fields: List<SchemaField>): List<SchemaField> =
+        fields.filter { it.defaultValue != null && it.type in numericTypes }
+
+    private fun defaultRef(owner: String, f: SchemaField): String = "$owner.DEFAULT_${constName(f.name)}"
+
+    private fun emitDefaults(w: CodeWriter, fields: List<SchemaField>) {
+        for (f in defaultFields(fields)) {
+            w.line(
+                "public static let DEFAULT_${constName(f.name)}: ${mapToSwiftType(f.type, false)} = ${mapToSwiftDefault(f.type, false, f.defaultValue)}"
+            )
+        }
+    }
+
+    private fun initDefault(owner: String, fields: List<SchemaField>, prop: AstProperty): String {
+        val f = defaultFields(fields).firstOrNull { it.name == prop.name }
+        return if (f != null && !prop.isNullable) defaultRef(owner, f)
+        else mapToSwiftDefault(prop.type, prop.isNullable, prop.defaultValue)
+    }
+
     // LOCAL PATCH (rc-players): a condition with every value named. Upstream copies the schema's
     // expression into Swift as it stands, numbers and all; the fork's schema names them, and Swift
     // reads them from [WIRE_EXPRESSION_CONSTANTS]. The fields are widened to `Int` so one constant
@@ -370,6 +537,7 @@ internal class SwiftGenerator(
 
     private fun emitRemoteDocument(w: CodeWriter) {
         emitWireExpressionConstants(w)
+        emitWireLimits(w)
         emitHeaderLayout(w)
         w.line("/// In-memory representation of a RemoteCompose document.")
         w.block("public struct RemoteDocument") {
@@ -456,7 +624,7 @@ internal class SwiftGenerator(
                             "throw NSError(domain: \"RemoteDocument\", code: 3, userInfo: [NSLocalizedDescriptionKey: \"Invalid header property count: \\(numProps)\"])"
                         )
                     }
-                    block("guard numProps <= buffer.remaining / 4 else") {
+                    block("guard numProps <= buffer.remaining / HeaderProperty.MIN_WIRE_BYTES else") {
                         line(
                             "throw NSError(domain: \"RemoteDocument\", code: 3, userInfo: [NSLocalizedDescriptionKey: \"Header property count exceeds remaining buffer\"])"
                         )
@@ -577,6 +745,12 @@ internal class SwiftGenerator(
         }
         w.block("public struct ${structDef.name}: Equatable") {
             multiLang.emitSwiftOpEnumConstants(this, structDef.fields)
+            // LOCAL PATCH (rc-players): named sizes and bit layouts.
+            line(
+                "public static let MIN_WIRE_BYTES: Int = ${CodegenExprUtils.minWireElementBytes(structDef.name, schema)}"
+            )
+            emitBitLayout(this, structDef.fields, null)
+            emitDefaults(this, structDef.fields)
             for (prop in props) {
                 val swiftType = mapToSwiftType(prop.type, prop.isNullable)
                 val fieldDesc = prop.description.replace("\n", " ").trim()
@@ -596,7 +770,7 @@ internal class SwiftGenerator(
                     val srcExpr = if (fieldName in structByteOrShort) "Int32(\$0)" else "\$0"
                     block("public var ${bit.name}: Int32?") {
                         line(
-                            "return $fieldName.map { ${CodegenExprUtils.extractBitExpr(srcExpr, bit, ExprLang.SWIFT)} }"
+                            "return $fieldName.map { ${swiftExtract(srcExpr, fieldName, bit)} }"
                         )
                     }
                 } else {
@@ -604,7 +778,7 @@ internal class SwiftGenerator(
                         if (fieldName in structByteOrShort) "Int32($fieldName)" else fieldName
                     block("public var ${bit.name}: Int32") {
                         line(
-                            "return ${CodegenExprUtils.extractBitExpr(srcExpr, bit, ExprLang.SWIFT)}"
+                            "return ${swiftExtract(srcExpr, fieldName, bit)}"
                         )
                     }
                 }
@@ -613,7 +787,7 @@ internal class SwiftGenerator(
 
             val params =
                 props.joinToString(", ") {
-                    "${it.name}: ${mapToSwiftType(it.type, it.isNullable)} = ${mapToSwiftDefault(it.type, it.isNullable, it.defaultValue)}"
+                    "${it.name}: ${mapToSwiftType(it.type, it.isNullable)} = ${initDefault(structDef.name, structDef.fields, it)}"
                 }
             block("public init($params)") {
                 for (prop in props) {
@@ -645,6 +819,14 @@ internal class SwiftGenerator(
         w.block("public struct ${op.name}: RemoteOperation, Equatable") {
             line("public let opCode: OpCode = .$swiftCase")
             multiLang.emitSwiftOpEnumConstants(this, op.fields)
+            // LOCAL PATCH (rc-players): named bit layouts and sparse-parameter ids.
+            emitBitLayout(this, op.fields, op.conditionalSkip)
+            emitDefaults(this, op.fields)
+            op.sparseParameters?.takeIf { it.isNotEmpty() }?.let { params ->
+                block("public enum SparseParameterID") {
+                    for (sp in params) line("public static let ${sp.name}: Int = ${sp.id}")
+                }
+            }
             line()
 
             for (prop in props) {
@@ -663,14 +845,14 @@ internal class SwiftGenerator(
                     val srcExpr = if (fieldName in opByteOrShort) "Int32(\$0)" else "\$0"
                     block("public var ${bit.name}: Int32?") {
                         line(
-                            "return $fieldName.map { ${CodegenExprUtils.extractBitExpr(srcExpr, bit, ExprLang.SWIFT)} }"
+                            "return $fieldName.map { ${swiftExtract(srcExpr, fieldName, bit)} }"
                         )
                     }
                 } else {
                     val srcExpr = if (fieldName in opByteOrShort) "Int32($fieldName)" else fieldName
                     block("public var ${bit.name}: Int32") {
                         line(
-                            "return ${CodegenExprUtils.extractBitExpr(srcExpr, bit, ExprLang.SWIFT)}"
+                            "return ${swiftExtract(srcExpr, fieldName, bit)}"
                         )
                     }
                 }
@@ -680,7 +862,7 @@ internal class SwiftGenerator(
 
             val params =
                 props.joinToString(", ") {
-                    "${it.name}: ${mapToSwiftType(it.type, it.isNullable)} = ${mapToSwiftDefault(it.type, it.isNullable, it.defaultValue)}"
+                    "${it.name}: ${mapToSwiftType(it.type, it.isNullable)} = ${initDefault(op.name, op.fields, it)}"
                 }
             line("/// Creates a new [${op.name}] operation.")
             if (props.isNotEmpty()) {
@@ -717,7 +899,7 @@ internal class SwiftGenerator(
             if (op.conditionalSkip != null) {
                 val cs = op.conditionalSkip
                 val condExpr =
-                    CodegenExprUtils.extractSkipConditionExpr(cs, cs.conditionField, ExprLang.SWIFT)
+                    swiftExtract(cs.conditionField, cs.conditionField, skipBit(cs))
                 block(
                     "public static func shouldSkip(${cs.conditionField}: Int32, ${cs.valueField}: Int32, playerApiLevel: Int32, playerProfiles: Int32) -> Bool"
                 ) {
@@ -731,7 +913,9 @@ internal class SwiftGenerator(
                                     "playerProfiles",
                                     ExprLang.SWIFT,
                                 )
-                            line("case ${b.whenValue}: return $brExpr")
+                            line(
+                                "case ${enumRef(op.name, op.fields, b.name, b.whenValue)}: return $brExpr"
+                            )
                         }
                         line("default: return ${cs.unknownConditionSkips}")
                     }
@@ -796,12 +980,7 @@ internal class SwiftGenerator(
             }
         }
         if (f.mustBeZeroBits != null) {
-            val badBits =
-                CodegenExprUtils.nonZeroBitsCheckExpr(
-                    intExpr,
-                    f.mustBeZeroBits,
-                    ExprLang.SWIFT,
-                )
+            val badBits = swiftReservedBits(intExpr, f.name)
             w.block("if $badBits") {
                 line(
                     "throw NSError(domain: \"$ownerName\", code: 2, userInfo: [NSLocalizedDescriptionKey: \"Non-zero reserved bits in ${f.name}\"])"
@@ -814,7 +993,7 @@ internal class SwiftGenerator(
             for (b in bits) {
                 if (b.strictEnum && !b.enumValues.isNullOrEmpty()) {
                     val bVar = "bit_${b.name}"
-                    val extract = CodegenExprUtils.extractBitExpr(intExpr, b, ExprLang.SWIFT)
+                    val extract = swiftExtract(intExpr, f.name, b)
                     w.line("let $bVar = $extract")
                     emitSwiftStrictEnumCheck(
                         w,
@@ -850,12 +1029,7 @@ internal class SwiftGenerator(
                 val rawVar = "raw_${f.name}"
                 w.line("let $rawVar = try buffer.readInt()")
                 if (f.mustBeZeroBits != null) {
-                    val badBits =
-                        CodegenExprUtils.nonZeroBitsCheckExpr(
-                            rawVar,
-                            f.mustBeZeroBits,
-                            ExprLang.SWIFT,
-                        )
+                    val badBits = swiftReservedBits(rawVar, f.name)
                     w.block("if $badBits") {
                         line(
                             "throw NSError(domain: \"$ownerName\", code: 2, userInfo: [NSLocalizedDescriptionKey: \"Non-zero reserved bits in ${f.name}\"])"
@@ -864,7 +1038,7 @@ internal class SwiftGenerator(
                 }
                 for (b in bits) {
                     w.line(
-                        "let ${b.name} = ${CodegenExprUtils.extractBitExpr(rawVar, b, ExprLang.SWIFT)}"
+                        "let ${b.name} = ${swiftExtract(rawVar, f.name, b)}"
                     )
                     emitSwiftStrictEnumCheck(
                         w,
@@ -902,7 +1076,9 @@ internal class SwiftGenerator(
                     }
                 }
                 w.block("} else") {
-                    line("${f.name} = ${mapToSwiftDefault(f.type, isNullable, f.defaultValue)}")
+                    line(
+                        "${f.name} = ${if (!isNullable && f in defaultFields(fields)) defaultRef(ownerName, f) else mapToSwiftDefault(f.type, isNullable, f.defaultValue)}"
+                    )
                 }
             } else if (f.type.endsWith("[]")) {
                 emitSwiftArrayRead(w, ownerName, f, f.name)
@@ -946,13 +1122,8 @@ internal class SwiftGenerator(
                 "ubyte" -> w.line("let sparseCount = Int(try buffer.readByte())")
                 else -> w.line("let sparseCount = Int(UInt16(bitPattern: try buffer.readShort()))")
             }
-            val minEntryBytes =
-                when (effectiveKeyType) {
-                    "int" -> 5
-                    "short",
-                    "ushort" -> 3
-                    else -> 2
-                }
+            // LOCAL PATCH (rc-players): a key and at least one byte of value, by name.
+            val minEntryBytes = "(${sparseKeyBytes(effectiveKeyType)} + MemoryLayout<UInt8>.size)"
             w.block("guard sparseCount <= buffer.remaining / $minEntryBytes else") {
                 line(
                     "throw NSError(domain: \"$ownerName\", code: 1, userInfo: [NSLocalizedDescriptionKey: \"Sparse parameter count exceeds remaining buffer\"])"
@@ -969,7 +1140,7 @@ internal class SwiftGenerator(
                 }
                 swiftSwitch("paramId") {
                     for (sp in sparseParameters) {
-                        swiftCase("case ${sp.id}") {
+                        swiftCase("case SparseParameterID.${sp.name}") {
                             if (sp.type.endsWith("[]")) {
                                 val synField =
                                     SchemaField(
@@ -1008,7 +1179,13 @@ internal class SwiftGenerator(
         enumValues: Map<String, Int>?,
     ) {
         if (strictEnum && !enumValues.isNullOrEmpty()) {
-            val allowed = enumValues.values.distinct().sorted().joinToString(", ")
+            // LOCAL PATCH (rc-players): the allowed values by name, as the struct defines them.
+            val fields = ownerFields(ownerName)
+            val allowed =
+                enumValues.entries
+                    .sortedBy { it.value }
+                    .distinctBy { it.value }
+                    .joinToString(", ") { enumRef(ownerName, fields, it.key, it.value) }
             w.swiftSwitch(varExpr) {
                 swiftCase("case $allowed") { line("break") }
                 swiftCase("default") {
@@ -1039,7 +1216,7 @@ internal class SwiftGenerator(
             }
         }
         val elemType = f.type.removeSuffix("[]")
-        val elemMinBytes = CodegenExprUtils.minWireElementBytes(elemType, schema)
+        val elemMinBytes = elementBytes(elemType)
         w.block("guard $lenVar >= 0 else") {
             line(
                 "throw NSError(domain: \"$ownerName\", code: 1, userInfo: [NSLocalizedDescriptionKey: \"Invalid negative array length\"])"
@@ -1053,7 +1230,7 @@ internal class SwiftGenerator(
             }
         }
         if (f.maxLength != null) {
-            w.block("guard $lenVar <= ${f.maxLength} else") {
+            w.block("guard $lenVar <= ${limitRef(f)} else") {
                 line(
                     "throw NSError(domain: \"$ownerName\", code: 1, userInfo: [NSLocalizedDescriptionKey: \"Array length exceeds maximum (${f.maxLength})\"])"
                 )
@@ -1069,7 +1246,7 @@ internal class SwiftGenerator(
         // LOCAL PATCH (rc-players): `Swift.min`. Unqualified, `min` resolves to the operation's own
         // `min` field where it has one (`TouchExpression`, `HeightIn`, `WidthIn`), and upstream's
         // output fails to compile there ("cannot call value of non-function type 'Float'").
-        w.line("$targetVar.reserveCapacity(Swift.min($lenVar, 4096))")
+        w.line("$targetVar.reserveCapacity(Swift.min($lenVar, WireLimits.MAX_INITIAL_CAPACITY))")
         w.block("for _ in 0..<$lenVar") {
             line("$targetVar.append(try ${mapToSwiftReadExpr(elemType)})")
         }
@@ -1102,7 +1279,7 @@ internal class SwiftGenerator(
                         terms.add(b.name to b)
                     }
                 }
-                val packed = CodegenExprUtils.packBitsExpr(terms, ExprLang.SWIFT)
+                val packed = swiftPack(f.name, terms)
                 w.line("buffer.writeInt($packed)")
                 continue
             }
@@ -1166,10 +1343,16 @@ internal class SwiftGenerator(
             for (sp in sparseParameters) {
                 w.block("if let val = ${sp.name}") {
                     when (effectiveKeyType) {
-                        "int" -> line("buffer.writeInt(${sp.id})")
+                        "int" -> line("buffer.writeInt(Int32(SparseParameterID.${sp.name}))")
                         "ushort",
-                        "short" -> line("buffer.writeShort(Int16(truncatingIfNeeded: ${sp.id}))")
-                        else -> line("buffer.writeByte(UInt8(truncatingIfNeeded: ${sp.id}))")
+                        "short" ->
+                            line(
+                                "buffer.writeShort(Int16(truncatingIfNeeded: SparseParameterID.${sp.name}))"
+                            )
+                        else ->
+                            line(
+                                "buffer.writeByte(UInt8(truncatingIfNeeded: SparseParameterID.${sp.name}))"
+                            )
                     }
                     val synField =
                         SchemaField(
@@ -1208,7 +1391,7 @@ internal class SwiftGenerator(
         if (f.type == "bytes" && f.countFrom != null) {
             return "buffer.readBytes(count: Int(${f.countFrom}))"
         }
-        return mapToSwiftReadExpr(f.type, f.maxLength)
+        return mapToSwiftReadExpr(f.type, limitRef(f))
     }
 
     private inline fun CodeWriter.swiftSwitch(expr: String, body: CodeWriter.() -> Unit) {
@@ -1292,7 +1475,7 @@ internal class SwiftGenerator(
         }
     }
 
-    private fun mapToSwiftReadExpr(type: String, maxLength: Int? = null): String =
+    private fun mapToSwiftReadExpr(type: String, maxLength: String? = null): String =
         when (type) {
             "int",
             "int_id",
@@ -1364,6 +1547,8 @@ internal class SwiftGenerator(
         // LOCAL PATCH (rc-players): the portable rewrite's patterns and prelude.
         const val PORTABLE_ERROR_TYPE: String = "RemoteComposeWireError"
         const val WIRE_EXPRESSION_CONSTANTS: String = "WireExpressionConstants"
+        /** Upstream's cap on the room an array read reserves up front. */
+        const val MAX_INITIAL_CAPACITY: Int = 4096
 
         private val NS_ERROR =
             Regex(

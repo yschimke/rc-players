@@ -101,6 +101,30 @@ class RcCodegenTest {
     assertTrue("defines the typed error", "struct RemoteComposeWireError: Error" in swift)
   }
 
+  /**
+   * The portable Swift bindings carry no wire magic numbers: every number other than 0 and 1 is in
+   * a named definition (`static let`, an enum case) or an error code. AGENTS.md's rule for native
+   * wire constants, held over the whole generated file.
+   */
+  @Test
+  fun portableSwiftNamesEveryNumber() {
+    val target = RcCodegenMain.allTargets(null).first { it.id == "swift-portable" }
+    val number = Regex("""(?<![\w.])(0x[0-9A-Fa-f_]+|\d[\d_]*)(?![\w.])""")
+    val offending =
+      target.generate(schema).values.single().lines().withIndex().filter { (_, raw) ->
+        val line = raw.trim()
+        if (line.startsWith("//") || "static let" in line) return@filter false
+        if (Regex("""case \w+ = -?\d+""").matches(line)) return@filter false
+        val code =
+          line.replace(Regex(""""(?:[^"\\]|\\.)*""""), "\"\"").replace(Regex("""code: \d+"""), "")
+        number.findAll(code).any { it.value != "0" && it.value != "1" }
+      }
+    assertTrue(
+      "numbers in generated Swift: ${offending.take(5).map { "${it.index + 1}: ${it.value.trim()}" }}",
+      offending.isEmpty(),
+    )
+  }
+
   @Test
   fun upstreamSwiftKeepsFoundation() {
     val target = RcCodegenMain.allTargets(null).first { it.id == "swift" }
