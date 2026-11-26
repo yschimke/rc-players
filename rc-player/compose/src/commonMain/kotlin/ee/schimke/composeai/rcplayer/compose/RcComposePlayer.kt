@@ -1322,10 +1322,15 @@ private class RcFloatAnimationLoop {
 }
 
 /**
- * [RenderLayoutNodeContent], with [LocalRcModulateAlphaLayer] set to what the node's content is
+ * [RenderLayoutNodeContent], with [LocalRcModulateAlphaLayer] set to what the node's children are
  * drawn into: the node's own [RcModulateAlphaLayer] when its graphics layer is `ModulateAlpha` on a
  * platform whose child layers miss that alpha (see [rcChildLayersMissModulatedAlpha]), none when it
- * has a graphics layer of another strategy, and the enclosing one otherwise.
+ * has a graphics layer of another strategy or clips its children (`RcClipRectModifier` /
+ * `RcRoundedClipRectModifier`), and the enclosing layer otherwise.
+ *
+ * A layer the player inserts around the whole node (a component offscreen capture, a `MEASURE`
+ * layout-compute clip, or a visibility transition that places in a graphics layer) starts the node
+ * with no enclosing `ModulateAlpha` layer.
  */
 @Composable
 private fun RenderLayoutNode(
@@ -1338,6 +1343,27 @@ private fun RenderLayoutNode(
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
 ) {
+  val layer = node.modifiers.graphicsLayer
+  val captures = LocalRcComponentCaptures.current
+  val lookaheadScope = LocalRcLookaheadScope.current
+  val visibilityFixed =
+    forceGone || ignoreOwnVisibility || node.modifiers.visibility == null || lookaheadScope == null
+  val wrappedInChildLayer =
+    captures?.records(node.componentId) == true ||
+      node.modifiers.layoutComputes.any { it.operation.type == RcLayoutCompute.MEASURE } ||
+      (node !is RcLayoutNode.Content && !visibilityFixed)
+  val enclosing = if (wrappedInChildLayer) null else LocalRcModulateAlphaLayer.current
+  val nodeDrawnInto =
+    when {
+      layer == null || !rcChildLayersMissModulatedAlpha -> enclosing
+      layer.compositingStrategy() == CompositingStrategy.ModulateAlpha ->
+        remember(layer, enclosing) { RcModulateAlphaLayer(layer, enclosing) }
+      else -> null
+    }
+  val hasChildLayerModifier =
+    node.modifiers.scroll != null ||
+      node.modifiers.ordered.any { it is RcClipRectModifier || it is RcRoundedClipRectModifier }
+  val childDrawnInto = if (hasChildLayerModifier) null else nodeDrawnInto
   val content: @Composable () -> Unit = {
     RenderLayoutNodeContent(
       node,
@@ -1348,28 +1374,22 @@ private fun RenderLayoutNode(
       textMeasurer,
       images,
       theme,
+      nodeModulateAlphaLayer = nodeDrawnInto,
     )
   }
-  val layer = node.modifiers.graphicsLayer
-  val enclosing = LocalRcModulateAlphaLayer.current
-  val drawnInto =
-    when {
-      layer == null || !rcChildLayersMissModulatedAlpha -> enclosing
-      layer.compositingStrategy() == CompositingStrategy.ModulateAlpha ->
-        remember(layer, enclosing) { RcModulateAlphaLayer(layer, enclosing) }
-      else -> null
-    }
   // One call site for `content`: composing it from different branches would put it in different
-  // groups, so a document swap that changes this node's layer strategy, or gives it an enclosing
-  // ModulateAlpha layer, would dispose the subtree and drop its remembered state.
-  CompositionLocalProvider(LocalRcModulateAlphaLayer provides drawnInto, content)
+  // groups, so a document swap that changes this node's layer strategy, clip or capture, or gives
+  // it an enclosing ModulateAlpha layer, would dispose the subtree and drop its remembered state.
+  CompositionLocalProvider(LocalRcModulateAlphaLayer provides childDrawnInto, content)
 }
 
 /**
  * The `ModulateAlpha` graphics layer what is being composed is drawn into, on a platform whose
- * child layers miss that alpha; null outside one. See [RcModulateAlphaLayer].
+ * child layers miss that alpha; null outside one, and inside any child graphics layer the player
+ * inserts (an embedded document's `clipToBounds`, a component clip, a component capture, or a
+ * layered visibility transition). See [RcModulateAlphaLayer].
  */
-private val LocalRcModulateAlphaLayer = staticCompositionLocalOf<RcModulateAlphaLayer?> { null }
+internal val LocalRcModulateAlphaLayer = staticCompositionLocalOf<RcModulateAlphaLayer?> { null }
 
 /**
  * A component's `ModulateAlpha` graphics layer [operation], as the offsets drawn into it see it, on
@@ -1482,6 +1502,7 @@ private fun RenderLayoutNodeContent(
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
+  nodeModulateAlphaLayer: RcModulateAlphaLayer?,
 ) {
   val layoutVersion = LocalRcLayoutVersion.current
   val frameTime = LocalRcFrameTime.current
@@ -1647,6 +1668,7 @@ private fun RenderLayoutNodeContent(
           textMeasurer,
           images,
           theme,
+          nodeModulateAlphaLayer,
         ),
         state,
         plainComponents,
@@ -1682,6 +1704,7 @@ private fun RenderLayoutNodeContent(
               textMeasurer,
               images,
               theme,
+              nodeModulateAlphaLayer,
             ),
           ) {
             node.children.forEach {
@@ -1719,6 +1742,7 @@ private fun RenderLayoutNodeContent(
               textMeasurer,
               images,
               theme,
+              nodeModulateAlphaLayer,
             ),
           ) {
             val documentFunctions = LocalRcVisibilityFunctions.current?.definitions.orEmpty()
@@ -1807,6 +1831,7 @@ private fun RenderLayoutNodeContent(
               textMeasurer,
               images,
               theme,
+              nodeModulateAlphaLayer,
             )
           Box(customModifier) {
             val config = state.text(node.operation.configId).orEmpty()
@@ -1847,6 +1872,7 @@ private fun RenderLayoutNodeContent(
               textMeasurer,
               images,
               theme,
+              nodeModulateAlphaLayer,
             ),
             contentAlignment =
               boxAlignment(
@@ -1877,6 +1903,7 @@ private fun RenderLayoutNodeContent(
               textMeasurer,
               images,
               theme,
+              nodeModulateAlphaLayer,
             )
           val alignedRow = rememberRcAlignedRow(node.content.children, state)
           val hasWeightedChildren =
@@ -1939,6 +1966,7 @@ private fun RenderLayoutNodeContent(
               textMeasurer,
               images,
               theme,
+              nodeModulateAlphaLayer,
             ),
             verticalArrangement =
               RcVerticalArrangement(
@@ -1973,6 +2001,7 @@ private fun RenderLayoutNodeContent(
               textMeasurer,
               images,
               theme,
+              nodeModulateAlphaLayer,
             ),
             horizontalArrangement =
               RcHorizontalArrangement(
@@ -2024,6 +2053,7 @@ private fun RenderLayoutNodeContent(
               textMeasurer,
               images,
               theme,
+              nodeModulateAlphaLayer,
             ),
           ) {
             val children = node.content.children
@@ -2124,6 +2154,7 @@ private fun RenderLayoutNodeContent(
                 textMeasurer,
                 images,
                 theme,
+                nodeModulateAlphaLayer,
               ),
             state = state,
             textMeasurer = textMeasurer,
@@ -2150,6 +2181,7 @@ private fun RenderLayoutNodeContent(
                 textMeasurer,
                 images,
                 theme,
+                nodeModulateAlphaLayer,
               ),
             state = state,
             textMeasurer = textMeasurer,
@@ -2170,6 +2202,7 @@ private fun RenderLayoutNodeContent(
               textMeasurer,
               images,
               theme,
+              nodeModulateAlphaLayer,
             )
           // A wrap-content image sizes to its bitmap's intrinsic dimensions. `applyWidth` treats
           // WRAP
@@ -2219,6 +2252,7 @@ private fun RenderLayoutNodeContent(
               textMeasurer,
               images,
               theme,
+              nodeModulateAlphaLayer,
             )
           RenderEmbeddedDoc(
             node = node,
@@ -2249,6 +2283,7 @@ private fun RenderLayoutNodeContent(
                   textMeasurer,
                   images,
                   theme,
+                  nodeModulateAlphaLayer,
                 )
                 .reportTextLayout(node.componentId, componentCoordinates, lines),
             onTextLayout = { lines.result = it },
@@ -2363,6 +2398,7 @@ private fun RenderLayoutNodeContent(
                   textMeasurer,
                   images,
                   theme,
+                  nodeModulateAlphaLayer,
                 )
                 .fitToLines(lines, truncatedBlock)
                 .reportTextLayout(node.componentId, componentCoordinates, lines),
@@ -2512,6 +2548,7 @@ private fun RenderLayoutNodeContent(
                 textMeasurer,
                 images,
                 theme,
+                nodeModulateAlphaLayer,
               ),
           ) { constraints ->
             val maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
@@ -3357,6 +3394,7 @@ private fun Modifier.applyComponentModifiers(
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
+  modulateAlphaLayer: RcModulateAlphaLayer?,
 ): Modifier {
   val density = androidx.compose.ui.platform.LocalDensity.current
   val offscreenTargets = LocalRcOffscreenTargets.current
@@ -3401,14 +3439,11 @@ private fun Modifier.applyComponentModifiers(
   var appliedHeight = false
   var appliedCanvasOperations = false
   var graphicsLayerApplied = false
+  var clipLayerApplied = false
   // The `ModulateAlpha` layer an offset is drawn into depends on where it is in the chain: before
   // the component's own graphics layer it is the enclosing one, after it the component's own, or
-  // none when that layer has another strategy (see [RcModulateAlphaLayer]). `RenderLayoutNode`
-  // provides as the local the component's own holder when its layer is `ModulateAlpha`, none when
-  // it is `Auto` or `Offscreen` (an offset after it is drawn into that layer, and one before it
-  // wraps that layer, a child layer that misses an enclosing alpha whatever the offset does), and
-  // the enclosing holder when it has no layer.
-  val modulateAlphaLayer = LocalRcModulateAlphaLayer.current
+  // none once a clip layer (`RcClipRectModifier` / `RcRoundedClipRectModifier`) has been applied
+  // or when the component's own layer has another strategy (see [RcModulateAlphaLayer]).
   val ownModulateAlphaLayer = modulateAlphaLayer.ownedBy(modifiers.graphicsLayer)
   // The paddings applied so far, in the whole pixels the chain applies them in: the canvas stream
   // undoes them (see [applyCanvasOperations]).
@@ -3549,7 +3584,9 @@ private fun Modifier.applyComponentModifiers(
 
   /** The `ModulateAlpha` layer an offset appended now is drawn into, if any. */
   fun offsetDrawnInto(): RcModulateAlphaLayer? =
-    modulateAlphaLayer.drawnIntoOffset(modifiers.graphicsLayer, afterLayer = graphicsLayerApplied)
+    if (clipLayerApplied) null
+    else
+      modulateAlphaLayer.drawnIntoOffset(modifiers.graphicsLayer, afterLayer = graphicsLayerApplied)
 
   var scrollApplied = false
   var operationIndex = 0
@@ -3558,6 +3595,7 @@ private fun Modifier.applyComponentModifiers(
       modifiers.scroll?.let {
         result = result.applyAndroidXScroll(it, state, geometryComponentIds)
         scrollApplied = true
+        clipLayerApplied = true
       }
     }
     val operation = modifiers.ordered[operationIndex]
@@ -3616,10 +3654,13 @@ private fun Modifier.applyComponentModifiers(
           result.rcOffset(offsetDrawnInto()) { rcOffsetPixels(listOf(operation), state, density) }
         is RcZIndexModifier -> result.zIndex(state.resolve(operation.value))
         is RcBackgroundModifier,
-        is RcBorderModifier,
-        is RcClipRectModifier,
-        is RcRoundedClipRectModifier ->
+        is RcBorderModifier ->
           applyPendingGraphicsLayer(result).applyPaintDecorator(operation, state)
+        is RcClipRectModifier,
+        is RcRoundedClipRectModifier -> {
+          clipLayerApplied = true
+          applyPendingGraphicsLayer(result).applyPaintDecorator(operation, state)
+        }
         is RcRippleModifier ->
           applyPendingGraphicsLayer(result)
             .applyAndroidXRipple(

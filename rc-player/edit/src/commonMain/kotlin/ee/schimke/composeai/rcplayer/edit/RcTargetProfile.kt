@@ -132,6 +132,17 @@ internal constructor(
   internal val readsLiteralModifierColorsOnly: Boolean
     get() = apiLevel < 7 || RcPlayerFeature.MODIFIER_COLOR_REFERENCES in missingFeatures
 
+  /**
+   * Whether the player reads a row, column or flow layout's `spacedBy` only as a literal float:
+   * launcher widgets, Wear widgets, and any player missing
+   * [RcPlayerFeature.VARIABLE_LAYOUT_SPACING] (such as [RcTargetProfiles.ANDROIDX_VIEW]).
+   */
+  internal val readsLiteralLayoutSpacingOnly: Boolean
+    get() =
+      isLauncherWidget ||
+        profiles and RcProfiles.WEAR_WIDGETS != 0 ||
+        RcPlayerFeature.VARIABLE_LAYOUT_SPACING in missingFeatures
+
   public companion object {
     /**
      * The profile a player built from AndroidX's own tables would apply to a document declaring
@@ -168,6 +179,14 @@ public object RcTargetProfiles {
   /** The AndroidX embedded player. AndroidX `RcPlatformProfiles.ANDROIDX`. */
   public val ANDROIDX: RcTargetProfile =
     RcTargetProfile.of(8, RcProfiles.ANDROIDX).named("AndroidX player")
+
+  /**
+   * The AndroidX View player (`RemoteComposePlayer`): the same operations as [ANDROIDX], without
+   * [RcPlayerFeature.VARIABLE_LAYOUT_SPACING], since `RowLayout` / `ColumnLayout` in `remote-core`
+   * read `mSpacedBy` only as a literal float.
+   */
+  public val ANDROIDX_VIEW: RcTargetProfile =
+    ANDROIDX.without(RcPlayerFeature.VARIABLE_LAYOUT_SPACING, name = "AndroidX View player")
 
   /**
    * The AndroidX embedded player with its experimental operations — macros, custom layouts, sound,
@@ -223,6 +242,18 @@ public enum class RcPlayerFeature {
    * writes each constant one as the colour, and [validateFor] reports any that change.
    */
   DYNAMIC_TEXT_COLOR,
+
+  /**
+   * A row, column or flow layout's `spacedBy` given as a variable (such as a `RemoteDensity.Host`
+   * expression over the display's density). AndroidX's `CoreDocument` layout managers — used by the
+   * AndroidX View player (`RemoteComposePlayer`), the Android 16 and 17 platform widget players,
+   * and Wear widgets — read `mSpacedBy` only as a literal float, turning a variable id into `NaN`
+   * layout dimensions (and failing downstream `FloatExpression`s that read measured sizes). Only
+   * the Compose embedded players (`RcPlayer` and `RcComposePlayer`) resolve it. [adaptTo] writes
+   * each constant spacing as a pixel literal ([hardcodeLayoutSpacing]), and [validateFor] reports
+   * any that stay variable.
+   */
+  VARIABLE_LAYOUT_SPACING,
 }
 
 /**

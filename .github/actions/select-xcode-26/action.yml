@@ -1,0 +1,25 @@
+name: 'Select Xcode 26'
+description: >
+  Select the newest installed Xcode 26 on the macOS runner so Compose Multiplatform's
+  iOS targets link against the iOS 26 SDK (`UIViewLayoutRegion`).
+
+runs:
+  using: 'composite'
+  steps:
+    # Compose Multiplatform 1.11's `ui-uikit` links against iOS 26 SDK symbols — `CMPLayoutRegion`
+    # references `UIViewLayoutRegion`, which does not exist before iOS 26. Select the newest
+    # installed Xcode 26 rather than pinning one, so an image refresh that retires a point release
+    # doesn't take the job with it.
+    - name: Select an Xcode with the iOS 26 SDK
+      shell: bash
+      run: |
+        set -euo pipefail
+        xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
+        if [ -z "$xcode" ]; then
+          echo "No Xcode 26 on this image; Compose Multiplatform's iOS targets need its SDK." >&2
+          ls -d /Applications/Xcode*.app >&2
+          exit 1
+        fi
+        sudo xcode-select --switch "$xcode/Contents/Developer"
+        xcodebuild -version
+        xcodebuild -showsdks | grep -i iphonesimulator

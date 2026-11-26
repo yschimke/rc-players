@@ -25,6 +25,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var documentClaimsEpochSecond = false
   /// The colours a host has set by name, which a theme switch leaves alone.
   private var hostSetColors: Set<Int> = []
+  /// The integer and text slots a write has reached since the session opened — the host's, or one
+  /// of the document's own actions — as opposed to ones only the document's computations fill (a
+  /// text operation's output, an integer expression). A float write is in `floatOverrides`.
+  private var writtenIDs: Set<Int> = []
   private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
   private var particleSystems: [Int: NativeSwiftParticleSystemRuntime] = [:]
   /// AndroidX's per-impulse "first frame in the window" bit, and each impulse's phase at the frame
@@ -119,6 +123,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     integers = other.integers
     documentClaimsEpochSecond = other.documentClaimsEpochSecond
     hostSetColors = other.hostSetColors
+    writtenIDs = other.writtenIDs
     hostDensity = other.hostDensity
     hostFontScale = other.hostFontScale
     floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
@@ -525,6 +530,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   {
     func storeInteger(_ id: Int, _ value: Int) {
       integers[id] = value
+      writtenIDs.insert(id)
       values[id] = Float(value)
     }
     // A float write is published into the integer view too, truncated, as
@@ -533,6 +539,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       floatOverrides[id] = value
       values[id] = value
       integers[id] = Int(Int32(clamping: nativeSwiftClampedInt(value)))
+      writtenIDs.insert(id)
     }
     // A sequence can mutate state before a later expression fails. Invalidate before executing the
     // first action so an error cannot leave a stale static snapshot cached over that mutation.
@@ -564,7 +571,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         let resolved = NativeSwiftFloatExpression.resolve(value, values: values)
         if resolved.isFinite { storeFloat(targetID, resolved) }
       case .textValue(let targetID, let textID):
-        if let text = texts[textID] { texts[targetID] = text }
+        if let text = texts[textID] {
+          texts[targetID] = text
+          writtenIDs.insert(targetID)
+        }
       case .hostAction(let id):
         events.append(.action(id: id))
       case .hostMetadataAction(let id, let textID):
@@ -707,6 +717,81 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   @_spi(Conformance)
   public func namedVariableID(_ name: String) -> Int? { namedVariable(for: name)?.id }
 
+  /// The value of each named variable a write has set since this session opened — the host's,
+  /// or one of the document's own actions — by the name the document declares it under, sorted by
+  /// name. A variable only the document's computations fill (a `TextFromFloat` output, an integer
+  /// expression) is left out, as is one whose type no host can write; one written back to its
+  /// initial value is reported.
+  ///
+  /// It is what a host carries into a new session over the same document, with
+  /// ``restoreNamedValue(_:forDeclaredName:)``, so the new session starts from the newest value
+  /// either side wrote rather than from the document's initial ones. An integer carries the float
+  /// view a float write gave the same id, which the integer view holds only truncated.
+  @_spi(RemoteComposeController)
+  public func writtenNamedValues() -> [(name: String, value: NativeSwiftNamedValue)] {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    var written: [(name: String, value: NativeSwiftNamedValue)] = []
+    for (name, variable) in namedVariableDeclarations.variables.sorted(by: { $0.key < $1.key }) {
+      let id = variable.id
+      switch variable.type {
+      case NativeSwiftNamedVariableType.int:
+        if writtenIDs.contains(id) || floatOverrides[id] != nil, let value = integers[id] {
+          written.append((name, .integer(value, float: floatOverrides[id])))
+        }
+      case NativeSwiftNamedVariableType.float:
+        if let value = floatOverrides[id] { written.append((name, .float(value))) }
+      case NativeSwiftNamedVariableType.string:
+        if writtenIDs.contains(id), let value = texts[id] { written.append((name, .text(value))) }
+      case NativeSwiftNamedVariableType.color:
+        // Only a host writes a colour by name; the document's own are restored by its bytes.
+        if hostSetColors.contains(id), let value = colors[id] {
+          written.append((name, .color(value)))
+        }
+      default:
+        break
+      }
+    }
+    return written
+  }
+
+  /// Writes `value` into the named variable the document declares as exactly `name` — no
+  /// `USER:` resolution, so a value read by ``writtenNamedValues()`` lands in the variable it came
+  /// from even where the document declares both `foo` and `USER:foo`. The value must fit the
+  /// variable as a host write must; returns whether it was written.
+  @_spi(RemoteComposeController)
+  @discardableResult
+  public func restoreNamedValue(_ value: NativeSwiftNamedValue, forDeclaredName name: String)
+    -> Bool
+  {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    guard let variable = namedVariableDeclarations.variables[name] else { return false }
+    return write(value, to: variable)
+  }
+
+  /// Writes a host's or a carried value into `variable`, once the declarations accept it.
+  private func write(_ value: NativeSwiftNamedValue, to variable: ParsedNamedVariable) -> Bool {
+    guard NativeSwiftNamedVariableDeclarations.accepts(value, by: variable) else { return false }
+    let id = variable.id
+    switch value {
+    case .float(let value):
+      floatOverrides[id] = value
+    case .text(let value):
+      texts[id] = value
+      writtenIDs.insert(id)
+    case .color(let argb):
+      colors[id] = argb
+      hostSetColors.insert(id)
+    case .integer(let value, let float):
+      integers[id] = value
+      writtenIDs.insert(id)
+      if let float { floatOverrides[id] = float }
+    }
+    staticSnapshotCache = nil
+    return true
+  }
+
   /// The authoring API addresses user values without the wire format's `USER:` prefix. Keep the
   /// wire spelling available too, so hosts can use either form when a document names it explicitly.
   private func namedVariable(for name: String) -> ParsedNamedVariable? {
@@ -726,56 +811,29 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   public func setFloat(_ value: Float, for name: String) -> Bool {
-    stateLock.lock()
-    defer { stateLock.unlock() }
-    guard namedVariableDeclarations.acceptsFloat(value, for: name),
-      let variable = namedVariable(for: name)
-    else {
-      return false
-    }
-    floatOverrides[variable.id] = value
-    staticSnapshotCache = nil
-    return true
+    set(.float(value), for: name)
   }
 
   public func setString(_ value: String, for name: String) -> Bool {
-    stateLock.lock()
-    defer { stateLock.unlock() }
-    guard namedVariableDeclarations.acceptsString(value, for: name),
-      let variable = namedVariable(for: name)
-    else { return false }
-    texts[variable.id] = value
-    staticSnapshotCache = nil
-    return true
+    set(.text(value), for: name)
   }
 
   public func setColor(_ value: UInt32, for name: String) -> Bool {
-    stateLock.lock()
-    defer { stateLock.unlock() }
-    guard namedVariableDeclarations.acceptsColor(for: name),
-      let variable = namedVariable(for: name)
-    else {
-      return false
-    }
-    colors[variable.id] = value
-    hostSetColors.insert(variable.id)
-    staticSnapshotCache = nil
-    return true
+    set(.color(value), for: name)
   }
 
   /// Updates a named RemoteInt. RemoteBoolean uses this same wire type, with `0` and `1` standing
   /// for false and true respectively.
   public func setInteger(_ value: Int, for name: String) -> Bool {
+    set(.integer(value), for: name)
+  }
+
+  /// A host write by the name a host addresses it with; see `namedVariable(for:)`.
+  private func set(_ value: NativeSwiftNamedValue, for name: String) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
-    guard namedVariableDeclarations.acceptsInteger(for: name),
-      let variable = namedVariable(for: name)
-    else {
-      return false
-    }
-    integers[variable.id] = value
-    staticSnapshotCache = nil
-    return true
+    guard let variable = namedVariable(for: name) else { return false }
+    return write(value, to: variable)
   }
 
   public func returnCustomText(_ value: String, componentID: Int, propertyID: Int) -> Bool {
@@ -788,6 +846,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       })
     else { return false }
     texts[property.valueBits] = value
+    writtenIDs.insert(property.valueBits)
     staticSnapshotCache = nil
     return true
   }

@@ -38,30 +38,62 @@ public struct NativeSwiftNamedVariableDeclarations: Sendable {
   /// Whether `value` may be written to the float variable `name`: finite, and `name` is declared
   /// as a float.
   public func acceptsFloat(_ value: Float, for name: String) -> Bool {
-    value.isFinite && type(of: name) == NativeSwiftNamedVariableType.float
+    accepts(.float(value), for: name)
   }
 
   /// Whether `value` may be written to the string variable `name`: no longer than a document
   /// string may be, and `name` is declared as a string.
   public func acceptsString(_ value: String, for name: String) -> Bool {
-    value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes
-      && type(of: name) == NativeSwiftNamedVariableType.string
+    accepts(.text(value), for: name)
   }
 
   /// Whether `name` is declared as a color.
   public func acceptsColor(for name: String) -> Bool {
-    type(of: name) == NativeSwiftNamedVariableType.color
+    accepts(.color(0), for: name)
   }
 
   /// Whether `name` is declared as an integer — which is also how a document declares a boolean,
   /// holding 1 or 0.
   public func acceptsInteger(for name: String) -> Bool {
-    type(of: name) == NativeSwiftNamedVariableType.int
+    accepts(.integer(0), for: name)
+  }
+
+  private func accepts(_ value: NativeSwiftNamedValue, for name: String) -> Bool {
+    variable(for: name).map { Self.accepts(value, by: $0) } ?? false
+  }
+
+  /// The rule every named write meets, whoever names the variable: the value is of the declared
+  /// type, a float (either view of an integer included) is finite, and a string is no longer than
+  /// a document string may be.
+  static func accepts(_ value: NativeSwiftNamedValue, by variable: ParsedNamedVariable) -> Bool {
+    switch value {
+    case .float(let value):
+      variable.type == NativeSwiftNamedVariableType.float && value.isFinite
+    case .text(let value):
+      variable.type == NativeSwiftNamedVariableType.string
+        && value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes
+    case .color:
+      variable.type == NativeSwiftNamedVariableType.color
+    case .integer(_, let float):
+      variable.type == NativeSwiftNamedVariableType.int && float?.isFinite != false
+    }
   }
 
   func variable(for name: String) -> ParsedNamedVariable? {
     declaredName(for: name).flatMap { variables[$0] }
   }
+}
 
-  private func type(of name: String) -> Int? { variable(for: name)?.type }
+/// A named variable's value: the four kinds a host can write, as a session reads and restores
+/// them (``NativeSwiftDocumentSession/writtenNamedValues()``). A boolean is an `.integer` 0 or 1, as
+/// on the wire.
+@_spi(RemoteComposeController)
+public enum NativeSwiftNamedValue: Equatable, Sendable {
+  case text(String)
+  case float(Float)
+  /// `float` is the float view a float write gave the same id (the two views share ids), which the
+  /// integer holds only truncated; nil when no float write reached it. A host writes nil.
+  case integer(Int, float: Float? = nil)
+  /// ARGB, as the document stores a colour.
+  case color(UInt32)
 }

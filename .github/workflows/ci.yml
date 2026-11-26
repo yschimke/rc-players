@@ -37,23 +37,25 @@ concurrency:
 jobs:
   # Whether the macOS lane runs at all, and what in it is worth its minutes. Two outputs:
   #
-  # `lane` decides whether `players-macos` runs. On a push to main it always does. On a pull
-  # request it runs only when the change touches the Apple projects themselves: the Swift package
-  # and its tests, the Apple samples, the Apple scripts, the Kotlin `apple*`/`ios*`/`macos*`/
-  # `native*` source sets, or this workflow. Everything else, including a Gradle dependency bump
-  # or a common-code change, waits for main's push run to exercise the XCFramework link and the
-  # Swift side: a macOS runner queues for 30-80 minutes, and every such PR paid that. What used to
-  # make the lane mandatory on every PR (#77) now runs on Linux in `jvm`: the wasm browser tests,
-  # and the ABI gate including the Apple klibs, which Kotlin/Native cross-compiles off macOS.
+  # `lane` decides whether the macOS jobs (`apple-tests` and the packaging/validation jobs) run. On
+  # a push to main they always do. On a pull request they run only when the change touches the Apple
+  # projects themselves: the Swift package and its tests, the Apple samples, the Apple scripts, the
+  # Kotlin `apple*`/`ios*`/`macos*`/`native*` source sets, or this workflow. Everything else,
+  # including a Gradle dependency bump or a common-code change, waits for main's push run to
+  # exercise the XCFramework link and the Swift side: a macOS runner queues for 30-80 minutes, and
+  # every such PR paid that. What used to make the lane mandatory on every PR (#77) now runs on
+  # Linux in `jvm`: the wasm browser tests, and the ABI gate including the Apple klibs, which
+  # Kotlin/Native cross-compiles off macOS.
   #
-  # `required` gates the packaging steps inside the lane once it runs: the XCFramework link, the
-  # Swift type check and the Xcode packaging. It is the wider list, so a push to main still skips
-  # packaging when nothing it builds from changed. On a pull request `lane` almost always implies
-  # `required`: every `lane` path lies inside a `required` one except eight scripts the
-  # `scripts/*` globs catch that no step of this lane runs — the Apple font, benchmark-interaction
-  # and custom-component checks, and three run elsewhere (`check-apple-player-sources.sh` in this
-  # job, `build-remote-apple-comparison.sh` and `run-swift-tests-isolated.py` in their own
-  # workflows). A change to only those runs the tests and the ABI gate below, and no packaging.
+  # `required` gates the packaging and validation jobs once the Apple lane runs: the parallel
+  # framework links, XCFramework assembly, native Swift tests/fuzz/packaging, the Swift type check,
+  # and the Xcode/simulator checks. It is the wider list, so a push to main still skips packaging
+  # when nothing it builds from changed. On a pull request `lane` almost always implies `required`:
+  # every `lane` path lies inside a `required` one except eight scripts the `scripts/*` globs catch
+  # that no step of this lane runs — the Apple font, benchmark-interaction and custom-component
+  # checks, and three run elsewhere (`check-apple-player-sources.sh` in this job,
+  # `build-remote-apple-comparison.sh` and `run-swift-tests-isolated.py` in their own workflows). A
+  # change to only those runs `apple-tests` (tests and the ABI gate), and no packaging jobs.
   #
   # Keep the list here (rather than a third-party path-filter action) so the exact trust boundary is
   # visible and changes to this workflow always exercise the lane once before changing its own gate.
@@ -79,6 +81,7 @@ jobs:
     outputs:
       required: ${{ steps.filter.outputs.required }}
       lane: ${{ steps.filter.outputs.lane }}
+      kotlin-version: ${{ steps.filter.outputs.kotlin-version }}
       jvm: ${{ steps.jvm-filter.outputs.jvm }}
       three-d: ${{ steps.three-d-filter.outputs.three-d }}
     steps:
@@ -87,8 +90,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # Seconds on Linux, so it runs on every change: the sample app lists package sources by hand,
-      # and a Swift file missing from it otherwise fails only at `package-apple-player.sh`, the
-      # better part of an hour into the macOS lane.
+      # and a Swift file missing from it otherwise fails only at `package-apple-player.sh`, well
+      # into the macOS lane.
       - name: Check the Apple sample app lists every package source
         run: scripts/check-apple-player-sources.sh
       - name: Check whether the Apple lane is required
@@ -104,6 +107,7 @@ jobs:
             git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
               .github/workflows/ci.yml \
               .github/workflows/release.yml \
+              .github/actions/select-xcode-26 \
               Package.swift \
               Sources \
               Tests \
@@ -164,6 +168,7 @@ jobs:
             git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
               .github/workflows/ci.yml \
               .github/workflows/release.yml \
+              .github/actions/select-xcode-26 \
               Package.swift \
               Sources \
               Tests \
@@ -187,6 +192,13 @@ jobs:
             lane=false
           fi
           echo "lane=$lane" | tee -a "$GITHUB_OUTPUT"
+
+          kotlin_version="$(sed -n 's/^kotlin = "\([^"]*\)"/\1/p' gradle/libs.versions.toml | head -n 1)"
+          if [ -z "$kotlin_version" ]; then
+            echo "Could not read kotlin version from gradle/libs.versions.toml" >&2
+            exit 1
+          fi
+          echo "kotlin-version=$kotlin_version" | tee -a "$GITHUB_OUTPUT"
 
       # `jvm` decides whether the JVM + Android lane runs. It is the opposite kind of list from the
       # two above: not what the lane covers, but what it provably cannot read, so anything new or
@@ -301,7 +313,7 @@ jobs:
   # The Linux lane: everything that does not need a Mac. The JVM cuts of the whole player stack,
   # both vendored players, and the build-only fixture generators.
   #
-  # `checkKotlinAbi` runs here as well as in `players-macos`. The committed `.klib.api` dumps cover
+  # `checkKotlinAbi` runs here as well as in `apple-tests`. The committed `.klib.api` dumps cover
   # the Apple and wasmJs targets, and Kotlin/Native cross-compiles Apple klibs on Linux (it cannot
   # link them, which is the macOS lane's job), so this sees the whole surface: an edited
   # `// Targets: [apple]` declaration in a dump fails it here. Since the macOS lane now skips pull
@@ -310,8 +322,8 @@ jobs:
   # Skipped on release-please's own release PR: it changes only the manifest, CHANGELOG.md and
   # version lines, and main's push run already verified all of the source. The PR author (or, for a
   # dispatched run, the actor) must be the bot, because branch names are contributor-controlled. A
-  # job skipped by `if:` reports "skipped", which satisfies this required check. Same guard on
-  # `players-macos`; see yschimke/compose-ui-builder#700.
+  # job skipped by `if:` reports "skipped", which satisfies this required check. Same guard on the
+  # macOS lane jobs; see yschimke/compose-ui-builder#700.
   jvm:
     name: JVM + Android players
     # `needs` only for the `jvm` output, which is computed in the seconds-long `apple-changes`
@@ -547,7 +559,7 @@ jobs:
       # cheap lane and the bundle is already here, which is why the browser run belongs on Linux
       # rather than behind the macOS lane's gate.
       #
-      # It is not the same coverage as `wasmJsBrowserTest` over on `players-macos`: that runs the
+      # It is not the same coverage as `wasmJsBrowserTest` over on `apple-tests`: that runs the
       # Kotlin `commonTest` sources, this runs the *artifact* — the production-compiled
       # `rcPlayer.wasm`, `index.html`, the import map, the bundled font manifest and the embed
       # contract every host codes against.
@@ -578,23 +590,31 @@ jobs:
             **/build/test-results/**
           retention-days: 7
 
-  # The macOS lane: the Kotlin/Native Apple test targets, the Apple packaging, and (again, after
-  # `jvm`) the wasm browser tests and the ABI gate. It runs on every push to main and on the pull
-  # requests `apple-changes` says touch the Apple projects; the packaging steps at the bottom are
-  # gated a second time by its wider `required` list.
-  players-macos:
-    name: Apple + wasm tests, ABI gate, Apple packaging
+  # The macOS lane, split into parallel jobs (#958) so the same checks finish in ~35-50 minutes
+  # instead of running serially up to the old 150-minute ceiling:
+  #
+  #   Wave 1 (parallel, after `apple-changes`):
+  #     - `apple-tests`           Kotlin/Native Apple + wasm tests and ABI gate (`lane == true`)
+  #     - `apple-native-swift`    Pure-Swift tests, fuzzing, UIKit package & rc-swift-render (`required`)
+  #     - `apple-link-framework`  3 parallel release links (`iosArm64`, `iosSimulatorArm64`, `macosArm64`)
+  #   Wave 2 (after `apple-link-framework`):
+  #     - `apple-xcframework`     Assembles `RcComposePlayer.xcframework` + reproducible zip/checksum
+  #   Wave 3 (parallel, after `apple-xcframework`):
+  #     - `apple-accessibility-ui`     XCUITest native UIKit accessibility suite (~24 min on its own)
+  #     - `apple-simulator-validation` Swift sample check, iOS/macOS app packaging, AppKit evidence,
+  #                                    and simulator screenshot/accessibility/animation validation
+  #     - `apple-simulator-benchmarks` UIKit simulator performance, CMP comparison & nightly corpus
+  #   Final (Ubuntu, ~10 s):
+  #     - `apple-native-evidence` Merges partial evidence into `native-performance-evidence`
+
+  apple-tests:
+    name: Apple + wasm tests, ABI gate
     needs: apple-changes
     # Skipped on the release-please PR (see the note on `jvm`), and on a pull request that touches
-    # none of the Apple projects (see `apple-changes`). A skipped job satisfies the required check.
+    # none of the Apple projects (see `apple-changes`).
     if: ${{ needs.apple-changes.outputs.lane == 'true' && !(startsWith(github.head_ref || github.ref_name, 'release-please--') && (github.event.pull_request.user.login || github.actor) == 'github-actions[bot]') }}
     runs-on: macos-26
-    # The tests alone take 6-15 minutes, but a run that reaches the packaging steps below needs
-    # well over 90: the release XCFramework is 20-30 minutes on its own, and the validation,
-    # benchmark and comparison steps after it add about 45 more. At 90, every such push to main was
-    # cancelled near the end (runs 38306485636, 38499815501, 38593701457, 38630564130, all at
-    # ~91 minutes), so main never went green on an Apple-packaging change.
-    timeout-minutes: 150
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -611,26 +631,17 @@ jobs:
         with:
           rw-token: ${{ github.event_name == 'push' && secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN || '' }}
           ro-token: ${{ secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN_RO }}
-
-      # Compose Multiplatform 1.11's `ui-uikit` links against iOS 26 SDK symbols — `CMPLayoutRegion`
-      # references `UIViewLayoutRegion`, which does not exist before iOS 26. The `macos-15` image
-      # ships several Xcode 26.x alongside 16.4 but still *defaults* to 16.4 (iOS 18.5 SDK), so
-      # `:rc-player-compose:linkDebugTestIosSimulatorArm64` dies with
-      # `Undefined symbols for architecture arm64: "_OBJC_CLASS_$_UIViewLayoutRegion"`. Select the
-      # newest installed Xcode 26 rather than pinning one, so an image refresh that retires a point
-      # release doesn't take the job with it.
-      - name: Select an Xcode with the iOS 26 SDK
-        run: |
-          set -euo pipefail
-          xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
-          if [ -z "$xcode" ]; then
-            echo "No Xcode 26 on this image; Compose Multiplatform's iOS targets need its SDK." >&2
-            ls -d /Applications/Xcode*.app >&2
-            exit 1
-          fi
-          sudo xcode-select --switch "$xcode/Contents/Developer"
-          xcodebuild -version
-          xcodebuild -showsdks | grep -i iphonesimulator
+      # Keep the extracted Kotlin/Native prebuilt toolchain, LLVM/sysroot dependencies and target
+      # klib caches across runs. Per-role keys prevent parallel jobs from overwriting each other's
+      # target caches while sharing the Kotlin-version prefix as a fallback.
+      - name: Cache Kotlin/Native toolchain (~/.konan)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ needs.apple-changes.outputs.kotlin-version }}-tests-v1
+          restore-keys: |
+            konan-${{ runner.os }}-${{ runner.arch }}-${{ needs.apple-changes.outputs.kotlin-version }}-
+      - uses: ./.github/actions/select-xcode-26
 
       # No `iosX64` anywhere in this list. `:rc-player-compose` never had one — CMP 1.11 dropped the
       # Intel-iOS-simulator variant — and its three siblings dropped theirs when the stack became
@@ -699,58 +710,61 @@ jobs:
             rc-player/compose:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest \
             rc-player/edit:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest
 
-      # Everything from here down is the Apple *packaging* half, and the only half the path filter
-      # gates: the release link, the Swift type check and the Xcode build are what make this lane
-      # expensive, and they cannot be affected by a change that touches none of the paths listed in
-      # `apple-changes`. The tests and the ABI gate above have already run.
+      - name: Upload player test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apple-test-reports
+          path: |
+            rc-player/**/build/reports/tests/**
+            rc-player/**/build/test-results/**
+          retention-days: 7
+
+  # Pure-Swift and native-only checks: none of these depend on `RcComposePlayer.xcframework`, so
+  # they start immediately alongside the framework links instead of waiting for them.
+  apple-native-swift:
+    name: Native Swift tests, fuzz, package and rc-swift-render
+    needs: apple-changes
+    if: ${{ needs.apple-changes.outputs.lane == 'true' && needs.apple-changes.outputs.required == 'true' && !(startsWith(github.head_ref || github.ref_name, 'release-please--') && (github.event.pull_request.user.login || github.actor) == 'github-actions[bot]') }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: zulu
+          java-version: "17"
+          check-latest: false
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+      - uses: ./.github/actions/buildfetch-cache
+        with:
+          rw-token: ${{ github.event_name == 'push' && secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN || '' }}
+          ro-token: ${{ secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN_RO }}
+      - uses: ./.github/actions/select-xcode-26
 
       # `Package.swift`'s two SPM-verified values are written by the release job, never by hand.
       # This proves the writer still works before a release depends on it.
       - name: Run the Package.swift rewriter self-test
-        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/update-package-swift.sh --self-test
 
-      # The release link, run on every PR that can affect the Apple artifact. This is the same task
-      # `release.yml` drives, so a linker failure surfaces here rather than mid-release — and it is
-      # what makes the Swift step below check something real instead of self-skipping.
-      #
-      # `--max-workers=1` is load-bearing, not caution. Kotlin/Native compiles inside the Gradle
-      # daemon's own JVM, so with `org.gradle.parallel=true` the `IosArm64` and `IosSimulatorArm64`
-      # release links would run `ModuleDFGBuilder` concurrently *in one heap* and peak together.
-      # Serializing them halves the peak; `gradle.properties` carries the rest of the reasoning.
-      - name: Assemble the release XCFramework
-        if: needs.apple-changes.outputs.required == 'true'
-        run: |
-          ./gradlew \
-            :rc-player-compose:rcPlayerXcframeworkChecksum \
-            :rc-player-compose:rcNativePlayerUIKitPackageChecksum \
-            --max-workers=1
+      # Pure source zip + profile checksum: no Kotlin/Native dependency.
+      - name: Package the native UIKit release archive
+        run: ./gradlew :rc-player-compose:rcNativePlayerUIKitPackageChecksum
 
       - name: Validate the native UIKit release package
-        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-package.sh
 
       - name: Validate the native UIKit support profile
-        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-profile.sh
-
-      # Type-checks the Swift sample in docs/design/RC_PLAYER_SWIFT.md against the real framework.
-      # Exits 0 and says so when no framework is present, so it is honest about what it checked —
-      # with the step above restored, a framework *is* present and this genuinely type-checks.
-      - name: Type-check the Swift usage sample
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-swift-sample.sh
 
       # The package's SwiftPM test targets on the macOS host: the pure-Swift core, every
       # renderer-neutral policy in `RcNativePlayerUIKit`, and the SwiftUI overlay's controller
       # backend for the native fallback. The fuzz suite is skipped here and run optimized below,
-      # because its elapsed-time budget was calibrated against an `-O` build. It replaced one
-      # `swiftc` script per test file, each compiling a hand-picked subset of sources — so a file
-      # added to a target but missed by the scripts was never type-checked, and a fixture passed by
-      # position could silently disable a block. Native-only mode keeps the Kotlin binary target out
-      # of the package graph; nothing here needs the framework assembled above.
+      # because its elapsed-time budget was calibrated against an `-O` build. Native-only mode keeps
+      # the Kotlin binary target out of the package graph; nothing here needs the XCFramework.
       - name: Test the native Swift player on macOS
-        if: needs.apple-changes.outputs.required == 'true'
         env:
           RC_COMPOSE_PLAYER_NATIVE_ONLY: 1
         run: swift test --skip NativeSwiftFuzzTests
@@ -759,7 +773,6 @@ jobs:
       # renderer behind `#if canImport(UIKit)` is compiled as a package rather than through the
       # sample app.
       - name: Test the native Swift player on an iOS simulator
-        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-swift-ios-tests.sh
 
       # visionOS has no Kotlin slice, so the overlay builds there against the native Swift player
@@ -768,7 +781,6 @@ jobs:
       # platform component, so an image without it skips with a warning rather than failing; once
       # the SDK is present, a build failure fails the job.
       - name: Build the native Swift packages for visionOS
-        if: needs.apple-changes.outputs.required == 'true'
         env:
           RC_COMPOSE_PLAYER_NATIVE_ONLY: 1
         run: |
@@ -787,7 +799,6 @@ jobs:
       # is set). A failing fuzz input is the whole point of this test, and the default temporary
       # directory is not in the uploaded artifact.
       - name: Fuzz the pure Swift document core
-        if: needs.apple-changes.outputs.required == 'true'
         env:
           RC_NATIVE_FUZZ_CORPUS_OUT: ${{ github.workspace }}/build/native-fuzz-failures
         run: scripts/check-native-swift-fuzz.sh
@@ -795,7 +806,6 @@ jobs:
       # The address-sanitized pass, shorter because the sanitizer is the expensive part, not the
       # mutation count.
       - name: Fuzz the pure Swift document core under AddressSanitizer
-        if: needs.apple-changes.outputs.required == 'true'
         env:
           RC_NATIVE_FUZZ_CORPUS_OUT: ${{ github.workspace }}/build/native-fuzz-failures
           RC_NATIVE_FUZZ_SANITIZE: address
@@ -803,147 +813,449 @@ jobs:
         run: scripts/check-native-swift-fuzz.sh
 
       - name: Benchmark the pure Swift document core
-        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/measure-native-swift-core.sh
+
+      # The release asset the preview server's `swift-appkit` lane downloads. The script renders a
+      # fixture one-shot and through the worker frame protocol before it packages anything, so a
+      # binary that cannot draw fails here rather than on someone's first render.
+      - name: Build and smoke-test rc-swift-render
+        run: scripts/package-swift-render.sh
+
+      - name: Stage native core evidence
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/evidence"
+          if [ -f build/native-swift-core-benchmark.json ]; then
+            cp build/native-swift-core-benchmark.json "$RUNNER_TEMP/evidence/"
+          fi
+          if [ -d build/native-fuzz-failures ]; then
+            cp -R build/native-fuzz-failures "$RUNNER_TEMP/evidence/"
+          fi
+
+      - name: Upload native core evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-evidence-core
+          path: ${{ runner.temp }}/evidence
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Upload native Swift iOS test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-swift-ios-test-reports
+          path: build/native-swift-ios-tests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Link the three Apple release frameworks in parallel, each on its own runner so each link gets
+  # the full 5 GB Gradle daemon heap (`gradle.properties`) without competing in one JVM.
+  apple-link-framework:
+    name: Link release framework (${{ matrix.target }})
+    needs: apple-changes
+    if: ${{ needs.apple-changes.outputs.lane == 'true' && needs.apple-changes.outputs.required == 'true' && !(startsWith(github.head_ref || github.ref_name, 'release-please--') && (github.event.pull_request.user.login || github.actor) == 'github-actions[bot]') }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: iosArm64
+            task: linkReleaseFrameworkIosArm64
+          - target: iosSimulatorArm64
+            task: linkReleaseFrameworkIosSimulatorArm64
+          - target: macosArm64
+            task: linkReleaseFrameworkMacosArm64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: zulu
+          java-version: "17"
+          check-latest: false
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+      - uses: ./.github/actions/buildfetch-cache
+        with:
+          rw-token: ${{ github.event_name == 'push' && secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN || '' }}
+          ro-token: ${{ secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN_RO }}
+      - name: Cache Kotlin/Native toolchain (~/.konan)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ needs.apple-changes.outputs.kotlin-version }}-${{ matrix.target }}-v1
+          restore-keys: |
+            konan-${{ runner.os }}-${{ runner.arch }}-${{ needs.apple-changes.outputs.kotlin-version }}-
+      - uses: ./.github/actions/select-xcode-26
+
+      - name: Link release framework
+        env:
+          LINK_TASK: ${{ matrix.task }}
+        run: ./gradlew ":rc-player-compose:${LINK_TASK}" --max-workers=1
+
+      # Tar before uploading so `actions/upload-artifact`'s zip layer preserves macOS versioned
+      # framework symlinks (`Versions/Current`, `Headers`, `Modules`, `Resources`) and file modes.
+      - name: Archive linked framework
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          COPYFILE_DISABLE=1 tar -cf "$RUNNER_TEMP/framework-${TARGET}.tar" \
+            -C rc-player/compose/build/bin \
+            "${TARGET}/releaseFramework"
+
+      - name: Upload linked framework
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rc-compose-framework-${{ matrix.target }}
+          path: ${{ runner.temp }}/framework-${{ matrix.target }}.tar
+          retention-days: 1
+
+  # Assemble `RcComposePlayer.xcframework`, its reproducible SPM zip and its SHA-256 checksum from
+  # the three independently linked frameworks. Runs the same Gradle packaging tasks `release.yml`
+  # drives, excluding the already-completed link tasks so no Kotlin/Native compilation runs here.
+  apple-xcframework:
+    name: Assemble release XCFramework
+    needs: [apple-changes, apple-link-framework]
+    if: ${{ needs.apple-link-framework.result == 'success' }}
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: zulu
+          java-version: "17"
+          check-latest: false
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+      - uses: ./.github/actions/buildfetch-cache
+        with:
+          rw-token: ${{ github.event_name == 'push' && secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN || '' }}
+          ro-token: ${{ secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN_RO }}
+      - uses: ./.github/actions/select-xcode-26
+
+      - name: Download the linked release frameworks
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: rc-compose-framework-*
+          path: ${{ runner.temp }}/frameworks
+          merge-multiple: true
+
+      - name: Extract the linked release frameworks
+        run: |
+          set -euo pipefail
+          mkdir -p rc-player/compose/build/bin
+          for target in iosArm64 iosSimulatorArm64 macosArm64; do
+            archive="$RUNNER_TEMP/frameworks/framework-${target}.tar"
+            if [ ! -f "$archive" ]; then
+              echo "Missing linked framework archive: $archive" >&2
+              exit 1
+            fi
+            tar -xf "$archive" -C rc-player/compose/build/bin
+          done
+
+      - name: Assemble the release XCFramework
+        run: |
+          ./gradlew \
+            :rc-player-compose:rcPlayerXcframeworkChecksum \
+            -x :rc-player-compose:linkReleaseFrameworkIosArm64 \
+            -x :rc-player-compose:linkReleaseFrameworkIosSimulatorArm64 \
+            -x :rc-player-compose:linkReleaseFrameworkMacosArm64
+
+      - name: Archive assembled XCFramework
+        run: |
+          set -euo pipefail
+          COPYFILE_DISABLE=1 tar -cf "$RUNNER_TEMP/RcComposePlayer.xcframework.tar" \
+            -C rc-player/compose/build/XCFrameworks/release \
+            RcComposePlayer.xcframework
+
+      - name: Upload assembled XCFramework
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rc-compose-xcframework
+          path: ${{ runner.temp }}/RcComposePlayer.xcframework.tar
+          retention-days: 1
+
+  # XCUITest accessibility validation builds directly against `RcComposePlayer.xcframework` and
+  # takes ~24 minutes on its own, so it runs in parallel with the other XCFramework consumers.
+  apple-accessibility-ui:
+    name: Apple UIKit accessibility UI tests
+    needs: [apple-changes, apple-xcframework]
+    if: ${{ needs.apple-xcframework.result == 'success' }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode-26
+
+      - name: Download the assembled XCFramework
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rc-compose-xcframework
+          path: ${{ runner.temp }}/xcframework
+
+      - name: Extract the assembled XCFramework
+        run: |
+          set -euo pipefail
+          mkdir -p rc-player/compose/build/XCFrameworks/release
+          tar -xf "$RUNNER_TEMP/xcframework/RcComposePlayer.xcframework.tar" \
+            -C rc-player/compose/build/XCFrameworks/release
+
+      - name: Validate native UIKit accessibility UI
+        run: scripts/check-native-uikit-accessibility-ui.sh
+
+      - name: Upload native UIKit accessibility UI results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apple-accessibility-ui-results
+          path: |
+            build/native-uikit-accessibility-ui.xcresult
+            build/native-uikit-accessibility-ui-first-attempt.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Swift usage sample type-check, iOS & macOS app packaging, AppKit evidence, and simulator
+  # screenshot / accessibility presentation / animation validation.
+  apple-simulator-validation:
+    name: Apple app packaging and simulator validation
+    needs: [apple-changes, apple-xcframework]
+    if: ${{ needs.apple-xcframework.result == 'success' }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode-26
+
+      - name: Download the assembled XCFramework
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rc-compose-xcframework
+          path: ${{ runner.temp }}/xcframework
+
+      - name: Extract the assembled XCFramework
+        run: |
+          set -euo pipefail
+          mkdir -p rc-player/compose/build/XCFrameworks/release
+          tar -xf "$RUNNER_TEMP/xcframework/RcComposePlayer.xcframework.tar" \
+            -C rc-player/compose/build/XCFrameworks/release
+
+      # Type-checks the Swift sample in docs/design/RC_PLAYER_SWIFT.md against the real framework.
+      # Exits 0 and says so when no framework is present, so it is honest about what it checked —
+      # with the XCFramework extracted above, a framework *is* present and this genuinely
+      # type-checks.
+      - name: Type-check the Swift usage sample
+        run: scripts/check-swift-sample.sh
 
       # A header-only type check cannot catch application-host contracts. In particular,
       # ComposeUIViewController enforces its high-refresh plist entry at runtime, and Xcode's
       # generic Simulator build asks for x86_64 unless the arm64-only framework constraint is
       # stated by the consumer. The project links the XCFramework assembled above, so its binary
       # and source overlay always describe the same current API.
-      - name: Build and package the Apple player app
-        if: needs.apple-changes.outputs.required == 'true'
-        # The framework is assembled by an earlier step in this job. Requiring it rather than
-        # letting the script assemble one keeps a fault in that step loud: a silent twenty-minute
-        # rebuild here would hide it and bill the job for it.
+      - name: Build and package the Apple player apps
+        # The framework is assembled by `apple-xcframework`. Requiring it rather than letting the
+        # script assemble one keeps a fault in that job loud: a silent twenty-minute rebuild here
+        # would hide it and bill the job for it.
         env:
           RC_APPLE_PLAYER_REQUIRE_FRAMEWORK: 1
         run: |
           scripts/package-apple-player.sh
           scripts/package-macos-player.sh
 
-      # The release asset the preview server's `swift-appkit` lane downloads. The script renders a
-      # fixture one-shot and through the worker frame protocol before it packages anything, so a
-      # binary that cannot draw fails here rather than on someone's first render.
-      - name: Build and smoke-test rc-swift-render
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/package-swift-render.sh
-
-      - name: Measure native UIKit performance and footprint
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/measure-native-uikit-simulator.sh
-
-      - name: Compare Apple player iOS simulator benchmarks
-        if: needs.apple-changes.outputs.required == 'true' && github.event_name != 'push'
-        env:
-          RC_APPLE_PLAYER_BENCHMARK_OUTPUT: ${{ github.workspace }}/build/apple-player-simulator-benchmark.json
-        run: scripts/measure-apple-players-simulator.sh
-
       # This is intentionally an evidence lane rather than a timing gate. Both implementations run
       # from the packaged Release macOS app on the runner's Apple-silicon host; no simulator is
       # involved, and host load still makes the numbers unsuitable as a product SLA.
       - name: Compare Apple player macOS benchmarks
-        if: needs.apple-changes.outputs.required == 'true' && github.event_name != 'push'
+        if: github.event_name != 'push'
         run: scripts/measure-apple-players-macos.sh
 
       - name: Measure native AppKit performance and footprint
-        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/measure-native-appkit.sh
-
-      # Evidence, not a gate (its script has no budget to fail): pull requests that touch the Apple
-      # lane still get the comparison, and main gets it nightly rather than on every merge.
-      - name: Compare native UIKit against CMP on representative content
-        if: needs.apple-changes.outputs.required == 'true' && github.event_name != 'push'
-        env:
-          RC_NATIVE_UIKIT_SKIP_BUILD: 1
-        run: scripts/check-native-uikit-comparison.sh
-
-      # The same two lanes over ~700 real Material 3 documents from wear-m3-catalog, instead of the
-      # four fixtures above. ENRICHMENT: it reports what the native player declines rather than
-      # failing on it, and a corpus it cannot fetch is skipped — the sheet is generated output this
-      # repository does not control, served by a live host. See
-      # docs/design/RC_CATALOG_CORPUS_LANE.md.
-      #
-      # NIGHTLY ONLY (schedule, or a manual dispatch). It adds about ten minutes to a job that has
-      # hit its 90-minute ceiling once already, and a non-gating score does not need to be on the
-      # path of every pull request, or every merge, to do its job: a nightly score of main records
-      # the trend, and the script runs locally unchanged.
-      #
-      # `continue-on-error` is what actually makes it non-gating, and the script alone was not
-      # enough: it fails soft on a corpus it cannot fetch, but a crash in either lane still exited
-      # non-zero and would have taken main red on a step that is explicitly not a gate. The step
-      # still shows as failed and still says why — it just cannot fail the job, which is the
-      # difference between evidence and a gate.
-      - name: Score native UIKit against CMP on the catalog corpus
-        if: needs.apple-changes.outputs.required == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-        continue-on-error: true
-        env:
-          RC_NATIVE_UIKIT_SKIP_BUILD: 1
-        run: scripts/check-native-uikit-corpus.sh
-
-      # Machine-readable, budget-carrying evidence for all three native lanes, plus the rendered
-      # comparison output — including the same title-card bytes through both density modes, which
-      # is what makes the default mode's geometry reviewable rather than described. Uploaded
-      # whether or not the run passed, because a regression is reviewed from the numbers.
-      - name: Upload native performance and comparison evidence
-        if: always() && needs.apple-changes.outputs.required == 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: native-performance-evidence
-          if-no-files-found: warn
-          path: |
-            build/native-swift-core-benchmark.json
-            build/native-uikit-evidence.json
-            build/apple-player-simulator-benchmark.json
-            build/apple-player-benchmark.json
-            build/native-appkit-evidence.json
-            build/native-fuzz-failures
-            build/native-uikit-comparison
-            build/native-uikit-corpus/comparison.json
 
       # Launches the packaged app on a real simulator and checks captured pixels for the white
       # title-card canvas, its dark content band, and the coloured host background. This covers the
       # Metal/Skiko presentation path that Kotlin/Native tests and a Swift type check cannot enter.
       - name: Validate the Apple player screenshot
-        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-apple-player-screenshot.sh
 
       - name: Validate native UIKit accessibility presentation
-        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-accessibility-simulator.sh
 
-      - name: Validate native UIKit accessibility UI
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-uikit-accessibility-ui.sh
-
       - name: Validate native UIKit animation pacing
-        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-animation-simulator.sh
 
-      - name: Upload the Apple player screenshot
-        if: always() && needs.apple-changes.outputs.required == 'true'
+      - name: Stage AppKit performance evidence
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/evidence"
+          if [ -f build/apple-player-benchmark.json ]; then
+            cp build/apple-player-benchmark.json "$RUNNER_TEMP/evidence/"
+          fi
+          if [ -f build/native-appkit-evidence.json ]; then
+            cp build/native-appkit-evidence.json "$RUNNER_TEMP/evidence/"
+          fi
+
+      - name: Upload AppKit performance evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-evidence-appkit
+          path: ${{ runner.temp }}/evidence
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Upload the Apple player screenshots
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: apple-player-screenshot
           path: |
             build/apple-player-screenshot.png
             build/native-uikit-accessibility.png
-            build/native-uikit-accessibility-ui.xcresult
-            build/native-uikit-accessibility-ui-first-attempt.xcresult
             build/native-uikit-animation-a.png
             build/native-uikit-animation-b.png
-            build/native-uikit-evidence.json
-            build/native-uikit-comparison
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Upload player test reports on failure
-        if: failure()
+  # Simulator performance budgets, CMP vs native UIKit comparison, and the nightly catalog corpus
+  # score. Runs in parallel with `apple-simulator-validation` and `apple-accessibility-ui`.
+  apple-simulator-benchmarks:
+    name: Apple simulator benchmarks and comparison
+    needs: [apple-changes, apple-xcframework]
+    if: ${{ needs.apple-xcframework.result == 'success' }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Java and Gradle are only needed by `check-native-uikit-comparison.sh` and
+      # `check-native-uikit-corpus.sh` (which drive `:rc-player-compose:jvmTest` for the CMP JVM
+      # baseline); neither runs on `push` to main.
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        if: github.event_name != 'push'
+        with:
+          distribution: zulu
+          java-version: "17"
+          check-latest: false
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        if: github.event_name != 'push'
+      - uses: ./.github/actions/buildfetch-cache
+        if: github.event_name != 'push'
+        with:
+          rw-token: ''
+          ro-token: ${{ secrets.BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN_RO }}
+          read-only-by-design: 'true'
+      - uses: ./.github/actions/select-xcode-26
+
+      - name: Download the assembled XCFramework
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rc-compose-xcframework
+          path: ${{ runner.temp }}/xcframework
+
+      - name: Extract the assembled XCFramework
+        run: |
+          set -euo pipefail
+          mkdir -p rc-player/compose/build/XCFrameworks/release
+          tar -xf "$RUNNER_TEMP/xcframework/RcComposePlayer.xcframework.tar" \
+            -C rc-player/compose/build/XCFrameworks/release
+
+      - name: Build and package the iOS simulator app
+        env:
+          RC_APPLE_PLAYER_REQUIRE_FRAMEWORK: 1
+        run: scripts/package-apple-player.sh
+
+      - name: Measure native UIKit performance and footprint
+        run: scripts/measure-native-uikit-simulator.sh
+
+      - name: Compare Apple player iOS simulator benchmarks
+        if: github.event_name != 'push'
+        env:
+          RC_APPLE_PLAYER_BENCHMARK_OUTPUT: ${{ github.workspace }}/build/apple-player-simulator-benchmark.json
+        run: scripts/measure-apple-players-simulator.sh
+
+      # Evidence, not a gate (its script has no budget to fail): pull requests that touch the Apple
+      # lane still get the comparison, and main gets it nightly rather than on every merge.
+      - name: Compare native UIKit against CMP on representative content
+        if: github.event_name != 'push'
+        env:
+          RC_NATIVE_UIKIT_SKIP_BUILD: 1
+        run: scripts/check-native-uikit-comparison.sh
+
+      # The same two lanes over real Material 3 documents from wear-m3-catalog, instead of the four
+      # fixtures above. ENRICHMENT: it reports what the native player declines rather than failing
+      # on it. See docs/design/RC_CATALOG_CORPUS_LANE.md.
+      #
+      # NIGHTLY ONLY (schedule, or a manual dispatch). `continue-on-error` keeps a crash in either
+      # lane non-gating while still showing as failed and reporting why.
+      - name: Score native UIKit against CMP on the catalog corpus
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        env:
+          RC_NATIVE_UIKIT_SKIP_BUILD: 1
+        run: scripts/check-native-uikit-corpus.sh
+
+      - name: Stage native UIKit performance and comparison evidence
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/evidence"
+          if [ -f build/native-uikit-evidence.json ]; then
+            cp build/native-uikit-evidence.json "$RUNNER_TEMP/evidence/"
+          fi
+          if [ -f build/apple-player-simulator-benchmark.json ]; then
+            cp build/apple-player-simulator-benchmark.json "$RUNNER_TEMP/evidence/"
+          fi
+          if [ -d build/native-uikit-comparison ]; then
+            cp -R build/native-uikit-comparison "$RUNNER_TEMP/evidence/"
+          fi
+          if [ -f build/native-uikit-corpus/comparison.json ]; then
+            mkdir -p "$RUNNER_TEMP/evidence/native-uikit-corpus"
+            cp build/native-uikit-corpus/comparison.json "$RUNNER_TEMP/evidence/native-uikit-corpus/"
+          fi
+
+      - name: Upload native UIKit performance and comparison evidence
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: apple-test-reports
-          path: |
-            rc-player/**/build/reports/tests/**
-            rc-player/**/build/test-results/**
-            build/native-swift-ios-tests.xcresult
-          retention-days: 7
+          name: native-evidence-uikit
+          path: ${{ runner.temp }}/evidence
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # Machine-readable, budget-carrying evidence for all three native lanes, plus the rendered
+  # comparison output — combined back into the single `native-performance-evidence` artifact named
+  # by `distribution/native-uikit/profile.json`. Uploaded whether or not the upstream jobs passed,
+  # because a regression is reviewed from the numbers.
+  apple-native-evidence:
+    name: Bundle native performance evidence
+    needs: [apple-changes, apple-native-swift, apple-simulator-validation, apple-simulator-benchmarks]
+    if: ${{ always() && !cancelled() && needs.apple-changes.outputs.lane == 'true' && needs.apple-changes.outputs.required == 'true' && !(startsWith(github.head_ref || github.ref_name, 'release-please--') && (github.event.pull_request.user.login || github.actor) == 'github-actions[bot]') && (needs.apple-native-swift.result != 'skipped' || needs.apple-simulator-validation.result != 'skipped' || needs.apple-simulator-benchmarks.result != 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download partial native evidence artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: native-evidence-*
+          path: ${{ runner.temp }}/evidence
+          merge-multiple: true
+
+      - name: Upload native performance and comparison evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-performance-evidence
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/evidence

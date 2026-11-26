@@ -60,4 +60,5 @@ jobs:
             Sources/RcNativePlayerCore \
             Sources/RcNativePlayerUIKit \
             Tests/RcNativePlayerCoreTests \
+            Tests/RcNativePlayerTestDocuments \
             Tests/RcNativePlayerUIKitTests

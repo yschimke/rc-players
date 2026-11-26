@@ -308,6 +308,7 @@ public final class ee/schimke/composeai/rcplayer/edit/RcPlayerFeature : java/lan
 	public static final field DYNAMIC_TEXT_COLOR Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
 	public static final field MODIFIER_COLOR_REFERENCES Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
 	public static final field VARIABLE_FLOAT_FIELDS Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
+	public static final field VARIABLE_LAYOUT_SPACING Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
 	public static fun values ()[Lee/schimke/composeai/rcplayer/edit/RcPlayerFeature;
@@ -491,6 +492,7 @@ public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfiles {
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/edit/RcTargetProfiles;
 	public final fun getANDROIDX ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
 	public final fun getANDROIDX_EXPERIMENTAL ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+	public final fun getANDROIDX_VIEW ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
 	public final fun getWEAR_WIDGETS ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
 	public final fun getWIDGETS_V6 ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
 	public final fun getWIDGETS_V7 ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;

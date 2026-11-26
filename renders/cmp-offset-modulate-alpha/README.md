@@ -63,12 +63,17 @@ at half alpha) where AndroidX fades them once. The offset child is faded once, a
 
 All of these come from Compose Multiplatform's Skiko `GraphicsLayer`, not from this player.
 
-An embedded document inherits the host's `ModulateAlpha` layer (`RcEmbeddedDocuments.kt` provides
-no new one around `RcComposePlayerResolved`), although its player is wrapped in `clipToBounds()`
-and so drawn into a child layer that misses that alpha. An offset in the embedded document is then
-placed without a layer for an alpha that never reaches it. It is drawn opaque either way, so the
-pixels match the list above; only the offset's own layer is lost. This one is the player's, it
-predates the second review round, and it is left as it is.
+Embedded documents (`RcEmbeddedDocuments.kt` wrapping `RcComposePlayerResolved` in `clipToBounds()`)
+and the other child layers the player inserts (`RcClipRectModifier`, `RcRoundedClipRectModifier`,
+scroll containers, `RcComponentOffscreen` captures, `MEASURE` layout-compute `clipToBounds()`, and
+`RcVisibilityTransition`'s `AnimatedVisibility`) all start their descendants with `null` for
+`LocalRcModulateAlphaLayer`. Without a blur on the host `ModulateAlpha` layer those child layers
+miss the host's alpha, as the list above says, and nothing inside them is faded by it. With a blur,
+Skiko composites the host layer through a paint that carries the alpha, and the whole child layer
+is faded once. Either way an offset inside keeps its own layer (and an offset written before a clip
+or scroll on the same node still sees the enclosing layer so pre-clip drawing is faded as before).
+`RcEmbeddedModulateAlphaLayerTest` and `RcPlayerLayersModulateAlphaTest` pin the layer each offset
+is drawn into, subtree retention, and the pixels.
 
 ## Reproducing
 

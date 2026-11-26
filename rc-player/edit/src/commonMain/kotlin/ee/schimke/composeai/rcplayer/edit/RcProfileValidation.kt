@@ -206,9 +206,10 @@ private fun RcDocument.violationsFor(target: RcTargetProfile): List<RcProfileVio
           ),
         )
       }
-      // The platform's launcher widget player, at either level, lays a row or column out as nothing
-      // when its spacing is a variable: the whole document draws blank.
-      if (target.isLauncherWidget && operation.layoutSpacing?.isNaNEncoded == true) {
+      // AndroidX's CoreDocument layout managers (used by the platform launcher/notification
+      // players, Wear widgets and the AndroidX View player) read `mSpacedBy` only as a literal
+      // float: a variable id leaves NaN dimensions and breaks layout or downstream expressions.
+      if (target.readsLiteralLayoutSpacingOnly && operation.layoutSpacing?.isNaNEncoded == true) {
         add(
           RcProfileViolation(
             RcProfileViolation.Kind.DYNAMIC_VALUE,

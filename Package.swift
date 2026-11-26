@@ -100,9 +100,16 @@ var targets: [Target] = [
     dependencies: ["RcNativePlayerCore"],
     resources: [.copy("Fixtures")]
   ),
+  // Documents the UIKit and overlay suites both build, written once. Test-only: no product
+  // includes it.
+  .target(
+    name: "RcNativePlayerTestDocuments",
+    dependencies: ["RcNativePlayerCore"],
+    path: "Tests/RcNativePlayerTestDocuments"
+  ),
   .testTarget(
     name: "RcNativePlayerUIKitTests",
-    dependencies: ["RcNativePlayerCore", "RcNativePlayerUIKit"],
+    dependencies: ["RcNativePlayerCore", "RcNativePlayerUIKit", "RcNativePlayerTestDocuments"],
     resources: [.copy("Fixtures")]
   ),
 ]
@@ -112,7 +119,10 @@ if nativeOnly {
   targets.append(
     .testTarget(
       name: "RcComposePlayerSwiftUITests",
-      dependencies: ["RcComposePlayerSwiftUI", "RcNativePlayerCore"]
+      dependencies: [
+        "RcComposePlayerSwiftUI", "RcNativePlayerCore", "RcNativePlayerUIKit",
+        "RcNativePlayerTestDocuments",
+      ]
     ))
 }
 if coreOnly {

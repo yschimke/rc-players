@@ -1,7 +1,7 @@
 #if canImport(Foundation)
   import Foundation
   #if canImport(RcNativePlayerCore)
-    import RcNativePlayerCore
+    @_spi(RemoteComposeController) import RcNativePlayerCore
   #endif
 
   public enum RemoteComposeNativePlayerActionValue: Equatable, Sendable {
@@ -21,6 +21,18 @@
     case debug(message: String, value: Float, flags: Int)
   }
 
+  extension RemoteComposeNativeNamedValue {
+    /// This value as the core reads and writes it.
+    var coreValue: NativeSwiftNamedValue {
+      switch self {
+      case .text(let value): .text(value)
+      case .float(let value): .float(value)
+      case .integer(let value): .integer(value)
+      case .color(let argb): .color(argb)
+      }
+    }
+  }
+
   /// The name the frame model and the sample harnesses know the engine's frame type by.
   typealias NativeSnapshotSessionHandle = NativePlayerEngine
 
@@ -33,10 +45,8 @@
   actor NativePlayerEngine {
     /// One unit of host input, applied at the engine's presented frame time.
     enum Input: Sendable {
-      case setFloat(Float, name: String)
-      case setString(String, name: String)
-      case setColor(UInt32, name: String)
-      case setInteger(Int, name: String)
+      /// A host's write of a named variable.
+      case setNamed(String, value: RemoteComposeNativeNamedValue)
       case gesture(NativeSwiftGestureKind, componentID: Int, sample: NativeSwiftPointerSample?)
       case clickAreas(x: Float, y: Float)
       case customFloat(Float, componentID: Int, propertyID: Int)
@@ -89,6 +99,39 @@
       self.wallClock = wallClock
     }
 
+    /// Decodes `data` once, for one or more sessions to open over it. Asynchronous so the decode,
+    /// which is proportional to the document, runs off the caller's actor.
+    static func prepare(data: Data, maximumDocumentBytes: Int) async throws
+      -> NativeSwiftPreparedDocument
+    {
+      guard data.count <= maximumDocumentBytes, data.count <= Int(Int32.max) else {
+        throw RemoteComposeNativeLimitError.documentTooLarge(
+          actual: data.count, maximum: min(maximumDocumentBytes, Int(Int32.max)))
+      }
+      do {
+        try Task.checkCancellation()
+        return try NativeSwiftPreparedDocument.decode(data: data)
+      } catch is CancellationError {
+        throw CancellationError()
+      } catch let error as NativeSwiftCoreError {
+        throw RemoteComposeNativePlayerError.decode(error.description)
+      } catch {
+        throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
+      }
+    }
+
+    /// Decodes `data` and opens a session over it; see `open(prepared:...)`.
+    static func open(
+      data: Data, maximumDocumentBytes: Int, hostDensity: Float = 1, hostFontScale: Float = 1,
+      wallClock: NativeSwiftWallClock? = nil, visibilityAnimations: Bool = true,
+      namedValues: [(name: String, value: NativeSwiftNamedValue)] = []
+    ) async throws -> (NativePlayerEngine, Frame) {
+      try await open(
+        prepared: await prepare(data: data, maximumDocumentBytes: maximumDocumentBytes),
+        hostDensity: hostDensity, hostFontScale: hostFontScale, wallClock: wallClock,
+        visibilityAnimations: visibilityAnimations, namedValues: namedValues)
+    }
+
     /// - Parameters:
     ///   - hostDensity: what a deferred-density capture resolves against. Supplied at open rather
     ///     than set afterwards because the first frame is produced here, and a document that reads
@@ -97,19 +140,22 @@
     ///   - wallClock: the host's absolute time, for the first frame. See `NativeSwiftWallClock`.
     ///   - visibilityAnimations: whether custom visibility animations play; see
     ///     `NativeSwiftDocumentSession.setVisibilityAnimationsEnabled`.
+    ///   - namedValues: named values applied, in order, before the first frame is resolved, so
+    ///     that frame already shows them, each to the variable the document declares under exactly
+    ///     that name (`restoreNamedValue`). One the document does not declare, or that does not
+    ///     fit its variable, is skipped, as a declined write is; one that breaks a limit fails the
+    ///     first frame, and the caller opens again without it.
     static func open(
-      data: Data, maximumDocumentBytes: Int, hostDensity: Float = 1, hostFontScale: Float = 1,
-      wallClock: NativeSwiftWallClock? = nil, visibilityAnimations: Bool = true
+      prepared: NativeSwiftPreparedDocument, hostDensity: Float = 1, hostFontScale: Float = 1,
+      wallClock: NativeSwiftWallClock? = nil, visibilityAnimations: Bool = true,
+      namedValues: [(name: String, value: NativeSwiftNamedValue)] = []
     ) async throws -> (NativePlayerEngine, Frame) {
-      guard data.count <= maximumDocumentBytes, data.count <= Int(Int32.max) else {
-        throw RemoteComposeNativeLimitError.documentTooLarge(
-          actual: data.count, maximum: min(maximumDocumentBytes, Int(Int32.max)))
-      }
       do {
         try Task.checkCancellation()
-        let session = try NativeSwiftDocumentSession.open(data: data)
+        let session = NativeSwiftDocumentSession.open(prepared: prepared)
         session.setHostDensity(hostDensity, fontScale: hostFontScale)
         session.setVisibilityAnimationsEnabled(visibilityAnimations)
+        for (name, value) in namedValues { session.restoreNamedValue(value, forDeclaredName: name) }
         let frame = Frame(
           session: session,
           snapshot: try session.snapshot(wallClock: wallClock), wallClock: wallClock)
@@ -124,6 +170,17 @@
       } catch {
         throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
       }
+    }
+
+    /// What a host may write by name; immutable, so it is read without the actor.
+    nonisolated var declarations: NativeSwiftNamedVariableDeclarations {
+      session.namedVariableDeclarations
+    }
+
+    /// The named values a write set since this session opened — the host's or the document's own
+    /// — for the session that replaces it to start from. See `writtenNamedValues` on the core.
+    func writtenNamedValues() -> [(name: String, value: NativeSwiftNamedValue)] {
+      session.writtenNamedValues()
     }
 
     /// Forwards the host's density to the retained document; see `setHostDensity` on the core.
@@ -158,13 +215,13 @@
     func apply(_ input: Input) throws -> Update {
       let time = frameTime
       switch input {
-      case .setFloat(let value, let name):
+      case .setNamed(let name, .float(let value)):
         return try setFloat(value, for: name, at: time)
-      case .setString(let value, let name):
+      case .setNamed(let name, .text(let value)):
         return try setString(value, for: name, at: time)
-      case .setColor(let argb, let name):
+      case .setNamed(let name, .color(let argb)):
         return try setColor(argb, for: name, at: time)
-      case .setInteger(let value, let name):
+      case .setNamed(let name, .integer(let value)):
         return try setInteger(value, for: name, at: time)
       case .gesture(let kind, let componentID, let sample):
         return try gesture(kind, componentID: componentID, sample: sample, at: time)

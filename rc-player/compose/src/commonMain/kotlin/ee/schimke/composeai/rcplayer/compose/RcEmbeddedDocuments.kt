@@ -530,7 +530,16 @@ internal fun RenderEmbeddedDoc(
       }
   }
 
-  CompositionLocalProvider(LocalRcEmbeddedDepth provides depth + 1) {
+  // The child player is drawn into `clipToBounds`, a child layer of the host's. On a platform whose
+  // child layers miss a `ModulateAlpha` alpha (see [RcModulateAlphaLayer]) a host `ModulateAlpha`
+  // layer without a blur does not fade it at all; one with a blur fades that child layer, and so
+  // the whole embedded document, once. Either way no offset inside has to give up its own layer for
+  // the host's alpha, so the child starts with no enclosing layer and its offsets keep theirs.
+  // Always provided, so the child's subtree is the same group whatever the host's layer is.
+  CompositionLocalProvider(
+    LocalRcEmbeddedDepth provides depth + 1,
+    LocalRcModulateAlphaLayer provides null,
+  ) {
     RcComposePlayerResolved(
       prepared = childPrepared,
       modifier = sizedModifier.clipToBounds(),

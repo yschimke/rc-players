@@ -28,6 +28,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.viewinterop.AndroidView
+import ee.schimke.composeai.rcplayer.edit.hardcodeLayoutSpacing
+import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import java.io.ByteArrayInputStream
 import kotlin.math.min
 
@@ -57,20 +60,19 @@ import kotlin.math.min
  *
  * Single-View, no throwaway measurer — the same view we warm up is the one Compose displays. [seed]
  * writes the host's live values into the View before that warm-up draw, so its first frame shows
- * current data (a first frame shows current data). Re-warms only when
- * [documentBytes] or the parent's constraints change.
+ * current data (a first frame shows current data). Re-warms only when [documentBytes] or the
+ * parent's constraints change.
  *
  * **Pinned (EXACTLY) slots.** When the parent fixes *both* axes (`Modifier.size(...)`, or a
- * `fillMaxSize()` inside an already-sized box — a resize preview), the intrinsic
- * measurement above is the wrong model: a full-bleed `fillMaxSize()` document (the launcher widget
- * surface) has *no* intrinsic size, so steps
- * 2–4 would collapse the slot to ~1px and render blank. Instead we play the document at the
- * parent's EXACT size — exactly as the launcher widget does — so it fills the slot and its runtime
- * size-breakpoints (see `RemoteSizeBreakpoint`) read the real canvas. The View is rebuilt (and
- * re-primed) whenever that size changes: a `RemoteComposePlayer` re-measured at a new size after
- * its first draw paints blank or only fills up to its first size, so re-using one View across a
- * resize is exactly the "widget goes blank once resized" bug. Decoded bytes are cached by the
- * caller, so a resize only rebuilds the View + prime, not the document.
+ * `fillMaxSize()` inside an already-sized box — a resize preview), the intrinsic measurement above
+ * is the wrong model: a full-bleed `fillMaxSize()` document (the launcher widget surface) has *no*
+ * intrinsic size, so steps 2–4 would collapse the slot to ~1px and render blank. Instead we play
+ * the document at the parent's EXACT size — exactly as the launcher widget does — so it fills the
+ * slot and its runtime size-breakpoints (see `RemoteSizeBreakpoint`) read the real canvas. The View
+ * is rebuilt (and re-primed) whenever that size changes: a `RemoteComposePlayer` re-measured at a
+ * new size after its first draw paints blank or only fills up to its first size, so re-using one
+ * View across a resize is exactly the "widget goes blank once resized" bug. Decoded bytes are
+ * cached by the caller, so a resize only rebuilds the View + prime, not the document.
  */
 @Composable
 public fun RcAdaptiveRemoteDocumentPlayer(
@@ -94,12 +96,11 @@ public fun RcAdaptiveRemoteDocumentPlayer(
   val fail: (Throwable) -> Unit = {
     failure = it
     latestOnError(it)
-  }  // Named host actions (an app's own taps) reach the document's action callbacks; numeric ones
+  } // Named host actions (an app's own taps) reach the document's action callbacks; numeric ones
   // (a launcher widget's) reach the View's id listener below. Both go to [onNamedAction].
-  val namedActions =
-    CoreDocument.ActionCallback { name, value ->
-      runCatching { latestOnNamedAction(name, value) }.onFailure(fail)
-    }
+  val namedActions = CoreDocument.ActionCallback { name, value ->
+    runCatching { latestOnNamedAction(name, value) }.onFailure(fail)
+  }
 
   failure?.let {
     Box(modifier) { error(it) }
@@ -110,6 +111,10 @@ public fun RcAdaptiveRemoteDocumentPlayer(
       val density = LocalDensity.current
       val maxWPx = constraints.maxWidth
       val maxHPx = constraints.maxHeight
+      val preparedBytes =
+        remember(documentBytes, density.density, density.fontScale) {
+          prepareForViewPlayer(documentBytes, density.density, density.fontScale)
+        }
 
       if (constraints.hasFixedWidth && constraints.hasFixedHeight) {
         // The parent pins the slot (EXACTLY on both axes) — the launcher
@@ -128,11 +133,11 @@ public fun RcAdaptiveRemoteDocumentPlayer(
         // and reflows its size-breakpoints; the caller caches the decoded
         // bytes, so only the View + prime is rebuilt per (discrete) size.
         val view =
-          remember(documentBytes, maxWPx, maxHPx) {
+          remember(preparedBytes, maxWPx, maxHPx) {
             runCatching {
                 RemoteComposePlayer(context).apply {
                   setBitmapLoader(bitmapLoader)
-                  setDocument(RemoteDocument(decode(documentBytes, namedActions)))
+                  setDocument(RemoteDocument(decode(preparedBytes, namedActions)))
                   // The live values before the first draw, so the View starts settled on them
                   // rather than tweening in from the document's baked ones a frame later.
                   seed(this)
@@ -154,11 +159,11 @@ public fun RcAdaptiveRemoteDocumentPlayer(
         key(view) { AndroidView(factory = { view }, modifier = Modifier.fillMaxSize()) }
       } else {
         val view =
-          remember(documentBytes, maxWPx, maxHPx) {
+          remember(preparedBytes, maxWPx, maxHPx) {
             runCatching {
                 RemoteComposePlayer(context).apply {
                   setBitmapLoader(bitmapLoader)
-                  setDocument(RemoteDocument(decode(documentBytes, namedActions)))
+                  setDocument(RemoteDocument(decode(preparedBytes, namedActions)))
                   // The live values before the first draw, so the View starts settled on them
                   // rather than tweening in from the document's baked ones a frame later.
                   seed(this)
@@ -188,6 +193,24 @@ public fun RcAdaptiveRemoteDocumentPlayer(
       }
     }
   }
+}
+
+/**
+ * Rewrites host-density layout spacing (`spacedBy(n.dp)`) into pixel literals for
+ * [RemoteComposePlayer]: AndroidX's `CoreDocument` layout managers read `mSpacedBy` only as a
+ * literal float, so a variable id leaks `NaN` into layout sizes and breaks downstream
+ * `FloatExpression`s that read measured canvas dimensions. Documents without variable layout
+ * spacing (or that fail to decode, left for [decode] to report) come back untouched.
+ */
+internal fun prepareForViewPlayer(
+  bytes: ByteArray,
+  density: Float,
+  fontScale: Float = 1f,
+): ByteArray {
+  val decoded =
+    runCatching { RcDocumentCodec.decode(bytes, RcWireLimits()) }.getOrNull() ?: return bytes
+  val spaced = decoded.hardcodeLayoutSpacing(density, fontScale)
+  return if (spaced === decoded) bytes else RcDocumentCodec.encode(spaced)
 }
 
 private fun decode(bytes: ByteArray, actions: CoreDocument.ActionCallback): CoreDocument {

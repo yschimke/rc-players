@@ -6,7 +6,7 @@ import Foundation
   import RcNativePlayerCore
 #endif
 #if canImport(RcNativePlayerUIKit)
-  import RcNativePlayerUIKit
+  @_spi(RemoteComposeController) import RcNativePlayerUIKit
 #endif
 
 // Which player `RemoteComposePlayerController` drives, decided once per build. The overlay compiles
@@ -41,9 +41,11 @@ enum ControllerNamedValue: Equatable {
   case boolean(Bool)
 }
 
-/// What every backend provides. A backend answers each write finally: `true` only for a value the
-/// attached document will apply, `false` before a document is attached, for a name it does not
-/// declare, or for a value its variable cannot hold.
+/// What every backend provides. A backend answers each write finally: `true` for a value the
+/// attached document declares and can hold — handed to the player, or equal to the last value
+/// written to that name, which is no change and is not handed over again (the variable keeps
+/// whatever the document has made of it since) — and `false` before a document is attached, for
+/// a name it does not declare, or for a value its variable cannot hold.
 @MainActor
 protocol ControllerBackendProtocol: AnyObject {
   init()
@@ -74,8 +76,10 @@ protocol ControllerBackendProtocol: AnyObject {
   }
 #elseif canImport(RcNativePlayerUIKit)
   /// Checks each write against the attached document's declarations — the same check the native
-  /// session makes — and hands an accepted value to the native player, which applies it once its
-  /// asynchronous session opens.
+  /// session makes — and hands an accepted value to the native player, which applies it once it can:
+  /// after its asynchronous session opens, its scene returns from the background, or its input
+  /// queue has room. A session the player reopens starts from the named values the one it replaces
+  /// held, and from the values held here (`seedValues`) that that session had not taken.
   @MainActor
   final class NativeControllerBackend: ControllerBackendProtocol {
     /// The attached document's declarations; none until a native player has loaded a document.
@@ -92,6 +96,10 @@ protocol ControllerBackendProtocol: AnyObject {
       guard let declared = declarations.declaredName(for: name),
         declarations.accepts(value, for: declared)
       else { return false }
+      // A write equal to the last one is no change, as the Kotlin player diffs the host's values
+      // against the ones it last applied (`applyHostValues`): a document action that changed the
+      // variable since keeps its value.
+      guard values[declared] != value else { return true }
       values[declared] = value
       updateHandler?(declared, value)
       return true
@@ -131,58 +139,80 @@ protocol ControllerBackendProtocol: AnyObject {
         handler(name, value)
       }
     }
+
+    /// The values written so far, by the name the player's document declares them under, which
+    /// seed a session the native player reopens. The player applies each one unless the replaced
+    /// session took that very write: not yet delivered, refused (judged afresh), or written again
+    /// since — even back to the value the session took — is applied. Empty
+    /// while no update handler is installed: the values are not yet re-keyed for the player's
+    /// document.
+    ///
+    /// The Kotlin player builds its state once per document, seeded with the host's values, and
+    /// keeps it through the background. The native player reopens its bytes for that, carries the
+    /// named values the old session held, and adds these.
+    var seedValues: [(name: String, value: RemoteComposeNativeNamedValue)] {
+      guard updateHandler != nil else { return [] }
+      return values.keys.sorted().compactMap { name in
+        values[name].map { (name: name, value: $0.nativeValue) }
+      }
+    }
   }
 
-  /// The native player's named setters, as the controller's values reach them. A protocol so the
-  /// routing below can be tested without a player.
+  /// The native player, as the controller's values reach it. A protocol so the delivery below can
+  /// be tested without a player.
   @MainActor
   protocol NativeNamedValueTarget: AnyObject {
-    func setFloat(_ value: Float, for name: String) async -> Bool
-    func setString(_ value: String, for name: String) async -> Bool
-    func setColor(_ argb: UInt32, for name: String) async -> Bool
-    func setInteger(_ value: Int, for name: String) async -> Bool
-    /// Whether the player is still opening its document, so a refused write may yet be accepted.
-    var isOpeningDocument: Bool { get }
+    func submit(_ value: RemoteComposeNativeNamedValue, for name: String) async
+      -> RemoteComposeNativeInputAdmission
+    /// Signals when a deferred write may be offered again.
+    var inputAvailability: RemoteComposeNativeInputAvailability { get }
   }
 
   extension ControllerNamedValue {
-    /// Writes this value through the native setter for its type; a boolean is the integer 1 or 0,
-    /// as the document stores it.
-    @MainActor
-    func apply(to target: some NativeNamedValueTarget, for name: String) async -> Bool {
+    /// This value as the native player takes it; a boolean is the integer 1 or 0, as the document
+    /// stores it.
+    var nativeValue: RemoteComposeNativeNamedValue {
       switch self {
-      case .float(let value): await target.setFloat(value, for: name)
-      case .text(let value): await target.setString(value, for: name)
-      case .color(let argb): await target.setColor(argb, for: name)
-      case .integer(let value): await target.setInteger(Int(value), for: name)
-      case .boolean(let value): await target.setInteger(value ? 1 : 0, for: name)
+      case .float(let value): .float(value)
+      case .text(let value): .text(value)
+      case .color(let argb): .color(argb)
+      case .integer(let value): .integer(Int(value))
+      case .boolean(let value): .integer(value ? 1 : 0)
       }
     }
 
-    /// Writes this value into the native player. The controller has already checked it against
-    /// the document's declarations, so a refusal means the asynchronous session has not opened
-    /// yet, or its input queue is full. It is retried for as long as the player is still opening
-    /// its document — however long its resources take — and then `openRetries` times for a full
-    /// queue. It stops as soon as the player is gone, or `isCurrent` says a newer value for this
-    /// name has started or the player was rebuilt.
+    /// Writes this value into the native player. The controller has already answered `true`, so a
+    /// write the player cannot take yet — its document is still opening, its scene is in the
+    /// background, its input queue is full, or a reopen discarded the session that took it — is
+    /// offered again each time the player signals that input may be accepted, however long that
+    /// takes. Nothing polls while it waits. A refusal is the session's final answer — the document
+    /// is failed, declines the value (which reports nothing), or failed applying it (reported
+    /// through `onError`; a value that breaks an execution limit fails the live session, which
+    /// shows the error until input repairs it) — and is not offered to that session again. The
+    /// value stays with the controller, as on the Kotlin player, and each session the player
+    /// reopens is seeded with it (`seedValues`) and judges it afresh: there a value that breaks an
+    /// execution limit is left out of the first frame and reported through `onError` once per
+    /// session, and that session stays open and takes later writes. It stops as soon as the player
+    /// is gone, the task is cancelled, or `isCurrent` says a newer value for this name has
+    /// started, the player was rebuilt, or a reopen took the value in its seed.
     @MainActor
     func deliver<Target: NativeNamedValueTarget>(
-      for name: String, to target: () -> Target?,
-      retryInterval: UInt64 = 50_000_000, openRetries: Int = 50,
-      isCurrent: () -> Bool
+      for name: String, to target: () -> Target?, isCurrent: () -> Bool
     ) async {
-      var retriesAfterOpen = openRetries
       while true {
-        // The strong reference lives only for the call, not across the sleep below.
+        let availability: RemoteComposeNativeInputAvailability
+        let mark: UInt64
+        // The strong reference lives only for the offer, not across the wait below.
         do {
-          guard let target = target(), isCurrent() else { return }
-          if await apply(to: target, for: name) { return }
-          if !target.isOpeningDocument {
-            retriesAfterOpen -= 1
-            if retriesAfterOpen <= 0 { return }
+          guard !Task.isCancelled, let target = target(), isCurrent() else { return }
+          availability = target.inputAvailability
+          mark = availability.mark
+          switch await target.submit(nativeValue, for: name) {
+          case .accepted, .refused: return
+          case .deferred: break
           }
         }
-        try? await Task.sleep(nanoseconds: retryInterval)
+        await availability.wait(after: mark)
       }
     }
   }
