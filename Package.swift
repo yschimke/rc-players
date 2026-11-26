@@ -163,10 +163,10 @@ if !nativeOnly {
 // Every target compiles in the Swift 6 language mode: complete strict-concurrency checking, with
 // data races as errors. Tools 6.0 defaults to it already; stating it keeps a later tools bump from
 // changing the mode silently. It does not move the deployment floor above: the concurrency
-// annotations the sources rely on all back-deploy to iOS 13, macOS 12, tvOS 13 and watchOS 6.
+// annotations the sources rely on all back-deploy to iOS 13 and macOS 12.
 let package = Package(
   name: "RcComposePlayer",
-  platforms: [.iOS(.v13), .macOS(.v12), .tvOS(.v13), .watchOS(.v6), .visionOS(.v1)],
+  platforms: [.iOS(.v13), .macOS(.v12), .visionOS(.v1)],
   products: products,
   targets: targets,
   swiftLanguageModes: [.v6]
