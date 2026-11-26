@@ -260,7 +260,7 @@
     /// its written values are carried.
     var hostValues: [String: NativeHostValue]
     /// Each named write that failed this session — applying it, or the frame it produced, broke a
-    /// limit or the policy — and was refused, by the name it was written under, with its value.
+    /// limit or the policy — and was refused, by the name the document declares, with its value.
     /// While the session stays failed its variable may still hold that value, which is what
     /// failed it, so the next session is not handed it (the seeding host offers its own write
     /// again in the seed, judged afresh). A later accepted write of the name replaces it.
@@ -1241,14 +1241,18 @@
       on presentation: NativePlayerPresentation
     ) {
       guard case .setNamed(let name, let value) = pending.input else { return }
+      // `failedWrites` is matched against `writtenNamedValues()`, which names each variable as
+      // the document declares it, so it is keyed the same way: "label" and "USER:label" are one
+      // variable.
+      let declared = presentation.engine.declarations.declaredName(for: name) ?? name
       switch outcome {
       case .accepted:
-        presentation.failedWrites[name] = nil
+        presentation.failedWrites[declared] = nil
         if let write = pending.hostWrite {
           presentation.hostValues[name] = NativeHostValue(value: value.coreValue, write: write)
         }
       case .failed:
-        presentation.failedWrites[name] = value.coreValue
+        presentation.failedWrites[declared] = value.coreValue
       case .declined:
         break
       }
