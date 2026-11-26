@@ -141,9 +141,9 @@
       return nil
     }
 
-    /// A retry of the same bytes out of a failed session starts from what that session started
-    /// from, not from what it held when it failed: the write that failed it is not applied again
-    /// (and reported again) on every retry.
+    /// A retry of the same bytes out of a failed session keeps what the session held except the
+    /// writes that failed it: the write that failed it is not applied again (and reported again)
+    /// on every retry.
     @Test func aRetryOutOfAFailedSessionDoesNotReplayTheValueThatFailedIt() async throws {
       var errors: [RemoteComposeNativePlayerError] = []
       var limits = RemoteComposeNativeExecutionLimits.default

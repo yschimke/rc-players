@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@_spi(Conformance) @testable import RcNativePlayerCore
+@_spi(Conformance) @_spi(RemoteComposeController) @testable import RcNativePlayerCore
 
 @Suite struct NativeSwiftCoreTests {
   @Test func documentCore() throws {
@@ -3858,6 +3858,39 @@ private final class FailureLog: @unchecked Sendable {
     #expect(snap1.needsWallClockRefresh)
     #expect(snap1.root.children.first?.text?.value.trimmingCharacters(in: .whitespaces) == "1001")
     #expect(snap2.root.children.first?.text?.value.trimmingCharacters(in: .whitespaces) == "1006")
+  }
+
+  /// Writing an integer (through `setInteger` or an integer action) clears any stale float
+  /// override on the same id, so float expressions and `writtenNamedValues()` see the new integer
+  /// rather than an older float write.
+  @Test func integerWriteClearsStaleFloatOverride() throws {
+    let writer = Writer()
+    writer.header(width: 100, height: 100)
+    writer.u8(NativeSwiftWireOpcode.dataInt).int(60).int(1)
+    writer.namedVariable(id: 60, type: NativeSwiftNamedVariableType.int, name: "count")
+    writer.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    writer.u8(NativeSwiftWireOpcode.layoutBox).int(3).int(-1).int(1).int(4)
+    writer.u8(NativeSwiftWireOpcode.modifierClick)
+      .u8(NativeSwiftWireOpcode.valueIntegerChangeAction).int(60).int(9)
+      .u8(NativeSwiftWireOpcode.containerEnd)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+    writer.u8(NativeSwiftWireOpcode.containerEnd)
+
+    let session = try NativeSwiftDocumentSession.open(data: writer.data)
+    #expect(session.setFloat(2.75, forID: 60))
+    #expect(try session.probeValues(timeSeconds: 0).floats[60] == 2.75)
+
+    // Host `setInteger` clears the stale float override.
+    #expect(session.setInteger(7, for: "count"))
+    #expect(try session.probeValues(timeSeconds: 0).floats[60] == 7)
+    #expect(session.writtenNamedValues().map(\.value) == [.integer(7, float: nil)])
+
+    // A document integer action (`storeInteger`) also clears a stale float override.
+    #expect(session.setFloat(4.5, forID: 60))
+    #expect(try session.probeValues(timeSeconds: 0).floats[60] == 4.5)
+    _ = try session.click(componentID: 3, timeSeconds: 0)
+    #expect(try session.probeValues(timeSeconds: 0).floats[60] == 9)
+    #expect(session.writtenNamedValues().map(\.value) == [.integer(9, float: nil)])
   }
 }
 

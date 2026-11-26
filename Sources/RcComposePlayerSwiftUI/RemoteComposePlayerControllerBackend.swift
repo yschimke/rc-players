@@ -86,7 +86,11 @@ protocol ControllerBackendProtocol: AnyObject {
     private var declarations = NativeSwiftNamedVariableDeclarations.none
     /// The values written so far, by the name the attached document declares them under.
     private var values: [String: ControllerNamedValue] = [:]
-    private var updateHandler: ((String, ControllerNamedValue) -> Void)?
+    /// One handler per attached player view controller, so a controller shared by multiple views
+    /// reaches every one of them rather than only the last attached.
+    private var updateHandlers: [ObjectIdentifier: (String, ControllerNamedValue) -> Void] = [:]
+    /// Default key used by single-handler callers (unit tests).
+    private static let defaultHandlerKey = ObjectIdentifier(NativeControllerBackend.self)
 
     init() {}
 
@@ -101,7 +105,7 @@ protocol ControllerBackendProtocol: AnyObject {
       // variable since keeps its value.
       guard values[declared] != value else { return true }
       values[declared] = value
-      updateHandler?(declared, value)
+      for handler in updateHandlers.values { handler(declared, value) }
       return true
     }
 
@@ -129,14 +133,52 @@ protocol ControllerBackendProtocol: AnyObject {
       declarations = .none
     }
 
-    /// Installs the native player's update handler, replaying every value written so far, or
+    /// Detaches `owner`'s update handler, clearing declarations only when no other view remains
+    /// attached to this controller.
+    func detach(for owner: ObjectIdentifier) {
+      updateHandlers[owner] = nil
+      if updateHandlers.isEmpty { declarations = .none }
+    }
+
+    /// Installs a single update handler (used by tests), replaying every value written so far, or
     /// removes it with `nil`.
     func installUpdateHandler(_ handler: ((String, ControllerNamedValue) -> Void)?) {
-      updateHandler = handler
+      installUpdateHandler(handler, for: Self.defaultHandlerKey)
+    }
+
+    /// Installs `owner`'s update handler, replaying every value written so far except those in
+    /// `skippingInitial` that resolved to the same declared name and value (already applied on the
+    /// player's first open), or removes it with `nil`.
+    func installUpdateHandler(
+      _ handler: ((String, ControllerNamedValue) -> Void)?,
+      for owner: ObjectIdentifier,
+      skippingInitial initial: [String: ControllerNamedValue] = [:]
+    ) {
+      updateHandlers[owner] = handler
       guard let handler else { return }
+      var seeded: [String: ControllerNamedValue] = [:]
+      for name in initial.keys.sorted() {
+        guard let value = initial[name], let declared = declarations.declaredName(for: name),
+          declarations.accepts(value, for: declared)
+        else { continue }
+        seeded[declared] = value
+      }
       for name in values.keys.sorted() {
         guard let value = values[name] else { continue }
+        if seeded[name] == value { continue }
         handler(name, value)
+      }
+    }
+
+    /// A snapshot of the values written so far, keyed as currently stored, for comparing against
+    /// post-attach values once a new player's declarations finish loading.
+    var storedValues: [String: ControllerNamedValue] { values }
+
+    /// Every value stored so far, sorted by key, for seeding a brand-new player's first open
+    /// before its declarations finish loading on the main actor.
+    var initialSeedValues: [(name: String, value: RemoteComposeNativeNamedValue)] {
+      values.keys.sorted().compactMap { name in
+        values[name].map { (name: name, value: $0.nativeValue) }
       }
     }
 
@@ -151,10 +193,16 @@ protocol ControllerBackendProtocol: AnyObject {
     /// keeps it through the background. The native player reopens its bytes for that, carries the
     /// named values the old session held, and adds these.
     var seedValues: [(name: String, value: RemoteComposeNativeNamedValue)] {
-      guard updateHandler != nil else { return [] }
-      return values.keys.sorted().compactMap { name in
-        values[name].map { (name: name, value: $0.nativeValue) }
-      }
+      guard !updateHandlers.isEmpty else { return [] }
+      return initialSeedValues
+    }
+
+    /// `seedValues` scoped to `owner`, empty while `owner` has no installed update handler.
+    func seedValues(for owner: ObjectIdentifier) -> [(
+      name: String, value: RemoteComposeNativeNamedValue
+    )] {
+      guard updateHandlers[owner] != nil else { return [] }
+      return initialSeedValues
     }
   }
 

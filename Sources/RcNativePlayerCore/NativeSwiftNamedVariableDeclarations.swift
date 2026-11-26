@@ -58,7 +58,8 @@ public struct NativeSwiftNamedVariableDeclarations: Sendable {
     accepts(.integer(0), for: name)
   }
 
-  private func accepts(_ value: NativeSwiftNamedValue, for name: String) -> Bool {
+  @_spi(RemoteComposeController)
+  public func accepts(_ value: NativeSwiftNamedValue, for name: String) -> Bool {
     variable(for: name).map { Self.accepts(value, by: $0) } ?? false
   }
 

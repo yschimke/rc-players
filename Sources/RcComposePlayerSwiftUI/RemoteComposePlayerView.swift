@@ -368,6 +368,11 @@
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
+    deinit {
+      declarationTask?.cancel()
+      for task in nativeUpdateTasks.values { task.cancel() }
+    }
+
     public override func viewDidLoad() {
       super.viewDidLoad()
       rebuildContent()
@@ -379,8 +384,10 @@
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void,
       onError: @escaping (RemoteComposePlayerError) -> Void
     ) {
-      update(data: data, controller: playerController, configuration: configuration,
-             downloadableFontResolver: downloadableFontResolver, resourceResolver: resourceResolver, onEvent: onEvent, onError: onError)
+      update(
+        data: data, controller: playerController, configuration: configuration,
+        downloadableFontResolver: downloadableFontResolver, resourceResolver: resourceResolver,
+        onEvent: onEvent, onError: onError)
     }
 
     public func update(
@@ -388,36 +395,60 @@
       controller: RemoteComposePlayerController,
       configuration: RemoteComposePlayerConfiguration,
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
-      resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
+      resourceResolver: (any RemoteComposeNativeResourceResolving)? =
+        RemoteComposeNativeURLSessionResourceResolver.shared,
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void,
       onError: @escaping (RemoteComposePlayerError) -> Void
     ) {
       eventHandler = onEvent
       errorHandler = onError
-      guard data != documentData || configuration != self.configuration || controller !== playerController
-          || !sameResolver(downloadableFontResolver, self.downloadableFontResolver)
-          || resourceResolver !== self.resourceResolver else { return }
-      playerController.backend.installUpdateHandler(nil)
+      let dataChanged = data != documentData
+      let controllerChanged = controller !== playerController
+      let configurationChanged = configuration != self.configuration
+      let fontResolverChanged = !sameResolver(
+        downloadableFontResolver, self.downloadableFontResolver)
+      let resourceResolverChanged = resourceResolver !== self.resourceResolver
+      guard
+        dataChanged || configurationChanged || controllerChanged || fontResolverChanged
+          || resourceResolverChanged
+      else { return }
+      let previousController = playerController
       documentData = data
       playerController = controller
       self.configuration = configuration
       self.resourceResolver = resourceResolver
       self.downloadableFontResolver = downloadableFontResolver
-      if isViewLoaded { rebuildContent() }
+      guard isViewLoaded else { return }
+      if !dataChanged, !controllerChanged, configuration.nativeFallbackSupportsTheme,
+        let native = nativeController
+      {
+        native.playerView.playerBackground = configuration.nativeFallbackBackground
+        native.playerView.compatibilityPolicy = configuration.compatibility.nativeValue
+        native.configureResources(
+          limits: native.playerView.resourceLimits, resolver: resourceResolver)
+        native.configureDownloadableFonts(resolver: downloadableFontResolver)
+        return
+      }
+      previousController.backend.installUpdateHandler(nil, for: ObjectIdentifier(self))
+      rebuildContent()
     }
 
     private func rebuildContent() {
-      playerController.backend.installUpdateHandler(nil)
+      let owner = ObjectIdentifier(self)
+      let initialValues = playerController.backend.storedValues
+      let initialSeed = playerController.backend.initialSeedValues
       latestNativeUpdates.removeAll()
       for task in nativeUpdateTasks.values { task.cancel() }
       nativeUpdateTasks.removeAll()
       declarationTask?.cancel()
       declarationTask = nil
-      // Writes are refused until the new document's declarations are read below; the values
-      // written so far are kept for them rather than judged against no document at all.
-      playerController.backend.detach()
+      // Writes are refused until the new document's declarations are read below (unless another
+      // view remains attached to the same controller); the values written so far are kept.
+      playerController.backend.detach(for: owner)
       guard configuration.nativeFallbackSupportsTheme else {
-        errorHandler(.playback("The native Swift fallback does not support an explicit dark theme yet."))
+        removeInstalledNativeController()
+        errorHandler(
+          .playback("The native Swift fallback does not support an explicit dark theme yet."))
         return
       }
       let native = RemoteComposeNativePlayerViewController(
@@ -426,24 +457,25 @@
         compatibilityPolicy: configuration.compatibility.nativeValue,
         resourceResolver: resourceResolver,
         downloadableFontResolver: downloadableFontResolver,
+        initialNamedValues: initialSeed,
         onEvent: { [weak self] event in self?.eventHandler(.init(nativeEvent: event)) },
         onDiagnostics: { _ in },
         onError: { [weak self] error in self?.errorHandler(.playback(error.localizedDescription)) })
       install(native)
-      // A session the player reopens over the same bytes — in this host, after the background
-      // with input outstanding, since a configuration change rebuilds the player instead —
-      // carries the named values the one it replaces held, the controller's and the document's
-      // own, and is seeded with the controller's values; the player applies each one unless the
-      // old session took that very write, so its first frame shows the newest value of each.
-      // (The first open starts inside `init`, before this is set, and is not seeded.) The Kotlin
-      // player does not reopen and keeps its state.
+      // A session the player reopens over the same bytes — after the background with input
+      // outstanding, or on a compatibility policy or resolver change — carries the named values
+      // the one it replaces held, the controller's and the document's own, and is seeded with the
+      // controller's values; the player applies each one unless the old session took that very
+      // write, so its first frame shows the newest value of each. The first open is seeded with
+      // `initialSeed` above, so a document switch or rebuild shows the controller's values from
+      // its first frame too.
       //
       // A write still on its way when the reopen starts was meant for the session it discards; the
       // seed hands the new session the same value — the controller's latest for that name — so
       // that write is dropped rather than applied a second time.
       native.playerView.namedValueSeed = { [weak self, weak native] in
         guard let self, let native, self.nativeController === native else { return [] }
-        let seed = self.playerController.backend.seedValues
+        let seed = self.playerController.backend.seedValues(for: owner)
         for (name, _) in seed {
           self.latestNativeUpdates[name] = nil
           self.nativeUpdateTasks.removeValue(forKey: name)?.cancel()
@@ -452,7 +484,7 @@
       }
       // Reading the declarations decodes the whole document, so it runs off the main thread, like
       // the session's own open. The controller is attached as soon as it finishes — normally well
-      // before the session has opened — and replays the values written so far.
+      // before the session has opened — and replays any values written since `initialValues`.
       let data = documentData
       let limits = native.playerView.executionLimits
       declarationTask = Task { [weak self, weak native] in
@@ -465,17 +497,18 @@
         self.declarationTask = nil
         guard let declarations else { return }
         self.playerController.backend.attach(declarations)
-        self.playerController.backend.installUpdateHandler { [weak self, weak native] name, value in
-          guard let self else { return }
-          let token = self.beginNativeUpdate(for: name)
-          // The task takes its own weak references rather than sharing the handler's captures.
-          self.nativeUpdateTasks[name] = Task { @MainActor [weak self, weak native] in
-            await value.deliver(for: name, to: { native }) {
-              self?.latestNativeUpdates[name] == token
+        self.playerController.backend.installUpdateHandler(
+          { [weak self, weak native] name, value in
+            guard let self else { return }
+            let token = self.beginNativeUpdate(for: name)
+            // The task takes its own weak references rather than sharing the handler's captures.
+            self.nativeUpdateTasks[name] = Task { @MainActor [weak self, weak native] in
+              await value.deliver(for: name, to: { native }) {
+                self?.latestNativeUpdates[name] == token
+              }
+              if self?.latestNativeUpdates[name] == token { self?.nativeUpdateTasks[name] = nil }
             }
-            if self?.latestNativeUpdates[name] == token { self?.nativeUpdateTasks[name] = nil }
-          }
-        }
+          }, for: owner, skippingInitial: initialValues)
       }
     }
 
@@ -499,10 +532,15 @@
       return token
     }
 
-    private func install(_ controller: RemoteComposeNativePlayerViewController) {
+    private func removeInstalledNativeController() {
       nativeController?.willMove(toParent: nil)
       nativeController?.view.removeFromSuperview()
       nativeController?.removeFromParent()
+      nativeController = nil
+    }
+
+    private func install(_ controller: RemoteComposeNativePlayerViewController) {
+      removeInstalledNativeController()
       addChild(controller)
       view.addSubview(controller.view)
       controller.view.translatesAutoresizingMaskIntoConstraints = false
