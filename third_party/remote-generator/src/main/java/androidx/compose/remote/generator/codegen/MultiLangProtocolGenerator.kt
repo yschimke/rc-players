@@ -1608,7 +1608,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 }
             }
             w.line()
-            w.block("public struct FloatAnimationSpec: Equatable") {
+            w.block("public struct FloatAnimationSpec: Sendable, Hashable") {
                 // LOCAL PATCH (rc-players): the packed flags word's layout, from the schema's
                 // `animationSpec.flagsBits`, and the positions of the spec's words, by name.
                 val flagBits = anim.flagsBits.associateBy { it.name }
@@ -1660,12 +1660,23 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     line("    && lhs.directionalSnap == rhs.directionalSnap")
                     line("    && lhs.isPropagate == rhs.isPropagate")
                 }
+                line("/// Hashes NaNs alike, as `==` compares them.")
+                block("public func hash(into hasher: inout Hasher)") {
+                    line("let canonical: (Float) -> Float = { \$0.isNaN ? .nan : \$0 }")
+                    line("hasher.combine(canonical(duration))")
+                    line("hasher.combine(type)")
+                    line("for param in params { hasher.combine(canonical(param)) }")
+                    line("hasher.combine(canonical(initialValue))")
+                    line("hasher.combine(canonical(wrap))")
+                    line("hasher.combine(directionalSnap)")
+                    line("hasher.combine(isPropagate)")
+                }
                 line(
                     "public static func isSpring(_ data: [Float]) -> Bool { data.count > SPRING_PARAMETER_COUNT && data[DURATION_INDEX] == 0.0 }"
                 )
-                block("public static func unpack(_ data: [Float]) throws -> FloatAnimationSpec") {
+                block("public static func unpack(_ data: [Float]) throws(WireError) -> FloatAnimationSpec") {
                     line(
-                        "if isSpring(data) { throw NSError(domain: \"FloatAnimationSpec\", code: 2, userInfo: [NSLocalizedDescriptionKey: \"Spring animation specs cannot be unpacked with unpackAnimationSpec\"]) }"
+                        "if isSpring(data) { throw WireError.springAnimationSpec }"
                     )
                     line("var out = FloatAnimationSpec()")
                     line("if data.isEmpty { return out }")
@@ -1683,15 +1694,15 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     )
                     line("let paramLen = Int((bits >> BitLayout.paramLenShift) & BitLayout.paramLenMask)")
                     line(
-                        "if PARAMS_START + paramLen > data.count { throw NSError(domain: \"FloatAnimationSpec\", code: 2, userInfo: [NSLocalizedDescriptionKey: \"Truncated animation spec params\"]) }"
+                        "if PARAMS_START + paramLen > data.count { throw WireError.truncated(type: \"FloatAnimationSpec\", field: \"params\") }"
                     )
                     line("out.params = Array(data[PARAMS_START..<(PARAMS_START + paramLen)])")
                     line("var off = PARAMS_START + paramLen")
                     line(
-                        "if hasInit { if off >= data.count { throw NSError(domain: \"FloatAnimationSpec\", code: 2, userInfo: [NSLocalizedDescriptionKey: \"Truncated animation spec initialValue\"]) }; out.initialValue = data[off]; off += 1 }"
+                        "if hasInit { if off >= data.count { throw WireError.truncated(type: \"FloatAnimationSpec\", field: \"initialValue\") }; out.initialValue = data[off]; off += 1 }"
                     )
                     line(
-                        "if hasWrap { if off >= data.count { throw NSError(domain: \"FloatAnimationSpec\", code: 2, userInfo: [NSLocalizedDescriptionKey: \"Truncated animation spec wrap\"]) }; out.wrap = data[off] }"
+                        "if hasWrap { if off >= data.count { throw WireError.truncated(type: \"FloatAnimationSpec\", field: \"wrap\") }; out.wrap = data[off] }"
                     )
                     line("return out")
                 }
@@ -1735,7 +1746,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 "public func isSpringAnimationSpec(_ data: [Float]) -> Bool { FloatAnimationSpec.isSpring(data) }"
             )
             w.line(
-                "public func unpackAnimationSpec(_ data: [Float]) throws -> FloatAnimationSpec { try FloatAnimationSpec.unpack(data) }"
+                "public func unpackAnimationSpec(_ data: [Float]) throws(WireError) -> FloatAnimationSpec { try FloatAnimationSpec.unpack(data) }"
             )
             w.line(
                 "public func packAnimationSpec(duration: Float = 1.0, type: Int32 = AnimationEasing.CUBIC_STANDARD, spec: [Float]? = nil, initialValue: Float = .nan, wrap: Float = .nan) -> [Float] { FloatAnimationSpec.pack(duration: duration, type: type, spec: spec, initialValue: initialValue, wrap: wrap) }"
@@ -1744,7 +1755,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
         }
 
         schema.pathEffects?.let { pe ->
-            w.block("public indirect enum PathEffect: Equatable") {
+            w.block("public indirect enum PathEffect: Sendable, Hashable") {
                 line("case dash(phase: Float, intervals: [Float])")
                 line("case discrete(segmentLength: Float, deviation: Float)")
                 line("case pathDash(shapeId: Int32, advance: Float, phase: Float, style: Int32)")
@@ -1765,10 +1776,10 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     }
                     line("public static let ${prefix}_WORDS: Int = ${1 + t.fields.size}")
                 }
-                block("public func encode() throws -> [Float]") {
+                block("public func encode() throws(WireError) -> [Float]") {
                     block("switch self") {
                         line(
-                            "case let .dash(phase, intervals): if intervals.count > Self.MAX_DASH_INTERVALS { throw NSError(domain: \"PathEffect\", code: 1, userInfo: [NSLocalizedDescriptionKey: \"Dash interval count (\\(intervals.count)) exceeds MAX_DASH_INTERVALS (\\(Self.MAX_DASH_INTERVALS))\"]) }; return [Float(bitPattern: UInt32(bitPattern: Self.TYPE_DASH)), phase, Float(bitPattern: UInt32(intervals.count))] + intervals"
+                            "case let .dash(phase, intervals): if intervals.count > Self.MAX_DASH_INTERVALS { throw WireError.lengthExceedsLimit(type: \"PathEffect\", field: \"intervals\", length: intervals.count, limit: Self.MAX_DASH_INTERVALS) }; return [Float(bitPattern: UInt32(bitPattern: Self.TYPE_DASH)), phase, Float(bitPattern: UInt32(intervals.count))] + intervals"
                         )
                         line(
                             "case let .discrete(segmentLength, deviation): return [Float(bitPattern: UInt32(bitPattern: Self.TYPE_DISCRETE)), segmentLength, deviation]"
@@ -1835,7 +1846,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 }
             }
             w.line()
-            w.block("public enum PathCommand: Equatable") {
+            w.block("public enum PathCommand: Sendable, Hashable") {
                 for ((_, cmd) in schema.pathCommands.entries.sortedBy { it.key }) {
                     val vName = pathCmdVariantName(cmd).replaceFirstChar { it.lowercaseChar() }
                     if (cmd.fields.isEmpty()) {
@@ -1896,7 +1907,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 "public var isSpringAnimation: Bool { FloatAnimationSpec.isSpring(animationSpec) }"
             )
             w.line(
-                "public func unpackAnimationSpec() throws -> FloatAnimationSpec { try FloatAnimationSpec.unpack(animationSpec) }"
+                "public func unpackAnimationSpec() throws(WireError) -> FloatAnimationSpec { try FloatAnimationSpec.unpack(animationSpec) }"
             )
         }
         if (isBitmapDataReady(op)) {

@@ -48,7 +48,7 @@ public fun remoteCodegenTarget(
 
 /**
  * Upstream's languages as targets, at the file names `RemoteSerializationCodeGenerator.generate`
- * writes, plus the platform options this fork adds (`swift-portable`).
+ * writes. The fork's Swift output is Foundation-free Swift 6 (see PROVENANCE.md).
  */
 public fun builtInTargets(): List<RemoteCodegenTarget> =
     listOf(
@@ -73,12 +73,6 @@ public fun builtInTargets(): List<RemoteCodegenTarget> =
         },
         remoteCodegenTarget("swift") { schema ->
             mapOf("RemoteComposeOperations.swift" to SwiftGenerator(schema).generate())
-        },
-        remoteCodegenTarget("swift-portable") { schema ->
-            mapOf(
-                "RemoteComposeOperations.swift" to
-                    SwiftGenerator(schema, SwiftGenerator.Options.PORTABLE).generate(),
-            )
         },
         remoteCodegenTarget("typescript") { schema ->
             mapOf("remoteComposeOperations.ts" to TypeScriptGenerator(schema).generate())

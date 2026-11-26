@@ -6,14 +6,14 @@ import Testing
 @Suite struct HelperTests {
   @Test func animationSpecPacksTheSchemaLayout() throws {
     let packed = FloatAnimationSpec.pack(
-      duration: 2, type: AnimationEasing.CUBIC_LINEAR, spec: [0.25, 0.75], initialValue: 3, wrap: 4)
+      duration: 2, type: AnimationEasing.cubicLinear, spec: [0.25, 0.75], initialValue: 3, wrap: 4)
     let flags = packed[1].bitPattern
     // AndroidX's `FloatAnimation.packToFloatArray`: type in bits 0-7, wrap at 8, initial value
     // at 9, the parameter count from bit 16.
     #expect(flags == 4 | 1 << 8 | 1 << 9 | 2 << 16)
     let spec = try FloatAnimationSpec.unpack(packed)
     #expect(spec.duration == 2)
-    #expect(spec.type == AnimationEasing.CUBIC_LINEAR)
+    #expect(spec.type == AnimationEasing.cubicLinear)
     #expect(spec.params == [0.25, 0.75])
     #expect(spec.initialValue == 3)
     #expect(spec.wrap == 4)
@@ -32,21 +32,21 @@ import Testing
 
   @Test func pathCommandsDecodeAtTheirOffsets() {
     func tag(_ id: Int32) -> Float {
-      Float(bitPattern: UInt32(bitPattern: IdEncoding.NAN_PREFIX | id))
+      Float(bitPattern: UInt32(bitPattern: IdEncoding.nanPrefix | id))
     }
     // A move is its tag and a point; a line is its tag, two words of padding, then its end point.
     let data: [Float] = [
-      tag(PathCommandTags.MOVE), 1, 2,
-      tag(PathCommandTags.LINE), 0, 0, 3, 4,
-      tag(PathCommandTags.CLOSE),
-      tag(PathCommandTags.DONE),
+      tag(PathCommandTags.move), 1, 2,
+      tag(PathCommandTags.line), 0, 0, 3, 4,
+      tag(PathCommandTags.close),
+      tag(PathCommandTags.done),
     ]
     #expect(
       PathCommand.decode(data) == [.moveTo(x: 1, y: 2), .lineTo(x: 3, y: 4), .close, .done])
   }
 
   @Test func timeIdsAreTheSchemasTimeVariables() {
-    #expect(RemoteContextIds.isTime(RemoteContextIds.ID_CONTINUOUS_SEC))
-    #expect(!RemoteContextIds.isTime(RemoteContextIds.ID_DENSITY))
+    #expect(RemoteContextIds.isTime(RemoteContextIds.idContinuousSec))
+    #expect(!RemoteContextIds.isTime(RemoteContextIds.idDensity))
   }
 }

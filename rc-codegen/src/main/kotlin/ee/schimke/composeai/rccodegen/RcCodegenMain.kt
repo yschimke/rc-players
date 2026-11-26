@@ -21,7 +21,7 @@ import kotlin.system.exitProcess
  * generate now.
  *
  * The targets are upstream's languages (`cpp`, `rust`, `python`, `swift`, `typescript`), the fork's
- * platform variants (`swift-portable`), and rc-players' own ([rcPlayersTargets]).
+ * the fork's Foundation-free Swift (`swift`), and rc-players' own ([rcPlayersTargets]).
  */
 object RcCodegenMain {
   @JvmStatic
@@ -62,7 +62,7 @@ object RcCodegenMain {
     val targets = allTargets(root.resolve(MANIFEST)).associateBy { it.id }
     return listOf(
       targets.getValue("rc-swift-wire-constants") to root,
-      targets.getValue("swift-portable") to root.resolve("Sources/RcWireOperations"),
+      targets.getValue("swift") to root.resolve("Sources/RcWireOperations"),
     )
   }
 

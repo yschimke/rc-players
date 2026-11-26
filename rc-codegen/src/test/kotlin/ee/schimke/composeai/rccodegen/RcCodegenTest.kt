@@ -92,13 +92,15 @@ class RcCodegenTest {
   }
 
   @Test
-  fun portableSwiftUsesNoFoundation() {
-    val target = RcCodegenMain.allTargets(null).first { it.id == "swift-portable" }
+  fun swiftUsesNoFoundation() {
+    val target = RcCodegenMain.allTargets(null).first { it.id == "swift" }
     val swift = target.generate(schema).values.single()
     assertFalse("imports Foundation", "import Foundation" in swift)
     assertFalse("throws NSError", "NSError(" in swift)
-    assertFalse("uses Data", Regex("""\bData\b""").containsMatchIn(swift))
-    assertTrue("defines the typed error", "struct RemoteComposeWireError: Error" in swift)
+    val code = swift.lines().filterNot { it.trim().startsWith("//") }.joinToString("\n")
+    assertFalse("uses Data", Regex("""\bData\b""").containsMatchIn(code))
+    assertTrue("defines the typed error", "enum WireError: Error, Sendable, Hashable" in swift)
+    assertFalse("untyped throws", Regex("""throws(?!\(WireError\))""").containsMatchIn(swift))
   }
 
   /**
@@ -107,13 +109,15 @@ class RcCodegenTest {
    * wire constants, held over the whole generated file.
    */
   @Test
-  fun portableSwiftNamesEveryNumber() {
-    val target = RcCodegenMain.allTargets(null).first { it.id == "swift-portable" }
+  fun swiftNamesEveryNumber() {
+    val target = RcCodegenMain.allTargets(null).first { it.id == "swift" }
     val number = Regex("""(?<![\w.])(0x[0-9A-Fa-f_]+|\d[\d_]*)(?![\w.])""")
     val offending =
       target.generate(schema).values.single().lines().withIndex().filter { (_, raw) ->
         val line = raw.trim()
-        if (line.startsWith("//") || "static let" in line) return@filter false
+        if (line.startsWith("//") || "#available(" in line || "static let" in line) {
+          return@filter false
+        }
         if (Regex("""case \w+ = -?\d+""").matches(line)) return@filter false
         val code =
           line.replace(Regex(""""(?:[^"\\]|\\.)*""""), "\"\"").replace(Regex("""code: \d+"""), "")
@@ -126,9 +130,13 @@ class RcCodegenTest {
   }
 
   @Test
-  fun upstreamSwiftKeepsFoundation() {
-    val target = RcCodegenMain.allTargets(null).first { it.id == "swift" }
-    assertTrue("import Foundation" in target.generate(schema).values.single())
+  fun swiftOperationsAreAClosedEnum() {
+    val swift =
+      RcCodegenMain.allTargets(null).first { it.id == "swift" }.generate(schema).values.single()
+    assertTrue("public enum WireOperation: Sendable, Hashable" in swift)
+    assertTrue("public var operations: [WireOperation]" in swift)
+    assertFalse("existential operations", "[RemoteOperation]" in swift)
+    assertFalse("SCREAMING_SNAKE document limits", "MAX_OPERATION_COUNT" in swift)
   }
 
   @Test

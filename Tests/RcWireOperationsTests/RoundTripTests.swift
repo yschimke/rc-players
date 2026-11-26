@@ -17,31 +17,10 @@ import Testing
     return names.filter { $0.hasSuffix(".rc") }.sorted().map { url.appendingPathComponent($0) }
   }
 
-  /// The operations after the header, read and written back. Upstream's Swift `RemoteDocument`
-  /// keeps only the header's version, size and capabilities and always writes the legacy header,
-  /// so the header itself does not round-trip (tracked upstream); every operation after it must.
-  private func operationsRoundTrip(_ bytes: [UInt8]) throws -> Bool {
-    let saved = try RcWireOperations.RemoteDocument.load(from: bytes).save()
-    return saved.dropFirst(Self.legacyHeaderLength) == bytes.dropFirst(try Self.headerLength(bytes))
-  }
-
-  /// Opcode, major, minor, patch, width and height, then a long of capabilities.
-  private static let legacyHeaderLength = 1 + 5 * 4 + 8
-
-  /// The length of [bytes]' header: legacy, or modern with its tagged properties
-  /// (a short tag, a short length, then that many bytes each).
-  private static func headerLength(_ bytes: [UInt8]) throws -> Int {
-    func int(_ at: Int) -> Int {
-      Int(Int32(bitPattern: bytes[at..<at + 4].reduce(0) { $0 << 8 | UInt32($1) }))
-    }
-    let major = UInt32(bitPattern: Int32(int(1)))
-    guard major & 0xFFFF_0000 == 0x048C_0000 else { return legacyHeaderLength }
-    var offset = 1 + 4 * 4
-    for _ in 0..<int(13) {
-      let length = Int(bytes[offset + 2]) << 8 | Int(bytes[offset + 3])
-      offset += 4 + length
-    }
-    return offset
+  /// [bytes] read and written back, header included: `WireDocument` keeps a modern header's
+  /// properties and writes them back as read.
+  private func roundTrips(_ bytes: [UInt8]) throws(WireError) -> Bool {
+    try WireDocument.load(from: bytes).save() == bytes
   }
 
   /// AndroidX-captured documents: the catalog corpus and the native player's fixtures.
@@ -54,7 +33,7 @@ import Testing
     for file in files {
       let bytes = [UInt8](try Data(contentsOf: file))
       do {
-        if try !operationsRoundTrip(bytes) {
+        if try !roundTrips(bytes) {
           failures.append("\(file.lastPathComponent): differs")
         }
       } catch {
@@ -67,7 +46,7 @@ import Testing
   /// What RcCreation writes reads back through upstream's bindings unchanged.
   @Test func creationDocumentsRoundTrip() throws {
     let progress = RemoteFloat.named("progress", 0.5)
-    let document = RemoteDocument_(width: 400, height: 200, density: 2) {
+    let document = RemoteDocument(width: 400, height: 200, density: 2) {
       RemoteColumn(modifier: .fillMaxSize().padding(8), verticalArrangement: .spacedBy(4)) {
         RemoteText("Upload " + RemoteString(progress * 100, decimals: 0) + "%", fontSize: 16)
         RemoteBox(modifier: .width(progress * 200).height(8).background(.blue))
@@ -77,7 +56,7 @@ import Testing
         RemoteBox(modifier: .size(10).clickable(.host("tapped")))
       }
     }
-    #expect(try operationsRoundTrip(document.encode()))
+    #expect(try roundTrips(document.encode()))
   }
 
   /// A border with a corner radius is written as the rounded-rectangle shape, the only one a
@@ -85,26 +64,29 @@ import Testing
   /// bindings, so the wire fields are checked as AndroidX names them.
   @Test func roundedBorderIsTheRoundedShape() throws {
     func border(_ radius: Float) throws -> BorderModifierOperation {
-      let bytes = RemoteDocument_(width: 100, height: 100, density: 2) {
+      let bytes = RemoteDocument(width: 100, height: 100, density: 2) {
         RemoteBox(modifier: .size(40).border(2, .black, cornerRadius: radius))
       }.encode()
-      let operations = try RcWireOperations.RemoteDocument.load(from: bytes).operations
-      return try #require(operations.compactMap { $0 as? BorderModifierOperation }.first)
+      let border = try WireDocument.load(from: bytes).operations.lazy.compactMap {
+        if case .borderModifierOperation(let border) = $0 { border } else { nil }
+      }.first
+      return try #require(border)
     }
     let rounded = try border(6)
-    #expect(rounded.shapeType == 2)
-    #expect(rounded.roundedCorner == 12)
-    #expect(rounded.borderWidth == 4)
-    #expect(try border(0).shapeType == 0)
+    let density: Float = 2
+    #expect(rounded.shapeType == BorderModifierOperation.roundedRectangle)
+    #expect(rounded.roundedCorner == 6 * density)
+    #expect(rounded.borderWidth == 2 * density)
+    #expect(try border(0).shapeType == BorderModifierOperation.rectangle)
   }
 
   /// A failure is a typed error a caller can inspect, not an `NSError`.
   @Test func truncatedDocumentFailsWithATypedError() {
-    #expect(throws: RemoteComposeWireError.self) {
-      try RcWireOperations.RemoteDocument.load(from: [0, 0, 0])
+    #expect(throws: WireError.expectedHeader) {
+      try WireDocument.load(from: [OpCode.drawCircle.rawValue])
+    }
+    #expect(throws: WireError.underflow) {
+      try WireDocument.load(from: [OpCode.header.rawValue])
     }
   }
 }
-
-/// RcCreation's document, named apart from the bindings' own `RemoteDocument`.
-typealias RemoteDocument_ = RcCreation.RemoteDocument

@@ -15,8 +15,8 @@ Two modules do this:
 
 | Target | From | Output | Committed at |
 | --- | --- | --- | --- |
-| `cpp`, `rust`, `python`, `swift`, `typescript` | upstream | upstream's bindings | — |
-| `swift-portable` | fork | upstream's Swift bindings without Foundation: `[UInt8]` bytes and a typed `RemoteComposeWireError` | `Sources/RcWireOperations/RemoteComposeOperations.swift` |
+| `cpp`, `rust`, `python`, `typescript` | upstream | upstream's bindings | — |
+| `swift` | upstream, patched | Swift 6 bindings without Foundation: `[UInt8]` bytes, `throws(WireError)`, `Sendable`/`Hashable` values, a closed `WireOperation` enum and a `WireDocument` that round-trips its header | `Sources/RcWireOperations/RemoteComposeOperations.swift` |
 | `rc-swift-wire-constants` | rc-players | every opcode, operator and enumerated field value `RcCreation` writes, as complete Swift namespaces | `Sources/RcCreation/RemoteWireConstants.swift` |
 
 `rc-swift-wire-constants` takes opcodes from the schema and from `rc-operations.manifest`, because
@@ -54,12 +54,12 @@ Add it to `rcPlayersTargets()`. If its output is committed, also add it to
 ## Verification
 
 - `:rc-codegen:check` runs on the Linux CI lane. It runs the module's tests (every manifest and
-  schema opcode is named, output is deterministic, the portable Swift has no Foundation), then
+  schema opcode is named, output is deterministic, the Swift has no Foundation, untyped throws or
+  unnamed numbers), then
   fails if either committed Swift file differs from a fresh generation.
 - `RcWireOperationsTests` loads all 701 catalog-corpus documents and the native player's fixtures
-  with the generated portable bindings, writes them back, and compares every operation byte for
-  byte. It does the same for documents `RcCreation` writes. The header is excluded, because
-  upstream's Swift `RemoteDocument` does not keep a modern header's properties.
+  with the generated bindings, writes them back, and compares the whole document byte for byte,
+  header included. It does the same for documents `RcCreation` writes.
 - The generated sources compile on Linux in Swift 6 language mode. Foundation is not implicitly
   imported there, so a compile on Linux shows `RcWireOperations` uses none.
 
