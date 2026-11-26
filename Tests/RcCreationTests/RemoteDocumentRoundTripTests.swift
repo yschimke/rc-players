@@ -394,6 +394,20 @@ import Testing
     }
   }
 
+  /// The bindings hold each field to the limit a reader enforces, so text too long to load fails
+  /// to encode instead of producing a document no player opens.
+  @Test func textOverTheReadersLimitFailsToEncode() {
+    let length = WireLimits.maxStringSize + 1
+    let document = RemoteDocument(width: 10, height: 10) {
+      RemoteText(String(repeating: "a", count: length))
+    }
+    #expect(
+      throws: RemoteEncodingError.wire(
+        .lengthExceedsLimit(
+          type: "TextData", field: "text", length: length, limit: WireLimits.maxStringSize))
+    ) { try document.encode() }
+  }
+
   @Test func identicalValuesAreDeclaredOnce() throws {
     func texts(_ document: RemoteDocument) throws -> [String] {
       try operations(document).compactMap {

@@ -1367,13 +1367,13 @@ internal class SwiftGenerator(private val schema: OperationSchema) {
                                 "throw WireError.missingField(type: \"$ownerName\", field: \"${f.name}\")"
                             )
                         }
-                        emitSwiftFieldWrite(this, f, "val")
+                        emitSwiftFieldWrite(this, f, "val", ownerName)
                     } else {
-                        emitSwiftFieldWrite(this, f, f.name)
+                        emitSwiftFieldWrite(this, f, f.name, ownerName)
                     }
                 }
             } else {
-                emitSwiftFieldWrite(w, f, f.name)
+                emitSwiftFieldWrite(w, f, f.name, ownerName)
             }
         }
 
@@ -1411,13 +1411,24 @@ internal class SwiftGenerator(private val schema: OperationSchema) {
                             enumValues = null,
                             lengthType = sp.lengthType ?: "ushort",
                         )
-                    emitSwiftFieldWrite(this, synField, "val")
+                    emitSwiftFieldWrite(this, synField, "val", ownerName)
                 }
             }
         }
     }
 
-    private fun emitSwiftFieldWrite(w: CodeWriter, f: SchemaField, varExpr: String) {
+    private fun emitSwiftFieldWrite(w: CodeWriter, f: SchemaField, varExpr: String, ownerName: String) {
+        // LOCAL PATCH (rc-players): the writer holds a field to the `maxLength` the reader enforces,
+        // so a value too long to load fails when written rather than producing a document no
+        // player opens. A string's limit is in UTF-8 bytes, an array's in elements.
+        limitRef(f)?.let { limit ->
+            val length = if (f.type == "string") "$varExpr.utf8.count" else "$varExpr.count"
+            w.block("guard $length <= $limit else") {
+                line(
+                    "throw WireError.lengthExceedsLimit(type: \"$ownerName\", field: \"${f.name}\", length: $length, limit: $limit)"
+                )
+            }
+        }
         if (f.type.endsWith("[]")) {
             if (f.countFrom == null) {
                 when (f.effectiveLengthType) {

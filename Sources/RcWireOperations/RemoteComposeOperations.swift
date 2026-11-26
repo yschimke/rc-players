@@ -1041,6 +1041,9 @@ public struct ParticleCompareEquation: Sendable, Hashable {
     }
 
     public func write(to buffer: inout WireBuffer) throws(WireError) {
+        guard equation.count <= WireLimits.particleCompareEquationEquationMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "ParticleCompareEquation", field: "equation", length: equation.count, limit: WireLimits.particleCompareEquationEquationMaxLength)
+        }
         buffer.writeInt(Int32(equation.count))
         for item in equation {
             buffer.writeFloat(item)
@@ -1248,6 +1251,9 @@ public struct HeaderProperty: Sendable, Hashable {
             guard let val = stringValue else {
                 throw WireError.missingField(type: "HeaderProperty", field: "stringValue")
             }
+            guard val.utf8.count <= WireLimits.maxStringSize else {
+                throw WireError.lengthExceedsLimit(type: "HeaderProperty", field: "stringValue", length: val.utf8.count, limit: WireLimits.maxStringSize)
+            }
             buffer.writeUTF8(val)
         }
     }
@@ -1318,6 +1324,9 @@ public struct ShaderFloatUniform: Sendable, Hashable {
 
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeUTF8(name)
+        guard values.count <= WireLimits.maxShaderFloatCount else {
+            throw WireError.lengthExceedsLimit(type: "ShaderFloatUniform", field: "values", length: values.count, limit: WireLimits.maxShaderFloatCount)
+        }
         buffer.writeInt(Int32(values.count))
         for item in values {
             buffer.writeFloat(item)
@@ -1360,6 +1369,9 @@ public struct ParticleVariable: Sendable, Hashable {
 
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeInt(varId)
+        guard equation.count <= WireLimits.particleVariableEquationMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "ParticleVariable", field: "equation", length: equation.count, limit: WireLimits.particleVariableEquationMaxLength)
+        }
         buffer.writeInt(Int32(equation.count))
         for item in equation {
             buffer.writeFloat(item)
@@ -1477,6 +1489,9 @@ public struct ParticleEquation: Sendable, Hashable {
     }
 
     public func write(to buffer: inout WireBuffer) throws(WireError) {
+        guard equation.count <= WireLimits.maxExpressionSize else {
+            throw WireError.lengthExceedsLimit(type: "ParticleEquation", field: "equation", length: equation.count, limit: WireLimits.maxExpressionSize)
+        }
         buffer.writeInt(Int32(equation.count))
         for item in equation {
             buffer.writeFloat(item)
@@ -1519,6 +1534,9 @@ public struct ShaderIntUniform: Sendable, Hashable {
 
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeUTF8(name)
+        guard values.count <= WireLimits.maxShaderFloatCount else {
+            throw WireError.lengthExceedsLimit(type: "ShaderIntUniform", field: "values", length: values.count, limit: WireLimits.maxShaderFloatCount)
+        }
         buffer.writeInt(Int32(values.count))
         for item in values {
             buffer.writeInt(item)
@@ -1708,6 +1726,9 @@ public struct Header: RemoteOperation, Hashable {
             buffer.writeLong(capabilities)
         }
         if Int(majorVersion) >= WireExpressionConstants.headerPropertyMapMajorVersion {
+            guard properties.count <= WireLimits.maxTableSize else {
+                throw WireError.lengthExceedsLimit(type: "Header", field: "properties", length: properties.count, limit: WireLimits.maxTableSize)
+            }
             buffer.writeInt(Int32(properties.count))
             for item in properties {
                 try item.write(to: &buffer)
@@ -2049,6 +2070,9 @@ public struct PaintData: RemoteOperation, Hashable {
     /// Serializes this operation to the wire buffer.
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
+        guard words.count <= WireLimits.paintDataWordsMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "PaintData", field: "words", length: words.count, limit: WireLimits.paintDataWordsMaxLength)
+        }
         buffer.writeInt(Int32(words.count))
         for item in words {
             buffer.writeInt(item)
@@ -2099,6 +2123,9 @@ public struct BinaryData: RemoteOperation, Hashable {
         buffer.writeInt(id)
         buffer.writeInt(type)
         buffer.writeInt(flags)
+        guard data.count <= WireLimits.maxBinaryData else {
+            throw WireError.lengthExceedsLimit(type: "BinaryData", field: "data", length: data.count, limit: WireLimits.maxBinaryData)
+        }
         buffer.writeBuffer(data)
     }
 }
@@ -3645,6 +3672,9 @@ public struct FloatExpression: RemoteOperation, Hashable {
         let expressionLength: Int32 = Int32(expression.count)
         let animationLength: Int32 = Int32(animationSpec.count)
         buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(expressionLength)) & BitLayout.packedLengthsExpressionLengthMask) << BitLayout.packedLengthsExpressionLengthShift) | ((UInt32(bitPattern: Int32(animationLength)) & BitLayout.packedLengthsAnimationLengthMask) << BitLayout.packedLengthsAnimationLengthShift)))
+        guard expression.count <= WireLimits.maxExpressionSize else {
+            throw WireError.lengthExceedsLimit(type: "FloatExpression", field: "expression", length: expression.count, limit: WireLimits.maxExpressionSize)
+        }
         for item in expression {
             buffer.writeFloat(item)
         }
@@ -3839,12 +3869,18 @@ public struct EventHandlerModifierOperation: RemoteOperation, Hashable {
         buffer.writeShort(commonFlags)
         buffer.writeShort(flags)
         if ((Int(commonFlags) & WireExpressionConstants.eventFlagNoData)) == 0 {
+            guard dataIds.count <= WireLimits.maxFunctionArguments else {
+                throw WireError.lengthExceedsLimit(type: "EventHandlerModifierOperation", field: "dataIds", length: dataIds.count, limit: WireLimits.maxFunctionArguments)
+            }
             buffer.writeInt(Int32(dataIds.count))
             for item in dataIds {
                 buffer.writeInt(item)
             }
         }
         if ((Int(commonFlags) & WireExpressionConstants.eventFlagUnconditional)) == 0 {
+            guard condition.count <= WireLimits.maxExpressionSize else {
+                throw WireError.lengthExceedsLimit(type: "EventHandlerModifierOperation", field: "condition", length: condition.count, limit: WireLimits.maxExpressionSize)
+            }
             buffer.writeInt(Int32(condition.count))
             for item in condition {
                 buffer.writeFloat(item)
@@ -3969,6 +4005,9 @@ public struct TextData: RemoteOperation, Hashable {
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(textId)
+        guard text.utf8.count <= WireLimits.maxStringSize else {
+            throw WireError.lengthExceedsLimit(type: "TextData", field: "text", length: text.utf8.count, limit: WireLimits.maxStringSize)
+        }
         buffer.writeUTF8(text)
     }
 }
@@ -4576,60 +4615,90 @@ public struct AddMesh2D: RemoteOperation, Hashable {
         buffer.writeInt(flags)
         buffer.writeInt(aux)
         if Int(type) == WireExpressionConstants.mesh2dTypeExpression {
+            guard expX.count <= WireLimits.maxExpressionSize else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "expX", length: expX.count, limit: WireLimits.maxExpressionSize)
+            }
             buffer.writeInt(Int32(expX.count))
             for item in expX {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypeExpression {
+            guard expY.count <= WireLimits.maxExpressionSize else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "expY", length: expY.count, limit: WireLimits.maxExpressionSize)
+            }
             buffer.writeInt(Int32(expY.count))
             for item in expY {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypeExpression {
+            guard expTexU.count <= WireLimits.maxExpressionSize else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "expTexU", length: expTexU.count, limit: WireLimits.maxExpressionSize)
+            }
             buffer.writeInt(Int32(expTexU.count))
             for item in expTexU {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypeExpression {
+            guard expTexV.count <= WireLimits.maxExpressionSize else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "expTexV", length: expTexV.count, limit: WireLimits.maxExpressionSize)
+            }
             buffer.writeInt(Int32(expTexV.count))
             for item in expTexV {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypeExpression {
+            guard expColorA.count <= WireLimits.maxExpressionSize else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "expColorA", length: expColorA.count, limit: WireLimits.maxExpressionSize)
+            }
             buffer.writeInt(Int32(expColorA.count))
             for item in expColorA {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypeExpression {
+            guard expColorR.count <= WireLimits.maxExpressionSize else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "expColorR", length: expColorR.count, limit: WireLimits.maxExpressionSize)
+            }
             buffer.writeInt(Int32(expColorR.count))
             for item in expColorR {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypeExpression {
+            guard expColorG.count <= WireLimits.maxExpressionSize else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "expColorG", length: expColorG.count, limit: WireLimits.maxExpressionSize)
+            }
             buffer.writeInt(Int32(expColorG.count))
             for item in expColorG {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypeExpression {
+            guard expColorB.count <= WireLimits.maxExpressionSize else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "expColorB", length: expColorB.count, limit: WireLimits.maxExpressionSize)
+            }
             buffer.writeInt(Int32(expColorB.count))
             for item in expColorB {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypeExpression {
+            guard expWidth.count <= WireLimits.maxExpressionSize else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "expWidth", length: expWidth.count, limit: WireLimits.maxExpressionSize)
+            }
             buffer.writeInt(Int32(expWidth.count))
             for item in expWidth {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) != WireExpressionConstants.mesh2dTypeExpression && Int(type) != WireExpressionConstants.mesh2dTypePathSplineStrip && Int(type) != WireExpressionConstants.mesh2dTypeSplineRoundStrip {
+            guard indices.count <= WireLimits.maxMesh2dIndices else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "indices", length: indices.count, limit: WireLimits.maxMesh2dIndices)
+            }
             buffer.writeInt(Int32(indices.count))
             for item in indices {
                 buffer.writeShort(item)
@@ -4645,16 +4714,25 @@ public struct AddMesh2D: RemoteOperation, Hashable {
             buffer.writeInt(Int32(colors.count))
         }
         if Int(type) != WireExpressionConstants.mesh2dTypeExpression && Int(type) != WireExpressionConstants.mesh2dTypeF16Values && Int(type) != WireExpressionConstants.mesh2dTypePathSplineStrip && Int(type) != WireExpressionConstants.mesh2dTypeSplineRoundStrip {
+            guard verts.count <= WireLimits.addMesh2DVertsMaxLength else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "verts", length: verts.count, limit: WireLimits.addMesh2DVertsMaxLength)
+            }
             for item in verts {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) != WireExpressionConstants.mesh2dTypeExpression && Int(type) != WireExpressionConstants.mesh2dTypeF16Values && Int(type) != WireExpressionConstants.mesh2dTypePathSplineStrip && Int(type) != WireExpressionConstants.mesh2dTypeSplineRoundStrip {
+            guard uv.count <= WireLimits.addMesh2DUvMaxLength else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "uv", length: uv.count, limit: WireLimits.addMesh2DUvMaxLength)
+            }
             for item in uv {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) != WireExpressionConstants.mesh2dTypeExpression && Int(type) != WireExpressionConstants.mesh2dTypeF16Values && Int(type) != WireExpressionConstants.mesh2dTypePathSplineStrip && Int(type) != WireExpressionConstants.mesh2dTypeSplineRoundStrip {
+            guard colors.count <= WireLimits.maxMesh2dVertices else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "colors", length: colors.count, limit: WireLimits.maxMesh2dVertices)
+            }
             for item in colors {
                 buffer.writeInt(item)
             }
@@ -4669,27 +4747,42 @@ public struct AddMesh2D: RemoteOperation, Hashable {
             buffer.writeInt(Int32(colorsF16.count))
         }
         if Int(type) == WireExpressionConstants.mesh2dTypeF16Values {
+            guard vertsF16.count <= WireLimits.addMesh2DVertsF16MaxLength else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "vertsF16", length: vertsF16.count, limit: WireLimits.addMesh2DVertsF16MaxLength)
+            }
             for item in vertsF16 {
                 buffer.writeShort(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypeF16Values {
+            guard uvF16.count <= WireLimits.addMesh2DUvF16MaxLength else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "uvF16", length: uvF16.count, limit: WireLimits.addMesh2DUvF16MaxLength)
+            }
             for item in uvF16 {
                 buffer.writeShort(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypeF16Values {
+            guard colorsF16.count <= WireLimits.maxMesh2dVertices else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "colorsF16", length: colorsF16.count, limit: WireLimits.maxMesh2dVertices)
+            }
             for item in colorsF16 {
                 buffer.writeInt(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypePathSplineStrip || Int(type) == WireExpressionConstants.mesh2dTypeSplineRoundStrip {
+            guard widths.count <= WireLimits.maxMesh2dWidthSamples else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "widths", length: widths.count, limit: WireLimits.maxMesh2dWidthSamples)
+            }
             buffer.writeInt(Int32(widths.count))
             for item in widths {
                 buffer.writeFloat(item)
             }
         }
         if Int(type) == WireExpressionConstants.mesh2dTypePathSplineStrip || Int(type) == WireExpressionConstants.mesh2dTypeSplineRoundStrip {
+            guard widthPositions.count <= WireLimits.maxMesh2dWidthSamples else {
+                throw WireError.lengthExceedsLimit(type: "AddMesh2D", field: "widthPositions", length: widthPositions.count, limit: WireLimits.maxMesh2dWidthSamples)
+            }
             buffer.writeInt(Int32(widthPositions.count))
             for item in widthPositions {
                 buffer.writeFloat(item)
@@ -5089,6 +5182,9 @@ public struct PathData: RemoteOperation, Hashable {
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(idAndWinding)
+        guard pathData.count <= WireLimits.pathDataPathDataMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "PathData", field: "pathData", length: pathData.count, limit: WireLimits.pathDataPathDataMaxLength)
+        }
         buffer.writeInt(Int32(pathData.count))
         for item in pathData {
             buffer.writeFloat(item)
@@ -5701,6 +5797,9 @@ public struct NamedVariable: RemoteOperation, Hashable {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(varId)
         buffer.writeInt(varType)
+        guard name.utf8.count <= WireLimits.maxStringSize else {
+            throw WireError.lengthExceedsLimit(type: "NamedVariable", field: "name", length: name.utf8.count, limit: WireLimits.maxStringSize)
+        }
         buffer.writeUTF8(name)
     }
 }
@@ -5927,6 +6026,9 @@ public struct IntegerExpression: RemoteOperation, Hashable {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(id)
         buffer.writeInt(mask)
+        guard values.count <= WireLimits.integerExpressionValuesMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "IntegerExpression", field: "values", length: values.count, limit: WireLimits.integerExpressionValuesMaxLength)
+        }
         buffer.writeInt(Int32(values.count))
         for item in values {
             buffer.writeInt(item)
@@ -5977,6 +6079,9 @@ public struct DataMapIds: RemoteOperation, Hashable {
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(id)
+        guard entries.count <= WireLimits.maxDataMapSize else {
+            throw WireError.lengthExceedsLimit(type: "DataMapIds", field: "entries", length: entries.count, limit: WireLimits.maxDataMapSize)
+        }
         buffer.writeInt(Int32(entries.count))
         for item in entries {
             try item.write(to: &buffer)
@@ -6027,6 +6132,9 @@ public struct IdListData: RemoteOperation, Hashable {
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(id)
+        guard ids.count <= WireLimits.idListDataIdsMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "IdListData", field: "ids", length: ids.count, limit: WireLimits.idListDataIdsMaxLength)
+        }
         buffer.writeInt(Int32(ids.count))
         for item in ids {
             buffer.writeInt(item)
@@ -6077,6 +6185,9 @@ public struct FloatListData: RemoteOperation, Hashable {
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(id)
+        guard values.count <= WireLimits.floatListDataValuesMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "FloatListData", field: "values", length: values.count, limit: WireLimits.floatListDataValuesMaxLength)
+        }
         buffer.writeInt(Int32(values.count))
         for item in values {
             buffer.writeFloat(item)
@@ -6678,13 +6789,22 @@ public struct TouchExpression: RemoteOperation, Hashable {
         buffer.writeInt(touchEffects)
         let expLen: Int32 = Int32(expression.count)
         buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(expLen)) & BitLayout.expressionLenExpLenMask) << BitLayout.expressionLenExpLenShift)))
+        guard expression.count <= WireLimits.maxExpressionSize else {
+            throw WireError.lengthExceedsLimit(type: "TouchExpression", field: "expression", length: expression.count, limit: WireLimits.maxExpressionSize)
+        }
         for item in expression {
             buffer.writeFloat(item)
         }
         let stopLen: Int32 = Int32(stopSpec.count)
         buffer.writeInt(Int32(bitPattern: ((UInt32(bitPattern: Int32(stopLen)) & BitLayout.stopModeAndLenStopLenMask) << BitLayout.stopModeAndLenStopLenShift) | ((UInt32(bitPattern: Int32(stopMode)) & BitLayout.stopModeAndLenStopModeMask) << BitLayout.stopModeAndLenStopModeShift)))
+        guard stopSpec.count <= WireLimits.maxTouchStops else {
+            throw WireError.lengthExceedsLimit(type: "TouchExpression", field: "stopSpec", length: stopSpec.count, limit: WireLimits.maxTouchStops)
+        }
         for item in stopSpec {
             buffer.writeFloat(item)
+        }
+        guard easingSpec.count <= WireLimits.maxEasingLen else {
+            throw WireError.lengthExceedsLimit(type: "TouchExpression", field: "easingSpec", length: easingSpec.count, limit: WireLimits.maxEasingLen)
         }
         buffer.writeInt(Int32(easingSpec.count))
         for item in easingSpec {
@@ -6821,6 +6941,9 @@ public struct PathAppend: RemoteOperation, Hashable {
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(id)
+        guard pathData.count <= WireLimits.pathAppendPathDataMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "PathAppend", field: "pathData", length: pathData.count, limit: WireLimits.pathAppendPathDataMaxLength)
+        }
         buffer.writeInt(Int32(pathData.count))
         for item in pathData {
             buffer.writeFloat(item)
@@ -6877,6 +7000,9 @@ public struct ParticlesCreate: RemoteOperation, Hashable {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(id)
         buffer.writeInt(particleCount)
+        guard variables.count <= WireLimits.particlesCreateVariablesMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "ParticlesCreate", field: "variables", length: variables.count, limit: WireLimits.particlesCreateVariablesMaxLength)
+        }
         buffer.writeInt(Int32(variables.count))
         for item in variables {
             try item.write(to: &buffer)
@@ -6946,9 +7072,15 @@ public struct ParticlesLoop: RemoteOperation, Hashable {
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(id)
+        guard restartEquation.count <= WireLimits.maxExpressionSize else {
+            throw WireError.lengthExceedsLimit(type: "ParticlesLoop", field: "restartEquation", length: restartEquation.count, limit: WireLimits.maxExpressionSize)
+        }
         buffer.writeInt(Int32(restartEquation.count))
         for item in restartEquation {
             buffer.writeFloat(item)
+        }
+        guard equations.count <= WireLimits.maxParticleFloatArraySize else {
+            throw WireError.lengthExceedsLimit(type: "ParticlesLoop", field: "equations", length: equations.count, limit: WireLimits.maxParticleFloatArraySize)
         }
         buffer.writeInt(Int32(equations.count))
         for item in equations {
@@ -7053,6 +7185,9 @@ public struct FloatFunctionCall: RemoteOperation, Hashable {
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(id)
+        guard args.count <= WireLimits.floatFunctionCallArgsMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "FloatFunctionCall", field: "args", length: args.count, limit: WireLimits.floatFunctionCallArgsMaxLength)
+        }
         buffer.writeInt(Int32(args.count))
         for item in args {
             buffer.writeFloat(item)
@@ -7192,6 +7327,9 @@ public struct FloatFunctionDefine: RemoteOperation, Hashable {
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(id)
+        guard argIds.count <= WireLimits.maxFunctionArguments else {
+            throw WireError.lengthExceedsLimit(type: "FloatFunctionDefine", field: "argIds", length: argIds.count, limit: WireLimits.maxFunctionArguments)
+        }
         buffer.writeInt(Int32(argIds.count))
         for item in argIds {
             buffer.writeInt(item)
@@ -7228,6 +7366,9 @@ public struct SoundData: RemoteOperation, Hashable {
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(soundId)
+        guard data.count <= WireLimits.soundDataDataMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "SoundData", field: "data", length: data.count, limit: WireLimits.soundDataDataMaxLength)
+        }
         buffer.writeBuffer(data)
     }
 }
@@ -7413,6 +7554,9 @@ public struct TimeAttribute: RemoteOperation, Hashable {
         buffer.writeInt(id)
         buffer.writeInt(timeId)
         buffer.writeShort(type)
+        guard args.count <= WireLimits.timeAttributeArgsMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "TimeAttribute", field: "args", length: args.count, limit: WireLimits.timeAttributeArgsMaxLength)
+        }
         buffer.writeShort(Int16(truncatingIfNeeded: args.count))
         for item in args {
             buffer.writeInt(item)
@@ -8002,6 +8146,9 @@ public struct Rem: RemoteOperation, Hashable {
     /// Serializes this operation to the wire buffer.
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
+        guard text.utf8.count <= WireLimits.maxStringSize else {
+            throw WireError.lengthExceedsLimit(type: "Rem", field: "text", length: text.utf8.count, limit: WireLimits.maxStringSize)
+        }
         buffer.writeUTF8(text)
     }
 }
@@ -8055,6 +8202,9 @@ public struct MatrixConstant: RemoteOperation, Hashable {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(matrixId)
         buffer.writeInt(type)
+        guard values.count <= WireLimits.matrixConstantValuesMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "MatrixConstant", field: "values", length: values.count, limit: WireLimits.matrixConstantValuesMaxLength)
+        }
         buffer.writeInt(Int32(values.count))
         for item in values {
             buffer.writeFloat(item)
@@ -8111,6 +8261,9 @@ public struct MatrixExpression: RemoteOperation, Hashable {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(matrixId)
         buffer.writeInt(type)
+        guard expression.count <= WireLimits.matrixExpressionExpressionMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "MatrixExpression", field: "expression", length: expression.count, limit: WireLimits.matrixExpressionExpressionMaxLength)
+        }
         buffer.writeInt(Int32(expression.count))
         for item in expression {
             buffer.writeFloat(item)
@@ -8192,9 +8345,15 @@ public struct MatrixVectorMath: RemoteOperation, Hashable {
         buffer.writeByte(opCode.rawValue)
         buffer.writeShort(type)
         buffer.writeInt(matrixId)
+        guard outputs.count <= WireLimits.matrixVectorMathOutputsMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "MatrixVectorMath", field: "outputs", length: outputs.count, limit: WireLimits.matrixVectorMathOutputsMaxLength)
+        }
         buffer.writeInt(Int32(outputs.count))
         for item in outputs {
             buffer.writeInt(item)
+        }
+        guard inputs.count <= WireLimits.matrixVectorMathInputsMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "MatrixVectorMath", field: "inputs", length: inputs.count, limit: WireLimits.matrixVectorMathInputsMaxLength)
         }
         buffer.writeInt(Int32(inputs.count))
         for item in inputs {
@@ -8238,6 +8397,9 @@ public struct FontData: RemoteOperation, Hashable {
         buffer.writeByte(opCode.rawValue)
         buffer.writeInt(fontId)
         buffer.writeInt(type)
+        guard fontData.count <= WireLimits.maxFontData else {
+            throw WireError.lengthExceedsLimit(type: "FontData", field: "fontData", length: fontData.count, limit: WireLimits.maxFontData)
+        }
         buffer.writeBuffer(fontData)
     }
 }
@@ -8433,9 +8595,15 @@ public struct PathExpression: RemoteOperation, Hashable {
         buffer.writeFloat(min)
         buffer.writeFloat(max)
         buffer.writeFloat(count)
+        guard expressionX.count <= WireLimits.maxExpressionSize else {
+            throw WireError.lengthExceedsLimit(type: "PathExpression", field: "expressionX", length: expressionX.count, limit: WireLimits.maxExpressionSize)
+        }
         buffer.writeInt(Int32(expressionX.count))
         for item in expressionX {
             buffer.writeFloat(item)
+        }
+        guard expressionY.count <= WireLimits.maxExpressionSize else {
+            throw WireError.lengthExceedsLimit(type: "PathExpression", field: "expressionY", length: expressionY.count, limit: WireLimits.maxExpressionSize)
         }
         buffer.writeInt(Int32(expressionY.count))
         for item in expressionY {
@@ -8543,13 +8711,22 @@ public struct ParticlesCompare: RemoteOperation, Hashable {
         buffer.writeShort(flags)
         buffer.writeFloat(min)
         buffer.writeFloat(max)
+        guard condition.count <= WireLimits.particlesCompareConditionMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "ParticlesCompare", field: "condition", length: condition.count, limit: WireLimits.particlesCompareConditionMaxLength)
+        }
         buffer.writeInt(Int32(condition.count))
         for item in condition {
             buffer.writeFloat(item)
         }
+        guard equations1.count <= WireLimits.particlesCompareEquations1MaxLength else {
+            throw WireError.lengthExceedsLimit(type: "ParticlesCompare", field: "equations1", length: equations1.count, limit: WireLimits.particlesCompareEquations1MaxLength)
+        }
         buffer.writeInt(Int32(equations1.count))
         for item in equations1 {
             try item.write(to: &buffer)
+        }
+        guard equations2.count <= WireLimits.particlesCompareEquations2MaxLength else {
+            throw WireError.lengthExceedsLimit(type: "ParticlesCompare", field: "equations2", length: equations2.count, limit: WireLimits.particlesCompareEquations2MaxLength)
         }
         buffer.writeInt(Int32(equations2.count))
         for item in equations2 {
@@ -9059,6 +9236,9 @@ public struct SoundExpression: RemoteOperation, Hashable {
         buffer.writeFloat(leftVolume)
         buffer.writeFloat(rightVolume)
         buffer.writeFloat(rate)
+        guard params.count <= WireLimits.soundExpressionParamsMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "SoundExpression", field: "params", length: params.count, limit: WireLimits.soundExpressionParamsMaxLength)
+        }
         buffer.writeInt(Int32(params.count))
         for item in params {
             buffer.writeFloat(item)
@@ -9731,6 +9911,9 @@ public struct GraphicsLayerModifierOperation: RemoteOperation, Hashable {
     /// Serializes this operation to the wire buffer.
     public func write(to buffer: inout WireBuffer) throws(WireError) {
         buffer.writeByte(opCode.rawValue)
+        guard attributes.count <= WireLimits.graphicsLayerModifierOperationAttributesMaxLength else {
+            throw WireError.lengthExceedsLimit(type: "GraphicsLayerModifierOperation", field: "attributes", length: attributes.count, limit: WireLimits.graphicsLayerModifierOperationAttributesMaxLength)
+        }
         buffer.writeInt(Int32(attributes.count))
         for item in attributes {
             try item.write(to: &buffer)
