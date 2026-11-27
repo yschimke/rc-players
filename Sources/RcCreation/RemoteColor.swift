@@ -43,6 +43,7 @@ public struct RemoteColorValue: Hashable, Sendable, RemoteVariableValue {
   public static let black = RemoteColorValue(red: 0, green: 0, blue: 0)
   public static let white = RemoteColorValue(red: 1, green: 1, blue: 1)
   public static let clear = RemoteColorValue(red: 0, green: 0, blue: 0, opacity: 0)
+  // Apple's system colours' light values; ``RemoteColor``'s named colours are the light/dark pairs.
   public static let gray = RemoteColorValue.hex(0x8E8E93)
   public static let red = RemoteColorValue.hex(0xFF3B30)
   public static let orange = RemoteColorValue.hex(0xFF9500)
@@ -114,13 +115,15 @@ public struct RemoteColor: Hashable, Sendable {
   public static let black = RemoteColor(.black)
   public static let white = RemoteColor(.white)
   public static let clear = RemoteColor(.clear)
-  public static let gray = RemoteColor(.gray)
-  public static let red = RemoteColor(.red)
-  public static let orange = RemoteColor(.orange)
-  public static let yellow = RemoteColor(.yellow)
-  public static let green = RemoteColor(.green)
-  public static let blue = RemoteColor(.blue)
-  public static let purple = RemoteColor(.purple)
+  // Apple's system colours, each the light/dark pair the Human Interface Guidelines give, as
+  // SwiftUI's named colours are. `RemoteColorValue`'s literals are the light values.
+  public static let gray = adaptive(light: .hex(0x8E8E93), dark: .hex(0x8E8E93))
+  public static let red = adaptive(light: .hex(0xFF3B30), dark: .hex(0xFF453A))
+  public static let orange = adaptive(light: .hex(0xFF9500), dark: .hex(0xFF9F0A))
+  public static let yellow = adaptive(light: .hex(0xFFCC00), dark: .hex(0xFFD60A))
+  public static let green = adaptive(light: .hex(0x34C759), dark: .hex(0x30D158))
+  public static let blue = adaptive(light: .hex(0x007AFF), dark: .hex(0x0A84FF))
+  public static let purple = adaptive(light: .hex(0xAF52DE), dark: .hex(0xBF5AF2))
 
   /// Text and symbols: black in a light appearance, white in a dark one (`UIColor.label`).
   public static let primary = adaptive(light: .black, dark: .white)

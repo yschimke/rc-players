@@ -40,7 +40,7 @@ import Testing
   @Test func stackOfTexts() throws {
     let document = RemoteDocument(width: 200, height: 100) {
       RemoteVStack(alignment: .center, spacing: 4) {
-        RemoteText("Title").font(size: 20, weight: .bold)
+        RemoteText("Title").font(.system(size: 20, weight: .bold))
         RemoteText("Subtitle").foregroundStyle(.gray)
       }
       .padding(8)
@@ -255,7 +255,7 @@ import Testing
     let document = RemoteDocument(width: 200, height: 100, displayScale: scale) {
       RemoteVStack {
         RemoteText("Styled").font(.headline)
-        RemoteText("Fixed").font(size: 17)
+        RemoteText("Fixed").font(.system(size: 17))
       }
     }
     let texts = components(try first(document))
@@ -473,6 +473,49 @@ import Testing
     }
     let session = try open(document)
     #expect(components(try session.snapshot().root).first?.text?.value == "7 -3 1 2")
+  }
+
+  /// Text styles come from the environment, so they apply on a container, after a layout
+  /// modifier, and on a custom view, as SwiftUI's do; the innermost setting wins.
+  @Test func textStylesComeFromTheEnvironment() throws {
+    struct Caption: RemoteView {
+      let text: String
+      var body: some RemoteView { RemoteText(text).padding(2) }
+    }
+    let scale = 2.0
+    let document = RemoteDocument(width: 300, height: 200, displayScale: scale) {
+      RemoteVStack {
+        RemoteText("Container")
+        RemoteText("Inner").font(.system(size: 20))
+        RemoteText("After padding").padding(4).foregroundStyle(.white)
+        Caption(text: "Custom").italic()
+      }
+      .font(.system(size: 13))
+      .fontWeight(.bold)
+    }
+    let texts = components(try #require(components(try open(document).snapshot().root).first))
+      .flatMap { $0.text == nil ? components($0) : [$0] }
+      .compactMap(\.text)
+    #expect(texts.map(\.size) == [13, 20, 13, 13].map { Float($0 * scale) })
+    #expect(texts.allSatisfy { $0.weight == Float(RemoteFontWeight.bold.value) })
+    #expect(texts[2].colorARGB == 0xFFFF_FFFF)
+    #expect(texts.map(\.style) == [0, 0, 0, 1])
+  }
+
+  /// A weight set outside a font keeps applying when an inner `font` changes the size.
+  @Test func fontWeightSurvivesAnInnerFont() throws {
+    let document = RemoteDocument(width: 100, height: 40) {
+      RemoteText("x").font(.system(size: 17)).fontWeight(.bold)
+    }
+    #expect(
+      try first(document).text?.weight == Float(RemoteFontWeight.bold.value))
+  }
+
+  @Test func namedColorsAreLightDarkPairs() throws {
+    let themes = try operations(RemoteDocument(width: 10, height: 10) { RemoteColor.blue })
+      .compactMap { if case .colorTheme(let theme) = $0 { theme } else { nil } }
+    #expect(themes.map(\.lightModeFallback) == [RemoteColorValue.hex(0x007AFF).argb])
+    #expect(themes.map(\.darkModeFallback) == [RemoteColorValue.hex(0x0A84FF).argb])
   }
 
   @Test func identicalValuesAreDeclaredOnce() throws {

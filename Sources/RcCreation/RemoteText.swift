@@ -18,34 +18,76 @@ public struct RemoteFontWeight: Hashable, Sendable {
   public static let black = RemoteFontWeight(900)
 }
 
-/// A semantic text style, sized as Apple's default (Large) Dynamic Type size and scaled with the
-/// reader's text-size setting as the document plays.
-public struct RemoteTextStyle: Hashable, Sendable {
-  /// The size at the default text size, in points.
-  public let size: Double
-  /// The weight the style sets.
-  public let weight: RemoteFontWeight
-
-  public init(size: Double, weight: RemoteFontWeight = .regular) {
-    self.size = size
-    self.weight = weight
+/// A font, as SwiftUI's `Font`: a text style that scales with the reader's text size, or a fixed
+/// size, with an optional weight and italic.
+///
+/// ```swift
+/// RemoteText("Title").font(.headline)
+/// RemoteText("Price").font(.system(size: 28, weight: .bold))
+/// RemoteVStack { … }.font(.footnote.weight(.medium))
+/// ```
+public struct RemoteFont: Hashable, Sendable {
+  enum Size: Hashable, Sendable {
+    /// A text style's size at the default text size, scaled with the reader's setting.
+    case style(Double)
+    /// A fixed size, in points.
+    case fixed(Double)
   }
 
-  public static let largeTitle = RemoteTextStyle(size: 34)
-  public static let title = RemoteTextStyle(size: 28)
-  public static let title2 = RemoteTextStyle(size: 22)
-  public static let title3 = RemoteTextStyle(size: 20)
-  public static let headline = RemoteTextStyle(size: 17, weight: .semibold)
-  public static let body = RemoteTextStyle(size: 17)
-  public static let callout = RemoteTextStyle(size: 16)
-  public static let subheadline = RemoteTextStyle(size: 15)
-  public static let footnote = RemoteTextStyle(size: 13)
-  public static let caption = RemoteTextStyle(size: 12)
-  public static let caption2 = RemoteTextStyle(size: 11)
+  let size: Size
+  /// The font's own weight; a `fontWeight` modifier overrides it.
+  let weight: RemoteFontWeight?
+  let isItalic: Bool
+
+  init(size: Size, weight: RemoteFontWeight? = nil, isItalic: Bool = false) {
+    self.size = size
+    self.weight = weight
+    self.isItalic = isItalic
+  }
+
+  /// A fixed size in points, which does not scale with the reader's text size, as
+  /// `Font.system(size:weight:)`.
+  public static func system(size: Double, weight: RemoteFontWeight? = nil) -> RemoteFont {
+    RemoteFont(size: .fixed(size), weight: weight)
+  }
+
+  /// A text style of `size` points at the default text size, scaling with the reader's setting.
+  public static func textStyle(size: Double, weight: RemoteFontWeight? = nil) -> RemoteFont {
+    RemoteFont(size: .style(size), weight: weight)
+  }
+
+  // Apple's text styles at the default (Large) Dynamic Type size.
+  public static let largeTitle = textStyle(size: 34)
+  public static let title = textStyle(size: 28)
+  public static let title2 = textStyle(size: 22)
+  public static let title3 = textStyle(size: 20)
+  public static let headline = textStyle(size: 17, weight: .semibold)
+  public static let body = textStyle(size: 17)
+  public static let callout = textStyle(size: 16)
+  public static let subheadline = textStyle(size: 15)
+  public static let footnote = textStyle(size: 13)
+  public static let caption = textStyle(size: 12)
+  public static let caption2 = textStyle(size: 11)
+
+  /// This font at `weight`.
+  public func weight(_ weight: RemoteFontWeight) -> RemoteFont {
+    RemoteFont(size: size, weight: weight, isItalic: isItalic)
+  }
+
+  public func bold() -> RemoteFont { weight(.bold) }
+
+  public func italic() -> RemoteFont { RemoteFont(size: size, weight: weight, isItalic: true) }
+
+  /// The size in points at the default text size.
+  public var pointSize: Double {
+    switch size {
+    case .style(let points), .fixed(let points): points
+    }
+  }
 
   /// The font size, in sp, that players publish as `RemoteContextIds.idFontSize` at a text scale
-  /// of 1, before density: AndroidX's `RemoteContext` default, which every player loads. A style's
-  /// size is scaled by the player's font size over this.
+  /// of 1, before density: AndroidX's `RemoteContext` default, which every player loads. A text
+  /// style's size is scaled by the player's font size over this.
   static let playerBaseFontSize: Float = 14
 }
 
@@ -75,35 +117,23 @@ public enum RemoteTruncationMode: Hashable, Sendable {
   }
 }
 
-/// Text, as SwiftUI's `Text`.
-///
-/// It defaults to the ``RemoteTextStyle/body`` style in the environment's foreground style
-/// (``RemoteColor/primary`` unless a container sets one), so it follows the reader's text size and
-/// appearance unless told otherwise.
+/// Text, as SwiftUI's `Text`. How it is drawn comes from its environment, so `font`,
+/// `fontWeight`, `italic`, `foregroundStyle`, `multilineTextAlignment`, `lineLimit` and
+/// `truncationMode` apply to it wherever they are set: on the text, after a layout modifier, or
+/// on a container or a custom view around it.
 ///
 /// ```swift
-/// RemoteText("Upload \(progress * 100, decimals: 0)%")
-///   .font(.headline)
-///   .foregroundStyle(.secondary)
+/// RemoteVStack(alignment: .leading) {
+///   RemoteText("Upload \(progress * 100, decimals: 0)%")
+///   RemoteText("of 3 files").foregroundStyle(.secondary)
+/// }
+/// .font(.footnote)
 /// ```
 ///
-/// Its own modifiers (`font`, `foregroundStyle`, `lineLimit` …) return a `RemoteText`, so they
-/// come before any view modifier such as `padding`.
+/// Without one it is the ``RemoteFont/body`` style in the ``RemoteColor/primary`` colour, so it
+/// follows the reader's text size and appearance.
 public struct RemoteText: _PrimitiveRemoteView {
-  enum Size: Hashable, Sendable {
-    case fixed(Double)
-    case style(Double)
-  }
-
-  var text: RemoteString
-  var size: Size = .style(RemoteTextStyle.body.size)
-  var weight: RemoteFontWeight = .regular
-  var isItalic = false
-  /// The text's own colour, or `nil` for the environment's foreground style.
-  var color: RemoteColor? = nil
-  var alignment: RemoteTextAlignment = .leading
-  var truncation: RemoteTruncationMode = .tail
-  var lineLimit: Int? = nil
+  let text: RemoteString
 
   public init(_ text: RemoteString) { self.text = text }
 
@@ -114,68 +144,18 @@ public struct RemoteText: _PrimitiveRemoteView {
   /// The variable's live value.
   public init(_ variable: RemoteVariable<String>) { text = RemoteString(variable) }
 
-  /// A text style, which scales with the reader's text size and sets the style's weight.
-  public func font(_ style: RemoteTextStyle) -> RemoteText {
-    var copy = self
-    copy.size = .style(style.size)
-    copy.weight = style.weight
-    return copy
-  }
-
-  /// A fixed size in points, which does not scale with the reader's text size.
-  public func font(size: Double, weight: RemoteFontWeight = .regular) -> RemoteText {
-    var copy = self
-    copy.size = .fixed(size)
-    copy.weight = weight
-    return copy
-  }
-
-  public func fontWeight(_ weight: RemoteFontWeight) -> RemoteText {
-    var copy = self
-    copy.weight = weight
-    return copy
-  }
-
-  public func italic(_ isActive: Bool = true) -> RemoteText {
-    var copy = self
-    copy.isItalic = isActive
-    return copy
-  }
-
-  public func foregroundStyle(_ color: RemoteColor) -> RemoteText {
-    var copy = self
-    copy.color = color
-    return copy
-  }
-
-  public func multilineTextAlignment(_ alignment: RemoteTextAlignment) -> RemoteText {
-    var copy = self
-    copy.alignment = alignment
-    return copy
-  }
-
-  /// At most `limit` lines (at least 1), or as many as it needs for `nil`.
-  public func lineLimit(_ limit: Int?) -> RemoteText {
-    var copy = self
-    copy.lineLimit = limit.map { Swift.max($0, 1) }
-    return copy
-  }
-
-  public func truncationMode(_ mode: RemoteTruncationMode) -> RemoteText {
-    var copy = self
-    copy.truncation = mode
-    return copy
-  }
-
   public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
+    let environment = writer.environment
+    let font = environment.font
+    let weight = environment.fontWeight ?? font.weight ?? .regular
     guard (1...1000).contains(weight.value) else {
       throw RemoteEncodingError.invalidFontWeight(weight.value)
     }
     let componentID = writer.newComponentID()
     let textID = try writer.stringID(text)
-    let resolvedColor = try writer.color(color ?? writer.environment.foregroundStyle)
+    let resolvedColor = try writer.color(environment.foregroundStyle)
     let fontSize: Float
-    switch size {
+    switch font.size {
     case .fixed(let points):
       fontSize = try writer.pixels(points)
     case .style(let points):
@@ -185,10 +165,10 @@ public struct RemoteText: _PrimitiveRemoteView {
       let scale =
         RemoteFloat(node: .system(RemoteContextIds.idFontSize))
         / (RemoteFloat(node: .system(RemoteContextIds.idDensity))
-          * RemoteFloat(RemoteTextStyle.playerBaseFontSize))
+          * RemoteFloat(RemoteFont.playerBaseFontSize))
       fontSize = try writer.floatWord(writer.pixels(RemoteFloat(points)) * scale)
     }
-    var textAlign = alignment.wire
+    var textAlign = environment.multilineTextAlignment.wire
     let colorWord: Int32
     switch resolvedColor {
     case .literal(let argb): colorWord = argb
@@ -198,11 +178,98 @@ public struct RemoteText: _PrimitiveRemoteView {
         Int32(TextLayout.BitLayout.textAlignIsDynamicColorMask)
         << Int32(TextLayout.BitLayout.textAlignIsDynamicColorShift)
     }
+    let isItalic = environment.isItalic || font.isItalic
+    let lineLimit = try environment.lineLimit.map { limit throws(RemoteEncodingError) in
+      try _RemoteWriter.int32(Swift.max(limit, 1))
+    }
     let layout = TextLayout(
       componentId: componentID, animationId: IdEncoding.noId, textId: textID, color: colorWord,
       fontSize: fontSize, fontStyle: isItalic ? TextLayout.italic : TextLayout.normal,
       fontWeight: Float(weight.value), fontFamilyId: IdEncoding.noId, textAlign: textAlign,
-      overflow: truncation.wire, maxLines: Int32(clamping: lineLimit ?? Int(Int32.max)))
+      overflow: environment.truncationMode.wire, maxLines: lineLimit ?? Int32.max)
     try writer.writeLayout(.textLayout(layout), kind: .leaf, content: EmptyRemoteView())
+  }
+}
+
+private struct FontKey: RemoteEnvironmentKey { static let defaultValue = RemoteFont.body }
+private struct FontWeightKey: RemoteEnvironmentKey {
+  static let defaultValue: RemoteFontWeight? = nil
+}
+private struct ItalicKey: RemoteEnvironmentKey { static let defaultValue = false }
+private struct LineLimitKey: RemoteEnvironmentKey { static let defaultValue: Int? = nil }
+private struct TextAlignmentKey: RemoteEnvironmentKey {
+  static let defaultValue = RemoteTextAlignment.leading
+}
+private struct TruncationModeKey: RemoteEnvironmentKey {
+  static let defaultValue = RemoteTruncationMode.tail
+}
+
+extension RemoteEnvironmentValues {
+  /// The font text takes: ``RemoteFont/body`` unless set.
+  public var font: RemoteFont {
+    get { self[FontKey.self] }
+    set { self[FontKey.self] = newValue }
+  }
+
+  /// A weight that overrides the font's own.
+  public var fontWeight: RemoteFontWeight? {
+    get { self[FontWeightKey.self] }
+    set { self[FontWeightKey.self] = newValue }
+  }
+
+  public var isItalic: Bool {
+    get { self[ItalicKey.self] }
+    set { self[ItalicKey.self] = newValue }
+  }
+
+  /// The most lines text takes, or `nil` for as many as it needs.
+  public var lineLimit: Int? {
+    get { self[LineLimitKey.self] }
+    set { self[LineLimitKey.self] = newValue }
+  }
+
+  public var multilineTextAlignment: RemoteTextAlignment {
+    get { self[TextAlignmentKey.self] }
+    set { self[TextAlignmentKey.self] = newValue }
+  }
+
+  public var truncationMode: RemoteTruncationMode {
+    get { self[TruncationModeKey.self] }
+    set { self[TruncationModeKey.self] = newValue }
+  }
+}
+
+extension RemoteView {
+  /// The font of the text in this view.
+  public func font(_ font: RemoteFont) -> _EnvironmentWritingView<Self> {
+    environment(\.font, font)
+  }
+
+  /// The weight of the text in this view, over its font's own.
+  public func fontWeight(_ weight: RemoteFontWeight?) -> _EnvironmentWritingView<Self> {
+    environment(\.fontWeight, weight)
+  }
+
+  public func bold(_ isActive: Bool = true) -> _EnvironmentWritingView<Self> {
+    environment(\.fontWeight, isActive ? .bold : nil)
+  }
+
+  public func italic(_ isActive: Bool = true) -> _EnvironmentWritingView<Self> {
+    environment(\.isItalic, isActive)
+  }
+
+  /// At most `limit` lines (at least 1) for the text in this view, or as many as it needs.
+  public func lineLimit(_ limit: Int?) -> _EnvironmentWritingView<Self> {
+    environment(\.lineLimit, limit)
+  }
+
+  public func multilineTextAlignment(_ alignment: RemoteTextAlignment)
+    -> _EnvironmentWritingView<Self>
+  {
+    environment(\.multilineTextAlignment, alignment)
+  }
+
+  public func truncationMode(_ mode: RemoteTruncationMode) -> _EnvironmentWritingView<Self> {
+    environment(\.truncationMode, mode)
   }
 }
