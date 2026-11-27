@@ -1,5 +1,25 @@
 # Changelog
 
+## [4.1.0](https://github.com/yschimke/rc-players/compare/v4.0.0...v4.1.0) (2026-11-27)
+
+
+### Features
+
+* **swift:** Apple component libraries on RcCreation ([#991](https://github.com/yschimke/rc-players/issues/991)) ([05ad243](https://github.com/yschimke/rc-players/commit/05ad243e6c481f87d0f32009db9e1b1b8c878934))
+* **swift:** floats as integers on the native player and in RcCreation ([#992](https://github.com/yschimke/rc-players/issues/992)) ([6942447](https://github.com/yschimke/rc-players/commit/6942447a690a2bef607c1f4c8cf533c14700d879))
+* **swift:** hierarchical .secondary foreground style ([#995](https://github.com/yschimke/rc-players/issues/995)) ([629d63a](https://github.com/yschimke/rc-players/commit/629d63a969b297165f6e2930e7578ca601a7da09))
+* **swift:** RcCreation state layouts as switch/if, environment text styles, RemoteForEach, draw-behind backgrounds ([#990](https://github.com/yschimke/rc-players/issues/990)) ([bfd4b3c](https://github.com/yschimke/rc-players/commit/bfd4b3cac9762aa8f219dd456167e58e82af742e))
+* **swift:** typed host writes for RcCreation variables ([#993](https://github.com/yschimke/rc-players/issues/993)) ([63f3639](https://github.com/yschimke/rc-players/commit/63f36390893b7199ab1a750603bc41eabcc2d698))
+
+
+### Bug Fixes
+
+* **deps:** update dependency androidx.annotation:annotation to v1.11.0 ([#986](https://github.com/yschimke/rc-players/issues/986)) ([66f883c](https://github.com/yschimke/rc-players/commit/66f883cd0d3779b270e7a6d45500ddc2915faca4))
+* **deps:** update dependency com.squareup:kotlinpoet to v2.4.0 ([#987](https://github.com/yschimke/rc-players/issues/987)) ([01b3a83](https://github.com/yschimke/rc-players/commit/01b3a838a75d52af9afecfcc3cd667e1bf22c34a))
+* **deps:** update dependency org.jspecify:jspecify to v1.0.1 ([#985](https://github.com/yschimke/rc-players/issues/985)) ([31e5325](https://github.com/yschimke/rc-players/commit/31e53255017f00cabd9b8c146197bc546ba91425))
+* **swift:** RcCreation and wire-binding bugs from the second [#984](https://github.com/yschimke/rc-players/issues/984) review ([#989](https://github.com/yschimke/rc-players/issues/989)) ([df47021](https://github.com/yschimke/rc-players/commit/df4702167aaa3152a90358df9e43f8ef6e221b64))
+* **swift:** write an interpolated RemoteInt as its digits ([#997](https://github.com/yschimke/rc-players/issues/997)) ([3ce584d](https://github.com/yschimke/rc-players/commit/3ce584d6170b47d1b642eb65b112853095c6ca42))
+
 ## [4.0.0](https://github.com/yschimke/rc-players/compare/v3.12.1...v4.0.0) (2026-11-27)
 
 

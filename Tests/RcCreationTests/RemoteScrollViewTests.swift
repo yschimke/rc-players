@@ -145,4 +145,26 @@ import Testing
     }
     #expect(throws: RemoteEncodingError.invalidPageCount(0)) { try document.encode() }
   }
+
+  /// A deep document encodes from a thread with a small stack: the writer runs on its own large
+  /// one, as a 512 KiB secondary thread on Apple platforms would otherwise overflow.
+  @Test func aDeepDocumentEncodesFromASmallStack() throws {
+    var view = AnyRemoteView(RemoteText("leaf"))
+    for _ in 0..<80 {
+      let inner = view
+      view = AnyRemoteView(RemoteVStack { inner }.padding(1))
+    }
+    let document = RemoteDocument(width: 200, height: 200) { view }
+    final class Result: @unchecked Sendable { var bytes = 0 }
+    let result = Result()
+    let done = DispatchSemaphore(value: 0)
+    let thread = Thread {
+      result.bytes = (try? document.encode().count) ?? -1
+      done.signal()
+    }
+    thread.stackSize = 192 << 10
+    thread.start()
+    done.wait()
+    #expect(result.bytes > 0)
+  }
 }

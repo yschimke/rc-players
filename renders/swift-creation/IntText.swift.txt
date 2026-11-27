@@ -1,0 +1,17 @@
+import Foundation
+import RcCreation
+
+let page = RemoteVariable("page", default: 1)
+let items = RemoteVariable("items", default: 12)
+let level = RemoteVariable("level", default: 2.7)
+let document = RemoteDocument(width: 240, height: 120, displayScale: 2) {
+  RemoteVStack(alignment: .leading, spacing: 6) {
+    RemoteText("Page \(RemoteInt(page) + 1) of 4")
+    RemoteText("\(items) items, \(RemoteInt(items) / 5) full rows")
+    RemoteText("Level \(RemoteInt(truncating: RemoteFloat(level)))")
+  }
+  .padding(12)
+  .frame(maxWidth: .infinity, maxHeight: .infinity)
+  .background(.white)
+}
+try Data(try document.encode()).write(to: URL(fileURLWithPath: CommandLine.arguments[1]))

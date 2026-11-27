@@ -42,7 +42,21 @@ public struct RemoteScrollView<Content: RemoteStackContent>: RemoteView, RemoteP
     @RemoteViewBuilder content: () -> Content
   ) {
     configuration = RemoteScrollConfiguration(
-      axis: axis, position: position, initialOffset: initialOffset, pageCount: pageCount)
+      axis: axis, position: position, initialOffset: initialOffset, pageCount: pageCount,
+      spacing: 0, alignment: .center)
+    self.content = content()
+  }
+
+  /// A vertical scroll view whose children are spaced and aligned as a ``RemoteVStack``'s would
+  /// be: for a component that would otherwise put a stack inside the scroll view, one level
+  /// deeper in the document.
+  package init(
+    spacing: Double, alignment: RemoteHorizontalAlignment,
+    @RemoteViewBuilder content: () -> Content
+  ) {
+    configuration = RemoteScrollConfiguration(
+      axis: .vertical, position: nil, initialOffset: 0, pageCount: nil, spacing: spacing,
+      alignment: alignment)
     self.content = content()
   }
 
@@ -95,4 +109,7 @@ struct RemoteScrollConfiguration: Hashable, Sendable {
   let position: RemoteScrollPosition?
   let initialOffset: Double
   let pageCount: Int?
+  /// Points between children, and where a vertical scroll's children sit across its width.
+  let spacing: Double
+  let alignment: RemoteHorizontalAlignment
 }

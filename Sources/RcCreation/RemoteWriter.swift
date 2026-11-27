@@ -175,6 +175,15 @@ package final class RemoteWriter {
       let pixels = RemoteFloat.Node.declared(scrollIDs(position).id(value))
       id = try floatID(
         displayScale == 1 ? pixels : .binary(.divide, pixels, .constant(displayScale)))
+    case .integerView(let integer):
+      // The integer's own id: the players publish its value as a float too. A float read as an
+      // integer shares the float's id, so it is copied by an `IntegerExpression` first, whose
+      // output holds the truncated value.
+      if case .floatView = integer {
+        id = try intID(.binary(.add, integer, .constant(0)))
+      } else {
+        id = try intID(integer)
+      }
     case .constant(let literal):
       id = newDataID()
       declare(.floatConstant(FloatConstant(id: id, value: literal)))
@@ -202,7 +211,7 @@ package final class RemoteWriter {
   {
     switch node {
     case .constant(let literal): words.append(try Self.finite(literal))
-    case .variable, .declared, .system, .canvasSize, .canvasPixels, .scroll:
+    case .variable, .declared, .system, .canvasSize, .canvasPixels, .scroll, .integerView:
       words.append(Self.reference(try floatID(node)))
     case .unary(let operation, let operand):
       try appendRPN(operand, to: &words)
@@ -228,6 +237,20 @@ package final class RemoteWriter {
     case .canvasSize(let axis):
       return .binary(.divide, .declared(try axisID(axis)), .constant(displayScale))
     case .constant, .variable, .system, .declared, .scroll: return node
+    case .integerView(let integer): return .integerView(try resolvingCanvasSize(integer))
+    case .unary(let operation, let operand):
+      return .unary(operation, try resolvingCanvasSize(operand))
+    case .binary(let operation, let lhs, let rhs):
+      return .binary(operation, try resolvingCanvasSize(lhs), try resolvingCanvasSize(rhs))
+    }
+  }
+  /// `node` with each float it truncates resolved against the canvas being drawn.
+  private func resolvingCanvasSize(_ node: RemoteInt.Node) throws(RemoteEncodingError)
+    -> RemoteInt.Node
+  {
+    switch node {
+    case .constant, .variable: return node
+    case .floatView(let float): return .floatView(try resolvingCanvasSize(float))
     case .unary(let operation, let operand):
       return .unary(operation, try resolvingCanvasSize(operand))
     case .binary(let operation, let lhs, let rhs):
@@ -293,6 +316,8 @@ package final class RemoteWriter {
   /// The id of an integer holding `node`: a constant, a variable, or an `IntegerExpression`.
   func intID(_ node: RemoteInt.Node) throws(RemoteEncodingError) -> Int32 {
     if case .constant(let value) = node { return intID(try Self.int32(value)) }
+    // A canvas size is this canvas's: resolved before the cache, as `floatID` resolves it.
+    let node = node.readsCanvasSize ? try resolvingCanvasSize(node) : node
     if let id = intNodeIDs[node] { return id }
     let id: Int32
     switch node {
@@ -642,8 +667,8 @@ package final class RemoteWriter {
         case .vertical:
           let layout = ColumnLayout(
             componentId: newComponentID(), animationId: IdEncoding.noId,
-            horizontalPositioning: ColumnLayout.center, verticalPositioning: ColumnLayout.top,
-            spacedBy: 0)
+            horizontalPositioning: scroll.alignment.wire, verticalPositioning: ColumnLayout.top,
+            spacedBy: try pixels(scroll.spacing))
           try writeLayout(.columnLayout(layout), kind: .verticalStack, content: content)
         case .horizontal:
           let layout = RowLayout(

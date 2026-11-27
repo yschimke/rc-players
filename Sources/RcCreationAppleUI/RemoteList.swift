@@ -43,13 +43,13 @@ public struct RemoteList<Content: RemoteView>: RemoteView {
   public var body: some RemoteView {
     let content = content
     return ThemedView { theme, _ in
-      RemoteScrollView {
-        RemoteVStack(alignment: .leading, spacing: Self.sectionSpacing) { content }
-          .padding(.horizontal, Self.margin)
-          .padding(.vertical, Self.margin)
-          .frame(maxWidth: .infinity)
-      }
-      .background(theme.groupedBackground)
+      // The sections are the scroll view's own children, rather than a stack's inside it: a
+      // level less for the players to recurse through. The margin is the scroll view's padding,
+      // inside its background.
+      RemoteScrollView(spacing: Self.sectionSpacing, alignment: .leading) { content }
+        .padding(.horizontal, Self.margin)
+        .padding(.vertical, Self.margin)
+        .background(theme.groupedBackground)
     }
   }
 }
