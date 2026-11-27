@@ -1530,28 +1530,42 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
   }
 
-  /// Runs again, in wire order, each integer expression that reads an id in `changed` produced
-  /// before it on the wire, or an expression so re-run before it. Returns the expressions whose
-  /// value moved, with their offsets, in wire order.
-  private func reresolveIntegerExpressions(after changed: inout [Int: Int]) throws
-    -> [(id: Int, offset: Int)]
+  /// Publishes `views`, floats' new integer views in wire order, as one reference pass would:
+  /// walking the integer expressions in wire order, each view lands just before the first
+  /// expression declared after its float, and those after every expression land at the end, for
+  /// the next pass. An expression that reads a view published before it, or an expression re-run
+  /// before it, runs again. Returns the expressions whose value moved, with their offsets, in
+  /// wire order.
+  private func reresolveIntegerExpressions(publishing views: [(id: Int, offset: Int, view: Int)])
+    throws -> [(id: Int, offset: Int)]
   {
-    guard !changed.isEmpty else { return [] }
+    guard !views.isEmpty else { return [] }
     var moved: [(id: Int, offset: Int)] = []
+    // The ids this pass has changed so far: published views and re-run expressions.
+    var changed: Set<Int> = []
+    var next = views.startIndex
+    func publishViews(before offset: Int) {
+      while next < views.endIndex, views[next].offset < offset {
+        integers[views[next].id] = views[next].view
+        changed.insert(views[next].id)
+        next += 1
+      }
+    }
+    defer { publishViews(before: .max) }
     for id in document.integerExpressionOrder {
       guard let expression = document.integerExpressions[id] else { continue }
+      publishViews(before: expression.offset)
       let maskBits = UInt32(bitPattern: Int32(truncatingIfNeeded: expression.mask))
       let readsAnEarlierChange = expression.tokens.enumerated().contains { index, token in
         maskBits & (UInt32(1) << UInt32(index & 31)) != 0
-          && token < NativeSwiftIntegerOperator.offset
-          && changed[token].map { $0 < expression.offset } == true
+          && token < NativeSwiftIntegerOperator.offset && changed.contains(token)
       }
       guard readsAnEarlierChange else { continue }
       let value = try NativeSwiftIntegerExpression.evaluate(
         mask: expression.mask, tokens: expression.tokens, values: integers,
         offset: expression.offset)
       if storeInteger(id, value) {
-        changed[id] = expression.offset
+        changed.insert(id)
         moved.append((id, expression.offset))
       }
     }
@@ -1874,17 +1888,17 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // view in this pass only if the float came before it on the wire; one declared after it sees
     // the view the previous pass published.
     if !integerReadsOfFloats.isEmpty {
-      // Each changed id, with the offset it was produced at.
-      var changed: [Int: Int] = [:]
+      // Each float whose view changed, with the offset it was produced at, in wire order.
+      var views: [(id: Int, offset: Int, view: Int)] = []
       for id in integerReadsOfFloats {
         guard let value = result[id] else { continue }
         let view = nativeSwiftIntegerView(value)
         if integers[id] != view {
-          integers[id] = view
-          changed[id] = floatExpressionOffsets[id] ?? -1
+          views.append((id, floatExpressionOffsets[id] ?? -1, view))
         }
       }
-      let moved = try reresolveIntegerExpressions(after: &changed)
+      views.sort { $0.offset < $1.offset }
+      let moved = try reresolveIntegerExpressions(publishing: views)
       if !moved.isEmpty {
         // The floats again, in wire order: each sees a moved integer's new value only if the
         // integer came before it, as in one reference pass; the others keep this pass's first.

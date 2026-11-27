@@ -108,6 +108,23 @@ import Testing
     #expect(second.floats[80] == Float(hour), "\(String(describing: second.floats[80]))")
   }
 
+  /// float 80 = 2; int 81 = [80] + [82]; float 82 = 5, both floats expressions. One Kotlin pass in
+  /// wire order: 81 reads 80's view and 82's from the pass before (none yet), so 2, then 7.
+  @Test func anIntegerReadsEachFloatViewInWireOrder() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(Op.animatedFloat).int(80).int(1).int(Writer.literal(2))
+    document.u8(Op.integerExpression).int(81).int(0b111).int(3).int(80).int(82)
+      .int(Writer.integerOperator(NativeSwiftIntegerOperator.add))
+    document.u8(Op.animatedFloat).int(82).int(1).int(Writer.literal(5))
+    let session = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true)
+    let first = try session.probeValues(timeSeconds: 0)
+    #expect(first.integers[81] == 2, "first pass: \(String(describing: first.integers[81]))")
+    let second = try session.probeValues(timeSeconds: 0.1)
+    #expect(second.integers[81] == 7, "\(String(describing: second.integers[81]))")
+  }
+
   /// float 82 = [TIME_IN_HR] + 0; int 83 = [82]; float 84 = [83]. The float and the integer both
   /// come before the float that reads the integer, so all three are the hour in one pass.
   @Test func aFloatAfterAnIntegerOverAFloatSeesItInTheSamePass() throws {
