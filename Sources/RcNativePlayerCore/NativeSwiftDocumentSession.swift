@@ -2189,13 +2189,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case NativeSwiftColorExpressionMode.hsv...NativeSwiftColorExpressionMode.idARGB:
         let alpha: Float
         if mode == NativeSwiftColorExpressionMode.hsv {
-          alpha = Float(expression.modeAndAlpha >> 16) / 255
+          alpha = Float(expression.alphaField) / 255
         } else if mode == NativeSwiftColorExpressionMode.argb {
-          alpha = Float(expression.modeAndAlpha >> 16) / 1024
+          alpha = Float(expression.alphaField) / 1024
         }
         else {
           alpha = NativeSwiftFloatExpression.resolve(
-            0x7fc0_0000 | UInt32(expression.modeAndAlpha >> 16), values: values)
+            0x7fc0_0000 | expression.alphaField, values: values)
         }
         let first = NativeSwiftFloatExpression.resolve(
           UInt32(bitPattern: Int32(expression.first)), values: values)

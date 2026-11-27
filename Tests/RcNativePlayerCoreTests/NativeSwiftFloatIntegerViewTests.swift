@@ -377,6 +377,23 @@ import Testing
     return document.data
   }
 
+  /// An ID-ARGB alpha id of 0x8000 or more makes the signed mode word negative: the player reads
+  /// the id from its unsigned upper half rather than trapping on a sign-extended shift.
+  @Test func anIdArgbAlphaIdInTheUpperHalfOfItsRange() throws {
+    let alphaID = 0x8001
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(Op.dataFloat).int(alphaID).float(0.6)
+    let mode = Int(
+      Int32(
+        bitPattern: UInt32(alphaID) << 16 | UInt32(NativeSwiftColorExpressionMode.idARGB)))
+    #expect(mode < 0)
+    document.u8(Op.colorExpressions).int(65).int(mode).float(1).float(0).float(0)
+    let session = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true)
+    #expect(try session.probeValues(timeSeconds: 0).colors[65] == 0x99FF_0000)
+  }
+
   @Test func documentColoursWithoutHostWrites() throws {
     let session = try NativeSwiftDocumentSession.open(
       data: Self.colorDocument(), toleratingRootlessData: true)
