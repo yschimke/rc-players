@@ -430,7 +430,8 @@ package final class RemoteWriter {
   /// A built-in view: `layout`, the modifiers waiting for it, `LayoutContent`, its children,
   /// then two `ContainerEnd`s, as AndroidX's writer shapes a component.
   func writeLayout<Content: RemoteStackContent>(
-    _ layout: WireOperation, kind: ParentKind, content: Content, rowGap: Double = 0
+    _ layout: WireOperation, kind: ParentKind, content: Content, rowGap: Double = 0,
+    drawBehind: DrawBehind? = nil
   ) throws(RemoteEncodingError) {
     let saved = pendingModifiers
     let modifiers = takeModifiers()
@@ -438,7 +439,12 @@ package final class RemoteWriter {
 
     emit(layout)
     try writeModifiers(modifiers)
-    emit(.layoutContent(LayoutContent(componentId: newComponentID())))
+    // The draw-behind marker is the component's innermost modifier: its drawing covers the
+    // component exactly, with no padding inside it to move or shrink it.
+    if drawBehind != nil { emit(.drawContentOperation(DrawContentOperation())) }
+    let contentID = newComponentID()
+    emit(.layoutContent(LayoutContent(componentId: contentID)))
+    try writeDrawBehind(drawBehind.map { [$0] } ?? [], contentID: contentID)
     parents.append(kind)
     if kind == .horizontalStack { rowGaps.append((try pixels(rowGap), 0)) }
     try write(content)
@@ -469,6 +475,30 @@ package final class RemoteWriter {
       rowGaps[last].children += 1
     }
     return modifiers
+  }
+
+  /// `content` on a rounded background that does not clip it, as SwiftUI's `background(_:in:)`:
+  /// a box whose only modifier is the draw-behind marker, with `content` as its child. The
+  /// modifiers outside the background (padding, frame, weight) go on a box around that, so the
+  /// background always draws over a component with no padding of its own.
+  func writeRoundedBackground(
+    _ color: RemoteColor, cornerRadius: Double, content: some RemoteView
+  ) throws(RemoteEncodingError) {
+    let background = RoundedBackgroundBox(
+      drawBehind: DrawBehind(color: color, cornerRadius: try pixels(cornerRadius)), content: content
+    )
+    // A row's gap is padding too, so a later child of a row gets the outer box for it.
+    let takesRowGap =
+      parents.last == .horizontalStack
+      && rowGaps.last.map { $0.children > 0 && $0.gap > 0 } == true
+    if pendingModifiers.isEmpty, !takesRowGap { return try write(background) }
+    try writeLayout(.boxLayout(centeredBox()), kind: .zStack, content: background)
+  }
+
+  func centeredBox() -> BoxLayout {
+    BoxLayout(
+      componentId: newComponentID(), animationId: IdEncoding.noId,
+      horizontalPositioning: BoxLayout.center, verticalPositioning: BoxLayout.center)
   }
 
   /// A box that fills the space it is offered on every axis its frame does not fix, painted
@@ -707,6 +737,42 @@ package final class RemoteWriter {
       try write(modifier)
     }
     if let operation = try semantics.operation(self) { emit(operation) }
+  }
+
+  /// A rounded background's colour and corner radius, in pixels.
+  struct DrawBehind {
+    let color: RemoteColor
+    let cornerRadius: Float
+  }
+
+  /// A component's drawing behind its children, in AndroidX's `drawWithContent` shape:
+  /// `CanvasOperations`, the component's size bound to its `LayoutContent`, each background as a
+  /// `DrawRoundRect` over that size, then `DrawContent` where the children are drawn.
+  private func writeDrawBehind(_ drawBehinds: [DrawBehind], contentID: Int32)
+    throws(RemoteEncodingError)
+  {
+    guard !drawBehinds.isEmpty else { return }
+    emit(.canvasOperations(CanvasOperations()))
+    let width = RemoteFloat(node: .declared(componentValue(ComponentValue.width, contentID)))
+    let height = RemoteFloat(node: .declared(componentValue(ComponentValue.height, contentID)))
+    var paint: [Int32]? = nil
+    for drawBehind in drawBehinds {
+      let words = try paintWords(
+        RemoteGraphicsContext.Command(
+          shape: .rect(RemoteRect(x: 0, y: 0, width: 0, height: 0)), color: drawBehind.color,
+          style: .fill))
+      if words != paint {
+        emit(.paintData(PaintData(words: words)))
+        paint = words
+      }
+      emit(
+        .drawRoundRect(
+          DrawRoundRect(
+            left: 0, top: 0, right: try floatWord(width), bottom: try floatWord(height),
+            radiusX: drawBehind.cornerRadius, radiusY: drawBehind.cornerRadius)))
+    }
+    emit(.drawContent(DrawContent()))
+    emit(.containerEnd(ContainerEnd()))
   }
 
   /// A width's or a height's type and value; `exact` and `fill` are that operation's own types.

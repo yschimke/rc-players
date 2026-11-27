@@ -41,20 +41,20 @@ let document = RemoteDocument(width: 360, height: 168, displayScale: 2) {
       .frame(width: 40, height: 40)
 
       RemoteVStack(alignment: .leading) {
-        RemoteText("Swift creation API").font(size: 18, weight: .bold)
-        RemoteText("\(subtitle)").font(size: 13).foregroundStyle(.secondary)
+        RemoteText("Swift creation API").font(.system(size: 18, weight: .bold))
+        RemoteText("\(subtitle)").font(.system(size: 13)).foregroundStyle(.secondary)
       }
       .flexWeight(1)
     }
     .frame(maxWidth: .infinity)
 
     RemoteHStack(spacing: 8) {
-      for (index, label) in ["VStack", "HStack", "ZStack", "Canvas"].enumerated() {
+      RemoteForEach(["VStack", "HStack", "ZStack", "Canvas"].enumerated()) { index, label in
         Chip(label: label, selected: index == 0)
       }
     }
 
-    RemoteText("Upload \(progress * 100, decimals: 0)%").font(size: 13)
+    RemoteText("Upload \(progress * 100, decimals: 0)%").font(.system(size: 13))
 
     RemoteZStack(alignment: .leading) {
       RemoteColor.adaptive(light: .hex(0xDADCE0), dark: .hex(0x3A3A3C))
@@ -86,16 +86,20 @@ which the player supplies as it lays the canvas out.
 | Area | API | Operations written |
 | --- | --- | --- |
 | Document | `RemoteDocument(width:height:displayScale:accessibilityLabel:)`, `encode() throws(RemoteEncodingError)` | modern `Header` with `DOC_WIDTH`, `DOC_HEIGHT`, `DOC_DENSITY_AT_GENERATION`, `DOC_CONTENT_DESCRIPTION` |
-| Stacks | `RemoteVStack`, `RemoteHStack` (alignment, spacing, distribution), `RemoteZStack` (alignment), `RemoteSpacer` | `ColumnLayout`, `RowLayout`, `BoxLayout`, `LayoutContent`, `ContainerEnd` |
-| Text | `RemoteText` with `font(_:)` (text styles), `font(size:weight:)`, `fontWeight`, `italic`, `foregroundStyle`, `multilineTextAlignment`, `lineLimit`, `truncationMode` | `TextLayout` |
+| Stacks | `RemoteVStack`, `RemoteHStack` (alignment, spacing, distribution), `RemoteZStack` (alignment), `RemoteSpacer`, `RemoteForEach` | `ColumnLayout`, `RowLayout`, `BoxLayout`, `LayoutContent`, `ContainerEnd` |
+| State layouts | `RemoteStateLayout` over a `RemoteBool`, a `Bool` variable, a `RemoteStateValue` enum variable or a `RemoteInt` range, written as a Swift `switch` or `if`; `RemoteIf(condition) { } else: { }` | `StateLayout` with one box per state |
+| Text | `RemoteText`; `font(_:)` taking a `RemoteFont` (`.body`, `.headline`, …, `.system(size:weight:)`), `fontWeight`, `bold`, `italic`, `foregroundStyle`, `multilineTextAlignment`, `lineLimit`, `truncationMode`, all environment values that reach every text inside | `TextLayout` |
+| Environment | `RemoteEnvironmentKey`, `RemoteEnvironmentValues`, `environment(_:_:)`, `RemoteEnvironmentReader`, `tint` | nothing: read while writing |
+| Images and paths | `RemoteImage` (a view), `RemotePath` (SVG path data) that a canvas fills or strokes | `BitmapData`, `PathData`, draw ops |
 | Drawing | `RemoteCanvas { context, size in … }` with `fill` and `stroke` of rects, rounded rects, ellipses, circles and lines | `CanvasLayout`, `CanvasContent`, `ComponentValue`, `PaintData`, draw ops |
 | Colour | `RemoteColorValue` (literal), `RemoteColor.fixed`, `.adaptive(light:dark:)`, `.variable`; a colour is also a view | `ColorTheme`, `ColorConstant`, `NamedVariable` |
-| Modifiers | `frame`, `flexWeight`, `padding`, `offset`, `zIndex`, `background`, `clipShape`, `border`, `visibility`, `onTap` | the matching modifier ops |
+| Modifiers | `frame`, `flexWeight`, `padding`, `offset`, `zIndex`, `background`, `clipShape`, `border`, `visibility`, `visible(if:)`, `onTap`; your own with `RemoteViewModifier` and `modifier(_:)` | the matching modifier ops; a rounded `background` as `DrawContentOperation` + `CanvasOperations` |
 | Accessibility | `accessibilityLabel`, `accessibilityValue`, `accessibilityRole`, `accessibilityElement(children:)` | one `CoreSemantics` per view |
-| State | `RemoteVariable<Double / Int / String / RemoteColorValue / RemoteVisibility>` | `FloatConstant`, `IntegerConstant`, `TextData`, `ColorConstant`, `NamedVariable` |
+| State | `RemoteVariable<Double / Int / Bool / String / RemoteColorValue / RemoteVisibility / some RemoteStateValue>` | `FloatConstant`, `IntegerConstant`, `TextData`, `ColorConstant`, `NamedVariable` |
+| Conditions | `RemoteBool` and `RemoteInt`: comparisons, `&&`, `\|\|`, `!`, integer arithmetic over variables | `IntegerExpression` |
 | Expressions | `+ - * /`, `min`, `max`, `magnitude`, `clamped(to:)` on `RemoteFloat` and on `Double` variables | one `FloatExpression` per expression, in reverse-Polish order |
 | Text from values | interpolation: `"\(x, decimals: 2)"`, `"\(variable)"` | `TextFromFloat`, `TextMerge` |
-| Actions | `.host(id:)`, `.host(_:value:)`, `.set(_:to:)` on a variable | `HostAction`, `HostNamedAction`, value-change actions |
+| Actions | `.host(id:)`, `.host(_:value:)`, `.set(_:to:)` on a variable or a state, `.toggle(_:)`, `.increment(_:by:in:)` | `HostAction`, `HostNamedAction`, value-change actions |
 
 ## Decisions
 
@@ -106,13 +110,26 @@ which the player supplies as it lays the canvas out.
   the padding, and modifiers apply to your own views as to built-in ones. A modifier on a view
   whose body is several views applies to each, as SwiftUI's do. They are written as Compose writes
   a modifier chain, outermost first, before the view's `LayoutContent`.
-- **The tree is static.** A view's type records its children's (`_PairRemoteView`,
-  `_ConditionalRemoteView`, `Optional`, `Array`), and nothing is boxed or downcast while writing.
-  The builder folds statements pairwise with `buildPartialBlock` rather than with a parameter pack,
-  because a variadic generic type needs the Swift 5.9 runtime (iOS 17, macOS 14), above this
-  package's floor. Modifiers return the concrete `_ModifiedRemoteView<Self>`, as SwiftUI's
-  `modifier(_:)` returns `ModifiedContent`: an opaque `some RemoteView` there fails to infer inside
-  a `for` loop in a builder.
+- **The tree is static.** A view's type records its children's (`RemoteTupleView`,
+  `RemoteConditionalContent`, `Optional`, `RemoteForEach`). The builder folds statements pairwise
+  with `buildPartialBlock` rather than with a parameter pack, because a variadic generic type needs
+  the Swift 5.9 runtime (iOS 17, macOS 14), above this package's floor. Repetition is
+  `RemoteForEach`, not a `for` loop, so modifiers can return an opaque `some RemoteView`. The
+  writer is `package`, so the public API is views and modifiers only, with no underscored types.
+- **Branches the player takes are state layouts.** A Swift `if` or `switch` in a builder runs while
+  the document is written. A branch on a value the player holds is a `RemoteStateLayout`: its
+  closure runs once per state, so the compiler checks the `switch` is exhaustive, and every state's
+  view is in the document. It writes AndroidX's `StateLayout`, which the CMP and native players
+  both switch on its index.
+- **A rounded background draws, it does not clip.** As in SwiftUI, `background(_:in:)` paints
+  behind the content and content that overflows still shows. It is written as AndroidX's
+  `drawWithContent`: a box whose modifiers are only the `DrawContentOperation` marker, drawing a
+  `DrawRoundRect` over its size bound from `LayoutContent`, then `DrawContent`. Modifiers outside
+  the background go on a box around it, so nothing moves or shrinks what the background covers.
+
+  | Clipped (before) | Drawn behind (now) |
+  | --- | --- |
+  | ![](../../renders/swift-creation/background-before-cmp-jvm.png) | ![](../../renders/swift-creation/background-cmp-jvm.png) |
 - **Invalid states are type errors.** `flexWeight` returns stack content, not a view, so only a
   stack's builder accepts it. Actions write `RemoteVariable`s only, so an expression or a constant
   cannot be a target. A literal colour (`RemoteColorValue`) is the only one with `opacity(_:)`.
@@ -122,7 +139,8 @@ which the player supplies as it lays the canvas out.
 - **HIG defaults.** Text defaults to the `body` style in the `primary` colour, so it follows the
   reader's text size and appearance. A text style's size is an expression over the player's font
   size (`RemoteContextIds.idFontSize` over `idDensity` and AndroidX's base size of 14), so it scales
-  with the reader's setting while the document plays; `font(size:)` is fixed, as in SwiftUI. An
+  with the reader's setting while the document plays; `.system(size:)` is fixed, as in SwiftUI.
+  Text styling is environment, so `.font(.caption)` on a stack styles every text inside it. An
   adaptive colour is a `ColorTheme` with no colour group, so a player takes the fallback for its
   appearance.
 - **Declarations come first.** Every value a view reads is declared between the header and the
@@ -140,7 +158,7 @@ which the player supplies as it lays the canvas out.
 
 ## Verification
 
-- `RcCreationTests` (24 tests) opens every document with `NativeSwiftDocumentSession` and checks the
+- `RcCreationTests` (48 tests) opens every document with `NativeSwiftDocumentSession` and checks the
   decoded tree: sizes in pixels, spacing, padding, colours, weights, text, canvas commands, and a
   canvas's live size. It writes variables through the session and checks that the text, width,
   visibility and colours follow them, and that a tap runs its actions. It reads the operations
@@ -154,9 +172,10 @@ which the player supplies as it lays the canvas out.
 
 ## Not yet
 
-- Images, state layouts, flow, scroll, `CoreText` styling (letter spacing, line height, font axes),
-  animation specs, paths, gradients and touch-down/up handlers.
-- Integer expressions. An `Int` variable is a value the host writes, not arithmetic.
+- Flow, scroll, `CoreText` styling (letter spacing, line height, font axes), animation specs,
+  gradients and touch-down/up handlers.
+- A rounded background with uneven corners still clips: the wire's `DrawRoundRect` takes one
+  radius.
 - `frame(maxWidth:)` with a finite cap: `RemoteMaxLength` is the offered space or a fraction of it.
 - A SwiftUI `Color` bridge: resolving one needs an environment. `CGColor`, `CGPoint`, `CGSize`,
   `CGRect` and `CGFloat` convert where CoreGraphics exists.

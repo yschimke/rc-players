@@ -71,18 +71,40 @@ import Testing
     #expect(box.padding.left == Float(2 * scale) && box.padding.top == Float(1 * scale))
   }
 
-  @Test func backgroundBorderAndClip() throws {
+  /// A rounded background is drawn behind the content, as AndroidX's `drawWithContent`, rather
+  /// than clipping it; a rounded border keeps its own shape.
+  @Test func roundedBackgroundDrawsBehindWithoutClipping() throws {
     let document = RemoteDocument(width: 100, height: 100) {
       RemoteZStack {}
         .frame(width: 50, height: 50)
         .background(.hex(0x3366CC), in: .roundedRectangle(cornerRadius: 6))
         .border(.black, width: 2, cornerRadius: 6)
     }
+    let operations = try operations(document)
+    #expect(!operations.contains { $0.opCode == .roundedClipRectModifierOperation })
+    #expect(operations.contains { $0.opCode == .drawContentOperation })
     let box = try first(document)
-    #expect(box.backgroundARGB == 0xFF33_66CC)
+    let fill = try #require(drawCommands(box).first)
+    #expect(fill.colorARGB == 0xFF33_66CC)
+    // The component's full size, from its bound width and height, with the corner radius.
+    #expect(fill.values == [0, 0, 50, 50, 6, 6])
     #expect(box.borderARGB == 0xFF00_0000)
     #expect(box.borderWidth == 2)
-    #expect(box.cornerRadius == 6)
+  }
+
+  /// A rounded background inside a padding covers only what the padding surrounds, as SwiftUI
+  /// insets it: the padding goes on a box around the background's own.
+  @Test func roundedBackgroundInsideAPaddingIsInset() throws {
+    let document = RemoteDocument(width: 100, height: 100) {
+      RemoteZStack {}
+        .frame(width: 40, height: 40)
+        .background(.red, in: .roundedRectangle(cornerRadius: 4))
+        .padding(5)
+    }
+    let outer = try first(document)
+    #expect(outer.padding.left == 5 && outer.padding.top == 5)
+    let fill = try #require(drawCommands(outer).first)
+    #expect(fill.values == [0, 0, 40, 40, 4, 4])
   }
 
   @Test func flexWeightsShareAStack() throws {
@@ -351,19 +373,23 @@ import Testing
         if showFooter { RemoteText("never written") }
       }
     }
-    let badges = components(try first(document))
-    #expect(badges.compactMap(\.text?.value) == labels)
-    // Outermost first, as SwiftUI applies them: the outer padding, then the background (a
-    // rounded background clips first), then the padding inside it.
+    func texts(_ node: NativeSwiftNodeSnapshot) -> [String] {
+      (node.text.map { [$0.value] } ?? []) + node.children.flatMap(texts)
+    }
+    #expect(texts(try first(document)) == labels)
+    // As SwiftUI applies them, outermost first: the outer padding on a box, the rounded
+    // background on a box inside it (drawing behind its content, clipping nothing), then the
+    // text with its own padding.
     let operations = try operations(document)
+    #expect(!operations.contains { $0.opCode == .roundedClipRectModifierOperation })
+    #expect(operations.filter { $0.opCode == .drawContentOperation }.count == labels.count)
     let text = try #require(
       operations.firstIndex { if case .textLayout = $0 { true } else { false } })
     let content = try #require(operations[text...].firstIndex { $0.opCode == .layoutContent })
-    #expect(
-      operations[(text + 1)..<content].map(\.opCode) == [
-        .paddingModifierOperation, .roundedClipRectModifierOperation, .backgroundModifierOperation,
-        .paddingModifierOperation,
-      ])
+    #expect(operations[(text + 1)..<content].map(\.opCode) == [.paddingModifierOperation])
+    let marker = try #require(operations[..<text].lastIndex { $0.opCode == .drawContentOperation })
+    #expect(operations[marker + 1].opCode == .layoutContent)
+    #expect(operations[marker + 2].opCode == .canvasOperations)
   }
 
   @Test func conflictingVariablesFailToEncode() {

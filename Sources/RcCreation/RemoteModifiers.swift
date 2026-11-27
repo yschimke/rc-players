@@ -232,9 +232,30 @@ struct ModifiedRemoteView<Content: RemoteView>: RemoteView, RemotePrimitive {
   let modifier: RemoteModifierElement
 
   package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
+    // A rounded background is drawn behind its content, which is a child of the background, so
+    // the background never clips it. A shape with uneven corners still clips, as one radius is
+    // all a `DrawRoundRect` takes.
+    if case .background(let color, .roundedCorners(let a, let b, let c, let d)) = modifier,
+      a == b, b == c, c == d
+    {
+      return try writer.writeRoundedBackground(color, cornerRadius: a, content: content)
+    }
     try writer.withModifier(modifier) { () throws(RemoteEncodingError) in
       try writer.write(content)
     }
+  }
+}
+
+/// The box a rounded background draws on: its content is its only child.
+struct RoundedBackgroundBox<Content: RemoteView>: RemoteView, RemotePrimitive {
+  typealias Body = Never
+
+  let drawBehind: RemoteWriter.DrawBehind
+  let content: Content
+
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
+    try writer.writeLayout(
+      .boxLayout(writer.centeredBox()), kind: .zStack, content: content, drawBehind: drawBehind)
   }
 }
 
@@ -325,8 +346,11 @@ extension RemoteView {
     modifier(.background(color, .rectangle))
   }
 
-  /// Fills `shape` behind the content. A rounded shape also clips the content to it, which is
-  /// how the wire rounds a background.
+  /// Fills `shape` behind the content, without clipping the content, as SwiftUI's does. A rounded
+  /// shape is drawn on a box around the content (AndroidX's `drawWithContent`), so content that
+  /// overflows, through an offset say, still shows; the modifiers applied after the background
+  /// go on a box around that one. A shape with uneven corners clips the content, as one radius
+  /// is all the wire's rounded rectangle takes.
   public func background(_ color: RemoteColor, in shape: RemoteShape) -> some RemoteView {
     modifier(.background(color, shape))
   }
