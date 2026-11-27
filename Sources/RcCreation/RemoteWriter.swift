@@ -333,6 +333,11 @@ package final class RemoteWriter {
     var words: [(value: Int32, isReference: Bool)] = []
     try appendIntegerRPN(node, to: &words)
     if words.count > Self.integerExpressionMaxWords { words = try split() }
+    return declareIntegerWords(words)
+  }
+
+  /// Declares an `IntegerExpression` of `words`, marking the references in its mask.
+  private func declareIntegerWords(_ words: [(value: Int32, isReference: Bool)]) -> Int32 {
     let mask = words.enumerated().reduce(Int32(0)) { mask, entry in
       entry.element.isReference ? mask | Int32(1) << Int32(entry.offset) : mask
     }
@@ -979,7 +984,7 @@ package final class RemoteWriter {
       }
       return .valueFloatExpressionChangeActionOperation(
         ValueFloatExpressionChangeActionOperation(
-          targetValueId: target, valueExpressionId: try floatID(value.node)))
+          targetValueId: target, valueExpressionId: try floatExpressionID(value.node)))
     case .setIntTo(let variable, let value):
       let target = try intID(variable)
       if case .constant(let constant) = value.node {
@@ -988,7 +993,8 @@ package final class RemoteWriter {
       }
       return .valueIntegerExpressionChangeActionOperation(
         ValueIntegerExpressionChangeActionOperation(
-          targetValueId: Self.longID(target), valueExpressionId: Self.longID(try intID(value.node)))
+          targetValueId: Self.longID(target),
+          valueExpressionId: Self.longID(try intExpressionID(value.node)))
       )
     case .setString(let variable, let value):
       let target = try stringID(RemoteString(variable))
@@ -996,6 +1002,41 @@ package final class RemoteWriter {
         ValueStringChangeActionOperation(targetValueId: target, valueId: textID(value)))
     }
   }
+
+  /// The id of a `FloatExpression` for `node`, as an action's source must be: a bare reference
+  /// (a variable, a system value) is wrapped in a one-word expression that reads it.
+  private func floatExpressionID(_ node: RemoteFloat.Node) throws(RemoteEncodingError) -> Int32 {
+    switch node {
+    case .unary, .binary: return try floatID(node)
+    default:
+      if let id = floatReferenceExpressionIDs[node] { return id }
+      var words: [Float] = []
+      try appendRPN(node, to: &words)
+      let id = newDataID()
+      declare(.floatExpression(FloatExpression(id: id, expression: words)))
+      floatReferenceExpressionIDs[node] = id
+      return id
+    }
+  }
+
+  private var floatReferenceExpressionIDs: [RemoteFloat.Node: Int32] = [:]
+
+  /// The id of an `IntegerExpression` for `node`, as an action's source must be: a variable is
+  /// wrapped in a one-word expression that reads it.
+  private func intExpressionID(_ node: RemoteInt.Node) throws(RemoteEncodingError) -> Int32 {
+    switch node {
+    case .unary, .binary: return try intID(node)
+    default:
+      if let id = intReferenceExpressionIDs[node] { return id }
+      var words: [(value: Int32, isReference: Bool)] = []
+      try appendIntegerRPN(node, to: &words)
+      let id = declareIntegerWords(words)
+      intReferenceExpressionIDs[node] = id
+      return id
+    }
+  }
+
+  private var intReferenceExpressionIDs: [RemoteInt.Node: Int32] = [:]
 
   private func floatID(_ value: RemoteFloat) throws(RemoteEncodingError) -> Int32 {
     try floatID(value.node)

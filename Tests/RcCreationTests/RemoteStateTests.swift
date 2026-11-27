@@ -147,6 +147,78 @@ import Testing
     #expect(RemotePath(svg: "M0 0 A1 1 0 0 1 2 2") == nil)
   }
 
+  /// An action can copy a variable or a system value: its source is written as an expression,
+  /// which is what a value-change action reads.
+  @Test func actionsCopyBareReferences() throws {
+    let source = RemoteVariable("source", default: 7.5)
+    let target = RemoteVariable("target", default: 0.0)
+    let count = RemoteVariable("count", default: 3)
+    let copy = RemoteVariable("copy", default: 0)
+    let clock = RemoteVariable("clock", default: -1.0)
+    let document = RemoteDocument(width: 100, height: 100) {
+      RemoteVStack {
+        RemoteColor.blue.frame(width: 40, height: 20)
+          .onTap(
+            .set(target, to: RemoteFloat(source)), .set(copy, to: RemoteInt(count)),
+            .set(clock, to: RemoteFloat(.hour)))
+      }
+    }
+    let operations = try WireDocument.load(from: document.encode()).operations
+    let floatExpressions = Set(
+      operations.compactMap { if case .floatExpression(let e) = $0 { e.id } else { nil } })
+    let intExpressions = Set(
+      operations.compactMap { if case .integerExpression(let e) = $0 { e.id } else { nil } })
+    let floatSources = operations.compactMap {
+      if case .valueFloatExpressionChangeActionOperation(let a) = $0 {
+        a.valueExpressionId
+      } else {
+        nil
+      }
+    }
+    let intSources = operations.compactMap {
+      if case .valueIntegerExpressionChangeActionOperation(let a) = $0 {
+        Int32(truncatingIfNeeded: a.valueExpressionId)
+      } else {
+        nil
+      }
+    }
+    #expect(floatSources.count == 2 && floatSources.allSatisfy(floatExpressions.contains))
+    #expect(intSources.count == 1 && intSources.allSatisfy(intExpressions.contains))
+    // The native player opens it and runs the copies.
+    let session = try open(document)
+    let stack = try #require(components(try session.snapshot().root).first)
+    let button = try #require(components(stack).first)
+    _ = try session.click(componentID: button.componentID, timeSeconds: 0)
+  }
+
+  /// A row's spacing leaves no gap beside a gone child, as `spacedBy` does; a row with flexible
+  /// children writes its gaps as padding instead, which the reference players need.
+  @Test func rowGapsFollowVisibilityWhenNothingIsWeighted() throws {
+    let showFirst = RemoteVariable("showFirst", default: false)
+    let plain = RemoteDocument(width: 200, height: 50) {
+      RemoteHStack(spacing: 12) {
+        RemoteColor.red.frame(width: 20, height: 20).visible(if: RemoteBool(showFirst))
+        RemoteColor.blue.frame(width: 20, height: 20)
+      }
+    }
+    let row = try #require(components(try open(plain).snapshot().root).first)
+    #expect(components(row).allSatisfy { $0.padding.left == 0 })
+    let operations = try WireDocument.load(from: plain.encode()).operations
+    let spacings = operations.compactMap {
+      if case .rowLayout(let row) = $0 { row.spacedBy } else { nil }
+    }
+    #expect(spacings == [12])
+
+    let weighted = RemoteDocument(width: 200, height: 50) {
+      RemoteHStack(spacing: 12) {
+        RemoteColor.red.frame(height: 20).flexWeight(1)
+        RemoteColor.blue.frame(height: 20).flexWeight(1)
+      }
+    }
+    let weightedRow = try #require(components(try open(weighted).snapshot().root).first)
+    #expect(components(weightedRow).map(\.padding.left) == [0, 12])
+  }
+
   /// `S` reflects a control point only after `C` or `S`, and `T` only after `Q` or `T`.
   @Test func smoothCurvesReflectOnlyTheirOwnFamily() throws {
     let cubicAfterQuad = try #require(RemotePath(svg: "M0 0 Q10 10 20 0 S30 10 40 0"))

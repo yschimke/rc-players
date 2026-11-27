@@ -265,7 +265,11 @@ struct RoundedBackgroundBox<Content: RemoteView>: RemoteView, RemotePrimitive {
 
 /// A view a stack shares its leftover space with: what ``RemoteView/flexWeight(_:)`` makes. It is
 /// stack content, not a view, so only a stack's builder accepts it.
-public struct RemoteFlexWeightedContent<Content: RemoteView>: RemoteStackContent, RemotePrimitive {
+public struct RemoteFlexWeightedContent<Content: RemoteView>: RemoteStackContent, RemotePrimitive,
+  RemoteFlexWeightReporting
+{
+  package var containsFlexWeight: Bool { true }
+
   let content: Content
   let weight: Double
 

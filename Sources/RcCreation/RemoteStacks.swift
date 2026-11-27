@@ -127,14 +127,18 @@ public struct RemoteHStack<Content: RemoteStackContent>: RemoteView, RemotePrimi
 
   package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     let componentID = writer.newComponentID()
+    // A row with flexible children writes its spacing as each later child's leading padding (see
+    // the writer's `takeModifiers`): the reference players measure weighted children without a
+    // row's `spacedBy`, so the gaps would push the last child out. Any other row uses
+    // `spacedBy`, which leaves no gap beside a gone child.
+    let weighted = containsFlexWeight(content)
     let layout = RowLayout(
       componentId: componentID, animationId: IdEncoding.noId,
       horizontalPositioning: distribution.wire, verticalPositioning: alignment.wire,
-      spacedBy: 0)
-    // The spacing is written as each later child's leading padding (see the writer's
-    // `takeModifiers`), so flexible children share only the space the gaps leave.
+      spacedBy: weighted ? 0 : try writer.pixels(spacing))
     try writer.writeLayout(
-      .rowLayout(layout), kind: .horizontalStack, content: content, rowGap: spacing)
+      .rowLayout(layout), kind: .horizontalStack, content: content,
+      rowGap: weighted ? spacing : 0)
   }
 }
 

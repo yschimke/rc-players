@@ -52,6 +52,40 @@ package protocol RemotePrimitive: RemoteStackContent {
   func write(to writer: RemoteWriter) throws(RemoteEncodingError)
 }
 
+/// Content that can tell whether it holds a flex-weighted child, through the builder's own
+/// types: `flexWeight` is stack content, so it is only ever a stack's direct child.
+package protocol RemoteFlexWeightReporting {
+  var containsFlexWeight: Bool { get }
+}
+
+/// Whether `content` holds a child given a ``RemoteView/flexWeight(_:)``.
+func containsFlexWeight(_ content: some RemoteStackContent) -> Bool {
+  (content as? any RemoteFlexWeightReporting)?.containsFlexWeight ?? false
+}
+
+extension RemoteTupleView: RemoteFlexWeightReporting {
+  package var containsFlexWeight: Bool {
+    RcCreation.containsFlexWeight(first) || RcCreation.containsFlexWeight(second)
+  }
+}
+
+extension RemoteConditionalContent: RemoteFlexWeightReporting {
+  package var containsFlexWeight: Bool {
+    switch storage {
+    case .first(let content): RcCreation.containsFlexWeight(content)
+    case .second(let content): RcCreation.containsFlexWeight(content)
+    }
+  }
+}
+
+extension Optional: RemoteFlexWeightReporting where Wrapped: RemoteStackContent {
+  package var containsFlexWeight: Bool { map { RcCreation.containsFlexWeight($0) } ?? false }
+}
+
+extension RemoteForEach: RemoteFlexWeightReporting {
+  package var containsFlexWeight: Bool { contents.contains { RcCreation.containsFlexWeight($0) } }
+}
+
 /// No view: what an empty builder produces.
 public struct EmptyRemoteView: RemoteView, RemotePrimitive {
   public typealias Body = Never
