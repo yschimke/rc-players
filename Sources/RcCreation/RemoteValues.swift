@@ -337,7 +337,8 @@ public struct RemoteString: Hashable, Sendable, ExpressibleByStringInterpolation
 
     /// An integer, as its digits: `"\(page + 1) of \(count)"`.
     public mutating func appendInterpolation(_ number: RemoteInt) {
-      parts.append(RemoteString(RemoteFloat(number), decimals: 0))
+      // Ten digits: every Int32, so none is cut to the formatter's default nine.
+      parts.append(RemoteString(RemoteFloat(number), decimals: 0, integerDigits: 10))
     }
 
     /// An `Int` variable's live value, as its digits.

@@ -67,4 +67,14 @@ import Testing
     }
     #expect(integers.count == 2)
   }
+
+  /// Every Int32 keeps its digits: a ten-digit integer is not cut to nine.
+  @Test func aTenDigitIntegerKeepsItsLeadingDigit() throws {
+    let count = RemoteVariable("count", default: 1_000_000_000)
+    let document = RemoteDocument(width: 200, height: 200) {
+      RemoteText("\(count)")
+    }
+    let session = try NativeSwiftDocumentSession.open(data: document.encodedData())
+    #expect(try texts(session) == ["1000000000"])
+  }
 }
