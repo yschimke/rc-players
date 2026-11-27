@@ -89,6 +89,44 @@ import Testing
     }
   }
 
+  /// float 80 = [81]; int 81 = [TIME_IN_HR]. One Kotlin pass in wire order: 80 reads 81 before
+  /// 81 has read the clock, so 80 is 0 on the first pass and the hour on the next.
+  @Test func aFloatBeforeAnIntegerOverTheClockSeesItOnTheNextPass() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(Op.animatedFloat).int(80).int(1).int(Writer.nanReference(81))
+    document.u8(Op.integerExpression).int(81).int(1).int(1).int(
+      NativeSwiftSystemVariables.timeInHours)
+    let session = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true)
+    let clock = NativeSwiftWallClock(epochMillis: KotlinReference.epochMillis)
+    let hour = Int(clock.fields.hour)
+    let first = try session.probeValues(timeSeconds: 0, wallClock: clock)
+    #expect(first.integers[81] == hour)
+    #expect(first.floats[80] == 0, "first pass: \(String(describing: first.floats[80]))")
+    let second = try session.probeValues(timeSeconds: 0.1, wallClock: clock)
+    #expect(second.floats[80] == Float(hour), "\(String(describing: second.floats[80]))")
+  }
+
+  /// float 82 = [TIME_IN_HR] + 0; int 83 = [82]; float 84 = [83]. The float and the integer both
+  /// come before the float that reads the integer, so all three are the hour in one pass.
+  @Test func aFloatAfterAnIntegerOverAFloatSeesItInTheSamePass() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(Op.animatedFloat).int(82).int(3)
+      .int(Writer.nanReference(NativeSwiftSystemVariables.timeInHours)).int(Writer.literal(0))
+      .int(Writer.floatOperator(NativeSwiftFloatOperator.add))
+    document.u8(Op.integerExpression).int(83).int(1).int(1).int(82)
+    document.u8(Op.animatedFloat).int(84).int(1).int(Writer.nanReference(83))
+    let session = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true)
+    let clock = NativeSwiftWallClock(epochMillis: KotlinReference.epochMillis)
+    let hour = Int(clock.fields.hour)
+    let values = try session.probeValues(timeSeconds: 0, wallClock: clock)
+    #expect(values.integers[83] == hour)
+    #expect(values.floats[84] == Float(hour), "\(String(describing: values.floats[84]))")
+  }
+
   /// int 60 = [TIME_IN_SEC]; animated float 51 = [60] over 1 s. Kotlin: target = seconds into the
   /// hour from the first frame, never animating (first target sets the initial value too).
   @Test func animatedFloatOverAClockIntegerShowsTheClock() throws {

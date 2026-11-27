@@ -1531,10 +1531,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   /// Runs again, in wire order, each integer expression that reads an id in `changed` produced
-  /// before it on the wire, or an expression so re-run before it. Returns whether any value moved.
-  private func reresolveIntegerExpressions(after changed: inout [Int: Int]) throws -> Bool {
-    guard !changed.isEmpty else { return false }
-    var moved = false
+  /// before it on the wire, or an expression so re-run before it. Returns the expressions whose
+  /// value moved, with their offsets, in wire order.
+  private func reresolveIntegerExpressions(after changed: inout [Int: Int]) throws
+    -> [(id: Int, offset: Int)]
+  {
+    guard !changed.isEmpty else { return [] }
+    var moved: [(id: Int, offset: Int)] = []
     for id in document.integerExpressionOrder {
       guard let expression = document.integerExpressions[id] else { continue }
       let maskBits = UInt32(bitPattern: Int32(truncatingIfNeeded: expression.mask))
@@ -1549,7 +1552,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         offset: expression.offset)
       if storeInteger(id, value) {
         changed[id] = expression.offset
-        moved = true
+        moved.append((id, expression.offset))
       }
     }
     return moved
@@ -1844,18 +1847,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         of: measuredNode, type: binding.type, available: available, values: result,
         estimates: &estimates)
     }
-    func evaluateExpressions() throws {
-      for expression in document.expressions {
-        guard floatOverrides[expression.id] == nil else { continue }
-        let target = try NativeSwiftFloatExpression.evaluate(
-          expression.words, values: result, opcode: expression.opcode, offset: expression.offset)
-        if resolveAnimatedValues, expression.animationWords != nil {
-          let runtime = try animationRuntime(for: expression)
-          result[expression.id] = runtime.evaluate(target: target, at: Float(timeSeconds))
-        } else {
-          result[expression.id] = target
-        }
+    func evaluate(_ expression: ParsedFloatExpression) throws {
+      guard floatOverrides[expression.id] == nil else { return }
+      let target = try NativeSwiftFloatExpression.evaluate(
+        expression.words, values: result, opcode: expression.opcode, offset: expression.offset)
+      if resolveAnimatedValues, expression.animationWords != nil {
+        let runtime = try animationRuntime(for: expression)
+        result[expression.id] = runtime.evaluate(target: target, at: Float(timeSeconds))
+      } else {
+        result[expression.id] = target
       }
+    }
+    func evaluateExpressions() throws {
+      for expression in document.expressions { try evaluate(expression) }
     }
     // A pass that re-runs integer expressions over floats' views evaluates the floats twice; the
     // animations start from where they were before the first, so each sees one target per pass.
@@ -1880,15 +1884,28 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           changed[id] = floatExpressionOffsets[id] ?? -1
         }
       }
-      if try reresolveIntegerExpressions(after: &changed) {
-        for id in projectedIntegers {
-          if let value = integers[id] { result[id] = Float(value) }
-        }
-        for id in document.integerExpressionOrder where floatOverrides[id] == nil {
-          if let value = floats[id] ?? integers[id].map(Float.init) { result[id] = value }
-        }
+      let moved = try reresolveIntegerExpressions(after: &changed)
+      if !moved.isEmpty {
+        // The floats again, in wire order: each sees a moved integer's new value only if the
+        // integer came before it, as in one reference pass; the others keep this pass's first.
         floatAnimationRuntimes = animationsBeforePass
-        try evaluateExpressions()
+        var next = moved.startIndex
+        func publishMoved(before offset: Int) {
+          while next < moved.endIndex, moved[next].offset < offset {
+            let id = moved[next].id
+            if floatOverrides[id] == nil,
+              let value = floats[id] ?? integers[id].map(Float.init)
+            {
+              result[id] = value
+            }
+            next += 1
+          }
+        }
+        for expression in document.expressions {
+          publishMoved(before: expression.offset)
+          try evaluate(expression)
+        }
+        publishMoved(before: .max)
       }
     }
     // Text lengths and `ID_LOOKUP` feed expressions but are produced from state the expressions
