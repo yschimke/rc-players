@@ -33,17 +33,23 @@ public struct RemoteViewModifierContent: RemoteView, RemotePrimitive {
   }
 }
 
-/// A view and a ``RemoteViewModifier``.
-struct ModifiedByViewModifier<Content: RemoteView, Modifier: RemoteViewModifier>: RemoteView {
+/// A view and a ``RemoteViewModifier``: what ``RemoteView/modifier(_:)`` returns.
+public struct RemoteModifiedByViewModifier<Content: RemoteView, Modifier: RemoteViewModifier>:
+  RemoteView
+{
   let content: Content
   let modifier: Modifier
 
-  var body: Modifier.Body { modifier.body(content: RemoteViewModifierContent(view: content)) }
+  public var body: Modifier.Body {
+    modifier.body(content: RemoteViewModifierContent(view: content))
+  }
 }
 
 extension RemoteView {
   /// Applies `modifier` to this view.
-  public func modifier(_ modifier: some RemoteViewModifier) -> some RemoteView {
-    ModifiedByViewModifier(content: self, modifier: modifier)
+  public func modifier<Modifier: RemoteViewModifier>(_ modifier: Modifier)
+    -> RemoteModifiedByViewModifier<Self, Modifier>
+  {
+    RemoteModifiedByViewModifier(content: self, modifier: modifier)
   }
 }

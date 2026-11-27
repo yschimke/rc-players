@@ -34,14 +34,14 @@ public struct RemoteFont: Hashable, Sendable {
     case fixed(Double)
   }
 
-  let size: Size
+  let metric: Size
   /// The font's own weight; a `fontWeight` modifier overrides it.
-  let weight: RemoteFontWeight?
+  let fontWeight: RemoteFontWeight?
   let isItalic: Bool
 
   init(size: Size, weight: RemoteFontWeight? = nil, isItalic: Bool = false) {
-    self.size = size
-    self.weight = weight
+    metric = size
+    fontWeight = weight
     self.isItalic = isItalic
   }
 
@@ -71,16 +71,18 @@ public struct RemoteFont: Hashable, Sendable {
 
   /// This font at `weight`.
   public func weight(_ weight: RemoteFontWeight) -> RemoteFont {
-    RemoteFont(size: size, weight: weight, isItalic: isItalic)
+    RemoteFont(size: metric, weight: weight, isItalic: isItalic)
   }
 
   public func bold() -> RemoteFont { weight(.bold) }
 
-  public func italic() -> RemoteFont { RemoteFont(size: size, weight: weight, isItalic: true) }
+  public func italic() -> RemoteFont {
+    RemoteFont(size: metric, weight: fontWeight, isItalic: true)
+  }
 
   /// The size in points at the default text size.
   public var pointSize: Double {
-    switch size {
+    switch metric {
     case .style(let points), .fixed(let points): points
     }
   }
@@ -149,7 +151,7 @@ public struct RemoteText: RemoteView, RemotePrimitive {
   package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     let environment = writer.environment
     let font = environment.font
-    let weight = environment.fontWeight ?? font.weight ?? .regular
+    let weight = environment.fontWeight ?? font.fontWeight ?? .regular
     guard (1...1000).contains(weight.value) else {
       throw RemoteEncodingError.invalidFontWeight(weight.value)
     }
@@ -157,7 +159,7 @@ public struct RemoteText: RemoteView, RemotePrimitive {
     let textID = try writer.stringID(text)
     let resolvedColor = try writer.color(environment.foregroundStyle)
     let fontSize: Float
-    switch font.size {
+    switch font.metric {
     case .fixed(let points):
       fontSize = try writer.pixels(points)
     case .style(let points):
@@ -243,35 +245,35 @@ extension RemoteEnvironmentValues {
 
 extension RemoteView {
   /// The font of the text in this view.
-  public func font(_ font: RemoteFont) -> some RemoteView {
+  public func font(_ font: RemoteFont) -> RemoteEnvironmentContent<Self> {
     environment(\.font, font)
   }
 
   /// The weight of the text in this view, over its font's own.
-  public func fontWeight(_ weight: RemoteFontWeight?) -> some RemoteView {
+  public func fontWeight(_ weight: RemoteFontWeight?) -> RemoteEnvironmentContent<Self> {
     environment(\.fontWeight, weight)
   }
 
-  public func bold(_ isActive: Bool = true) -> some RemoteView {
+  public func bold(_ isActive: Bool = true) -> RemoteEnvironmentContent<Self> {
     environment(\.fontWeight, isActive ? .bold : nil)
   }
 
-  public func italic(_ isActive: Bool = true) -> some RemoteView {
+  public func italic(_ isActive: Bool = true) -> RemoteEnvironmentContent<Self> {
     environment(\.isItalic, isActive)
   }
 
   /// At most `limit` lines (at least 1) for the text in this view, or as many as it needs.
-  public func lineLimit(_ limit: Int?) -> some RemoteView {
+  public func lineLimit(_ limit: Int?) -> RemoteEnvironmentContent<Self> {
     environment(\.lineLimit, limit)
   }
 
   public func multilineTextAlignment(_ alignment: RemoteTextAlignment)
-    -> some RemoteView
+    -> RemoteEnvironmentContent<Self>
   {
     environment(\.multilineTextAlignment, alignment)
   }
 
-  public func truncationMode(_ mode: RemoteTruncationMode) -> some RemoteView {
+  public func truncationMode(_ mode: RemoteTruncationMode) -> RemoteEnvironmentContent<Self> {
     environment(\.truncationMode, mode)
   }
 }

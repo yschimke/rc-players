@@ -54,8 +54,11 @@ extension RemoteEnvironmentValues {
 }
 
 /// A view and an environment change for it and everything inside it.
-struct EnvironmentWritingView<Content: RemoteView>: RemoteView, RemotePrimitive {
-  typealias Body = Never
+///
+/// What `environment(_:_:)` and the modifiers built on it (`font`, `foregroundStyle`, …) return:
+/// a concrete type rather than `some RemoteView`, so its type can be inferred inside a `for` loop.
+public struct RemoteEnvironmentContent<Content: RemoteView>: RemoteView, RemotePrimitive {
+  public typealias Body = Never
 
   let content: Content
   let transform: @Sendable (inout RemoteEnvironmentValues) -> Void
@@ -71,17 +74,17 @@ extension RemoteView {
   /// Sets an environment value for this view and everything inside it.
   public func environment<Value: Sendable>(
     _ keyPath: WritableKeyPath<RemoteEnvironmentValues, Value> & Sendable, _ value: Value
-  ) -> some RemoteView {
-    EnvironmentWritingView(content: self) { $0[keyPath: keyPath] = value }
+  ) -> RemoteEnvironmentContent<Self> {
+    RemoteEnvironmentContent(content: self) { $0[keyPath: keyPath] = value }
   }
 
   /// The colour of the text and icons inside this view that do not set their own.
-  public func foregroundStyle(_ color: RemoteColor) -> some RemoteView {
+  public func foregroundStyle(_ color: RemoteColor) -> RemoteEnvironmentContent<Self> {
     environment(\.foregroundStyle, color)
   }
 
   /// The accent colour for controls inside this view.
-  public func tint(_ color: RemoteColor) -> some RemoteView {
+  public func tint(_ color: RemoteColor) -> RemoteEnvironmentContent<Self> {
     environment(\.tint, color)
   }
 }

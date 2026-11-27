@@ -114,8 +114,14 @@ which the player supplies as it lays the canvas out.
   `RemoteConditionalContent`, `Optional`, `RemoteForEach`). The builder folds statements pairwise
   with `buildPartialBlock` rather than with a parameter pack, because a variadic generic type needs
   the Swift 5.9 runtime (iOS 17, macOS 14), above this package's floor. Repetition is
-  `RemoteForEach`, not a `for` loop, so modifiers can return an opaque `some RemoteView`. The
-  writer is `package`, so the public API is views and modifiers only, with no underscored types.
+  `RemoteForEach`. Modifiers return concrete types (`RemoteModifiedContent`,
+  `RemoteEnvironmentContent`), as SwiftUI's return `ModifiedContent`, because an opaque
+  `some RemoteView` cannot be inferred inside a `for` loop, which 4.0 code still uses. The writer
+  is `package`, so the public API is views and modifiers only, with no underscored types.
+- **4.0 code still compiles.** `RemoteTextStyle`, `font(size:weight:)` and `for` loops in a
+  builder are deprecated, not removed: each forwards to its replacement and writes the same
+  document (`RemoteCompatibilityTests`). The package keeps its iOS 13 floor and stays one
+  package, so 4.0's `.package(url:)` and products resolve unchanged.
 - **Branches the player takes are state layouts.** A Swift `if` or `switch` in a builder runs while
   the document is written. A branch on a value the player holds is a `RemoteStateLayout`: its
   closure runs once per state, so the compiler checks the `switch` is exhaustive, and every state's
@@ -158,7 +164,7 @@ which the player supplies as it lays the canvas out.
 
 ## Verification
 
-- `RcCreationTests` (48 tests) opens every document with `NativeSwiftDocumentSession` and checks the
+- `RcCreationTests` (50 tests) opens every document with `NativeSwiftDocumentSession` and checks the
   decoded tree: sizes in pixels, spacing, padding, colours, weights, text, canvas commands, and a
   canvas's live size. It writes variables through the session and checks that the text, width,
   visibility and colours follow them, and that a tap runs its actions. It reads the operations
