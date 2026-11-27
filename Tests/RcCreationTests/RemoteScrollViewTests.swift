@@ -70,7 +70,7 @@ import Testing
         RemoteWriter.reference(FloatExpressionOperator.offset + FloatExpressionOperator.mul)
           .bitPattern,
       ])
-    #expect(touch.stopMode == 0)
+    #expect(touch.stopMode == RemoteWriter.TouchStopMode.gently)
   }
 
   @Test func aNegativeOffsetIsRefused() {

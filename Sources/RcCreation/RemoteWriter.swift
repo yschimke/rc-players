@@ -679,7 +679,7 @@ package final class RemoteWriter {
           id: position, value: 0, min: 0, max: Self.reference(maximum), velocityId: 0,
           touchEffects: Scroll.touchEffects,
           expression: [Self.reference(touch), -1, Self.operatorWord(.multiply)],
-          stopMode: Scroll.stopGently)))
+          stopMode: TouchStopMode.gently)))
     emit(.containerEnd(ContainerEnd()))
   }
 
@@ -690,8 +690,27 @@ package final class RemoteWriter {
     static let horizontal: Int32 = 1
     /// The touch effects AndroidX's scroll writes.
     static let touchEffects: Int32 = 3
-    /// `TouchExpression`'s stop mode that decelerates after a fling (AndroidX's `STOP_GENTLY`).
-    static let stopGently: Int32 = 0
+  }
+
+  /// `TouchExpression`'s stop modes, every value AndroidX's `TouchExpression` defines: how the
+  /// value settles when the touch ends.
+  enum TouchStopMode {
+    /// Decelerates after a fling (`STOP_GENTLY`): a scroll's.
+    static let gently: Int32 = 0
+    /// `STOP_INSTANTLY`.
+    static let instantly: Int32 = 1
+    /// `STOP_ENDS`.
+    static let ends: Int32 = 2
+    /// `STOP_NOTCHES_EVEN`: evenly spaced notches.
+    static let notchesEven: Int32 = 3
+    /// `STOP_NOTCHES_PERCENTS`.
+    static let notchesPercents: Int32 = 4
+    /// `STOP_NOTCHES_ABSOLUTE`.
+    static let notchesAbsolute: Int32 = 5
+    /// `STOP_ABSOLUTE_POS`.
+    static let absolutePosition: Int32 = 6
+    /// `STOP_NOTCHES_SINGLE_EVEN`.
+    static let notchesSingleEven: Int32 = 7
   }
 
   /// A spacer: flexible space along the enclosing stack, or a fixed gap.
