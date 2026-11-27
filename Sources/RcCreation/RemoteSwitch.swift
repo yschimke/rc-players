@@ -13,6 +13,9 @@ public protocol RemoteStateValue: CaseIterable, Hashable, Sendable, RemoteVariab
 where AllCases: RandomAccessCollection {}
 
 extension RemoteStateValue {
+  /// The case's position, which the host writes as an integer.
+  public var remoteHostValue: RemoteHostValue { .integer(ordinal) }
+
   /// This case's position in `allCases`: its value on the wire.
   public var ordinal: Int {
     Self.allCases.distance(from: Self.allCases.startIndex, to: Self.allCases.firstIndex(of: self)!)

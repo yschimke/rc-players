@@ -64,6 +64,8 @@ jobs:
             Sources/RcCreationAppleUI \
             Tests/RcCreationTests \
             Tests/RcCreationAppleUITests \
+            Sources/RcCreationHost \
+            Tests/RcCreationHostTests \
             Tests/RcNativePlayerCoreTests \
             Tests/RcNativePlayerTestDocuments \
             Tests/RcNativePlayerUIKitTests

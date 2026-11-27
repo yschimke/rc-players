@@ -1,6 +1,9 @@
 import RcWireOperations
 
-extension Bool: RemoteVariableValue {}
+extension Bool: RemoteVariableValue {
+  /// 1 or 0: an integer variable, as AndroidX stores a boolean.
+  public var remoteHostValue: RemoteHostValue { .integer(self ? 1 : 0) }
+}
 
 /// An integer the document holds: a constant, a `RemoteVariable<Int>`, or arithmetic over those
 /// that the player evaluates as it plays (`IntegerExpression`).
