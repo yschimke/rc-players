@@ -1,12 +1,33 @@
 import RcWireOperations
 
-/// A type a ``RemoteVariable`` can hold: `Double`, `Int`, `String`, ``RemoteColorValue`` and
-/// ``RemoteVisibility``.
-public protocol RemoteVariableValue: Hashable, Sendable {}
+/// A type a ``RemoteVariable`` can hold: `Double`, `Int`, `Bool`, `String`, ``RemoteColorValue``,
+/// ``RemoteVisibility`` and a ``RemoteStateValue`` enum.
+public protocol RemoteVariableValue: Hashable, Sendable {
+  /// The value as a host writes it to the variable while the document plays.
+  var remoteHostValue: RemoteHostValue { get }
+}
 
-extension Double: RemoteVariableValue {}
-extension Int: RemoteVariableValue {}
-extension String: RemoteVariableValue {}
+/// A value a host writes to a named variable, in the kind of slot the document declared for it:
+/// what a player's `setFloat`, `setInteger`, `setString` or `setColor` takes.
+public enum RemoteHostValue: Hashable, Sendable {
+  case float(Float)
+  case integer(Int)
+  case string(String)
+  /// An ARGB colour.
+  case color(UInt32)
+}
+
+extension Double: RemoteVariableValue {
+  public var remoteHostValue: RemoteHostValue { .float(Float(self)) }
+}
+
+extension Int: RemoteVariableValue {
+  public var remoteHostValue: RemoteHostValue { .integer(self) }
+}
+
+extension String: RemoteVariableValue {
+  public var remoteHostValue: RemoteHostValue { .string(self) }
+}
 
 /// A value the host writes by name while the document plays, starting from a default.
 ///
@@ -318,6 +339,8 @@ public enum RemoteVisibility: Hashable, Sendable, RemoteVariableValue {
   case invisible
   /// Hidden, taking no space.
   case gone
+
+  public var remoteHostValue: RemoteHostValue { .integer(Int(wire)) }
 
   var wire: Int32 {
     switch self {

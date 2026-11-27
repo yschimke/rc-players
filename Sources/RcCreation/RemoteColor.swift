@@ -5,6 +5,8 @@ import RcWireOperations
 /// A literal can be adjusted (``opacity(_:)``) because its value is known while the document is
 /// written. A colour that is only known as it plays is a ``RemoteColor``.
 public struct RemoteColorValue: Hashable, Sendable, RemoteVariableValue {
+  public var remoteHostValue: RemoteHostValue { .color(UInt32(bitPattern: argb)) }
+
   public let red: Double
   public let green: Double
   public let blue: Double

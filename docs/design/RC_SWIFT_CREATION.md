@@ -81,6 +81,22 @@ The host then writes `progress` and `subtitle` by name, and the player updates t
 percentage and the subtitle without a new document. The canvas draws relative to its own size,
 which the player supplies as it lays the canvas out.
 
+A Swift host that authored the document writes those variables through the same
+`RemoteVariable`s, with the opt-in `RcCreationHost` library, so the name, the type and an enum's
+case are checked by the compiler instead of spelled as strings:
+
+```swift
+import RcCreationHost
+
+controller.set(progress, to: 0.8)      // RemoteComposePlayerController, the native view or session
+controller.set(tab, to: .month)        // a RemoteStateValue enum: written as its position
+```
+
+Each value is written as its document declares it: a `Double` as a float, an `Int`, a `Bool` (1 or
+0), a visibility or an enum case as an integer, a `String` as text, a `RemoteColorValue` as ARGB. A
+host in another language, or one that did not author the document, writes the same variables by
+name.
+
 ## What it covers
 
 | Area | API | Operations written |
