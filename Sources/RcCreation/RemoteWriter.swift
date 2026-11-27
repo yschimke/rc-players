@@ -168,6 +168,15 @@ package final class RemoteWriter {
       return declared
     case .canvasSize, .canvasPixels:
       throw RemoteEncodingError.canvasSizeOutsideCanvas
+    case .integerView(let integer):
+      // The integer's own id: the players publish its value as a float too. A float read as an
+      // integer shares the float's id, so it is copied by an `IntegerExpression` first, whose
+      // output holds the truncated value.
+      if case .floatView = integer {
+        id = try intID(.binary(.add, integer, .constant(0)))
+      } else {
+        id = try intID(integer)
+      }
     case .constant(let literal):
       id = newDataID()
       declare(.floatConstant(FloatConstant(id: id, value: literal)))
@@ -195,7 +204,7 @@ package final class RemoteWriter {
   {
     switch node {
     case .constant(let literal): words.append(try Self.finite(literal))
-    case .variable, .declared, .system, .canvasSize, .canvasPixels:
+    case .variable, .declared, .system, .canvasSize, .canvasPixels, .integerView:
       words.append(Self.reference(try floatID(node)))
     case .unary(let operation, let operand):
       try appendRPN(operand, to: &words)
@@ -220,7 +229,7 @@ package final class RemoteWriter {
     case .canvasPixels(let axis): return .declared(try axisID(axis))
     case .canvasSize(let axis):
       return .binary(.divide, .declared(try axisID(axis)), .constant(displayScale))
-    case .constant, .variable, .system, .declared: return node
+    case .constant, .variable, .system, .declared, .integerView: return node
     case .unary(let operation, let operand):
       return .unary(operation, try resolvingCanvasSize(operand))
     case .binary(let operation, let lhs, let rhs):

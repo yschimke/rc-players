@@ -114,7 +114,7 @@ name.
 | State | `RemoteVariable<Double / Int / Bool / String / RemoteColorValue / RemoteVisibility / some RemoteStateValue>` | `FloatConstant`, `IntegerConstant`, `TextData`, `ColorConstant`, `NamedVariable` |
 | Conditions | `RemoteBool` and `RemoteInt`: `== != < <= > >=`, `&&`, `\|\|`, `!`, `+ - * / %` over variables; `RemoteInt(.hour)` and the other player values; `RemoteInt(truncating:)` a float; `< <= > >=` on `RemoteFloat` | `IntegerExpression`, a float read through its integer view |
 | Expressions | `+ - * /`, `min`, `max`, `magnitude`, `clamped(to:)` on `RemoteFloat` and on `Double` variables | one `FloatExpression` per expression, in reverse-Polish order |
-| Text from values | interpolation: `"\(x, decimals: 2)"`, `"\(variable)"` | `TextFromFloat`, `TextMerge` |
+| Text from values | interpolation: `"\(x, decimals: 2)"`, `"\(variable)"`, `"\(count + 1)"` for a `RemoteInt`; `RemoteFloat(_:)` of a `RemoteInt` | `TextFromFloat` (an integer through its float view), `TextMerge` |
 | Actions | `.host(id:)`, `.host(_:value:)`, `.set(_:to:)` on a variable or a state, `.toggle(_:)`, `.increment(_:by:in:)` | `HostAction`, `HostNamedAction`, value-change actions |
 
 ## Decisions
@@ -182,6 +182,18 @@ name.
   `ColorAttribute` and rebuilt with the alpha scaled (`ColorExpression`'s ID-ARGB mode).
 
   ![Hierarchical styles](../../renders/swift-creation/hierarchical-cmp-jvm.png)
+
+- **An integer is also a float, so it is written as text.** The players keep each integer as a
+  float too, so `"\(page + 1) of 4"` formats the integer's own id with `TextFromFloat`, and
+  `RemoteFloat(count)` reads it in float arithmetic. A float read as an integer
+  (`RemoteInt(truncating:)`) shares the float's id, so it is copied through an `IntegerExpression`
+  first, whose output holds the truncated value. Before, Swift found no `RemoteInt` interpolation,
+  typed the literal as a `String`, and the text showed the struct's description. Rendered by the
+  CMP player from [`IntText.swift.txt`](../../renders/swift-creation/IntText.swift.txt), before and
+  after:
+
+  ![Before](../../renders/swift-creation/int-text-before-cmp-jvm.png)
+  ![After](../../renders/swift-creation/int-text-cmp-jvm.png)
 
 - **A float is also an integer.** As AndroidX's `setFloat` publishes, every float has an integer
   view, truncated toward zero, and an integer reader (an `IntegerExpression`, a `StateLayout`

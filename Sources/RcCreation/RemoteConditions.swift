@@ -256,4 +256,15 @@ public enum RemoteSystemValue: Hashable, Sendable {
 extension RemoteFloat {
   /// A value the player supplies, live: `RemoteFloat(.hour)`.
   public init(_ value: RemoteSystemValue) { self.init(node: .system(value.id)) }
+
+  /// `value` as a float, live: to format an integer, or use it in float arithmetic. The players
+  /// keep every integer as a float as well, so this reads that float rather than converting. A
+  /// float holds integers exactly up to 2^24 (16,777,216).
+  public init(_ value: RemoteInt) {
+    if case .constant(let constant) = value.node {
+      self.init(Float(constant))
+    } else {
+      self.init(node: .integerView(value.node))
+    }
+  }
 }
