@@ -178,6 +178,34 @@ import Testing
     #expect(shown[1].visibility == NativeSwiftVisibility.visible)
   }
 
+  /// A button is drawn by the style in its environment, and a disabled one (however deep inside
+  /// the disabled view) runs nothing.
+  @Test func buttonStylesAndDisabling() throws {
+    struct Filled: RemoteButtonStyle {
+      func makeBody(configuration: Configuration) -> some RemoteView {
+        configuration.label
+          .background(configuration.isEnabled ? .hex(0x00AA00) : .hex(0x888888))
+      }
+    }
+    let document = RemoteDocument(width: 200, height: 100) {
+      RemoteVStack {
+        RemoteButton("On", action: .host(id: 1))
+        RemoteVStack {
+          RemoteButton("Off", action: .host(id: 2))
+        }
+        .disabled()
+      }
+      .buttonStyle(Filled())
+    }
+    let session = try open(document)
+    func flatten(_ node: NativeSwiftNodeSnapshot) -> [NativeSwiftNodeSnapshot] {
+      [node] + node.children.flatMap(flatten)
+    }
+    let nodes = flatten(try session.snapshot().root)
+    #expect(nodes.filter(\.isClickable).count == 1)
+    #expect(nodes.compactMap(\.backgroundARGB) == [0xFF00_AA00, 0xFF88_8888])
+  }
+
   /// Integer arithmetic and ordering, evaluated by the player as the variable changes.
   @Test func integerArithmeticAndOrdering() throws {
     let count = RemoteVariable("count", default: 7)
