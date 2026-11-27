@@ -128,8 +128,11 @@ public struct RemoteHStack<Content: RemoteStackContent>: _PrimitiveRemoteView {
     let layout = RowLayout(
       componentId: componentID, animationId: IdEncoding.noId,
       horizontalPositioning: distribution.wire, verticalPositioning: alignment.wire,
-      spacedBy: try writer.pixels(spacing))
-    try writer.writeLayout(.rowLayout(layout), kind: .horizontalStack, content: content)
+      spacedBy: 0)
+    // The spacing is written as each later child's leading padding (see the writer's
+    // `takeModifiers`), so flexible children share only the space the gaps leave.
+    try writer.writeLayout(
+      .rowLayout(layout), kind: .horizontalStack, content: content, rowGap: spacing)
   }
 }
 

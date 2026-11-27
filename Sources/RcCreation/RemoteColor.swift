@@ -99,6 +99,18 @@ public struct RemoteColor: Hashable, Sendable {
 
   init(storage: Storage) { self.storage = storage }
 
+  /// This colour at another opacity: for a literal or a light/dark pair, whose values are known
+  /// while the document is written. A variable's value is only known as the document plays, so
+  /// it returns `nil`.
+  public func opacity(_ opacity: Double) -> RemoteColor? {
+    switch storage {
+    case .fixed(let value): RemoteColor(value.opacity(opacity))
+    case .adaptive(let light, let dark):
+      .adaptive(light: light.opacity(opacity), dark: dark.opacity(opacity))
+    case .variable: nil
+    }
+  }
+
   public static let black = RemoteColor(.black)
   public static let white = RemoteColor(.white)
   public static let clear = RemoteColor(.clear)

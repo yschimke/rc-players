@@ -60,7 +60,7 @@ public struct RemoteFloat: Hashable, Sendable, ExpressibleByFloatLiteral,
 
   /// The `FloatExpression` operators this API writes.
   enum Operator: Hashable, Sendable {
-    case add, subtract, multiply, divide, minimum, maximum, absolute
+    case add, subtract, multiply, divide, modulo, minimum, maximum, absolute
 
     var code: Int32 {
       switch self {
@@ -68,6 +68,7 @@ public struct RemoteFloat: Hashable, Sendable, ExpressibleByFloatLiteral,
       case .subtract: FloatExpressionOperator.sub
       case .multiply: FloatExpressionOperator.mul
       case .divide: FloatExpressionOperator.div
+      case .modulo: FloatExpressionOperator.mod
       case .minimum: FloatExpressionOperator.min
       case .maximum: FloatExpressionOperator.max
       case .absolute: FloatExpressionOperator.abs
@@ -101,6 +102,10 @@ public struct RemoteFloat: Hashable, Sendable, ExpressibleByFloatLiteral,
   }
   public static func / (lhs: RemoteFloat, rhs: RemoteFloat) -> RemoteFloat {
     fold(.divide, lhs, rhs, /)
+  }
+  /// The remainder of dividing by `rhs`, as `truncatingRemainder(dividingBy:)`.
+  public static func % (lhs: RemoteFloat, rhs: RemoteFloat) -> RemoteFloat {
+    fold(.modulo, lhs, rhs) { $0.truncatingRemainder(dividingBy: $1) }
   }
   public static prefix func - (operand: RemoteFloat) -> RemoteFloat { -1 * operand }
 
@@ -188,7 +193,7 @@ public struct RemoteString: Hashable, Sendable, ExpressibleByStringInterpolation
   indirect enum Node: Hashable, Sendable {
     case constant(String)
     case variable(name: String, defaultValue: String)
-    case number(RemoteFloat.Node, integerDigits: Int, decimals: Int)
+    case number(RemoteFloat.Node, integerDigits: Int, decimals: Int, zeroPadded: Bool)
     case concatenation(Node, Node)
   }
 
@@ -207,10 +212,16 @@ public struct RemoteString: Hashable, Sendable, ExpressibleByStringInterpolation
   /// `number` as text, with up to `integerDigits` digits before the point and exactly `decimals`
   /// after it (`1.50` for 1.5 at two decimals). The player formats it as the value changes.
   ///
+  /// With `zeroPadded`, the integer part is padded with zeros to `integerDigits` (`07` for 7 at
+  /// two digits), as a clock shows minutes.
+  ///
   /// Both counts are 0 to 16; outside that, encoding fails with
   /// ``RemoteEncodingError/invalidNumberFormat(integerDigits:decimals:)``.
-  public init(_ number: RemoteFloat, decimals: Int = 0, integerDigits: Int = 9) {
-    node = .number(number.node, integerDigits: integerDigits, decimals: decimals)
+  public init(
+    _ number: RemoteFloat, decimals: Int = 0, integerDigits: Int = 9, zeroPadded: Bool = false
+  ) {
+    node = .number(
+      number.node, integerDigits: integerDigits, decimals: decimals, zeroPadded: zeroPadded)
   }
 
   public init(stringInterpolation: StringInterpolation) {
@@ -248,9 +259,11 @@ public struct RemoteString: Hashable, Sendable, ExpressibleByStringInterpolation
 
     /// A number, formatted as ``RemoteString/init(_:decimals:integerDigits:)`` formats it.
     public mutating func appendInterpolation(
-      _ number: RemoteFloat, decimals: Int = 0, integerDigits: Int = 9
+      _ number: RemoteFloat, decimals: Int = 0, integerDigits: Int = 9, zeroPadded: Bool = false
     ) {
-      parts.append(RemoteString(number, decimals: decimals, integerDigits: integerDigits))
+      parts.append(
+        RemoteString(
+          number, decimals: decimals, integerDigits: integerDigits, zeroPadded: zeroPadded))
     }
 
     public mutating func appendInterpolation(

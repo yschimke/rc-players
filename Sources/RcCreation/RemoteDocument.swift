@@ -26,6 +26,8 @@ public enum RemoteEncodingError: Error, Sendable, Hashable {
   case nonFiniteValue
   /// An integer does not fit in the 32 bits the wire carries.
   case integerOutOfRange(Int)
+  /// An image's pixel size is outside 1 to 65,535 on either axis.
+  case invalidImageSize(width: Int, height: Int)
   /// A canvas's size was used outside that canvas's own drawing.
   case canvasSizeOutsideCanvas
   /// The bindings refused an operation.

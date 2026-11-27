@@ -70,6 +70,10 @@ public struct RemoteAction: Hashable, Sendable {
     case setInt(RemoteVariable<Int>, Int)
     case setString(RemoteVariable<String>, String)
     case setVisibility(RemoteVariable<RemoteVisibility>, RemoteVisibility)
+    case setBool(RemoteVariable<Bool>, Bool)
+    case toggle(RemoteVariable<Bool>)
+    case setDoubleTo(RemoteVariable<Double>, RemoteFloat)
+    case setIntTo(RemoteVariable<Int>, RemoteInt)
   }
 
   enum HostValue: Hashable, Sendable {
@@ -120,6 +124,39 @@ public struct RemoteAction: Hashable, Sendable {
     _ variable: RemoteVariable<RemoteVisibility>, to value: RemoteVisibility
   ) -> RemoteAction {
     RemoteAction(kind: .setVisibility(variable, value))
+  }
+
+  public static func set(_ variable: RemoteVariable<Bool>, to value: Bool) -> RemoteAction {
+    RemoteAction(kind: .setBool(variable, value))
+  }
+
+  /// Flips `variable`: what a switch does when tapped.
+  public static func toggle(_ variable: RemoteVariable<Bool>) -> RemoteAction {
+    RemoteAction(kind: .toggle(variable))
+  }
+
+  /// Writes `value`, evaluated when the action runs, to `variable`: `.set(count, to: count + 1)`.
+  public static func set(_ variable: RemoteVariable<Double>, to value: RemoteFloat)
+    -> RemoteAction
+  {
+    RemoteAction(kind: .setDoubleTo(variable, value))
+  }
+
+  public static func set(_ variable: RemoteVariable<Int>, to value: RemoteInt) -> RemoteAction {
+    RemoteAction(kind: .setIntTo(variable, value))
+  }
+
+  /// Adds `step` to `variable`, kept within `range`: a stepper's buttons.
+  public static func increment(
+    _ variable: RemoteVariable<Double>, by step: Double = 1, in range: ClosedRange<Double>
+  ) -> RemoteAction {
+    .set(variable, to: (variable + RemoteFloat(step)).clamped(to: range))
+  }
+
+  public static func increment(
+    _ variable: RemoteVariable<Int>, by step: Int = 1, in range: ClosedRange<Int>
+  ) -> RemoteAction {
+    .set(variable, to: (RemoteInt(variable) + RemoteInt(step)).clamped(to: range))
   }
 }
 
@@ -176,6 +213,7 @@ enum RemoteModifierElement: Sendable {
   case zIndex(Double)
   case visibility(RemoteVisibility)
   case visibilityVariable(RemoteVariable<RemoteVisibility>)
+  case visibleIf(RemoteBool)
   case tap([RemoteAction])
   case accessibilityLabel(RemoteString)
   case accessibilityValue(RemoteString)
@@ -317,6 +355,11 @@ extension RemoteView {
   public func visibility(_ variable: RemoteVariable<RemoteVisibility>) -> _ModifiedRemoteView<Self>
   {
     modifier(.visibilityVariable(variable))
+  }
+
+  /// Shows the view while `condition` holds and removes it, taking no space, while it does not.
+  public func visible(if condition: RemoteBool) -> _ModifiedRemoteView<Self> {
+    modifier(.visibleIf(condition))
   }
 
   /// Runs `actions`, in order, when the view is tapped.

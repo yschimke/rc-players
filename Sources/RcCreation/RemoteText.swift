@@ -77,8 +77,9 @@ public enum RemoteTruncationMode: Hashable, Sendable {
 
 /// Text, as SwiftUI's `Text`.
 ///
-/// It defaults to the ``RemoteTextStyle/body`` style in the ``RemoteColor/primary`` colour, so
-/// it follows the reader's text size and appearance unless told otherwise.
+/// It defaults to the ``RemoteTextStyle/body`` style in the environment's foreground style
+/// (``RemoteColor/primary`` unless a container sets one), so it follows the reader's text size and
+/// appearance unless told otherwise.
 ///
 /// ```swift
 /// RemoteText("Upload \(progress * 100, decimals: 0)%")
@@ -98,7 +99,8 @@ public struct RemoteText: _PrimitiveRemoteView {
   var size: Size = .style(RemoteTextStyle.body.size)
   var weight: RemoteFontWeight = .regular
   var isItalic = false
-  var color: RemoteColor = .primary
+  /// The text's own colour, or `nil` for the environment's foreground style.
+  var color: RemoteColor? = nil
   var alignment: RemoteTextAlignment = .leading
   var truncation: RemoteTruncationMode = .tail
   var lineLimit: Int? = nil
@@ -171,7 +173,7 @@ public struct RemoteText: _PrimitiveRemoteView {
     }
     let componentID = writer.newComponentID()
     let textID = try writer.stringID(text)
-    let resolvedColor = try writer.color(color)
+    let resolvedColor = try writer.color(color ?? writer.environment.foregroundStyle)
     let fontSize: Float
     switch size {
     case .fixed(let points):

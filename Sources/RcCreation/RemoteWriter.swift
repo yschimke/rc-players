@@ -31,7 +31,22 @@ public final class _RemoteWriter {
     case string(String)
     case int(Int)
     case visibility(RemoteVisibility)
+    case bool(Bool)
     case color(RemoteColorValue)
+  }
+
+  /// The environment the view being written reads.
+  private(set) var environment = RemoteEnvironmentValues()
+
+  /// Runs `body` with `transform` applied to the environment.
+  func withEnvironment(
+    _ transform: (inout RemoteEnvironmentValues) -> Void,
+    _ body: () throws(RemoteEncodingError) -> Void
+  ) throws(RemoteEncodingError) {
+    let saved = environment
+    transform(&environment)
+    defer { environment = saved }
+    try body()
   }
 
   /// The modifiers the next built-in view applies, outermost first.
@@ -230,21 +245,22 @@ public final class _RemoteWriter {
       id = try variableID(name, .string(defaultValue), type: NamedVariable.string) { id in
         declare(.textData(TextData(textId: id, text: defaultValue)))
       }
-    case .number(let number, let integerDigits, let decimals):
+    case .number(let number, let integerDigits, let decimals, let zeroPadded):
       guard (0...16).contains(integerDigits), (0...16).contains(decimals) else {
         throw RemoteEncodingError.invalidNumberFormat(
           integerDigits: integerDigits, decimals: decimals)
       }
       let word = try floatWord(RemoteFloat(node: number))
       id = newDataID()
-      // No padding before the point; zeros after it, so the fraction always has `decimals`
-      // digits, as `String(format: "%.2f")` prints it.
+      // Zeros after the point, so the fraction always has `decimals` digits, as
+      // `String(format: "%.2f")` prints it; before it, only when asked (a clock's `07`).
       declare(
         .textFromFloat(
           TextFromFloat(
             textId: id, value: word, digitsBefore: Int16(integerDigits),
             digitsAfter: Int16(decimals),
-            flags: TextFromFloat.padPreNone | TextFromFloat.padAfterZero)))
+            flags: (zeroPadded ? TextFromFloat.padPreZero : TextFromFloat.padPreNone)
+              | TextFromFloat.padAfterZero)))
     case .concatenation(let lhs, let rhs):
       let first = try stringID(RemoteString(node: lhs))
       let second = try stringID(RemoteString(node: rhs))
@@ -264,25 +280,81 @@ public final class _RemoteWriter {
     return id
   }
 
-  private func intVariableID(
-    _ name: String, _ defaultValue: Int32, declaration: VariableDeclaration
-  )
-    throws(RemoteEncodingError) -> Int32
-  {
-    try variableID(name, declaration, type: NamedVariable.int) { id in
-      declare(.integerConstant(IntegerConstant(id: id, value: defaultValue)))
+  private var intNodeIDs: [RemoteInt.Node: Int32] = [:]
+
+  /// The id of an integer holding `node`: a constant, a variable, or an `IntegerExpression`.
+  func intID(_ node: RemoteInt.Node) throws(RemoteEncodingError) -> Int32 {
+    if case .constant(let value) = node { return intID(try Self.int32(value)) }
+    if let id = intNodeIDs[node] { return id }
+    let id: Int32
+    switch node {
+    case .constant(let value):
+      return intID(try Self.int32(value))
+    case .variable(let name, let declaration):
+      let (value, declared): (Int32, VariableDeclaration)
+      switch declaration {
+      case .int(let int): (value, declared) = (try Self.int32(int), .int(int))
+      case .bool(let bool): (value, declared) = (bool ? 1 : 0, .bool(bool))
+      case .visibility(let visibility):
+        (value, declared) = (visibility.wire, .visibility(visibility))
+      }
+      id = try variableID(name, declared, type: NamedVariable.int) { id in
+        declare(.integerConstant(IntegerConstant(id: id, value: value)))
+      }
+    case .unary, .binary:
+      // A word is a literal, or, where its mask bit is set, an id or an operator.
+      var words: [(value: Int32, isReference: Bool)] = []
+      try appendIntegerRPN(node, to: &words)
+      let mask = words.enumerated().reduce(Int32(0)) { mask, entry in
+        entry.element.isReference ? mask | Int32(1) << Int32(entry.offset) : mask
+      }
+      id = newDataID()
+      declare(.integerExpression(IntegerExpression(id: id, mask: mask, values: words.map(\.value))))
+    }
+    intNodeIDs[node] = id
+    return id
+  }
+
+  private func appendIntegerRPN(
+    _ node: RemoteInt.Node, to words: inout [(value: Int32, isReference: Bool)]
+  ) throws(RemoteEncodingError) {
+    switch node {
+    case .constant(let value): words.append((try Self.int32(value), false))
+    case .variable: words.append((try intID(node), true))
+    case .unary(let operation, let operand):
+      try appendIntegerRPN(operand, to: &words)
+      words.append((IntegerExpressionOperator.offset + operation.code, true))
+    case .binary(let operation, let lhs, let rhs):
+      try appendIntegerRPN(lhs, to: &words)
+      try appendIntegerRPN(rhs, to: &words)
+      words.append((IntegerExpressionOperator.offset + operation.code, true))
     }
   }
 
   func intID(_ variable: RemoteVariable<Int>) throws(RemoteEncodingError) -> Int32 {
-    try intVariableID(
-      variable.name, try Self.int32(variable.defaultValue),
-      declaration: .int(variable.defaultValue))
+    try intID(RemoteInt(variable).node)
   }
 
   func intID(_ variable: RemoteVariable<RemoteVisibility>) throws(RemoteEncodingError) -> Int32 {
-    try intVariableID(
-      variable.name, variable.defaultValue.wire, declaration: .visibility(variable.defaultValue))
+    try intID(.variable(name: variable.name, declaration: .visibility(variable.defaultValue)))
+  }
+
+  /// An integer id's long form, as the integer actions take it (`IdEncoding.longIdOffset` + id).
+  private static func longID(_ id: Int32) -> Int64 { IdEncoding.longIdOffset + Int64(id) }
+
+  /// The visibility a condition gives: `visible` while it holds, `gone` while it does not.
+  private func visibilityID(_ condition: RemoteBool) throws(RemoteEncodingError) -> Int32 {
+    let visible = Int32(WireExpressionConstants.visibilityVisible)
+    let gone = Int32(WireExpressionConstants.visibilityGone)
+    // The condition is 1 or 0; scaled onto the two visibility values. With today's values (1 and
+    // 0) that is the condition itself.
+    var visibility = condition.int
+    if visible - gone != 1 {
+      var scaled = RemoteInt(0)
+      for _ in 0..<(visible - gone) { scaled = scaled + condition.int }
+      visibility = scaled
+    }
+    return try intID((visibility + RemoteInt(Int(gone))).node)
   }
 
   enum ResolvedColor {
@@ -340,20 +412,45 @@ public final class _RemoteWriter {
   /// A built-in view: `layout`, the modifiers waiting for it, `LayoutContent`, its children,
   /// then two `ContainerEnd`s, as AndroidX's writer shapes a component.
   func writeLayout<Content: RemoteStackContent>(
-    _ layout: WireOperation, kind: ParentKind, content: Content
+    _ layout: WireOperation, kind: ParentKind, content: Content, rowGap: Double = 0
   ) throws(RemoteEncodingError) {
-    let modifiers = pendingModifiers
-    pendingModifiers = []
-    defer { pendingModifiers = modifiers }
+    let saved = pendingModifiers
+    let modifiers = takeModifiers()
+    defer { pendingModifiers = saved }
 
     emit(layout)
     try writeModifiers(modifiers)
     emit(.layoutContent(LayoutContent(componentId: newComponentID())))
     parents.append(kind)
+    if kind == .horizontalStack { rowGaps.append((try pixels(rowGap), 0)) }
     try content._write(to: self)
+    if kind == .horizontalStack { rowGaps.removeLast() }
     parents.removeLast()
     emit(.containerEnd(ContainerEnd()))
     emit(.containerEnd(ContainerEnd()))
+  }
+
+  /// Each open row's gap, in pixels, and how many children it has written.
+  private var rowGaps: [(gap: Float, children: Int)] = []
+
+  /// The modifiers the built-in view being written applies, leaving none for its children.
+  ///
+  /// A child of a row after the first also takes the row's gap, as leading padding outside its
+  /// own modifiers. A row writes its spacing this way rather than as `spacedBy`, because a
+  /// weighted row measures its children without the gaps and adds them as it places them (as
+  /// AndroidX's reference player does), so flexible children would push the last one out by the
+  /// total gap.
+  private func takeModifiers() -> [RemoteModifierElement] {
+    var modifiers = pendingModifiers
+    pendingModifiers = []
+    if parents.last == .horizontalStack, let last = rowGaps.indices.last {
+      if rowGaps[last].children > 0, rowGaps[last].gap > 0 {
+        let gap = RemoteFloat(rowGaps[last].gap / displayScale)
+        modifiers.insert(.padding(RemoteEdgeInsets(leading: gap)), at: 0)
+      }
+      rowGaps[last].children += 1
+    }
+    return modifiers
   }
 
   /// A box that fills the space it is offered on every axis its frame does not fix, painted
@@ -429,9 +526,9 @@ public final class _RemoteWriter {
   func writeCanvas(_ commands: [RemoteGraphicsContext.Command]) throws(RemoteEncodingError) {
     try withFillOnFreeAxes { () throws(RemoteEncodingError) in
       let canvasID = newComponentID()
-      let modifiers = pendingModifiers
-      pendingModifiers = []
-      defer { pendingModifiers = modifiers }
+      let saved = pendingModifiers
+      let modifiers = takeModifiers()
+      defer { pendingModifiers = saved }
 
       emit(.canvasLayout(CanvasLayout(componentId: canvasID, animationId: IdEncoding.noId)))
       try writeModifiers(modifiers)
@@ -462,6 +559,46 @@ public final class _RemoteWriter {
       emit(.containerEnd(ContainerEnd()))
       emit(.containerEnd(ContainerEnd()))
     }
+  }
+
+  private var bitmapIDs: [[UInt8]: Int32] = [:]
+
+  /// The id of an inline PNG, declared once (`BitmapData`).
+  func bitmapID(png: [UInt8], width: Int, height: Int) -> Int32 {
+    if let id = bitmapIDs[png] { return id }
+    let id = newDataID()
+    typealias Layout = BitmapData.BitLayout
+    let widthAndType =
+      UInt32(width) << Layout.widthAndTypeWidthShift
+      | UInt32(bitPattern: BitmapData.typePng8888) << Layout.widthAndTypeImageTypeShift
+    let heightAndEncoding =
+      UInt32(height) << Layout.heightAndEncodingHeightShift
+      | UInt32(bitPattern: BitmapData.encodingInline) << Layout.heightAndEncodingBitmapEncodingShift
+    declare(
+      .bitmapData(
+        BitmapData(
+          imageId: id, widthAndType: Int32(bitPattern: widthAndType),
+          heightAndEncoding: Int32(bitPattern: heightAndEncoding), bitmap: png)))
+    bitmapIDs[png] = id
+    return id
+  }
+
+  private var pathIDs: [RemotePath: Int32] = [:]
+
+  /// The id of `path`, declared once (`PathData`) in pixels, with the non-zero winding rule.
+  private func pathID(_ path: RemotePath) -> Int32 {
+    if let id = pathIDs[path] { return id }
+    let id = newDataID()
+    let idAndWinding =
+      UInt32(bitPattern: id) & PathData.BitLayout.idAndWindingPathIdMask
+      | UInt32(bitPattern: PathData.winding) << PathData.BitLayout.idAndWindingWindingShift
+    declare(
+      .pathData(
+        PathData(
+          idAndWinding: Int32(bitPattern: idAndWinding),
+          pathData: path.pathWords(scale: displayScale))))
+    pathIDs[path] = id
+    return id
   }
 
   private func componentValue(_ type: Int32, _ componentID: Int32) -> Int32 {
@@ -503,6 +640,14 @@ public final class _RemoteWriter {
         DrawLine(
           x1: try pixelWord(start.x), y1: try pixelWord(start.y), x2: try pixelWord(end.x),
           y2: try pixelWord(end.y)))
+    case .path(let path):
+      return .drawPath(DrawPath(id: pathID(path)))
+    case .arc(let center, let radius, let startAngle, let sweep):
+      return .drawArc(
+        DrawArc(
+          left: try pixelWord(center.x - radius), top: try pixelWord(center.y - radius),
+          right: try pixelWord(center.x + radius), bottom: try pixelWord(center.y + radius),
+          startAngle: try floatWord(startAngle), sweepAngle: try floatWord(sweep)))
     }
   }
 
@@ -521,11 +666,14 @@ public final class _RemoteWriter {
     switch command.style {
     case .fill:
       words.append(inline(PaintCommandTags.style, PaintConstants.styleFill))
-    case .stroke(let lineWidth):
+    case .stroke(let lineWidth, let cap, let join):
       words.append(inline(PaintCommandTags.style, PaintConstants.styleStroke))
       words += [
         PaintCommandTags.strokeWidth, Int32(bitPattern: try pixels(lineWidth).bitPattern),
       ]
+      // The defaults (butt, miter) are what a paint starts with, so only a change is written.
+      if cap != .butt { words.append(inline(PaintCommandTags.strokeCap, cap.wire)) }
+      if join != .miter { words.append(inline(PaintCommandTags.strokeJoin, join.wire)) }
     }
     words.append(inline(PaintCommandTags.antiAlias, 1))
     return words
@@ -640,6 +788,10 @@ public final class _RemoteWriter {
       emit(
         .componentVisibilityOperation(
           ComponentVisibilityOperation(visibilityId: try intID(variable))))
+    case .visibleIf(let condition):
+      emit(
+        .componentVisibilityOperation(
+          ComponentVisibilityOperation(visibilityId: try visibilityID(condition))))
     case .tap(let actions):
       // Resolve every id first: a declaration never lands inside the click container, but the
       // ids it needs must exist before the actions are emitted.
@@ -701,6 +853,35 @@ public final class _RemoteWriter {
     case .setVisibility(let variable, let value):
       return .valueIntegerChangeActionOperation(
         ValueIntegerChangeActionOperation(targetValueId: try intID(variable), value: value.wire))
+    case .setBool(let variable, let value):
+      return .valueIntegerChangeActionOperation(
+        ValueIntegerChangeActionOperation(
+          targetValueId: try intID(RemoteBool(variable).int.node), value: value ? 1 : 0))
+    case .toggle(let variable):
+      let current = RemoteBool(variable)
+      return .valueIntegerExpressionChangeActionOperation(
+        ValueIntegerExpressionChangeActionOperation(
+          targetValueId: Self.longID(try intID(current.int.node)),
+          valueExpressionId: Self.longID(try intID((!current).int.node))))
+    case .setDoubleTo(let variable, let value):
+      let target = try floatID(RemoteFloat(variable).node)
+      if let constant = value.constant {
+        return .valueFloatChangeActionOperation(
+          ValueFloatChangeActionOperation(targetValueId: target, value: constant))
+      }
+      return .valueFloatExpressionChangeActionOperation(
+        ValueFloatExpressionChangeActionOperation(
+          targetValueId: target, valueExpressionId: try floatID(value.node)))
+    case .setIntTo(let variable, let value):
+      let target = try intID(variable)
+      if case .constant(let constant) = value.node {
+        return .valueIntegerChangeActionOperation(
+          ValueIntegerChangeActionOperation(targetValueId: target, value: try Self.int32(constant)))
+      }
+      return .valueIntegerExpressionChangeActionOperation(
+        ValueIntegerExpressionChangeActionOperation(
+          targetValueId: Self.longID(target), valueExpressionId: Self.longID(try intID(value.node)))
+      )
     case .setString(let variable, let value):
       let target = try stringID(RemoteString(variable))
       return .valueStringChangeActionOperation(

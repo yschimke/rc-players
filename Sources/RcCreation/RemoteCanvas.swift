@@ -56,6 +56,32 @@ public struct RemoteCanvasSize: Hashable, Sendable {
   }
 }
 
+/// How a stroke ends, as `CGLineCap`.
+public enum RemoteLineCap: Hashable, Sendable {
+  case butt, round, square
+
+  var wire: Int32 {
+    switch self {
+    case .butt: PaintConstants.capButt
+    case .round: PaintConstants.capRound
+    case .square: PaintConstants.capSquare
+    }
+  }
+}
+
+/// How a stroke turns a corner, as `CGLineJoin`.
+public enum RemoteLineJoin: Hashable, Sendable {
+  case miter, round, bevel
+
+  var wire: Int32 {
+    switch self {
+    case .miter: PaintConstants.joinMiter
+    case .round: PaintConstants.joinRound
+    case .bevel: PaintConstants.joinBevel
+    }
+  }
+}
+
 /// Something a ``RemoteGraphicsContext`` fills or strokes.
 public struct RemoteDrawShape: Hashable, Sendable {
   enum Kind: Hashable, Sendable {
@@ -64,6 +90,8 @@ public struct RemoteDrawShape: Hashable, Sendable {
     case ellipse(RemoteRect)
     case circle(center: RemotePoint, radius: RemoteFloat)
     case line(from: RemotePoint, to: RemotePoint)
+    case path(RemotePath)
+    case arc(center: RemotePoint, radius: RemoteFloat, startAngle: RemoteFloat, sweep: RemoteFloat)
   }
 
   let kind: Kind
@@ -84,7 +112,21 @@ public struct RemoteDrawShape: Hashable, Sendable {
     RemoteDrawShape(kind: .circle(center: center, radius: radius))
   }
 
-  /// A segment; it has no area, so only ``RemoteGraphicsContext/stroke(_:with:lineWidth:)``
+  /// Part of a circle's outline: from `startAngle` degrees (0 at three o'clock, increasing
+  /// clockwise) through `sweep` degrees. Both may be live: a gauge's sweep follows its value.
+  public static func arc(
+    center: RemotePoint, radius: RemoteFloat, startAngle: RemoteFloat, sweep: RemoteFloat
+  ) -> RemoteDrawShape {
+    RemoteDrawShape(
+      kind: .arc(center: center, radius: radius, startAngle: startAngle, sweep: sweep))
+  }
+
+  /// A vector path, in the canvas's points.
+  public static func path(_ path: RemotePath) -> RemoteDrawShape {
+    RemoteDrawShape(kind: .path(path))
+  }
+
+  /// A segment; it has no area, so only ``RemoteGraphicsContext/stroke(_:with:lineWidth:lineCap:lineJoin:)``
   /// draws it.
   public static func line(from start: RemotePoint, to end: RemotePoint) -> RemoteDrawShape {
     RemoteDrawShape(kind: .line(from: start, to: end))
@@ -95,7 +137,7 @@ public struct RemoteDrawShape: Hashable, Sendable {
 public struct RemoteGraphicsContext: Sendable {
   enum Style: Hashable, Sendable {
     case fill
-    case stroke(lineWidth: Double)
+    case stroke(lineWidth: Double, cap: RemoteLineCap, join: RemoteLineJoin)
   }
 
   struct Command: Hashable, Sendable {
@@ -110,6 +152,9 @@ public struct RemoteGraphicsContext: Sendable {
         values = [rect.origin.x, rect.origin.y, rect.size.width, rect.size.height]
       case .circle(let center, let radius): values = [center.x, center.y, radius]
       case .line(let start, let end): values = [start.x, start.y, end.x, end.y]
+      case .path: values = []
+      case .arc(let center, let radius, let startAngle, let sweep):
+        values = [center.x, center.y, radius, startAngle, sweep]
       }
       return values.contains { $0.readsCanvasSize }
     }
@@ -124,9 +169,13 @@ public struct RemoteGraphicsContext: Sendable {
   }
 
   public mutating func stroke(
-    _ shape: RemoteDrawShape, with color: RemoteColor, lineWidth: Double = 1
+    _ shape: RemoteDrawShape, with color: RemoteColor, lineWidth: Double = 1,
+    lineCap: RemoteLineCap = .butt, lineJoin: RemoteLineJoin = .miter
   ) {
-    commands.append(Command(shape: shape, color: color, style: .stroke(lineWidth: lineWidth)))
+    commands.append(
+      Command(
+        shape: shape, color: color,
+        style: .stroke(lineWidth: lineWidth, cap: lineCap, join: lineJoin)))
   }
 }
 
