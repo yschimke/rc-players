@@ -1,5 +1,37 @@
 # Changelog
 
+## [4.0.0](https://github.com/yschimke/rc-players/compare/v3.12.1...v4.0.0) (2026-11-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **wasm:** read namedValues colours as the web player does ([#967](https://github.com/yschimke/rc-players/issues/967))
+
+### Features
+
+* **ios:** clear host values and set long and float-array values on the Swift players ([#983](https://github.com/yschimke/rc-players/issues/983)) ([94b1a25](https://github.com/yschimke/rc-players/commit/94b1a254e1d8625407983f9afcc3b33b25e66020))
+* **runtime:** one host value type and one value-to-type rule for every Kotlin host ([#957](https://github.com/yschimke/rc-players/issues/957)) ([5883f68](https://github.com/yschimke/rc-players/commit/5883f68c17de82d29b3d20813a8e15502c6767f1))
+* **swift:** add RcCreation, a SwiftUI-style Swift API, on Swift 6 bindings from a forked AndroidX remote-generator ([#984](https://github.com/yschimke/rc-players/issues/984)) ([644758a](https://github.com/yschimke/rc-players/commit/644758ae31d20fe9dd0ffa2f0ce3b19c05dea13b))
+
+
+### Bug Fixes
+
+* **apple-ui:** stop the Swift controls sample losing edits and stabilize the iOS UI tests ([#981](https://github.com/yschimke/rc-players/issues/981)) ([ce3b186](https://github.com/yschimke/rc-players/commit/ce3b186abbb8ed82ea386fd3aa94e6fde19538b6))
+* **compose:** clear ModulateAlpha layer across player-inserted child layers ([#973](https://github.com/yschimke/rc-players/issues/973)) ([9675e69](https://github.com/yschimke/rc-players/commit/9675e693b9772105650d772dcfc08b147a3fbe2d))
+* **compose:** fade an offset child of a ModulateAlpha layer on Skiko ([#968](https://github.com/yschimke/rc-players/issues/968)) ([dba632e](https://github.com/yschimke/rc-players/commit/dba632e9c32aaa0859cfc0a78416f3a9cce18545))
+* **compose:** keep a node's subtree when its ModulateAlpha layer changes ([#970](https://github.com/yschimke/rc-players/issues/970)) ([8151a98](https://github.com/yschimke/rc-players/commit/8151a98193cc6be8f925f7ff26dfcf824fb37f77))
+* **compose:** start an embedded document with no ModulateAlpha layer ([#971](https://github.com/yschimke/rc-players/issues/971)) ([a72bf77](https://github.com/yschimke/rc-players/commit/a72bf778b0d705b920606cc999111e4e86f08410))
+* **deps:** update dependency com.android.tools.build:gradle to v9.5.3 ([#965](https://github.com/yschimke/rc-players/issues/965)) ([157853d](https://github.com/yschimke/rc-players/commit/157853d4825a641b73dce092e17b284a850be896))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.47.0 ([#961](https://github.com/yschimke/rc-players/issues/961)) ([70c2367](https://github.com/yschimke/rc-players/commit/70c236781705da7225530cd23087ecbc4eac71c9))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.29.1 ([#960](https://github.com/yschimke/rc-players/issues/960)) ([fbe8804](https://github.com/yschimke/rc-players/commit/fbe880472f36c82470e1469963afa89f192fd262))
+* **deps:** update ktor to v3.6.2 ([#966](https://github.com/yschimke/rc-players/issues/966)) ([02718cb](https://github.com/yschimke/rc-players/commit/02718cb7a4cc8576150c25bb03b54bb1cdd287ea))
+* **edit,launcher:** bake host-density layout spacing for AndroidX View and Wear players ([#976](https://github.com/yschimke/rc-players/issues/976)) ([9bf6e17](https://github.com/yschimke/rc-players/commit/9bf6e1729615774e536891aca81e4338009ccf4f))
+* **ios:** a controller write that returned true is shown, also across native session reopens ([#969](https://github.com/yschimke/rc-players/issues/969)) ([39023da](https://github.com/yschimke/rc-players/commit/39023dadbb922a39f12e60270351b7b5a898db6d))
+* **ios:** clear stale float overrides on int writes and update native fallback in place ([#974](https://github.com/yschimke/rc-players/issues/974)) ([3ed81da](https://github.com/yschimke/rc-players/commit/3ed81da5a345910c5720ee812c6bcb994f5b621f))
+* **swift:** native session follows Kotlin on numeric and colour writes ([#980](https://github.com/yschimke/rc-players/issues/980)) ([6b033df](https://github.com/yschimke/rc-players/commit/6b033dfeda5d327e0e20e9721318c8f29340f3b6))
+* **wasm:** drop a bad namedValues element on its own, not the whole array ([#975](https://github.com/yschimke/rc-players/issues/975)) ([175469a](https://github.com/yschimke/rc-players/commit/175469a65559de871432d0740d2c4abbc794f686))
+* **wasm:** read namedValues colours as the web player does ([#967](https://github.com/yschimke/rc-players/issues/967)) ([0df491b](https://github.com/yschimke/rc-players/commit/0df491b0277a6a15af272eeccf65df4e30b12d17))
+
 ## [3.12.1](https://github.com/yschimke/rc-players/compare/v3.12.0...v3.12.1) (2026-11-23)
 
 
