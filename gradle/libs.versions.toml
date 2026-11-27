@@ -211,7 +211,7 @@ composeai-preview-daemon = "3.29.1"
 
 [libraries]
 # `third_party/remote-generator`'s compile classpath, at the versions androidx-main builds it with.
-remote-generator-annotation = { module = "androidx.annotation:annotation", version = "1.9.1" }
+remote-generator-annotation = { module = "androidx.annotation:annotation", version = "1.11.0" }
 remote-generator-javapoet = { module = "com.squareup:javapoet", version = "1.13.0" }
 remote-generator-json = { module = "org.json:json", version = "20231013" }
 remote-generator-jspecify = { module = "org.jspecify:jspecify", version = "1.0.0" }
