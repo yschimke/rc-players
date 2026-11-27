@@ -463,6 +463,11 @@ import Testing
       RemoteDocument(width: 10, height: 10) {
         RemoteColor.red.border(.black, width: .infinity)
       },
+      // A computed action that folds to NaN: written as a constant, it would read as an id.
+      RemoteDocument(width: 10, height: 10) {
+        RemoteColor.red.onTapGesture(
+          .set(RemoteVariable("target", default: 1.0), to: RemoteFloat(0.0) / 0))
+      },
     ] {
       #expect(throws: RemoteEncodingError.nonFiniteValue) { try document.encode() }
     }

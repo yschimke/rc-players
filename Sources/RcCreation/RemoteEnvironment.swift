@@ -57,8 +57,12 @@ extension RemoteEnvironmentValues {
 ///
 /// What `environment(_:_:)` and the modifiers built on it (`font`, `foregroundStyle`, …) return:
 /// a concrete type rather than `some RemoteView`, so its type can be inferred inside a `for` loop.
-public struct RemoteEnvironmentContent<Content: RemoteView>: RemoteView, RemotePrimitive {
+public struct RemoteEnvironmentContent<Content: RemoteView>: RemoteView, RemotePrimitive,
+  RemoteContentWrapping
+{
   public typealias Body = Never
+
+  package var wrappedContent: any RemoteStackContent { content }
 
   let content: Content
   let transform: @Sendable (inout RemoteEnvironmentValues) -> Void

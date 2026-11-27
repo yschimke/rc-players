@@ -229,8 +229,12 @@ enum RemoteModifierElement: Sendable {
 ///
 /// A concrete type rather than `some RemoteView`, so a modified view's type can be inferred
 /// inside a `for` loop in a builder.
-public struct RemoteModifiedContent<Content: RemoteView>: RemoteView, RemotePrimitive {
+public struct RemoteModifiedContent<Content: RemoteView>: RemoteView, RemotePrimitive,
+  RemoteContentWrapping
+{
   public typealias Body = Never
+
+  package var wrappedContent: any RemoteStackContent { content }
 
   let content: Content
   let modifier: RemoteModifierElement
@@ -239,8 +243,9 @@ public struct RemoteModifiedContent<Content: RemoteView>: RemoteView, RemotePrim
     // A rounded background is drawn behind its content, which is a child of the background, so
     // the background never clips it. A shape with uneven corners still clips, as one radius is
     // all a `DrawRoundRect` takes.
+    // A spacer has no children to clip, and drawing behind would move its stack sizing off it.
     if case .background(let color, .roundedCorners(let a, let b, let c, let d)) = modifier,
-      a == b, b == c, c == d
+      a == b, b == c, c == d, !isSpacer(content)
     {
       return try writer.writeRoundedBackground(color, cornerRadius: a, content: content)
     }

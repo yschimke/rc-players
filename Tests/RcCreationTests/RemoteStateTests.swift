@@ -270,6 +270,85 @@ import Testing
     _ = try session.click(componentID: button.componentID, timeSeconds: 0)
   }
 
+  /// `!=` holds for every pair of distinct 32-bit values, even when their difference wraps to
+  /// `Int32.min`, whose magnitude is negative.
+  @Test func inequalityHoldsAcrossTheWholeRange() throws {
+    let value = RemoteVariable("value", default: Int(Int32.min))
+    let document = RemoteDocument(width: 100, height: 100) {
+      RemoteVStack {
+        RemoteText("nonzero").visible(if: value != 0)
+        RemoteText("zero").visible(if: value == 0)
+      }
+    }
+    let session = try open(document)
+    func shown() throws -> [String] {
+      func walk(_ node: NativeSwiftNodeSnapshot) -> [String] {
+        if node.visibility == NativeSwiftVisibility.gone { return [] }
+        return (node.text.map { [$0.value] } ?? []) + node.children.flatMap(walk)
+      }
+      return walk(try session.snapshot().root)
+    }
+    #expect(try shown() == ["nonzero"])
+    #expect(session.setInteger(0, for: value.name))
+    #expect(try shown() == ["zero"])
+    #expect(session.setInteger(Int(Int32.max), for: value.name))
+    #expect(try shown() == ["nonzero"])
+  }
+
+  /// A flexible spacer shares a row's leftover space as a weighted child does, so the row writes
+  /// its gaps as padding; a rounded background on it keeps its weight.
+  @Test func spacersAreWeightedChildren() throws {
+    struct Gap: RemoteView {
+      var body: some RemoteView { RemoteSpacer() }
+    }
+    func rowSpacing(_ document: RemoteDocument) throws -> [Float] {
+      try WireDocument.load(from: document.encode()).operations.compactMap {
+        if case .rowLayout(let row) = $0 { row.spacedBy } else { nil }
+      }
+    }
+    func weights(_ document: RemoteDocument) throws -> Int {
+      try WireDocument.load(from: document.encode()).operations.filter {
+        if case .widthModifierOperation(let width) = $0 {
+          width.type == WidthModifierOperation.weight
+        } else {
+          false
+        }
+      }.count
+    }
+    let plain = RemoteDocument(width: 200, height: 50) {
+      RemoteHStack(spacing: 12) {
+        RemoteText("A")
+        RemoteSpacer()
+        RemoteText("B")
+      }
+    }
+    #expect(try rowSpacing(plain) == [0])
+    let custom = RemoteDocument(width: 200, height: 50) {
+      RemoteHStack(spacing: 12) {
+        RemoteText("A")
+        Gap().padding(2)
+        RemoteText("B")
+      }
+    }
+    #expect(try rowSpacing(custom) == [0])
+    let fixed = RemoteDocument(width: 200, height: 50) {
+      RemoteHStack(spacing: 12) {
+        RemoteText("A")
+        RemoteSpacer(length: 10)
+        RemoteText("B")
+      }
+    }
+    #expect(try rowSpacing(fixed) == [12])
+    let background = RemoteDocument(width: 200, height: 50) {
+      RemoteHStack(spacing: 12) {
+        RemoteText("A")
+        RemoteSpacer().background(.red, in: .roundedRectangle(cornerRadius: 4))
+        RemoteText("B")
+      }
+    }
+    #expect(try weights(background) == 1)
+  }
+
   /// A row's spacing leaves no gap beside a gone child, as `spacedBy` does; a row with flexible
   /// children writes its gaps as padding instead, which the reference players need.
   @Test func rowGapsFollowVisibilityWhenNothingIsWeighted() throws {

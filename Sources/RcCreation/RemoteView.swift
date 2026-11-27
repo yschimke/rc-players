@@ -58,9 +58,35 @@ package protocol RemoteFlexWeightReporting {
   var containsFlexWeight: Bool { get }
 }
 
-/// Whether `content` holds a child given a ``RemoteView/flexWeight(_:)``.
+/// A wrapper that writes its content with something added (a modifier, an environment value):
+/// what the stacks look through to find a spacer.
+package protocol RemoteContentWrapping {
+  var wrappedContent: any RemoteStackContent { get }
+}
+
+/// Whether `content` holds a child that shares a stack's leftover space: one given a
+/// ``RemoteView/flexWeight(_:)``, or a flexible ``RemoteSpacer``, however modified.
 func containsFlexWeight(_ content: some RemoteStackContent) -> Bool {
-  (content as? any RemoteFlexWeightReporting)?.containsFlexWeight ?? false
+  if let reporting = content as? any RemoteFlexWeightReporting {
+    return reporting.containsFlexWeight
+  }
+  if let wrapper = content as? any RemoteContentWrapping {
+    return containsFlexWeight(wrapper.wrappedContent)
+  }
+  // A view of your own is what its body is.
+  if !(content is any RemotePrimitive), let view = content as? any RemoteView {
+    return containsFlexWeight(body(of: view))
+  }
+  return false
+}
+
+private func body(of view: some RemoteView) -> any RemoteStackContent { view.body }
+
+/// Whether `content` is a ``RemoteSpacer``, however modified: it has no children to draw.
+func isSpacer(_ content: some RemoteStackContent) -> Bool {
+  if content is RemoteSpacer { return true }
+  if let wrapper = content as? any RemoteContentWrapping { return isSpacer(wrapper.wrappedContent) }
+  return false
 }
 
 extension RemoteTupleView: RemoteFlexWeightReporting {

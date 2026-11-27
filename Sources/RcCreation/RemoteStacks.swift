@@ -202,8 +202,11 @@ public struct RemoteZStack<Content: RemoteView>: RemoteView, RemotePrimitive {
 
 /// Space. In a stack, `RemoteSpacer()` takes the space the other children leave, shared with any
 /// other spacers and flex-weighted views; `RemoteSpacer(length:)` is a fixed gap along the stack.
-public struct RemoteSpacer: RemoteView, RemotePrimitive {
+public struct RemoteSpacer: RemoteView, RemotePrimitive, RemoteFlexWeightReporting {
   public typealias Body = Never
+
+  /// A flexible spacer shares a stack's leftover space, as a flex-weighted child does.
+  package var containsFlexWeight: Bool { length == nil }
 
   let length: RemoteFloat?
 

@@ -980,7 +980,7 @@ package final class RemoteWriter {
       let target = try floatID(RemoteFloat(variable).node)
       if let constant = value.constant {
         return .valueFloatChangeActionOperation(
-          ValueFloatChangeActionOperation(targetValueId: target, value: constant))
+          ValueFloatChangeActionOperation(targetValueId: target, value: try Self.finite(constant)))
       }
       return .valueFloatExpressionChangeActionOperation(
         ValueFloatExpressionChangeActionOperation(

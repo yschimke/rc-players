@@ -116,8 +116,10 @@ public struct RemoteInt: Hashable, Sendable, ExpressibleByIntegerLiteral {
   }
 
   public static func != (lhs: RemoteInt, rhs: RemoteInt) -> RemoteBool {
-    // 0 when equal, else 1: the difference's magnitude, capped at 1.
-    RemoteBool(int: .min((lhs - rhs).magnitude, 1))
+    // 0 when equal, else 1: the magnitude of the difference's sign. The 32-bit difference wraps
+    // to 0 only when the values are equal, and its sign is exact even at `Int32.min`, whose
+    // magnitude is not.
+    RemoteBool(int: (lhs - rhs).signum().magnitude)
   }
 
   // Ordering is the sign of the difference, so it holds while the difference fits in 32 bits:
