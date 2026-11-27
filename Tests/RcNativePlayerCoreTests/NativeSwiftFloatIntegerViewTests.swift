@@ -435,9 +435,7 @@ import Testing
       data: document.data, toleratingRootlessData: true
     ).probeValues(timeSeconds: 0)
     #expect(values.floats[80] == 5)
-    withKnownIssue("the session resolves integer expressions before the floats they read") {
-      #expect(values.integers[81] == 5, "\(String(describing: values.integers[81]))")
-    }
+    #expect(values.integers[81] == 5, "\(String(describing: values.integers[81]))")
   }
 
   /// Kotlin `ComponentValue` -> `storeFloat(valueId, width)`: an integer expression reads it.
@@ -456,9 +454,7 @@ import Testing
     _ = try session.snapshot()
     let values = try session.probeValues(timeSeconds: 0)
     #expect(values.floats[90] == 100, "\(String(describing: values.floats[90]))")
-    withKnownIssue("the session resolves integer expressions before the floats they read") {
-      #expect(values.integers[91] == 100, "\(String(describing: values.integers[91]))")
-    }
+    #expect(values.integers[91] == 100, "\(String(describing: values.integers[91]))")
   }
 
   /// Kotlin: a float constant at EPOCH_SECOND claims the id; `load` publishes integers = trunc(f).
@@ -581,9 +577,7 @@ import Testing
       #expect(
         values.floats[80] == Float(128) / 255,
         "t=\(time): \(String(describing: values.floats[80]))")
-      withKnownIssue("the session resolves integer expressions before the floats they read") {
-        #expect(values.integers[80] == 0 && values.integers[81] == 0 && values.floats[82] == 0)
-      }
+      #expect(values.integers[80] == 0 && values.integers[81] == 0 && values.floats[82] == 0)
     }
   }
 

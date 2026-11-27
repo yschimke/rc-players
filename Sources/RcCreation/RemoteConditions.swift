@@ -20,6 +20,8 @@ public struct RemoteInt: Hashable, Sendable, ExpressibleByIntegerLiteral {
   indirect enum Node: Hashable, Sendable {
     case constant(Int)
     case variable(name: String, declaration: Declaration)
+    /// A float read through its integer view: truncated toward zero, as the players read one.
+    case floatView(RemoteFloat.Node)
     case unary(Operator, Node)
     case binary(Operator, Node, Node)
   }
@@ -67,6 +69,23 @@ public struct RemoteInt: Hashable, Sendable, ExpressibleByIntegerLiteral {
 
   public init(_ value: Int) { node = .constant(value) }
   public init(integerLiteral value: Int) { self.init(value) }
+
+  /// A value the player supplies, as an integer: `RemoteInt(.hour)`, `RemoteInt(.weekday)`.
+  public init(_ value: RemoteSystemValue) {
+    node = .floatView(.system(value.id))
+  }
+
+  /// `value` truncated toward zero, as `Int(_:)` truncates: a float expression's result as an
+  /// integer the player keeps live, to switch on or compare.
+  public init(truncating value: RemoteFloat) {
+    if let constant = value.constant, constant.isFinite,
+      let integer = Int(exactly: constant.rounded(.towardZero))
+    {
+      node = .constant(integer)
+    } else {
+      node = .floatView(value.node)
+    }
+  }
 
   /// The variable's live value.
   public init(_ variable: RemoteVariable<Int>) {

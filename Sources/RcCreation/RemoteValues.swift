@@ -60,7 +60,7 @@ public struct RemoteFloat: Hashable, Sendable, ExpressibleByFloatLiteral,
 
   /// The `FloatExpression` operators this API writes.
   enum Operator: Hashable, Sendable {
-    case add, subtract, multiply, divide, modulo, minimum, maximum, absolute
+    case add, subtract, multiply, divide, modulo, minimum, maximum, absolute, sign
 
     var code: Int32 {
       switch self {
@@ -72,6 +72,7 @@ public struct RemoteFloat: Hashable, Sendable, ExpressibleByFloatLiteral,
       case .minimum: FloatExpressionOperator.min
       case .maximum: FloatExpressionOperator.max
       case .absolute: FloatExpressionOperator.abs
+      case .sign: FloatExpressionOperator.sign
       }
     }
   }
@@ -127,6 +128,26 @@ public struct RemoteFloat: Hashable, Sendable, ExpressibleByFloatLiteral,
     .min(.max(self, RemoteFloat(range.lowerBound)), RemoteFloat(range.upperBound))
   }
 
+  /// -1, 0 or 1, as the value is negative, zero or positive.
+  func sign() -> RemoteFloat {
+    if let value = constant { return RemoteFloat(value > 0 ? 1 : value < 0 ? -1 : 0) }
+    return RemoteFloat(node: .unary(.sign, node))
+  }
+
+  // Comparisons the player evaluates, as a ``RemoteBool``: `RemoteFloat(.hour) < 12`. Each is the
+  // sign of the difference, read through its integer view. There is no `==` on floats, as there
+  // is none a float's rounding makes reliable.
+
+  public static func < (lhs: RemoteFloat, rhs: RemoteFloat) -> RemoteBool {
+    if let left = lhs.constant, let right = rhs.constant { return RemoteBool(left < right) }
+    // 1 when `rhs - lhs` is positive, else 0.
+    return RemoteBool(int: RemoteInt(truncating: .max((rhs - lhs).sign(), 0)))
+  }
+
+  public static func > (lhs: RemoteFloat, rhs: RemoteFloat) -> RemoteBool { rhs < lhs }
+  public static func <= (lhs: RemoteFloat, rhs: RemoteFloat) -> RemoteBool { !(lhs > rhs) }
+  public static func >= (lhs: RemoteFloat, rhs: RemoteFloat) -> RemoteBool { !(lhs < rhs) }
+
   /// Whether this reads the size of the canvas being drawn.
   var readsCanvasSize: Bool { node.readsCanvasSize }
 
@@ -172,6 +193,11 @@ extension RemoteVariable where Value == Double {
   public static func * (lhs: Self, rhs: Self) -> RemoteFloat { RemoteFloat(lhs) * RemoteFloat(rhs) }
   public static func / (lhs: Self, rhs: Self) -> RemoteFloat { RemoteFloat(lhs) / RemoteFloat(rhs) }
   public static prefix func - (operand: Self) -> RemoteFloat { -RemoteFloat(operand) }
+
+  public static func < (lhs: Self, rhs: RemoteFloat) -> RemoteBool { RemoteFloat(lhs) < rhs }
+  public static func <= (lhs: Self, rhs: RemoteFloat) -> RemoteBool { RemoteFloat(lhs) <= rhs }
+  public static func > (lhs: Self, rhs: RemoteFloat) -> RemoteBool { RemoteFloat(lhs) > rhs }
+  public static func >= (lhs: Self, rhs: RemoteFloat) -> RemoteBool { RemoteFloat(lhs) >= rhs }
 
   /// The magnitude of the variable's live value.
   public var magnitude: RemoteFloat { RemoteFloat(self).magnitude }

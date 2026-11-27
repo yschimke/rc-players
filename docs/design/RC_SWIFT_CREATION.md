@@ -96,7 +96,7 @@ which the player supplies as it lays the canvas out.
 | Modifiers | `frame`, `flexWeight`, `padding`, `offset`, `zIndex`, `background`, `clipShape`, `border`, `visibility`, `hidden`, `visible(if:)`, `onTapGesture`; `RemoteButton`; your own with `RemoteViewModifier` and `modifier(_:)` | the matching modifier ops; a rounded `background` as `DrawContentOperation` + `CanvasOperations` |
 | Accessibility | `accessibilityLabel`, `accessibilityValue`, `accessibilityRole`, `accessibilityElement(children:)` | one `CoreSemantics` per view |
 | State | `RemoteVariable<Double / Int / Bool / String / RemoteColorValue / RemoteVisibility / some RemoteStateValue>` | `FloatConstant`, `IntegerConstant`, `TextData`, `ColorConstant`, `NamedVariable` |
-| Conditions | `RemoteBool` and `RemoteInt`: comparisons, `&&`, `\|\|`, `!`, integer arithmetic over variables | `IntegerExpression` |
+| Conditions | `RemoteBool` and `RemoteInt`: `== != < <= > >=`, `&&`, `\|\|`, `!`, `+ - * / %` over variables; `RemoteInt(.hour)` and the other player values; `RemoteInt(truncating:)` a float; `< <= > >=` on `RemoteFloat` | `IntegerExpression`, a float read through its integer view |
 | Expressions | `+ - * /`, `min`, `max`, `magnitude`, `clamped(to:)` on `RemoteFloat` and on `Double` variables | one `FloatExpression` per expression, in reverse-Polish order |
 | Text from values | interpolation: `"\(x, decimals: 2)"`, `"\(variable)"` | `TextFromFloat`, `TextMerge` |
 | Actions | `.host(id:)`, `.host(_:value:)`, `.set(_:to:)` on a variable or a state, `.toggle(_:)`, `.increment(_:by:in:)` | `HostAction`, `HostNamedAction`, value-change actions |
@@ -156,6 +156,12 @@ which the player supplies as it lays the canvas out.
   `LayoutContent` and two `ContainerEnd`s; a canvas adds `CanvasContent`, and binds its size to its
   `LayoutContent`, as AndroidX binds a component's size. `TextLayout` is used rather than
   `CoreText` because every player profile reads it.
+- **A float is also an integer.** As AndroidX's `setFloat` publishes, every float has an integer
+  view, truncated toward zero, and an integer reader (an `IntegerExpression`, a `StateLayout`
+  index) names the float's id to read it. `RemoteInt(.weekday)`, `RemoteInt(truncating:)` and the
+  float comparisons are written that way; a float comparison is the sign of the difference,
+  clamped to 0 or 1. The native player publishes the views in wire order, as the reference does.
+
 - **Constants fold.** Arithmetic on two constants is evaluated in Swift and costs the document
   nothing; adjacent constant text in an interpolation becomes one string.
 - **One wire layer.** RcCreation depends only on `RcWireOperations`, the generated bindings, and

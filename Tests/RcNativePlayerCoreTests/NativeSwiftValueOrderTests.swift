@@ -105,13 +105,11 @@ import Testing
     for time in [0.0, 0.5, 2.0] {
       let snapshot = try session.snapshot(timeSeconds: time, wallClock: clock)
       let values = try session.probeValues(timeSeconds: time, wallClock: clock)
-      withKnownIssue("integer expressions do not read the clock") {
-        #expect(
-          values.integers[60] == 1845, "t=\(time) int \(String(describing: values.integers[60]))")
-        #expect(
-          values.floats[51] == 1845,
-          "t=\(time) Kotlin 1845; Swift \(String(describing: values.floats[51]))")
-      }
+      #expect(
+        values.integers[60] == 1845, "t=\(time) int \(String(describing: values.integers[60]))")
+      #expect(
+        values.floats[51] == 1845,
+        "t=\(time) Kotlin 1845; Swift \(String(describing: values.floats[51]))")
       #expect(!snapshot.needsContinuousFrames, "t=\(time) still animating")
     }
   }
@@ -273,12 +271,10 @@ import Testing
     ).probeValues(timeSeconds: 0)
     // The constant's integer view (2) is not seeded under the expression's float.
     #expect(values.integers[60] != 2, "\(values.integers[60] as Any)")
-    withKnownIssue("a float expression publishes no integer view") {
-      #expect(
-        values.floats[60] == 7.5 && values.integers[60] == 7 && values.integers[61] == 7,
-        "Kotlin 7.5/7/7: \(values.floats[60] as Any) \(values.integers[60] as Any)"
-      )
-    }
+    #expect(
+      values.floats[60] == 7.5 && values.integers[60] == 7 && values.integers[61] == 7,
+      "Kotlin 7.5/7/7: \(values.floats[60] as Any) \(values.integers[60] as Any)"
+    )
   }
 
   /// DATA_FLOAT 80 = 1, an 8x4 bitmap, then ATTRIBUTE_IMAGE writing its width into 80. Kotlin
@@ -353,13 +349,9 @@ import Testing
     let session = try NativeSwiftDocumentSession.open(data: document.data)
     session.setHostDensity(3)
     let before = try session.probeValues(timeSeconds: 0)
-    withKnownIssue("integer expressions do not read the density") {
-      #expect(before.integers[61] == 3, "before click: \(String(describing: before.integers[61]))")
-    }
+    #expect(before.integers[61] == 3, "before click: \(String(describing: before.integers[61]))")
     _ = try session.click(componentID: 3, timeSeconds: 0)
     let after = try session.probeValues(timeSeconds: 0)
-    withKnownIssue("integer expressions do not read the density") {
-      #expect(after.integers[70] == 3, "Kotlin 3; Swift \(String(describing: after.integers[70]))")
-    }
+    #expect(after.integers[70] == 3, "Kotlin 3; Swift \(String(describing: after.integers[70]))")
   }
 }

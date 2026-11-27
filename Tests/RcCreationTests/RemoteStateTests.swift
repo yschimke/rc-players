@@ -217,6 +217,41 @@ import Testing
     #expect(try shown() == ["r0", "q0", "lt5", "le7", "neg"])
   }
 
+  /// Floats as integers and float comparisons: a state chosen by a float expression, a condition
+  /// over a float, and the hour of the wall clock, live on the native player.
+  @Test func floatsDriveConditionsAndStates() throws {
+    let temperature = RemoteVariable("temperature", default: 18.5)
+    let document = RemoteDocument(width: 200, height: 100) {
+      RemoteVStack {
+        // 0-9.9 → 0, 10-19.9 → 1, 20-29.9 → 2.
+        RemoteSwitch(RemoteInt(truncating: temperature / 10), in: 0..<3) { band in
+          RemoteText("band\(band)")
+        }
+        RemoteText("warm").visible(if: temperature > 20)
+        RemoteText("cool").visible(if: temperature <= 20)
+        RemoteSwitch(RemoteInt(.hour) / 12, in: 0..<2) { half in
+          RemoteText(half == 0 ? "am" : "pm")
+        }
+      }
+    }
+    let session = try open(document)
+    // 14:00 UTC on a day.
+    let clock = NativeSwiftWallClock(
+      epochMillis: 1_700_000_000_000 - 1_700_000_000_000 % 86_400_000 + 14 * 3_600_000)
+    func shown() throws -> [String] {
+      func walk(_ node: NativeSwiftNodeSnapshot) -> [String] {
+        if node.visibility == NativeSwiftVisibility.gone { return [] }
+        return (node.text.map { [$0.value] } ?? []) + node.children.flatMap(walk)
+      }
+      return walk(try session.snapshot(wallClock: clock).root)
+    }
+    #expect(try shown() == ["band1", "cool", "pm"])
+    #expect(session.setFloat(27.25, for: temperature.name))
+    #expect(try shown() == ["band2", "warm", "pm"])
+    #expect(session.setFloat(20, for: temperature.name))
+    #expect(try shown() == ["band2", "cool", "pm"])
+  }
+
   /// Constants fold in Swift, except where only the player decides the result.
   @Test func integerConstantsFold() throws {
     #expect((RemoteInt(7) * 3 + 1).node == .constant(22))
@@ -224,6 +259,8 @@ import Testing
     #expect((RemoteInt(-7) % 2).node == .constant(-1))
     #expect(RemoteInt(-5).signum().node == .constant(-1))
     #expect((RemoteInt(7) / 0).node == .binary(.divide, .constant(7), .constant(0)))
+    #expect(RemoteInt(truncating: -2.75).node == .constant(-2))
+    #expect((RemoteFloat(1.5) < 2) == RemoteBool(true))
   }
 
   /// An action can copy a variable or a system value: its source is written as an expression,

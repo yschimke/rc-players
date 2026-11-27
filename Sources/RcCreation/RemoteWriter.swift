@@ -304,6 +304,9 @@ package final class RemoteWriter {
       id = try variableID(name, declared, type: NamedVariable.int) { id in
         declare(.integerConstant(IntegerConstant(id: id, value: value)))
       }
+    case .floatView(let float):
+      // An integer reader reads a float's id through its integer view.
+      id = try floatID(float)
     case .unary(let operation, let operand):
       id = try declareIntegerExpression(node) { () throws(RemoteEncodingError) in
         [(try intID(operand), true), (IntegerExpressionOperator.offset + operation.code, true)]
@@ -351,7 +354,7 @@ package final class RemoteWriter {
   ) throws(RemoteEncodingError) {
     switch node {
     case .constant(let value): words.append((try Self.int32(value), false))
-    case .variable: words.append((try intID(node), true))
+    case .variable, .floatView: words.append((try intID(node), true))
     case .unary(let operation, let operand):
       try appendIntegerRPN(operand, to: &words)
       words.append((IntegerExpressionOperator.offset + operation.code, true))
