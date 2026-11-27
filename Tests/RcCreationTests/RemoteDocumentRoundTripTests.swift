@@ -267,9 +267,9 @@ import Testing
     #expect(texts[semantics[0].stateDescriptionId] == "62 percent")
     #expect(Int32(Int8(bitPattern: semantics[0].role)) == CoreSemantics.roleImage)
     #expect(
-      try WireDocument.load(from: document.encode()).properties?.contains {
-        $0.stringValue == "Upload card"
-      } == true)
+      try WireDocument.load(from: document.encode()).properties.contains {
+        $0.value == .string("Upload card")
+      })
   }
 
   @Test func aTextStyleScalesWithTheReadersTextSize() throws {
@@ -448,8 +448,7 @@ import Testing
     }
     #expect(
       throws: RemoteEncodingError.wire(
-        .lengthExceedsLimit(
-          type: "TextData", field: "text", length: length, limit: WireLimits.maxStringSize))
+        .lengthOutOfRange(field: "utf8", length: length, min: nil, max: WireLimits.maxStringSize))
     ) { try document.encode() }
   }
 

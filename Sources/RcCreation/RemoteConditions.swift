@@ -33,6 +33,7 @@ public struct RemoteInt: Hashable, Sendable, ExpressibleByIntegerLiteral {
   enum Operator: Hashable, Sendable {
     case add, subtract, multiply, divide, remainder, minimum, maximum, absolute, sign
 
+    /// The operator's word in an expression, `IntegerExpressionOperator.offset` included.
     var code: Int32 {
       switch self {
       case .add: IntegerExpressionOperator.iAdd

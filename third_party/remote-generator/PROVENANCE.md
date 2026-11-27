@@ -12,7 +12,7 @@ holds only a licence file.
 | --- | --- |
 | Repository | `https://android.googlesource.com/platform/frameworks/support` |
 | Path | `compose/remote/remote-generator` |
-| Commit | `aba0a479ed6` (androidx-main, 2026-11-26) |
+| Commit | `eea249910d7` (androidx-main, 2026-11-27); previously `aba0a479ed6` (2026-11-26) |
 | Licence | Apache 2.0, as each file's header says |
 
 What was copied:
@@ -26,6 +26,13 @@ What was copied:
 Not copied: `src/test/**`. Upstream's tests compile against `:compose:remote:remote-core` and
 `:kruth`, which are not in this build. `:rc-codegen`'s tests and the Swift suites cover what this
 repository uses.
+
+Upstream's tests can still be run against the fork, to see where it diverges: copy upstream's
+`src/test` in and add `junit` and `remote-core` as test dependencies, temporarily. At `eea249910d7`,
+with the published `remote-core` 1.0.0-alpha24, 31 of the 40 pass. Three fail on pure upstream too:
+two compare the schema with a newer `remote-core` than alpha24, and the third is the subset
+golden snapshot. The other six assert the literal text upstream's Swift and schema write (`>> 10`,
+`maxLength: 4000`, `buffer.remaining / 20`, `type != 0 && …`), where the fork writes names.
 
 ## Formatting
 
@@ -42,49 +49,55 @@ Every hunk is marked `LOCAL PATCH (rc-players)`.
 | --- | --- | --- |
 | `RemoteCodegenTarget.kt` (new) | `RemoteCodegenTarget`, `remoteCodegenTarget(id) { … }`, and `builtInTargets()`, which exposes upstream's languages as targets (the fork's Swift as `swift`) | Upstream picks a platform by `LANGUAGE_*` constant, so a new platform means editing upstream's dispatcher. A target is the extension point. |
 | `RemoteSerializationCodeGenerator.kt` | `loadBundledSchema()` made public; `generate(target, outputDirectory, schema)` added | A target outside the module needs the same schema, and a way to run. |
-| `codegen/SwiftGenerator.kt`, `codegen/MultiLangProtocolGenerator.kt` (Swift output only) | The Swift output is Swift 6 without Foundation: `[UInt8]` bytes; a typed `WireError` enum and `throws(WireError)` on every read and write; a validating UTF-8 decode (`String(validating:as:)` where the runtime has it); `Sendable` and `Hashable` on every struct and enum (`FloatAnimationSpec` hashes NaNs alike, as its `==` compares them); a closed `WireOperation` enum, one case per operation, in place of `[RemoteOperation]`; and `WireDocument` (upstream: `RemoteDocument`), which keeps a modern header's properties and writes them back. Every declared constant is renamed to lowerCamelCase (`DOC_WIDTH` → `docWidth`) by one pass over the finished file. | So the bindings build with the standard library alone, a caller can switch over operations and inspect a failure, and a document round-trips header and all. Upstream's names collide with an authoring `RemoteDocument` and break Swift's API guidelines. |
-| `codegen/SwiftGenerator.kt` | `Swift.min` in array reads | Upstream bug: in an operation with a field named `min`, the unqualified call resolves to the field, and upstream's Swift fails to compile (16 errors). |
-| `codegen/SwiftGenerator.kt` | `HeaderLayout`, emitted from the schema's bit layouts (`Header.majorVersion`'s version and magic, `HeaderProperty.tag`'s key and data type) and limits; the `RemoteDocument` loader names every header value (`HeaderConstants.DATA_TYPE_*`, `MAGIC_NUMBER`, `HeaderProperty.DOC_WIDTH` …) instead of repeating it as a literal | Upstream's template hard-codes `0xFFFF0000`, `0x048C0000`, `0x3F`, `case 0…3` and keys 5/6/14/31, which this repository's rule on native wire constants forbids. |
-| `codegen/SwiftGenerator.kt`, `codegen/MultiLangProtocolGenerator.kt` (Swift output only) | Every remaining number in the generated Swift is named. A `WireLimits` enum holds each field's `maxLength` under its `javaLimit` name (or one made for the field) and the initial-capacity cap. Element sizes are `MemoryLayout<…>.size` or a struct's `MIN_WIRE_BYTES`. Each struct gets a `BitLayout` enum (shifts, masks, sign-extension shifts, reserved-bit masks, from the schema's bit ranges), and an op with sparse parameters a `SparseParameterID` enum. Strict-enum checks and skip conditions match the struct's named constants. Field defaults are named `default…` constants. `WireBuffer` reads integers through one generic big-endian reader. The hand-written helpers name their layouts: `FloatAnimationSpec.BitLayout` from `animationSpec.flagsBits`, `PathCommandLayout` and the `PathEffect` offsets from the schema's fields, `isTime` by variable name. | AGENTS.md forbids wire magic numbers in Swift decoders. `RcCodegenTest.swiftNamesEveryNumber` fails if the generated file has a number (other than 0, 1 or an error code) outside a named definition; every other language's output is byte-identical to upstream's. |
-| `codegen/SwiftGenerator.kt`, `codegen/MultiLangProtocolGenerator.kt` (Swift output only) | What a writer needs, which upstream's Swift (a reader) leaves out: the schema's `rpnOperators` and `intRpnOperators` as `FloatExpressionOperator` and `IntegerExpressionOperator`; `IdEncoding.noId` from `idEncoding.noId`; and `PaintCommandTags`' `tagMask` and `inlineValueShift`, the packing the `inline_high16` paint formats name | So `RcCreation` writes every operator, sentinel and paint word from a generated name. |
-| `codegen/SwiftGenerator.kt` | Every write of a field with a `maxLength` first checks it (UTF-8 bytes for a string, elements for an array) and throws `WireError.lengthExceedsLimit`, as the reader does | Upstream's writers skip the check, so a writer can produce a document its own reader refuses. |
-| `codegen/MultiLangProtocolGenerator.kt` (Swift output only) | `IdEncoding.isNanBits` takes any NaN with a payload as an id, whatever its sign (`NAN_EXPONENT`); `Float.nan`, which has none, stays a value | Upstream also required the sign bit, so `0x7F800005` read as a value in Swift and as id 5 in the Java readers (`Float.isNaN`, then `Utils.idFromNan`). |
+| `codegen/SwiftGenerator.kt`, `codegen/MultiLangProtocolGenerator.kt` (Swift output only) | Every number in the generated Swift is named. A `WireLimits` enum holds each field's `maxLength` under its `javaLimit` name (or one made for the field), each `minLength`, and the initial-capacity cap; a length prefix's range is `Int(UInt16.max)` and the like. Element sizes are `MemoryLayout<…>.size` or a struct's `minWireBytes`. Each struct gets a `BitLayout` enum (shifts, masks, sign-extension shifts, reserved-bit masks, from the schema's bit ranges), its minimums and field defaults as `min…` and `default…` constants, and an op with sparse parameters a `SparseParameterID` enum. Strict-enum checks and skip conditions match the struct's named constants. `WireBuffer` reads and writes integers through one generic big-endian reader and writer. `HeaderLayout`, from the schema's header bit layouts (upstream's values for a schema without them), and an internal `HeaderKey` name every header word the `WireDocument` loader and writer use; its hash discriminators are strings. The hand-written helpers name their layouts: `FloatAnimationSpec.BitLayout` from `animationSpec.flagsBits`, `PathCommandLayout` and the `PathEffect` offsets from the schema's fields, `isTime` by variable name, the operator tables' valid ids as an `ids` set, `ColorExpression`'s `alphaPayloadShift` and `alphaPayloadMask`. `toSwiftLowerCamel` is internal so both files name constants alike. | AGENTS.md forbids wire magic numbers in Swift decoders, and upstream's templates write them throughout (`>> 10`, `& 0x3F`, keys 5/6/14/31, `/ 20`, `4096`, `case 0, 1, 2`). `RcCodegenTest.swiftNamesEveryNumber` fails if the generated file has a number (other than 0, 1 or an error code) outside a named definition; every other language's output is upstream's. |
 | `codegen/MultiLangProtocolGenerator.kt` (Swift output only) | A doc comment on `FloatAnimationSpec.pack`: its size matches AndroidX's `FloatAnimation.packToFloatArray`, trailing zeros included | The count looks wrong (the initial value and the parameters are counted more than once), but it is AndroidX's, so a Swift writer's words match a Java or Kotlin writer's. `HelperTests` pins the words. |
-| `operations.json`, `JsonSchemaParser.kt`, `OperationSchema.kt`, `codegen/CodegenExprUtils.kt`, every generator | Condition expressions (`presentIf`, `conditionalTypes`, `conditionalRoles`) name their values instead of writing numbers: a top-level `expressionConstants` table (mesh types and flag, animation kind mask and `CUSTOM`, colour-expression modes, custom-property types, event flags, graphics-layer and header tag fields, the bitmap-font kerning version, the text dynamic-colour flag), parsed into `OperationSchema.expressionConstants`; `conditionConstants` adds the header constants. `translateCondition` takes a `constants` map. Every language but Swift inlines the values, and its output is byte-identical to before; Swift references a generated `WireExpressionConstants` enum and compares fields widened to `Int`. | Upstream copies each expression verbatim into every language, so its numbers (`(enterAnimation & 255) == 8`) became wire magic numbers in the Swift decoder. `RcCodegenTest.conditionsNameEveryValue` fails if a number (other than a zero flag test) comes back. |
-| `JsonSchemaParser.kt`, `OperationSchema.kt` | `SchemaIdEncoding.noId`, read from `idEncoding.noId` (default -1) | The "no id" sentinel (no component id requested, no animation, the default font) is a wire value the schema did not name. |
-| `resources/schema/operations.json` | Values upstream's schema leaves out, added so generated code needs no hand-written constants: `colorRef` bit on `BackgroundModifierOperation.flags` and `BorderModifierOperation.flags`; enums on `BorderModifierOperation.shapeType` (`RECTANGLE`, `CIRCLE`, `ROUNDED_RECTANGLE` = 2), `BorderModifierOperation.reserve1` (`LEGACY`, `VERSION_1`) and `TextLayout.fontStyle` (`NORMAL`, `ITALIC`); `headerConstants.propertyType` (`DATA_TYPE_INT` … `DATA_TYPE_STRING`) and `headerConstants.version` (`MAGIC_NUMBER` 0x048C0000, major 1, minor 1, patch 0); `idEncoding.noId` (-1); `expressionConstants` `VISIBILITY_*` (gone 0, visible 1, invisible 2, the override bits 16, 32, 64 and clear 128, AndroidX's `Component.Visibility`) | JSON has no comments, so this table is the marker. Each value is AndroidX's: the writers in `remote-creation-compose` and `remote-core`. `ROUNDED_RECTANGLE` matters: without it a writer sends a radius with shape 0 and players draw the border square. Upstream's validator passes over the patched file (`RcCodegenTest.schemaPassesUpstreamValidation`). |
+| `operations.json`, `JsonSchemaParser.kt`, `OperationSchema.kt`, `codegen/CodegenExprUtils.kt`, every generator | Condition expressions (`presentIf`, `conditionalTypes`, `conditionalRoles`) name their values instead of writing numbers: a top-level `expressionConstants` table (mesh types and flag, animation kind mask and `CUSTOM`, colour-expression modes, custom-property types, event flags, graphics-layer and header tag fields, the bitmap-font kerning version, the text dynamic-colour flag), parsed into `OperationSchema.expressionConstants`; `conditionConstants` adds the header constants. `translateCondition` takes a `constants` map. Every language but Swift inlines the values, and its output is byte-identical to upstream's; Swift references a generated `WireExpressionConstants` enum and compares fields widened to `Int`. | Upstream copies each expression verbatim into every language, so its numbers (`(enterAnimation & 255) == 8`) became wire magic numbers in the Swift decoder. `RcCodegenTest.conditionsNameEveryValue` fails if a number (other than a zero flag test) comes back. JSON has no comments, so this row marks the `operations.json` hunks; upstream's validator passes over the patched file (`RcCodegenTest.schemaPassesUpstreamValidation`). |
+
+### Patches upstream has taken
+
+Dropped at `eea249910d7`, because upstream now does the same (with its own names, which the fork
+adopts):
+
+| Commit | Upstream change | The fork's patch it replaces |
+| --- | --- | --- |
+| `28319b34d33` "Make generated Swift bindings zero-Foundation and Swift 6-ready" | `[UInt8]` bytes, a typed `WireError` and `throws(WireError)`, a validating UTF-8 decode, `Equatable`/`Hashable`/`Sendable` throughout (bit-exact float equality), a closed `WireOperation` enum, `WireDocument` keeping a modern header's properties (`WireHeaderProperty`, `HeaderPropertyValue`), lowerCamelCase constants, `Swift.min` | The Swift 6 dialect, the `WireDocument` rewrite, the lowerCamelCase rename pass and the `Swift.min` fix |
+| `9576762a7d8` "Add Swift writer tables and symmetric maxLength write checks" | `FloatExpressionOperator` and `IntegerExpressionOperator`, `IdEncoding.noId`, `PaintCommandTags.tagMask` and `inlineValueShift`; every `maxLength` field checked on write | The writer tables and the write-side `maxLength` checks |
+| `72d1b1f9e0a` "Ignore sign bit in isNanBits across all generated languages" | `isNanBits` takes any NaN with a payload as an id, in every language (`idEncoding.nanExponent`) | The Swift-only `isNanBits` fix |
+| `6325c2be1f1` "Enrich operations.json schema metadata, enums, and reserved opcodes" | `COLOR_REF` on the background and border flags; the border shape (with `ROUNDED_RECTANGLE` = 2) and wire version; `TextLayout.fontStyle` (`FONT_STYLE_NORMAL`, `FONT_STYLE_ITALIC`); `headerConstants.dataTypes` and `version`; `idEncoding.noId` and `nanExponent`; `visibilityConstants` (Swift `ComponentVisibility`); `STORE_R0` spelled right; `reservedOpcodes`; `opCodeName` and `javaClass` | Every `operations.json` value addition, and `SchemaIdEncoding.noId` in the parser |
+| `2f4299a9fb1` "Harden JsonSchemaParser opCodeName, reservedOpcodes, and resolvedAfter validation" | Validation of the new schema fields | (none: new upstream behaviour) |
 
 ## Found while forking (for upstream)
 
 These are also tracked in the upstream-issues document linked from
 [`docs/design/RC_CODEGEN.md`](../../docs/design/RC_CODEGEN.md).
 
-- Upstream's Swift output does not compile: `min(...)` is shadowed by an operation's `min` field.
-- Upstream's Swift `RemoteDocument` drops a modern header's properties when it loads one (density,
-  content description and the rest), and `save()` always writes the legacy header. The fork's
-  `WireDocument` keeps them.
-- Upstream's Swift is not Swift 6-ready: no `Sendable` or `Hashable`, untyped `throws`, and
-  operations as `[RemoteOperation]` existentials that every reader downcasts. Its constants are
-  SCREAMING_SNAKE_CASE.
-- `rpnOperators` spells `STORE_R0` as `STORE_RO`.
+- Fixed upstream in `28319b34d33`: upstream's Swift output did not compile (`min(...)` shadowed by
+  an operation's `min` field); its `RemoteDocument` dropped a modern header's properties and
+  `save()` always wrote the legacy header; it was not Swift 6-ready (no `Sendable` or `Hashable`,
+  untyped `throws`, `[RemoteOperation]` existentials, SCREAMING_SNAKE_CASE constants).
+- Fixed upstream in `6325c2be1f1`: `rpnOperators` spelled `STORE_R0` as `STORE_RO`; the schema named
+  no values for the background and border colour-reference flag, the border shape (and had no
+  rounded rectangle, which writers send as 2), the border wire version, the text font style, the
+  header property types and version words, the "no id" sentinel, and the component visibility
+  values.
+- Fixed upstream in `72d1b1f9e0a`: the Swift `IdEncoding.isNanBits` disagreed with the Java readers
+  on a NaN without its sign bit (`0x7F800005`: Java id 5, Swift a value).
 - Every generator's `FloatAnimationSpec.pack`, like AndroidX's `FloatAnimation.packToFloatArray`, sizes
   its array by counting the initial value three times and the parameters twice, so a packed spec
   ends in unread zero words. The fork keeps it, for byte compatibility with Java and Kotlin writers.
-- The Swift `IdEncoding.isNanBits` disagreed with the Java readers on a NaN without its sign bit
-  (`0x7F800005`: Java id 5, Swift a value). The fork follows Java.
-- The schema names no values for several fields writers set: the background and border colour-reference
-  flag, the border shape (and has no rounded rectangle, which writers send as 2), the border wire
-  version, the text font style, the header property types and version words, the "no id"
-  sentinel, and the component visibility values. The fork adds them (above).
 - The schema's condition expressions compare against bare numbers (61 of them), which every generator
   copies into its output. The fork names them (above).
+- Upstream's Swift templates still write wire values as numbers (header keys and masks, array
+  limits and element sizes, bit shifts and masks, sparse ids, enum values). The fork names them
+  (above).
 
 ## Re-syncing
 
 1. Copy upstream's `src/main` over this directory's `src/main`.
 2. Re-apply the hunks marked `LOCAL PATCH (rc-players)` (`git diff` against the previous sync shows
-   them), and the `operations.json` additions in the table above, dropping any upstream has since
-   made itself. Then update the commit above.
+   them), and the `operations.json` condition names in the table above, dropping any upstream has
+   since made itself (and crediting its commit under "Patches upstream has taken"). Then update the
+   commit above, and copy upstream's `build.gradle`, `README.md` and `api/` into `upstream/`.
 3. Run `./gradlew :rc-codegen:generateSwiftSources`, then the Swift suites
    (`swift test --filter 'RcCreationTests|RcWireOperationsTests'`), and commit the regenerated
    sources.

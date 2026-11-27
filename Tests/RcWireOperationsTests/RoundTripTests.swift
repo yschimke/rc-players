@@ -89,10 +89,10 @@ import Testing
 
   /// A failure is a typed error a caller can inspect, not an `NSError`.
   @Test func truncatedDocumentFailsWithATypedError() {
-    #expect(throws: WireError.expectedHeader) {
+    #expect(throws: WireError.expectedHeaderOpCode(actual: OpCode.drawCircle.rawValue)) {
       try WireDocument.load(from: [OpCode.drawCircle.rawValue])
     }
-    #expect(throws: WireError.underflow) {
+    #expect(throws: WireError.underflow(needed: MemoryLayout<Int32>.size, remaining: 0)) {
       try WireDocument.load(from: [OpCode.header.rawValue])
     }
   }

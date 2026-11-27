@@ -22,14 +22,16 @@ no JVM.
 | Target | From | Output | Committed at |
 | --- | --- | --- | --- |
 | `cpp`, `rust`, `python`, `typescript` | upstream | upstream's bindings | — |
-| `swift` | upstream, patched | Swift 6 bindings without Foundation: `[UInt8]` bytes, `throws(WireError)`, `Sendable`/`Hashable` values, a closed `WireOperation` enum, a `WireDocument` that round-trips its header, lowerCamelCase constants, and the operator tables a writer needs | `Sources/RcWireOperations/RemoteComposeOperations.swift` |
+| `swift` | upstream, patched | Upstream's Swift 6 bindings without Foundation (`[UInt8]` bytes, `throws(WireError)`, `Equatable`/`Hashable`/`Sendable` values, a closed `WireOperation` enum, a `WireDocument` that round-trips its header, the operator tables a writer needs), with every wire value named: `WireLimits`, `BitLayout`, `HeaderLayout`, `SparseParameterID`, `WireExpressionConstants` | `Sources/RcWireOperations/RemoteComposeOperations.swift` |
 
 `RcCreation` writes through the `swift` bindings, so every value it writes comes from the schema.
-Where upstream's schema left a value out, the fork's schema adds it as a marked local patch (see the
-PROVENANCE): the header property types and version words, the background and border
-colour-reference flag, the border shape (including the rounded rectangle) and wire version, the text
-font style, the "no id" sentinel and the component visibility values. Upstream's validator runs over
-the patched schema in `:rc-codegen`'s tests.
+Upstream's schema now names the values the fork used to add itself (the header property types and
+version words, the background and border colour-reference flag, the border shape including the
+rounded rectangle, its wire version, the text font style, the "no id" sentinel and the component
+visibility values), and upstream's Swift generator now emits what the fork used to patch in. What
+is still the fork's is the naming of every number in the Swift output and of the schema's condition
+expressions (see the PROVENANCE). Upstream's validator runs over the patched schema in
+`:rc-codegen`'s tests.
 
 ## Commands
 
