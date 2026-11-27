@@ -87,15 +87,15 @@ public struct RemoteFloat: Hashable, Sendable, ExpressibleByFloatLiteral,
 
     var code: Int32 {
       switch self {
-      case .add: FloatExpressionOperator.add
-      case .subtract: FloatExpressionOperator.sub
-      case .multiply: FloatExpressionOperator.mul
-      case .divide: FloatExpressionOperator.div
-      case .modulo: FloatExpressionOperator.mod
-      case .minimum: FloatExpressionOperator.min
-      case .maximum: FloatExpressionOperator.max
-      case .absolute: FloatExpressionOperator.abs
-      case .sign: FloatExpressionOperator.sign
+      case .add: FloatExpressionOperator.idAdd
+      case .subtract: FloatExpressionOperator.idSub
+      case .multiply: FloatExpressionOperator.idMul
+      case .divide: FloatExpressionOperator.idDiv
+      case .modulo: FloatExpressionOperator.idMod
+      case .minimum: FloatExpressionOperator.idMin
+      case .maximum: FloatExpressionOperator.idMax
+      case .absolute: FloatExpressionOperator.idAbs
+      case .sign: FloatExpressionOperator.idSign
       }
     }
   }
@@ -370,9 +370,9 @@ public enum RemoteVisibility: Hashable, Sendable, RemoteVariableValue {
 
   var wire: Int32 {
     switch self {
-    case .visible: Int32(WireExpressionConstants.visibilityVisible)
-    case .invisible: Int32(WireExpressionConstants.visibilityInvisible)
-    case .gone: Int32(WireExpressionConstants.visibilityGone)
+    case .visible: ComponentVisibility.visible
+    case .invisible: ComponentVisibility.invisible
+    case .gone: ComponentVisibility.gone
     }
   }
 }

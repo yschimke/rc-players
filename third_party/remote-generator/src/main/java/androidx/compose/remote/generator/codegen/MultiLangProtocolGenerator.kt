@@ -128,7 +128,9 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
         schema.idEncoding?.let { enc ->
             w.block("namespace IdEncoding", close = "} // namespace IdEncoding") {
                 line("inline constexpr int32_t NAN_PREFIX = ${enc.nanPrefix};")
+                line("inline constexpr int32_t NAN_EXPONENT = ${enc.nanExponent};")
                 line("inline constexpr int32_t PAYLOAD_MASK = ${enc.payloadMask};")
+                line("inline constexpr int32_t NO_ID = ${enc.noId};")
                 line("inline constexpr int32_t START_ID = ${enc.startId};")
                 line("inline constexpr int32_t REGION_MASK = ${enc.regionMask};")
                 line("inline constexpr int32_t REGION_SUB_ID_MASK = ${enc.regionSubIdMask};")
@@ -143,10 +145,10 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 line("inline constexpr int32_t MACRO_LOCAL_START_ID = ${enc.macroLocalStartId};")
                 line("inline constexpr int32_t MACRO_LOCAL_END_ID = ${enc.macroLocalEndId};")
                 line(
-                    "inline bool isNanBits(int32_t bits) { return (bits & NAN_PREFIX) == NAN_PREFIX && (bits & PAYLOAD_MASK) != 0; }"
+                    "inline bool isNanBits(int32_t bits) { return (bits & NAN_EXPONENT) == NAN_EXPONENT && (bits & PAYLOAD_MASK) != 0; }"
                 )
                 line(
-                    "inline int32_t idFromNanBits(int32_t bits) { return isNanBits(bits) ? (bits & PAYLOAD_MASK) : -1; }"
+                    "inline int32_t idFromNanBits(int32_t bits) { return isNanBits(bits) ? (bits & PAYLOAD_MASK) : NO_ID; }"
                 )
                 line(
                     "inline int32_t asNanBits(int32_t id) { return (id & PAYLOAD_MASK) | NAN_PREFIX; }"
@@ -590,7 +592,9 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
         schema.idEncoding?.let { enc ->
             w.block("pub mod id_encoding") {
                 line("pub const NAN_PREFIX: i32 = ${enc.nanPrefix};")
+                line("pub const NAN_EXPONENT: i32 = ${enc.nanExponent};")
                 line("pub const PAYLOAD_MASK: i32 = ${enc.payloadMask};")
+                line("pub const NO_ID: i32 = ${enc.noId};")
                 line("pub const START_ID: i32 = ${enc.startId};")
                 line("pub const REGION_MASK: i32 = ${enc.regionMask};")
                 line("pub const REGION_SUB_ID_MASK: i32 = ${enc.regionSubIdMask};")
@@ -605,10 +609,10 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 line("pub const MACRO_LOCAL_START_ID: i32 = ${enc.macroLocalStartId};")
                 line("pub const MACRO_LOCAL_END_ID: i32 = ${enc.macroLocalEndId};")
                 line(
-                    "pub fn is_nan_bits(bits: i32) -> bool { (bits & NAN_PREFIX) == NAN_PREFIX && (bits & PAYLOAD_MASK) != 0 }"
+                    "pub fn is_nan_bits(bits: i32) -> bool { (bits & NAN_EXPONENT) == NAN_EXPONENT && (bits & PAYLOAD_MASK) != 0 }"
                 )
                 line(
-                    "pub fn id_from_nan_bits(bits: i32) -> i32 { if is_nan_bits(bits) { bits & PAYLOAD_MASK } else { -1 } }"
+                    "pub fn id_from_nan_bits(bits: i32) -> i32 { if is_nan_bits(bits) { bits & PAYLOAD_MASK } else { NO_ID } }"
                 )
                 line("pub fn as_nan_bits(id: i32) -> i32 { (id & PAYLOAD_MASK) | NAN_PREFIX }")
                 line("pub fn is_dereferenced(raw: i32) -> bool { (raw & PTR_DEREFERENCE) != 0 }")
@@ -972,7 +976,9 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
             w.line("class IdEncoding:")
             w.indent {
                 w.line("NAN_PREFIX = ${enc.nanPrefix}")
+                w.line("NAN_EXPONENT = ${enc.nanExponent}")
                 w.line("PAYLOAD_MASK = ${enc.payloadMask}")
+                w.line("NO_ID = ${enc.noId}")
                 w.line("START_ID = ${enc.startId}")
                 w.line("REGION_MASK = ${enc.regionMask}")
                 w.line("REGION_SUB_ID_MASK = ${enc.regionSubIdMask}")
@@ -990,14 +996,14 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 w.line("def is_nan_bits(bits: int) -> bool:")
                 w.indent {
                     w.line(
-                        "return ((bits & 0xFFFFFFFF) & (IdEncoding.NAN_PREFIX & 0xFFFFFFFF)) == (IdEncoding.NAN_PREFIX & 0xFFFFFFFF) and (bits & IdEncoding.PAYLOAD_MASK) != 0"
+                        "return ((bits & 0xFFFFFFFF) & IdEncoding.NAN_EXPONENT) == IdEncoding.NAN_EXPONENT and (bits & IdEncoding.PAYLOAD_MASK) != 0"
                     )
                 }
                 w.line("@staticmethod")
                 w.line("def id_from_nan_bits(bits: int) -> int:")
                 w.indent {
                     w.line(
-                        "return (bits & IdEncoding.PAYLOAD_MASK) if IdEncoding.is_nan_bits(bits) else -1"
+                        "return (bits & IdEncoding.PAYLOAD_MASK) if IdEncoding.is_nan_bits(bits) else IdEncoding.NO_ID"
                     )
                 }
                 w.line("@staticmethod")
@@ -1482,58 +1488,71 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
     // Swift
     // =========================================================================================
 
+    // LOCAL PATCH (rc-players): internal, so SwiftGenerator names its own constants the same way.
+    internal fun toSwiftLowerCamel(name: String): String {
+        val raw =
+            if ('_' in name || name.all { !it.isLowerCase() }) {
+                val parts = name.split('_').filter { it.isNotEmpty() }
+                if (parts.isEmpty()) {
+                    name.lowercase()
+                } else {
+                    parts[0].lowercase() +
+                        parts.drop(1).joinToString("") { p ->
+                            p[0].uppercaseChar() + p.substring(1).lowercase()
+                        }
+                }
+            } else {
+                name.replaceFirstChar { it.lowercaseChar() }
+            }
+        val safe = if (raw.isNotEmpty() && raw[0].isDigit()) "_$raw" else raw
+        return if (safe in SWIFT_KEYWORDS) "`$safe`" else safe
+    }
+
     fun emitSwiftOpEnumConstants(w: CodeWriter, fields: List<SchemaField>) {
         val consts = collectEnumConstants(fields)
         if (consts.isEmpty()) return
         for ((k, v) in consts) {
-            w.line("public static let $k: Int32 = $v")
+            w.line("public static let ${toSwiftLowerCamel(k)}: Int32 = $v")
         }
     }
 
     fun emitSwiftProtocol(w: CodeWriter) {
         schema.idEncoding?.let { enc ->
             w.block("public enum IdEncoding") {
-                line("public static let NAN_PREFIX: Int32 = ${enc.nanPrefix}")
-                line("public static let PAYLOAD_MASK: Int32 = ${enc.payloadMask}")
-                line("public static let START_ID: Int32 = ${enc.startId}")
-                line("public static let REGION_MASK: Int32 = ${enc.regionMask}")
-                line("public static let REGION_SUB_ID_MASK: Int32 = ${enc.regionSubIdMask}")
-                line("public static let REGION_SYSTEM: Int32 = ${enc.regionSystem}")
-                line("public static let REGION_VARIABLE: Int32 = ${enc.regionVariable}")
-                line("public static let REGION_ARRAY: Int32 = ${enc.regionArray}")
-                line("public static let REGION_OPERATION: Int32 = ${enc.regionOperation}")
-                line("public static let START_ARRAY_ID: Int32 = ${enc.regionArray + enc.startId}")
-                line("public static let LONG_ID_OFFSET: Int64 = ${enc.longIdOffset}")
-                line("public static let PTR_DEREFERENCE: Int32 = ${enc.ptrDereference}")
-                line("public static let VALUE_MASK: Int32 = ${enc.valueMask}")
-                line("public static let MACRO_LOCAL_START_ID: Int32 = ${enc.macroLocalStartId}")
-                line("public static let MACRO_LOCAL_END_ID: Int32 = ${enc.macroLocalEndId}")
-                // LOCAL PATCH (rc-players): the "no id" sentinel, from the schema's `idEncoding.noId`.
-                line("/// No id: no component id requested, no animation, the default font.")
-                line("public static let NO_ID: Int32 = ${enc.noId}")
-                // LOCAL PATCH (rc-players): any NaN with a payload is an id, whatever its sign, as
-                // the Java readers take it (`Float.isNaN`, then `Utils.idFromNan`). Upstream also
-                // required the sign bit, so `0x7F800005` read as a value here and as id 5 there.
-                // A NaN with no payload (`Float.nan`) stays a value.
-                line("/// A float word's exponent bits: all set in a NaN, whatever its sign.")
-                line("public static let NAN_EXPONENT: Int32 = NAN_PREFIX & Int32.max")
+                line("public static let nanPrefix: Int32 = ${enc.nanPrefix}")
+                line("public static let nanExponent: Int32 = ${enc.nanExponent}")
+                line("public static let payloadMask: Int32 = ${enc.payloadMask}")
+                line("public static let noId: Int32 = ${enc.noId}")
+                line("public static let startId: Int32 = ${enc.startId}")
+                line("public static let regionMask: Int32 = ${enc.regionMask}")
+                line("public static let regionSubIdMask: Int32 = ${enc.regionSubIdMask}")
+                line("public static let regionSystem: Int32 = ${enc.regionSystem}")
+                line("public static let regionVariable: Int32 = ${enc.regionVariable}")
+                line("public static let regionArray: Int32 = ${enc.regionArray}")
+                line("public static let regionOperation: Int32 = ${enc.regionOperation}")
+                line("public static let startArrayId: Int32 = ${enc.regionArray + enc.startId}")
+                line("public static let longIdOffset: Int64 = ${enc.longIdOffset}")
+                line("public static let ptrDereference: Int32 = ${enc.ptrDereference}")
+                line("public static let valueMask: Int32 = ${enc.valueMask}")
+                line("public static let macroLocalStartId: Int32 = ${enc.macroLocalStartId}")
+                line("public static let macroLocalEndId: Int32 = ${enc.macroLocalEndId}")
                 line(
-                    "public static func isNanBits(_ bits: Int32) -> Bool { (bits & NAN_EXPONENT) == NAN_EXPONENT && (bits & PAYLOAD_MASK) != 0 }"
+                    "public static func isNanBits(_ bits: Int32) -> Bool { (bits & nanExponent) == nanExponent && (bits & payloadMask) != 0 }"
                 )
                 line(
-                    "public static func idFromNanBits(_ bits: Int32) -> Int32 { isNanBits(bits) ? (bits & PAYLOAD_MASK) : NO_ID }"
+                    "public static func idFromNanBits(_ bits: Int32) -> Int32 { isNanBits(bits) ? (bits & payloadMask) : noId }"
                 )
                 line(
-                    "public static func asNanBits(_ id: Int32) -> Int32 { (id & PAYLOAD_MASK) | NAN_PREFIX }"
+                    "public static func asNanBits(_ id: Int32) -> Int32 { (id & payloadMask) | nanPrefix }"
                 )
                 line(
-                    "public static func isDereferenced(_ raw: Int32) -> Bool { (raw & PTR_DEREFERENCE) != 0 }"
+                    "public static func isDereferenced(_ raw: Int32) -> Bool { (raw & ptrDereference) != 0 }"
                 )
                 line(
-                    "public static func directId(_ raw: Int32) -> Int32? { isDereferenced(raw) ? nil : (raw & VALUE_MASK) }"
+                    "public static func directId(_ raw: Int32) -> Int32? { isDereferenced(raw) ? nil : (raw & valueMask) }"
                 )
                 line(
-                    "public static func pointerId(_ raw: Int32) -> Int32? { isDereferenced(raw) ? (raw & VALUE_MASK) : nil }"
+                    "public static func pointerId(_ raw: Int32) -> Int32? { isDereferenced(raw) ? (raw & valueMask) : nil }"
                 )
             }
             w.line()
@@ -1543,8 +1562,17 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
             w.block("public enum HeaderConstants") {
                 for ((_, group) in schema.headerConstants) {
                     for ((k, v) in group.entries.sortedBy { it.value }) {
-                        line("public static let $k: Int32 = $v")
+                        line("public static let ${toSwiftLowerCamel(k)}: Int32 = $v")
                     }
+                }
+            }
+            w.line()
+        }
+
+        if (schema.visibilityConstants.isNotEmpty()) {
+            w.block("public enum ComponentVisibility") {
+                for ((k, v) in schema.visibilityConstants.entries.sortedBy { it.value }) {
+                    line("public static let ${toSwiftLowerCamel(k)}: Int32 = $v")
                 }
             }
             w.line()
@@ -1552,24 +1580,108 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
 
         if (schema.paintCommands.isNotEmpty()) {
             w.block("public enum PaintCommandTags") {
+                line("public static let tagMask: Int32 = 0xFFFF")
+                line("public static let inlineValueShift: Int32 = 16")
                 for ((id, cmd) in schema.paintCommands.entries.sortedBy { it.key }) {
                     line(
-                        "public static let ${SchemaOperation.toScreamingSnakeCase(cmd.name)}: Int32 = $id"
+                        "public static let ${toSwiftLowerCamel(SchemaOperation.toScreamingSnakeCase(cmd.name))}: Int32 = $id"
                     )
                 }
-                // LOCAL PATCH (rc-players): how a paint word packs its tag and an inline value, as the
-                // schema's `inline_high16` wire formats name it.
-                check(schema.paintCommands.values.any { it.wireFormat == "inline_high16" }) {
-                    "the schema's paint commands no longer use inline_high16"
-                }
-                line("/// A paint word's tag is its low half; an `inline_high16` value is its high half.")
-                line("public static let TAG_MASK: Int32 = 0xFFFF")
-                line("public static let INLINE_VALUE_SHIFT: Int32 = 16")
+                line(
+                    "public static func packInline(tag: Int32, value: Int32) -> Int32 { (tag & tagMask) | (value << inlineValueShift) }"
+                )
             }
             w.line()
             w.block("public enum PaintConstants") {
                 for ((k, v) in collectPaintConstants()) {
-                    line("public static let $k: Int32 = $v")
+                    line("public static let ${toSwiftLowerCamel(k)}: Int32 = $v")
+                }
+            }
+            w.line()
+        }
+
+        if (schema.rpnOperators != null && schema.idEncoding != null) {
+            val rpn = schema.rpnOperators
+            val maxV6 = rpn.operators.filter { it.addedVersion <= 6 }.maxOfOrNull { it.id } ?: 38
+            val maxId = rpn.operators.maxOfOrNull { it.id } ?: 79
+            val validIds = rpn.operators.map { it.id }.toSet()
+            // LOCAL PATCH (rc-players): the valid ids as a set of named ids, not a range with gaps.
+            val idSet = rpn.operators.joinToString(", ") { toSwiftLowerCamel("ID_${it.name}") }
+            val rpnOffsetLiteral =
+                if (rpn.offset >= 0) "0x${rpn.offset.toString(16).uppercase()}" else "${rpn.offset}"
+            w.block("public enum FloatExpressionOperator") {
+                line("public static let offset: Int32 = $rpnOffsetLiteral")
+                line("public static let apiLevel6MaxId: Int32 = $maxV6")
+                line("public static let maxId: Int32 = $maxId")
+                for (op in rpn.operators) {
+                    line(
+                        "public static let ${toSwiftLowerCamel("ID_${op.name}")}: Int32 = ${op.id}"
+                    )
+                }
+                if ("DEG_TO_RAD" in rpn.operatorsByName && "DEG" !in rpn.operatorsByName) {
+                    line("public static let idDeg: Int32 = idDegToRad")
+                }
+                if ("RAD_TO_DEG" in rpn.operatorsByName && "RAD" !in rpn.operatorsByName) {
+                    line("public static let idRad: Int32 = idRadToDeg")
+                }
+                for (op in rpn.operators) {
+                    line(
+                        "public static let ${toSwiftLowerCamel(op.name)}: Float = Float(bitPattern: UInt32(bitPattern: IdEncoding.asNanBits(offset + ${op.id})))"
+                    )
+                }
+                if ("DEG_TO_RAD" in rpn.operatorsByName && "DEG" !in rpn.operatorsByName) {
+                    line("public static let deg: Float = degToRad")
+                }
+                if ("RAD_TO_DEG" in rpn.operatorsByName && "RAD" !in rpn.operatorsByName) {
+                    line("public static let rad: Float = radToDeg")
+                }
+                line("/// Every operator id the schema defines.")
+                line("public static let ids: Set<Int32> = [$idSet]")
+                block("public static func token(fromId id: Int32) -> Float?") {
+                    line("guard ids.contains(id) else { return nil }")
+                    line(
+                        "return Float(bitPattern: UInt32(bitPattern: IdEncoding.asNanBits(offset + id)))"
+                    )
+                }
+                block("public static func isOperator(_ token: Float) -> Bool") {
+                    line("let bits = Int32(bitPattern: token.bitPattern)")
+                    line("guard IdEncoding.isNanBits(bits) else { return false }")
+                    line("let id = (bits & IdEncoding.payloadMask) - offset")
+                    line("return ids.contains(id)")
+                }
+                block("public static func operatorId(_ token: Float) -> Int32") {
+                    line("guard isOperator(token) else { return IdEncoding.noId }")
+                    line(
+                        "return (Int32(bitPattern: token.bitPattern) & IdEncoding.payloadMask) - offset"
+                    )
+                }
+            }
+            w.line()
+        }
+
+        schema.intRpnOperators?.let { intRpn ->
+            val maxId = intRpn.operators.maxOfOrNull { it.id } ?: 25
+            val validIds = intRpn.operators.map { it.id }.toSet()
+            // LOCAL PATCH (rc-players): the valid ids as a set, not a range with gaps.
+            val idSet = intRpn.operators.joinToString(", ") { "${it.id}" }
+            val offsetLiteral =
+                if (intRpn.offset >= 0) "0x${intRpn.offset.toString(16).uppercase()}"
+                else "${intRpn.offset}"
+            w.block("public enum IntegerExpressionOperator") {
+                line("public static let offset: Int32 = $offsetLiteral")
+                line("public static let maxId: Int32 = $maxId")
+                line("public static let maxTokens: Int = 32")
+                for (op in intRpn.operators) {
+                    line(
+                        "public static let ${toSwiftLowerCamel(op.name)}: Int32 = offset + ${op.id}"
+                    )
+                }
+                line("/// Every operator id the schema defines.")
+                line("public static let ids: Set<Int32> = [$idSet]")
+                block("public static func isOperatorCode(_ value: Int32) -> Bool") {
+                    line("let (id, overflow) = value.subtractingReportingOverflow(offset)")
+                    line("guard !overflow else { return false }")
+                    line("return ids.contains(id)")
                 }
             }
             w.line()
@@ -1579,7 +1691,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
             w.block("public enum PathCommandTags") {
                 for ((id, cmd) in schema.pathCommands.entries.sortedBy { it.key }) {
                     line(
-                        "public static let ${SchemaOperation.toScreamingSnakeCase(cmd.name)}: Int32 = $id"
+                        "public static let ${toSwiftLowerCamel(SchemaOperation.toScreamingSnakeCase(cmd.name))}: Int32 = $id"
                     )
                 }
             }
@@ -1590,10 +1702,13 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
             val timeIds = schema.systemVariables.filter { it.isTime }.map { it.id }.sorted()
             w.block("public enum RemoteContextIds") {
                 for (sv in schema.systemVariables) {
-                    line("public static let ID_${sv.name}: Int32 = ${sv.id}")
+                    line(
+                        "public static let ${toSwiftLowerCamel("ID_${sv.name}")}: Int32 = ${sv.id}"
+                    )
                 }
                 // LOCAL PATCH (rc-players): the time ids by name, not number.
-                val idName = schema.systemVariables.associate { it.id to "ID_${it.name}" }
+                val idName =
+                    schema.systemVariables.associate { it.id to toSwiftLowerCamel("ID_${it.name}") }
                 val expr =
                     if (timeIds.isEmpty()) "false"
                     else if (timeIds.size == timeIds.last() - timeIds.first() + 1)
@@ -1607,9 +1722,9 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
         schema.animationSpec?.let { anim ->
             w.block("public enum AnimationEasing") {
                 for (e in anim.easings.sortedBy { it.id }) {
-                    line("public static let ${e.name}: Int32 = ${e.id}")
+                    line("public static let ${toSwiftLowerCamel(e.name)}: Int32 = ${e.id}")
                     for (a in e.aliases) {
-                        line("public static let $a: Int32 = ${e.id}")
+                        line("public static let ${toSwiftLowerCamel(a)}: Int32 = ${e.id}")
                     }
                 }
                 block("public static func cubicControlPoints(_ type: Int32) -> [Float]?") {
@@ -1617,7 +1732,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                         for (e in anim.easings.sortedBy { it.id }) {
                             val pts = e.cubicControlPoints ?: continue
                             line(
-                                "case ${e.name}: return [${pts[0]}, ${pts[1]}, ${pts[2]}, ${pts[3]}]"
+                                "case ${toSwiftLowerCamel(e.name)}: return [${pts[0]}, ${pts[1]}, ${pts[2]}, ${pts[3]}]"
                             )
                         }
                         line("default: return nil")
@@ -1625,7 +1740,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 }
             }
             w.line()
-            w.block("public struct FloatAnimationSpec: Sendable, Hashable") {
+            w.block("public struct FloatAnimationSpec: Equatable, Hashable, Sendable") {
                 // LOCAL PATCH (rc-players): the packed flags word's layout, from the schema's
                 // `animationSpec.flagsBits`, and the positions of the spec's words, by name.
                 val flagBits = anim.flagsBits.associateBy { it.name }
@@ -1635,15 +1750,15 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 block("public enum BitLayout") {
                     for (b in anim.flagsBits) {
                         line("public static let ${b.name}Shift: UInt32 = ${b.lowBit}")
-                        line("public static let ${b.name}Mask: UInt32 = 0x${(b.bitMask).toString(16).uppercase()}")
+                        line("public static let ${b.name}Mask: UInt32 = 0x${b.bitMask.toString(16).uppercase()}")
                     }
                 }
                 line("/// The duration, then the flags word, then the curve's parameters.")
-                line("public static let DURATION_INDEX: Int = 0")
-                line("public static let FLAGS_INDEX: Int = DURATION_INDEX + 1")
-                line("public static let PARAMS_START: Int = FLAGS_INDEX + 1")
+                line("public static let durationIndex: Int = 0")
+                line("public static let flagsIndex: Int = durationIndex + 1")
+                line("public static let paramsStart: Int = flagsIndex + 1")
                 line("/// A spring spec is a zero duration marker followed by more than this many words.")
-                line("public static let SPRING_PARAMETER_COUNT: Int = 4")
+                line("public static let springParameterCount: Int = 4")
                 line("public var duration: Float")
                 line("public var type: Int32")
                 line("public var params: [Float]")
@@ -1652,7 +1767,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 line("public var directionalSnap: Int32")
                 line("public var isPropagate: Bool")
                 block(
-                    "public init(duration: Float = 1.0, type: Int32 = AnimationEasing.CUBIC_STANDARD, params: [Float] = [], initialValue: Float = .nan, wrap: Float = .nan, directionalSnap: Int32 = 0, isPropagate: Bool = false)"
+                    "public init(duration: Float = 1.0, type: Int32 = AnimationEasing.cubicStandard, params: [Float] = [], initialValue: Float = .nan, wrap: Float = .nan, directionalSnap: Int32 = 0, isPropagate: Bool = false)"
                 ) {
                     line("self.duration = duration")
                     line("self.type = type")
@@ -1677,29 +1792,33 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     line("    && lhs.directionalSnap == rhs.directionalSnap")
                     line("    && lhs.isPropagate == rhs.isPropagate")
                 }
-                line("/// Hashes NaNs alike, as `==` compares them.")
                 block("public func hash(into hasher: inout Hasher)") {
-                    line("let canonical: (Float) -> Float = { \$0.isNaN ? .nan : \$0 }")
-                    line("hasher.combine(canonical(duration))")
+                    line(
+                        "let norm: (Float) -> UInt32 = { \$0.isNaN ? Float.nan.bitPattern : (\$0 == 0 ? 0 : \$0.bitPattern) }"
+                    )
+                    line("hasher.combine(norm(duration))")
                     line("hasher.combine(type)")
-                    line("for param in params { hasher.combine(canonical(param)) }")
-                    line("hasher.combine(canonical(initialValue))")
-                    line("hasher.combine(canonical(wrap))")
+                    line("hasher.combine(params.count)")
+                    line("for p in params { hasher.combine(norm(p)) }")
+                    line("hasher.combine(norm(initialValue))")
+                    line("hasher.combine(norm(wrap))")
                     line("hasher.combine(directionalSnap)")
                     line("hasher.combine(isPropagate)")
                 }
                 line(
-                    "public static func isSpring(_ data: [Float]) -> Bool { data.count > SPRING_PARAMETER_COUNT && data[DURATION_INDEX] == 0.0 }"
+                    "public static func isSpring(_ data: [Float]) -> Bool { data.count > springParameterCount && data[durationIndex] == 0.0 }"
                 )
-                block("public static func unpack(_ data: [Float]) throws(WireError) -> FloatAnimationSpec") {
+                block(
+                    "public static func unpack(_ data: [Float]) throws(WireError) -> FloatAnimationSpec"
+                ) {
                     line(
-                        "if isSpring(data) { throw WireError.springAnimationSpec }"
+                        "if isSpring(data) { throw WireError.invalidAnimationSpec(\"Spring animation specs cannot be unpacked with unpackAnimationSpec\") }"
                     )
                     line("var out = FloatAnimationSpec()")
                     line("if data.isEmpty { return out }")
-                    line("out.duration = data[DURATION_INDEX]")
-                    line("if data.count == FLAGS_INDEX { return out }")
-                    line("let bits = data[FLAGS_INDEX].bitPattern")
+                    line("out.duration = data[durationIndex]")
+                    line("if data.count == flagsIndex { return out }")
+                    line("let bits = data[flagsIndex].bitPattern")
                     line("out.type = Int32((bits >> BitLayout.typeShift) & BitLayout.typeMask)")
                     line("let hasWrap = ((bits >> BitLayout.hasWrapShift) & BitLayout.hasWrapMask) != 0")
                     line("let hasInit = ((bits >> BitLayout.hasInitShift) & BitLayout.hasInitMask) != 0")
@@ -1711,15 +1830,15 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     )
                     line("let paramLen = Int((bits >> BitLayout.paramLenShift) & BitLayout.paramLenMask)")
                     line(
-                        "if PARAMS_START + paramLen > data.count { throw WireError.truncated(type: \"FloatAnimationSpec\", field: \"params\") }"
+                        "if paramsStart + paramLen > data.count { throw WireError.invalidAnimationSpec(\"Truncated animation spec params\") }"
                     )
-                    line("out.params = Array(data[PARAMS_START..<(PARAMS_START + paramLen)])")
-                    line("var off = PARAMS_START + paramLen")
+                    line("out.params = Array(data[paramsStart..<(paramsStart + paramLen)])")
+                    line("var off = paramsStart + paramLen")
                     line(
-                        "if hasInit { if off >= data.count { throw WireError.truncated(type: \"FloatAnimationSpec\", field: \"initialValue\") }; out.initialValue = data[off]; off += 1 }"
+                        "if hasInit { if off >= data.count { throw WireError.invalidAnimationSpec(\"Truncated animation spec initialValue\") }; out.initialValue = data[off]; off += 1 }"
                     )
                     line(
-                        "if hasWrap { if off >= data.count { throw WireError.truncated(type: \"FloatAnimationSpec\", field: \"wrap\") }; out.wrap = data[off] }"
+                        "if hasWrap { if off >= data.count { throw WireError.invalidAnimationSpec(\"Truncated animation spec wrap\") }; out.wrap = data[off] }"
                     )
                     line("return out")
                 }
@@ -1729,7 +1848,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 line("/// words therefore match a Java or Kotlin writer's byte for byte; readers stop at the")
                 line("/// flags' parameter count, so the zeros are never read.")
                 block(
-                    "public static func pack(duration: Float = 1.0, type: Int32 = AnimationEasing.CUBIC_STANDARD, spec: [Float]? = nil, initialValue: Float = .nan, wrap: Float = .nan) -> [Float]"
+                    "public static func pack(duration: Float = 1.0, type: Int32 = AnimationEasing.cubicStandard, spec: [Float]? = nil, initialValue: Float = .nan, wrap: Float = .nan) -> [Float]"
                 ) {
                     line("var count = 0")
                     line("let hasInit = !initialValue.isNaN")
@@ -1737,7 +1856,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     line("if hasInit { count += 1 }")
                     line("if spec != nil { count += 1 }")
                     line(
-                        "if spec != nil || type != AnimationEasing.CUBIC_STANDARD { count += 1 + (spec?.count ?? 0) }"
+                        "if spec != nil || type != AnimationEasing.cubicStandard { count += 1 + (spec?.count ?? 0) }"
                     )
                     line("if hasInit { count += 1 }")
                     line("if hasWrap { count += 1 }")
@@ -1771,49 +1890,51 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 "public func unpackAnimationSpec(_ data: [Float]) throws(WireError) -> FloatAnimationSpec { try FloatAnimationSpec.unpack(data) }"
             )
             w.line(
-                "public func packAnimationSpec(duration: Float = 1.0, type: Int32 = AnimationEasing.CUBIC_STANDARD, spec: [Float]? = nil, initialValue: Float = .nan, wrap: Float = .nan) -> [Float] { FloatAnimationSpec.pack(duration: duration, type: type, spec: spec, initialValue: initialValue, wrap: wrap) }"
+                "public func packAnimationSpec(duration: Float = 1.0, type: Int32 = AnimationEasing.cubicStandard, spec: [Float]? = nil, initialValue: Float = .nan, wrap: Float = .nan) -> [Float] { FloatAnimationSpec.pack(duration: duration, type: type, spec: spec, initialValue: initialValue, wrap: wrap) }"
             )
             w.line()
         }
 
         schema.pathEffects?.let { pe ->
-            w.block("public indirect enum PathEffect: Sendable, Hashable") {
+            w.block("public indirect enum PathEffect: Equatable, Hashable, Sendable") {
                 line("case dash(phase: Float, intervals: [Float])")
                 line("case discrete(segmentLength: Float, deviation: Float)")
                 line("case pathDash(shapeId: Int32, advance: Float, phase: Float, style: Int32)")
                 line("case sum(PathEffect, PathEffect)")
                 line("case compose(PathEffect, PathEffect)")
                 for (t in pe.types.sortedBy { it.id }) {
-                    line("public static let ${t.constName}: Int32 = ${t.id}")
+                    line("public static let ${toSwiftLowerCamel(t.constName)}: Int32 = ${t.id}")
                 }
-                line("public static let MAX_DASH_INTERVALS: Int = ${pe.maxDashIntervals}")
-                line("public static let MAX_NESTING_DEPTH: Int = ${pe.maxNestingDepth}")
+                line("public static let maxDashIntervals: Int = ${pe.maxDashIntervals}")
+                line("public static let maxNestingDepth: Int = ${pe.maxNestingDepth}")
                 // LOCAL PATCH (rc-players): each effect's word positions, from the schema's fields: the
                 // tag, then a word per field (an array's word is its count, its values follow).
                 for (t in pe.types) {
                     if (t.fields.any { it.type == "path_effect" }) continue
                     val prefix = t.constName.removePrefix("TYPE_")
                     t.fields.forEachIndexed { i, f ->
-                        line("public static let ${prefix}_${SchemaOperation.toScreamingSnakeCase(f.name)}_OFFSET: Int = ${1 + i}")
+                        line(
+                            "public static let ${toSwiftLowerCamel("${prefix}_${SchemaOperation.toScreamingSnakeCase(f.name)}_OFFSET")}: Int = ${1 + i}"
+                        )
                     }
-                    line("public static let ${prefix}_WORDS: Int = ${1 + t.fields.size}")
+                    line("public static let ${toSwiftLowerCamel("${prefix}_WORDS")}: Int = ${1 + t.fields.size}")
                 }
                 block("public func encode() throws(WireError) -> [Float]") {
                     block("switch self") {
                         line(
-                            "case let .dash(phase, intervals): if intervals.count > Self.MAX_DASH_INTERVALS { throw WireError.lengthExceedsLimit(type: \"PathEffect\", field: \"intervals\", length: intervals.count, limit: Self.MAX_DASH_INTERVALS) }; return [Float(bitPattern: UInt32(bitPattern: Self.TYPE_DASH)), phase, Float(bitPattern: UInt32(intervals.count))] + intervals"
+                            "case let .dash(phase, intervals): if intervals.count > Self.maxDashIntervals { throw WireError.invalidPathEffect(\"Dash interval count (\\(intervals.count)) exceeds maxDashIntervals (\\(Self.maxDashIntervals))\") }; return [Float(bitPattern: UInt32(bitPattern: Self.typeDash)), phase, Float(bitPattern: UInt32(intervals.count))] + intervals"
                         )
                         line(
-                            "case let .discrete(segmentLength, deviation): return [Float(bitPattern: UInt32(bitPattern: Self.TYPE_DISCRETE)), segmentLength, deviation]"
+                            "case let .discrete(segmentLength, deviation): return [Float(bitPattern: UInt32(bitPattern: Self.typeDiscrete)), segmentLength, deviation]"
                         )
                         line(
-                            "case let .pathDash(shapeId, advance, phase, style): return [Float(bitPattern: UInt32(bitPattern: Self.TYPE_PATH_DASH)), Float(bitPattern: UInt32(bitPattern: shapeId)), advance, phase, Float(bitPattern: UInt32(bitPattern: style))]"
+                            "case let .pathDash(shapeId, advance, phase, style): return [Float(bitPattern: UInt32(bitPattern: Self.typePathDash)), Float(bitPattern: UInt32(bitPattern: shapeId)), advance, phase, Float(bitPattern: UInt32(bitPattern: style))]"
                         )
                         line(
-                            "case let .sum(a, b): return [Float(bitPattern: UInt32(bitPattern: Self.TYPE_SUM))] + (try a.encode()) + (try b.encode())"
+                            "case let .sum(a, b): return [Float(bitPattern: UInt32(bitPattern: Self.typeSum))] + (try a.encode()) + (try b.encode())"
                         )
                         line(
-                            "case let .compose(a, b): return [Float(bitPattern: UInt32(bitPattern: Self.TYPE_COMPOSE))] + (try a.encode()) + (try b.encode())"
+                            "case let .compose(a, b): return [Float(bitPattern: UInt32(bitPattern: Self.typeCompose))] + (try a.encode()) + (try b.encode())"
                         )
                     }
                 }
@@ -1828,26 +1949,82 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 block(
                     "private static func parseOne(_ data: [Float], _ cursor: inout Int, _ depth: Int) -> PathEffect?"
                 ) {
-                    line("if depth > MAX_NESTING_DEPTH || cursor >= data.count { return nil }")
+                    line("if depth > maxNestingDepth || cursor >= data.count { return nil }")
                     line("let idx = cursor")
                     line("let tag = Int32(bitPattern: data[idx].bitPattern)")
                     block("switch tag") {
                         line(
-                            "case TYPE_DASH: if idx + DASH_WORDS > data.count { return nil }; let count = Int(Int32(bitPattern: data[idx + DASH_INTERVALS_OFFSET].bitPattern)); if count < 0 || count > MAX_DASH_INTERVALS || count > data.count - (idx + DASH_WORDS) { return nil }; cursor = idx + DASH_WORDS + count; return .dash(phase: data[idx + DASH_PHASE_OFFSET], intervals: Array(data[(idx + DASH_WORDS)..<(idx + DASH_WORDS + count)]))"
+                            "case typeDash: if idx + dashWords > data.count { return nil }; let count = Int(Int32(bitPattern: data[idx + dashIntervalsOffset].bitPattern)); if count < 0 || count > maxDashIntervals || count > data.count - (idx + dashWords) { return nil }; cursor = idx + dashWords + count; return .dash(phase: data[idx + dashPhaseOffset], intervals: Array(data[(idx + dashWords)..<(idx + dashWords + count)]))"
                         )
                         line(
-                            "case TYPE_DISCRETE: if idx + DISCRETE_WORDS > data.count { return nil }; cursor = idx + DISCRETE_WORDS; return .discrete(segmentLength: data[idx + DISCRETE_SEGMENT_LENGTH_OFFSET], deviation: data[idx + DISCRETE_DEVIATION_OFFSET])"
+                            "case typeDiscrete: if idx + discreteWords > data.count { return nil }; cursor = idx + discreteWords; return .discrete(segmentLength: data[idx + discreteSegmentLengthOffset], deviation: data[idx + discreteDeviationOffset])"
                         )
                         line(
-                            "case TYPE_PATH_DASH: if idx + PATH_DASH_WORDS > data.count { return nil }; cursor = idx + PATH_DASH_WORDS; return .pathDash(shapeId: Int32(bitPattern: data[idx + PATH_DASH_SHAPE_ID_OFFSET].bitPattern), advance: data[idx + PATH_DASH_ADVANCE_OFFSET], phase: data[idx + PATH_DASH_PHASE_OFFSET], style: Int32(bitPattern: data[idx + PATH_DASH_STYLE_OFFSET].bitPattern))"
+                            "case typePathDash: if idx + pathDashWords > data.count { return nil }; cursor = idx + pathDashWords; return .pathDash(shapeId: Int32(bitPattern: data[idx + pathDashShapeIdOffset].bitPattern), advance: data[idx + pathDashAdvanceOffset], phase: data[idx + pathDashPhaseOffset], style: Int32(bitPattern: data[idx + pathDashStyleOffset].bitPattern))"
                         )
                         line(
-                            "case TYPE_SUM: cursor = idx + 1; guard let a = parseOne(data, &cursor, depth + 1), let b = parseOne(data, &cursor, depth + 1) else { return nil }; return .sum(a, b)"
+                            "case typeSum: cursor = idx + 1; guard let a = parseOne(data, &cursor, depth + 1), let b = parseOne(data, &cursor, depth + 1) else { return nil }; return .sum(a, b)"
                         )
                         line(
-                            "case TYPE_COMPOSE: cursor = idx + 1; guard let a = parseOne(data, &cursor, depth + 1), let b = parseOne(data, &cursor, depth + 1) else { return nil }; return .compose(a, b)"
+                            "case typeCompose: cursor = idx + 1; guard let a = parseOne(data, &cursor, depth + 1), let b = parseOne(data, &cursor, depth + 1) else { return nil }; return .compose(a, b)"
                         )
                         line("default: return nil")
+                    }
+                }
+                block("public static func == (lhs: PathEffect, rhs: PathEffect) -> Bool") {
+                    block("switch (lhs, rhs)") {
+                        line(
+                            "case (.dash(let lp, let li), .dash(let rp, let ri)): return wireFloatEquals(lp, rp) && wireFloatEquals(li, ri)"
+                        )
+                        line(
+                            "case (.discrete(let ls, let ld), .discrete(let rs, let rd)): return wireFloatEquals(ls, rs) && wireFloatEquals(ld, rd)"
+                        )
+                        line(
+                            "case (.pathDash(let lShape, let lAdv, let lPhase, let lStyle), .pathDash(let rShape, let rAdv, let rPhase, let rStyle)): return lShape == rShape && wireFloatEquals(lAdv, rAdv) && wireFloatEquals(lPhase, rPhase) && lStyle == rStyle"
+                        )
+                        line(
+                            "case (.sum(let la, let lb), .sum(let ra, let rb)): return la == ra && lb == rb"
+                        )
+                        line(
+                            "case (.compose(let la, let lb), .compose(let ra, let rb)): return la == ra && lb == rb"
+                        )
+                        line("default: return false")
+                    }
+                }
+                block("public func hash(into hasher: inout Hasher)") {
+                    block("switch self") {
+                        line("case .dash(let phase, let intervals):")
+                        indent {
+                            line("hasher.combine(\"dash\")")
+                            line("wireFloatHash(phase, into: &hasher)")
+                            line("wireFloatHash(intervals, into: &hasher)")
+                        }
+                        line("case .discrete(let segmentLength, let deviation):")
+                        indent {
+                            line("hasher.combine(\"discrete\")")
+                            line("wireFloatHash(segmentLength, into: &hasher)")
+                            line("wireFloatHash(deviation, into: &hasher)")
+                        }
+                        line("case .pathDash(let shapeId, let advance, let phase, let style):")
+                        indent {
+                            line("hasher.combine(\"pathDash\")")
+                            line("hasher.combine(shapeId)")
+                            line("wireFloatHash(advance, into: &hasher)")
+                            line("wireFloatHash(phase, into: &hasher)")
+                            line("hasher.combine(style)")
+                        }
+                        line("case .sum(let a, let b):")
+                        indent {
+                            line("hasher.combine(\"sum\")")
+                            line("hasher.combine(a)")
+                            line("hasher.combine(b)")
+                        }
+                        line("case .compose(let a, let b):")
+                        indent {
+                            line("hasher.combine(\"compose\")")
+                            line("hasher.combine(a)")
+                            line("hasher.combine(b)")
+                        }
                     }
                 }
             }
@@ -1855,21 +2032,25 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
         }
 
         if (schema.pathCommands.isNotEmpty() && schema.idEncoding != null) {
+            val sortedPathCommands = schema.pathCommands.entries.sortedBy { it.key }
             // LOCAL PATCH (rc-players): each command's word positions, from the schema: the tag, its
             // leading padding, then a word per field.
+            fun layoutName(cmd: SchemaPathCommand, part: String): String =
+                toSwiftLowerCamel("${SchemaOperation.toScreamingSnakeCase(cmd.name)}_$part")
             w.block("public enum PathCommandLayout") {
-                for ((_, cmd) in schema.pathCommands.entries.sortedBy { it.key }) {
+                for ((_, cmd) in sortedPathCommands) {
                     if (cmd.fields.isEmpty()) continue
-                    val prefix = SchemaOperation.toScreamingSnakeCase(cmd.name)
                     cmd.fields.forEachIndexed { i, f ->
-                        line("public static let ${prefix}_${SchemaOperation.toScreamingSnakeCase(f.name)}_OFFSET: Int = ${1 + cmd.leadingPaddingFloats + i}")
+                        line(
+                            "public static let ${layoutName(cmd, "${SchemaOperation.toScreamingSnakeCase(f.name)}_OFFSET")}: Int = ${1 + cmd.leadingPaddingFloats + i}"
+                        )
                     }
-                    line("public static let ${prefix}_WORDS: Int = ${1 + cmd.leadingPaddingFloats + cmd.fields.size}")
+                    line("public static let ${layoutName(cmd, "WORDS")}: Int = ${1 + cmd.leadingPaddingFloats + cmd.fields.size}")
                 }
             }
             w.line()
-            w.block("public enum PathCommand: Sendable, Hashable") {
-                for ((_, cmd) in schema.pathCommands.entries.sortedBy { it.key }) {
+            w.block("public enum PathCommand: Equatable, Hashable, Sendable") {
+                for ((_, cmd) in sortedPathCommands) {
                     val vName = pathCmdVariantName(cmd).replaceFirstChar { it.lowercaseChar() }
                     if (cmd.fields.isEmpty()) {
                         line("case $vName")
@@ -1879,6 +2060,54 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     }
                 }
                 line("case unknown(verb: Int32)")
+                block("public static func == (lhs: PathCommand, rhs: PathCommand) -> Bool") {
+                    block("switch (lhs, rhs)") {
+                        for ((_, cmd) in sortedPathCommands) {
+                            val vName =
+                                pathCmdVariantName(cmd).replaceFirstChar { it.lowercaseChar() }
+                            if (cmd.fields.isEmpty()) {
+                                line("case (.$vName, .$vName): return true")
+                            } else {
+                                val lhsBinds = cmd.fields.indices.joinToString(", ") { "let l$it" }
+                                val rhsBinds = cmd.fields.indices.joinToString(", ") { "let r$it" }
+                                val checks =
+                                    cmd.fields.indices.joinToString(" && ") {
+                                        "wireFloatEquals(l$it, r$it)"
+                                    }
+                                line(
+                                    "case (.$vName($lhsBinds), .$vName($rhsBinds)): return $checks"
+                                )
+                            }
+                        }
+                        line("case (.unknown(let l), .unknown(let r)): return l == r")
+                        line("default: return false")
+                    }
+                }
+                block("public func hash(into hasher: inout Hasher)") {
+                    block("switch self") {
+                        for ((_, cmd) in sortedPathCommands) {
+                            val vName =
+                                pathCmdVariantName(cmd).replaceFirstChar { it.lowercaseChar() }
+                            if (cmd.fields.isEmpty()) {
+                                line("case .$vName: hasher.combine(\"$vName\")")
+                            } else {
+                                val binds = cmd.fields.indices.joinToString(", ") { "let v$it" }
+                                line("case .$vName($binds):")
+                                indent {
+                                    line("hasher.combine(\"$vName\")")
+                                    for (fIdx in cmd.fields.indices) {
+                                        line("wireFloatHash(v$fIdx, into: &hasher)")
+                                    }
+                                }
+                            }
+                        }
+                        line("case .unknown(let verb):")
+                        indent {
+                            line("hasher.combine(\"unknown\")")
+                            line("hasher.combine(verb)")
+                        }
+                    }
+                }
                 block("public static func decode(_ pathData: [Float]) -> [PathCommand]") {
                     line("var result: [PathCommand] = []")
                     line("var i = 0")
@@ -1888,11 +2117,14 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                             "let tag = IdEncoding.idFromNanBits(Int32(bitPattern: pathData[i].bitPattern))"
                         )
                         block("switch tag") {
-                            for ((_, cmd) in schema.pathCommands.entries.sortedBy { it.key }) {
-                                val tagConst = SchemaOperation.toScreamingSnakeCase(cmd.name)
+                            for ((_, cmd) in sortedPathCommands) {
+                                val tagConst =
+                                    toSwiftLowerCamel(
+                                        SchemaOperation.toScreamingSnakeCase(cmd.name)
+                                    )
                                 val vName =
                                     pathCmdVariantName(cmd).replaceFirstChar { it.lowercaseChar() }
-                                val total = 1 + cmd.leadingPaddingFloats + cmd.fields.size
+                                val total = "PathCommandLayout.${layoutName(cmd, "WORDS")}"
                                 if (cmd.fields.isEmpty()) {
                                     val next = if (cmd.name == "Done") "return result" else "i += 1"
                                     line(
@@ -1900,12 +2132,11 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                                     )
                                 } else {
                                     val args =
-                                        cmd.fields.joinToString(", ") { fl ->
-                                            "${fl.name}: pathData[i + PathCommandLayout.${tagConst}_${SchemaOperation.toScreamingSnakeCase(fl.name)}_OFFSET]"
+                                        cmd.fields.withIndex().joinToString(", ") { (fIdx, fl) ->
+                                            "${fl.name}: pathData[i + PathCommandLayout.${layoutName(cmd, "${SchemaOperation.toScreamingSnakeCase(fl.name)}_OFFSET")}]"
                                         }
-                                    val words = "PathCommandLayout.${tagConst}_WORDS"
                                     line(
-                                        "case PathCommandTags.$tagConst: if i + $words > n { result.append(.unknown(verb: tag)); return result }; result.append(.$vName($args)); i += $words"
+                                        "case PathCommandTags.$tagConst: if i + $total > n { result.append(.unknown(verb: tag)); return result }; result.append(.$vName($args)); i += $total"
                                     )
                                 }
                             }
@@ -1934,7 +2165,7 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
         }
         if (isBitmapDataReady(op)) {
             w.line(
-                "public var uncompressedByteSize: Int64 { let w = Int64(width); let h = Int64(height); if w <= 0 || h <= 0 { return 0 }; let bpp: Int64 = imageType == BitmapData.TYPE_PNG_ALPHA_8 ? Int64(MemoryLayout<UInt8>.size) : Int64(MemoryLayout<UInt32>.size); let (wh, o1) = w.multipliedReportingOverflow(by: h); if o1 { return Int64.max }; let (total, o2) = wh.multipliedReportingOverflow(by: bpp); return o2 ? Int64.max : total }"
+                "public var uncompressedByteSize: Int64 { let w = Int64(width); let h = Int64(height); if w <= 0 || h <= 0 { return 0 }; let bpp: Int64 = imageType == BitmapData.typePngAlpha8 ? Int64(MemoryLayout<UInt8>.size) : Int64(MemoryLayout<UInt32>.size); let (wh, o1) = w.multipliedReportingOverflow(by: h); if o1 { return Int64.max }; let (total, o2) = wh.multipliedReportingOverflow(by: bpp); return o2 ? Int64.max : total }"
             )
         }
         if (
@@ -1947,8 +2178,11 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
             )
         }
         if (op.name == "ColorExpression" && op.fields.any { it.name == "flagsAndMode" }) {
+            // LOCAL PATCH (rc-players): the payload's place in the word, by name.
+            w.line("public static let alphaPayloadShift: UInt32 = 16")
+            w.line("public static let alphaPayloadMask: UInt32 = 0xFF")
             w.line(
-                "public var alphaPayload: Int32 { Int32((UInt32(bitPattern: flagsAndMode) >> BitLayout.flagsAndModeUpperParamShift) & UInt32(UInt8.max)) }"
+                "public var alphaPayload: Int32 { Int32((UInt32(bitPattern: flagsAndMode) >> Self.alphaPayloadShift) & Self.alphaPayloadMask) }"
             )
         }
     }
@@ -1988,7 +2222,9 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
         schema.idEncoding?.let { enc ->
             w.block("export const IdEncoding =", close = "} as const;") {
                 line("NAN_PREFIX: ${enc.nanPrefix},")
+                line("NAN_EXPONENT: ${enc.nanExponent},")
                 line("PAYLOAD_MASK: ${enc.payloadMask},")
+                line("NO_ID: ${enc.noId},")
                 line("START_ID: ${enc.startId},")
                 line("REGION_MASK: ${enc.regionMask},")
                 line("REGION_SUB_ID_MASK: ${enc.regionSubIdMask},")
@@ -2003,10 +2239,10 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 line("MACRO_LOCAL_START_ID: ${enc.macroLocalStartId},")
                 line("MACRO_LOCAL_END_ID: ${enc.macroLocalEndId},")
                 line(
-                    "isNanBits(bits: number): boolean { return ((bits & ${enc.nanPrefix}) | 0) === ${enc.nanPrefix} && (bits & ${enc.payloadMask}) !== 0; },"
+                    "isNanBits(bits: number): boolean { return ((bits & ${enc.nanExponent}) | 0) === ${enc.nanExponent} && (bits & ${enc.payloadMask}) !== 0; },"
                 )
                 line(
-                    "idFromNanBits(bits: number): number { return IdEncoding.isNanBits(bits) ? (bits & ${enc.payloadMask}) : -1; },"
+                    "idFromNanBits(bits: number): number { return IdEncoding.isNanBits(bits) ? (bits & ${enc.payloadMask}) : ${enc.noId}; },"
                 )
                 line(
                     "asNanBits(id: number): number { return ((id & ${enc.payloadMask}) | ${enc.nanPrefix}) | 0; },"
@@ -2343,5 +2579,66 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
         if (op.name == "ColorExpression" && op.fields.any { it.name == "flagsAndMode" }) {
             w.line("getAlphaPayload(): number { return (this.flagsAndMode >>> 16) & 0xFF; }")
         }
+    }
+
+    private companion object {
+        val SWIFT_KEYWORDS =
+            setOf(
+                "associatedtype",
+                "class",
+                "deinit",
+                "enum",
+                "extension",
+                "fileprivate",
+                "func",
+                "import",
+                "init",
+                "inout",
+                "internal",
+                "let",
+                "open",
+                "operator",
+                "private",
+                "precedencegroup",
+                "protocol",
+                "public",
+                "rethrows",
+                "static",
+                "struct",
+                "subscript",
+                "typealias",
+                "var",
+                "break",
+                "case",
+                "catch",
+                "continue",
+                "default",
+                "defer",
+                "do",
+                "else",
+                "fallthrough",
+                "for",
+                "guard",
+                "if",
+                "in",
+                "repeat",
+                "return",
+                "throw",
+                "switch",
+                "where",
+                "while",
+                "as",
+                "false",
+                "is",
+                "nil",
+                "self",
+                "Self",
+                "super",
+                "throws",
+                "true",
+                "try",
+                "Any",
+                "Type",
+            )
     }
 }

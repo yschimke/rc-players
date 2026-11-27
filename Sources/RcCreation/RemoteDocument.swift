@@ -94,16 +94,19 @@ public struct RemoteDocument: Sendable {
     try writer.writeRoot(content)
 
     var properties = [
-      HeaderProperty.int(HeaderProperty.docWidth, Int32(pixelWidth)),
-      HeaderProperty.int(HeaderProperty.docHeight, Int32(pixelHeight)),
-      HeaderProperty.float(HeaderProperty.docDensityAtGeneration, Float(displayScale)),
+      WireHeaderProperty(key: HeaderProperty.docWidth, value: .int(Int32(pixelWidth))),
+      WireHeaderProperty(key: HeaderProperty.docHeight, value: .int(Int32(pixelHeight))),
+      WireHeaderProperty(
+        key: HeaderProperty.docDensityAtGeneration, value: .float(Float(displayScale))),
     ]
     if let accessibilityLabel {
-      properties.append(.string(HeaderProperty.docContentDescription, accessibilityLabel))
+      properties.append(
+        WireHeaderProperty(
+          key: HeaderProperty.docContentDescription, value: .string(accessibilityLabel)))
     }
     let document = WireDocument(
-      properties: properties, width: Int32(pixelWidth), height: Int32(pixelHeight),
-      operations: writer.declarations + writer.body)
+      width: Int32(pixelWidth), height: Int32(pixelHeight), isModernHeader: true,
+      properties: properties, operations: writer.declarations + writer.body)
     do {
       return try document.save()
     } catch {

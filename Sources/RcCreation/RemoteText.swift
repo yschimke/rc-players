@@ -188,7 +188,8 @@ public struct RemoteText: RemoteView, RemotePrimitive {
     }
     let layout = TextLayout(
       componentId: componentID, animationId: IdEncoding.noId, textId: textID, color: colorWord,
-      fontSize: fontSize, fontStyle: isItalic ? TextLayout.italic : TextLayout.normal,
+      fontSize: fontSize,
+      fontStyle: isItalic ? TextLayout.fontStyleItalic : TextLayout.fontStyleNormal,
       fontWeight: Float(weight.value), fontFamilyId: IdEncoding.noId, textAlign: textAlign,
       overflow: environment.truncationMode.wire, maxLines: lineLimit ?? Int32.max)
     try writer.writeLayout(.textLayout(layout), kind: .leaf, content: EmptyRemoteView())

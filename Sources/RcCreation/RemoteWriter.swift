@@ -334,13 +334,13 @@ package final class RemoteWriter {
       id = try floatID(float)
     case .unary(let operation, let operand):
       id = try declareIntegerExpression(node) { () throws(RemoteEncodingError) in
-        [(try intID(operand), true), (IntegerExpressionOperator.offset + operation.code, true)]
+        [(try intID(operand), true), (operation.code, true)]
       }
     case .binary(let operation, let lhs, let rhs):
       id = try declareIntegerExpression(node) { () throws(RemoteEncodingError) in
         [
           (try intID(lhs), true), (try intID(rhs), true),
-          (IntegerExpressionOperator.offset + operation.code, true),
+          (operation.code, true),
         ]
       }
     }
@@ -382,11 +382,11 @@ package final class RemoteWriter {
     case .variable, .floatView: words.append((try intID(node), true))
     case .unary(let operation, let operand):
       try appendIntegerRPN(operand, to: &words)
-      words.append((IntegerExpressionOperator.offset + operation.code, true))
+      words.append((operation.code, true))
     case .binary(let operation, let lhs, let rhs):
       try appendIntegerRPN(lhs, to: &words)
       try appendIntegerRPN(rhs, to: &words)
-      words.append((IntegerExpressionOperator.offset + operation.code, true))
+      words.append((operation.code, true))
     }
   }
 
@@ -403,8 +403,8 @@ package final class RemoteWriter {
 
   /// The visibility a condition gives: `visible` while it holds, `gone` while it does not.
   private func visibilityID(_ condition: RemoteBool) throws(RemoteEncodingError) -> Int32 {
-    let visible = Int32(WireExpressionConstants.visibilityVisible)
-    let gone = Int32(WireExpressionConstants.visibilityGone)
+    let visible = ComponentVisibility.visible
+    let gone = ComponentVisibility.gone
     // The condition is 1 or 0; scaled onto the two visibility values. With today's values (1 and
     // 0) that is the condition itself.
     var visibility = condition.int
@@ -928,9 +928,7 @@ package final class RemoteWriter {
       if shape != .rectangle { try write(.clip(shape)) }
       let (flags, colorID, channels) = try colorFields(
         color,
-        colorRefFlag: Int32(
-          BackgroundModifierOperation.BitLayout.flagsColorRefMask
-            << BackgroundModifierOperation.BitLayout.flagsColorRefShift))
+        colorRefFlag: BackgroundModifierOperation.colorRef)
       emit(
         .backgroundModifierOperation(
           BackgroundModifierOperation(
@@ -939,9 +937,7 @@ package final class RemoteWriter {
     case .border(let color, let width, let cornerRadius):
       let (flags, colorID, channels) = try colorFields(
         color,
-        colorRefFlag: Int32(
-          BorderModifierOperation.BitLayout.flagsColorRefMask
-            << BorderModifierOperation.BitLayout.flagsColorRefShift))
+        colorRefFlag: BorderModifierOperation.colorRef)
       emit(
         .borderModifierOperation(
           BorderModifierOperation(

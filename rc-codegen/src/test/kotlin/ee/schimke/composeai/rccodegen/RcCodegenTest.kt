@@ -59,7 +59,8 @@ class RcCodegenTest {
         "public static let magicNumber: Int32 = 76283904",
         "public static let roundedRectangle: Int32 = 2",
         "public static let version1: Int32 = 1",
-        "public static let visibilityGone: Int = 0",
+        "public enum ComponentVisibility",
+        "public static let gone: Int32 = 0",
         "public static let inlineValueShift: Int32 = 16",
         "public enum FloatExpressionOperator",
         "public enum IntegerExpressionOperator",
@@ -81,7 +82,10 @@ class RcCodegenTest {
     assertFalse("throws NSError", "NSError(" in swift)
     val code = swift.lines().filterNot { it.trim().startsWith("//") }.joinToString("\n")
     assertFalse("uses Data", Regex("""\bData\b""").containsMatchIn(code))
-    assertTrue("defines the typed error", "enum WireError: Error, Sendable, Hashable" in swift)
+    assertTrue(
+      "defines the typed error",
+      "enum WireError: Error, Equatable, Hashable, Sendable" in swift,
+    )
     assertFalse("untyped throws", Regex("""throws(?!\(WireError\))""").containsMatchIn(swift))
   }
 
@@ -115,7 +119,7 @@ class RcCodegenTest {
   fun swiftOperationsAreAClosedEnum() {
     val swift =
       RcCodegenMain.allTargets().first { it.id == "swift" }.generate(schema).values.single()
-    assertTrue("public enum WireOperation: Sendable, Hashable" in swift)
+    assertTrue("public enum WireOperation: Equatable, Hashable, Sendable" in swift)
     assertTrue("public var operations: [WireOperation]" in swift)
     assertFalse("existential operations", "[RemoteOperation]" in swift)
     assertFalse("SCREAMING_SNAKE document limits", "MAX_OPERATION_COUNT" in swift)
