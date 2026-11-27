@@ -660,8 +660,9 @@ package final class RemoteWriter {
     guard initialOffset >= 0, initialOffset.isFinite else {
       throw RemoteEncodingError.invalidScrollOffset(initialOffset)
     }
-    if initialOffset > 0 {
-      declare(.floatConstant(FloatConstant(id: position, value: try pixels(initialOffset))))
+    let start = try pixels(initialOffset)
+    if start > 0 {
+      declare(.floatConstant(FloatConstant(id: position, value: start)))
     }
     emit(.clipRectModifierOperation(ClipRectModifierOperation()))
     emit(
@@ -670,13 +671,15 @@ package final class RemoteWriter {
           direction: axis == .vertical ? Scroll.vertical : Scroll.horizontal,
           position: Self.reference(position), max: Self.reference(maximum),
           notchMax: Self.reference(notchMaximum))))
+    // The touch expression starts at the offset too: a player that applies it before the first
+    // touch writes its value over the declared one.
     // The position follows the drag along the axis, the opposite way: dragging up scrolls down.
     let touch =
       axis == .vertical ? RemoteContextIds.idTouchPosY : RemoteContextIds.idTouchPosX
     emit(
       .touchExpression(
         TouchExpression(
-          id: position, value: 0, min: 0, max: Self.reference(maximum), velocityId: 0,
+          id: position, value: start, min: 0, max: Self.reference(maximum), velocityId: 0,
           touchEffects: Scroll.touchEffects,
           expression: [Self.reference(touch), -1, Self.operatorWord(.multiply)],
           stopMode: TouchStopMode.gently)))

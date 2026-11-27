@@ -39,6 +39,12 @@ import Testing
     let node = try scrolled(document)
     #expect(node.scrollDirection == .horizontal)
     #expect(node.scrollOffset == 100)
+    // The touch expression starts there too, for a player that applies it before a touch.
+    let operations = try WireDocument.load(from: document.encode()).operations
+    let touch = operations.compactMap { operation -> TouchExpression? in
+      if case .touchExpression(let touch) = operation { touch } else { nil }
+    }
+    #expect(touch.map(\.value) == [100])
   }
 
   /// The modifier's shape, as AndroidX's writer has it: a clip, the scroll, and the position as a
