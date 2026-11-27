@@ -23,10 +23,12 @@ public protocol RemoteViewModifier: Sendable {
 }
 
 /// The view a ``RemoteViewModifier`` is applied to, inside its `body`.
-public struct RemoteViewModifierContent: RemoteView, RemotePrimitive {
+public struct RemoteViewModifierContent: RemoteView, RemotePrimitive, RemoteContentWrapping {
   public typealias Body = Never
 
   let view: any RemoteView
+
+  package var wrappedContent: any RemoteStackContent { view }
 
   package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     try writer.write(view)

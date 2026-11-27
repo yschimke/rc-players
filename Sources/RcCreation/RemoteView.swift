@@ -206,10 +206,12 @@ extension RemoteForEach: RemoteView where Content: RemoteView {
 
 /// A view whose type is hidden: for `if #available` branches, and for storing views of
 /// different types together.
-public struct AnyRemoteView: RemoteView, RemotePrimitive {
+public struct AnyRemoteView: RemoteView, RemotePrimitive, RemoteContentWrapping {
   public typealias Body = Never
 
   let view: any RemoteView
+
+  package var wrappedContent: any RemoteStackContent { view }
 
   public init(_ view: some RemoteView) { self.view = view }
 

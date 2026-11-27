@@ -331,6 +331,18 @@ import Testing
       }
     }
     #expect(try rowSpacing(custom) == [0])
+    struct Identity: RemoteViewModifier {
+      func body(content: Content) -> some RemoteView { content }
+    }
+    let viaModifier = RemoteDocument(width: 200, height: 50) {
+      RemoteHStack(spacing: 12) {
+        RemoteText("A")
+        RemoteSpacer().modifier(Identity())
+        AnyRemoteView(RemoteSpacer())
+        RemoteText("B")
+      }
+    }
+    #expect(try rowSpacing(viaModifier) == [0])
     let fixed = RemoteDocument(width: 200, height: 50) {
       RemoteHStack(spacing: 12) {
         RemoteText("A")
