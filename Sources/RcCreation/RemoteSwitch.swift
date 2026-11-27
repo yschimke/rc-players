@@ -1,6 +1,6 @@
 import RcWireOperations
 
-/// An enum whose cases a document can switch between: ``RemoteStateLayout`` shows one view per
+/// An enum whose cases a document can switch between: ``RemoteSwitch`` shows one view per
 /// case, and a `RemoteVariable` of it holds the current case.
 ///
 /// ```swift
@@ -50,11 +50,11 @@ extension RemoteAction {
   }
 }
 
-/// One view per state, of which the player shows the one the current state selects: AndroidX's
-/// `RemoteStateLayout`, written as a Swift `switch` or `if`.
+/// One view per state, of which the player shows the one the current state selects: a Swift
+/// `switch` or `if` over a value the player holds (AndroidX's `RemoteStateLayout`).
 ///
 /// ```swift
-/// RemoteStateLayout(tab) { tab in
+/// RemoteSwitch(tab) { tab in
 ///   switch tab {
 ///   case .day: DayView()
 ///   case .week: WeekView()
@@ -62,7 +62,7 @@ extension RemoteAction {
 ///   }
 /// }
 ///
-/// RemoteStateLayout(isSignedIn) { isSignedIn in
+/// RemoteSwitch(isSignedIn) { isSignedIn in
 ///   if isSignedIn { AccountView() } else { SignInButton() }
 /// }
 /// ```
@@ -75,7 +75,7 @@ extension RemoteAction {
 ///
 /// On the wire this is a `StateLayout` whose index is the state's integer: a `Bool`'s 0 or 1, an
 /// enum case's position, or an `Int` itself.
-public struct RemoteStateLayout<Content: RemoteView>: RemoteView, RemotePrimitive {
+public struct RemoteSwitch<Content: RemoteView>: RemoteView, RemotePrimitive {
   public typealias Body = Never
 
   let index: RemoteInt
@@ -135,7 +135,7 @@ public struct RemoteStateLayout<Content: RemoteView>: RemoteView, RemotePrimitiv
 }
 
 /// A view shown while `condition` holds and another while it does not, as `if`/`else` over a
-/// value the player evaluates: shorthand for a two-state ``RemoteStateLayout``.
+/// value the player evaluates: shorthand for a two-state ``RemoteSwitch``.
 ///
 /// ```swift
 /// RemoteIf(RemoteBool(isOn)) {
@@ -160,7 +160,7 @@ public struct RemoteIf<Then: RemoteView, Else: RemoteView>: RemoteView {
 
   public var body: some RemoteView {
     let view = self
-    return RemoteStateLayout(condition) { holds in
+    return RemoteSwitch(condition) { holds in
       if holds { view.then } else { view.otherwise }
     }
   }

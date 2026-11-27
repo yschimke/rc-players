@@ -169,8 +169,6 @@ public struct RemoteForEach<Content: RemoteStackContent>: RemoteStackContent, Re
     contents = data.map(content)
   }
 
-  init(contents: [Content]) { self.contents = contents }
-
   package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     for content in contents { try writer.write(content) }
   }
@@ -234,14 +232,6 @@ public enum RemoteViewBuilder {
     second content: Second
   ) -> RemoteConditionalContent<First, Second> {
     RemoteConditionalContent(storage: .second(content))
-  }
-
-  /// Content repeated by a `for` loop, as 4.0 wrote it.
-  @available(*, deprecated, message: "Repeat content with RemoteForEach")
-  public static func buildArray<Content: RemoteStackContent>(_ contents: [Content])
-    -> RemoteForEach<Content>
-  {
-    RemoteForEach(contents: contents)
   }
 
   public static func buildLimitedAvailability(_ content: some RemoteView) -> AnyRemoteView {

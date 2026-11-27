@@ -26,7 +26,7 @@ import Testing
       RemoteVStack {
         RemoteColor.green.frame(width: 10, height: 10).visible(if: RemoteBool(isOn))
         RemoteColor.red.frame(width: 10, height: 10).visible(if: !isOn)
-        RemoteColor.blue.frame(width: 40, height: 20).onTap(.toggle(isOn))
+        RemoteColor.blue.frame(width: 40, height: 20).onTapGesture(.toggle(isOn))
       }
     }
     let session = try open(document)
@@ -67,7 +67,8 @@ import Testing
     let document = RemoteDocument(width: 100, height: 100) {
       RemoteVStack {
         RemoteText("\(value, decimals: 0)")
-        RemoteColor.blue.frame(width: 20, height: 20).onTap(.increment(value, by: 1, in: 0...3))
+        RemoteColor.blue.frame(width: 20, height: 20).onTapGesture(
+          .increment(value, by: 1, in: 0...3))
       }
     }
     let session = try open(document)
@@ -147,15 +148,45 @@ import Testing
     #expect(RemotePath(svg: "M0 0 A1 1 0 0 1 2 2") == nil)
   }
 
+  /// A button runs its actions when tapped and reads as a button.
+  @Test func buttonsRunTheirActionsAndReadAsButtons() throws {
+    let page = RemoteVariable("page", default: 0)
+    let document = RemoteDocument(width: 200, height: 100) {
+      RemoteVStack {
+        RemoteButton("Next", action: .increment(page, in: 0...9))
+        RemoteText("On page 1").visible(if: page == 1)
+        RemoteText("Hidden but holding its space").hidden()
+      }
+    }
+    let operations = try WireDocument.load(from: document.encode()).operations
+    let roles = operations.compactMap {
+      if case .coreSemantics(let semantics) = $0 {
+        Int32(Int8(bitPattern: semantics.role))
+      } else {
+        nil
+      }
+    }
+    #expect(roles == [CoreSemantics.roleButton])
+    let session = try open(document)
+    let stack = try #require(components(try session.snapshot().root).first)
+    let button = try #require(components(stack).first)
+    #expect(button.isClickable)
+    #expect(components(stack)[1].visibility == NativeSwiftVisibility.gone)
+    #expect(components(stack)[2].visibility == NativeSwiftVisibility.invisible)
+    _ = try session.click(componentID: button.componentID, timeSeconds: 0)
+    let shown = components(try #require(components(try session.snapshot().root).first))
+    #expect(shown[1].visibility == NativeSwiftVisibility.visible)
+  }
+
   /// Integer arithmetic and ordering, evaluated by the player as the variable changes.
   @Test func integerArithmeticAndOrdering() throws {
     let count = RemoteVariable("count", default: 7)
     let document = RemoteDocument(width: 200, height: 100) {
       RemoteVStack {
-        RemoteStateLayout((RemoteInt(count) * 2) % 3, in: 0..<3) { remainder in
+        RemoteSwitch((RemoteInt(count) * 2) % 3, in: 0..<3) { remainder in
           RemoteText("r\(remainder)")
         }
-        RemoteStateLayout(RemoteInt(count) / 3, in: 0..<4) { quotient in
+        RemoteSwitch(RemoteInt(count) / 3, in: 0..<4) { quotient in
           RemoteText("q\(quotient)")
         }
         RemoteText("lt5").visible(if: count < 5)
@@ -206,7 +237,7 @@ import Testing
     let document = RemoteDocument(width: 100, height: 100) {
       RemoteVStack {
         RemoteColor.blue.frame(width: 40, height: 20)
-          .onTap(
+          .onTapGesture(
             .set(target, to: RemoteFloat(source)), .set(copy, to: RemoteInt(count)),
             .set(clock, to: RemoteFloat(.hour)))
       }

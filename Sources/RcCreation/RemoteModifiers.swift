@@ -394,15 +394,21 @@ extension RemoteView {
     modifier(.visibilityVariable(variable))
   }
 
+  /// Hides the view, keeping its space, as SwiftUI's `hidden()`.
+  public func hidden() -> RemoteModifiedContent<Self> { visibility(.invisible) }
+
   /// Shows the view while `condition` holds and removes it, taking no space, while it does not.
   public func visible(if condition: RemoteBool) -> RemoteModifiedContent<Self> {
     modifier(.visibleIf(condition))
   }
 
-  /// Runs `actions`, in order, when the view is tapped.
-  public func onTap(_ actions: RemoteAction...) -> RemoteModifiedContent<Self> { onTap(actions) }
+  /// Runs `actions`, in order, when the view is tapped. For a control, prefer ``RemoteButton``,
+  /// which also tells assistive technologies the view is a button.
+  public func onTapGesture(_ actions: RemoteAction...) -> RemoteModifiedContent<Self> {
+    onTapGesture(actions)
+  }
 
-  public func onTap(_ actions: [RemoteAction]) -> RemoteModifiedContent<Self> {
+  public func onTapGesture(_ actions: [RemoteAction]) -> RemoteModifiedContent<Self> {
     modifier(.tap(actions))
   }
 

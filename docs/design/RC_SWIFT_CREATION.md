@@ -87,13 +87,13 @@ which the player supplies as it lays the canvas out.
 | --- | --- | --- |
 | Document | `RemoteDocument(width:height:displayScale:accessibilityLabel:)`, `encode() throws(RemoteEncodingError)` | modern `Header` with `DOC_WIDTH`, `DOC_HEIGHT`, `DOC_DENSITY_AT_GENERATION`, `DOC_CONTENT_DESCRIPTION` |
 | Stacks | `RemoteVStack`, `RemoteHStack` (alignment, spacing, distribution), `RemoteZStack` (alignment), `RemoteSpacer`, `RemoteForEach` | `ColumnLayout`, `RowLayout`, `BoxLayout`, `LayoutContent`, `ContainerEnd` |
-| State layouts | `RemoteStateLayout` over a `RemoteBool`, a `Bool` variable, a `RemoteStateValue` enum variable or a `RemoteInt` range, written as a Swift `switch` or `if`; `RemoteIf(condition) { } else: { }` | `StateLayout` with one box per state |
+| State layouts | `RemoteSwitch` over a `RemoteBool`, a `Bool` variable, a `RemoteStateValue` enum variable or a `RemoteInt` range, written as a Swift `switch` or `if`; `RemoteIf(condition) { } else: { }` | `StateLayout` with one box per state |
 | Text | `RemoteText`; `font(_:)` taking a `RemoteFont` (`.body`, `.headline`, …, `.system(size:weight:)`), `fontWeight`, `bold`, `italic`, `foregroundStyle`, `multilineTextAlignment`, `lineLimit`, `truncationMode`, all environment values that reach every text inside | `TextLayout` |
 | Environment | `RemoteEnvironmentKey`, `RemoteEnvironmentValues`, `environment(_:_:)`, `RemoteEnvironmentReader`, `tint` | nothing: read while writing |
 | Images and paths | `RemoteImage` (a view), `RemotePath` (SVG path data) that a canvas fills or strokes | `BitmapData`, `PathData`, draw ops |
 | Drawing | `RemoteCanvas { context, size in … }` with `fill` and `stroke` of rects, rounded rects, ellipses, circles and lines | `CanvasLayout`, `CanvasContent`, `ComponentValue`, `PaintData`, draw ops |
 | Colour | `RemoteColorValue` (literal), `RemoteColor.fixed`, `.adaptive(light:dark:)`, `.variable`; a colour is also a view | `ColorTheme`, `ColorConstant`, `NamedVariable` |
-| Modifiers | `frame`, `flexWeight`, `padding`, `offset`, `zIndex`, `background`, `clipShape`, `border`, `visibility`, `visible(if:)`, `onTap`; your own with `RemoteViewModifier` and `modifier(_:)` | the matching modifier ops; a rounded `background` as `DrawContentOperation` + `CanvasOperations` |
+| Modifiers | `frame`, `flexWeight`, `padding`, `offset`, `zIndex`, `background`, `clipShape`, `border`, `visibility`, `hidden`, `visible(if:)`, `onTapGesture`; `RemoteButton`; your own with `RemoteViewModifier` and `modifier(_:)` | the matching modifier ops; a rounded `background` as `DrawContentOperation` + `CanvasOperations` |
 | Accessibility | `accessibilityLabel`, `accessibilityValue`, `accessibilityRole`, `accessibilityElement(children:)` | one `CoreSemantics` per view |
 | State | `RemoteVariable<Double / Int / Bool / String / RemoteColorValue / RemoteVisibility / some RemoteStateValue>` | `FloatConstant`, `IntegerConstant`, `TextData`, `ColorConstant`, `NamedVariable` |
 | Conditions | `RemoteBool` and `RemoteInt`: comparisons, `&&`, `\|\|`, `!`, integer arithmetic over variables | `IntegerExpression` |
@@ -115,15 +115,15 @@ which the player supplies as it lays the canvas out.
   with `buildPartialBlock` rather than with a parameter pack, because a variadic generic type needs
   the Swift 5.9 runtime (iOS 17, macOS 14), above this package's floor. Repetition is
   `RemoteForEach`. Modifiers return concrete types (`RemoteModifiedContent`,
-  `RemoteEnvironmentContent`), as SwiftUI's return `ModifiedContent`, because an opaque
-  `some RemoteView` cannot be inferred inside a `for` loop, which 4.0 code still uses. The writer
-  is `package`, so the public API is views and modifiers only, with no underscored types.
-- **4.0 code still compiles.** `RemoteTextStyle`, `font(size:weight:)` and `for` loops in a
-  builder are deprecated, not removed: each forwards to its replacement and writes the same
-  document (`RemoteCompatibilityTests`). The package keeps its iOS 13 floor and stays one
-  package, so 4.0's `.package(url:)` and products resolve unchanged.
+  `RemoteEnvironmentContent`), as SwiftUI's return `ModifiedContent`. The writer is `package`, so
+  the public API is views and modifiers only, with no underscored types.
+- **Swift names, not Compose ones.** `RemoteHStack` / `RemoteVStack` / `RemoteZStack` rather
+  than Row / Column / Box, `RemoteSwitch` rather than `RemoteStateLayout`, `RemoteButton` and
+  `onTapGesture` rather than `clickable`, `hidden()` and `visible(if:)` rather than `GONE`. The
+  wire names stay AndroidX's. `visibility(_:)` remains for a `RemoteVisibility` the host writes,
+  and `flexWeight` has no SwiftUI equivalent, so it keeps its name.
 - **Branches the player takes are state layouts.** A Swift `if` or `switch` in a builder runs while
-  the document is written. A branch on a value the player holds is a `RemoteStateLayout`: its
+  the document is written. A branch on a value the player holds is a `RemoteSwitch`: its
   closure runs once per state, so the compiler checks the `switch` is exhaustive, and every state's
   view is in the document. It writes AndroidX's `StateLayout`, which the CMP and native players
   both switch on its index.
@@ -164,7 +164,7 @@ which the player supplies as it lays the canvas out.
 
 ## Verification
 
-- `RcCreationTests` (50 tests) opens every document with `NativeSwiftDocumentSession` and checks the
+- `RcCreationTests` (56 tests) opens every document with `NativeSwiftDocumentSession` and checks the
   decoded tree: sizes in pixels, spacing, padding, colours, weights, text, canvas commands, and a
   canvas's live size. It writes variables through the session and checks that the text, width,
   visibility and colours follow them, and that a tap runs its actions. It reads the operations

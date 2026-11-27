@@ -7,7 +7,7 @@ import Testing
 
 /// State layouts written as Swift `switch` and `if`, read back through the native player, which
 /// shows the branch the index selects.
-@Suite struct RemoteStateLayoutTests {
+@Suite struct RemoteSwitchTests {
   enum Tab: RemoteStateValue { case day, week, month }
 
   private func open(_ document: RemoteDocument) throws -> NativeSwiftDocumentSession {
@@ -36,14 +36,14 @@ import Testing
     let tab = RemoteVariable("tab", default: Tab.week)
     let document = RemoteDocument(width: 200, height: 100) {
       RemoteVStack {
-        RemoteStateLayout(tab) { tab in
+        RemoteSwitch(tab) { tab in
           switch tab {
           case .day: RemoteText("Day")
           case .week: RemoteText("Week")
           case .month: RemoteText("Month")
           }
         }
-        RemoteColor.blue.frame(width: 20, height: 20).onTap(.set(tab, to: .month))
+        RemoteColor.blue.frame(width: 20, height: 20).onTapGesture(.set(tab, to: .month))
       }
     }
     let session = try open(document)
@@ -63,7 +63,7 @@ import Testing
   @Test func ifElseOverABool() throws {
     let isOn = RemoteVariable("isOn", default: false)
     let document = RemoteDocument(width: 200, height: 100) {
-      RemoteStateLayout(isOn) { isOn in
+      RemoteSwitch(isOn) { isOn in
         if isOn { RemoteText("On") } else { RemoteText("Off") }
       }
     }
@@ -94,7 +94,7 @@ import Testing
   /// One `StateLayout` with one child per state, each its own box, as AndroidX writes it.
   @Test func writesAStateLayoutWithOneChildPerState() throws {
     let document = RemoteDocument(width: 200, height: 100) {
-      RemoteStateLayout(RemoteVariable("tab", default: Tab.day)) { tab in
+      RemoteSwitch(RemoteVariable("tab", default: Tab.day)) { tab in
         RemoteText("\(String(describing: tab))")
         RemoteText("second view in the same state")
       }

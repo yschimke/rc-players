@@ -56,7 +56,7 @@ import Testing
         .frame(width: 20, height: 20)
         RemoteColor.adaptive(light: .white, dark: .black)
           .frame(width: 10, height: 10)
-          .onTap(.host("tapped"))
+          .onTapGesture(.host("tapped"))
           .accessibilityLabel("Tap")
       }
       .padding(8)

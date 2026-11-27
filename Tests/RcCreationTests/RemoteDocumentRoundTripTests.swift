@@ -296,7 +296,7 @@ import Testing
     let document = RemoteDocument(width: 100, height: 100) {
       RemoteColor.red
         .frame(width: 40, height: 40)
-        .onTap(.host(id: 7), .host("opened"), .set(tab, to: 2))
+        .onTapGesture(.host(id: 7), .host("opened"), .set(tab, to: 2))
     }
     let session = try open(document)
     let box = try #require(components(try session.snapshot().root).first)
@@ -472,12 +472,12 @@ import Testing
     let tooLarge = Int(Int32.max) + 1
     #expect(throws: RemoteEncodingError.integerOutOfRange(tooLarge)) {
       try RemoteDocument(width: 10, height: 10) {
-        RemoteColor.red.onTap(.host(id: tooLarge))
+        RemoteColor.red.onTapGesture(.host(id: tooLarge))
       }.encode()
     }
     #expect(throws: RemoteEncodingError.integerOutOfRange(tooLarge)) {
       try RemoteDocument(width: 10, height: 10) {
-        RemoteColor.red.visibility(.visible).onTap(
+        RemoteColor.red.visibility(.visible).onTapGesture(
           .set(RemoteVariable("n", default: 0), to: tooLarge))
       }.encode()
     }
@@ -487,7 +487,7 @@ import Testing
   @Test func semanticsOfATappableViewAreClickable() throws {
     let document = RemoteDocument(width: 100, height: 100) {
       RemoteColor.blue.frame(width: 40, height: 40)
-        .onTap(.host("go"))
+        .onTapGesture(.host("go"))
         .accessibilityLabel("Go")
     }
     let semantics = try operations(document).compactMap {
