@@ -95,11 +95,14 @@ enum NativeSwiftIntegerExpression {
         case NativeSwiftIntegerOperator.or: stack.append(left | right)
         case NativeSwiftIntegerOperator.and: stack.append(left & right)
         case NativeSwiftIntegerOperator.xor: stack.append(left ^ right)
-        case NativeSwiftIntegerOperator.copySign: stack.append((left ^ (right >> 31)) &- (right >> 31))
+        case NativeSwiftIntegerOperator.copySign:
+          stack.append((left ^ (right >> 31)) &- (right >> 31))
         case NativeSwiftIntegerOperator.min: stack.append(min(left, right))
         default: stack.append(max(left, right))
         }
-      } else if (NativeSwiftIntegerOperator.neg...NativeSwiftIntegerOperator.sign).contains(operation) {
+      } else if (NativeSwiftIntegerOperator.neg...NativeSwiftIntegerOperator.sign).contains(
+        operation)
+      {
         let value = try pop1()
         switch operation {
         case NativeSwiftIntegerOperator.neg: stack.append(0 &- value)
@@ -107,9 +110,14 @@ enum NativeSwiftIntegerExpression {
         case NativeSwiftIntegerOperator.incr: stack.append(value &+ 1)
         case NativeSwiftIntegerOperator.decr: stack.append(value &- 1)
         case NativeSwiftIntegerOperator.not: stack.append(~value)
-        default: stack.append((value >> 31) | Int32(bitPattern: 0 &- UInt32(bitPattern: value)) >> 31)
+        // AndroidX `(v >> 31) | (-v >>> 31)`: the second shift is logical, so a positive value
+        // gives 1 rather than -1.
+        default:
+          stack.append((value >> 31) | Int32(bitPattern: UInt32(bitPattern: 0 &- value) >> 31))
         }
-      } else if (NativeSwiftIntegerOperator.clamp...NativeSwiftIntegerOperator.mad).contains(operation) {
+      } else if (NativeSwiftIntegerOperator.clamp...NativeSwiftIntegerOperator.mad).contains(
+        operation)
+      {
         let (first, second, third) = try pop3()
         if operation == NativeSwiftIntegerOperator.clamp {
           stack.append(min(max(first, third), second))
@@ -150,7 +158,8 @@ enum NativeSwiftFloatExpression {
   static func referenceID(_ word: UInt32) -> Int? {
     guard isEncoded(word) else { return nil }
     let payload = Int(word & payloadMask)
-    guard payload <= operatorOffset || payload > operatorOffset + NativeSwiftFloatOperator.last else {
+    guard payload <= operatorOffset || payload > operatorOffset + NativeSwiftFloatOperator.last
+    else {
       return nil
     }
     return Int(word & referenceMask)
@@ -492,7 +501,8 @@ enum NativeSwiftMatrixExpression {
         let z = operand(position - 1)
         let degrees = operand(position - 4)
         guard let x, let y, let z, let degrees else { return nil }
-        matrices[index] = multiply(rotationAroundAxis(x: x, y: y, z: z, degrees: degrees), matrices[index])
+        matrices[index] = multiply(
+          rotationAroundAxis(x: x, y: y, z: z, degrees: degrees), matrices[index])
       case NativeSwiftMatrixOperator.projection:
         // PROJECTION: fov degrees, aspect ratio, near, far.
         let fov = operand(position - 4)
@@ -500,7 +510,8 @@ enum NativeSwiftMatrixExpression {
         let near = operand(position - 2)
         let far = operand(position - 1)
         guard let fov, let aspect, let near, let far else { return nil }
-        matrices[index] = multiply(matrices[index], projection(fov: fov, aspect: aspect, near: near, far: far))
+        matrices[index] = multiply(
+          matrices[index], projection(fov: fov, aspect: aspect, near: near, far: far))
       default:
         return nil
       }

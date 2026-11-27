@@ -147,6 +147,54 @@ import Testing
     #expect(RemotePath(svg: "M0 0 A1 1 0 0 1 2 2") == nil)
   }
 
+  /// Integer arithmetic and ordering, evaluated by the player as the variable changes.
+  @Test func integerArithmeticAndOrdering() throws {
+    let count = RemoteVariable("count", default: 7)
+    let document = RemoteDocument(width: 200, height: 100) {
+      RemoteVStack {
+        RemoteStateLayout((RemoteInt(count) * 2) % 3, in: 0..<3) { remainder in
+          RemoteText("r\(remainder)")
+        }
+        RemoteStateLayout(RemoteInt(count) / 3, in: 0..<4) { quotient in
+          RemoteText("q\(quotient)")
+        }
+        RemoteText("lt5").visible(if: count < 5)
+        RemoteText("le7").visible(if: count <= 7)
+        RemoteText("gt7").visible(if: count > 7)
+        RemoteText("ge7").visible(if: count >= 7)
+        RemoteText("neg").visible(if: RemoteInt(count).signum() == -1)
+      }
+    }
+    let session = try open(document)
+    func shown() throws -> [String] {
+      func walk(_ node: NativeSwiftNodeSnapshot) -> [String] {
+        if node.visibility == NativeSwiftVisibility.gone { return [] }
+        return (node.text.map { [$0.value] } ?? []) + node.children.flatMap(walk)
+      }
+      return walk(try session.snapshot().root)
+    }
+    // 7: 14 % 3 = 2, 7 / 3 = 2.
+    #expect(try shown() == ["r2", "q2", "le7", "ge7"])
+    #expect(session.setInteger(3, for: count.name))
+    // 3: 6 % 3 = 0, 3 / 3 = 1.
+    #expect(try shown() == ["r0", "q1", "lt5", "le7"])
+    #expect(session.setInteger(8, for: count.name))
+    #expect(try shown() == ["r1", "q2", "gt7", "ge7"])
+    #expect(session.setInteger(-2, for: count.name))
+    // Truncating division and Swift's `%`: -2 / 3 = 0, and -4 % 3 = -1, an index outside the
+    // states, which shows the first.
+    #expect(try shown() == ["r0", "q0", "lt5", "le7", "neg"])
+  }
+
+  /// Constants fold in Swift, except where only the player decides the result.
+  @Test func integerConstantsFold() throws {
+    #expect((RemoteInt(7) * 3 + 1).node == .constant(22))
+    #expect((RemoteInt(-7) / 2).node == .constant(-3))
+    #expect((RemoteInt(-7) % 2).node == .constant(-1))
+    #expect(RemoteInt(-5).signum().node == .constant(-1))
+    #expect((RemoteInt(7) / 0).node == .binary(.divide, .constant(7), .constant(0)))
+  }
+
   /// An action can copy a variable or a system value: its source is written as an expression,
   /// which is what a value-change action reads.
   @Test func actionsCopyBareReferences() throws {

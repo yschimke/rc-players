@@ -26,25 +26,37 @@ public struct RemoteInt: Hashable, Sendable, ExpressibleByIntegerLiteral {
 
   /// The `IntegerExpression` operators this API writes.
   enum Operator: Hashable, Sendable {
-    case add, subtract, minimum, maximum, absolute
+    case add, subtract, multiply, divide, remainder, minimum, maximum, absolute, sign
 
     var code: Int32 {
       switch self {
       case .add: IntegerExpressionOperator.iAdd
       case .subtract: IntegerExpressionOperator.iSub
+      case .multiply: IntegerExpressionOperator.iMul
+      case .divide: IntegerExpressionOperator.iDiv
+      case .remainder: IntegerExpressionOperator.iMod
       case .minimum: IntegerExpressionOperator.iMin
       case .maximum: IntegerExpressionOperator.iMax
       case .absolute: IntegerExpressionOperator.iAbs
+      case .sign: IntegerExpressionOperator.iSign
       }
     }
 
-    func evaluate(_ lhs: Int, _ rhs: Int) -> Int {
+    /// The operation on two constants, or `nil` where only the player decides it (a division by
+    /// zero, or `Int.min / -1`), so the expression is written rather than folded.
+    func evaluate(_ lhs: Int, _ rhs: Int) -> Int? {
       switch self {
       case .add: lhs &+ rhs
       case .subtract: lhs &- rhs
+      case .multiply: lhs &* rhs
+      case .divide:
+        rhs == 0 ? nil : lhs.dividedReportingOverflow(by: rhs).overflow ? nil : lhs / rhs
+      case .remainder:
+        rhs == 0 ? nil : lhs.remainderReportingOverflow(dividingBy: rhs).overflow ? nil : lhs % rhs
       case .minimum: Swift.min(lhs, rhs)
       case .maximum: Swift.max(lhs, rhs)
       case .absolute: lhs == .min ? .max : Swift.abs(lhs)
+      case .sign: lhs.signum()
       }
     }
   }
@@ -63,6 +75,16 @@ public struct RemoteInt: Hashable, Sendable, ExpressibleByIntegerLiteral {
 
   public static func + (lhs: RemoteInt, rhs: RemoteInt) -> RemoteInt { fold(.add, lhs, rhs) }
   public static func - (lhs: RemoteInt, rhs: RemoteInt) -> RemoteInt { fold(.subtract, lhs, rhs) }
+  public static func * (lhs: RemoteInt, rhs: RemoteInt) -> RemoteInt { fold(.multiply, lhs, rhs) }
+
+  /// Integer division, truncating toward zero. The player reads a division by zero as 0.
+  public static func / (lhs: RemoteInt, rhs: RemoteInt) -> RemoteInt { fold(.divide, lhs, rhs) }
+
+  /// The remainder of integer division, with the sign of `lhs`, as Swift's `%`. The player reads a
+  /// remainder by zero as 0.
+  public static func % (lhs: RemoteInt, rhs: RemoteInt) -> RemoteInt {
+    fold(.remainder, lhs, rhs)
+  }
 
   public static func min(_ lhs: RemoteInt, _ rhs: RemoteInt) -> RemoteInt {
     fold(.minimum, lhs, rhs)
@@ -72,11 +94,16 @@ public struct RemoteInt: Hashable, Sendable, ExpressibleByIntegerLiteral {
   }
 
   /// The magnitude of this value.
-  public var magnitude: RemoteInt {
-    if case .constant(let value) = node {
-      return RemoteInt(node: .constant(Operator.absolute.evaluate(value, 0)))
+  public var magnitude: RemoteInt { unary(.absolute) }
+
+  /// -1 when negative, 0 when zero, 1 when positive, as `Int.signum()`.
+  public func signum() -> RemoteInt { unary(.sign) }
+
+  private func unary(_ operation: Operator) -> RemoteInt {
+    if case .constant(let value) = node, let result = operation.evaluate(value, 0) {
+      return RemoteInt(node: .constant(result))
     }
-    return RemoteInt(node: .unary(.absolute, node))
+    return RemoteInt(node: .unary(operation, node))
   }
 
   /// This value, clamped to `range`.
@@ -93,9 +120,23 @@ public struct RemoteInt: Hashable, Sendable, ExpressibleByIntegerLiteral {
     RemoteBool(int: .min((lhs - rhs).magnitude, 1))
   }
 
+  // Ordering is the sign of the difference, so it holds while the difference fits in 32 bits:
+  // values within ±1 073 741 823 of each other always compare correctly.
+
+  public static func < (lhs: RemoteInt, rhs: RemoteInt) -> RemoteBool {
+    // 1 when `rhs - lhs` is positive, else 0.
+    RemoteBool(int: .max((rhs - lhs).signum(), 0))
+  }
+
+  public static func > (lhs: RemoteInt, rhs: RemoteInt) -> RemoteBool { rhs < lhs }
+  public static func <= (lhs: RemoteInt, rhs: RemoteInt) -> RemoteBool { !(lhs > rhs) }
+  public static func >= (lhs: RemoteInt, rhs: RemoteInt) -> RemoteBool { !(lhs < rhs) }
+
   private static func fold(_ operation: Operator, _ lhs: RemoteInt, _ rhs: RemoteInt) -> RemoteInt {
-    if case .constant(let left) = lhs.node, case .constant(let right) = rhs.node {
-      return RemoteInt(node: .constant(operation.evaluate(left, right)))
+    if case .constant(let left) = lhs.node, case .constant(let right) = rhs.node,
+      let result = operation.evaluate(left, right)
+    {
+      return RemoteInt(node: .constant(result))
     }
     return RemoteInt(node: .binary(operation, lhs.node, rhs.node))
   }
@@ -106,6 +147,10 @@ extension RemoteVariable where Value == Int {
   public static func == (lhs: Self, rhs: Int) -> RemoteBool { RemoteInt(lhs) == RemoteInt(rhs) }
 
   public static func != (lhs: Self, rhs: Int) -> RemoteBool { RemoteInt(lhs) != RemoteInt(rhs) }
+  public static func < (lhs: Self, rhs: Int) -> RemoteBool { RemoteInt(lhs) < RemoteInt(rhs) }
+  public static func <= (lhs: Self, rhs: Int) -> RemoteBool { RemoteInt(lhs) <= RemoteInt(rhs) }
+  public static func > (lhs: Self, rhs: Int) -> RemoteBool { RemoteInt(lhs) > RemoteInt(rhs) }
+  public static func >= (lhs: Self, rhs: Int) -> RemoteBool { RemoteInt(lhs) >= RemoteInt(rhs) }
 }
 
 /// A condition the player evaluates as it plays: a `RemoteVariable<Bool>`, a comparison of

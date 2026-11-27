@@ -109,7 +109,9 @@ public struct RemoteStateLayout<Content: RemoteView>: RemoteView, RemotePrimitiv
     states = State.allCases.map(content)
   }
 
-  /// One view for each integer in `range`, which must start at 0: the integer is the index.
+  /// One view for each integer in `range`: the integer, less the range's start, is the index.
+  /// An index outside the states shows the first state on both the CMP and native players; use
+  /// `clamped(to:)` to choose another.
   public init(
     _ selection: RemoteInt, in range: Range<Int>, alignment: RemoteAlignment = .topLeading,
     @RemoteViewBuilder content: (Int) -> Content
