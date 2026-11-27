@@ -518,12 +518,25 @@ package final class RemoteWriter {
     let background = RoundedBackgroundBox(
       drawBehind: DrawBehind(color: color, cornerRadius: try pixels(cornerRadius)), content: content
     )
+    try writeInOuterBox(content: background)
+  }
+
+  /// `content`, with the modifiers waiting for it (and a row's gap) on a box around it rather than
+  /// on it: for a component whose own modifiers would change what it draws, or that a player lays
+  /// out without them (a `StateLayout`). Without modifiers, `content` alone.
+  func writeInOuterBox(
+    alignment: RemoteAlignment = .center, content: some RemoteStackContent
+  ) throws(RemoteEncodingError) {
     // A row's gap is padding too, so a later child of a row gets the outer box for it.
     let takesRowGap =
       parents.last == .horizontalStack
       && rowGaps.last.map { $0.children > 0 && $0.gap > 0 } == true
-    if pendingModifiers.isEmpty, !takesRowGap { return try write(background) }
-    try writeLayout(.boxLayout(centeredBox()), kind: .zStack, content: background)
+    if pendingModifiers.isEmpty, !takesRowGap { return try write(content) }
+    let box = BoxLayout(
+      componentId: newComponentID(), animationId: IdEncoding.noId,
+      horizontalPositioning: alignment.horizontal.wire,
+      verticalPositioning: alignment.vertical.wire)
+    try writeLayout(.boxLayout(box), kind: .zStack, content: content)
   }
 
   func centeredBox() -> BoxLayout {

@@ -1,0 +1,87 @@
+import Foundation
+import RcCreation
+import RcCreationFoundation
+import RcCreationAppleUI
+
+let wifi = RemoteVariable("wifi", default: true)
+let airplane = RemoteVariable("airplane", default: false)
+let guests = RemoteVariable("guests", default: 2.0)
+let range = RemoteVariable("range", default: 1)
+let download = RemoteVariable("download", default: 0.62)
+
+let controls = RemoteDocument(width: 390, height: 844, displayScale: 2) {
+  RemoteList {
+    RemoteSection("Connectivity", footer: "Airplane Mode turns off every radio.") {
+      RemoteToggle("Airplane Mode", isOn: airplane)
+      RemoteToggle("Wi-Fi", isOn: wifi)
+      RemoteNavigationRow("Bluetooth", symbol: .boltFill, iconBackground: .systemBlue, value: "On", action: .host("bluetooth"))
+      RemoteNavigationRow("Notifications", symbol: .bellFill, iconBackground: .systemRed, action: .host("notifications"))
+    }
+    RemoteSection("Booking") {
+      RemoteStepper("Guests: \(guests)", value: guests, in: 1...8)
+      RemoteSegmentedPicker(selection: range, options: ["Day", "Week", "Month"])
+      RemoteProgressView("Downloading", value: RemoteFloat(download))
+      RemoteHStack(spacing: 16) {
+        RemoteProgressView(value: RemoteFloat(download)).progressViewStyle(.circular)
+        RemoteProgressView()
+        RemoteLabel("Favourites", symbol: .starFill).iconStyle(.systemYellow)
+        RemoteSpacer()
+        RemoteBadge(count: 3)
+      }
+    }
+    RemoteSection("Buttons") {
+      RemoteHStack(spacing: 10) {
+        RemoteButton("Prominent", symbol: .playFill, action: .host("play")).buttonStyle(.borderedProminent)
+        RemoteButton("Bordered", action: .host("b")).buttonStyle(.bordered)
+      }
+      RemoteHStack(spacing: 10) {
+        RemoteButton("Borderless", action: .host("p")).buttonStyle(.borderless)
+        RemoteButton("Plain", action: .host("q")).buttonStyle(.plain)
+      }
+      RemoteHStack(spacing: 10) {
+        RemoteButton("Delete", role: .destructive, action: .host("delete")).buttonStyle(.bordered)
+        RemoteButton("Disabled", action: .host("x")).buttonStyle(.borderedProminent).disabled()
+        RemoteButton("Small", action: .host("s")).buttonStyle(.bordered).controlSize(.small)
+      }
+    }
+  }
+}
+
+let temperature = RemoteVariable("temperature", default: 21.0)
+let small = RemoteWidget(family: .systemSmall, displayScale: 2, url: "weather://today") {
+  RemoteVStack(alignment: .leading, spacing: 2) {
+    RemoteText("Cupertino").font(.headline)
+    RemoteText("\(temperature)°").font(.system(size: 42, weight: .light))
+    RemoteSpacer()
+    RemoteLabel("Partly Cloudy", symbol: .boltFill).font(.caption).iconStyle(.systemYellow)
+    RemoteText("H:24° L:16°").font(.caption).foregroundStyle(.secondaryLabel)
+  }
+  .frame(maxWidth: .infinity, maxHeight: .infinity)
+}
+let medium = RemoteWidget(family: .systemMedium, displayScale: 2) {
+  RemoteHStack(alignment: .center, spacing: 16) {
+    RemoteGauge(value: RemoteFloat(temperature), in: 10...30, label: "Indoor", currentValueLabel: "\(temperature)°")
+    RemoteVStack(alignment: .leading, spacing: 8) {
+      RemoteText.time(.hourMinute24).font(.system(size: 34, weight: .semibold))
+      RemoteGauge(value: RemoteFloat(download), label: "Battery", minimumValueLabel: "0%", maximumValueLabel: "100%").gaugeStyle(.linearCapacity)
+    }
+    .flexWeight(1)
+  }
+  .frame(maxWidth: .infinity, maxHeight: .infinity)
+}
+let circular = RemoteWidget(family: .accessoryCircular, displayScale: 2, background: .fixed(.black.opacity(0.85))) {
+  RemoteGauge(value: RemoteFloat(temperature), in: 10...30, label: "°C", currentValueLabel: "\(temperature)")
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+}
+let rectangular = RemoteWidget(family: .accessoryRectangular, displayScale: 2, background: .fixed(.black.opacity(0.85))) {
+  RemoteVStack(alignment: .leading, spacing: 2) {
+    RemoteLabel("Next", symbol: .bellFill).font(.headline)
+    RemoteText("Design review")
+    RemoteText("10:30 – 11:00").font(.caption).foregroundStyle(.fixed(.white.opacity(0.6)))
+  }
+}
+
+let out = URL(fileURLWithPath: CommandLine.arguments[1])
+for (name, data) in [("controls", try controls.encode()), ("widget-small", try small.encode()), ("widget-medium", try medium.encode()), ("widget-circular", try circular.encode()), ("widget-rectangular", try rectangular.encode())] {
+  try Data(data).write(to: out.appendingPathComponent("\(name).rc"))
+}

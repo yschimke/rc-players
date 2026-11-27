@@ -121,16 +121,32 @@ public struct RemoteSwitch<Content: RemoteView>: RemoteView, RemotePrimitive {
     states = range.map(content)
   }
 
+  /// The modifiers go on a box around the `StateLayout`: the CMP player lays a `StateLayout` out
+  /// without its padding and size modifiers.
   package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
-    let componentID = writer.newComponentID()
+    try writer.writeInOuterBox(
+      alignment: alignment, content: StateLayoutContent(switch: self))
+  }
+}
+
+/// A ``RemoteSwitch``'s `StateLayout`, with one box per state.
+private struct StateLayoutContent<Content: RemoteView>: RemoteView, RemotePrimitive {
+  typealias Body = Never
+
+  let `switch`: RemoteSwitch<Content>
+
+  func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
+    let alignment = `switch`.alignment
     let layout = StateLayout(
-      componentId: componentID, animationId: IdEncoding.noId,
+      componentId: writer.newComponentID(), animationId: IdEncoding.noId,
       horizontalPositioning: alignment.horizontal.wire,
-      verticalPositioning: alignment.vertical.wire, indexId: try writer.intID(index.node))
-    let alignment = alignment
+      verticalPositioning: alignment.vertical.wire,
+      indexId: try writer.intID(`switch`.index.node))
     try writer.writeLayout(
       .stateLayout(layout), kind: .zStack,
-      content: RemoteForEach(states) { state in RemoteZStack(alignment: alignment) { state } })
+      content: RemoteForEach(`switch`.states) { state in
+        RemoteZStack(alignment: alignment) { state }
+      })
   }
 }
 

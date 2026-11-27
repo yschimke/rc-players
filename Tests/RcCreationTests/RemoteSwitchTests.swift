@@ -110,6 +110,23 @@ import Testing
     #expect(branches.allSatisfy { $0.componentKind == "BoxLayout" })
   }
 
+  /// A switch's modifiers go on a box around its `StateLayout`, which the CMP player lays out
+  /// without them.
+  @Test func modifiersWrapTheStateLayout() throws {
+    let document = RemoteDocument(width: 200, height: 100) {
+      RemoteSwitch(RemoteVariable("isOn", default: true)) { isOn in
+        RemoteText(isOn ? "On" : "Off")
+      }
+      .padding(12)
+    }
+    let operations = try WireDocument.load(from: document.encode()).operations
+    let state = try #require(operations.firstIndex { $0.opCode == .stateLayout })
+    let box = try #require(operations[..<state].lastIndex { $0.opCode == .boxLayout })
+    #expect(operations[box..<state].contains { $0.opCode == .paddingModifierOperation })
+    let content = try #require(operations[state...].firstIndex { $0.opCode == .layoutContent })
+    #expect(!operations[state..<content].contains { $0.opCode == .paddingModifierOperation })
+  }
+
   @Test func viewModifiersApplyTheirBody() throws {
     struct Card: RemoteViewModifier {
       func body(content: Content) -> some RemoteView {

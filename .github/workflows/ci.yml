@@ -307,6 +307,9 @@ jobs:
               Tests/RcNativePlayerCoreTests \
               Sources/RcCreation \
               Tests/RcCreationTests \
+              Sources/RcCreationFoundation \
+              Sources/RcCreationAppleUI \
+              Tests/RcCreationAppleUITests \
               Sources/RcWireOperations \
               Tests/RcWireOperationsTests \
               scripts/rc-catalog-corpus/corpus
@@ -318,7 +321,7 @@ jobs:
         if: steps.filter.outputs.required == 'true'
         run: >-
           swift test
-          --filter 'RcNativePlayerCoreTests|RcCreationTests|RcWireOperationsTests'
+          --filter 'RcNativePlayerCoreTests|RcCreationTests|RcCreationAppleUITests|RcWireOperationsTests'
           --skip NativeSwiftFuzzTests
 
   # The Linux lane: everything that does not need a Mac. The JVM cuts of the whole player stack,

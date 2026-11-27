@@ -55,6 +55,10 @@ var products: [Product] = [
   // Authoring `.rc` documents from Swift, in SwiftUI's shape: views, modifiers and stacks. Pure
   // Swift with no player dependency, so it builds on every platform, Linux included.
   .library(name: "RcCreation", targets: ["RcCreation"]),
+  // Apple's counterparts of AndroidX's remote-foundation and remote-material3, on RcCreation:
+  // system colours, symbols, icons and images; then HIG controls and WidgetKit-style widgets.
+  .library(name: "RcCreationFoundation", targets: ["RcCreationFoundation"]),
+  .library(name: "RcCreationAppleUI", targets: ["RcCreationAppleUI"]),
   .library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"]),
   // The AppKit renderer as a command-line tool: what the preview server's `swift-appkit` lane
   // spawns. Released as `rc-swift-render-macos-arm64.zip`; see docs/design/RC_SWIFT_RENDER.md.
@@ -86,6 +90,14 @@ var targets: [Target] = [
   .target(name: "RcNativePlayerCore"),
   // Writes through the generated bindings: every operation it emits is a `WireOperation`.
   .target(name: "RcCreation", dependencies: ["RcWireOperations"]),
+  .target(name: "RcCreationFoundation", dependencies: ["RcCreation"]),
+  .target(name: "RcCreationAppleUI", dependencies: ["RcCreation", "RcCreationFoundation"]),
+  .testTarget(
+    name: "RcCreationAppleUITests",
+    dependencies: [
+      "RcCreation", "RcCreationFoundation", "RcCreationAppleUI", "RcWireOperations",
+      "RcNativePlayerCore",
+    ]),
   // Upstream AndroidX's per-operation Swift bindings, generated Foundation-free by `:rc-codegen`
   // (target `swift`) from the forked schema in `third_party/remote-generator`. Not a product of
   // its own yet; RcCreation writes through it and its tests hold it to the documents this
@@ -142,9 +154,13 @@ if nativeOnly {
 if coreOnly {
   let coreTargets: Set<String> = [
     "RcNativePlayerCore", "RcNativePlayerCoreTests", "RcCreation", "RcCreationTests",
+    "RcCreationFoundation", "RcCreationAppleUI", "RcCreationAppleUITests",
     "RcWireOperations", "RcWireOperationsTests",
   ]
-  products = products.filter { ["RcNativePlayerCore", "RcCreation"].contains($0.name) }
+  products = products.filter {
+    ["RcNativePlayerCore", "RcCreation", "RcCreationFoundation", "RcCreationAppleUI"].contains(
+      $0.name)
+  }
   targets = targets.filter { coreTargets.contains($0.name) }
 }
 if !nativeOnly {
