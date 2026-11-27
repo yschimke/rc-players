@@ -399,6 +399,41 @@ package final class RemoteWriter {
   /// `value` as a literal ARGB word, or the id of the colour the player resolves.
   func color(_ value: RemoteColor) throws(RemoteEncodingError) -> ResolvedColor {
     switch value.storage {
+    case .hierarchical:
+      // A hierarchical style used other than as the foreground (a background, a stroke) is the
+      // foreground the view is drawn under.
+      return try color(value.resolved(against: environment.foregroundStyle))
+    case .variableWithOpacity(let variable, let factor):
+      if let id = colorIDs[value.storage] { return .id(id) }
+      guard case .id(let source) = try color(RemoteColor(variable)) else {
+        preconditionFailure("a variable colour is an id")
+      }
+      // The variable's channels, and its alpha times `factor`, rebuilt as an ARGB colour whose
+      // alpha is a float id (`ColorExpression`'s ID-ARGB mode), as the value changes.
+      func channel(_ type: Int32) -> Int32 {
+        let id = newDataID()
+        declare(.colorAttribute(ColorAttribute(id: id, colorId: source, type: Int16(type))))
+        return id
+      }
+      let red = channel(ColorAttribute.colorRed)
+      let green = channel(ColorAttribute.colorGreen)
+      let blue = channel(ColorAttribute.colorBlue)
+      let alpha = try floatID(
+        (RemoteFloat(node: .declared(channel(ColorAttribute.colorAlpha)))
+          * RemoteFloat(factor)).node)
+      // The alpha's id is written in the mode word's upper 16 bits.
+      guard alpha <= Int32(UInt16.max) else {
+        throw RemoteEncodingError.integerOutOfRange(Int(alpha))
+      }
+      func word(_ id: Int32) -> Int32 { Int32(bitPattern: Self.reference(id).bitPattern) }
+      let id = newDataID()
+      declare(
+        .colorExpression(
+          ColorExpression(
+            id: id, flagsAndMode: ColorExpression.idargbMode | alpha << 16, arg1: word(red),
+            arg2: word(green), arg3: word(blue))))
+      colorIDs[value.storage] = id
+      return .id(id)
     case .fixed(let literal): return .literal(literal.argb)
     case .adaptive(let light, let dark):
       if let id = colorIDs[value.storage] { return .id(id) }
@@ -944,6 +979,9 @@ package final class RemoteWriter {
       channels: (red: Float, green: Float, blue: Float, alpha: Float)
     )
   {
+    // A hierarchical style is the foreground it is drawn under: resolved first, so a literal
+    // keeps its exact components.
+    let color = color.resolved(against: environment.foregroundStyle)
     switch try self.color(color) {
     case .literal:
       guard case .fixed(let value) = color.storage else { preconditionFailure() }

@@ -82,7 +82,4 @@ Rendered by the CMP player from [`renders/swift-creation/apple/`](../../renders/
 
 ## Not yet
 
-- `.secondary` is the light/dark label grey, not SwiftUI's hierarchical style relative to the
-  current foreground. On a dark accessory widget, `.secondaryLabel` is too dark to read, so use
-  a translucent white there, as the demo does.
 - Symbols beyond the built-in set, lists that scroll, and text fields.

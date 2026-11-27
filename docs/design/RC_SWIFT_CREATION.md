@@ -108,7 +108,7 @@ name.
 | Environment | `RemoteEnvironmentKey`, `RemoteEnvironmentValues`, `environment(_:_:)`, `RemoteEnvironmentReader`, `tint` | nothing: read while writing |
 | Images and paths | `RemoteImage` (a view), `RemotePath` (SVG path data) that a canvas fills or strokes | `BitmapData`, `PathData`, draw ops |
 | Drawing | `RemoteCanvas { context, size in … }` with `fill` and `stroke` of rects, rounded rects, ellipses, circles and lines | `CanvasLayout`, `CanvasContent`, `ComponentValue`, `PaintData`, draw ops |
-| Colour | `RemoteColorValue` (literal), `RemoteColor.fixed`, `.adaptive(light:dark:)`, `.variable`; a colour is also a view | `ColorTheme`, `ColorConstant`, `NamedVariable` |
+| Colour | `RemoteColorValue` (literal), `RemoteColor.fixed`, `.adaptive(light:dark:)`, `.variable`; the hierarchical `.primary`, `.secondary`, `.tertiary`, `.quaternary`; a colour is also a view | `ColorTheme`, `ColorConstant`, `NamedVariable`; for a variable foreground dimmed, `ColorAttribute` and `ColorExpression` |
 | Modifiers | `frame`, `flexWeight`, `padding`, `offset`, `zIndex`, `background`, `clipShape`, `border`, `visibility`, `hidden`, `visible(if:)`, `onTapGesture`; `RemoteButton`; your own with `RemoteViewModifier` and `modifier(_:)` | the matching modifier ops; a rounded `background` as `DrawContentOperation` + `CanvasOperations` |
 | Accessibility | `accessibilityLabel`, `accessibilityValue`, `accessibilityRole`, `accessibilityElement(children:)` | one `CoreSemantics` per view |
 | State | `RemoteVariable<Double / Int / Bool / String / RemoteColorValue / RemoteVisibility / some RemoteStateValue>` | `FloatConstant`, `IntegerConstant`, `TextData`, `ColorConstant`, `NamedVariable` |
@@ -172,6 +172,17 @@ name.
   `LayoutContent` and two `ContainerEnd`s; a canvas adds `CanvasContent`, and binds its size to its
   `LayoutContent`, as AndroidX binds a component's size. `TextLayout` is used rather than
   `CoreText` because every player profile reads it.
+- **`.secondary` is hierarchical.** As SwiftUI's, `.primary`, `.secondary`, `.tertiary` and
+  `.quaternary` are the foreground a view is drawn under at 100%, 60%, 30% and 18% (Apple's
+  label opacities), so secondary text under a red foreground is red at 60%, and under an
+  accessory widget's white, white at 60%. `.foregroundStyle(.secondary)` resolves against the
+  foreground it is set inside, so nesting compounds; a hierarchical colour used elsewhere (a
+  background) takes the foreground in the environment. A literal or light/dark foreground is
+  dimmed as the document is written; a variable one on the player, its channels read with
+  `ColorAttribute` and rebuilt with the alpha scaled (`ColorExpression`'s ID-ARGB mode).
+
+  ![Hierarchical styles](../../renders/swift-creation/hierarchical-cmp-jvm.png)
+
 - **A float is also an integer.** As AndroidX's `setFloat` publishes, every float has an integer
   view, truncated toward zero, and an integer reader (an `IntegerExpression`, a `StateLayout`
   index) names the float's id to read it. `RemoteInt(.weekday)`, `RemoteInt(truncating:)` and the

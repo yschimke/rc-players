@@ -72,6 +72,11 @@ public struct RemoteColor: Hashable, Sendable {
     case fixed(RemoteColorValue)
     case adaptive(light: RemoteColorValue, dark: RemoteColorValue)
     case variable(RemoteVariable<RemoteColorValue>)
+    /// A variable's colour with its opacity multiplied by a factor, which the player applies.
+    case variableWithOpacity(RemoteVariable<RemoteColorValue>, Double)
+    /// The foreground style, its opacity multiplied by a factor: a hierarchical style, resolved
+    /// against the foreground the view is drawn under.
+    case hierarchical(Double)
   }
 
   let storage: Storage
@@ -110,8 +115,36 @@ public struct RemoteColor: Hashable, Sendable {
     case .fixed(let value): RemoteColor(value.opacity(opacity))
     case .adaptive(let light, let dark):
       .adaptive(light: light.opacity(opacity), dark: dark.opacity(opacity))
-    case .variable: nil
+    case .variable, .variableWithOpacity, .hierarchical: nil
     }
+  }
+
+  /// This colour with its opacity multiplied by `factor`, as a hierarchical style dims the
+  /// foreground: a variable's on the player, as its value is only known there.
+  func multiplyingOpacity(_ factor: Double) -> RemoteColor {
+    switch storage {
+    case .fixed(let value): RemoteColor(value.opacity(value.opacity * factor))
+    case .adaptive(let light, let dark):
+      .adaptive(
+        light: light.opacity(light.opacity * factor), dark: dark.opacity(dark.opacity * factor))
+    case .variable(let variable): RemoteColor(storage: .variableWithOpacity(variable, factor))
+    case .variableWithOpacity(let variable, let opacity):
+      RemoteColor(storage: .variableWithOpacity(variable, opacity * factor))
+    case .hierarchical(let opacity): RemoteColor(storage: .hierarchical(opacity * factor))
+    }
+  }
+
+  /// This colour drawn under `foreground`: a hierarchical style becomes the foreground at its
+  /// opacity; any other colour is itself. A hierarchical foreground is taken from the label colour.
+  func resolved(against foreground: RemoteColor) -> RemoteColor {
+    guard case .hierarchical(let opacity) = storage else { return self }
+    let base: RemoteColor =
+      if case .hierarchical = foreground.storage {
+        foreground.resolved(against: .label)
+      } else {
+        foreground
+      }
+    return base.multiplyingOpacity(opacity)
   }
 
   public static let black = RemoteColor(.black)
@@ -127,12 +160,21 @@ public struct RemoteColor: Hashable, Sendable {
   public static let blue = adaptive(light: .hex(0x007AFF), dark: .hex(0x0A84FF))
   public static let purple = adaptive(light: .hex(0xAF52DE), dark: .hex(0xBF5AF2))
 
-  /// Text and symbols: black in a light appearance, white in a dark one (`UIColor.label`).
-  public static let primary = adaptive(light: .black, dark: .white)
+  /// The foreground before any is set: black in a light appearance, white in a dark one.
+  static let label = adaptive(light: .black, dark: .white)
 
-  /// Secondary text (`UIColor.secondaryLabel`).
-  public static let secondary = adaptive(
-    light: .hex(0x3C3C43, opacity: 0.6), dark: .hex(0xEBEBF5, opacity: 0.6))
+  // The hierarchical styles, as SwiftUI's `HierarchicalShapeStyle`: the foreground the view is
+  // drawn under, dimmed by level at Apple's label opacities. `.foregroundStyle(.secondary)` inside
+  // `.foregroundStyle(.red)` is red at 60%; inside an accessory widget's white, white at 60%.
+
+  /// The foreground style itself.
+  public static let primary = RemoteColor(storage: .hierarchical(1))
+  /// The foreground at 60%: secondary text and symbols.
+  public static let secondary = RemoteColor(storage: .hierarchical(0.6))
+  /// The foreground at 30%.
+  public static let tertiary = RemoteColor(storage: .hierarchical(0.3))
+  /// The foreground at 18%.
+  public static let quaternary = RemoteColor(storage: .hierarchical(0.18))
 }
 
 extension RemoteColor: RemoteView, RemotePrimitive {

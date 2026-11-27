@@ -77,7 +77,7 @@ let rectangular = RemoteWidget(family: .accessoryRectangular, displayScale: 2, b
   RemoteVStack(alignment: .leading, spacing: 2) {
     RemoteLabel("Next", symbol: .bellFill).font(.headline)
     RemoteText("Design review")
-    RemoteText("10:30 – 11:00").font(.caption).foregroundStyle(.fixed(.white.opacity(0.6)))
+    RemoteText("10:30 – 11:00").font(.caption).foregroundStyle(.secondary)
   }
 }
 

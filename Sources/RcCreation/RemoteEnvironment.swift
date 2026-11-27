@@ -36,7 +36,7 @@ private struct TintKey: RemoteEnvironmentKey {
 }
 
 private struct ForegroundStyleKey: RemoteEnvironmentKey {
-  static let defaultValue = RemoteColor.primary
+  static let defaultValue = RemoteColor.label
 }
 
 extension RemoteEnvironmentValues {
@@ -84,7 +84,11 @@ extension RemoteView {
 
   /// The colour of the text and icons inside this view that do not set their own.
   public func foregroundStyle(_ color: RemoteColor) -> RemoteEnvironmentContent<Self> {
-    environment(\.foregroundStyle, color)
+    // A hierarchical style is the foreground it is set inside, dimmed: `.secondary` within
+    // `.secondary` is the foreground at 36%.
+    RemoteEnvironmentContent(content: self) {
+      $0.foregroundStyle = color.resolved(against: $0.foregroundStyle)
+    }
   }
 
   /// The accent colour for controls inside this view.
