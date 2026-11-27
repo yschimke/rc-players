@@ -38,3 +38,37 @@ for (name, doc) in [
 ] {
   try Data(try doc.encode()).write(to: URL(fileURLWithPath: "\(out)/\(name).rc"))
 }
+
+// A position read by other views: the offset as text, and a paged carousel's page number.
+let listPosition = RemoteScrollPosition()
+let readout = RemoteDocument(width: 200, height: 240, displayScale: 2) {
+  RemoteVStack {
+    RemoteText("Offset \(listPosition.offset, decimals: 0) pt")
+      .padding(8).frame(maxWidth: .infinity).background(.hex(0x263238)).foregroundStyle(.white)
+    RemoteScrollView(position: listPosition, initialOffset: 200) {
+      RemoteForEach(rows(12)) { i in
+        RemoteText("Row \(i)").padding(12).frame(maxWidth: .infinity)
+          .background(i % 2 == 0 ? .hex(0xE3F2FD) : .white)
+      }
+    }
+  }
+}
+
+let pages = RemoteScrollPosition()
+let paged = RemoteDocument(width: 240, height: 130, displayScale: 2) {
+  RemoteVStack(spacing: 8) {
+    RemoteScrollView(.horizontal, position: pages, initialOffset: 240, pageCount: 4) {
+      RemoteForEach(Array([0xE53935, 0x1E88E5, 0x43A047, 0xFDD835].enumerated())) { i, c in
+        RemoteZStack { RemoteText("Page \(i + 1)").foregroundStyle(.white) }
+          .frame(width: 240, height: 100)
+          .background(.hex(UInt32(c)))
+      }
+    }
+    .frame(height: 100)
+    RemoteText("Page \(pages.offset / 240 + 1, decimals: 0) of 4")
+  }
+  .background(.white)
+}
+for (name, doc) in [("scroll-position", readout), ("scroll-paging", paged)] {
+  try Data(try doc.encode()).write(to: URL(fileURLWithPath: "\(out)/\(name).rc"))
+}

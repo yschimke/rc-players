@@ -222,7 +222,7 @@ enum RemoteModifierElement: Sendable {
   case accessibilityChildren(RemoteAccessibilityChildBehavior)
   case flexWeight(Double)
   /// Clips the component and scrolls its children; written last, innermost, by a scroll view.
-  case scroll(RemoteAxis, initialOffset: Double)
+  case scroll(RemoteScrollConfiguration)
 }
 
 /// A view and one built-in modifier: what `padding`, `frame`, `background` and the other

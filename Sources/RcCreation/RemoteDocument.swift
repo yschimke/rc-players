@@ -21,6 +21,10 @@ public enum RemoteEncodingError: Error, Sendable, Hashable {
   case invalidFlexWeight(Double)
   /// A scroll view's initial offset that is negative or not finite.
   case invalidScrollOffset(Double)
+  /// A scroll view's page count that is not 1 or more, or more than a touch expression's stops.
+  case invalidPageCount(Int)
+  /// One ``RemoteScrollPosition`` given to two scroll views: a position belongs to one.
+  case scrollPositionReused
   /// A number format whose digit counts are outside 0...16.
   case invalidNumberFormat(integerDigits: Int, decimals: Int)
   /// A number is a NaN or an infinity. On the wire a NaN is a reference to a variable, so it

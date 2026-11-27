@@ -75,6 +75,8 @@ public struct RemoteFloat: Hashable, Sendable, ExpressibleByFloatLiteral,
     case canvasSize(RemoteCanvasAxis)
     /// The same, in pixels: what the writer scales a size to.
     case canvasPixels(RemoteCanvasAxis)
+    /// A scroll view's offset or how far it can scroll, in points.
+    case scroll(RemoteScrollPosition, RemoteScrollPosition.Value)
     case unary(Operator, Node)
     case binary(Operator, Node, Node)
   }
@@ -192,7 +194,7 @@ extension RemoteFloat.Node {
   var readsCanvasSize: Bool {
     switch self {
     case .canvasSize, .canvasPixels: true
-    case .constant, .variable, .system, .declared: false
+    case .constant, .variable, .system, .declared, .scroll: false
     case .unary(_, let operand): operand.readsCanvasSize
     case .binary(_, let lhs, let rhs): lhs.readsCanvasSize || rhs.readsCanvasSize
     }

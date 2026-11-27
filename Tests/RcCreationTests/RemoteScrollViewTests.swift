@@ -85,4 +85,64 @@ import Testing
     }
     #expect(throws: RemoteEncodingError.invalidScrollOffset(-1)) { try document.encode() }
   }
+
+  /// A position reads the scroll's offset, in points, as the player moves it.
+  @Test func aPositionReadsTheOffsetInPoints() throws {
+    let position = RemoteScrollPosition()
+    let document = RemoteDocument(width: 200, height: 200, displayScale: 2) {
+      RemoteVStack {
+        RemoteText("\(position.offset, decimals: 0)")
+        RemoteScrollView(position: position) { rows() }
+      }
+    }
+    let session = try NativeSwiftDocumentSession.open(data: document.encodedData())
+    func shown() throws -> [String] {
+      try flatten(session.snapshot().root).compactMap(\.text?.value)
+    }
+    #expect(try shown().first == "0")
+    let node = try #require(flatten(session.snapshot().root).first { $0.scrollDirection != nil })
+    let id = try #require(node.scrollPositionID)
+    // The player writes pixels; the document reads points.
+    #expect(session.setFloat(240, forID: id))
+    #expect(try shown().first == "120")
+  }
+
+  /// Paging snaps to even notches over the content's length, one per page, as AndroidX's
+  /// `RemoteScrollState(notches:)` writes them.
+  @Test func pagingSnapsToEvenNotches() throws {
+    let position = RemoteScrollPosition()
+    let document = RemoteDocument(width: 200, height: 100) {
+      RemoteScrollView(.horizontal, position: position, pageCount: 4) { rows() }
+      RemoteText("\(position.contentLength, decimals: 0)")
+    }
+    let operations = try WireDocument.load(from: document.encode()).operations
+    let modifier = try #require(
+      operations.compactMap { operation -> ScrollModifierOperation? in
+        if case .scrollModifierOperation(let modifier) = operation { modifier } else { nil }
+      }.first)
+    let touch = try #require(
+      operations.compactMap { operation -> TouchExpression? in
+        if case .touchExpression(let touch) = operation { touch } else { nil }
+      }.first)
+    #expect(touch.stopMode == RemoteWriter.TouchStopMode.notchesEven)
+    #expect(
+      touch.stopSpec.map(\.bitPattern) == [Float(4).bitPattern, modifier.notchMax.bitPattern])
+    #expect(modifier.direction == 1)
+  }
+
+  @Test func aPositionBelongsToOneScrollView() {
+    let position = RemoteScrollPosition()
+    let document = RemoteDocument(width: 200, height: 200) {
+      RemoteScrollView(position: position) { rows() }
+      RemoteScrollView(position: position) { rows() }
+    }
+    #expect(throws: RemoteEncodingError.scrollPositionReused) { try document.encode() }
+  }
+
+  @Test func aPageCountBelowOneIsRefused() {
+    let document = RemoteDocument(width: 200, height: 200) {
+      RemoteScrollView(pageCount: 0) { rows() }
+    }
+    #expect(throws: RemoteEncodingError.invalidPageCount(0)) { try document.encode() }
+  }
 }

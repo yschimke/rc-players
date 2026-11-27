@@ -103,7 +103,7 @@ name.
 | --- | --- | --- |
 | Document | `RemoteDocument(width:height:displayScale:accessibilityLabel:)`, `encode() throws(RemoteEncodingError)` | modern `Header` with `DOC_WIDTH`, `DOC_HEIGHT`, `DOC_DENSITY_AT_GENERATION`, `DOC_CONTENT_DESCRIPTION` |
 | Stacks | `RemoteVStack`, `RemoteHStack` (alignment, spacing, distribution), `RemoteZStack` (alignment), `RemoteSpacer`, `RemoteForEach` | `ColumnLayout`, `RowLayout`, `BoxLayout`, `LayoutContent`, `ContainerEnd` |
-| Scrolling | `RemoteScrollView(.vertical / .horizontal, initialOffset:)` | a `ColumnLayout` or `RowLayout` with `ClipRectModifierOperation`, `ScrollModifierOperation` and its position as a `TouchExpression` |
+| Scrolling | `RemoteScrollView(.vertical / .horizontal, position:, initialOffset:, pageCount:)`; `RemoteScrollPosition` with `offset`, `maximumOffset` and `contentLength` to read | a `ColumnLayout` or `RowLayout` with `ClipRectModifierOperation`, `ScrollModifierOperation` and its position as a `TouchExpression`; paging as its even-notch stop |
 | State layouts | `RemoteSwitch` over a `RemoteBool`, a `Bool` variable, a `RemoteStateValue` enum variable or a `RemoteInt` range, written as a Swift `switch` or `if`; `RemoteIf(condition) { } else: { }` | `StateLayout` with one box per state |
 | Text | `RemoteText`; `font(_:)` taking a `RemoteFont` (`.body`, `.headline`, …, `.system(size:weight:)`), `fontWeight`, `bold`, `italic`, `foregroundStyle`, `multilineTextAlignment`, `lineLimit`, `truncationMode`, all environment values that reach every text inside | `TextLayout` |
 | Environment | `RemoteEnvironmentKey`, `RemoteEnvironmentValues`, `environment(_:_:)`, `RemoteEnvironmentReader`, `tint` | nothing: read while writing |
@@ -199,6 +199,20 @@ name.
   ![Carousel](../../renders/swift-creation/carousel-cmp-jvm.png)
   ![Carousel scrolled](../../renders/swift-creation/carousel-offset-cmp-jvm.png)
 
+- **A scroll position is read, not set.** `RemoteScrollPosition` is a scroll's identity, as
+  SwiftUI's `ScrollPosition` is: its `offset`, `maximumOffset` and `contentLength` are the
+  floats the player writes as it scrolls (in pixels, read in points), so a header can fade or a
+  page indicator follow. A document cannot move a scroll: the players own the position once it
+  starts. `pageCount` snaps to that many equal pages of the content, AndroidX's even notches,
+  which is SwiftUI's paging when each page is as long as the scroll view.
+
+  | Offset read back | Paged, starting on page 2 |
+  | --- | --- |
+  | ![](../../renders/swift-creation/scroll-position-cmp-jvm.png) | ![](../../renders/swift-creation/scroll-paging-cmp-jvm.png) |
+
+  The native player follows the offset; it does not yet fill `maximumOffset` or `contentLength`,
+  which read 0 there, nor snap pages.
+
 - **A float is also an integer.** As AndroidX's `setFloat` publishes, every float has an integer
   view, truncated toward zero, and an integer reader (an `IntegerExpression`, a `StateLayout`
   index) names the float's id to read it. `RemoteInt(.weekday)`, `RemoteInt(truncating:)` and the
@@ -227,8 +241,8 @@ name.
 
 ## Not yet
 
-- Flow, a scroll position a document reads or sets, paging, `CoreText` styling (letter spacing, line height, font axes), animation specs,
-  gradients and touch-down/up handlers.
+- Flow, setting a scroll's position from the document, `CoreText` styling (letter spacing, line
+  height, font axes), animation specs, gradients and touch-down/up handlers.
 - A rounded background with uneven corners still clips: the wire's `DrawRoundRect` takes one
   radius.
 - `frame(maxWidth:)` with a finite cap: `RemoteMaxLength` is the offered space or a fraction of it.
