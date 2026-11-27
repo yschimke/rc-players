@@ -72,10 +72,8 @@ import Testing
     let values = try session.probeValues(timeSeconds: 0)
     let ints = [101, 103, 105, 107, 109].map { values.integers[$0] ?? -1 }
     let floats = [102, 104, 106, 108, 110].map { values.floats[$0] ?? -1 }
-    withKnownIssue("the session resolves integer expressions before the floats they read") {
-      #expect(ints == [2, 3, 4, 5, 6], "Kotlin [2,3,4,5,6]; Swift \(ints)")
-      #expect(floats == [2.5, 3.5, 4.5, 5.5, 6.5], "Kotlin [2.5..6.5]; Swift \(floats)")
-    }
+    #expect(ints == [2, 3, 4, 5, 6], "Kotlin [2,3,4,5,6]; Swift \(ints)")
+    #expect(floats == [2.5, 3.5, 4.5, 5.5, 6.5], "Kotlin [2.5..6.5]; Swift \(floats)")
   }
 
   /// The drawn width on the first frame, and on a later frame of the same static document.
@@ -83,10 +81,8 @@ import Testing
     let session = try NativeSwiftDocumentSession.open(data: Self.chainDocument(withBox: true))
     let first = try #require(try session.snapshot(timeSeconds: 0).root.node(withComponentID: 5))
     let later = try #require(try session.snapshot(timeSeconds: 1).root.node(withComponentID: 5))
-    withKnownIssue("the session resolves integer expressions before the floats they read") {
-      #expect(first.widthValue == 6.5, "Kotlin 6.5; Swift first frame \(first.widthValue)")
-      #expect(later.widthValue == 6.5, "Kotlin 6.5; Swift later frame \(later.widthValue)")
-    }
+    #expect(first.widthValue == 6.5, "Kotlin 6.5; Swift first frame \(first.widthValue)")
+    #expect(later.widthValue == 6.5, "Kotlin 6.5; Swift later frame \(later.widthValue)")
   }
 
   /// float 80 = [81]; int 81 = [TIME_IN_HR]. One Kotlin pass in wire order: 80 reads 81 before
@@ -106,6 +102,33 @@ import Testing
     #expect(first.floats[80] == 0, "first pass: \(String(describing: first.floats[80]))")
     let second = try session.probeValues(timeSeconds: 0.1, wallClock: clock)
     #expect(second.floats[80] == Float(hour), "\(String(describing: second.floats[80]))")
+  }
+
+  /// float 78 = 0; int 79 = [78] + [81]; int 81 = [83]; int 83 = [85]; int 85 = 5. In one Kotlin
+  /// pass in wire order 79 reads 81 before 81 has its value, so 79 is 0 on the first pass, as it
+  /// is in a document whose integers read no float.
+  @Test func anIntegerReadsALaterIntegerAsThePreviousPassLeftIt() throws {
+    func open(readingAFloat: Bool) throws -> NativeSwiftDocumentSession {
+      let document = Writer()
+      document.header(width: 100, height: 100)
+      document.u8(Op.animatedFloat).int(78).int(1).int(Writer.literal(0))
+      if readingAFloat {
+        document.u8(Op.integerExpression).int(79).int(0b111).int(3).int(78).int(81)
+          .int(Writer.integerOperator(NativeSwiftIntegerOperator.add))
+      } else {
+        document.u8(Op.integerExpression).int(79).int(0b110).int(3).int(0).int(81)
+          .int(Writer.integerOperator(NativeSwiftIntegerOperator.add))
+      }
+      document.u8(Op.integerExpression).int(81).int(1).int(1).int(83)
+      document.u8(Op.integerExpression).int(83).int(1).int(1).int(85)
+      document.u8(Op.integerExpression).int(85).int(0).int(1).int(5)
+      return try NativeSwiftDocumentSession.open(
+        data: document.data, toleratingRootlessData: true)
+    }
+    let reading = try open(readingAFloat: true).probeValues(timeSeconds: 0)
+    let plain = try open(readingAFloat: false).probeValues(timeSeconds: 0)
+    #expect(reading.integers[79] == plain.integers[79], "\(reading.integers[79] as Any)")
+    #expect(reading.integers[79] == 0)
   }
 
   /// float 80 = [82]; float 82 = [84]; float 84 = 5; int 81 = [TIME_IN_HR]. The integer moving
