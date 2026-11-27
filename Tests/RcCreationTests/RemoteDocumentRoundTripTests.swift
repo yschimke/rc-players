@@ -354,6 +354,25 @@ import Testing
     #expect(drawCommands(canvases[1]).first?.values == [30 * scale, 15 * scale, 5 * scale])
   }
 
+  /// A stroke writes its cap and join even when they are the defaults, as a paint's state carries
+  /// over from the draw before it.
+  @Test func aDefaultStrokeAfterARoundOneIsButt() throws {
+    let document = RemoteDocument(width: 100, height: 100) {
+      RemoteCanvas { context, _ in
+        context.stroke(
+          .line(from: RemotePoint(x: 0, y: 0), to: RemotePoint(x: 10, y: 10)), with: .black,
+          lineWidth: 4, lineCap: .round, lineJoin: .round)
+        context.stroke(
+          .line(from: RemotePoint(x: 0, y: 10), to: RemotePoint(x: 10, y: 0)), with: .black,
+          lineWidth: 4)
+      }
+      .frame(width: 20, height: 20)
+    }
+    let strokes = drawCommands(try first(document))
+    #expect(strokes.map(\.strokeCap) == [.round, .butt])
+    #expect(strokes.map(\.strokeJoin) == [.round, .miter])
+  }
+
   @Test func modifiersApplyToCustomViews() throws {
     struct Badge: RemoteView {
       let label: String

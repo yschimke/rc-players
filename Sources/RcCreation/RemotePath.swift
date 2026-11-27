@@ -137,7 +137,10 @@ extension RemotePath {
     var path = RemotePath()
     var current = (x: 0.0, y: 0.0)
     var start = current
-    var lastControl: (x: Double, y: Double)? = nil
+    // The previous segment's last control point, by curve family: `S` reflects one only after
+    // `C` or `S`, and `T` only after `Q` or `T`; after anything else the control is the point.
+    var lastCubicControl: (x: Double, y: Double)? = nil
+    var lastQuadControl: (x: Double, y: Double)? = nil
     var command: Character? = nil
     while let next = scanner.nextCommand(after: command) {
       command = next
@@ -146,7 +149,8 @@ extension RemotePath {
         guard let x = scanner.number(), let y = scanner.number() else { return nil }
         return relative ? (current.x + x, current.y + y) : (x, y)
       }
-      var control: (x: Double, y: Double)? = nil
+      var cubicControl: (x: Double, y: Double)? = nil
+      var quadControl: (x: Double, y: Double)? = nil
       switch next.uppercased().first {
       case "M":
         guard let p = point() else { return nil }
@@ -169,21 +173,22 @@ extension RemotePath {
       case "C":
         guard let a = point(), let b = point(), let p = point() else { return nil }
         path.addCurve(to: p.x, p.y, control1: a.x, a.y, control2: b.x, b.y)
-        (current, control) = (p, b)
+        (current, cubicControl) = (p, b)
       case "S":
-        let a = lastControl.map { (2 * current.x - $0.x, 2 * current.y - $0.y) } ?? current
+        let a = lastCubicControl.map { (2 * current.x - $0.x, 2 * current.y - $0.y) } ?? current
         guard let b = point(), let p = point() else { return nil }
         path.addCurve(to: p.x, p.y, control1: a.0, a.1, control2: b.x, b.y)
-        (current, control) = (p, b)
+        (current, cubicControl) = (p, b)
       case "Q":
         guard let a = point(), let p = point() else { return nil }
         path.addQuadCurve(to: p.x, p.y, control: a.x, a.y)
-        (current, control) = (p, a)
+        (current, quadControl) = (p, a)
       case "T":
-        let a = lastControl.map { (x: 2 * current.x - $0.x, y: 2 * current.y - $0.y) } ?? current
+        let a =
+          lastQuadControl.map { (x: 2 * current.x - $0.x, y: 2 * current.y - $0.y) } ?? current
         guard let p = point() else { return nil }
         path.addQuadCurve(to: p.x, p.y, control: a.x, a.y)
-        (current, control) = (p, a)
+        (current, quadControl) = (p, a)
       case "Z":
         path.closeSubpath()
         current = start
@@ -191,7 +196,7 @@ extension RemotePath {
       default:
         return nil
       }
-      lastControl = control
+      (lastCubicControl, lastQuadControl) = (cubicControl, quadControl)
     }
     guard scanner.isAtEnd, !path.isEmpty else { return nil }
     self = path

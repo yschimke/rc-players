@@ -304,17 +304,40 @@ package final class RemoteWriter {
       id = try variableID(name, declared, type: NamedVariable.int) { id in
         declare(.integerConstant(IntegerConstant(id: id, value: value)))
       }
-    case .unary, .binary:
-      // A word is a literal, or, where its mask bit is set, an id or an operator.
-      var words: [(value: Int32, isReference: Bool)] = []
-      try appendIntegerRPN(node, to: &words)
-      let mask = words.enumerated().reduce(Int32(0)) { mask, entry in
-        entry.element.isReference ? mask | Int32(1) << Int32(entry.offset) : mask
+    case .unary(let operation, let operand):
+      id = try declareIntegerExpression(node) { () throws(RemoteEncodingError) in
+        [(try intID(operand), true), (IntegerExpressionOperator.offset + operation.code, true)]
       }
-      id = newDataID()
-      declare(.integerExpression(IntegerExpression(id: id, mask: mask, values: words.map(\.value))))
+    case .binary(let operation, let lhs, let rhs):
+      id = try declareIntegerExpression(node) { () throws(RemoteEncodingError) in
+        [
+          (try intID(lhs), true), (try intID(rhs), true),
+          (IntegerExpressionOperator.offset + operation.code, true),
+        ]
+      }
     }
     intNodeIDs[node] = id
+    return id
+  }
+
+  /// The words an `IntegerExpression`'s mask can mark: one bit per word.
+  private static let integerExpressionMaxWords = Int32.bitWidth
+
+  /// An `IntegerExpression` for `node`, in reverse-Polish order. A word is a literal, or, where
+  /// its mask bit is set, an id or an operator; the mask has 32 bits, so a longer expression is
+  /// written as `split`: its operands declared as expressions of their own, referenced by id.
+  private func declareIntegerExpression(
+    _ node: RemoteInt.Node,
+    split: () throws(RemoteEncodingError) -> [(value: Int32, isReference: Bool)]
+  ) throws(RemoteEncodingError) -> Int32 {
+    var words: [(value: Int32, isReference: Bool)] = []
+    try appendIntegerRPN(node, to: &words)
+    if words.count > Self.integerExpressionMaxWords { words = try split() }
+    let mask = words.enumerated().reduce(Int32(0)) { mask, entry in
+      entry.element.isReference ? mask | Int32(1) << Int32(entry.offset) : mask
+    }
+    let id = newDataID()
+    declare(.integerExpression(IntegerExpression(id: id, mask: mask, values: words.map(\.value))))
     return id
   }
 
@@ -719,9 +742,10 @@ package final class RemoteWriter {
       words += [
         PaintCommandTags.strokeWidth, Int32(bitPattern: try pixels(lineWidth).bitPattern),
       ]
-      // The defaults (butt, miter) are what a paint starts with, so only a change is written.
-      if cap != .butt { words.append(inline(PaintCommandTags.strokeCap, cap.wire)) }
-      if join != .miter { words.append(inline(PaintCommandTags.strokeJoin, join.wire)) }
+      // Always written: a paint's state carries over from the previous draw, so a default stroke
+      // after a round one would otherwise keep its round caps.
+      words.append(inline(PaintCommandTags.strokeCap, cap.wire))
+      words.append(inline(PaintCommandTags.strokeJoin, join.wire))
     }
     words.append(inline(PaintCommandTags.antiAlias, 1))
     return words

@@ -147,6 +147,42 @@ import Testing
     #expect(RemotePath(svg: "M0 0 A1 1 0 0 1 2 2") == nil)
   }
 
+  /// `S` reflects a control point only after `C` or `S`, and `T` only after `Q` or `T`.
+  @Test func smoothCurvesReflectOnlyTheirOwnFamily() throws {
+    let cubicAfterQuad = try #require(RemotePath(svg: "M0 0 Q10 10 20 0 S30 10 40 0"))
+    #expect(cubicAfterQuad.elements[2] == .cubic(20, 0, 30, 10, 40, 0))
+    let quadAfterCubic = try #require(RemotePath(svg: "M0 0 C5 5 15 5 20 0 T40 0"))
+    #expect(quadAfterCubic.elements[2] == .quad(20, 0, 40, 0))
+    let cubicAfterCubic = try #require(RemotePath(svg: "M0 0 C5 5 15 5 20 0 S35 5 40 0"))
+    #expect(cubicAfterCubic.elements[2] == .cubic(25, -5, 35, 5, 40, 0))
+  }
+
+  /// A condition longer than an `IntegerExpression`'s 32-bit mask is split into expressions that
+  /// reference each other, and still evaluates.
+  @Test func longConditionsSplitAndEvaluate() throws {
+    let flags = (0..<10).map { RemoteVariable("flag\($0)", default: 1) }
+    let all = flags.dropFirst().reduce(flags[0] == 1) { $0 && $1 == 1 }
+    let document = RemoteDocument(width: 100, height: 100) {
+      RemoteVStack {
+        RemoteColor.green.frame(width: 10, height: 10).visible(if: all)
+      }
+    }
+    let operations = try WireDocument.load(from: document.encode()).operations
+    let expressions = operations.compactMap { operation -> IntegerExpression? in
+      if case .integerExpression(let expression) = operation { expression } else { nil }
+    }
+    #expect(expressions.count > 1)
+    #expect(expressions.allSatisfy { $0.values.count <= 32 })
+    let session = try open(document)
+    func visibility() throws -> Int? {
+      let stack = try #require(components(try session.snapshot().root).first)
+      return components(stack).first?.visibility
+    }
+    #expect(try visibility() == NativeSwiftVisibility.visible)
+    #expect(session.setInteger(0, for: "flag9"))
+    #expect(try visibility() == NativeSwiftVisibility.gone)
+  }
+
   @Test func boolAndIntVariablesWithOneNameConflict() {
     let document = RemoteDocument(width: 100, height: 100) {
       RemoteVStack {
