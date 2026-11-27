@@ -192,7 +192,9 @@ public struct RemoteGraphicsContext: Sendable {
 ///
 /// `size` is live: coordinates built from it follow the canvas as it resizes. A canvas fills the
 /// space it is offered on any axis its frame does not fix.
-public struct RemoteCanvas: _PrimitiveRemoteView {
+public struct RemoteCanvas: RemoteView, RemotePrimitive {
+  public typealias Body = Never
+
   let commands: [RemoteGraphicsContext.Command]
 
   public init(_ draw: (inout RemoteGraphicsContext, RemoteCanvasSize) -> Void) {
@@ -205,7 +207,7 @@ public struct RemoteCanvas: _PrimitiveRemoteView {
     commands = context.commands
   }
 
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     try writer.writeCanvas(commands)
   }
 }

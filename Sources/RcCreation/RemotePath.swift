@@ -70,7 +70,7 @@ public struct RemotePath: Hashable, Sendable {
     var words: [Float] = []
     var current: (Float, Float) = (0, 0)
     var start: (Float, Float) = (0, 0)
-    func tag(_ value: Int32) -> Float { _RemoteWriter.reference(value) }
+    func tag(_ value: Int32) -> Float { RemoteWriter.reference(value) }
     func segment(_ command: Int32, size: Int, _ points: [(offset: Int, value: Float)]) {
       var segment = [Float](repeating: 0, count: size)
       segment[0] = tag(command)

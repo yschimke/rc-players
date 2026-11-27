@@ -31,7 +31,9 @@ public enum RemoteContentMode: Hashable, Sendable {
 /// The bytes are declared once however many times the image is drawn. The player decodes them;
 /// `pixelWidth` and `pixelHeight` are the encoded image's size, which the header of the bitmap
 /// records. Without a frame the image is laid out at that size in pixels.
-public struct RemoteImage: _PrimitiveRemoteView {
+public struct RemoteImage: RemoteView, RemotePrimitive {
+  public typealias Body = Never
+
   let png: [UInt8]
   let pixelWidth: Int
   let pixelHeight: Int
@@ -67,7 +69,7 @@ public struct RemoteImage: _PrimitiveRemoteView {
     return copy
   }
 
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     let sizeLimit = Int(BitmapData.BitLayout.widthAndTypeWidthMask)
     guard (1...sizeLimit).contains(pixelWidth), (1...sizeLimit).contains(pixelHeight) else {
       throw RemoteEncodingError.invalidImageSize(width: pixelWidth, height: pixelHeight)

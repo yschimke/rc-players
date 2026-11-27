@@ -133,8 +133,10 @@ public struct RemoteColor: Hashable, Sendable {
     light: .hex(0x3C3C43, opacity: 0.6), dark: .hex(0xEBEBF5, opacity: 0.6))
 }
 
-extension RemoteColor: _PrimitiveRemoteView {
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
+extension RemoteColor: RemoteView, RemotePrimitive {
+  public typealias Body = Never
+
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     try writer.writeFillingBox(background: self)
   }
 }

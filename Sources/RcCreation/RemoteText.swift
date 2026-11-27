@@ -132,7 +132,9 @@ public enum RemoteTruncationMode: Hashable, Sendable {
 ///
 /// Without one it is the ``RemoteFont/body`` style in the ``RemoteColor/primary`` colour, so it
 /// follows the reader's text size and appearance.
-public struct RemoteText: _PrimitiveRemoteView {
+public struct RemoteText: RemoteView, RemotePrimitive {
+  public typealias Body = Never
+
   let text: RemoteString
 
   public init(_ text: RemoteString) { self.text = text }
@@ -144,7 +146,7 @@ public struct RemoteText: _PrimitiveRemoteView {
   /// The variable's live value.
   public init(_ variable: RemoteVariable<String>) { text = RemoteString(variable) }
 
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     let environment = writer.environment
     let font = environment.font
     let weight = environment.fontWeight ?? font.weight ?? .regular
@@ -180,7 +182,7 @@ public struct RemoteText: _PrimitiveRemoteView {
     }
     let isItalic = environment.isItalic || font.isItalic
     let lineLimit = try environment.lineLimit.map { limit throws(RemoteEncodingError) in
-      try _RemoteWriter.int32(Swift.max(limit, 1))
+      try RemoteWriter.int32(Swift.max(limit, 1))
     }
     let layout = TextLayout(
       componentId: componentID, animationId: IdEncoding.noId, textId: textID, color: colorWord,
@@ -241,35 +243,35 @@ extension RemoteEnvironmentValues {
 
 extension RemoteView {
   /// The font of the text in this view.
-  public func font(_ font: RemoteFont) -> _EnvironmentWritingView<Self> {
+  public func font(_ font: RemoteFont) -> some RemoteView {
     environment(\.font, font)
   }
 
   /// The weight of the text in this view, over its font's own.
-  public func fontWeight(_ weight: RemoteFontWeight?) -> _EnvironmentWritingView<Self> {
+  public func fontWeight(_ weight: RemoteFontWeight?) -> some RemoteView {
     environment(\.fontWeight, weight)
   }
 
-  public func bold(_ isActive: Bool = true) -> _EnvironmentWritingView<Self> {
+  public func bold(_ isActive: Bool = true) -> some RemoteView {
     environment(\.fontWeight, isActive ? .bold : nil)
   }
 
-  public func italic(_ isActive: Bool = true) -> _EnvironmentWritingView<Self> {
+  public func italic(_ isActive: Bool = true) -> some RemoteView {
     environment(\.isItalic, isActive)
   }
 
   /// At most `limit` lines (at least 1) for the text in this view, or as many as it needs.
-  public func lineLimit(_ limit: Int?) -> _EnvironmentWritingView<Self> {
+  public func lineLimit(_ limit: Int?) -> some RemoteView {
     environment(\.lineLimit, limit)
   }
 
   public func multilineTextAlignment(_ alignment: RemoteTextAlignment)
-    -> _EnvironmentWritingView<Self>
+    -> some RemoteView
   {
     environment(\.multilineTextAlignment, alignment)
   }
 
-  public func truncationMode(_ mode: RemoteTruncationMode) -> _EnvironmentWritingView<Self> {
+  public func truncationMode(_ mode: RemoteTruncationMode) -> some RemoteView {
     environment(\.truncationMode, mode)
   }
 }

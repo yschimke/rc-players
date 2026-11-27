@@ -28,6 +28,8 @@ public enum RemoteEncodingError: Error, Sendable, Hashable {
   case integerOutOfRange(Int)
   /// An image's pixel size is outside 1 to 65,535 on either axis.
   case invalidImageSize(width: Int, height: Int)
+  /// Stack content that is neither a view nor one of this package's own types.
+  case unsupportedContent(String)
   /// A canvas's size was used outside that canvas's own drawing.
   case canvasSizeOutsideCanvas
   /// The bindings refused an operation.
@@ -88,7 +90,7 @@ public struct RemoteDocument: Sendable {
       throw RemoteEncodingError.invalidDocumentSize(width: width, height: height)
     }
 
-    let writer = _RemoteWriter(displayScale: Float(displayScale))
+    let writer = RemoteWriter(displayScale: Float(displayScale))
     try writer.writeRoot(content)
 
     var properties = [

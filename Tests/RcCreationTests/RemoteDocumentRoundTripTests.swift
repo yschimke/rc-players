@@ -347,7 +347,7 @@ import Testing
     let showFooter = false
     let document = RemoteDocument(width: 300, height: 100) {
       RemoteHStack(spacing: 4) {
-        for label in labels { Badge(label: label).padding(2) }
+        RemoteForEach(labels) { label in Badge(label: label).padding(2) }
         if showFooter { RemoteText("never written") }
       }
     }

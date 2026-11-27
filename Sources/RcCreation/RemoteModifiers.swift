@@ -224,47 +224,47 @@ enum RemoteModifierElement: Sendable {
 
 /// A view and one modifier. Modifiers nest outermost-first, as SwiftUI's do:
 /// `.padding(16).background(.blue)` paints the padding blue.
-public struct _ModifiedRemoteView<Content: RemoteView>: _PrimitiveRemoteView {
+struct ModifiedRemoteView<Content: RemoteView>: RemoteView, RemotePrimitive {
+  typealias Body = Never
+
   let content: Content
   let modifier: RemoteModifierElement
 
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     try writer.withModifier(modifier) { () throws(RemoteEncodingError) in
-      try content._write(to: writer)
+      try writer.write(content)
     }
   }
 }
 
 /// A view a stack shares its leftover space with: what ``RemoteView/flexWeight(_:)`` makes. It is
 /// stack content, not a view, so only a stack's builder accepts it.
-public struct _FlexWeightedView<Content: RemoteView>: RemoteStackContent {
+struct FlexWeightedView<Content: RemoteView>: RemoteStackContent, RemotePrimitive {
   let content: Content
   let weight: Double
 
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     try writer.withModifier(.flexWeight(weight)) { () throws(RemoteEncodingError) in
-      try content._write(to: writer)
+      try writer.write(content)
     }
   }
 }
 
 extension RemoteView {
-  private func modifier(_ element: RemoteModifierElement) -> _ModifiedRemoteView<Self> {
-    _ModifiedRemoteView(content: self, modifier: element)
+  private func modifier(_ element: RemoteModifierElement) -> some RemoteView {
+    ModifiedRemoteView(content: self, modifier: element)
   }
 
   // MARK: Size
 
   /// A fixed width, height or both, in points; a `nil` axis keeps the view's own size.
-  public func frame(width: RemoteFloat? = nil, height: RemoteFloat? = nil) -> _ModifiedRemoteView<
-    Self
-  > {
+  public func frame(width: RemoteFloat? = nil, height: RemoteFloat? = nil) -> some RemoteView {
     modifier(.frame(width: width.map { .exact($0) }, height: height.map { .exact($0) }))
   }
 
   /// Grows to the space the parent offers on each given axis: `.frame(maxWidth: .infinity)`.
   public func frame(maxWidth: RemoteMaxLength? = nil, maxHeight: RemoteMaxLength? = nil)
-    -> _ModifiedRemoteView<Self>
+    -> some RemoteView
   {
     modifier(
       .frame(
@@ -272,32 +272,30 @@ extension RemoteView {
   }
 
   /// The full width the parent offers, and a fixed height.
-  public func frame(maxWidth: RemoteMaxLength, height: RemoteFloat) -> _ModifiedRemoteView<Self> {
+  public func frame(maxWidth: RemoteMaxLength, height: RemoteFloat) -> some RemoteView {
     modifier(.frame(width: .fill(maxWidth.fraction), height: .exact(height)))
   }
 
   /// A fixed width, and the full height the parent offers.
-  public func frame(width: RemoteFloat, maxHeight: RemoteMaxLength) -> _ModifiedRemoteView<Self> {
+  public func frame(width: RemoteFloat, maxHeight: RemoteMaxLength) -> some RemoteView {
     modifier(.frame(width: .exact(width), height: .fill(maxHeight.fraction)))
   }
 
   /// Takes a share of the space a stack has left after its other children, in proportion to
   /// `weight` (above 0) among the weighted children. Stack content only.
-  public func flexWeight(_ weight: Double) -> _FlexWeightedView<Self> {
-    _FlexWeightedView(content: self, weight: weight)
+  public func flexWeight(_ weight: Double) -> some RemoteStackContent {
+    FlexWeightedView(content: self, weight: weight)
   }
 
   // MARK: Spacing and position
 
   /// `length` points on every edge. 16 points, as SwiftUI usually pads, unless given.
-  public func padding(_ length: RemoteFloat = 16) -> _ModifiedRemoteView<Self> {
+  public func padding(_ length: RemoteFloat = 16) -> some RemoteView {
     padding(.all, length)
   }
 
   /// `length` points on the given edges.
-  public func padding(_ edges: RemoteEdgeSet, _ length: RemoteFloat = 16) -> _ModifiedRemoteView<
-    Self
-  > {
+  public func padding(_ edges: RemoteEdgeSet, _ length: RemoteFloat = 16) -> some RemoteView {
     func inset(_ edge: RemoteEdgeSet) -> RemoteFloat { edges.contains(edge) ? length : 0 }
     return padding(
       RemoteEdgeInsets(
@@ -307,39 +305,39 @@ extension RemoteView {
 
   /// Each edge's own inset. Leading is the left edge: the wire's padding is not mirrored for a
   /// right-to-left layout.
-  public func padding(_ insets: RemoteEdgeInsets) -> _ModifiedRemoteView<Self> {
+  public func padding(_ insets: RemoteEdgeInsets) -> some RemoteView {
     modifier(.padding(insets))
   }
 
   /// Moves the view by `x` and `y` points without changing its layout.
-  public func offset(x: RemoteFloat = 0, y: RemoteFloat = 0) -> _ModifiedRemoteView<Self> {
+  public func offset(x: RemoteFloat = 0, y: RemoteFloat = 0) -> some RemoteView {
     modifier(.offset(x: x, y: y))
   }
 
   /// Draws this view above siblings with a lower value.
-  public func zIndex(_ value: Double) -> _ModifiedRemoteView<Self> { modifier(.zIndex(value)) }
+  public func zIndex(_ value: Double) -> some RemoteView { modifier(.zIndex(value)) }
 
   // MARK: Drawing
 
   /// Fills the view's bounds behind its content.
-  public func background(_ color: RemoteColor) -> _ModifiedRemoteView<Self> {
+  public func background(_ color: RemoteColor) -> some RemoteView {
     modifier(.background(color, .rectangle))
   }
 
   /// Fills `shape` behind the content. A rounded shape also clips the content to it, which is
   /// how the wire rounds a background.
-  public func background(_ color: RemoteColor, in shape: RemoteShape) -> _ModifiedRemoteView<Self> {
+  public func background(_ color: RemoteColor, in shape: RemoteShape) -> some RemoteView {
     modifier(.background(color, shape))
   }
 
   /// Clips the view and its content to `shape`.
-  public func clipShape(_ shape: RemoteShape) -> _ModifiedRemoteView<Self> {
+  public func clipShape(_ shape: RemoteShape) -> some RemoteView {
     modifier(.clip(shape))
   }
 
   /// Strokes the view's outline, `width` points wide, with corners rounded by `cornerRadius`.
   public func border(_ color: RemoteColor, width: Double = 1, cornerRadius: Double = 0)
-    -> _ModifiedRemoteView<Self>
+    -> some RemoteView
   {
     modifier(.border(color, width: width, cornerRadius: cornerRadius))
   }
@@ -347,48 +345,47 @@ extension RemoteView {
   // MARK: State and input
 
   /// Shows, hides or removes the view.
-  public func visibility(_ visibility: RemoteVisibility) -> _ModifiedRemoteView<Self> {
+  public func visibility(_ visibility: RemoteVisibility) -> some RemoteView {
     modifier(.visibility(visibility))
   }
 
   /// Shows, hides or removes the view as the host writes `variable`.
-  public func visibility(_ variable: RemoteVariable<RemoteVisibility>) -> _ModifiedRemoteView<Self>
-  {
+  public func visibility(_ variable: RemoteVariable<RemoteVisibility>) -> some RemoteView {
     modifier(.visibilityVariable(variable))
   }
 
   /// Shows the view while `condition` holds and removes it, taking no space, while it does not.
-  public func visible(if condition: RemoteBool) -> _ModifiedRemoteView<Self> {
+  public func visible(if condition: RemoteBool) -> some RemoteView {
     modifier(.visibleIf(condition))
   }
 
   /// Runs `actions`, in order, when the view is tapped.
-  public func onTap(_ actions: RemoteAction...) -> _ModifiedRemoteView<Self> { onTap(actions) }
+  public func onTap(_ actions: RemoteAction...) -> some RemoteView { onTap(actions) }
 
-  public func onTap(_ actions: [RemoteAction]) -> _ModifiedRemoteView<Self> {
+  public func onTap(_ actions: [RemoteAction]) -> some RemoteView {
     modifier(.tap(actions))
   }
 
   // MARK: Accessibility
 
   /// What VoiceOver and the other assistive technologies read for this view.
-  public func accessibilityLabel(_ label: RemoteString) -> _ModifiedRemoteView<Self> {
+  public func accessibilityLabel(_ label: RemoteString) -> some RemoteView {
     modifier(.accessibilityLabel(label))
   }
 
   /// The view's current value or state, read after its label ("50 percent", "On").
-  public func accessibilityValue(_ value: RemoteString) -> _ModifiedRemoteView<Self> {
+  public func accessibilityValue(_ value: RemoteString) -> some RemoteView {
     modifier(.accessibilityValue(value))
   }
 
   /// What kind of control the view is.
-  public func accessibilityRole(_ role: RemoteAccessibilityRole) -> _ModifiedRemoteView<Self> {
+  public func accessibilityRole(_ role: RemoteAccessibilityRole) -> some RemoteView {
     modifier(.accessibilityRole(role))
   }
 
   /// Makes the view one accessibility element, keeping, merging or hiding its children's.
   public func accessibilityElement(children: RemoteAccessibilityChildBehavior = .ignore)
-    -> _ModifiedRemoteView<Self>
+    -> some RemoteView
   {
     modifier(.accessibilityChildren(children))
   }

@@ -1,12 +1,12 @@
 import RcWireOperations
 
 /// The state of one document being encoded. Views write themselves through it; it is public only
-/// because ``RemoteStackContent/_write(to:)`` is, and has no public members.
+/// only within this package.
 ///
 /// Values a view reads (text, variables, expressions, colours) are declared in their own list,
 /// written between the header and the root, so every id is defined before it is read and each
 /// distinct value is declared once however many views read it.
-public final class _RemoteWriter {
+package final class RemoteWriter {
   /// Pixels per point.
   let displayScale: Float
 
@@ -391,6 +391,21 @@ public final class _RemoteWriter {
 
   // MARK: - Layouts
 
+  /// Writes `content`: a built-in view's own operations, or anything else's `body`.
+  func write(_ content: some RemoteStackContent) throws(RemoteEncodingError) {
+    if let primitive = content as? any RemotePrimitive {
+      try primitive.write(to: self)
+    } else if let view = content as? any RemoteView {
+      try writeBody(of: view)
+    } else {
+      throw RemoteEncodingError.unsupportedContent(String(describing: type(of: content)))
+    }
+  }
+
+  private func writeBody(of view: some RemoteView) throws(RemoteEncodingError) {
+    try write(view.body)
+  }
+
   /// Runs `body` with `modifier` applied to the next built-in view it writes.
   func withModifier(
     _ modifier: RemoteModifierElement, _ body: () throws(RemoteEncodingError) -> Void
@@ -404,7 +419,7 @@ public final class _RemoteWriter {
   func writeRoot(_ content: any RemoteView) throws(RemoteEncodingError) {
     emit(.rootLayout(RootLayout(componentId: newComponentID())))
     parents.append(.root)
-    try content._write(to: self)
+    try write(content)
     parents.removeLast()
     emit(.containerEnd(ContainerEnd()))
   }
@@ -423,7 +438,7 @@ public final class _RemoteWriter {
     emit(.layoutContent(LayoutContent(componentId: newComponentID())))
     parents.append(kind)
     if kind == .horizontalStack { rowGaps.append((try pixels(rowGap), 0)) }
-    try content._write(to: self)
+    try write(content)
     if kind == .horizontalStack { rowGaps.removeLast() }
     parents.removeLast()
     emit(.containerEnd(ContainerEnd()))
@@ -915,7 +930,7 @@ public final class _RemoteWriter {
       return true
     }
 
-    func operation(_ writer: _RemoteWriter) throws(RemoteEncodingError) -> WireOperation? {
+    func operation(_ writer: RemoteWriter) throws(RemoteEncodingError) -> WireOperation? {
       guard label != nil || value != nil || role != nil || children != nil else { return nil }
       // AndroidX writes 0 for a text it does not set, and "no role" as `ROLE_NONE`.
       let labelID = try label.map { text throws(RemoteEncodingError) in try writer.stringID(text) }

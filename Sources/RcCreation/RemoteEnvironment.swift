@@ -54,13 +54,15 @@ extension RemoteEnvironmentValues {
 }
 
 /// A view and an environment change for it and everything inside it.
-public struct _EnvironmentWritingView<Content: RemoteView>: _PrimitiveRemoteView {
+struct EnvironmentWritingView<Content: RemoteView>: RemoteView, RemotePrimitive {
+  typealias Body = Never
+
   let content: Content
   let transform: @Sendable (inout RemoteEnvironmentValues) -> Void
 
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     try writer.withEnvironment(transform) { () throws(RemoteEncodingError) in
-      try content._write(to: writer)
+      try writer.write(content)
     }
   }
 }
@@ -69,17 +71,17 @@ extension RemoteView {
   /// Sets an environment value for this view and everything inside it.
   public func environment<Value: Sendable>(
     _ keyPath: WritableKeyPath<RemoteEnvironmentValues, Value> & Sendable, _ value: Value
-  ) -> _EnvironmentWritingView<Self> {
-    _EnvironmentWritingView(content: self) { $0[keyPath: keyPath] = value }
+  ) -> some RemoteView {
+    EnvironmentWritingView(content: self) { $0[keyPath: keyPath] = value }
   }
 
   /// The colour of the text and icons inside this view that do not set their own.
-  public func foregroundStyle(_ color: RemoteColor) -> _EnvironmentWritingView<Self> {
+  public func foregroundStyle(_ color: RemoteColor) -> some RemoteView {
     environment(\.foregroundStyle, color)
   }
 
   /// The accent colour for controls inside this view.
-  public func tint(_ color: RemoteColor) -> _EnvironmentWritingView<Self> {
+  public func tint(_ color: RemoteColor) -> some RemoteView {
     environment(\.tint, color)
   }
 }
@@ -92,7 +94,9 @@ extension RemoteView {
 ///   RemoteColor.fixed(.white).background(environment.tint)
 /// }
 /// ```
-public struct RemoteEnvironmentReader<Content: RemoteView>: _PrimitiveRemoteView {
+public struct RemoteEnvironmentReader<Content: RemoteView>: RemoteView, RemotePrimitive {
+  public typealias Body = Never
+
   let content: @Sendable (RemoteEnvironmentValues) -> Content
 
   public init(@RemoteViewBuilder content: @escaping @Sendable (RemoteEnvironmentValues) -> Content)
@@ -100,7 +104,7 @@ public struct RemoteEnvironmentReader<Content: RemoteView>: _PrimitiveRemoteView
     self.content = content
   }
 
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
-    try content(writer.environment)._write(to: writer)
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
+    try writer.write(content(writer.environment))
   }
 }

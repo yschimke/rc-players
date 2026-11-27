@@ -3,11 +3,7 @@
 ///
 /// A flex-weighted view is stack content but not a view, so placing one anywhere else is a
 /// compile-time error rather than a document a player cannot lay out.
-public protocol RemoteStackContent: Sendable {
-  /// Writes this content's operations. The encoder calls it; it is public only so that the
-  /// protocol can be, and it is not part of the API.
-  func _write(to writer: _RemoteWriter) throws(RemoteEncodingError)
-}
+public protocol RemoteStackContent: Sendable {}
 
 /// A piece of remote UI, composed as a SwiftUI `View` is.
 ///
@@ -31,8 +27,7 @@ public protocol RemoteStackContent: Sendable {
 /// Badge(label: "New").padding(4)
 /// ```
 ///
-/// The tree is static: each view's type records its children's types, as SwiftUI's does, and
-/// nothing is boxed or downcast while a document is written.
+/// The tree is static: each view's type records its children's types, as SwiftUI's does.
 public protocol RemoteView: RemoteStackContent {
   /// The type of view this view's body is.
   associatedtype Body: RemoteView
@@ -41,51 +36,51 @@ public protocol RemoteView: RemoteStackContent {
   @RemoteViewBuilder var body: Body { get }
 }
 
-extension RemoteView {
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
-    try body._write(to: writer)
-  }
-}
-
 extension Never: RemoteView {
-  public var body: Never { fatalError("Never has no body") }
+  public typealias Body = Never
 }
 
-/// A view that writes its operations itself rather than through a `body`.
-///
-/// Every built-in view is one. Its `body` is `Never`, and is never read.
-public protocol _PrimitiveRemoteView: RemoteView where Body == Never {}
-
-extension _PrimitiveRemoteView {
+extension RemoteView where Body == Never {
+  /// A built-in view writes its own operations; it has no body to read.
   public var body: Never { fatalError("\(Self.self) writes its own operations") }
 }
 
+/// Content that writes its own operations: every built-in view, and the builder's own types.
+/// Package-internal, so the writer stays out of the public API; a view outside this package is
+/// written through its `body`.
+package protocol RemotePrimitive: RemoteStackContent {
+  func write(to writer: RemoteWriter) throws(RemoteEncodingError)
+}
+
 /// No view: what an empty builder produces.
-public struct EmptyRemoteView: _PrimitiveRemoteView {
+public struct EmptyRemoteView: RemoteView, RemotePrimitive {
+  public typealias Body = Never
+
   public init() {}
 
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {}
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {}
 }
 
 /// Two pieces of content, one after the other: what the builder makes of consecutive statements.
-public struct _PairRemoteView<First: RemoteStackContent, Second: RemoteStackContent>:
-  RemoteStackContent
+public struct RemoteTupleView<First: RemoteStackContent, Second: RemoteStackContent>:
+  RemoteStackContent, RemotePrimitive
 {
   let first: First
   let second: Second
 
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
-    try first._write(to: writer)
-    try second._write(to: writer)
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
+    try writer.write(first)
+    try writer.write(second)
   }
 }
 
-extension _PairRemoteView: RemoteView, _PrimitiveRemoteView
-where First: RemoteView, Second: RemoteView {}
+extension RemoteTupleView: RemoteView where First: RemoteView, Second: RemoteView {
+  public typealias Body = Never
+}
 
 /// One of two pieces of content, as an `if`–`else` or a `switch` chose.
-public struct _ConditionalRemoteView<First: RemoteStackContent, Second: RemoteStackContent>:
-  RemoteStackContent
+public struct RemoteConditionalContent<First: RemoteStackContent, Second: RemoteStackContent>:
+  RemoteStackContent, RemotePrimitive
 {
   enum Storage: Sendable {
     case first(First)
@@ -94,47 +89,77 @@ public struct _ConditionalRemoteView<First: RemoteStackContent, Second: RemoteSt
 
   let storage: Storage
 
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
     switch storage {
-    case .first(let content): try content._write(to: writer)
-    case .second(let content): try content._write(to: writer)
+    case .first(let content): try writer.write(content)
+    case .second(let content): try writer.write(content)
     }
   }
 }
 
-extension _ConditionalRemoteView: RemoteView, _PrimitiveRemoteView
-where First: RemoteView, Second: RemoteView {}
+extension RemoteConditionalContent: RemoteView where First: RemoteView, Second: RemoteView {
+  public typealias Body = Never
+}
 
-extension Optional: RemoteStackContent where Wrapped: RemoteStackContent {
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
-    if let content = self { try content._write(to: writer) }
+extension Optional: RemoteStackContent where Wrapped: RemoteStackContent {}
+
+extension Optional: RemotePrimitive where Wrapped: RemoteStackContent {
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
+    if let content = self { try writer.write(content) }
   }
 }
 
-extension Optional: RemoteView, _PrimitiveRemoteView where Wrapped: RemoteView {}
+extension Optional: RemoteView where Wrapped: RemoteView {
+  public typealias Body = Never
+}
 
-extension Array: RemoteStackContent where Element: RemoteStackContent {
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
-    for content in self { try content._write(to: writer) }
+/// One piece of content for each element of a collection, as SwiftUI's `ForEach`: the way to
+/// repeat views in a builder.
+///
+/// ```swift
+/// RemoteHStack(spacing: 8) {
+///   RemoteForEach(["VStack", "HStack", "ZStack"]) { label in
+///     Chip(label: label)
+///   }
+/// }
+/// ```
+///
+/// The collection is read when the view is built, and each element's content is written in
+/// order. Content can be stack content, so a stack's repeated children can take a flex weight.
+public struct RemoteForEach<Content: RemoteStackContent>: RemoteStackContent, RemotePrimitive {
+  let contents: [Content]
+
+  public init<Data: Sequence>(
+    _ data: Data, @RemoteViewBuilder content: (Data.Element) -> Content
+  ) {
+    contents = data.map(content)
+  }
+
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
+    for content in contents { try writer.write(content) }
   }
 }
 
-extension Array: RemoteView, _PrimitiveRemoteView where Element: RemoteView {}
+extension RemoteForEach: RemoteView where Content: RemoteView {
+  public typealias Body = Never
+}
 
 /// A view whose type is hidden: for `if #available` branches, and for storing views of
 /// different types together.
-public struct AnyRemoteView: _PrimitiveRemoteView {
+public struct AnyRemoteView: RemoteView, RemotePrimitive {
+  public typealias Body = Never
+
   let view: any RemoteView
 
   public init(_ view: some RemoteView) { self.view = view }
 
-  public func _write(to writer: _RemoteWriter) throws(RemoteEncodingError) {
-    try view._write(to: writer)
+  package func write(to writer: RemoteWriter) throws(RemoteEncodingError) {
+    try writer.write(view)
   }
 }
 
-/// Builds a view's content from statements, `if`, `switch` and `for`, as SwiftUI's
-/// `@ViewBuilder` does.
+/// Builds a view's content from statements, `if` and `switch`, as SwiftUI's `@ViewBuilder` does.
+/// Repeated content is a ``RemoteForEach``.
 ///
 /// Consecutive statements fold pairwise (`buildPartialBlock`), so a block of any length is one
 /// static type. Parameter packs would give the same tree, but a variadic generic type needs the
@@ -155,8 +180,8 @@ public enum RemoteViewBuilder {
 
   public static func buildPartialBlock<First: RemoteStackContent, Next: RemoteStackContent>(
     accumulated: First, next: Next
-  ) -> _PairRemoteView<First, Next> {
-    _PairRemoteView(first: accumulated, second: next)
+  ) -> RemoteTupleView<First, Next> {
+    RemoteTupleView(first: accumulated, second: next)
   }
 
   public static func buildOptional<Content: RemoteStackContent>(_ content: Content?) -> Content? {
@@ -165,18 +190,14 @@ public enum RemoteViewBuilder {
 
   public static func buildEither<First: RemoteStackContent, Second: RemoteStackContent>(
     first content: First
-  ) -> _ConditionalRemoteView<First, Second> {
-    _ConditionalRemoteView(storage: .first(content))
+  ) -> RemoteConditionalContent<First, Second> {
+    RemoteConditionalContent(storage: .first(content))
   }
 
   public static func buildEither<First: RemoteStackContent, Second: RemoteStackContent>(
     second content: Second
-  ) -> _ConditionalRemoteView<First, Second> {
-    _ConditionalRemoteView(storage: .second(content))
-  }
-
-  public static func buildArray<Content: RemoteStackContent>(_ content: [Content]) -> [Content] {
-    content
+  ) -> RemoteConditionalContent<First, Second> {
+    RemoteConditionalContent(storage: .second(content))
   }
 
   public static func buildLimitedAvailability(_ content: some RemoteView) -> AnyRemoteView {

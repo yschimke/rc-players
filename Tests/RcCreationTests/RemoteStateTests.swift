@@ -47,7 +47,7 @@ import Testing
     let selection = RemoteVariable("tab", default: 1)
     let document = RemoteDocument(width: 100, height: 100) {
       RemoteVStack {
-        for index in 0..<3 {
+        RemoteForEach(0..<3) { index in
           RemoteColor.blue.frame(width: 10, height: 10).visible(if: selection == index)
         }
       }
@@ -103,7 +103,7 @@ import Testing
     }
     #expect(
       expressions.first?.value.bitPattern
-        == _RemoteWriter.reference(RemoteContextIds.idTimeInHr).bitPattern)
+        == RemoteWriter.reference(RemoteContextIds.idTimeInHr).bitPattern)
     #expect(expressions.first?.flags == TextFromFloat.padPreZero | TextFromFloat.padAfterZero)
   }
 
