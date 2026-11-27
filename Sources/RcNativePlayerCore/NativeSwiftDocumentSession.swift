@@ -1880,6 +1880,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     let animationsBeforePass =
       integerReadsOfFloats.isEmpty
       ? [:] : floatAnimationRuntimes.mapValues { $0.detachedCopy() }
+    // The values the first evaluation starts from: a replay starts from them too, so it is the
+    // same pass with the moved integers published in wire order, and no float advances twice.
+    let valuesBeforePass = integerReadsOfFloats.isEmpty ? [:] : result
     try evaluateExpressions()
     // AndroidX's `setFloat` publishes every float's integer view, so an integer expression or a
     // state layout that reads a float expression or a clock reads it truncated. Those views are
@@ -1903,6 +1906,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         // The floats again, in wire order: each sees a moved integer's new value only if the
         // integer came before it, as in one reference pass; the others keep this pass's first.
         floatAnimationRuntimes = animationsBeforePass
+        result = valuesBeforePass
         var next = moved.startIndex
         func publishMoved(before offset: Int) {
           while next < moved.endIndex, moved[next].offset < offset {

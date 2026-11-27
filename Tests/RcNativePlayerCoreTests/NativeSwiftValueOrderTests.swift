@@ -108,6 +108,37 @@ import Testing
     #expect(second.floats[80] == Float(hour), "\(String(describing: second.floats[80]))")
   }
 
+  /// float 80 = [82]; float 82 = [84]; float 84 = 5; int 81 = [TIME_IN_HR]. The integer moving
+  /// replays the floats, but none of them reads it, so the pass gives the floats the same document
+  /// without the integer gives: the replay starts where the first evaluation did, and advances no
+  /// forward reference a step further.
+  @Test func aReplayDoesNotAdvanceUnrelatedForwardFloats() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(Op.animatedFloat).int(80).int(1).int(Writer.nanReference(82))
+    document.u8(Op.animatedFloat).int(82).int(1).int(Writer.nanReference(84))
+    document.u8(Op.animatedFloat).int(84).int(1).int(Writer.literal(5))
+    document.u8(Op.integerExpression).int(81).int(1).int(1).int(
+      NativeSwiftSystemVariables.timeInHours)
+    let session = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true)
+    let clock = NativeSwiftWallClock(epochMillis: KotlinReference.epochMillis)
+    try #require(clock.fields.hour != 0)
+    let first = try session.probeValues(timeSeconds: 0, wallClock: clock)
+    #expect(first.integers[81] == Int(clock.fields.hour))
+    #expect(first.floats[80] == 0, "\(String(describing: first.floats[80]))")
+    // Without a replay the same document gives the same floats: the integer changes nothing.
+    let unrelated = Writer()
+    unrelated.header(width: 100, height: 100)
+    unrelated.u8(Op.animatedFloat).int(80).int(1).int(Writer.nanReference(82))
+    unrelated.u8(Op.animatedFloat).int(82).int(1).int(Writer.nanReference(84))
+    unrelated.u8(Op.animatedFloat).int(84).int(1).int(Writer.literal(5))
+    let plain = try NativeSwiftDocumentSession.open(
+      data: unrelated.data, toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0, wallClock: clock)
+    #expect(first.floats[80] == plain.floats[80] && first.floats[82] == plain.floats[82])
+  }
+
   /// float 80 = 2; int 81 = [80] + [82]; float 82 = 5, both floats expressions. One Kotlin pass in
   /// wire order: 81 reads 80's view and 82's from the pass before (none yet), so 2, then 7.
   @Test func anIntegerReadsEachFloatViewInWireOrder() throws {
