@@ -44,6 +44,14 @@ import Testing
       ])
   }
 
+  /// However the foreground is set, a hierarchical style resolves against the one it replaces.
+  @Test func theGenericEnvironmentSetterResolvesToo() throws {
+    let document = RemoteDocument(width: 100, height: 100) {
+      RemoteText("text").environment(\.foregroundStyle, .secondary).foregroundStyle(.hex(0xFF0000))
+    }
+    #expect(try textColors(open(document)) == [0x99FF_0000])
+  }
+
   @Test func aBackgroundInTheSecondaryStyleTakesTheForeground() throws {
     let document = RemoteDocument(width: 100, height: 100) {
       RemoteColor.secondary.frame(width: 10, height: 10).foregroundStyle(.hex(0x0000FF))

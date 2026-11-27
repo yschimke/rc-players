@@ -41,9 +41,16 @@ private struct ForegroundStyleKey: RemoteEnvironmentKey {
 
 extension RemoteEnvironmentValues {
   /// The colour text and icons take unless they set their own, as SwiftUI's `foregroundStyle`.
+  ///
+  /// A hierarchical style set here is the foreground it replaces, dimmed: `.secondary` within
+  /// red is red at 60%, and within `.secondary`, the foreground at 36%. However it is set (the
+  /// `foregroundStyle` modifier, `environment(\.foregroundStyle, _)`, an environment reader), the
+  /// value read back is always a concrete colour.
   public var foregroundStyle: RemoteColor {
     get { self[ForegroundStyleKey.self] }
-    set { self[ForegroundStyleKey.self] = newValue }
+    set {
+      self[ForegroundStyleKey.self] = newValue.resolved(against: self[ForegroundStyleKey.self])
+    }
   }
 
   /// The accent colour controls take, as SwiftUI's `tint`.
@@ -84,11 +91,7 @@ extension RemoteView {
 
   /// The colour of the text and icons inside this view that do not set their own.
   public func foregroundStyle(_ color: RemoteColor) -> RemoteEnvironmentContent<Self> {
-    // A hierarchical style is the foreground it is set inside, dimmed: `.secondary` within
-    // `.secondary` is the foreground at 36%.
-    RemoteEnvironmentContent(content: self) {
-      $0.foregroundStyle = color.resolved(against: $0.foregroundStyle)
-    }
+    environment(\.foregroundStyle, color)
   }
 
   /// The accent colour for controls inside this view.
