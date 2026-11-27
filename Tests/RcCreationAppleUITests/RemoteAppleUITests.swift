@@ -163,6 +163,18 @@ import Testing
     #expect(separators.count == 2)
   }
 
+  @Test func aListScrollsVertically() throws {
+    let document = RemoteDocument(width: 390, height: 200) {
+      RemoteList {
+        RemoteSection("Rows") {
+          for index in 1...20 { RemoteNavigationRow("Row \(index)", action: .host("r")) }
+        }
+      }
+    }
+    let scrolled = try nodes(open(document)).filter { $0.scrollDirection != nil }
+    #expect(scrolled.map(\.scrollDirection) == [.vertical])
+  }
+
   @Test func themeAndTintReachTheControls() throws {
     let document = RemoteDocument(width: 390, height: 100) {
       RemoteButton("Go", action: .host("go"))

@@ -624,6 +624,76 @@ package final class RemoteWriter {
         width: widthFixed ? nil : .fill(1), height: heightFixed ? nil : .fill(1)), body)
   }
 
+  /// A scroll view: a column or row that fills the space it is offered, clipped and scrolled by
+  /// the scroll modifier, as AndroidX's `verticalScroll` and `horizontalScroll` write it.
+  func writeScrollView(
+    axis: RemoteAxis, initialOffset: Double, content: some RemoteStackContent
+  ) throws(RemoteEncodingError) {
+    try withFillOnFreeAxes { () throws(RemoteEncodingError) in
+      try withModifier(.scroll(axis, initialOffset: initialOffset)) {
+        () throws(RemoteEncodingError) in
+        switch axis {
+        case .vertical:
+          let layout = ColumnLayout(
+            componentId: newComponentID(), animationId: IdEncoding.noId,
+            horizontalPositioning: ColumnLayout.center, verticalPositioning: ColumnLayout.top,
+            spacedBy: 0)
+          try writeLayout(.columnLayout(layout), kind: .verticalStack, content: content)
+        case .horizontal:
+          let layout = RowLayout(
+            componentId: newComponentID(), animationId: IdEncoding.noId,
+            horizontalPositioning: RowLayout.start, verticalPositioning: RowLayout.center,
+            spacedBy: 0)
+          try writeLayout(.rowLayout(layout), kind: .horizontalStack, content: content)
+        }
+      }
+    }
+  }
+
+  /// A scroll modifier, as AndroidX's writer shapes it: a clip, `ScrollModifierOperation` with
+  /// the ids of the position and of the extents the player measures, and the position as a touch
+  /// expression, the only child of the scroll's container.
+  private func writeScroll(axis: RemoteAxis, initialOffset: Double) throws(RemoteEncodingError) {
+    let position = newDataID()
+    let maximum = newDataID()
+    let notchMaximum = newDataID()
+    guard initialOffset >= 0, initialOffset.isFinite else {
+      throw RemoteEncodingError.invalidScrollOffset(initialOffset)
+    }
+    if initialOffset > 0 {
+      declare(.floatConstant(FloatConstant(id: position, value: try pixels(initialOffset))))
+    }
+    emit(.clipRectModifierOperation(ClipRectModifierOperation()))
+    emit(
+      .scrollModifierOperation(
+        ScrollModifierOperation(
+          direction: axis == .vertical ? Scroll.vertical : Scroll.horizontal,
+          position: Self.reference(position), max: Self.reference(maximum),
+          notchMax: Self.reference(notchMaximum))))
+    // The position follows the drag along the axis, the opposite way: dragging up scrolls down.
+    let touch =
+      axis == .vertical ? RemoteContextIds.idTouchPosY : RemoteContextIds.idTouchPosX
+    emit(
+      .touchExpression(
+        TouchExpression(
+          id: position, value: 0, min: 0, max: Self.reference(maximum), velocityId: 0,
+          touchEffects: Scroll.touchEffects,
+          expression: [Self.reference(touch), -1, Self.operatorWord(.multiply)],
+          stopMode: Scroll.stopGently)))
+    emit(.containerEnd(ContainerEnd()))
+  }
+
+  /// The scroll modifier's wire values, as AndroidX's writer has them.
+  private enum Scroll {
+    /// `ScrollModifierOperation`'s directions.
+    static let vertical: Int32 = 0
+    static let horizontal: Int32 = 1
+    /// The touch effects AndroidX's scroll writes.
+    static let touchEffects: Int32 = 3
+    /// `TouchExpression`'s stop mode that decelerates after a fling (AndroidX's `STOP_GENTLY`).
+    static let stopGently: Int32 = 0
+  }
+
   /// A spacer: flexible space along the enclosing stack, or a fixed gap.
   func writeSpacer(length: RemoteFloat?) throws(RemoteEncodingError) {
     let axisIsWidth: Bool?
@@ -966,6 +1036,8 @@ package final class RemoteWriter {
       emit(.clickModifier(ClickModifier()))
       for operation in resolved { emit(operation) }
       emit(.containerEnd(ContainerEnd()))
+    case .scroll(let axis, let initialOffset):
+      try writeScroll(axis: axis, initialOffset: initialOffset)
     case .accessibilityLabel, .accessibilityValue, .accessibilityRole, .accessibilityChildren:
       preconditionFailure("accessibility modifiers merge into one CoreSemantics")
     }

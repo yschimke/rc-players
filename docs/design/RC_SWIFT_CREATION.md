@@ -103,6 +103,7 @@ name.
 | --- | --- | --- |
 | Document | `RemoteDocument(width:height:displayScale:accessibilityLabel:)`, `encode() throws(RemoteEncodingError)` | modern `Header` with `DOC_WIDTH`, `DOC_HEIGHT`, `DOC_DENSITY_AT_GENERATION`, `DOC_CONTENT_DESCRIPTION` |
 | Stacks | `RemoteVStack`, `RemoteHStack` (alignment, spacing, distribution), `RemoteZStack` (alignment), `RemoteSpacer`, `RemoteForEach` | `ColumnLayout`, `RowLayout`, `BoxLayout`, `LayoutContent`, `ContainerEnd` |
+| Scrolling | `RemoteScrollView(.vertical / .horizontal, initialOffset:)` | a `ColumnLayout` or `RowLayout` with `ClipRectModifierOperation`, `ScrollModifierOperation` and its position as a `TouchExpression` |
 | State layouts | `RemoteSwitch` over a `RemoteBool`, a `Bool` variable, a `RemoteStateValue` enum variable or a `RemoteInt` range, written as a Swift `switch` or `if`; `RemoteIf(condition) { } else: { }` | `StateLayout` with one box per state |
 | Text | `RemoteText`; `font(_:)` taking a `RemoteFont` (`.body`, `.headline`, …, `.system(size:weight:)`), `fontWeight`, `bold`, `italic`, `foregroundStyle`, `multilineTextAlignment`, `lineLimit`, `truncationMode`, all environment values that reach every text inside | `TextLayout` |
 | Environment | `RemoteEnvironmentKey`, `RemoteEnvironmentValues`, `environment(_:_:)`, `RemoteEnvironmentReader`, `tint` | nothing: read while writing |
@@ -183,6 +184,21 @@ name.
 
   ![Hierarchical styles](../../renders/swift-creation/hierarchical-cmp-jvm.png)
 
+- **A scroll view is AndroidX's scroll modifier.** `RemoteScrollView` fills the space it is
+  offered, as SwiftUI's does, and lays its children out along its axis as an unspaced stack. It
+  writes what AndroidX's `verticalScroll` and `horizontalScroll` write: a clip, the scroll
+  modifier, and the position as a touch expression that follows the drag and decelerates after a
+  fling, so the player scrolls without the host. `initialOffset` starts it scrolled. The source
+  is [`Scroll.swift.txt`](../../renders/swift-creation/Scroll.swift.txt); rendered by the CMP
+  player, at the top and 200 points down, and a carousel at 0 and 110 points:
+
+  | `RemoteScrollView` | `initialOffset: 200` |
+  | --- | --- |
+  | ![](../../renders/swift-creation/scroll-top-cmp-jvm.png) | ![](../../renders/swift-creation/scroll-offset-cmp-jvm.png) |
+
+  ![Carousel](../../renders/swift-creation/carousel-cmp-jvm.png)
+  ![Carousel scrolled](../../renders/swift-creation/carousel-offset-cmp-jvm.png)
+
 - **A float is also an integer.** As AndroidX's `setFloat` publishes, every float has an integer
   view, truncated toward zero, and an integer reader (an `IntegerExpression`, a `StateLayout`
   index) names the float's id to read it. `RemoteInt(.weekday)`, `RemoteInt(truncating:)` and the
@@ -211,7 +227,7 @@ name.
 
 ## Not yet
 
-- Flow, scroll, `CoreText` styling (letter spacing, line height, font axes), animation specs,
+- Flow, a scroll position a document reads or sets, paging, `CoreText` styling (letter spacing, line height, font axes), animation specs,
   gradients and touch-down/up handlers.
 - A rounded background with uneven corners still clips: the wire's `DrawRoundRect` takes one
   radius.

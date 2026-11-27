@@ -1,0 +1,40 @@
+import Foundation
+import RcCreation
+
+func rows(_ n: Int) -> [Int] { Array(1...n) }
+
+func list(offset: Double) -> RemoteDocument {
+  RemoteDocument(width: 200, height: 240, displayScale: 2) {
+    RemoteScrollView(initialOffset: offset) {
+      RemoteForEach(rows(12)) { i in
+        RemoteText("Row \(i)")
+          .padding(12)
+          .frame(maxWidth: .infinity)
+          .background(i % 2 == 0 ? .hex(0xE3F2FD) : .white)
+      }
+    }
+    .background(.hex(0xEEEEEE))
+  }
+}
+
+func carousel(offset: Double) -> RemoteDocument {
+  RemoteDocument(width: 240, height: 100, displayScale: 2) {
+    RemoteScrollView(.horizontal, initialOffset: offset) {
+      RemoteForEach(Array([0xE53935, 0x1E88E5, 0x43A047, 0xFDD835].enumerated())) { i, c in
+        RemoteZStack { RemoteText("Card \(i + 1)").foregroundStyle(.white) }
+          .frame(width: 100, height: 80)
+          .background(.hex(UInt32(c)), in: .roundedRectangle(cornerRadius: 12))
+          .padding(.horizontal, 6)
+      }
+    }
+    .background(.white)
+  }
+}
+
+let out = CommandLine.arguments[1]
+for (name, doc) in [
+  ("scroll-top", list(offset: 0)), ("scroll-offset", list(offset: 200)),
+  ("carousel", carousel(offset: 0)), ("carousel-offset", carousel(offset: 110)),
+] {
+  try Data(try doc.encode()).write(to: URL(fileURLWithPath: "\(out)/\(name).rc"))
+}

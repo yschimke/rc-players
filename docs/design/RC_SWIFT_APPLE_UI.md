@@ -6,7 +6,7 @@ AndroidX's `remote-foundation` and `remote-material3` do for Android's:
 | Library | Contents | AndroidX counterpart |
 | --- | --- | --- |
 | `RcCreationFoundation` | Apple's system colours (`.systemBlue`, `.label`, `.secondarySystemGroupedBackground`, …) as light/dark pairs; `RemoteSymbol`, a small set of SF-Symbol-shaped icons drawn as paths; `RemoteIcon`, `RemoteLabel`, `RemoteDivider`; `RemoteButton(_:symbol:action:)` | `remote-foundation` |
-| `RcCreationAppleUI` | `RemoteAppleTheme` (`.system`, `.vibrant`); the HIG button styles; `RemoteToggle`, `RemoteStepper`, `RemoteSegmentedPicker`, `RemoteProgressView`, `RemoteGauge`, `RemoteBadge`; `RemoteList` / `RemoteSection` / `RemoteNavigationRow` in the inset-grouped style; `RemoteWidget` with WidgetKit's families; `RemoteText.time(_:)` clocks | `remote-material3` |
+| `RcCreationAppleUI` | `RemoteAppleTheme` (`.system`, `.vibrant`); the HIG button styles; `RemoteToggle`, `RemoteStepper`, `RemoteSegmentedPicker`, `RemoteProgressView`, `RemoteGauge`, `RemoteBadge`; `RemoteList` / `RemoteSection` / `RemoteNavigationRow` in the inset-grouped style, scrolling; `RemoteWidget` with WidgetKit's families; `RemoteText.time(_:)` clocks | `remote-material3` |
 
 Everything is written in `RcCreation`'s own operations. A document needs nothing on the player
 beyond what any Remote Compose player reads, so the same document plays on the CMP, AndroidX and
@@ -82,4 +82,4 @@ Rendered by the CMP player from [`renders/swift-creation/apple/`](../../renders/
 
 ## Not yet
 
-- Symbols beyond the built-in set, lists that scroll, and text fields.
+- Symbols beyond the built-in set, and text fields.

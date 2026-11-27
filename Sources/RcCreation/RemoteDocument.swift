@@ -19,6 +19,8 @@ public enum RemoteEncodingError: Error, Sendable, Hashable {
   case invalidFontWeight(Double)
   /// A flex weight that is not positive and finite.
   case invalidFlexWeight(Double)
+  /// A scroll view's initial offset that is negative or not finite.
+  case invalidScrollOffset(Double)
   /// A number format whose digit counts are outside 0...16.
   case invalidNumberFormat(integerDigits: Int, decimals: Int)
   /// A number is a NaN or an infinity. On the wire a NaN is a reference to a variable, so it
