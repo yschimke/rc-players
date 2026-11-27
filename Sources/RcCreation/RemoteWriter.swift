@@ -662,8 +662,9 @@ package final class RemoteWriter {
   private var pathIDs: [RemotePath: Int32] = [:]
 
   /// The id of `path`, declared once (`PathData`) in pixels, with the non-zero winding rule.
-  private func pathID(_ path: RemotePath) -> Int32 {
+  private func pathID(_ path: RemotePath) throws(RemoteEncodingError) -> Int32 {
     if let id = pathIDs[path] { return id }
+    let words = try path.pathWords(scale: displayScale)
     let id = newDataID()
     let idAndWinding =
       UInt32(bitPattern: id) & PathData.BitLayout.idAndWindingPathIdMask
@@ -672,7 +673,7 @@ package final class RemoteWriter {
       .pathData(
         PathData(
           idAndWinding: Int32(bitPattern: idAndWinding),
-          pathData: path.pathWords(scale: displayScale))))
+          pathData: words)))
     pathIDs[path] = id
     return id
   }
@@ -717,7 +718,7 @@ package final class RemoteWriter {
           x1: try pixelWord(start.x), y1: try pixelWord(start.y), x2: try pixelWord(end.x),
           y2: try pixelWord(end.y)))
     case .path(let path):
-      return .drawPath(DrawPath(id: pathID(path)))
+      return .drawPath(DrawPath(id: try pathID(path)))
     case .arc(let center, let radius, let startAngle, let sweep):
       return .drawArc(
         DrawArc(

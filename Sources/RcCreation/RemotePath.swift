@@ -19,6 +19,16 @@ public struct RemotePath: Hashable, Sendable {
     case quad(Double, Double, Double, Double)
     case cubic(Double, Double, Double, Double, Double, Double)
     case close
+
+    /// Every coordinate the element holds: points and control points.
+    var coordinates: [Double] {
+      switch self {
+      case .move(let x, let y), .line(let x, let y): [x, y]
+      case .quad(let cx, let cy, let x, let y): [cx, cy, x, y]
+      case .cubic(let ax, let ay, let bx, let by, let x, let y): [ax, ay, bx, by, x, y]
+      case .close: []
+      }
+    }
   }
 
   private(set) var elements: [Element] = []
@@ -66,7 +76,15 @@ public struct RemotePath: Hashable, Sendable {
 
   /// The `PathData` words: each command's tag, NaN-boxed, then its points. A segment repeats its
   /// start point, as AndroidX's `RemotePath` writes it (`PathCommandLayout`).
-  func pathWords(scale: Float) -> [Float] {
+  ///
+  /// Throws ``RemoteEncodingError/nonFiniteValue`` for a coordinate that is not finite once
+  /// scaled: written as is, a NaN would read as a reference.
+  func pathWords(scale: Float) throws(RemoteEncodingError) -> [Float] {
+    for element in elements {
+      for coordinate in element.coordinates {
+        _ = try RemoteWriter.finite(Float(coordinate) * scale)
+      }
+    }
     var words: [Float] = []
     var current: (Float, Float) = (0, 0)
     var start: (Float, Float) = (0, 0)

@@ -463,6 +463,27 @@ import Testing
       RemoteDocument(width: 10, height: 10) {
         RemoteColor.red.border(.black, width: .infinity)
       },
+      // Path coordinates: NaN, and a Double that overflows a Float once scaled.
+      RemoteDocument(width: 10, height: 10) {
+        RemoteCanvas { context, _ in
+          context.fill(
+            .path(
+              RemotePath {
+                $0.move(to: .nan, 0)
+                $0.addLine(to: 10, 10)
+              }), with: .black)
+        }
+      },
+      RemoteDocument(width: 10, height: 10) {
+        RemoteCanvas { context, _ in
+          context.fill(
+            .path(
+              RemotePath {
+                $0.move(to: 0, 0)
+                $0.addLine(to: 1e300, 10)
+              }), with: .black)
+        }
+      },
       // A computed action that folds to NaN: written as a constant, it would read as an id.
       RemoteDocument(width: 10, height: 10) {
         RemoteColor.red.onTapGesture(
