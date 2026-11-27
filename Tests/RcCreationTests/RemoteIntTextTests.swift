@@ -43,4 +43,28 @@ import Testing
     let session = try NativeSwiftDocumentSession.open(data: document.encodedData())
     #expect(try texts(session) == ["1.5"])
   }
+
+  /// An integer view of a canvas's size is that canvas's, as the float it truncates is.
+  @Test func anIntegerOverTheCanvasSizeIsEachCanvass() throws {
+    let document = RemoteDocument(width: 100, height: 100) {
+      RemoteVStack {
+        RemoteCanvas { context, size in
+          let radius = RemoteFloat(RemoteInt(truncating: size.width / 4))
+          context.fill(.circle(center: size.center, radius: radius), with: .red)
+        }
+        .frame(width: 42, height: 20)
+        RemoteCanvas { context, size in
+          let radius = RemoteFloat(RemoteInt(truncating: size.width / 4))
+          context.fill(.circle(center: size.center, radius: radius), with: .red)
+        }
+        .frame(width: 62, height: 30)
+      }
+    }
+    let operations = try WireDocument.load(from: document.encode()).operations
+    // Two integer expressions, one per canvas, each truncating its own canvas's width.
+    let integers = operations.filter {
+      if case .integerExpression = $0 { true } else { false }
+    }
+    #expect(integers.count == 2)
+  }
 }

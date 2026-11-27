@@ -194,7 +194,20 @@ extension RemoteFloat.Node {
   var readsCanvasSize: Bool {
     switch self {
     case .canvasSize, .canvasPixels: true
-    case .constant, .variable, .system, .declared, .integerView: false
+    case .constant, .variable, .system, .declared: false
+    case .integerView(let integer): integer.readsCanvasSize
+    case .unary(_, let operand): operand.readsCanvasSize
+    case .binary(_, let lhs, let rhs): lhs.readsCanvasSize || rhs.readsCanvasSize
+    }
+  }
+}
+
+extension RemoteInt.Node {
+  /// Whether the integer reads the size of the canvas being drawn, through a float it truncates.
+  var readsCanvasSize: Bool {
+    switch self {
+    case .constant, .variable: false
+    case .floatView(let float): float.readsCanvasSize
     case .unary(_, let operand): operand.readsCanvasSize
     case .binary(_, let lhs, let rhs): lhs.readsCanvasSize || rhs.readsCanvasSize
     }
