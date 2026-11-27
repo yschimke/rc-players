@@ -73,7 +73,8 @@ public struct RemoteAction: Hashable, Sendable {
     case setBool(RemoteVariable<Bool>, Bool)
     case toggle(RemoteVariable<Bool>)
     case setDoubleTo(RemoteVariable<Double>, RemoteFloat)
-    case setIntTo(RemoteVariable<Int>, RemoteInt)
+    /// Writes an integer variable (an `Int`, a `Bool` or a state enum's case) from an expression.
+    case setIntTo(RemoteInt.Node, RemoteInt)
   }
 
   enum HostValue: Hashable, Sendable {
@@ -143,7 +144,7 @@ public struct RemoteAction: Hashable, Sendable {
   }
 
   public static func set(_ variable: RemoteVariable<Int>, to value: RemoteInt) -> RemoteAction {
-    RemoteAction(kind: .setIntTo(variable, value))
+    RemoteAction(kind: .setIntTo(RemoteInt(variable).node, value))
   }
 
   /// Adds `step` to `variable`, kept within `range`: a stepper's buttons.

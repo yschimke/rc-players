@@ -11,6 +11,8 @@ public struct RemoteInt: Hashable, Sendable, ExpressibleByIntegerLiteral {
     case int(Int)
     case bool(Bool)
     case visibility(RemoteVisibility)
+    /// A case of a ``RemoteStateValue`` enum, by type name and position.
+    case state(type: String, ordinal: Int)
   }
 
   /// Values are `Int` while the document is written and checked against 32 bits when it is

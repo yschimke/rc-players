@@ -32,6 +32,7 @@ package final class RemoteWriter {
     case int(Int)
     case visibility(RemoteVisibility)
     case bool(Bool)
+    case state(type: String, ordinal: Int)
     case color(RemoteColorValue)
   }
 
@@ -295,6 +296,8 @@ package final class RemoteWriter {
       switch declaration {
       case .int(let int): (value, declared) = (try Self.int32(int), .int(int))
       case .bool(let bool): (value, declared) = (bool ? 1 : 0, .bool(bool))
+      case .state(let type, let ordinal):
+        (value, declared) = (try Self.int32(ordinal), .state(type: type, ordinal: ordinal))
       case .visibility(let visibility):
         (value, declared) = (visibility.wire, .visibility(visibility))
       }
