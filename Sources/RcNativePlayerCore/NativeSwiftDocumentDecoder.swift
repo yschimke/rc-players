@@ -2393,9 +2393,9 @@ enum NativeSwiftDocumentDecoder {
         node.verticalPositioning = try input.int("fit box vertical positioning")
         try begin(node)
       case NativeSwiftWireOpcode.layoutState:  // State layout
-        // Component id, animation id, both positionings, then the id of the float holding the index
-        // of the child to show. Laid out as a box, which shows every child stacked rather than the
-        // one the index selects -- a real difference, tracked rather than implied.
+        // Component id, animation id, both positionings, then the id of the integer holding the
+        // index of the child to show. Decoded as a box; the session then shows the branch the index
+        // selects and marks the others gone (`stateBranches`, `stateIndex` in the snapshot).
         let node = ParsedNode(kind: .box, componentID: try input.int("state layout component id"))
         node.componentKind = "StateLayout"
         node.animationID = try input.int("state layout animation id")

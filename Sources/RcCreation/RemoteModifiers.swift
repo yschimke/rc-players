@@ -64,7 +64,7 @@ public struct RemoteMaxLength: Hashable, Sendable {
 /// What a tap does.
 public struct RemoteAction: Hashable, Sendable {
   enum Kind: Hashable, Sendable {
-    case host(id: Int32)
+    case host(id: Int)
     case hostNamed(String, HostValue)
     case setDouble(RemoteVariable<Double>, Double)
     case setInt(RemoteVariable<Int>, Int)
@@ -81,8 +81,9 @@ public struct RemoteAction: Hashable, Sendable {
 
   let kind: Kind
 
-  /// Tells the host action `id` happened (`HostAction`).
-  public static func host(id: Int) -> RemoteAction { RemoteAction(kind: .host(id: Int32(id))) }
+  /// Tells the host action `id` happened (`HostAction`). An id outside 32 bits fails to encode
+  /// with ``RemoteEncodingError/integerOutOfRange(_:)``.
+  public static func host(id: Int) -> RemoteAction { RemoteAction(kind: .host(id: id)) }
 
   /// Tells the host the action `name` happened (`HostNamedAction`).
   public static func host(_ name: String) -> RemoteAction {

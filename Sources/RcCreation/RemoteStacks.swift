@@ -128,7 +128,7 @@ public struct RemoteHStack<Content: RemoteStackContent>: _PrimitiveRemoteView {
     let layout = RowLayout(
       componentId: componentID, animationId: IdEncoding.noId,
       horizontalPositioning: distribution.wire, verticalPositioning: alignment.wire,
-      spacedBy: writer.pixels(spacing))
+      spacedBy: try writer.pixels(spacing))
     try writer.writeLayout(.rowLayout(layout), kind: .horizontalStack, content: content)
   }
 }
@@ -160,7 +160,7 @@ public struct RemoteVStack<Content: RemoteStackContent>: _PrimitiveRemoteView {
     let layout = ColumnLayout(
       componentId: componentID, animationId: IdEncoding.noId,
       horizontalPositioning: alignment.wire, verticalPositioning: distribution.wire,
-      spacedBy: writer.pixels(spacing))
+      spacedBy: try writer.pixels(spacing))
     try writer.writeLayout(.columnLayout(layout), kind: .verticalStack, content: content)
   }
 }

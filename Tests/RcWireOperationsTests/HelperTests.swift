@@ -19,6 +19,27 @@ import Testing
     #expect(spec.wrap == 4)
   }
 
+  /// `pack` sizes its array as AndroidX's `FloatAnimation.packToFloatArray` does, zeros at the end
+  /// included, so a Swift writer's words match a Java or Kotlin writer's. The words below are what
+  /// the vendored Kotlin port (`FormattingAndEasing.kt`) returns for the same arguments.
+  @Test func animationSpecMatchesAndroidXWordForWord() {
+    let packed = FloatAnimationSpec.pack(
+      duration: 2, type: AnimationEasing.cubicLinear, spec: [0.25, 0.75], initialValue: 3, wrap: 4)
+    let flags = Float(bitPattern: 4 | 1 << 8 | 1 << 9 | 2 << 16)
+    #expect(packed.map(\.bitPattern) == [2, flags, 0.25, 0.75, 3, 4, 0, 0, 0].map(\.bitPattern))
+  }
+
+  /// A NaN with a payload is an id whatever its sign, as the Java readers take it; `Float.nan`,
+  /// which has none, is a value.
+  @Test func nanIdsReadAsJavaReadsThem() {
+    let positive = Int32(bitPattern: 0x7F80_0005)
+    let negative = Int32(bitPattern: 0xFF80_0005)
+    #expect(IdEncoding.isNanBits(positive) && IdEncoding.idFromNanBits(positive) == 5)
+    #expect(IdEncoding.isNanBits(negative) && IdEncoding.idFromNanBits(negative) == 5)
+    #expect(!IdEncoding.isNanBits(Int32(bitPattern: Float.nan.bitPattern)))
+    #expect(!IdEncoding.isNanBits(Int32(bitPattern: Float(1.5).bitPattern)))
+  }
+
   @Test func pathEffectsRoundTrip() throws {
     for effect in [
       PathEffect.dash(phase: 1, intervals: [2, 3, 4]),

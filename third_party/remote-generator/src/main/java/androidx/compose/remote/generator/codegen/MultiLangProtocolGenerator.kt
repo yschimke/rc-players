@@ -1511,8 +1511,14 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                 // LOCAL PATCH (rc-players): the "no id" sentinel, from the schema's `idEncoding.noId`.
                 line("/// No id: no component id requested, no animation, the default font.")
                 line("public static let NO_ID: Int32 = ${enc.noId}")
+                // LOCAL PATCH (rc-players): any NaN with a payload is an id, whatever its sign, as
+                // the Java readers take it (`Float.isNaN`, then `Utils.idFromNan`). Upstream also
+                // required the sign bit, so `0x7F800005` read as a value here and as id 5 there.
+                // A NaN with no payload (`Float.nan`) stays a value.
+                line("/// A float word's exponent bits: all set in a NaN, whatever its sign.")
+                line("public static let NAN_EXPONENT: Int32 = NAN_PREFIX & Int32.max")
                 line(
-                    "public static func isNanBits(_ bits: Int32) -> Bool { (bits & NAN_PREFIX) == NAN_PREFIX && (bits & PAYLOAD_MASK) != 0 }"
+                    "public static func isNanBits(_ bits: Int32) -> Bool { (bits & NAN_EXPONENT) == NAN_EXPONENT && (bits & PAYLOAD_MASK) != 0 }"
                 )
                 line(
                     "public static func idFromNanBits(_ bits: Int32) -> Int32 { isNanBits(bits) ? (bits & PAYLOAD_MASK) : NO_ID }"
@@ -1717,6 +1723,11 @@ internal class MultiLangProtocolGenerator(private val schema: OperationSchema) {
                     )
                     line("return out")
                 }
+                // LOCAL PATCH (rc-players): says why the size is what it is.
+                line("/// Sized exactly as AndroidX's `FloatAnimation.packToFloatArray` sizes it, which counts")
+                line("/// the initial value and the parameters more than once and leaves zeros at the end. The")
+                line("/// words therefore match a Java or Kotlin writer's byte for byte; readers stop at the")
+                line("/// flags' parameter count, so the zeros are never read.")
                 block(
                     "public static func pack(duration: Float = 1.0, type: Int32 = AnimationEasing.CUBIC_STANDARD, spec: [Float]? = nil, initialValue: Float = .nan, wrap: Float = .nan) -> [Float]"
                 ) {

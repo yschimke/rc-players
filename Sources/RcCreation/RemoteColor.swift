@@ -5,17 +5,18 @@ import RcWireOperations
 /// A literal can be adjusted (``opacity(_:)``) because its value is known while the document is
 /// written. A colour that is only known as it plays is a ``RemoteColor``.
 public struct RemoteColorValue: Hashable, Sendable, RemoteVariableValue {
-  public var red: Double
-  public var green: Double
-  public var blue: Double
-  public var opacity: Double
+  public let red: Double
+  public let green: Double
+  public let blue: Double
+  public let opacity: Double
 
-  /// A colour from sRGB components; each is clamped to 0...1.
+  /// A colour from sRGB components; each is clamped to 0...1, and a NaN reads as 0.
   public init(red: Double, green: Double, blue: Double, opacity: Double = 1) {
-    self.red = red
-    self.green = green
-    self.blue = blue
-    self.opacity = opacity
+    func clamp(_ value: Double) -> Double { value.isNaN ? 0 : Swift.min(Swift.max(value, 0), 1) }
+    self.red = clamp(red)
+    self.green = clamp(green)
+    self.blue = clamp(blue)
+    self.opacity = clamp(opacity)
   }
 
   /// A colour from a `0xRRGGBB` value.
@@ -31,8 +32,9 @@ public struct RemoteColorValue: Hashable, Sendable, RemoteVariableValue {
 
   /// The packed `0xAARRGGBB` word the wire carries.
   var argb: Int32 {
+    // Components are clamped when the value is made.
     func channel(_ value: Double, _ shift: UInt32) -> UInt32 {
-      UInt32((Swift.min(Swift.max(value, 0), 1) * 255).rounded()) << shift
+      UInt32((value * 255).rounded()) << shift
     }
     return Int32(
       bitPattern: channel(opacity, 24) | channel(red, 16) | channel(green, 8) | channel(blue, 0))

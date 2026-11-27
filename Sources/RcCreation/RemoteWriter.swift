@@ -24,11 +24,14 @@ public final class _RemoteWriter {
   /// Each variable's declared id, by name, and the type and value it was declared with.
   private var variables: [String: (id: Int32, declaration: VariableDeclaration)] = [:]
 
-  /// A variable's type and default. The type is part of it: `AnyHashable` alone bridges numbers,
-  /// so an `Int` 1 and a `Double` 1 would compare equal.
-  private struct VariableDeclaration: Hashable {
-    let type: Int32
-    let defaultValue: AnyHashable
+  /// What a variable was declared as: its kind and its default. Two uses of one name must agree on
+  /// both, so an `Int` 1 and a `Double` 1 are different declarations.
+  enum VariableDeclaration: Hashable {
+    case float(Float)
+    case string(String)
+    case int(Int)
+    case visibility(RemoteVisibility)
+    case color(RemoteColorValue)
   }
 
   /// The modifiers the next built-in view applies, outermost first.
@@ -60,7 +63,25 @@ public final class _RemoteWriter {
 
   // MARK: - Units
 
-  func pixels(_ points: Double) -> Float { Float(points) * displayScale }
+  /// `points` in pixels, refused if it is not finite: a NaN on the wire reads as a variable id.
+  func pixels(_ points: Double) throws(RemoteEncodingError) -> Float {
+    try Self.finite(Float(points) * displayScale)
+  }
+
+  /// `value`, refused if it is a NaN or an infinity. A NaN word on the wire is a reference to a
+  /// variable, so a NaN constant would silently read some other value.
+  /// `value` as a wire integer, refused if it does not fit in 32 bits.
+  static func int32(_ value: Int) throws(RemoteEncodingError) -> Int32 {
+    guard let narrowed = Int32(exactly: value) else {
+      throw RemoteEncodingError.integerOutOfRange(value)
+    }
+    return narrowed
+  }
+
+  static func finite(_ value: Float) throws(RemoteEncodingError) -> Float {
+    guard value.isFinite else { throw RemoteEncodingError.nonFiniteValue }
+    return value
+  }
 
   /// `points` in pixels: a constant is scaled here, anything computed by the document.
   func pixels(_ points: RemoteFloat) -> RemoteFloat {
@@ -91,10 +112,9 @@ public final class _RemoteWriter {
   /// The id of `name`, declared by `declaration` the first time. A name is one variable: a second
   /// use must declare it the same way, or a host write could reach only one of them.
   private func variableID(
-    _ name: String, _ defaultValue: AnyHashable, type: Int32,
+    _ name: String, _ declaration: VariableDeclaration, type: Int32,
     declare declareValue: (Int32) -> Void
   ) throws(RemoteEncodingError) -> Int32 {
-    let declaration = VariableDeclaration(type: type, defaultValue: defaultValue)
     if let existing = variables[name] {
       guard existing.declaration == declaration else {
         throw RemoteEncodingError.conflictingVariable(name: name)
@@ -111,7 +131,7 @@ public final class _RemoteWriter {
   /// The wire word for `value`: the literal itself for a constant, else a reference to the
   /// variable or expression that computes it.
   func floatWord(_ value: RemoteFloat) throws(RemoteEncodingError) -> Float {
-    if let literal = value.constant { return literal }
+    if let literal = value.constant { return try Self.finite(literal) }
     return Self.reference(try floatID(value.node))
   }
 
@@ -136,7 +156,7 @@ public final class _RemoteWriter {
       id = newDataID()
       declare(.floatConstant(FloatConstant(id: id, value: literal)))
     case .variable(let name, let defaultValue):
-      id = try variableID(name, defaultValue, type: NamedVariable.float) { id in
+      id = try variableID(name, .float(defaultValue), type: NamedVariable.float) { id in
         declare(.floatConstant(FloatConstant(id: id, value: defaultValue)))
       }
     case .unary, .binary:
@@ -158,7 +178,7 @@ public final class _RemoteWriter {
     throws(RemoteEncodingError)
   {
     switch node {
-    case .constant(let literal): words.append(literal)
+    case .constant(let literal): words.append(try Self.finite(literal))
     case .variable, .declared, .system, .canvasSize, .canvasPixels:
       words.append(Self.reference(try floatID(node)))
     case .unary(let operation, let operand):
@@ -207,7 +227,7 @@ public final class _RemoteWriter {
     case .variable(let name, let defaultValue):
       // A variable's text needs a definition of its own: a constant shared with another view
       // would change both when the host writes the name.
-      id = try variableID(name, defaultValue, type: NamedVariable.string) { id in
+      id = try variableID(name, .string(defaultValue), type: NamedVariable.string) { id in
         declare(.textData(TextData(textId: id, text: defaultValue)))
       }
     case .number(let number, let integerDigits, let decimals):
@@ -244,7 +264,9 @@ public final class _RemoteWriter {
     return id
   }
 
-  private func intVariableID(_ name: String, _ defaultValue: Int32, declaration: AnyHashable)
+  private func intVariableID(
+    _ name: String, _ defaultValue: Int32, declaration: VariableDeclaration
+  )
     throws(RemoteEncodingError) -> Int32
   {
     try variableID(name, declaration, type: NamedVariable.int) { id in
@@ -254,12 +276,13 @@ public final class _RemoteWriter {
 
   func intID(_ variable: RemoteVariable<Int>) throws(RemoteEncodingError) -> Int32 {
     try intVariableID(
-      variable.name, Int32(clamping: variable.defaultValue), declaration: variable.defaultValue)
+      variable.name, try Self.int32(variable.defaultValue),
+      declaration: .int(variable.defaultValue))
   }
 
   func intID(_ variable: RemoteVariable<RemoteVisibility>) throws(RemoteEncodingError) -> Int32 {
     try intVariableID(
-      variable.name, variable.defaultValue.wire, declaration: variable.defaultValue)
+      variable.name, variable.defaultValue.wire, declaration: .visibility(variable.defaultValue))
   }
 
   enum ResolvedColor {
@@ -284,7 +307,9 @@ public final class _RemoteWriter {
       colorIDs[value.storage] = id
       return .id(id)
     case .variable(let variable):
-      let id = try variableID(variable.name, variable.defaultValue, type: NamedVariable.color) {
+      let id = try variableID(
+        variable.name, .color(variable.defaultValue), type: NamedVariable.color
+      ) {
         id in
         declare(.colorConstant(ColorConstant(colorId: id, color: variable.defaultValue.argb)))
       }
@@ -461,7 +486,7 @@ public final class _RemoteWriter {
       return .drawRect(DrawRect(left: left, top: top, right: right, bottom: bottom))
     case .roundedRect(let rect, let cornerRadius):
       let (left, top, right, bottom) = try box(rect)
-      let radius = pixels(cornerRadius)
+      let radius = try pixels(cornerRadius)
       return .drawRoundRect(
         DrawRoundRect(
           left: left, top: top, right: right, bottom: bottom, radiusX: radius, radiusY: radius))
@@ -499,7 +524,7 @@ public final class _RemoteWriter {
     case .stroke(let lineWidth):
       words.append(inline(PaintCommandTags.style, PaintConstants.styleStroke))
       words += [
-        PaintCommandTags.strokeWidth, Int32(bitPattern: pixels(lineWidth).bitPattern),
+        PaintCommandTags.strokeWidth, Int32(bitPattern: try pixels(lineWidth).bitPattern),
       ]
     }
     words.append(inline(PaintCommandTags.antiAlias, 1))
@@ -512,17 +537,19 @@ public final class _RemoteWriter {
     var semantics = Semantics()
     for modifier in modifiers {
       if semantics.absorb(modifier) { continue }
+      if case .tap = modifier { semantics.isClickable = true }
       try write(modifier)
     }
     if let operation = try semantics.operation(self) { emit(operation) }
   }
 
-  private func dimension(_ length: RemoteModifierElement.Length) throws(RemoteEncodingError)
-    -> (type: Int32, value: Float)
-  {
+  /// A width's or a height's type and value; `exact` and `fill` are that operation's own types.
+  private func dimension(
+    _ length: RemoteModifierElement.Length, exact: Int32, fill: Int32
+  ) throws(RemoteEncodingError) -> (type: Int32, value: Float) {
     switch length {
-    case .exact(let points): (WidthModifierOperation.exact, try pixelWord(points))
-    case .fill(let fraction): (WidthModifierOperation.fill, Float(fraction))
+    case .exact(let points): (exact, try pixelWord(points))
+    case .fill(let fraction): (fill, try Self.finite(Float(fraction)))
     }
   }
 
@@ -530,11 +557,13 @@ public final class _RemoteWriter {
     switch modifier {
     case .frame(let width, let height):
       if let width {
-        let (type, value) = try dimension(width)
+        let (type, value) = try dimension(
+          width, exact: WidthModifierOperation.exact, fill: WidthModifierOperation.fill)
         emit(.widthModifierOperation(WidthModifierOperation(type: type, value: value)))
       }
       if let height {
-        let (type, value) = try dimension(height)
+        let (type, value) = try dimension(
+          height, exact: HeightModifierOperation.exact, fill: HeightModifierOperation.fill)
         emit(.heightModifierOperation(HeightModifierOperation(type: type, value: value)))
       }
     case .flexWeight(let weight):
@@ -559,19 +588,28 @@ public final class _RemoteWriter {
             right: try pixelWord(insets.trailing), bottom: try pixelWord(insets.bottom))))
     case .background(let color, let shape):
       if shape != .rectangle { try write(.clip(shape)) }
-      let (flags, colorID, channels) = try colorFields(color)
+      let (flags, colorID, channels) = try colorFields(
+        color,
+        colorRefFlag: Int32(
+          BackgroundModifierOperation.BitLayout.flagsColorRefMask
+            << BackgroundModifierOperation.BitLayout.flagsColorRefShift))
       emit(
         .backgroundModifierOperation(
           BackgroundModifierOperation(
             flags: flags, colorId: colorID, r: channels.red, g: channels.green, b: channels.blue,
             a: channels.alpha, shapeType: BackgroundModifierOperation.rectangle)))
     case .border(let color, let width, let cornerRadius):
-      let (flags, colorID, channels) = try colorFields(color)
+      let (flags, colorID, channels) = try colorFields(
+        color,
+        colorRefFlag: Int32(
+          BorderModifierOperation.BitLayout.flagsColorRefMask
+            << BorderModifierOperation.BitLayout.flagsColorRefShift))
       emit(
         .borderModifierOperation(
           BorderModifierOperation(
             flags: flags, colorId: colorID, reserve1: BorderModifierOperation.version1,
-            borderWidth: pixels(width), roundedCorner: pixels(cornerRadius), r: channels.red,
+            borderWidth: try pixels(width), roundedCorner: try pixels(cornerRadius),
+            r: channels.red,
             g: channels.green, b: channels.blue, a: channels.alpha,
             // The radius is read only for a rounded rectangle: written as a rectangle, it is
             // ignored.
@@ -585,15 +623,15 @@ public final class _RemoteWriter {
         emit(
           .roundedClipRectModifierOperation(
             RoundedClipRectModifierOperation(
-              topStart: pixels(topLeading), topEnd: pixels(topTrailing),
-              bottomStart: pixels(bottomLeading), bottomEnd: pixels(bottomTrailing))))
+              topStart: try pixels(topLeading), topEnd: try pixels(topTrailing),
+              bottomStart: try pixels(bottomLeading), bottomEnd: try pixels(bottomTrailing))))
       }
     case .offset(let x, let y):
       emit(
         .offsetModifierOperation(
           OffsetModifierOperation(x: try pixelWord(x), y: try pixelWord(y))))
     case .zIndex(let value):
-      emit(.zIndexModifierOperation(ZIndexModifierOperation(value: Float(value))))
+      emit(.zIndexModifierOperation(ZIndexModifierOperation(value: try Self.finite(Float(value)))))
     case .visibility(let visibility):
       emit(
         .componentVisibilityOperation(
@@ -616,10 +654,14 @@ public final class _RemoteWriter {
     }
   }
 
-  private func colorFields(_ color: RemoteColor) throws(RemoteEncodingError) -> (
-    flags: Int32, colorID: Int32,
-    channels: (red: Float, green: Float, blue: Float, alpha: Float)
-  ) {
+  /// A colour's fields in a background or border modifier: literal channels, or the colour-id
+  /// flag (`colorRefFlag`, the operation's own) and the id.
+  private func colorFields(_ color: RemoteColor, colorRefFlag: Int32) throws(RemoteEncodingError)
+    -> (
+      flags: Int32, colorID: Int32,
+      channels: (red: Float, green: Float, blue: Float, alpha: Float)
+    )
+  {
     switch try self.color(color) {
     case .literal:
       guard case .fixed(let value) = color.storage else { preconditionFailure() }
@@ -627,17 +669,14 @@ public final class _RemoteWriter {
         0, 0, (Float(value.red), Float(value.green), Float(value.blue), Float(value.opacity))
       )
     case .id(let id):
-      let flag = Int32(
-        BackgroundModifierOperation.BitLayout.flagsColorRefMask
-          << BackgroundModifierOperation.BitLayout.flagsColorRefShift)
-      return (flag, id, (0, 0, 0, 0))
+      return (colorRefFlag, id, (0, 0, 0, 0))
     }
   }
 
   private func operation(_ action: RemoteAction) throws(RemoteEncodingError) -> WireOperation {
     switch action.kind {
     case .host(let id):
-      return .hostAction(HostAction(actionId: id))
+      return .hostAction(HostAction(actionId: try Self.int32(id)))
     case .hostNamed(let name, let value):
       let nameID = textID(name)
       let type: Int32
@@ -653,11 +692,12 @@ public final class _RemoteWriter {
     case .setDouble(let variable, let value):
       return .valueFloatChangeActionOperation(
         ValueFloatChangeActionOperation(
-          targetValueId: try floatID(RemoteFloat(variable).node), value: Float(value)))
+          targetValueId: try floatID(RemoteFloat(variable).node),
+          value: try Self.finite(Float(value))))
     case .setInt(let variable, let value):
       return .valueIntegerChangeActionOperation(
         ValueIntegerChangeActionOperation(
-          targetValueId: try intID(variable), value: Int32(clamping: value)))
+          targetValueId: try intID(variable), value: try Self.int32(value)))
     case .setVisibility(let variable, let value):
       return .valueIntegerChangeActionOperation(
         ValueIntegerChangeActionOperation(targetValueId: try intID(variable), value: value.wire))
@@ -678,6 +718,8 @@ public final class _RemoteWriter {
     var value: RemoteString?
     var role: RemoteAccessibilityRole?
     var children: RemoteAccessibilityChildBehavior?
+    /// Whether the view also has a tap: semantics written for it say it is clickable.
+    var isClickable = false
 
     /// Takes `modifier` if it is an accessibility one. The outermost of each kind wins, as the
     /// last one applied does in SwiftUI.
@@ -703,7 +745,7 @@ public final class _RemoteWriter {
           role: UInt8(truncatingIfNeeded: role?.wire ?? CoreSemantics.roleNone),
           textId: 0, stateDescriptionId: valueID ?? 0,
           mode: UInt8(truncatingIfNeeded: (children ?? .contain).wire),
-          enabled: true, clickable: false))
+          enabled: true, clickable: isClickable))
     }
   }
 }

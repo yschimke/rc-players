@@ -593,7 +593,9 @@ public enum IdEncoding {
     public static let macroLocalEndId: Int32 = 20479
     /// No id: no component id requested, no animation, the default font.
     public static let noId: Int32 = -1
-    public static func isNanBits(_ bits: Int32) -> Bool { (bits & nanPrefix) == nanPrefix && (bits & payloadMask) != 0 }
+    /// A float word's exponent bits: all set in a NaN, whatever its sign.
+    public static let nanExponent: Int32 = nanPrefix & Int32.max
+    public static func isNanBits(_ bits: Int32) -> Bool { (bits & nanExponent) == nanExponent && (bits & payloadMask) != 0 }
     public static func idFromNanBits(_ bits: Int32) -> Int32 { isNanBits(bits) ? (bits & payloadMask) : noId }
     public static func asNanBits(_ id: Int32) -> Int32 { (id & payloadMask) | nanPrefix }
     public static func isDereferenced(_ raw: Int32) -> Bool { (raw & ptrDereference) != 0 }
@@ -864,6 +866,10 @@ public struct FloatAnimationSpec: Sendable, Hashable {
         if hasWrap { if off >= data.count { throw WireError.truncated(type: "FloatAnimationSpec", field: "wrap") }; out.wrap = data[off] }
         return out
     }
+    /// Sized exactly as AndroidX's `FloatAnimation.packToFloatArray` sizes it, which counts
+    /// the initial value and the parameters more than once and leaves zeros at the end. The
+    /// words therefore match a Java or Kotlin writer's byte for byte; readers stop at the
+    /// flags' parameter count, so the zeros are never read.
     public static func pack(duration: Float = 1.0, type: Int32 = AnimationEasing.cubicStandard, spec: [Float]? = nil, initialValue: Float = .nan, wrap: Float = .nan) -> [Float] {
         var count = 0
         let hasInit = !initialValue.isNaN

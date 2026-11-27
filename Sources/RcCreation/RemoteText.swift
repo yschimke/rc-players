@@ -175,7 +175,7 @@ public struct RemoteText: _PrimitiveRemoteView {
     let fontSize: Float
     switch size {
     case .fixed(let points):
-      fontSize = writer.pixels(points)
+      fontSize = try writer.pixels(points)
     case .style(let points):
       // The style's size, scaled by the player's font scale: `idFontSize` is the base size in
       // pixels at the player's own density and text scale, so over the base size and that density

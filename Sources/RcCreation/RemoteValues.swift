@@ -162,6 +162,19 @@ extension RemoteVariable where Value == Double {
   public static func * (lhs: RemoteFloat, rhs: Self) -> RemoteFloat { lhs * RemoteFloat(rhs) }
   public static func / (lhs: Self, rhs: RemoteFloat) -> RemoteFloat { RemoteFloat(lhs) / rhs }
   public static func / (lhs: RemoteFloat, rhs: Self) -> RemoteFloat { lhs / RemoteFloat(rhs) }
+  public static func + (lhs: Self, rhs: Self) -> RemoteFloat { RemoteFloat(lhs) + RemoteFloat(rhs) }
+  public static func - (lhs: Self, rhs: Self) -> RemoteFloat { RemoteFloat(lhs) - RemoteFloat(rhs) }
+  public static func * (lhs: Self, rhs: Self) -> RemoteFloat { RemoteFloat(lhs) * RemoteFloat(rhs) }
+  public static func / (lhs: Self, rhs: Self) -> RemoteFloat { RemoteFloat(lhs) / RemoteFloat(rhs) }
+  public static prefix func - (operand: Self) -> RemoteFloat { -RemoteFloat(operand) }
+
+  /// The magnitude of the variable's live value.
+  public var magnitude: RemoteFloat { RemoteFloat(self).magnitude }
+
+  /// The variable's live value, clamped to `range`.
+  public func clamped(to range: ClosedRange<Double>) -> RemoteFloat {
+    RemoteFloat(self).clamped(to: range)
+  }
 }
 
 /// Text the document holds: a constant, a ``RemoteVariable``, a number formatted as the

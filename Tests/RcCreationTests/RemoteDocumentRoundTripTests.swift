@@ -408,6 +408,73 @@ import Testing
     ) { try document.encode() }
   }
 
+  @Test func nonFiniteValuesFailToEncode() {
+    for document in [
+      RemoteDocument(width: 10, height: 10) {
+        RemoteColor.red.frame(width: RemoteFloat(Double.nan))
+      },
+      RemoteDocument(width: 10, height: 10) { RemoteColor.red.zIndex(.infinity) },
+      RemoteDocument(width: 10, height: 10) { RemoteVStack(spacing: .nan) { RemoteText("x") } },
+      RemoteDocument(width: 10, height: 10) {
+        RemoteColor.red.border(.black, width: .infinity)
+      },
+    ] {
+      #expect(throws: RemoteEncodingError.nonFiniteValue) { try document.encode() }
+    }
+  }
+
+  @Test func integersOutsideThirtyTwoBitsFailToEncode() {
+    let tooLarge = Int(Int32.max) + 1
+    #expect(throws: RemoteEncodingError.integerOutOfRange(tooLarge)) {
+      try RemoteDocument(width: 10, height: 10) {
+        RemoteColor.red.onTap(.host(id: tooLarge))
+      }.encode()
+    }
+    #expect(throws: RemoteEncodingError.integerOutOfRange(tooLarge)) {
+      try RemoteDocument(width: 10, height: 10) {
+        RemoteColor.red.visibility(.visible).onTap(
+          .set(RemoteVariable("n", default: 0), to: tooLarge))
+      }.encode()
+    }
+  }
+
+  /// A tappable view's semantics say it is clickable.
+  @Test func semanticsOfATappableViewAreClickable() throws {
+    let document = RemoteDocument(width: 100, height: 100) {
+      RemoteColor.blue.frame(width: 40, height: 40)
+        .onTap(.host("go"))
+        .accessibilityLabel("Go")
+    }
+    let semantics = try operations(document).compactMap {
+      if case .coreSemantics(let semantics) = $0 { semantics } else { nil }
+    }
+    #expect(semantics.map(\.clickable) == [true])
+  }
+
+  @Test func colorComponentsAreClampedWhenMade() throws {
+    let color = RemoteColorValue(red: 2, green: -1, blue: .nan, opacity: 0.5)
+    #expect([color.red, color.green, color.blue, color.opacity] == [1, 0, 0, 0.5])
+    // A background writes the clamped channels too, not only text and paint.
+    let backgrounds = try operations(
+      RemoteDocument(width: 10, height: 10) { RemoteColor(color) }
+    ).compactMap {
+      if case .backgroundModifierOperation(let background) = $0 { background } else { nil }
+    }
+    #expect(backgrounds.map { [$0.r, $0.g, $0.b, $0.a] } == [[1, 0, 0, 0.5]])
+  }
+
+  @Test func doubleVariablesCombine() throws {
+    let a = RemoteVariable("a", default: 3.0)
+    let b = RemoteVariable("b", default: 4.0)
+    let document = RemoteDocument(width: 200, height: 50) {
+      RemoteText(
+        "\(a + b, decimals: 0) \(-a, decimals: 0) \((a - b).magnitude, decimals: 0) \(b.clamped(to: 0...2), decimals: 0)"
+      )
+    }
+    let session = try open(document)
+    #expect(components(try session.snapshot().root).first?.text?.value == "7 -3 1 2")
+  }
+
   @Test func identicalValuesAreDeclaredOnce() throws {
     func texts(_ document: RemoteDocument) throws -> [String] {
       try operations(document).compactMap {

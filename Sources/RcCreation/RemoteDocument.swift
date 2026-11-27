@@ -21,6 +21,11 @@ public enum RemoteEncodingError: Error, Sendable, Hashable {
   case invalidFlexWeight(Double)
   /// A number format whose digit counts are outside 0...16.
   case invalidNumberFormat(integerDigits: Int, decimals: Int)
+  /// A number is a NaN or an infinity. On the wire a NaN is a reference to a variable, so it
+  /// cannot be written as a value.
+  case nonFiniteValue
+  /// An integer does not fit in the 32 bits the wire carries.
+  case integerOutOfRange(Int)
   /// A canvas's size was used outside that canvas's own drawing.
   case canvasSizeOutsideCanvas
   /// The bindings refused an operation.
