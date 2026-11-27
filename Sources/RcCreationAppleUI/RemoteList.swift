@@ -148,7 +148,7 @@ public struct RemoteNavigationRow: RemoteView {
         }
         RemoteIcon(.chevronRight, size: 14).foregroundStyle(theme.tertiaryLabel)
       }
-      .onTapGesture(row.action)
+      .onTapGestureIfEnabled(row.action)
       .accessibilityElement(children: .combine)
       .accessibilityRole(.button)
     }

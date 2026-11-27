@@ -44,21 +44,57 @@ import Testing
     }
   }
 
+  /// The nodes the player shows: none under a gone node, as a switch's other states are.
+  private func shownNodes(_ session: NativeSwiftDocumentSession) throws
+    -> [NativeSwiftNodeSnapshot]
+  {
+    func walk(_ node: NativeSwiftNodeSnapshot) -> [NativeSwiftNodeSnapshot] {
+      node.visibility == NativeSwiftVisibility.gone ? [] : [node] + node.children.flatMap(walk)
+    }
+    return walk(try session.snapshot().root)
+  }
+
   private func texts(_ session: NativeSwiftDocumentSession) throws -> [String] {
-    try nodes(session).compactMap(\.text?.value)
+    try shownNodes(session).compactMap(\.text?.value)
   }
 
   @Test func toggleFlipsWhenItsRowIsTapped() throws {
     let wifi = RemoteVariable("wifi", default: false)
     let session = try open(
       RemoteDocument(width: 390, height: 100) { RemoteToggle("Wi-Fi", isOn: wifi) })
-    let row = try #require(try nodes(session).first { $0.isClickable })
-    // The on state's green track is shown only while the switch is on.
+    func row() throws -> NativeSwiftNodeSnapshot {
+      try #require(try shownNodes(session).first { $0.isClickable })
+    }
+    // The on state's green track is shown only while the switch is on, and VoiceOver reads the
+    // state as the toggle's value.
     let green: UInt32 = 0xFF34_C759
     #expect(try shown(green, in: session) == [false])
-    _ = try session.click(componentID: row.componentID, timeSeconds: 0)
+    #expect(try row().accessibility?.stateDescription == "Off")
+    _ = try session.click(componentID: try row().componentID, timeSeconds: 0)
     #expect(try shown(green, in: session) == [true])
+    #expect(try row().accessibility?.stateDescription == "On")
     #expect(session.writtenNamedValues().contains { $0.name == wifi.name })
+  }
+
+  /// A disabled section's controls take no taps and draw dimmed.
+  @Test func disabledControlsTakeNoTaps() throws {
+    let document = RemoteDocument(width: 390, height: 400) {
+      RemoteList {
+        RemoteSection("Locked") {
+          RemoteToggle("Wi-Fi", isOn: RemoteVariable("wifi", default: true))
+          RemoteStepper("Guests", value: RemoteVariable("guests", default: 2.0), in: 1...8)
+          RemoteSegmentedPicker(
+            selection: RemoteVariable("range", default: 0), options: ["Day", "Week"])
+          RemoteNavigationRow("VPN", action: .host("vpn"))
+          RemoteButton("Go", action: .host("go")).buttonStyle(.borderedProminent)
+        }
+        .disabled()
+      }
+    }
+    let session = try open(document)
+    #expect(try nodes(session).filter(\.isClickable).isEmpty)
+    // The toggle's on track is not the green it draws when enabled.
+    #expect(try shown(0xFF34_C759, in: session).allSatisfy { !$0 })
   }
 
   @Test func segmentedPickerSelectsTheTappedSegment() throws {

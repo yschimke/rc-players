@@ -145,22 +145,23 @@ public struct RemoteToggle: RemoteView {
     let title = title
     let isOn = isOn
     return ThemedView { theme, _ in
-      RemoteHStack(alignment: .center, spacing: 12) {
-        RemoteText(title).foregroundStyle(theme.label).flexWeight(1)
-        // The two states, each drawn whole and shown while it holds: the knob's position and the
-        // track's colour change together, with no expression to animate between them.
-        RemoteZStack {
-          Self.track(theme.toggleOn, knob: theme.thumb, alignment: .trailing)
-            .visible(if: RemoteBool(isOn))
-          Self.track(theme.fill, knob: theme.thumb, alignment: .leading)
-            .visible(if: !isOn)
+      // One row per state, which the player switches between as `isOn` changes: the knob's
+      // position, the track's colour and the value VoiceOver reads change together.
+      RemoteSwitch(isOn) { on in
+        RemoteHStack(alignment: .center, spacing: 12) {
+          RemoteText(title).foregroundStyle(theme.label).flexWeight(1)
+          Self.track(
+            on ? theme.toggleOn : theme.fill, knob: theme.thumb,
+            alignment: on ? .trailing : .leading
+          )
+          .frame(width: Self.trackWidth, height: Self.trackHeight)
         }
-        .frame(width: Self.trackWidth, height: Self.trackHeight)
+        .onTapGestureIfEnabled(.toggle(isOn))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(on ? "On" : "Off")
+        .accessibilityRole(.toggle)
       }
-      .onTapGesture(.toggle(isOn))
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel(title)
-      .accessibilityRole(.toggle)
     }
   }
 
@@ -224,7 +225,7 @@ public struct RemoteStepper: RemoteView {
   ) -> some RemoteStackContent {
     RemoteZStack { RemoteIcon(symbol, size: 16).foregroundStyle(theme.label) }
       .frame(maxHeight: .infinity)
-      .onTapGesture(.increment(value, by: change, in: range))
+      .onTapGestureIfEnabled(.increment(value, by: change, in: range))
       .accessibilityLabel(label)
       .accessibilityRole(.button)
       .flexWeight(1)
@@ -260,7 +261,7 @@ public struct RemoteSegmentedPicker: RemoteView {
             RemoteText(option).font(.footnote).fontWeight(.medium).foregroundStyle(theme.label)
           }
           .frame(maxHeight: .infinity)
-          .onTapGesture(.set(selection, to: index))
+          .onTapGestureIfEnabled(.set(selection, to: index))
           .accessibilityLabel(RemoteString(option))
           .accessibilityRole(.tab)
           .flexWeight(1)

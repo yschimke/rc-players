@@ -72,6 +72,17 @@ public struct RemoteAppleTheme: Sendable {
   /// Apple's system palette.
   public static let system = RemoteAppleTheme()
 
+  /// This theme as a disabled control draws: labels and accents in the tertiary label colour,
+  /// tracks in the tertiary fill, as iOS dims a control it disables.
+  var disabled: RemoteAppleTheme {
+    var theme = self
+    theme.label = tertiaryLabel
+    theme.secondaryLabel = tertiaryLabel
+    theme.toggleOn = tertiaryFill
+    theme.destructive = tertiaryLabel
+    return theme
+  }
+
   /// White on a clear background at decreasing opacities: how WidgetKit draws an accessory widget
   /// (its vibrant rendering mode) on the Lock Screen and in complications.
   public static let vibrant = RemoteAppleTheme(
@@ -111,7 +122,24 @@ struct ThemedView<Content: RemoteView>: RemoteView {
     self.content = content
   }
 
+  /// Read under `.disabled()`, the theme and tint are dimmed, so every control draws itself
+  /// disabled without its own code for it.
   var body: some RemoteView {
-    RemoteEnvironmentReader { environment in content(environment.appleTheme, environment.tint) }
+    RemoteEnvironmentReader { environment in
+      environment.isEnabled
+        ? content(environment.appleTheme, environment.tint)
+        : content(environment.appleTheme.disabled, environment.appleTheme.tertiaryLabel)
+    }
+  }
+}
+
+extension RemoteView {
+  /// Runs `actions` when tapped, unless the view is inside a disabled one: how every Apple control
+  /// takes taps.
+  func onTapGestureIfEnabled(_ actions: RemoteAction...) -> some RemoteView {
+    let view = self
+    return RemoteEnvironmentReader { environment in
+      if environment.isEnabled { view.onTapGesture(actions) } else { view }
+    }
   }
 }
