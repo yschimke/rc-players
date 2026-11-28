@@ -73,8 +73,7 @@ import Testing
     #expect(
       touch.expression.map(\.bitPattern) == [
         RemoteWriter.reference(RemoteContextIds.idTouchPosY).bitPattern, Float(-1).bitPattern,
-        RemoteWriter.reference(FloatExpressionOperator.offset + FloatExpressionOperator.mul)
-          .bitPattern,
+        FloatExpressionOperator.mul.bitPattern,
       ])
     #expect(touch.stopMode == RemoteWriter.TouchStopMode.gently)
   }
