@@ -24,7 +24,7 @@ plugins {
 
 dependencies {
     api(libs.jspecify)
-    api("androidx.annotation:annotation:1.9.1")
+    api("androidx.annotation:annotation:1.11.0")
     implementation("org.json:json:20231013")
     implementation(libs.javapoet)
     implementation(libs.kotlinPoet)
