@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.2.0](https://github.com/yschimke/rc-players/compare/v4.1.0...v4.2.0) (2026-11-28)
+
+
+### Features
+
+* add pure-Swift rc-swift mirror distribution ([#1001](https://github.com/yschimke/rc-players/issues/1001)) ([3e29de7](https://github.com/yschimke/rc-players/commit/3e29de7c79b606d6e23625dd0403289f1d8826e3))
+* **codegen:** re-sync remote-generator to androidx-main eea2499, converging on upstream's Swift generator ([#998](https://github.com/yschimke/rc-players/issues/998)) ([8684d9e](https://github.com/yschimke/rc-players/commit/8684d9e175160c59b2fb144713624d0728b207af))
+* **swift:** RemoteScrollView with scroll position and paging, and a RemoteList that scrolls ([#996](https://github.com/yschimke/rc-players/issues/996)) ([64f14fc](https://github.com/yschimke/rc-players/commit/64f14fcbaaddface7bf2aaf0c4eb018f48e9d16e))
+
+
+### Bug Fixes
+
+* **deps:** update dependency androidx.annotation:annotation to v1.11.0 ([#1000](https://github.com/yschimke/rc-players/issues/1000)) ([28f008e](https://github.com/yschimke/rc-players/commit/28f008e85868cdfb757bb4dea883f340ce0b8f77))
+
 ## [4.1.0](https://github.com/yschimke/rc-players/compare/v4.0.0...v4.1.0) (2026-11-27)
 
 
