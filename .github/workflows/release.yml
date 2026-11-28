@@ -32,6 +32,8 @@ on:
       SIGNING_KEY_PASSWORD: { required: false }
       # Read-only: the Apple job loads the release links main's push already stored.
       BUILDFETCH_GRADLE_REMOTE_CACHE_TOKEN_RO: { required: false }
+      # Token with contents:write on yschimke/rc-swift to sync the pure-Swift mirror repository.
+      RC_SWIFT_PUSH_TOKEN: { required: false }
   workflow_dispatch:
     inputs:
       tag:
@@ -545,6 +547,22 @@ jobs:
 
           echo "Swift consumers can now resolve:"
           echo "  .package(url: \"https://github.com/${GITHUB_REPOSITORY}.git\", from: \"${swift_tag}\")"
+
+      - name: Sync pure-Swift mirror repository (yschimke/rc-swift)
+        env:
+          RC_SWIFT_PUSH_TOKEN: ${{ secrets.RC_SWIFT_PUSH_TOKEN }}
+          GIT_AUTHOR_NAME: "github-actions[bot]"
+          GIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
+        run: |
+          set -euo pipefail
+          if [ -z "${RC_SWIFT_PUSH_TOKEN:-}" ]; then
+            echo "::warning::RC_SWIFT_PUSH_TOKEN is not configured; skipping yschimke/rc-swift mirror sync"
+            exit 0
+          fi
+          scripts/publish-rc-swift.sh \
+            "${PLUGIN_VERSION}" \
+            "https://x-access-token:${RC_SWIFT_PUSH_TOKEN}@github.com/yschimke/rc-swift.git" \
+            "rc-player/compose/build/distributions/RcNativePlayerUIKit.profile.json"
 
       - name: Build the downloadable Simulator player
         # Assembled by an earlier step; a release must not quietly build its own framework.

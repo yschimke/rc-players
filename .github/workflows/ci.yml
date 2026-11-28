@@ -113,6 +113,9 @@ jobs:
               Tests \
               ':(exclude)Tests/RcPlayerAppleFontsTests' \
               distribution/native-uikit \
+              distribution/rc-swift \
+              scripts/stage-rc-swift-repo.sh \
+              scripts/publish-rc-swift.sh \
               build.gradle.kts \
               settings.gradle.kts \
               gradle.properties \
@@ -314,6 +317,8 @@ jobs:
               Tests/RcCreationHostTests \
               Sources/RcWireOperations \
               Tests/RcWireOperationsTests \
+              distribution/rc-swift \
+              scripts/stage-rc-swift-repo.sh \
               scripts/rc-catalog-corpus/corpus
           then
             required=false
@@ -325,6 +330,14 @@ jobs:
           swift test
           --filter 'RcNativePlayerCoreTests|RcCreationTests|RcCreationAppleUITests|RcCreationHostTests|RcWireOperationsTests'
           --skip NativeSwiftFuzzTests
+      - name: Build the staged rc-swift mirror package on Linux
+        if: steps.filter.outputs.required == 'true'
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          scripts/stage-rc-swift-repo.sh "$work/rc-swift"
+          swift build --package-path "$work/rc-swift"
 
   # The Linux lane: everything that does not need a Mac. The JVM cuts of the whole player stack,
   # both vendored players, and the build-only fixture generators.
@@ -772,6 +785,16 @@ jobs:
 
       - name: Validate the native UIKit release package
         run: scripts/check-native-uikit-package.sh
+
+      - name: Validate the staged rc-swift mirror package on macOS
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          scripts/stage-rc-swift-repo.sh \
+            "$work/rc-swift" \
+            "rc-player/compose/build/distributions/RcNativePlayerUIKit.profile.json"
+          swift build --package-path "$work/rc-swift"
 
       - name: Validate the native UIKit support profile
         run: scripts/check-native-uikit-profile.sh
